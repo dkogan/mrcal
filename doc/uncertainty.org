@@ -263,7 +263,7 @@ different ranges for an arbitrary model:
 mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.4]'
 #+end_src
 
-[[file:figures/uncertainty-vs-distance-at-center.svg]]
+[[file:external/figures/uncertainty/uncertainty-vs-distance-at-center.svg]]
 
 So the uncertainty grows without bound as we approach the camera. As we move
 away, there's a sweet spot where we have maximum confidence. And as we move

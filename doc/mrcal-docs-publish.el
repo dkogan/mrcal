@@ -17,7 +17,7 @@
          :html-preamble ,(with-temp-buffer
                            (insert-file-contents "mrcal-preamble.html")
                            (buffer-string))
-         :html-mathjax-options ((path "MathJax-master/es5/tex-chtml.js")
+         :html-mathjax-options ((path "external/MathJax-master/es5/tex-chtml.js")
                                 (scale "100")
                                 (align "center")
                                 (font "TeX")

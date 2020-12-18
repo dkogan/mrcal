@@ -103,8 +103,8 @@ using mrgingham, so I go into more detail describing it.
 
 ** Using mrgingham
 Once mrgingham is installed or built from [[https://github.com/dkogan/mrgingham][source]], it can be run by calling the
-=mrgingham= executable. The sample in the [[file:tour.org][tour of mrcal]] processes [[file:data/board][these images]]
-to produce [[file:data/board/corners.vnl][these chessboard corners]] like this:
+=mrgingham= executable. The sample in the [[file:tour.org][tour of mrcal]] processes [[file:external/data/board][these images]]
+to produce [[file:external/data/board/corners.vnl][these chessboard corners]] like this:
 
 #+begin_src sh
 mrgingham -j3 *.JPG > corners.vnl 
@@ -179,7 +179,7 @@ $ < corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)
   feedgnuplot --image $f --domain --square --tuplesizeall 3 --with 'points pt 7 ps variable'
 #+end_example
 
-[[file:figures/mrgingham-results.png]]
+[[file:external/figures/calibration/mrgingham-results.png]]
 
 Here the size of the circle indicates the detection weight. In this image many
 of the corners were detected at full-resolution (level-0), but some required
@@ -335,7 +335,7 @@ show_geometry( _set   = ('xyplane 0', 'view 80,30,1.5'),
                 unset = 'key')
 #+end_src
 
-[[file:figures/calibration-chessboards-geometry.svg]]
+[[file:external/figures/calibration/calibration-chessboards-geometry.svg]]
 
 We could also have used the [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool from the shell. All plots
 are interactive when executed from the REPL or from the shell. Here we see the
@@ -355,7 +355,7 @@ errors for /all/ the cameras:
 show_residuals_histogram(icam = None, binwidth=0.1, _xrange=(-4,4), unset='key')
 #+end_src
 
-[[file:figures/residuals-histogram-opencv8.svg]]
+[[file:external/figures/calibration/residuals-histogram-opencv8.svg]]
 
 We would like to see a normal distribution since that's what the [[file:formulation.org::#noise-model][noise model]]
 assumes. We do see this somewhat, but the central cluster is a bit
@@ -410,7 +410,7 @@ show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5)
 # same as show_residuals_observation( i_observations_sorted_from_worst[0], ... )
 #+end_src
 
-[[file:figures/worst-opencv8.png]]
+[[file:external/figures/calibration/worst-opencv8.png]]
 
 The residual vector for each chessboard corner in this observation is shown,
 scaled by a factor of 100 for legibility (the actual errors are tiny!) The
@@ -453,7 +453,7 @@ show_residuals_observation_worst(2, vectorscale = 100, circlescale=0.5,
                                  cbmax = 5.0)
 #+end_src
 
-[[file:figures/worst-incorner-opencv8.png]]
+[[file:external/figures/calibration/worst-incorner-opencv8.png]]
 
 /This/ is clearly a problem that should be addressed. Using a [[file:lensmodels.org::#splined-stereographic-lens-model][splined lens model]]
 instead of =LENSMODEL_OPENCV8= makes this work, as seen in the [[file:tour.org::#splined-stereographic-fit][tour of mrcal]].
@@ -466,7 +466,7 @@ magnitudes:
 show_residuals_directions(icam=0, unset='key')
 #+end_src
 
-[[file:figures/directions-opencv8.png]]
+[[file:external/figures/calibration/directions-opencv8.png]]
 
 As before, if the model fit the observations, the errors would represent random
 noise, and no color pattern would be discernible in these dots. Here we can
@@ -485,7 +485,7 @@ Finally let's look at [[file:uncertainty.org][uncertainty reporting]]:
 show_projection_uncertainty(icam=0)
 #+end_example
 
-[[file:figures/uncertainty-opencv8.png]]
+[[file:external/figures/uncertainty/uncertainty-opencv8.png]]
 
 We could also have used the [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool from the
 shell. The uncertainties are shown as a color-map along with contours. These are
@@ -514,7 +514,7 @@ the lean lens models themselves will serve to decrease the reported uncertainty.
 For instance, the same uncertainty computed off the same data, but using a
 splined model (from the [[file:tour.org::#splined-stereographic-fit][tour of mrcal]]):
 
-[[file:figures/uncertainty-splined.png]]
+[[file:external/figures/uncertainty/uncertainty-splined.png]]
 
 Thus, if the residuals look reasonable, and the uncertainties look reasonable
 then we can use the resulting models, and hope to see the accuracy predicted by

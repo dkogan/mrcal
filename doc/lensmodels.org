@@ -180,7 +180,7 @@ affects the surface in the immediate neighborhood of that knot. This is critical
 for rapid convergence of our optimization problem. A [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/analyses/splines/bsplines.py][script used in the
 development of the splined model]] shows this effect:
 
-[[file:figures/cubic-spline-perturbations.svg]]
+[[file:external/figures/splined-models/cubic-spline-perturbations.svg]]
 
 We sampled a curve defined by two sets of cubic B-spline control points: they're
 the same except the one point in the center differs. We can see that the two

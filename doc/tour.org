@@ -42,7 +42,7 @@ to increase the depth-of-field as much as I can. To also avoid motion blur I
 need fast exposures, so I did all the image gathering outside, with bright
 natural lighting.
 
-The images live [[file:data/board][here]]. I'm using [[https://github.com/dkogan/mrgingham/][mrgingham]] 1.17 to detect the [[file:data/board/corners.vnl][chessboard corners]]:
+The images live [[file:external/data/board][here]]. I'm using [[https://github.com/dkogan/mrgingham/][mrgingham]] 1.17 to detect the [[file:external/data/board/corners.vnl][chessboard corners]]:
 
 #+begin_src sh
 mrgingham -j3 *.JPG > corners.vnl 
@@ -68,10 +68,10 @@ $ < corners.vnl \
               --with 'points pt 7 ps variable'
 #+end_example
 
-[[file:figures/mrgingham-results.png]]
+[[file:external/figures/calibration/mrgingham-results.png]]
 
 #+begin_src sh :exports none :eval no-export
-< corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)' | feedgnuplot --image $f --domain --square --tuplesizeall 3 --with 'points pt 7 ps variable' --hardcopy ~/jpl/mrcal/doc/figures/mrgingham-results.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+< corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)' | feedgnuplot --image $f --domain --square --tuplesizeall 3 --with 'points pt 7 ps variable' --hardcopy ~/jpl/mrcal/doc/external/figures/calibration/mrgingham-results.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 So in this image many of the corners were detected at full-resolution (level-0),
@@ -151,7 +151,7 @@ calobject_warp = [-0.00103983  0.00052493]
 Wrote ./camera-0.cameramodel
 #+end_example
 
-The resulting model is available [[file:data/board/opencv8.cameramodel][here]]. This is a [[file:cameramodels.org][mrcal-native =.cameramodel=
+The resulting model is available [[file:external/data/board/opencv8.cameramodel][here]]. This is a [[file:cameramodels.org][mrcal-native =.cameramodel=
 file]] containing at least the lens parameters and the geometry. For [[file:uncertainty.org][uncertainty
 quantification]] and for after-the-fact analysis, the /full/ optimization inputs
 are included in this file. Reading and re-optimizing those inputs is trivial:
@@ -205,12 +205,12 @@ show_geometry( _set  = ('xyplane 0', 'view 80,30,1.5'),
                unset = 'key')
 #+end_src
 
-[[file:figures/calibration-chessboards-geometry.svg]]
+[[file:external/figures/calibration/calibration-chessboards-geometry.svg]]
 
 #+begin_src sh :exports none :eval no-export
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy ~/jpl/mrcal/doc/figures/calibration-chessboards-geometry.svg
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy ~/jpl/mrcal/doc/external/figures/calibration/calibration-chessboards-geometry.svg
 
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"' --hardcopy ~/jpl/mrcal/doc/figures/calibration-chessboards-geometry.pdf
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/mrcal-show-geometry data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"' --hardcopy ~/jpl/mrcal/doc/external/figures/calibration/calibration-chessboards-geometry.pdf
 #+end_src
 
 We could also have used the [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool from the shell. All plots
@@ -233,16 +233,16 @@ show_residuals_histogram(icam = None, binwidth=0.1, _xrange=(-4,4), unset='key')
 #+begin_src python :exports none :eval no-export
 show_residuals_histogram(0, binwidth=0.1, _xrange=(-4,4),
                  unset   = 'key',
-                 hardcopy='~/jpl/mrcal/doc/figures/residuals-histogram-opencv8.svg',
+                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/residuals-histogram-opencv8.svg',
                  terminal='svg size 800,600 noenhanced solid dynamic font ",14"')
 
 show_residuals_histogram(0, binwidth=0.1, _xrange=(-4,4),
                  unset   = 'key',
-                 hardcopy='~/jpl/mrcal/doc/figures/residuals-histogram-opencv8.pdf',
+                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/residuals-histogram-opencv8.pdf',
                  terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
-[[file:figures/residuals-histogram-opencv8.svg]]
+[[file:external/figures/calibration/residuals-histogram-opencv8.svg]]
 
 We would like to see a normal distribution since that's what the [[file:formulation.org::#noise-model][noise model]]
 assumes. We do see this somewhat, but the central cluster is a bit
@@ -275,11 +275,11 @@ show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
 #+begin_src python :exports none :eval no-export
 show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
                                  cbmax = 5.0,
-                                 hardcopy='~/jpl/mrcal/doc/figures/worst-opencv8.png',
+                                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-opencv8.png',
                                  terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
 #+end_src
 
-[[file:figures/worst-opencv8.png]]
+[[file:external/figures/calibration/worst-opencv8.png]]
 
 The residual vector for each chessboard corner in this observation is shown,
 scaled by a factor of 100 for legibility (the actual errors are tiny!) The
@@ -330,15 +330,15 @@ show_residuals_observation_worst(2, vectorscale = 100, circlescale=0.5,
 #+begin_src python :exports none :eval no-export
 show_residuals_observation_worst(2, vectorscale = 100, circlescale=0.5,
                                  cbmax = 5.0,
-                                 hardcopy='~/jpl/mrcal/doc/figures/worst-incorner-opencv8.png',
+                                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-incorner-opencv8.png',
                                  terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
 show_residuals_observation_worst(2, vectorscale = 100, circlescale=0.25,
                                  cbmax = 5.0,
-                                 hardcopy='~/jpl/mrcal/doc/figures/worst-incorner-opencv8.pdf',
+                                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-incorner-opencv8.pdf',
                                  terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
-[[file:figures/worst-incorner-opencv8.png]]
+[[file:external/figures/calibration/worst-incorner-opencv8.png]]
 
 /This/ is clearly a problem. Which observation is this, so that we can come back to it later?
 
@@ -360,16 +360,16 @@ show_residuals_directions(icam=0, unset='key', valid_intrinsics_region = False)
 show_residuals_directions(icam=0, unset='key',
                           valid_intrinsics_region = False,
                           _set    ='pointsize 0.5',
-                          hardcopy='~/jpl/mrcal/doc/figures/directions-opencv8.png',
+                          hardcopy='~/jpl/mrcal/doc/external/figures/calibration/directions-opencv8.png',
                           terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
 show_residuals_directions(icam=0, unset='key',
                           valid_intrinsics_region = False,
                           _set    ='pointsize 0.25',
-                          hardcopy='~/jpl/mrcal/doc/figures/directions-opencv8.pdf',
+                          hardcopy='~/jpl/mrcal/doc/external/figures/calibration/directions-opencv8.pdf',
                           terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
-[[file:figures/directions-opencv8.png]]
+[[file:external/figures/calibration/directions-opencv8.png]]
 
 As before, if the model fit the observations, the errors would represent random
 noise, and no color pattern would be discernible in these dots. Here we can
@@ -482,7 +482,7 @@ Noutliers: 0 out of 18600 total points: 0.0% of the data
 calobject_warp = [-0.00096895  0.00052931]
 #+end_example
 
-The resulting model is available [[file:data/board/splined.cameramodel][here]].
+The resulting model is available [[file:external/data/board/splined.cameramodel][here]].
 
 The lens model
 =LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=170= is the only
@@ -508,16 +508,16 @@ show_residuals_histogram(0, binwidth=0.1, _xrange=(-4,4), unset='key')
 #+begin_src sh :exports none :eval no-export
 show_residuals_histogram(0, binwidth=0.1, _xrange=(-4,4),
                  unset   = 'key',
-                 hardcopy='~/jpl/mrcal/doc/figures/residuals-histogram-splined.svg',
+                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/residuals-histogram-splined.svg',
                  terminal='svg size 800,600 noenhanced solid dynamic font ",14"')
 
 show_residuals_histogram(0, binwidth=0.1, _xrange=(-4,4),
                  unset   = 'key',
-                 hardcopy='~/jpl/mrcal/doc/figures/residuals-histogram-splined.pdf',
+                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/residuals-histogram-splined.pdf',
                  terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
-[[file:figures/residuals-histogram-splined.svg]]
+[[file:external/figures/calibration/residuals-histogram-splined.svg]]
 
 This still has the nice bell curve, but the residuals are lower: the data fits
 better than before.
@@ -529,12 +529,12 @@ show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
                                  cbmax = 5.0)
 #+end_src
 
-[[file:figures/worst-splined.png]]
+[[file:external/figures/calibration/worst-splined.png]]
 
 #+begin_src python :exports none :eval no-export
 show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
                                  cbmax = 5.0,
-                                 hardcopy='~/jpl/mrcal/doc/figures/worst-splined.png',
+                                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-splined.png',
                                  terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
 #+end_src
 
@@ -552,16 +552,16 @@ show_residuals_observation(184, vectorscale = 100, circlescale=0.5,
                            cbmax = 5.0)
 #+end_src
 
-[[file:figures/worst-incorner-splined.png]]
+[[file:external/figures/calibration/worst-incorner-splined.png]]
 
 #+begin_src python :exports none :eval no-export
 show_residuals_observation(184, vectorscale = 100, circlescale=0.5,
                            cbmax = 5.0,
-                           hardcopy='~/jpl/mrcal/doc/figures/worst-incorner-splined.png',
+                           hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-incorner-splined.png',
                            terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
 show_residuals_observation(184, vectorscale = 100, circlescale=0.5,
                            cbmax = 5.0,
-                           hardcopy='~/jpl/mrcal/doc/figures/worst-incorner-splined.pdf',
+                           hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-incorner-splined.pdf',
                            terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
@@ -571,18 +571,18 @@ Neat! The model fits the data in the corners now. And what about the residual di
 show_residuals_directions(icam=0, unset='key', valid_intrinsics_region = False)
 #+end_src
 
-[[file:figures/directions-splined.png]]
+[[file:external/figures/calibration/directions-splined.png]]
 
 #+begin_src python :exports none :eval no-export
 show_residuals_directions(icam=0, unset='key',
                           valid_intrinsics_region = False,
                           _set    ='pointsize 0.5',
-                          hardcopy='~/jpl/mrcal/doc/figures/directions-splined.png',
+                          hardcopy='~/jpl/mrcal/doc/external/figures/calibration/directions-splined.png',
                           terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
 show_residuals_directions(icam=0, unset='key',
                           valid_intrinsics_region = False,
                           _set    ='pointsize 0.25',
-                          hardcopy='~/jpl/mrcal/doc/figures/directions-splined.pdf',
+                          hardcopy='~/jpl/mrcal/doc/external/figures/calibration/directions-splined.pdf',
                           terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
@@ -602,11 +602,11 @@ mrcal-show-splined-model-surface --spline-index-domain splined.cameramodel y \
 
 $\Delta u_x$ looks like this:
 
-[[file:figures/splined-knots-x.png]]
+[[file:external/figures/splined-models/splined-knots-x.png]]
 
 And $\Delta u_y$:
 
-[[file:figures/splined-knots-y.png]]
+[[file:external/figures/splined-models/splined-knots-y.png]]
 
 Each X in the plot is a "knot" of the spline surface, a point where a control
 point value is defined. We're looking at the spline domain, so the axes of the
@@ -633,12 +633,12 @@ mrcal-show-splined-model-surface splined.cameramodel x                \
                                  --set 'yrange [4300:-300]'
 #+end_src
 
-[[file:figures/splined-knots-pixel-domain-x.png]]
+[[file:external/figures/splined-models/splined-knots-pixel-domain-x.png]]
 
 #+begin_src sh :exports none :eval no-export
-for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/doc/figures/splined-knots-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
+for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/splined-models/splined-knots-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
 
-for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --set 'xrange [-300:6300]' --set 'yrange [4300:-300]' data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/doc/figures/splined-knots-pixel-domain-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
+for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --set 'xrange [-300:6300]' --set 'yrange [4300:-300]' data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/splined-models/splined-knots-pixel-domain-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
 #+end_src
 
 Now the imager boundary is a nice rectangle, but the valid spline region is
@@ -683,10 +683,10 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key \
 
 #+begin_src sh :exports none :eval no-export
 mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel \
-  --hardcopy ~/jpl/mrcal/doc/figures/diff-radius0-heatmap-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+  --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-radius0-heatmap-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
-[[file:figures/diff-radius0-heatmap-splined-opencv8.png]]
+[[file:external/figures/diff/diff-radius0-heatmap-splined-opencv8.png]]
 
 Well that's strange. The reported differences really do have units of /pixels/.
 Are the two models /that/ different? And is the best-aligned area really where
@@ -701,13 +701,13 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key \
 
 #+begin_src sh :exports none :eval no-export
 mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel \
-  --hardcopy ~/jpl/mrcal/doc/figures/diff-radius0-vectorfield-splined-opencv8.svg --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
+  --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
 
 mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel \
-  --hardcopy ~/jpl/mrcal/doc/figures/diff-radius0-vectorfield-splined-opencv8.pdf  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+  --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-radius0-vectorfield-splined-opencv8.pdf  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
 #+end_src
 
-[[file:figures/diff-radius0-vectorfield-splined-opencv8.svg]]
+[[file:external/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg]]
 
 This is a /very/ regular pattern. What does it mean?
 
@@ -753,10 +753,10 @@ mrcal-show-projection-diff --unset key \
 
 #+begin_src sh :exports none :eval no-export
 mrcal-show-projection-diff --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel \
-  --hardcopy ~/jpl/mrcal/doc/figures/diff-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+  --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
-[[file:figures/diff-splined-opencv8.png]]
+[[file:external/figures/diff/diff-splined-opencv8.png]]
 
 /Much/ better. As expected, the two models agree relatively well in the center,
 and the error grows as we move towards the edges. If we used a leaner model,
@@ -768,7 +768,7 @@ mrcal-show-projection-diff --no-uncertainties \
   --unset key --extratitle "radius 200" opencv[48].cameramodel
 #+end_src
 
-[[file:figures/diff-radius200-opencv4-opencv8.png]]
+[[file:external/figures/diff/diff-radius200-opencv4-opencv8.png]]
 
 Please see the [[file:differencing.org][differencing page]] for details.
 
@@ -872,7 +872,7 @@ test/test-projection-uncertainty.py --fixed cam0 --model opencv4 \
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
-test/test-projection-uncertainty.py --fixed cam0 --model opencv4 --make-documentation-plots ~/jpl/mrcal/doc/figures/simulated-uncertainty-opencv4
+test/test-projection-uncertainty.py --fixed cam0 --model opencv4 --make-documentation-plots ~/jpl/mrcal/doc/external/figures/uncertainty/simulated-uncertainty-opencv4
 #+end_src
 
 Let's place 4 cameras using an =LENSMODEL_OPENCV4= lens model side by side, and
@@ -880,13 +880,13 @@ let's have them look at 50 chessboards, with randomized positions and
 orientations. The bulk of this is done by
 [[file:mrcal-python-api-reference.html#-synthesize_board_observations][=mrcal.synthesize_board_observations()=]]. The synthetic geometry looks like this:
 
-[[file:figures/simulated-uncertainty-opencv4--simulated-geometry.svg]]
+[[file:external/figures/uncertainty/simulated-uncertainty-opencv4--simulated-geometry.svg]]
 
 The coordinate system of each camera is shown. Each observed chessboard is shown
 as a zigzag connecting all the corners in order. What does each camera actually
 see?
 
-[[file:figures/simulated-uncertainty-opencv4--simulated-observations.svg]]
+[[file:external/figures/uncertainty/simulated-uncertainty-opencv4--simulated-observations.svg]]
 
 All the chessboards are roughly at the center of the scene, so the left camera
 sees stuff on the right, and the right camera sees stuff on the left.
@@ -911,7 +911,7 @@ ellipse predicted by the [[file:mrcal-python-api-reference.html#-projection_unce
 routine that implements the scheme described above. It is analytical, and does
 /not/ do any random sampling. It is thus much faster than sampling would be.
 
-[[file:figures/simulated-uncertainty-opencv4--distribution-onepoint.svg]]
+[[file:external/figures/uncertainty/simulated-uncertainty-opencv4--distribution-onepoint.svg]]
 
 Clearly the two ellipses (blue and green) line up very well, so there's very
 good agreement between the observed and predicted uncertainties. So from now on
@@ -933,7 +933,7 @@ Now that we validated the relatively quick-to-compute
 [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] estimates, let's use them to compute
 uncertainty maps across the whole imager, not just at a single point:
 
-[[file:figures/simulated-uncertainty-opencv4--uncertainty-wholeimage-noobservations.svg]]
+[[file:external/figures/uncertainty/simulated-uncertainty-opencv4--uncertainty-wholeimage-noobservations.svg]]
 
 As expected, we see that the sweet spot is different for each camera, and it
 tracks the location of the chessboard observations. And we can see that the
@@ -973,10 +973,10 @@ test/test-projection-uncertainty.py --fixed cam0 --model splined \
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
-test/test-projection-uncertainty.py --fixed cam0 --model splined --make-documentation-plots ~/jpl/mrcal/doc/figures/simulated-uncertainty-splined
+test/test-projection-uncertainty.py --fixed cam0 --model splined --make-documentation-plots ~/jpl/mrcal/doc/external/figures/uncertainty/simulated-uncertainty-splined
 #+end_src
 
-[[file:figures/simulated-uncertainty-splined--uncertainty-wholeimage-noobservations.svg]]
+[[file:external/figures/uncertainty/simulated-uncertainty-splined--uncertainty-wholeimage-noobservations.svg]]
 
 As expected, the reported uncertainties are now far worse. In fact, we can see
 that only the first camera's projection is truly reliable at the
@@ -985,7 +985,7 @@ $\color{red}{\ast}$. This is representative of reality.
 To further clarify where the uncertainty region comes from, let's overlay the
 chessboard observations onto it:
 
-[[file:figures/simulated-uncertainty-splined--uncertainty-wholeimage-observations.svg]]
+[[file:external/figures/uncertainty/simulated-uncertainty-splined--uncertainty-wholeimage-observations.svg]]
 
 The connection between the usable-projection region and the observed-chessboards
 region is undisputable. This plot also sheds some light on the effects of spline
@@ -1018,12 +1018,12 @@ First, the =LENSMODEL_OPENCV8= solve:
 mrcal-show-projection-uncertainty opencv8.cameramodel --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-opencv8.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-opencv8.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-opencv8.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-opencv8.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
-[[file:figures/uncertainty-opencv8.png]]
+[[file:external/figures/uncertainty/uncertainty-opencv8.png]]
 
 And the splined solve:
 
@@ -1031,12 +1031,12 @@ And the splined solve:
 mrcal-show-projection-uncertainty splined.cameramodel --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-splined.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-splined.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-splined.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-splined.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-splined.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-splined.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
-[[file:figures/uncertainty-splined.png]]
+[[file:external/figures/uncertainty/uncertainty-splined.png]]
 
 As expected, the splined model doesn't have the stiffness of =LENSMODEL_OPENCV8=, so we get
 the less optimistic (but more realistic) uncertainty reports.
@@ -1082,11 +1082,11 @@ mrcal-show-projection-uncertainty --vs-distance-at center \
                                   opencv8.cameramodel --set 'yrange [0:0.3]'
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]' --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-vs-distance-at-center.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
-~/jpl/mrcal/mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]' --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-vs-distance-at-center.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]' --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-vs-distance-at-center.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]' --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-vs-distance-at-center.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
 #+end_src
 
-[[file:figures/uncertainty-vs-distance-at-center.svg]]
+[[file:external/figures/uncertainty/uncertainty-vs-distance-at-center.svg]]
 
 So the uncertainty grows without bound as we approach the camera. As we move
 away, there's a sweet spot where we have maximum confidence. And as we move
@@ -1125,10 +1125,10 @@ calibrations. A diff at infinity:
 mrcal-show-projection-diff --unset key camera[01].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-diff --unset key ~/jpl/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel --hardcopy ~/jpl/mrcal/doc/figures/diff-l2-dance68-joint1-camera11-infinity.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+~/jpl/mrcal/mrcal-show-projection-diff --unset key ~/jpl/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-l2-dance68-joint1-camera11-infinity.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
-[[file:figures/diff-l2-dance68-joint1-camera11-infinity.png]]
+[[file:external/figures/diff/diff-l2-dance68-joint1-camera11-infinity.png]]
 
 And again at 0.5m (close to the range to the chessboards)
 
@@ -1136,10 +1136,10 @@ And again at 0.5m (close to the range to the chessboards)
 mrcal-show-projection-diff --distance 0.5 --unset key camera[01].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-diff --distance 0.5 --unset key ~/jpl/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel --hardcopy ~/jpl/mrcal/doc/figures/diff-l2-dance68-joint1-camera11-0.5m.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+~/jpl/mrcal/mrcal-show-projection-diff --distance 0.5 --unset key ~/jpl/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-l2-dance68-joint1-camera11-0.5m.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
-[[file:figures/diff-l2-dance68-joint1-camera11-0.5m.png]]
+[[file:external/figures/diff/diff-l2-dance68-joint1-camera11-0.5m.png]]
 
 Clearly the prediction that uncertainties are lowest at the chessboard range,
 and rise at infinity is borne out here by just looking at diffs, /without/
@@ -1170,7 +1170,7 @@ dance-study.py --scan Nframes --Ncameras 1 --Nframes 20,200 --range 0.5 \
                opencv8.cameramodel
 #+end_src
 
-[[file:figures/dance-study-scan-Nframes.svg]]
+[[file:external/figures/dance-study/dance-study-scan-Nframes.svg]]
 
 Here I'm running a monocular solve that looks at chessboards ~ 0.5m away,
 scanning the frame count from 20 to 200.
@@ -1191,7 +1191,7 @@ dance-study.py --scan range --Ncameras 1 --Nframes 100 --range 0.4,10 \
                opencv8.cameramodel
 #+end_src
 
-[[file:figures/dance-study-scan-range.svg]]
+[[file:external/figures/dance-study/dance-study-scan-range.svg]]
 
 This effect is /dramatic/: we want closeups. Anything else is a waste of time.
 Here we have two vertical dashed lines, indicating the minimum and maximum
@@ -1207,7 +1207,7 @@ dance-study.py --scan tilt_radius --tilt-radius 0,80 --Ncameras 1 --Nframes 100 
                opencv8.cameramodel
 #+end_src
 
-[[file:figures/dance-study-scan-tilt_radius.svg]]
+[[file:external/figures/dance-study/dance-study-scan-tilt_radius.svg]]
 
 The head-on views (tilt = 0) produce quite poor results. And we get more and
 more confidence with more board tilt, with diminishing returns at about 45
@@ -1246,7 +1246,7 @@ dance-study.py --scan Ncameras --Ncameras 1,8 --camera-spacing 0 --Nframes 100 \
                opencv8.cameramodel
 #+end_src
 
-[[file:figures/dance-study-scan-Ncameras.svg]]
+[[file:external/figures/dance-study/dance-study-scan-Ncameras.svg]]
 
 So clearly there's a benefit to more cameras. After about 4, we hit diminishing
 returns.
@@ -1269,7 +1269,7 @@ dance-study.py --scan object_width_n --range 2 --Ncameras 1 --Nframes 100 \
                opencv8.cameramodel
 #+end_src
 
-[[file:figures/dance-study-scan-object_width_n.svg]]
+[[file:external/figures/dance-study/dance-study-scan-object_width_n.svg]]
 
 Here we varied =object-width-n=, but also adjusted =object-spacing= to keep the
 chessboard size the same.
@@ -1285,7 +1285,7 @@ dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 \
                opencv8.cameramodel
 #+end_src
 
-[[file:figures/dance-study-scan-object_spacing.svg]]
+[[file:external/figures/dance-study/dance-study-scan-object_spacing.svg]]
 
 And they do. At the same range, a bigger chessboard is better.
 
@@ -1302,7 +1302,7 @@ dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 \
                opencv8.cameramodel
 #+end_src
 
-[[file:figures/dance-study-scan-object_spacing-compensated-range.svg]]
+[[file:external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.svg]]
 
 Looks like the optimal uncertainty is the same in all cases, but tracks the
 moving range. The uncertainty at infinity is better for smaller boards closer to
@@ -1336,16 +1336,16 @@ these studies for your use cases, if conclusive results are needed.
 # how did I make all these? full commands:
 
 PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan Nframes        --Ncameras 1 --Nframes 20,200 --range 0.5 data/board/opencv8.cameramodel \
-               --observed-pixel-uncertainty 2 --ymax 1 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-Nframes.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+               --observed-pixel-uncertainty 2 --ymax 1 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-Nframes.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
 PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan range          --Ncameras 1 --Nframes 100 --range 0.4,10 data/board/opencv8.cameramodel \
-               --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-range.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+               --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-range.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
 PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan tilt_radius    --tilt-radius 0,80 --Ncameras 1 --Nframes 100 --range 0.5 data/board/opencv8.cameramodel \
-               --observed-pixel-uncertainty 2 --ymax 2 --uncertainty-at-range-sampled-max 5 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-tilt_radius.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+               --observed-pixel-uncertainty 2 --ymax 2 --uncertainty-at-range-sampled-max 5 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-tilt_radius.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
 PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan Ncameras       --Ncameras 1,8 --camera-spacing 0 --Nframes 100 --range 0.5 data/board/opencv8.cameramodel \
-               --ymax 0.4 --uncertainty-at-range-sampled-max 10 --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-Ncameras.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_width_n --range 2 --Ncameras 1 --Nframes 100 --object-width-n 5,30 data/board/opencv8.cameramodel --uncertainty-at-range-sampled-max 30 --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-object_width_n.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 data/board/opencv8.cameramodel --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-object_spacing.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_spacing --scan-object-spacing-compensate-range --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 --ymax 20 --uncertainty-at-range-sampled-max 200 data/board/opencv8.cameramodel --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/figures/dance-study-scan-object_spacing-compensated-range.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+               --ymax 0.4 --uncertainty-at-range-sampled-max 10 --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-Ncameras.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_width_n --range 2 --Ncameras 1 --Nframes 100 --object-width-n 5,30 data/board/opencv8.cameramodel --uncertainty-at-range-sampled-max 30 --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-object_width_n.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 data/board/opencv8.cameramodel --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-object_spacing.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_spacing --scan-object-spacing-compensate-range --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 --ymax 20 --uncertainty-at-range-sampled-max 200 data/board/opencv8.cameramodel --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
 #+end_src
 
 * Stereo
@@ -1407,8 +1407,8 @@ for img ( data/figueroa-overpass-looking-S/{rectified[01]-narrow.jpg,narrow-{lef
 
 The two images out of the camera look like this:
 
-[[file:data/figueroa-overpass-looking-S/0.jpg][file:figures/0.downsampled.jpg]]
-[[file:data/figueroa-overpass-looking-S/1.jpg][file:figures/1.downsampled.jpg]]
+[[file:external/data/figueroa-overpass-looking-S/0.jpg][file:external/figures/stereo/0.downsampled.jpg]]
+[[file:external/data/figueroa-overpass-looking-S/1.jpg][file:external/figures/stereo/1.downsampled.jpg]]
 
 All the full-size images are available by clicking on an image.
 
@@ -1421,8 +1421,8 @@ for the purposes of this document we can assume that we did calibrate a stereo
 pair, and that's where the geometry came from. The resulting with-geometry
 models:
 
-- [[file:data/figueroa-overpass-looking-S/splined-0.cameramodel][camera 0]]
-- [[file:data/figueroa-overpass-looking-S/splined-1.cameramodel][camera 1]]
+- [[file:external/data/figueroa-overpass-looking-S/splined-0.cameramodel][camera 0]]
+- [[file:external/data/figueroa-overpass-looking-S/splined-1.cameramodel][camera 1]]
 
 #+begin_src sh :exports none :eval no-export
 
@@ -1469,13 +1469,13 @@ python3 stereo.py splined-[01].cameramodel [01].jpg splined
 
 The rectified images look like this:
 
-[[file:data/figueroa-overpass-looking-S/rectified0-splined.jpg][file:figures/rectified0-splined.downsampled.jpg]]
-[[file:data/figueroa-overpass-looking-S/rectified1-splined.jpg][file:figures/rectified1-splined.downsampled.jpg]]
+[[file:external/data/figueroa-overpass-looking-S/rectified0-splined.jpg][file:external/figures/stereo/rectified0-splined.downsampled.jpg]]
+[[file:external/data/figueroa-overpass-looking-S/rectified1-splined.jpg][file:external/figures/stereo/rectified1-splined.downsampled.jpg]]
 
 And the disparity and range images looks like this:
 
-[[file:data/figueroa-overpass-looking-S/disparity-splined.png][file:figures/disparity-splined.downsampled.png]]
-[[file:data/figueroa-overpass-looking-S/range-splined.png][file:figures/range-splined.downsampled.png]]
+[[file:external/data/figueroa-overpass-looking-S/disparity-splined.png][file:external/figures/stereo/disparity-splined.downsampled.png]]
+[[file:external/data/figueroa-overpass-looking-S/range-splined.png][file:external/figures/stereo/range-splined.downsampled.png]]
 
 Clearly this is working well.
 
@@ -1656,20 +1656,20 @@ converted the models to the [[file:cameramodels.org::#cameramodel-file-formats][
 
 The wider pinhole resampling of the two images:
 
-[[file:data/figueroa-overpass-looking-S/0-reprojected-scale0.35.jpg][file:figures/0-reprojected-scale0.35.downsampled.jpg]]
-[[file:data/figueroa-overpass-looking-S/1-reprojected-scale0.35.jpg][file:figures/1-reprojected-scale0.35.downsampled.jpg]]
+[[file:external/data/figueroa-overpass-looking-S/0-reprojected-scale0.35.jpg][file:external/figures/stereo/0-reprojected-scale0.35.downsampled.jpg]]
+[[file:external/data/figueroa-overpass-looking-S/1-reprojected-scale0.35.jpg][file:external/figures/stereo/1-reprojected-scale0.35.downsampled.jpg]]
 
 The narrower resampling of the two images:
 
-[[file:data/figueroa-overpass-looking-S/0-reprojected-scale0.6.jpg][file:figures/0-reprojected-scale0.6.downsampled.jpg]]
-[[file:data/figueroa-overpass-looking-S/1-reprojected-scale0.6.jpg][file:figures/1-reprojected-scale0.6.downsampled.jpg]]
+[[file:external/data/figueroa-overpass-looking-S/0-reprojected-scale0.6.jpg][file:external/figures/stereo/0-reprojected-scale0.6.downsampled.jpg]]
+[[file:external/data/figueroa-overpass-looking-S/1-reprojected-scale0.6.jpg][file:external/figures/stereo/1-reprojected-scale0.6.downsampled.jpg]]
 
 And the camera models:
 
-- [[file:data/figueroa-overpass-looking-S/splined-0.scale0.35.cahvor][camera 0, wider scaling]]
-- [[file:data/figueroa-overpass-looking-S/splined-1.scale0.35.cahvor][camera 1, wider scaling]]
-- [[file:data/figueroa-overpass-looking-S/splined-0.scale0.6.cahvor][camera 0, narrower scaling]]
-- [[file:data/figueroa-overpass-looking-S/splined-1.scale0.6.cahvor][camera 1, narrower scaling]]
+- [[file:external/data/figueroa-overpass-looking-S/splined-0.scale0.35.cahvor][camera 0, wider scaling]]
+- [[file:external/data/figueroa-overpass-looking-S/splined-1.scale0.35.cahvor][camera 1, wider scaling]]
+- [[file:external/data/figueroa-overpass-looking-S/splined-0.scale0.6.cahvor][camera 0, narrower scaling]]
+- [[file:external/data/figueroa-overpass-looking-S/splined-1.scale0.6.cahvor][camera 1, narrower scaling]]
 
 Both clearly show the uneven resolution described above, with the wider image
 being far more extreme. I can now use these images to compute stereo with jplv:
@@ -1691,13 +1691,13 @@ The rectified images look like this.
 
 For the wider mapping:
 
-[[file:data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.35.png][file:figures/jplv-stereo-rect-left-scale0.35.downsampled.png]]
-[[file:data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.35.png][file:figures/jplv-stereo-rect-right-scale0.35.downsampled.png]]
+[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.35.png][file:external/figures/stereo/jplv-stereo-rect-left-scale0.35.downsampled.png]]
+[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.35.png][file:external/figures/stereo/jplv-stereo-rect-right-scale0.35.downsampled.png]]
 
 For the narrow mapping:
 
-[[file:data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.png][file:figures/jplv-stereo-rect-left-scale0.6.downsampled.png]]
-[[file:data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.png][file:figures/jplv-stereo-rect-right-scale0.6.downsampled.png]]
+[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.png][file:external/figures/stereo/jplv-stereo-rect-left-scale0.6.downsampled.png]]
+[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.png][file:external/figures/stereo/jplv-stereo-rect-right-scale0.6.downsampled.png]]
 
 The bottom is cut-off in these images; this is probably a bug in jplv. Here we
 see that jplv's rectification function also has some implicit pinhole projection
@@ -1712,8 +1712,8 @@ python3 stereo.py - - jplv-stereo-rect-{left,right}-scale0.35.png jplv-scale0.35
 python3 stereo.py - - jplv-stereo-rect-{left,right}-scale0.6.png  jplv-scale0.6
 #+end_src
 
-[[file:data/figueroa-overpass-looking-S/disparity-jplv-scale0.35.png][file:figures/disparity-jplv-scale0.35.downsampled.png]]
-[[file:data/figueroa-overpass-looking-S/disparity-jplv-scale0.6.png][file:figures/disparity-jplv-scale0.6.downsampled.png]]
+[[file:external/data/figueroa-overpass-looking-S/disparity-jplv-scale0.35.png][file:external/figures/stereo/disparity-jplv-scale0.35.downsampled.png]]
+[[file:external/data/figueroa-overpass-looking-S/disparity-jplv-scale0.6.png][file:external/figures/stereo/disparity-jplv-scale0.6.downsampled.png]]
 
 Looks reasonable.
 
@@ -1746,14 +1746,14 @@ python3 narrow-section.py splined-1.cameramodel 1.jpg -45 right
 
 The images look like this:
 
-[[file:data/figueroa-overpass-looking-S/narrow-left.jpg][file:figures/narrow-left.downsampled.jpg]]
-[[file:data/figueroa-overpass-looking-S/narrow-right.jpg][file:figures/narrow-right.downsampled.jpg]]
+[[file:external/data/figueroa-overpass-looking-S/narrow-left.jpg][file:external/figures/stereo/narrow-left.downsampled.jpg]]
+[[file:external/data/figueroa-overpass-looking-S/narrow-right.jpg][file:external/figures/stereo/narrow-right.downsampled.jpg]]
 
 Note that these are pinhole images, but the field of view is much more narrow,
 so they don't look distorted like before. The corresponding pinhole models:
 
-- [[file:data/figueroa-overpass-looking-S/pinhole-narrow-yawed-left.cameramodel][left]]
-- [[file:data/figueroa-overpass-looking-S/pinhole-narrow-yawed-right.cameramodel][right]]
+- [[file:external/data/figueroa-overpass-looking-S/pinhole-narrow-yawed-left.cameramodel][left]]
+- [[file:external/data/figueroa-overpass-looking-S/pinhole-narrow-yawed-right.cameramodel][right]]
 
 We can feed these to the =stereo.py= tool as before:
 
@@ -1767,7 +1767,7 @@ python3 stereo.py                               \
 Here we have slightly non-trivial geometry, so it is instructive to visualize it
 (the =stereo.py= tool does this):
 
-[[file:figures/stereo-geometry-narrow.svg]]
+[[file:external/figures/stereo/stereo-geometry-narrow.svg]]
 
 Here we're looking at the left and right cameras in the stereo pair, /and/ at
 the axes of the stereo system. Now that we have rotated each camera to look to
@@ -1779,13 +1779,13 @@ compensates.
 
 And we get nice-looking rectified images:
 
-[[file:data/figueroa-overpass-looking-S/rectified0-narrow.jpg][file:figures/rectified0-narrow.downsampled.jpg]]
-[[file:data/figueroa-overpass-looking-S/rectified1-narrow.jpg][file:figures/rectified1-narrow.downsampled.jpg]]
+[[file:external/data/figueroa-overpass-looking-S/rectified0-narrow.jpg][file:external/figures/stereo/rectified0-narrow.downsampled.jpg]]
+[[file:external/data/figueroa-overpass-looking-S/rectified1-narrow.jpg][file:external/figures/stereo/rectified1-narrow.downsampled.jpg]]
 
 And disparity and range images:
 
-[[file:data/figueroa-overpass-looking-S/disparity-narrow.png][file:figures/disparity-narrow.downsampled.png]]
-[[file:data/figueroa-overpass-looking-S/range-narrow.png][file:figures/range-narrow.downsampled.png]]
+[[file:external/data/figueroa-overpass-looking-S/disparity-narrow.png][file:external/figures/stereo/disparity-narrow.downsampled.png]]
+[[file:external/data/figueroa-overpass-looking-S/range-narrow.png][file:external/figures/stereo/range-narrow.downsampled.png]]
 
 And this is despite running pinhole-reprojected stereo from a very wide lens.
 

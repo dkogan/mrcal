@@ -35,7 +35,7 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key \
                            data/board/splined.cameramodel
 #+end_src
 
-[[file:figures/diff-radius0-heatmap-splined-opencv8.png]]
+[[file:external/figures/diff/diff-radius0-heatmap-splined-opencv8.png]]
 
 And as a vector field:
 
@@ -46,7 +46,7 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key          \
                            data/board/splined.cameramodel
 #+end_src
 
-[[file:figures/diff-radius0-vectorfield-splined-opencv8.svg]]
+[[file:external/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg]]
 
 The reported differences are in pixels.
 
@@ -93,7 +93,7 @@ mrcal-show-projection-diff --unset key                    \
                            data/board/splined.cameramodel
 #+end_src
 
-[[file:figures/diff-splined-opencv8.png]]
+[[file:external/figures/diff/diff-splined-opencv8.png]]
 
 * Implied transformation details
 As with [[file:uncertainty.org::#effect-of-range][projection uncertainty]], the difference computations are not invariant to
@@ -171,7 +171,7 @@ calobject_warp = [-0.00115528  0.00043701]
 Wrote ./camera-0.cameramodel
 #+end_example
 
-The resulting model is available [[file:data/board/opencv4.cameramodel][here]]. This will illustrate the differencing
+The resulting model is available [[file:external/data/board/opencv4.cameramodel][here]]. This will illustrate the differencing
 logic, but it isn't a good way to run calibrations, in general: the outlier
 rejection will throw away the clearly-ill-fitting measurements, but the marginal
 measurements will make it through, which will produce marginal results.
@@ -192,16 +192,16 @@ for r (200 1000 2000 2500) {
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
-for r (200 1000 2000 2500) { ~/jpl/mrcal/mrcal-show-projection-diff --no-uncertainties opencv[48].cameramodel --distance 1 --radius $r --unset key --extratitle "radius $r" --hardcopy ~/jpl/mrcal/doc/figures/diff-radius$r-opencv4-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
+for r (200 1000 2000 2500) { ~/jpl/mrcal/mrcal-show-projection-diff --no-uncertainties opencv[48].cameramodel --distance 1 --radius $r --unset key --extratitle "radius $r" --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-radius$r-opencv4-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
 #+end_src
 
-[[file:figures/diff-radius200-opencv4-opencv8.png]]
+[[file:external/figures/diff/diff-radius200-opencv4-opencv8.png]]
 
-[[file:figures/diff-radius1000-opencv4-opencv8.png]]
+[[file:external/figures/diff/diff-radius1000-opencv4-opencv8.png]]
 
-[[file:figures/diff-radius2000-opencv4-opencv8.png]]
+[[file:external/figures/diff/diff-radius2000-opencv4-opencv8.png]]
 
-[[file:figures/diff-radius2500-opencv4-opencv8.png]]
+[[file:external/figures/diff/diff-radius2500-opencv4-opencv8.png]]
 
 ** Fit weighting
 :PROPERTIES:
@@ -236,10 +236,10 @@ mrcal-show-projection-uncertainty opencv4.cameramodel --distance 1 --unset key
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-uncertainty opencv4.cameramodel --distance 1 --unset key  --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-opencv4-1m.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty opencv4.cameramodel --distance 1 --unset key  --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-opencv4-1m.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
-[[file:figures/uncertainty-opencv4-1m.png]]
+[[file:external/figures/uncertainty/uncertainty-opencv4-1m.png]]
 
 And the diff using that uncertainty as a weight /without/ specifying a radius
 looks poor:
@@ -252,10 +252,10 @@ mrcal-show-projection-diff  \
 
 #+begin_src sh :exports none :eval no-export
 ~/jpl/mrcal/mrcal-show-projection-diff opencv[48].cameramodel --distance 1 --unset key \
-  --hardcopy ~/jpl/mrcal/doc/figures/diff-weighted-opencv4-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+  --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-weighted-opencv4-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
-[[file:figures/diff-weighted-opencv4-opencv8.png]]
+[[file:external/figures/diff/diff-weighted-opencv4-opencv8.png]]
 
 Where this technique /does/ work well is when using [[file:lensmodels.org::#splined-stereographic-lens-model][splined models]], which
 produce realistic uncertainty estimates. To demonstrate, let's cut down the [[file:tour.org][tour
@@ -291,20 +291,20 @@ mrcal-show-projection-diff  \
   --unset key splined{,-rad1500}.cameramodel
 #+end_src
 
-The cut-down corners are [[file:data/board/corners-rad1500.vnl][here]] and the resulting model is [[file:data/board/splined-rad1500.cameramodel][here]]. The uncertainty
+The cut-down corners are [[file:external/data/board/corners-rad1500.vnl][here]] and the resulting model is [[file:external/data/board/splined-rad1500.cameramodel][here]]. The uncertainty
 of this model looks like this:
 
-[[file:figures/uncertainty-splined-rad1500-1m.png]]
+[[file:external/figures/uncertainty/uncertainty-splined-rad1500-1m.png]]
 
 and the diff like this:
 
-[[file:figures/diff-weighted-splined-splined-rad1500.png]]
+[[file:external/figures/diff/diff-weighted-splined-splined-rad1500.png]]
 
 #+begin_src sh :exports none :eval no-export
 ~/jpl/mrcal/mrcal-show-projection-uncertainty splined-rad1500.cameramodel --distance 1 \
-  --unset key --hardcopy ~/jpl/mrcal/doc/figures/uncertainty-splined-rad1500-1m.png \
+  --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-splined-rad1500-1m.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 
 ~/jpl/mrcal/mrcal-show-projection-diff splined{,-rad1500}.cameramodel --distance 1 --unset key \
-  --hardcopy ~/jpl/mrcal/doc/figures/diff-weighted-splined-splined-rad1500.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+  --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-weighted-splined-splined-rad1500.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
