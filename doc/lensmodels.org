@@ -141,9 +141,13 @@ it does.
 :END:
 This is an extended flavor of =LENSMODEL_CAHVOR= to support wider lenses. The
 =LENSMODEL_CAHVORE= model has 8 "distortion" parameters in addition to the 4
-core parameters. CAHVORE is only partially supported: the parameter gradients
-aren't implemented, so it isn't currently possible to solve for a CAHVORE model.
-Full support may be added in the future, if somebody needs it.
+core parameters. CAHVORE is only partially supported:
+
+- the parameter gradients aren't implemented, so it isn't currently possible to
+  solve for a CAHVORE model
+- there're questions about whether CAHVORE projections are invariant to scaling
+  and whether they /should/ be invariant to scaling. These need to be answered
+  conclusively before using the CAHVORE implementation in mrcal. Talk to Dima.
 
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC_...=
 :PROPERTIES:
