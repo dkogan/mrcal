@@ -351,3 +351,23 @@ the configuration parameters? Here are some rules of thumb.
   =mrcal-show-splined-model-surface= has a =--observations= option to overlay
   the observations onto that plot. The existing observations /must/ all lie
   within the valid-projection region.
+* Planned improvements
+The current implementation of =LENSMODEL_SPLINED_STEREOGRAPHIC_...= is
+functional, but some things could be improved:
+
+- As stated [[#splined-non-monotonicity][previously]], the splined model can behave non-monotonically. This
+  usually happens at the transition between areas with observations and areas
+  without. Projection in the no-data areas is controlled by light L2
+  regularization: $\Delta \vec u$ is pulled towards 0 /regardless/ of what the
+  nearby data-driven $\vec u$ is doing. A regularization scheme that penalizes
+  changes in $\Delta \vec u$ could work here. There was an attempt that had
+  issues, and was [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/commit/c8f9918023142d7ee463821661dc5bcc8f770b51][reverted]]. Resurrecting that code would be a useful thing to
+  try.
+- By its nature, regularization is aphysical, and only needed to make the solver
+  happy. /Here/ we only need it to inform the solver about the no-data areas.
+  This means that potentially we could set the regularization to 0 in areas
+  where we know that we have data. This would guarantee that we have no
+  regularization-caused bias.
+- Studies are needed to explore the tradeoff between the spline order (the
+  =order= configuration parameter), and the spline density (the =Nx= and =Ny=
+  parameters)
