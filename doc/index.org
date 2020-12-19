@@ -53,12 +53,28 @@ There's some included external code in the sources, with their own [[file:copyri
 and licenses]].
 
 * future work                                                      :noexport:
+** uncertainty/noise computations
+*** Noted in uncertainty.org
 - measure observed_pixel_uncertainty
-- use uncertainty in triangulation, deltapose, stereo
 - improve uncertainty method: faraway obervations don't make things worse
 - projection_uncertainty() should be able to project multiple points at a time,
   and to report correlations in the projection. Should work with multiple
   cameras somehow (could calibration more than one camera at the same time)
+*** Not noted in uncertainty.org
+- use uncertainty in triangulation, deltapose, stereo
+- can I quantify the heteroscedasticity and thus the model-nonfitting and the
+  resulted expected bias? White test?
+- do a triangulation with explict uncertainty propagation
+- uncertainty math currently does a separate mean-frames for each q we ask
+  about. Thus we're effectively computing a different implied tranform each
+  time. We should have a single one for ALL q
+- regions without chessboards (like in the talk): why do we see high
+  uncertainty? That's what I /want/, but I don't think it should be working: the
+  spline is dominated by the regularization terms there, so the lens model is
+  purely stereographic. Oh... am I seeing /just/ the noise in the chessboard
+  pose? I can't rely on that
+** splined models
+*** noted in lensmodels.org
 - splined models should behave more nicely at the edges
 - better regularization scheme for the non-splined models. Can I do better than
   L2? Surely I can
@@ -87,31 +103,27 @@ could have trouble
   dqx/dpx ~ (mag_p + z) - x^2/mag_p +
 #+end_example
 
-
-- SFM
-- integrate deltapose-lite into this.
-- can I quantify the heteroscedasticity and thus the model-nonfitting and the
-  resulted expected bias? White test?
 - study cubic/quadratic splines, spline density effects
-- do a triangulation with explict uncertainty propagation
+** diff
+*** noted in lensmodels.org
+- projection_diff(): weighting should be better. Should I do outlier rejection?
+  Should I use the hoaky valid-intrinsics region to cut down the fit set? Should
+  I optimize actual reprojection error?
+** stuff to add
+- better sfm support
+- integrate deltapose-lite (lindstrom-optimized points) into mrcal
+- cahvore linearity should be a config parameter
+- cahvore: non-gradientness should be a metadata parameter
+- better outlier rejection. cook's D
+- outlier rejection for points AND board observations
+*** stereo
+- stereo.py should be a separate tool, like jplv stereo
+- add the good triangulate-feature tool to mrcal/stereo.py
+** stuff to study
 - Redo, show stability. Heat? Show effects?
 - Can we study intrinsics stability over time? In response to heating? Shaking?
 - Can we use a 3-parallel calibration to quantify chromatic aberration?
 - Measure effect of focus, aperture
-- cahvore linearity should be a config parameter
-- cahvore: non-gradientness should be a metadata parameter
-- stereo.py should be a separate tool
-- better outlier rejection. cook's D
-- uncertainty math currently does a separate mean-frames for each q we ask
-  about. Thus we're effectively computing a different implied tranform each
-  time. We should have a single one for ALL q
-- projection_diff(): weighting should be better. Should I do outlier rejection?
-  Should I use the hoaky valid-intrinsics region to cut down the fit set? Should
-  I optimize actual reprojection error?
-- outlier rejection for points AND board observations
-- add cmdline tool for stereo processing
-- add triangulation tool to mrcal/stereo.py
-
 
 ** warnings in mrcal.c
 [[file:~/jpl/mrcal/mrcal.c::// WARNING: if I could assume that dq_dintrinsics_pool_double!=NULL then I wouldnt need to copy the context][something about being efficient and not copying stuff]]

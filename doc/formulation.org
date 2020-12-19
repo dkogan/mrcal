@@ -381,6 +381,9 @@ And in Python:
 :CUSTOM_ID: noise-model
 :END:
 ** Noise on the inputs
+:PROPERTIES:
+:CUSTOM_ID: noise-model-inputs
+:END:
 I solve the calibration problem using [[https://en.wikipedia.org/wiki/Ordinary_least_squares][Ordinary Least Squares]], minimizing the
 discrepancies between pixel observations and their predictions. The pixel
 observations $\vec q_\mathrm{ref}$ are noisy, and I assume they are zero-mean,
