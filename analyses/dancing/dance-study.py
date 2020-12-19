@@ -647,7 +647,7 @@ if re.match("num_far_constant_Nframes_", args.scan):
     Nfar_samples = args.Nscan_samples
     if   args.scan == "num_far_constant_Nframes_near":
         Nframes_far_samples = np.linspace(0,
-                                          args.Nframes_near*2,
+                                          args.Nframes_near//4,
                                           Nfar_samples, dtype=int)
         Nframes_near_samples = Nframes_far_samples*0 + args.Nframes_near
 
