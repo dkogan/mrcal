@@ -242,7 +242,9 @@ import numpysane as nps
 import gnuplotlib as gp
 import copy
 
-sys.path[:0] = '../..',
+# I import the LOCAL mrcal
+scriptdir = os.path.dirname(os.path.realpath(__file__))
+sys.path[:0] = f"{scriptdir}/../..",
 import mrcal
 
 
