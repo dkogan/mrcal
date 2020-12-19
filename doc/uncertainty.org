@@ -319,6 +319,14 @@ or fixed:
   for instance, when doing stereo ranging, we want to know the correlated
   projections due to the intrinsics and extrinsics of the two cameras.
   The API needs to be expanded to report these joint covariances
+- We want the uncertainty in no-data areas to be high. We're defining
+  uncertainty as a function of the stability of projection in response to noise.
+  However in no-data areas, projection is driven 100% by the regularization
+  terms, which are not directly affected by the observation noise. Most of the
+  time, we still see the high uncertainties we want to see because the noise
+  causes $\vec p_\mathrm{reference}$ to move, but it's not obvious we can rely
+  on that. Might we see a case when the reported uncertainty in the no-data
+  areas will be low? What if the chessboard poses are locked down?
 - As noted above, the current method used for uncertainty quantification only
   supports the vanilla calibration problem: stationary cameras are observing a
   moving chessboard. It would be good to support other scenarios; for instance
