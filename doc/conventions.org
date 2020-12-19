@@ -119,7 +119,7 @@ has functions to convert between them. Available representations are:
   numpy arrays are /not/ valid =Rt= transformations.
 
 - =rt=: a (6,) numpy array with a (3,) vector representing a [[https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Rotation_vector][Rodrigues rotation]]
-  concatenated with another (3,) vector, representing a rotation:
+  concatenated with another (3,) vector, representing a translation:
 
   \[ \left[ \vec r^T \quad \vec t^T \right] \]
 
