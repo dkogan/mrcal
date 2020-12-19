@@ -16,7 +16,7 @@ uncertainties through their data pipeline).
 
 How do we estimate the projection uncertainty? A summary of the process:
 
-1. Estimate the [[file:formulation.org::#noise-model][noise in the chessboard observations]] input to the [[file:formulation.org][optimization
+1. Estimate the [[file:formulation.org::#noise-model-inputs][noise in the chessboard observations]] input to the [[file:formulation.org][optimization
    routine]]
 2. Propagate that uncertainty to the optimal parameters $\vec p$ reported by the
    calibration routine
