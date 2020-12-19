@@ -113,7 +113,7 @@ has functions to convert between them. Available representations are:
 - =Rt=: a (4,3) numpy array with a (3,3) rotation matrix concatenated with a
   (1,3) translation vector:
 
-  \[ \left( \begin{aligned} R \\ \vec t^T \end{aligned} \right) \]
+  \[ \begin{bmatrix} R \\ \vec t^T \end{bmatrix} \]
 
   This form is easy to work with, but there are implied constraints: most (4,3)
   numpy arrays are /not/ valid =Rt= transformations.
@@ -121,7 +121,7 @@ has functions to convert between them. Available representations are:
 - =rt=: a (6,) numpy array with a (3,) vector representing a [[https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Rotation_vector][Rodrigues rotation]]
   concatenated with another (3,) vector, representing a rotation:
 
-  \[ \left( \vec r^T \quad \vec t^T \right) \]
+  \[ \left[ \vec r^T \quad \vec t^T \right] \]
 
   This form requires more computations to deal with, but has no implied
   constraints: /any/ (6,) numpy array is a valid =rt= transformation. Thus this
@@ -170,12 +170,12 @@ dimensions, and the independent variables in the trailing dimensions. So if we
 have $\vec b = R \vec a$, then
 
 \[ R = \frac{ \partial \vec b }{ \partial \vec a } =
-   \left( \begin{aligned} \frac{ \partial b_0 }{ \partial \vec a } \\
+   \left[ \begin{aligned} \frac{ \partial b_0 }{ \partial \vec a } \\
                           \frac{ \partial b_1 }{ \partial \vec a } \\
-                          \frac{ \partial b_2 }{ \partial \vec a } \end{aligned} \right) =
-   \left( \frac{ \partial \vec b }{ \partial a_0 } \quad
+                          \frac{ \partial b_2 }{ \partial \vec a } \end{aligned} \right] =
+   \left[ \frac{ \partial \vec b }{ \partial a_0 } \quad
           \frac{ \partial \vec b }{ \partial a_1 } \quad
-          \frac{ \partial \vec b }{ \partial a_2 } \right)
+          \frac{ \partial \vec b }{ \partial a_2 } \right]
 \]
 
 $\frac{ \partial b_i }{ \partial \vec a }$ is a (1,3) row vector and $\frac{
