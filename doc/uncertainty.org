@@ -282,3 +282,44 @@ is set by the specifics of the chessboard dance.
 
 See the [[file:tour.org::#uncertainty][tour of mrcal]] for a simulation validating the approach and for some
 empirical results.
+* Planned improvements
+The current implementation is very usable, but a few things should be extended
+or fixed:
+
+- As described in the [[file:formulation.org::#noise-model-inputs][noise model writeup]], the expected noise level in the
+  observed chessboard corners $\sigma$ is currently loosely estimated instead of
+  measured. Measuring it would be very good, but it's not clear how to do that.
+  There's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in mrgingham that could be explored.
+- As noted above, the method used in computing the rotation between the input
+  and perturbed reference frames is aphysical. This produces unexpected results
+  when given chessboard observations at multiple discrete ranges. For instance:
+  #+begin_example
+  analyses/dancing/dance-study.py                                                     \
+    --scan num_far_constant_Nframes_near --range 2,10 --Ncameras 1 --Nframes-near 100 \
+    --observed-pixel-uncertainty 2                                                    \
+    --ymax 2.5 --uncertainty-at-range-sampled-max 35                                  \
+    test data/cam0.opencv8.cameramodel
+  #+end_example
+  says that adding /any/ observations at 10m to the bulk set at 2m makes the
+  projection uncertainty /worse/. One could expect no improvement from the
+  far-off observations, but they shouldn't break anything. The issue is the
+  averaging in 3D point space. Observation noise causes the far-off geometry to
+  move much more than the nearby chessboards, and that far-off motion then
+  dominates the average. Some experimental fixes are implemented in
+  [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/test/test-projection-uncertainty.py][=test/test-projection-uncertainty.py=]]. For instance:
+  #+begin_example
+  test/test-projection-uncertainty.py \
+    --fixed cam0 --model opencv4      \
+    --show-distribution --explore     \
+    --reproject-perturbed mean-frames-using-meanq-penalize-big-shifts
+  #+end_example
+- Currently [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] computes the uncertainties
+  independently, but for many applications we are interested in the correlations
+  between the projections of multiple points. This could span multiple cameras;
+  for instance, when doing stereo ranging, we want to know the correlated
+  projections due to the intrinsics and extrinsics of the two cameras.
+  The API needs to be expanded to report these joint covariances
+- As noted above, the current method used for uncertainty quantification only
+  supports the vanilla calibration problem: stationary cameras are observing a
+  moving chessboard. It would be good to support other scenarios; for instance
+  structure-from-motion coupled with intrinsics optimization
