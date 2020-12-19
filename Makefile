@@ -49,7 +49,7 @@ DIST_MAN := $(addsuffix .1,$(DIST_BIN))
 
 ALL_PY_EXTENSION_MODULES := _mrcal _mrcal_npsp _poseutils
 %/:
-	mkdir $@
+	mkdir -p $@
 
 ## mrcal-python-api-reference.html contains everything. It is large
 doc: doc/out/mrcal-python-api-reference.html
