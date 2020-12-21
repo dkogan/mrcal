@@ -413,9 +413,8 @@ to infinity as $\theta \rightarrow 90^\circ$.
 
 Basing the new model on a stereographic projection lifts the inherent
 forward-view-only limitation of =LENSMODEL_OPENCV8=. To give the model enough
-flexibility to be able to represent any projection function I define two
-correction surfaces, which serve to adjust the stereographic projection to fit
-whatever projection behavior we want.
+flexibility to be able to represent any projection function, I define two
+correction surfaces.
 
 Let $\vec p$ be the camera-coordinate system point being projected. The angle
 off the optical axis is
