@@ -13,6 +13,8 @@ import mrcal._poseutils as _poseutils
 
 import cv2
 from testutils import *
+from test_calibration_helpers import grad
+
 
 def R_from_r(r):
     r'''Rotation matrix from a Rodrigues vector

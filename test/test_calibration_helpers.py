@@ -34,8 +34,37 @@ def sample_dqref(observations,
     observations_perturbed[...,:2] += q_noise
     return q_noise, observations_perturbed
 
+
 def sorted_eig(C):
     'like eig(), but the results are sorted by eigenvalue'
     l,v = np.linalg.eig(C)
     i = np.argsort(l)
     return l[i], v[:,i]
+
+
+def grad(f, x, step=1e-6):
+    r'''Computes df/dx at x
+
+    f is a function of one argument. If the input has shape Si and the output
+    has shape So, the returned gradient has shape So+Si. This applies central
+    differences
+
+    '''
+
+    d     = x*0
+    dflat = d.ravel()
+
+    def df_dxi(i, d,dflat):
+
+        dflat[i] = step
+        fplus  = f(x+d)
+        fminus = f(x-d)
+        j = (fplus-fminus)/(2.*step)
+        dflat[i] = 0
+        return j
+
+    # grad variable is in first dim
+    Jflat = nps.cat(*[df_dxi(i, d,dflat) for i in range(len(dflat))])
+    # grad variable is in last dim
+    Jflat = nps.mv(Jflat, 0, -1)
+    return Jflat.reshape( Jflat.shape[:-1] + d.shape )
