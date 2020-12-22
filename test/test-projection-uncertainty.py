@@ -155,7 +155,7 @@ import copy
 import numpy as np
 import numpysane as nps
 
-from test_calibration_helpers import sample_dqref,sorted_eig
+from test_calibration_helpers import sample_dqref,sorted_eig,plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse
 
 
 fixedframes = (args.fixed == 'frames')
@@ -966,25 +966,6 @@ if not (args.explore or \
 
 import gnuplotlib as gp
 
-def get_cov_plot_args(q, Var, what):
-
-    l,v   = sorted_eig(Var)
-    l0,l1 = l
-    v0,v1 = nps.transpose(v)
-
-    major = np.sqrt(l0)
-    minor = np.sqrt(l1)
-
-    return \
-      ((q[0], q[1], 2*major, 2*minor, 180./np.pi*np.arctan2(v0[1],v0[0]),
-        dict(_with='ellipses', tuplesize=5, legend=what)),)
-
-def get_point_cov_plot_args(q, what):
-    q_mean  = np.mean(q,axis=-2)
-    q_mean0 = q - q_mean
-    Var     = np.mean( nps.outer(q_mean0,q_mean0), axis=0 )
-    return get_cov_plot_args(q_mean,Var, what)
-
 def make_plot(icam, report_center_points = True, **kwargs):
 
     q_sampled_mean = np.mean(q_sampled[:,icam,:],axis=-2)
@@ -992,11 +973,8 @@ def make_plot(icam, report_center_points = True, **kwargs):
     def make_tuple(*args): return args
 
     data_tuples = \
-        make_tuple((q_sampled[:,icam,0], q_sampled[:,icam,1],
-                    dict(_with = 'points pt 6 ps 0.5',
-                         tuplesize = 2)),
-                   *get_point_cov_plot_args(q_sampled[:,icam,:], "Observed uncertainty"),
-                   *get_cov_plot_args(q_sampled_mean, Var_dq[icam], "Predicted uncertainty"),)
+        make_tuple(*plot_args_points_and_covariance_ellipse(q_sampled[:,icam,:], "Observed uncertainty"),
+                   plot_arg_covariance_ellipse(q_sampled_mean, Var_dq[icam], "Predicted uncertainty"),)
 
     if report_center_points:
         data_tuples += \
