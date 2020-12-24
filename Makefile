@@ -192,7 +192,7 @@ TESTS :=									      \
   test/test-projection-diff.py							      \
   test/test-graft-models.py							      \
   test/test-convert-lensmodel.py						      \
-  test/test-template-matching							      \
+  test/test-match-feature.py							      \
   test/test-stereo.py
 
 test check: all
