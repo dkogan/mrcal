@@ -6,7 +6,7 @@ PROJECT_NAME := mrcal
 ABI_VERSION  := 1
 TAIL_VERSION := 0
 
-LIB_SOURCES += mrcal.c poseutils.c poseutils-uses-autodiff.cc
+LIB_SOURCES += mrcal.c poseutils.c poseutils-uses-autodiff.cc triangulation.cc
 
 BIN_SOURCES += test-gradients.c test/test-cahvor.c test/test-lensmodel-string-manipulation.c
 
@@ -193,6 +193,7 @@ TESTS :=									      \
   test/test-graft-models.py							      \
   test/test-convert-lensmodel.py						      \
   test/test-match-feature.py							      \
+  test/test-triangulation.py							      \
   test/test-stereo.py
 
 test check: all
