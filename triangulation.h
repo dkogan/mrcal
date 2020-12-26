@@ -77,3 +77,7 @@ triangulate_leecivera_linf(// outputs
                            const mrcal_point3_t* v0,
                            const mrcal_point3_t* v1,
                            const mrcal_point3_t* t01);
+
+// I don't implement triangulate_leecivera_l2() yet because it requires
+// computing an SVD, which is far slower than what the rest of these functions
+// do
