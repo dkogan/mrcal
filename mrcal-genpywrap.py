@@ -539,11 +539,9 @@ THAT function, and see the docs for that function. The differences:
                 const mrcal_point3_t* t01 = (const mrcal_point3_t*)data_slice__t01;
 
                 *(mrcal_point3_t*)data_slice__output =
-                  triangulate_geometric(NULL, NULL, NULL,
+                  mrcal_triangulate_geometric(NULL, NULL, NULL,
                                         v0, v1, t01);
-                return item__output(0) != 0. ||
-                       item__output(1) != 0. ||
-                       item__output(2) != 0.;
+                return true;
 ''' },
 )
 
@@ -580,11 +578,9 @@ THAT function, and see the docs for that function. The differences:
                 mrcal_point3_t* dm_dt01 = (mrcal_point3_t*)data_slice__output3;
 
                 *(mrcal_point3_t*)data_slice__output0 =
-                  triangulate_geometric(dm_dv0, dm_dv1, dm_dt01,
+                  mrcal_triangulate_geometric(dm_dv0, dm_dv1, dm_dt01,
                                         v0, v1, t01);
-                return item__output0(0) != 0. ||
-                       item__output0(1) != 0. ||
-                       item__output0(2) != 0.;
+                return true;
 ''' },
 )
 
@@ -600,9 +596,13 @@ THAT function, and see the docs for that function. The differences:
 - This function is wrapped with numpysane_pywrap, so the arguments broadcast as
   expected
 
+- The python wrapper uses the camera-0-frame observation vectors like all the
+  other triangulation functions. While THIS internal wrapper uses the
+  local-frame observation vectors, like the C API
+
 """,
 
-            args_input       = ('v0', 'v1', 'Rt01'),
+            args_input       = ('v0_local', 'v1_local', 'Rt01'),
             prototype_input  = ((3,), (3,), (4,3),),
             prototype_output = ((3,) ),
 
@@ -612,16 +612,14 @@ THAT function, and see the docs for that function. The differences:
             Ccode_slice_eval = \
                 { (np.float64,np.float64,np.float64,
                    np.float64): r'''
-                const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0;
-                const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1;
+                const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0_local;
+                const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1_local;
                 const mrcal_point3_t* Rt01= (const mrcal_point3_t*)data_slice__Rt01;
 
                 *(mrcal_point3_t*)data_slice__output =
-                  triangulate_lindstrom(NULL,NULL,NULL,
+                  mrcal_triangulate_lindstrom(NULL,NULL,NULL,
                                         v0, v1, Rt01);
-                return item__output(0) != 0. ||
-                       item__output(1) != 0. ||
-                       item__output(2) != 0.;
+                return true;
 ''' },
 )
 
@@ -639,7 +637,7 @@ THAT function, and see the docs for that function. The differences:
 
 """,
 
-            args_input       = ('v0', 'v1', 'Rt01'),
+            args_input       = ('v0_local', 'v1_local', 'Rt01'),
             prototype_input  = ((3,), (3,), (4,3),),
             prototype_output = ((3,), (3,3), (3,3), (3,4,3) ),
 
@@ -649,8 +647,8 @@ THAT function, and see the docs for that function. The differences:
             Ccode_slice_eval = \
                 { (np.float64,np.float64,np.float64,
                    np.float64,np.float64,np.float64,np.float64): r'''
-                const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0;
-                const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1;
+                const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0_local;
+                const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1_local;
                 const mrcal_point3_t* Rt01= (const mrcal_point3_t*)data_slice__Rt01;
 
                 mrcal_point3_t* dm_dv0  = (mrcal_point3_t*)data_slice__output1;
@@ -658,11 +656,9 @@ THAT function, and see the docs for that function. The differences:
                 mrcal_point3_t* dm_dRt01= (mrcal_point3_t*)data_slice__output3;
 
                 *(mrcal_point3_t*)data_slice__output0 =
-                  triangulate_lindstrom(dm_dv0, dm_dv1, dm_dRt01,
+                  mrcal_triangulate_lindstrom(dm_dv0, dm_dv1, dm_dRt01,
                                         v0, v1, Rt01);
-                return item__output0(0) != 0. ||
-                       item__output0(1) != 0. ||
-                       item__output0(2) != 0.;
+                return true;
 ''' },
 )
 
@@ -695,11 +691,9 @@ THAT function, and see the docs for that function. The differences:
                 const mrcal_point3_t* t01 = (const mrcal_point3_t*)data_slice__t01;
 
                 *(mrcal_point3_t*)data_slice__output =
-                  triangulate_leecivera_l1( NULL, NULL, NULL,
+                  mrcal_triangulate_leecivera_l1( NULL, NULL, NULL,
                                             v0, v1, t01);
-                return item__output(0) != 0. ||
-                       item__output(1) != 0. ||
-                       item__output(2) != 0.;
+                return true;
 ''' },
 )
 
@@ -736,11 +730,9 @@ THAT function, and see the docs for that function. The differences:
                 mrcal_point3_t* dm_dt01 = (mrcal_point3_t*)data_slice__output3;
 
                 *(mrcal_point3_t*)data_slice__output0 =
-                  triangulate_leecivera_l1( dm_dv0, dm_dv1, dm_dt01,
+                  mrcal_triangulate_leecivera_l1( dm_dv0, dm_dv1, dm_dt01,
                                             v0, v1, t01);
-                return item__output0(0) != 0. ||
-                       item__output0(1) != 0. ||
-                       item__output0(2) != 0.;
+                return true;
 ''' },
 )
 
@@ -773,11 +765,9 @@ THAT function, and see the docs for that function. The differences:
                 const mrcal_point3_t* t01 = (const mrcal_point3_t*)data_slice__t01;
 
                 *(mrcal_point3_t*)data_slice__output =
-                  triangulate_leecivera_linf( NULL, NULL, NULL,
+                  mrcal_triangulate_leecivera_linf( NULL, NULL, NULL,
                                               v0, v1, t01);
-                return item__output(0) != 0. ||
-                       item__output(1) != 0. ||
-                       item__output(2) != 0.;
+                return true;
 ''' },
 )
 
@@ -814,11 +804,9 @@ THAT function, and see the docs for that function. The differences:
                 mrcal_point3_t* dm_dt01 = (mrcal_point3_t*)data_slice__output3;
 
                 *(mrcal_point3_t*)data_slice__output0 =
-                  triangulate_leecivera_linf( dm_dv0, dm_dv1, dm_dt01,
+                  mrcal_triangulate_leecivera_linf( dm_dv0, dm_dv1, dm_dt01,
                                               v0, v1, t01);
-                return item__output0(0) != 0. ||
-                       item__output0(1) != 0. ||
-                       item__output0(2) != 0.;
+                return true;
 ''' },
 )
 

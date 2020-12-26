@@ -59,19 +59,19 @@ triangulate_assume_intersect( // output
 // Basic closest-approach-in-3D routine
 extern "C"
 mrcal_point3_t
-triangulate_geometric(// outputs
-                      // These all may be NULL
-                      mrcal_point3_t* _dm_dv0,
-                      mrcal_point3_t* _dm_dv1,
-                      mrcal_point3_t* _dm_dt01,
+mrcal_triangulate_geometric(// outputs
+                            // These all may be NULL
+                            mrcal_point3_t* _dm_dv0,
+                            mrcal_point3_t* _dm_dv1,
+                            mrcal_point3_t* _dm_dt01,
 
-                      // inputs
+                            // inputs
 
-                      // not-necessarily normalized vectors in the camera-0
-                      // coord system
-                      const mrcal_point3_t* _v0,
-                      const mrcal_point3_t* _v1,
-                      const mrcal_point3_t* _t01)
+                            // not-necessarily normalized vectors in the camera-0
+                            // coord system
+                            const mrcal_point3_t* _v0,
+                            const mrcal_point3_t* _v1,
+                            const mrcal_point3_t* _t01)
 {
     // This is the basic 3d-geometry routine. I find the point in 3D
     // that minimizes the distance to each of the observation rays. This
@@ -158,7 +158,7 @@ triangulate_geometric(// outputs
 // Recognition, 2010.
 extern "C"
 mrcal_point3_t
-triangulate_lindstrom(// outputs
+mrcal_triangulate_lindstrom(// outputs
                       // These all may be NULL
                       mrcal_point3_t* _dm_dv0,
                       mrcal_point3_t* _dm_dv1,
@@ -380,19 +380,19 @@ triangulate_lindstrom(// outputs
 // 2019.
 extern "C"
 mrcal_point3_t
-triangulate_leecivera_l1(// outputs
-                         // These all may be NULL
-                         mrcal_point3_t* _dm_dv0,
-                         mrcal_point3_t* _dm_dv1,
-                         mrcal_point3_t* _dm_dt01,
+mrcal_triangulate_leecivera_l1(// outputs
+                               // These all may be NULL
+                               mrcal_point3_t* _dm_dv0,
+                               mrcal_point3_t* _dm_dv1,
+                               mrcal_point3_t* _dm_dt01,
 
-                         // inputs
+                               // inputs
 
-                         // not-necessarily normalized vectors in the camera-0
-                         // coord system
-                         const mrcal_point3_t* _v0,
-                         const mrcal_point3_t* _v1,
-                         const mrcal_point3_t* _t01)
+                               // not-necessarily normalized vectors in the camera-0
+                               // coord system
+                               const mrcal_point3_t* _v0,
+                               const mrcal_point3_t* _v1,
+                               const mrcal_point3_t* _t01)
 {
     // The paper has m0, m1 as the cam0-frame observation vectors.
     //
@@ -462,19 +462,19 @@ triangulate_leecivera_l1(// outputs
 // 2019.
 extern "C"
 mrcal_point3_t
-triangulate_leecivera_linf(// outputs
-                           // These all may be NULL
-                           mrcal_point3_t* _dm_dv0,
-                           mrcal_point3_t* _dm_dv1,
-                           mrcal_point3_t* _dm_dt01,
+mrcal_triangulate_leecivera_linf(// outputs
+                                 // These all may be NULL
+                                 mrcal_point3_t* _dm_dv0,
+                                 mrcal_point3_t* _dm_dv1,
+                                 mrcal_point3_t* _dm_dt01,
 
-                           // inputs
+                                 // inputs
 
-                           // not-necessarily normalized vectors in the camera-0
-                           // coord system
-                           const mrcal_point3_t* _v0,
-                           const mrcal_point3_t* _v1,
-                           const mrcal_point3_t* _t01)
+                                 // not-necessarily normalized vectors in the camera-0
+                                 // coord system
+                                 const mrcal_point3_t* _v0,
+                                 const mrcal_point3_t* _v1,
+                                 const mrcal_point3_t* _t01)
 {
     // The paper has m0, m1 as the cam0-frame observation vectors.
     //
