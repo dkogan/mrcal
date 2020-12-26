@@ -6,7 +6,7 @@ extern "C" {
 
 template <int NGRAD>
 static
-enum mrcal_intersection_result_t
+bool
 triangulate_assume_intersect( // output
                              vec_withgrad_t<NGRAD,3>& m,
 
@@ -33,21 +33,33 @@ triangulate_assume_intersect( // output
     //                                        [-v0[2]     v0[0] ]
     val_withgrad_t<NGRAD> det = v1.v[0]*v0.v[2] - v0.v[0]*v1.v[2];
     if(-1e-10 <= det.x && det.x <= 1e-10)
-        return MRCAL_RAYS_PARALLEL;
+        return false;
 
     val_withgrad_t<NGRAD> k0 = (t01.v[2]*v1.v[0] - t01.v[0]*v1.v[2]) / det;
+    if(k0.x <= 0.0)
+        return false;
+    bool k1_negative = (t01.v[2].x*v0.v[0].x > t01.v[0].x*v0.v[2].x) ^ (det.x > 0);
+    if(k1_negative)
+        return false;
+
     m = v0 * k0;
 
-    return ( k0.x <= 0.0 ) ? MRCAL_BEHIND_CAMERA : MRCAL_OK;
+#if 0
+    val_withgrad_t<NGRAD> k1 = (t01.v[2]*v0.v[0] - t01.v[0]*v0.v[2]) / det;
+    vec_withgrad_t<NGRAD,3> m2 = v1*k1 + t01;
+    m2 -= m;
+    double d2 = m2.v[0].x*m2.v[0].x + m2.v[1].x*m2.v[1].x + m2.v[2].x*m2.v[2].x;
+    fprintf(stderr, "diff: %f\n", d2);
+#endif
+
+    return true;
 }
 
 
 // Basic closest-approach-in-3D routine
 extern "C"
-enum mrcal_intersection_result_t
-triangulate_geometric( // outputs
-                      mrcal_point3_t* _m,
-
+mrcal_point3_t
+triangulate_geometric(// outputs
                       // These all may be NULL
                       mrcal_point3_t* _dm_dv0,
                       mrcal_point3_t* _dm_dv1,
@@ -102,15 +114,18 @@ triangulate_geometric( // outputs
 
     val_withgrad_t<9> denom = dot_v0v0*dot_v1v1 - dot_v0v1*dot_v0v1;
     if(-1e-10 <= denom.x && denom.x <= 1e-10)
-        return MRCAL_RAYS_PARALLEL;
+        return (mrcal_point3_t){};
 
     val_withgrad_t<9> denom_recip = val_withgrad_t<9>(1.)/denom;
     val_withgrad_t<9> k0 = denom_recip * (dot_v1v1*dot_v0t - dot_v0v1*dot_v1t);
+    if(k0.x <= 0.0) return (mrcal_point3_t){};
     val_withgrad_t<9> k1 = denom_recip * (dot_v0v1*dot_v0t - dot_v0v0*dot_v1t);
+    if(k1.x <= 0.0) return (mrcal_point3_t){};
 
     vec_withgrad_t<9,3> m = (v0*k0 + v1*k1 + t01) * 0.5;
 
-    m.extract_value(_m->xyz);
+    mrcal_point3_t _m;
+    m.extract_value(_m.xyz);
 
     if(_dm_dv0 != NULL)
         m.extract_grad (_dm_dv0->xyz,  0,3, 0,
@@ -125,7 +140,6 @@ triangulate_geometric( // outputs
                          3*sizeof(double), sizeof(double),
                          3);
 
-
 #if 0
     MSG("intersecting...");
     MSG("v0 = (%.20f,%.20f,%.20f)", v0[0].x,v0[1].x,v0[2].x);
@@ -136,19 +150,15 @@ triangulate_geometric( // outputs
         sqrt( m.dot(m).x));
 #endif
 
-    if( k0.x <= 0.0 )
-        return MRCAL_BEHIND_CAMERA;
-    return MRCAL_OK;
+    return _m;
 }
 
-extern "C"
 // Minimize L2 pinhole reprojection error. Described in "Triangulation Made
 // Easy", Peter Lindstrom, IEEE Conference on Computer Vision and Pattern
 // Recognition, 2010.
-enum mrcal_intersection_result_t
-triangulate_lindstrom( // outputs
-                      mrcal_point3_t* _m,
-
+extern "C"
+mrcal_point3_t
+triangulate_lindstrom(// outputs
                       // These all may be NULL
                       mrcal_point3_t* _dm_dv0,
                       mrcal_point3_t* _dm_dv1,
@@ -344,13 +354,11 @@ triangulate_lindstrom( // outputs
     // My two 3D rays now intersect exactly, and I use compute the intersection
     // with that assumption
     vec_withgrad_t<18,3> m;
-    enum mrcal_intersection_result_t result =
-        triangulate_assume_intersect(m,
-                                     v0, Rv1, t01);
-    if(result == MRCAL_RAYS_PARALLEL)
-        return result;
+    if(!triangulate_assume_intersect(m, v0, Rv1, t01))
+        return (mrcal_point3_t){};
 
-    m.extract_value(_m->xyz);
+    mrcal_point3_t _m;
+    m.extract_value(_m.xyz);
 
     if(_dm_dv0 != NULL)
         m.extract_grad (_dm_dv0->xyz,  0,3, 0,
@@ -364,17 +372,15 @@ triangulate_lindstrom( // outputs
         m.extract_grad (_dm_dRt01->xyz, 6,12,0,
                         12*sizeof(double), sizeof(double),
                         3);
-    return result;
+    return _m;
 }
 
 // Minimize L1 angle error. Described in "Closed-Form Optimal Two-View
 // Triangulation Based on Angular Errors", Seong Hun Lee and Javier Civera. ICCV
 // 2019.
 extern "C"
-enum mrcal_intersection_result_t
-triangulate_leecivera_l1( // outputs
-                         mrcal_point3_t* _m,
-
+mrcal_point3_t
+triangulate_leecivera_l1(// outputs
                          // These all may be NULL
                          mrcal_point3_t* _dm_dv0,
                          mrcal_point3_t* _dm_dv1,
@@ -429,13 +435,11 @@ triangulate_leecivera_l1( // outputs
     // with that assumption
 
     vec_withgrad_t<9,3> m;
-    enum mrcal_intersection_result_t result =
-        triangulate_assume_intersect(m,
-                                     v0, v1, t01);
-    if(result == MRCAL_RAYS_PARALLEL)
-        return result;
+    if(!triangulate_assume_intersect(m, v0, v1, t01))
+        return (mrcal_point3_t){};
 
-    m.extract_value(_m->xyz);
+    mrcal_point3_t _m;
+    m.extract_value(_m.xyz);
 
     if(_dm_dv0 != NULL)
         m.extract_grad (_dm_dv0->xyz,  0,3, 0,
@@ -450,17 +454,15 @@ triangulate_leecivera_l1( // outputs
                         3*sizeof(double), sizeof(double),
                         3);
 
-    return result;
+    return _m;
 }
 
 // Minimize L-infinity angle error. Described in "Closed-Form Optimal Two-View
 // Triangulation Based on Angular Errors", Seong Hun Lee and Javier Civera. ICCV
 // 2019.
 extern "C"
-enum mrcal_intersection_result_t
-triangulate_leecivera_linf( // outputs
-                           mrcal_point3_t* _m,
-
+mrcal_point3_t
+triangulate_leecivera_linf(// outputs
                            // These all may be NULL
                            mrcal_point3_t* _dm_dv0,
                            mrcal_point3_t* _dm_dv1,
@@ -498,13 +500,11 @@ triangulate_leecivera_linf( // outputs
     // My two 3D rays now intersect exactly, and I use compute the intersection
     // with that assumption
     vec_withgrad_t<9,3> m;
-    enum mrcal_intersection_result_t result =
-        triangulate_assume_intersect(m,
-                                     v0, v1, t01);
-    if(result == MRCAL_RAYS_PARALLEL)
-        return result;
+    if(!triangulate_assume_intersect(m, v0, v1, t01))
+        return (mrcal_point3_t){};
 
-    m.extract_value(_m->xyz);
+    mrcal_point3_t _m;
+    m.extract_value(_m.xyz);
 
     if(_dm_dv0 != NULL)
         m.extract_grad (_dm_dv0->xyz,  0,3, 0,
@@ -519,5 +519,5 @@ triangulate_leecivera_linf( // outputs
                         3*sizeof(double), sizeof(double),
                         3);
 
-    return result;
+    return _m;
 }

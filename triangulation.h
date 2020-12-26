@@ -2,18 +2,14 @@
 
 #include "basic_geometry.h"
 
-enum mrcal_intersection_result_t
-    {
-        MRCAL_OK = 0,
-        MRCAL_RAYS_PARALLEL,
-        MRCAL_BEHIND_CAMERA
-    };
+// All of these return (0,0,0) if the rays are parallel or divergent, or if the
+// intersection is behind either of the two cameras. No gradients are reported
+// in that case
+
 
 // Basic closest-approach-in-3D routine
-enum mrcal_intersection_result_t
-triangulate_geometric( // outputs
-                      mrcal_point3_t* m,
-
+mrcal_point3_t
+triangulate_geometric(// outputs
                       // These all may be NULL
                       mrcal_point3_t* dm_dv0,
                       mrcal_point3_t* dm_dv1,
@@ -30,10 +26,8 @@ triangulate_geometric( // outputs
 // Minimize L2 pinhole reprojection error. Described in "Triangulation Made
 // Easy", Peter Lindstrom, IEEE Conference on Computer Vision and Pattern
 // Recognition, 2010.
-enum mrcal_intersection_result_t
-triangulate_lindstrom( // outputs
-                      mrcal_point3_t* m,
-
+mrcal_point3_t
+triangulate_lindstrom(// outputs
                       // These all may be NULL
                       mrcal_point3_t* dm_dv0,
                       mrcal_point3_t* dm_dv1,
@@ -51,10 +45,8 @@ triangulate_lindstrom( // outputs
 // Minimize L1 angle error. Described in "Closed-Form Optimal Two-View
 // Triangulation Based on Angular Errors", Seong Hun Lee and Javier Civera. ICCV
 // 2019.
-enum mrcal_intersection_result_t
-triangulate_leecivera_l1( // outputs
-                         mrcal_point3_t* m,
-
+mrcal_point3_t
+triangulate_leecivera_l1(// outputs
                          // These all may be NULL
                          mrcal_point3_t* dm_dv0,
                          mrcal_point3_t* dm_dv1,
@@ -71,10 +63,8 @@ triangulate_leecivera_l1( // outputs
 // Minimize L-infinity angle error. Described in "Closed-Form Optimal Two-View
 // Triangulation Based on Angular Errors", Seong Hun Lee and Javier Civera. ICCV
 // 2019.
-enum mrcal_intersection_result_t
-triangulate_leecivera_linf( // outputs
-                           mrcal_point3_t* m,
-
+mrcal_point3_t
+triangulate_leecivera_linf(// outputs
                            // These all may be NULL
                            mrcal_point3_t* dm_dv0,
                            mrcal_point3_t* dm_dv1,

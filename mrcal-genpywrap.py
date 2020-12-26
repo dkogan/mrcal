@@ -526,25 +526,24 @@ THAT function, and see the docs for that function. The differences:
 
             args_input       = ('v0', 'v1', 't01'),
             prototype_input  = ((3,), (3,), (3,)),
-            prototype_output = ((), (3,)),
+            prototype_output = (3,),
 
             Ccode_validate = r'''
             return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
 
             Ccode_slice_eval = \
                 { (np.float64,np.float64,np.float64,
-                   int, np.float64): r'''
+                   np.float64): r'''
                 const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0;
                 const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1;
                 const mrcal_point3_t* t01 = (const mrcal_point3_t*)data_slice__t01;
 
-                mrcal_point3_t* m       = (mrcal_point3_t*)data_slice__output1;
-
-                item__output0() =
-                  (int)triangulate_geometric(m,
-                                             NULL, NULL, NULL,
-                                             v0, v1, t01);
-                return true;
+                *(mrcal_point3_t*)data_slice__output =
+                  triangulate_geometric(NULL, NULL, NULL,
+                                        v0, v1, t01);
+                return item__output(0) != 0. ||
+                       item__output(1) != 0. ||
+                       item__output(2) != 0.;
 ''' },
 )
 
@@ -564,28 +563,28 @@ THAT function, and see the docs for that function. The differences:
 
             args_input       = ('v0', 'v1', 't01'),
             prototype_input  = ((3,), (3,), (3,)),
-            prototype_output = ((), (3,), (3,3), (3,3), (3,3)),
+            prototype_output = ((3,), (3,3), (3,3), (3,3)),
 
             Ccode_validate = r'''
             return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
 
             Ccode_slice_eval = \
                 { (np.float64,np.float64,np.float64,
-                   int, np.float64,np.float64,np.float64,np.float64): r'''
+                   np.float64,np.float64,np.float64,np.float64): r'''
                 const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0;
                 const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1;
                 const mrcal_point3_t* t01 = (const mrcal_point3_t*)data_slice__t01;
 
-                mrcal_point3_t* m       = (mrcal_point3_t*)data_slice__output1;
-                mrcal_point3_t* dm_dv0  = (mrcal_point3_t*)data_slice__output2;
-                mrcal_point3_t* dm_dv1  = (mrcal_point3_t*)data_slice__output3;
-                mrcal_point3_t* dm_dt01 = (mrcal_point3_t*)data_slice__output4;
+                mrcal_point3_t* dm_dv0  = (mrcal_point3_t*)data_slice__output1;
+                mrcal_point3_t* dm_dv1  = (mrcal_point3_t*)data_slice__output2;
+                mrcal_point3_t* dm_dt01 = (mrcal_point3_t*)data_slice__output3;
 
-                item__output0() =
-                  (int)triangulate_geometric(m,
-                                             dm_dv0, dm_dv1, dm_dt01,
-                                             v0, v1, t01);
-                return true;
+                *(mrcal_point3_t*)data_slice__output0 =
+                  triangulate_geometric(dm_dv0, dm_dv1, dm_dt01,
+                                        v0, v1, t01);
+                return item__output0(0) != 0. ||
+                       item__output0(1) != 0. ||
+                       item__output0(2) != 0.;
 ''' },
 )
 
@@ -605,25 +604,24 @@ THAT function, and see the docs for that function. The differences:
 
             args_input       = ('v0', 'v1', 'Rt01'),
             prototype_input  = ((3,), (3,), (4,3),),
-            prototype_output = ((), (3,) ),
+            prototype_output = ((3,) ),
 
             Ccode_validate = r'''
             return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
 
             Ccode_slice_eval = \
                 { (np.float64,np.float64,np.float64,
-                   int, np.float64): r'''
+                   np.float64): r'''
                 const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0;
                 const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1;
                 const mrcal_point3_t* Rt01= (const mrcal_point3_t*)data_slice__Rt01;
 
-                mrcal_point3_t* m       = (mrcal_point3_t*)data_slice__output1;
-
-                item__output0() =
-                  (int)triangulate_lindstrom(m,
-                                             NULL,NULL,NULL,
-                                             v0, v1, Rt01);
-                return true;
+                *(mrcal_point3_t*)data_slice__output =
+                  triangulate_lindstrom(NULL,NULL,NULL,
+                                        v0, v1, Rt01);
+                return item__output(0) != 0. ||
+                       item__output(1) != 0. ||
+                       item__output(2) != 0.;
 ''' },
 )
 
@@ -643,28 +641,28 @@ THAT function, and see the docs for that function. The differences:
 
             args_input       = ('v0', 'v1', 'Rt01'),
             prototype_input  = ((3,), (3,), (4,3),),
-            prototype_output = ((), (3,), (3,3), (3,3), (3,4,3) ),
+            prototype_output = ((3,), (3,3), (3,3), (3,4,3) ),
 
             Ccode_validate = r'''
             return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
 
             Ccode_slice_eval = \
                 { (np.float64,np.float64,np.float64,
-                   int, np.float64,np.float64,np.float64,np.float64): r'''
+                   np.float64,np.float64,np.float64,np.float64): r'''
                 const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0;
                 const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1;
                 const mrcal_point3_t* Rt01= (const mrcal_point3_t*)data_slice__Rt01;
 
-                mrcal_point3_t* m       = (mrcal_point3_t*)data_slice__output1;
-                mrcal_point3_t* dm_dv0  = (mrcal_point3_t*)data_slice__output2;
-                mrcal_point3_t* dm_dv1  = (mrcal_point3_t*)data_slice__output3;
-                mrcal_point3_t* dm_dRt01= (mrcal_point3_t*)data_slice__output4;
+                mrcal_point3_t* dm_dv0  = (mrcal_point3_t*)data_slice__output1;
+                mrcal_point3_t* dm_dv1  = (mrcal_point3_t*)data_slice__output2;
+                mrcal_point3_t* dm_dRt01= (mrcal_point3_t*)data_slice__output3;
 
-                item__output0() =
-                  (int)triangulate_lindstrom(m,
-                                             dm_dv0, dm_dv1, dm_dRt01,
-                                             v0, v1, Rt01);
-                return true;
+                *(mrcal_point3_t*)data_slice__output0 =
+                  triangulate_lindstrom(dm_dv0, dm_dv1, dm_dRt01,
+                                        v0, v1, Rt01);
+                return item__output0(0) != 0. ||
+                       item__output0(1) != 0. ||
+                       item__output0(2) != 0.;
 ''' },
 )
 
@@ -684,25 +682,24 @@ THAT function, and see the docs for that function. The differences:
 
             args_input       = ('v0', 'v1', 't01'),
             prototype_input  = ((3,), (3,), (3,)),
-            prototype_output = ((), (3,)),
+            prototype_output = (3,),
 
             Ccode_validate = r'''
             return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
 
             Ccode_slice_eval = \
                 { (np.float64,np.float64,np.float64,
-                   int, np.float64): r'''
+                   np.float64): r'''
                 const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0;
                 const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1;
                 const mrcal_point3_t* t01 = (const mrcal_point3_t*)data_slice__t01;
 
-                mrcal_point3_t* m       = (mrcal_point3_t*)data_slice__output1;
-
-                item__output0() =
-                  (int)triangulate_leecivera_l1( m,
-                                                 NULL, NULL, NULL,
-                                                 v0, v1, t01);
-                return true;
+                *(mrcal_point3_t*)data_slice__output =
+                  triangulate_leecivera_l1( NULL, NULL, NULL,
+                                            v0, v1, t01);
+                return item__output(0) != 0. ||
+                       item__output(1) != 0. ||
+                       item__output(2) != 0.;
 ''' },
 )
 
@@ -722,28 +719,28 @@ THAT function, and see the docs for that function. The differences:
 
             args_input       = ('v0', 'v1', 't01'),
             prototype_input  = ((3,), (3,), (3,)),
-            prototype_output = ((), (3,), (3,3), (3,3), (3,3)),
+            prototype_output = ((3,), (3,3), (3,3), (3,3)),
 
             Ccode_validate = r'''
             return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
 
             Ccode_slice_eval = \
                 { (np.float64,np.float64,np.float64,
-                   int, np.float64,np.float64,np.float64,np.float64): r'''
+                   np.float64,np.float64,np.float64,np.float64): r'''
                 const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0;
                 const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1;
                 const mrcal_point3_t* t01 = (const mrcal_point3_t*)data_slice__t01;
 
-                mrcal_point3_t* m       = (mrcal_point3_t*)data_slice__output1;
-                mrcal_point3_t* dm_dv0  = (mrcal_point3_t*)data_slice__output2;
-                mrcal_point3_t* dm_dv1  = (mrcal_point3_t*)data_slice__output3;
-                mrcal_point3_t* dm_dt01 = (mrcal_point3_t*)data_slice__output4;
+                mrcal_point3_t* dm_dv0  = (mrcal_point3_t*)data_slice__output1;
+                mrcal_point3_t* dm_dv1  = (mrcal_point3_t*)data_slice__output2;
+                mrcal_point3_t* dm_dt01 = (mrcal_point3_t*)data_slice__output3;
 
-                item__output0() =
-                  (int)triangulate_leecivera_l1( m,
-                                                 dm_dv0, dm_dv1, dm_dt01,
-                                                 v0, v1, t01);
-                return true;
+                *(mrcal_point3_t*)data_slice__output0 =
+                  triangulate_leecivera_l1( dm_dv0, dm_dv1, dm_dt01,
+                                            v0, v1, t01);
+                return item__output0(0) != 0. ||
+                       item__output0(1) != 0. ||
+                       item__output0(2) != 0.;
 ''' },
 )
 
@@ -763,25 +760,24 @@ THAT function, and see the docs for that function. The differences:
 
             args_input       = ('v0', 'v1', 't01'),
             prototype_input  = ((3,), (3,), (3,)),
-            prototype_output = ((), (3,)),
+            prototype_output = (3,),
 
             Ccode_validate = r'''
             return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
 
             Ccode_slice_eval = \
                 { (np.float64,np.float64,np.float64,
-                   int, np.float64): r'''
+                   np.float64): r'''
                 const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0;
                 const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1;
                 const mrcal_point3_t* t01 = (const mrcal_point3_t*)data_slice__t01;
 
-                mrcal_point3_t* m       = (mrcal_point3_t*)data_slice__output1;
-
-                item__output0() =
-                  (int)triangulate_leecivera_linf( m,
-                                                   NULL, NULL, NULL,
-                                                   v0, v1, t01);
-                return true;
+                *(mrcal_point3_t*)data_slice__output =
+                  triangulate_leecivera_linf( NULL, NULL, NULL,
+                                              v0, v1, t01);
+                return item__output(0) != 0. ||
+                       item__output(1) != 0. ||
+                       item__output(2) != 0.;
 ''' },
 )
 
@@ -801,28 +797,28 @@ THAT function, and see the docs for that function. The differences:
 
             args_input       = ('v0', 'v1', 't01'),
             prototype_input  = ((3,), (3,), (3,)),
-            prototype_output = ((), (3,), (3,3), (3,3), (3,3)),
+            prototype_output = ((3,), (3,3), (3,3), (3,3)),
 
             Ccode_validate = r'''
             return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
 
             Ccode_slice_eval = \
                 { (np.float64,np.float64,np.float64,
-                   int, np.float64,np.float64,np.float64,np.float64): r'''
+                   np.float64,np.float64,np.float64,np.float64): r'''
                 const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0;
                 const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1;
                 const mrcal_point3_t* t01 = (const mrcal_point3_t*)data_slice__t01;
 
-                mrcal_point3_t* m       = (mrcal_point3_t*)data_slice__output1;
-                mrcal_point3_t* dm_dv0  = (mrcal_point3_t*)data_slice__output2;
-                mrcal_point3_t* dm_dv1  = (mrcal_point3_t*)data_slice__output3;
-                mrcal_point3_t* dm_dt01 = (mrcal_point3_t*)data_slice__output4;
+                mrcal_point3_t* dm_dv0  = (mrcal_point3_t*)data_slice__output1;
+                mrcal_point3_t* dm_dv1  = (mrcal_point3_t*)data_slice__output2;
+                mrcal_point3_t* dm_dt01 = (mrcal_point3_t*)data_slice__output3;
 
-                item__output0() =
-                  (int)triangulate_leecivera_linf( m,
-                                                   dm_dv0, dm_dv1, dm_dt01,
-                                                   v0, v1, t01);
-                return true;
+                *(mrcal_point3_t*)data_slice__output0 =
+                  triangulate_leecivera_linf( dm_dv0, dm_dv1, dm_dt01,
+                                              v0, v1, t01);
+                return item__output0(0) != 0. ||
+                       item__output0(1) != 0. ||
+                       item__output0(2) != 0.;
 ''' },
 )
 

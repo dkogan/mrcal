@@ -93,14 +93,14 @@ v0_local_noisy,v1_local_noisy,v0_ref_noisy,v1_ref_noisy = \
 
 ############# Test case is set up. Let's run the tests!
 f = mrcal._mrcal_npsp._triangulate_geometric_withgrad
-result, m, dm_dv0, dm_dv1, dm_dt01 = f( v0_ref_noisy, v1_ref_noisy, t01 )
+m, dm_dv0, dm_dv1, dm_dt01 = f( v0_ref_noisy, v1_ref_noisy, t01 )
 
 dm_dv0_empirical  = \
-  grad( lambda v0:  f(v0,           v1_ref_noisy, t01)[1], v0_ref_noisy)
+  grad( lambda v0:  f(v0,           v1_ref_noisy, t01)[0], v0_ref_noisy)
 dm_dv1_empirical  = \
-  grad( lambda v1:  f(v0_ref_noisy, v1,           t01)[1], v1_ref_noisy)
+  grad( lambda v1:  f(v0_ref_noisy, v1,           t01)[0], v1_ref_noisy)
 dm_dt01_empirical = \
-  grad( lambda t01: f(v0_ref_noisy, v1_ref_noisy, t01)[1], t01)
+  grad( lambda t01: f(v0_ref_noisy, v1_ref_noisy, t01)[0], t01)
 
 
 testutils.confirm_equal( m, triangulate_geometric_ref(v0_ref_noisy,v1_ref_noisy,t01),
@@ -131,14 +131,14 @@ testutils.confirm_equal( dm_dt01, dm_dt01_empirical,
 
 
 f = mrcal._mrcal_npsp._triangulate_lindstrom_withgrad
-result, m, dm_dv0, dm_dv1, dm_dRt01 = f( v0_local_noisy, v1_local_noisy, Rt01 )
+m, dm_dv0, dm_dv1, dm_dRt01 = f( v0_local_noisy, v1_local_noisy, Rt01 )
 
 dm_dv0_empirical   = \
-  grad( lambda v0:  f(v0,             v1_local_noisy, Rt01)[1], v0_local_noisy)
+  grad( lambda v0:  f(v0,             v1_local_noisy, Rt01)[0], v0_local_noisy)
 dm_dv1_empirical   = \
-  grad( lambda v1:  f(v0_local_noisy, v1,             Rt01)[1], v1_local_noisy)
+  grad( lambda v1:  f(v0_local_noisy, v1,             Rt01)[0], v1_local_noisy)
 dm_dRt01_empirical = \
-  grad( lambda Rt01:f(v0_local_noisy, v1_local_noisy, Rt01)[1], Rt01)
+  grad( lambda Rt01:f(v0_local_noisy, v1_local_noisy, Rt01)[0], Rt01)
 
 testutils.confirm_equal( m, p,
                          relative  = True,
@@ -171,16 +171,16 @@ v0_local_noisy,v1_local_noisy,v0_ref_noisy,v1_ref_noisy = \
 
 print("sampling: p_sampled_geometric")
 p_sampled_geometric = \
-    mrcal._mrcal_npsp._triangulate_geometric( v0_ref_noisy, v1_ref_noisy, t01 )[1]
+    mrcal._mrcal_npsp._triangulate_geometric( v0_ref_noisy, v1_ref_noisy, t01 )
 print("sampling: p_sampled_lindstrom")
 p_sampled_lindstrom = \
-    mrcal._mrcal_npsp._triangulate_lindstrom( v0_local_noisy, v1_local_noisy, Rt01 )[1]
+    mrcal._mrcal_npsp._triangulate_lindstrom( v0_local_noisy, v1_local_noisy, Rt01 )
 print("sampling: p_sampled_leecivera_l1")
 p_sampled_leecivera_l1 = \
-    mrcal._mrcal_npsp._triangulate_leecivera_l1( v0_local_noisy, v1_local_noisy, t01 )[1]
+    mrcal._mrcal_npsp._triangulate_leecivera_l1( v0_local_noisy, v1_local_noisy, t01 )
 print("sampling: p_sampled_leecivera_linf")
 p_sampled_leecivera_linf = \
-    mrcal._mrcal_npsp._triangulate_leecivera_linf( v0_local_noisy, v1_local_noisy, t01 )[1]
+    mrcal._mrcal_npsp._triangulate_leecivera_linf( v0_local_noisy, v1_local_noisy, t01 )
 
 q0_sampled_geometric      = mrcal.project(p_sampled_geometric,      *model0.intrinsics())
 q0_sampled_lindstrom      = mrcal.project(p_sampled_lindstrom,      *model0.intrinsics())
