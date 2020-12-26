@@ -18,8 +18,7 @@ struct val_withgrad_t
     double x;
     double j[NGRAD];
 
-    val_withgrad_t() {}
-    val_withgrad_t(double _x) : x(_x)
+    val_withgrad_t(double _x = 0.0) : x(_x)
     {
         for(int i=0; i<NGRAD; i++) j[i] = 0.0;
     }
