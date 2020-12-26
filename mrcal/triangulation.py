@@ -294,7 +294,7 @@ if get_gradients: we return a tuple:
         return mrcal._mrcal_npsp._triangulate_leecivera_linf_withgrad(v0, v1, t01)
 
 
-def triangulate_lindstrom(v0, v1, Rt01,
+def triangulate_lindstrom(v0_local, v1_local, Rt01,
                           get_gradients = False):
 
     r'''Triangulation minimizing the 2-norm of reprojection errors
@@ -326,8 +326,9 @@ SYNOPSIS
                              H10, # homography mapping q0 to q1
                            )
 
+    # observation vectors in the LOCAL coordinate system of the two cameras
     v0 = mrcal.unproject(q0, *models[0].intrinsics())
-    v1 = mrcal.rotate_point_R(R01, mrcal.unproject(q1, *models[1].intrinsics()))
+    v1 = mrcal.unproject(q1, *models[1].intrinsics())
 
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
@@ -350,22 +351,21 @@ rays are parallel or divergent), (0,0,0) is returned.
 This function supports broadcasting fully.
 
 Note that this function takes Rt01 instead of t01 like all the other
-triangulation functions do. Also, note that the C API routine
-mrcal_triangulate_lindstrom() takes v1 in the camera-1-local coordinate system
-unlike all the other triangulation routines, but THIS Python wrapper handles
-this difference, and here v0,v1 have the same meaning as all the other
-triangulation function.
+triangulation functions do.
+
+Also, note that this function takes v1 in the camera-1-local coordinate system
+unlike all the other triangulation routines.
 
 ARGUMENTS
 
-- v0: (3,) numpy array containing a not-necessarily-normalized observation
+- v0_local: (3,) numpy array containing a not-necessarily-normalized observation
   vector of a feature observed in camera-0, described in the camera-0 coordinate
   system
 
-- v1: (3,) numpy array containing a not-necessarily-normalized observation
-  vector of a feature observed in camera-1, described in the camera-0 coordinate
-  system. Note that this vector is represented in the SAME coordinate system as
-  v0
+- v1_local: (3,) numpy array containing a not-necessarily-normalized observation
+  vector of a feature observed in camera-1, described in the camera-1 coordinate
+  system. Note that this vector is represented in the camera-local coordinate
+  system, unlike the representation in all the other triangulation routines
 
 - Rt01: (4,3) numpy array describing the transformation from camera-1
   coordinates to camera-0 coordinates
@@ -384,17 +384,15 @@ if get_gradients: we return a tuple:
 
   - (...,3) array of triangulated point positions
   - (...,3,3) array of the gradients of the triangulated positions in respect to
-    v0
+    v0_local
   - (...,3,3) array of the gradients of the triangulated positions in respect to
-    v1
+    v1_local
   - (...,3,4,3) array of the gradients of the triangulated positions in respect
     to Rt01
 
     '''
 
-    v1 = mrcal.rotate_point_R( Rt01[...,:3,:], v1 )
-
     if not get_gradients:
-        return mrcal._mrcal_npsp._triangulate_lindstrom(v0, v1, Rt01)
+        return mrcal._mrcal_npsp._triangulate_lindstrom(v0_local, v1_local, Rt01)
     else:
-        return mrcal._mrcal_npsp._triangulate_lindstrom_withgrad(v0, v1, Rt01)
+        return mrcal._mrcal_npsp._triangulate_lindstrom_withgrad(v0_local, v1_local, Rt01)

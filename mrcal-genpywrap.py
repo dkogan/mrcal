@@ -596,10 +596,6 @@ THAT function, and see the docs for that function. The differences:
 - This function is wrapped with numpysane_pywrap, so the arguments broadcast as
   expected
 
-- The python wrapper uses the camera-0-frame observation vectors like all the
-  other triangulation functions. While THIS internal wrapper uses the
-  local-frame observation vectors, like the C API
-
 """,
 
             args_input       = ('v0_local', 'v1_local', 'Rt01'),
