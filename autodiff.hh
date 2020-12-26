@@ -38,6 +38,10 @@ struct val_withgrad_t
         y.x += b;
         return y;
     }
+    void operator+=( const val_withgrad_t<NGRAD>& b )
+    {
+        *this = (*this) + b;
+    }
     val_withgrad_t<NGRAD> operator-( const val_withgrad_t<NGRAD>& b ) const
     {
         val_withgrad_t<NGRAD> y = *this;
@@ -67,6 +71,10 @@ struct val_withgrad_t
         for(int i=0; i<NGRAD; i++)
             y.j[i] = j[i]*b;
         return y;
+    }
+    void operator*=( const val_withgrad_t<NGRAD>& b )
+    {
+        *this = (*this) * b;
     }
     val_withgrad_t<NGRAD> operator/( const val_withgrad_t<NGRAD>& b ) const
     {
@@ -180,6 +188,166 @@ struct vec_withgrad_t
         init_vars(x_in, 0, NVEC, i_gradvec0, stride);
     }
 
+    val_withgrad_t<NGRAD>& operator[](int i)
+    {
+        return v[i];
+    }
+
+    void operator+=( const vec_withgrad_t<NGRAD,NVEC>& x )
+    {
+        (*this) = (*this) + x;
+    }
+    vec_withgrad_t<NGRAD,NVEC> operator+( const vec_withgrad_t<NGRAD,NVEC>& x ) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> p;
+        for(int i=0; i<NVEC; i++)
+            p[i] = v[i] + x.v[i];
+        return p;
+    }
+
+    void operator+=( const val_withgrad_t<NGRAD>& x )
+    {
+        (*this) = (*this) + x;
+    }
+    vec_withgrad_t<NGRAD,NVEC> operator+( const val_withgrad_t<NGRAD>& x ) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> p;
+        for(int i=0; i<NVEC; i++)
+            p[i] = v[i] + x;
+        return p;
+    }
+
+    void operator+=( double x )
+    {
+        (*this) = (*this) + x;
+    }
+    vec_withgrad_t<NGRAD,NVEC> operator+( double x ) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> p;
+        for(int i=0; i<NVEC; i++)
+            p[i] = v[i] + x;
+        return p;
+    }
+
+    void operator-=( const vec_withgrad_t<NGRAD,NVEC>& x )
+    {
+        (*this) = (*this) - x;
+    }
+    vec_withgrad_t<NGRAD,NVEC> operator-( const vec_withgrad_t<NGRAD,NVEC>& x ) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> p;
+        for(int i=0; i<NVEC; i++)
+            p[i] = v[i] - x.v[i];
+        return p;
+    }
+
+    void operator-=( const val_withgrad_t<NGRAD>& x )
+    {
+        (*this) = (*this) - x;
+    }
+    vec_withgrad_t<NGRAD,NVEC> operator-( const val_withgrad_t<NGRAD>& x ) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> p;
+        for(int i=0; i<NVEC; i++)
+            p[i] = v[i] - x;
+        return p;
+    }
+
+    void operator-=( double x )
+    {
+        (*this) = (*this) - x;
+    }
+    vec_withgrad_t<NGRAD,NVEC> operator-( double x ) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> p;
+        for(int i=0; i<NVEC; i++)
+            p[i] = v[i] - x;
+        return p;
+    }
+
+    void operator*=( const vec_withgrad_t<NGRAD,NVEC>& x )
+    {
+        (*this) = (*this) * x;
+    }
+    vec_withgrad_t<NGRAD,NVEC> operator*( const vec_withgrad_t<NGRAD,NVEC>& x ) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> p;
+        for(int i=0; i<NVEC; i++)
+            p[i] = v[i] * x.v[i];
+        return p;
+    }
+
+    void operator*=( const val_withgrad_t<NGRAD>& x )
+    {
+        (*this) = (*this) * x;
+    }
+    vec_withgrad_t<NGRAD,NVEC> operator*( const val_withgrad_t<NGRAD>& x ) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> p;
+        for(int i=0; i<NVEC; i++)
+            p[i] = v[i] * x;
+        return p;
+    }
+
+    void operator*=( double x )
+    {
+        (*this) = (*this) * x;
+    }
+    vec_withgrad_t<NGRAD,NVEC> operator*( double x ) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> p;
+        for(int i=0; i<NVEC; i++)
+            p[i] = v[i] * x;
+        return p;
+    }
+
+    void operator/=( const vec_withgrad_t<NGRAD,NVEC>& x )
+    {
+        (*this) = (*this) / x;
+    }
+    vec_withgrad_t<NGRAD,NVEC> operator/( const vec_withgrad_t<NGRAD,NVEC>& x ) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> p;
+        for(int i=0; i<NVEC; i++)
+            p[i] = v[i] / x.v[i];
+        return p;
+    }
+
+    void operator/=( const val_withgrad_t<NGRAD>& x )
+    {
+        (*this) = (*this) / x;
+    }
+    vec_withgrad_t<NGRAD,NVEC> operator/( const val_withgrad_t<NGRAD>& x ) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> p;
+        for(int i=0; i<NVEC; i++)
+            p[i] = v[i] / x;
+        return p;
+    }
+
+    void operator/=( double x )
+    {
+        (*this) = (*this) / x;
+    }
+    vec_withgrad_t<NGRAD,NVEC> operator/( double x ) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> p;
+        for(int i=0; i<NVEC; i++)
+            p[i] = v[i] / x;
+        return p;
+    }
+
+    val_withgrad_t<NGRAD> dot( vec_withgrad_t<NGRAD,NVEC>& x) const
+    {
+        val_withgrad_t<NGRAD> d; // initializes to 0
+        for(int i=0; i<NVEC; i++)
+        {
+            val_withgrad_t<NGRAD> e = x[i]*v[i];
+            d += e;
+        }
+        return d;
+    }
+
     void extract_value(double* out,
                        int stride = sizeof(double),
                        int ivar0 = 0, int Nvars = NVEC) const
@@ -198,3 +366,15 @@ struct vec_withgrad_t
                 _P2(J,J_stride0,J_stride1, i-ivar0,j) = v[i].j[i_gradvec0+j];
     }
 };
+
+template<int NGRAD>
+vec_withgrad_t<NGRAD, 3>
+cross( const vec_withgrad_t<NGRAD, 3>& a,
+       const vec_withgrad_t<NGRAD, 3>& b )
+{
+    vec_withgrad_t<NGRAD, 3> c;
+    c.v[0] = a.v[1]*b.v[2] - a.v[2]*b.v[1];
+    c.v[1] = a.v[2]*b.v[0] - a.v[0]*b.v[2];
+    c.v[2] = a.v[0]*b.v[1] - a.v[1]*b.v[0];
+    return c;
+}
