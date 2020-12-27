@@ -54,7 +54,9 @@ def relative_scale(a,b, eps = 1e-6):
 def relative_diff(a,b, eps = 1e-6):
     return (a - b) / relative_scale(a,b, eps)
 
-def confirm_equal(x, xref, msg='', eps=1e-6,
+def confirm_equal(x, xref, msg='',
+                  eps=1e-6,
+                  reldiff_eps = 1e-6,
                   relative=False,
                   worstcase=False,
                   percentile=None):
@@ -131,7 +133,7 @@ def confirm_equal(x, xref, msg='', eps=1e-6,
     if N != 0:
         try:  # I I can subtract, get the error that way
             if relative:
-                diff = relative_diff(x, xref)
+                diff = relative_diff(x, xref, eps = reldiff_eps)
             else:
                 diff = x - xref
 
