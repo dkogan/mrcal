@@ -178,7 +178,8 @@ def test_geometry( Rt01, p, whatgeometry,
 
         # print( f"{what} p reported,optimized:\n{nps.cat(p_reported, p_optimized)}" )
         # print( f"{what} p_err: {p_reported - p_optimized}" )
-        # print( f"{what} optimum reported,optimized:\n{nps.transpose(np.array((callback(p_optimized, *args),callback(p_optimized, *args))))}" )
+        # print( f"{what} optimum reported/optimized:\n{callback(p_reported, *args)/callback(p_optimized, *args)}" )
+
         for ip in range(Np):
             testutils.confirm_equal( p_reported[ip], p_optimized[ip],
                                      relative  = True,
