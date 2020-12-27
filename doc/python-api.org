@@ -92,10 +92,15 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 - [[file:mrcal-python-api-reference.html#-projection_diff][=mrcal.projection_diff()=]]: Compute the [[file:differencing.org][difference in projection]] between N models
 - [[file:mrcal-python-api-reference.html#-is_within_valid_intrinsics_region][=mrcal.is_within_valid_intrinsics_region()=]]: Which of the pixel coordinates fall within the valid-intrinsics region?
 
-* Stereo
+* Stereo, triangulation, feature-matching
 - [[file:mrcal-python-api-reference.html#-stereo_rectify_prepare][=mrcal.stereo_rectify_prepare()=]]: Precompute everything needed for stereo rectification and matching
 - [[file:mrcal-python-api-reference.html#-stereo_unproject][=mrcal.stereo_unproject()=]]: Unprojection in the rectified stereo system
 - [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]]: Compute ranges from observed disparities
+- [[file:mrcal-python-api-reference.html#-triangulate_geometric][=mrcal.triangulate_geometric()=]]: Simple geometric triangulation
+- [[file:mrcal-python-api-reference.html#-triangulate_lindstrom][=mrcal.triangulate_lindstrom()=]]: Triangulation minimizing the 2-norm of pinhole reprojection errors
+- [[file:mrcal-python-api-reference.html#-triangulate_leecivera_l1][=mrcal.triangulate_leecivera_l1()=]]: Triangulation minimizing the L1-norm of angle differences
+- [[file:mrcal-python-api-reference.html#-triangulate_leecivera_linf][=mrcal.triangulate_leecivera_linf()=]]: Triangulation minimizing the infinity-norm of angle differences
+- [[file:mrcal-python-api-reference.html#-match_feature][=mrcal.match_feature()=]]: Find a pixel correspondence in a pair of images
 
 * Synthetic data
 - [[file:mrcal-python-api-reference.html#-ref_calibration_object][=mrcal.ref_calibration_object()=]]: Return the geometry of the calibration object
