@@ -416,9 +416,7 @@ mrcal_triangulate_leecivera_l1(// outputs
     // abs(dot(v0/len(v0), t)) > abs(dot(v1/len(v1), t)) ~
     // (dot(v0/len(v0), t))^2 > (dot(v1/len(v1), t))^2 ~
     // (dot(v0, t))^2 norm2(v1) > (dot(v1, t))^2 norm2(v0) ~
-
-    // opposite sign because the paper t is -t01
-    if( dot_v0t.x*dot_v0t.x * dot_v1v1.x < dot_v1t.x*dot_v1t.x * dot_v0v0.x )
+    if( dot_v0t.x*dot_v0t.x * dot_v1v1.x > dot_v1t.x*dot_v1t.x * dot_v0v0.x )
     {
         // Equation (12)
         vec_withgrad_t<9,3> n1 = cross<9>(v1, t01);
