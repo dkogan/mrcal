@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-
 import sys
 import numpy as np
 import numpysane as nps
@@ -13,48 +12,15 @@ import mrcal
 import testutils
 from test_calibration_helpers import grad,plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse
 
+import scipy.optimize
+
 
 # I want the RNG to be deterministic
 np.random.seed(0)
 
 
 
-
-def triangulate_geometric_ref(v0,v1,t01):
-    r'''reference implementation to compare against'''
-
-    # Let's say I have a ray from the origin to v0, and another ray from t01
-    # to v1 (v0 and v1 aren't necessarily normal). Let the nearest points on
-    # each ray be k0 and k1 along each ray respectively: E = norm2(t01 + k1*v1
-    # - k0*v0):
-    #
-    #   dE/dk0 = 0 = inner(t01 + k1*v1 - k0*v0, -v0)
-    #   dE/dk1 = 0 = inner(t01 + k1*v1 - k0*v0,  v1)
-    #
-    # ->    t01.v0 + k1 v0.v1 = k0 v0.v0
-    #      -t01.v1 + k0 v0.v1 = k1 v1.v1
-    #
-    # -> [  v0.v0   -v0.v1] [k0] = [ t01.v0]
-    #    [ -v0.v1    v1.v1] [k1] = [-t01.v1]
-    #
-    # -> [k0] = 1/(v0.v0 v1.v1 -(v0.v1)**2) [ v1.v1   v0.v1][ t01.v0]
-    #    [k1]                               [ v0.v1   v0.v0][-t01.v1]
-    #
-    # The midpoint:
-    #
-    #   x = (k0 v0 + t01 + k1 v1)/2
-    M = nps.cat(v1,v0)
-    det = nps.norm2(v0) * nps.norm2(v1) - nps.inner(v0,v1)*nps.inner(v0,v1)
-    k = nps.inner( nps.matmult(M,nps.transpose(M)),
-                   np.array((   nps.inner(t01,v0),
-                               -nps.inner(t01,v1))) ) / det
-    return (k[0]*v0 + k[1]*v1 + t01) / 2.
-
-
-############### Test geometry
-t01  = np.array(( 1.,   0.1,  -0.2))
-R01  = mrcal.R_from_r(np.array((0.01, -0.02, -0.03)))
-Rt01 = nps.glue(R01, t01, axis=-2)
+############### World layout
 
 # camera0 is the "reference"
 model0 = mrcal.cameramodel( intrinsics = ('LENSMODEL_PINHOLE',
@@ -62,159 +28,223 @@ model0 = mrcal.cameramodel( intrinsics = ('LENSMODEL_PINHOLE',
                             imagersize = np.array((1000,1000)) )
 model1 = mrcal.cameramodel( intrinsics = ('LENSMODEL_PINHOLE',
                                           np.array((1100., 1100., 500., 500.))),
-                            imagersize = np.array((1000,1000)),
-                            extrinsics_Rt_toref = Rt01 )
-
-d        = 200.
-sigma    = 0.5
-Nsamples = 2000
-
-p = np.array((10., 20., 200.))
-q0 = mrcal.project( mrcal.transform_point_Rt( model0.extrinsics_Rt_fromref(), p),
-                    *model0.intrinsics() )
-q1 = mrcal.project( mrcal.transform_point_Rt( model1.extrinsics_Rt_fromref(), p),
-                    *model1.intrinsics() )
-
-def noisy_observation_vectors(N, sigma = 0.1):
-    q_noise = np.random.randn(2,N,2) * sigma
-
-    # All have shape (N,2)
-    v0_local_noisy = mrcal.unproject( q0 + q_noise[0], *model0.intrinsics() )
-    v1_local_noisy = mrcal.unproject( q1 + q_noise[1], *model1.intrinsics() )
-    v0_ref_noisy   = v0_local_noisy
-    v1_ref_noisy   = mrcal.rotate_point_R(Rt01[:3,:], v1_local_noisy)
-
-    # All have shape (N,3)
-    return v0_local_noisy,v1_local_noisy,v0_ref_noisy,v1_ref_noisy
-
-v0_local_noisy,v1_local_noisy,v0_ref_noisy,v1_ref_noisy = \
-    [v[0] for v in noisy_observation_vectors(1)]
+                            imagersize = np.array((1000,1000)) )
 
 
-############# Test case is set up. Let's run the tests!
-f = mrcal._mrcal_npsp._triangulate_geometric_withgrad
-m, dm_dv0, dm_dv1, dm_dt01 = f( v0_ref_noisy, v1_ref_noisy, t01 )
+def noisy_observation_vectors(p, Rt10, Nsamples, sigma):
 
-dm_dv0_empirical  = \
-  grad( lambda v0:  f(v0,           v1_ref_noisy, t01)[0], v0_ref_noisy)
-dm_dv1_empirical  = \
-  grad( lambda v1:  f(v0_ref_noisy, v1,           t01)[0], v1_ref_noisy)
-dm_dt01_empirical = \
-  grad( lambda t01: f(v0_ref_noisy, v1_ref_noisy, t01)[0], t01)
+    # p has shape (...,3)
 
+    # shape (..., 2)
+    q0 = mrcal.project( p,
+                        *model0.intrinsics() )
+    q1 = mrcal.project( mrcal.transform_point_Rt( Rt10, p),
+                        *model1.intrinsics() )
 
-testutils.confirm_equal( m, triangulate_geometric_ref(v0_ref_noisy,v1_ref_noisy,t01),
-                         relative  = True,
-                         worstcase = True,
-                         msg = f"Geometric triangulation: computation is correct",
-                         eps = 1e-6)
-testutils.confirm_equal( m, p,
-                         relative  = True,
-                         worstcase = True,
-                         msg = f"Geometric triangulation: noisy intersection is about right",
-                         eps = 0.1)
-testutils.confirm_equal( dm_dv0, dm_dv0_empirical,
-                         relative  = True,
-                         worstcase = True,
-                         msg = f"Geometric triangulation, dm/dv0",
-                         eps = 1e-6)
-testutils.confirm_equal( dm_dv1, dm_dv1_empirical,
-                         relative  = True,
-                         worstcase = True,
-                         msg = f"Geometric triangulation, dm/dv1",
-                         eps = 1e-6)
-testutils.confirm_equal( dm_dt01, dm_dt01_empirical,
-                         relative  = True,
-                         worstcase = True,
-                         msg = f"Geometric triangulation, dm/dt01",
-                         eps = 1e-6)
+    q_noise = np.random.randn(*p.shape[:-1], Nsamples,2,2) * sigma
+    # shape (..., Nsamples,2). Each has x,y
+    q0_noise = q_noise[...,:,0,:]
+    q1_noise = q_noise[...,:,1,:]
+
+    # shape (..., Nsamples, 3)
+    v0local_noisy = mrcal.unproject( nps.dummy(q0,-2) + q0_noise, *model0.intrinsics() )
+    v1local_noisy = mrcal.unproject( nps.dummy(q1,-2) + q1_noise, *model1.intrinsics() )
+    v0_noisy      = v0local_noisy
+    v1_noisy      = mrcal.rotate_point_R(Rt01[:3,:], v1local_noisy)
+
+    # All have shape (..., Nsamples,3)
+    return v0local_noisy, v1local_noisy, v0_noisy,v1_noisy
 
 
-f = mrcal._mrcal_npsp._triangulate_lindstrom_withgrad
-m, dm_dv0, dm_dv1, dm_dRt01 = f( v0_local_noisy, v1_local_noisy, Rt01 )
+# All the callback functions can broadcast on p,v
+@nps.broadcast_define( ((3,), (3,), (3,), (3,)),
+                       ())
+def callback_l2_geometric(p, v0, v1, t01):
+    if p[2] < 0: return 1e6
+    distance_p_v0 = nps.mag(p     - nps.inner(p,    v0)/nps.norm2(v0) * v0)
+    distance_p_v1 = nps.mag(p-t01 - nps.inner(p-t01,v1)/nps.norm2(v1) * v1)
+    return np.abs(distance_p_v0) + np.abs(distance_p_v1)
 
-dm_dv0_empirical   = \
-  grad( lambda v0:  f(v0,             v1_local_noisy, Rt01)[0], v0_local_noisy)
-dm_dv1_empirical   = \
-  grad( lambda v1:  f(v0_local_noisy, v1,             Rt01)[0], v1_local_noisy)
-dm_dRt01_empirical = \
-  grad( lambda Rt01:f(v0_local_noisy, v1_local_noisy, Rt01)[0], Rt01)
+@nps.broadcast_define( ((3,), (3,), (3,), (3,)),
+                       ())
+def callback_l2_angle(p, v0, v1, t01):
+    costh0 = nps.inner(p,    v0) / np.sqrt(nps.norm2(p)     * nps.norm2(v0))
+    costh1 = nps.inner(p-t01,v1) / np.sqrt(nps.norm2(p-t01) * nps.norm2(v1))
+    th0 = np.arccos(min(costh0, 1.0))
+    th1 = np.arccos(min(costh1, 1.0))
+    return th0*th0 + th1*th1
 
-testutils.confirm_equal( m, p,
-                         relative  = True,
-                         worstcase = True,
-                         msg = f"Lindstrom triangulation: noisy intersection is about right",
-                         eps = 0.1)
-testutils.confirm_equal( dm_dv0, dm_dv0_empirical,
-                         relative  = True,
-                         worstcase = True,
-                         msg = f"Lindstrom triangulation, dm/dv0",
-                         eps = 1e-6)
-testutils.confirm_equal( dm_dv1, dm_dv1_empirical,
-                         relative  = True,
-                         worstcase = True,
-                         msg = f"Lindstrom triangulation, dm/dv1",
-                         eps = 1e-6)
-testutils.confirm_equal( dm_dRt01, dm_dRt01_empirical,
-                         relative  = True,
-                         worstcase = True,
-                         msg = f"Lindstrom triangulation, dm/dRt01",
-                         eps = 1e-6)
+@nps.broadcast_define( ((3,), (3,), (3,), (3,)),
+                       ())
+def callback_l1_angle(p, v0, v1, t01):
+    costh0 = nps.inner(p,    v0) / np.sqrt(nps.norm2(p)     * nps.norm2(v0))
+    costh1 = nps.inner(p-t01,v1) / np.sqrt(nps.norm2(p-t01) * nps.norm2(v1))
+    th0 = np.arccos(min(costh0, 1.0))
+    th1 = np.arccos(min(costh1, 1.0))
+    return np.abs(th0) + np.abs(th1)
 
+@nps.broadcast_define( ((3,), (3,), (3,), (3,)),
+                       ())
+def callback_linf_angle(p, v0, v1, t01):
+    costh0 = nps.inner(p,    v0) / np.sqrt(nps.norm2(p)     * nps.norm2(v0))
+    costh1 = nps.inner(p-t01,v1) / np.sqrt(nps.norm2(p-t01) * nps.norm2(v1))
 
-############ bias test
-#
-# The lindstrom method is supposed to have minimal bias, while the geometric
-# method should be biased. Let's do some random sampling to confirm
-v0_local_noisy,v1_local_noisy,v0_ref_noisy,v1_ref_noisy = \
-    noisy_observation_vectors(Nsamples, sigma = sigma)
+    # Simpler function that has the same min
+    return (1-min(costh0, costh1)) * 1e9
+    # th0 = np.arccos(min(costh0, 1.0))
+    # th1 = np.arccos(min(costh1, 1.0))
+    # return max(np.abs(th0), np.abs(th1))
 
-print("sampling: p_sampled_geometric")
-p_sampled_geometric = \
-    mrcal._mrcal_npsp._triangulate_geometric( v0_ref_noisy, v1_ref_noisy, t01 )
-print("sampling: p_sampled_lindstrom")
-p_sampled_lindstrom = \
-    mrcal._mrcal_npsp._triangulate_lindstrom( v0_local_noisy, v1_local_noisy, Rt01 )
-print("sampling: p_sampled_leecivera_l1")
-p_sampled_leecivera_l1 = \
-    mrcal._mrcal_npsp._triangulate_leecivera_l1( v0_local_noisy, v1_local_noisy, t01 )
-print("sampling: p_sampled_leecivera_linf")
-p_sampled_leecivera_linf = \
-    mrcal._mrcal_npsp._triangulate_leecivera_linf( v0_local_noisy, v1_local_noisy, t01 )
-
-q0_sampled_geometric      = mrcal.project(p_sampled_geometric,      *model0.intrinsics())
-q0_sampled_lindstrom      = mrcal.project(p_sampled_lindstrom,      *model0.intrinsics())
-q0_sampled_leecivera_l1   = mrcal.project(p_sampled_leecivera_l1,   *model0.intrinsics())
-q0_sampled_leecivera_linf = mrcal.project(p_sampled_leecivera_linf, *model0.intrinsics())
-
-
-import gnuplotlib as gp
-gp.plot( *plot_args_points_and_covariance_ellipse( q0_sampled_geometric,      'geometric' ),
-         *plot_args_points_and_covariance_ellipse( q0_sampled_lindstrom,      'lindstrom' ),
-         *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_l1,   'lee-civera-l1' ),
-         *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_linf, 'lee-civera-linf' ),
-         ( q0, dict(_with     = 'points pt 7 ps 2',
-                    tuplesize = -2,
-                    legend    = 'Ground truth')),
-         square = True,
-         wait = True
-        )
+@nps.broadcast_define( ((3,), (3,), (3,), (4,3)),
+                       ())
+def callback_l2_reprojection(p, v0local, v1local, Rt01):
+    dq0 = \
+        mrcal.project(p,       *model0.intrinsics()) - \
+        mrcal.project(v0local, *model0.intrinsics())
+    dq1 = \
+        mrcal.project(mrcal.transform_point_Rt(mrcal.invert_Rt(Rt01),p),
+                      *model1.intrinsics()) - \
+        mrcal.project(v1local, *model1.intrinsics())
+    return nps.norm2(dq0) + nps.norm2(dq1)
 
 
 
+# can broadcast on p
+def test_geometry( Rt01, p, whatgeometry,
+                   out_of_bounds   = False,
+                   check_gradients = False):
 
-import IPython
-IPython.embed()
+    R01 = Rt01[:3,:]
+    t01 = Rt01[ 3,:]
+
+    # p now has shape (Np,3). The leading dims have been flattened
+    p = p.reshape( p.size // 3, 3)
+    Np = len(p)
+
+    # p has shape (Np,3)
+    # v has shape (Np,2)
+    v0local_noisy, v1local_noisy,v0_noisy,v1_noisy = \
+        [v[...,0,:] for v in noisy_observation_vectors(p, mrcal.invert_Rt(Rt01), 1,
+                                                       sigma = 0.1)]
+
+    scenarios = \
+        ( (mrcal.triangulate_geometric,      callback_l2_geometric,    v0_noisy,      v1_noisy,      t01),
+          (mrcal.triangulate_leecivera_l1,   callback_l1_angle,        v0_noisy,      v1_noisy,      t01),
+          (mrcal.triangulate_leecivera_linf, callback_linf_angle,      v0_noisy,      v1_noisy,      t01),
+          (mrcal.triangulate_lindstrom,      callback_l2_reprojection, v0local_noisy, v1local_noisy, Rt01),
+         )
+
+    for scenario in scenarios:
+
+        f, callback = scenario[:2]
+        args        = scenario[2:]
+
+        result     = f(*args, get_gradients = True)
+        p_reported = result[0]
+
+        what = f"{whatgeometry} {f.__name__}"
+
+        if out_of_bounds:
+            p_optimized = np.zeros(p_reported.shape)
+        else:
+            # Check all the gradients
+            if check_gradients:
+                grads = result[1:]
+                for ip in range(Np):
+                    args_cut = (args[0][ip], args[1][ip], args[2])
+                    for ivar in range(len(args)):
+                        grad_empirical  = \
+                            grad( lambda x: f( *args_cut[:ivar],
+                                               x,
+                                               *args_cut[ivar+1:]),
+                                  args_cut[ivar],
+                                  step = 1e-6)
+                        testutils.confirm_equal( grads[ivar][ip], grad_empirical,
+                                                 relative  = True,
+                                                 worstcase = True,
+                                                 msg = f"{what}: grad(ip={ip}, ivar = {ivar})",
+                                                 eps = 2e-2)
+
+            # I run an optimization to directly optimize the quantity each triangulation
+            # routine is supposed to be optimizing, and then I compare
+            p_optimized = \
+                nps.cat(*[ scipy.optimize.minimize(callback,
+                                                   p_reported[ip], # seed from the "right" value
+                                                   args   = (args[0][ip], args[1][ip], args[2]),
+                                                   method = 'Nelder-Mead',
+                                                   # options = dict(disp  = True)
+                                                   )['x'] \
+                           for ip in range(Np) ])
+
+        # print( f"{what} p reported,optimized:\n{nps.cat(p_reported, p_optimized)}" )
+        # print( f"{what} p_err: {p_reported - p_optimized}" )
+        # print( f"{what} optimum reported,optimized:\n{nps.transpose(np.array((callback(p_optimized, *args),callback(p_optimized, *args))))}" )
+        for ip in range(Np):
+            testutils.confirm_equal( p_reported[ip], p_optimized[ip],
+                                     relative  = True,
+                                     worstcase = True,
+                                     msg = f"{what} ip={ip}",
+                                     eps = 2e-2)
+
+# square camera layout
+t01  = np.array(( 1.,   0.1,  -0.2))
+R01  = mrcal.R_from_r(np.array((0.001, -0.002, -0.003)))
+Rt01 = nps.glue(R01, t01, axis=-2)
+
+p = np.array((( 300.,  20.,   2000.), # far away AND center-ish
+              (-310.,  18.,   2000.),
+              ( 30.,   290.,  1500.), # far away AND center-ish
+              (-31.,   190.,  1500.),
+              ( 3000., 200.,  2000.), # far away AND off to either side
+              (-3100., 180.,  2000.),
+              ( 300.,  2900., 1500.), # far away AND off up/down
+              (-310.,  1980., 1500.),
+              ( 3000., -200., 20.  ), # very close AND off to either side
+              (-3100., 180.,  20.  ),
+              ( 300.,  2900., 15.  ), # very close AND off up/down
+              (-310.,  1980., 15.  )
+              ))
+test_geometry(Rt01, p, "square-camera-geometry", check_gradients = True)
+
+# Not checking gradients anymore. If the above all pass, the rest will too.
+# Turning on the checks will slow stuff down and create more console spew. AND
+# some test may benignly fail because of the too-small or too-large central
+# difference steps
+
+# cameras facing at each other
+t01  = np.array(( 0, 0, 100.0 ))
+R01  = mrcal.R_from_r(np.array((0.001, np.pi+0.002, -0.003)))
+Rt01 = nps.glue(R01, t01, axis=-2)
+
+p = np.array((( 3.,      2.,    20.), # center-ish
+              (-1000.,  18.,    20.), # off to various sides
+              (1000.,   29.,    50.),
+              (-31.,   1900.,   70.),
+              (-11.,   -2000.,  95.),
+              ))
+test_geometry(Rt01, p, "cameras-facing-each-other", check_gradients = False)
+
+p = np.array((( 3.,      2.,    101.), # center-ish
+              (-11.,   -2000.,  -5.),
+              ))
+test_geometry(Rt01, p, "cameras-facing-each-other out-of-bounds", out_of_bounds = True)
+
+# cameras at 90 deg to each other
+t01  = np.array(( 100.0, 0, 100.0 ))
+R01  = mrcal.R_from_r(np.array((0.001, -np.pi/2.+0.002, -0.003)))
+Rt01 = nps.glue(R01, t01, axis=-2)
+
+p = np.array((( 30.,    5.,     40.  ), # center-ish
+              ( -2000., 25.,    50.  ), # way left in one cam, forward in the other
+              (  90.,   -100.,  2000.), # forward one, right the other
+              (  95.,    5.,     4.  ), # corner on both
+              ))
+test_geometry(Rt01, p, "cameras-90deg-to-each-other", check_gradients = False)
 
 
-
-
-
-# Try r grad via r (not R)
-# need python wrapper to set the result, and I should call the python wrapper here
-# wrapper should do no-gradients by default
-# should check result here
-# docs
-
+p = np.array((( 110.,  25.,    50.  ),
+              (  90.,  -100.,  -5.),
+              ))
+test_geometry(Rt01, p, "cameras-90deg-to-each-other out-of-bounds", out_of_bounds = True )
 
 testutils.finish()
