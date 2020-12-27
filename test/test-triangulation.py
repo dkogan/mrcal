@@ -185,7 +185,7 @@ def test_geometry( Rt01, p, whatgeometry,
                                      relative  = True,
                                      worstcase = True,
                                      msg = f"{what} ip={ip}",
-                                     eps = 2e-2)
+                                     eps = 1e-3)
 
 # square camera layout
 t01  = np.array(( 1.,   0.1,  -0.2))
