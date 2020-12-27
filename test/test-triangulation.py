@@ -248,4 +248,61 @@ p = np.array((( 110.,  25.,    50.  ),
               ))
 test_geometry(Rt01, p, "cameras-90deg-to-each-other out-of-bounds", out_of_bounds = True )
 
-testutils.finish()
+
+# if no cmdline args are given, we're done!
+if len(sys.argv) <= 1:
+    testutils.finish()
+
+############ bias visualization
+#
+# I simulate pixel noise, and see what that does to the triangulation. Play with
+# the geometric details to get a sense of how these behave
+
+# square camera layout
+t01  = np.array(( 1.,   0.1,  -0.2))
+R01  = mrcal.R_from_r(np.array((0.001, -0.002, -0.003)))
+Rt01 = nps.glue(R01, t01, axis=-2)
+
+p  = np.array(( 5000., 300.,  2000.))
+q0 = mrcal.project(p, *model0.intrinsics())
+
+Nsamples = 2000
+sigma    = 0.1
+
+v0local_noisy, v1local_noisy,v0_noisy,v1_noisy = \
+    noisy_observation_vectors(p, mrcal.invert_Rt(Rt01),
+                              Nsamples, sigma = sigma)
+
+p_sampled_geometric      = mrcal.triangulate_geometric(      v0_noisy,      v1_noisy,      t01 )
+p_sampled_lindstrom      = mrcal.triangulate_lindstrom(      v0local_noisy, v1local_noisy, Rt01 )
+p_sampled_leecivera_l1   = mrcal.triangulate_leecivera_l1(   v0_noisy,      v1_noisy,      t01 )
+p_sampled_leecivera_linf = mrcal.triangulate_leecivera_linf( v0_noisy,      v1_noisy,      t01 )
+
+q0_sampled_geometric      = mrcal.project(p_sampled_geometric,      *model0.intrinsics())
+q0_sampled_lindstrom      = mrcal.project(p_sampled_lindstrom,      *model0.intrinsics())
+q0_sampled_leecivera_l1   = mrcal.project(p_sampled_leecivera_l1,   *model0.intrinsics())
+q0_sampled_leecivera_linf = mrcal.project(p_sampled_leecivera_linf, *model0.intrinsics())
+
+
+# q0_sampled_geometric      = p_sampled_geometric[:,:2]
+# q0_sampled_lindstrom      = p_sampled_lindstrom[:,:2]
+# q0_sampled_leecivera_l1   = p_sampled_leecivera_l1[:,:2]
+# q0_sampled_leecivera_linf = p_sampled_leecivera_linf[:,:2]
+# q0 = p[:2]
+
+
+import gnuplotlib as gp
+gp.plot( *plot_args_points_and_covariance_ellipse( q0_sampled_geometric,      'geometric' ),
+         *plot_args_points_and_covariance_ellipse( q0_sampled_lindstrom,      'lindstrom' ),
+         *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_l1,   'lee-civera-l1' ),
+         *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_linf, 'lee-civera-linf' ),
+         ( q0,
+           dict(_with     = 'points pt 3 ps 2',
+                tuplesize = -2,
+                legend    = 'Ground truth')),
+         square = True,
+         wait   = True)
+
+
+# import IPython
+# IPython.embed()
