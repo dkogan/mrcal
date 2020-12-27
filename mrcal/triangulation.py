@@ -297,7 +297,7 @@ if get_gradients: we return a tuple:
 def triangulate_lindstrom(v0_local, v1_local, Rt01,
                           get_gradients = False):
 
-    r'''Triangulation minimizing the 2-norm of reprojection errors
+    r'''Triangulation minimizing the 2-norm of pinhole reprojection errors
 
 SYNOPSIS
 
