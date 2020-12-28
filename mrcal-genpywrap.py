@@ -516,7 +516,7 @@ applied
 m.function( "_triangulate_geometric",
             r"""Internal geometric triangulation routine
 
-This is the internals for mrcal.tringulate_geometric(). As a user, please call
+This is the internals for mrcal.triangulate_geometric(). As a user, please call
 THAT function, and see the docs for that function. The differences:
 
 - This is just the no-gradients function. The internal function that returns
@@ -551,7 +551,7 @@ THAT function, and see the docs for that function. The differences:
 m.function( "_triangulate_geometric_withgrad",
             r"""Internal geometric triangulation routine
 
-This is the internals for mrcal.tringulate_geometric(). As a user, please call
+This is the internals for mrcal.triangulate_geometric(). As a user, please call
 THAT function, and see the docs for that function. The differences:
 
 - This is just the gradients-returning function. The internal function that
@@ -590,7 +590,7 @@ THAT function, and see the docs for that function. The differences:
 m.function( "_triangulate_lindstrom",
             f"""Internal Lindstrom's triangulation routine
 
-This is the internals for mrcal.tringulate_lindstrom(). As a user, please call
+This is the internals for mrcal.triangulate_lindstrom(). As a user, please call
 THAT function, and see the docs for that function. The differences:
 
 - This is just the no-gradients function. The internal function that returns
@@ -625,7 +625,7 @@ THAT function, and see the docs for that function. The differences:
 m.function( "_triangulate_lindstrom_withgrad",
             f"""Internal Lindstrom's triangulation routine
 
-This is the internals for mrcal.tringulate_lindstrom(). As a user, please call
+This is the internals for mrcal.triangulate_lindstrom(). As a user, please call
 THAT function, and see the docs for that function. The differences:
 
 - This is just the gradient-returning function. The internal function that skips those
@@ -664,7 +664,7 @@ THAT function, and see the docs for that function. The differences:
 m.function( "_triangulate_leecivera_l1",
             r"""Internal Lee-Civera L1 triangulation routine
 
-This is the internals for mrcal.tringulate_leecivera_l1(). As a user, please call
+This is the internals for mrcal.triangulate_leecivera_l1(). As a user, please call
 THAT function, and see the docs for that function. The differences:
 
 - This is just the no-gradients function. The internal function that returns
@@ -699,7 +699,7 @@ THAT function, and see the docs for that function. The differences:
 m.function( "_triangulate_leecivera_l1_withgrad",
             r"""Internal Lee-Civera L1 triangulation routine
 
-This is the internals for mrcal.tringulate_leecivera_l1(). As a user, please call
+This is the internals for mrcal.triangulate_leecivera_l1(). As a user, please call
 THAT function, and see the docs for that function. The differences:
 
 - This is just the gradients-returning function. The internal function that
@@ -738,7 +738,7 @@ THAT function, and see the docs for that function. The differences:
 m.function( "_triangulate_leecivera_linf",
             r"""Internal Lee-Civera L-infinity triangulation routine
 
-This is the internals for mrcal.tringulate_leecivera_linf(). As a user, please call
+This is the internals for mrcal.triangulate_leecivera_linf(). As a user, please call
 THAT function, and see the docs for that function. The differences:
 
 - This is just the no-gradients function. The internal function that returns
@@ -773,7 +773,7 @@ THAT function, and see the docs for that function. The differences:
 m.function( "_triangulate_leecivera_linf_withgrad",
             r"""Internal Lee-Civera L-infinity triangulation routine
 
-This is the internals for mrcal.tringulate_leecivera_linf(). As a user, please call
+This is the internals for mrcal.triangulate_leecivera_linf(). As a user, please call
 THAT function, and see the docs for that function. The differences:
 
 - This is just the gradients-returning function. The internal function that
