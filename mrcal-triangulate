@@ -85,6 +85,9 @@ def parse_args():
                         help='''This is passed to mrcal.match_feature(). The default is 0.9: accept only very
                         good matches. If this isn't good for whatever reason,
                         that can be overridden''')
+    parser.add_argument('--viz-match',
+                        action='store_true',
+                        help='''If given, we visualize the feature-matcher results''')
     parser.add_argument('models',
                         type=str,
                         nargs = 2,
@@ -328,7 +331,7 @@ else:
                             search_radius = args.searchradius,
                             q0            = q0,
                             H10           = np.linalg.inv(H01),
-                            visualize     = False)
+                            visualize     = args.viz_match)
     if q1 is None or \
        diagnostics['matchoutput_optimum_subpixel'] < args.corr_floor:
         print("## Feature-matching failed! Maybe increase the search radius?")
