@@ -15,8 +15,45 @@ import sys
 import mrcal
 import mrcal._mrcal_npsp
 
-def triangulate_geometric(v0, v1, t01,
-                          get_gradients = False):
+def _parse_args(v1,
+                t01,
+                get_gradients,
+                v_are_local,
+                Rt01):
+    r'''Parse arguments to triangulation functions that take camera-0-referenced v
+    AND t01'''
+
+    if Rt01 is not None and t01 is not None:
+        raise Exception("Exactly one of Rt01 and t01 must be None. Both were non-None")
+
+    if Rt01 is None     and t01 is None:
+        raise Exception("Exactly one of Rt01 and t01 must be None. Both were None")
+
+    if v_are_local:
+        if get_gradients:
+            raise Exception("get_gradients is True, so v_are_local MUST be the default: False")
+        if Rt01 is None:
+            raise Exception("v_are_local is True, so Rt01 MUST have been given")
+        v1 = mrcal.rotate_point_R(Rt01[:3,:], v1)
+        t01 = Rt01[3,:]
+    else:
+        # Normal path
+        if t01 is None:
+            t01 = Rt01[3,:]
+            if get_gradients:
+                raise Exception("get_gradients is True, so t01 MUST have been given")
+        else:
+            # Normal path
+            pass
+
+    return v1, t01
+
+
+def triangulate_geometric(v0, v1,
+                          t01           = None,
+                          get_gradients = False,
+                          v_are_local   = False,
+                          Rt01          = None):
 
     r'''Simple geometric triangulation
 
@@ -67,6 +104,26 @@ processing real data.
 
 This function supports broadcasting fully.
 
+By default, this function takes a translation t01 instead of a full
+transformation Rt01. This is consistent with most, but not all of the
+triangulation routines. For API compatibility with ALL triangulation routines,
+the full Rt01 may be passed as a kwarg.
+
+Also, by default this function takes v1 in the camera-0-local coordinate system
+like most, but not all the other triangulation routines. If v_are_local: then v1
+is interpreted in the camera-1 coordinate system instead. This makes it simple
+to compare the triangulation routines against one another.
+
+The invocation compatible across all the triangulation routines omits t01, and
+passes Rt01 and v_are_local:
+
+  triangulate_...( v0, v1,
+                   Rt01        = Rt01,
+                   v_are_local = False )
+
+Gradient reporting is possible in the default case of Rt01 is None and not
+v_are_local.
+
 ARGUMENTS
 
 - v0: (3,) numpy array containing a not-necessarily-normalized observation
@@ -83,6 +140,14 @@ ARGUMENTS
 
 - get_gradients: optional boolean that defaults to False. Whether we should
   compute and report the gradients. This affects what we return
+
+- v_are_local: optional boolean that defaults to False. If True: v1 is
+  represented in the local coordinate system of camera-1. The default is
+  consistent with most, but not all of the triangulation routines.
+
+- Rt01: optional (4,3) numpy array, defaulting to None. If given, we use this
+  transformation from camera-1 coordinates to camera-0 coordinates instead of
+  t01. This exists for API compatibility with the other triangulation routines.
 
 RETURNED VALUE
 
@@ -103,14 +168,20 @@ if get_gradients: we return a tuple:
 
     '''
 
+    v1, t01 = _parse_args(v1, t01,
+                          get_gradients, v_are_local, Rt01)
+
     if not get_gradients:
         return mrcal._mrcal_npsp._triangulate_geometric(v0, v1, t01)
     else:
         return mrcal._mrcal_npsp._triangulate_geometric_withgrad(v0, v1, t01)
 
 
-def triangulate_leecivera_l1(v0, v1, t01,
-                             get_gradients = False):
+def triangulate_leecivera_l1(v0, v1,
+                             t01           = None,
+                             get_gradients = False,
+                             v_are_local   = False,
+                             Rt01          = None):
 
     r'''Triangulation minimizing the L1-norm of angle differences
 
@@ -159,6 +230,26 @@ rays are parallel or divergent), (0,0,0) is returned.
 
 This function supports broadcasting fully.
 
+By default, this function takes a translation t01 instead of a full
+transformation Rt01. This is consistent with most, but not all of the
+triangulation routines. For API compatibility with ALL triangulation routines,
+the full Rt01 may be passed as a kwarg.
+
+Also, by default this function takes v1 in the camera-0-local coordinate system
+like most, but not all the other triangulation routines. If v_are_local: then v1
+is interpreted in the camera-1 coordinate system instead. This makes it simple
+to compare the triangulation routines against one another.
+
+The invocation compatible across all the triangulation routines omits t01, and
+passes Rt01 and v_are_local:
+
+  triangulate_...( v0, v1,
+                   Rt01        = Rt01,
+                   v_are_local = False )
+
+Gradient reporting is possible in the default case of Rt01 is None and not
+v_are_local.
+
 ARGUMENTS
 
 - v0: (3,) numpy array containing a not-necessarily-normalized observation
@@ -175,6 +266,14 @@ ARGUMENTS
 
 - get_gradients: optional boolean that defaults to False. Whether we should
   compute and report the gradients. This affects what we return
+
+- v_are_local: optional boolean that defaults to False. If True: v1 is
+  represented in the local coordinate system of camera-1. The default is
+  consistent with most, but not all of the triangulation routines.
+
+- Rt01: optional (4,3) numpy array, defaulting to None. If given, we use this
+  transformation from camera-1 coordinates to camera-0 coordinates instead of
+  t01. This exists for API compatibility with the other triangulation routines.
 
 RETURNED VALUE
 
@@ -195,14 +294,20 @@ if get_gradients: we return a tuple:
 
     '''
 
+    v1, t01 = _parse_args(v1, t01,
+                          get_gradients, v_are_local, Rt01)
+
     if not get_gradients:
         return mrcal._mrcal_npsp._triangulate_leecivera_l1(v0, v1, t01)
     else:
         return mrcal._mrcal_npsp._triangulate_leecivera_l1_withgrad(v0, v1, t01)
 
 
-def triangulate_leecivera_linf(v0, v1, t01,
-                               get_gradients = False):
+def triangulate_leecivera_linf(v0, v1,
+                               t01           = None,
+                               get_gradients = False,
+                               v_are_local   = False,
+                               Rt01          = None):
 
     r'''Triangulation minimizing the infinity-norm of angle differences
 
@@ -252,6 +357,26 @@ rays are parallel or divergent), (0,0,0) is returned.
 
 This function supports broadcasting fully.
 
+By default, this function takes a translation t01 instead of a full
+transformation Rt01. This is consistent with most, but not all of the
+triangulation routines. For API compatibility with ALL triangulation routines,
+the full Rt01 may be passed as a kwarg.
+
+Also, by default this function takes v1 in the camera-0-local coordinate system
+like most, but not all the other triangulation routines. If v_are_local: then v1
+is interpreted in the camera-1 coordinate system instead. This makes it simple
+to compare the triangulation routines against one another.
+
+The invocation compatible across all the triangulation routines omits t01, and
+passes Rt01 and v_are_local:
+
+  triangulate_...( v0, v1,
+                   Rt01        = Rt01,
+                   v_are_local = False )
+
+Gradient reporting is possible in the default case of Rt01 is None and not
+v_are_local.
+
 ARGUMENTS
 
 - v0: (3,) numpy array containing a not-necessarily-normalized observation
@@ -268,6 +393,14 @@ ARGUMENTS
 
 - get_gradients: optional boolean that defaults to False. Whether we should
   compute and report the gradients. This affects what we return
+
+- v_are_local: optional boolean that defaults to False. If True: v1 is
+  represented in the local coordinate system of camera-1. The default is
+  consistent with most, but not all of the triangulation routines.
+
+- Rt01: optional (4,3) numpy array, defaulting to None. If given, we use this
+  transformation from camera-1 coordinates to camera-0 coordinates instead of
+  t01. This exists for API compatibility with the other triangulation routines.
 
 RETURNED VALUE
 
@@ -288,14 +421,18 @@ if get_gradients: we return a tuple:
 
     '''
 
+    v1, t01 = _parse_args(v1, t01,
+                          get_gradients, v_are_local, Rt01)
+
     if not get_gradients:
         return mrcal._mrcal_npsp._triangulate_leecivera_linf(v0, v1, t01)
     else:
         return mrcal._mrcal_npsp._triangulate_leecivera_linf_withgrad(v0, v1, t01)
 
 
-def triangulate_lindstrom(v0_local, v1_local, Rt01,
-                          get_gradients = False):
+def triangulate_lindstrom(v0, v1, Rt01,
+                          get_gradients = False,
+                          v_are_local   = True):
 
     r'''Triangulation minimizing the 2-norm of pinhole reprojection errors
 
@@ -350,19 +487,31 @@ rays are parallel or divergent), (0,0,0) is returned.
 
 This function supports broadcasting fully.
 
-Note that this function takes Rt01 instead of t01 like all the other
-triangulation functions do.
+This function takes a full transformation Rt01, instead of t01 like most of the
+other triangulation functions do by default. The other function may take Rt01,
+for API compatibility.
 
-Also, note that this function takes v1 in the camera-1-local coordinate system
-unlike all the other triangulation routines.
+Also, by default this function takes v1 in the camera-1-local coordinate system
+unlike most of the other triangulation routines. If not v_are_local: then v1 is
+interpreted in the camera-0 coordinate system instead. This makes it simple to
+compare the routines against one another.
+
+The invocation compatible across all the triangulation routines omits t01, and
+passes Rt01 and v_are_local:
+
+  triangulate_...( v0, v1,
+                   Rt01        = Rt01,
+                   v_are_local = False )
+
+Gradient reporting is possible in the default case of v_are_local is True
 
 ARGUMENTS
 
-- v0_local: (3,) numpy array containing a not-necessarily-normalized observation
+- v0: (3,) numpy array containing a not-necessarily-normalized observation
   vector of a feature observed in camera-0, described in the camera-0 coordinate
   system
 
-- v1_local: (3,) numpy array containing a not-necessarily-normalized observation
+- v1: (3,) numpy array containing a not-necessarily-normalized observation
   vector of a feature observed in camera-1, described in the camera-1 coordinate
   system. Note that this vector is represented in the camera-local coordinate
   system, unlike the representation in all the other triangulation routines
@@ -372,6 +521,11 @@ ARGUMENTS
 
 - get_gradients: optional boolean that defaults to False. Whether we should
   compute and report the gradients. This affects what we return
+
+- v_are_local: optional boolean that defaults to True. If True: v1 is
+  represented in the local coordinate system of camera-1. This is different from
+  the other triangulation routines. Set v_are_local to False to make this
+  function interpret v1 similarly to the other triangulation routines
 
 RETURNED VALUE
 
@@ -384,15 +538,20 @@ if get_gradients: we return a tuple:
 
   - (...,3) array of triangulated point positions
   - (...,3,3) array of the gradients of the triangulated positions in respect to
-    v0_local
+    v0
   - (...,3,3) array of the gradients of the triangulated positions in respect to
-    v1_local
+    v1
   - (...,3,4,3) array of the gradients of the triangulated positions in respect
     to Rt01
 
     '''
 
+    if not v_are_local:
+        if get_gradients:
+            raise Exception("get_gradients is True, so v_are_local MUST be True")
+        v1 = mrcal.rotate_point_R(nps.transpose(Rt01[:3,:]), v1)
+
     if not get_gradients:
-        return mrcal._mrcal_npsp._triangulate_lindstrom(v0_local, v1_local, Rt01)
+        return mrcal._mrcal_npsp._triangulate_lindstrom(v0, v1, Rt01)
     else:
-        return mrcal._mrcal_npsp._triangulate_lindstrom_withgrad(v0_local, v1_local, Rt01)
+        return mrcal._mrcal_npsp._triangulate_lindstrom_withgrad(v0, v1, Rt01)
