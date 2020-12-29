@@ -4,6 +4,7 @@
 The C API consists of 3 headers:
 - [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]: /very/ simple geometry structures
 - [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/poseutils.h][=poseutils.h=]]: pose and geometry functions
+- [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/triangulation.h][=triangulation.h=]]: tringulation routines
 - [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal.h=]]: lens models, projections, optimization
 
 Most usages would simply =#include <mrcal.h>=, and this would include all the
@@ -420,6 +421,11 @@ void mrcal_compose_rt_noncontiguous( // output
                                     int rt_1_stride0      // in bytes. <= 0 means "contiguous"
                                     );
 #+end_src
+
+* Triangulation
+A number of triangulation routines are available in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/triangulation.h][=triangulation.h=]]. These
+estimate the position of the 3D point that produced a given pair of
+observations. See the header for the available routines
 
 * Lens models
 The lens model structures are defined here:
