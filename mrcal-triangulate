@@ -1,0 +1,564 @@
+#!/usr/bin/python3
+
+r'''Triangulate a feature in a pair of images to report a range
+
+SYNOPSIS
+
+  $ mrcal-triangulate
+      left.cameramodel right.cameramodel
+      left.jpg right.jpg
+      1234 2234
+
+  Feature (1234,2234) in the left image corresponds to (1324.1,2044.4) at 50m
+  Feature match found at (1341.0,2045.1)
+  Range: 61.38350110742266m
+  Observed-pixel sensitivity: 18.04671968980074m/pixel. Worst direction: [1. 0.]
+  Calibration yaw sensitivity: -482.2675166509725m/deg.
+  Calibration translation sensitivity: 61.3854493684335m/m. Worst direction: [-9.92708874e-01 -1.20536680e-01  1.22464680e-16]
+
+Given a pair of images, a pair of camera models and a feature coordinate in the
+first image, finds the corresponding feature in the second image, and reports
+the range. Effectively, this is very simplified stereo processing, and is
+useful to test a calibration and stereo-processing tools.
+
+This can also be used to fit the pitch, yaw to match the given range, and to
+produce a corrected calibration. Note that
+
+1. This uses a only a single point for the range-fitting
+
+2. Only the pitch, yaw are used in the fit; the roll is fixed. The corrected
+   model is quick/dirty
+
+'''
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    def positive_float(string):
+        try:
+            value = float(string)
+        except:
+            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+        if value <= 0:
+            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+        return value
+    def positive_int(string):
+        try:
+            value = int(string)
+        except:
+            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+        if value <= 0 or abs(value-float(string)) > 1e-6:
+            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+        return value
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--make-corrected-model1',
+                        action='store_true',
+                        help='''If given, we assume the --range-estimate is correct, and generate a rotated
+                        camera1 to produce this range''')
+    parser.add_argument('--templatesize',
+                        type=positive_int,
+                        nargs=2,
+                        default = (20,20),
+                        help='''The size of the template used for feature matching. Two arguments are
+                        required: width height.''')
+    parser.add_argument('--searchradius',
+                        type=positive_int,
+                        default = 20,
+                        help='''How far the feature-matching routine should search. This should be larger if
+                        the range estimate is poor, especially, at near
+                        ranges''')
+    parser.add_argument('--range-estimate',
+                        type=positive_float,
+                        default = 50,
+                        help='''Initial estimate of the range of the observed feature. This is used for the
+                        initial guess in the feature-matching''')
+    parser.add_argument('--corr-floor',
+                        type=float,
+                        default=0.9,
+                        help='''This is passed to mrcal.match_feature(). The default is 0.9: accept only very
+                        good matches. If this isn't good for whatever reason,
+                        that can be overridden''')
+    parser.add_argument('models',
+                        type=str,
+                        nargs = 2,
+                        help='''Camera models for the images. Both intrinsics and extrinsics are used''')
+    parser.add_argument('images',
+                        type=str,
+                        nargs=2,
+                        help='''The images to use for the triangulation''')
+    parser.add_argument('featurepositions',
+                        nargs='*',
+                        type=positive_float,
+                        help='''Feature position in the first image optionally followed by the coresponding
+                        feature position in the second image. If 2 values are
+                        given, I treat them as the pixel coordinates of the
+                        feature in the first image. I then look for a matching
+                        feature in the second image to get the corresponding
+                        coordinates in the second image. Or, if 4 values are
+                        given, I just use the second set of 2 values as the
+                        corresponding coordinates find this''')
+
+    return parser.parse_args()
+
+args = parse_args()
+
+if len(args.featurepositions) != 2 and \
+   len(args.featurepositions) != 4:
+    raise Exception("I need either 2 or 4 values for the feature positions, instead got {}". \
+                    format(len(args.featurepositions)))
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+
+
+
+import numpy as np
+import numpysane as nps
+import cv2
+
+import mrcal
+import scipy.optimize
+import time
+
+print("## generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
+                                              ' '.join(mrcal.shellquote(s) for s in sys.argv)))
+
+def skew_symmetric(v):
+    return np.array(((   0,  -v[2],  v[1]),
+                     ( v[2],    0,  -v[0]),
+                     (-v[1],  v[0],    0)))
+
+def get_homography_headon_view(intrinsics0, intrinsics1,
+                               q0, q1 = None,
+                               Rt10   = None,
+                               range0 = None):
+    r'''Compute a local homogeneous-coordinate homography
+
+    Let's say I'm observing a small planar patch in the world, parametrized into
+    some uv coordinates. uv is an orthonormal coordinate system. Let's say uv0 =
+    [u v 0]t and p = Ruv uv0 + tuv = Ruv01 uv + tuv
+
+    dq0/duv = dq0/dp0         dp0/duv = dq0/dp0     Ruv01
+    dq1/duv = dq1/dp1 dp1/dp0 dp0/duv = dq1/dp1 R10 Ruv01
+
+    I can compute the local relationship: dq1/dq0 = dq1/duv duv/dq0
+
+    And I then combine this local relationship with a q0->q1 translation into a
+    homography that I return.
+
+    If I know the geometry of the cameras and the geometry of the object I'm
+    looking at, I can compute this directly. Otherwise, I can make some
+    assumptions to fill in the missing information. This function does not know
+    what we're looking at, and assumes that it's a plane perpendicular to the
+    viewing vector.
+
+    This function REQUIRES q0: the pixel observation in camera0. If q1 is None,
+    we must have the range to the object in range0. If no extrinsics are
+    available, we assume either no relative rotation or that we're looking very
+    far away.
+
+    '''
+
+    def get_R_0_uv_headon(p0, p1 = None, Rt10 = None):
+        r'''Returns a rotation between head-on plane and world coords
+
+        Two cameras are observing a point. I assume this point lies on a plane
+        that's observed as head-on as possible by both cameras. The plane is
+        parametrized in some 2D uv coordinates. Let uv0 = [u v 0]t and p = Ruv uv0 +
+        tuv = Ruv01 uv + tuv. Here I return Ruv. p is assumed to lie in the
+        coordinates of camera 0
+
+        If we don't have reliable extrinsics, set Rt10 to None, and we'll return
+        a head-on rotation looking just at camera0. For far-away objects viewer
+        by mostly-aligned cameras this should be ok
+
+        '''
+
+        def mean_direction(n0, n1):
+            r'''Given two unit vectors, returns an "average"'''
+
+            v = n0+n1
+            return v / nps.mag(v)
+
+        def get_R_abn(n):
+            r'''Return a rotation with the given n as the last column
+
+            n is assumed to be a normal vector: nps.norm2(n) = 1
+
+            Returns a rotation matrix where the 3rd column is the given vector n. The
+            first two vectors are arbitrary, but are guaranteed to produce a valid
+            rotation: RtR = I, det(R) = 1
+            '''
+
+            # arbitrary, but can't be exactly n
+            a = np.array((1., 0, 0, ))
+            proj = nps.inner(a, n)
+            if abs(proj) > 0.8:
+                # Any other orthogonal vector will do. If this projection was >
+                # 0.8, I'm guaranteed that all others will be smaller
+                a = np.array((0, 1., 0, ))
+                proj = nps.inner(a, n)
+
+            a -= proj*n
+            a /= nps.mag(a)
+            b = np.cross(n,a)
+            return nps.transpose(nps.cat(a,b,n))
+
+
+        n0 = p0/nps.mag(p0)
+
+        if Rt10 is None:
+            return get_R_abn(n0)
+
+        if p1 is None:
+            p1 = mrcal.transform_point_Rt(Rt10, p0)
+        n1 = p1/nps.mag(p1)   # n1 in cam1 coords
+        n1 = nps.matmult(n1, Rt10[:3,:]) # n1 in cam0 coords
+        n = mean_direction(n0, n1)
+
+        return get_R_abn(n)
+
+
+
+
+
+    if (q1 is     None and range0 is     None) or \
+       (q1 is not None and range0 is not None):
+        raise Exception("I need exactly one of (q1,range0) to be given")
+
+    if Rt10 is None:
+        if q1 is None:
+            # I don't know anything. Assume an identity homography
+            return np.eye(3)
+
+        # I have no extrinsics, but I DO have a set of pixel observations.
+        # Assume we're looking at faraway objects
+        if range0 is not None:
+            v0 = mrcal.unproject(q0, *intrinsics0)
+            p0 = v0 / nps.mag(v0) * range0
+            p1 = p0
+        else:
+            v0 = mrcal.unproject(q0, *intrinsics0)
+            p0 = v0 / nps.mag(v0) * 1000.
+            v1 = mrcal.unproject(q1, *intrinsics1)
+            p1 = v1 / nps.mag(v1) * 1000.
+    else:
+
+        if range0 is not None:
+            v0 = mrcal.unproject(q0, *intrinsics0)
+            p0 = v0 / nps.mag(v0) * range0
+        else:
+            v0 = mrcal.unproject(q0, *intrinsics0)
+            v1 = mrcal.rotate_point_R(nps.transpose(Rt10[:3,:]), mrcal.unproject(q1, *intrinsics1))
+            p0 = mrcal.triangulate_leecivera_l1( v0, v1, mrcal.invert_Rt(Rt10)[3,:] )
+            if nps.norm2(p0) == 0:
+                raise Exception("Initial view divergent")
+
+        p1 = mrcal.transform_point_Rt(Rt10, p0)
+
+
+    _,          dq0_dp0,_ = mrcal.project(p0, *intrinsics0, get_gradients=True)
+    q1_estimate,dq1_dp1,_ = mrcal.project(p1, *intrinsics1, get_gradients=True)
+
+    if q1 is None:
+        q1 = q1_estimate
+
+    # To transform from the uv0 coord system to cam0 coord system: p0 = R_0_uv0
+    # puv0 + t0_uv0 -> dp0/dpuv0 = R_0_uv0. And if we constrain ourselves to the
+    # uv surface we have dp0/dpuv = R_0_uv
+    #
+    # Similarly, p1 = R10 p0 + t10 -> dp1/dp0 = R10
+    if Rt10 is not None:
+        R10 = Rt10[:3,:]
+    else:
+        R10 = np.eye(3)
+
+    R_0_uv0 = get_R_0_uv_headon(p0, p1, Rt10)
+    R_0_uv  = R_0_uv0[:,:2]
+    dq0_duv = nps.matmult(dq0_dp0,      R_0_uv)
+    dq1_duv = nps.matmult(dq1_dp1, R10, R_0_uv)
+
+    dq0_dq1 = nps.matmult( dq0_duv,
+                           np.linalg.inv(dq1_duv) )
+    # I now have the relative pixel homography dq0/dq1 now. This is a 2x2
+    # matrix. I embed it into a homogeneous-coordinate homography in a 3x3
+    # matrix. And I make sure that q1 maps to q0, so this becomes an
+    # absolute-coordinate mapping
+    H01 = nps.glue( nps.glue( dq0_dq1,
+                              nps.transpose(q0) - nps.matmult(dq0_dq1,nps.transpose(q1)),
+                              axis=-1),
+                    np.array((0,0,1)), axis=-2)
+    return H01
+
+
+
+
+
+models = [mrcal.cameramodel(m) for m in args.models]
+images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in args.images]
+q0     = np.array(args.featurepositions[:2], dtype=float)
+
+if len(args.featurepositions) == 4:
+    q1 = np.array(args.featurepositions[2:], dtype=float)
+    print(f"## Using user-supplied feature match at {q1}")
+
+else:
+    H01 = get_homography_headon_view(models[0].intrinsics(), models[1].intrinsics(),
+                                     q0,
+                                     Rt10 = mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
+                                                              models[0].extrinsics_Rt_toref() ),
+                                     range0 = args.range_estimate)
+
+    q1_perfect = mrcal.apply_homography(np.linalg.inv(H01), q0)
+    print(f"## Feature {q0} in the left image corresponds to {q1_perfect} at {args.range_estimate}m")
+
+    q1, diagnostics = \
+        mrcal.match_feature(*images,
+                            args.templatesize,
+                            method        = cv2.TM_CCORR_NORMED,
+                            search_radius = args.searchradius,
+                            q0            = q0,
+                            H10           = np.linalg.inv(H01),
+                            visualize     = False)
+    if q1 is None or \
+       diagnostics['matchoutput_optimum_subpixel'] < args.corr_floor:
+        print("## Feature-matching failed! Maybe increase the search radius?")
+        sys.exit(1)
+
+    # gp.plot( * diagnostics['plot_data_tuples'],
+    #          **diagnostics['plot_options'],
+    #          hardcopy = diag_filename)
+
+    print(f"## Feature match found at {q1}")
+    print(f"## q1 - q1_perfect_at_range = {q1_perfect - q1}")
+
+Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+                         models[1].extrinsics_Rt_toref() )
+v0 = mrcal.unproject(q0, *models[0].intrinsics())
+v1 = mrcal.rotate_point_R(Rt01[:3,:],
+                          mrcal.unproject(q1, *models[1].intrinsics()))
+p0 = mrcal.triangulate_leecivera_l1( v0, v1, Rt01[3,:] )
+if nps.norm2(p0) == 0:
+    raise Exception("Baseline divergent")
+
+# camera1 in camera0 coords. This is the baseline vector
+vbaseline0 = Rt01[3,:]
+# worst-case rotation axis will be the yaw. This axis is the normal to the plane
+# containing the 2 cameras and the observed point
+nyaw = np.cross(p0, vbaseline0)
+nyaw /= np.sqrt(nps.norm2(nyaw))
+# I also want to look at the pitch. The yaw normal will be mostly "up" (along
+# the y axis). Let the "pitch" axis be the projection of the x-axis onto the
+# plane orthogonal to the yaw axis
+npitch = vbaseline0
+npitch /= np.sqrt(nps.norm2(npitch))
+
+
+def get_rt10_perturbed( t01err            = np.array((0,0,0)),
+                        r01err_yaw        = 0,
+                        r01err_yaw_axis   = None,
+                        r01err_pitch      = 0,
+                        r01err_pitch_axis = None):
+
+    # This is crude. I'm assuming that the two rotations are small, around
+    # orthogonal axes, so they commute
+    R = np.eye(3)
+    if r01err_yaw:
+        K    = skew_symmetric(r01err_yaw_axis)
+        Ryaw = np.eye(3) + np.sin(r01err_yaw) * K + (1. - np.cos(r01err_yaw))*nps.matmult(K,K)
+        R = Ryaw
+    if r01err_pitch:
+        K = skew_symmetric(r01err_pitch_axis)
+        Rpitch = np.eye(3) + np.sin(r01err_pitch) * K + (1. - np.cos(r01err_pitch))*nps.matmult(K,K)
+        R = nps.matmult(R, Rpitch)
+
+    rt10 = mrcal.rt_from_Rt( mrcal.compose_Rt(mrcal.invert_Rt(Rt01),
+                                              nps.glue(R, np.zeros((3,)), axis=-2)))
+    rt10[3:] -= t01err
+    return rt10
+
+def get_world_intersection_point(qerr1 = np.array((0,0)),
+                                 **kwargs):
+
+    rt10 = get_rt10_perturbed(**kwargs)
+    Rt10 = mrcal.Rt_from_rt(rt10)
+    Rt01 = mrcal.invert_Rt(Rt10)
+
+    v0 = mrcal.unproject(q0,         *models[0].intrinsics())
+    v1 = mrcal.rotate_point_R(Rt01[:3,:],
+                              mrcal.unproject(q1 + qerr1,
+                                              *models[1].intrinsics()))
+
+    return mrcal.triangulate_leecivera_l1( v0, v1, Rt01[3,:])
+
+def get_range(**kwargs):
+    # divergent rays have p = (0,0,0)
+    p = get_world_intersection_point(**kwargs)
+    return nps.mag(p)
+
+
+
+range0 = get_range()
+initial_divergent = False
+if range0 == 0:
+    # The initial geometry produces a triangulation behind the camera. This is a
+    # qualitatively different solution, so I don't report linear extrapolation results
+    initial_divergent = True
+    print("Initial geometry is divergent. Not reporting sensitivities")
+
+else:
+
+    range_err_have = range0 - args.range_estimate
+
+    print("## Range: {:.2f} m (error: {:.2f} m)".format(range0, range_err_have))
+    print(f"## Reprojection error between intersection and q0: {mrcal.project(p0, *models[0].intrinsics()) - q0}pixels")
+
+    # half-assed sensitivity testing. Finite differences for each piece
+    delta = 1e-3
+
+    rangeerr_worst_qerr = 0
+    for th in np.linspace(0,2.*np.pi, 90, endpoint=False):
+        vq = np.array((np.cos(th),np.sin(th)))
+        r = get_range(qerr1 = delta * vq)
+        if r == 0:
+            raise Exception("Sampled rays divergent")
+        rangeerr = np.abs(r - range0)
+        if rangeerr > rangeerr_worst_qerr:
+            rangeerr_worst_qerr = rangeerr
+            vq_worst_err        = vq
+    print("## Observed-pixel sensitivity: {:.2f}m/pixel. Worst direction: {}. Linearized correction: {:.2f} pixels ". \
+          format(rangeerr_worst_qerr/delta,
+                 vq_worst_err,
+                 -range_err_have/rangeerr_worst_qerr*delta ))
+
+
+    # worst-case rotation axis will be the yaw. This axis is the normal to the plane
+    # containing the 2 cameras and the observed point
+    delta = 1e-6
+    r = get_range(r01err_yaw_axis = nyaw,
+                  r01err_yaw      = delta * np.pi/180.)
+    if r == 0:
+        raise Exception("Sampled rays divergent")
+    rangeerr_yaw = r - range0
+    print("## Calibration yaw sensitivity: {:.2f}m/deg. Linearized correction: {:.2f} degrees of yaw". \
+          format(rangeerr_yaw/delta,
+                 -range_err_have/rangeerr_yaw*delta))
+
+    # I also want to look at the pitch
+    r = get_range(r01err_pitch_axis = npitch,
+                  r01err_pitch      = delta * np.pi/180.)
+    if r == 0:
+        raise Exception("Sampled rays divergent")
+    rangeerr_pitch = r - range0
+    print("## Calibration pitch sensitivity: {:.2f}m/deg.".format(rangeerr_pitch/delta))
+
+
+
+    delta = 1e-3
+    rangeerr_worst_t01err = 0
+    for th in np.linspace(0, 2.*np.pi, 40, endpoint=False):
+        for ph in np.linspace(0, np.pi, 20):
+
+            vt01 = np.array((np.cos(ph) * np.sin(th),
+                             np.cos(ph) * np.cos(th),
+                             np.sin(ph)))
+            r = get_range(t01err = delta * vt01)
+            if r == 0:
+                raise Exception("Sampled rays divergent")
+            rangeerr = np.abs(r - range0)
+            if rangeerr > rangeerr_worst_t01err:
+                rangeerr_worst_t01err = rangeerr
+                vt01_worst_err        = vt01
+
+    print("## Calibration translation sensitivity: {:.2f}m/m. Worst direction: {}. Linearized correction: {:.2f} meters of translation". \
+          format(rangeerr_worst_t01err/delta,
+                 vt01_worst_err,
+                 -range_err_have/rangeerr_worst_t01err*delta))
+
+
+# I have a pixel coordinate given on the commandline and a range. I can use the
+# range to correct the yaw (x shift in the image). And I can tweak the pitch to
+# correct the y shift in the image.
+def get_range_err_yaw_pitch_sq(dyawdpitch):
+
+    p = get_world_intersection_point(r01err_yaw_axis   = nyaw,
+                                     r01err_yaw        = dyawdpitch[0],
+                                     r01err_pitch_axis = npitch,
+                                     r01err_pitch      = dyawdpitch[1])
+
+    r = nps.mag(p)
+    if r == 0:
+        # The intersection is behind the camera. I arbitrarily make the error
+        # very large, favoring less divergent (higher r) solutions.
+        r = 1e6 + 1./(1. + r)
+    erange        = r - args.range_estimate
+    ereprojection = mrcal.project(p, *models[0].intrinsics()) - q0
+
+    # The range errors are generally much higher than pixel errors, so I scale
+    # these. Nothing about any of this is particularly principled, but it is
+    # useful for testing
+    ereprojection *= 100
+    return erange*erange + nps.norm2(ereprojection)
+
+try:
+    if initial_divergent:
+        # I'm divergent initially. I take discrete steps to make me convergent,
+        # then I run an iterative method
+        err0 = get_range_err_yaw_pitch_sq((0,0))
+        step = 1. * np.pi/180.0
+        for d in np.array((( 1.,  0.),
+                           (-1.,  0.),
+                           ( 0.,  1.),
+                           ( 0., -1.)))*step:
+
+            i=1
+            while True:
+                dyawdpitch = i*d
+                err = get_range_err_yaw_pitch_sq(dyawdpitch)
+                if err > err0:
+                    # we got worse
+                    break
+                err0 = err
+                dyawdpitch0 = dyawdpitch
+                if err >= 1e6:
+                    # we got better, but still divergent
+                    i += 1
+                    continue
+                # no longer divergent
+                break
+        if err0 >= 1e12:
+            raise Exception("Initial search couldn't make the rays converge")
+    else:
+        dyawdpitch0 = (0,0)
+
+    dyaw,dpitch = scipy.optimize.minimize(get_range_err_yaw_pitch_sq, dyawdpitch0).x
+    print("## Optimized yaw correction   = {:.5f} degrees".format(dyaw/np.pi*180))
+    print("## Optimized pitch correction = {:.5f} degrees".format(dpitch/np.pi*180))
+
+    rt10 = get_rt10_perturbed(r01err_yaw_axis   = nyaw,
+                              r01err_yaw        = dyaw,
+                              r01err_pitch_axis = npitch,
+                              r01err_pitch      = dpitch)
+    print("## Optimized relative yaw (1 <- 0): {:.5f} degrees".format(rt10[1] * 180./np.pi))
+
+except Exception as e:
+    print(f"Couldn't solve for the optimal yaw, pitch shift: {e}")
+    dyaw   = None
+    dpitch = None
+
+if args.make_corrected_model1:
+    if dyaw is None:
+        raise Exception("I can't make the corrected model if I couldn't compute the yaw,pitch shifts")
+    rt_1r = mrcal.compose_rt(rt10,
+                             models[0].extrinsics_rt_fromref())
+    models[1].extrinsics_rt_fromref(rt_1r)
+    models[1].write(sys.stdout)
