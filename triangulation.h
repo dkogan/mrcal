@@ -84,6 +84,40 @@ mrcal_triangulate_leecivera_linf(// outputs
                                  const mrcal_point3_t* v1,
                                  const mrcal_point3_t* t01);
 
+// The "Mid2" method in "Triangulation: Why Optimize?", Seong Hun Lee and Javier
+// Civera. https://arxiv.org/abs/1907.11917
+mrcal_point3_t
+mrcal_triangulate_leecivera_mid2(// outputs
+                                 // These all may be NULL
+                                 mrcal_point3_t* dm_dv0,
+                                 mrcal_point3_t* dm_dv1,
+                                 mrcal_point3_t* dm_dt01,
+
+                                 // inputs
+
+                                 // not-necessarily normalized vectors in the camera-0
+                                 // coord system
+                                 const mrcal_point3_t* v0,
+                                 const mrcal_point3_t* v1,
+                                 const mrcal_point3_t* t01);
+
+// The "wMid2" method in "Triangulation: Why Optimize?", Seong Hun Lee and Javier
+// Civera. https://arxiv.org/abs/1907.11917
+mrcal_point3_t
+mrcal_triangulate_leecivera_wmid2(// outputs
+                                  // These all may be NULL
+                                  mrcal_point3_t* dm_dv0,
+                                  mrcal_point3_t* dm_dv1,
+                                  mrcal_point3_t* dm_dt01,
+
+                                  // inputs
+
+                                  // not-necessarily normalized vectors in the camera-0
+                                  // coord system
+                                  const mrcal_point3_t* v0,
+                                  const mrcal_point3_t* v1,
+                                  const mrcal_point3_t* t01);
+
 // I don't implement triangulate_leecivera_l2() yet because it requires
 // computing an SVD, which is far slower than what the rest of these functions
 // do
