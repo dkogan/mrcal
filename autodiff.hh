@@ -336,12 +336,12 @@ struct vec_withgrad_t
         return p;
     }
 
-    val_withgrad_t<NGRAD> dot( vec_withgrad_t<NGRAD,NVEC>& x) const
+    val_withgrad_t<NGRAD> dot( const vec_withgrad_t<NGRAD,NVEC>& x) const
     {
         val_withgrad_t<NGRAD> d; // initializes to 0
         for(int i=0; i<NVEC; i++)
         {
-            val_withgrad_t<NGRAD> e = x[i]*v[i];
+            val_withgrad_t<NGRAD> e = x.v[i]*v[i];
             d += e;
         }
         return d;
