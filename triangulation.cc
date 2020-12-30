@@ -106,8 +106,8 @@ mrcal_triangulate_geometric(// outputs
     vec_withgrad_t<9,3> v1 (_v1 ->xyz, 3);
     vec_withgrad_t<9,3> t01(_t01->xyz, 6);
 
-    val_withgrad_t<9> dot_v0v0 = v0.dot(v0);
-    val_withgrad_t<9> dot_v1v1 = v1.dot(v1);
+    val_withgrad_t<9> dot_v0v0 = v0.norm2();
+    val_withgrad_t<9> dot_v1v1 = v1.norm2();
     val_withgrad_t<9> dot_v0v1 = v0.dot(v1);
     val_withgrad_t<9> dot_v0t  = v0.dot(t01);
     val_withgrad_t<9> dot_v1t  = v1.dot(t01);
@@ -401,8 +401,8 @@ mrcal_triangulate_leecivera_l1(// outputs
     vec_withgrad_t<9,3> v1 (_v1 ->xyz, 3);
     vec_withgrad_t<9,3> t01(_t01->xyz, 6);
 
-    val_withgrad_t<9> dot_v0v0 = v0.dot(v0);
-    val_withgrad_t<9> dot_v1v1 = v1.dot(v1);
+    val_withgrad_t<9> dot_v0v0 = v0.norm2();
+    val_withgrad_t<9> dot_v1v1 = v1.norm2();
     val_withgrad_t<9> dot_v0t  = v0.dot(t01);
     val_withgrad_t<9> dot_v1t  = v1.dot(t01);
 
@@ -420,13 +420,13 @@ mrcal_triangulate_leecivera_l1(// outputs
     {
         // Equation (12)
         vec_withgrad_t<9,3> n1 = cross<9>(v1, t01);
-        v0 -= n1 * v0.dot(n1)/n1.dot(n1);
+        v0 -= n1 * v0.dot(n1)/n1.norm2();
     }
     else
     {
         // Equation (13)
         vec_withgrad_t<9,3> n0 = cross<9>(v0, t01);
-        v1 -= n0 * v1.dot(n0)/n0.dot(n0);
+        v1 -= n0 * v1.dot(n0)/n0.norm2();
     }
 
     // My two 3D rays now intersect exactly, and I use compute the intersection
@@ -481,19 +481,19 @@ mrcal_triangulate_leecivera_linf(// outputs
     vec_withgrad_t<9,3> v1 (_v1 ->xyz, 3);
     vec_withgrad_t<9,3> t01(_t01->xyz, 6);
 
-    v0 /= v0.dot(v0).sqrt();
-    v1 /= v1.dot(v1).sqrt();
+    v0 /= v0.mag();
+    v1 /= v1.mag();
 
     // different cross() order because my t01 is -t in the paper
     vec_withgrad_t<9,3> na = cross<9>(t01, v0 + v1);
     vec_withgrad_t<9,3> nb = cross<9>(t01, v0 - v1);
 
     vec_withgrad_t<9,3>& n =
-        ( na.dot(na).x > nb.dot(nb).x ) ?
+        ( na.norm2().x > nb.norm2().x ) ?
         na : nb;
 
-    v0 -= n * v0.dot(n)/n.dot(n);
-    v1 -= n * v1.dot(n)/n.dot(n);
+    v0 -= n * v0.dot(n)/n.norm2();
+    v1 -= n * v1.dot(n)/n.norm2();
 
     // My two 3D rays now intersect exactly, and I use compute the intersection
     // with that assumption
