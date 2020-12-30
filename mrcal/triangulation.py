@@ -80,8 +80,8 @@ SYNOPSIS
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0,
-                             H10, # homography mapping q0 to q1
+                             q0            = q0,
+                             H10           = H10, # homography mapping q0 to q1
                            )
 
     v0 = mrcal.unproject(q0, *models[0].intrinsics())
@@ -208,8 +208,8 @@ SYNOPSIS
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0,
-                             H10, # homography mapping q0 to q1
+                             q0            = q0,
+                             H10           = H10, # homography mapping q0 to q1
                            )
 
     v0 = mrcal.unproject(q0, *models[0].intrinsics())
@@ -334,8 +334,8 @@ SYNOPSIS
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0,
-                             H10, # homography mapping q0 to q1
+                             q0            = q0,
+                             H10           = H10, # homography mapping q0 to q1
                            )
 
     v0 = mrcal.unproject(q0, *models[0].intrinsics())
@@ -459,8 +459,8 @@ SYNOPSIS
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0,
-                             H10, # homography mapping q0 to q1
+                             q0            = q0,
+                             H10           = H10, # homography mapping q0 to q1
                            )
 
     # observation vectors in the LOCAL coordinate system of the two cameras
