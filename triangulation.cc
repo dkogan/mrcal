@@ -394,9 +394,8 @@ mrcal_triangulate_leecivera_l1(// outputs
                                const mrcal_point3_t* _v1,
                                const mrcal_point3_t* _t01)
 {
-    // The paper has m0, m1 as the cam0-frame observation vectors.
-    //
-    // And the "t" in the paper is -t01
+    // The paper has m0, m1 as the cam1-frame observation vectors. I do
+    // everything in cam0-frame
     vec_withgrad_t<9,3> v0 (_v0 ->xyz, 0);
     vec_withgrad_t<9,3> v1 (_v1 ->xyz, 3);
     vec_withgrad_t<9,3> t01(_t01->xyz, 6);
@@ -474,9 +473,8 @@ mrcal_triangulate_leecivera_linf(// outputs
                                  const mrcal_point3_t* _v1,
                                  const mrcal_point3_t* _t01)
 {
-    // The paper has m0, m1 as the cam0-frame observation vectors.
-    //
-    // And the "t" in the paper is -t01
+    // The paper has m0, m1 as the cam1-frame observation vectors. I do
+    // everything in cam0-frame
     vec_withgrad_t<9,3> v0 (_v0 ->xyz, 0);
     vec_withgrad_t<9,3> v1 (_v1 ->xyz, 3);
     vec_withgrad_t<9,3> t01(_t01->xyz, 6);
@@ -484,9 +482,8 @@ mrcal_triangulate_leecivera_linf(// outputs
     v0 /= v0.mag();
     v1 /= v1.mag();
 
-    // different cross() order because my t01 is -t in the paper
-    vec_withgrad_t<9,3> na = cross<9>(t01, v0 + v1);
-    vec_withgrad_t<9,3> nb = cross<9>(t01, v0 - v1);
+    vec_withgrad_t<9,3> na = cross<9>(v0 + v1, t01);
+    vec_withgrad_t<9,3> nb = cross<9>(v0 - v1, t01);
 
     vec_withgrad_t<9,3>& n =
         ( na.norm2().x > nb.norm2().x ) ?
