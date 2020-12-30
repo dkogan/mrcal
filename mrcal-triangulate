@@ -9,26 +9,26 @@ SYNOPSIS
       left.jpg right.jpg
       1234 2234
 
-  Feature (1234,2234) in the left image corresponds to (1324.1,2044.4) at 50m
-  Feature match found at (1341.0,2045.1)
-  Range: 61.38350110742266m
-  Observed-pixel sensitivity: 18.04671968980074m/pixel. Worst direction: [1. 0.]
-  Calibration yaw sensitivity: -482.2675166509725m/deg.
-  Calibration translation sensitivity: 61.3854493684335m/m. Worst direction: [-9.92708874e-01 -1.20536680e-01  1.22464680e-16]
+  ## Feature [1234., 2234.] in the left image corresponds to [2917.9 1772.6] at 870.0m
+  ## Feature match found at [2916.51891391 1771.86593517]
+  ## q1 - q1_perfect_at_range = [-1.43873946 -0.76196924]
+  ## Range: 677.699 m (error: -192.301 m)
+  ## Reprojection error between intersection and q0: [5.62522473e-10 3.59364094e-09]pixels
+  ## Observed-pixel sensitivity: 103.641m/pixel. Worst direction: [1. 0.]. Linearized correction: 1.855 pixels
+  ## Calibration yaw sensitivity: -3760.702m/deg. Linearized correction: -0.051 degrees of yaw
+  ## Calibration pitch sensitivity: 0.059m/deg.
+  ## Calibration translation sensitivity: 319.484m/m. Worst direction: [1 0 0].
+  ## Linearized correction: 0.602 meters of translation
+  ## Optimized yaw correction   = -0.03983 degrees
+  ## Optimized pitch correction = 0.03255 degrees
+  ## Optimized relative yaw (1 <- 0): -1.40137 degrees
 
 Given a pair of images, a pair of camera models and a feature coordinate in the
 first image, finds the corresponding feature in the second image, and reports
-the range. Effectively, this is very simplified stereo processing, and is
-useful to test a calibration and stereo-processing tools.
+the range. This is similar to the stereo processing of a single pixel, but
+reports much more diagnostic information than stereo tools do.
 
-This can also be used to fit the pitch, yaw to match the given range, and to
-produce a corrected calibration. Note that
-
-1. This uses a only a single point for the range-fitting
-
-2. Only the pitch, yaw are used in the fit; the roll is fixed. The corrected
-   model is quick/dirty
-
+This is useful to evaluate ranging results.
 '''
 
 import sys
