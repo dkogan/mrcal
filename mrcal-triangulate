@@ -537,9 +537,9 @@ else:
                 # no longer divergent
                 break
             i += 1
-        if err0 < 1e6:
+        if err < 1e6:
             break
-    if err0 >= 1e6:
+    if err >= 1e6:
         raise Exception("Initial search couldn't make the rays converge")
 
 dyaw,dpitch = scipy.optimize.minimize(get_range_err_yaw_pitch_sq, dyawdpitch).x
