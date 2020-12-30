@@ -100,6 +100,12 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 - [[file:mrcal-python-api-reference.html#-triangulate_lindstrom][=mrcal.triangulate_lindstrom()=]]: Triangulation minimizing the 2-norm of pinhole reprojection errors
 - [[file:mrcal-python-api-reference.html#-triangulate_leecivera_l1][=mrcal.triangulate_leecivera_l1()=]]: Triangulation minimizing the L1-norm of angle differences
 - [[file:mrcal-python-api-reference.html#-triangulate_leecivera_linf][=mrcal.triangulate_leecivera_linf()=]]: Triangulation minimizing the infinity-norm of angle differences
+- [[file:mrcal-python-api-reference.html#-triangulate_leecivera_mid2][=mrcal.triangulate_leecivera_mid2()=]]: Triangulation using Lee and Civera's
+  alternative midpoint method. Recommended.
+- [[file:mrcal-python-api-reference.html#-triangulate_leecivera_wmid2][=mrcal.triangulate_leecivera_wmid2()=]]: Triangulation using Lee and Civera's
+  inverse-depth-weighted alternative midpoint method. Recommended in favor of
+  [[file:mrcal-python-api-reference.html#-triangulate_leecivera_mid2][=mrcal.triangulate_leecivera_mid2()=]] if we're looking at objects very close to
+  either camera.
 - [[file:mrcal-python-api-reference.html#-match_feature][=mrcal.match_feature()=]]: Find a pixel correspondence in a pair of images
 
 * Synthetic data
