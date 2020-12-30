@@ -93,14 +93,16 @@ SYNOPSIS
 
 This function implements a very simple closest-approach-in-3D routine. It finds
 the point on each ray that's nearest to the other ray, and returns the mean of
-these two points.
+these two points. This is the "Mid" method in the paper
+
+  "Triangulation: Why Optimize?", Seong Hun Lee and Javier Civera.
+  https://arxiv.org/abs/1907.11917
+
+This paper compares many methods. This routine is simplest and fastest, but it
+has the highest errors.
 
 If the triangulated point lies behind either camera (i.e. if the observation
 rays are parallel or divergent), (0,0,0) is returned.
-
-This routine is provided because it is simple and because it's useful for
-testing the other routines. Use the other mrcal.triangulate_...() routines for
-processing real data.
 
 This function supports broadcasting fully.
 
@@ -224,6 +226,14 @@ angular errors. This is described in
 
   "Closed-Form Optimal Two-View Triangulation Based on Angular Errors", Seong
   Hun Lee and Javier Civera. ICCV 2019.
+
+This is the "L1 ang" method in the paper
+
+  "Triangulation: Why Optimize?", Seong Hun Lee and Javier Civera.
+  https://arxiv.org/abs/1907.11917
+
+This paper compares many methods. This routine works decently well, but it isn't
+the best. triangulate_leecivera_wmid2() is preferred, according to the paper.
 
 If the triangulated point lies behind either camera (i.e. if the observation
 rays are parallel or divergent), (0,0,0) is returned.
@@ -352,6 +362,14 @@ described in
   "Closed-Form Optimal Two-View Triangulation Based on Angular Errors", Seong
   Hun Lee and Javier Civera. ICCV 2019.
 
+This is the "L-infinity ang" method in the paper
+
+  "Triangulation: Why Optimize?", Seong Hun Lee and Javier Civera.
+  https://arxiv.org/abs/1907.11917
+
+This paper compares many methods. This routine works decently well, but it isn't
+the best. triangulate_leecivera_wmid2() is preferred, according to the paper.
+
 If the triangulated point lies behind either camera (i.e. if the observation
 rays are parallel or divergent), (0,0,0) is returned.
 
@@ -476,6 +494,16 @@ reprojection errors, ASSUMING a pinhole projection. This is described in
 
   "Triangulation Made Easy", Peter Lindstrom, IEEE Conference on Computer Vision
   and Pattern Recognition, 2010.
+
+This is the "L2 img 5-iteration" method in the paper
+
+  "Triangulation: Why Optimize?", Seong Hun Lee and Javier Civera.
+  https://arxiv.org/abs/1907.11917
+
+but with only 2 iterations (Lindstrom's paper recommends 2 iterations). This
+Lee, Civera paper compares many methods. This routine works decently well, but
+it isn't the best. The angular methods should work better than this one for wide
+lenses. triangulate_leecivera_wmid2() is preferred, according to the paper.
 
 The assumption of a pinhole projection is a poor one when using a wide lens, and
 looking away from the optical center. The Lee-Civera triangulation functions
