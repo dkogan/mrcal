@@ -42,6 +42,7 @@ DIST_BIN :=					\
 	mrcal-show-geometry			\
 	mrcal-show-valid-intrinsics-region	\
 	mrcal-is-within-valid-intrinsics-region \
+	mrcal-triangulate			\
 	mrcal-cull-corners
 
 # generate manpages from distributed binaries, and ship them. This is a hoaky
