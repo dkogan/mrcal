@@ -135,6 +135,12 @@ import time
 print("## generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                               ' '.join(mrcal.shellquote(s) for s in sys.argv)))
 
+
+triangulate = mrcal.triangulate_lindstrom
+
+
+
+
 def skew_symmetric(v):
     return np.array(((   0,  -v[2],  v[1]),
                      ( v[2],    0,  -v[0]),
@@ -261,8 +267,10 @@ def get_homography_headon_view(intrinsics0, intrinsics1,
             p0 = v0 / nps.mag(v0) * range0
         else:
             v0 = mrcal.unproject(q0, *intrinsics0)
-            v1 = mrcal.rotate_point_R(nps.transpose(Rt10[:3,:]), mrcal.unproject(q1, *intrinsics1))
-            p0 = mrcal.triangulate_leecivera_l1( v0, v1, mrcal.invert_Rt(Rt10)[3,:] )
+            v1 = mrcal.unproject(q1, *intrinsics1)
+            p0 = triangulate( v0, v1,
+                              Rt01        = mrcal.invert_Rt(Rt10),
+                              v_are_local = True )
             if nps.norm2(p0) == 0:
                 raise Exception("Initial view divergent")
 
@@ -308,62 +316,58 @@ def get_homography_headon_view(intrinsics0, intrinsics1,
 
 models = [mrcal.cameramodel(m) for m in args.models]
 images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in args.images]
-q0     = np.array(args.featurepositions[:2], dtype=float)
+q0_ref = np.array(args.featurepositions[:2], dtype=float)
 
 if len(args.featurepositions) == 4:
-    q1 = np.array(args.featurepositions[2:], dtype=float)
-    print(f"## Using user-supplied feature match at {q1}")
+    q1_ref = np.array(args.featurepositions[2:], dtype=float)
+    print(f"## Using user-supplied feature match at {q1_ref}")
 
 else:
     H01 = get_homography_headon_view(models[0].intrinsics(), models[1].intrinsics(),
-                                     q0,
+                                     q0_ref,
                                      Rt10 = mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
                                                               models[0].extrinsics_Rt_toref() ),
                                      range0 = args.range_estimate)
 
-    q1_perfect = mrcal.apply_homography(np.linalg.inv(H01), q0)
-    print(f"## Feature {q0} in the left image corresponds to {q1_perfect} at {args.range_estimate}m")
+    q1_perfect = mrcal.apply_homography(np.linalg.inv(H01), q0_ref)
+    print(f"## Feature {q0_ref} in the left image corresponds to {q1_perfect} at {args.range_estimate}m")
 
-    q1, diagnostics = \
+    q1_ref, diagnostics = \
         mrcal.match_feature(*images,
                             args.templatesize,
                             method        = cv2.TM_CCORR_NORMED,
                             search_radius = args.searchradius,
-                            q0            = q0,
+                            q0            = q0_ref,
                             H10           = np.linalg.inv(H01),
                             visualize     = args.viz_match)
-    if q1 is None or \
+    if q1_ref is None or \
        diagnostics['matchoutput_optimum_subpixel'] < args.corr_floor:
         print("## Feature-matching failed! Maybe increase the search radius?")
         sys.exit(1)
 
-    # gp.plot( * diagnostics['plot_data_tuples'],
-    #          **diagnostics['plot_options'],
-    #          hardcopy = diag_filename)
+    print(f"## Feature match found at {q1_ref}")
+    print(f"## q1 - q1_perfect_at_range = {q1_ref - q1_perfect}")
 
-    print(f"## Feature match found at {q1}")
-    print(f"## q1 - q1_perfect_at_range = {q1_perfect - q1}")
+Rt01_ref = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+                             models[1].extrinsics_Rt_toref() )
 
-Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                         models[1].extrinsics_Rt_toref() )
-v0 = mrcal.unproject(q0, *models[0].intrinsics())
-v1 = mrcal.rotate_point_R(Rt01[:3,:],
-                          mrcal.unproject(q1, *models[1].intrinsics()))
-p0 = mrcal.triangulate_leecivera_l1( v0, v1, Rt01[3,:] )
-if nps.norm2(p0) == 0:
+v0_ref = mrcal.unproject(q0_ref, *models[0].intrinsics())
+v1_ref = mrcal.unproject(q1_ref, *models[1].intrinsics())
+p0_ref = triangulate( v0_ref, v1_ref,
+                      Rt01        = Rt01_ref,
+                      v_are_local = True)
+
+if nps.norm2(p0_ref) == 0:
     raise Exception("Baseline divergent")
 
-# camera1 in camera0 coords. This is the baseline vector
-vbaseline0 = Rt01[3,:]
 # worst-case rotation axis will be the yaw. This axis is the normal to the plane
 # containing the 2 cameras and the observed point
-nyaw = np.cross(p0, vbaseline0)
-nyaw /= np.sqrt(nps.norm2(nyaw))
+nyaw = np.cross(p0_ref, Rt01_ref[3,:])
+nyaw /= nps.mag(nyaw)
 # I also want to look at the pitch. The yaw normal will be mostly "up" (along
 # the y axis). Let the "pitch" axis be the projection of the x-axis onto the
 # plane orthogonal to the yaw axis
-npitch = vbaseline0
-npitch /= np.sqrt(nps.norm2(npitch))
+npitch = Rt01_ref[3,:] / nps.mag(Rt01_ref[3,:])
 
 
 def get_rt10_perturbed( t01err            = np.array((0,0,0)),
@@ -384,7 +388,7 @@ def get_rt10_perturbed( t01err            = np.array((0,0,0)),
         Rpitch = np.eye(3) + np.sin(r01err_pitch) * K + (1. - np.cos(r01err_pitch))*nps.matmult(K,K)
         R = nps.matmult(R, Rpitch)
 
-    rt10 = mrcal.rt_from_Rt( mrcal.compose_Rt(mrcal.invert_Rt(Rt01),
+    rt10 = mrcal.rt_from_Rt( mrcal.compose_Rt(mrcal.invert_Rt(Rt01_ref),
                                               nps.glue(R, np.zeros((3,)), axis=-2)))
     rt10[3:] -= t01err
     return rt10
@@ -396,12 +400,11 @@ def get_world_intersection_point(qerr1 = np.array((0,0)),
     Rt10 = mrcal.Rt_from_rt(rt10)
     Rt01 = mrcal.invert_Rt(Rt10)
 
-    v0 = mrcal.unproject(q0,         *models[0].intrinsics())
-    v1 = mrcal.rotate_point_R(Rt01[:3,:],
-                              mrcal.unproject(q1 + qerr1,
-                                              *models[1].intrinsics()))
+    v1 = mrcal.unproject(q1_ref + qerr1, *models[1].intrinsics())
 
-    return mrcal.triangulate_leecivera_l1( v0, v1, Rt01[3,:])
+    return triangulate( v0_ref, v1,
+                        Rt01        = Rt01,
+                        v_are_local = True)
 
 def get_range(**kwargs):
     # divergent rays have p = (0,0,0)
@@ -411,19 +414,18 @@ def get_range(**kwargs):
 
 
 range0 = get_range()
-initial_divergent = False
+
 if range0 == 0:
     # The initial geometry produces a triangulation behind the camera. This is a
     # qualitatively different solution, so I don't report linear extrapolation results
-    initial_divergent = True
-    print("Initial geometry is divergent. Not reporting sensitivities")
+    print("## Initial geometry is divergent. Not reporting sensitivities")
 
 else:
 
     range_err_have = range0 - args.range_estimate
 
     print("## Range: {:.3f} m (error: {:.3f} m)".format(range0, range_err_have))
-    print(f"## Reprojection error between intersection and q0: {mrcal.project(p0, *models[0].intrinsics()) - q0}pixels")
+    print(f"## Reprojection error between intersection and q0: {mrcal.project(p0_ref, *models[0].intrinsics()) - q0_ref}pixels")
 
     # half-assed sensitivity testing. Finite differences for each piece
     delta = 1e-3
@@ -501,10 +503,10 @@ def get_range_err_yaw_pitch_sq(dyawdpitch):
     r = nps.mag(p)
     if r == 0:
         # The intersection is behind the camera. I arbitrarily make the error
-        # very large, favoring less divergent (higher r) solutions.
-        r = 1e6 + 1./(1. + r)
+        # very large
+        return 1e6
     erange        = r - args.range_estimate
-    ereprojection = mrcal.project(p, *models[0].intrinsics()) - q0
+    ereprojection = mrcal.project(p, *models[0].intrinsics()) - q0_ref
 
     # The range errors are generally much higher than pixel errors, so I scale
     # these. Nothing about any of this is particularly principled, but it is
@@ -512,51 +514,42 @@ def get_range_err_yaw_pitch_sq(dyawdpitch):
     ereprojection *= 100
     return erange*erange + nps.norm2(ereprojection)
 
-try:
-    if initial_divergent:
-        # I'm divergent initially. I take discrete steps to make me convergent,
-        # then I run an iterative method
-        err0 = get_range_err_yaw_pitch_sq((0,0))
-        step = 1. * np.pi/180.0
-        for d in np.array((( 1.,  0.),
-                           (-1.,  0.),
-                           ( 0.,  1.),
-                           ( 0., -1.)))*step:
+# If I'm divergent initially. I take discrete steps to make me
+# convergent, then I run an iterative method
+if get_range_err_yaw_pitch_sq((0,0)) < 1e6:
+    # not divergent initially
+    dyawdpitch = (0,0)
+else:
+    print("## Initially divergent. Finding a usable operating point to begin optimization")
 
-            i=1
-            while True:
-                dyawdpitch = i*d
-                err = get_range_err_yaw_pitch_sq(dyawdpitch)
-                if err > err0:
-                    # we got worse
-                    break
-                err0 = err
-                dyawdpitch0 = dyawdpitch
-                if err >= 1e6:
-                    # we got better, but still divergent
-                    i += 1
-                    continue
+    step = 1. * np.pi/180.0
+    for d in np.array((( 1.,  0.),
+                       (-1.,  0.),
+                       ( 0.,  1.),
+                       ( 0., -1.)))*step:
+
+        i=0
+        while i < 180:
+            dyawdpitch = i*d
+            err = get_range_err_yaw_pitch_sq(dyawdpitch)
+            if err < 1e6:
                 # no longer divergent
                 break
-        if err0 >= 1e12:
-            raise Exception("Initial search couldn't make the rays converge")
-    else:
-        dyawdpitch0 = (0,0)
+            i += 1
+        if err0 < 1e6:
+            break
+    if err0 >= 1e6:
+        raise Exception("Initial search couldn't make the rays converge")
 
-    dyaw,dpitch = scipy.optimize.minimize(get_range_err_yaw_pitch_sq, dyawdpitch0).x
-    print("## Optimized yaw correction   = {:.5f} degrees".format(dyaw/np.pi*180))
-    print("## Optimized pitch correction = {:.5f} degrees".format(dpitch/np.pi*180))
+dyaw,dpitch = scipy.optimize.minimize(get_range_err_yaw_pitch_sq, dyawdpitch).x
+print("## Optimized yaw correction   = {:.5f} degrees".format(dyaw/np.pi*180))
+print("## Optimized pitch correction = {:.5f} degrees".format(dpitch/np.pi*180))
 
-    rt10 = get_rt10_perturbed(r01err_yaw_axis   = nyaw,
-                              r01err_yaw        = dyaw,
-                              r01err_pitch_axis = npitch,
-                              r01err_pitch      = dpitch)
-    print("## Optimized relative yaw (1 <- 0): {:.5f} degrees".format(rt10[1] * 180./np.pi))
-
-except Exception as e:
-    print(f"Couldn't solve for the optimal yaw, pitch shift: {e}")
-    dyaw   = None
-    dpitch = None
+rt10 = get_rt10_perturbed(r01err_yaw_axis   = nyaw,
+                          r01err_yaw        = dyaw,
+                          r01err_pitch_axis = npitch,
+                          r01err_pitch      = dpitch)
+print("## Optimized relative yaw (1 <- 0): {:.5f} degrees".format(rt10[1] * 180./np.pi))
 
 if args.make_corrected_model1:
     if dyaw is None:
