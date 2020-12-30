@@ -321,6 +321,7 @@ q0_ref = np.array(args.featurepositions[:2], dtype=float)
 if len(args.featurepositions) == 4:
     q1_ref = np.array(args.featurepositions[2:], dtype=float)
     print(f"## Using user-supplied feature match at {q1_ref}")
+    match_feature_diagnostics = None
 
 else:
     H01 = get_homography_headon_view(models[0].intrinsics(), models[1].intrinsics(),
@@ -332,16 +333,16 @@ else:
     q1_perfect = mrcal.apply_homography(np.linalg.inv(H01), q0_ref)
     print(f"## Feature {q0_ref} in the left image corresponds to {q1_perfect} at {args.range_estimate}m")
 
-    q1_ref, diagnostics = \
+    q1_ref, match_feature_diagnostics = \
         mrcal.match_feature(*images,
                             args.templatesize,
                             method        = cv2.TM_CCORR_NORMED,
                             search_radius = args.searchradius,
                             q0            = q0_ref,
                             H10           = np.linalg.inv(H01),
-                            visualize     = args.viz_match)
+                            visualize     = False)
     if q1_ref is None or \
-       diagnostics['matchoutput_optimum_subpixel'] < args.corr_floor:
+       match_feature_diagnostics['matchoutput_optimum_subpixel'] < args.corr_floor:
         print("## Feature-matching failed! Maybe increase the search radius?")
         sys.exit(1)
 
@@ -558,3 +559,12 @@ if args.make_corrected_model1:
                              models[0].extrinsics_rt_fromref())
     models[1].extrinsics_rt_fromref(rt_1r)
     models[1].write(sys.stdout)
+
+if args.viz_match:
+    if match_feature_diagnostics is None:
+        print("## WARNING: no feature matching was performed, so --viz-match does nothing")
+    else:
+        import gnuplotlib as gp
+        gp.plot( * match_feature_diagnostics['plot_data_tuples'],
+                 **match_feature_diagnostics['plot_options'],
+                 wait=True)
