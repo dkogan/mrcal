@@ -347,6 +347,17 @@ struct vec_withgrad_t
         return d;
     }
 
+    val_withgrad_t<NGRAD> norm2(void) const
+    {
+        return dot(*this);
+    }
+
+    val_withgrad_t<NGRAD> mag(void) const
+    {
+        val_withgrad_t<NGRAD> l2 = norm2();
+        return l2.sqrt();
+    }
+
     void extract_value(double* out,
                        int stride = sizeof(double),
                        int ivar0 = 0, int Nvars = NVEC) const
@@ -376,4 +387,22 @@ cross( const vec_withgrad_t<NGRAD, 3>& a,
     c.v[1] = a.v[2]*b.v[0] - a.v[0]*b.v[2];
     c.v[2] = a.v[0]*b.v[1] - a.v[1]*b.v[0];
     return c;
+}
+
+template<int NGRAD>
+val_withgrad_t<NGRAD>
+cross_norm2( const vec_withgrad_t<NGRAD, 3>& a,
+             const vec_withgrad_t<NGRAD, 3>& b )
+{
+    vec_withgrad_t<NGRAD, 3> c = cross(a,b);
+    return c.norm2();
+}
+
+template<int NGRAD>
+val_withgrad_t<NGRAD>
+cross_mag( const vec_withgrad_t<NGRAD, 3>& a,
+           const vec_withgrad_t<NGRAD, 3>& b )
+{
+    vec_withgrad_t<NGRAD, 3> c = cross(a,b);
+    return c.mag();
 }
