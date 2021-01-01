@@ -41,13 +41,17 @@ def noisy_observation_vectors(p, Rt10, Nsamples, sigma):
     q1 = mrcal.project( mrcal.transform_point_Rt( Rt10, p),
                         *model1.intrinsics() )
 
+    # shape (..., 1,2). Each has x,y
+    q0 = nps.dummy(q0,-2)
+    q1 = nps.dummy(q1,-2)
+
     q_noise = np.random.randn(*p.shape[:-1], Nsamples,2,2) * sigma
     # shape (..., Nsamples,2). Each has x,y
     q0_noise = q_noise[...,:,0,:]
     q1_noise = q_noise[...,:,1,:]
 
-    q0_noisy = nps.dummy(q0,-2) + q0_noise
-    q1_noisy = nps.dummy(q1,-2) + q1_noise
+    q0_noisy = q0 + q0_noise
+    q1_noisy = q1 + q1_noise
 
     # shape (..., Nsamples, 3)
     v0local_noisy = mrcal.unproject( q0_noisy, *model0.intrinsics() )
@@ -58,7 +62,7 @@ def noisy_observation_vectors(p, Rt10, Nsamples, sigma):
     # All have shape (..., Nsamples,3)
     return \
         v0local_noisy, v1local_noisy, v0_noisy,v1_noisy, \
-        q0_noisy, q1_noisy
+        q0,q1, q0_noisy, q1_noisy
 
 
 # All the callback functions can broadcast on p,v
@@ -128,7 +132,7 @@ def test_geometry( Rt01, p, whatgeometry,
 
     # p has shape (Np,3)
     # v has shape (Np,2)
-    v0local_noisy, v1local_noisy,v0_noisy,v1_noisy,q0_noisy, q1_noisy = \
+    v0local_noisy, v1local_noisy,v0_noisy,v1_noisy,q0_ref,q1_ref,q0_noisy,q1_noisy = \
         [v[...,0,:] for v in noisy_observation_vectors(p, mrcal.invert_Rt(Rt01), 1,
                                                        sigma = 0.1)]
 
@@ -150,7 +154,6 @@ def test_geometry( Rt01, p, whatgeometry,
         p_reported = result[0]
 
         what = f"{whatgeometry} {f.__name__}"
-        compare_results_eps = 1e-3
 
         if out_of_bounds:
             p_optimized = np.zeros(p_reported.shape)
@@ -173,34 +176,47 @@ def test_geometry( Rt01, p, whatgeometry,
                                                  msg = f"{what}: grad(ip={ip}, ivar = {ivar})",
                                                  eps = 2e-2)
 
-            if callback is None:
-                # This isn't an optimization-based method, so it doesn't have an
-                # optimizer callback. Use one from a different method, and a
-                # larger error threshold. This will make sure that the result is
-                # in the right ballpark
-                callback            = callback_linf_angle
-                compare_results_eps = 0.1
+            if callback is not None:
 
-            # I run an optimization to directly optimize the quantity each triangulation
-            # routine is supposed to be optimizing, and then I compare
-            p_optimized = \
-                nps.cat(*[ scipy.optimize.minimize(callback,
-                                                   p_reported[ip], # seed from the "right" value
-                                                   args   = (args[0][ip], args[1][ip], args[2]),
-                                                   method = 'Nelder-Mead',
-                                                   # options = dict(disp  = True)
-                                                   )['x'] \
-                           for ip in range(Np) ])
+                # I run an optimization to directly optimize the quantity each triangulation
+                # routine is supposed to be optimizing, and then I compare
+                p_optimized = \
+                    nps.cat(*[ scipy.optimize.minimize(callback,
+                                                       p_reported[ip], # seed from the "right" value
+                                                       args   = (args[0][ip], args[1][ip], args[2]),
+                                                       method = 'Nelder-Mead',
+                                                       # options = dict(disp  = True)
+                                                       )['x'] \
+                               for ip in range(Np) ])
 
-        # print( f"{what} p reported,optimized:\n{nps.cat(p_reported, p_optimized)}" )
-        # print( f"{what} p_err: {p_reported - p_optimized}" )
-        # print( f"{what} optimum reported/optimized:\n{callback(p_reported, *args)/callback(p_optimized, *args)}" )
+                # print( f"{what} p reported,optimized:\n{nps.cat(p_reported, p_optimized)}" )
+                # print( f"{what} p_err: {p_reported - p_optimized}" )
+                # print( f"{what} optimum reported/optimized:\n{callback(p_reported, *args)/callback(p_optimized, *args)}" )
 
-        testutils.confirm_equal( p_reported, p_optimized,
-                                 relative  = True,
-                                 worstcase = True,
-                                 msg = what,
-                                 eps = compare_results_eps)
+                testutils.confirm_equal( p_reported, p_optimized,
+                                         relative  = True,
+                                         worstcase = True,
+                                         msg = what,
+                                         eps = 1e-3)
+            else:
+                # No callback defined. Compare projected q
+                q0 = mrcal.project(p_reported,
+                                   *model0.intrinsics())
+                q1 = mrcal.project(mrcal.transform_point_Rt(mrcal.invert_Rt(Rt01),
+                                                            p_reported),
+                                   *model1.intrinsics())
+
+                testutils.confirm_equal( q0, q0_ref,
+                                         relative  = False,
+                                         worstcase = True,
+                                         msg = f'{what} q0',
+                                         eps = 10.)
+                testutils.confirm_equal( q1, q1_ref,
+                                         relative  = False,
+                                         worstcase = True,
+                                         msg = f'{what} q1',
+                                         eps = 10.)
+
 
 # square camera layout
 t01  = np.array(( 1.,   0.1,  -0.2))
@@ -284,7 +300,7 @@ q0 = mrcal.project(p, *model0.intrinsics())
 Nsamples = 2000
 sigma    = 0.1
 
-v0local_noisy, v1local_noisy,v0_noisy,v1_noisy,_,_ = \
+v0local_noisy, v1local_noisy,v0_noisy,v1_noisy,_,_,_,_ = \
     noisy_observation_vectors(p, mrcal.invert_Rt(Rt01),
                               Nsamples, sigma = sigma)
 
