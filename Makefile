@@ -6,6 +6,14 @@ PROJECT_NAME := mrcal
 ABI_VERSION  := 1
 TAIL_VERSION := 0
 
+# Custom version from git (or from debian/changelog if no git repo available)
+_VERSION = $(shell test -d .git && \
+  git describe --tags | sed 's/^.*\///' || \
+  < debian/changelog sed -n 's/.*(\([0-9\.]*[0-9]\).*).*/\1/; p; q;')
+# Memoize. $(VERSION) will evaluate the result the first time, and use the
+# cached result during subsequent calls
+VERSION = $(if $(_VERSION_EXPANDED),,$(eval _VERSION_EXPANDED:=$$(_VERSION)))$(_VERSION_EXPANDED)
+
 LIB_SOURCES += mrcal.c poseutils.c poseutils-uses-autodiff.cc
 
 BIN_SOURCES += test-gradients.c test/test-cahvor.c test/test-lensmodel-string-manipulation.c
@@ -113,11 +121,8 @@ $(addprefix %,$(patsubst doc/%,/%,$(DOC_ALL_HTML_TARGET))): $(addprefix %,$(pats
 $(DOC_ALL_HTML_TARGET): doc/mrcal-docs-publish.el | doc/out/
 
 
-# I parse the version from the changelog. This version is generally something
-# like 0.04 .I strip leading 0s, so the above becomes 0.4
-VERSION_FROM_CHANGELOG = $(shell sed -n 's/.*(\([0-9\.]*[0-9]\).*).*/\1/; s/\.0*/./g; p; q;' debian/changelog)
 $(DIST_MAN): %.1: %.pod
-	pod2man --center="mrcal: camera projection, calibration toolkit" --name=MRCAL --release="mrcal $(VERSION_FROM_CHANGELOG)" --section=1 $< $@
+	pod2man --center="mrcal: camera projection, calibration toolkit" --name=MRCAL --release="mrcal $(VERSION)" --section=1 $< $@
 %.pod: %
 	mrbuild/make-pod-from-help.pl $< > $@.tmp && cat footer.pod >> $@.tmp && mv $@.tmp $@
 EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
