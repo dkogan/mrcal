@@ -635,7 +635,8 @@ mrcal_triangulate_leecivera_wmid2(// outputs
     vec_withgrad_t<9,3> v1 (_v1 ->xyz, 3);
     vec_withgrad_t<9,3> t01(_t01->xyz, 6);
 
-    // Unlike Mid2 I need to normalize these here to make the math work
+    // Unlike Mid2 I need to normalize these here to make the math work. l0 and
+    // l1 now have units of m, and I weigh by 1/l0 and 1/l1
     v0 /= v0.mag();
     v1 /= v1.mag();
 
@@ -647,7 +648,7 @@ mrcal_triangulate_leecivera_wmid2(// outputs
     if(!chirality(l0, v0, l1, v1, t01))
         return (mrcal_point3_t){};
 
-    vec_withgrad_t<9,3> m = (v0*l1*l1 + t01*l0 + v1*l0*l1) / (l0 + l1);
+    vec_withgrad_t<9,3> m = (v0*l0*l1 + t01*l0 + v1*l0*l1) / (l0 + l1);
 
     mrcal_point3_t _m;
     m.extract_value(_m.xyz);
