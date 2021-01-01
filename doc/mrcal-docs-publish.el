@@ -15,7 +15,7 @@
                       "<link rel=\"stylesheet\" type=\"text/css\" href=\"org.css\"/>"
                       "<link rel=\"stylesheet\" type=\"text/css\" href=\"mrcal.css\"/>")
          :html-preamble ,(with-temp-buffer
-                           (insert-file-contents "mrcal-preamble.html")
+                           (insert-file-contents "mrcal-preamble-GENERATED.html")
                            (buffer-string))
          :html-mathjax-options ((path "external/MathJax-master/es5/tex-chtml.js")
                                 (scale "100")

@@ -65,7 +65,7 @@ ALL_PY_EXTENSION_MODULES := _mrcal _mrcal_npsp _poseutils
 	mkdir -p $@
 
 ## mrcal-python-api-reference.html contains everything. It is large
-doc: doc/out/mrcal-python-api-reference.html
+DOC_HTML += doc/out/mrcal-python-api-reference.html
 doc/out/mrcal-python-api-reference.html: $(wildcard mrcal/*.py) $(patsubst %,mrcal/%$(PY_EXT_SUFFIX),$(ALL_PY_EXTENSION_MODULES)) libmrcal.so.$(ABI_VERSION) | doc/out/
 	python3 doc/pydoc.py -w mrcal > $@.tmp && mv $@.tmp $@
 
@@ -112,7 +112,8 @@ $(DOC_ALL_CSS_TARGET): doc/out/%.css: doc/%.css | doc/out/
 
 DOC_ALL_ORG         := $(wildcard doc/*.org)
 DOC_ALL_HTML_TARGET := $(patsubst doc/%.org,doc/out/%.html,$(DOC_ALL_ORG))
-doc: $(DOC_ALL_HTML_TARGET)
+DOC_HTML += $(DOC_ALL_HTML_TARGET)
+
 # This ONE command creates ALL the html files, so I want a pattern rule to indicate
 # that. I want to do:
 #   %/out/a.html %/out/b.html %/out/c.html: %/a.org %/b.org %/c.org
@@ -130,8 +131,17 @@ EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 # I generate a manpage. Some perl stuff to add the html preamble
 MANPAGES_HTML := $(patsubst %,doc/out/%.html,$(DIST_BIN))
 doc/out/%.html: %.pod | doc/out/
-	pod2html --noindex --css=mrcal.css --infile=$< | perl -ne 'BEGIN {$$h = `cat doc/mrcal-preamble.html`;} if(!/(.*<body>)(.*)/s) { print; } else { print "$$1 $$h $$2"; }' > $@.tmp && mv $@.tmp $@
-doc: $(MANPAGES_HTML)
+	pod2html --noindex --css=mrcal.css --infile=$< | \
+	  perl -ne 'BEGIN {$$h = `cat doc/mrcal-preamble-GENERATED.html`;} if(!/(.*<body>)(.*)/s) { print; } else { print "$$1 $$h $$2"; }' > $@.tmp && mv $@.tmp $@
+
+DOC_HTML += $(MANPAGES_HTML)
+
+$(DOC_HTML): doc/mrcal-preamble-GENERATED.html
+doc/mrcal-preamble-GENERATED.html: doc/mrcal-preamble.html
+	< $< sed s/@@VERSION@@/$(VERSION)/g > $@.tmp && mv $@.tmp $@
+EXTRA_CLEAN += doc/mrcal-preamble-GENERATED.html
+
+doc: $(DOC_HTML)
 
 .PHONY: doc
 
