@@ -1227,7 +1227,8 @@ work either by finding the centroid of each circle "blob" or by fitting a curve
 to the circle edge to infer the location of the center. A circle viewed from a
 tilted closeup will appear lopsided, so we have a choice of suffering a bias
 from imprecise circle detections or getting poor uncertainties from insufficient
-tilt.
+tilt. Extra effort can be expended to improve this situation, or chessboards can
+be used.
 
 And let's do one more. Often we want to calibrate multiple cameras, and we are
 free to do one N-way calibration or N separate monocular calibrations or
