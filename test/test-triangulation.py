@@ -210,12 +210,14 @@ def test_geometry( Rt01, p, whatgeometry,
                                          relative  = False,
                                          worstcase = True,
                                          msg = f'{what} q0',
-                                         eps = 10.)
+                                         eps = 25.)
                 testutils.confirm_equal( q1, q1_ref,
                                          relative  = False,
                                          worstcase = True,
                                          msg = f'{what} q1',
-                                         eps = 10.)
+                                         eps = 25.)
+
+
 
 
 # square camera layout
@@ -268,9 +270,10 @@ Rt01 = nps.glue(R01, t01, axis=-2)
 
 p = np.array((( 30.,    5.,     40.  ), # center-ish
               ( -2000., 25.,    50.  ), # way left in one cam, forward in the other
-              (  90.,   -100.,  2000.), # forward one, right the other
-              (  95.,    5.,     4.  ), # corner on both
+              (  80.,   -10.,   2000.), # forward one, right the other
+              (  75.,    5.,     4.  ), # corner on both
               ))
+
 test_geometry(Rt01, p, "cameras-90deg-to-each-other", check_gradients = False)
 
 
