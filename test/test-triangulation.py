@@ -131,6 +131,8 @@ def test_geometry( Rt01, p, whatgeometry,
         ( (mrcal.triangulate_geometric,      callback_l2_geometric,    v0_noisy,      v1_noisy,      t01),
           (mrcal.triangulate_leecivera_l1,   callback_l1_angle,        v0_noisy,      v1_noisy,      t01),
           (mrcal.triangulate_leecivera_linf, callback_linf_angle,      v0_noisy,      v1_noisy,      t01),
+          (mrcal.triangulate_leecivera_mid2, None,                     v0_noisy,      v1_noisy,      t01),
+          (mrcal.triangulate_leecivera_wmid2,None,                     v0_noisy,      v1_noisy,      t01),
           (mrcal.triangulate_lindstrom,      callback_l2_reprojection, v0local_noisy, v1local_noisy, Rt01),
          )
 
@@ -143,6 +145,7 @@ def test_geometry( Rt01, p, whatgeometry,
         p_reported = result[0]
 
         what = f"{whatgeometry} {f.__name__}"
+        compare_results_eps = 1e-3
 
         if out_of_bounds:
             p_optimized = np.zeros(p_reported.shape)
@@ -164,6 +167,14 @@ def test_geometry( Rt01, p, whatgeometry,
                                                  worstcase = True,
                                                  msg = f"{what}: grad(ip={ip}, ivar = {ivar})",
                                                  eps = 2e-2)
+
+            if callback is None:
+                # This isn't an optimization-based method, so it doesn't have an
+                # optimizer callback. Use one from a different method, and a
+                # larger error threshold. This will make sure that the result is
+                # in the right ballpark
+                callback            = callback_linf_angle
+                compare_results_eps = 0.1
 
             # I run an optimization to directly optimize the quantity each triangulation
             # routine is supposed to be optimizing, and then I compare
@@ -273,22 +284,27 @@ v0local_noisy, v1local_noisy,v0_noisy,v1_noisy = \
     noisy_observation_vectors(p, mrcal.invert_Rt(Rt01),
                               Nsamples, sigma = sigma)
 
-p_sampled_geometric      = mrcal.triangulate_geometric(      v0_noisy,      v1_noisy,      t01 )
-p_sampled_lindstrom      = mrcal.triangulate_lindstrom(      v0local_noisy, v1local_noisy, Rt01 )
-p_sampled_leecivera_l1   = mrcal.triangulate_leecivera_l1(   v0_noisy,      v1_noisy,      t01 )
-p_sampled_leecivera_linf = mrcal.triangulate_leecivera_linf( v0_noisy,      v1_noisy,      t01 )
+p_sampled_geometric       = mrcal.triangulate_geometric(      v0_noisy,      v1_noisy,      t01 )
+p_sampled_lindstrom       = mrcal.triangulate_lindstrom(      v0local_noisy, v1local_noisy, Rt01 )
+p_sampled_leecivera_l1    = mrcal.triangulate_leecivera_l1(   v0_noisy,      v1_noisy,      t01 )
+p_sampled_leecivera_linf  = mrcal.triangulate_leecivera_linf( v0_noisy,      v1_noisy,      t01 )
+p_sampled_leecivera_mid2  = mrcal.triangulate_leecivera_mid2( v0_noisy,      v1_noisy,      t01 )
+p_sampled_leecivera_wmid2 = mrcal.triangulate_leecivera_wmid2(v0_noisy,      v1_noisy,      t01 )
 
-q0_sampled_geometric      = mrcal.project(p_sampled_geometric,      *model0.intrinsics())
-q0_sampled_lindstrom      = mrcal.project(p_sampled_lindstrom,      *model0.intrinsics())
-q0_sampled_leecivera_l1   = mrcal.project(p_sampled_leecivera_l1,   *model0.intrinsics())
-q0_sampled_leecivera_linf = mrcal.project(p_sampled_leecivera_linf, *model0.intrinsics())
+q0_sampled_geometric       = mrcal.project(p_sampled_geometric,      *model0.intrinsics())
+q0_sampled_lindstrom       = mrcal.project(p_sampled_lindstrom,      *model0.intrinsics())
+q0_sampled_leecivera_l1    = mrcal.project(p_sampled_leecivera_l1,   *model0.intrinsics())
+q0_sampled_leecivera_linf  = mrcal.project(p_sampled_leecivera_linf, *model0.intrinsics())
+q0_sampled_leecivera_mid2  = mrcal.project(p_sampled_leecivera_mid2, *model0.intrinsics())
+q0_sampled_leecivera_wmid2 = mrcal.project(p_sampled_leecivera_wmid2, *model0.intrinsics())
 
-
-# q0_sampled_geometric      = p_sampled_geometric[:,:2]
-# q0_sampled_lindstrom      = p_sampled_lindstrom[:,:2]
-# q0_sampled_leecivera_l1   = p_sampled_leecivera_l1[:,:2]
-# q0_sampled_leecivera_linf = p_sampled_leecivera_linf[:,:2]
-# q0 = p[:2]
+# q0_sampled_geometric       = p_sampled_geometric[:,1:]
+# q0_sampled_lindstrom       = p_sampled_lindstrom[:,1:]
+# q0_sampled_leecivera_l1    = p_sampled_leecivera_l1[:,1:]
+# q0_sampled_leecivera_linf  = p_sampled_leecivera_linf[:,1:]
+# q0_sampled_leecivera_mid2  = p_sampled_leecivera_mid2[:,1:]
+# q0_sampled_leecivera_wmid2 = p_sampled_leecivera_wmid2[:,1:]
+# q0 = p[1:]
 
 
 import gnuplotlib as gp
@@ -296,6 +312,8 @@ gp.plot( *plot_args_points_and_covariance_ellipse( q0_sampled_geometric,      'g
          *plot_args_points_and_covariance_ellipse( q0_sampled_lindstrom,      'lindstrom' ),
          *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_l1,   'lee-civera-l1' ),
          *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_linf, 'lee-civera-linf' ),
+         *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_mid2, 'lee-civera-mid2' ),
+         *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_wmid2,'lee-civera-wmid2' ),
          ( q0,
            dict(_with     = 'points pt 3 ps 2',
                 tuplesize = -2,
