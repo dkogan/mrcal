@@ -573,7 +573,7 @@ class HTMLDoc(Doc):
     def page(self, title, contents):
         """Format an HTML page."""
 
-        with open("doc/mrcal-preamble.html", "r") as f:
+        with open("doc/mrcal-preamble-GENERATED.html", "r") as f:
             preamble = f.read()
 
         return '''\
