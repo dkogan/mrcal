@@ -196,12 +196,11 @@ def test_geometry( Rt01, p, whatgeometry,
         # print( f"{what} p_err: {p_reported - p_optimized}" )
         # print( f"{what} optimum reported/optimized:\n{callback(p_reported, *args)/callback(p_optimized, *args)}" )
 
-        for ip in range(Np):
-            testutils.confirm_equal( p_reported[ip], p_optimized[ip],
-                                     relative  = True,
-                                     worstcase = True,
-                                     msg = f"{what} ip={ip}",
-                                     eps = 1e-3)
+        testutils.confirm_equal( p_reported, p_optimized,
+                                 relative  = True,
+                                 worstcase = True,
+                                 msg = what,
+                                 eps = compare_results_eps)
 
 # square camera layout
 t01  = np.array(( 1.,   0.1,  -0.2))
