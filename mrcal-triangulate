@@ -572,6 +572,7 @@ if args.viz_match:
         print("## WARNING: no feature matching was performed, so --viz-match does nothing")
     else:
         import gnuplotlib as gp
-        gp.plot( * match_feature_diagnostics['plot_data_tuples'],
+        # don't plot the correlation map (the last plot data tuple)
+        gp.plot( * match_feature_diagnostics['plot_data_tuples'][:-1],
                  **match_feature_diagnostics['plot_options'],
                  wait=True)
