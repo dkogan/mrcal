@@ -827,7 +827,7 @@ big differences are
 3. mrcal.match_feature() performs simple sub-pixel interpolation to increase the
    resolution of the reported pixel match
 
-3. Some visualization capabilities are included to allow the user to evaluate
+4. Some visualization capabilities are included to allow the user to evaluate
    the results
 
 All inputs and outputs use the (x,y) convention normally utilized when talking
@@ -937,6 +937,20 @@ We return a tuple:
     gp.plot( * diagnostics['plot_data_tuples'],
              **diagnostics['plot_options'],
              wait=True)
+
+    The diagnostic plot contains 3 overlaid images:
+
+    - The image being searched
+    - The homography-transformed template placed at the best-fitting location
+    - The correlation (or difference) image, placed at the best-fitting location
+
+    In an interactive gnuplotlib window, each image can be shown/hidden by
+    clicking on the relevant legend entry at the top-right of the image.
+    Repeatedly toggling the visibility of the template image is useful to
+    communicate the fit accuracy. The correlation image is guaranteed to appear
+    at the end of the diagnostics['plot_data_tuples'] tuple, so it can be
+    omitted by plotting diagnostics['plot_data_tuples'][:-1]. Skipping this
+    image is often most useful for quick human evaluation.
 
     '''
 
