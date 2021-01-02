@@ -200,6 +200,50 @@ def get_R_abn(n):
 
 def homography_planes(models, q0, plane_n, plane_d):
 
+
+    Rt10 = mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
+                             models[0].extrinsics_Rt_toref() )
+    R10 = Rt10[:3,:]
+    t10 = Rt10[ 3,:]
+
+    # The homography definition. Derived in many places. For instance in
+    # "Motion and structure from motion in a piecewise planar environment"
+    # by Olivier Faugeras, F. Lustman.
+    H10 = plane_d * R10 + nps.outer(t10, plane_n)
+
+    v0 = mrcal.unproject(q0, *models[0].intrinsics())
+
+    # Find the 3D point on the plane, and translate the homography to match them
+    # up
+    # inner(k*v0, n) = d -> k = d / inner(v0,n)
+    p0 = v0 * (plane_d / nps.inner(v0, plane_n))
+    p1 = mrcal.transform_point_Rt(Rt10, p0)
+
+    # I now compute the "projection matrix" for the two cameras at p. Such a
+    # matrix can only fully describe a pinhole lens, but I can compute the local
+    # estimate from the gradient. For an observation vector v = (vx vy 1) I want
+    # q = (K*v)[:2]/(K*v)[2]. Let the bottom row of K be (0 0 1). The right col
+    # is a translation. So q = K00 vxy + K02. K00 = dq/dvxy
+    K0 = np.eye(3, dtype=float)
+    _, dq0_dvxy0,_ = mrcal.project(p0/p0[2], *models[0].intrinsics(),
+                                   get_gradients=True)
+    K0[:2,:2] = dq0_dvxy0[:,:2]
+    K0[:2, 2] = q0 - nps.inner(K0[:2,:2], p0[:2]/p0[2])
+
+    # Now the same thing for K1
+    K1 = np.eye(3, dtype=float)
+    q1,dq1_dvxy1,_ = mrcal.project(p1/p1[2], *models[1].intrinsics(),
+                                   get_gradients=True)
+    K1[:2,:2] = dq1_dvxy1[:,:2]
+    K1[:2, 2] = q1 - nps.inner(K1[:2,:2], p1[:2]/p1[2])
+
+    H10 = nps.matmult( K1, H10, np.linalg.inv(K0) )
+
+    return H10
+
+    # ALTERNATIVE IMPLEMENTATION I MIGHT WANT LATER FOR OTHER PURPOSES: affine
+    # transformation that has no projective behavior
+
     v0 = mrcal.unproject(q0, *models[0].intrinsics())
 
     # k*v0 is on the plane: inner(k*v0, n) = d -> k = d/inner(v0,n)
