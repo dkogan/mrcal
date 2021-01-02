@@ -233,143 +233,6 @@ def homography_planes(models, q0, plane_n, plane_d):
 
     return H10
 
-def homography_headon_view(intrinsics0, intrinsics1,
-                           q0, q1 = None,
-                           Rt10   = None,
-                           range0 = None):
-    r'''Compute a local homogeneous-coordinate homography
-
-    Let's say I'm observing a small planar patch in the world, parametrized into
-    some uv coordinates. uv is an orthonormal coordinate system. Let's say uv0 =
-    [u v 0]t and p = Ruv uv0 + tuv = Ruv01 uv + tuv. p is a camera-0 point
-    coordinate
-
-    dq0/duv = dq0/dp0         dp0/duv = dq0/dp0     Ruv01
-    dq1/duv = dq1/dp1 dp1/dp0 dp0/duv = dq1/dp1 R10 Ruv01
-
-    I can compute the local relationship: dq1/dq0 = dq1/duv duv/dq0
-
-    And I then combine this local relationship with a q0->q1 translation into a
-    homography that I return.
-
-    If I know the geometry of the cameras and the geometry of the object I'm
-    looking at, I can compute this directly. Otherwise, I can make some
-    assumptions to fill in the missing information. This function does not know
-    what we're looking at, and assumes that it's a plane perpendicular to the
-    viewing vector.
-
-    This function REQUIRES q0: the pixel observation in camera0. If q1 is None,
-    we must have the range to the object in range0. If no extrinsics are
-    available, we assume either no relative rotation or that we're looking very
-    far away.
-
-    '''
-
-    def get_R_0_uv_headon(p0, p1 = None, Rt10 = None):
-        r'''Returns a rotation between head-on plane and world coords
-
-        Two cameras are observing a point. I assume this point lies on a plane
-        that's observed as head-on as possible by both cameras. The plane is
-        parametrized in some 2D uv coordinates. Let uv0 = [u v 0]t and p = Ruv uv0 +
-        tuv = Ruv01 uv + tuv. Here I return Ruv. p is assumed to lie in the
-        coordinates of camera 0
-
-        If we don't have reliable extrinsics, set Rt10 to None, and we'll return
-        a head-on rotation looking just at camera0. For far-away objects viewer
-        by mostly-aligned cameras this should be ok
-
-        '''
-
-        def mean_direction(n0, n1):
-            r'''Given two unit vectors, returns an "average"'''
-
-            v = n0+n1
-            return v / nps.mag(v)
-
-        n0 = p0/nps.mag(p0)
-
-        if Rt10 is None:
-            return get_R_abn(n0)
-
-        if p1 is None:
-            p1 = mrcal.transform_point_Rt(Rt10, p0)
-        n1 = p1/nps.mag(p1)   # n1 in cam1 coords
-        n1 = nps.matmult(n1, Rt10[:3,:]) # n1 in cam0 coords
-        n = mean_direction(n0, n1)
-
-        return get_R_abn(n)
-
-
-
-
-
-    if (q1 is     None and range0 is     None) or \
-       (q1 is not None and range0 is not None):
-        raise Exception("I need exactly one of (q1,range0) to be given")
-
-    if Rt10 is None:
-        if q1 is None:
-            # I don't know anything. Assume an identity homography
-            return np.eye(3)
-
-        # I have no extrinsics, but I DO have a set of pixel observations.
-        # Assume we're looking at faraway objects
-        if range0 is not None:
-            p0 = mrcal.unproject(q0, *intrinsics0, normalize = True) * range0
-            p1 = p0
-        else:
-            p0 = mrcal.unproject(q0, *intrinsics0, normalize = True) * 1000.
-            p1 = mrcal.unproject(q1, *intrinsics1, normalize = True) * 1000.
-    else:
-
-        if range0 is not None:
-            p0 = mrcal.unproject(q0, *intrinsics0, normalize = True) * range0
-        else:
-            v0 = mrcal.unproject(q0, *intrinsics0)
-            v1 = mrcal.unproject(q1, *intrinsics1)
-            p0 = triangulate( v0, v1,
-                              Rt01        = mrcal.invert_Rt(Rt10),
-                              v_are_local = True )
-            if nps.norm2(p0) == 0:
-                raise Exception("Initial view divergent")
-
-        p1 = mrcal.transform_point_Rt(Rt10, p0)
-
-
-    _,          dq0_dp0,_ = mrcal.project(p0, *intrinsics0, get_gradients=True)
-    q1_estimate,dq1_dp1,_ = mrcal.project(p1, *intrinsics1, get_gradients=True)
-
-    if q1 is None:
-        q1 = q1_estimate
-
-    # To transform from the uv0 coord system to cam0 coord system: p0 = R_0_uv0
-    # puv0 + t0_uv0 -> dp0/dpuv0 = R_0_uv0. And if we constrain ourselves to the
-    # uv surface we have dp0/dpuv = R_0_uv
-    #
-    # Similarly, p1 = R10 p0 + t10 -> dp1/dp0 = R10
-    if Rt10 is not None:
-        R10 = Rt10[:3,:]
-    else:
-        R10 = np.eye(3)
-
-    R_0_uv0 = get_R_0_uv_headon(p0, p1, Rt10)
-    R_0_uv  = R_0_uv0[:,:2]
-    dq0_duv = nps.matmult(dq0_dp0,      R_0_uv)
-    dq1_duv = nps.matmult(dq1_dp1, R10, R_0_uv)
-
-    dq1_dq0 = nps.matmult( dq1_duv,
-                           np.linalg.inv(dq0_duv) )
-    # I now have the relative pixel homography dq0/dq1 now. This is a 2x2
-    # matrix. I embed it into a homogeneous-coordinate homography in a 3x3
-    # matrix. And I make sure that q1 maps to q0, so this becomes an
-    # absolute-coordinate mapping
-    H10 = nps.glue( nps.glue( dq1_dq0,
-                              nps.transpose(q1) - nps.matmult(dq1_dq0,nps.transpose(q0)),
-                              axis=-1),
-                    np.array((0,0,1)), axis=-2)
-    return H10
-
-
 
 
 
@@ -390,11 +253,19 @@ else:
                                 args.plane_d)
 
     else:
-        H10 = homography_headon_view(models[0].intrinsics(), models[1].intrinsics(),
-                                     q0_ref,
-                                     Rt10 = mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
-                                                              models[0].extrinsics_Rt_toref() ),
-                                     range0 = args.range_estimate)
+        # no plane defined. So I make up a plane that's the given distance away,
+        # viewed head-on.
+
+        # "mean" forward view of the cameras
+        Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+                                 models[1].extrinsics_Rt_toref() )
+        n0 = np.array((0,0,1.))
+        n1 = mrcal.rotate_point_R(Rt01[:3,:], np.array((0,0,1.)))
+        n = n0+n1
+        n /= nps.mag(n)
+        H10 = homography_planes(models,
+                                q0_ref,
+                                n, args.range_estimate)
 
     q1_perfect = mrcal.apply_homography(H10, q0_ref)
     print(f"## Feature {q0_ref} in the left image corresponds to {q1_perfect} at {args.range_estimate}m")
