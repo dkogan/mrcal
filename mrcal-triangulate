@@ -60,34 +60,45 @@ def parse_args():
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--make-corrected-model1',
                         action='store_true',
-                        help='''If given, we assume the --range-estimate is correct, and generate a rotated
-                        camera1 to produce this range''')
+                        help='''If given, we assume the --range-estimate is correct, and output to standard
+                        output a rotated camera1 to produce this range''')
     parser.add_argument('--templatesize',
                         type=positive_int,
                         nargs=2,
                         default = (13,13),
                         help='''The size of the template used for feature matching. Two arguments are
-                        required: width height.''')
+                        required: width height. This is passed directly to mrcal.match_feature()''')
     parser.add_argument('--searchradius',
                         type=positive_int,
                         default = 20,
                         help='''How far the feature-matching routine should search. This should be larger if
-                        the range estimate is poor, especially, at near
-                        ranges''')
+                        the range estimate is poor, especially, at near ranges.
+                        This is passed directly to mrcal.match_feature()''')
     parser.add_argument('--range-estimate',
                         type=positive_float,
                         default = 50,
                         help='''Initial estimate of the range of the observed feature. This is used for the
-                        initial guess in the feature-matching''')
+                        initial guess in the feature-matching. If omitted, I
+                        pick 50m, completely arbitrarily''')
     parser.add_argument('--corr-floor',
                         type=float,
                         default=0.9,
-                        help='''This is passed to mrcal.match_feature(). The default is 0.9: accept only very
-                        good matches. If this isn't good for whatever reason,
-                        that can be overridden''')
+                        help='''This is used to reject mrcal.match_feature() results. The default is 0.9:
+                        accept only very good matches. A lower threshold may
+                        still result in usable matches, but do interactively
+                        check the feature-matcher results by passing
+                        --viz-match''')
     parser.add_argument('--viz-match',
                         action='store_true',
-                        help='''If given, we visualize the feature-matcher results''')
+                        help='''If given, we visualize the feature-matcher results. This produces an
+                        interactive gnuplot window with 3 overlaid images: the
+                        larger image being searched, the transformed template,
+                        placed at its best-fitting location, the correlator
+                        results. Each individual image can be hidden/shown by
+                        clicking on its legend in the top-right of the plot.
+                        It's generally most useful to hide the correlator
+                        results, and then to show/hide the template to visually
+                        verify the resulting alignment.''')
     parser.add_argument('models',
                         type=str,
                         nargs = 2,
@@ -96,26 +107,25 @@ def parse_args():
                         type=str,
                         nargs=2,
                         help='''The images to use for the triangulation''')
-    parser.add_argument('featurepositions',
+    parser.add_argument('features',
                         nargs='*',
                         type=positive_float,
-                        help='''Feature position in the first image optionally followed by the coresponding
-                        feature position in the second image. If 2 values are
-                        given, I treat them as the pixel coordinates of the
-                        feature in the first image. I then look for a matching
-                        feature in the second image to get the corresponding
-                        coordinates in the second image. Or, if 4 values are
-                        given, I just use the second set of 2 values as the
-                        corresponding coordinates find this''')
+                        help='''Feature coordinate in the first image optionally followed by the coresponding
+                        feature position in the second image. The first 2
+                        arguments are the pixel coordinates of the feature in
+                        the first image. If no more arguments are given I seek a
+                        matching feature in the second image. If 2 more
+                        arguments are given, I use these extra arguments as the
+                        corresponding feature coordinates in the second image''')
 
     return parser.parse_args()
 
 args = parse_args()
 
-if len(args.featurepositions) != 2 and \
-   len(args.featurepositions) != 4:
+if len(args.features) != 2 and \
+   len(args.features) != 4:
     raise Exception("I need either 2 or 4 values for the feature positions, instead got {}". \
-                    format(len(args.featurepositions)))
+                    format(len(args.features)))
 
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
@@ -136,7 +146,7 @@ print("## generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S")
                                               ' '.join(mrcal.shellquote(s) for s in sys.argv)))
 
 
-triangulate = mrcal.triangulate_leecivera_linf
+triangulate = mrcal.triangulate_leecivera_mid2
 
 
 
@@ -154,7 +164,8 @@ def get_homography_headon_view(intrinsics0, intrinsics1,
 
     Let's say I'm observing a small planar patch in the world, parametrized into
     some uv coordinates. uv is an orthonormal coordinate system. Let's say uv0 =
-    [u v 0]t and p = Ruv uv0 + tuv = Ruv01 uv + tuv
+    [u v 0]t and p = Ruv uv0 + tuv = Ruv01 uv + tuv. p is a camera-0 point
+    coordinate
 
     dq0/duv = dq0/dp0         dp0/duv = dq0/dp0     Ruv01
     dq1/duv = dq1/dp1 dp1/dp0 dp0/duv = dq1/dp1 R10 Ruv01
@@ -252,19 +263,15 @@ def get_homography_headon_view(intrinsics0, intrinsics1,
         # I have no extrinsics, but I DO have a set of pixel observations.
         # Assume we're looking at faraway objects
         if range0 is not None:
-            v0 = mrcal.unproject(q0, *intrinsics0)
-            p0 = v0 / nps.mag(v0) * range0
+            p0 = mrcal.unproject(q0, *intrinsics0, normalize = True) * range0
             p1 = p0
         else:
-            v0 = mrcal.unproject(q0, *intrinsics0)
-            p0 = v0 / nps.mag(v0) * 1000.
-            v1 = mrcal.unproject(q1, *intrinsics1)
-            p1 = v1 / nps.mag(v1) * 1000.
+            p0 = mrcal.unproject(q0, *intrinsics0, normalize = True) * 1000.
+            p1 = mrcal.unproject(q1, *intrinsics1, normalize = True) * 1000.
     else:
 
         if range0 is not None:
-            v0 = mrcal.unproject(q0, *intrinsics0)
-            p0 = v0 / nps.mag(v0) * range0
+            p0 = mrcal.unproject(q0, *intrinsics0, normalize = True) * range0
         else:
             v0 = mrcal.unproject(q0, *intrinsics0)
             v1 = mrcal.unproject(q1, *intrinsics1)
@@ -316,10 +323,10 @@ def get_homography_headon_view(intrinsics0, intrinsics1,
 
 models = [mrcal.cameramodel(m) for m in args.models]
 images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in args.images]
-q0_ref = np.array(args.featurepositions[:2], dtype=float)
+q0_ref = np.array(args.features[:2], dtype=float)
 
-if len(args.featurepositions) == 4:
-    q1_ref = np.array(args.featurepositions[2:], dtype=float)
+if len(args.features) == 4:
+    q1_ref = np.array(args.features[2:], dtype=float)
     print(f"## Using user-supplied feature match at {q1_ref}")
     match_feature_diagnostics = None
 
