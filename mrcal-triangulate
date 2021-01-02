@@ -80,6 +80,22 @@ def parse_args():
                         help='''Initial estimate of the range of the observed feature. This is used for the
                         initial guess in the feature-matching. If omitted, I
                         pick 50m, completely arbitrarily''')
+    parser.add_argument('--plane-n',
+                        type=float,
+                        nargs=3,
+                        help='''If given, assume that we're looking at a plane in space, and take this into
+                        account when matching the template. The normal vector to
+                        this plane is given here, in camera-0 coordinates. The
+                        normal does not need to be normalized; any scaling is
+                        compensated in planed. The plane is all points p such
+                        that inner(p,planen) = planed''')
+    parser.add_argument('--plane-d',
+                        type=float,
+                        help='''If given, assume that we're looking at a plane in space, and take this into
+                        account when matching the template. The
+                        distance-along-the-normal to the plane, in from-camera
+                        coordinates is given here. The plane is all points p
+                        such that inner(p,planen) = planed''')
     parser.add_argument('--corr-floor',
                         type=float,
                         default=0.9,
@@ -91,14 +107,13 @@ def parse_args():
     parser.add_argument('--viz-match',
                         action='store_true',
                         help='''If given, we visualize the feature-matcher results. This produces an
-                        interactive gnuplot window with 3 overlaid images: the
-                        larger image being searched, the transformed template,
-                        placed at its best-fitting location, the correlator
-                        results. Each individual image can be hidden/shown by
-                        clicking on its legend in the top-right of the plot.
-                        It's generally most useful to hide the correlator
-                        results, and then to show/hide the template to visually
-                        verify the resulting alignment.''')
+                        interactive gnuplot window with 2 overlaid images: the
+                        larger image being searched and the transformed
+                        template, placed at its best-fitting location. Each
+                        individual image can be hidden/shown by clicking on its
+                        legend in the top-right of the plot. It's generally most
+                        useful to show/hide the template to visually verify the
+                        resulting alignment.''')
     parser.add_argument('models',
                         type=str,
                         nargs = 2,
@@ -124,8 +139,14 @@ args = parse_args()
 
 if len(args.features) != 2 and \
    len(args.features) != 4:
-    raise Exception("I need either 2 or 4 values for the feature positions, instead got {}". \
-                    format(len(args.features)))
+    print(f"I need either 2 or 4 values for the feature positions, instead got {len(args.features)}",
+          file=sys.stderr)
+    sys.exit(1)
+
+if (args.plane_n is     None and args.plane_d is not None) or \
+   (args.plane_n is not None and args.plane_d is     None):
+    print("--plane-n and --plane-d should both be given or neither should be", file=sys.stderr)
+    sys.exit(1)
 
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
@@ -151,15 +172,71 @@ triangulate = mrcal.triangulate_leecivera_mid2
 
 
 
-def skew_symmetric(v):
-    return np.array(((   0,  -v[2],  v[1]),
-                     ( v[2],    0,  -v[0]),
-                     (-v[1],  v[0],    0)))
+def get_R_abn(n):
+    r'''Return a valid rotation matrix with the given n as the last column
 
-def get_homography_headon_view(intrinsics0, intrinsics1,
-                               q0, q1 = None,
-                               Rt10   = None,
-                               range0 = None):
+    n is assumed to be a normal vector: nps.norm2(n) = 1
+
+    Returns a rotation matrix where the 3rd column is the given vector n. The
+    first two vectors are arbitrary, but are guaranteed to produce a valid
+    rotation: RtR = I, det(R) = 1
+
+    '''
+
+    # arbitrary, but can't be exactly n
+    a = np.array((1., 0, 0, ))
+    proj = nps.inner(a, n)
+    if abs(proj) > 0.8:
+        # Any other orthogonal vector will do. If this projection was >
+        # 0.8, I'm guaranteed that all others will be smaller
+        a = np.array((0, 1., 0, ))
+        proj = nps.inner(a, n)
+
+    a -= proj*n
+    a /= nps.mag(a)
+    b = np.cross(n,a)
+    return nps.transpose(nps.cat(a,b,n))
+
+
+def homography_planes(models, q0, plane_n, plane_d):
+
+    v0 = mrcal.unproject(q0, *models[0].intrinsics())
+
+    # k*v0 is on the plane: inner(k*v0, n) = d -> k = d/inner(v0,n)
+    p0 = v0 * (plane_d / nps.inner(v0, plane_n))
+
+    # The coordinate in the plane are (u,v,n). (u,v) are in the plane, n is the
+    # normal. p0 = R_cam0_uvn * p_uvn -> dp0/dp_uvn = R_cam0_uvn, dp0/dp_uv =
+    # R_cam0_uv
+    R_cam0_uv = get_R_abn(plane_n)[:,:2]
+
+    _, dq0_dp0,_ = mrcal.project(p0, *models[0].intrinsics(),
+                                 get_gradients=True)
+    dq0_duv = nps.matmult(dq0_dp0, R_cam0_uv)
+
+    # For the same (u,v,n) coord system we have p1 = R10 R_cam0_uvn * p_uvn +
+    # t10 -> dp1/dp_uvn = R10 R_cam0_uvn, dp1/dp_uv = R10 R_cam0_uv
+
+    Rt10 = mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
+                             models[0].extrinsics_Rt_toref() )
+    p1 = mrcal.transform_point_Rt(Rt10, p0)
+    q1,dq1_dp1,_ = mrcal.project(p1, *models[1].intrinsics(),
+                                 get_gradients=True)
+    dq1_duv = nps.matmult(dq1_dp1, Rt10[:3,:], R_cam0_uv)
+
+    H10 = np.eye(3, dtype=float)
+    nps.matmult2( dq1_duv,
+                  np.linalg.inv(dq0_duv),
+                  out = H10[:2,:2])
+
+    H10[:2,2] = q1 - mrcal.apply_homography(H10, q0)
+
+    return H10
+
+def homography_headon_view(intrinsics0, intrinsics1,
+                           q0, q1 = None,
+                           Rt10   = None,
+                           range0 = None):
     r'''Compute a local homogeneous-coordinate homography
 
     Let's say I'm observing a small planar patch in the world, parametrized into
@@ -208,31 +285,6 @@ def get_homography_headon_view(intrinsics0, intrinsics1,
 
             v = n0+n1
             return v / nps.mag(v)
-
-        def get_R_abn(n):
-            r'''Return a rotation with the given n as the last column
-
-            n is assumed to be a normal vector: nps.norm2(n) = 1
-
-            Returns a rotation matrix where the 3rd column is the given vector n. The
-            first two vectors are arbitrary, but are guaranteed to produce a valid
-            rotation: RtR = I, det(R) = 1
-            '''
-
-            # arbitrary, but can't be exactly n
-            a = np.array((1., 0, 0, ))
-            proj = nps.inner(a, n)
-            if abs(proj) > 0.8:
-                # Any other orthogonal vector will do. If this projection was >
-                # 0.8, I'm guaranteed that all others will be smaller
-                a = np.array((0, 1., 0, ))
-                proj = nps.inner(a, n)
-
-            a -= proj*n
-            a /= nps.mag(a)
-            b = np.cross(n,a)
-            return nps.transpose(nps.cat(a,b,n))
-
 
         n0 = p0/nps.mag(p0)
 
@@ -305,17 +357,17 @@ def get_homography_headon_view(intrinsics0, intrinsics1,
     dq0_duv = nps.matmult(dq0_dp0,      R_0_uv)
     dq1_duv = nps.matmult(dq1_dp1, R10, R_0_uv)
 
-    dq0_dq1 = nps.matmult( dq0_duv,
-                           np.linalg.inv(dq1_duv) )
+    dq1_dq0 = nps.matmult( dq1_duv,
+                           np.linalg.inv(dq0_duv) )
     # I now have the relative pixel homography dq0/dq1 now. This is a 2x2
     # matrix. I embed it into a homogeneous-coordinate homography in a 3x3
     # matrix. And I make sure that q1 maps to q0, so this becomes an
     # absolute-coordinate mapping
-    H01 = nps.glue( nps.glue( dq0_dq1,
-                              nps.transpose(q0) - nps.matmult(dq0_dq1,nps.transpose(q1)),
+    H10 = nps.glue( nps.glue( dq1_dq0,
+                              nps.transpose(q1) - nps.matmult(dq1_dq0,nps.transpose(q0)),
                               axis=-1),
                     np.array((0,0,1)), axis=-2)
-    return H01
+    return H10
 
 
 
@@ -331,13 +383,20 @@ if len(args.features) == 4:
     match_feature_diagnostics = None
 
 else:
-    H01 = get_homography_headon_view(models[0].intrinsics(), models[1].intrinsics(),
+    if args.plane_n is not None:
+        H10 = homography_planes(models,
+                                q0_ref,
+                                np.array(args.plane_n),
+                                args.plane_d)
+
+    else:
+        H10 = homography_headon_view(models[0].intrinsics(), models[1].intrinsics(),
                                      q0_ref,
                                      Rt10 = mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
                                                               models[0].extrinsics_Rt_toref() ),
                                      range0 = args.range_estimate)
 
-    q1_perfect = mrcal.apply_homography(np.linalg.inv(H01), q0_ref)
+    q1_perfect = mrcal.apply_homography(H10, q0_ref)
     print(f"## Feature {q0_ref} in the left image corresponds to {q1_perfect} at {args.range_estimate}m")
 
     q1_ref, match_feature_diagnostics = \
@@ -346,7 +405,7 @@ else:
                             method        = cv2.TM_CCORR_NORMED,
                             search_radius = args.searchradius,
                             q0            = q0_ref,
-                            H10           = np.linalg.inv(H01),
+                            H10           = H10,
                             visualize     = False)
     if q1_ref is None or \
        match_feature_diagnostics['matchoutput_optimum_subpixel'] < args.corr_floor:
@@ -377,6 +436,11 @@ nyaw /= nps.mag(nyaw)
 # plane orthogonal to the yaw axis
 npitch = Rt01_ref[3,:] / nps.mag(Rt01_ref[3,:])
 
+
+def skew_symmetric(v):
+    return np.array(((   0,  -v[2],  v[1]),
+                     ( v[2],    0,  -v[0]),
+                     (-v[1],  v[0],    0)))
 
 def get_rt10_perturbed( t01err            = np.array((0,0,0)),
                         r01err_yaw        = 0,
