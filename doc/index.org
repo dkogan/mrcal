@@ -116,9 +116,6 @@ could have trouble
 - cahvore: non-gradientness should be a metadata parameter
 - better outlier rejection. cook's D
 - outlier rejection for points AND board observations
-*** stereo
-- stereo.py should be a separate tool, like jplv stereo
-- add the good triangulate-feature tool to mrcal/stereo.py
 ** stuff to study
 - Redo, show stability. Heat? Show effects?
 - Can we study intrinsics stability over time? In response to heating? Shaking?
@@ -157,3 +154,5 @@ talk about --seed and how that can be used to validate intrinsics
 
 add punchline note at the end of the tour
 
+* TODO stereo tool addition                                        :noexport:
+Add commandline tool for stereo-matching
