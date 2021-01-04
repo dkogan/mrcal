@@ -1042,14 +1042,14 @@ plot
                                      q_cam_calobjects_inliers[...,1],
                                      np.zeros(q_cam_calobjects_inliers.shape[:-1]),
                                      dict( tuplesize = 3,
-                                           _with  = 'dots nocontour',
+                                           _with  = 'dots lc "black" nocontour',
                                            legend = 'inliers')) )
         if len(q_cam_calobjects_outliers):
             plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
                                      q_cam_calobjects_outliers[...,1],
                                      np.zeros(q_cam_calobjects_outliers.shape[:-1]),
                                      dict( tuplesize = 3,
-                                           _with  = 'dots nocontour',
+                                           _with  = 'dots lc "red" nocontour',
                                            legend = 'outliers')) )
 
     plot_options = kwargs
