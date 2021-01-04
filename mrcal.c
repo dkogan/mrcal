@@ -52,7 +52,6 @@
 #define SCALE_TRANSLATION_FRAME       1.0
 #define SCALE_POSITION_POINT          SCALE_TRANSLATION_FRAME
 #define SCALE_CALOBJECT_WARP          0.01
-
 #define SCALE_DISTORTION              1.0
 
 #define MSG(fmt, ...) fprintf(stderr, "%s(%d): " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
@@ -1094,10 +1093,10 @@ void _project_point_parametric( // outputs
 void mrcal_project_stereographic( // output
                                  mrcal_point2_t* q,
                                  mrcal_point3_t* dq_dv, // May be NULL. Each point
-                                                  // gets a block of 2 mrcal_point3_t
-                                                  // objects
+                                                        // gets a block of 2 mrcal_point3_t
+                                                        // objects
 
-                                  // input
+                                 // input
                                  const mrcal_point3_t* v,
                                  int N,
                                  double fx, double fy,
@@ -1158,8 +1157,8 @@ void mrcal_project_stereographic( // output
 void mrcal_unproject_stereographic( // output
                                    mrcal_point3_t* v,
                                    mrcal_point2_t* dv_dq, // May be NULL. Each point
-                                                    // gets a block of 3
-                                                    // mrcal_point2_t objects
+                                                          // gets a block of 3
+                                                          // mrcal_point2_t objects
 
                                    // input
                                    const mrcal_point2_t* q,
@@ -1251,7 +1250,7 @@ void mrcal_unproject_stereographic( // output
             dv_dq[3*i + 0] = (mrcal_point2_t){.x = 1.0/fx};
             dv_dq[3*i + 1] = (mrcal_point2_t){.y = 1.0/fy};
             dv_dq[3*i + 2] = (mrcal_point2_t){.x = -u.x/2.0/fx,
-                                        .y = -u.y/2.0/fy};
+                                              .y = -u.y/2.0/fy};
         }
         v[i] = (mrcal_point3_t){ .x = u.x,
                                  .y = u.y,
@@ -4703,7 +4702,7 @@ bool mrcal_optimizer_callback(// out
         .verbose                    = verbose,
         .lensmodel                  = lensmodel,
         .imagersizes                = imagersizes,
-        .problem_selections            = problem_selections,
+        .problem_selections         = problem_selections,
         .problem_constants          = problem_constants,
         .calibration_object_spacing = calibration_object_spacing,
         .calibration_object_width_n = calibration_object_width_n  > 0 ? calibration_object_width_n  : 0,
@@ -4858,7 +4857,7 @@ mrcal_optimize( // out
         .verbose                    = verbose,
         .lensmodel                  = lensmodel,
         .imagersizes                = imagersizes,
-        .problem_selections            = problem_selections,
+        .problem_selections         = problem_selections,
         .problem_constants          = problem_constants,
         .calibration_object_spacing = calibration_object_spacing,
         .calibration_object_width_n = calibration_object_width_n  > 0 ? calibration_object_width_n  : 0,
