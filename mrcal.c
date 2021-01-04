@@ -3403,7 +3403,7 @@ bool markOutliers(// output, input
     double var = 0.0;
     LOOP_FEATURE_BEGIN()
     {
-        if(*weight < 0.0)
+        if(*weight <= 0.0)
         {
             (*Noutliers)++;
             continue;
@@ -3423,7 +3423,7 @@ bool markOutliers(// output, input
     bool markedAny = false;
     LOOP_FEATURE_BEGIN()
     {
-        if(*weight < 0.0)
+        if(*weight <= 0.0)
           continue;
 
         double dx = x_measurements[2*i_feature + 0];
@@ -3966,7 +3966,7 @@ void optimizer_callback(// input state
         const mrcal_point3_t* qx_qy_w__observed = &observation->px;
         double weight = qx_qy_w__observed->z;
 
-        if(weight < 0.0)
+        if(weight <= 0.0)
         {
             // Outlier. Cost = 0. Jacobians are 0 too, but I must preserve the
             // structure
