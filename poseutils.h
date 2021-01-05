@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdbool.h>
+
 // Unless specified all arrays stored in contiguous matrices in row-major order.
 //
 // All functions are defined using the mrcal_..._full() form, which supports
@@ -98,7 +100,7 @@ void mrcal_rotate_point_R_full( // output
 //
 // The gradient dx_out/dx_in is returned in a (3,3) array J_x. Set to NULL if
 // this is not wanted
-#define mrcal_rotate_point_r(x_out,J_r,J_x,r,x_in) mrcal_rotate_point_r_full(x_out,0,J_r,0,0,J_x,0,0,r,0,x_in,0)
+#define mrcal_rotate_point_r(x_out,J_r,J_x,r,x_in) mrcal_rotate_point_r_full(x_out,0,J_r,0,0,J_x,0,0,r,0,x_in,0,false)
 void mrcal_rotate_point_r_full( // output
                                double* x_out,      // (3,) array
                                int x_out_stride0,  // in bytes. <= 0 means "contiguous"
@@ -113,8 +115,14 @@ void mrcal_rotate_point_r_full( // output
                                const double* r,    // (3,) array. May be NULL
                                int r_stride0,      // in bytes. <= 0 means "contiguous"
                                const double* x_in, // (3,) array. May be NULL
-                               int x_in_stride0    // in bytes. <= 0 means "contiguous"
+                               int x_in_stride0,   // in bytes. <= 0 means "contiguous"
+
+                               bool inverted       // if true, I apply a
+                                                   // rotation in the opposite
+                                                   // direction. J_r corresponds
+                                                   // to the input r
                                );
+
 
 // Transform the point x_in in a (3,) array by the Rt transformation in a (4,3)
 // array.
@@ -156,7 +164,7 @@ void mrcal_transform_point_Rt_full( // output
 //
 // The gradient dx_out/dx_in is returned in a (3,3) array J_x. This is simply
 // the matrix R. Set to NULL if this is not wanted
-#define mrcal_transform_point_rt(x_out,J_rt,J_x,rt,x_in) mrcal_transform_point_rt_full(x_out,0,J_rt,0,0,J_x,0,0,rt,0,x_in,0)
+#define mrcal_transform_point_rt(x_out,J_rt,J_x,rt,x_in) mrcal_transform_point_rt_full(x_out,0,J_rt,0,0,J_x,0,0,rt,0,x_in,0,false)
 void mrcal_transform_point_rt_full( // output
                                    double* x_out,      // (3,) array
                                    int x_out_stride0,  // in bytes. <= 0 means "contiguous"
@@ -171,7 +179,13 @@ void mrcal_transform_point_rt_full( // output
                                    const double* rt,   // (6,) array. May be NULL
                                    int rt_stride0,     // in bytes. <= 0 means "contiguous"
                                    const double* x_in, // (3,) array. May be NULL
-                                   int x_in_stride0    // in bytes. <= 0 means "contiguous"
+                                   int x_in_stride0,   // in bytes. <= 0 means "contiguous"
+
+                                   bool inverted       // if true, I apply the
+                                                       // transformation in the
+                                                       // opposite direction.
+                                                       // J_rt corresponds to
+                                                       // the input rt
                                    );
 
 // Convert a rotation matrix in a (3,3) array to a rodrigues vector in a (3,)

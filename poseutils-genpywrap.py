@@ -209,6 +209,7 @@ docs for that function for details.
             args_input       = ('r', 'x'),
             prototype_input  = ((3,), (3,)),
             prototype_output = (3,),
+            extra_args = (("int", "inverted", "false", "p"),),
 
             Ccode_slice_eval = \
                 {np.float64:
@@ -220,7 +221,8 @@ docs for that function for details.
                                (const double*)data_slice__r,
                                strides_slice__r[0],
                                (const double*)data_slice__x,
-                               strides_slice__x[0]);
+                               strides_slice__x[0],
+                               *inverted);
     return true;
 '''},
 )
@@ -234,6 +236,7 @@ docs for that function for details.
             args_input       = ('r', 'x'),
             prototype_input  = ((3,), (3,)),
             prototype_output = ((3,), (3,3), (3,3)),
+            extra_args = (("int", "inverted", "false", "p"),),
 
             Ccode_slice_eval = \
                 {np.float64:
@@ -249,7 +252,8 @@ docs for that function for details.
                                (const double*)data_slice__r,
                                strides_slice__r[0],
                                (const double*)data_slice__x,
-                               strides_slice__x[0]);
+                               strides_slice__x[0],
+                               *inverted);
     return true;
 '''},
 )
@@ -320,6 +324,7 @@ the docs for that function for details.
             args_input       = ('rt', 'x'),
             prototype_input  = ((6,), (3,)),
             prototype_output = (3,),
+            extra_args = (("int", "inverted", "false", "p"),),
 
             Ccode_slice_eval = \
                 {np.float64:
@@ -331,7 +336,8 @@ the docs for that function for details.
                                    (const double*)data_slice__rt,
                                    strides_slice__rt[0],
                                    (const double*)data_slice__x,
-                                   strides_slice__x[0] );
+                                   strides_slice__x[0],
+                                   *inverted );
     return true;
 '''},
 )
@@ -345,6 +351,7 @@ the docs for that function for details.
             args_input       = ('rt', 'x'),
             prototype_input  = ((6,), (3,)),
             prototype_output = ((3,), (3,6), (3,3)),
+            extra_args = (("int", "inverted", "false", "p"),),
 
             Ccode_slice_eval = \
                 {np.float64:
@@ -360,7 +367,8 @@ the docs for that function for details.
                                    (const double*)data_slice__rt,
                                    strides_slice__rt[0],
                                    (const double*)data_slice__x,
-                                   strides_slice__x[0] );
+                                   strides_slice__x[0],
+                                   *inverted );
     return true;
 '''},
 )

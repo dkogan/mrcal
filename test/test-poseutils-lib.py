@@ -265,6 +265,28 @@ confirm_equal( J_x,
                J_x_ref,
                msg='rotate_point_r J_x')
 
+y = mrcal.rotate_point_r(r0_ref, x, out = out3, inverted=True)
+confirm_equal( y,
+               nps.matmult(x, R_from_r(r0_ref)),
+               msg='rotate_point_r(inverted) result')
+
+y, J_r, J_x = mrcal.rotate_point_r(r0_ref, x, get_gradients=True,
+                                   out = (out3, out33, out33a),
+                                   inverted = True)
+J_r_ref = grad(lambda r: nps.matmult(x, R_from_r(r)),
+               r0_ref)
+J_x_ref = grad(lambda x: nps.matmult(x, R_from_r(r0_ref)),
+               x)
+confirm_equal( y,
+               nps.matmult(x, R_from_r(r0_ref)),
+               msg='rotate_point_r(inverted) result')
+confirm_equal( J_r,
+               J_r_ref,
+               msg='rotate_point_r(inverted) J_r')
+confirm_equal( J_x,
+               J_x_ref,
+               msg='rotate_point_r(inverted) J_x')
+
 y = mrcal.transform_point_Rt(Rt0_ref, x, out = out3)
 confirm_equal( y,
                nps.matmult(x, nps.transpose(R0_ref))+t0_ref,
@@ -306,6 +328,27 @@ confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_rt J_x')
 
+y = mrcal.transform_point_rt(rt0_ref, x, out = out3, inverted=True)
+confirm_equal( y,
+               nps.matmult(x-t0_ref, R0_ref),
+               msg='transform_point_rt(inverted) result')
+
+y, J_rt, J_x = mrcal.transform_point_rt(rt0_ref, x, get_gradients=True,
+                                        out = (out3,out36,out33a),
+                                        inverted = True)
+J_rt_ref = grad(lambda rt: nps.matmult(x-rt[3:], R_from_r(rt[:3])),
+                rt0_ref)
+J_x_ref = grad(lambda x: nps.matmult(x-t0_ref, R0_ref),
+               x)
+confirm_equal( y,
+               nps.matmult(x-t0_ref, R0_ref),
+               msg='transform_point_rt(inverted) result')
+confirm_equal( J_rt,
+               J_rt_ref,
+               msg='transform_point_rt(inverted) J_rt')
+confirm_equal( J_x,
+               J_x_ref,
+               msg='transform_point_rt(inverted) J_x')
 
 
 r = mrcal.r_from_R(R0_ref, out = out3)
