@@ -72,72 +72,6 @@ rotate_point_r_core(// output
     }
 }
 
-// This function is identical to rotate_point_r_core(), but instead of computing
-// rotate(x) it computes rotate(x)-rotate(t). This is useful in the special-case
-// of applying an inverted transformation without computing the sin,cos,sqrt of
-// the rotation twice
-template<int N>
-static void
-rx_minus_rt(// output
-            val_withgrad_t<N>* x_outg,
-
-            // inputs
-            const val_withgrad_t<N>* rg,
-            const val_withgrad_t<N>* x_ing,
-            const val_withgrad_t<N>* t_ing,
-
-            // applies to the rotation only
-            bool inverted)
-{
-    double sign = inverted ? -1.0 : 1.0;
-    const val_withgrad_t<N> th2 =
-        rg[0]*rg[0] +
-        rg[1]*rg[1] +
-        rg[2]*rg[2];
-    const val_withgrad_t<N> cross_x[3] =
-        {
-            (rg[1]*x_ing[2] - rg[2]*x_ing[1])*sign,
-            (rg[2]*x_ing[0] - rg[0]*x_ing[2])*sign,
-            (rg[0]*x_ing[1] - rg[1]*x_ing[0])*sign
-        };
-    const val_withgrad_t<N> cross_t[3] =
-        {
-            (rg[1]*t_ing[2] - rg[2]*t_ing[1])*sign,
-            (rg[2]*t_ing[0] - rg[0]*t_ing[2])*sign,
-            (rg[0]*t_ing[1] - rg[1]*t_ing[0])*sign
-        };
-    const val_withgrad_t<N> inner_x =
-        rg[0]*x_ing[0] +
-        rg[1]*x_ing[1] +
-        rg[2]*x_ing[2];
-    const val_withgrad_t<N> inner_t =
-        rg[0]*t_ing[0] +
-        rg[1]*t_ing[1] +
-        rg[2]*t_ing[2];
-
-    if(th2.x < 1e-10)
-    {
-        for(int i=0; i<3; i++)
-            x_outg[i] =
-                  x_ing[i] + cross_x[i] + rg[i]*inner_x / 2
-                - t_ing[i] - cross_t[i] - rg[i]*inner_t / 2.;
-    }
-    else
-    {
-        const val_withgrad_t<N> th = th2.sqrt();
-        const vec_withgrad_t<N, 2> sc = th.sincos();
-
-        for(int i=0; i<3; i++)
-            x_outg[i] =
-                ( x_ing[i]   * sc.v[1] +
-                  cross_x[i] * sc.v[0]/th +
-                  rg[i] * inner_x * (val_withgrad_t<N>(1.) - sc.v[1]) / th2) -
-                ( t_ing[i]   * sc.v[1] +
-                  cross_t[i] * sc.v[0]/th +
-                  rg[i] * inner_t * (val_withgrad_t<N>(1.) - sc.v[1]) / th2);
-    }
-}
-
 template<int N>
 static void
 r_from_R_core(// output
@@ -311,49 +245,56 @@ void mrcal_transform_point_rt_full( // output
 
         if(J_rt == NULL && J_x == NULL)
         {
+            vec_withgrad_t<0, 3> x_minus_t(x_in,      -1, x_in_stride0);
+            x_minus_t -= vec_withgrad_t<0, 3>(&P1(rt,3), -1, rt_stride0);
+
             vec_withgrad_t<0, 3> rg   (&rt[0],    -1, rt_stride0);
-            vec_withgrad_t<0, 3> x_ing(x_in,      -1, x_in_stride0);
-            vec_withgrad_t<0, 3> tg   (&P1(rt,3), -1, rt_stride0);
             vec_withgrad_t<0, 3> x_outg;
-            rx_minus_rt<0>(x_outg.v,
-                           rg.v, x_ing.v, tg.v,
-                           true);
+            rotate_point_r_core<0>(x_outg.v,
+                                   rg.v, x_minus_t.v,
+                                   true);
             x_outg.extract_value(x_out, x_out_stride0);
         }
         else if(J_rt != NULL && J_x == NULL)
         {
+            vec_withgrad_t<6, 3> x_minus_t(x_in,     -1, x_in_stride0);
+            x_minus_t -= vec_withgrad_t<6, 3>(&P1(rt,3), 3, rt_stride0);
+
             vec_withgrad_t<6, 3> rg   (&rt[0],    0, rt_stride0);
-            vec_withgrad_t<6, 3> x_ing(x_in,     -1, x_in_stride0);
-            vec_withgrad_t<6, 3> tg   (&P1(rt,3), 3, rt_stride0);
             vec_withgrad_t<6, 3> x_outg;
-            rx_minus_rt<6>(x_outg.v,
-                           rg.v, x_ing.v, tg.v,
-                           true);
+            rotate_point_r_core<6>(x_outg.v,
+                                   rg.v, x_minus_t.v,
+                                   true);
             x_outg.extract_value(x_out, x_out_stride0);
             x_outg.extract_grad (J_rt,          0, 3, 0, J_rt_stride0, J_rt_stride1);
             x_outg.extract_grad (&P2(J_rt,0,3), 3, 3, 0, J_rt_stride0, J_rt_stride1);
         }
         else if(J_rt == NULL && J_x != NULL)
         {
+            vec_withgrad_t<3, 3> x_minus_t(x_in,      0, x_in_stride0);
+            x_minus_t -= vec_withgrad_t<3, 3>(&P1(rt,3),-1, rt_stride0);
+
             vec_withgrad_t<3, 3> rg   (&rt[0],   -1, rt_stride0);
-            vec_withgrad_t<3, 3> x_ing(x_in,      0, x_in_stride0);
-            vec_withgrad_t<3, 3> tg   (&P1(rt,3),-1, rt_stride0);
             vec_withgrad_t<3, 3> x_outg;
-            rx_minus_rt<3>(x_outg.v,
-                           rg.v, x_ing.v, tg.v,
-                           true);
+            rotate_point_r_core<3>(x_outg.v,
+                                   rg.v, x_minus_t.v,
+                                   true);
             x_outg.extract_value(x_out, x_out_stride0);
             x_outg.extract_grad (J_x, 0, 3, 0, J_x_stride0,  J_x_stride1);
         }
         else
         {
+            vec_withgrad_t<9, 3> x_minus_t(x_in,      3, x_in_stride0);
+            x_minus_t -= vec_withgrad_t<9, 3>(&P1(rt,3), 6, rt_stride0);
+
             vec_withgrad_t<9, 3> rg   (&rt[0],    0, rt_stride0);
-            vec_withgrad_t<9, 3> x_ing(x_in,      3, x_in_stride0);
-            vec_withgrad_t<9, 3> tg   (&P1(rt,3), 6, rt_stride0);
             vec_withgrad_t<9, 3> x_outg;
-            rx_minus_rt<9>(x_outg.v,
-                           rg.v, x_ing.v, tg.v,
-                           true);
+
+
+            rotate_point_r_core<9>(x_outg.v,
+                                   rg.v, x_minus_t.v,
+                                   true);
+
             x_outg.extract_value(x_out, x_out_stride0);
             x_outg.extract_grad (J_rt,          0, 3, 0, J_rt_stride0, J_rt_stride1);
             x_outg.extract_grad (&P2(J_rt,0,3), 6, 3, 0, J_rt_stride0, J_rt_stride1);
