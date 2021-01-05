@@ -283,44 +283,6 @@ void mrcal_transform_point_Rt_full( // output
         mrcal_identity_R_full(&P3(J_Rt,0,3,0), J_Rt_stride0, J_Rt_stride2);
 }
 
-void mrcal_transform_point_rt_full( // output
-                                   double* x_out,      // (3,) array
-                                   int x_out_stride0,  // in bytes. <= 0 means "contiguous"
-                                   double* J_rt,       // (3,6) array. May be NULL
-                                   int J_rt_stride0,   // in bytes. <= 0 means "contiguous"
-                                   int J_rt_stride1,   // in bytes. <= 0 means "contiguous"
-                                   double* J_x,        // (3,3) array. May be NULL
-                                   int J_x_stride0,    // in bytes. <= 0 means "contiguous"
-                                   int J_x_stride1,    // in bytes. <= 0 means "contiguous"
-
-                                   // input
-                                   const double* rt,   // (6,) array. May be NULL
-                                   int rt_stride0,     // in bytes. <= 0 means "contiguous"
-                                   const double* x_in, // (3,) array. May be NULL
-                                   int x_in_stride0    // in bytes. <= 0 means "contiguous"
-                                    )
-{
-    init_stride_1D(x_out, 3);
-    init_stride_2D(J_rt,  3,6);
-    // init_stride_2D(J_x,   3,3 );
-    init_stride_1D(rt,    6 );
-    // init_stride_1D(x_in,  3 );
-
-    // I want rotate(x) + t
-    // First rotate(x)
-    mrcal_rotate_point_r_full(x_out, x_out_stride0,
-                              J_rt,  J_rt_stride0,  J_rt_stride1,
-                              J_x,   J_x_stride0,   J_x_stride1,
-                              rt,    rt_stride0,
-                              x_in,  x_in_stride0);
-
-    // And now +t. The J_r, J_x gradients are unaffected. J_t is identity
-    for(int i=0; i<3; i++)
-        P1(x_out,i) += P1(rt,i+3);
-    if(J_rt)
-        mrcal_identity_R_full(&P2(J_rt,0,3), J_rt_stride0, J_rt_stride1);
-}
-
 // The implementation of mrcal_R_from_r is based on opencv.
 // The sources have been heavily modified, but the opencv logic remains.
 //
@@ -511,7 +473,7 @@ void mrcal_Rt_from_rt_full(// output
                            // input
                            const double* rt, // (6,) vector
                            int rt_stride0    // in bytes. <= 0 means "contiguous"
-                              )
+                           )
 {
     mrcal_R_from_r_full(Rt,  Rt_stride0,  Rt_stride1,
                         J_r, J_r_stride0, J_r_stride1, J_r_stride2,
@@ -591,7 +553,8 @@ void mrcal_invert_rt_full( // output
 
                                // input
                                rt_out, rt_out_stride0,
-                               &P1(rt_in,3), rt_in_stride0 );
+                               &P1(rt_in,3), rt_in_stride0,
+                               false);
     for(int i=0; i<3; i++)
         P1(rt_out,3+i) *= -1.;
 
