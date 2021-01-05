@@ -99,22 +99,22 @@ r_from_R_core(// output
 }
 
 extern "C"
-void mrcal_rotate_point_r_noncontiguous( // output
-                                        double* x_out,      // (3,) array
-                                        int x_out_stride0,  // in bytes. <= 0 means "contiguous"
-                                        double* J_r,        // (3,3) array. May be NULL
-                                        int J_r_stride0,    // in bytes. <= 0 means "contiguous"
-                                        int J_r_stride1,    // in bytes. <= 0 means "contiguous"
-                                        double* J_x,        // (3,3) array. May be NULL
-                                        int J_x_stride0,    // in bytes. <= 0 means "contiguous"
-                                        int J_x_stride1,    // in bytes. <= 0 means "contiguous"
+void mrcal_rotate_point_r_full( // output
+                               double* x_out,      // (3,) array
+                               int x_out_stride0,  // in bytes. <= 0 means "contiguous"
+                               double* J_r,        // (3,3) array. May be NULL
+                               int J_r_stride0,    // in bytes. <= 0 means "contiguous"
+                               int J_r_stride1,    // in bytes. <= 0 means "contiguous"
+                               double* J_x,        // (3,3) array. May be NULL
+                               int J_x_stride0,    // in bytes. <= 0 means "contiguous"
+                               int J_x_stride1,    // in bytes. <= 0 means "contiguous"
 
-                                        // input
-                                        const double* r,    // (3,) array. May be NULL
-                                        int r_stride0,      // in bytes. <= 0 means "contiguous"
-                                        const double* x_in, // (3,) array. May be NULL
-                                        int x_in_stride0    // in bytes. <= 0 means "contiguous"
-                                         )
+                               // input
+                               const double* r,    // (3,) array. May be NULL
+                               int r_stride0,      // in bytes. <= 0 means "contiguous"
+                               const double* x_in, // (3,) array. May be NULL
+                               int x_in_stride0    // in bytes. <= 0 means "contiguous"
+                                )
 {
     init_stride_1D(x_out, 3);
     init_stride_2D(J_r,   3,3);
@@ -165,19 +165,19 @@ void mrcal_rotate_point_r_noncontiguous( // output
 }
 
 extern "C"
-void mrcal_r_from_R_noncontiguous( // output
-                                  double* r,       // (3,) vector
-                                  int r_stride0,   // in bytes. <= 0 means "contiguous"
-                                  double* J,       // (3,3,3) array. Gradient. May be NULL
-                                  int J_stride0,   // in bytes. <= 0 means "contiguous"
-                                  int J_stride1,   // in bytes. <= 0 means "contiguous"
-                                  int J_stride2,   // in bytes. <= 0 means "contiguous"
+void mrcal_r_from_R_full( // output
+                         double* r,       // (3,) vector
+                         int r_stride0,   // in bytes. <= 0 means "contiguous"
+                         double* J,       // (3,3,3) array. Gradient. May be NULL
+                         int J_stride0,   // in bytes. <= 0 means "contiguous"
+                         int J_stride1,   // in bytes. <= 0 means "contiguous"
+                         int J_stride2,   // in bytes. <= 0 means "contiguous"
 
-                                  // input
-                                  const double* R, // (3,3) array
-                                  int R_stride0,   // in bytes. <= 0 means "contiguous"
-                                  int R_stride1    // in bytes. <= 0 means "contiguous"
-                                   )
+                         // input
+                         const double* R, // (3,3) array
+                         int R_stride0,   // in bytes. <= 0 means "contiguous"
+                         int R_stride1    // in bytes. <= 0 means "contiguous"
+                          )
 {
     init_stride_1D(r, 3);
     init_stride_3D(J, 3,3,3);
