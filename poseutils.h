@@ -230,7 +230,7 @@ void mrcal_R_from_r_full( // outputs
 //
 // The r and R terms are independent of the t terms, so dr/dt and dt/dR are both
 // 0, and I do not return them
-#define mrcal_rt_from_Rt(rt,Rt) mrcal_rt_from_Rt_full(rt,0,NULL,0,0,0,Rt,0,0)
+#define mrcal_rt_from_Rt(rt,J_R,Rt) mrcal_rt_from_Rt_full(rt,0,J_R,0,0,0,Rt,0,0)
 void mrcal_rt_from_Rt_full(   // output
                            double* rt,      // (6,) vector
                            int rt_stride0,  // in bytes. <= 0 means "contiguous"
@@ -258,7 +258,7 @@ void mrcal_rt_from_Rt_full(   // output
 //
 // The r and R terms are independent of the t terms, so dR/dt and dt/dr are both
 // 0, and I do not return them
-#define mrcal_Rt_from_rt(Rt,rt) mrcal_Rt_from_rt_full(Rt,0,0,NULL,0,0,0,rt,0)
+#define mrcal_Rt_from_rt(Rt,J_r,rt) mrcal_Rt_from_rt_full(Rt,0,0,J_r,0,0,0,rt,0)
 void mrcal_Rt_from_rt_full(   // output
                            double* Rt,      // (4,3) array
                            int Rt_stride0,  // in bytes. <= 0 means "contiguous"
