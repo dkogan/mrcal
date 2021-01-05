@@ -56,9 +56,9 @@ kwarg """,
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_identity_R_noncontiguous( (double*)data_slice__output,
-                                    strides_slice__output[0],
-                                    strides_slice__output[1] );
+    mrcal_identity_R_full( (double*)data_slice__output,
+                           strides_slice__output[0],
+                           strides_slice__output[1] );
     return true;
 '''})
 
@@ -82,8 +82,8 @@ kwarg""",
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_identity_r_noncontiguous( (double*)data_slice__output,
-                                    strides_slice__output[0] );
+    mrcal_identity_r_full( (double*)data_slice__output,
+                           strides_slice__output[0] );
     return true;
 '''})
 
@@ -110,9 +110,9 @@ kwarg""",
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_identity_Rt_noncontiguous( (double*)data_slice__output,
-                                     strides_slice__output[0],
-                                     strides_slice__output[1] );
+    mrcal_identity_Rt_full( (double*)data_slice__output,
+                            strides_slice__output[0],
+                            strides_slice__output[1] );
     return true;
 '''})
 
@@ -136,8 +136,8 @@ kwarg""",
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_identity_rt_noncontiguous( (double*)data_slice__output,
-                                     strides_slice__output[0] );
+    mrcal_identity_rt_full( (double*)data_slice__output,
+                            strides_slice__output[0] );
     return true;
 '''})
 
@@ -155,15 +155,15 @@ docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rotate_point_R_noncontiguous( (double*)data_slice__output,
-                                        strides_slice__output[0],
-                                        NULL,0,0,0,
-                                        NULL,0,0,
-                                        (const double*)data_slice__R,
-                                        strides_slice__R[0],
-                                        strides_slice__R[1],
-                                        (const double*)data_slice__x,
-                                        strides_slice__x[0] );
+    mrcal_rotate_point_R_full( (double*)data_slice__output,
+                               strides_slice__output[0],
+                               NULL,0,0,0,
+                               NULL,0,0,
+                               (const double*)data_slice__R,
+                               strides_slice__R[0],
+                               strides_slice__R[1],
+                               (const double*)data_slice__x,
+                               strides_slice__x[0] );
     return true;
 '''},
 )
@@ -182,20 +182,20 @@ docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rotate_point_R_noncontiguous( (double*)data_slice__output0,
-                                        strides_slice__output0[0],
-                                        (double*)data_slice__output1,
-                                        strides_slice__output1[0],
-                                        strides_slice__output1[1],
-                                        strides_slice__output1[2],
-                                        (double*)data_slice__output2,
-                                        strides_slice__output2[0],
-                                        strides_slice__output2[1],
-                                        (const double*)data_slice__R,
-                                        strides_slice__R[0],
-                                        strides_slice__R[1],
-                                        (const double*)data_slice__x,
-                                        strides_slice__x[0] );
+    mrcal_rotate_point_R_full( (double*)data_slice__output0,
+                               strides_slice__output0[0],
+                               (double*)data_slice__output1,
+                               strides_slice__output1[0],
+                               strides_slice__output1[1],
+                               strides_slice__output1[2],
+                               (double*)data_slice__output2,
+                               strides_slice__output2[0],
+                               strides_slice__output2[1],
+                               (const double*)data_slice__R,
+                               strides_slice__R[0],
+                               strides_slice__R[1],
+                               (const double*)data_slice__x,
+                               strides_slice__x[0] );
     return true;
 '''},
 )
@@ -213,14 +213,14 @@ docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rotate_point_r_noncontiguous( (double*)data_slice__output,
-                                        strides_slice__output[0],
-                                        NULL,0,0,
-                                        NULL,0,0,
-                                        (const double*)data_slice__r,
-                                        strides_slice__r[0],
-                                        (const double*)data_slice__x,
-                                        strides_slice__x[0]);
+    mrcal_rotate_point_r_full( (double*)data_slice__output,
+                               strides_slice__output[0],
+                               NULL,0,0,
+                               NULL,0,0,
+                               (const double*)data_slice__r,
+                               strides_slice__r[0],
+                               (const double*)data_slice__x,
+                               strides_slice__x[0]);
     return true;
 '''},
 )
@@ -238,18 +238,18 @@ docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rotate_point_r_noncontiguous( (double*)data_slice__output0,
-                                        strides_slice__output0[0],
-                                        (double*)data_slice__output1,
-                                        strides_slice__output1[0],
-                                        strides_slice__output1[1],
-                                        (double*)data_slice__output2,
-                                        strides_slice__output2[0],
-                                        strides_slice__output2[1],
-                                        (const double*)data_slice__r,
-                                        strides_slice__r[0],
-                                        (const double*)data_slice__x,
-                                        strides_slice__x[0]);
+    mrcal_rotate_point_r_full( (double*)data_slice__output0,
+                               strides_slice__output0[0],
+                               (double*)data_slice__output1,
+                               strides_slice__output1[0],
+                               strides_slice__output1[1],
+                               (double*)data_slice__output2,
+                               strides_slice__output2[0],
+                               strides_slice__output2[1],
+                               (const double*)data_slice__r,
+                               strides_slice__r[0],
+                               (const double*)data_slice__x,
+                               strides_slice__x[0]);
     return true;
 '''},
 )
@@ -267,15 +267,15 @@ the docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_transform_point_Rt_noncontiguous( (double*)data_slice__output,
-                                            strides_slice__output[0],
-                                            NULL,0,0,0,
-                                            NULL,0,0,
-                                            (const double*)data_slice__Rt,
-                                            strides_slice__Rt[0],
-                                            strides_slice__Rt[1],
-                                            (const double*)data_slice__x,
-                                            strides_slice__x[0] );
+    mrcal_transform_point_Rt_full( (double*)data_slice__output,
+                                   strides_slice__output[0],
+                                   NULL,0,0,0,
+                                   NULL,0,0,
+                                   (const double*)data_slice__Rt,
+                                   strides_slice__Rt[0],
+                                   strides_slice__Rt[1],
+                                   (const double*)data_slice__x,
+                                   strides_slice__x[0] );
     return true;
 '''},
 )
@@ -293,20 +293,20 @@ the docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_transform_point_Rt_noncontiguous( (double*)data_slice__output0,
-                                            strides_slice__output0[0],
-                                            (double*)data_slice__output1,
-                                            strides_slice__output1[0],
-                                            strides_slice__output1[1],
-                                            strides_slice__output1[2],
-                                            (double*)data_slice__output2,
-                                            strides_slice__output2[0],
-                                            strides_slice__output2[1],
-                                            (const double*)data_slice__Rt,
-                                            strides_slice__Rt[0],
-                                            strides_slice__Rt[1],
-                                            (const double*)data_slice__x,
-                                            strides_slice__x[0] );
+    mrcal_transform_point_Rt_full( (double*)data_slice__output0,
+                                   strides_slice__output0[0],
+                                   (double*)data_slice__output1,
+                                   strides_slice__output1[0],
+                                   strides_slice__output1[1],
+                                   strides_slice__output1[2],
+                                   (double*)data_slice__output2,
+                                   strides_slice__output2[0],
+                                   strides_slice__output2[1],
+                                   (const double*)data_slice__Rt,
+                                   strides_slice__Rt[0],
+                                   strides_slice__Rt[1],
+                                   (const double*)data_slice__x,
+                                   strides_slice__x[0] );
     return true;
 '''},
 )
@@ -324,14 +324,14 @@ the docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_transform_point_rt_noncontiguous( (double*)data_slice__output,
-                                            strides_slice__output[0],
-                                            NULL,0,0,
-                                            NULL,0,0,
-                                            (const double*)data_slice__rt,
-                                            strides_slice__rt[0],
-                                            (const double*)data_slice__x,
-                                            strides_slice__x[0] );
+    mrcal_transform_point_rt_full( (double*)data_slice__output,
+                                   strides_slice__output[0],
+                                   NULL,0,0,
+                                   NULL,0,0,
+                                   (const double*)data_slice__rt,
+                                   strides_slice__rt[0],
+                                   (const double*)data_slice__x,
+                                   strides_slice__x[0] );
     return true;
 '''},
 )
@@ -349,18 +349,18 @@ the docs for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_transform_point_rt_noncontiguous( (double*)data_slice__output0,
-                                            strides_slice__output0[0],
-                                            (double*)data_slice__output1,
-                                            strides_slice__output1[0],
-                                            strides_slice__output1[1],
-                                            (double*)data_slice__output2,
-                                            strides_slice__output2[0],
-                                            strides_slice__output2[1],
-                                            (const double*)data_slice__rt,
-                                            strides_slice__rt[0],
-                                            (const double*)data_slice__x,
-                                            strides_slice__x[0] );
+    mrcal_transform_point_rt_full( (double*)data_slice__output0,
+                                   strides_slice__output0[0],
+                                   (double*)data_slice__output1,
+                                   strides_slice__output1[0],
+                                   strides_slice__output1[1],
+                                   (double*)data_slice__output2,
+                                   strides_slice__output2[0],
+                                   strides_slice__output2[1],
+                                   (const double*)data_slice__rt,
+                                   strides_slice__rt[0],
+                                   (const double*)data_slice__x,
+                                   strides_slice__x[0] );
     return true;
 '''},
 )
@@ -378,10 +378,10 @@ for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_r_from_R_noncontiguous(
-                 (double*)data_slice__output,strides_slice__output[0],
-                 NULL,0,0,0,
-                 (const double*)data_slice__R,strides_slice__R[0], strides_slice__R[1] );
+    mrcal_r_from_R_full(
+        (double*)data_slice__output,strides_slice__output[0],
+        NULL,0,0,0,
+        (const double*)data_slice__R,strides_slice__R[0], strides_slice__R[1] );
     return true;
 '''}
 )
@@ -399,10 +399,10 @@ for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_r_from_R_noncontiguous(
-                 (double*)data_slice__output0,strides_slice__output0[0],
-                 (double*)data_slice__output1,strides_slice__output1[0], strides_slice__output1[1],strides_slice__output1[2],
-                 (const double*)data_slice__R,strides_slice__R[0], strides_slice__R[1] );
+    mrcal_r_from_R_full(
+        (double*)data_slice__output0,strides_slice__output0[0],
+        (double*)data_slice__output1,strides_slice__output1[0], strides_slice__output1[1],strides_slice__output1[2],
+        (const double*)data_slice__R,strides_slice__R[0], strides_slice__R[1] );
     return true;
 '''}
 )
@@ -420,10 +420,10 @@ for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_R_from_r_noncontiguous(
-                 (double*)data_slice__output, strides_slice__output[0], strides_slice__output[1],
-                 NULL,0,0,0,
-                 (const double*)data_slice__r, strides_slice__r[0] );
+    mrcal_R_from_r_full(
+        (double*)data_slice__output, strides_slice__output[0], strides_slice__output[1],
+        NULL,0,0,0,
+        (const double*)data_slice__r, strides_slice__r[0] );
     return true;
 '''}
 )
@@ -441,10 +441,10 @@ for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_R_from_r_noncontiguous(
-                 (double*)data_slice__output0,strides_slice__output0[0], strides_slice__output0[1],
-                 (double*)data_slice__output1,strides_slice__output1[0], strides_slice__output1[1],strides_slice__output1[2],
-                 (const double*)data_slice__r, strides_slice__r[0] );
+    mrcal_R_from_r_full(
+        (double*)data_slice__output0,strides_slice__output0[0], strides_slice__output0[1],
+        (double*)data_slice__output1,strides_slice__output1[0], strides_slice__output1[1],strides_slice__output1[2],
+        (const double*)data_slice__r, strides_slice__r[0] );
     return true;
 '''}
 )
@@ -462,10 +462,10 @@ for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rt_from_Rt_noncontiguous(
-                 (double*)data_slice__output,strides_slice__output[0],
-                 NULL,0,0,0,
-                 (const double*)data_slice__Rt,strides_slice__Rt[0], strides_slice__Rt[1] );
+    mrcal_rt_from_Rt_full(
+        (double*)data_slice__output,strides_slice__output[0],
+        NULL,0,0,0,
+        (const double*)data_slice__Rt,strides_slice__Rt[0], strides_slice__Rt[1] );
     return true;
 '''}
 )
@@ -483,10 +483,10 @@ for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_rt_from_Rt_noncontiguous(
-                 (double*)data_slice__output0,strides_slice__output0[0],
-                 (double*)data_slice__output1,strides_slice__output1[0], strides_slice__output1[1],strides_slice__output1[2],
-                 (const double*)data_slice__Rt,strides_slice__Rt[0], strides_slice__Rt[1] );
+    mrcal_rt_from_Rt_full(
+        (double*)data_slice__output0,strides_slice__output0[0],
+        (double*)data_slice__output1,strides_slice__output1[0], strides_slice__output1[1],strides_slice__output1[2],
+        (const double*)data_slice__Rt,strides_slice__Rt[0], strides_slice__Rt[1] );
     return true;
 '''}
 )
@@ -504,10 +504,10 @@ for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_Rt_from_rt_noncontiguous(
-                 (double*)data_slice__output, strides_slice__output[0],strides_slice__output[1],
-                 NULL,0,0,0,
-                 (const double*)data_slice__rt, strides_slice__rt[0] );
+    mrcal_Rt_from_rt_full(
+        (double*)data_slice__output, strides_slice__output[0],strides_slice__output[1],
+        NULL,0,0,0,
+        (const double*)data_slice__rt, strides_slice__rt[0] );
     return true;
 '''}
 )
@@ -525,10 +525,10 @@ for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_Rt_from_rt_noncontiguous(
-                 (double*)data_slice__output0, strides_slice__output0[0],strides_slice__output0[1],
-                 (double*)data_slice__output1,strides_slice__output1[0], strides_slice__output1[1],strides_slice__output1[2],
-                 (const double*)data_slice__rt, strides_slice__rt[0] );
+    mrcal_Rt_from_rt_full(
+        (double*)data_slice__output0, strides_slice__output0[0],strides_slice__output0[1],
+        (double*)data_slice__output1,strides_slice__output1[0], strides_slice__output1[1],strides_slice__output1[2],
+        (const double*)data_slice__rt, strides_slice__rt[0] );
     return true;
 '''}
 )
@@ -546,10 +546,10 @@ for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_invert_Rt_noncontiguous( (double*)data_slice__output,
-                                   strides_slice__output[0], strides_slice__output[1],
-                                   (const double*)data_slice__Rt,
-                                   strides_slice__Rt[0], strides_slice__Rt[1] );
+    mrcal_invert_Rt_full( (double*)data_slice__output,
+                          strides_slice__output[0], strides_slice__output[1],
+                          (const double*)data_slice__Rt,
+                          strides_slice__Rt[0], strides_slice__Rt[1] );
     return true;
 '''},
 )
@@ -567,12 +567,12 @@ for that function for details.
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_invert_rt_noncontiguous( (double*)data_slice__output,
-                                   strides_slice__output[0],
-                                   NULL,0,0,
-                                   NULL,0,0,
-                                   (const double*)data_slice__rt,
-                                   strides_slice__rt[0] );
+    mrcal_invert_rt_full( (double*)data_slice__output,
+                          strides_slice__output[0],
+                          NULL,0,0,
+                          NULL,0,0,
+                          (const double*)data_slice__rt,
+                          strides_slice__rt[0] );
     return true;
 '''},
 )
@@ -605,17 +605,17 @@ THIS function combines these into a full drtout_drtin array
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_invert_rt_noncontiguous( (double*)data_slice__output0,
-                                   strides_slice__output0[0],
+    mrcal_invert_rt_full( (double*)data_slice__output0,
+                          strides_slice__output0[0],
 
-                                   &item__output1(3,0),
-                                   strides_slice__output1[0], strides_slice__output1[1],
+                          &item__output1(3,0),
+                          strides_slice__output1[0], strides_slice__output1[1],
 
-                                   &item__output1(3,3),
-                                   strides_slice__output1[0], strides_slice__output1[1],
+                          &item__output1(3,3),
+                          strides_slice__output1[0], strides_slice__output1[1],
 
-                                   (const double*)data_slice__rt,
-                                   strides_slice__rt[0] );
+                          (const double*)data_slice__rt,
+                          strides_slice__rt[0] );
     for(int i=0; i<3; i++)
         for(int j=0; j<6; j++)
             item__output1(i,j) = 0;
@@ -644,12 +644,12 @@ for that function for details. This internal function differs from compose_Rt():
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_compose_Rt_noncontiguous( (double*)data_slice__output,
-                                    strides_slice__output[0], strides_slice__output[1],
-                                    (const double*)data_slice__Rt0,
-                                    strides_slice__Rt0[0], strides_slice__Rt0[1],
-                                    (const double*)data_slice__Rt1,
-                                    strides_slice__Rt1[0], strides_slice__Rt1[1] );
+    mrcal_compose_Rt_full( (double*)data_slice__output,
+                           strides_slice__output[0], strides_slice__output[1],
+                           (const double*)data_slice__Rt0,
+                           strides_slice__Rt0[0], strides_slice__Rt0[1],
+                           (const double*)data_slice__Rt1,
+                           strides_slice__Rt1[0], strides_slice__Rt1[1] );
     return true;
 '''},
 )
@@ -673,16 +673,16 @@ for that function for details. This internal function differs from compose_rt():
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_compose_rt_noncontiguous( (double*)data_slice__output,
-                                    strides_slice__output[0],
-                                    NULL,0,0,
-                                    NULL,0,0,
-                                    NULL,0,0,
-                                    NULL,0,0,
-                                    (const double*)data_slice__rt0,
-                                    strides_slice__rt0[0],
-                                    (const double*)data_slice__rt1,
-                                    strides_slice__rt1[0] );
+    mrcal_compose_rt_full( (double*)data_slice__output,
+                           strides_slice__output[0],
+                           NULL,0,0,
+                           NULL,0,0,
+                           NULL,0,0,
+                           NULL,0,0,
+                           (const double*)data_slice__rt0,
+                           strides_slice__rt0[0],
+                           (const double*)data_slice__rt1,
+                           strides_slice__rt1[0] );
     return true;
 '''},
 )
@@ -728,29 +728,29 @@ THIS function combines these into the full drtout_drt0,drtout_drt1 arrays
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-    mrcal_compose_rt_noncontiguous( (double*)data_slice__output0,
-                                    strides_slice__output0[0],
+    mrcal_compose_rt_full( (double*)data_slice__output0,
+                           strides_slice__output0[0],
 
-                                    // dr/dr0
-                                    &item__output1(0,0),
-                                    strides_slice__output1[0], strides_slice__output1[1],
+                           // dr/dr0
+                           &item__output1(0,0),
+                           strides_slice__output1[0], strides_slice__output1[1],
 
-                                    // dr/dr1
-                                    &item__output2(0,0),
-                                    strides_slice__output2[0], strides_slice__output2[1],
+                           // dr/dr1
+                           &item__output2(0,0),
+                           strides_slice__output2[0], strides_slice__output2[1],
 
-                                    // dt/dr0
-                                    &item__output1(3,0),
-                                    strides_slice__output1[0], strides_slice__output1[1],
+                           // dt/dr0
+                           &item__output1(3,0),
+                           strides_slice__output1[0], strides_slice__output1[1],
 
-                                    // dt/dt1
-                                    &item__output2(3,3),
-                                    strides_slice__output2[0], strides_slice__output2[1],
+                           // dt/dt1
+                           &item__output2(3,3),
+                           strides_slice__output2[0], strides_slice__output2[1],
 
-                                    (const double*)data_slice__rt0,
-                                    strides_slice__rt0[0],
-                                    (const double*)data_slice__rt1,
-                                    strides_slice__rt1[0] );
+                           (const double*)data_slice__rt0,
+                           strides_slice__rt0[0],
+                           (const double*)data_slice__rt1,
+                           strides_slice__rt1[0] );
     for(int i=0; i<3; i++)
         for(int j=0; j<3; j++)
         {
