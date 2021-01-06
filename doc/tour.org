@@ -672,7 +672,7 @@ Let's compute the difference. Given a pixel $\vec q_0$ we can
 
 [[file:figures/diff-notransform.svg]]
 
-This is a very common thing to want to do, so mrcal provides a [[file:mrcal-calibrate-cameras.html][tool]] to do it.
+This is a very common thing to want to do, so mrcal provides a [[file:mrcal-show-projection-diff.html][tool]] to do it.
 Let's compare the two models:
 
 #+begin_src sh
