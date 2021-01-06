@@ -108,9 +108,9 @@ meters" for some possibly-infinite $r$. The procedure we implement is:
 3. Compute corresponding unit direction vectors $\left\{\vec v_{1_i}\right\}$ in the camera-1 coordinate
    system
 4. Compute the implied transformation $\left(R,t\right)$ as the one to maximize
-   \[ \sum_i w_i \vec v_i^T \frac{R \vec p_{0_i} + t}{\left|R \vec p_{0_i} +
+   \[ \sum_i w_i \vec v_{1_i}^T \frac{R \vec p_{0_i} + t}{\left|R \vec p_{0_i} +
    t\right|} \] where $\left\{w_i\right\}$ is a set of [[#fit-weighting][weights]]. As with main
-   calibration optimization, this one is contrained, using the [[file:conventions.org::#pose-representation][=rt=
+   calibration optimization, this one is unconstrained, using the [[file:conventions.org::#pose-representation][=rt=
    transformation representation]]. The inner product above is $\cos \theta$ where
    $\theta$ is the angle between the two observation vectors.
 
@@ -310,7 +310,7 @@ and the diff like this:
 #+end_src
 * Planned improvements
 Various details about the fitting of the implied transformations don't work
-well, as shown above. Find better ways to do this would be nice. Potentially we
-should compute the implied transformation at many ranges at the same time. This
-needs study.
+well, as shown above. Finding better ways to do this would be nice. Potentially
+we should compute the implied transformation at many ranges at the same time.
+This needs study.
 
