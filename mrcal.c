@@ -3552,19 +3552,19 @@ void optimizer_callback(// input state
         }                                       \
         iJacobian += 2;                         \
     } while(0)
-    #define STORE_JACOBIAN3(col0, g0, g1, g2)               \
-        do                                              \
-        {                                               \
-            if(Jt) {                                    \
-                Jcolidx[ iJacobian+0 ] = col0+0;        \
-                Jval   [ iJacobian+0 ] = g0;            \
-                Jcolidx[ iJacobian+1 ] = col0+1;        \
-                Jval   [ iJacobian+1 ] = g1;            \
-                Jcolidx[ iJacobian+2 ] = col0+2;        \
-                Jval   [ iJacobian+2 ] = g2;            \
-            }                                           \
-            iJacobian += 3;                             \
-        } while(0)
+#define STORE_JACOBIAN3(col0, g0, g1, g2)           \
+    do                                              \
+    {                                               \
+        if(Jt) {                                    \
+            Jcolidx[ iJacobian+0 ] = col0+0;        \
+            Jval   [ iJacobian+0 ] = g0;            \
+            Jcolidx[ iJacobian+1 ] = col0+1;        \
+            Jval   [ iJacobian+1 ] = g1;            \
+            Jcolidx[ iJacobian+2 ] = col0+2;        \
+            Jval   [ iJacobian+2 ] = g2;            \
+        }                                           \
+        iJacobian += 3;                             \
+    } while(0)
 
 
     int Ncore = modelHasCore_fxfycxcy(ctx->lensmodel) ? 4 : 0;
