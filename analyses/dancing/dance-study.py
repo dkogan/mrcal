@@ -131,6 +131,11 @@ def parse_args():
                         action = 'store_true',
                         help='''If given, write the solved models to disk after the first solve, and exit.
                         Used for debugging. Useful to check fov_x_deg when solving for a splined model''')
+    parser.add_argument('--full-observations-only',
+                        action = 'store_true',
+                        help='''If given, every chessboard observation must be complete for all cameras.
+                        Otherwise (by default), at least half the chessboard
+                        must be observed by every camera''')
     parser.add_argument('--ymax',
                         type=float,
                         default = 10.0,
@@ -552,6 +557,11 @@ def eval_one_rangenear_tilt(models_true,
 
     radius_cameras = (args.camera_spacing * (Ncameras-1)) / 2.
 
+    if args.full_observations_only:
+        which = 'all_cameras_must_see_full_board'
+    else:
+        which = 'all_cameras_must_see_half_board'
+
     # shapes (Nframes, Ncameras, Nh, Nw, 2),
     #        (Nframes, 4,3)
     q_true_near, Rt_cam0_board_true_near = \
@@ -566,7 +576,7 @@ def eval_one_rangenear_tilt(models_true,
                                                       range_near*2.,
                                                       range_near/10.)),
                                             np.max(Nframes_near_samples),
-                                            which = 'all_cameras_must_see_half_board')
+                                            which = which)
     if range_far is not None:
         q_true_far, Rt_cam0_board_true_far  = \
             mrcal.synthesize_board_observations(models_true,
@@ -580,7 +590,7 @@ def eval_one_rangenear_tilt(models_true,
                                                           range_far*2.,
                                                           range_far/10.)),
                                                 np.max(Nframes_far_samples),
-                                                which = 'all_cameras_must_see_half_board')
+                                                which = which)
     else:
         q_true_far             = None
         Rt_cam0_board_true_far = None
