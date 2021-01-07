@@ -566,7 +566,7 @@ def eval_one_rangenear_tilt(models_true,
                                                       range_near*2.,
                                                       range_near/10.)),
                                             np.max(Nframes_near_samples),
-                                            which = 'some_cameras_must_see_half_board')
+                                            which = 'all_cameras_must_see_half_board')
     if range_far is not None:
         q_true_far, Rt_cam0_board_true_far  = \
             mrcal.synthesize_board_observations(models_true,
@@ -580,7 +580,7 @@ def eval_one_rangenear_tilt(models_true,
                                                           range_far*2.,
                                                           range_far/10.)),
                                                 np.max(Nframes_far_samples),
-                                                which = 'some_cameras_must_see_half_board')
+                                                which = 'all_cameras_must_see_half_board')
     else:
         q_true_far             = None
         Rt_cam0_board_true_far = None
