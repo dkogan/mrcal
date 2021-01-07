@@ -2024,12 +2024,12 @@ plot
         if len(q_cam_calobjects_inliers):
             data.append( ( q_cam_calobjects_inliers,
                            dict( tuplesize = -2,
-                                 _with  = 'dots pt 7',
+                                 _with  = 'dots',
                                  legend = 'inliers')) )
         if len(q_cam_calobjects_outliers):
             data.append( ( q_cam_calobjects_outliers,
                            dict( tuplesize = -2,
-                                 _with  = 'dots pt 7',
+                                 _with  = 'dots',
                                  legend = 'outliers')) )
 
     # Anything outside the valid region contour but inside the imager is an
