@@ -119,14 +119,14 @@ def parse_args():
                         parametric model to generate data (model on the
                         commandline), but a richer splined model to solve''')
 
-    parser.add_argument('--show-geometry-each-solve',
+    parser.add_argument('--show-geometry-first-solve',
                         action = 'store_true',
-                        help='''If given, display the camera, chessboard geometry after each solve. Used for
-                        debugging''')
-    parser.add_argument('--show-uncertainty-each-solve',
+                        help='''If given, display the camera, chessboard geometry after the first solve, and
+                        exit. Used for debugging''')
+    parser.add_argument('--show-uncertainty-first-solve',
                         action = 'store_true',
-                        help='''If given, display the uncertainty and observations after each solve. Used for
-                        debugging''')
+                        help='''If given, display the uncertainty (at infinity) and observations after the
+                        first solve, and exit. Used for debugging''')
     parser.add_argument('--ymax',
                         type=float,
                         default = 10.0,
@@ -599,12 +599,14 @@ def eval_one_rangenear_tilt(models_true,
 
         model = models_out[args.icam_uncertainty]
 
-        if args.show_geometry_each_solve:
+        if args.show_geometry_first_solve:
             mrcal.show_geometry(models_out, wait = True)
-        if args.show_uncertainty_each_solve:
+            sys.exit()
+        if args.show_uncertainty_first_solve:
             mrcal.show_projection_uncertainty(model,
                                               observations= True,
                                               wait        = True)
+            sys.exit()
 
         # shape (N,3)
         # I sample the center of the imager
