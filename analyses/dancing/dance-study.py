@@ -127,6 +127,10 @@ def parse_args():
                         action = 'store_true',
                         help='''If given, display the uncertainty (at infinity) and observations after the
                         first solve, and exit. Used for debugging''')
+    parser.add_argument('--write-models-first-solve',
+                        action = 'store_true',
+                        help='''If given, write the solved models to disk after the first solve, and exit.
+                        Used for debugging. Useful to check fov_x_deg when solving for a splined model''')
     parser.add_argument('--ymax',
                         type=float,
                         default = 10.0,
@@ -241,6 +245,7 @@ import numpy as np
 import numpysane as nps
 import gnuplotlib as gp
 import copy
+import os.path
 
 # I import the LOCAL mrcal
 scriptdir = os.path.dirname(os.path.realpath(__file__))
@@ -606,6 +611,14 @@ def eval_one_rangenear_tilt(models_true,
             mrcal.show_projection_uncertainty(model,
                                               observations= True,
                                               wait        = True)
+            sys.exit()
+        if args.write_models_first_solve:
+            for i in range(len(models_out)):
+                f = f"/tmp/camera{i}.cameramodel"
+                if os.path.isfile(f):
+                    input(f"File {f} already exists, and I want to overwrite it. Press enter to overwrite. Ctrl-c to exit")
+                models_out[i].write(f)
+                print(f"Wrote {f}")
             sys.exit()
 
         # shape (N,3)
