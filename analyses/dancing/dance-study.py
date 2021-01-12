@@ -89,18 +89,20 @@ def parse_args():
                         size''')
     parser.add_argument('--object-width-n',
                         type=str,
-                        default="10",
-                        help='''How many points the calibration board has per horizontal side. If omitted we
-                        default to 10. If --scan object_width_n, this is MIN,MAX
-                        to specify the bounds of the scan. In that case I assume
-                        a square object, and ignore --object-height-n. Scanning
-                        object-width-n keeps the board size constant''')
+                        help='''How many points the calibration board has per horizontal side. If both are
+                        omitted, we default the width and height to 10 (both
+                        must be specified to use a non-default value). If --scan
+                        object_width_n, this is MIN,MAX to specify the bounds of
+                        the scan. In that case I assume a square object, and
+                        ignore --object-height-n. Scanning object-width-n keeps
+                        the board size constant''')
     parser.add_argument('--object-height-n',
                         type=int,
-                        default=10,
-                        help='''How many points the calibration board has per vertical side. If omitted, we
-                        default to 10. If --scan object_width_n, this is ignored,
-                        and set equivalent to the object width''')
+                        help='''How many points the calibration board has per vertical side. If both are
+                        omitted, we default the width and height to 10 (both
+                        must be specified to use a non-default value). If --scan
+                        object_width_n, this is ignored, and set equivalent to
+                        the object width''')
     parser.add_argument('--observed-pixel-uncertainty',
                         type=positive_float,
                         default = 1.0,
@@ -241,6 +243,14 @@ def parse_args():
     return parser.parse_args()
 
 args = parse_args()
+
+if args.object_width_n  is None and \
+   args.object_height_n is None:
+    args.object_width_n  = "10"
+    args.object_height_n = 10
+elif not ( args.object_width_n  is not None and \
+           args.object_height_n is not None):
+    raise Exception("Either --object-width-n or --object-height-n are given: you must pass both or neither")
 
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
