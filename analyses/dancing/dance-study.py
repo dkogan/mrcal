@@ -138,6 +138,12 @@ def parse_args():
                         help='''If given, every chessboard observation must be complete for all cameras.
                         Otherwise (by default), at least half the chessboard
                         must be observed by every camera''')
+    parser.add_argument('--fixed-frames',
+                        action='store_true',
+                        help='''Optimize the geometry keeping the chessboard frames fixed. This reduces the
+                        freedom of the solution, and produces more confident
+                        calibrations. It's possible to use this in reality by
+                        surverying the chessboard poses''')
     parser.add_argument('--ymax',
                         type=float,
                         default = 10.0,
@@ -375,7 +381,8 @@ def solve(Ncameras,
           # Rt_cam0_board.shape = (Nframes, 4,3)
 
           q_true_near, Rt_cam0_board_true_near,
-          q_true_far,  Rt_cam0_board_true_far):
+          q_true_far,  Rt_cam0_board_true_far,
+          fixed_frames = args.fixed_frames):
 
     q_true_near             = q_true_near            [:Nframes_near]
     Rt_cam0_board_true_near = Rt_cam0_board_true_near[:Nframes_near]
@@ -411,7 +418,13 @@ def solve(Ncameras,
         nps.glue(indices_frame_camera,
                  indices_frame_camera[:,(1,)],
                  axis=-1)
-    indices_frame_camintrinsics_camextrinsics[:,2] -= 1
+
+    # If not fixed_frames: we use camera0 as the reference cordinate system, and
+    # we allow the chessboard poses to move around. Else: the reference
+    # coordinate system is arbitrary, but all cameras are allowed to move
+    # around. The chessboards poses are fixed
+    if not fixed_frames:
+        indices_frame_camintrinsics_camextrinsics[:,2] -= 1
 
     q = nps.glue( q_true_near,
                   q_true_far,
@@ -443,12 +456,21 @@ def solve(Ncameras,
                    n = 2 )
 
     intrinsics = nps.cat( *[m.intrinsics()[1]         for m in models_true]     )
-    extrinsics = nps.cat( *[m.extrinsics_rt_fromref() for m in models_true[1:]] )
+
+    # If not fixed_frames: we use camera0 as the reference cordinate system, and
+    # we allow the chessboard poses to move around. Else: the reference
+    # coordinate system is arbitrary, but all cameras are allowed to move
+    # around. The chessboards poses are fixed
+    if fixed_frames:
+        extrinsics = nps.cat( *[m.extrinsics_rt_fromref() for m in models_true] )
+    else:
+        extrinsics = nps.cat( *[m.extrinsics_rt_fromref() for m in models_true[1:]] )
     if len(extrinsics) == 0: extrinsics = None
 
     if nps.norm2(models_true[0].extrinsics_rt_fromref()) > 1e-6:
         raise Exception("models_true[0] must sit at the origin")
     imagersizes = nps.cat( *[m.imagersize() for m in models_true] )
+
 
     optimization_inputs = \
         dict( # intrinsics filled in later
@@ -465,9 +487,9 @@ def solve(Ncameras,
               calibration_object_spacing                = object_spacing,
               verbose                                   = False,
               observed_pixel_uncertainty                = args.observed_pixel_uncertainty,
-              # do_optimize_frames filled in later
               # do_optimize_extrinsics filled in later
               # do_optimize_intrinsics_core filled in later
+              do_optimize_frames                        = False,
               do_optimize_intrinsics_distortions        = True,
               do_optimize_calobject_warp                = False, # turn this on, and reoptimize later
               do_apply_regularization                   = True,
@@ -484,8 +506,7 @@ def solve(Ncameras,
 
         # These are already mostly right, So I lock them down while I seed the
         # intrinsics
-        optimization_inputs['do_optimize_frames']          = False
-        optimization_inputs['do_optimize_extrinsics']      = False
+        optimization_inputs['do_optimize_extrinsics'] = False
 
         # I pre-optimize the core, and then lock it down
         optimization_inputs['lensmodel']                   = 'LENSMODEL_STEREOGRAPHIC'
@@ -505,8 +526,9 @@ def solve(Ncameras,
         print(f"## optimized. rms = {stats['rms_reproj_error__pixels']}", file=sys.stderr)
 
         # Ready for a final reoptimization with the geometry
-        optimization_inputs['do_optimize_frames']          = True
         optimization_inputs['do_optimize_extrinsics']      = True
+        if not fixed_frames:
+            optimization_inputs['do_optimize_frames'] = True
 
     else:
         optimization_inputs['lensmodel']                   = lensmodel
@@ -522,8 +544,9 @@ def solve(Ncameras,
             optimization_inputs['intrinsics']              = nps.glue(intrinsics[:,:4],
                                                                       np.zeros((Ncameras,Nintrinsics-4),),axis=-1)
         optimization_inputs['do_optimize_intrinsics_core'] = True
-        optimization_inputs['do_optimize_frames']          = True
         optimization_inputs['do_optimize_extrinsics']      = True
+        if not fixed_frames:
+            optimization_inputs['do_optimize_frames'] = True
 
     stats = mrcal.optimize(**optimization_inputs)
     print(f"## optimized. rms = {stats['rms_reproj_error__pixels']}", file=sys.stderr)
