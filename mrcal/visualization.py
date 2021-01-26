@@ -428,65 +428,71 @@ def _options_heatmap_with_contours( # update these
 
                                     contour_max, contour_increment,
                                     imagersize, gridn_width, gridn_height,
+                                    contours              = True,
                                     contour_labels_styles = 'boxed',
                                     contour_labels_font   = None):
     r'''Update plotoptions, return curveoptions for a contoured heat map'''
 
+    import gnuplotlib as gp
 
-    if '_set' not in plotoptions:
-        plotoptions['_set'] = []
-    elif not isinstance(plotoptions['_set'], list):
-        plotoptions['_set'] = [plotoptions['_set']]
-    if 'unset' not in plotoptions:
-        plotoptions['unset'] = []
-    elif not isinstance(plotoptions['unset'], list):
-        plotoptions['unset'] = [plotoptions['unset']]
+    gp.add_plot_option(plotoptions,
+                       'set',
+                       ('view equal xy',
+                        'view map'))
 
-    if contour_increment is None:
-        # Compute a "nice" contour increment. I pick a round number that gives
-        # me a reasonable number of contours
+    if contours:
+        if contour_increment is None:
+            # Compute a "nice" contour increment. I pick a round number that gives
+            # me a reasonable number of contours
 
-        Nwant = 10
-        increment = contour_max/Nwant
+            Nwant = 10
+            increment = contour_max/Nwant
 
-        # I find the nearest 1eX or 2eX or 5eX
-        base10_floor = np.power(10., np.floor(np.log10(increment)))
+            # I find the nearest 1eX or 2eX or 5eX
+            base10_floor = np.power(10., np.floor(np.log10(increment)))
 
-        # Look through the options, and pick the best one
-        m   = np.array((1., 2., 5., 10.))
-        err = np.abs(m * base10_floor - increment)
-        contour_increment = -m[ np.argmin(err) ] * base10_floor
+            # Look through the options, and pick the best one
+            m   = np.array((1., 2., 5., 10.))
+            err = np.abs(m * base10_floor - increment)
+            contour_increment = -m[ np.argmin(err) ] * base10_floor
 
-    plotoptions['_set'].extend( ['view equal xy',
-                                 'view map',
-                                 'contour base',
-                                 'key box opaque',
-                                 'style textbox opaque',
-                                 f'cntrparam levels incremental {contour_max},{contour_increment},0'] )
+        gp.add_plot_option(plotoptions,
+                           'set',
+                           ('key box opaque',
+                            'style textbox opaque',
+                            'contour base',
+                            f'cntrparam levels incremental {contour_max},{contour_increment},0'))
 
-    if contour_labels_font is not None:
-        plotoptions['_set'].append( f'cntrlabel font "{contour_labels_font}"' )
+        if contour_labels_font is not None:
+            gp.add_plot_option(plotoptions,
+                               'set',
+                               f'cntrlabel font "{contour_labels_font}"' )
+
+        plotoptions['cbrange'] = [0, contour_max]
+
+        # I plot 3 times:
+        # - to make the heat map
+        # - to make the contours
+        # - to make the contour labels
+        _with = np.array(('image',
+                          'lines nosurface',
+                          f'labels {contour_labels_styles} nosurface'))
+    else:
+        gp.add_plot_option(plotoptions, 'unset', 'key')
+        _with = 'image'
 
     plotoptions['_3d']     = True
     plotoptions['_xrange'] = [0,             imagersize[0]]
     plotoptions['_yrange'] = [imagersize[1], 0]
-    plotoptions['cbrange'] = [0,             contour_max]
     plotoptions['ascii']   = True # needed for imagergrid_using to work
 
-    plotoptions['unset'].extend(['grid'])
+    gp.add_plot_option(plotoptions, 'unset', 'grid')
 
     return \
         dict( tuplesize=3,
               legend = "", # needed to force contour labels
               using = imagergrid_using(imagersize, gridn_width, gridn_height),
-
-              # I plot 3 times:
-              # - to make the heat map
-              # - to make the contours
-              # - to make the contour labels
-              _with=np.array(('image',
-                              'lines nosurface',
-                              f'labels {contour_labels_styles} nosurface')))
+              _with=_with)
 
 
 def show_projection_diff(models,
@@ -504,6 +510,7 @@ def show_projection_diff(models,
 
                          vectorfield      = False,
                          vectorscale      = 1.0,
+                         directions       = False,
                          extratitle       = None,
                          cbmax            = 4,
                          return_plot_args = False,
@@ -607,6 +614,12 @@ ARGUMENTS
   This argument can be used to scale all the displayed vectors to improve
   legibility.
 
+- directions: optional boolean, defaulting to False. By default the plot is
+  color-coded by the magnitude of the difference vectors. If directions: we
+  color-code by the direction instead. This is especially useful if we're
+  plotting a vector field. This is only valid if we're given exactly two models
+  to compare
+
 - extratitle: optional string to include in the title of the resulting plot
 
 - cbmax: optional value, defaulting to 4.0. Sets the maximum range of the color
@@ -679,6 +692,9 @@ A tuple:
                 isinstance(distance,float) or \
                 len(distance) == 1):
             raise Exception("I don't know how to plot multiple-distance diff with vectorfields")
+    if directions and len(models) > 2:
+        raise Exception("I can only color-code by directions when looking at exactly 2 models. Instead I have {}". \
+                        format(len(models)))
 
     # Now do all the actual work
     difflen,diff,q0,implied_Rt10 = mrcal.projection_diff(models,
@@ -687,7 +703,22 @@ A tuple:
                                                          use_uncertainties,
                                                          focus_center,focus_radius,
                                                          implied_Rt10)
-    if vectorfield:
+    if not vectorfield:
+        curve_options = \
+            _options_heatmap_with_contours(
+                # update these plot options
+                kwargs,
+
+                cbmax, None,
+                models[0].imagersize(),
+                gridn_width, gridn_height,
+                contours = not directions)
+        plot_options = kwargs
+
+    else:
+        q0      = nps.clump(q0,      n=len(q0     .shape)-1)
+        diff    = nps.clump(diff,    n=len(diff   .shape)-1)
+        difflen = nps.clump(difflen, n=len(difflen.shape)  )
 
         # The mrcal.projection_diff() call made sure they're the same for all
         # the models
@@ -696,31 +727,30 @@ A tuple:
         plot_options = dict(square=1,
                             _xrange=[0,W],
                             _yrange=[H,0],
-                            cbrange=[0,cbmax],
                             **kwargs)
 
-        q0      = nps.clump(q0,      n=len(q0     .shape)-1)
-        diff    = nps.clump(diff,    n=len(diff   .shape)-1)
-        difflen = nps.clump(difflen, n=len(difflen.shape)  )
+        curve_options = dict(_with='vectors size screen 0.01,20 fixed filled palette',
+                             tuplesize=5)
 
+    if not directions:
+        plot_options['cbrange'] = [0,cbmax]
+        color                   = difflen
+    else:
+        plot_options['cbrange'] = [-180.,180.]
+        color                   = 180./np.pi * np.arctan2(diff[...,1], diff[...,0])
+
+        gp.add_plot_option(plot_options,
+                           'set',
+                           'palette defined ( 0 "#00ffff", 0.5 "#80ffff", 1 "#ffffff") model HSV')
+
+    if not vectorfield:
+        plot_data_args = [ (color, curve_options) ]
+    else:
         plot_data_args = \
             [ (q0  [:,0], q0  [:,1],
                diff[:,0] * vectorscale, diff[:,1] * vectorscale,
-               difflen,
-               dict(_with='vectors size screen 0.01,20 fixed filled palette',
-                    tuplesize=5)) ]
-
-    else:
-        curveoptions = \
-            _options_heatmap_with_contours( # update these plot options
-                kwargs,
-
-                cbmax, None,
-                models[0].imagersize(),
-                gridn_width, gridn_height)
-        plot_options = kwargs
-        plot_data_args = [ (difflen, curveoptions) ]
-
+               color,
+               curve_options) ]
 
     if valid_intrinsics_region:
         valid_region0 = models[0].valid_intrinsics_region()

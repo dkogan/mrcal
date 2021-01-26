@@ -191,9 +191,13 @@ def parse_args():
                         improve legibility if the vectors are too small to
                         see''')
 
+    parser.add_argument('--directions',
+                        action = 'store_true',
+                        help='''If given, the plots are color-coded by the direction of the error, instead of
+                        the magnitude''')
+
     parser.add_argument('--no-uncertainties',
                         action = 'store_true',
-                        default = False,
                         help='''By default we use the uncertainties in the model to weigh the fit. This will
                         focus the fit on the confident region in the models
                         without --where or --radius. The computation will run
@@ -250,6 +254,8 @@ else:
 if len(args.models) > 2:
     if args.vectorfield:
         raise Exception("--vectorfield works only with exactly 2 models")
+    if args.directions:
+        raise Exception("--directions works only with exactly 2 models")
     if args.same_dance:
         raise Exception("--same-dance works only with exactly 2 models")
 
@@ -458,6 +464,7 @@ plot,implied_Rt10 = mrcal.show_projection_diff(models,
                                                implied_Rt10            = implied_Rt10,
                                                vectorfield             = args.vectorfield,
                                                vectorscale             = args.vectorscale,
+                                               directions              = args.directions,
                                                hardcopy                = args.hardcopy,
                                                terminal                = args.terminal,
                                                cbmax                   = args.cbmax,
