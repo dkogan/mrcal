@@ -1478,7 +1478,7 @@ plot
 
     if 'title' not in kwargs:
 
-        title = "Effects of {}".format(lensmodel)
+        title = "Off-pinhole effects of {}".format(lensmodel)
         if extratitle is not None:
             title += ": " + extratitle
         kwargs['title'] = title
