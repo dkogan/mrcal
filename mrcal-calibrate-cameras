@@ -1462,7 +1462,9 @@ def show_valid_intrinsics_region(icam = None, **kwargs):
                                                **kwargs)
 
 plots_distortion_off_pinhole = [None] * Ncameras
-def show_distortion_off_pinhole(mode, icam = None, gridn_width = 60, gridn_height = 40, **kwargs):
+def show_distortion_off_pinhole(mode, icam = None,
+                                show_fisheye_projections = False,
+                                gridn_width = 60, gridn_height = 40, **kwargs):
 
     global plots_distortion_off_pinhole
     icam_all = (icam,) if icam is not None else range(Ncameras)
@@ -1470,6 +1472,7 @@ def show_distortion_off_pinhole(mode, icam = None, gridn_width = 60, gridn_heigh
         plots_distortion_off_pinhole[icam] = \
             mrcal.show_distortion_off_pinhole(models[icam],
                                               mode,
+                                              show_fisheye_projections = show_fisheye_projections,
                                               extratitle = "camera {}".format(icam),
                                               gridn_width  = gridn_width,
                                               gridn_height = gridn_height,
