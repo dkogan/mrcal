@@ -309,6 +309,10 @@ report a full Rt transformation with the t component set to 0
 
     if atinfinity:
 
+
+        # This is similar to a basic procrustes fit, but here we're using an L1
+        # cost function
+
         r = np.random.random(3) * 1e-3
 
         res = scipy.optimize.least_squares(residual,
