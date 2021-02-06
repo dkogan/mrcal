@@ -1386,12 +1386,13 @@ plot
 
 def show_distortion_off_pinhole(model,
                                 mode,
-                                scale        = 1.,
-                                cbmax        = 25.0,
-                                gridn_width  = 60,
-                                gridn_height = None,
-                                extratitle   = None,
-                                return_plot_args = False,
+                                scale                    = 1.,
+                                cbmax                    = 25.0,
+                                gridn_width              = 60,
+                                gridn_height             = None,
+                                show_fisheye_projections = False,
+                                extratitle               = None,
+                                return_plot_args         = False,
                                 **kwargs):
 
     r'''Visualize a lens's deviation from a pinhole projection
@@ -1435,6 +1436,10 @@ ARGUMENTS
 
 - scale: optional value, defaulting to 1.0. Used to scale the rendered vectors
   if mode=='vectorfield'
+
+- show_fisheye_projections: optional boolean defaulting to False. If
+  show_fisheye_projections: the radial plots include the behavior of common
+  fisheye projections, in addition to the behavior of THIS lens
 
 - cbmax: optional value, defaulting to 25.0. Sets the maximum range of the color
   map and of the contours if mode=='heatmap'
@@ -1564,11 +1569,12 @@ plot
         # from other common fisheye projections (formulas mostly from
         # https://en.wikipedia.org/wiki/Fisheye_lens)
         equations = [f'180./pi*atan(tan(x*pi/180.) * ({scale})) with lines lw 2 title "THIS model"',
-                     'x title "pinhole"',
-                     f'180./pi*atan(2. * tan( x*pi/180. / 2.)) title "stereographic"',
-                     f'180./pi*atan(x*pi/180.) title "equidistant"',
-                     f'180./pi*atan(2. * sin( x*pi/180. / 2.)) title "equisolid angle"',
-                     f'180./pi*atan( sin( x*pi/180. )) title "orthogonal"']
+                     'x title "pinhole"']
+        if show_fisheye_projections:
+            equations += [f'180./pi*atan(2. * tan( x*pi/180. / 2.)) title "stereographic"',
+                          f'180./pi*atan(x*pi/180.) title "equidistant"',
+                          f'180./pi*atan(2. * sin( x*pi/180. / 2.)) title "equisolid angle"',
+                          f'180./pi*atan( sin( x*pi/180. )) title "orthogonal"']
 
         gp.add_plot_option(kwargs, 'set',
                            ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "red"'  . \

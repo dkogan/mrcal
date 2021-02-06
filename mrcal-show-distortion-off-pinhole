@@ -53,6 +53,10 @@ def parse_args():
                         contains more information (magnitude AND direction), but
                         is less clear at a glance''')
 
+    parser.add_argument('--show-fisheye-projections',
+                        action='store_true',
+                        help='''If given, the radial plots include the behavior of common fisheye
+                        projections, in addition to the behavior of THIS lens''')
     parser.add_argument('--cbmax',
                         type=float,
                         default=10,
@@ -126,6 +130,7 @@ plot = mrcal.show_distortion_off_pinhole(model,
                                          args.cbmax,
                                          args.gridn[0], args.gridn[1],
 
+                                         show_fisheye_projections = args.show_fisheye_projections,
                                          extratitle   = args.extratitle,
                                          hardcopy     = args.hardcopy,
                                          terminal     = args.terminal,
