@@ -1,7 +1,12 @@
 #+TITLE: Copyrights and licenses
 
-mrcal is Copyright 2017-2020 California Institute of Technology. No distribution
-outside of JPL is currently allowed.
+Copyright (c) 2017-2020 California Institute of Technology ("Caltech"). U.S.
+Government sponsorship acknowledged. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
 
 A number of free-software projects are included as source in the toolkit. These
 are:

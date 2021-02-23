@@ -5,7 +5,7 @@ Version:        xxx
 Release:        1%{?dist}
 Summary:        Calibration tools
 
-License:        proprietary
+License:        Apache-2.0
 URL:            https://www.github.com/dkogan/mrcal/
 Source0:        https://www.github.com/dkogan/mrcal/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz
 

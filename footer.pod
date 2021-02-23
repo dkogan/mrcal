@@ -8,6 +8,10 @@ Dima Kogan, C<< <dima@secretsauce.net> >>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2017-2020 California Institute of Technology
+Copyright (c) 2017-2020 California Institute of Technology ("Caltech"). U.S.
+Government sponsorship acknowledged. All rights reserved.
 
-This is proprietary and JPL-internal. For now
+Licensed under the Apache License, Version 2.0 (the "License");
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0

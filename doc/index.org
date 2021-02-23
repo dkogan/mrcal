@@ -1,11 +1,11 @@
 #+title: mrcal - camera calibrations and more!
 
-mrcal is a toolkit for working with lens models, camera geometry, images,
-projections, and the various related operations such as camera calibration. Any
-task that produces or consumes camera models can utilize this toolkit. It was
-originally built to generate the high-accuracy calibrations demanded by
-long-range stereo, so it provides facilities to analyze calibration accuracy and
-to propagate and report uncertainties.
+mrcal is a toolkit (originating at NASA/JPL) for working with lens models,
+camera geometry, images, projections, and the various related operations such as
+camera calibration. Any task that produces or consumes camera models can utilize
+this toolkit. It was originally built to generate the high-accuracy calibrations
+demanded by long-range stereo, so it provides facilities to analyze calibration
+accuracy and to propagate and report uncertainties.
 
 [[https://docs.opencv.org/master/][OpenCV]] is a library often used to solve similar problems. It can't produce
 calibrations that are as good as mrcal's, and it can't report on how good its
@@ -45,9 +45,13 @@ two sets programmatic interfaces available:
 Dima Kogan =dima@secretsauce.net=
 
 * License and copyright
-Copyright 2017-2020 California Institute of Technology.
+Copyright (c) 2017-2020 California Institute of Technology ("Caltech"). U.S.
+Government sponsorship acknowledged. All rights reserved.
 
-This is all proprietary for now.
+Licensed under the Apache License, Version 2.0 (the "License");
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
 
 There's some included external code in the sources, with their own [[file:copyrights.org][copyrights
 and licenses]].

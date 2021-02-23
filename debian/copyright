@@ -4,7 +4,5 @@ Upstream-Contact: Dima Kogan, <dima@secretsauce.net>
 Upstream-Name: mrcal
 
 Files: *
-Copyright: 2017, California Institute of Technology
-License: Proprietary
-
-License: Proprietary license. May not distribute without a license
+Copyright: 2017-2020, California Institute of Technology ("Caltech")
+License: Apache-2.0
