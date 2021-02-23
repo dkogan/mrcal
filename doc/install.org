@@ -25,9 +25,6 @@ where =DISTRO= is one of
 - =focal=
 - =bionic=
 
-The _Debian_ packages are signed, and the =[trusted=yes]= chunk may be omitted
-when using packages for Debian.
-
 Then, =apt update && apt install mrcal libmrcal-dev=. The =mrcal= package pulls
 in the commandline tools and, indirectly, the python libraries. The
 =libmrcal-dev= is the C dev stuff; not needed if you're not building C code that
