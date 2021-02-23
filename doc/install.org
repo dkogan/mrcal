@@ -1,7 +1,7 @@
 #+title: Building or installing
 
-I provide packages for a number of distros. I /strongly/ recommend you use these
-instead of building from source.
+I provide packages for a number of distros. If possible, please use these
+instead of building from source. Contributions on this front are welcome.
 
 * Installing from packages
 ** Debian-based
@@ -15,7 +15,7 @@ I currently distribute packages for
 To use these, add to your =/etc/apt/sources.list=:
 
 #+begin_example
-deb [trusted=yes] http://fatty.jpl.nasa.gov/DISTRO/ DISTRO main
+deb [trusted=yes] http://mrcal.secretsauce.net/packages/DISTRO/public/ DISTRO main
 #+end_example
 
 where =DISTRO= is one of
@@ -25,13 +25,16 @@ where =DISTRO= is one of
 - =focal=
 - =bionic=
 
+The _Debian_ packages are signed, and the =[trusted=yes]= chunk may be omitted
+when using packages for Debian.
+
 Then, =apt update && apt install mrcal libmrcal-dev=. The =mrcal= package pulls
 in the commandline tools and, indirectly, the python libraries. The
 =libmrcal-dev= is the C dev stuff; not needed if you're not building C code that
 uses mrcal. The chessboard corner finder, while not strictly required, is needed
 if you're doing chessboard-based calibrations. =apt install mrgingham=
 
-** RPM-based
+** RPM-based                                                       :noexport:
 There are packages deployed on the maritime robotics CentOS-7 YUM servers. Some
 dependencies are more recent than the usual packages, so you need to enable the
 /backports/ repo. You can generate the definition from a search/replace of the
@@ -102,4 +105,5 @@ packages, if at all possible
 * code                                                             :noexport:
 dependency building
 
-distro=bionic; sbuild --lintian-opt='--suppress-tags=bad-distribution-in-changes-file' --anything-failed-commands '%s' --nolog -s --force-orig-source -A -d $distro --extra-repository="deb [trusted=yes] file:///var/www/debian/$distro/public/ $distro main" -j 18
+distro=bionic; sbuild --lintian-opt='--suppress-tags=bad-distribution-in-changes-file' --anything-failed-commands '%s' --nolog -s --no-apt-update --no-apt-upgrade -A -d $distro --extra-repository="deb [trusted=yes] file:///var/www/debian/$distro/public/ $distro main" -j 18
+distro=bionic; sbuild --nolog --no-apt-{update,upgrade} -d $distro -A --no-source -c $distro-amd64 --anything-failed-commands '%s' --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main" -j 18
