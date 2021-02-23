@@ -42,7 +42,7 @@ two sets programmatic interfaces available:
 - [[file:python-api.org][The Python API to do that and a whole lot more]]
 
 * Author
-Dima Kogan =kogan@jpl.nasa.gov=
+Dima Kogan =dima@secretsauce.net=
 
 * License and copyright
 Copyright 2017-2020 California Institute of Technology.

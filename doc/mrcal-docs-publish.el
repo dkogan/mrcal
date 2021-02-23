@@ -9,7 +9,7 @@
          :with-sub-superscript nil
          :html-postamble nil
          :with-author "Dima Kogan"
-         :with-email  "kogan@jpl.nasa.gov"
+         :with-email  "dima@secretsauce.net"
          :html-head-include-default-style nil
          :html-head ,(concat
                       "<link rel=\"stylesheet\" type=\"text/css\" href=\"org.css\"/>"
