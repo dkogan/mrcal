@@ -33,8 +33,7 @@ DIST_INCLUDE += \
 	mrcal.h \
 	mrcal_internal.h \
 	basic_geometry.h \
-	poseutils.h \
-	triangulation.h
+	poseutils.h
 DIST_BIN :=					\
 	mrcal-calibrate-cameras			\
 	mrcal-convert-lensmodel			\
