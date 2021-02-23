@@ -2,7 +2,7 @@ mrcal (1.0) unstable; urgency=medium
 
   * Initial release!
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Fri, 11 Dec 2020 14:34:50 -0800
+ -- Dima Kogan <dima@secretsauce.net>  Fri, 11 Dec 2020 14:34:50 -0800
 
 mrcal (0.33) unstable; urgency=medium
 
@@ -19,7 +19,7 @@ mrcal (0.33) unstable; urgency=medium
   * I can now read cameramodel from a pipe
   * API BREAK: uncertainties represented as a "covariance"
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Mon, 27 Jan 2020 14:52:26 -0800
+ -- Dima Kogan <dima@secretsauce.net>  Mon, 27 Jan 2020 14:52:26 -0800
 
 mrcal (0.29) unstable; urgency=medium
 
@@ -38,49 +38,49 @@ mrcal (0.27) unstable; urgency=medium
   * Added mrcal_project_z1(), project(z1=True), unproject(z1=True)
   * First cut at a real test suite. Low coverage for now, but increasing
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Mon, 09 Sep 2019 13:50:01 -0700
+ -- Dima Kogan <dima@secretsauce.net>  Mon, 09 Sep 2019 13:50:01 -0700
 
 mrcal (0.26) unstable; urgency=medium
 
   * Updates
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Mon, 05 Aug 2019 16:36:08 -0700
+ -- Dima Kogan <dima@secretsauce.net>  Mon, 05 Aug 2019 16:36:08 -0700
 
 mrcal (0.24) unstable; urgency=medium
 
   * Updates
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Mon, 10 Jun 2019 14:28:09 -0700
+ -- Dima Kogan <dima@secretsauce.net>  Mon, 10 Jun 2019 14:28:09 -0700
 
 mrcal (0.19) unstable; urgency=medium
 
   * Updates
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Mon, 29 Apr 2019 15:03:14 -0700
+ -- Dima Kogan <dima@secretsauce.net>  Mon, 29 Apr 2019 15:03:14 -0700
 
 mrcal (0.13) unstable; urgency=medium
 
   * Lots and lots of updates. Still under heavy development
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Tue, 02 Oct 2018 09:37:45 -0700
+ -- Dima Kogan <dima@secretsauce.net>  Tue, 02 Oct 2018 09:37:45 -0700
 
 mrcal (0.12) unstable; urgency=medium
 
   * Lots of various updates
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Wed, 21 Feb 2018 12:54:11 -0800
+ -- Dima Kogan <dima@secretsauce.net>  Wed, 21 Feb 2018 12:54:11 -0800
 
 mrcal (0.11) unstable; urgency=medium
 
   * Uninteresting bug fix
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Tue, 23 Jan 2018 12:26:15 -0800
+ -- Dima Kogan <dima@secretsauce.net>  Tue, 23 Jan 2018 12:26:15 -0800
 
 mrcal (0.10) unstable; urgency=medium
 
   * Uninteresting bug fix
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Tue, 23 Jan 2018 12:14:57 -0800
+ -- Dima Kogan <dima@secretsauce.net>  Tue, 23 Jan 2018 12:14:57 -0800
 
 mrcal (0.9) unstable; urgency=medium
 
@@ -91,31 +91,31 @@ mrcal (0.9) unstable; urgency=medium
 
     - (un)project argument-parsing normalized and simplified
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Tue, 23 Jan 2018 12:11:50 -0800
+ -- Dima Kogan <dima@secretsauce.net>  Tue, 23 Jan 2018 12:11:50 -0800
 
 mrcal (0.8) unstable; urgency=medium
 
   * added utility function to read correspondences from hugin
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Fri, 12 Jan 2018 13:21:35 -0800
+ -- Dima Kogan <dima@secretsauce.net>  Fri, 12 Jan 2018 13:21:35 -0800
 
 mrcal (0.7) unstable; urgency=medium
 
   * limited cahvore support
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Thu, 11 Jan 2018 18:02:48 -0800
+ -- Dima Kogan <dima@secretsauce.net>  Thu, 11 Jan 2018 18:02:48 -0800
 
 mrcal (0.6) unstable; urgency=medium
 
   * Minor upstream release
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Mon, 18 Dec 2017 14:34:38 -0800
+ -- Dima Kogan <dima@secretsauce.net>  Mon, 18 Dec 2017 14:34:38 -0800
 
 mrcal (0.5) unstable; urgency=medium
 
   * Minor upstream update
 
- -- Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>  Mon, 18 Dec 2017 14:34:30 -0800
+ -- Dima Kogan <dima@secretsauce.net>  Mon, 18 Dec 2017 14:34:30 -0800
 
 mrcal (0.4) unstable; urgency=medium
 

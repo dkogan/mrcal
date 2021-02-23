@@ -11,7 +11,7 @@ Build-Depends: debhelper (>= 9), dh-python,
  python3-gnuplotlib (>= 0.36), python3-numpysane (>= 0.29),
  python3-opencv, python3-numpy, python3-scipy (>= 0.18),
  chrpath
-Maintainer: Dima Kogan <Dmitriy.Kogan@jpl.nasa.gov>
+Maintainer: Dima Kogan <dima@secretsauce.net>
 Standards-Version: 3.9.8
 Homepage: https://github.jpl.nasa.gov/maritime-robotics/mrcal/
 Vcs-Git: git@github.jpl.nasa.gov:maritime-robotics/mrcal.git

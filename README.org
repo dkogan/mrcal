@@ -25,7 +25,7 @@ https://github.jpl.nasa.gov/maritime-robotics/mrcal/
 
 * AUTHOR
 
-Dima Kogan (=Dmitriy.Kogan@jpl.nasa.gov=)
+Dima Kogan (=dima@secretsauce.net=)
 
 * LICENSE AND COPYRIGHT
 
