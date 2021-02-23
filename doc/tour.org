@@ -1479,13 +1479,13 @@ And the disparity and range images looks like this:
 
 Clearly this is working well.
 
-If you've used other stereo libraries (such as jplv) previously, these rectified
-images may look odd. In mrcal I produce images that sample the azimuth and
-elevation angles evenly, which should minimize visual distortion inside each
-image row. A side-effect is the the vertical expansion in the rectified image at
-the azimuth extremes. Stereo matching works primarily by correlating the rows
-independently, so this is a good trade-off. Some other implementations use
-un-even azimuth spacing, which can't be good for matching performance.
+If you've used other stereo libraries previously, these rectified images may
+look odd. In mrcal I produce images that sample the azimuth and elevation angles
+evenly, which should minimize visual distortion inside each image row. A
+side-effect is the the vertical expansion in the rectified image at the azimuth
+extremes. Stereo matching works primarily by correlating the rows independently,
+so this is a good trade-off. Some other implementations use un-even azimuth
+spacing, which can't be good for matching performance.
 
 *** ranged pixels ground-truth                                     :noexport:
 **** Buildings
@@ -1612,11 +1612,10 @@ model1.write('/tmp/1.cameramodel')
 :CUSTOM_ID: stereo-without-mrcal
 :END:
 
-What if we want to do our stereo processing with some other tool (like jplv),
-and what if that tool doesn't support the splined model we want to use? We can
-use mrcal to reproject the image to whatever model we like, and then hand off
-the processed image and new models to that tool. Let's demonstrate with a
-pinhole model.
+What if we want to do our stereo processing with some other tool, and what if
+that tool doesn't support the splined model we want to use? We can use mrcal to
+reproject the image to whatever model we like, and then hand off the processed
+image and new models to that tool. Let's demonstrate with a pinhole model.
 
 We can use the [[file:mrcal-reproject-image.html][=mrcal-reproject-image=]] tool to reproject the images. Mapping
 fisheye images to a pinhole model introduces an unwinnable trade-off: the
@@ -1651,8 +1650,9 @@ for scale in 0.35 0.6; do
 done
 #+end_src
 
-We will use jplv to process these pinhole images into a stereo map, so I
-converted the models to the [[file:cameramodels.org::#cameramodel-file-formats][=.cahvor= file format]], as that tool expects.
+We will use jplv (a stereo library used at NASA/JPL) to process these pinhole
+images into a stereo map, so I converted the models to the [[file:cameramodels.org::#cameramodel-file-formats][=.cahvor= file
+format]], as that tool expects.
 
 The wider pinhole resampling of the two images:
 
@@ -1699,9 +1699,9 @@ For the narrow mapping:
 [[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.png][file:external/figures/stereo/jplv-stereo-rect-left-scale0.6.downsampled.png]]
 [[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.png][file:external/figures/stereo/jplv-stereo-rect-right-scale0.6.downsampled.png]]
 
-The bottom is cut-off in these images; this is probably a bug in jplv. Here we
-see that jplv's rectification function also has some implicit pinhole projection
-assumption in there, and the scale within each row is dramatically uneven.
+Here we see that jplv's rectification function also has some implicit pinhole
+projection assumption in there, and the scale within each row is dramatically
+uneven.
 
 The above command gave me jplv's computed disparities, but to compare
 apples-to-apples, let's re-compute them using the same opencv routine from
@@ -1788,9 +1788,6 @@ And disparity and range images:
 [[file:external/data/figueroa-overpass-looking-S/range-narrow.png][file:external/figures/stereo/range-narrow.downsampled.png]]
 
 And this is despite running pinhole-reprojected stereo from a very wide lens.
-
-Unfortunately, this triggers a bug in the jplv rectification function, and it
-produces unusable disparity maps when given such a misaligned geometry.
 
 ** Range accuracy                                                  :noexport:
 :PROPERTIES:
