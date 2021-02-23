@@ -9,7 +9,7 @@ SYNOPSIS
   ... this model
 
 The operation of this tool is documented at
-http://fatty.jpl.nasa.gov/mrcal/uncertainty.html
+http://mrcal.secretsauce.net/uncertainty.html
 
 A calibration process produces the best-fitting camera parameters. To use these
 parameters intelligently we must have some sense of uncertainty in these
@@ -35,7 +35,7 @@ There are 3 modes of operation:
   mapping to a single pixel. We show the uncertainty vs distances from the
   camera along this ray
 
-See http://fatty.jpl.nasa.gov/mrcal/uncertainty.html for a full description of
+See http://mrcal.secretsauce.net/uncertainty.html for a full description of
 the computation performed here
 
 '''

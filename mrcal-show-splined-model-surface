@@ -8,7 +8,7 @@ SYNOPSIS
   ... a plot pops up showing the surface
 
 Splined models are described at
-http://fatty.jpl.nasa.gov/mrcal/lensmodels.html#splined-stereographic-lens-model
+http://mrcal.secretsauce.net/lensmodels.html#splined-stereographic-lens-model
 
 Splined models are built with a splined surface that we index to compute the
 projection. The meaning of what indexes the surface and the values of the

@@ -520,7 +520,7 @@ SYNOPSIS
     # A plot pops up displaying the projection difference between the two models
 
 The operation of this tool is documented at
-http://fatty.jpl.nasa.gov/mrcal/differencing.html
+http://mrcal.secretsauce.net/differencing.html
 
 It is often useful to compare the projection behavior of two camera models. For
 instance, one may want to evaluate the quality of a calibration by comparing the
@@ -849,7 +849,7 @@ estimate the uncertainty of projection of the final model. At calibration time w
 All the coordinate systems move around, and all 3 of these sets of data have
 some uncertainty. This tool takes into account all the uncertainties to report
 an estimated uncertainty metric. See
-http://fatty.jpl.nasa.gov/mrcal/uncertainty.html for a detailed description of
+http://mrcal.secretsauce.net/uncertainty.html for a detailed description of
 the computation.
 
 This function grids the imager, and reports an uncertainty for each point on the
@@ -1068,7 +1068,7 @@ we estimate
 All the coordinate systems move around, and all 3 of these sets of data have
 some uncertainty. This tool takes into account all the uncertainties to report
 an estimated uncertainty metric. See
-http://fatty.jpl.nasa.gov/mrcal/uncertainty.html for a detailed description of
+http://mrcal.secretsauce.net/uncertainty.html for a detailed description of
 the computation.
 
 This function grids the imager and a set of observation distances, and reports
@@ -1231,7 +1231,7 @@ we estimate
 All the coordinate systems move around, and all 3 of these sets of data have
 some uncertainty. This tool takes into account all the uncertainties to report
 an estimated uncertainty metric. See
-http://fatty.jpl.nasa.gov/mrcal/uncertainty.html for a detailed description of
+http://mrcal.secretsauce.net/uncertainty.html for a detailed description of
 the computation.
 
 The curve produced by this function has a characteristic shape:

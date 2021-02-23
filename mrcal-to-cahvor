@@ -10,7 +10,7 @@ SYNOPSIS
   Wrote model2.cahvor
 
 File formats supported by mrcal are described at
-http://fatty.jpl.nasa.gov/mrcal/cameramodels.html#cameramodel-file-formats
+http://mrcal.secretsauce.net/cameramodels.html#cameramodel-file-formats
 
 This tool converts a given model to the cahvor file format. No changes to the
 content are made; this is purely a format converter. Model filenames are given

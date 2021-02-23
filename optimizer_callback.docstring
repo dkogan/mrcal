@@ -10,7 +10,7 @@ SYNOPSIS
       mrcal.optimizer_callback( **optimization_inputs )
 
 Please see the mrcal documentation at
-http://fatty.jpl.nasa.gov/mrcal/formulation.html for details.
+http://mrcal.secretsauce.net/formulation.html for details.
 
 The main optimization routine in mrcal.optimize() searches for optimal
 parameters by repeatedly calling a function to evaluate each hypothethical

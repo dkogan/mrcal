@@ -17,7 +17,7 @@ And now we have a calibration!
 =mrcal= is a generic toolkit to solve calibration and SFM-like problems.
 Functionality related to these problems is exposed as a set of C and Python
 libraries and some commandline tools. Documentation is available at
-http://fatty.jpl.nasa.gov/mrcal/
+http://mrcal.secretsauce.net/
 
 * REPOSITORY
 

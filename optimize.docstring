@@ -21,7 +21,7 @@ SYNOPSIS
                             verbose                           = False)
 
 Please see the mrcal documentation at
-http://fatty.jpl.nasa.gov/mrcal/formulation.html for details.
+http://mrcal.secretsauce.net/formulation.html for details.
 
 This is a flexible implementation of a calibration system core that uses sparse
 Jacobians, performs outlier rejection and reports some metrics back to the user.

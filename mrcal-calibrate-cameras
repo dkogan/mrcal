@@ -24,7 +24,7 @@ SYNOPSIS
 
 This tool uses the generic mrcal platform to solve a common specific problem of
 N-camera calibration using observations of a chessboard. Please see the mrcal
-documentation at http://fatty.jpl.nasa.gov/mrcal/how-to-calibrate.html for details.
+documentation at http://mrcal.secretsauce.net/how-to-calibrate.html for details.
 
 '''
 

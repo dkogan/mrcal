@@ -457,7 +457,7 @@ def _projection_uncertainty_make_output( factorization, Jpacked, dq_dpief_packed
     stored densely, so it already includes the multiplication by S
 
     The uncertainty computation in
-    http://fatty.jpl.nasa.gov/mrcal/uncertainty.html concludes that
+    http://mrcal.secretsauce.net/uncertainty.html concludes that
 
       Var(p*) = observed_pixel_uncertainty^2 inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
 
@@ -732,7 +732,7 @@ def projection_uncertainty( p_cam, model,
     r'''Compute the projection uncertainty of a camera-referenced point
 
 This is the interface to the uncertainty computations described in
-http://fatty.jpl.nasa.gov/mrcal/uncertainty.html
+http://mrcal.secretsauce.net/uncertainty.html
 
 SYNOPSIS
 
@@ -1039,7 +1039,7 @@ SYNOPSIS
     # models at each cell
 
 The operation of this tool is documented at
-http://fatty.jpl.nasa.gov/mrcal/differencing.html
+http://mrcal.secretsauce.net/differencing.html
 
 It is often useful to compare the projection behavior of two camera models. For
 instance, one may want to validate a calibration by comparing the results of two

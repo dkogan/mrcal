@@ -19,11 +19,11 @@
 ** Where is all this?
 Documentation, installation instructions and everything else are available here:
 
-- http://fatty.jpl.nasa.gov/mrcal/
+- http://mrcal.secretsauce.net/
 
 This talk is a condensed version of the "tour of mrcal" page:
 
-- http://fatty.jpl.nasa.gov/mrcal/tour.html
+- http://mrcal.secretsauce.net/tour.html
 
 Please see that page for a bit more detail, and for links to all the data and
 commands in the studies I'll discuss
@@ -44,7 +44,7 @@ wrote my own:
 ** Tour of mrcal
 I will go through the "tour of mrcal" page:
 
-- http://fatty.jpl.nasa.gov/mrcal/tour.html
+- http://mrcal.secretsauce.net/tour.html
 
 We follow a real-world data flow, from chessboard observations to stereo
 processing. Images captured using
@@ -434,7 +434,7 @@ chessboard dance is best. We
 - calibrate
 - look at the uncertainty-vs-range plots as a function of that parameter
 
-This is output of a tool included in the mrcal tree. See the [[http://fatty.jpl.nasa.gov/mrcal/tour.html][tour of mrcal]] page
+This is output of a tool included in the mrcal tree. See the [[http://mrcal.secretsauce.net/tour.html][tour of mrcal]] page
 for the commands.
 
 ** How many chessboard observations should we get?
