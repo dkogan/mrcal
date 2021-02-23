@@ -1155,7 +1155,7 @@ document because they're too good to see this clearly.
 
 Now that we know how to measure calibration quality and what to look for, we can
 run some studies to figure out what makes a good chessboard dance. These are all
-computed by the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/analyses/dancing/dance-study.py][=analyses/dancing/dance-study.py=]] tool. It generates synthetic
+computed by the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/dancing/dance-study.py][=analyses/dancing/dance-study.py=]] tool. It generates synthetic
 data, scans a parameter, and produces the uncertainty-vs-range curves at the
 imager center to visualize the effect of that parameter.
 
@@ -1461,7 +1461,7 @@ for what (splined opencv8) { PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_
 
 I then use the mrcal APIs to compute rectification maps, rectify the images,
 compute disparities and convert them to ranges. This is done with the script
-[[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/doc/stereo.py][=stereo.py=]]. We run it like this:
+[[https://www.github.com/dkogan/mrcal/blob/master/doc/stereo.py][=stereo.py=]]. We run it like this:
 
 #+begin_src sh
 python3 stereo.py splined-[01].cameramodel [01].jpg splined
@@ -1736,7 +1736,7 @@ each image we need to construct
   to the left in this example)
 - The image of the scene that such a model would have observed
 
-This requires writing a little bit of code: [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/doc/narrow-section.py][=narrow-section.py=]]. Let's run that
+This requires writing a little bit of code: [[https://www.github.com/dkogan/mrcal/blob/master/doc/narrow-section.py][=narrow-section.py=]]. Let's run that
 for each of my images:
 
 #+begin_src sh

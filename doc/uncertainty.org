@@ -306,7 +306,7 @@ or fixed:
   averaging in 3D point space. Observation noise causes the far-off geometry to
   move much more than the nearby chessboards, and that far-off motion then
   dominates the average. Some experimental fixes are implemented in
-  [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/test/test-projection-uncertainty.py][=test/test-projection-uncertainty.py=]]. For instance:
+  [[https://www.github.com/dkogan/mrcal/blob/master/test/test-projection-uncertainty.py][=test/test-projection-uncertainty.py=]]. For instance:
   #+begin_example
   test/test-projection-uncertainty.py \
     --fixed cam0 --model opencv4      \

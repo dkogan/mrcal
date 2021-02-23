@@ -6,8 +6,8 @@ Release:        1%{?dist}
 Summary:        Calibration tools
 
 License:        proprietary
-URL:            https://github.jpl.nasa.gov/maritime-robotics/mrcal/
-Source0:        https://github.jpl.nasa.gov/maritime-robotics/mrcal/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz
+URL:            https://www.github.com/dkogan/mrcal/
+Source0:        https://www.github.com/dkogan/mrcal/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
 BuildRequires: python36-numpy
 

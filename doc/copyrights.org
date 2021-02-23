@@ -7,7 +7,7 @@ A number of free-software projects are included as source in the toolkit. These
 are:
 
 * [[https://github.com/dkogan/mrbuild][mrbuild]]
-The [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/tree/master/mrbuild][build system]] is a copy of the mrbuild project. Included to avoid introducing
+The [[https://www.github.com/dkogan/mrcal/tree/master/mrbuild][build system]] is a copy of the mrbuild project. Included to avoid introducing
 a dependency. Distributed under an MIT-style license. Copyright 2016-2019
 California Institute of Technology.
 
@@ -19,23 +19,23 @@ provisions. Copyright 2011 Oblong Industries. This library is distributed under
 the terms of the GNU LGPL
 
 * opencv projection
-The [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/bface334218c0e49cca6fe9bf5517fea2233a92e/mrcal.c#L747][opencv projection function]] is a cut-down implementation from the OpenCV
+The [[https://www.github.com/dkogan/mrcal/blob/bface334218c0e49cca6fe9bf5517fea2233a92e/mrcal.c#L747][opencv projection function]] is a cut-down implementation from the OpenCV
 project. Distributed under an BSD-style license. Copyright (C) 2000-2008, Intel
 Corporation, all rights reserved. Copyright (C) 2009, Willow Garage Inc., all
 rights reserved.
 
 * =mrcal_r_from_R()=
-The [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/1c05b0ea20660e493e942488e11a4c265c500a8d/poseutils.c#L324][=mrcal_r_from_R()= sources]] originated in the OpenCV project. Distributed
+The [[https://www.github.com/dkogan/mrcal/blob/1c05b0ea20660e493e942488e11a4c265c500a8d/poseutils.c#L324][=mrcal_r_from_R()= sources]] originated in the OpenCV project. Distributed
 under an BSD-style license. Copyright (C) 2000-2008, Intel Corporation, all
 rights reserved. Copyright (C) 2009, Willow Garage Inc., all rights reserved.
 
 * [[file:mrcal-python-api-reference.html#-quat_from_R][=mrcal.quat_from_R()=]]
-The [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/bface334218c0e49cca6fe9bf5517fea2233a92e/mrcal/poseutils.py#L1042][=mrcal.quat_from_R()= sources]] came from scipy. Distributed under an
+The [[https://www.github.com/dkogan/mrcal/blob/bface334218c0e49cca6fe9bf5517fea2233a92e/mrcal/poseutils.py#L1042][=mrcal.quat_from_R()= sources]] came from scipy. Distributed under an
 BSD-style license. Copyright (c) 2001-2002 Enthought, Inc. 2003-2019, SciPy
 Developers.
 
 * pydoc
-[[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/doc/pydoc.py][=doc/pydoc.py=]] is a copy of the sources in the Python project. This is used to
+[[https://www.github.com/dkogan/mrcal/blob/master/doc/pydoc.py][=doc/pydoc.py=]] is a copy of the sources in the Python project. This is used to
 extract the docstrings into the .html reference documentation. Minor
 modifications were made to fit with mrcal's code organization and html styling.
 Distributed under the PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2. Copyright

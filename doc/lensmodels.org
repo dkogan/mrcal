@@ -16,14 +16,14 @@ configuration parameters (=order=3=, =Nx=30= and so on) specify the model, and
 are /not/ subject to optimization. Currently only the [[#splined-stereographic-lens-model][splined stereographic
 models]] have any configuration.
 
-In C, the model family is selected with the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h#mrcal_lensmodel_type_t][=mrcal_lensmodel_type_t=]] enum. The
+In C, the model family is selected with the [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h#mrcal_lensmodel_type_t][=mrcal_lensmodel_type_t=]] enum. The
 elements are the same as the Python model names, but with =MRCAL_= prepended. So
 in C the above splined model is of type =MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC=.
-In C the type /and/ configuration are represented by the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]]
+In C the type /and/ configuration are represented by the [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]]
 structure. Most routines require the configuration to be available. For
 instance, the number of parameters needed to fully describe a given model can be
 obtained by calling [[file:mrcal-python-api-reference.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or
-[[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h#mrcal_lensmodel_num_params][=mrcal_lensmodel_num_params()=]] in C (requires the full [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]]).
+[[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h#mrcal_lensmodel_num_params][=mrcal_lensmodel_num_params()=]] in C (requires the full [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]]).
 
 * Intrinsics core
 :PROPERTIES:
@@ -181,7 +181,7 @@ evenly-spaced knots (control points) in the space of the domain $\vec u$. The
 values of the knots comprise the parameters of this lens model. We're using
 B-splines primarily for their local support properties: moving a knot only
 affects the surface in the immediate neighborhood of that knot. This is critical
-for rapid convergence of our optimization problem. A [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/analyses/splines/bsplines.py][script used in the
+for rapid convergence of our optimization problem. A [[https://www.github.com/dkogan/mrcal/blob/master/analyses/splines/bsplines.py][script used in the
 development of the splined model]] shows this effect:
 
 [[file:external/figures/splined-models/cubic-spline-perturbations.svg]]
@@ -202,7 +202,7 @@ To sample a spline surface:
 2. Sample each row independently as a separate 1-dimensional B-spline
 3. Use these row samples as control points to sample the resulting column
 
-Processing columns first and then rows produces the same result. The [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/analyses/splines/bsplines.py][same dev
+Processing columns first and then rows produces the same result. The [[https://www.github.com/dkogan/mrcal/blob/master/analyses/splines/bsplines.py][same dev
 script from above]] checks this.
 
 The model configuration provides the rest of the values needed for projection
@@ -270,8 +270,8 @@ this, the recommended sequence for optimizing splined stereographic models is:
 2. Refine that solution with a full =LENSMODEL_SPLINED_STEREOGRAPHIC_...= model,
    using the core we just computed, and asking the optimizer to lock down those
    core values. This can be done by setting the =do_optimize_intrinsics_core=
-   bit to 0 in the [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_problem_selections_t=]] structure passed to
-   [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal_optimize()=]] in C (or passing =do_optimize_intrinsics_core=False= to
+   bit to 0 in the [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal_problem_selections_t=]] structure passed to
+   [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal_optimize()=]] in C (or passing =do_optimize_intrinsics_core=False= to
    [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] in Python). This is what the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]]
    tool does.
 
@@ -361,7 +361,7 @@ functional, but some things could be improved:
   regularization: $\Delta \vec u$ is pulled towards 0 /regardless/ of what the
   nearby data-driven $\vec u$ is doing. A regularization scheme that penalizes
   changes in $\Delta \vec u$ could work here. There was an attempt that had
-  issues, and was [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/commit/c8f9918023142d7ee463821661dc5bcc8f770b51][reverted]]. Resurrecting that code would be a useful thing to
+  issues, and was [[https://www.github.com/dkogan/mrcal/commit/c8f9918023142d7ee463821661dc5bcc8f770b51][reverted]]. Resurrecting that code would be a useful thing to
   try.
 - By its nature, regularization is aphysical, and only needed to make the solver
   happy. /Here/ we only need it to inform the solver about the no-data areas.

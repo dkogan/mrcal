@@ -2,9 +2,9 @@
 #+OPTIONS: toc:t
 
 The C API consists of 3 headers:
-- [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]: /very/ simple geometry structures
-- [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/poseutils.h][=poseutils.h=]]: pose and geometry functions
-- [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal.h=]]: lens models, projections, optimization
+- [[https://www.github.com/dkogan/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]: /very/ simple geometry structures
+- [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]]: pose and geometry functions
+- [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal.h=]]: lens models, projections, optimization
 
 Most usages would simply =#include <mrcal.h>=, and this would include all the
 headers. This is a C (not C++) library, so [[https://en.wikipedia.org/wiki/X_Macro][X macros]] are used in several places
@@ -15,7 +15,7 @@ themselves. The available functions are broken down into categories, and
 described in a bit more detail here.
 
 * Geometry structures
-We have 3 structures in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]:
+We have 3 structures in [[https://www.github.com/dkogan/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]:
 
 - =mrcal_point2_t=: a vector containing 2 double-precision floating-point
   values. The elements can be accessed individually as =.x= and =.y= or as an
@@ -30,7 +30,7 @@ We have 3 structures in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/bl
   - =mrcal_point3_t t=: a translation
 
 * Geometry functions
-A number of utility functions are defined in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/poseutils.h][=poseutils.h=]]. Each routine has two
+A number of utility functions are defined in [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]]. Each routine has two
 forms:
 
 - A =mrcal_..._noncontiguous()= function that supports a non-contiguous memory
@@ -995,7 +995,7 @@ void mrcal_unpack_solver_state_vector( // out, in
 #+end_src
 
 * Optimization
-The mrcal [[file:formulation.org][optimization routines]] are defined in [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/mrcal.h][=mrcal.h=]]. There are two primary
+The mrcal [[file:formulation.org][optimization routines]] are defined in [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal.h=]]. There are two primary
 functions, each accessing a /lot/ of functionality, and taking /many/ arguments:
 
 - =mrcal_optimize()= is the entry point to the optimization routine. This

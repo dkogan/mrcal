@@ -13,9 +13,9 @@ Build-Depends: debhelper (>= 9), dh-python,
  chrpath
 Maintainer: Dima Kogan <dima@secretsauce.net>
 Standards-Version: 3.9.8
-Homepage: https://github.jpl.nasa.gov/maritime-robotics/mrcal/
-Vcs-Git: git@github.jpl.nasa.gov:maritime-robotics/mrcal.git
-Vcs-Browser: https://github.jpl.nasa.gov/maritime-robotics/mrcal/
+Homepage: https://www.github.com/dkogan/mrcal/
+Vcs-Git: git@github.com:dkogan/mrcal.git
+Vcs-Browser: https://www.github.com/dkogan/mrcal/
 
 Package: libmrcal1
 Section: libs

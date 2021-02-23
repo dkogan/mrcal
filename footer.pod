@@ -1,6 +1,6 @@
 =head1 REPOSITORY
 
-L<https://github.jpl.nasa.gov/maritime-robotics/mrcal>
+L<https://www.github.com/dkogan/mrcal>
 
 =head1 AUTHOR
 

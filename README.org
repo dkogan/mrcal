@@ -21,7 +21,7 @@ http://mrcal.secretsauce.net/
 
 * REPOSITORY
 
-https://github.jpl.nasa.gov/maritime-robotics/mrcal/
+https://www.github.com/dkogan/mrcal/
 
 * AUTHOR
 
