@@ -1,8 +1,14 @@
 body         {background-color: #e4d9c3;}
 pre          {border: 1px solid black; box-shadow: 3px 3px 3px #606060;}
-pre.src      {background-color: #303030; color: #e5e5e5; max-width 700px}
 pre.example  {background-color: #303030; color: #e5e5e5; max-width 700px}
 .org-svg     {width: 90%; min-width: 500px; max-width: 900px;}
+
+pre.src {
+    background-color: #303030;
+    color: #e5e5e5;
+    position: relative;
+    overflow: auto;
+}
 
 /* Style for the nav bar at the top. Adapted from */
 /* o-blog.css */
