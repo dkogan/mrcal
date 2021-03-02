@@ -75,11 +75,28 @@ As shown in the [[file:tour.org::#choreography][dance study]], the most useful o
   missing, the extrinsics will be undefined, and the solver will complain about
   a "not positive definite" (singular in this case) Hessian.
 
-A dataset composed primarily of tilted closeups will produce good results. It is
-better to have more data rather than less. mrgingham will throw away frames
-where no chessboard can be found, so it is perfectly reasonable to grab too many
-images with the expectation that they won't all end up being used in the
-computation.
+A dataset composed primarily of tilted closeups produces good results.
+
+If the model will be used to look at far-away objects, care must be taken to
+produce a reliable calibration at long ranges, not just at the short ranges
+where the chessboards were. Close-up chessboard views are the primary data
+needed to get good uncertainties at infinity, but quiet often these will produce
+images that aren't in focus (if the focus ring is set to the working range:
+infinity). Look at the [[file:tour.org::#choreography][dance study]] for more detail. Cameras meant for outdoor
+stereo and/or wide lenses usually have this problem. In such cases, it is
+/strongly/ recommended to re-run the dance study for your particular use case to
+get a sense of what kind of observations are required, and what kind of
+uncertainties can be expected. The current thought is that the best thing to do
+is to get close-up images even if they're out of focus. The blurry images will
+have a high =--observed-pixel-uncertainty= (and no bias; hopefully), but the
+uncertainty reduction you get from the close-ups more than makes up for it. In
+these cases you usually need to get more observations than you normally would to
+bring down the uncertainties to an acceptable level.
+
+It is better to have more data rather than less. mrgingham will throw away
+frames where no chessboard can be found, so it is perfectly reasonable to grab
+too many images with the expectation that they won't all end up being used in
+the computation.
 
 I usually aim for about 100 usable frames, but you can often get away with far
 fewer. The mrcal uncertainty feedback (see below) will tell you if you need more
