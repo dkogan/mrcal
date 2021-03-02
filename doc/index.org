@@ -12,7 +12,6 @@ calibrations that are as good as mrcal's, and it can't report on how good its
 results really are.
 
 * Documentation index
-
 Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
 toolkit.
 
@@ -40,6 +39,22 @@ two sets programmatic interfaces available:
 
 - [[file:c-api.org][The C API to provide a set of core functionality]]
 - [[file:python-api.org][The Python API to do that and a whole lot more]]
+
+* Citing
+To cite this work in a publication, use this bibtex stanza:
+
+#+begin_example
+@misc{mrcal,
+  author = "Dima Kogan",
+  title = "mrcal",
+  howpublished = "\url{http://mrcal.secretsauce.net}",
+}
+#+end_example
+
+* Dev communication
+For now let's use the [[https://github.com/dkogan/mrcal/issues][github issue tracker]] for bug reporting and for
+communication in general. At some point I will probably set up a mailing list as
+well.
 
 * Author
 Dima Kogan =dima@secretsauce.net=
