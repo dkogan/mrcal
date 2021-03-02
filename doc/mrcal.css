@@ -20,7 +20,7 @@ pre.src {
     vertical-align: middle;
     top: 0;
     list-style: none outside none;
-    white-space: nowrap;
+    white-space: normal;
     overflow: hidden;
 }
 .supernav_list li {
