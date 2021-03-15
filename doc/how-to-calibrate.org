@@ -229,10 +229,10 @@ Example:
 #+begin_src sh
 $ mrcal-calibrate-cameras        \
   --corners-cache corners.vnl    \
+  --lensmodel LENSMODEL_OPENCV8  \
   --focal 1700                   \
   --object-spacing 0.077         \
   --object-width-n 10            \
-  --lensmodel LENSMODEL_OPENCV8  \
   --observed-pixel-uncertainty 2 \
   --explore                      \
   '*.JPG'

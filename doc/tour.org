@@ -125,10 +125,10 @@ frontend for that purpose.
 #+begin_example
 $ mrcal-calibrate-cameras        \
   --corners-cache corners.vnl    \
+  --lensmodel LENSMODEL_OPENCV8  \
   --focal 1700                   \
   --object-spacing 0.077         \
   --object-width-n 10            \
-  --lensmodel LENSMODEL_OPENCV8  \
   --observed-pixel-uncertainty 2 \
   --explore                      \
   '*.JPG'
@@ -458,10 +458,10 @@ specify the lens:
 #+begin_example
 $ mrcal-calibrate-cameras                                                       \
   --corners-cache corners.vnl                                                   \
+  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=170 \
   --focal 1700                                                                  \
   --object-spacing 0.077                                                        \
   --object-width-n 10                                                           \
-  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=170 \
   --observed-pixel-uncertainty 2                                                \
   --explore                                                                     \
   '*.JPG'

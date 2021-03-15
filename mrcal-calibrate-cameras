@@ -6,9 +6,9 @@ SYNOPSIS
 
   $ mrcal-calibrate-cameras
       --corners-cache corners.vnl
+      --lensmodel LENSMODEL_OPENCV8
       --focal 1700 --object-spacing 0.01 --object-width-n 10
       --outdir /tmp
-      --lensmodel LENSMODEL_OPENCV8
       --observed-pixel-uncertainty 0.5
       --pairs
       'left*.png' 'right*.png'
@@ -56,6 +56,10 @@ def parse_args():
     parser = \
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--lensmodel',
+                        required=False,
+                        help='''Which lens model we're using. This is required unless we have a
+                        --seed''')
     parser.add_argument('--focal',
                         type=float,
                         help='Initial estimate of the focal length, in pixels. Required unless --seed is given')
@@ -85,10 +89,6 @@ def parse_args():
                         type=int,
                         help='''How many points the calibration board has per vertical side. If omitted, we
                         assume a square object, setting height=width''')
-    parser.add_argument('--lensmodel',
-                        required=False,
-                        help='''Which lens model we're using. This is required unless we have a
-                        --seed''')
     parser.add_argument('--seed',
                         required=False,
                         type=str,

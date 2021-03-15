@@ -141,10 +141,10 @@ as it can:
 #+begin_example
 $ mrcal-calibrate-cameras        \
   --corners-cache corners.vnl    \
+  --lensmodel LENSMODEL_OPENCV4  \
   --focal 1700                   \
   --object-spacing 0.077         \
   --object-width-n 10            \
-  --lensmodel LENSMODEL_OPENCV4  \
   --observed-pixel-uncertainty 2 \
   --explore                      \
   '*.JPG'
@@ -275,10 +275,10 @@ center, calibrate off /that/ data, and run a diff on /those/ results:
 
 mrcal-calibrate-cameras               \
   --corners-cache corners-rad1500.vnl \
+  --lensmodel LENSMODEL_OPENCV4       \
   --focal 1700                        \
   --object-spacing 0.077              \
   --object-width-n 10                 \
-  --lensmodel LENSMODEL_OPENCV4       \
   --observed-pixel-uncertainty 2      \
   --explore                           \
   '*.JPG'
