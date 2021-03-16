@@ -58,11 +58,15 @@ def parse_args():
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--lensmodel',
                         required=False,
-                        help='''Which lens model we're using. This is required unless we have a
-                        --seed''')
+                        help='''Which lens model we're using. This is a string "LENSMODEL_....". Required
+                        unless we have a --seed. See http://mrcal.secretsauce.net/how-to-calibrate.html
+                        for notes about how to select a model''')
     parser.add_argument('--focal',
                         type=float,
-                        help='Initial estimate of the focal length, in pixels. Required unless --seed is given')
+                        help=r'''Initial estimate of the focal length, in pixels. Required unless --seed is
+                        given. See
+                        http://mrcal.secretsauce.net/how-to-calibrate.html for
+                        notes about how to estimate a focal length''')
     parser.add_argument('--imagersize',
                         nargs=2,
                         type=int,

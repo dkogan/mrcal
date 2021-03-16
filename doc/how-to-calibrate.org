@@ -250,12 +250,38 @@ $ mrcal-calibrate-cameras        \
   detector. If it's a detector that produces a 4th column of /weights/ instead
   of a decimation level, pass in =--corners-cache-has-weights=
 
+- =--lensmodel= specifies which lens model we're using for /all/ the cameras. In
+  this example we're using the =LENSMODEL_OPENCV8= model. This works reasonably
+  well for wide lenses. See the [[file:lensmodels.org][lens-model page]] for a description of the
+  available models. The current recommendation is to use an [[file:lensmodels.org::#lensmodel-opencv][opencv model]]
+  (=LENSMODEL_OPENCV5= for long lenses, =LENSMODEL_OPENCV8= for wide lenses)
+  initially. And once that works well, to move to the [[file:lensmodels.org::#splined-stereographic-lens-model][splined-stereographic
+  model]] to get better accuracy and reliable uncertainty reporting. This will
+  eventually be the model of choice for all cases, but it's still relatively
+  new, and not yet thoroughly tested in the field. For /very/ wide fisheye
+  lenses, this is the only model that will work at all, so start there if you
+  have an ultra-fisheye lens.
+
 - =--focal 1700= provides the initial estimate for the camera focal lengths, in
   pixels. This doesn't need to be precise, but do try to get this roughly
-  correct if possible. A rough guess $f$ can be derived using simple geometry: in a
-  pinhole camera
+  correct if possible. The focal length value to pass to =--focal= ($f_\mathrm{pixels}$) can be derived using the
+  [[file:lensmodels.org::#lensmodel-stereographic][stereographic model]] definition:
 
-\[ 2 f \tan \frac{\mathrm{field\_of\_view\_horizontal}}{2} = \mathrm{imager\_width} \]
+\[ f_\mathrm{pixels} = \frac{\mathrm{imager\_width\_pixels}}{4 \tan \frac{\mathrm{field\_of\_view\_horizontal}}{4}} \]
+
+  With longer lenses, the stereographic model is identical to the [[file:lensmodels.org::#lens-model-pinhole][pinhole model]].
+  With very wide lenses, the stereographic model is the basis for the
+  [[file:lensmodels.org::#splined-stereographic-lens-model][splined-stereographic model]], so this expression should be a good initial
+  estimate in all cases. Note that the manufacturer-specified "field of view" is
+  usually poorly-defined: it's different in all directions, so use your best
+  judgement. If only the focal length is available, keep in mind that the "focal
+  length" of a wide lens is somewhat poorly-defined also. With a longer lens, we
+  can assume pinhole behavior to get
+
+\[ f_\mathrm{pixels} = f_\mathrm{mm} \frac{\mathrm{imager\_width\_pixels}}{\mathrm{imager\_width\_mm}} \]
+
+  Again, use your best judgement. This doesn't need to be exact, but getting a
+  value in the ballpark makes life easier for the solver
 
 - =--object-spacing= is the distance between neighboring corners in the
   chessboard
@@ -263,12 +289,6 @@ $ mrcal-calibrate-cameras        \
 - =--object-width-n= is the horizontal corner count of the calibration object.
   In the example invocation above there is no =--object-height-n=, so
   =mrcal-calibrate-cameras= assumes a square 10x10 chessboard
-
-- =--lensmodel= specifies which lens model we're using for /all/ the cameras. In
-  this example we're using the =LENSMODEL_OPENCV8= model. This works reasonably
-  well for wide lenses. See the [[file:lensmodels.org][lens-model page]] for a description of the
-  available models. The [[file:lensmodels.org::#splined-stereographic-lens-model][splined-stereographic lens model]] is currently
-  recommended for most usages, so read about it there
 
 - =--observed-pixel-uncertainty 2= says that the $x$ and $y$ corner coordinates
   in =corners.vnl= are each distributed normally, independently, and with a
