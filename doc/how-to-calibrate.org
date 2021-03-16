@@ -224,7 +224,7 @@ plenty.
 * Computing a calibration
 ** Arguments
 Once we have gathered our input images, we can run the calibration tool.
-Example:
+Example, calibrating /one/ camera at a time.
 
 #+begin_src sh
 $ mrcal-calibrate-cameras        \
