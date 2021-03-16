@@ -481,8 +481,8 @@ estimate the pose of this object in the coordinate system of the camera that
 produced these observations. This function ingests a number of such
 observations, and solves this "PnP problem" separately for each one. The
 observations may come from any lens model; everything is reprojected to a
-pinhole model first. This function is a wrapper around the solvePnP() openCV
-call, which does all the work.
+pinhole model first to work with OpenCV. This function is a wrapper around the
+solvePnP() openCV call, which does all the work.
 
 ARGUMENTS
 
@@ -519,21 +519,17 @@ camera coordinate system FROM the calibration object coordinate system.
 
     # I'm given models. I remove the distortion so that I can pass the data
     # on to solvePnP()
-    lensmodels_intrinsics_data = [ m.intrinsics() if type(m) is mrcal.cameramodel else m for m in models_or_intrinsics ]
+    lensmodels_intrinsics_data = [ m.intrinsics() if isinstance(m,mrcal.cameramodel) else m for m in models_or_intrinsics ]
     lensmodels      = [di[0] for di in lensmodels_intrinsics_data]
     intrinsics_data = [di[1] for di in lensmodels_intrinsics_data]
 
     if not all([mrcal.lensmodel_metadata(m)['has_core'] for m in lensmodels]):
         raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
 
-    fx = [ i[0] for i in intrinsics_data ]
-    fy = [ i[1] for i in intrinsics_data ]
-    cx = [ i[2] for i in intrinsics_data ]
-    cy = [ i[3] for i in intrinsics_data ]
-
     Nobservations = indices_frame_camera.shape[0]
 
-    # Reproject all the observations to a pinhole model
+    # Reproject all the observations to a pinhole model. This is unideal, but I
+    # have to do it since solvePnP() requires something opencv supports. So
     observations = observations.copy()
     for i_observation in range(Nobservations):
         icam = indices_frame_camera[i_observation,1]
@@ -556,9 +552,13 @@ camera coordinate system FROM the calibration object coordinate system.
     for i_observation in range(Nobservations):
 
         icam = indices_frame_camera[i_observation,1]
-        camera_matrix = np.array((( fx[icam], 0,        cx[icam]), \
-                                  ( 0,        fy[icam], cy[icam]), \
-                                  ( 0,        0,          1.)))
+
+
+        fx,fy,cx,cy = intrinsics_data[icam]
+
+        camera_matrix = np.array((( fx, 0,  cx), \
+                                  ( 0,  fy, cy), \
+                                  ( 0,  0,   1.)))
 
         # shape (Nh,Nw,3)
         d = observations[i_observation, ...]
@@ -1104,11 +1104,11 @@ system FROM the calibration object coordinate system.
     return frames_rt_toref
 
 
-def seed_pinhole( imagersizes,
-                  focal_estimate,
-                  indices_frame_camera,
-                  observations,
-                  object_spacing):
+def seed_stereographic( imagersizes,
+                        focal_estimate,
+                        indices_frame_camera,
+                        observations,
+                        object_spacing):
     r'''Compute an optimization seed for a camera calibration
 
 SYNOPSIS
@@ -1128,16 +1128,16 @@ SYNOPSIS
     intrinsics_data,       \
     extrinsics_rt_fromref, \
     frames_rt_toref =      \
-        mrcal.seed_pinhole(imagersizes          = imagersizes,
-                           focal_estimate       = 1500,
-                           indices_frame_camera = indices_frame_camera,
-                           observations         = observations,
-                           object_spacing       = object_spacing)
+        mrcal.seed_stereographic(imagersizes          = imagersizes,
+                                 focal_estimate       = 1500,
+                                 indices_frame_camera = indices_frame_camera,
+                                 observations         = observations,
+                                 object_spacing       = object_spacing)
 
     ....
 
     mrcal.optimize(intrinsics_data, extrinsics_rt_fromref, frames_rt_toref,
-                   lensmodel = 'LENSMODEL_PINHOLE',
+                   lensmodel = 'LENSMODEL_STEREOGRAPHIC',
                    ...)
 
 mrcal solves camera calibration problems by iteratively optimizing a nonlinear
@@ -1147,10 +1147,11 @@ of the solution. This function computes a usable seed, and its results can be
 fed to mrcal.optimize(). The output of this function is just an initial estimate
 that will be refined, so the results of this function do not need to be exact.
 
-This function assumes we have pinhole lenses, and the returned intrinsics apply
-to LENSMODEL_PINHOLE. This is usually good-enough to serve as a seed. The
-returned intrinsics can be expanded to whatever lens model we actually want to
-use prior to invoking the optimizer.
+This function assumes we have stereographic lenses, and the returned intrinsics
+apply to LENSMODEL_STEREOGRAPHIC. This is usually good-enough to serve as a seed
+for both long lenses and wide lenses, every ultra-wide fisheyes. The returned
+intrinsics can be expanded to whatever lens model we actually want to use prior
+to invoking the optimizer.
 
 By convention, we have a "reference" coordinate system that ties the poses of
 all the frames (calibration objects) and the cameras together. And by
@@ -1199,13 +1200,14 @@ RETURNED VALUES
 We return a tuple:
 
 - intrinsics_data: an array of shape (Ncameras,4). Each slice contains the
-  pinhole intrinsics for the given camera. These intrinsics are
-  (focal_x,focal_y,centerpixel_x,centerpixel_y), and define LENSMODEL_PINHOLE
-  model. mrcal refers to these 4 values as the "intrinsics core". For models
-  that have such a core (currently, ALL supported models), the core is the first
-  4 parameters of the intrinsics vector. So to calibrate some cameras, call
-  seed_pinhole(), append to intrinsics_data the proper number of parameters
-  to match whatever lens model we're using, and then invoke the optimizer.
+  stereographic intrinsics for the given camera. These intrinsics are
+  (focal_x,focal_y,centerpixel_x,centerpixel_y), and define
+  LENSMODEL_STEREOGRAPHIC model. mrcal refers to these 4 values as the
+  "intrinsics core". For models that have such a core (currently, ALL supported
+  models), the core is the first 4 parameters of the intrinsics vector. So to
+  calibrate some cameras, call seed_stereographic(), append to intrinsics_data
+  the proper number of parameters to match whatever lens model we're using, and
+  then invoke the optimizer.
 
 - extrinsics_rt_fromref: an array of shape (Ncameras-1,6). Each slice is an rt
   transformation TO the camera coordinate system FROM the reference coordinate
@@ -1219,15 +1221,6 @@ We return a tuple:
 
     '''
 
-    def make_intrinsics_vector(imagersize):
-        imager_w,imager_h = imagersize
-        return np.array( (focal_estimate, focal_estimate,
-                          float(imager_w-1)/2.,
-                          float(imager_h-1)/2.))
-
-    intrinsics_data = nps.cat( *[make_intrinsics_vector(imagersize) \
-                                 for imagersize in imagersizes] )
-
     # I compute an estimate of the poses of the calibration object in the local
     # coord system of each camera for each frame. This is done for each frame
     # and for each camera separately. This isn't meant to be precise, and is
@@ -1236,8 +1229,11 @@ We return a tuple:
     # I get rotation, translation in a (4,3) array, such that R*calobject + t
     # produces the calibration object points in the coord system of the camera.
     # The result has dimensions (N,4,3)
-    intrinsics = [('LENSMODEL_PINHOLE', np.array((focal_estimate,focal_estimate, (imagersize[0]-1.)/2,(imagersize[1]-1.)/2,))) \
+    intrinsics = [('LENSMODEL_STEREOGRAPHIC',
+                   np.array((focal_estimate,focal_estimate,
+                             (imagersize[0]-1.)/2,(imagersize[1]-1.)/2,))) \
                   for imagersize in imagersizes]
+
     calobject_poses_local_Rt_cf = \
         mrcal.estimate_monocular_calobject_poses_Rt_tocam( indices_frame_camera,
                                                            observations,
@@ -1281,7 +1277,7 @@ We return a tuple:
             object_spacing)
 
     return \
-        intrinsics_data, \
+        nps.cat(*[i[1] for i in intrinsics]), \
         nps.atleast_dims(mrcal.rt_from_Rt(extrinsics_Rt_fromref), -2), \
         frames_rt_toref
 

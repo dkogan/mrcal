@@ -106,11 +106,11 @@ indices_frame_camintrinsics_camextrinsics = \
 
 
 intrinsics_data,extrinsics_rt_fromref,frames_rt_toref = \
-    mrcal.seed_pinhole(imagersizes          = imagersizes,
-                       focal_estimate       = 1500,
-                       indices_frame_camera = indices_frame_camera,
-                       observations         = observations,
-                       object_spacing       = object_spacing)
+    mrcal.seed_stereographic(imagersizes          = imagersizes,
+                             focal_estimate       = 1500,
+                             indices_frame_camera = indices_frame_camera,
+                             observations         = observations,
+                             object_spacing       = object_spacing)
 
 # I have a pinhole intrinsics estimate. Mount it into a full distortiony model,
 # seeded with random numbers
