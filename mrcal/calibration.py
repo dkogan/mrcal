@@ -579,8 +579,8 @@ camera coordinate system FROM the calibration object coordinate system.
         observations_local = np.array(d[:,:2][..., np.newaxis])
         ref_object         = np.array(d[:,3:][..., np.newaxis])
         result,rvec,tvec   = cv2.solvePnP(np.array(ref_object),
-                                        np.array(observations_local),
-                                        camera_matrix, None)
+                                          np.array(observations_local),
+                                          camera_matrix, None)
         if not result:
             raise Exception("solvePnP failed!")
         if tvec[2] <= 0:
