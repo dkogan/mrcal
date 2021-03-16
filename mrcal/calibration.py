@@ -572,8 +572,14 @@ camera coordinate system FROM the calibration object coordinate system.
 
         # I pick off those rows where the point observation is valid. Result
         # should be (N,6) where N <= object_height_n*object_width_n
-        i = (d[..., 0] >= 0) * (d[..., 1] >= 0) * (d[..., 2] >= 0)
+        i = \
+            (~np.isnan(d[..., 0])) * (d[..., 0] >= 0) * \
+            (~np.isnan(d[..., 1])) * (d[..., 1] >= 0) * \
+            (~np.isnan(d[..., 2])) * (d[..., 2] >= 0)
         d = d[i,:]
+
+        if len(d) < 4:
+            raise Exception(f"Observation {i_observation} had insufficient point observations. Need at least 4. Got {len(d)} instead")
 
         # copying because cv2.solvePnP() requires contiguous memory apparently
         observations_local = np.array(d[:,:2][..., np.newaxis])
