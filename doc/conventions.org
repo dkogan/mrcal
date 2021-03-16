@@ -64,7 +64,7 @@ explicitly define them here
   \right)$ in space. Unlike $\vec v$, $\vec p$ has a defined range. Like $\vec
   v$ we have $\vec q = \mathrm{project}\left(\vec p \right)$
 
-- $\vec u$ is a 2-dimensional vector representing a [[file:lensmodels.org::#stereographic][normalized stereographic projection]]
+- $\vec u$ is a 2-dimensional vector representing a [[file:lensmodels.org::#lensmodel-stereographic][normalized stereographic projection]]
 
 ** Optimization
 The core of the [[file:formulation.org][mrcal calibration routine]] is a nonlinear least-squares

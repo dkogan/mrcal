@@ -402,7 +402,7 @@ detail [[file:lensmodels.org::#splined-stereographic-lens-model][here]].
 :CUSTOM_ID: splined-model-definition
 :END:
 
-The basis of a splined stereographic model is a [[file:lensmodels.org::#stereographic][stereographic projection]]. In
+The basis of a splined stereographic model is a [[file:lensmodels.org::#lensmodel-stereographic][stereographic projection]]. In
 this projection, a point that lies an angle $\theta$ off the camera's optical
 axis projects to $\left|\vec q - \vec q_\mathrm{center}\right| = 2 f \tan \frac{\theta}{2}$
 pixels from the imager center, where $f$ is the focal length. Note that this

@@ -58,7 +58,7 @@ so this exists for data processing only.
 
 ** =LENSMODEL_STEREOGRAPHIC=
 :PROPERTIES:
-:CUSTOM_ID: stereographic
+:CUSTOM_ID: lensmodel-stereographic
 :END:
 This is another trivial model that exists for data processing, and not to
 represent real lenses. Like the pinhole model, this has just the 4 core
@@ -159,7 +159,7 @@ is one of many possible ways to define a rich, splined model. Better
 representations could be discovered in the future.
 
 We compute the normalized stereographic projection $\vec u$ as in the
-[[#stereographic][=LENSMODEL_STEREOGRAPHIC=]] definition above. Then we use $\vec u$ to look-up a
+[[#lensmodel-stereographic][=LENSMODEL_STEREOGRAPHIC=]] definition above. Then we use $\vec u$ to look-up a
 $\Delta \vec u$ using two separate splined surfaces:
 
 \[ \Delta \vec u \equiv
