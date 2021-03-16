@@ -62,7 +62,7 @@ def parse_args():
                         unless we have a --seed. See http://mrcal.secretsauce.net/how-to-calibrate.html
                         for notes about how to select a model''')
     parser.add_argument('--focal',
-                        type=float,
+                        type=positive_float,
                         help=r'''Initial estimate of the focal length, in pixels. Required unless --seed is
                         given. See
                         http://mrcal.secretsauce.net/how-to-calibrate.html for
