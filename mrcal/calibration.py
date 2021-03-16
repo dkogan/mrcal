@@ -519,26 +519,30 @@ camera coordinate system FROM the calibration object coordinate system.
 
     # I'm given models. I remove the distortion so that I can pass the data
     # on to solvePnP()
+    Ncameras      = len(models_or_intrinsics)
+    Nobservations = indices_frame_camera.shape[0]
+
     lensmodels_intrinsics_data = [ m.intrinsics() if isinstance(m,mrcal.cameramodel) else m for m in models_or_intrinsics ]
     lensmodels      = [di[0] for di in lensmodels_intrinsics_data]
-    intrinsics_data = [di[1] for di in lensmodels_intrinsics_data]
+    intrinsics_data_input = np.array([di[1] for di in lensmodels_intrinsics_data])
+
+    intrinsics_data_pinhole = intrinsics_data_input[:4].copy()
 
     if not all([mrcal.lensmodel_metadata(m)['has_core'] for m in lensmodels]):
         raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
 
-    Nobservations = indices_frame_camera.shape[0]
-
-    # Reproject all the observations to a pinhole model. This is unideal, but I
-    # have to do it since solvePnP() requires something opencv supports. So
-    observations = observations.copy()
-    for i_observation in range(Nobservations):
-        icam = indices_frame_camera[i_observation,1]
-
-        v = mrcal.unproject(observations[i_observation,...,:2],
-                            lensmodels[icam], intrinsics_data[icam])
-        observations[i_observation,...,:2] = \
-            mrcal.project(v, 'LENSMODEL_PINHOLE',
-                          intrinsics_data[icam][:4])
+    # Each slice is
+    #   (fx,  0, cx)
+    #   ( 0, fy, cy)
+    #   ( 0,  0,  1)
+    camera_matrix_pinhole = np.zeros((Ncameras,3,3), dtype=float)
+    for icam in range(Ncameras):
+        fx,fy,cx,cy = intrinsics_data_pinhole[icam]
+        camera_matrix_pinhole[icam, 0,0] = fx
+        camera_matrix_pinhole[icam, 1,1] = fy
+        camera_matrix_pinhole[icam, 0,2] = cx
+        camera_matrix_pinhole[icam, 1,2] = cy
+    camera_matrix_pinhole[..., 2,2] = 1.0
 
     # this wastes memory, but makes it easier to keep track of which data goes
     # with what
@@ -549,16 +553,19 @@ camera coordinate system FROM the calibration object coordinate system.
     # No calobject_warp. Good-enough for the seeding
     full_object = mrcal.ref_calibration_object(object_width_n, object_height_n, object_spacing)
 
-    for i_observation in range(Nobservations):
+    observations_in = observations
+    observations    = observations.copy()
+    v               = observations.copy()
 
+    for i_observation in range(Nobservations):
         icam = indices_frame_camera[i_observation,1]
 
-
-        fx,fy,cx,cy = intrinsics_data[icam]
-
-        camera_matrix = np.array((( fx, 0,  cx), \
-                                  ( 0,  fy, cy), \
-                                  ( 0,  0,   1.)))
+        mrcal.unproject(observations[i_observation,...,:2],
+                        lensmodels[icam], intrinsics_data_input[icam],
+                        out = v[i_observation])
+        mrcal.project(v[i_observation],
+                      'LENSMODEL_PINHOLE', intrinsics_data_pinhole[icam],
+                      out = observations[i_observation,...,:2])
 
         # shape (Nh,Nw,3)
         d = observations[i_observation, ...]
@@ -576,17 +583,17 @@ camera coordinate system FROM the calibration object coordinate system.
             (~np.isnan(d[..., 0])) * (d[..., 0] >= 0) * \
             (~np.isnan(d[..., 1])) * (d[..., 1] >= 0) * \
             (~np.isnan(d[..., 2])) * (d[..., 2] >= 0)
-        d = d[i,:]
+        dvalid = d[i,:]
 
-        if len(d) < 4:
-            raise Exception(f"Observation {i_observation} had insufficient point observations. Need at least 4. Got {len(d)} instead")
+        if len(dvalid) < 4:
+            raise Exception(f"Observation {i_observation} had insufficient point observations. Need at least 4. Got {len(dvalid)} instead")
 
         # copying because cv2.solvePnP() requires contiguous memory apparently
-        observations_local = np.array(d[:,:2][..., np.newaxis])
-        ref_object         = np.array(d[:,3:][..., np.newaxis])
+        observations_local = np.array(dvalid[:,:2][..., np.newaxis])
+        ref_object         = np.array(dvalid[:,3:][..., np.newaxis])
         result,rvec,tvec   = cv2.solvePnP(np.array(ref_object),
                                           np.array(observations_local),
-                                          camera_matrix, None)
+                                          camera_matrix_pinhole[icam], None)
         if not result:
             raise Exception("solvePnP failed!")
         if tvec[2] <= 0:
@@ -595,7 +602,7 @@ camera coordinate system FROM the calibration object coordinate system.
             # again
             result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
                                             np.array(observations_local),
-                                            camera_matrix, None,
+                                            camera_matrix_pinhole[icam], None,
                                             rvec, -tvec,
                                             useExtrinsicGuess = True)
             if not result:
