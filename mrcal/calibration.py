@@ -528,6 +528,16 @@ camera coordinate system FROM the calibration object coordinate system.
 
     intrinsics_data_pinhole = intrinsics_data_input[:4].copy()
 
+    # Ugly hack. opencv solvePnP() function I'm using here assumes a pinhole
+    # model. But this function accepts stereographic data, so observations could
+    # be really wide; behind the camera even. I can't do much behind the camera,
+    # but I can accept wide observations by using a much smaller pinhole focal
+    # length than the stereographic one the user passed. This really shouldn't
+    # be hard-coded, and I should only adjust if observations would be thrown
+    # away. And REALLY I should be using a flavor of solvePnP that uses
+    # observation vectors intead of pinhole pixel observations
+    intrinsics_data_pinhole[..., :2] /= 2.
+
     if not all([mrcal.lensmodel_metadata(m)['has_core'] for m in lensmodels]):
         raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
 
