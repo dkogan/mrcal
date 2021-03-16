@@ -864,12 +864,17 @@ region was computed and it is empty"
                                                atinfinity = atinfinity,
                                                what       = 'worstdirection-stdev' )
 
+    # Uncertainty of nan or inf is invalid, so I mark it as very high. This
+    # serves to silence a warning in the next statement where we're comparing
+    # something with nan
+    uncertainty.ravel() [~np.isfinite(uncertainty.ravel())] = 1e9
+
     # shape (Nheight,Nwidth).
-    im = \
+    mask = \
         (uncertainty < args.valid_intrinsics_region_parameters[0] * args.observed_pixel_uncertainty)
 
     if not re.match('LENSMODEL_SPLINED_', model.intrinsics()[0]):
-        im *= \
+        mask *= \
             (mean        < args.valid_intrinsics_region_parameters[1]) * \
             (stdev       < args.valid_intrinsics_region_parameters[2] * args.observed_pixel_uncertainty) * \
             (count       > args.valid_intrinsics_region_parameters[3])
@@ -883,7 +888,7 @@ region was computed and it is empty"
     # This is a hoaky mess. I ignore all the topological corner cases, and just
     # grab the contour with the biggest area
     contours = \
-        cv2.findContours(im.astype(np.uint8),
+        cv2.findContours(mask.astype(np.uint8),
                          cv2.RETR_EXTERNAL,
                          cv2.CHAIN_APPROX_SIMPLE)[-2]
 
