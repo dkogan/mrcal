@@ -479,7 +479,11 @@ This array can be passed to mrcal.transform_image()
     return mapxy.astype(np.float32)
 
 
-def transform_image(image, mapxy):
+def transform_image(image, mapxy,
+                    out = None,
+                    borderMode    = cv2.BORDER_TRANSPARENT,
+                    interpolation = cv2.INTER_LINEAR):
+
     r'''Transforms a given image using a given map
 
 SYNOPSIS
@@ -506,21 +510,40 @@ At this time this function is a thin wrapper around cv2.remap()
 
 ARGUMENTS
 
-- image: a numpy array containing an image we're transforming
+- image: a numpy array containing an image we're transforming. May be grayscale:
+  shape (Nheight_input, Nwidth_input) or RGB: shape (Nheight_input,
+  Nwidth_input, 3)
 
 - mapxy: a numpy array of shape (Nheight,Nwidth,2) where Nheight and Nwidth
   represent the dimensions of the target image. This array is expected to have
   dtype=np.float32, since the internals of this function are provided by
   cv2.remap()
 
+- out: optional numpy array of shape (Nheight,Nwidth) or (Nheight,Nwidth,3) to
+  receive the result. If omitted, a new array is allocated and returned.
+
+- borderMode: optional constant defining out-of-bounds behavior. Defaults to
+  cv2.BORDER_TRANSPARENT, and is passed directly to cv2.remap(). Please see the
+  docs for that function for details. This option may disappear if mrcal stops
+  relying on opencv
+
+- interpolation: optional constant defining pixel interpolation behavior.
+  Defaults to cv2.INTER_LINEAR, and is passed directly to cv2.remap(). Please
+  see the docs for that function for details. This option may disappear if mrcal
+  stops relying on opencv
+
 RETURNED VALUE
 
-A numpy array of shape (..., Nheight, Nwidth) containing the transformed image.
+A numpy array of shape (Nheight, Nwidth) if grayscale or (Nheight, Nwidth, 3) if
+RGB. Contains the transformed image.
 
     '''
 
     # necessary to avoid opencv crashing
     if not isinstance(image, np.ndarray): raise Exception("'image' must be a numpy array")
     if not isinstance(mapxy, np.ndarray): raise Exception("'mapxy' must be a numpy array")
+
     return cv2.remap(image, mapxy, None,
-                     cv2.INTER_LINEAR)
+                     borderMode    = borderMode,
+                     interpolation = interpolation,
+                     dst           = out)
