@@ -30,8 +30,8 @@ stable over the course of a board dance.
 
 ** Image-capturing details
 Now that we have a calibration object, this object needs to be shown to the
-camera(s). It is important that the images contain clear corners. Motion blur or
-focus or exposure issues will all cause bias in the resulting calibration.
+camera(s). It is important that the images contain clear features. Motion blur
+or focus or exposure issues will all cause bias in the resulting calibration.
 
 If calibrating multiple cameras, mrcal will solve for all the intrinsics /and/
 extrinsics. There is one strong requirement on the captured images in this case:
@@ -52,12 +52,14 @@ involved.
 
 If synchronization or rolling shutter effects are in doubt, look at the residual
 plot made by =show_residuals_observation_worst()= (a sample and a description
-appear below). These errors clearly show up as patterns in those plots.
+appear below). These errors clearly show up as distinct patterns in those plots.
 
 ** Dancing
 As shown in the [[file:tour.org::#choreography][dance study]], the most useful observations to gather are
 
-- close-ups: the chessboard should fill the whole frame as much as possible
+- close-ups: the chessboard should fill the whole frame as much as possible.
+  Small chessboards next to the camera are preferred to larger chessboards
+  further out; the limit is set by the depth of field.
 
 - oblique views: tilt the board forward/back and left/right. I generally tilt by
   ~ 45 degrees. At a certain point the corners become indistinct and mrgingham
@@ -80,18 +82,18 @@ A dataset composed primarily of tilted closeups produces good results.
 If the model will be used to look at far-away objects, care must be taken to
 produce a reliable calibration at long ranges, not just at the short ranges
 where the chessboards were. Close-up chessboard views are the primary data
-needed to get good uncertainties at infinity, but quiet often these will produce
+needed to get good uncertainties at infinity, but quite often these will produce
 images that aren't in focus (if the focus ring is set to the working range:
-infinity). Look at the [[file:tour.org::#choreography][dance study]] for more detail. Cameras meant for outdoor
-stereo and/or wide lenses usually have this problem. In such cases, it is
-/strongly/ recommended to re-run the dance study for your particular use case to
-get a sense of what kind of observations are required, and what kind of
-uncertainties can be expected. The current thought is that the best thing to do
-is to get close-up images even if they're out of focus. The blurry images will
-have a high =--observed-pixel-uncertainty= (and no bias; hopefully), but the
-uncertainty reduction you get from the close-ups more than makes up for it. In
-these cases you usually need to get more observations than you normally would to
-bring down the uncertainties to an acceptable level.
+infinity). See the [[file:tour.org::#choreography][dance study]] for detail. Cameras meant for outdoor stereo
+and/or wide lenses usually have this problem. In such cases, it is /strongly/
+recommended to re-run the dance study for your particular use case to get a
+sense of what kind of observations are required, and what kind of uncertainties
+can be expected. The current thought is that the best thing to do is to get
+close-up images even if they're out of focus. The blurry images will have a high
+=--observed-pixel-uncertainty= (and no bias; hopefully), but the uncertainty
+reduction you get from the close-ups more than makes up for it. In these cases
+you usually need to get more observations than you normally would to bring down
+the uncertainties to an acceptable level.
 
 It is better to have more data rather than less. mrgingham will throw away
 frames where no chessboard can be found, so it is perfectly reasonable to grab
@@ -101,6 +103,18 @@ the computation.
 I usually aim for about 100 usable frames, but you can often get away with far
 fewer. The mrcal uncertainty feedback (see below) will tell you if you need more
 data.
+
+Naturally, intrinsics are accurate only in areas where chessboards were
+observed: chessboard observations on the left tell us little about lens behavior
+on the right. Thus it is imperative to cover the whole field of view during the
+chessboard dance. It is often tricky to get good data at the edges and corners
+of the imager, so care must be taken. Some chessboard detectors (mrgingham in
+particular) only report complete chessboards. This makes it extra-challenging to
+obtain good data at the edges: a small motion that pushes one chessboard corner
+barely out of bounds causes the whole observation to be discarded. It is thus
+/very/ helpful to be able to see a live feed of the camera, as the images are
+being captured. In either case, [[*Visualization][visualizing the obtained chessboard detections]]
+is very useful to see if enough coverage was obtained.
 
 ** Image file-naming convention
 With monocular calibrations, there're no requirements on image filenames: use
@@ -115,8 +129,8 @@ mappings to mrcal.
 :PROPERTIES:
 :CUSTOM_ID: corner-detector
 :END:
-Any chessboard corner detector may be utilized. Most of my testing was done
-using mrgingham, so I go into more detail describing it.
+Any chessboard detector may be utilized. Most of my testing was done using
+mrgingham, so I go into more detail describing it.
 
 ** Using mrgingham
 Once mrgingham is installed or built from [[https://github.com/dkogan/mrgingham][source]], it can be run by calling the
@@ -124,7 +138,7 @@ Once mrgingham is installed or built from [[https://github.com/dkogan/mrgingham]
 to produce [[file:external/data/board/corners.vnl][these chessboard corners]] like this:
 
 #+begin_src sh
-mrgingham -j3 *.JPG > corners.vnl 
+mrgingham -j3 '*.JPG' > corners.vnl 
 #+end_src
 
 mrgingham tries to handle a variety of lighting conditions, including varying
@@ -178,7 +192,7 @@ FILENAME - - -
 
 ** Visualization
 Once we have a =corners.vnl= from some chessboard detector, we can visualize it.
-From the [[file:tour.org][tour of mrcal]]:
+This is a simple [[https://github.com/dkogan/vnlog][vnlog table]]:
 
 #+begin_example
 $ < corners.vnl head -n5
@@ -188,8 +202,29 @@ $ < corners.vnl head -n5
 DSC_7374.JPG 1049.606126 1032.249784 1
 DSC_7374.JPG 1322.477977 1155.491028 1
 DSC_7374.JPG 1589.571471 1276.563664 1
+#+end_example
 
+How well did we cover the imager? Did we get the edges and corners?
 
+#+begin_example
+$ < corners.vnl       \
+  vnl-filter -p x,y | \
+  feedgnuplot --domain --square --set 'xrange [0:6016]' --set 'yrange [4016:0]'
+#+end_example
+
+[[file:external/figures/calibration/mrgingham-coverage.png]]
+
+Looks like we did OK. It's a bit thin along the bottom edge, but not terrible.
+It is very easy to miss getting usable data at the edges, so checking this is
+highly recommended. If you have multiple cameras, check the coverage separately
+for each one. This can be done by filtering the =corners.vnl= to keep only the
+data for the camera in question. For instance, if we're looking at the left
+camera with images in files =left-XXXXX.jpg=, you can replace the above
+=vnl-filter= command with =vnl-filter 'filename ~ "left"' -p x,y=.
+
+We can visualize individual detections like this:
+
+#+begin_example
 $ f=DSC_7374.JPG
 
 $ < corners.vnl vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)' | \
@@ -205,21 +240,20 @@ points have less precision, so they are weighed less in the optimization. How
 many images produced successful corner detections?
 
 #+begin_example
-$ < corners.vnl vnl-filter --has x -p filename --skipcomments | uniq | wc -l
+$ < corners.vnl vnl-filter --has x -p filename | uniq | grep -v '#' | wc -l
 
-187
+186
 
 
-$ < corners.vnl vnl-filter x=='"-"' -p filename --skipcomments | uniq | wc -l
+$ < corners.vnl vnl-filter x=='"-"' -p filename | uniq | grep -v '#' | wc -l
 
-90
+89
 #+end_example
 
-The line counts above include the one header line. So we have 186 images with
-detected corners, and 89 images where a full chessboard wasn't found. Most of
-the misses are probably images where the chessboard wasn't entirely in view, but
-some could be failures of mrgingham. In any case, 186 observations is usually
-plenty.
+So we have 186 images with detected corners, and 89 images where a full
+chessboard wasn't found. Most of the misses are probably images where the
+chessboard wasn't entirely in view, but some could be failures of mrgingham. In
+any case, 186 observations is usually plenty.
 
 * Computing a calibration
 ** Arguments
@@ -299,7 +333,8 @@ $ mrcal-calibrate-cameras        \
   the resulting reported uncertainties conservatively.
 
 - =--explore= requests that after the models are computed, a REPL be opened so
-  that the user can look at various metrics describing the output
+  that the user can look at various metrics describing the output. It is
+  recommended to use this REPL to validate the solve
 
 After the options, =mrcal-calibrate-cameras= takes globs describing the images.
 One glob per camera is expected, and in the above example /one/ glob was given:

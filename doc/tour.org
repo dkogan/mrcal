@@ -45,9 +45,20 @@ natural lighting.
 The images live [[file:external/data/board][here]]. I'm using [[https://github.com/dkogan/mrgingham/][mrgingham]] 1.17 to detect the [[file:external/data/board/corners.vnl][chessboard corners]]:
 
 #+begin_src sh
-mrgingham -j3 *.JPG > corners.vnl 
+mrgingham -j3 '*.JPG' > corners.vnl 
 #+end_src
 
+How well did we cover the imager? Did we get the edges and corners?
+
+#+begin_example
+$ < corners.vnl       \
+  vnl-filter -p x,y | \
+  feedgnuplot --domain --square --set 'xrange [0:6016]' --set 'yrange [4016:0]'
+#+end_example
+
+[[file:external/figures/calibration/mrgingham-coverage.png]]
+
+Looks like we did OK. It's a bit thin along the bottom edge, but not terrible.
 For an arbitrary image we can visualize at the corner detections:
 
 #+begin_example
@@ -80,20 +91,20 @@ circles. The downsampled points have less precision, so they are [[file:formulat
 in the optimization]]. How many images produced successful corner detections?
 
 #+begin_example
-$ < corners.vnl vnl-filter --has x -p filename --skipcomments | uniq | wc -l
+$ < corners.vnl vnl-filter --has x -p filename | uniq | grep -v '#' | wc -l
 
-187
+186
 
 
-$ < corners.vnl vnl-filter x=='"-"' -p filename --skipcomments | uniq | wc -l
+$ < corners.vnl vnl-filter x=='"-"' -p filename | uniq | grep -v '#' | wc -l
 
-90
+89
 #+end_example
 
-The line counts above include the one header line. So we have 186 images with
-detected corners, and 89 images where a full chessboard wasn't found. Most of
-the misses are probably images where the chessboard wasn't entirely in view, but
-some could be failures of mrgingham. In any case, 186 observations is plenty.
+So we have 186 images with detected corners, and 89 images where a full
+chessboard wasn't found. Most of the misses are probably images where the
+chessboard wasn't entirely in view, but some could be failures of mrgingham. In
+any case, 186 observations is usually plenty.
 
 If I had more that one camera, the image filenames would need to indicate what
 camera captured each image at which time. I generally use

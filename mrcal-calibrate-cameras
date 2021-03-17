@@ -222,7 +222,8 @@ def parse_args():
                         required=False,
                         default=False,
                         help='''By default the final stage of the solver doesn't say much. This option turns
-                        on verbosity to get lots of diagnostics.''')
+                        on verbosity to get lots of diagnostics. This is
+                        generally not very useful to end users''')
 
     parser.add_argument('--explore',
                         action='store_true',

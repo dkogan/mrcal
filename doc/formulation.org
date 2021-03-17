@@ -386,11 +386,13 @@ And in Python:
 :END:
 I solve the calibration problem using [[https://en.wikipedia.org/wiki/Ordinary_least_squares][Ordinary Least Squares]], minimizing the
 discrepancies between pixel observations and their predictions. The pixel
-observations $\vec q_\mathrm{ref}$ are noisy, and I assume they are zero-mean,
-independent and normally-distributed. In particular, I treat the 2 values in
-each observation ($x$ and $y$) as two independent measurements. Empirical
-evidence suggests that these are all reasonable assumptions. For any $i$ -th
-observed point, what is $\mathrm{Var}\left(\vec q_{\mathrm{ref}_i}\right)$?
+observations $\vec q_\mathrm{ref}$ are noisy, and I assume that they are
+zero-mean, independent and normally-distributed. In particular, I treat the 2
+values in each observation ($x$ and $y$) as two independent measurements. I have
+no prior proof that the noise truly meets all those criteria, but empirical
+evidence suggests that these are all reasonable assumptions. And they simplify
+lots of analyses that we want to do. For any $i$ -th observed point, what is
+$\mathrm{Var}\left(\vec q_{\mathrm{ref}_i}\right)$?
 
 The chessboard corner detection routine tells us how confident it was in each
 observation, and we use that confidence to estimate the noise level. Chessboard
