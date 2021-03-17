@@ -799,10 +799,10 @@ A tuple:
         # "nocontour" only for 3d plots
         _2d = bool(vectorfield)
         if _2d:
-            _with     = 'dots'
+            _with     = 'points'
             tuplesize = 2
         else:
-            _with     = 'dots nocontour'
+            _with     = 'points nocontour'
             tuplesize = 3
 
         for i in range(len(models)):
@@ -1042,14 +1042,14 @@ plot
                                      q_cam_calobjects_inliers[...,1],
                                      np.zeros(q_cam_calobjects_inliers.shape[:-1]),
                                      dict( tuplesize = 3,
-                                           _with  = 'dots lc "black" nocontour',
+                                           _with  = 'points lc "black" nocontour',
                                            legend = 'inliers')) )
         if len(q_cam_calobjects_outliers):
             plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
                                      q_cam_calobjects_outliers[...,1],
                                      np.zeros(q_cam_calobjects_outliers.shape[:-1]),
                                      dict( tuplesize = 3,
-                                           _with  = 'dots lc "red" nocontour',
+                                           _with  = 'points lc "red" nocontour',
                                            legend = 'outliers')) )
 
     plot_options = kwargs
@@ -2060,12 +2060,12 @@ plot
         if len(q_cam_calobjects_inliers):
             data.append( ( q_cam_calobjects_inliers,
                            dict( tuplesize = -2,
-                                 _with  = 'dots',
+                                 _with  = 'points pt 7',
                                  legend = 'inliers')) )
         if len(q_cam_calobjects_outliers):
             data.append( ( q_cam_calobjects_outliers,
                            dict( tuplesize = -2,
-                                 _with  = 'dots',
+                                 _with  = 'points pt 7',
                                  legend = 'outliers')) )
 
     # Anything outside the valid region contour but inside the imager is an
