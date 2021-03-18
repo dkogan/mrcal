@@ -595,31 +595,35 @@ camera coordinate system FROM the calibration object coordinate system.
             (~np.isnan(d[..., 2])) * (d[..., 2] >= 0)
         dvalid = d[i,:]
 
-        if len(dvalid) < 4:
-            raise Exception(f"Insufficient observations; need at least 4; got {len(dvalid)} instead. Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
+        try:
 
-        # copying because cv2.solvePnP() requires contiguous memory apparently
-        observations_local = np.array(dvalid[:,:2][..., np.newaxis])
-        ref_object         = np.array(dvalid[:,3:][..., np.newaxis])
-        result,rvec,tvec   = cv2.solvePnP(np.array(ref_object),
-                                          np.array(observations_local),
-                                          camera_matrix_pinhole[icam], None)
-        if not result:
-            raise Exception(f"solvePnP() failed! Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
-        if tvec[2] <= 0:
+            if len(dvalid) < 4:
+                raise Exception(f"Insufficient observations; need at least 4; got {len(dvalid)} instead. Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
 
-            # The object ended up behind the camera. I flip it, and try to solve
-            # again
-            result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
-                                            np.array(observations_local),
-                                            camera_matrix_pinhole[icam], None,
-                                            rvec, -tvec,
-                                            useExtrinsicGuess = True)
+            # copying because cv2.solvePnP() requires contiguous memory apparently
+            observations_local = np.array(dvalid[:,:2][..., np.newaxis])
+            ref_object         = np.array(dvalid[:,3:][..., np.newaxis])
+            result,rvec,tvec   = cv2.solvePnP(np.array(ref_object),
+                                              np.array(observations_local),
+                                              camera_matrix_pinhole[icam], None)
             if not result:
-                raise Exception(f"Retried solvePnP() failed! Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
+                raise Exception(f"solvePnP() failed! Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
             if tvec[2] <= 0:
-                raise Exception(f"Retried solvePnP() insists that tvec.z <= 0 (i.e. the chessboard is behind us). Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
 
+                # The object ended up behind the camera. I flip it, and try to solve
+                # again
+                result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
+                                                np.array(observations_local),
+                                                camera_matrix_pinhole[icam], None,
+                                                rvec, -tvec,
+                                                useExtrinsicGuess = True)
+                if not result:
+                    raise Exception(f"Retried solvePnP() failed! Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
+                if tvec[2] <= 0:
+                    raise Exception(f"Retried solvePnP() insists that tvec.z <= 0 (i.e. the chessboard is behind us). Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
+
+        except Exception as e:
+            raise
 
         Rt_cf = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
 
