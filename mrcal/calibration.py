@@ -517,6 +517,15 @@ camera coordinate system FROM the calibration object coordinate system.
 
     """
 
+    # None: don't store failures. Throw exception. This is the usual path
+    # string: store failing cases to use in the test suite
+    # True: ipython REPL when failures are gathered
+    store_failures_filename = None
+    #"test/data/solvepnp-wide-focal-too-wide.pickle"
+
+
+
+
     # I'm given models. I remove the distortion so that I can pass the data
     # on to solvePnP()
     Ncameras      = len(models_or_intrinsics)
@@ -623,7 +632,14 @@ camera coordinate system FROM the calibration object coordinate system.
                     raise Exception(f"Retried solvePnP() insists that tvec.z <= 0 (i.e. the chessboard is behind us). Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
 
         except Exception as e:
-            raise
+            if store_failures_filename is None:
+                raise
+
+            try:    i_observations_failed
+            except: i_observations_failed = []
+            i_observations_failed.append(i_observation)
+            print(e)
+            continue
 
         Rt_cf = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
 
@@ -640,6 +656,22 @@ camera coordinate system FROM the calibration object coordinate system.
         # sys.exit()
 
         Rt_cf_all[i_observation, :, :] = Rt_cf
+
+
+    if store_failures_filename is not None:
+        args_failed_only = \
+            ( indices_frame_camera[i_observations_failed],
+              observations_in[i_observations_failed],
+              object_spacing,
+              models_or_intrinsics )
+        import pickle
+        if isinstance(store_failures_filename,str):
+            with open(store_failures_filename, "wb") as f:
+                pickle.dump(args_failed_only, f)
+        else:
+            import IPython
+            IPython.embed()
+        sys.exit()
 
     return Rt_cf_all
 

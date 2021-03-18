@@ -214,7 +214,8 @@ TESTS :=										\
   test/test-projection-diff.py								\
   test/test-graft-models.py								\
   test/test-convert-lensmodel.py							\
-  test/test-stereo.py
+  test/test-stereo.py\									\
+  test/test-solvepnp.py
 
 test check: all
 	@FAILED=""; $(foreach t,$(TESTS),echo "========== RUNNING: $t"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
