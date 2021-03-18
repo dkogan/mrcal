@@ -596,7 +596,7 @@ camera coordinate system FROM the calibration object coordinate system.
         dvalid = d[i,:]
 
         if len(dvalid) < 4:
-            raise Exception(f"Observation {i_observation} had insufficient point observations. Need at least 4. Got {len(dvalid)} instead")
+            raise Exception(f"Insufficient observations; need at least 4; got {len(dvalid)} instead. Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
 
         # copying because cv2.solvePnP() requires contiguous memory apparently
         observations_local = np.array(dvalid[:,:2][..., np.newaxis])
@@ -605,7 +605,7 @@ camera coordinate system FROM the calibration object coordinate system.
                                           np.array(observations_local),
                                           camera_matrix_pinhole[icam], None)
         if not result:
-            raise Exception("solvePnP failed!")
+            raise Exception(f"solvePnP() failed! Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
         if tvec[2] <= 0:
 
             # The object ended up behind the camera. I flip it, and try to solve
@@ -616,9 +616,9 @@ camera coordinate system FROM the calibration object coordinate system.
                                             rvec, -tvec,
                                             useExtrinsicGuess = True)
             if not result:
-                raise Exception("retried solvePnP failed!")
+                raise Exception(f"Retried solvePnP() failed! Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
             if tvec[2] <= 0:
-                raise Exception("retried solvePnP says that tvec.z <= 0")
+                raise Exception(f"Retried solvePnP() insists that tvec.z <= 0 (i.e. the chessboard is behind us). Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
 
 
         Rt_cf = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
