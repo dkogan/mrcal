@@ -579,7 +579,7 @@ camera coordinate system FROM the calibration object coordinate system.
     for i_observation in range(Nobservations):
         icam = indices_frame_camera[i_observation,1]
 
-        mrcal.unproject(observations[i_observation,...,:2],
+        mrcal.unproject(observations_in[i_observation,...,:2],
                         lensmodels[icam], intrinsics_data_input[icam],
                         out = v[i_observation])
         mrcal.project(v[i_observation],
