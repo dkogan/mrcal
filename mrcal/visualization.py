@@ -2002,8 +2002,7 @@ plot
     surface_curveoptions['_with']     = 'image'
     surface_curveoptions['tuplesize'] = 3
 
-    data = [ ( deltau[..., ixy],
-               surface_curveoptions ) ]
+    plot_data_tuples_surface = ( ( deltau[..., ixy], surface_curveoptions ), )
 
     domain_contour_u = mrcal.utils._splined_stereographic_domain(lensmodel)
     knots_u = nps.clump(nps.mv(nps.cat(*np.meshgrid(ux_knots,uy_knots)),
@@ -2022,18 +2021,24 @@ plot
         domain_contour = domain_contour_u
         knots = knots_u
 
-    data.extend( [ ( imager_boundary,
-                     dict(_with     = 'lines lw 2',
-                          tuplesize = -2,
-                          legend    = 'imager boundary')),
-                   ( domain_contour,
-                     dict(_with     = 'lines lw 1',
-                          tuplesize = -2,
-                          legend    = 'Valid projection region')),
-                   ( knots,
-                     dict(_with     = 'points pt 2 ps 2',
-                          tuplesize = -2,
-                          legend    = 'knots'))] )
+    plot_data_tuples_boundaries = \
+        ( ( imager_boundary,
+            dict(_with     = 'lines lw 2',
+                 tuplesize = -2,
+                 legend    = 'imager boundary')),
+          ( domain_contour,
+            dict(_with     = 'lines lw 1',
+                 tuplesize = -2,
+                 legend    = 'Valid projection region')), )
+
+    plot_data_tuples_knots = \
+        ( ( knots,
+            dict(_with     = 'points pt 2 ps 2 lc "green"',
+                 tuplesize = -2,
+                 legend    = 'knots')), )
+
+    plot_data_tuples_inliers  = ()
+    plot_data_tuples_outliers = ()
 
     if observations:
         p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
@@ -2051,15 +2056,17 @@ plot
                 mrcal.project_stereographic( p_cam_calobjects_outliers )
 
         if len(q_cam_calobjects_inliers):
-            data.append( ( q_cam_calobjects_inliers,
-                           dict( tuplesize = -2,
-                                 _with  = 'points lc "black"',
-                                 legend = 'inliers')) )
+            plot_data_tuples_inliers = \
+                ( ( q_cam_calobjects_inliers,
+                    dict( tuplesize = -2,
+                          _with  = 'points lc "black"',
+                          legend = 'inliers')), )
         if len(q_cam_calobjects_outliers):
-            data.append( ( q_cam_calobjects_outliers,
-                           dict( tuplesize = -2,
-                                 _with  = 'points lc "red"',
-                                 legend = 'outliers')) )
+            plot_data_tuples_outliers = \
+                ( ( q_cam_calobjects_outliers,
+                    dict( tuplesize = -2,
+                          _with  = 'points lc "red"',
+                          legend = 'outliers')), )
 
     # Anything outside the valid region contour but inside the imager is an
     # invalid area: the field-of-view of the camera needs to be increased. I
@@ -2080,13 +2087,24 @@ plot
     if len(invalid_regions) > 0:
         print("WARNING: some parts of the imager cannot be projected from a region covered by the spline surface! You should increase the field-of-view of the model")
 
-        data.extend( [ ( r,
-                         dict( tuplesize = -2,
-                               _with     = 'filledcurves closed fillcolor "red"',
-                               legend    = 'Invalid regions'))
-                       for r in invalid_regions] )
+        plot_data_tuples_invalid_regions = \
+            tuple( ( r,
+                     dict( tuplesize = -2,
+                           _with     = 'filledcurves fill transparent pattern 1 lc "royalblue"',
+                           legend    = 'Invalid regions'))
+                       for r in invalid_regions )
 
-    data_tuples  = data
+    else:
+        plot_data_tuples_invalid_regions = ()
+
+    data_tuples = \
+        plot_data_tuples_surface         + \
+        plot_data_tuples_boundaries      + \
+        plot_data_tuples_invalid_regions + \
+        plot_data_tuples_inliers         + \
+        plot_data_tuples_outliers        + \
+        plot_data_tuples_knots
+
     if not return_plot_args:
         plot = gp.gnuplotlib(**plot_options)
         plot.plot(*data_tuples)
