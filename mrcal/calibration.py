@@ -523,7 +523,14 @@ camera coordinate system FROM the calibration object coordinate system.
     store_failures_filename = None
     #"test/data/solvepnp-wide-focal-too-wide.pickle"
 
-
+    # Ugly hack. opencv solvePnP() function I'm using here assumes a pinhole
+    # model. But this function accepts stereographic data, so observations could
+    # be really wide; behind the camera even. I can't do much behind the camera,
+    # but I can accept wide observations by using a much smaller pinhole focal
+    # length than the stereographic one the user passed. This really shouldn't
+    # be hard-coded, and I should only adjust if observations would be thrown
+    # away. And REALLY I should be using a flavor of solvePnP that uses
+    # observation vectors intead of pinhole pixel observations
 
 
     # I'm given models. I remove the distortion so that I can pass the data
@@ -536,16 +543,6 @@ camera coordinate system FROM the calibration object coordinate system.
     intrinsics_data_input = np.array([di[1] for di in lensmodels_intrinsics_data])
 
     intrinsics_data_pinhole = intrinsics_data_input[:4].copy()
-
-    # Ugly hack. opencv solvePnP() function I'm using here assumes a pinhole
-    # model. But this function accepts stereographic data, so observations could
-    # be really wide; behind the camera even. I can't do much behind the camera,
-    # but I can accept wide observations by using a much smaller pinhole focal
-    # length than the stereographic one the user passed. This really shouldn't
-    # be hard-coded, and I should only adjust if observations would be thrown
-    # away. And REALLY I should be using a flavor of solvePnP that uses
-    # observation vectors intead of pinhole pixel observations
-    intrinsics_data_pinhole[..., :2] /= 2.
 
     if not all([mrcal.lensmodel_metadata(m)['has_core'] for m in lensmodels]):
         raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
@@ -576,14 +573,39 @@ camera coordinate system FROM the calibration object coordinate system.
     observations    = observations.copy()
     v               = observations.copy()
 
-    for i_observation in range(Nobservations):
+
+
+
+    class SolvePnPerror_negz(Exception):
+        def __init__(self, err): self.err = err
+        def __str__(self):       return self.err
+    class SolvePnPerror_toofew(Exception):
+        def __init__(self, err): self.err = err
+        def __str__(self):       return self.err
+
+    def solvepnp__try_focal_scale(s, i_observation):
+
         icam = indices_frame_camera[i_observation,1]
 
+
+        intrinsics_data_input_scaled = intrinsics_data_input[icam].copy()
+        intrinsics_data_input_scaled[..., :2] *= s
+
+        intrinsics_data_pinhole_scaled = intrinsics_data_pinhole[icam].copy()
+        intrinsics_data_pinhole_scaled[..., :2] *= s
+
+        camera_matrix_pinhole_scaled = camera_matrix_pinhole[icam].copy()
+        camera_matrix_pinhole_scaled[0,0] *= s
+        camera_matrix_pinhole_scaled[1,1] *= s
+
+
         mrcal.unproject(observations_in[i_observation,...,:2],
-                        lensmodels[icam], intrinsics_data_input[icam],
+                        lensmodels[icam],
+                        intrinsics_data_input_scaled,
                         out = v[i_observation])
         mrcal.project(v[i_observation],
-                      'LENSMODEL_PINHOLE', intrinsics_data_pinhole[icam],
+                      'LENSMODEL_PINHOLE',
+                      intrinsics_data_pinhole_scaled,
                       out = observations[i_observation,...,:2])
 
         # shape (Nh,Nw,3)
@@ -607,14 +629,14 @@ camera coordinate system FROM the calibration object coordinate system.
         try:
 
             if len(dvalid) < 4:
-                raise Exception(f"Insufficient observations; need at least 4; got {len(dvalid)} instead. Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
+                raise SolvePnPerror_toofew(f"Insufficient observations; need at least 4; got {len(dvalid)} instead. Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
 
             # copying because cv2.solvePnP() requires contiguous memory apparently
             observations_local = np.array(dvalid[:,:2][..., np.newaxis])
             ref_object         = np.array(dvalid[:,3:][..., np.newaxis])
             result,rvec,tvec   = cv2.solvePnP(np.array(ref_object),
                                               np.array(observations_local),
-                                              camera_matrix_pinhole[icam], None)
+                                              camera_matrix_pinhole_scaled, None)
             if not result:
                 raise Exception(f"solvePnP() failed! Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
             if tvec[2] <= 0:
@@ -623,13 +645,13 @@ camera coordinate system FROM the calibration object coordinate system.
                 # again
                 result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
                                                 np.array(observations_local),
-                                                camera_matrix_pinhole[icam], None,
+                                                camera_matrix_pinhole_scaled, None,
                                                 rvec, -tvec,
                                                 useExtrinsicGuess = True)
                 if not result:
                     raise Exception(f"Retried solvePnP() failed! Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
                 if tvec[2] <= 0:
-                    raise Exception(f"Retried solvePnP() insists that tvec.z <= 0 (i.e. the chessboard is behind us). Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
+                    raise SolvePnPerror_negz(f"Retried solvePnP() insists that tvec.z <= 0 (i.e. the chessboard is behind us). Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
 
         except Exception as e:
             if store_failures_filename is None:
@@ -639,7 +661,7 @@ camera coordinate system FROM the calibration object coordinate system.
             except: i_observations_failed = []
             i_observations_failed.append(i_observation)
             print(e)
-            continue
+            return
 
         Rt_cf = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
 
@@ -655,7 +677,26 @@ camera coordinate system FROM the calibration object coordinate system.
         # IPython.embed()
         # sys.exit()
 
+        nonlocal Rt_cf_all
         Rt_cf_all[i_observation, :, :] = Rt_cf
+
+
+    def solvepnp__try_multiple_focal_scales(i_observation):
+        # if z<0, try again with bigger f
+        # if too few points: try again with smaller f
+
+        try:
+            solvepnp__try_focal_scale(1., i_observation)
+        except SolvePnPerror_negz as e:
+            solvepnp__try_focal_scale(1.5, i_observation)
+        except SolvePnPerror_toofew as e:
+            solvepnp__try_focal_scale(0.7, i_observation)
+        else:
+            return
+
+    for i_observation in range(Nobservations):
+        solvepnp__try_multiple_focal_scales(i_observation)
+
 
 
     if store_failures_filename is not None:
