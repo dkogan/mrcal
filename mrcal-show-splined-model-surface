@@ -8,7 +8,8 @@ SYNOPSIS
   ... a plot pops up showing the surface
 
 Splined models are described at
-http://mrcal.secretsauce.net/lensmodels.html#splined-stereographic-lens-model
+
+  http://mrcal.secretsauce.net/lensmodels.html#splined-stereographic-lens-model
 
 Splined models are built with a splined surface that we index to compute the
 projection. The meaning of what indexes the surface and the values of the
@@ -58,12 +59,21 @@ def parse_args():
                         type=str,
                         action='append',
                         help='''Extra 'unset' directives to gnuplotlib. Can be given multiple times''')
-    parser.add_argument('--spline-index-domain',
+    parser.add_argument('--imager-domain',
                         action='store_true',
-                        help='''By default this produces a visualization in the domain of the imager.
-                        Sometimes it's more informative to look at this in the
-                        domain of the spline-index (normalized stereographic
-                        coordinates). This can be selected by this option''')
+                        help='''By default, this produces a visualization in the domain of the spline-index
+                        (normalized stereographic coordinates). Sometimes it's
+                        more informative to look at the imager domain instead,
+                        by passing this option''')
+    parser.add_argument('--imager-bounds',
+                        action='store_true',
+                        help='''By default we communicate the usable projection region to the user by
+                        displaying the valid-intrinsics region. This isn't
+                        available in all models. To fall back on the boundary of
+                        the full imager, pass --imager-bounds. In the usual case
+                        of incomplete calibration-time coverage at the edges,
+                        this results in a very unrealistic representation of
+                        reality. Leaving this at the default is recommended''')
     parser.add_argument('--observations',
                         action='store_true',
                         default=False,
@@ -109,12 +119,12 @@ if args.unset is not None:
     plotkwargs['unset'] = args.unset
 
 plot = mrcal.show_splined_model_surface(model, args.xy,
-
-                                        imager_domain = not args.spline_index_domain,
-                                        observations  = args.observations,
-                                        extratitle    = args.extratitle,
-                                        hardcopy      = args.hardcopy,
-                                        terminal      = args.terminal,
+                                        imager_domain           = args.imager_domain,
+                                        valid_intrinsics_region = not args.imager_bounds,
+                                        observations            = args.observations,
+                                        extratitle              = args.extratitle,
+                                        hardcopy                = args.hardcopy,
+                                        terminal                = args.terminal,
                                         **plotkwargs)
 
 if args.hardcopy is None:

@@ -603,10 +603,10 @@ We can also visualize the [[file:lensmodels.org::#splined-stereographic-lens-mod
 commandline tool instead of a function in the =mrcal-calibrate-cameras= REPL.
 
 #+begin_src sh
-mrcal-show-splined-model-surface --spline-index-domain splined.cameramodel x \
+mrcal-show-splined-model-surface splined.cameramodel x \
                                  --set 'cbrange [-.1:.1]' --unset key
 
-mrcal-show-splined-model-surface --spline-index-domain splined.cameramodel y \
+mrcal-show-splined-model-surface splined.cameramodel y \
                                  --set 'cbrange [-.1:.1]' --unset key
 #+end_src
 
@@ -622,22 +622,24 @@ Each X in the plot is a "knot" of the spline surface, a point where a control
 point value is defined. We're looking at the spline domain, so the axes of the
 plot are $u_x$ and $u_y$, and the knots are arranged in a regular grid. The
 region where the spline surface is well-defined begins at the 2nd knot from the
-edges; its boundary is shown as a thin green line. The boundary of the imager is
-shown as a thick, purple curve. Since each $\vec u$ projects to a pixel
-coordinate $\vec q$ in some very nonlinear way, this curve is very much not
-straight. We can also see irregular spline behavior outside of the imager
-bounds: we couldn't observe chessboards there, so the spline there is driven
-entirely by [[file:lensmodels.org::#splined-model-regularization][regularization]], and not by the data.
+edges; its boundary is shown as a thin green line. The valid-intrinsics region
+(the area where the intrinsics are confident because we had lots of chessboard
+observations there) is shown as a thick, purple curve. Since each $\vec u$
+projects to a pixel coordinate $\vec q$ in some very nonlinear way, this curve
+is very much not straight.
 
-We want the imager bounds to lie entirely within the valid spline region, and
-that happens here. If the imager poked outside the valid spline region, we
-wouldn't be able to project anything into that slice of the image.
+We want the valid-intrinsics region to lie entirely within the spline-in-bounds
+region, and that happens here. If some observations lie outside the
+spline-in-bounds regions, the projection behavior at the edges will be less
+flexible than the rest of the model, resulting in less realistic uncertainties
+there. See [[file:lensmodels.org::#splined models field of view selection][the lensmodel documentation]] for more detail.
 
 Alternately, I can look at the spline surface as a function of the pixel
 coordinates. Just for $\Delta u_x$:
 
 #+begin_src sh
 mrcal-show-splined-model-surface splined.cameramodel x                \
+                                 --imager-domain                      \
                                  --set 'cbrange [-.1:.1]' --unset key \
                                  --set 'xrange [-300:6300]'           \
                                  --set 'yrange [4300:-300]'
@@ -646,14 +648,14 @@ mrcal-show-splined-model-surface splined.cameramodel x                \
 [[file:external/figures/splined-models/splined-knots-pixel-domain-x.png]]
 
 #+begin_src sh :exports none :eval no-export
-for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --spline-index-domain data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/splined-models/splined-knots-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
+for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/splined-models/splined-knots-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
 
-for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --set 'xrange [-300:6300]' --set 'yrange [4300:-300]' data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/splined-models/splined-knots-pixel-domain-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
+for xy (x y) { ~/jpl/mrcal/mrcal-show-splined-model-surface --imager-domain --set 'xrange [-300:6300]' --set 'yrange [4300:-300]' data/board/splined.cameramodel --set 'cbrange [-.1:.1]' $xy --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/splined-models/splined-knots-pixel-domain-$xy.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
 #+end_src
 
-Now the imager boundary is a nice rectangle, but the valid spline region is
-complex curve. As we saw, this region is subject to the irregular spline
-behavior, so we get the irregular behavior beyond the imager.
+Now the valid-intrinsics region is a nice rectangle, but the spline-in-bounds
+region is complex curve. Projection at the edges is poorly-defined, so the
+boundary of the spline-in-bounds region appears highly irregular in this view.
 
 This scary-looking behavior is a [[file:lensmodels.org::#splined-non-monotonicity][side-effect of the current representation]], but
 it is benign: the questionable projections lie in regions where we have no

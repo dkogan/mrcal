@@ -1812,10 +1812,11 @@ A tuple:
 
 
 def show_splined_model_surface(model, xy,
-                               imager_domain = True,
-                               observations  = False,
-                               extratitle    = None,
-                               return_plot_args = False,
+                               imager_domain           = False,
+                               valid_intrinsics_region = True,
+                               observations            = False,
+                               extratitle              = None,
+                               return_plot_args        = False,
                                **kwargs):
 
     r'''Visualize the surface represented by a splined model
@@ -1827,40 +1828,59 @@ SYNOPSIS
     mrcal.show_splined_model_surface( model, 'x' )
 
     ... A plot pops up displaying the spline knots, the spline surface (for the
-    ... "x" coordinate), the spline domain and the imager boundary
+    ... "x" coordinate), the spline-in-bounds regions and the valid-intrinsics
+    ... region
 
-Splined models are built with a splined surface that we index to compute the
-projection. The meaning of what indexes the surface and the values of the
-surface varies by model, but in all cases, visualizing the surface is useful.
+Splined models are parametried by flexible surfaces that define the projection,
+and visualizing these surfaces is useful for understanding projection behavior
+of a given lens. Details of these models are described in the documentation:
 
-The surface is defined by control points. The value of the control points is
-set in the intrinsics vector, but their locations (called "knots") are
-fixed, as defined by the model configuration. The configuration selects the
-control point density AND the expected field of view of the lens. This field
-of view should roughly match the actual lens+camera we're using, and this
-fit can be visualized with this tool.
+  http://mrcal.secretsauce.net/lensmodels.html#splined-stereographic-lens-model
 
-If the field of view is too small, some parts of the imager will lie outside of
-the region that the splined surface covers. This tool throws a warning in that
-case, and displays the offending regions. Note that the projection near the
-edges of the image is usually poorly-defined because usually there isn't a lot
-of calibration data there. This makes the plotting of the images edges
-uncertain, and consequently the reported unprojectable regions might be either
-too alarming, or not alarming enough. Pass observations=True to see how the
-valid-spline region compares with the actual point observations we have.
+The surfaces are defined by control points we call "knots". These knots are
+arranged in a fixed grid (defined by the model configuration) with the value at
+each knot set in the intrinsics vector. The configuration selects the control
+point density and the expected field of view of the lens. This field of view
+should roughly match the actual lens+camera we're using, and this alignment can
+be visualized with this function. This function displays the spline-in-bounds
+region together with the usable projection region (either the valid-intrinsics
+region or the imager bounds). Ideally, the spline-in-bounds region is slightly
+bigger than the usable projection region.
+
+If the fov_x_deg configuration value is too big, many of the knots will lie well
+outside the visible area, and will not be used. This is wasteful. If fov_x_deg
+is too small, then some parts of the imager will lie outside of the
+spline-in-bounds region, resulting in less-flexible projection behavior at the
+edges of the imager. This function detects this scenario, displays the offending
+regions, and throws a warning.
+
+The usable projection region visualized by this function is controlled by the
+valid_intrinsics_region argument. If True (the default), we display the
+valid-intrinsics region. This is recommended, but keep in mind that this region
+is smaller than the full imager, so a fov_x_deg that aligns well for one
+calibration may be too small in a subsequent calibration of the same lens. If
+the subsequent calibration has better coverage, and thus a bigger
+valid-intrinsics region. If not valid_intrinsics_region: we use the imager
+bounds instead. The issue here is that the projection near the edges of the
+imager is usually poorly-defined because usually there isn't a lot of
+calibration data there. This makes the projection behavior at the imager edges
+unknowable. Consequently, plotting the projection at the imager edges is usually
+too alarming or not alarming enough. Passing valid_intrinsics_region=False is
+thus recommended only if we have very good calibration coverage at the edge of
+the imager.
+
+Another method of visualizing the usable projection region is to look at the
+individual chessboard corners by passing observations=True. The valid-intrinsics
+region largely corresponds to the area where the observations were available.
 
 This function can produce a plot in the imager domain or in the spline index
 domain. Both are useful, and this is controlled by the imager_domain argument
-(the default is True). The spline is defined in the stereographic projection
+(the default is False). The spline is defined in the stereographic projection
 domain, so in the imager domain the knot grid and the domain boundary become
-skewed. At this time the spline representation can cross itself, which is
-visible as a kink in the domain boundary.
-
-One use for this function is to check that the field-of-view we're using for
-this model is reasonable. We'd like the field of view to be wide-enough to cover
-the whole imager, but not much wider, since representing invisible areas isn't
-useful. Ideally the surface domain boundary (that this tool displays) is just
-wider than the imager edges (which this tool also displays).
+skewed. Note: if calibration data coverage is missing at the edges (a very
+common case), the edges of the spline-in-bounds region will have poorly-defined
+projection, and will look very strange if imager_domain. Thus the default of
+imager_domain==False is recommended.
 
 ARGUMENTS
 
@@ -1869,12 +1889,20 @@ ARGUMENTS
 - xy: 'x' or 'y': selects the surface we're looking at. We have a separate
   surface for the x and y coordinates, with the two sharing the knot positions
 
-- imager_domain: optional boolean defaults to True. If False: we plot everything
-  against normalized stereographic coordinates; in this representation the knots
-  form a regular grid, and the surface domain is a rectangle, but the imager
-  boundary is curved. If True: we plot everything against the rendered pixel
-  coordinates; the imager boundary is a rectangle, while the knots and domain
-  become curved
+- imager_domain: optional boolean defaults to False. If False: we plot
+  everything against normalized stereographic coordinates; in this
+  representation the knots form a regular grid, and the surface domain is a
+  rectangle, but the imager boundary is curved. If True: we plot everything
+  against the rendered pixel coordinates; the imager boundary is a rectangle,
+  while the knots and domain become curved
+
+- valid_intrinsics_region: optional boolean defaults to True. If True: we
+  communicate the usable projection region to the user by displaying the
+  valid-intrinsics region. This isn't available in all models. To fall back on
+  the boundary of the full imager, pass False here. In the usual case of
+  incomplete calibration-time coverage at the edges, this results in a very
+  unrealistic representation of reality. Passing True here is strongly
+  recommended
 
 - observations: optional boolean defaults to False. If True: we plot the
   calibration-time point observations on top of the surface and the knots. These
@@ -1960,13 +1988,18 @@ plot
     cxy = intrinsics_data[2:4]
     deltau = (q - cxy) / fxy - u
 
-    # the imager boundary
-    imager_boundary_sparse = \
-        np.array(((0,   0),
-                  (W-1, 0),
-                  (W-1, H-1),
-                  (0,   H-1),
-                  (0,   0)), dtype=float)
+    if valid_intrinsics_region:
+        imager_boundary_sparse = model.valid_intrinsics_region()
+        if imager_boundary_sparse is None:
+            raise Exception("No valid-intrinsics region is available in this model. Pass valid_intrinsics_region=False")
+    else:
+        # the imager boundary
+        imager_boundary_sparse = \
+            np.array(((0,   0),
+                      (W-1, 0),
+                      (W-1, H-1),
+                      (0,   H-1),
+                      (0,   0)), dtype=float)
 
     if imager_domain:
         imager_boundary = imager_boundary_sparse
@@ -2025,11 +2058,11 @@ plot
         ( ( imager_boundary,
             dict(_with     = 'lines lw 2',
                  tuplesize = -2,
-                 legend    = 'imager boundary')),
+                 legend    = 'Valid-intrinsics region' if valid_intrinsics_region else 'Imager boundary')),
           ( domain_contour,
             dict(_with     = 'lines lw 1',
                  tuplesize = -2,
-                 legend    = 'Valid projection region')), )
+                 legend    = 'Spline-in-bounds')), )
 
     plot_data_tuples_knots = \
         ( ( knots,
@@ -2091,7 +2124,7 @@ plot
             tuple( ( r,
                      dict( tuplesize = -2,
                            _with     = 'filledcurves fill transparent pattern 1 lc "royalblue"',
-                           legend    = 'Invalid regions'))
+                           legend    = 'Visible spline-out-of-bounds region'))
                        for r in invalid_regions )
 
     else:
