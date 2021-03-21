@@ -1050,8 +1050,8 @@ so it's impossible for the caller or callee to modify each other's data.
 
 ARGUMENTS
 
-- rt: if we're setting: a numpy array of shape (6,). The rt transformation TO
-  the reference coordinate system. If we're getting: None
+- rt: if we're setting, a numpy array of shape (6,). The rt transformation TO
+  the reference coordinate system. If we're getting, None
 
 RETURNED VALUE
 
@@ -1084,8 +1084,8 @@ so it's impossible for the caller or callee to modify each other's data.
 
 ARGUMENTS
 
-- rt: if we're setting: a numpy array of shape (6,). The rt transformation FROM
-  the reference coordinate system. If we're getting: None
+- rt: if we're setting, a numpy array of shape (6,). The rt transformation FROM
+  the reference coordinate system. If we're getting, None
 
 RETURNED VALUE
 
@@ -1161,8 +1161,8 @@ so it's impossible for the caller or callee to modify each other's data.
 
 ARGUMENTS
 
-- Rt: if we're setting: a numpy array of shape (4,3). The Rt transformation TO
-  the reference coordinate system. If we're getting: None
+- Rt: if we're setting, a numpy array of shape (4,3). The Rt transformation TO
+  the reference coordinate system. If we're getting, None
 
 RETURNED VALUE
 
@@ -1195,8 +1195,8 @@ so it's impossible for the caller or callee to modify each other's data.
 
 ARGUMENTS
 
-- Rt: if we're setting: a numpy array of shape (4,3). The Rt transformation FROM
-  the reference coordinate system. If we're getting: None
+- Rt: if we're setting, a numpy array of shape (4,3). The Rt transformation FROM
+  the reference coordinate system. If we're getting, None
 
 RETURNED VALUE
 
@@ -1256,13 +1256,13 @@ so it's impossible for the caller or callee to modify each other's data.
 
 ARGUMENTS
 
-- valid_intrinsics_region: if we're setting: a numpy array of shape (N,2). If
-  we're getting: None
+- valid_intrinsics_region: if we're setting, a numpy array of shape (N,2). If
+  we're getting, None
 
 RETURNED VALUE
 
-If this is a getter (no arguments given), returns a a numpy array of shape
-(N,2).
+If this is a getter (no arguments given), returns a numpy array of shape
+(N,2) or None, if no valid-intrinsics region is defined in this model
 
         '''
         if valid_intrinsics_region is None:
