@@ -38,16 +38,6 @@ test_cases = (
               #   'HET_0315_L*.jpg' 'HET_0315_R*.jpg'
               'solvepnp-ultrawide-focal-too-long',
 
-              # ./mrcal-calibrate-cameras                                                       \
-              #   --corners-cache newfish-from-mike-email-extreme-fisheys/VuzeXR/calibration1/fishcorners.vnl \
-              #   --lensmodel LENSMODEL_OPENCV8 \
-              #   --focal 5 \
-              #   --object-spacing 0.048                                                        \
-              #   --object-width-n 10                                                           \
-              #   --observed-pixel-uncertainty 2                                                \
-              #   'HET_0315_L*.jpg' 'HET_0315_R*.jpg'
-              'solvepnp-ultrawide-focal-too-wide',
-
               # ./mrcal-calibrate-cameras                               \
               # --corners-cache doc/out/external/data/board/corners.vnl \
               # --lensmodel LENSMODEL_OPENCV8                           \
