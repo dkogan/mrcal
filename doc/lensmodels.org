@@ -222,7 +222,7 @@ To sample a spline surface:
 Processing columns first and then rows produces the same result. The [[https://www.github.com/dkogan/mrcal/blob/master/analyses/splines/bsplines.py][same dev
 script from above]] checks this.
 
-*** Splined models: idelity and uncertainties
+*** Splined models: fidelity and uncertainties
 This splined model has many more parameters, and is far more flexible than the
 lean parametric models (all the other currently-supported lens models). This has
 several significant effects.
