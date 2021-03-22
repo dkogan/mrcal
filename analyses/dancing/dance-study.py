@@ -1054,29 +1054,29 @@ elif args.scan == "num_far_constant_Nframes_all":
     title = f"Scanning 'far' observations replacing 'near' observations. Have {controllable_args['Ncameras']['value']} cameras, {args.Nframes_all} total observations, at ranges {controllable_args['range']['value']}."
     legend_what = 'Nframes_far'
 elif args.scan == "Nframes":
-    title = f"Scanning Nframes. Have {controllable_args['Ncameras']['value']} cameras looking out at {controllable_args['range']['value']}m."
+    title = f"Scanning Nframes. Have {controllable_args['Ncameras']['value']} cameras looking out at {controllable_args['range']['value']:.2f}m."
     legend_what = 'Nframes'
 elif args.scan == "Ncameras":
-    title = f"Scanning Ncameras. Observing {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']}m."
+    title = f"Scanning Ncameras. Observing {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m."
     legend_what = 'Ncameras'
 elif args.scan == "range":
     title = f"Scanning the distance to observations. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards."
     legend_what = 'Range-to-chessboards'
 elif args.scan == "tilt_radius":
-    title = f"Scanning the board tilt. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']}m"
+    title = f"Scanning the board tilt. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
     legend_what = 'Random chessboard tilt radius'
 elif args.scan == "object_width_n":
-    title = f"Scanning the calibration object density, keeping the board size constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']}m"
+    title = f"Scanning the calibration object density, keeping the board size constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
     legend_what = 'Number of chessboard points per side'
 elif args.scan == "object_spacing":
     if args.scan_object_spacing_compensate_range:
-        title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range grows with spacing. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']}m"
+        title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range grows with spacing. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
     else:
-        title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range is constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']}m"
+        title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range is constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
     legend_what = 'Distance between adjacent chessboard corners'
 else:
     # no --scan. We just want one sample
-    title = f"Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']}m with tilt radius {controllable_args['tilt_radius']['value']}"
+    title = f"Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m with tilt radius {controllable_args['tilt_radius']['value']}"
 
 
 if samples is None:
