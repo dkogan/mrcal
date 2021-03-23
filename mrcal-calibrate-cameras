@@ -342,7 +342,6 @@ def solve_initial(args, seedmodels, imagersizes,
 
     '''
 
-    Ncameras = len(args.images)
     indices_frame_camintrinsics_camextrinsics = \
         nps.glue(indices_frame_camera,
                  indices_frame_camera[:,(1,)]-1,
