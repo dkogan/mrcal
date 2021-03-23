@@ -245,16 +245,15 @@ which mrcal.optimize() expects
 
         context = copy.deepcopy(context0)
 
+        # relative-path globs: add explicit "*/" to the start
+        globs = [g if g[0]=='/' else '*/'+g for g in globs]
+
         def finish_chessboard_observation():
             nonlocal context
 
-
             def accum_files(f):
                 for icam in range(Ncameras):
-                    g = globs[icam]
-                    if g[0] != '/':
-                        g = '*/' + g
-                    if fnmatch.fnmatch(os.path.abspath(f), g):
+                    if fnmatch.fnmatch(os.path.abspath(f), globs[icam]):
                         files_per_camera[icam].append(f)
                         return True
                 return False
