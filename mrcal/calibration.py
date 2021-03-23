@@ -190,17 +190,6 @@ which mrcal.optimize() expects
         if corners_cache_vnl is not None and not reading_pipe:
             corners_dir = os.path.dirname( corners_cache_vnl )
 
-        def accum_files(f):
-            for icam in range(Ncameras):
-                g = globs[icam]
-                if g[0] != '/':
-                    g = '*/' + g
-                if fnmatch.fnmatch(os.path.abspath(f), g):
-                    files_per_camera[icam].append(f)
-                    return True
-            return False
-
-
         pipe_corners_write_fd          = None
         pipe_corners_write_tmpfilename = None
         if corners_cache_vnl is not None and \
@@ -258,6 +247,18 @@ which mrcal.optimize() expects
 
         def finish_chessboard_observation():
             nonlocal context
+
+
+            def accum_files(f):
+                for icam in range(Ncameras):
+                    g = globs[icam]
+                    if g[0] != '/':
+                        g = '*/' + g
+                    if fnmatch.fnmatch(os.path.abspath(f), g):
+                        files_per_camera[icam].append(f)
+                        return True
+                return False
+
             if context['igrid']:
                 if Nw*Nh != context['igrid']:
                     raise Exception("File '{}' expected to have {} points, but got {}". \
