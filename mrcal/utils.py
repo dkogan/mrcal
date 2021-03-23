@@ -713,11 +713,11 @@ def mapping_file_framenocameraindex(*files_per_camera):
 
 SYNOPSIS
 
-    mapping_file_framenocameraindex = \
+    mapping = \
       mapping_file_framenocameraindex( ('img5-cam2.jpg', 'img6-cam2.jpg'),
                                        ('img6-cam3.jpg', 'img7-cam3.jpg'),)
 
-    print(mapping_file_framenocameraindex)
+    print(mapping)
     ===>
     { 'frame5-cam2.jpg': (5, 0),
       'frame6-cam2.jpg': (6, 0),
