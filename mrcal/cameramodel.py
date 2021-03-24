@@ -486,9 +486,9 @@ A sample valid .cameramodel file:
             model = ast.literal_eval(s)
         except:
             if name is None:
-                raise CameramodelParseException("Failed to parse cameramodel!\n")
+                raise CameramodelParseException("Failed to parse cameramodel!")
             else:
-                raise CameramodelParseException("Failed to parse cameramodel '{}'\n".format(name))
+                raise CameramodelParseException(f"Failed to parse cameramodel '{name}'")
 
         # for legacy compatibility
         def renamed(s0, s1, d):
@@ -730,12 +730,21 @@ ARGUMENTS
                     modelstring = f.read()
                     try:
                         self._read_into_self(modelstring)
+                        return
                     except CameramodelParseException:
-                        from . import cahvor
+                        pass
+
+                    # Couldn't read the file as a .cameramodel. Does a .cahvor
+                    # work?
+                    from . import cahvor
+                    try:
                         model = cahvor.read_from_string(modelstring)
-                        modelfile = io.StringIO()
-                        model.write(modelfile)
-                        self._read_into_self(modelfile.getvalue())
+                    except:
+                        raise Exception("Couldn't parse data as a camera model (.cameramodel or .cahvor)") from None
+                    modelfile = io.StringIO()
+                    model.write(modelfile)
+                    self._read_into_self(modelfile.getvalue())
+
                 if file_or_model == '-':
                     tryread(sys.stdin)
                 else:
