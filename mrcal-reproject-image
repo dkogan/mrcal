@@ -451,18 +451,25 @@ def process(model_from, model_to, image_globs, suffix,
                                            plane_n         = plane_n,
                                            plane_d         = plane_d)
 
-    pool = multiprocessing.Pool(args.jobs)
-    try:
-        mapresult = pool.map_async(_transform_this, filenames_inout)
+    if 1:
+        # Normal parallelized path
+        pool = multiprocessing.Pool(args.jobs)
+        try:
+            mapresult = pool.map_async(_transform_this, filenames_inout)
 
-        # like wait(), but will barf if something goes wrong. I don't actually care
-        # about the results
-        mapresult.get(1000000)
-    except:
-        pool.terminate()
+            # like wait(), but will barf if something goes wrong. I don't actually care
+            # about the results
+            mapresult.get(1000000)
+        except:
+            pool.terminate()
 
-    pool.close()
-    pool.join()
+        pool.close()
+        pool.join()
+
+    else:
+        # Serial path. Useful for debugging
+        for f in filenames_inout:
+            _transform_this(f)
 
 
 
