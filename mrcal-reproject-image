@@ -224,8 +224,13 @@ def parse_args():
 
     parser.add_argument('--valid-intrinsics-region',
                         action='store_true',
-                        help='''If given, we annotate the images with their model's valid-intrinsics
+                        help='''If given, we annotate the images with the FROM model's valid-intrinsics
                         region''')
+
+    parser.add_argument('--mask-valid-intrinsics-region',
+                        action='store_true',
+                        help='''If given, we draw everything outside the FROM model's valid-intrinsics region
+                        as black. So the unreliable regions aren't even drawn''')
 
     parser.add_argument('--force', '-f',
                         action='store_true',
@@ -449,7 +454,9 @@ def process(model_from, model_to, image_globs, suffix,
     mapxy = mrcal.image_transformation_map(model_from, model_to,
                                            use_rotation    = use_rotation,
                                            plane_n         = plane_n,
-                                           plane_d         = plane_d)
+                                           plane_d         = plane_d,
+                                           mask_valid_intrinsics_region_from = \
+                                           args.mask_valid_intrinsics_region,)
 
     if 1:
         # Normal parallelized path
