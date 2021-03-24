@@ -266,9 +266,10 @@ the input model.
 
 def image_transformation_map(model_from, model_to,
 
-                             use_rotation = False,
-                             plane_n      = None,
-                             plane_d      = None):
+                             use_rotation                      = False,
+                             plane_n                           = None,
+                             plane_d                           = None,
+                             mask_valid_intrinsics_region_from = False):
 
     r'''Compute a reprojection map between two models
 
@@ -372,6 +373,10 @@ ARGUMENTS
   use_rotation should be True. if given, we use the full intrinsics and
   extrinsics of both camera models
 
+- mask_valid_intrinsics_region_from: optional boolean defaulting to False. If
+  True, points outside the valid-intrinsics region in the FROM image are set to
+  black, and thus do not appear in the output image
+
 RETURNED VALUE
 
 A numpy array of shape (Nheight,Nwidth,2) where Nheight and Nwidth represent the
@@ -399,12 +404,16 @@ This array can be passed to mrcal.transform_image()
 
     if re.match("LENSMODEL_OPENCV",lensmodel_from) and \
        lensmodel_to == "LENSMODEL_PINHOLE"         and \
-       plane_n is None:
+       plane_n is None                             and \
+       not mask_valid_intrinsics_region_from:
 
         # This is a common special case. This branch works identically to the
         # other path (the other side of this "if" can always be used instead),
         # but the opencv-specific code is optimized and at one point ran faster
-        # than the code on the other side
+        # than the code on the other side.
+        #
+        # The mask_valid_intrinsics_region_from isn't implemented in this path.
+        # It COULD be, then this faster path could be used
         fxy_from = intrinsics_data_from[0:2]
         cxy_from = intrinsics_data_from[2:4]
         cameraMatrix_from = np.array(((fxy_from[0],          0, cxy_from[0]),
@@ -475,6 +484,16 @@ This array can be passed to mrcal.transform_image()
                 v = nps.matmult(v, R_to_from)
 
     mapxy = mrcal.project( v, lensmodel_from, intrinsics_data_from )
+
+    if mask_valid_intrinsics_region_from:
+
+        # Using matplotlib to compute the out-of-bounds points. It doesn't
+        # support broadcasting, so I do that manually with a clump/reshape
+        from matplotlib.path import Path
+        region = Path(model_from.valid_intrinsics_region())
+        is_inside = region.contains_points(nps.clump(mapxy,n=2)).reshape(mapxy.shape[:2])
+        mapxy[ ~is_inside, :] = -1
+
 
     return mapxy.astype(np.float32)
 

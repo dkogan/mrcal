@@ -64,7 +64,9 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal1 (= ${binary:Version}),
          ${python3:Depends},
          python3-gnuplotlib (>= 0.36), python3-numpysane (>= 0.29),
          python3-opencv, python3-numpy, python3-scipy (>= 0.18),
-         python3-shapely, python3-ipython
+         python3-shapely, python3-ipython,
+# for image_transformation_map(), not for plotting
+         python3-matplotlib
 Provides: ${python3:Provides}
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
