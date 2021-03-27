@@ -14,7 +14,7 @@ _VERSION = $(shell test -d .git && \
 # cached result during subsequent calls
 VERSION = $(if $(_VERSION_EXPANDED),,$(eval _VERSION_EXPANDED:=$$(_VERSION)))$(_VERSION_EXPANDED)
 
-LIB_SOURCES += mrcal.c poseutils.c poseutils-uses-autodiff.cc
+LIB_SOURCES += mrcal.c poseutils.c poseutils-uses-autodiff.cc triangulation.cc
 
 BIN_SOURCES += test-gradients.c test/test-cahvor.c test/test-lensmodel-string-manipulation.c
 
@@ -33,7 +33,8 @@ DIST_INCLUDE += \
 	mrcal.h \
 	mrcal_internal.h \
 	basic_geometry.h \
-	poseutils.h
+	poseutils.h \
+	triangulation.h
 DIST_BIN :=					\
 	mrcal-calibrate-cameras			\
 	mrcal-convert-lensmodel			\
@@ -49,6 +50,7 @@ DIST_BIN :=					\
 	mrcal-show-geometry			\
 	mrcal-show-valid-intrinsics-region	\
 	mrcal-is-within-valid-intrinsics-region \
+	mrcal-triangulate			\
 	mrcal-cull-corners
 
 # generate manpages from distributed binaries, and ship them. This is a hoaky
@@ -215,7 +217,9 @@ TESTS :=										\
   test/test-graft-models.py								\
   test/test-convert-lensmodel.py							\
   test/test-stereo.py\									\
-  test/test-solvepnp.py
+  test/test-solvepnp.py                                                                 \
+  test/test-match-feature.py							        \
+  test/test-triangulation.py
 
 test check: all
 	@FAILED=""; $(foreach t,$(TESTS),echo "========== RUNNING: $t"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"

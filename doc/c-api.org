@@ -4,6 +4,7 @@
 The C API consists of 3 headers:
 - [[https://www.github.com/dkogan/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]: /very/ simple geometry structures
 - [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]]: pose and geometry functions
+- [[https://www.github.com/dkogan/mrcal/blob/master/triangulation.h][=triangulation.h=]]: tringulation routines
 - [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal.h=]]: lens models, projections, optimization
 
 Most usages would simply =#include <mrcal.h>=, and this would include all the
@@ -54,7 +55,12 @@ The strides are given in bytes, and work as expected. For a (for instance)
 
 These all have direct Python bindings. For instance [[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]].
 
-The [[https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/poseutils.h][=poseutils.h=]] header serves as the listing of available functions.
+The [https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/poseutils.h][=poseutils.h=]] header serves as the listing of available functions.
+
+* Triangulation
+A number of triangulation routines are available in [https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/triangulation.h][=triangulation.h=]]. These
+estimate the position of the 3D point that produced a given pair of
+observations. See the header for the available routines
 
 * Lens models
 The lens model structures are defined here:

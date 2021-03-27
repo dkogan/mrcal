@@ -26,3 +26,4 @@ from .synthetic_data        import *
 from .calibration           import *
 from .image_transforms      import *
 from .utils                 import *
+from .triangulation         import *

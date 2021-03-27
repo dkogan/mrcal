@@ -781,3 +781,368 @@ RETURNED VALUES
 
     return r
 
+
+def match_feature( image0, image1,
+                   template_size, # (width,height)
+                   method,
+                   search_radius,
+                   q0,
+                   H10,
+                   visualize = False):
+
+    r'''Find a pixel correspondence in a pair of images
+
+SYNOPSIS
+
+    q1_matched, diagnostics = \
+        mrcal.match_feature( image0, image1,
+                             template_size = (17,17),
+                             method        = cv2.TM_CCORR_NORMED,
+                             search_radius = 20,
+                             q0,  # pixel coordinate in image0
+                             H10, # homography mapping q0 to q1
+                           )
+
+    import gnuplotlib as gp
+    gp.plot( * diagnostics['plot_data_tuples'],
+             **diagnostics['plot_options'],
+             wait=True)
+
+This function wraps cv2.matchTemplate() to provide additional functionality. The
+big differences are
+
+1. The mrcal.match_feature() interface reports a matching pixel coordinate, NOT
+   a matching template. The conversions between templates and pixel coordinates
+   at their center are tedious and error-prone, and they're handled by this
+   function.
+
+2. mrcal.match_feature() can take into account a transformation that must be
+   applied to the two images to match their appearance. The caller can estimate
+   this from the relative geometry of the two cameras and the geometry of the
+   observed object. This transformation can include a scaling (if the two
+   cameras are looking at the same object from different distances) and/or a
+   rotation (if the two cameras are oriented differently) or a skewing (if the
+   object is being observed from different angles)
+
+3. mrcal.match_feature() performs simple sub-pixel interpolation to increase the
+   resolution of the reported pixel match
+
+4. Some visualization capabilities are included to allow the user to evaluate
+   the results
+
+All inputs and outputs use the (x,y) convention normally utilized when talking
+about images; NOT the (y,x) convention numpy uses to talk about matrices. So
+template_size is (width,height).
+
+The H10 homography estimate is used in two separate ways:
+
+1. To define the image transformation we apply to the template before matching
+
+2. To compute the initial estimate of q1. This becomes the center of the search
+   window. We have
+
+   q1_estimate = mrcal.apply_homography(H10, q0)
+
+A common use case is to pass a translation-only homography. This avoids any
+image transformation, but does select a q1_estimate. So if we want to find the
+corresponding q1 for a given q0, with a q1_estimate, and without an image
+transformation, pass in
+
+  H10 = np.array((( 1., 0., q1_estimate[0]-q0[0]),
+                  ( 0., 1., q1_estimate[1]-q0[1]),
+                  ( 0., 0., 1.)))
+
+If the template being matched is out-of-bounds in either image, this function
+raises an exception.
+
+If the search_radius pushes the search outside of the search image, the search
+bounds are reduced to fit into the given image, and the function works as
+expected.
+
+If the match fails in some data-dependent way (i.e. not caused by a likely bug),
+we return q1 = None. This can happen if the optimum cannot be found or if
+subpixel interpolation fails.
+
+ARGUMENTS
+
+- image0: the first image to use in the matching. This image is cropped, and
+  transformed using the H10 homography to produce the matching template. This
+  MUST be a 2-dimensional numpy array: only grayscale images are accepted.
+
+- image1: the second image to use in the matching. This image is not transformed
+  or cropped. We use this image as the base to compare the template agianst. As
+  with image 0, this MUST be a 2-dimensional numpy array: only grayscale images
+  are accepted.
+
+- template_size: the (width,height) iterable describing the size of the template
+  used for the matching
+
+- method: one of the methods accepted by cv2.matchTemplate() See
+
+  https://docs.opencv.org/master/df/dfb/group__imgproc__object.html
+
+  The most common method is normalized cross-correlation, selected by
+
+  method = cv2.TM_CCORR_NORMED
+
+- search_radius: integer selecting how far we should search for the match
+
+- q0: a numpy array of shape (2,) representing the pixel coordinate in image0
+  for which we see a correspondence in image1
+
+- H10: the homography mapping q0 to q1 in the vicinity of the match
+
+- visualize: optional boolean, defaulting to False. If True, an interactive plot
+  pops up, describing the results. This overlays the search image, the template,
+  and the matching-output image, shifted to their optimized positions. All 3
+  images are plotted direclty on top of one another. Clicking on the legend in
+  the resulting gnuplot window toggles that image on/off, which allows the user
+  to see how well things line up. Even if not visualize: the plot components are
+  still returned in the diagnostics, and the plot can be created later (such as
+  when we find out that something failed and needs investigating)
+
+RETURNED VALUES
+
+We return a tuple:
+
+- q1: a numpy array of shape (2,) representing the pixel coordinate in image1
+  corresponding to the given image0. If the computation fails in some data-dependent way (not caused by a likely bug), this value is None
+
+- diagnostics: a dict containing diagnostics that can be used to interpret the
+  match. Keys:
+
+  - matchoutput_image: the matchoutput array computed by cv2.matchTemplate()
+
+  - matchoutput_optimum_at: the integer pixel of the optimum in the
+    matchoutput_image
+
+  - matchoutput_optimum: the value of the optimum in the matchoutput image
+
+  - matchoutput_optimum_subpixel_at: the subpixel-refined coordinate of the optimum
+    in the matchoutput image
+
+  - matchoutput_optimum_subpixel: the value of the subpixel-refined optimum in the
+    matchoutput_image
+
+  - qshift_image1_matchoutput: the shift between matchoutput image coords and
+    image1 coords. We have
+
+      q1 = diagnostics['matchoutput_optimum_subpixel_at'] +
+           diagnostics['qshift_image1_matchoutput']
+
+  - plot_data_tuples, plot_options: gnuplotlib structures that can be used to
+    create the diagnostic plot like this:
+
+    import gnuplotlib as gp
+    gp.plot( * diagnostics['plot_data_tuples'],
+             **diagnostics['plot_options'],
+             wait=True)
+
+    The diagnostic plot contains 3 overlaid images:
+
+    - The image being searched
+    - The homography-transformed template placed at the best-fitting location
+    - The correlation (or difference) image, placed at the best-fitting location
+
+    In an interactive gnuplotlib window, each image can be shown/hidden by
+    clicking on the relevant legend entry at the top-right of the image.
+    Repeatedly toggling the visibility of the template image is useful to
+    communicate the fit accuracy. The correlation image is guaranteed to appear
+    at the end of the diagnostics['plot_data_tuples'] tuple, so it can be
+    omitted by plotting diagnostics['plot_data_tuples'][:-1]. Skipping this
+    image is often most useful for quick human evaluation.
+
+    '''
+
+    if image0.ndim != 2 or image1.ndim != 2:
+        raise Exception("match_feature() works with grayscale images only: both images MUST have exactly 2 dimensions")
+
+    import cv2
+
+    H10           = H10.astype(np.float32)
+    q0            = q0 .astype(np.float32)
+    template_size = np.array(template_size)
+
+    ################### BUILD TEMPLATE
+    # I construct the template I'm searching for. This is a slice of image0 that
+    # is
+    # - centered at the given q0
+    # - remapped using the homography to correct for the geometric
+    #   differences in the two images
+
+    q1_estimate = mrcal.apply_homography(H10, q0)
+
+    q1_template_min = np.round(q1_estimate - (template_size-1.)/2.).astype(int)
+    q1_template_max = q1_template_min + template_size
+
+    # (W,H)
+    image1_dim = np.array((image1.shape[-1],image1.shape[-2]))
+
+    def checkdims(w, h, what, *qall):
+        for q in qall:
+            if q[0] < 0:
+                raise Exception(f"Too close to the left edge in {what}")
+            if q[1] < 0:
+                raise Exception(f"Too close to the top edge in {what} ")
+            if q[0] >= w:
+                raise Exception(f"Too close to the right edge in {what} ")
+            if q[1] >= h:
+                raise Exception(f"Too close to the bottom edge in {what} ")
+
+    checkdims( *image1_dim, "image1",
+               q1_template_min,
+               q1_template_max-1)
+
+    # shape (H,W,2)
+    q1 = nps.glue(*[ nps.dummy(arr, -1) for arr in \
+                     np.meshgrid( np.arange(q1_template_min[0], q1_template_max[0]),
+                                  np.arange(q1_template_min[1], q1_template_max[1]))],
+                  axis=-1).astype(np.float32)
+
+    q0 = mrcal.apply_homography(np.linalg.inv(H10), q1)
+    checkdims( image0.shape[-1], image0.shape[-2],
+               "image0",
+               q1[ 0, 0],
+               q1[-1, 0],
+               q1[ 0,-1],
+               q1[-1,-1] )
+
+    image0_template = mrcal.transform_image(image0, q0)
+
+
+    ################### MATCH TEMPLATE
+    q1_min = q1_template_min - search_radius
+    q1_max = q1_template_min + search_radius + template_size # one past the edge
+
+    # the margins are needed in case we get past the edges
+    q1_min_margin = -np.clip(q1_min,
+                             a_min = None,
+                             a_max = 0)
+    q1_min       += q1_min_margin
+
+    q1_max_margin = -np.clip(image1_dim - q1_max,
+                             a_min = None,
+                             a_max = 0)
+    q1_max       -= q1_max_margin
+
+    # q1_min, q1_max are now corners of the template. There are in-bounds of
+    # image1. The margins are the sizes of the out-of-bounds region
+    image1_cut = image1[ q1_min[1]:q1_max[1], q1_min[0]:q1_max[0] ]
+
+    template_size_hw = np.array((template_size[-1],template_size[-2]))
+    matchoutput = np.zeros( image1_cut.shape - template_size_hw+1, dtype=np.float32 )
+    cv2.matchTemplate(image1_cut,
+                      image0_template,
+                      method, matchoutput)
+
+    # the best-fitting pixel of q1_cut of the template origin
+    if method == cv2.TM_SQDIFF or method == cv2.TM_SQDIFF_NORMED:
+        matchoutput_optimum_flatindex = np.argmin( matchoutput.ravel() )
+    else:
+        matchoutput_optimum_flatindex = np.argmax( matchoutput.ravel() )
+    matchoutput_optimum           = matchoutput.ravel()[matchoutput_optimum_flatindex]
+    q1_in_corr = \
+        np.array( np.unravel_index(matchoutput_optimum_flatindex,
+                                   matchoutput.shape) )[(-1,-2),]
+    diagnostics = \
+        dict(matchoutput_image      = matchoutput,
+             matchoutput_optimum_at = q1_in_corr.copy(),
+             matchoutput_optimum    = matchoutput_optimum)
+
+    ###################### SUBPIXEL INTERPOLATION
+    # I fit a simple quadratic surface to the 3x3 points around the discrete
+    # max, and report the max of that fitted surface
+    # c = (c00, c10, c01, c20, c11, c02)
+    # z = c00 + c10*x + c01*y + c20*x*x + c11*x*y + c02*y*y
+    # z ~ M c
+    # dz/dx = c10 + 2 c20 x + c11 y = 0
+    # dz/dy = c01 + 2 c02 y + c11 x = 0
+    # -> [ 2 c20    c11 ] [x] =  [-c10]
+    #    [  c11   2 c02 ] [y] =  [-c01]
+    #
+    # -> xy = -1/(4 c20 c02 - c11^2) [ 2 c02   -c11 ] [c10]
+    #                                [  -c11  2 c20 ] [c01]
+
+    if q1_in_corr[0] <= 0                        or \
+       q1_in_corr[1] <= 0                        or \
+       q1_in_corr[0] >= matchoutput.shape[-1]-1  or \
+       q1_in_corr[1] >= matchoutput.shape[-2]-1:
+        # discrete matchoutput peak at the edge. Cannot compute subpixel
+        # interpolation
+        return None, diagnostics
+
+    x,y = np.meshgrid( np.arange(3) - 1, np.arange(3) - 1 )
+    x = x.ravel().astype(float)
+    y = y.ravel().astype(float)
+    M = nps.transpose( nps.cat( np.ones(9,),
+                                x, y, x*x, x*y, y*y ))
+    z = matchoutput[ q1_in_corr[1]-1:q1_in_corr[1]+2,
+                     q1_in_corr[0]-1:q1_in_corr[0]+2 ].ravel()
+    try:
+        lsqsq_result = np.linalg.lstsq( M, z, rcond = None)
+    except:
+        return None, diagnostics
+
+    c = lsqsq_result[0]
+    (c00, c10, c01, c20, c11, c02) = c
+    det = 4.*c20*c02 - c11*c11
+    xy_subpixel = -np.array((2.*c10*c02 - c01*c11,
+                             2.*c01*c20 - c10*c11)) / det
+    x,y = xy_subpixel
+    matchoutput_optimum_subpixel = c00 + c10*x + c01*y + c20*x*x + c11*x*y + c02*y*y
+    q1_in_corr = q1_in_corr + xy_subpixel
+
+    diagnostics['matchoutput_optimum_subpixel_at'] = q1_in_corr
+    diagnostics['matchoutput_optimum_subpixel']    = matchoutput_optimum_subpixel
+
+    # The translation to pixel coordinates
+    #
+    # Shift for the best-fitting pixel of image1 of the template origin
+    qshift_image1_matchoutput = q1_min
+
+    # Top-left pixel of the template, in image1 coordinates
+    q1_aligned_template_topleft = q1_in_corr + q1_min
+
+    # Shift for the best-fitting pixel of image1 of the template center
+    qshift_image1_matchoutput =     \
+        qshift_image1_matchoutput + \
+        q1_estimate -               \
+        q1_template_min
+    diagnostics['qshift_image1_matchoutput'] = qshift_image1_matchoutput
+
+    # the best-fitting pixel of image1 of the template center
+    q1 = q1_in_corr + qshift_image1_matchoutput
+
+    matchoutput_min = np.min(matchoutput)
+    matchoutput_max = np.max(matchoutput)
+
+    plot_options = dict( _with     = 'image',
+                         square    = True,
+                         yinv      = True,
+                         _set      = 'palette gray',
+                         tuplesize = 3,
+                         ascii     = True)
+    data_tuples = \
+        ( ( image1_cut,
+            dict(legend='image',
+                 using = f'($1 + {q1_min[0]}):($2 + {q1_min[1]}):3')),
+          ( image0_template,
+            dict(legend='template',
+                 using = \
+                 f'($1 + {q1_aligned_template_topleft[0]}):' + \
+                 f'($2 + {q1_aligned_template_topleft[1]}):3')),
+          ( (matchoutput - matchoutput_min) /
+            (matchoutput_max - matchoutput_min) * 255,
+            dict(legend='matchoutput',
+                 using = \
+                 f'($1 + {qshift_image1_matchoutput[0]}):' + \
+                 f'($2 + {qshift_image1_matchoutput[1]}):3')) )
+
+    if visualize:
+        import gnuplotlib as gp
+        gp.plot( *data_tuples, **plot_options, wait=True)
+
+    diagnostics['plot_data_tuples'] = data_tuples
+    diagnostics['plot_options'    ] = plot_options
+
+    return q1, diagnostics
