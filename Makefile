@@ -216,7 +216,7 @@ TESTS :=										\
   test/test-projection-diff.py								\
   test/test-graft-models.py								\
   test/test-convert-lensmodel.py							\
-  test/test-stereo.py\									\
+  test/test-stereo.py									\
   test/test-solvepnp.py                                                                 \
   test/test-match-feature.py							        \
   test/test-triangulation.py
