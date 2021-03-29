@@ -4,7 +4,7 @@
 The C API consists of 3 headers:
 - [[https://www.github.com/dkogan/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]: /very/ simple geometry structures
 - [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]]: pose and geometry functions
-- [[https://www.github.com/dkogan/mrcal/blob/master/triangulation.h][=triangulation.h=]]: tringulation routines
+- [[https://www.github.com/dkogan/mrcal/blob/master/triangulation.h][=triangulation.h=]]: triangulation routines
 - [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal.h=]]: lens models, projections, optimization
 
 Most usages would simply =#include <mrcal.h>=, and this would include all the
