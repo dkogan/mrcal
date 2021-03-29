@@ -55,10 +55,10 @@ The strides are given in bytes, and work as expected. For a (for instance)
 
 These all have direct Python bindings. For instance [[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]].
 
-The [https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/poseutils.h][=poseutils.h=]] header serves as the listing of available functions.
+The [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]] header serves as the listing of available functions.
 
 * Triangulation
-A number of triangulation routines are available in [https://github.jpl.nasa.gov/maritime-robotics/mrcal/blob/master/triangulation.h][=triangulation.h=]]. These
+A number of triangulation routines are available in [[https://www.github.com/dkogan/mrcal/blob/master/triangulation.h][=triangulation.h=]]. These
 estimate the position of the 3D point that produced a given pair of
 observations. See the header for the available routines
 
