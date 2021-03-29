@@ -50,4 +50,7 @@ to write any code. The available tools, with links to their manpages:
 
 * Stereo and triangulation
 - [[file:mrcal-triangulate.html][=mrcal-triangulate=]]: Given a pair of images captured by a given pair of camera
-  models, reports the range to a queried feature, and its sensitivities
+  models, reports the range to a queried feature and its sensitivities to all
+  the inputs. Very useful in diagnosing accuracy issues in the intrinsics and
+  extrinsics.
+

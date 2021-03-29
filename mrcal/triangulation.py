@@ -1,11 +1,11 @@
 #!/usr/bin/python3
 
-'''Routines for analysis of camera projection
+'''Triangulation routines
 
-This is largely dealing with uncertainty and projection diff operations.
+Various ways to convert two rays in 3D into a 3D point those rays represent
 
 All functions are exported into the mrcal module. So you can call these via
-mrcal.model_analysis.fff() or mrcal.fff(). The latter is preferred.
+mrcal.triangulation.fff() or mrcal.fff(). The latter is preferred.
 
 '''
 
