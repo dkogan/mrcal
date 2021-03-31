@@ -82,7 +82,7 @@ adding a critical missing step to the procedure above between steps 1 and 2:
 We don't know anything about the physical coordinate system of either camera, so
 we do the best we can: we compute a fit. The "right" transformation will
 transform $\vec p$ in such a way that the reported mismatches in $\vec q$ will
-be minimized.
+be small.
 
 Once we compute that transformation, and use it to recompute the above diff, we
 get what we expect:
@@ -102,8 +102,9 @@ meters" for some possibly-infinite $r$. The procedure we implement is:
 
 1. Regularly sample the imager, and unproject using lens 0 to get a set of unit
    direction vectors $\left\{\vec v_{0_i}\right\}$ in the camera-0 coordinate system. The
-   [[file:mrcal-python-api-reference.html#-sample_imager_unproject][=mrcal.sample_imager_unproject()=]] does this exactly
-2. Scale the direction vectors by the range we care about: $\left\{\vec p_{0_i}\right\} = \left\{r \vec v_{0_i}\right\}$. These
+   [[file:mrcal-python-api-reference.html#-sample_imager_unproject][=mrcal.sample_imager_unproject()=]] function does this exactly
+2. Scale the direction vectors by the range (given with =--distance=)we care
+   about: $\left\{\vec p_{0_i}\right\} = \left\{r \vec v_{0_i}\right\}$. These
    are now a set of points in the camera-0 coordinate system
 3. Compute corresponding unit direction vectors $\left\{\vec v_{1_i}\right\}$ in the camera-1 coordinate
    system

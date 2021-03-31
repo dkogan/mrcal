@@ -365,7 +365,7 @@ ARGUMENTS
   use_rotation should be True. if given, we use the full intrinsics and
   extrinsics of both camera models
 
-- plane_d: optional floating-point valud; None by default. If given, we produce
+- plane_d: optional floating-point value; None by default. If given, we produce
   a transformation to map observations of a given plane to the same pixels in
   the source and target images. The plane is all points p such that
   inner(p,plane_n) = plane_d. plane_n does not need to be normalized; any
