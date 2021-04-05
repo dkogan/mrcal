@@ -924,7 +924,7 @@ for i in range(Ncameras):
 note = \
     "generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                            ' '.join(mrcal.shellquote(s) for s in sys.argv)) + \
-    re.sub(r"^(.)", r"# \1", report, flags=re.M)
+    report
 for icam in range(len(models)):
 
     filename_base = \
