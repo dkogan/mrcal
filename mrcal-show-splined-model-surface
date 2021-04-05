@@ -4,7 +4,7 @@ r'''Visualizes the surface represented in a splined lens model
 
 SYNOPSIS
 
-  $ mrcal-show-splined-model-surface cam.cameramodel x
+  $ mrcal-show-splined-model-surface cam.cameramodel
   ... a plot pops up showing the surface
 
 Splined models are described at
@@ -85,7 +85,9 @@ def parse_args():
 
     parser.add_argument('xy',
                         choices = ('x','y'),
-                        help='''Whether we're looking at the x surface or the y surface''')
+                        default = 'x',
+                        nargs   = '?',
+                        help='''Optional 'x' or 'y': which surface we're looking at''')
 
     return parser.parse_args()
 

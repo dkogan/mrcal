@@ -1811,7 +1811,8 @@ A tuple:
     return (data_tuples, plot_options)
 
 
-def show_splined_model_surface(model, xy,
+def show_splined_model_surface(model,
+                               xy                      = 'x',
                                imager_domain           = False,
                                valid_intrinsics_region = True,
                                observations            = False,
@@ -1886,8 +1887,9 @@ ARGUMENTS
 
 - model: the mrcal.cameramodel object being evaluated
 
-- xy: 'x' or 'y': selects the surface we're looking at. We have a separate
-  surface for the x and y coordinates, with the two sharing the knot positions
+- xy: optional string, defaulting to 'x'. Selects the surface we're looking at;
+  may be 'x' or 'y'. We have a separate surface for the x and y coordinates,
+  with the two sharing the knot positions
 
 - imager_domain: optional boolean defaults to False. If False: we plot
   everything against normalized stereographic coordinates; in this
