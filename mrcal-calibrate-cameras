@@ -318,21 +318,6 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, se
     return [w,h]
 
 
-def make_cameramodels(optimization_inputs):
-    r'''Assemble cameramodels from a completed calibration
-
-    The calibration routines treat the intrinsics and extrinsics for all cameras
-    as a vector. This routine converts those to a list of mrcal.cameramodel
-    structures that can be fed to all the other routines.
-
-    '''
-    return [ mrcal.cameramodel( \
-                optimization_inputs = optimization_inputs,
-                icam_intrinsics     = icam ) \
-
-             for icam in range(len(optimization_inputs['intrinsics'])) ]
-
-
 def solve_initial(args, seedmodels, imagersizes,
                   observations, indices_frame_camera):
     '''Solve an incrementally-expanding optimization problem in several passes
@@ -646,9 +631,12 @@ if calobject_warp is not None:
 
 print(report)
 
-models = make_cameramodels(optimization_inputs)
+models = \
+    [ mrcal.cameramodel( \
+                optimization_inputs = optimization_inputs,
+                icam_intrinsics     = icam ) \
 
-
+      for icam in range(len(optimization_inputs['intrinsics'])) ]
 
 # shape (Nobservations)
 nonoutliers_per_observation = \
