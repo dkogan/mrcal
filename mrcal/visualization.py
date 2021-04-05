@@ -1472,7 +1472,7 @@ plot
     import gnuplotlib as gp
 
     lensmodel, intrinsics_data = model.intrinsics()
-    imagersize                  = model.imagersize()
+    imagersize                 = model.imagersize()
 
     if 'title' not in kwargs:
 
