@@ -230,7 +230,7 @@ We computed $\mathrm{Var}\left( \vec p \right )$ earlier, and $\frac{\partial
 \vec q^+}{\partial \vec p}$ comes from the projection expression above.
 
 The [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function implements this logic. For the
-special-case of visualizing the uncertianties, call the any of the uncertainty
+special-case of visualizing the uncertainties, call the any of the uncertainty
 visualization functions:
 - [[file:mrcal-python-api-reference.html#-show_projection_uncertainty][=mrcal.show_projection_uncertainty()=]]: Visualize the uncertainty in camera projection
 - [[file:mrcal-python-api-reference.html#-show_projection_uncertainty_vs_distance][=mrcal.show_projection_uncertainty_vs_distance()=]]: Visualize the uncertainty in camera projection along one observation ray

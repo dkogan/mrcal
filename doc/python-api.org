@@ -196,7 +196,8 @@ arguments. The available methods:
   [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs][=mrcal.cameramodel.optimization_inputs()=]]
 
 * Miscellaneous utilities
-- [[file:mrcal-python-api-reference.html#-hypothesis_corner_positions][=mrcal.hypothesis_corner_positions()=]]: Reports the 3D chessboard points observed by a camera at calibration time
+- [[file:mrcal-python-api-reference.html#-hypothesis_corner_positions][=mrcal.hypothesis_corner_positions()=]]: Reports the coordinates of chessboard
+  points, as predicted by the optimization state
 - [[file:mrcal-python-api-reference.html#-polygon_difference][=mrcal.polygon_difference()=]]: Return the difference of two closed polygons
 - [[file:mrcal-python-api-reference.html#-mapping_file_framenocameraindex][=mrcal.mapping_file_framenocameraindex()=]]: Parse image filenames to get the frame numbers
 - [[file:mrcal-python-api-reference.html#-close_contour][=mrcal.close_contour()=]]: Close a polyline, if it isn't already closed
