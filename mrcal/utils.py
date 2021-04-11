@@ -374,16 +374,17 @@ SYNOPSIS
 
     optimization_inputs = model.optimization_inputs()
 
-    indices = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
-
     # shape (Nobservations, Nheight, Nwidth, 3)
     pcam = mrcal.hypothesis_corner_positions(**optimization_inputs)
 
+    i_intrinsics = \
+      optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,1]
+
     # shape (Nobservations,1,1,Nintrinsics)
-    intrinsics = nps.mv(optimization_inputs['intrinsics'][indices[:,1]],-2,-4)
+    intrinsics = nps.mv(optimization_inputs['intrinsics'][i_intrinsics],-2,-4)
 
     optimization_inputs['observations_board'][...,:2] = \
-        mrcal.project( p,
+        mrcal.project( pcam,
                        optimization_inputs['lensmodel'],
                        intrinsics )
 
