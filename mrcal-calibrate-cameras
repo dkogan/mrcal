@@ -943,7 +943,6 @@ Potential things to look at:
     show_residuals_observation_worst(i_observation_in_order_from_worst)
     show_residuals_observation(i_observation, vectorscale=20)
     show_projection_uncertainty(icam)
-    show_projection_uncertainty_xydist(icam)
     show_valid_intrinsics_region(icam)
     show_residuals_vectorfield(    icam)
     show_residuals_magnitudes(     icam)
@@ -1436,18 +1435,6 @@ def show_projection_uncertainty(icam = None, gridn_width = 60, gridn_height = 40
                                               gridn_width  = gridn_width,
                                               gridn_height = gridn_height,
                                               **kwargs)
-plots_projection_uncertainty_xydist = [None] * Ncameras
-def show_projection_uncertainty_xydist(icam = None, gridn_width = 15, gridn_height = 10, **kwargs):
-
-    global plots_projection_uncertainty_xydist
-    icam_all = (icam,) if icam is not None else range(Ncameras)
-    for icam in icam_all:
-        plots_projection_uncertainty_xydist[icam] = \
-            mrcal.show_projection_uncertainty_xydist(models[icam],
-                                                     extratitle = "Camera {} with {}".format(icam, args.lensmodel),
-                                                     gridn_width  = gridn_width,
-                                                     gridn_height = gridn_height,
-                                                     **kwargs)
 plots_valid_intrinsics_region = [None] * Ncameras
 def show_valid_intrinsics_region(icam = None, **kwargs):
     global plots_valid_intrinsics_region

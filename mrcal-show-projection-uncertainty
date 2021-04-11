@@ -27,10 +27,6 @@ There are 3 modes of operation:
   everywhere across the imager, and display the results as a heatmap with
   overlaid contours
 
-- With --observations-xydist we display a 3D plot showing the uncertainty
-  everywhere across the imager and at various distances. This contains a lot of
-  information, but that makes it challenging to interpret
-
 - With --vs-distance-at we evaluate the uncertainty along an observation ray
   mapping to a single pixel. We show the uncertainty vs distances from the
   camera along this ray
@@ -52,14 +48,6 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--observations-xydist',
-                        action='store_true',
-                        default=False,
-                        help='''If given, we operate in a different mode: we make a 3D plot of uncertainties
-                        and chessboard observations instead of the 2D
-                        uncertainty contours we get normally. This is exclusive
-                        with --vs-distance-at, --distance, --isotropic,
-                        --observations.''')
     parser.add_argument('--vs-distance-at',
                         type=str,
                         help='''If given, we operate in a different mode: we look at the projection
@@ -70,14 +58,12 @@ def parse_args():
                         about, or "center" to look at the center of the imager
                         or "centroid" to look at the center of the
                         calibration-time chessboards. This is exclusive with
-                        --observations-xydist and --gridn and --distance and
-                        --observations and --cbmax''')
+                        --gridn and --distance and --observations and --cbmax''')
     parser.add_argument('--gridn',
                         type=int,
                         default = (60,40),
                         nargs = 2,
-                        help='''How densely we should sample the imager. By default we use a 60x40 grid (or a
-                        (15,10) grid if --observations-xydist)''')
+                        help='''How densely we should sample the imager. By default we use a 60x40 grid''')
     parser.add_argument('--distance',
                         type=float,
                         help='''By default we display the projection uncertainty infinitely far away from the
@@ -143,21 +129,11 @@ import numpy as np
 import mrcal
 
 
-if args.observations_xydist:
-    if args.vs_distance_at is not None or \
-       args.distance       is not None or \
-       args.isotropic                  or \
-       args.observations:
-        print("--observations-xydist is exclusive with --vs-distance-at and --distance and --isotropic and --observations",
-              file=sys.stderr)
-        sys.exit(1)
-
 if args.vs_distance_at is not None:
-    if args.observations_xydist  or \
-       args.distance is not None or \
+    if args.distance is not None or \
        args.observations:
 
-        print("--vs-distance-at is exclusive with --observations-xydist and --gridn and --distance and --observations and --cbmax",
+        print("--vs-distance-at is exclusive with --gridn and --distance and --observations and --cbmax",
               file=sys.stderr)
         sys.exit(1)
 
@@ -187,16 +163,7 @@ if model.optimization_inputs() is None:
           file = sys.stderr)
     sys.exit()
 
-if args.observations_xydist:
-    plot = mrcal.show_projection_uncertainty_xydist(model,
-                                                    args.gridn[0] // 4,
-                                                    args.gridn[1] // 4,
-                                                    hardcopy     = args.hardcopy,
-                                                    terminal     = args.terminal,
-                                                    cbmax        = args.cbmax,
-                                                    extratitle   = args.extratitle,
-                                                    **plotkwargs_extra)
-elif args.vs_distance_at is not None:
+if args.vs_distance_at is not None:
     plot = mrcal.show_projection_uncertainty_vs_distance(model,
                                                          where        = args.vs_distance_at,
                                                          isotropic    = args.isotropic,

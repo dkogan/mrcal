@@ -233,7 +233,6 @@ The [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.proje
 special-case of visualizing the uncertianties, call the any of the uncertainty
 visualization functions:
 - [[file:mrcal-python-api-reference.html#-show_projection_uncertainty][=mrcal.show_projection_uncertainty()=]]: Visualize the uncertainty in camera projection
-- [[file:mrcal-python-api-reference.html#-show_projection_uncertainty_xydist][=mrcal.show_projection_uncertainty_xydist()=]]: Visualize in 3D the uncertainty in camera projection
 - [[file:mrcal-python-api-reference.html#-show_projection_uncertainty_vs_distance][=mrcal.show_projection_uncertainty_vs_distance()=]]: Visualize the uncertainty in camera projection along one observation ray
 
 or use the [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool.
