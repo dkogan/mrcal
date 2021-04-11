@@ -62,7 +62,7 @@ Architecture: any
 Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal1 (= ${binary:Version}),
          ${python3:Depends},
-         python3-gnuplotlib (>= 0.36), python3-numpysane (>= 0.29),
+         python3-gnuplotlib (>= 0.38), python3-numpysane (>= 0.29),
          python3-opencv, python3-numpy, python3-scipy (>= 0.18),
          python3-shapely, python3-ipython,
 # for image_transformation_map(), not for plotting

@@ -279,15 +279,15 @@ should see it in the worst-fitting images. Let's ask the tool to see the worst
 one:
 
 #+begin_src python
-show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
-                                 cbmax = 5.0)
+show_residuals_board_observation_worst(0, vectorscale = 100, circlescale=0.5,
+                                       cbmax = 5.0)
 #+end_src
 
 #+begin_src python :exports none :eval no-export
-show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
-                                 cbmax = 5.0,
-                                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-opencv8.png',
-                                 terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+show_residuals_board_observation_worst(0, vectorscale = 100, circlescale=0.5,
+                                       cbmax = 5.0,
+                                       hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-opencv8.png',
+                                       terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
 #+end_src
 
 [[file:external/figures/calibration/worst-opencv8.png]]
@@ -334,19 +334,19 @@ form the optical axis: this is the last point in the common-errors list above.
 We can clearly see this here in the 3rd-worst image:
 
 #+begin_src python
-show_residuals_observation_worst(2, vectorscale = 100, circlescale=0.5,
-                                 cbmax = 5.0)
+show_residuals_board_observation_worst(2, vectorscale = 100, circlescale=0.5,
+                                       cbmax = 5.0)
 #+end_src
 
 #+begin_src python :exports none :eval no-export
-show_residuals_observation_worst(2, vectorscale = 100, circlescale=0.5,
-                                 cbmax = 5.0,
-                                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-incorner-opencv8.png',
-                                 terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
-show_residuals_observation_worst(2, vectorscale = 100, circlescale=0.25,
-                                 cbmax = 5.0,
-                                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-incorner-opencv8.pdf',
-                                 terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
+show_residuals_board_observation_worst(2, vectorscale = 100, circlescale=0.5,
+                                       cbmax = 5.0,
+                                       hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-incorner-opencv8.png',
+                                       terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+show_residuals_board_observation_worst(2, vectorscale = 100, circlescale=0.25,
+                                       cbmax = 5.0,
+                                       hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-incorner-opencv8.pdf',
+                                       terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
 [[file:external/figures/calibration/worst-incorner-opencv8.png]]
@@ -535,17 +535,17 @@ better than before.
 Let's look at the worst-fitting single image in /this/ solve:
 
 #+begin_src python
-show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
-                                 cbmax = 5.0)
+show_residuals_board_observation_worst(0, vectorscale = 100, circlescale=0.5,
+                                       cbmax = 5.0)
 #+end_src
 
 [[file:external/figures/calibration/worst-splined.png]]
 
 #+begin_src python :exports none :eval no-export
-show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5,
-                                 cbmax = 5.0,
-                                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-splined.png',
-                                 terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+show_residuals_board_observation_worst(0, vectorscale = 100, circlescale=0.5,
+                                       cbmax = 5.0,
+                                       hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-splined.png',
+                                       terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
 #+end_src
 
 Interestingly, the worst observation here is the same one we saw with
@@ -558,21 +558,21 @@ What happens when we look at the image that showed a poor fit in the corner
 previously? It was observation 184.
 
 #+begin_src python
-show_residuals_observation(184, vectorscale = 100, circlescale=0.5,
-                           cbmax = 5.0)
+show_residuals_board_observation(184, vectorscale = 100, circlescale=0.5,
+                                 cbmax = 5.0)
 #+end_src
 
 [[file:external/figures/calibration/worst-incorner-splined.png]]
 
 #+begin_src python :exports none :eval no-export
-show_residuals_observation(184, vectorscale = 100, circlescale=0.5,
-                           cbmax = 5.0,
-                           hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-incorner-splined.png',
-                           terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
-show_residuals_observation(184, vectorscale = 100, circlescale=0.5,
-                           cbmax = 5.0,
-                           hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-incorner-splined.pdf',
-                           terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
+show_residuals_board_observation(184, vectorscale = 100, circlescale=0.5,
+                                 cbmax = 5.0,
+                                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-incorner-splined.png',
+                                 terminal='pngcairo size 1024,768 transparent noenhanced crop          font ",12"')
+show_residuals_board_observation(184, vectorscale = 100, circlescale=0.5,
+                                 cbmax = 5.0,
+                                 hardcopy='~/jpl/mrcal/doc/external/figures/calibration/worst-incorner-splined.pdf',
+                                 terminal='pdf size 8in,6in       noenhanced solid color   font ",12"')
 #+end_src
 
 Neat! The model fits the data in the corners now. And what about the residual directions?

@@ -56,9 +56,16 @@ These are all backends for the corresponding [[file:commandline-tools.org][comma
 - [[file:mrcal-python-api-reference.html#-show_projection_diff][=mrcal.show_projection_diff()=]]: Visualize the difference in projection between N models
 - [[file:mrcal-python-api-reference.html#-show_projection_uncertainty][=mrcal.show_projection_uncertainty()=]]: Visualize the uncertainty in camera projection
 - [[file:mrcal-python-api-reference.html#-show_projection_uncertainty_vs_distance][=mrcal.show_projection_uncertainty_vs_distance()=]]: Visualize the uncertainty in camera projection along one observation ray
-- [[file:mrcal-python-api-reference.html#-show_distortion_off_pinhole][=mrcal.show_distortion_off_pinhole()=]]: Visualize a lens's deviation from a pinhole projection
+- [[file:mrcal-python-api-reference.html#-show_distortion_off_pinhole][=mrcal.show_distortion_off_pinhole()=]]: Visualize a lens's deviation from a pinhole projection: examine the difference across the imager
+- [[file:mrcal-python-api-reference.html#-show_distortion_off_pinhole_radial][=mrcal.show_distortion_off_pinhole_radial()=]]: Visualize a lens's deviation from a pinhole projection: examine the radial distortion curve
 - [[file:mrcal-python-api-reference.html#-show_valid_intrinsics_region][=mrcal.show_valid_intrinsics_region()=]]: Visualize a model's valid-intrinsics region
 - [[file:mrcal-python-api-reference.html#-show_splined_model_surface][=mrcal.show_splined_model_surface()=]]: Visualize the surface represented by a splined model
+- [[file:mrcal-python-api-reference.html#-show_residuals_board_observation][=mrcal.show_residuals_board_observation()=]]: Visualize calibration residuals for a single observation
+- [[file:mrcal-python-api-reference.html#-show_residuals_histogram][=mrcal.show_residuals_histogram()=]]: Visualize the distribution of the optimized residuals
+- [[file:mrcal-python-api-reference.html#-show_residuals_vectorfield][=mrcal.show_residuals_vectorfield()=]]: Visualize the optimized residuals as a vector field
+- [[file:mrcal-python-api-reference.html#-show_residuals_magnitudes][=mrcal.show_residuals_magnitudes()=]]: Visualize the optimized residual magnitudes as color-coded points
+- [[file:mrcal-python-api-reference.html#-show_residuals_directions][=mrcal.show_residuals_directions()=]]: Visualize the optimized residual directions as color-coded points
+- [[file:mrcal-python-api-reference.html#-show_residuals_regional][=mrcal.show_residuals_regional()=]]: Visualize the optimized residuals, broken up by region
 
 ** Utilities
 - [[file:mrcal-python-api-reference.html#-annotate_image__valid_intrinsics_region][=mrcal.annotate_image__valid_intrinsics_region()=]]: Annotate an image with a model's valid-intrinsics region

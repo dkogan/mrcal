@@ -11,7 +11,7 @@ SYNOPSIS
 
 This tool is used to examine how a lens model behaves. Depending on the model,
 the vectors could be very large or very small, and we can scale them by passing
-'--scale s'. By default we sample in a 60x40 grid, but this spacing can be
+'--vectorscale s'. By default we sample in a 60x40 grid, but this spacing can be
 controlled by passing '--gridn w h'.
 
 By default we render a heat map of the lens effects. We can also see the
@@ -38,7 +38,7 @@ def parse_args():
                         nargs = 2,
                         help='''How densely we should sample the imager. By default we report a 60x40 grid''')
 
-    parser.add_argument('--scale',
+    parser.add_argument('--vectorscale',
                         type=float,
                         default = 1.0,
                         help='''Scale the vectors by this factor. Default is 1.0 (report the truth), but this is often too small to see''')
@@ -114,27 +114,33 @@ if args.radial and args.vectorfield:
     sys.stderr.write("Usage error: at most one of --radial and --vectorfield can be given\n")
     sys.exit(1)
 
-if   args.radial:      mode = 'radial'
-elif args.vectorfield: mode = 'vectorfield'
-else:                  mode = 'heatmap'
-
 plotkwargs = {}
 if args.set is not None:
     plotkwargs['set'] = args.set
 if args.unset is not None:
     plotkwargs['unset'] = args.unset
 
-plot = mrcal.show_distortion_off_pinhole(model,
-                                         mode,
-                                         args.scale,
-                                         args.cbmax,
-                                         args.gridn[0], args.gridn[1],
 
-                                         show_fisheye_projections = args.show_fisheye_projections,
-                                         extratitle   = args.extratitle,
-                                         hardcopy     = args.hardcopy,
-                                         terminal     = args.terminal,
-                                         **plotkwargs)
+if   args.radial:
+    plot = mrcal.show_distortion_off_pinhole_radial(model,
+
+                                                    show_fisheye_projections = args.show_fisheye_projections,
+                                                    extratitle   = args.extratitle,
+                                                    hardcopy     = args.hardcopy,
+                                                    terminal     = args.terminal,
+                                                    **plotkwargs)
+else:
+    plot = mrcal.show_distortion_off_pinhole(model,
+                                             vectorfield  = args.vectorfield,
+                                             vectorscale  = args.vectorscale,
+                                             cbmax        = args.cbmax,
+                                             gridn_width  = args.gridn[0],
+                                             gridn_height = args.gridn[1],
+
+                                             extratitle   = args.extratitle,
+                                             hardcopy     = args.hardcopy,
+                                             terminal     = args.terminal,
+                                             **plotkwargs)
 
 if args.hardcopy is None:
     plot.wait()

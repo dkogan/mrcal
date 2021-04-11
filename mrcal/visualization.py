@@ -12,6 +12,7 @@ import numpysane as nps
 import sys
 import re
 import cv2
+import os
 import mrcal
 
 def show_geometry(models_or_extrinsics_rt_fromref,
@@ -27,6 +28,7 @@ def show_geometry(models_or_extrinsics_rt_fromref,
                   object_spacing     = 0,
                   calobject_warp     = None,
                   point_labels       = None,
+                  extratitle         = None,
                   return_plot_args   = False,
                   **kwargs):
 
@@ -129,6 +131,10 @@ ARGUMENTS
 - axis_scale: optional scale factor for the size of the axes used to represent
   the cameras. Can be omitted to use some reasonable default size, but for very
   large or very small problems, this may be required to make the plot look right
+
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
 
 - return_plot_args: boolean defaulting to False. if return_plot_args: we return
   a (data_tuples, plot_options) tuple instead of making the plot. The plot can
@@ -414,6 +420,12 @@ plot
              zlabel='z',
              **kwargs)
 
+    if 'title' not in plot_options:
+        title = 'Camera geometry'
+        if extratitle is not None:
+            title += ": " + extratitle
+        plot_options['title'] = title
+
     data_tuples = curves_points + curves_cameras + curves_calobjects
 
     if not return_plot_args:
@@ -511,8 +523,8 @@ def show_projection_diff(models,
                          vectorfield      = False,
                          vectorscale      = 1.0,
                          directions       = False,
-                         extratitle       = None,
                          cbmax            = 4,
+                         extratitle       = None,
                          return_plot_args = False,
                          **kwargs):
     r'''Visualize the difference in projection between N models
@@ -620,10 +632,12 @@ ARGUMENTS
   plotting a vector field. This is only valid if we're given exactly two models
   to compare
 
-- extratitle: optional string to include in the title of the resulting plot
-
 - cbmax: optional value, defaulting to 4.0. Sets the maximum range of the color
   map
+
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
 
 - return_plot_args: boolean defaulting to False. if return_plot_args: we return
   a (data_tuples, plot_options) tuple instead of making the plot. The plot can
@@ -842,11 +856,11 @@ def show_projection_uncertainty(model,
                                 valid_intrinsics_region = False,
                                 distance                = None,
                                 isotropic               = False,
-                                extratitle              = None,
                                 cbmax                   = 3,
                                 contour_increment       = None,
                                 contour_labels_styles   = 'boxed',
                                 contour_labels_font     = None,
+                                extratitle              = None,
                                 return_plot_args        = False,
                                 **kwargs):
     r'''Visualize the uncertainty in camera projection
@@ -923,8 +937,6 @@ ARGUMENTS
   want the RMS size of the ellipse instead of the worst-direction size, pass
   isotropic=True.
 
-- extratitle: optional string to include in the title of the resulting plot
-
 - cbmax: optional value, defaulting to 3.0. Sets the maximum range of the color
   map
 
@@ -940,6 +952,10 @@ ARGUMENTS
 - contour_labels_font: optional string, defaulting to None, If given, this is
   the font string for the contour labels. Will be passed to gnuplot as f'set
   cntrlabel font "{contour_labels_font}"'
+
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
 
 - return_plot_args: boolean defaulting to False. if return_plot_args: we return
   a (data_tuples, plot_options) tuple instead of making the plot. The plot can
@@ -1051,6 +1067,7 @@ plot
     return (data_tuples, plot_options)
 
 
+# should be able to control the distance range here
 def show_projection_uncertainty_vs_distance(model,
 
                                             where        = "centroid",
@@ -1119,7 +1136,9 @@ ARGUMENTS
   want the RMS size of the ellipse instead of the worst-direction size, pass
   isotropic=True.
 
-- extratitle: optional string to include in the title of the resulting plot
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
 
 - return_plot_args: boolean defaulting to False. if return_plot_args: we return
   a (data_tuples, plot_options) tuple instead of making the plot. The plot can
@@ -1210,13 +1229,199 @@ plot
     return (data_tuples, plot_options)
 
 
+def show_distortion_off_pinhole_radial(model,
+                                       show_fisheye_projections = False,
+                                       extratitle               = None,
+                                       return_plot_args         = False,
+                                       **kwargs):
+
+    r'''Visualize a lens's deviation from a pinhole projection
+
+SYNOPSIS
+
+    model = mrcal.cameramodel('xxx.cameramodel')
+
+    mrcal.show_distortion_off_pinhole_radial(model)
+
+    ... A plot pops up displaying how much this model deviates from a pinhole
+    ... model across the imager in the radial direction
+
+This function treats a pinhole projection as a baseline, and visualizes
+deviations from this baseline. So wide lenses will have a lot of reported
+"distortion".
+
+This function looks at radial distortion only. Plots a curve showing the
+magnitude of the radial distortion as a function of the distance to the center
+
+ARGUMENTS
+
+- model: the mrcal.cameramodel object being evaluated
+
+- show_fisheye_projections: optional boolean defaulting to False. If
+  show_fisheye_projections: the radial plots include the behavior of common
+  fisheye projections, in addition to the behavior of THIS lens
+
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
+
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUE
+
+if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+The plot disappears when this object is destroyed (by the garbage collection,
+for instance), so save this returned plot object into a variable, even if you're
+not going to be doing anything with this object.
+
+if return_plot_args: we return a (data_tuples, plot_options) tuple instead of
+making the plot. The plot can then be made with gp.plot(*data_tuples,
+**plot_options). Useful if we want to include this as a part of a more complex
+plot
+
+    '''
+
+    import gnuplotlib as gp
+
+    lensmodel, intrinsics_data = model.intrinsics()
+
+    # plot the radial distortion. For now I only deal with opencv here
+    m = re.search("OPENCV([0-9]+)", lensmodel)
+    if not m:
+        raise Exception("Radial distortion visualization implemented only for OpenCV distortions; for now")
+    N = int(m.group(1))
+
+    # OpenCV does this:
+    #
+    # This is the opencv distortion code in cvProjectPoints2 in
+    # calibration.cpp Here x,y are x/z and y/z. OpenCV applies distortion to
+    # x/z, y/z and THEN does the ...*f + c thing. The distortion factor is
+    # based on r, which is ~ x/z ~ tan(th) where th is the deviation off
+    # center
+    #
+    #         z = z ? 1./z : 1;
+    #         x *= z; y *= z;
+    #         r2 = x*x + y*y;
+    #         r4 = r2*r2;
+    #         r6 = r4*r2;
+    #         a1 = 2*x*y;
+    #         a2 = r2 + 2*x*x;
+    #         a3 = r2 + 2*y*y;
+    #         cdist = 1 + k[0]*r2 + k[1]*r4 + k[4]*r6;
+    #         icdist2 = 1./(1 + k[5]*r2 + k[6]*r4 + k[7]*r6);
+    #         xd = x*cdist*icdist2 + k[2]*a1 + k[3]*a2 + k[8]*r2+k[9]*r4;
+    #         yd = y*cdist*icdist2 + k[2]*a3 + k[3]*a1 + k[10]*r2+k[11]*r4;
+    #         ...
+    #         m[i].x = xd*fx + cx;
+    #         m[i].y = yd*fy + cy;
+    cxy         = intrinsics_data[2:4]
+    distortions = intrinsics_data[4:]
+    k2 = distortions[0]
+    k4 = distortions[1]
+    k6 = 0
+    if N >= 5:
+        k6 = distortions[4]
+    numerator = '1. + r*r * ({} + r*r * ({} + r*r * {}))'.format(k2,k4,k6)
+    numerator = numerator.replace('r', 'tan(x*pi/180.)')
+
+    if N >= 8:
+        denominator = '1. + r*r * ({} + r*r * ({} + r*r * {}))'.format(*distortions[5:8])
+        denominator = denominator.replace('r', 'tan(x*pi/180.)')
+        scale = '({})/({})'.format(numerator,denominator)
+    else:
+        scale = numerator
+
+    W,H = model.imagersize()
+    x0,x1 = 0, W-1
+    y0,y1 = 0, H-1
+
+    q_corners = np.array(((x0,y0),
+                          (x0,y1),
+                          (x1,y0),
+                          (x1,y1)), dtype=float)
+    q_centersx  = np.array(((cxy[0],y0),
+                            (cxy[0],y1)), dtype=float)
+    q_centersy  = np.array(((x0,cxy[1]),
+                            (x1,cxy[1])), dtype=float)
+
+    v_corners  = mrcal.unproject( q_corners,  lensmodel, intrinsics_data)
+    v_centersx = mrcal.unproject( q_centersx, lensmodel, intrinsics_data)
+    v_centersy = mrcal.unproject( q_centersy, lensmodel, intrinsics_data)
+
+    # some unprojections may be nan (we're looking beyond where the projection
+    # is valid), so I explicitly ignore those
+    v_corners  = v_corners [np.all(np.isfinite(v_corners),  axis=-1)]
+    v_centersx = v_centersx[np.all(np.isfinite(v_centersx), axis=-1)]
+    v_centersy = v_centersy[np.all(np.isfinite(v_centersy), axis=-1)]
+
+    th_corners  = 180./np.pi * np.arctan2(nps.mag(v_corners [..., :2]), v_corners [..., 2])
+    th_centersx = 180./np.pi * np.arctan2(nps.mag(v_centersx[..., :2]), v_centersx[..., 2])
+    th_centersy = 180./np.pi * np.arctan2(nps.mag(v_centersy[..., :2]), v_centersy[..., 2])
+
+    # Now the equations. The 'x' value here is "pinhole pixels off center",
+    # which is f*tan(th). I plot this model's radial relationship, and that
+    # from other common fisheye projections (formulas mostly from
+    # https://en.wikipedia.org/wiki/Fisheye_lens)
+    equations = [f'180./pi*atan(tan(x*pi/180.) * ({scale})) with lines lw 2 title "THIS model"',
+                 'x title "pinhole"']
+    if show_fisheye_projections:
+        equations += [f'180./pi*atan(2. * tan( x*pi/180. / 2.)) title "stereographic"',
+                      f'180./pi*atan(x*pi/180.) title "equidistant"',
+                      f'180./pi*atan(2. * sin( x*pi/180. / 2.)) title "equisolid angle"',
+                      f'180./pi*atan( sin( x*pi/180. )) title "orthogonal"']
+
+    gp.add_plot_option(kwargs, 'set',
+                       ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "red"'  . \
+                        format(th=th) for th in th_centersy] + \
+                       ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "green"'. \
+                        format(th=th) for th in th_centersx] + \
+                       ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "blue"' . \
+                        format(th=th) for th in th_corners ])
+
+    if N >= 8:
+        equations.extend( [numerator   + ' axis x1y2 title "numerator (y2)"',
+                           denominator + ' axis x1y2 title "denominator (y2)"',
+                           '0 axis x1y2 notitle with lines lw 2' ] )
+        gp.add_plot_option(kwargs, 'set', 'y2tics')
+        kwargs['y2label'] = 'Rational correction numerator, denominator'
+
+    if 'title' not in kwargs:
+        title = 'Radial distortion. Red: x edges. Green: y edges. Blue: corners'
+        if extratitle is not None:
+            title += ": " + extratitle
+        kwargs['title'] = title
+
+    plot_options = \
+        dict(equation = equations,
+             # any of the unprojections could be nan, so I do the best I can
+             _xrange = [0,np.max(np.nan_to_num(nps.glue(th_corners,
+                                                        th_centersx,
+                                                        th_centersy,
+                                                        axis=-1)))
+                        * 1.01],
+             xlabel = 'Angle off the projection center (deg)',
+             ylabel = 'Distorted angle off the projection center',
+             **kwargs)
+    data_tuples = ()
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot
+    return (data_tuples, plot_options)
+
+
 def show_distortion_off_pinhole(model,
-                                mode,
-                                scale                    = 1.,
+                                vectorfield              = False,
+                                vectorscale              = 1.0,
                                 cbmax                    = 25.0,
                                 gridn_width              = 60,
                                 gridn_height             = None,
-                                show_fisheye_projections = False,
                                 extratitle               = None,
                                 return_plot_args         = False,
                                 **kwargs):
@@ -1227,7 +1432,7 @@ SYNOPSIS
 
     model = mrcal.cameramodel('xxx.cameramodel')
 
-    mrcal.show_distortion_off_pinhole( model, 'heatmap' )
+    mrcal.show_distortion_off_pinhole( model )
 
     ... A plot pops up displaying how much this model deviates from a pinhole
     ... model across the imager
@@ -1236,49 +1441,31 @@ This function treats a pinhole projection as a baseline, and visualizes
 deviations from this baseline. So wide lenses will have a lot of reported
 "distortion".
 
-This function has 3 modes of operation, specified as a string in the 'mode'
-argument.
-
 ARGUMENTS
 
 - model: the mrcal.cameramodel object being evaluated
 
-- mode: this function can produce several kinds of visualizations, with the
-  specific mode selected as a string in this argument. Known values:
+- vectorfield: optional boolean, defaulting to False. By default we produce a
+  heat map of the differences. If vectorfield: we produce a vector field
+  instead
 
-  - 'heatmap': the imager is gridded, as specified by the
-    gridn_width,gridn_height arguments. For each point in the grid, we evaluate
-    the difference in projection between the given model, and a pinhole model
-    with the same core intrinsics (focal lengths, center pixel coords). This
-    difference is color-coded and a heat map is displayed.
-
-  - 'vectorfield': this is the same as 'heatmap', except we display a vector for
-    each point, intead of a color-coded cell. If legibility requires the vectors
-    being larger or smaller, pass an appropriate value in the 'scale' argument
-
-  - 'radial': Looks at radial distortion only. Plots a curve showing the
-    magnitude of the radial distortion as a function of the distance to the
-    center
-
-- scale: optional value, defaulting to 1.0. Used to scale the rendered vectors
-  if mode=='vectorfield'
-
-- show_fisheye_projections: optional boolean defaulting to False. If
-  show_fisheye_projections: the radial plots include the behavior of common
-  fisheye projections, in addition to the behavior of THIS lens
+- vectorscale: optional value, defaulting to 1.0. Applicable only if
+  vectorfield. The magnitude of the errors displayed in the vector field could
+  be small, and difficult to see. This argument can be used to scale all the
+  displayed vectors to improve legibility.
 
 - cbmax: optional value, defaulting to 25.0. Sets the maximum range of the color
-  map and of the contours if mode=='heatmap'
+  map and of the contours if plotting a heat map
 
-- gridn_width: how many points along the horizontal gridding dimension. Used if
-  mode=='vectorfield' or mode=='heatmap'
+- gridn_width: how many points along the horizontal gridding dimension
 
 - gridn_height: how many points along the vertical gridding dimension. If None,
   we compute an integer gridn_height to maintain a square-ish grid:
-  gridn_height/gridn_width ~ imager_height/imager_width. Used if
-  mode=='vectorfield' or mode=='heatmap'
+  gridn_height/gridn_width ~ imager_height/imager_width
 
-- extratitle: optional string to include in the title of the resulting plot
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
 
 - return_plot_args: boolean defaulting to False. if return_plot_args: we return
   a (data_tuples, plot_options) tuple instead of making the plot. The plot can
@@ -1308,7 +1495,6 @@ plot
     imagersize                 = model.imagersize()
 
     if 'title' not in kwargs:
-
         title = "Off-pinhole effects of {}".format(lensmodel)
         if extratitle is not None:
             title += ": " + extratitle
@@ -1323,123 +1509,6 @@ plot
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
 
-    if mode == 'radial':
-
-        # plot the radial distortion. For now I only deal with opencv here
-        m = re.search("OPENCV([0-9]+)", lensmodel)
-        if not m:
-            raise Exception("Radial distortion visualization implemented only for OpenCV distortions; for now")
-        N = int(m.group(1))
-
-        # OpenCV does this:
-        #
-        # This is the opencv distortion code in cvProjectPoints2 in
-        # calibration.cpp Here x,y are x/z and y/z. OpenCV applies distortion to
-        # x/z, y/z and THEN does the ...*f + c thing. The distortion factor is
-        # based on r, which is ~ x/z ~ tan(th) where th is the deviation off
-        # center
-        #
-        #         z = z ? 1./z : 1;
-        #         x *= z; y *= z;
-        #         r2 = x*x + y*y;
-        #         r4 = r2*r2;
-        #         r6 = r4*r2;
-        #         a1 = 2*x*y;
-        #         a2 = r2 + 2*x*x;
-        #         a3 = r2 + 2*y*y;
-        #         cdist = 1 + k[0]*r2 + k[1]*r4 + k[4]*r6;
-        #         icdist2 = 1./(1 + k[5]*r2 + k[6]*r4 + k[7]*r6);
-        #         xd = x*cdist*icdist2 + k[2]*a1 + k[3]*a2 + k[8]*r2+k[9]*r4;
-        #         yd = y*cdist*icdist2 + k[2]*a3 + k[3]*a1 + k[10]*r2+k[11]*r4;
-        #         ...
-        #         m[i].x = xd*fx + cx;
-        #         m[i].y = yd*fy + cy;
-        distortions = intrinsics_data[4:]
-        k2 = distortions[0]
-        k4 = distortions[1]
-        k6 = 0
-        if N >= 5:
-            k6 = distortions[4]
-        numerator = '1. + r*r * ({} + r*r * ({} + r*r * {}))'.format(k2,k4,k6)
-        numerator = numerator.replace('r', 'tan(x*pi/180.)')
-
-        if N >= 8:
-            denominator = '1. + r*r * ({} + r*r * ({} + r*r * {}))'.format(*distortions[5:8])
-            denominator = denominator.replace('r', 'tan(x*pi/180.)')
-            scale = '({})/({})'.format(numerator,denominator)
-        else:
-            scale = numerator
-
-
-        x0,x1 = 0, W-1
-        y0,y1 = 0, H-1
-        q_corners = np.array(((x0,y0),
-                              (x0,y1),
-                              (x1,y0),
-                              (x1,y1)), dtype=float)
-        q_centersx  = np.array(((cxy[0],y0),
-                                (cxy[0],y1)), dtype=float)
-        q_centersy  = np.array(((x0,cxy[1]),
-                                (x1,cxy[1])), dtype=float)
-
-        v_corners  = mrcal.unproject( q_corners,  lensmodel, intrinsics_data)
-        v_centersx = mrcal.unproject( q_centersx, lensmodel, intrinsics_data)
-        v_centersy = mrcal.unproject( q_centersy, lensmodel, intrinsics_data)
-
-        th_corners  = 180./np.pi * np.arctan2(nps.mag(v_corners [..., :2]), v_corners [..., 2])
-        th_centersx = 180./np.pi * np.arctan2(nps.mag(v_centersx[..., :2]), v_centersx[..., 2])
-        th_centersy = 180./np.pi * np.arctan2(nps.mag(v_centersy[..., :2]), v_centersy[..., 2])
-
-        # Now the equations. The 'x' value here is "pinhole pixels off center",
-        # which is f*tan(th). I plot this model's radial relationship, and that
-        # from other common fisheye projections (formulas mostly from
-        # https://en.wikipedia.org/wiki/Fisheye_lens)
-        equations = [f'180./pi*atan(tan(x*pi/180.) * ({scale})) with lines lw 2 title "THIS model"',
-                     'x title "pinhole"']
-        if show_fisheye_projections:
-            equations += [f'180./pi*atan(2. * tan( x*pi/180. / 2.)) title "stereographic"',
-                          f'180./pi*atan(x*pi/180.) title "equidistant"',
-                          f'180./pi*atan(2. * sin( x*pi/180. / 2.)) title "equisolid angle"',
-                          f'180./pi*atan( sin( x*pi/180. )) title "orthogonal"']
-
-        gp.add_plot_option(kwargs, 'set',
-                           ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "red"'  . \
-                            format(th=th) for th in th_centersy] + \
-                           ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "green"'. \
-                            format(th=th) for th in th_centersx] + \
-                           ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "blue"' . \
-                            format(th=th) for th in th_corners ])
-
-        if N >= 8:
-            equations.extend( [numerator   + ' axis x1y2 title "numerator (y2)"',
-                               denominator + ' axis x1y2 title "denominator (y2)"',
-                               '0 axis x1y2 with lines lw 2' ] )
-            gp.add_plot_option(kwargs, 'set', 'y2tics')
-            kwargs['y2label'] = 'Rational correction numerator, denominator'
-        kwargs['title'] += ': radial distortion. Red: x edges. Green: y edges. Blue: corners'
-        plot_options = \
-            dict(equation = equations,
-                 # any of the unprojections could be nan, so I do the best I can
-                 _xrange = [0,np.max(np.nan_to_num(nps.glue(th_corners,
-                                                            th_centersx,
-                                                            th_centersy,
-                                                            axis=-1)))
-                            * 1.01],
-                 xlabel = 'Angle off the projection center (deg)',
-                 ylabel = 'Distorted angle off the projection center',
-                 **kwargs)
-        data_tuples = ()
-        if not return_plot_args:
-            plot = gp.gnuplotlib(**plot_options)
-            plot.plot(*data_tuples)
-            return plot
-        return (data_tuples, plot_options)
-
-
-    if not ( mode == 'heatmap' or mode == 'vectorfield' ):
-        raise Exception("Unknown mode '{}'. I only know about 'heatmap','vectorfield','radial'".format(mode))
-
-
     # shape: (Nheight,Nwidth,2). Contains (x,y) rows
     grid  = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(np.linspace(0,W-1,gridn_width),
                                                              np.linspace(0,H-1,gridn_height))),
@@ -1451,8 +1520,7 @@ plot
                                     axis = -1 ),
                           lensmodel, intrinsics_data )
 
-    if mode == 'heatmap':
-
+    if not vectorfield:
         curveoptions = \
             _options_heatmap_with_contours( # update these plot options
                 kwargs,
@@ -1466,13 +1534,7 @@ plot
         # way
         distortion = nps.mag(delta)
 
-        plot_options = kwargs
         data_tuples = ((distortion, curveoptions), )
-        if not return_plot_args:
-            plot = gp.gnuplotlib(**plot_options)
-            plot.plot(*data_tuples)
-            return plot
-        return (data_tuples, plot_options)
 
     else:
         # vectorfield
@@ -1482,7 +1544,7 @@ plot
         dgrid = nps.clump(dgrid, n=2)
 
         delta = dgrid-grid
-        delta *= scale
+        delta *= vectorscale
 
         kwargs['_xrange']=(-50,W+50)
         kwargs['_yrange']=(H+50, -50)
@@ -1494,7 +1556,6 @@ plot
             else:                            kwargs['_set'].append(kwargs['_set'])
             del kwargs['_set']
 
-        plot_options = kwargs
         data_tuples = \
             ( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
                {'with': 'vectors size screen 0.01,20 fixed filled',
@@ -1505,17 +1566,20 @@ plot
                 'tuplesize': 2,
                }))
 
-        if not return_plot_args:
-            plot = gp.gnuplotlib(**plot_options)
-            plot.plot(*data_tuples)
-            return plot
-        return (data_tuples, plot_options)
+    plot_options = kwargs
+
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot
+    return (data_tuples, plot_options)
 
 
 def show_valid_intrinsics_region(models,
                                  cameranames      = None,
                                  image            = None,
                                  points           = None,
+                                 extratitle       = None,
                                  return_plot_args = False,
                                  **kwargs):
     r'''Visualize a model's valid-intrinsics region
@@ -1561,6 +1625,10 @@ ARGUMENTS
 - points: optional array of shape (N,2) of pixel coordinates to plot. If given,
   we show these arbitrary points in our plot. Useful to visualize the feature
   points used in a vision algorithm to see how reliable they are expected to be
+
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
 
 - return_plot_args: boolean defaulting to False. if return_plot_args: we return
   a (data_tuples, plot_options) tuple instead of making the plot. The plot can
@@ -1635,6 +1703,13 @@ A tuple:
                         _xrange=[0,W],
                         _yrange=[H,0],
                         **kwargs)
+
+    if 'title' not in plot_options:
+        title = 'Valid-intrinsics region'
+        if extratitle is not None:
+            title += ": " + extratitle
+        plot_options['title'] = title
+
     data_tuples = plot_data_args
 
     if not return_plot_args:
@@ -1659,11 +1734,11 @@ SYNOPSIS
 
     model = mrcal.cameramodel(model_filename)
 
-    mrcal.show_splined_model_surface( model, 'x' )
+    mrcal.show_splined_model_surface(model)
 
     ... A plot pops up displaying the spline knots, the spline surface (for the
-    ... "x" coordinate), the spline-in-bounds regions and the valid-intrinsics
-    ... region
+    ... default "x" coordinate), the spline-in-bounds regions and the
+    ... valid-intrinsics region
 
 Splined models are parametried by flexible surfaces that define the projection,
 and visualizing these surfaces is useful for understanding projection behavior
@@ -1744,7 +1819,9 @@ ARGUMENTS
   make it more clear if the unprojectable regions in the model really are a
   problem
 
-- extratitle: optional string to include in the title of the resulting plot
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
 
 - return_plot_args: boolean defaulting to False. if return_plot_args: we return
   a (data_tuples, plot_options) tuple instead of making the plot. The plot can
@@ -1756,7 +1833,7 @@ ARGUMENTS
 
 RETURNED VALUES
 
-if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+If not return_plot_args (the usual path): we return the gnuplotlib plot object.
 The plot disappears when this object is destroyed (by the garbage collection,
 for instance), so save this returned plot object into a variable, even if you're
 not going to be doing anything with this object.
@@ -2094,3 +2171,941 @@ The 'using' string.
     if gridn_height is None:
         gridn_height = int(round(H/W*gridn_width))
     return '($1*{}):($2*{}):3'.format(float(W-1)/(gridn_width-1), float(H-1)/(gridn_height-1))
+
+
+def show_residuals_board_observation(optimization_inputs,
+                                     i_observation,
+                                     from_worst                       = False,
+                                     i_observations_sorted_from_worst = None,
+                                     residuals                        = None,
+                                     paths                            = None,
+                                     circlescale                      = 1.0,
+                                     vectorscale                      = 1.0,
+                                     showimage                        = True,
+                                     extratitle                       = None,
+                                     return_plot_args                 = False,
+                                     **kwargs):
+    r'''Visualize calibration residuals for a single observation
+
+SYNOPSIS
+
+    model = mrcal.cameramodel(model_filename)
+
+    mrcal.show_residuals_board_observation( model.optimization_inputs(),
+                                            0,
+                                            from_worst = True )
+
+    ... A plot pops up showing the worst-fitting chessboard observation from
+    ... the calibration run that produced the model in model_filename
+
+Given a calibration solve, visualizes the fit for a single observation. Plots
+the chessboard image overlaid with its residuals. Each residual is plotted as a
+circle and a vector. The circles are color-coded by the residual error. The size
+of the circle indicates the weight. Bigger means higher weight. The vector shows
+the weighted residual. Outliers are omitted.
+
+ARGUMENTS
+
+- optimization_inputs: the optimization inputs dict passed into and returned
+  from mrcal.optimize(). This describes the solved optimization problem that
+  we're visualizing
+
+- i_observation: integer that selects the chessboard observation. If not
+  from_worst (the default), this indexes sequential observations, in the order
+  in which they appear in the optimization problem. If from_worst: the
+  observations are indexed in order from the worst-fitting to the best-fitting:
+  i_observation=0 refers to the worst-fitting observation. This is very useful
+  to investigate issues in the calibration
+
+- from_worst: optional boolean, defaulting to False. If not from_worst (the
+  default), i_observation indexes sequential observations, in the order in which
+  they appear in the optimization problem. If from_worst: the observations are
+  indexed in order from the worst-fitting to the best-fitting: i_observation=0
+  refers to the worst-fitting observation. This is very useful to investigate
+  issues in the calibration
+
+- i_observations_sorted_from_worst: optional iterable of integers used to
+  convert sorted-from-worst observation indices to as-specified observation
+  indices. If omitted or None, this will be recomputed. To use a cached value,
+  pass in a precomputed value. See the sources for an example of how to compute
+  it
+
+- residuals: optional numpy array of shape (Nmeasurements,) containing the
+  optimization residuals. If omitted or None, this will be recomputed. To use a
+  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+  mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- paths: optional iterable of strings, containing image filenames corresponding
+  to each observation. If omitted or None or if the image doesn't exist, the
+  residuals will be plotted without the source image beneath.
+
+- circlescale: optional scale factor to adjust the size of the plotted circles.
+  If omitted, a unit scale (1.0) is used. This exists to improve the legibility
+  of the generated plot
+
+- vectorscale: optional scale factor to adjust the length of the plotted
+  vectors. If omitted, a unit scale (1.0) is used: this results in the vectors
+  representing pixel errors directly. This exists to improve the legibility of
+  the generated plot
+
+- showimage: optional boolean, defaulting to True. If False, we do NOT plot the
+  image beneath the residuals.
+
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
+
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUES
+
+if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+The plot disappears when this object is destroyed (by the garbage collection,
+for instance), so save this returned plot object into a variable, even if you're
+not going to be doing anything with this object.
+
+If return_plot_args: we return a (data_tuples, plot_options) tuple instead of
+making the plot. The plot can then be made with gp.plot(*data_tuples,
+**plot_options). Useful if we want to include this as a part of a more complex
+plot
+
+    '''
+
+    import gnuplotlib as gp
+
+    if residuals is None:
+        # Flattened residuals. The board measurements are at the start of the
+        # array
+        residuals = \
+            mrcal.optimizer_callback(**optimization_inputs,
+                                     no_jacobian      = True,
+                                     no_factorization = True)[1]
+
+    # shape (Nobservations, object_height_n, object_width_n, 3)
+    observations = optimization_inputs['observations_board']
+    residuals_shape = observations.shape[:-1] + (2,)
+
+    # shape (Nobservations, object_height_n, object_width_n, 2)
+    residuals = residuals[:np.product(residuals_shape)].reshape(*residuals_shape)
+
+    if from_worst:
+        if i_observations_sorted_from_worst is None:
+            # shape (Nobservations,)
+            err_per_observation = nps.norm2(nps.clump(residuals, n=-3))
+            i_observations_sorted_from_worst = \
+                list(reversed(np.argsort(err_per_observation)))
+
+        i_observation = i_observations_sorted_from_worst[i_observation]
+
+    # shape (Nh*Nw,2)
+    residuals = nps.clump(residuals   [i_observation         ], n=2)
+    # shape (Nh*Nw,2)
+    obs       = nps.clump(observations[i_observation, ..., :2], n=2)
+    # shape (Nh*Nw)
+    weight    = nps.clump(observations[i_observation, ...,  2], n=2)
+
+    # take non-outliers
+    i_inliers = weight > 0.
+    residuals = residuals[i_inliers] # shape (Ninliers,2)
+    weight    = weight   [i_inliers] # shape (Ninliers,)
+    obs       = obs      [i_inliers] # shape (Ninliers,2)
+
+    plot_options = dict(kwargs)
+
+    if 'title' not in plot_options:
+        title = \
+            '{}: i_observation={}, iframe={}, icam={}, {}RMS_error={:.2f}'. \
+            format( optimization_inputs['lensmodel'],
+                    i_observation,
+                    *optimization_inputs['indices_frame_camintrinsics_camextrinsics'][i_observation, :2],
+                    "" if paths is None else f"path={paths[i_observation]}, ",
+                    np.sqrt(np.mean(nps.norm2(residuals))))
+        if extratitle is not None:
+            title += ": " + extratitle
+        plot_options['title'] = title
+
+
+    gp.add_plot_option(plot_options,
+                       square = True,
+                       cbmin  = 0,
+
+                       overwrite = False)
+
+    if paths is not None and showimage and os.path.isfile(paths[i_observation]):
+        # only plot an image overlay if the image exists
+        gp.add_plot_option(plot_options,
+                           rgbimage = paths[i_observation],
+                           overwrite = True)
+        gp.add_plot_option(plot_options,
+                           'set',
+                           'autoscale noextend')
+    else:
+        icam = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][i_observation, 1]
+        W,H=optimization_inputs['imagersizes'][icam]
+        gp.add_plot_option(plot_options,
+                           xrange = [0,W-1],
+                           yrange = [H-1,0],
+                           overwrite = False)
+
+
+    gp.add_plot_option(plot_options, 'unset', 'key')
+
+    data_tuples = \
+        (
+            # Points. Color indicates error. Size indicates level. Bigger =
+            # more confident = higher weight
+            (obs[:,0], obs[:,1],
+             3. * weight * circlescale, # size
+             nps.mag(residuals),        # color
+             dict(_with     = 'points pt 7 ps variable palette',
+                  tuplesize = 4)),
+
+            # Vectors. From observation to prediction. Scaled by the weight.
+            # Vector points AT the prediction only if weight = 1
+            (obs[:,0],
+             obs[:,1],
+             vectorscale*residuals[:,0],
+             vectorscale*residuals[:,1],
+             dict(_with     = 'vectors size screen 0.01,20 fixed filled lw 2',
+                  tuplesize = 4)) )
+
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot
+    return (data_tuples, plot_options)
+
+
+def show_residuals_histogram(optimization_inputs,
+                             i_cam            = None,
+                             binwidth         = 0.02,
+                             residuals        = None,
+                             extratitle       = None,
+                             return_plot_args = False,
+                             **kwargs):
+
+    r'''Visualize the distribution of the optimized residuals
+
+SYNOPSIS
+
+    model = mrcal.cameramodel(model_filename)
+
+    mrcal.show_residuals_histogram( model.optimization_inputs() )
+
+    ... A plot pops up showing the empirical distribution of fit errors
+    ... in this solve. For ALL the cameras and ALL the observations
+
+Given a calibration solve, visualizes the distribution of errors at the optimal
+solution. We display a histogram of residuals and overlay it with an idealized
+gaussian distribution. If the optimization was successful, and if
+observed_pixel_uncertainty represented the input errors faithfully AND there was
+no overfitting, the two would line up. All of these rarely occur together, and
+usually the predicted distribution is significantly less certain than the
+observed distribution: there's usually a strong overfitting effect.
+
+ARGUMENTS
+
+- optimization_inputs: the optimization inputs dict passed into and returned
+  from mrcal.optimize(). This describes the solved optimization problem that
+  we're visualizing
+
+- i_cam: optional integer to select the camera whose residuals we're visualizing
+  If omitted or None, we display the residuals for ALL the cameras together.
+
+- binwidth: optional floating-point value selecting the width of each bin in the
+  computed histogram. A default of 0.02 pixels is used if this value is omitted.
+
+- residuals: optional numpy array of shape (Nmeasurements,) containing the
+  optimization residuals. If omitted or None, this will be recomputed. To use a
+  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+  mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
+
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUES
+
+if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+The plot disappears when this object is destroyed (by the garbage collection,
+for instance), so save this returned plot object into a variable, even if you're
+not going to be doing anything with this object.
+
+If return_plot_args: we return a (data_tuples, plot_options) tuple instead of
+making the plot. The plot can then be made with gp.plot(*data_tuples,
+**plot_options). Useful if we want to include this as a part of a more complex
+plot
+
+    '''
+
+    import gnuplotlib as gp
+
+
+    if residuals is None:
+        # Flattened residuals. The board measurements are at the start of the
+        # array
+        residuals = \
+            mrcal.optimizer_callback(**optimization_inputs,
+                                     no_jacobian      = True,
+                                     no_factorization = True)[1]
+
+    # shape (Nobservations, object_height_n, object_width_n, 3)
+    observations = optimization_inputs['observations_board']
+    residuals_shape = observations.shape[:-1] + (2,)
+
+    # shape (Nobservations, object_height_n, object_width_n, 2)
+    residuals = residuals[:np.product(residuals_shape)].reshape(*residuals_shape)
+
+    # shape (Nobservations, object_height_n, object_width_n, 3)
+    indices_frame_camera = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][...,:2]
+
+    # shape (Nobservations, object_height_n, object_width_n)
+    idx = np.ones( observations.shape[:-1], dtype=bool)
+
+    if i_cam is None:
+        what = 'all the cameras'
+    else:
+        what = f"camera {i_cam}"
+        # select residuals from THIS camera
+        idx[indices_frame_camera[:,1] != i_cam, ...] = False
+
+    # select non-outliers
+    idx[ observations[...,2] <= 0.0 ] = False
+
+    # shape (N,2)
+    err = residuals   [idx, ...]
+
+    x = err.ravel()
+
+    sigma_expected = optimization_inputs['observed_pixel_uncertainty']
+    sigma_observed = np.std(x)
+    from scipy.special import erf
+
+    def make_gaussian(sigma, N, binwidth, title):
+        # I want to plot a PDF of a normal distribution together with the
+        # histogram to get a visual comparison. This requires a scaling on
+        # either the PDF or the histogram. I plot a scaled pdf:
+        #
+        #   f = k*pdf = k * exp(-x^2 / (2 s^2)) / sqrt(2*pi*s^2)
+        #
+        # I match up the size of the central bin of the histogram (-binwidth/2,
+        # binwidth/2):
+        #
+        #   bin(0) ~ k*pdf(0) ~ pdf(0) * N * binwidth
+        #
+        # So k = N*binwdith should work. I can do this more precisely:
+        #
+        #   bin(0) ~ k*pdf(0) ~
+        #     = N * integral( pdf(x) dx,                                -binwidth/2, binwidth/2)
+        #     = N * integral( exp(-x^2 / (2 s^2)) / sqrt( 2*pi*s^2) dx, -binwidth/2, binwidth/2)
+        # ->k = N * integral( exp(-x^2 / (2 s^2)) / sqrt( 2*pi*s^2) dx, -binwidth/2, binwidth/2) / pdf(0)
+        #     = N * integral( exp(-x^2 / (2 s^2)) dx,                   -binwidth/2, binwidth/2)
+        #     = N * integral( exp(-(x/(sqrt(2) s))^2) dx )
+        #
+        # Let u  = x/(sqrt(2) s)
+        #     du = dx/(sqrt(2) s)
+        #     u(x = binwidth/2) = binwidth/(s 2sqrt(2)) ->
+        #
+        #   k = N * sqrt(2) s * integral( exp(-u^2) du )
+        #     = N*sqrt(2pi) s * erf(binwidth / (s 2*sqrt(2)))
+        #
+        # for low x erf(x) ~ 2x/sqrt(pi). So if binwidth << sigma
+        # k = N*sqrt(2pi) s * erf(binwidth / (s 2*sqrt(2)))
+        #   ~ N*sqrt(2pi) s * (binwidth/(s 2*sqrt(2))) *2 / sqrt(pi)
+        #   ~ N binwidth
+        return \
+            '{k}*exp(-(x-{mean})*(x-{mean})/(2.*{var})) / sqrt(2.*pi*{var}) title "{title}" with lines lw 2'. \
+            format(mean= 0,
+                   var = sigma*sigma,
+                   title = title,
+                   k   = N * np.sqrt(2.*np.pi) * sigma * erf(binwidth/(2.*np.sqrt(2)*sigma)))
+
+    equations = [make_gaussian(sigma, len(x), binwidth, title) for sigma,title in \
+                 ( (sigma_expected, 'Normal distribution of residuals with expected stdev: {:.02f} pixels'.format(sigma_expected)),
+                   (sigma_observed, 'Normal distribution of residuals with observed stdev: {:.02f} pixels'.format(sigma_observed)))]
+
+    plot_options = dict(kwargs)
+
+    if 'title' not in plot_options:
+        title = f'Observed and expected distribution of fitted residuals for {what}'
+        if extratitle is not None:
+            title += ": " + extratitle
+        plot_options['title'] = title
+
+    gp.add_plot_option(plot_options,
+                       equation_above = equations,
+                       overwrite = True)
+    gp.add_plot_option(plot_options,
+                       xlabel = 'Residuals (pixels). x and y components of error are counted separately',
+                       ylabel = 'Observed frequency',
+                       overwrite = False)
+    data_tuples = [ (x, dict(histogram = True,
+                             binwidth  = binwidth)) ]
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot
+    return (data_tuples, plot_options)
+
+
+def _get_show_residuals_data_onecam(model,
+                                    # shape (Nobservations,object_height_n,object_width_n,2)
+                                    residuals,
+                                    valid_intrinsics_region):
+    r'''Return the data used by the various show_residuals_...() functions
+
+    icam is the camera in question, or None for ALL the cameras'''
+
+    optimization_inputs = model.optimization_inputs()
+    icam                = model.icam_intrinsics()
+
+    if residuals is None:
+        # Flattened residuals. The board measurements are at the start of the
+        # array
+        residuals = \
+            mrcal.optimizer_callback(**optimization_inputs,
+                                     no_jacobian      = True,
+                                     no_factorization = True)[1]
+
+    # shape (Nobservations, object_height_n, object_width_n, 3)
+    observations = optimization_inputs['observations_board']
+    residuals_shape = observations.shape[:-1] + (2,)
+
+    # shape (Nobservations, object_height_n, object_width_n, 2)
+    residuals = residuals[:np.product(residuals_shape)].reshape(*residuals_shape)
+
+    indices_frame_camera = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][...,:2]
+
+    # shape (Nobservations, object_height_n, object_width_n)
+    idx = np.ones( observations.shape[:-1], dtype=bool)
+
+    # select residuals from THIS camera
+    idx[indices_frame_camera[:,1] != icam, ...] = False
+    # select non-outliers
+    idx[ observations[...,2] <= 0.0 ] = False
+
+    # shape (N,2)
+    err = residuals   [idx, ...    ]
+    obs = observations[idx, ..., :2]
+
+    if valid_intrinsics_region and icam is not None:
+        legend = "Valid-intrinsics region"
+        valid_region = model.valid_intrinsics_region()
+
+        if valid_region.size == 0:
+            valid_region = np.zeros((1,2))
+            legend += ": empty"
+
+        valid_intrinsics_region_plotarg_3d = \
+            (valid_region[:,0],
+             valid_region[:,1],
+             np.zeros(valid_region.shape[-2]),
+             dict(_with  = 'lines lw 3',
+                  legend = legend))
+        valid_intrinsics_region_plotarg_2d = \
+            (valid_region[:,0],
+             valid_region[:,1],
+             dict(_with  = 'lines lw 3',
+                  legend = legend))
+    else:
+        valid_intrinsics_region_plotarg_2d = None
+        valid_intrinsics_region_plotarg_3d = None
+
+    return                                  \
+        err,                                \
+        obs,                                \
+        valid_intrinsics_region_plotarg_2d, \
+        valid_intrinsics_region_plotarg_3d
+
+
+def show_residuals_vectorfield(model,
+                               residuals               = None,
+                               vectorscale             = 1.0,
+                               valid_intrinsics_region = True,
+                               extratitle              = None,
+                               return_plot_args        = False,
+                               **kwargs):
+
+    r'''Visualize the optimized residuals as a vector field
+
+SYNOPSIS
+
+    model = mrcal.cameramodel(model_filename)
+
+    mrcal.show_residuals_vectorfield( model )
+
+    ... A plot pops up showing each observation from this camera used to
+    ... compute this calibration as a vector field. Each vector shows the
+    ... observed and predicted location of each chessboard corner
+
+Given a calibration solve, visualizes the errors at the optimal solution as a
+vector field. Each vector runs from the observed chessboard corner to its
+prediction at the optimal solution.
+
+ARGUMENTS
+
+- model: the mrcal.cameramodel object representing the camera model we're
+  investigating. This cameramodel MUST contain the optimization_inputs data
+
+- residuals: optional numpy array of shape (Nmeasurements,) containing the
+  optimization residuals. If omitted or None, this will be recomputed. To use a
+  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+  mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- vectorscale: optional scale factor to adjust the length of the plotted
+  vectors. If omitted, a unit scale (1.0) is used. Any other scale factor makes
+  the tip of each vector run past (or short) of the predicted corner position.
+  This exists to improve the legibility of the generated plot
+
+- valid_intrinsics_region: optional boolean, defaulting to True. If
+  valid_intrinsics_region: the valid-intrinsics region present in the model is
+  shown in the plot. This is usually interesting to compare to the set of
+  observations plotted by the rest of this function
+
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
+
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUES
+
+if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+The plot disappears when this object is destroyed (by the garbage collection,
+for instance), so save this returned plot object into a variable, even if you're
+not going to be doing anything with this object.
+
+If return_plot_args: we return a (data_tuples, plot_options) tuple instead of
+making the plot. The plot can then be made with gp.plot(*data_tuples,
+**plot_options). Useful if we want to include this as a part of a more complex
+plot
+
+    '''
+
+    import gnuplotlib as gp
+
+    err,obs, \
+    valid_intrinsics_region_plotarg_2d, \
+    valid_intrinsics_region_plotarg_3d = \
+        _get_show_residuals_data_onecam(model, residuals, valid_intrinsics_region)
+
+    W,H = model.imagersize()
+    plot_options = dict(kwargs)
+
+    if 'title' not in plot_options:
+        title   = 'Fitted residuals. Errors shown as vectors and colors'
+        if extratitle is not None:
+            title += ": " + extratitle
+        plot_options['title'] = title
+
+    gp.add_plot_option(plot_options,
+
+                       square   = True,
+                       _xrange = [0,W], yrange=[H,0],
+                       xlabel  = 'Imager x',
+                       ylabel  = 'Imager y',
+
+                       overwrite = False)
+
+    data_tuples = [(obs[:,0], obs[:,1],
+                    vectorscale*err[:,0], vectorscale*err[:,1],
+                    np.sqrt(nps.norm2(err)),
+                    dict(_with='vectors size screen 0.01,20 fixed filled palette',
+                         tuplesize=5))]
+    if valid_intrinsics_region_plotarg_2d is not None:
+        data_tuples.append(valid_intrinsics_region_plotarg_2d)
+
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot
+    return (data_tuples, plot_options)
+
+
+def show_residuals_magnitudes(model,
+                              residuals               = None,
+                              valid_intrinsics_region = True,
+                              extratitle              = None,
+                              return_plot_args        = False,
+                              **kwargs):
+
+    r'''Visualize the optimized residual magnitudes as color-coded points
+
+SYNOPSIS
+
+    model = mrcal.cameramodel(model_filename)
+
+    mrcal.show_residuals_magnitudes( model )
+
+    ... A plot pops up showing each observation from this camera used to
+    ... compute this calibration. Each displayed point represents an
+    ... observation and its fit error coded as a color
+
+Given a calibration solve, visualizes the errors at the optimal solution. Each
+point sits at the observed chessboard corner, with its color representing how
+well the solved model fits the observation
+
+ARGUMENTS
+
+- model: the mrcal.cameramodel object representing the camera model we're
+  investigating. This cameramodel MUST contain the optimization_inputs data
+
+- residuals: optional numpy array of shape (Nmeasurements,) containing the
+  optimization residuals. If omitted or None, this will be recomputed. To use a
+  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+  mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- valid_intrinsics_region: optional boolean, defaulting to True. If
+  valid_intrinsics_region: the valid-intrinsics region present in the model is
+  shown in the plot. This is usually interesting to compare to the set of
+  observations plotted by the rest of this function
+
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
+
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUES
+
+if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+The plot disappears when this object is destroyed (by the garbage collection,
+for instance), so save this returned plot object into a variable, even if you're
+not going to be doing anything with this object.
+
+If return_plot_args: we return a (data_tuples, plot_options) tuple instead of
+making the plot. The plot can then be made with gp.plot(*data_tuples,
+**plot_options). Useful if we want to include this as a part of a more complex
+plot
+
+    '''
+
+    import gnuplotlib as gp
+
+    err,obs, \
+    valid_intrinsics_region_plotarg_2d, \
+    valid_intrinsics_region_plotarg_3d = \
+        _get_show_residuals_data_onecam(model, residuals, valid_intrinsics_region)
+
+    W,H = model.imagersize()
+    plot_options = dict(kwargs)
+
+    if 'title' not in plot_options:
+        title   = 'Fitted residuals. Errors shown as colors'
+        if extratitle is not None:
+            title += ": " + extratitle
+        plot_options['title'] = title
+
+    gp.add_plot_option(plot_options,
+
+                       square   = True,
+                       _xrange = [0,W], yrange=[H,0],
+                       xlabel  = 'Imager x',
+                       ylabel  = 'Imager y',
+
+                       overwrite = False)
+
+    data_tuples = [( obs[:,0], obs[:,1], np.sqrt(nps.norm2(err)),
+                     dict(_with='points pt 7 palette',
+                          tuplesize=3))]
+    if valid_intrinsics_region_plotarg_2d is not None:
+        data_tuples.append(valid_intrinsics_region_plotarg_2d)
+
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot
+    return (data_tuples, plot_options)
+
+
+def show_residuals_directions(model,
+                              residuals               = None,
+                              valid_intrinsics_region = True,
+                              extratitle              = None,
+                              return_plot_args        = False,
+                              **kwargs):
+
+    r'''Visualize the optimized residual directions as color-coded points
+
+SYNOPSIS
+
+    model = mrcal.cameramodel(model_filename)
+
+    mrcal.show_residuals_directions( model )
+
+    ... A plot pops up showing each observation from this camera used to
+    ... compute this calibration. Each displayed point represents an
+    ... observation and the direction of its fit error coded as a color
+
+Given a calibration solve, visualizes the errors at the optimal solution. Each
+point sits at the observed chessboard corner, with its color representing the
+direction of the fit error. Magnitudes are ignored: large errors and small
+errors are displayed identically as long as they're off in the same direction.
+This is very useful to detect systematic errors in a solve due to an
+insufficiently-flexible camera model.
+
+ARGUMENTS
+
+- model: the mrcal.cameramodel object representing the camera model we're
+  investigating. This cameramodel MUST contain the optimization_inputs data
+
+- residuals: optional numpy array of shape (Nmeasurements,) containing the
+  optimization residuals. If omitted or None, this will be recomputed. To use a
+  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+  mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- valid_intrinsics_region: optional boolean, defaulting to True. If
+  valid_intrinsics_region: the valid-intrinsics region present in the model is
+  shown in the plot. This is usually interesting to compare to the set of
+  observations plotted by the rest of this function
+
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
+
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUES
+
+if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+The plot disappears when this object is destroyed (by the garbage collection,
+for instance), so save this returned plot object into a variable, even if you're
+not going to be doing anything with this object.
+
+If return_plot_args: we return a (data_tuples, plot_options) tuple instead of
+making the plot. The plot can then be made with gp.plot(*data_tuples,
+**plot_options). Useful if we want to include this as a part of a more complex
+plot
+
+    '''
+
+    r'''Visualize the optimized residuals as color-coded directions
+
+    We plot each observed point, but instead of showing an error vector, we show
+    the color-coded direction of the error. The error magnitude is ignored. This
+    is useful to see systematic patterns in the error surface
+
+    icam is the camera in question. First camera by default
+
+    '''
+
+    import gnuplotlib as gp
+
+    err,obs, \
+    valid_intrinsics_region_plotarg_2d, \
+    valid_intrinsics_region_plotarg_3d = \
+        _get_show_residuals_data_onecam(model, residuals, valid_intrinsics_region)
+
+    W,H = model.imagersize()
+    plot_options = dict(kwargs)
+
+    if 'title' not in plot_options:
+        title   = 'Fitted residuals. Directions shown as colors. Magnitudes ignored'
+        if extratitle is not None:
+            title += ": " + extratitle
+        plot_options['title'] = title
+
+    # Use an maximum-saturation, maximum-value HSV
+    # palette where the hue encodes the error direction.
+    # The direction is periodic, as is the hue
+    gp.add_plot_option(plot_options,
+                       'set',
+                       'palette defined ( 0 "#00ffff", 0.5 "#80ffff", 1 "#ffffff") model HSV')
+
+    gp.add_plot_option(plot_options,
+
+                       square   = True,
+                       _xrange = [0,W], yrange=[H,0],
+                       xlabel  = 'Imager x',
+                       ylabel  = 'Imager y',
+                       cbrange = [-180., 180.],
+
+                       overwrite = False)
+
+    data_tuples = [( obs[:,0], obs[:,1], 180./np.pi * np.arctan2(err[...,1], err[...,0]),
+                     dict(_with='points pt 7 palette',
+                          tuplesize=3))]
+    if valid_intrinsics_region_plotarg_2d is not None:
+        data_tuples.append(valid_intrinsics_region_plotarg_2d)
+
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot
+    return (data_tuples, plot_options)
+
+
+def show_residuals_regional(model,
+                            gridn_width             = 20,
+                            gridn_height            = None,
+                            residuals               = None,
+                            valid_intrinsics_region = True,
+                            extratitle              = None,
+                            return_plot_args        = False,
+                            **kwargs):
+
+    r'''Visualize the optimized residuals, broken up by region
+
+SYNOPSIS
+
+    model = mrcal.cameramodel(model_filename)
+
+    mrcal.show_residuals_regional( model )
+
+    ... Three plots pop up, showing the mean, standard deviation and the count
+    ... of residuals in each region in the imager
+
+This serves as a simple method of estimating calibration reliability, without
+computing the projection uncertainty.
+
+The imager of a camera is subdivided into regions (controlled by the
+gridn_width, gridn_height arguments). The residual statistics are then computed
+for each bin separately. We can then clearly see areas of insufficient data
+(observation counts will be low). And we can clearly see lens-model-induced
+biases (non-zero mean) and we can see heteroscedasticity (uneven standard
+deviation). The mrcal-calibrate-cameras tool uses these metrics to construct a
+valid-intrinsics region for the models it computes. This serves as a quick/dirty
+method of modeling projection reliability, which can be used even if projection
+uncertainty cannot be computed.
+
+ARGUMENTS
+
+- model: the mrcal.cameramodel object representing the camera model we're
+  investigating. This cameramodel MUST contain the optimization_inputs data
+
+- gridn_width: optional value, defaulting to 20. How many bins along the
+  horizontal gridding dimension
+
+- gridn_height: how many bins along the vertical gridding dimension. If None, we
+  compute an integer gridn_height to maintain a square-ish grid:
+  gridn_height/gridn_width ~ imager_height/imager_width
+
+- residuals: optional numpy array of shape (Nmeasurements,) containing the
+  optimization residuals. If omitted or None, this will be recomputed. To use a
+  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+  mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- valid_intrinsics_region: optional boolean, defaulting to True. If
+  valid_intrinsics_region: the valid-intrinsics region present in the model is
+  shown in the plot. This is usually interesting to compare to the set of
+  observations plotted by the rest of this function
+
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
+
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUES
+
+if not return_plot_args (the usual path): we return the gnuplotlib plot object.
+The plot disappears when this object is destroyed (by the garbage collection,
+for instance), so save this returned plot object into a variable, even if you're
+not going to be doing anything with this object.
+
+If return_plot_args: we return a (data_tuples, plot_options) tuple instead of
+making the plot. The plot can then be made with gp.plot(*data_tuples,
+**plot_options). Useful if we want to include this as a part of a more complex
+plot
+
+    '''
+
+    import gnuplotlib as gp
+
+    err,obs, \
+    valid_intrinsics_region_plotarg_2d, \
+    valid_intrinsics_region_plotarg_3d = \
+        _get_show_residuals_data_onecam(model, residuals, valid_intrinsics_region)
+
+    # Each has shape (Nheight,Nwidth)
+    mean,stdev,count,using = \
+        mrcal.calibration._report_regional_statistics(model)
+    def mkplot(x, title, **plot_options):
+        plot_options.update(kwargs)
+        if 'hardcopy' in plot_options:
+            # hardcopy "/a/b/c/d.pdf" -> "/a/b/c/d.stdev.pdf" where "stdev" is
+            # the "what" without special characters
+            what = re.sub('[^a-zA-Z0-9_-]+', '_', title)
+            plot_options['hardcopy'] = re.sub(r'(\.[^\.]+$)', '.' + what + r'\1', plot_options['hardcopy'])
+
+        if 'title' not in plot_options:
+            if extratitle is not None:
+                title += ": " + extratitle
+            plot_options['title'] = title
+
+        gp.add_plot_option(plot_options,
+                           'set',
+                           ('xrange [:] noextend',
+                            'yrange [:] noextend reverse',
+                            'view equal xy',
+                            'view map'))
+        gp.add_plot_option(plot_options,
+                           'unset',
+                           'grid')
+
+        gp.add_plot_option(plot_options,
+                           _3d   = True,
+                           ascii = True,
+                           overwrite = True)
+
+        W,H = model.imagersize()
+        gp.add_plot_option(plot_options,
+                           _xrange = [0,W],
+                           _yrange = [H,0],
+                           overwrite = False)
+
+        data_tuples = [( x,
+                         dict(tuplesize=3,
+                              _with='image',
+                              using=using))]
+        if valid_intrinsics_region_plotarg_3d is not None:
+            data_tuples.append(valid_intrinsics_region_plotarg_3d)
+
+        if not return_plot_args:
+            plot = gp.gnuplotlib(**plot_options)
+            plot.plot(*data_tuples)
+            return plot
+        return (data_tuples, plot_options)
+
+    return \
+        [ mkplot(np.abs(mean), 'abs(mean)'),
+          mkplot(stdev,        'stdev'),
+          mkplot(count,        'count', cbrange = (0, 20)) ]

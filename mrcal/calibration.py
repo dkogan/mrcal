@@ -1375,3 +1375,258 @@ We return a tuple:
         nps.atleast_dims(mrcal.rt_from_Rt(extrinsics_Rt_fromref), -2), \
         frames_rt_toref
 
+
+def _compute_valid_intrinsics_region(model,
+                                     threshold_uncertainty,
+                                     threshold_mean,
+                                     threshold_stdev,
+                                     threshold_count,
+                                     distance,
+                                     gridn_width  = 30,
+                                     gridn_height = None):
+    r'''Returns the valid-intrinsics region for the camera in the model
+
+Internal function use by the mrcal-calibrate-cameras utility.
+
+The model is expected to contain the optimization_inputs, which are used for all
+the work. The thresholds come from the --valid-intrinsics-region-parameters
+argument to mrcal-calibrate-cameras
+
+This is a closed contour, in an (N,2) numpy array. None means "no
+valid-intrinsics region computed". An empty array of shape (0,2) means "the
+region was computed and it is empty"
+
+The imager of a camera is subdivided into regions (controlled by the
+gridn_width, gridn_height arguments). The residual statistics are then computed
+for each bin separately. We can then clearly see areas of insufficient data
+(observation counts will be low). And we can clearly see lens-model-induced
+biases (non-zero mean) and we can see heteroscedasticity (uneven standard
+deviation). The mrcal-calibrate-cameras tool uses these metrics to construct a
+valid-intrinsics region for the models it computes. This serves as a quick/dirty
+method of modeling projection reliability, which can be used even if projection
+uncertainty cannot be computed.
+
+    '''
+
+    W,H = model.imagersize()
+    if gridn_height is None:
+        gridn_height = int(round(H/W*gridn_width))
+
+    # Each has shape (Nheight,Nwidth)
+    mean,stdev,count,using = \
+        _report_regional_statistics(model,
+                                    gridn_width  = gridn_width,
+                                    gridn_height = gridn_height)
+
+    q    = mrcal.sample_imager( gridn_width, gridn_height, *model.imagersize() )
+    vcam = mrcal.unproject(q, *model.intrinsics(),
+                           normalize = True)
+
+    if distance <= 0:
+        atinfinity = True
+        pcam       = vcam
+    else:
+        atinfinity = False
+        pcam = vcam * distance
+
+    uncertainty = mrcal.projection_uncertainty(pcam,
+                                               model      = model,
+                                               atinfinity = atinfinity,
+                                               what       = 'worstdirection-stdev' )
+
+    # Uncertainty of nan or inf is invalid, so I mark it as very high. This
+    # serves to silence a warning in the next statement where we're comparing
+    # something with nan
+    uncertainty.ravel() [~np.isfinite(uncertainty.ravel())] = 1e9
+
+    # shape (Nheight,Nwidth).
+    mask = \
+        (uncertainty < threshold_uncertainty)
+
+    if not re.match('LENSMODEL_SPLINED_', model.intrinsics()[0]):
+        mask *= \
+            (mean        < threshold_mean) * \
+            (stdev       < threshold_stdev) * \
+            (count       > threshold_count)
+
+    # I compute the contour. OpenCV can't process binary images, so I need
+    # to convert to a different image type first. AND findContours() reports
+    # the coordinates in the opposite order as how they're given (image is
+    # given as y,x; returned coords are x,y). This is what I want, but feels
+    # conterintuitive
+
+    # This is a hoaky mess. I ignore all the topological corner cases, and just
+    # grab the contour with the biggest area
+    contours = \
+        cv2.findContours(mask.astype(np.uint8),
+                         cv2.RETR_EXTERNAL,
+                         cv2.CHAIN_APPROX_SIMPLE)[-2]
+
+    areas = np.array([ cv2.contourArea(c) for c in contours ])
+    if areas.size == 0:
+        return np.zeros((0,2)) # empty valid-intrinsics region
+
+    contour = contours[np.argmax(areas)][:,0,:].astype(float)
+
+    contour = mrcal.close_contour(contour)
+    if contour.ndim != 2 or contour.shape[0] < 4:
+        # I have a closed contour, so the only way for it to not be
+        # degenerate is to include at least 4 points
+        return np.zeros((0,2)) # empty valid-intrinsics region
+
+    # I convert the contours back to the full-res image coordinate. The grid
+    # mapping is based on the corner pixels
+    W,H = model.imagersize()
+    contour[:,0] *= float(W-1)/(gridn_width -1)
+    contour[:,1] *= float(H-1)/(gridn_height-1)
+
+    return contour.round().astype(np.int32)
+
+
+def _report_regional_statistics( model,
+                                 gridn_width  = 20,
+                                 gridn_height = None):
+
+    r'''Reports fit statistics for regions across the imager
+
+SYNOPSIS
+
+    mean, stdev, count, using = \
+        mrcal._report_regional_statistics(model,
+                                          gridn_width = 30)
+
+    import gnuplotlib as gp
+    W,H = imagersize
+    gp.plot( np.abs(mean),
+             tuplesize = 3,
+             _with     = 'image',
+             ascii     = True,
+             square    = True,
+             using     = using)
+
+This is an internal function used by mrcal._compute_valid_intrinsics_region()
+and mrcal.show_residuals_regional(). The mrcal solver optimizes reprojection
+errors for ALL the observations in ALL cameras at the same time. It is useful to
+evaluate the optimal solution by examining reprojection errors in subregions of
+the imager, which is accomplished by this function. All the observations and
+reprojection errors and subregion gridding are given. The mean and standard
+derivation of the reprojection errors and a point count are returned for each
+subregion cell. A "using" expression for plotting is reported as well.
+
+After a problem-free solve, the error distributions in each area of the imager
+should be similar, and should match the error distribution of the pixel
+observations. If the lens model doesn't fit the data, the statistics will not be
+consistent across the region: the residuals would be heteroscedastic.
+
+The imager of a camera is subdivided into regions (controlled by the
+gridn_width, gridn_height arguments). The residual statistics are then computed
+for each bin separately. We can then clearly see areas of insufficient data
+(observation counts will be low). And we can clearly see lens-model-induced
+biases (non-zero mean) and we can see heteroscedasticity (uneven standard
+deviation). The mrcal-calibrate-cameras tool uses these metrics to construct a
+valid-intrinsics region for the models it computes. This serves as a quick/dirty
+method of modeling projection reliability, which can be used even if projection
+uncertainty cannot be computed.
+
+ARGUMENTS
+
+- model: the model of the camera we're looking at. This model must contain the
+  optimization_inputs.
+
+- gridn_width: how many points along the horizontal gridding dimension
+
+- gridn_height: how many points along the vertical gridding dimension. If None,
+  we compute an integer gridn_height to maintain a square-ish grid:
+  gridn_height/gridn_width ~ imager_height/imager_width
+
+RETURNED VALUES
+
+This function returns a tuple
+
+- mean: an array of shape (gridn_height,gridn_width). Contains the mean of
+  the residuals in the corresponding cell
+
+- stdev: an array of shape (gridn_height,gridn_width). Contains the standard
+  deviation of the residuals in the corresponding cell
+
+- count: an array of shape (gridn_height,gridn_width). Contains the count of
+  observations in the corresponding cell
+
+- using: is a "using" keyword for plotting the output matrices with gnuplotlib.
+  See the docstring for imagergrid_using() for details
+
+    '''
+
+    W,H=model.imagersize()
+
+    if gridn_height is None:
+        gridn_height = int(round(H/W*gridn_width))
+
+    # shape: (Nheight,Nwidth,2). Contains (x,y) rows
+    q_cell_center = mrcal.sample_imager(gridn_width, gridn_height, W, H)
+
+    wcell = float(W-1) / (gridn_width -1)
+    hcell = float(H-1) / (gridn_height-1)
+    rcell = np.array((wcell,hcell), dtype=float) / 2.
+
+    @nps.broadcast_define( (('N',2), ('N',2), (2,)),
+                           (3,) )
+    def stats(q, err, q_cell_center):
+        r'''Compute the residual statistics in a single cell
+
+        '''
+
+        # boolean (x,y separately) map of observations that are within a cell
+        idx = np.abs(q - q_cell_center) < rcell
+
+        # join x,y: both the x,y must be within a cell for the observation to be
+        # within a cell
+        idx = idx[:,0] * idx[:,1]
+
+        err = err[idx, ...].ravel()
+        if len(err) <= 5:
+            # we have too little data in this cell
+            return np.array((0.,0.,len(err)))
+
+        mean   = np.mean(err)
+        stdev  = np.std(err)
+        return np.array((mean,stdev,len(err)))
+
+
+
+    optimization_inputs = model.optimization_inputs()
+    icam                = model.icam_intrinsics()
+
+    # shape (Nobservations, object_height_n, object_width_n, 3)
+    observations         = optimization_inputs['observations_board']
+    indices_frame_camera = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][...,:2]
+
+    residuals_shape = observations.shape[:-1] + (2,)
+
+    # shape (Nobservations,object_height_n,object_width_n,2)
+    residuals = \
+        mrcal.optimizer_callback(**optimization_inputs,
+                                 no_jacobian      = True,
+                                 no_factorization = True)[1][:np.product(residuals_shape)]. \
+        reshape(*residuals_shape)
+
+    # shape (Nobservations, object_height_n, object_width_n)
+    idx = np.ones( observations.shape[:-1], dtype=bool)
+
+    # select residuals from THIS camera
+    idx[indices_frame_camera[:,1] != icam, ...] = False
+    # select non-outliers
+    idx[ observations[...,2] <= 0.0 ] = False
+
+    # shape (N,2)
+    err = residuals   [idx, ...    ]
+    obs = observations[idx, ..., :2]
+
+    # Each has shape (Nheight,Nwidth)
+    mean,stdev,count = nps.mv( stats(obs, err, q_cell_center),
+                               -1, 0)
+    return     \
+        mean,  \
+        stdev, \
+        count, \
+        mrcal.imagergrid_using(model.imagersize(), gridn_width, gridn_height)

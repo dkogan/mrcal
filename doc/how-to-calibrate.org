@@ -51,8 +51,9 @@ everything remain stationary during image capture, even when only one camera is
 involved.
 
 If synchronization or rolling shutter effects are in doubt, look at the residual
-plot made by =show_residuals_observation_worst()= (a sample and a description
-appear below). These errors clearly show up as distinct patterns in those plots.
+plot made by =show_residuals_board_observation_worst()= (a sample and a
+description appear below). These errors clearly show up as distinct patterns in
+those plots.
 
 ** Dancing
 As shown in the [[file:tour.org::#choreography][dance study]], the most useful observations to gather are
@@ -478,8 +479,8 @@ print( [paths[i] for i in i_observations_sorted_from_worst[:10]] )
 OK. What do the errors in the single-worst image look like?
 
 #+begin_src python
-show_residuals_observation_worst(0, vectorscale = 100, circlescale=0.5)
-# same as show_residuals_observation( i_observations_sorted_from_worst[0], ... )
+show_residuals_board_observation_worst(0, vectorscale = 100, circlescale=0.5)
+# same as show_residuals_board_observation( i_observations_sorted_from_worst[0], ... )
 #+end_src
 
 [[file:external/figures/calibration/worst-opencv8.png]]
@@ -521,8 +522,8 @@ form the optical axis: this is the last point in the common-errors list above.
 We can clearly see this here in the 3rd-worst image:
 
 #+begin_src python
-show_residuals_observation_worst(2, vectorscale = 100, circlescale=0.5,
-                                 cbmax = 5.0)
+show_residuals_board_observation_worst(2, vectorscale = 100, circlescale=0.5,
+                                       cbmax = 5.0)
 #+end_src
 
 [[file:external/figures/calibration/worst-incorner-opencv8.png]]

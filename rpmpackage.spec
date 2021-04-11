@@ -21,7 +21,7 @@ BuildRequires: python36-libs
 # I need to run the python stuff in order to build the manpages and to generate
 # the npsp wrappers
 BuildRequires: numpysane >= 0.29-1
-BuildRequires: gnuplotlib >= 0.36
+BuildRequires: gnuplotlib >= 0.38
 BuildRequires: opencv-python36
 BuildRequires: python36-scipy
 BuildRequires: python36
