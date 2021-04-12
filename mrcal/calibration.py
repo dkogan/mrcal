@@ -92,8 +92,9 @@ ARGUMENTS
 
 - jobs: a GNU-Make style parallelization flag. Indicates how many parallel
   processes should be invoked when computing the corners. If given, a numerical
-  argument is required. This flag does nothing if the corners-cache file already
-  exists
+  argument is required. If jobs<0: the corners_cache_vnl MUST already contain
+  valid data; if it doesn't, an exception is thrown instead of the corners being
+  recomputed.
 
 - exclude_images: a set of filenames to exclude from reported results
 
@@ -201,6 +202,10 @@ which mrcal.optimize() expects
         if corners_cache_vnl is None or \
            ( not reading_pipe and \
              not os.path.isfile(corners_cache_vnl) ):
+
+            if jobs < 0:
+                raise Exception("I was asked to use an existing cache file, but it couldn't be read. jobs<0, so I do not recompute")
+
             # Need to compute the dot coords. And maybe need to save them into a
             # cache file too
             if Nw != 10 or Nh != 10:
