@@ -1,0 +1,214 @@
+#!/usr/bin/python3
+
+r'''Visualize calibration residuals for one or more observations of a board
+
+SYNOPSIS
+
+  $ mrcal-show-residuals-board-observation
+      --from-worst --explore left.cameramodel 0 1 2
+
+  ... a plot pops up showing the 3 worst-fitting chessboard observations in this
+  ... solve. And a REPL opens up to allow further study
+
+'''
+
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--extratitle',
+                        type=str,
+                        default = None,
+                        help='''Extra title string for the plot''')
+
+    parser.add_argument('--vectorscale',
+                        type = float,
+                        default = 1.0,
+                        help='''Scale all the vectors by this factor. Useful to improve legibility if the
+                        vectors are too small to see''')
+
+    parser.add_argument('--circlescale',
+                        type = float,
+                        default = 1.0,
+                        help='''Scale all the plotted circles by this factor. Useful to improve legibility if
+                        the vectors are too big or too small''')
+
+    parser.add_argument('--from-worst',
+                        action = 'store_true',
+                        help='''If given, the requested observations index from the worst-fitting
+                        observations to the best-fitting (observation 0 is the
+                        worst-fitting observation). By default we index the
+                        observations in the order they appear in the solve''')
+
+    parser.add_argument('--hardcopy',
+                        type=str,
+                        help='''Write the output to disk, instead of making an interactive plot''')
+    parser.add_argument('--terminal',
+                        type=str,
+                        help=r'''gnuplotlib terminal. The default is good almost always, so most people don't
+                        need this option''')
+    parser.add_argument('--set',
+                        type=str,
+                        action='append',
+                        help='''Extra 'set' directives to gnuplotlib. Can be given multiple times''')
+    parser.add_argument('--unset',
+                        type=str,
+                        action='append',
+                        help='''Extra 'unset' directives to gnuplotlib. Can be given multiple times''')
+    parser.add_argument('--explore',
+                        action='store_true',
+                        help='''If given, the tool drops into a REPL before exiting, to allow the user to
+                        follow-up with more diagnostics''')
+
+    parser.add_argument('model',
+                        type=str,
+                        help=r'''Camera model that contains the optimization_inputs that describe the solve.
+                        The displayed observations may come from ANY of the
+                        cameras in the solve, not necessarily the one given by
+                        this model''')
+
+    parser.add_argument('observations',
+                        type=int,
+                        nargs='+',
+                        help=r'''The observation indices we're looking at. By default these index the board
+                        observations in the order they appear in the solve. If
+                        --from-worst, then we index them from the worst-fitting
+                        to the best-fitting instead''')
+
+    args = parser.parse_args()
+
+    return args
+
+args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+import mrcal
+import numpy as np
+import numpysane as nps
+import pprint
+
+
+plotkwargs_extra = {}
+if args.set is not None:
+    plotkwargs_extra['set'] = args.set
+if args.unset is not None:
+    plotkwargs_extra['unset'] = args.unset
+
+try:
+    model = mrcal.cameramodel(args.model)
+except:
+    print(f"Couldn't load camera model '{args.model}'", file=sys.stderr)
+    sys.exit(1)
+
+optimization_inputs = model.optimization_inputs()
+if optimization_inputs is None:
+    print(f"Camera model '{args.model}' does not contain optimization inputs. Residuals aren't available", file=sys.stderr)
+    sys.exit(1)
+
+residuals = mrcal.optimizer_callback(**optimization_inputs)[1]
+
+
+# i_observations_sorted_from_worst is available even if I don't need it.
+# --explore might want to look at it
+
+
+# shape (Nobservations, object_height_n, object_width_n, 3)
+observations = optimization_inputs['observations_board']
+residuals_shape = observations.shape[:-1] + (2,)
+# shape (Nobservations, object_height_n, object_width_n, 2)
+residuals_reshaped = residuals[:np.product(residuals_shape)].reshape(*residuals_shape)
+# shape (Nobservations,)
+err_per_observation = nps.norm2(nps.clump(residuals_reshaped, n=-3))
+i_observations_sorted_from_worst = \
+    list(reversed(np.argsort(err_per_observation)))
+
+
+
+
+
+if not args.hardcopy:
+    plotkwargs_extra['wait'] = True
+
+def show(i_observation):
+    mrcal.show_residuals_board_observation(optimization_inputs,
+                                           i_observation,
+                                           from_worst                       = args.from_worst,
+                                           i_observations_sorted_from_worst = i_observations_sorted_from_worst,
+                                           residuals                        = residuals,
+                                           paths                            = None,
+                                           circlescale                      = args.circlescale,
+                                           vectorscale                      = args.vectorscale,
+                                           extratitle                       = args.extratitle,
+                                           hardcopy                         = args.hardcopy,
+                                           terminal                         = args.terminal,
+                                           **plotkwargs_extra)
+
+
+Nplots = len(args.observations)
+
+if args.hardcopy:
+    for i in range(Nplots):
+        show(args.observations[i])
+    sys.exit(0)
+
+pids = [0] * Nplots
+for i in range(Nplots):
+    pid = os.fork()
+    if pid == 0:
+        # child
+        # make the plot, and wait for it to be closed by the user
+        show(args.observations[i])
+        sys.exit()
+
+    # parent
+    pids[i] = pid
+
+
+if args.explore:
+
+    print(f'''We're exploring. The first plot being shown can be re-created with:
+
+mrcal.show_residuals_board_observation(optimization_inputs,
+                                       {args.observations[0]},
+                                       from_worst                       = args.from_worst,
+                                       i_observations_sorted_from_worst = i_observations_sorted_from_worst,
+                                       residuals                        = residuals,
+                                       paths                            = None,
+                                       circlescale                      = args.circlescale,
+                                       vectorscale                      = args.vectorscale,
+                                       extratitle                       = args.extratitle,
+                                       hardcopy                         = args.hardcopy,
+                                       terminal                         = args.terminal,
+                                       **{pprint.pformat(plotkwargs_extra)})
+
+This is available via a shorthand function call show({args.observations[0]})
+
+
+The first 10 worst-fitting observations:
+
+{i_observations_sorted_from_worst[:10]}
+
+
+The corresponding 10 indices_frame_camintrinsics_camextrinsics:
+
+{optimization_inputs['indices_frame_camintrinsics_camextrinsics'][ i_observations_sorted_from_worst[:10] ]}
+
+''')
+    import IPython
+    IPython.embed()
+
+
+for i in range(Nplots):
+    os.waitpid(pids[i], 0)
+sys.exit()

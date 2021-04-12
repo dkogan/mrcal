@@ -51,7 +51,9 @@ DIST_BIN :=					\
 	mrcal-show-valid-intrinsics-region	\
 	mrcal-is-within-valid-intrinsics-region \
 	mrcal-triangulate			\
-	mrcal-cull-corners
+	mrcal-cull-corners                      \
+	mrcal-show-residuals-board-observation  \
+	mrcal-show-residuals
 
 # generate manpages from distributed binaries, and ship them. This is a hoaky
 # hack because apparenly manpages from python tools is a crazy thing to want to
