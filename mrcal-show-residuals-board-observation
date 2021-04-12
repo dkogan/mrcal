@@ -118,6 +118,11 @@ if optimization_inputs is None:
 
 residuals = mrcal.optimizer_callback(**optimization_inputs)[1]
 
+try:
+    paths = optimization_inputs['imagepaths']
+except:
+    # older models don't have this data
+    paths = None
 
 # i_observations_sorted_from_worst is available even if I don't need it.
 # --explore might want to look at it
@@ -146,7 +151,7 @@ def show(i_observation):
                                            from_worst                       = args.from_worst,
                                            i_observations_sorted_from_worst = i_observations_sorted_from_worst,
                                            residuals                        = residuals,
-                                           paths                            = None,
+                                           paths                            = paths,
                                            circlescale                      = args.circlescale,
                                            vectorscale                      = args.vectorscale,
                                            extratitle                       = args.extratitle,
@@ -184,7 +189,7 @@ mrcal.show_residuals_board_observation(optimization_inputs,
                                        from_worst                       = args.from_worst,
                                        i_observations_sorted_from_worst = i_observations_sorted_from_worst,
                                        residuals                        = residuals,
-                                       paths                            = None,
+                                       paths                            = paths,
                                        circlescale                      = args.circlescale,
                                        vectorscale                      = args.vectorscale,
                                        extratitle                       = args.extratitle,

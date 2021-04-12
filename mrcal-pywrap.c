@@ -1051,7 +1051,11 @@ static PyObject* unproject_stereographic(PyObject* self,
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(verbose,                            int,            0,       "p",  ,                                  NULL,           -1,         {})  \
     _(do_apply_regularization,            int,            1,       "p",  ,                                  NULL,           -1,         {})  \
-    _(do_apply_outlier_rejection,         int,            1,       "p",  ,                                  NULL,           -1,         {})
+    _(do_apply_outlier_rejection,         int,            1,       "p",  ,                                  NULL,           -1,         {})  \
+    _(imagepaths,                         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
+/* imagepaths is in the argument list purely to make the
+   mrcal-show-residuals-board-observation tool work. The python code doesn't
+   actually touch it */
 
 #define OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(_) \
     _(no_jacobian,                        int,               0,    "p",  ,                                  NULL,           -1,         {}) \

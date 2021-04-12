@@ -485,7 +485,8 @@ def solve_initial(args, seedmodels, imagersizes,
               do_apply_outlier_rejection                = not args.skip_outlier_rejection,
               observed_pixel_uncertainty                = args.observed_pixel_uncertainty,
               do_apply_regularization                   = True,
-              verbose                                   = False)
+              verbose                                   = False,
+              imagepaths                                = paths )
 
     mrcal.optimize( **optimization_inputs )
     return optimization_inputs
