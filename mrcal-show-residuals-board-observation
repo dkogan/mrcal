@@ -10,6 +10,14 @@ SYNOPSIS
   ... a plot pops up showing the 3 worst-fitting chessboard observations in this
   ... solve. And a REPL opens up to allow further study
 
+The residuals come from the optimization inputs stored in the cameramodel file.
+A cameramodel that's missing this data cannot be used with this tool.
+
+To plot the residuals on top of the image used in the calibration the image
+paths are loaded from the optimization inputs. The paths are used directly,
+relative to the current directory. If the paths are unavailable or if the image
+cannot be read, the plot is made without the underlying image.
+
 '''
 
 
