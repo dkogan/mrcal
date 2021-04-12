@@ -2990,14 +2990,14 @@ SYNOPSIS
 This serves as a simple method of estimating calibration reliability, without
 computing the projection uncertainty.
 
-The imager of a camera is subdivided into regions (controlled by the
-gridn_width, gridn_height arguments). The residual statistics are then computed
-for each bin separately. We can then clearly see areas of insufficient data
-(observation counts will be low). And we can clearly see lens-model-induced
-biases (non-zero mean) and we can see heteroscedasticity (uneven standard
-deviation). The mrcal-calibrate-cameras tool uses these metrics to construct a
-valid-intrinsics region for the models it computes. This serves as a quick/dirty
-method of modeling projection reliability, which can be used even if projection
+The imager of a camera is subdivided into bins (controlled by the gridn_width,
+gridn_height arguments). The residual statistics are then computed for each bin
+separately. We can then clearly see areas of insufficient data (observation
+counts will be low). And we can clearly see lens-model-induced biases (non-zero
+mean) and we can see heteroscedasticity (uneven standard deviation). The
+mrcal-calibrate-cameras tool uses these metrics to construct a valid-intrinsics
+region for the models it computes. This serves as a quick/dirty method of
+modeling projection reliability, which can be used even if projection
 uncertainty cannot be computed.
 
 ARGUMENTS
@@ -3060,7 +3060,7 @@ plot
         mrcal.calibration._report_regional_statistics(model)
     def mkplot(x, title, **plot_options):
         plot_options.update(kwargs)
-        if 'hardcopy' in plot_options:
+        if 'hardcopy' in plot_options and plot_options['hardcopy'] is not None:
             # hardcopy "/a/b/c/d.pdf" -> "/a/b/c/d.stdev.pdf" where "stdev" is
             # the "what" without special characters
             what = re.sub('[^a-zA-Z0-9_-]+', '_', title)
