@@ -748,7 +748,6 @@ def show_generic(f, *args, **kwargs):
 def show_splined_model_surface         (icam = None, **kwargs): show_generic_per_cam(mrcal.show_splined_model_surface,         icam, **kwargs)
 def show_projection_uncertainty        (icam = None, **kwargs): show_generic_per_cam(mrcal.show_projection_uncertainty,        icam, **kwargs)
 def show_valid_intrinsics_region       (icam = None, **kwargs): show_generic_per_cam(mrcal.show_valid_intrinsics_region,       icam, **kwargs)
-def show_splined_model_surface         (icam = None, **kwargs): show_generic_per_cam(mrcal.show_splined_model_surface,         icam, **kwargs)
 
 def show_residuals_vectorfield (icam = None, **kwargs): show_generic_per_cam(mrcal.show_residuals_vectorfield, icam, residuals=stats['x'], **kwargs)
 def show_residuals_magnitudes  (icam = None, **kwargs): show_generic_per_cam(mrcal.show_residuals_magnitudes,  icam, residuals=stats['x'], **kwargs)
