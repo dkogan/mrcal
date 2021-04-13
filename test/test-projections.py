@@ -26,14 +26,20 @@ import testutils
 
 
 
-def check(intrinsics, p_ref, q_ref, unproject = True):
+def check(intrinsics, p_ref, q_ref):
     q_projected = mrcal.project(p_ref, *intrinsics)
     testutils.confirm_equal(q_projected,
                             q_ref,
                             msg = f"Projecting {intrinsics[0]}",
                             eps = 1e-2)
-    if not unproject:
-        return
+
+    q_projected *= 0
+    mrcal.project(p_ref, *intrinsics,
+                  out = q_projected)
+    testutils.confirm_equal(q_projected,
+                            q_ref,
+                            msg = f"Projecting {intrinsics[0]} in-place",
+                            eps = 1e-2)
 
     v_unprojected = mrcal.unproject(q_projected, *intrinsics,
                                     normalize = True)
@@ -46,6 +52,25 @@ def check(intrinsics, p_ref, q_ref, unproject = True):
     testutils.confirm_equal( np.arccos(cos),
                              np.zeros((p_ref.shape[0],), dtype=float),
                              msg = f"Unprojecting {intrinsics[0]}",
+                             eps = 1e-6)
+
+    if intrinsics[0] == 'LENSMODEL_CAHVORE':
+        # no in-place output for CAHVORE
+        return
+
+    v_unprojected *= 0
+    mrcal.unproject(q_projected, *intrinsics,
+                    normalize = True,
+                    out = v_unprojected)
+    testutils.confirm_equal( nps.norm2(v_unprojected),
+                             np.ones((p_ref.shape[0],), dtype=float),
+                             msg = f"Unprojected in-place v are normalized",
+                             eps = 1e-6)
+    cos = nps.inner(v_unprojected, p_ref) / nps.mag(p_ref)
+    cos = np.clip(cos, -1, 1)
+    testutils.confirm_equal( np.arccos(cos),
+                             np.zeros((p_ref.shape[0],), dtype=float),
+                             msg = f"Unprojecting in-place {intrinsics[0]}",
                              eps = 1e-6)
 
 
