@@ -135,20 +135,23 @@ ARGUMENTS
 - v1: (3,) numpy array containing a not-necessarily-normalized observation
   vector of a feature observed in camera-1, described in the camera-0 coordinate
   system. Note that this vector is represented in the SAME coordinate system as
-  v0
+  v0 in the default case (v_are_local is False)
 
 - t01: (3,) numpy array containing the position of the camera-1 origin in the
-  camera-0 coordinate system.
+  camera-0 coordinate system. Exclusive with Rt01.
 
 - get_gradients: optional boolean that defaults to False. Whether we should
-  compute and report the gradients. This affects what we return
+  compute and report the gradients. This affects what we return. If
+  get_gradients: v_are_local must have the default value
 
 - v_are_local: optional boolean that defaults to False. If True: v1 is
   represented in the local coordinate system of camera-1. The default is
-  consistent with most, but not all of the triangulation routines.
+  consistent with most, but not all of the triangulation routines. Must have the
+  default value if get_gradients
 
-- Rt01: optional (4,3) numpy array, defaulting to None. If given, we use this
-  transformation from camera-1 coordinates to camera-0 coordinates instead of
+- Rt01: optional (4,3) numpy array, defaulting to None. Exclusive with t01. If
+  given, we use this transformation from camera-1 coordinates to camera-0
+  coordinates instead of t01. If v_are_local: then Rt01 MUST be given instead of
   t01. This exists for API compatibility with the other triangulation routines.
 
 RETURNED VALUE
@@ -270,20 +273,23 @@ ARGUMENTS
 - v1: (3,) numpy array containing a not-necessarily-normalized observation
   vector of a feature observed in camera-1, described in the camera-0 coordinate
   system. Note that this vector is represented in the SAME coordinate system as
-  v0
+  v0 in the default case (v_are_local is False)
 
 - t01: (3,) numpy array containing the position of the camera-1 origin in the
-  camera-0 coordinate system.
+  camera-0 coordinate system. Exclusive with Rt01.
 
 - get_gradients: optional boolean that defaults to False. Whether we should
-  compute and report the gradients. This affects what we return
+  compute and report the gradients. This affects what we return. If
+  get_gradients: v_are_local must have the default value
 
 - v_are_local: optional boolean that defaults to False. If True: v1 is
   represented in the local coordinate system of camera-1. The default is
-  consistent with most, but not all of the triangulation routines.
+  consistent with most, but not all of the triangulation routines. Must have the
+  default value if get_gradients
 
-- Rt01: optional (4,3) numpy array, defaulting to None. If given, we use this
-  transformation from camera-1 coordinates to camera-0 coordinates instead of
+- Rt01: optional (4,3) numpy array, defaulting to None. Exclusive with t01. If
+  given, we use this transformation from camera-1 coordinates to camera-0
+  coordinates instead of t01. If v_are_local: then Rt01 MUST be given instead of
   t01. This exists for API compatibility with the other triangulation routines.
 
 RETURNED VALUE
@@ -406,20 +412,23 @@ ARGUMENTS
 - v1: (3,) numpy array containing a not-necessarily-normalized observation
   vector of a feature observed in camera-1, described in the camera-0 coordinate
   system. Note that this vector is represented in the SAME coordinate system as
-  v0
+  v0 in the default case (v_are_local is False)
 
 - t01: (3,) numpy array containing the position of the camera-1 origin in the
-  camera-0 coordinate system.
+  camera-0 coordinate system. Exclusive with Rt01.
 
 - get_gradients: optional boolean that defaults to False. Whether we should
-  compute and report the gradients. This affects what we return
+  compute and report the gradients. This affects what we return. If
+  get_gradients: v_are_local must have the default value
 
 - v_are_local: optional boolean that defaults to False. If True: v1 is
   represented in the local coordinate system of camera-1. The default is
-  consistent with most, but not all of the triangulation routines.
+  consistent with most, but not all of the triangulation routines. Must have the
+  default value if get_gradients
 
-- Rt01: optional (4,3) numpy array, defaulting to None. If given, we use this
-  transformation from camera-1 coordinates to camera-0 coordinates instead of
+- Rt01: optional (4,3) numpy array, defaulting to None. Exclusive with t01. If
+  given, we use this transformation from camera-1 coordinates to camera-0
+  coordinates instead of t01. If v_are_local: then Rt01 MUST be given instead of
   t01. This exists for API compatibility with the other triangulation routines.
 
 RETURNED VALUE
@@ -537,20 +546,23 @@ ARGUMENTS
 - v1: (3,) numpy array containing a not-necessarily-normalized observation
   vector of a feature observed in camera-1, described in the camera-0 coordinate
   system. Note that this vector is represented in the SAME coordinate system as
-  v0
+  v0 in the default case (v_are_local is False)
 
 - t01: (3,) numpy array containing the position of the camera-1 origin in the
-  camera-0 coordinate system.
+  camera-0 coordinate system. Exclusive with Rt01.
 
 - get_gradients: optional boolean that defaults to False. Whether we should
-  compute and report the gradients. This affects what we return
+  compute and report the gradients. This affects what we return. If
+  get_gradients: v_are_local must have the default value
 
 - v_are_local: optional boolean that defaults to False. If True: v1 is
   represented in the local coordinate system of camera-1. The default is
-  consistent with most, but not all of the triangulation routines.
+  consistent with most, but not all of the triangulation routines. Must have the
+  default value if get_gradients
 
-- Rt01: optional (4,3) numpy array, defaulting to None. If given, we use this
-  transformation from camera-1 coordinates to camera-0 coordinates instead of
+- Rt01: optional (4,3) numpy array, defaulting to None. Exclusive with t01. If
+  given, we use this transformation from camera-1 coordinates to camera-0
+  coordinates instead of t01. If v_are_local: then Rt01 MUST be given instead of
   t01. This exists for API compatibility with the other triangulation routines.
 
 RETURNED VALUE
@@ -668,20 +680,23 @@ ARGUMENTS
 - v1: (3,) numpy array containing a not-necessarily-normalized observation
   vector of a feature observed in camera-1, described in the camera-0 coordinate
   system. Note that this vector is represented in the SAME coordinate system as
-  v0
+  v0 in the default case (v_are_local is False)
 
 - t01: (3,) numpy array containing the position of the camera-1 origin in the
-  camera-0 coordinate system.
+  camera-0 coordinate system. Exclusive with Rt01.
 
 - get_gradients: optional boolean that defaults to False. Whether we should
-  compute and report the gradients. This affects what we return
+  compute and report the gradients. This affects what we return. If
+  get_gradients: v_are_local must have the default value
 
 - v_are_local: optional boolean that defaults to False. If True: v1 is
   represented in the local coordinate system of camera-1. The default is
-  consistent with most, but not all of the triangulation routines.
+  consistent with most, but not all of the triangulation routines. Must have the
+  default value if get_gradients
 
-- Rt01: optional (4,3) numpy array, defaulting to None. If given, we use this
-  transformation from camera-1 coordinates to camera-0 coordinates instead of
+- Rt01: optional (4,3) numpy array, defaulting to None. Exclusive with t01. If
+  given, we use this transformation from camera-1 coordinates to camera-0
+  coordinates instead of t01. If v_are_local: then Rt01 MUST be given instead of
   t01. This exists for API compatibility with the other triangulation routines.
 
 RETURNED VALUE
@@ -806,19 +821,22 @@ ARGUMENTS
 
 - v1: (3,) numpy array containing a not-necessarily-normalized observation
   vector of a feature observed in camera-1, described in the camera-1 coordinate
-  system. Note that this vector is represented in the camera-local coordinate
-  system, unlike the representation in all the other triangulation routines
+  system by default (v_are_local is True). Note that this vector is represented
+  in the camera-local coordinate system, unlike the representation in all the
+  other triangulation routines
 
 - Rt01: (4,3) numpy array describing the transformation from camera-1
   coordinates to camera-0 coordinates
 
 - get_gradients: optional boolean that defaults to False. Whether we should
-  compute and report the gradients. This affects what we return
+  compute and report the gradients. This affects what we return. If
+  get_gradients: v_are_local must have the default value
 
 - v_are_local: optional boolean that defaults to True. If True: v1 is
   represented in the local coordinate system of camera-1. This is different from
   the other triangulation routines. Set v_are_local to False to make this
-  function interpret v1 similarly to the other triangulation routines
+  function interpret v1 similarly to the other triangulation routines. Must have
+  the default value if get_gradients
 
 RETURNED VALUE
 
