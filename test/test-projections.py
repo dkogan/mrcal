@@ -23,10 +23,11 @@ testdir = os.path.dirname(os.path.realpath(__file__))
 sys.path[:0] = f"{testdir}/..",
 import mrcal
 import testutils
-
+from test_calibration_helpers import grad
 
 
 def check(intrinsics, p_ref, q_ref):
+    ########## project
     q_projected = mrcal.project(p_ref, *intrinsics)
     testutils.confirm_equal(q_projected,
                             q_ref,
@@ -40,6 +41,50 @@ def check(intrinsics, p_ref, q_ref):
                             q_ref,
                             msg = f"Projecting {intrinsics[0]} in-place",
                             eps = 1e-2)
+
+    if intrinsics[0] != 'LENSMODEL_CAHVORE':
+        @nps.broadcast_define( ((3,),('N',)) )
+        def grad_broadcasted(p_ref, i_ref):
+            return grad(lambda pi: mrcal.project(pi[:3], intrinsics[0], pi[3:]),
+                        nps.glue(p_ref,i_ref, axis=-1))
+
+        dq_dpi_ref = grad_broadcasted(p_ref,intrinsics[1])
+
+        q_projected,dq_dp,dq_di = mrcal.project(p_ref, *intrinsics, get_gradients=True)
+        testutils.confirm_equal(q_projected,
+                                q_ref,
+                                msg = f"Projecting {intrinsics[0]} with grad",
+                                eps = 1e-2)
+        testutils.confirm_equal(dq_dp,
+                                dq_dpi_ref[...,:3],
+                                msg = f"dq_dp",
+                                eps = 1e-2)
+        testutils.confirm_equal(dq_di,
+                                dq_dpi_ref[...,3:],
+                                msg = f"dq_di",
+                                eps = 1e-2)
+
+        out=[q_projected,dq_dp,dq_di]
+        out[0] *= 0
+        out[1] *= 0
+        out[2] *= 0
+        mrcal.project(p_ref, *intrinsics, get_gradients=True, out=out)
+
+        testutils.confirm_equal(q_projected,
+                                q_ref,
+                                msg = f"Projecting {intrinsics[0]} with grad in-place",
+                                eps = 1e-2)
+        testutils.confirm_equal(dq_dp,
+                                dq_dpi_ref[...,:3],
+                                msg = f"dq_dp in-place",
+                                eps = 1e-2)
+        testutils.confirm_equal(dq_di,
+                                dq_dpi_ref[...,3:],
+                                msg = f"dq_di in-place",
+                                eps = 1e-2)
+
+
+    ########## unproject
 
     v_unprojected = mrcal.unproject(q_projected, *intrinsics,
                                     normalize = True)
