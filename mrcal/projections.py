@@ -83,12 +83,10 @@ if not get_gradients:
 if get_gradients: we return a tuple:
 
   - (...,2) array of projected pixel coordinates
-  - (...,2,3) array of the gradients of the pixel coordinates in respect to
-    the input 3D point positions
+  - (...,2,3) array of gradients of the pixel coordinates in respect to the
+    input 3D point positions
   - (...,2,Nintrinsics) array of the gradients of the pixel coordinates in
     respect to the intrinsics
-
-The unprojected observation vector of shape (..., 3).
 
     '''
 
