@@ -98,8 +98,9 @@ if get_gradients: we return a tuple:
 
 
 def unproject(q, lensmodel, intrinsics_data,
-              normalize = False,
-              out       = None):
+              normalize     = False,
+              get_gradients = False,
+              out           = None):
     r'''Unprojects pixel coordinates to observation vectors
 
 SYNOPSIS
@@ -108,16 +109,29 @@ SYNOPSIS
                          q,
                          lensmodel, intrinsics_data )
 
-Maps a set of 2D imager points q to a 3d vector in camera coordinates that
-produced these pixel observations. The 3d vector is unique only up-to-length,
-and the returned vectors aren't normalized by default. If we want them to be
-normalized, pass normalize=True.
+Maps a set of 2D imager points q to a set of 3D vectors in camera coordinates
+that produced these pixel observations. Each 3D vector is unique only
+up-to-length, and the returned vectors aren't normalized by default. The default
+length of the returned vector is arbitrary, and selected for the convenience of
+the implementation. Pass normalize=True to always return unit vectors.
 
 This is the "reverse" direction, so an iterative nonlinear optimization is
 performed internally to compute this result. This is much slower than
 mrcal_project. For OpenCV distortions specifically, OpenCV has
-cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate:
-https://github.com/opencv/opencv/issues/8811
+cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate and we
+do not use them: https://github.com/opencv/opencv/issues/8811
+
+Gradients are available by passing get_gradients=True. Since unproject() is
+implemented as an iterative solve around project(), the unproject() gradients
+are computed by manipulating the gradients reported by project() at the
+solution. The reported gradients are relative to whatever unproject() is
+reporting; the unprojection is unique only up-to-length, and the magnitude isn't
+fixed. So the gradients may include a component in the direction of the returned
+observation vector. It is possible to pass normalize=True; we then return
+normalized observation vectors AND the gradients of those normalized vectors.
+Those gradients are guaranteed to be orthogonal to the observation vector.
+There's a bit more computation to do this. Note that the magnitude of the
+returned observation vector may change if get_gradients is changed.
 
 Broadcasting is fully supported across q and intrinsics_data.
 
@@ -146,30 +160,124 @@ ARGUMENTS
 - normalize: optional boolean defaults to False. If True: normalize the output
   vectors
 
+- get_gradients: optional boolean that defaults to False. Whether we should
+  compute and report the gradients. This affects what we return
+
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing arrays,
   specify them with the 'out' kwarg. If get_gradients: 'out' is the one numpy
   array we will write into. Else: 'out' is a tuple of all the output numpy
   arrays. If 'out' is given, we return the same arrays passed in. This is the
-  standard behavior provided by numpysane_pywrap.
+  standard behavior provided by numpysane_pywrap. AT THIS TIME THIS IS
+  UNSUPPORTED WITH get_gradients
 
 RETURNED VALUE
 
-The unprojected observation vector of shape (..., 3). These are NOT normalized
-by default. To get normalized vectors, pass normalize=True
+if not get_gradients:
+
+  we return an (...,3) array of unprojected observation vectors. Not normalized
+  by default; see description above
+
+if get_gradients: we return a tuple:
+
+  - (...,3) array of unprojected observation vectors
+  - (...,3,2) array of gradients of unprojected observation vectors in respect
+    to pixel coordinates
+  - (...,3,Nintrinsics) array of gradients of unprojected observation vectors in
+    respect to the intrinsics
 
     '''
 
     if lensmodel != 'LENSMODEL_CAHVORE':
+
         # Main path. Internal function must have a different argument order so
         # that all the broadcasting stuff is in the leading arguments
-        v = mrcal._mrcal_npsp._unproject(q, intrinsics_data, lensmodel=lensmodel, out=out)
-        if normalize:
-            v /= nps.dummy(nps.mag(v), -1)
-        return v
+        if not get_gradients:
+            v = mrcal._mrcal_npsp._unproject(q, intrinsics_data, lensmodel=lensmodel,
+                                             out=out)
+            if normalize:
+                v /= nps.dummy(nps.mag(v), -1)
+            return v
+
+        else:
+
+            if out is not None:
+                raise Exception("not yet implemented")
+
+            v = mrcal._mrcal_npsp._unproject(q, intrinsics_data, lensmodel=lensmodel,
+                                             out=out)
+
+            # I have no gradients available for unproject(), and I need to invert a
+            # non-square matrix to use the gradients from project(). I deal with this
+            # with a stereographic mapping
+            #
+            # With a simple unprojection I have    q -> v
+            # Instead I now do                     q -> v -> u -> v
+
+            # I reproject v, to produce a scaled one that is described by the
+            # du/dv and dv/du gradients
+            u = mrcal.project_stereographic(v)
+            v, dv_du = mrcal.unproject_stereographic(u,
+                                                     get_gradients = True)
+
+            _,dq_dv,dq_di = mrcal.project(v,
+                                          lensmodel, intrinsics_data,
+                                          get_gradients = True)
+
+            # shape (..., 2,2). Square. Invertible!
+            dq_du = nps.matmult( dq_dv, dv_du )
+
+            # dv/dq = dv/du du/dq =
+            #       = dv/du inv(dq/du)
+            #       = transpose(inv(transpose(dq/du)) transpose(dv/du))
+            dv_dq = nps.transpose(np.linalg.solve( nps.transpose(dq_du), nps.transpose(dv_du) ))
+
+            # dv/di is a bit different. I have (q,i) -> v. I want to find out
+            # how moving i affects v while keeping q constant. Taylor expansion
+            # of projection: q = q0 + dq/dv dv + dq/di di. q is constant so
+            # dq/dv dv + dq/di di = 0 -> dv/di = - dv/dq dq/di
+            dv_di = -nps.matmult(dv_dq, dq_di)
+
+            if normalize:
+
+                # vn = v/mag(v)
+                # dvn = dv (1/mag(v)) + v d(1/mag(v))
+                #     = dv( 1/mag(v) - v vt / mag^3(v) )
+                #     = dv( 1/mag(v) - vn vnt / mag(v) )
+                #     = dv/mag(v) ( 1 - vn vnt )
+
+                # v has shape (...,3)
+                # dv_dq has shape (...,3,2)
+                # dv_di has shape (...,3,N)
+
+                # shape (...,1)
+                magv_recip = 1. / nps.dummy(nps.mag(v), -1)
+                v *= magv_recip
+
+                # shape (...,1,1)
+                magv_recip = nps.dummy(magv_recip,-1)
+                dv_dq *= magv_recip
+
+                dv_dq -= nps.xchg( nps.matmult( nps.dummy(nps.xchg(dv_dq, -1,-2), -2),
+                                                nps.dummy(nps.outer(v,v),-3) )[...,0,:],
+                                   -1, -2)
+
+                dv_di *= magv_recip
+
+                dv_di -= nps.xchg( nps.matmult( nps.dummy(nps.xchg(dv_di, -1,-2), -2),
+                                                nps.dummy(nps.outer(v,v),-3) )[...,0,:],
+                                   -1, -2)
+
+            return v, dv_dq, dv_di
+
+
+
 
     # CAHVORE. This is a reimplementation of the C code. It's barely maintained,
     # and here for legacy compatibility only
+
+    if get_gradients:
+        raise Exception("unproject(..., get_gradients=True) is unsupported if lensmodel == 'LENSMODEL_CAHVORE'")
 
     if q is None: return q
     if q.size == 0:
