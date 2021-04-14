@@ -2241,11 +2241,12 @@ None. The input image array is modified
 
 
 def imagergrid_using(imagersize, gridn_width, gridn_height = None):
-    r'''Get a 'using' expression for imager colormap plots
+    r'''Get a 'using' gnuplotlib expression for imager colormap plots
 
 SYNOPSIS
 
     import gnuplotlib as gp
+    import numpy as np
     import mrcal
 
     ...

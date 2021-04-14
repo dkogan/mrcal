@@ -69,7 +69,7 @@ These are all backends for the corresponding [[file:commandline-tools.org][comma
 
 ** Utilities
 - [[file:mrcal-python-api-reference.html#-annotate_image__valid_intrinsics_region][=mrcal.annotate_image__valid_intrinsics_region()=]]: Annotate an image with a model's valid-intrinsics region
-- [[file:mrcal-python-api-reference.html#-imagergrid_using][=mrcal.imagergrid_using()=]]: Get a 'using' expression for imager colormap plots
+- [[file:mrcal-python-api-reference.html#-imagergrid_using][=mrcal.imagergrid_using()=]]: Get a 'using' gnuplotlib expression for imager colormap plots
 - [[file:mrcal-python-api-reference.html#-fitted_gaussian_equation][=mrcal.fitted_gaussian_equation()=]]: Get an 'equation' gnuplotlib expression for a gaussian curve fitting some data
 - [[file:mrcal-python-api-reference.html#-sample_imager][=mrcal.sample_imager()=]]: Returns regularly-sampled, gridded pixels coordinates across the imager
 - [[file:mrcal-python-api-reference.html#-sample_imager_unproject][=mrcal.sample_imager_unproject()=]]: Reports 3D observation vectors that regularly sample the imager
