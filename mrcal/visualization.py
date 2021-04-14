@@ -507,6 +507,135 @@ def _options_heatmap_with_contours( # update these
               _with=_with)
 
 
+def fitted_gaussian_equation(binwidth,
+                             x     = None,
+                             mean  = None,
+                             sigma = None,
+                             N     = None,
+                             legend = None):
+    r'''Get an 'equation' gnuplotlib expression for a gaussian curve fitting some data
+
+SYNOPSIS
+
+    import gnuplotlib as gp
+    import numpy as np
+
+    ...
+
+    # x is a one-dimensional array with samples that we want to compare to a
+    # normal distribution. For instance:
+    #   x = np.random.randn(10000) * 0.1 + 10
+
+    binwidth = 0.01
+
+    equation = \
+        mrcal.fitted_gaussian_equation(x        = x,
+                                       binwidth = binwidth)
+
+    gp.plot(x,
+            histogram       = True,
+            binwidth        = binwidth,
+            equation_above  = equation)
+
+    # A plot pops ups displaying a histogram of the array x overlaid by an ideal
+    # gaussian probability density function. This PDF corresponds to the mean
+    # and standard deviation of the data, and takes into account the histogram
+    # parameters to overlay nicely on top of it
+
+Overlaying a ideal PDF on top of an empirical histogram requires a bit of math
+to figure out the proper vertical scaling of the plotted PDF that would line up
+with the histogram. This is evaluated by this function.
+
+This function can be called in one of two ways:
+
+- Passing the data in the 'x' argument. The statistics are computed from the
+  data, and there's no reason to pass 'mean', 'sigma', 'N'
+
+- Passing the statistics 'mean', 'sigma', 'N' instead of the data 'x'. This is
+  useful to compare an empirical histogram with idealized distributions that are
+  expected to match the data, but do not. For instance, we may want to plot the
+  expected standard deviation that differs from the observed standard deviation
+
+ARGUMENTS
+
+- binwidth: the width of each bin in the histogram we will plot. This is the
+  only required argument
+
+- x: one-dimensional numpy array containing the data that will be used to
+  construct the histogram. If given, (mean, sigma, N) must all NOT be given:
+  they will be computed from x. If omitted, then all those must be given instead
+
+- mean: mean the gaussian to plot. Must be given if and only if x is not given
+
+- sigma: standard deviation of the gaussian to plot. Must be given if and only
+  if x is not given
+
+- N: the number of values in the dataset in the histogram. Must be given if and
+  only if x is not given
+
+- legend: string containing the legend of the curve in the plot. May be omitted
+  or None to leave the curve unlabelled
+
+RETURNED VALUES
+
+String passable to gnuplotlib in the 'equation' or 'equation_above' plot option
+
+    '''
+    # I want to plot a PDF of a normal distribution together with the
+    # histogram to get a visual comparison. This requires a scaling on
+    # either the PDF or the histogram. I plot a scaled pdf:
+    #
+    #   f = k*pdf = k * exp(-x^2 / (2 s^2)) / sqrt(2*pi*s^2)
+    #
+    # I match up the size of the central bin of the histogram (-binwidth/2,
+    # binwidth/2):
+    #
+    #   bin(0) ~ k*pdf(0) ~ pdf(0) * N * binwidth
+    #
+    # So k = N*binwdith should work. I can do this more precisely:
+    #
+    #   bin(0) ~ k*pdf(0) ~
+    #     = N * integral( pdf(x) dx,                                -binwidth/2, binwidth/2)
+    #     = N * integral( exp(-x^2 / (2 s^2)) / sqrt( 2*pi*s^2) dx, -binwidth/2, binwidth/2)
+    # ->k = N * integral( exp(-x^2 / (2 s^2)) / sqrt( 2*pi*s^2) dx, -binwidth/2, binwidth/2) / pdf(0)
+    #     = N * integral( exp(-x^2 / (2 s^2)) dx,                   -binwidth/2, binwidth/2)
+    #     = N * integral( exp(-(x/(sqrt(2) s))^2) dx )
+    #
+    # Let u  = x/(sqrt(2) s)
+    #     du = dx/(sqrt(2) s)
+    #     u(x = binwidth/2) = binwidth/(s 2sqrt(2)) ->
+    #
+    #   k = N * sqrt(2) s * integral( exp(-u^2) du )
+    #     = N*sqrt(2pi) s * erf(binwidth / (s 2*sqrt(2)))
+    #
+    # for low x erf(x) ~ 2x/sqrt(pi). So if binwidth << sigma
+    # k = N*sqrt(2pi) s * erf(binwidth / (s 2*sqrt(2)))
+    #   ~ N*sqrt(2pi) s * (binwidth/(s 2*sqrt(2))) *2 / sqrt(pi)
+    #   ~ N binwidth
+
+    from scipy.special import erf
+
+    if x is not None:
+        if mean is not None or sigma is not None or N is not None:
+            raise Exception("x was given. So none of (mean,sigma,N) should have been given")
+        sigma = np.std(x)
+        mean  = np.mean(x)
+        N     = len(x)
+    else:
+        if mean is None or sigma is None or N is None:
+            raise Exception("x was not given. So all of (mean,sigma,N) should have been given")
+
+    var = sigma*sigma
+    k   = N * np.sqrt(2.*np.pi) * sigma * erf(binwidth/(2.*np.sqrt(2)*sigma))
+
+    if legend is None:
+        title = 'notitle'
+    else:
+        title = f'title "{legend}"'
+    return \
+        f'{k}*exp(-(x-{mean})*(x-{mean})/(2.*{var})) / sqrt(2.*pi*{var}) {title} with lines lw 2'
+
+
 def show_projection_diff(models,
                          gridn_width  = 60,
                          gridn_height = None,
@@ -2493,48 +2622,11 @@ plot
 
     sigma_expected = optimization_inputs['observed_pixel_uncertainty']
     sigma_observed = np.std(x)
-    from scipy.special import erf
 
-    def make_gaussian(sigma, N, binwidth, title):
-        # I want to plot a PDF of a normal distribution together with the
-        # histogram to get a visual comparison. This requires a scaling on
-        # either the PDF or the histogram. I plot a scaled pdf:
-        #
-        #   f = k*pdf = k * exp(-x^2 / (2 s^2)) / sqrt(2*pi*s^2)
-        #
-        # I match up the size of the central bin of the histogram (-binwidth/2,
-        # binwidth/2):
-        #
-        #   bin(0) ~ k*pdf(0) ~ pdf(0) * N * binwidth
-        #
-        # So k = N*binwdith should work. I can do this more precisely:
-        #
-        #   bin(0) ~ k*pdf(0) ~
-        #     = N * integral( pdf(x) dx,                                -binwidth/2, binwidth/2)
-        #     = N * integral( exp(-x^2 / (2 s^2)) / sqrt( 2*pi*s^2) dx, -binwidth/2, binwidth/2)
-        # ->k = N * integral( exp(-x^2 / (2 s^2)) / sqrt( 2*pi*s^2) dx, -binwidth/2, binwidth/2) / pdf(0)
-        #     = N * integral( exp(-x^2 / (2 s^2)) dx,                   -binwidth/2, binwidth/2)
-        #     = N * integral( exp(-(x/(sqrt(2) s))^2) dx )
-        #
-        # Let u  = x/(sqrt(2) s)
-        #     du = dx/(sqrt(2) s)
-        #     u(x = binwidth/2) = binwidth/(s 2sqrt(2)) ->
-        #
-        #   k = N * sqrt(2) s * integral( exp(-u^2) du )
-        #     = N*sqrt(2pi) s * erf(binwidth / (s 2*sqrt(2)))
-        #
-        # for low x erf(x) ~ 2x/sqrt(pi). So if binwidth << sigma
-        # k = N*sqrt(2pi) s * erf(binwidth / (s 2*sqrt(2)))
-        #   ~ N*sqrt(2pi) s * (binwidth/(s 2*sqrt(2))) *2 / sqrt(pi)
-        #   ~ N binwidth
-        return \
-            '{k}*exp(-(x-{mean})*(x-{mean})/(2.*{var})) / sqrt(2.*pi*{var}) title "{title}" with lines lw 2'. \
-            format(mean= 0,
-                   var = sigma*sigma,
-                   title = title,
-                   k   = N * np.sqrt(2.*np.pi) * sigma * erf(binwidth/(2.*np.sqrt(2)*sigma)))
-
-    equations = [make_gaussian(sigma, len(x), binwidth, title) for sigma,title in \
+    equations = [fitted_gaussian_equation(sigma    = sigma,
+                                          N        = len(x),
+                                          binwidth = binwidth,
+                                          legend   = legend) for sigma,legend in \
                  ( (sigma_expected, 'Normal distribution of residuals with expected stdev: {:.02f} pixels'.format(sigma_expected)),
                    (sigma_observed, 'Normal distribution of residuals with observed stdev: {:.02f} pixels'.format(sigma_observed)))]
 
