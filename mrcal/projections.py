@@ -332,3 +332,177 @@ if get_gradients: we return a tuple:
         v /= nps.dummy(nps.mag(v), -1)
     return v
 
+
+def project_stereographic(points,
+                          fx = 1.0,
+                          fy = 1.0,
+                          cx = 0.0,
+                          cy = 0.0,
+                          get_gradients = False,
+                          out           = None):
+    r'''Projects a set of 3D camera-frame points using a stereographic map
+
+SYNOPSIS
+
+    q = mrcal.project_stereographic( # (N,3) array of 3d points we're projecting
+                                     points )
+
+    # q is now a (N,2) array of normalized stereographic coordinates
+
+
+This is a special case of mrcal.project(). Useful as part of data analysis, not
+to represent any real-world lens.
+
+Given a (N,3) array of points in the camera frame (x,y aligned with the imager
+coords, z 'forward') and parameters of a perfect stereographic camera, this
+function computes the projection, optionally with gradients. No actual lens ever
+follows this model exactly, but this is useful as a baseline for other models.
+
+The user can pass in focal length and center-pixel values. Or they can be
+omitted to compute a "normalized" stereographic projection (fx = fy = 1, cx = cy
+= 0).
+
+The stereographic projection is able to represent points behind the camera, and
+has only one singular observation direction: directly behind the camera, along
+the optical axis.
+
+This projection acts radially. If the observation vector v makes an angle theta
+with the optical axis, then the projected point q is 2 tan(theta/2) f from the
+image center.
+
+ARGUMENTS
+
+- points: array of dims (...,3); the points we're projecting. This supports
+  broadcasting fully, and any leading dimensions are allowed, including none
+
+- fx, fy: optional focal-lengths, in pixels. Both default to 1, as in the
+  normalized stereographic projection
+
+- cx, cy: optional projection center, in pixels. Both default to 0, as in the
+  normalized stereographic projection
+
+- get_gradients: optional boolean, defaults to False. This affects what we
+  return (see below)
+
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing arrays,
+  specify them with the 'out' kwarg. If get_gradients: 'out' is the one numpy
+  array we will write into. Else: 'out' is a tuple of all the output numpy
+  arrays. If 'out' is given, we return the same arrays passed in. This is the
+  standard behavior provided by numpysane_pywrap.
+
+RETURNED VALUE
+
+if not get_gradients: we return an (...,2) array of projected stereographic
+coordinates
+
+if get_gradients: we return a tuple:
+
+  - (...,2) array of projected stereographic coordinates
+  - (...,2,3) array of the gradients of the stereographic coordinates in respect
+    to the input 3D point positions
+
+    '''
+
+    # Internal function must have a different argument order so
+    # that all the broadcasting stuff is in the leading arguments
+    if not get_gradients:
+        return mrcal._mrcal_npsp._project_stereographic(points,
+                                                        fx=fx,
+                                                        fy=fy,
+                                                        cx=cx,
+                                                        cy=cy,
+                                                        out=out)
+    return mrcal._mrcal_npsp._project_stereographic_withgrad(points,
+                                                             fx=fx,
+                                                             fy=fy,
+                                                             cx=cx,
+                                                             cy=cy,
+                                                             out=out)
+
+
+def unproject_stereographic(points,
+                            fx = 1.0,
+                            fy = 1.0,
+                            cx = 0.0,
+                            cy = 0.0,
+                            get_gradients = False,
+                            out           = None):
+    r'''Unprojects a set of 2D pixel coordinates using a stereographic map
+
+SYNOPSIS
+
+    v = mrcal.unproject_stereographic( # (N,2) array of 2d imager points
+                                       points,
+                                       fx, fy, cx, cy )
+
+    # v is now a (N,3) array of observation directions. v are not normalized
+
+
+This is a special case of mrcal.unproject(). Useful as part of data analysis,
+not to represent any real-world lens.
+
+Given a (N,2) array of stereographic coordinates and parameters of a perfect
+stereographic camera, this function computes the inverse projection, optionally
+with gradients. No actual lens ever follows this model exactly, but this is
+useful as a baseline for other models.
+
+The user can pass in focal length and center-pixel values. Or they can be
+omitted to compute a "normalized" stereographic projection (fx = fy = 1, cx = cy
+= 0).
+
+The stereographic projection is able to represent points behind the camera, and
+has only one singular observation direction: directly behind the camera, along
+the optical axis.
+
+This projection acts radially. If the observation vector v makes an angle theta
+with the optical axis, then the projected point q is 2 tan(theta/2) f from the
+image center.
+
+ARGUMENTS
+
+- points: array of dims (...,2); the stereographic coordinates we're projecting.
+  This supports broadcasting fully, and any leading dimensions are allowed,
+  including none
+
+- fx, fy: optional focal-lengths, in pixels. Both default to 1, as in the
+  normalized stereographic projection
+
+- cx, cy: optional projection center, in pixels. Both default to 0, as in the
+  normalized stereographic projection
+
+- get_gradients: optional boolean, defaults to False. This affects what we
+  return (see below)
+
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing arrays,
+  specify them with the 'out' kwarg. If get_gradients: 'out' is the one numpy
+  array we will write into. Else: 'out' is a tuple of all the output numpy
+  arrays. If 'out' is given, we return the same arrays passed in. This is the
+  standard behavior provided by numpysane_pywrap.
+
+RETURNED VALUE
+
+if not get_gradients: we return an (...,3) array of unprojected observation
+vectors
+
+if get_gradients: we return a tuple:
+
+  - (...,3) array of unprojected observation vectors
+  - (...,3,2) array of the gradients of the observation vectors in respect to
+    the input 2D stereographic coordinates
+
+    '''
+    if not get_gradients:
+        return mrcal._mrcal_npsp._unproject_stereographic(points,
+                                                          fx=fx,
+                                                          fy=fy,
+                                                          cx=cx,
+                                                          cy=cy,
+                                                          out=out)
+    return mrcal._mrcal_npsp._unproject_stereographic_withgrad(points,
+                                                               fx=fx,
+                                                               fy=fy,
+                                                               cx=cx,
+                                                               cy=cy,
+                                                               out=out)

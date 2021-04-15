@@ -363,6 +363,151 @@ mrcal-genpywrap.py. Please keep them in sync """,
 '''},
 )
 
+m.function( "_project_stereographic",
+            """Internal stereographic projection routine
+
+This is the internals for mrcal.project_stereographic(). As a user, please call
+THAT function, and see the docs for that function. The differences:
+
+- This is just the no-gradients function. The internal function that reports the
+  gradients also is _project_stereographic_withgrad()
+
+- This function is wrapped with numpysane_pywrap, so the points broadcast as
+  expected
+
+""",
+
+            args_input       = ('points',),
+            prototype_input  = ((3,),),
+            prototype_output = (2,),
+
+            extra_args = (("double", "fx", "1.0", "d"),
+                          ("double", "fy", "1.0", "d"),
+                          ("double", "cx", "0.0", "d"),
+                          ("double", "cy", "0.0", "d"),),
+
+            Ccode_validate = r'''return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+                 mrcal_project_stereographic((mrcal_point2_t*)data_slice__output,
+                                             NULL,
+                                             (const mrcal_point3_t*)data_slice__points,
+                                             1,
+                                             *fx,*fy,*cx,*cy);
+                 return true;'''},
+)
+
+m.function( "_project_stereographic_withgrad",
+            """Internal stereographic projection routine
+
+This is the internals for mrcal.project_stereographic(). As a user, please call
+THAT function, and see the docs for that function. The differences:
+
+- This is just the gradient-reporting function. The internal function that
+  does not report the gradients is _project_stereographic()
+
+- This function is wrapped with numpysane_pywrap, so the points broadcast as
+  expected
+
+""",
+
+            args_input       = ('points',),
+            prototype_input  = ((3,),),
+            prototype_output = ((2,), (2,3)),
+
+            extra_args = (("double", "fx", "1.0", "d"),
+                          ("double", "fy", "1.0", "d"),
+                          ("double", "cx", "0.0", "d"),
+                          ("double", "cy", "0.0", "d"),),
+
+            Ccode_validate = r'''return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+                 mrcal_project_stereographic((mrcal_point2_t*)data_slice__output0,
+                                             (mrcal_point3_t*)data_slice__output1,
+                                             (const mrcal_point3_t*)data_slice__points,
+                                             1,
+                                             *fx,*fy,*cx,*cy);
+                 return true;'''},
+)
+
+m.function( "_unproject_stereographic",
+            """Internal stereographic unprojection routine
+
+This is the internals for mrcal.unproject_stereographic(). As a user, please
+call THAT function, and see the docs for that function. The differences:
+
+- This is just the no-gradients function. The internal function that reports the
+  gradients also is _unproject_stereographic_withgrad()
+
+- This function is wrapped with numpysane_pywrap, so the points broadcast as
+  expected
+
+""",
+
+            args_input       = ('points',),
+            prototype_input  = ((2,),),
+            prototype_output = (3,),
+
+            extra_args = (("double", "fx", "1.0", "d"),
+                          ("double", "fy", "1.0", "d"),
+                          ("double", "cx", "0.0", "d"),
+                          ("double", "cy", "0.0", "d"),),
+
+            Ccode_validate = r'''return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+                 mrcal_unproject_stereographic((mrcal_point3_t*)data_slice__output,
+                                               NULL,
+                                               (const mrcal_point2_t*)data_slice__points,
+                                               1,
+                                               *fx,*fy,*cx,*cy);
+                 return true;'''},
+)
+
+m.function( "_unproject_stereographic_withgrad",
+            """Internal stereographic unprojection routine
+
+This is the internals for mrcal.unproject_stereographic(). As a user, please
+call THAT function, and see the docs for that function. The differences:
+
+- This is just the gradient-reporting function. The internal function that does
+  not report the gradients is _unproject_stereographic()
+
+- This function is wrapped with numpysane_pywrap, so the points broadcast as
+  expected
+
+""",
+
+            args_input       = ('points',),
+            prototype_input  = ((2,),),
+            prototype_output = ((3,), (3,2)),
+
+            extra_args = (("double", "fx", "1.0", "d"),
+                          ("double", "fy", "1.0", "d"),
+                          ("double", "cx", "0.0", "d"),
+                          ("double", "cy", "0.0", "d"),),
+
+            Ccode_validate = r'''return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+                 mrcal_unproject_stereographic((mrcal_point3_t*)data_slice__output0,
+                                               (mrcal_point2_t*)data_slice__output1,
+                                               (const mrcal_point2_t*)data_slice__points,
+                                               1,
+                                               *fx,*fy,*cx,*cy);
+                 return true;'''},
+)
+
+
 m.function( "_A_Jt_J_At",
             """Computes matmult(A,Jt,J,At) for a sparse J
 
