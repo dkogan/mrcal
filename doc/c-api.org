@@ -217,13 +217,17 @@ typedef struct
     /* appear at the start of a model's parameter vector                    */
     bool has_core :1;
 
-
     /* Whether a model is able to project points behind the camera          */
     /* (z<0 in the camera coordinate system). Models based on a pinhole     */
     /* projection (pinhole, OpenCV, CAHVOR(E)) cannot do this. models based */
     /* on a stereographic projection (stereographic, splined stereographic) */
     /* can                                                                  */
     bool can_project_behind_camera :1;
+
+    /* Whether gradients are available for this model. Currently only */
+    /* CAHVORE does not have gradients                                */
+    bool has_gradients :1;
+
 } mrcal_lensmodel_metadata_t;
 
 

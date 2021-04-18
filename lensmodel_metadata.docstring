@@ -10,6 +10,7 @@ SYNOPSIS
      'can_project_behind_camera': 1,
      'fov_x_deg': 200,
      'has_core': 1,
+     'has_gradients': 1,
      'order': 3}
 
 I support a number of lens models, which have different properties. Some models
@@ -22,6 +23,9 @@ writing, the properties that ALL models have are
 
   can_project_behind_camera: True if this model is able to project vectors from
     behind the camera. If it cannot, then unproject() will never report z<0
+
+  has_gradients: True if this model has gradients defined. Currently only
+    CAHVORE does not have gradients
 
 At the time of this writing the only lensmodel that has any configuration is
 LENSMODEL_SPLINED_STEREOGRAPHIC_..., but more could be added later.

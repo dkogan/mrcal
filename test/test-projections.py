@@ -41,7 +41,8 @@ def check(intrinsics, p_ref, q_ref):
                             msg = f"Projecting {intrinsics[0]} in-place",
                             eps = 1e-2)
 
-    if intrinsics[0] != 'LENSMODEL_CAHVORE':
+    meta = mrcal.lensmodel_metadata(intrinsics[0])
+    if meta['has_gradients']:
         @nps.broadcast_define( ((3,),('N',)) )
         def grad_broadcasted(p_ref, i_ref):
             return grad(lambda pi: mrcal.project(pi[:3], intrinsics[0], pi[3:]),
@@ -99,8 +100,8 @@ def check(intrinsics, p_ref, q_ref):
                              msg = f"Unprojecting {intrinsics[0]}",
                              eps = 1e-6)
 
-    if intrinsics[0] == 'LENSMODEL_CAHVORE':
-        # no in-place output for CAHVORE
+    if not meta['has_gradients']:
+        # no in-place output for the no-gradients unproject() path
         return
 
     v_unprojected *= 0

@@ -240,16 +240,22 @@ mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t m )
     case MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC:
     case MRCAL_LENSMODEL_STEREOGRAPHIC:
         return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
-                                              .can_project_behind_camera = true };
+                                              .can_project_behind_camera = true,
+                                              .has_gradients             = true};
     case MRCAL_LENSMODEL_PINHOLE:
     case MRCAL_LENSMODEL_OPENCV4:
     case MRCAL_LENSMODEL_OPENCV5:
     case MRCAL_LENSMODEL_OPENCV8:
     case MRCAL_LENSMODEL_OPENCV12:
     case MRCAL_LENSMODEL_CAHVOR:
+        return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
+                                              .can_project_behind_camera = false,
+                                              .has_gradients             = true };
+
     case MRCAL_LENSMODEL_CAHVORE:
         return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
-                                              .can_project_behind_camera = false };
+                                              .can_project_behind_camera = false,
+                                              .has_gradients             = false };
 
     default: ;
     }
@@ -2435,15 +2441,19 @@ bool mrcal_project( // out
     // _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
 
     // project() doesn't handle cahvore, so I special-case it here
-    if( lensmodel.type == MRCAL_LENSMODEL_CAHVORE )
+    if(dq_dintrinsics != NULL || dq_dp != NULL)
     {
-        if(dq_dintrinsics != NULL || dq_dp != NULL)
+        mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
+        if(!meta.has_gradients)
         {
-            fprintf(stderr, "mrcal_project(MRCAL_LENSMODEL_CAHVORE) is not yet implemented if we're asking for gradients\n");
+            MSG("mrcal_project(lensmodel='%s') cannot return gradients; this is not yet implemented",
+                mrcal_lensmodel_name_unconfigured(lensmodel));
             return false;
         }
-        return _mrcal_project_internal_cahvore(q, p, N, intrinsics);
     }
+
+    if( lensmodel.type == MRCAL_LENSMODEL_CAHVORE )
+        return _mrcal_project_internal_cahvore(q, p, N, intrinsics);
 
     int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
 
@@ -2497,9 +2507,12 @@ bool mrcal_unproject( // out
                      // core, distortions concatenated
                      const double* intrinsics)
 {
-    if( lensmodel.type == MRCAL_LENSMODEL_CAHVORE )
+
+    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
+    if(!meta.has_gradients)
     {
-        fprintf(stderr, "mrcal_unproject(MRCAL_LENSMODEL_CAHVORE) not yet implemented. No gradients available\n");
+        MSG("mrcal_unproject(lensmodel='%s') is not yet implemented: we need gradients",
+            mrcal_lensmodel_name_unconfigured(lensmodel));
         return false;
     }
 

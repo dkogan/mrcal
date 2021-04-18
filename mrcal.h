@@ -183,13 +183,17 @@ mrcal_lensmodel_t mrcal_lensmodel_from_name( const char* name );
     /* appear at the start of a model's parameter vector                    */ \
     _(has_core,                  bool, "i",,, :1, cookie)               \
                                                                         \
-                                                                        \
     /* Whether a model is able to project points behind the camera          */ \
     /* (z<0 in the camera coordinate system). Models based on a pinhole     */ \
     /* projection (pinhole, OpenCV, CAHVOR(E)) cannot do this. models based */ \
     /* on a stereographic projection (stereographic, splined stereographic) */ \
     /* can                                                                  */ \
-    _(can_project_behind_camera, bool, "i",,, :1, cookie)
+    _(can_project_behind_camera, bool, "i",,, :1, cookie)               \
+                                                                        \
+    /* Whether gradients are available for this model. Currently only */ \
+    /* CAHVORE does not have gradients                                */ \
+    _(has_gradients,             bool, "i",,, :1, cookie)
+
 typedef struct
 {
     MRCAL_LENSMODEL_META_LIST(_MRCAL_ITEM_DEFINE_ELEMENT, )

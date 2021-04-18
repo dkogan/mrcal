@@ -182,7 +182,8 @@ REQUIRED ARGUMENTS
   LENSMODEL_CAHVOR
   LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=16_Ny=12_fov_x_deg=100
 
-  LENSMODEL_CAHVORE is explicitly NOT supported at this time
+  LENSMODEL_CAHVORE is explicitly NOT supported at this time since gradients are
+  required
 
 - imagersizes: integer array of dims (Ncameras_intrinsics,2)
 

@@ -188,9 +188,16 @@ if get_gradients: we return a tuple:
 
     '''
 
-    if lensmodel != 'LENSMODEL_CAHVORE':
 
-        # Main path. Internal function must have a different argument order so
+    try:
+        meta = mrcal.lensmodel_metadata(lensmodel)
+    except:
+        raise Exception(f"Invalid lens model '{lensmodel}': couldn't get the metadata")
+    if meta['has_gradients']:
+
+        # Main path. We have gradients.
+        #
+        # Internal function must have a different argument order so
         # that all the broadcasting stuff is in the leading arguments
         if not get_gradients:
             v = mrcal._mrcal_npsp._unproject(q, intrinsics_data, lensmodel=lensmodel,
@@ -273,11 +280,11 @@ if get_gradients: we return a tuple:
 
 
 
-    # CAHVORE. This is a reimplementation of the C code. It's barely maintained,
-    # and here for legacy compatibility only
+    # No gradients. We get them numerically. This is a reimplementation of the C
+    # code. It's barely maintained, and here for legacy compatibility only
 
     if get_gradients:
-        raise Exception("unproject(..., get_gradients=True) is unsupported if lensmodel == 'LENSMODEL_CAHVORE'")
+        raise Exception(f"unproject(..., get_gradients=True) is unsupported for models with no gradients, such as '{lensmodel}'")
 
     if q is None: return q
     if q.size == 0:
@@ -285,7 +292,7 @@ if get_gradients: we return a tuple:
         return np.zeros(s[:-1] + (3,))
 
     if out is not None:
-        raise Exception("unproject(..., out) is unsupported if out is not None and lensmodel == 'LENSMODEL_CAHVORE'")
+        raise Exception(f"unproject(..., out) is unsupported if out is not None and we're using a model with no gradients, such as '{lensmodel}'")
 
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]

@@ -31,7 +31,7 @@ m = npsp.module( name      = "_mrcal_npsp",
 #include "mrcal.h"
 
 static
-bool validate_lensmodel(// out; valid if we returned true
+bool validate_lensmodel_un_project(// out; valid if we returned true
                         mrcal_lensmodel_t* lensmodel,
 
                         // in
@@ -53,10 +53,11 @@ bool validate_lensmodel(// out; valid if we returned true
         return false;
     }
 
-    if( !is_project && lensmodel->type == MRCAL_LENSMODEL_CAHVORE )
+    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(*lensmodel);
+    if( !is_project && !meta.has_gradients )
     {
         PyErr_Format(PyExc_RuntimeError,
-                     "The internal _unproject() routine does not support CAHVORE. Use the Python mrcal.unproject() for that");
+                     "The internal _unproject() routine requires lens models that have gradients implemented. Use the Python mrcal.unproject() as a workaround");
         return false;
     }
 
@@ -155,13 +156,13 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
             extra_args = (("const char*", "lensmodel", "NULL", "s"),),
 
             Ccode_cookie_struct = '''
-              mrcal_lensmodel_t                    lensmodel;
+              mrcal_lensmodel_t              lensmodel;
               int                            Nintrinsics;
               mrcal_projection_precomputed_t precomputed;
             ''',
 
             Ccode_validate = r'''
-              if( !( validate_lensmodel(&cookie->lensmodel,
+              if( !( validate_lensmodel_un_project(&cookie->lensmodel,
                                         lensmodel, dims_slice__intrinsics[0], true) &&
                      CHECK_CONTIGUOUS_AND_SETERROR_ALL()))
                   return false;
@@ -242,21 +243,22 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
             extra_args = (("const char*", "lensmodel", "NULL", "s"),),
 
             Ccode_cookie_struct = '''
-              mrcal_lensmodel_t                    lensmodel;
+              mrcal_lensmodel_t              lensmodel;
               int                            Nintrinsics;
               mrcal_projection_precomputed_t precomputed;
             ''',
 
             Ccode_validate = r'''
-              if( !( validate_lensmodel(&cookie->lensmodel,
+              if( !( validate_lensmodel_un_project(&cookie->lensmodel,
                                         lensmodel, dims_slice__intrinsics[0], true) &&
                      CHECK_CONTIGUOUS_AND_SETERROR_ALL()))
                   return false;
 
-              if(cookie->lensmodel.type == MRCAL_LENSMODEL_CAHVORE)
+              mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(cookie->lensmodel);
+              if(!meta.has_gradients)
               {
                   PyErr_Format(PyExc_RuntimeError,
-                               "_project(MRCAL_LENSMODEL_CAHVORE) is not yet implemented if we're asking for gradients");
+                               "_project(get_gradients=True) requires a lens model that has gradient support");
                   return false;
               }
               cookie->Nintrinsics = mrcal_lensmodel_num_params(cookie->lensmodel);
@@ -299,7 +301,8 @@ function, and see the docs for that function. The differences:
   different. numpysane_pywrap broadcasts the leading arguments, so this function
   takes the lensmodel (the one argument that does not broadcast) last
 
-- This function does NOT support CAHVORE
+- This function requires gradients, so it does not support some lens models;
+  CAHVORE for instance
 
 - To speed things up, this function doesn't call the C mrcal_unproject(), but
   uses the _mrcal_unproject_internal...() functions instead. That allows as much
@@ -322,17 +325,11 @@ mrcal-genpywrap.py. Please keep them in sync """,
             ''',
 
             Ccode_validate = r'''
-              if( !( validate_lensmodel(&cookie->lensmodel,
+              if( !( validate_lensmodel_un_project(&cookie->lensmodel,
                                         lensmodel, dims_slice__intrinsics[0], false) &&
                      CHECK_CONTIGUOUS_AND_SETERROR_ALL()))
                   return false;
 
-              if(cookie->lensmodel.type == MRCAL_LENSMODEL_CAHVORE)
-              {
-                  PyErr_Format(PyExc_RuntimeError,
-                               "_unproject(MRCAL_LENSMODEL_CAHVORE) is not yet implemented: we need gradients. The python mrcal.unproject() should work; slowly.");
-                  return false;
-              }
               _mrcal_precompute_lensmodel_data(&cookie->precomputed, cookie->lensmodel);
               return true;
 ''',

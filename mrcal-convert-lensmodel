@@ -161,11 +161,6 @@ def parse_args():
 
 args = parse_args()
 
-if args.to == 'LENSMODEL_CAHVORE':
-    print("LENSMODEL_CAHVORE models aren't supported at this time: its gradients aren't implemented",
-          file=sys.stderr)
-    sys.exit(1)
-
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
 
@@ -180,6 +175,18 @@ import copy
 import mrcal
 
 lensmodel_to = args.to
+
+try:
+    meta = mrcal.lensmodel_metadata(lensmodel_to)
+except:
+    print(f"Invalid lens model '{lensmodel_to}': couldn't get the metadata",
+          file=sys.stderr)
+    sys.exit(1)
+if not meta['has_gradients']:
+    print(f"lens model {lensmodel_to} is not supported at this time: its gradients aren't implemented",
+          file=sys.stderr)
+    sys.exit(1)
+
 try:
     Ndistortions = mrcal.lensmodel_num_params(lensmodel_to) - 4
 except:
