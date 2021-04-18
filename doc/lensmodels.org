@@ -137,7 +137,7 @@ it does.
 
 ** =LENSMODEL_CAHVORE=
 :PROPERTIES:
-:lensmodel-cahvore:
+:CUSTOM_ID: lensmodel-cahvore
 :END:
 This is an extended flavor of =LENSMODEL_CAHVOR= to support wider lenses. The
 =LENSMODEL_CAHVORE= model has 8 "distortion" parameters in addition to the 4
