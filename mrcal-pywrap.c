@@ -688,7 +688,7 @@ static bool parse_lensmodel_from_arg(// output
 }
 
 static PyObject* lensmodel_metadata(PyObject* NPY_UNUSED(self),
-                                PyObject* args)
+                                    PyObject* args)
 {
     PyObject* result = NULL;
     SET_SIGINT();
