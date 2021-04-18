@@ -131,8 +131,6 @@ could have trouble
 ** stuff to add
 - better sfm support
 - integrate deltapose-lite (lindstrom-optimized points) into mrcal
-- cahvore linearity should be a config parameter
-- cahvore: non-gradientness should be a metadata parameter
 - better outlier rejection. cook's D
 - outlier rejection for points AND board observations
 ** stuff to study

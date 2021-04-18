@@ -52,7 +52,8 @@ bool _mrcal_project_internal_cahvore( // out
                                      int N,
 
                                      // core, distortions concatenated
-                                     const double* intrinsics);
+                                     const double* intrinsics,
+                                     const double  linearity);
 bool _mrcal_project_internal( // out
                              mrcal_point2_t* q,
 

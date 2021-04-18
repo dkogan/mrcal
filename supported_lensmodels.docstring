@@ -12,7 +12,7 @@ SYNOPSIS
      'LENSMODEL_OPENCV8',
      'LENSMODEL_OPENCV12',
      'LENSMODEL_CAHVOR',
-     'LENSMODEL_CAHVORE')
+     'LENSMODEL_CAHVORE_linearity=...')
 
 mrcal knows about some set of lens models, which can be queried here. The above
 list is correct as of this writing, but more models could be added with time.

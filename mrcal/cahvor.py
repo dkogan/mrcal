@@ -166,8 +166,8 @@ def _read(s, name):
             R0,R1,R2 = x['R'].ravel()
             E0,E1,E2 = x['E'].ravel()
 
-            distortions      = np.array((alpha,beta,R0,R1,R2,E0,E1,E2,cahvore_linearity), dtype=float)
-            lensmodel = 'LENSMODEL_CAHVORE'
+            distortions      = np.array((alpha,beta,R0,R1,R2,E0,E1,E2), dtype=float)
+            lensmodel = f'LENSMODEL_CAHVORE_linearity={cahvore_linearity}'
 
         else:
             # CAHVOR
@@ -226,12 +226,14 @@ def _write(f, m, note=None):
     lensmodel,intrinsics = m.intrinsics()
     if lensmodel == 'LENSMODEL_CAHVOR':
         f.write("Model = CAHVOR = perspective, distortion\n")
-    elif lensmodel == 'LENSMODEL_CAHVORE':
-        f.write("Model = CAHVORE3,{} = general\n".format(intrinsics[4+5+3]))
     elif re.match('LENSMODEL_(OPENCV.*|PINHOLE)', lensmodel):
         f.write("Model = CAHV = perspective, linear\n")
     else:
-        raise Exception("Don't know how to handle lens model '{}'".format(lensmodel))
+        match = re.match('^LENSMODEL_CAHVORE_linearity=([0-9\.]+)$', lensmodel)
+        if match is not None:
+            f.write("Model = CAHVORE3,{} = general\n".format(match.group(1)))
+        else:
+            raise Exception("Don't know how to handle lens model '{}'".format(lensmodel))
 
 
     fx,fy,cx,cy = intrinsics[:4]
@@ -251,7 +253,7 @@ def _write(f, m, note=None):
     f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('H', *H))
     f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('V', *V))
 
-    if re.match('LENSMODEL_CAHVOR', lensmodel):
+    if re.match('^LENSMODEL_CAHVOR', lensmodel):
         # CAHVOR(E)
         alpha,beta,R0,R1,R2 = intrinsics[4:9]
 
@@ -261,7 +263,7 @@ def _write(f, m, note=None):
         f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('O', *O))
         f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('R', *R))
 
-        if 'LENSMODEL_CAHVORE' == lensmodel:
+        if re.match('^LENSMODEL_CAHVORE', lensmodel):
             E = intrinsics[9:]
             f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('E', *E))
 

@@ -14,10 +14,10 @@
 
 // These are an "X macro": https://en.wikipedia.org/wiki/X_Macro
 //
-// The supported lens models and their parameter counts. A parameter count of
-// <=0 means the parameter count is dynamic and will be computed by
-// mrcal_lensmodel_num_params(). This also implies that this model has some
-// configuration that affects the parameter count
+// The supported lens models and their parameter counts. Models with a
+// configuration report their parameter counts in the
+// LENSMODEL_XXX__lensmodel_num_params() function, called by
+// mrcal_lensmodel_num_params(). So their parameter counts here are ignored.
 #define MRCAL_LENSMODEL_NOCONFIG_LIST(_)                                         \
     _(LENSMODEL_PINHOLE,               4)                                        \
     _(LENSMODEL_STEREOGRAPHIC,         4)  /* Simple stereographic-only model */ \
@@ -25,9 +25,9 @@
     _(LENSMODEL_OPENCV5,               9)                                        \
     _(LENSMODEL_OPENCV8,               12)                                       \
     _(LENSMODEL_OPENCV12,              16) /* available in OpenCV >= 3.0.0) */   \
-    _(LENSMODEL_CAHVOR,                9)                                        \
-    _(LENSMODEL_CAHVORE,               13) /* CAHVORE is CAHVOR + E + linearity */
+    _(LENSMODEL_CAHVOR,                9)
 #define MRCAL_LENSMODEL_WITHCONFIG_LIST(_)                                       \
+    _(LENSMODEL_CAHVORE,               0)                                        \
     _(LENSMODEL_SPLINED_STEREOGRAPHIC, 0)
 #define MRCAL_LENSMODEL_LIST(_)                                                  \
     MRCAL_LENSMODEL_NOCONFIG_LIST(_)                                             \
@@ -42,12 +42,19 @@ typedef struct {} mrcal_LENSMODEL_OPENCV5__config_t;
 typedef struct {} mrcal_LENSMODEL_OPENCV8__config_t;
 typedef struct {} mrcal_LENSMODEL_OPENCV12__config_t;
 typedef struct {} mrcal_LENSMODEL_CAHVOR__config_t;
-typedef struct {} mrcal_LENSMODEL_CAHVORE__config_t;
 
 #define _MRCAL_ITEM_DEFINE_ELEMENT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) type name bitfield;
 
 _Static_assert(sizeof(uint16_t) == sizeof(unsigned short int), "I need a short to be 16-bit. Py_BuildValue doesn't let me just specify that. H means 'unsigned short'");
 
+// Configuration for CAHVORE. These are given as an an
+// "X macro": https://en.wikipedia.org/wiki/X_Macro
+#define MRCAL_LENSMODEL_CAHVORE_CONFIG_LIST(_, cookie) \
+    _(linearity,    double, "d", ".2f", "lf", , cookie)
+typedef struct
+{
+    MRCAL_LENSMODEL_CAHVORE_CONFIG_LIST(_MRCAL_ITEM_DEFINE_ELEMENT, )
+} mrcal_LENSMODEL_CAHVORE__config_t;
 
 // Configuration for the splined stereographic models. These are given as an an
 // "X macro": https://en.wikipedia.org/wiki/X_Macro

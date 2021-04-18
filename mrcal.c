@@ -62,7 +62,7 @@
 #define CHECK_CONFIG_NPARAM_NOCONFIG(s,n) \
     static_assert(n > 0, "no-config implies known-at-compile-time param count");
 #define CHECK_CONFIG_NPARAM_WITHCONFIG(s,n) \
-    static_assert(n <= 0, "with-config implies unknown-at-compile-time param count");
+    static_assert(n <= 0, "Models with a configuration define their parameter counts in LENSMODEL_XXX__lensmodel_num_params(); their compile-time-defined counts are ignored");
 MRCAL_LENSMODEL_NOCONFIG_LIST(  CHECK_CONFIG_NPARAM_NOCONFIG)
 MRCAL_LENSMODEL_WITHCONFIG_LIST(CHECK_CONFIG_NPARAM_WITHCONFIG)
 
@@ -107,6 +107,15 @@ const char* mrcal_lensmodel_name_unconfigured( mrcal_lensmodel_t model )
 
 // Write the model name WITH the full config into the given buffer. Identical to
 // mrcal_lensmodel_name_unconfigured() for configuration-free models
+static int LENSMODEL_CAHVORE__snprintf_model
+  (char* out, int size,
+   const mrcal_LENSMODEL_CAHVORE__config_t* config)
+{
+    return
+        snprintf( out, size, "LENSMODEL_CAHVORE"
+                  MRCAL_LENSMODEL_CAHVORE_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_FMT, )
+                  MRCAL_LENSMODEL_CAHVORE_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_VAR, ));
+}
 static int LENSMODEL_SPLINED_STEREOGRAPHIC__snprintf_model
   (char* out, int size,
    const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
@@ -140,6 +149,18 @@ bool mrcal_lensmodel_name( char* out, int size, mrcal_lensmodel_t model )
 }
 
 
+static bool LENSMODEL_CAHVORE__scan_model_config( mrcal_LENSMODEL_CAHVORE__config_t* config, const char* config_str)
+{
+    int pos;
+    int Nelements = 0 MRCAL_LENSMODEL_CAHVORE_CONFIG_LIST(LENSMODEL_SCAN_CFG_ELEMENT_PLUS1, );
+    return
+        Nelements ==
+        sscanf( config_str,
+                MRCAL_LENSMODEL_CAHVORE_CONFIG_LIST(LENSMODEL_SCAN_CFG_ELEMENT_FMT, )"%n"
+                MRCAL_LENSMODEL_CAHVORE_CONFIG_LIST(LENSMODEL_SCAN_CFG_ELEMENT_VAR, ),
+                &pos) &&
+        config_str[pos] == '\0';
+}
 static bool LENSMODEL_SPLINED_STEREOGRAPHIC__scan_model_config( mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config, const char* config_str)
 {
     int pos;
@@ -276,6 +297,14 @@ bool model_supports_projection_behind_camera( const mrcal_lensmodel_t m )
     return meta.can_project_behind_camera;
 }
 
+static int LENSMODEL_CAHVORE__lensmodel_num_params(const mrcal_LENSMODEL_CAHVORE__config_t* config)
+{
+    /* CAHVORE is CAHVOR + E */
+    return
+        4 + // core
+        5 + // CAHVOR distortion
+        3;  // E
+}
 static int LENSMODEL_SPLINED_STEREOGRAPHIC__lensmodel_num_params(const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
 {
     return
@@ -2098,7 +2127,8 @@ bool _mrcal_project_internal_cahvore( // out
                                      int N,
 
                                      // core, distortions concatenated
-                                     const double* intrinsics)
+                                     const double* intrinsics,
+                                     const double  linearity)
 {
     // Apply a CAHVORE warp to an un-distorted point
 
@@ -2127,7 +2157,6 @@ bool _mrcal_project_internal_cahvore( // out
     const double e0        = intrinsics[4 + 5];
     const double e1        = intrinsics[4 + 6];
     const double e2        = intrinsics[4 + 7];
-    const double linearity = intrinsics[4 + 8];
 
     double sa,ca;
     sincos(alpha, &sa, &ca);
@@ -2453,7 +2482,8 @@ bool mrcal_project( // out
     }
 
     if( lensmodel.type == MRCAL_LENSMODEL_CAHVORE )
-        return _mrcal_project_internal_cahvore(q, p, N, intrinsics);
+        return _mrcal_project_internal_cahvore(q, p, N, intrinsics,
+                                               lensmodel.LENSMODEL_CAHVORE__config.linearity);
 
     int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
 
