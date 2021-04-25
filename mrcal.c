@@ -11,6 +11,7 @@
 
 #include "mrcal.h"
 #include "minimath/minimath.h"
+#include "util.h"
 
 // These are parameter variable scales. They have the units of the parameters
 // themselves, so the optimizer sees x/SCALE_X for each parameter. I.e. as far
@@ -54,7 +55,6 @@
 #define SCALE_CALOBJECT_WARP          0.01
 #define SCALE_DISTORTION              1.0
 
-#define MSG(fmt, ...) fprintf(stderr, "%s(%d): " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 #define MSG_IF_VERBOSE(...) do { if(verbose) MSG( __VA_ARGS__ ); } while(0)
 
 
