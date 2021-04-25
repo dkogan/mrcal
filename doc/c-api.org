@@ -1015,9 +1015,30 @@ If we want verbose reporting about what the optimizer is doing, pass =verbose =
 true= to =mrcal_optimize()=.
 
 * Camera model reading/writing
-Currently there's no support for reading/writing [[file:cameramodels.org][=.cameramodel=]] files in the C
-API. This is already partially implemented, and I will finish it when I need it
-or when somebody bugs me about it, whichever comes first.
+:PROPERTIES:
+:CUSTOM_ID: cameramodel-io-in-c
+:END:
+
+A simple interface for reading/writing [[file:cameramodels.org][=.cameramodel=]] data from C is available:
+
+#+begin_src c
+typedef struct
+{
+    double            rt_cam_ref[6];
+    unsigned int      imagersize[2];
+    mrcal_lensmodel_t lensmodel;
+    double            intrinsics_data[];
+} mrcal_cameramodel_t;
+
+mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char* string);
+mrcal_cameramodel_t* mrcal_read_cameramodel_file  (const char* filename);
+void                 mrcal_free_cameramodel(mrcal_cameramodel_t** cameramodel);
+
+bool mrcal_write_cameramodel_file(const char* filename,
+                                  const mrcal_cameramodel_t* cameramodel);
+#+end_src
+
+The =.cahvor= file format is not supported
 
 * Miscellaneous
 When calibrating cameras, each observations is associated with some intrinsics

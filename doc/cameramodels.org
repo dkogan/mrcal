@@ -96,6 +96,5 @@ give us an nice way to observe the effects of those changes. We can add input
 noise or change the lens model or [[file:formulation.org::#Regularization][regularization terms]] or anything else.
 
 * C interface
-Currently there's no support for reading/writing camera models from the [[file:c-api.org][C API]]. I
-will write this when I need it or when somebody bugs me about it, whichever
-comes first.
+The [[file:c-api.org::#cameramodel-io-in-c][C API]] has a simple interface for reading/writing =.cameramodel= data. The
+=.cahvor= file format is not supported.
