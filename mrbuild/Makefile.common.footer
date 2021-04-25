@@ -82,17 +82,6 @@ CCXXFLAGS += -g
 # I want the frame pointer. Makes walking the stack WAY easier
 CCXXFLAGS += -fno-omit-frame-pointer
 
-# I look through my LIB_SOURCES and BIN_SOURCES. Anything that isn't a wildcard
-# (has * or ?) should exist. If it doesn't, the user messed up and I flag it
-get_no_wildcards          = $(foreach v,$1,$(if $(findstring ?,$v)$(findstring *,$v),,$v))
-complain_if_nonempty      = $(if $(strip $1),$(error $2: $1))
-complain_unless_all_exist = $(call complain_if_nonempty,$(call get_no_wildcards,$(filter-out $(wildcard $1),$1)),File not found: )
-$(call complain_unless_all_exist,$(LIB_SOURCES) $(BIN_SOURCES))
-
-
-LIB_SOURCES := $(wildcard $(LIB_SOURCES))
-BIN_SOURCES := $(wildcard $(BIN_SOURCES))
-
 LIB_OBJECTS := $(addsuffix .o,$(basename $(LIB_SOURCES)))
 BIN_OBJECTS := $(addsuffix .o,$(basename $(BIN_SOURCES)))
 
