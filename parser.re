@@ -16,6 +16,7 @@
 
 #define DEBUG 0
 
+// string defined by an explicit length. Instead of being 0-terminated
 typedef struct
 {
     const char* s;
@@ -293,7 +294,7 @@ static bool read_balanced_list( const char** pYYCURSOR, const char* start_file )
     while(true)
     {
         /*!re2c
-          IGNORE [\[(]
+          ( IGNORE | [0-9eE\.,-]*)* [\[(]
           {
             level++;
             continue;
@@ -319,13 +320,10 @@ static bool read_balanced_list( const char** pYYCURSOR, const char* start_file )
             }
             if(level > 0)
             {
-              // closed inner ]. MUST have received a trailing ,
-              if(YYCURSOR[-1] != ',')
-              {
-                MSG("Error reading a balanced list at %ld (missing trailing ,)",
-                    YYCURSOR-start_file);
-                return false;
-              }
+              // closed inner ]. Trailing , afterwards is optional. I don't
+              // bother checking for this thoroughly, so I end up erroneously
+              // accepting expressions like [1,2,3][3,4,5]. But that's OK
+              ;
             }
             continue;
           }
@@ -549,37 +547,6 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *YYCURSOR)
 
     memcpy(cameramodel_full, &cameramodel_core, sizeof(cameramodel_core));
     return cameramodel_full;
-
-
-    /*
-check for minimal match. This should pick up TWO separate k/v: 'asdf': 4, 'zxcv': 8
-
-check for newlines. This should work: 'asdf':\n5
-
-check for eof. should I explicitly be checking for [\x00] ?
-
-check for trailing ,
-
-check for trailing }
-
-check for garbage past the }. Do } and ,} separately
-     */
-
-// #error handle:
-
-
-// //   'dontcare': [1, 2, 5, # ]
-// //  6#]
-// // , 8, 9
-// // #
-// // ]
-
-
-// #error test doubly-defined keys
-// #error dealloc intrinsics_data
-// all should check double-define
-// all should check if the result is successful
-// need a mrcal_write_cameramodel()
 }
 
 mrcal_cameramodel_t* mrcal_read_cameramodel_file(const char* filename)
