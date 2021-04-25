@@ -181,7 +181,25 @@ int main(int argc, char* argv[])
                "}\n");
 
 
-
+    // Roundtrip write/read
+    bool write_cameramodel_succeeded =
+        mrcal_write_cameramodel_file("/tmp/test-parser-cameramodel.cameramodel",
+                                     (mrcal_cameramodel_t*)&cameramodel_ref);
+    confirm(write_cameramodel_succeeded);
+    if(write_cameramodel_succeeded)
+    {
+        FILE* fp = fopen("/tmp/test-parser-cameramodel.cameramodel", "r");
+        char buf[1024];
+        int Nbytes_read = fread(buf, 1, sizeof(buf), fp);
+        fclose(fp);
+        confirm(Nbytes_read > 0);
+        confirm(Nbytes_read < sizeof(buf));
+        if(Nbytes_read > 0 && Nbytes_read < sizeof(buf))
+        {
+            check(buf,
+                  (mrcal_cameramodel_t*)&cameramodel_ref);
+        }
+    }
 
     TEST_FOOTER();
 }

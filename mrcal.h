@@ -877,5 +877,8 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char* string);
 mrcal_cameramodel_t* mrcal_read_cameramodel_file  (const char* filename);
 void                 mrcal_free_cameramodel(mrcal_cameramodel_t** cameramodel);
 
+bool mrcal_write_cameramodel_file(const char* filename,
+                                  const mrcal_cameramodel_t* cameramodel);
+
 // Public ABI stuff, that's not for end-user consumption
 #include "mrcal_internal.h"

@@ -5108,3 +5108,57 @@ mrcal_optimize( // out
 
     return stats;
 }
+
+bool mrcal_write_cameramodel_file(const char* filename,
+                                  const mrcal_cameramodel_t* cameramodel)
+{
+    bool result = false;
+    FILE* fp = fopen(filename, "w");
+    if(fp == NULL)
+    {
+        MSG("Couldn't open('%s')", filename);
+        return false;
+    }
+
+    char lensmodel_string[1024];
+    if(!mrcal_lensmodel_name(lensmodel_string, sizeof(lensmodel_string),
+                             cameramodel->lensmodel))
+    {
+        MSG("Couldn't construct lensmodel string. Unconfigured string: '%s'",
+            mrcal_lensmodel_name_unconfigured(cameramodel->lensmodel));
+        goto done;
+    }
+
+    int Nparams = mrcal_lensmodel_num_params(cameramodel->lensmodel);
+    if(Nparams<0)
+    {
+        MSG("Couldn't get valid Nparams from lensmodel string '%s'",
+            lensmodel_string);
+        goto done;
+    }
+
+    fprintf(fp, "{\n");
+    fprintf(fp, "  'lensmodel':  '%s',\n", lensmodel_string);
+    fprintf(fp, "  'intrinsics': [ ");
+    for(int i=0; i<Nparams; i++)
+        fprintf(fp, "%g, ", cameramodel->intrinsics_data[i]);
+    fprintf(fp, "],\n");
+    fprintf(fp, "  'imagersize': [ %u, %u ],\n",
+            cameramodel->imagersize[0],
+            cameramodel->imagersize[1]);
+    fprintf(fp, "  'extrinsics': [ %f, %f, %f, %f, %f, %f ]\n",
+            cameramodel->rt_cam_ref[0],
+            cameramodel->rt_cam_ref[1],
+            cameramodel->rt_cam_ref[2],
+            cameramodel->rt_cam_ref[3],
+            cameramodel->rt_cam_ref[4],
+            cameramodel->rt_cam_ref[5]);
+
+    fprintf(fp,"}\n");
+    result = true;
+
+ done:
+    if(fp != NULL)
+        fclose(fp);
+    return result;
+}
