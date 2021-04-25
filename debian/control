@@ -10,7 +10,8 @@ Build-Depends: debhelper (>= 9), dh-python,
  python3,
  python3-gnuplotlib (>= 0.36), python3-numpysane (>= 0.29),
  python3-opencv, python3-numpy, python3-scipy (>= 0.18),
- chrpath
+ chrpath,
+ re2c
 Maintainer: Dima Kogan <dima@secretsauce.net>
 Standards-Version: 3.9.8
 Homepage: https://www.github.com/dkogan/mrcal/

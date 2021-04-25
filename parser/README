@@ -1,9 +1,0 @@
-This is a mostly-function flex/bison parser for cameramodels
-
-It parses everything, but doesn't actually do anything with the results.
-
-I need to store the data somewhere
-
-All numbers are floats. Should some of them be ints?
-
-strdup() is never freed

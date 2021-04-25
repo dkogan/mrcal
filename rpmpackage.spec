@@ -35,6 +35,9 @@ BuildRequires: perl-List-MoreUtils
 # for mrbuild
 BuildRequires: chrpath
 
+# for the parser
+BuildRequires: re2c
+
 Requires: numpysane >= 0.29-1
 Requires: gnuplotlib >= 0.36
 Requires: opencv-python36

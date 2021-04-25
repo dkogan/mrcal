@@ -16,7 +16,11 @@ VERSION = $(if $(_VERSION_EXPANDED),,$(eval _VERSION_EXPANDED:=$$(_VERSION)))$(_
 
 LIB_SOURCES += mrcal.c poseutils.c poseutils-uses-autodiff.cc triangulation.cc
 
-BIN_SOURCES += test-gradients.c test/test-cahvor.c test/test-lensmodel-string-manipulation.c
+BIN_SOURCES +=					\
+  test-gradients.c				\
+  test/test-cahvor.c				\
+  test/test-lensmodel-string-manipulation.c     \
+  test/test-parser-cameramodel.c
 
 LDLIBS    += -ldogleg
 
@@ -60,8 +64,12 @@ DIST_BIN :=					\
 # do
 DIST_MAN := $(addsuffix .1,$(DIST_BIN))
 
-
-
+# parser
+parser_GENERATED.c: parser.re mrcal.h
+	re2c $< > $@.tmp && mv $@.tmp $@
+LIB_SOURCES += parser_GENERATED.c
+EXTRA_CLEAN += parser_GENERATED.c
+parser_GENERATED.o: CCXXFLAGS += -fno-fast-math
 
 ALL_PY_EXTENSION_MODULES := _mrcal _mrcal_npsp _poseutils
 %/:
@@ -221,7 +229,8 @@ TESTS :=										\
   test/test-stereo.py									\
   test/test-solvepnp.py                                                                 \
   test/test-match-feature.py							        \
-  test/test-triangulation.py
+  test/test-triangulation.py                                                        \
+  test/test-parser-cameramodel
 
 test check: all
 	@FAILED=""; $(foreach t,$(TESTS),echo "========== RUNNING: $t"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"

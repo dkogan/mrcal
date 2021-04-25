@@ -45,6 +45,25 @@ static void _confirm_eq_int(int x, int xref, const char* what_x, const char* wha
 #define confirm_eq_int(x,xref) _confirm_eq_int(x, xref, #x, #xref, __LINE__)
 
 __attribute__((unused))
+static void _confirm_eq_int_max_array(const int* x, const int* xref, int N, const char* what_x, const char* what_xref, int where)
+{
+    Ntests++;
+
+    for(int i=0; i<N; i++)
+        if(x[i] != xref[i])
+        {
+            printf(RED "FAIL on line %d: %s != %s" COLOR_RESET"\n",
+                   where, what_x, what_xref);
+            NtestsFailed++;
+            return;
+        }
+
+    printf(GREEN "OK: %s = %s, as it should" COLOR_RESET"\n", what_x, what_xref);
+}
+#define confirm_eq_int_max_array(x,xref, N)                      \
+    _confirm_eq_int_max_array(x, xref, N, #x, #xref, __LINE__)
+
+__attribute__((unused))
 static void _confirm_eq_double(double x, double xref, const char* what_x, const char* what_xref, double eps, int where)
 {
     Ntests++;
@@ -57,7 +76,30 @@ static void _confirm_eq_double(double x, double xref, const char* what_x, const 
         NtestsFailed++;
     }
 }
-#define confirm_eq_double(x,xref, eps) _confirm_eq_double(x, xref, #x, #xref, eps, __LINE__)
+#define confirm_eq_double(x,xref, eps) \
+    _confirm_eq_double(x, xref, #x, #xref, eps, __LINE__)
+
+__attribute__((unused))
+static void _confirm_eq_double_max_array(const double* x, const double* xref, int N, const char* what_x, const char* what_xref, double eps, int where)
+{
+    double worst_err = 0.0;
+    for(int i=0; i<N; i++)
+    {
+        double err = fabs(x[i] - xref[i]);
+        if(err > worst_err) worst_err = err;
+    }
+    Ntests++;
+    if(worst_err < eps)
+        printf(GREEN "OK: %s ~ %s, as it should" COLOR_RESET"\n", what_x, what_xref);
+    else
+    {
+        printf(RED "FAIL on line %d: %s !~ %s" COLOR_RESET"\n",
+               where, what_x, what_xref);
+        NtestsFailed++;
+    }
+}
+#define confirm_eq_double_max_array(x,xref, N, eps)                      \
+    _confirm_eq_double_max_array(x, xref, N, #x, #xref, eps, __LINE__)
 
 
 

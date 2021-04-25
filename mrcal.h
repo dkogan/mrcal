@@ -862,5 +862,20 @@ int mrcal_num_states_calobject_warp(mrcal_problem_selections_t problem_selection
                                     int Nobservations_board);
 
 
+
+// structure containing a camera pose + lens model. Used only for .cameramodel
+// input/output
+typedef struct
+{
+    double            rt_cam_ref[6];
+    unsigned int      imagersize[2];
+    mrcal_lensmodel_t lensmodel;
+    double            intrinsics_data[];
+} mrcal_cameramodel_t;
+
+mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char* string);
+mrcal_cameramodel_t* mrcal_read_cameramodel_file  (const char* filename);
+void                 mrcal_free_cameramodel(mrcal_cameramodel_t** cameramodel);
+
 // Public ABI stuff, that's not for end-user consumption
 #include "mrcal_internal.h"
