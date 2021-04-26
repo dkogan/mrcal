@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
     if(write_cameramodel_succeeded)
     {
         FILE* fp = fopen("/tmp/test-parser-cameramodel.cameramodel", "r");
-        char buf[1024];
+        char buf[1024] = {};
         int Nbytes_read = fread(buf, 1, sizeof(buf), fp);
         fclose(fp);
         confirm(Nbytes_read > 0);
