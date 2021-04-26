@@ -193,8 +193,8 @@ int main(int argc, char* argv[])
         int Nbytes_read = fread(buf, 1, sizeof(buf), fp);
         fclose(fp);
         confirm(Nbytes_read > 0);
-        confirm(Nbytes_read < sizeof(buf));
-        if(Nbytes_read > 0 && Nbytes_read < sizeof(buf))
+        confirm(Nbytes_read < (int)sizeof(buf));
+        if(Nbytes_read > 0 && Nbytes_read < (int)sizeof(buf))
         {
             check(buf,
                   (mrcal_cameramodel_t*)&cameramodel_ref);
