@@ -114,13 +114,13 @@ mrcal_triangulate_geometric(// outputs
 
     val_withgrad_t<9> denom = dot_v0v0*dot_v1v1 - dot_v0v1*dot_v0v1;
     if(-1e-10 <= denom.x && denom.x <= 1e-10)
-        return (mrcal_point3_t){};
+        return (mrcal_point3_t){0};
 
     val_withgrad_t<9> denom_recip = val_withgrad_t<9>(1.)/denom;
     val_withgrad_t<9> k0 = denom_recip * (dot_v1v1*dot_v0t - dot_v0v1*dot_v1t);
-    if(k0.x <= 0.0) return (mrcal_point3_t){};
+    if(k0.x <= 0.0) return (mrcal_point3_t){0};
     val_withgrad_t<9> k1 = denom_recip * (dot_v0v1*dot_v0t - dot_v0v0*dot_v1t);
-    if(k1.x <= 0.0) return (mrcal_point3_t){};
+    if(k1.x <= 0.0) return (mrcal_point3_t){0};
 
     vec_withgrad_t<9,3> m = (v0*k0 + v1*k1 + t01) * 0.5;
 
@@ -355,7 +355,7 @@ mrcal_triangulate_lindstrom(// outputs
     // with that assumption
     vec_withgrad_t<18,3> m;
     if(!triangulate_assume_intersect(m, v0, Rv1, t01))
-        return (mrcal_point3_t){};
+        return (mrcal_point3_t){0};
 
     mrcal_point3_t _m;
     m.extract_value(_m.xyz);
@@ -433,7 +433,7 @@ mrcal_triangulate_leecivera_l1(// outputs
 
     vec_withgrad_t<9,3> m;
     if(!triangulate_assume_intersect(m, v0, v1, t01))
-        return (mrcal_point3_t){};
+        return (mrcal_point3_t){0};
 
     mrcal_point3_t _m;
     m.extract_value(_m.xyz);
@@ -496,7 +496,7 @@ mrcal_triangulate_leecivera_linf(// outputs
     // with that assumption
     vec_withgrad_t<9,3> m;
     if(!triangulate_assume_intersect(m, v0, v1, t01))
-        return (mrcal_point3_t){};
+        return (mrcal_point3_t){0};
 
     mrcal_point3_t _m;
     m.extract_value(_m.xyz);
@@ -589,7 +589,7 @@ mrcal_triangulate_leecivera_mid2(// outputs
     val_withgrad_t<9> l1 = (cross_norm2<9>(v0, t01) * p_norm2_recip).sqrt();
 
     if(!chirality(l0, v0, l1, v1, t01))
-        return (mrcal_point3_t){};
+        return (mrcal_point3_t){0};
 
     vec_withgrad_t<9,3> m = (v0*l0 + t01+v1*l1) / 2.0;
 
@@ -646,7 +646,7 @@ mrcal_triangulate_leecivera_wmid2(// outputs
     val_withgrad_t<9> l1 = cross_mag<9>(v0, t01) * p_mag_recip;
 
     if(!chirality(l0, v0, l1, v1, t01))
-        return (mrcal_point3_t){};
+        return (mrcal_point3_t){0};
 
     vec_withgrad_t<9,3> m = (v0*l0*l1 + t01*l0 + v1*l0*l1) / (l0 + l1);
 
