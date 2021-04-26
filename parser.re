@@ -340,8 +340,32 @@ static bool read_balanced_list( const char** pYYCURSOR, const char* start_file )
     return false;
 }
 
-mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *YYCURSOR)
+// if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
+// the buffer IS indicated by a 0 byte
+mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
 {
+    // This is lame. If the end of the buffer is indicated by the buffer length
+    // only, I allocate a new padded buffer, and copy into it. Then this code
+    // looks for a terminated 0 always. I should instead use the re2c logic for
+    // fixed-length buffers (YYLIMIT), but that looks complicated
+    const char* YYCURSOR     = NULL;
+    char*       malloced_buf = NULL;
+    if(len > 0)
+    {
+        malloced_buf = malloc(len+1);
+        if(malloced_buf == NULL)
+        {
+            MSG("malloc() failed");
+            return NULL;
+        }
+        memcpy(malloced_buf, string, len);
+        malloced_buf[len] = '\0';
+        YYCURSOR = malloced_buf;
+    }
+    else
+        YYCURSOR = string;
+
+
     // Set the output structure to invalid values that I can check later
     mrcal_cameramodel_t cameramodel_core =
         {.rt_cam_ref[0]   = DBL_MAX,
@@ -528,6 +552,9 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *YYCURSOR)
 
  done:
 
+    if(malloced_buf)
+        free(malloced_buf);
+
     if(!finished)
     {
         free(cameramodel_full);
@@ -569,18 +596,42 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_file(const char* filename)
         goto done;
     }
 
-    string = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    // I mmap twice:
+    //
+    // 1. anonymous mapping slightly larger than the file size. These are all 0
+    // 2. mmap of the file. The trailing 0 are preserved, and the parser can use
+    //    the trailing 0 to indicate the end of file
+    //
+    // This is only needed if the file size is exactly a multiple of the page
+    // size. If it isn't, then the remains of the last page are 0 anyway.
+    string = mmap(NULL,
+                  st.st_size + 1, // one extra byte
+                  PROT_READ,
+                  MAP_ANONYMOUS | MAP_PRIVATE,
+                  -1, 0);
+    if(string == MAP_FAILED)
+    {
+        MSG("Couldn't mmap(anonymous) right before mmap(\"%s\")", filename);
+        goto done;
+    }
+
+    string = mmap(string, st.st_size,
+                  PROT_READ,
+                  MAP_FIXED | MAP_PRIVATE,
+                  fd, 0);
     if(string == MAP_FAILED)
     {
         MSG("Couldn't mmap(\"%s\")", filename);
         goto done;
     }
 
-    result = mrcal_read_cameramodel_string(string);
+    result = mrcal_read_cameramodel_string(string,
+                                           // 0 indicates EOF, not the file size
+                                           0);
 
  done:
     if(string != NULL && string != MAP_FAILED)
-        munmap(string, st.st_size);
+        munmap(string, st.st_size+1);
     if(fd >= 0)
         close(fd);
 

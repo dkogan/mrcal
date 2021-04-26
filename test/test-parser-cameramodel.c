@@ -17,8 +17,8 @@ struct                                          \
 #define Nintrinsics_CAHVORE (4+5+3)
 typedef CAMERAMODEL_T(Nintrinsics_CAHVORE) cameramodel_cahvore_t;
 
-#define check(string, ref) do {                                         \
-    mrcal_cameramodel_t* m = mrcal_read_cameramodel_string(string);     \
+#define check(string, ref, len) do {                                    \
+    mrcal_cameramodel_t* m = mrcal_read_cameramodel_string(string, len);\
     confirm(m != NULL);                                                 \
     if(m != NULL)                                                       \
     {                                                                   \
@@ -39,8 +39,8 @@ typedef CAMERAMODEL_T(Nintrinsics_CAHVORE) cameramodel_cahvore_t;
     }                                                                   \
 } while(0)
 
-#define check_fail(string) do{                                          \
-    mrcal_cameramodel_t* m = mrcal_read_cameramodel_string(string);     \
+#define check_fail(string,len) do{                                      \
+    mrcal_cameramodel_t* m = mrcal_read_cameramodel_string(string,len); \
     confirm(m == NULL);                                                 \
     if(m != NULL)                                                       \
       mrcal_free_cameramodel(&m);                                       \
@@ -68,7 +68,8 @@ int main(int argc, char* argv[])
           "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
           "    'imagersize': [110, 400],\n"
           "}\n",
-          (mrcal_cameramodel_t*)&cameramodel_ref);
+          (mrcal_cameramodel_t*)&cameramodel_ref,
+          0);
     // different spacing, different quote, paren
     check("{\n"
           "    'lensmodel' :  b'LENSMODEL_CAHVORE_linearity=0.34',\n"
@@ -76,7 +77,8 @@ int main(int argc, char* argv[])
           "    \"intrinsics\": (4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ),    'imagersize': [110, 400],\n"
           "\n"
           "}\n",
-          (mrcal_cameramodel_t*)&cameramodel_ref);
+          (mrcal_cameramodel_t*)&cameramodel_ref,
+          0);
     // comments, weird spacing
     check(" # f {\n"
           "#{ 'lensmodel': 'rrr'\n"
@@ -92,7 +94,8 @@ int main(int argc, char* argv[])
           "# }\n"
           "}  \n"
           " # }\n",
-          (mrcal_cameramodel_t*)&cameramodel_ref);
+          (mrcal_cameramodel_t*)&cameramodel_ref,
+          0);
 
     // extra keys
     check("{\n"
@@ -104,7 +107,8 @@ int main(int argc, char* argv[])
           "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
           "    'imagersize': [110, 400],\n"
           "}\n",
-          (mrcal_cameramodel_t*)&cameramodel_ref);
+          (mrcal_cameramodel_t*)&cameramodel_ref,
+          0);
 
     // trailing garbage
     check_fail("{\n"
@@ -112,7 +116,8 @@ int main(int argc, char* argv[])
                "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
                "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
                "    'imagersize': [110, 400],\n"
-               "} f\n");
+               "} f\n",
+               0);
 
     // double-defined key
     check_fail("{\n"
@@ -121,50 +126,58 @@ int main(int argc, char* argv[])
                "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
                "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
                "    'imagersize': [110, 400],\n"
-               "}\n");
+               "}\n",
+               0);
     check_fail("{\n"
                "    'lensmodel':  \"LENSMODEL_CAHVORE_linearity=0.34\",\n"
                "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
                "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
                "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
                "    'imagersize': [110, 400],\n"
-               "}\n");
+               "}\n",
+               0);
     check_fail("{\n"
                "    'lensmodel':  \"LENSMODEL_CAHVORE_linearity=0.34\",\n"
                "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
                "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
                "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
                "    'imagersize': [110, 400],\n"
-               "}\n");
+               "}\n",
+               0);
     check_fail("{\n"
                "    'lensmodel':  \"LENSMODEL_CAHVORE_linearity=0.34\",\n"
                "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
                "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
                "    'imagersize': [110, 400],\n"
                "    'imagersize': [110, 400],\n"
-               "}\n");
+               "}\n",
+               0);
 
     // missing key
     check_fail("{\n"
                "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
                "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
                "    'imagersize': [110, 400],\n"
-               "}\n");
+               "}\n",
+               0);
     check_fail("{\n"
                "    'lensmodel':  \"LENSMODEL_CAHVORE_linearity=0.34\",\n"
                "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
                "    'imagersize': [110, 400],\n"
-               "}\n");
+               "}\n",
+               0);
     check_fail("{\n"
                "    'lensmodel':  \"LENSMODEL_CAHVORE_linearity=0.34\",\n"
                "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
                "    'imagersize': [110, 400],\n"
-               "}\n");
+               "}\n",
+               0);
     check_fail("{\n"
                "    'lensmodel':  \"LENSMODEL_CAHVORE_linearity=0.34\",\n"
                "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
                "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
-               "}\n");
+               "}\n",
+               0);
 
     // Wrong number of intrinsics
     check_fail("{\n"
@@ -172,13 +185,15 @@ int main(int argc, char* argv[])
                "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
                "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, ],\n"
                "    'imagersize': [110, 400],\n"
-               "}\n");
+               "}\n",
+               0);
     check_fail("{\n"
                "    'lensmodel':  \"LENSMODEL_CAHVORE_linearity=0.34\",\n"
                "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
                "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 99,88],\n"
                "    'imagersize': [110, 400],\n"
-               "}\n");
+               "}\n",
+               0);
 
 
     // Roundtrip write/read
@@ -189,15 +204,19 @@ int main(int argc, char* argv[])
     if(write_cameramodel_succeeded)
     {
         FILE* fp = fopen("/tmp/test-parser-cameramodel.cameramodel", "r");
-        char buf[1024] = {};
+        char buf[1024];
         int Nbytes_read = fread(buf, 1, sizeof(buf), fp);
         fclose(fp);
         confirm(Nbytes_read > 0);
         confirm(Nbytes_read < (int)sizeof(buf));
         if(Nbytes_read > 0 && Nbytes_read < (int)sizeof(buf))
         {
+            // Added byte to make sure we're not 0-terminated. Which the parser
+            // must deal with
+            buf[Nbytes_read] = '5';
             check(buf,
-                  (mrcal_cameramodel_t*)&cameramodel_ref);
+                  (mrcal_cameramodel_t*)&cameramodel_ref,
+                  Nbytes_read);
         }
     }
 
