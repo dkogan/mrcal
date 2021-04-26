@@ -8,7 +8,7 @@ we can always improve this metric by throwing away input data, and it doesn't
 make sense that using less data would make a calibration /better/.
 
 mrcal addresses this with [[file:how-to-calibrate.org::#interpreting-results][some tools]] to gauge how well the data fits the model
-and with a method to estimate th projection uncertainty, accessed via the
+and with a method to estimate the projection uncertainty, accessed via the
 [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function. This tells us how good a calibration
 is (we aim for low projection uncertainties), and it tells us how good the
 downstream results are (by allowing the user to propagate projection
