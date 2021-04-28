@@ -155,7 +155,7 @@ import copy
 import numpy as np
 import numpysane as nps
 
-from test_calibration_helpers import sample_dqref,sorted_eig,plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse
+from test_calibration_helpers import sample_dqref,sorted_eig,plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse,calibration_baseline
 
 
 fixedframes = (args.fixed == 'frames')
@@ -212,161 +212,30 @@ np.random.seed(0)
 
 ############# Set up my world, and compute all the perfect positions, pixel
 ############# observations of everything
-if re.match('opencv',args.model):
-    models_true = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
-                    mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
-                    mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel"),
-                    mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel") )
-
-    if args.model == 'opencv4':
-        # I have opencv8 models_true, but I truncate to opencv4 models_true
-        for m in models_true:
-            m.intrinsics( intrinsics = ('LENSMODEL_OPENCV4', m.intrinsics()[1][:8]))
-elif args.model == 'splined':
-    models_true = ( mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel"),
-                    mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel"),
-                    mrcal.cameramodel(f"{testdir}/data/cam1.splined.cameramodel"),
-                    mrcal.cameramodel(f"{testdir}/data/cam1.splined.cameramodel") )
-else:
-    raise Exception("Unknown lens being tested")
-
-models_true = models_true[:args.Ncameras]
-
-
-lensmodel   = models_true[0].intrinsics()[0]
-
-Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
-imagersizes = nps.cat( *[m.imagersize() for m in models_true] )
-
-extrinsics_rt_fromref_toset = \
-    np.array(((0,    0,    0,      0,   0,   0),
-              (0.08, 0.2,  0.02,   1.,  0.9, 0.1),
-              (0.01, 0.07, 0.2,    2.1, 0.4, 0.2),
-              (-0.1, 0.08, 0.08,   3.4, 0.2, 0.1), ))
-
-for i in range(args.Ncameras):
-    models_true[i].extrinsics_rt_fromref(extrinsics_rt_fromref_toset[i])
-
 pixel_uncertainty_stdev = 1.5
 object_spacing          = 0.1
 object_width_n          = 10
 object_height_n         = 9
-
-# These are perfect
-intrinsics_true         = nps.cat( *[m.intrinsics()[1]         for m in models_true] )
-extrinsics_true_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in models_true] )
 calobject_warp_true     = np.array((0.002, -0.005))
 
-x_center = -(args.Ncameras-1)/2.
-
-# shapes (Nframes, Ncameras, Nh, Nw, 2),
-#        (Nframes, 4,3)
-q_true,Rt_cam0_board_true = \
-    mrcal.synthesize_board_observations(models_true,
-                                        object_width_n, object_height_n, object_spacing,
-                                        calobject_warp_true,
-                                        np.array((0.,             0.,             0.,             x_center, 0,   4.0)),
-                                        np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5,      2.5, 2.0)),
-                                        args.Nframes)
-
-if args.extra_observation_at:
-    c = mrcal.ref_calibration_object(object_width_n,
-                                     object_height_n,
-                                     object_spacing,
-                                     calobject_warp_true)
-    Rt_cam0_board_true_far = \
-        nps.glue( np.eye(3),
-                  np.array((0,0,args.extra_observation_at)),
-                  axis=-2)
-    q_true_far = \
-        mrcal.project(mrcal.transform_point_Rt(Rt_cam0_board_true_far, c),
-                      *models_true[0].intrinsics())
-
-    q_true             = nps.glue( q_true_far, q_true, axis=-5)
-    Rt_cam0_board_true = nps.glue( Rt_cam0_board_true_far, Rt_cam0_board_true, axis=-3)
-
-    args.Nframes += 1
-
-
-frames_true             = mrcal.rt_from_Rt(Rt_cam0_board_true)
-
-############# I have perfect observations in q_true. I corrupt them by noise
-# weight has shape (Nframes, Ncameras, Nh, Nw),
-weight01 = (np.random.rand(*q_true.shape[:-1]) + 1.) / 2. # in [0,1]
-weight0 = 0.2
-weight1 = 1.0
-weight = weight0 + (weight1-weight0)*weight01
-
-# I want observations of shape (Nframes*Ncameras, Nh, Nw, 3) where each row is
-# (x,y,weight)
-observations_true = nps.clump( nps.glue(q_true,
-                                        nps.dummy(weight,-1),
-                                        axis=-1),
-                              n=2)
-
-
-# Dense observations. All the cameras see all the boards
-indices_frame_camera = np.zeros( (args.Nframes*args.Ncameras, 2), dtype=np.int32)
-indices_frame = indices_frame_camera[:,0].reshape(args.Nframes,args.Ncameras)
-indices_frame.setfield(nps.outer(np.arange(args.Nframes, dtype=np.int32),
-                                 np.ones((args.Ncameras,), dtype=np.int32)),
-                       dtype = np.int32)
-indices_camera = indices_frame_camera[:,1].reshape(args.Nframes,args.Ncameras)
-indices_camera.setfield(nps.outer(np.ones((args.Nframes,), dtype=np.int32),
-                                 np.arange(args.Ncameras, dtype=np.int32)),
-                       dtype = np.int32)
-
-indices_frame_camintrinsics_camextrinsics = \
-    nps.glue(indices_frame_camera,
-             indices_frame_camera[:,(1,)],
-             axis=-1)
-if not fixedframes:
-    indices_frame_camintrinsics_camextrinsics[:,2] -= 1
-
-###########################################################################
-# Now I apply pixel noise, and look at the effects on the resulting calibration.
-
-
-# p = mrcal.show_geometry(models_true,
-#                         frames          = frames_true,
-#                         object_width_n  = object_width_n,
-#                         object_height_n = object_height_n,
-#                         object_spacing  = object_spacing)
-# sys.exit()
-
-
-# I now reoptimize the perfect-observations problem. Without regularization,
-# this is a no-op: I'm already at the optimum. With regularization, this will
-# move us a certain amount (that the test will evaluate). Then I look at
-# noise-induced motions off this optimization optimum
-optimization_inputs_baseline = \
-    dict( intrinsics                                = copy.deepcopy(intrinsics_true),
-          extrinsics_rt_fromref                     = copy.deepcopy(extrinsics_true_mounted if fixedframes else extrinsics_true_mounted[1:,:]),
-          frames_rt_toref                           = copy.deepcopy(frames_true),
-          points                                    = None,
-          observations_board                        = observations_true,
-          indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
-          observations_point                        = None,
-          indices_point_camintrinsics_camextrinsics = None,
-          lensmodel                                 = lensmodel,
-          calobject_warp                            = copy.deepcopy(calobject_warp_true),
-          imagersizes                               = imagersizes,
-          calibration_object_spacing                = object_spacing,
-          verbose                                   = False,
-          observed_pixel_uncertainty                = pixel_uncertainty_stdev,
-          do_optimize_frames                        = not fixedframes,
-          do_optimize_intrinsics_core               = False if args.model=='splined' else True,
-          do_optimize_intrinsics_distortions        = True,
-          do_optimize_extrinsics                    = True,
-          do_optimize_calobject_warp                = True,
-          do_apply_regularization                   = True,
-          do_apply_outlier_rejection                = False)
-mrcal.optimize(**optimization_inputs_baseline)
-
-models_baseline = \
-    [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
-                         icam_intrinsics     = i) \
-      for i in range(args.Ncameras) ]
+optimization_inputs_baseline,                          \
+models_true, models_baseline,                          \
+indices_frame_camintrinsics_camextrinsics,             \
+lensmodel, Nintrinsics, imagersizes,                   \
+intrinsics_true, extrinsics_true_mounted, frames_true, \
+observations_true,                                     \
+args.Nframes =                                         \
+    calibration_baseline(args.model,
+                         args.Ncameras,
+                         args.Nframes,
+                         args.extra_observation_at,
+                         pixel_uncertainty_stdev,
+                         object_width_n,
+                         object_height_n,
+                         object_spacing,
+                         calobject_warp_true,
+                         fixedframes,
+                         testdir)
 
 # I evaluate the projection uncertainty of this vector. In each camera. I'd like
 # it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
