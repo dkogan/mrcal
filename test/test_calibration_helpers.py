@@ -268,3 +268,39 @@ ARGUMENTS
         intrinsics_true, extrinsics_true_mounted, frames_true, \
         observations_true,                                     \
         Nframes
+
+
+def calibration_sample(Nsamples, Ncameras, Nframes,
+                       Nintrinsics,
+                       optimization_inputs_baseline,
+                       observations_true,
+                       pixel_uncertainty_stdev,
+                       fixedframes):
+
+    intrinsics_sampled         = np.zeros((Nsamples,Ncameras,Nintrinsics), dtype=float)
+    extrinsics_sampled_mounted = np.zeros((Nsamples,Ncameras,6),           dtype=float)
+    frames_sampled             = np.zeros((Nsamples,Nframes, 6),           dtype=float)
+    calobject_warp_sampled     = np.zeros((Nsamples,2),                    dtype=float)
+
+    for isample in range(Nsamples):
+        print(f"Sampling {isample+1}/{Nsamples}")
+
+        optimization_inputs = copy.deepcopy(optimization_inputs_baseline)
+        optimization_inputs['observations_board'] = \
+            sample_dqref(observations_true, pixel_uncertainty_stdev)[1]
+        mrcal.optimize(**optimization_inputs)
+
+        intrinsics_sampled    [isample,...] = optimization_inputs['intrinsics']
+        frames_sampled        [isample,...] = optimization_inputs['frames_rt_toref']
+        calobject_warp_sampled[isample,...] = optimization_inputs['calobject_warp']
+        if fixedframes:
+            extrinsics_sampled_mounted[isample,   ...] = optimization_inputs['extrinsics_rt_fromref']
+        else:
+            # the remaining row is already 0
+            extrinsics_sampled_mounted[isample,1:,...] = optimization_inputs['extrinsics_rt_fromref']
+
+    return                            \
+        ( intrinsics_sampled,         \
+          extrinsics_sampled_mounted, \
+          frames_sampled,             \
+          calobject_warp_sampled )

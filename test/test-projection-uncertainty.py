@@ -155,7 +155,7 @@ import copy
 import numpy as np
 import numpysane as nps
 
-from test_calibration_helpers import sample_dqref,sorted_eig,plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse,calibration_baseline
+from test_calibration_helpers import sorted_eig,plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse,calibration_baseline,calibration_sample
 
 
 fixedframes = (args.fixed == 'frames')
@@ -694,27 +694,16 @@ if args.no_sampling:
     sys.exit()
 
 
-intrinsics_sampled         = np.zeros( (args.Nsamples,args.Ncameras,Nintrinsics), dtype=float )
-extrinsics_sampled_mounted = np.zeros( (args.Nsamples,args.Ncameras,6),           dtype=float )
-frames_sampled             = np.zeros( (args.Nsamples,args.Nframes, 6),      dtype=float )
-calobject_warp_sampled     = np.zeros( (args.Nsamples, 2),                   dtype=float )
-
-for isample in range(args.Nsamples):
-    print(f"Sampling {isample+1}/{args.Nsamples}")
-
-    optimization_inputs = copy.deepcopy(optimization_inputs_baseline)
-    optimization_inputs['observations_board'] = \
-        sample_dqref(observations_true, pixel_uncertainty_stdev)[1]
-    mrcal.optimize(**optimization_inputs)
-
-    intrinsics_sampled    [isample,...] = optimization_inputs['intrinsics']
-    frames_sampled        [isample,...] = optimization_inputs['frames_rt_toref']
-    calobject_warp_sampled[isample,...] = optimization_inputs['calobject_warp']
-    if fixedframes:
-        extrinsics_sampled_mounted[isample,   ...] = optimization_inputs['extrinsics_rt_fromref']
-    else:
-        # the remaining row is already 0
-        extrinsics_sampled_mounted[isample,1:,...] = optimization_inputs['extrinsics_rt_fromref']
+( intrinsics_sampled,         \
+  extrinsics_sampled_mounted, \
+  frames_sampled,             \
+  calobject_warp_sampled ) =  \
+      calibration_sample( args.Nsamples, args.Ncameras, args.Nframes,
+                          Nintrinsics,
+                          optimization_inputs_baseline,
+                          observations_true,
+                          pixel_uncertainty_stdev,
+                          fixedframes)
 
 
 def check_uncertainties_at(q0_baseline, idistance):
