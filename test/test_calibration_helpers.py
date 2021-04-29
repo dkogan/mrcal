@@ -99,17 +99,23 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          object_width_n,
                          object_height_n,
                          object_spacing,
+                         extrinsics_rt_fromref_true,
                          calobject_warp_true,
                          fixedframes,
                          testdir):
     r'''Compute a calibration baseline as a starting point for experiments
+
+This is a perfect, noiseless solve. Regularization IS enabled, and the returned
+model is at the optimization optimum. So the returned models will not sit
+exactly at the ground-truth
 
 ARGUMENTS
 
 - model: string. 'opencv4' or 'opencv8' or 'splined'
 
 - ...
-'''
+
+    '''
 
     if re.match('opencv',model):
         models_true = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
@@ -137,14 +143,8 @@ ARGUMENTS
     Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
     imagersizes = nps.cat( *[m.imagersize() for m in models_true] )
 
-    extrinsics_rt_fromref_toset = \
-        np.array(((0,    0,    0,      0,   0,   0),
-                  (0.08, 0.2,  0.02,   1.,  0.9, 0.1),
-                  (0.01, 0.07, 0.2,    2.1, 0.4, 0.2),
-                  (-0.1, 0.08, 0.08,   3.4, 0.2, 0.1), ))
-
     for i in range(Ncameras):
-        models_true[i].extrinsics_rt_fromref(extrinsics_rt_fromref_toset[i])
+        models_true[i].extrinsics_rt_fromref(extrinsics_rt_fromref_true[i])
 
     # These are perfect
     intrinsics_true         = nps.cat( *[m.intrinsics()[1]         for m in models_true] )

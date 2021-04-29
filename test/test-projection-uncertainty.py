@@ -218,6 +218,12 @@ object_width_n          = 10
 object_height_n         = 9
 calobject_warp_true     = np.array((0.002, -0.005))
 
+extrinsics_rt_fromref_true = \
+    np.array(((0,    0,    0,      0,   0,   0),
+              (0.08, 0.2,  0.02,   1.,  0.9, 0.1),
+              (0.01, 0.07, 0.2,    2.1, 0.4, 0.2),
+              (-0.1, 0.08, 0.08,   3.4, 0.2, 0.1), ))
+
 optimization_inputs_baseline,                          \
 models_true, models_baseline,                          \
 indices_frame_camintrinsics_camextrinsics,             \
@@ -233,6 +239,7 @@ args.Nframes =                                         \
                          object_width_n,
                          object_height_n,
                          object_spacing,
+                         extrinsics_rt_fromref_true,
                          calobject_warp_true,
                          fixedframes,
                          testdir)
