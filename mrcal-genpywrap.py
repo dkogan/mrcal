@@ -531,8 +531,8 @@ scipy.sparse.csr_matrix respectively.
  """,
 
             args_input       = ('A', 'Jp', 'Ji', 'Jx'),
-            prototype_input  = ((2,'Nstate'), ('Np',), ('Nix',), ('Nix',)),
-            prototype_output = (2,2),
+            prototype_input  = (('Nx','Nstate'), ('Np',), ('Nix',), ('Nix',)),
+            prototype_output = ('Nx','Nx'),
 
             extra_args = (("int", "Nleading_rows_J", "-1", "i"),),
 
@@ -554,10 +554,11 @@ scipy.sparse.csr_matrix respectively.
                  // matmult(jt,At) where jt are rows of J. So the logic is:
                  //
                  //   For each row jt of J:
-                 //     jta = matmult(jt,At); // jta has shape (2,)
+                 //     jta = matmult(jt,At); // jta has shape (Nx,)
                  //     accumulate( outer(jta,jta) )
 
 
+                 int32_t Nx     = dims_slice__A[0];
                  int32_t Nstate = dims_slice__A[1];
 
                  const double*   A = (const double* )data_slice__A;
@@ -566,28 +567,32 @@ scipy.sparse.csr_matrix respectively.
                  const double*  Jx = (const double* )data_slice__Jx;
                  double* out       = (      double* )data_slice__output;
 
-                 out[0] = 0.0;
-                 out[1] = 0.0;
-                 out[2] = 0.0;
-                 out[3] = 0.0;
+                 for(int i=0; i<Nx*Nx; i++)
+                     out[i] = 0.0;
 
                  for(int irow=0; irow<*Nleading_rows_J; irow++)
                  {
-                     double jta[2] = {};
+                     double jta[Nx];
+                     for(int i=0; i<Nx; i++)
+                         jta[i] = 0.0;
 
                      for(int32_t i = Jp[irow]; i < Jp[irow+1]; i++)
                      {
                          int32_t icol = Ji[i];
                          double x     = Jx[i];
 
-                         jta[0] += A[icol + 0*Nstate] * x;
-                         jta[1] += A[icol + 1*Nstate] * x;
-
+                         for(int j=0; j<Nx; j++)
+                             jta[j] += A[icol + j*Nstate] * x;
                      }
-                     out[0] += jta[0]*jta[0];
-                     out[1] += jta[1]*jta[0];
-                     out[2] += jta[1]*jta[0];
-                     out[3] += jta[1]*jta[1];
+                     for(int i=0; i<Nx; i++)
+                     {
+                         out[i*Nx + i] += jta[i]*jta[i];
+                         for(int j=i+1; j<Nx; j++)
+                         {
+                             out[i*Nx + j] += jta[i]*jta[j];
+                             out[j*Nx + i] += jta[i]*jta[j];
+                         }
+                     }
                  }
                  return true;
 '''},
