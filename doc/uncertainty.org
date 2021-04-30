@@ -168,7 +168,7 @@ We then transform and project $\vec p_{\mathrm{frame}_0}$ back to the imager to
 get $\vec q^+$. But here we take into account the uncertainties of each
 transformation to get the desired projection uncertainty $\mathrm{Var}\left(\vec
 q^+ - \vec q\right)$. The full data flow looks like this, with all the perturbed
-quantities marked with a $+$.
+quantities marked with a $+$ superscript.
 
 \[
    \vec q^+                         \xleftarrow{\mathrm{intrinsics}^+}
