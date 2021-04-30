@@ -36,7 +36,7 @@ BuildRequires: perl-List-MoreUtils
 BuildRequires: chrpath
 
 # for the parser
-BuildRequires: re2c
+BuildRequires: re2c >= 2.0.3
 
 Requires: numpysane >= 0.29-1
 Requires: gnuplotlib >= 0.36
