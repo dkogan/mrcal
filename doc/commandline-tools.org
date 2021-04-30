@@ -10,15 +10,15 @@ to write any code. The available tools, with links to their manpages:
   Used primarily for testing
 
 * Visualization
-- [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]]: Visualize the difference in projection between N
+- [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]]: visualize the difference in projection between N
   models
-- [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]]: Visualize the expected projection error
+- [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]]: visualize the expected projection error
   due to uncertainty in the calibration-time input
-- [[file:mrcal-show-valid-intrinsics-region.html][=mrcal-show-valid-intrinsics-region=]]: Visualizes the region where a model's
+- [[file:mrcal-show-valid-intrinsics-region.html][=mrcal-show-valid-intrinsics-region=]]: visualize the region where a model's
   intrinsics are valid
-- [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]]: Shows a visual representation of the geometry
-  represented by some camera models on disk, and optionally, the
-  chessboard observations used to compute that geometry
+- [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]]: show a visual representation of the geometry
+  represented by some camera models on disk, and optionally, the chessboard
+  observations used to compute that geometry
 - [[file:mrcal-show-distortion-off-pinhole.html][=mrcal-show-distortion-off-pinhole=]]: visualize the deviation of a specific
   lens model from a pinhole model
 - [[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface=]]: visualize the surface and knots used in
