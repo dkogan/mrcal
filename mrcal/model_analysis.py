@@ -529,7 +529,7 @@ def _projection_uncertainty_make_output( factorization, Jpacked, dq_dpief_packed
         # so I have my own routine in C. AND the C routine does the outer
         # product, so there's no big temporary expression. It's much faster
         Var_dq = mrcal._mrcal_npsp._A_Jt_J_At(A, Jpacked.indptr, Jpacked.indices, Jpacked.data,
-                                                     Nleading_rows_J = Nmeasurements_observations)
+                                              Nleading_rows_J = Nmeasurements_observations)
     else:
         # No regularization. Use the simplified expression
         Var_dq = nps.matmult(dq_dpief_packed, nps.transpose(A))
