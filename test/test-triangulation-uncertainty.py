@@ -20,6 +20,7 @@ import numpy as np
 import numpysane as nps
 
 from test_calibration_helpers import plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse,calibration_baseline,calibration_sample,grad
+from testutils import confirm_equal,finish
 
 
 
@@ -61,7 +62,7 @@ def triangulate_nograd( intrinsics_data,
                         rt_cam_ref,
                         q,
                         lensmodel):
-    return _triangulate( intrinsics_data,rt_cam_ref,q,lensmodel,get_gradients = False)
+    return _triangulate( intrinsics_data,rt_cam_ref,nps.atleast_dims(q,-3),lensmodel,get_gradients = False)
 
 
 @nps.broadcast_define( ((2,'Nintrinsics'),
@@ -78,7 +79,7 @@ def triangulate_grad( intrinsics_data,
                       rt_cam_ref,
                       q,
                       lensmodel):
-    return _triangulate( intrinsics_data,rt_cam_ref,q,lensmodel,get_gradients = True)
+    return _triangulate( intrinsics_data,rt_cam_ref,nps.atleast_dims(q,-3),lensmodel,get_gradients = True)
 
 
 def _triangulate(# shape (Ncameras, Nintrinsics)
@@ -311,60 +312,51 @@ nps.matmult( dp_triangulated_dv1[ipt],
              dr01_dr1r,
              out = dp_triangulated_dpstate[:, istate_e1:istate_e1+3])
 
+dp_triangulated_dpstate[:, istate_e1:istate_e1+3] += \
+    nps.matmult(dp_triangulated_dt01[ipt], dt01_dr1r)
+
+# dp_triangulated_dt1r =
+#   dp_triangulated_dt01 dt01_dt1r
+nps.matmult( dp_triangulated_dt01[ipt],
+             dt01_dt1r,
+             out = dp_triangulated_dpstate[:, istate_e1+3:istate_e1+6])
 
 
-# # dp_triangulated_dpstate[:, istate_e1:istate_e1+3] += \
-# #     nps.matmult(dp_triangulated_dt01[ipt], dt01_dr1r)
+########## Gradient check
+dp_triangulated_di0_empirical = grad(lambda i0: triangulate_nograd([i0, models_baseline[1].intrinsics()[1]],
+                                                                   [m.extrinsics_rt_fromref() for m in models_baseline],
+                                                                   q_true[ipt],
+                                                                   lensmodel),
+                                     models_baseline[0].intrinsics()[1])
+dp_triangulated_di1_empirical = grad(lambda i1: triangulate_nograd([models_baseline[0].intrinsics()[1],i1],
+                                                                   [m.extrinsics_rt_fromref() for m in models_baseline],
+                                                                   q_true[ipt],
+                                                                   lensmodel),
+                                     models_baseline[1].intrinsics()[1])
+dp_triangulated_de1_empirical = grad(lambda e1: triangulate_nograd([m.intrinsics()[1]         for m in models_baseline],
+                                                                   [models_baseline[0].extrinsics_rt_fromref(),e1],
+                                                                   q_true[ipt],
+                                                                   lensmodel),
+                                     models_baseline[1].extrinsics_rt_fromref())
 
-# # # dp_triangulated_dt1r =
-# # #   dp_triangulated_dt01 dt01_dt1r
-# # nps.matmult( dp_triangulated_dt01[ipt],
-# #              dt01_dt1r,
-# #              out = dp_triangulated_dpstate[:, istate_e1+3:istate_e1+6])
-
-
-# ########## Gradient check
-# pstate = np.array(ppacked)
-# mrcal.unpack_state(pstate, **optimization_inputs_baseline)
-
-# def triangulate_from_state(intrinsics, ):
-
-#     optimization_inputs = copy.deepcopy(optimization_inputs_baseline)
-#     ingest_packed_state(p_packed, **optimization_inputs)
-
-#     mrcal.optimize(**optimization_inputs)
-
-#         intrinsics_sampled    [isample,...] = optimization_inputs['intrinsics']
-#         frames_sampled        [isample,...] = optimization_inputs['frames_rt_toref']
-#         calobject_warp_sampled[isample,...] = optimization_inputs['calobject_warp']
-#         if fixedframes:
-#             extrinsics_sampled_mounted[isample,   ...] = optimization_inputs['extrinsics_rt_fromref']
-#         else:
-#             # the remaining row is already 0
-#             extrinsics_sampled_mounted[isample,1:,...] = optimization_inputs['extrinsics_rt_fromref']
-
-#     return                            \
-#         ( intrinsics_sampled,         \
-#           extrinsics_sampled_mounted, \
-#           frames_sampled,             \
-#           calobject_warp_sampled )
-
-#     ( intrinsics_sampled,         \
-#       extrinsics_sampled_mounted, \
-#       frames_sampled,             \
-#       calobject_warp_sampled ) =  \
-#           calibration_sample( Nsamples, Ncameras, Nframes,
-#                               Nintrinsics,
-#                               optimization_inputs_baseline,
-#                               observations_true,
-#                               pixel_uncertainty_stdev,
-#                               fixedframes)
-
-
-# grad(lambda p: 
-#      pstate)
-
-
+confirm_equal(dp_triangulated_dpstate[:,istate_i0:istate_i0+Nintrinsics],
+              dp_triangulated_di0_empirical[0],
+              relative = True,
+              worstcase = True,
+              eps = 0.05,
+              msg = "Gradient check: dp_triangulated_dpstate[intrinsics0]")
+confirm_equal(dp_triangulated_dpstate[:,istate_i1:istate_i1+Nintrinsics],
+              dp_triangulated_di1_empirical[0],
+              relative = True,
+              worstcase = True,
+              eps = 0.05,
+              msg = "Gradient check: dp_triangulated_dpstate[intrinsics1]")
+confirm_equal(dp_triangulated_dpstate[:,istate_e1:istate_e1+6],
+              dp_triangulated_de1_empirical[0],
+              relative = True,
+              worstcase = True,
+              eps = 1e-6,
+              msg = "Gradient check: dp_triangulated_dpstate[extrinsics1]")
 
 
 empirical_distribution = \
@@ -377,10 +369,11 @@ if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs_ba
     Nmeasurements_observations = None
 
 # Pack the denominator by unpacking the numerator
-mrcal.unpack_state(dp_triangulated_dpstate, **optimization_inputs_baseline)
+dp_triangulated_dppacked = copy.deepcopy(dp_triangulated_dpstate)
+mrcal.unpack_state(dp_triangulated_dppacked, **optimization_inputs_baseline)
 Var_p_triangulated = \
     mrcal.model_analysis._projection_uncertainty_make_output(factorization, Jpacked,
-                                                             dp_triangulated_dpstate,
+                                                             dp_triangulated_dppacked,
                                                              Nmeasurements_observations,
                                                              pixel_uncertainty_stdev,
                                                              what = 'covariance')
@@ -416,6 +409,8 @@ Extend to do multiple points at a time. Are the triangulated results correlated?
 
 Look at the effect of calibration. Do areas of poor chessboard coverage produce
 an uncertain triangulation?
+
+extend to work with non-ref camera
 
 Normalize ellipsoid to a frame-based position. Should get tighter, I think? Look
 at the effect of calibration again. With these ellipsoids, areas of poor
@@ -695,3 +690,4 @@ gp.plot(r0,
 
 
 
+finish()
