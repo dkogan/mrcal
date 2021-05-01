@@ -209,8 +209,9 @@ else:
 
 # 1km straight ahead
 # shape (Npoints,3)
-p_triangulated_true = np.array(((-100., 0., 200.),
-                                ( 100., 0., 200.)))
+p_triangulated_true = np.array(((-100., 0., 1000.),
+                                ( 100., 0., 1000.)))
+Npoints = p_triangulated_true.shape[0]
 
 Rt01_true = mrcal.compose_Rt(mrcal.Rt_from_rt(extrinsics_rt_fromref_true[0]),
                              mrcal.invert_Rt(mrcal.Rt_from_rt(extrinsics_rt_fromref_true[1])))
@@ -249,16 +250,10 @@ dp_triangulated_dv0, dp_triangulated_dv1, dp_triangulated_dt01 = \
                      q_true,
                      lensmodel)
 
-# Shouldn't match 100% (baseline is optimized, so it has a regularization bias),
-# but should be close
-if np.max(nps.mag(p_triangulated-p_triangulated_true)) > 1:
-    raise Exception(f"Triangulation didn't return the perfect point. Returned {p_triangulated}. Should have returned {p_triangulated_true}")
-
-
-
-# Just do one point for now
-ipt = 0
-
+confirm_equal(p_triangulated, p_triangulated_true,
+              worstcase = True,
+              eps = 1.0,
+              msg = "Re-optimized triangulation should be close to the reference. This checks the regularization bias")
 
 # I have q0,i0           -> v0
 #        q1,i1           -> vlocal1
@@ -270,7 +265,7 @@ Nstate = len(ppacked)
 
 # I store dp_triangulated_dp initialy, without worrying about the "packed" part.
 # I'll scale the thing when done to pack it
-dp_triangulated_dpstate = np.zeros((3,Nstate), dtype=float)
+dp_triangulated_dpstate = np.zeros((Npoints,3,Nstate), dtype=float)
 
 istate_i0 = mrcal.state_index_intrinsics(0, **optimization_inputs_baseline)
 istate_i1 = mrcal.state_index_intrinsics(1, **optimization_inputs_baseline)
@@ -286,13 +281,13 @@ istate_e1 = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs
 
 # dp_triangulated_di0 = dp_triangulated_dv0              dvlocal0_di0
 # dp_triangulated_di1 = dp_triangulated_dv1 dv1_dvlocal1 dvlocal1_di1
-nps.matmult( dp_triangulated_dv0[ipt],
-             dvlocal0_dintrinsics0[ipt],
-             out = dp_triangulated_dpstate[:, istate_i0:istate_i0+Nintrinsics])
-nps.matmult( dp_triangulated_dv1[ipt],
-             dv1_dvlocal1[ipt],
-             dvlocal1_dintrinsics1[ipt],
-             out = dp_triangulated_dpstate[:, istate_i1:istate_i1+Nintrinsics])
+nps.matmult( dp_triangulated_dv0,
+             dvlocal0_dintrinsics0,
+             out = dp_triangulated_dpstate[..., istate_i0:istate_i0+Nintrinsics])
+nps.matmult( dp_triangulated_dv1,
+             dv1_dvlocal1,
+             dvlocal1_dintrinsics1,
+             out = dp_triangulated_dpstate[..., istate_i1:istate_i1+Nintrinsics])
 
 # dp_triangulated_de0 doesn't exist: assuming vanilla calibration problem, so
 # there is no e0
@@ -307,58 +302,59 @@ dr01_dr1r  = nps.matmult(dr01_drr1, drr1_dr1r)
 dt01_drtr1 = drt01_drtr1[3:,:]
 dt01_dr1r  = nps.matmult(dt01_drtr1, drtr1_drt1r[:,:3])
 dt01_dt1r  = nps.matmult(dt01_drtr1, drtr1_drt1r[:,3:])
-nps.matmult( dp_triangulated_dv1[ipt],
-             dv1_dr01[ipt],
+nps.matmult( dp_triangulated_dv1,
+             dv1_dr01,
              dr01_dr1r,
-             out = dp_triangulated_dpstate[:, istate_e1:istate_e1+3])
+             out = dp_triangulated_dpstate[..., istate_e1:istate_e1+3])
 
-dp_triangulated_dpstate[:, istate_e1:istate_e1+3] += \
-    nps.matmult(dp_triangulated_dt01[ipt], dt01_dr1r)
+dp_triangulated_dpstate[..., istate_e1:istate_e1+3] += \
+    nps.matmult(dp_triangulated_dt01, dt01_dr1r)
 
 # dp_triangulated_dt1r =
 #   dp_triangulated_dt01 dt01_dt1r
-nps.matmult( dp_triangulated_dt01[ipt],
+nps.matmult( dp_triangulated_dt01,
              dt01_dt1r,
-             out = dp_triangulated_dpstate[:, istate_e1+3:istate_e1+6])
+             out = dp_triangulated_dpstate[..., istate_e1+3:istate_e1+6])
 
 
 ########## Gradient check
 dp_triangulated_di0_empirical = grad(lambda i0: triangulate_nograd([i0, models_baseline[1].intrinsics()[1]],
                                                                    [m.extrinsics_rt_fromref() for m in models_baseline],
-                                                                   q_true[ipt],
+                                                                   q_true,
                                                                    lensmodel),
                                      models_baseline[0].intrinsics()[1])
 dp_triangulated_di1_empirical = grad(lambda i1: triangulate_nograd([models_baseline[0].intrinsics()[1],i1],
                                                                    [m.extrinsics_rt_fromref() for m in models_baseline],
-                                                                   q_true[ipt],
+                                                                   q_true,
                                                                    lensmodel),
                                      models_baseline[1].intrinsics()[1])
 dp_triangulated_de1_empirical = grad(lambda e1: triangulate_nograd([m.intrinsics()[1]         for m in models_baseline],
                                                                    [models_baseline[0].extrinsics_rt_fromref(),e1],
-                                                                   q_true[ipt],
+                                                                   q_true,
                                                                    lensmodel),
                                      models_baseline[1].extrinsics_rt_fromref())
 
-confirm_equal(dp_triangulated_dpstate[:,istate_i0:istate_i0+Nintrinsics],
-              dp_triangulated_di0_empirical[0],
+confirm_equal(dp_triangulated_dpstate[...,istate_i0:istate_i0+Nintrinsics],
+              dp_triangulated_di0_empirical,
               relative = True,
               worstcase = True,
               eps = 0.05,
               msg = "Gradient check: dp_triangulated_dpstate[intrinsics0]")
-confirm_equal(dp_triangulated_dpstate[:,istate_i1:istate_i1+Nintrinsics],
-              dp_triangulated_di1_empirical[0],
+confirm_equal(dp_triangulated_dpstate[...,istate_i1:istate_i1+Nintrinsics],
+              dp_triangulated_di1_empirical,
               relative = True,
               worstcase = True,
               eps = 0.05,
               msg = "Gradient check: dp_triangulated_dpstate[intrinsics1]")
-confirm_equal(dp_triangulated_dpstate[:,istate_e1:istate_e1+6],
-              dp_triangulated_de1_empirical[0],
+confirm_equal(dp_triangulated_dpstate[...,istate_e1:istate_e1+6],
+              dp_triangulated_de1_empirical,
               relative = True,
               worstcase = True,
               eps = 1e-6,
               msg = "Gradient check: dp_triangulated_dpstate[extrinsics1]")
 
-
+# while ellipse we're visualizing
+ipt = 0
 empirical_distribution = \
     plot_args_points_and_covariance_ellipse(p_triangulated_sampled[:,ipt,(0,2)],
                                             'Triangulation in moving cam0 coord system')
@@ -368,12 +364,15 @@ if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs_ba
     # Note the special-case where I'm using all the observations
     Nmeasurements_observations = None
 
-# Pack the denominator by unpacking the numerator
-dp_triangulated_dppacked = copy.deepcopy(dp_triangulated_dpstate)
-mrcal.unpack_state(dp_triangulated_dppacked, **optimization_inputs_baseline)
-Var_p_triangulated = \
+# I look at the two triangulated points together. This is a (6,) vector. And I
+# pack the denominator by unpacking the numerator
+dp0p1_triangulated_dppacked = copy.deepcopy(dp_triangulated_dpstate)
+mrcal.unpack_state(dp0p1_triangulated_dppacked, **optimization_inputs_baseline)
+dp0p1_triangulated_dppacked = nps.clump(dp0p1_triangulated_dppacked,n=2)
+
+Var_p0p1_triangulated = \
     mrcal.model_analysis._projection_uncertainty_make_output(factorization, Jpacked,
-                                                             dp_triangulated_dppacked,
+                                                             dp0p1_triangulated_dppacked,
                                                              Nmeasurements_observations,
                                                              pixel_uncertainty_stdev,
                                                              what = 'covariance')
@@ -388,11 +387,17 @@ Var_p_triangulated = \
 import gnuplotlib as gp
 gp.plot( *empirical_distribution,
          plot_arg_covariance_ellipse(p_triangulated[ipt][(0,2),],
-                                     Var_p_triangulated[(0,2),:][:,(0,2)],
+                                     Var_p0p1_triangulated[ipt*3:ipt*3+3,ipt*3:ipt*3+3][(0,2),:][:,(0,2)],
                                      "predicted"),
          square=1,
-         wait=False,
+         wait=True,
         )
+
+
+gp.plotimage( np.abs(Var_p0p1_triangulated),
+              square=1,
+              title = "p0p1 covariance. y coord doesn't move much. p0 and p1 are highly correlated",
+              wait=True)
 
 import IPython
 IPython.embed()
@@ -403,9 +408,7 @@ sys.exit()
 
 
 
-r'''Finish predicted uncertainty in moving cam0 frame. Compare ellipsoids
-
-Extend to do multiple points at a time. Are the triangulated results correlated?
+r'''
 
 Look at the effect of calibration. Do areas of poor chessboard coverage produce
 an uncertain triangulation?
@@ -425,6 +428,14 @@ Should finalize the API after I implement the deltapose-propagated uncertainty
 
 Gnuplot: ellipses should move correctly when pressing "7"
 
+
+tests:
+
+look at distribution due to
+
+- intrinsics/extrinsics and/or pixel observations
+
+- look at mean, variance
 '''
 
 
