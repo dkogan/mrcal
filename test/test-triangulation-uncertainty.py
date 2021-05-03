@@ -9,6 +9,131 @@ import argparse
 import re
 import os
 
+cache_file = "/tmp/test-triangulation-uncertainty.pickle"
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--fixed',
+                        type=str,
+                        choices=('cam0','frames'),
+                        default = 'cam0',
+                        help='''Are we putting the origin at camera0, or are all the frames at a fixed (and
+                        non-optimizeable) pose? One or the other is required.''')
+    parser.add_argument('--model',
+                        type=str,
+                        choices=('opencv4','opencv8','splined'),
+                        default = 'opencv4',
+                        help='''Which lens model we're using. Must be one of
+                        ('opencv4','opencv8','splined')''')
+    parser.add_argument('--Nframes',
+                        type=int,
+                        default=50,
+                        help='''How many chessboard poses to simulate. These are dense observations: every
+                        camera sees every corner of every chessboard pose''')
+    parser.add_argument('--Nsamples',
+                        type=int,
+                        default=100,
+                        help='''How many random samples to evaluate''')
+    parser.add_argument('--Ncameras',
+                        type    = int,
+                        default = 2,
+                        help='''How many cameras to simulate. At this time, only "2" is supported''')
+    parser.add_argument('--stabilize-coords',
+                        action = 'store_true',
+                        help='''Whether we report the triangulation in the camera-0 coordinate system (which
+                        is moving due to noise) or in a stabilized coordinate
+                        system based on the frame poses''')
+    parser.add_argument('--cull-left-of-center',
+                        action = 'store_true',
+                        help='''If given, the calibration data in the left half of the imager is thrown
+                        out''')
+    parser.add_argument('--pixel-uncertainty-stdev-calibration',
+                        type    = float,
+                        default = 0.5,
+                        help='''The observed_pixel_uncertainty of the chessboard observations at calibration
+                        time''')
+    parser.add_argument('--baseline-calibration',
+                        type    = float,
+                        default = 2.,
+                        help='''The baseline of the camera pair''')
+    parser.add_argument('--observed-point',
+                        type    = float,
+                        nargs   = 3,
+                        required = True,
+                        help='''The world coordinate of the observed point. Usually this will be ~(small, 0,
+                        large). The code will evaluate two points together: the
+                        one passed here, and the same one with a negated x
+                        coordinate''')
+    parser.add_argument('--cache',
+                        type=str,
+                        choices=('read','write'),
+                        help=f'''Whether we should read or write the cache instead of sampling. The cache file
+                        is hardcoded to {cache_file}. By default, we do neither:
+                        we don't read the cache (we sample instead), and we do
+                        not write it to disk when we're done. This option is
+                        useful for tests where we reprocess the same scenario repeatedly''')
+    parser.add_argument('--make-documentation-plots',
+                        type=str,
+                        help='''If given, we produce plots for the documentation. Takes one argument: a
+                        string describing this test. This will be used in the
+                        filenames of the resulting plots. To make interactive
+                        plots, pass ""''')
+    parser.add_argument('--terminal-pdf',
+                        type=str,
+                        help='''The gnuplotlib terminal for --make-documentation-plots .PDFs. Omit this
+                        unless you know what you're doing''')
+    parser.add_argument('--terminal-svg',
+                        type=str,
+                        help='''The gnuplotlib terminal for --make-documentation-plots .SVGs. Omit this
+                        unless you know what you're doing''')
+    parser.add_argument('--terminal-png',
+                        type=str,
+                        help='''The gnuplotlib terminal for --make-documentation-plots .PNGs. Omit this
+                        unless you know what you're doing''')
+    parser.add_argument('--explore',
+                        action='store_true',
+                        help='''If given, we drop into a REPL at the end''')
+
+    args = parser.parse_args()
+
+    if args.fixed != 'cam0':
+        raise Exception("'--fixed cam0' is the only supported option at this time")
+    if args.Ncameras != 2:
+        raise Exception("'--Ncameras 2' is the only supported option at this time")
+    return args
+
+
+args = parse_args()
+
+
+terminal = dict(pdf = args.terminal_pdf,
+                svg = args.terminal_svg,
+                png = args.terminal_png,
+                gp  = 'gp')
+pointscale = dict(pdf = 1,
+                  svg = 1,
+                  png = 1,
+                  gp  = 1)
+pointscale[""] = 1.
+
+if args.make_documentation_plots:
+
+    print(f"Will write documentation plots to {args.make_documentation_plots}-xxxx.pdf and .svg")
+
+    if terminal['svg'] is None: terminal['svg'] = 'svg size 800,600       noenhanced solid dynamic    font ",14"'
+    if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color      font ",12"'
+    if terminal['png'] is None: terminal['png'] = 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+
+extraset = dict()
+for k in pointscale.keys():
+    extraset[k] = f'pointsize {pointscale[k]}'
+
+
+
 testdir = os.path.dirname(os.path.realpath(__file__))
 
 # I import the LOCAL mrcal since that's what I'm testing
@@ -18,47 +143,36 @@ import testutils
 import copy
 import numpy as np
 import numpysane as nps
+import pickle
 
 from test_calibration_helpers import plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse,calibration_baseline,calibration_sample,grad
-from testutils import confirm_equal,finish
 
-
-
-
-
-
-
-
-# I want the RNG to be deterministic
-np.random.seed(0)
 
 ############# Set up my world, and compute all the perfect positions, pixel
 ############# observations of everything
-model_type              = 'opencv4'
-pixel_uncertainty_stdev = 0.5
+fixedframes = (args.fixed == 'frames')
 object_spacing          = 0.1
 object_width_n          = 10
 object_height_n         = 9
 calobject_warp_true     = np.array((0.002, -0.005))
 
 extrinsics_rt_fromref_true = \
-    np.array(((0,    0,    0,      0,   0,   0),
-              (0.08, 0.2,  0.02,   2.,  0.09, 0.01), ))
+    np.array(((0,    0,    0,                                  0,   0,   0),
+              (0.08, 0.2,  0.02,   args.baseline_calibration,  0.09, 0.01), ))
 
 # 1km straight ahead
 # shape (Npoints,3)
-p_triangulated_true = np.array(((-100., 0., 80.),
-                                ( 100., 0., 80.)))
+p_triangulated_true = np.array((args.observed_point,
+                                args.observed_point),
+                               dtype=float)
+# first point has x<0
+p_triangulated_true[0,0] = -np.abs(p_triangulated_true[0,0])
+# second point is the same, but with a negated x: x>0
+p_triangulated_true[1,0] = -p_triangulated_true[0,0]
 
-Ncameras             = 2
-Nframes              = 40
-extra_observation_at = None
-fixedframes          = False
-Nsamples             = 400
 
-stabilize_coords     = True
-
-cull_left_of_center  = True
+# I want the RNG to be deterministic
+np.random.seed(0)
 
 
 @nps.broadcast_define( ((2,'Nintrinsics'),
@@ -244,21 +358,19 @@ def _triangulate(# shape (Ncameras, Nintrinsics)
 
 
 ################# Sampling
-import pickle
-
-if 0:
+if args.cache is None or args.cache == 'write':
     optimization_inputs_baseline,                          \
     models_true, models_baseline,                          \
     indices_frame_camintrinsics_camextrinsics,             \
     lensmodel, Nintrinsics, imagersizes,                   \
     intrinsics_true, extrinsics_true_mounted, frames_true, \
     observations_true,                                     \
-    Nframes =                                         \
-        calibration_baseline(model_type,
-                             Ncameras,
-                             Nframes,
-                             extra_observation_at,
-                             pixel_uncertainty_stdev,
+    args.Nframes =                                         \
+        calibration_baseline(args.model,
+                             args.Ncameras,
+                             args.Nframes,
+                             None,
+                             args.pixel_uncertainty_stdev_calibration,
                              object_width_n,
                              object_height_n,
                              object_spacing,
@@ -266,27 +378,26 @@ if 0:
                              calobject_warp_true,
                              fixedframes,
                              testdir,
-                             cull_left_of_center = cull_left_of_center)
+                             cull_left_of_center = args.cull_left_of_center)
 
 
     ( intrinsics_sampled,         \
       extrinsics_sampled_mounted, \
       frames_sampled,             \
       calobject_warp_sampled ) =  \
-          calibration_sample( Nsamples, Ncameras, Nframes,
+          calibration_sample( args.Nsamples, args.Ncameras, args.Nframes,
                               Nintrinsics,
                               optimization_inputs_baseline,
                               observations_true,
-                              pixel_uncertainty_stdev,
+                              args.pixel_uncertainty_stdev_calibration,
                               fixedframes)
 
 
-    with open("/tmp/t.pickle","wb") as f:
-        pickle.dump((optimization_inputs_baseline,models_true, models_baseline,indices_frame_camintrinsics_camextrinsics,lensmodel, Nintrinsics, imagersizes,intrinsics_true, extrinsics_true_mounted, frames_true,observations_true,intrinsics_sampled,extrinsics_sampled_mounted,frames_sampled,calobject_warp_sampled),f)
-
+    if args.cache is not None and args.cache == 'write':
+        with open(cache_file,"wb") as f:
+            pickle.dump((optimization_inputs_baseline,models_true, models_baseline,indices_frame_camintrinsics_camextrinsics,lensmodel, Nintrinsics, imagersizes,intrinsics_true, extrinsics_true_mounted, frames_true,observations_true,intrinsics_sampled,extrinsics_sampled_mounted,frames_sampled,calobject_warp_sampled),f)
 else:
-
-    with open("/tmp/t.pickle","rb") as f:
+    with open(cache_file,"rb") as f:
         (optimization_inputs_baseline,models_true, models_baseline,indices_frame_camintrinsics_camextrinsics,lensmodel, Nintrinsics, imagersizes,intrinsics_true, extrinsics_true_mounted, frames_true,observations_true,intrinsics_sampled,extrinsics_sampled_mounted,frames_sampled,calobject_warp_sampled) = pickle.load(f)
 
 
@@ -317,7 +428,7 @@ p_triangulated_sampled = triangulate_nograd(intrinsics_sampled,
                                             frames_sampled, frames_true,
                                             q_true,
                                             lensmodel,
-                                            stabilize_coords = stabilize_coords)
+                                            stabilize_coords = args.stabilize_coords)
 
 
 
@@ -335,12 +446,12 @@ dp_triangulated_drtrf = \
                      optimization_inputs_baseline['frames_rt_toref'], frames_true,
                      q_true,
                      lensmodel,
-                     stabilize_coords = stabilize_coords)
+                     stabilize_coords = args.stabilize_coords)
 
-confirm_equal(p_triangulated, p_triangulated_true,
-              worstcase = True,
-              eps = 1.0,
-              msg = "Re-optimized triangulation should be close to the reference. This checks the regularization bias")
+testutils.confirm_equal(p_triangulated, p_triangulated_true,
+                        worstcase = True,
+                        eps = 1.0,
+                        msg = "Re-optimized triangulation should be close to the reference. This checks the regularization bias")
 
 # I have q0,i0           -> v0
 #        q1,i1           -> vlocal1
@@ -416,54 +527,54 @@ dp_triangulated_di0_empirical = grad(lambda i0: triangulate_nograd([i0, models_b
                                                                    optimization_inputs_baseline['frames_rt_toref'], frames_true,
                                                                    q_true,
                                                                    lensmodel,
-                                                                   stabilize_coords=stabilize_coords),
+                                                                   stabilize_coords=args.stabilize_coords),
                                      models_baseline[0].intrinsics()[1])
 dp_triangulated_di1_empirical = grad(lambda i1: triangulate_nograd([models_baseline[0].intrinsics()[1],i1],
                                                                    [m.extrinsics_rt_fromref() for m in models_baseline],
                                                                    optimization_inputs_baseline['frames_rt_toref'], frames_true,
                                                                    q_true,
                                                                    lensmodel,
-                                                                   stabilize_coords=stabilize_coords),
+                                                                   stabilize_coords=args.stabilize_coords),
                                      models_baseline[1].intrinsics()[1])
 dp_triangulated_de1_empirical = grad(lambda e1: triangulate_nograd([m.intrinsics()[1]         for m in models_baseline],
                                                                    [models_baseline[0].extrinsics_rt_fromref(),e1],
                                                                    optimization_inputs_baseline['frames_rt_toref'], frames_true,
                                                                    q_true,
                                                                    lensmodel,
-                                                                   stabilize_coords=stabilize_coords),
+                                                                   stabilize_coords=args.stabilize_coords),
                                      models_baseline[1].extrinsics_rt_fromref())
 dp_triangulated_drtrf_empirical = grad(lambda rtrf: triangulate_nograd([m.intrinsics()[1]         for m in models_baseline],
                                                                        [m.extrinsics_rt_fromref() for m in models_baseline],
                                                                        rtrf, frames_true,
                                                                        q_true,
                                                                        lensmodel,
-                                                                       stabilize_coords=stabilize_coords),
+                                                                       stabilize_coords=args.stabilize_coords),
                                        optimization_inputs_baseline['frames_rt_toref'])
 
-confirm_equal(dp_triangulated_dpstate[...,istate_i0:istate_i0+Nintrinsics],
-              dp_triangulated_di0_empirical,
-              relative = True,
-              worstcase = True,
-              eps = 0.05,
-              msg = "Gradient check: dp_triangulated_dpstate[intrinsics0]")
-confirm_equal(dp_triangulated_dpstate[...,istate_i1:istate_i1+Nintrinsics],
-              dp_triangulated_di1_empirical,
-              relative = True,
-              worstcase = True,
-              eps = 0.05,
-              msg = "Gradient check: dp_triangulated_dpstate[intrinsics1]")
-confirm_equal(dp_triangulated_dpstate[...,istate_e1:istate_e1+6],
-              dp_triangulated_de1_empirical,
-              relative = True,
-              worstcase = True,
-              eps = 1e-6,
-              msg = "Gradient check: dp_triangulated_dpstate[extrinsics1]")
-confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_frames],
-              nps.clump(dp_triangulated_drtrf_empirical, n=-2),
-              relative = True,
-              worstcase = True,
-              eps = 0.05,
-              msg = "Gradient check: dp_triangulated_drtrf")
+testutils.confirm_equal(dp_triangulated_dpstate[...,istate_i0:istate_i0+Nintrinsics],
+                        dp_triangulated_di0_empirical,
+                        relative = True,
+                        worstcase = True,
+                        eps = 0.05,
+                        msg = "Gradient check: dp_triangulated_dpstate[intrinsics0]")
+testutils.confirm_equal(dp_triangulated_dpstate[...,istate_i1:istate_i1+Nintrinsics],
+                        dp_triangulated_di1_empirical,
+                        relative = True,
+                        worstcase = True,
+                        eps = 0.05,
+                        msg = "Gradient check: dp_triangulated_dpstate[intrinsics1]")
+testutils.confirm_equal(dp_triangulated_dpstate[...,istate_e1:istate_e1+6],
+                        dp_triangulated_de1_empirical,
+                        relative = True,
+                        worstcase = True,
+                        eps = 1e-6,
+                        msg = "Gradient check: dp_triangulated_dpstate[extrinsics1]")
+testutils.confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_frames],
+                        nps.clump(dp_triangulated_drtrf_empirical, n=-2),
+                        relative = True,
+                        worstcase = True,
+                        eps = 0.05,
+                        msg = "Gradient check: dp_triangulated_drtrf")
 
 Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs_baseline)
 if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs_baseline):
@@ -480,47 +591,80 @@ Var_p0p1_triangulated = \
     mrcal.model_analysis._projection_uncertainty_make_output(factorization, Jpacked,
                                                              dp0p1_triangulated_dppacked,
                                                              Nmeasurements_observations,
-                                                             pixel_uncertainty_stdev,
+                                                             args.pixel_uncertainty_stdev_calibration,
                                                              what = 'covariance')
 
 
+if not (args.explore or \
+        args.make_documentation_plots is not None):
+    testutils.finish()
+    sys.exit()
 
 import gnuplotlib as gp
 
 
+if args.make_documentation_plots is not None:
 
-empirical_distributions_xz = \
-    [ plot_args_points_and_covariance_ellipse(p_triangulated_sampled[:,ipt,(0,2)],
-                                              'Triangulation in moving cam0 coord system') \
-      for ipt in range(Npoints) ]
-# Individual covariances
-Var_p_diagonal = [Var_p0p1_triangulated[ipt*3:ipt*3+3,ipt*3:ipt*3+3][(0,2),:][:,(0,2)] \
-                  for ipt in range(Npoints)]
-max_sigma_points = np.array([ np.max(np.sqrt(np.linalg.eig(V)[0])) for V in Var_p_diagonal ])
-max_sigma = np.max(max_sigma_points)
+    empirical_distributions_xz = \
+        [ plot_args_points_and_covariance_ellipse(p_triangulated_sampled[:,ipt,(0,2)],
+                                                  'Triangulation in moving cam0 coord system') \
+          for ipt in range(Npoints) ]
+    # Individual covariances
+    Var_p_diagonal = [Var_p0p1_triangulated[ipt*3:ipt*3+3,ipt*3:ipt*3+3][(0,2),:][:,(0,2)] \
+                      for ipt in range(Npoints)]
+    max_sigma_points = np.array([ np.max(np.sqrt(np.linalg.eig(V)[0])) for V in Var_p_diagonal ])
+    max_sigma = np.max(max_sigma_points)
 
-ipt=0
+    title_triangulation = 'Triangulation uncertainty due to calibration-time noise. Cameras at the origin. Equal scaling in both plots'
+    title_covariance    = 'Covariance of the [p0,p1] vector. Note the low variance of the y coordinate and the non-zero correlation between the points'
 
-gp.plot( *empirical_distributions_xz[ipt],
-         plot_arg_covariance_ellipse(p_triangulated[ipt][(0,2),],
-                                     Var_p_diagonal[ipt],
-                                     "predicted"),
-         square=1,
-         _xrange = [p_triangulated[ipt,0] - max_sigma*3.,
-                    p_triangulated[ipt,0] + max_sigma*3.],
-         _yrange = [p_triangulated[ipt,2] - max_sigma*3.,
-                    p_triangulated[ipt,2] + max_sigma*3.],
-         wait=True,
-        )
+    subplots = [ (*empirical_distributions_xz[ipt],
+                  plot_arg_covariance_ellipse(p_triangulated[ipt][(0,2),],
+                                              Var_p_diagonal[ipt],
+                                              "predicted"),
+                  dict( square = True,
+                        _xrange = [p_triangulated[ipt,0] - max_sigma*3.,
+                                   p_triangulated[ipt,0] + max_sigma*3.],
+                        _yrange = [p_triangulated[ipt,2] - max_sigma*3.,
+                                   p_triangulated[ipt,2] + max_sigma*3.] )
+                  ) \
+                 for ipt in range(Npoints) ]
+
+    def makeplot(dohardcopy, processoptions_base):
+
+        processoptions = copy.deepcopy(processoptions_base)
+
+        if dohardcopy:
+            processoptions['hardcopy'] = \
+                f'{args.make_documentation_plots}--triangulation-uncertainty.{extension}'
+        gp.plot( *subplots,
+                 multiplot = f'title "{title_triangulation}" layout 1,2',
+                 **processoptions )
+
+        if dohardcopy:
+            processoptions['hardcopy'] = \
+                f'{args.make_documentation_plots}--p0-p1-magnitude-covariance.{extension}'
+        processoptions['title'] = title_covariance
+        gp.plotimage( np.abs(Var_p0p1_triangulated),
+                      square = True,
+                      **processoptions)
 
 
-gp.plotimage( np.abs(Var_p0p1_triangulated),
-              square=1,
-              title = "p0p1 covariance. y coord doesn't move much. p0 and p1 are highly correlated",
-              wait=True)
 
-import IPython
-IPython.embed()
+    if args.make_documentation_plots:
+        for extension in ('pdf','svg','png','gp'):
+            makeplot(dohardcopy = True,
+                     processoptions_base = dict(wait      = False,
+                                                terminal  = terminal[extension],
+                                                _set      = extraset[extension]))
+    else:
+        makeplot(dohardcopy = False,
+                 processoptions_base = dict(wait = True))
+
+if args.explore:
+    import IPython
+    IPython.embed()
+
 sys.exit()
 
 
@@ -533,6 +677,8 @@ extend to work with non-ref camera
 
 Add pixel noise to look at uncertainty due to calibration AND run-time pixel
 noise
+
+fixedframes?
 
 What kind of nice API do I want for this? How much can I reuse the existing
 uncertainty code? Can/should I have a separate rotation-only/at-infinity path?
@@ -563,7 +709,6 @@ sys.exit()
 
 
 
-import gnuplotlib as gp
 
 
 
@@ -691,12 +836,11 @@ if np.abs(compute_var_distancep_from_var_p(var_p) - var_distancep) > 1e-6:
 
 # Let's actually apply the noise to compute var(distancep) empirically to compare
 # against the var(distancep) prediction I just computed
-Nsamples = 10000
 # shape (Nsamples,Npoints,Ncameras,2)
 dq = \
     np.random.multivariate_normal( mean = np.zeros((Nx,),),
                                    cov  = var_x,
-                                   size = Nsamples ).reshape(Nsamples,2,2,2)
+                                   size = args.Nsamples ).reshape(args.Nsamples,2,2,2)
 
 
 vlocal0 = mrcal.unproject(qref[:,0] + dq[:,:,0,:], *models[0].intrinsics())
@@ -813,4 +957,4 @@ gp.plot(r0,
 
 
 
-finish()
+testutils.finish()
