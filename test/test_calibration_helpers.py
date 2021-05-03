@@ -102,7 +102,8 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          extrinsics_rt_fromref_true,
                          calobject_warp_true,
                          fixedframes,
-                         testdir):
+                         testdir,
+                         cull_left_of_center = False):
     r'''Compute a calibration baseline as a starting point for experiments
 
 This is a perfect, noiseless solve. Regularization IS enabled, and the returned
@@ -136,15 +137,13 @@ ARGUMENTS
         raise Exception("Unknown lens being tested")
 
     models_true = models_true[:Ncameras]
-
-
     lensmodel   = models_true[0].intrinsics()[0]
-
     Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
-    imagersizes = nps.cat( *[m.imagersize() for m in models_true] )
 
     for i in range(Ncameras):
         models_true[i].extrinsics_rt_fromref(extrinsics_rt_fromref_true[i])
+
+    imagersizes = nps.cat( *[m.imagersize() for m in models_true] )
 
     # These are perfect
     intrinsics_true         = nps.cat( *[m.intrinsics()[1]         for m in models_true] )
@@ -188,6 +187,15 @@ ARGUMENTS
     weight0 = 0.2
     weight1 = 1.0
     weight = weight0 + (weight1-weight0)*weight01
+
+    if cull_left_of_center:
+
+        imagersize = models_true[0].imagersize()
+        for m in models_true[1:]:
+            if np.any(m.imagersize() - imagersize):
+                raise Exception("I'm assuming all cameras have the same imager size, but this is false")
+
+        weight[q_true[...,0] < imagersize[0]/2.] /= 1000.
 
     # I want observations of shape (Nframes*Ncameras, Nh, Nw, 3) where each row is
     # (x,y,weight)

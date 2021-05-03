@@ -58,6 +58,7 @@ Nsamples             = 400
 
 stabilize_coords     = True
 
+cull_left_of_center  = True
 
 
 @nps.broadcast_define( ((2,'Nintrinsics'),
@@ -264,7 +265,8 @@ if 0:
                              extrinsics_rt_fromref_true,
                              calobject_warp_true,
                              fixedframes,
-                             testdir)
+                             testdir,
+                             cull_left_of_center = cull_left_of_center)
 
 
     ( intrinsics_sampled,         \
@@ -463,12 +465,6 @@ confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_frames],
               eps = 0.05,
               msg = "Gradient check: dp_triangulated_drtrf")
 
-# while ellipse we're visualizing
-ipt = 0
-empirical_distribution = \
-    plot_args_points_and_covariance_ellipse(p_triangulated_sampled[:,ipt,(0,2)],
-                                            'Triangulation in moving cam0 coord system')
-
 Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs_baseline)
 if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs_baseline):
     # Note the special-case where I'm using all the observations
@@ -489,17 +485,31 @@ Var_p0p1_triangulated = \
 
 
 
-
-# p = p_triangulated_sampled[:,0,(0,2)]
-# p -= np.mean(p, axis=-2)
-# Var_p_triangulated_sampled = nps.matmult(nps.transpose(p),p) / p.shape[0]
-
 import gnuplotlib as gp
-gp.plot( *empirical_distribution,
+
+
+
+empirical_distributions_xz = \
+    [ plot_args_points_and_covariance_ellipse(p_triangulated_sampled[:,ipt,(0,2)],
+                                              'Triangulation in moving cam0 coord system') \
+      for ipt in range(Npoints) ]
+# Individual covariances
+Var_p_diagonal = [Var_p0p1_triangulated[ipt*3:ipt*3+3,ipt*3:ipt*3+3][(0,2),:][:,(0,2)] \
+                  for ipt in range(Npoints)]
+max_sigma_points = np.array([ np.max(np.sqrt(np.linalg.eig(V)[0])) for V in Var_p_diagonal ])
+max_sigma = np.max(max_sigma_points)
+
+ipt=0
+
+gp.plot( *empirical_distributions_xz[ipt],
          plot_arg_covariance_ellipse(p_triangulated[ipt][(0,2),],
-                                     Var_p0p1_triangulated[ipt*3:ipt*3+3,ipt*3:ipt*3+3][(0,2),:][:,(0,2)],
+                                     Var_p_diagonal[ipt],
                                      "predicted"),
          square=1,
+         _xrange = [p_triangulated[ipt,0] - max_sigma*3.,
+                    p_triangulated[ipt,0] + max_sigma*3.],
+         _yrange = [p_triangulated[ipt,2] - max_sigma*3.,
+                    p_triangulated[ipt,2] + max_sigma*3.],
          wait=True,
         )
 
@@ -519,10 +529,6 @@ sys.exit()
 
 
 r'''
-
-Look at the effect of calibration. Do areas of poor chessboard coverage produce
-an uncertain triangulation? Does coord-system normalization matter here?
-
 extend to work with non-ref camera
 
 Add pixel noise to look at uncertainty due to calibration AND run-time pixel
