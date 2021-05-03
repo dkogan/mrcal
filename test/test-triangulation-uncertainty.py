@@ -392,13 +392,41 @@ if args.cache is None or args.cache == 'write':
                               args.pixel_uncertainty_stdev_calibration,
                               fixedframes)
 
-
     if args.cache is not None and args.cache == 'write':
         with open(cache_file,"wb") as f:
-            pickle.dump((optimization_inputs_baseline,models_true, models_baseline,indices_frame_camintrinsics_camextrinsics,lensmodel, Nintrinsics, imagersizes,intrinsics_true, extrinsics_true_mounted, frames_true,observations_true,intrinsics_sampled,extrinsics_sampled_mounted,frames_sampled,calobject_warp_sampled),f)
+            pickle.dump((optimization_inputs_baseline,
+                         models_true,
+                         models_baseline,
+                         indices_frame_camintrinsics_camextrinsics,
+                         lensmodel,
+                         Nintrinsics,
+                         imagersizes,
+                         intrinsics_true,
+                         extrinsics_true_mounted,
+                         frames_true,
+                         observations_true,
+                         intrinsics_sampled,
+                         extrinsics_sampled_mounted,
+                         frames_sampled,
+                         calobject_warp_sampled),
+                        f)
 else:
     with open(cache_file,"rb") as f:
-        (optimization_inputs_baseline,models_true, models_baseline,indices_frame_camintrinsics_camextrinsics,lensmodel, Nintrinsics, imagersizes,intrinsics_true, extrinsics_true_mounted, frames_true,observations_true,intrinsics_sampled,extrinsics_sampled_mounted,frames_sampled,calobject_warp_sampled) = pickle.load(f)
+        (optimization_inputs_baseline,
+         models_true,
+         models_baseline,
+         indices_frame_camintrinsics_camextrinsics,
+         lensmodel,
+         Nintrinsics,
+         imagersizes,
+         intrinsics_true,
+         extrinsics_true_mounted,
+         frames_true,
+         observations_true,
+         intrinsics_sampled,
+         extrinsics_sampled_mounted,
+         frames_sampled,
+         calobject_warp_sampled) = pickle.load(f)
 
 
 
