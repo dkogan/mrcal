@@ -164,6 +164,8 @@ if args.make_documentation_plots:
     if terminal['svg'] is None: terminal['svg'] = 'svg size 800,600       noenhanced solid dynamic    font ",14"'
     if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color      font ",12"'
     if terminal['png'] is None: terminal['png'] = 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+else:
+    args.make_documentation_plots_extratitle = None
 
 extraset = dict()
 for k in pointscale.keys():
@@ -693,7 +695,7 @@ testutils.confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_f
                         nps.clump(dp_triangulated_drtrf_empirical, n=-2),
                         relative = True,
                         worstcase = True,
-                        eps = 0.05,
+                        eps = 0.1,
                         msg = "Gradient check: dp_triangulated_drtrf")
 
 # dp_triangulated_dq_empirical has shape (Npoints,3,  Npoints,Ncameras,2)
@@ -812,10 +814,17 @@ if args.make_documentation_plots is not None:
     else:
         ellipse_plot_radius = max_sigma*3
 
-    title_triangulation = f'Triangulation uncertainty. {args.make_documentation_plots_extratitle}'
-    title_covariance    = f'Covariance of the [p0,p1] vector (m^2). {args.make_documentation_plots_extratitle}'
-    title_range0        = f'Range to the left triangulated point. {args.make_documentation_plots_extratitle}'
-    title_distance      = f'Distance between the two triangulated points. {args.make_documentation_plots_extratitle}'
+    title_triangulation = 'Triangulation uncertainty'
+    title_covariance    = 'Covariance of the [p0,p1] vector (m^2)'
+    title_range0        = 'Range to the left triangulated point'
+    title_distance      = 'Distance between the two triangulated points'
+
+    if args.make_documentation_plots_extratitle is not None:
+        title_triangulation += f'. {args.make_documentation_plots_extratitle}'
+        title_covariance    += f'. {args.make_documentation_plots_extratitle}'
+        title_range0        += f'. {args.make_documentation_plots_extratitle}'
+        title_distance      += f'. {args.make_documentation_plots_extratitle}'
+
 
     subplots = [ (empirical_distributions_xz[ipt][1], # points; plot first to not obscure the ellipses
                   plot_arg_covariance_ellipse(p_triangulated[ipt][(0,2),],
@@ -837,7 +846,7 @@ if args.make_documentation_plots is not None:
         processoptions = copy.deepcopy(processoptions_base)
         if dohardcopy:
             processoptions['hardcopy'] = \
-                f'{args.make_documentation_plots_filename}--triangulation-uncertainty.{extension}'
+                f'{args.make_documentation_plots_filename}--ellipses.{extension}'
             processoptions['terminal'] = shorter_terminal(processoptions['terminal'])
         gp.plot( *subplots,
                  multiplot = f'title "{title_triangulation}" layout 1,2',
