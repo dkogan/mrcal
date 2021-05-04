@@ -827,7 +827,7 @@ if not (args.explore or \
         args.show_distribution or \
         args.make_documentation_plots is not None):
     testutils.finish()
-
+    sys.exit()
 
 import gnuplotlib as gp
 
