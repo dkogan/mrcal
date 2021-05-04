@@ -52,7 +52,7 @@ def grad(f, x, step=1e-6):
 
     '''
 
-    d     = x*0
+    d     = np.zeros(x.shape,dtype=float)
     dflat = d.ravel()
 
     def df_dxi(i, d,dflat):
