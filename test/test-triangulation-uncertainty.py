@@ -56,6 +56,22 @@ def parse_args():
                         default = 0.5,
                         help='''The observed_pixel_uncertainty of the chessboard observations at calibration
                         time''')
+    parser.add_argument('--pixel-uncertainty-stdev-triangulation',
+                        type    = float,
+                        default = 0.5,
+                        help='''The observed_pixel_uncertainty of the point observations at triangulation
+                        time''')
+    parser.add_argument('--pixel-uncertainty-triangulation-correlation',
+                        type    = float,
+                        default = 0.0,
+                        help='''By default, the noise in the observation-time pixel observations is assumed
+                        independent. This isn't entirely realistic: observations
+                        of the same feature in multiple cameras originate from
+                        an imager correlation operation, so they will have some
+                        amount of correlation. If given, this argument specifies
+                        how much correlation. This is a value in [0,1] scaling
+                        the variance. 0 means "independent" (the default). 1.0
+                        means "100% correlated".''')
     parser.add_argument('--baseline-calibration',
                         type    = float,
                         default = 2.,
@@ -82,6 +98,12 @@ def parse_args():
                         string describing this test. This will be used in the
                         filenames of the resulting plots. To make interactive
                         plots, pass ""''')
+    parser.add_argument('--ellipse-plot-radius',
+                        type=float,
+                        help='''By default, the ellipse plot autoscale to show the data and the ellipses
+                        nicely. But that means that plots aren't comparable
+                        between runs. This option can be passed to select a
+                        constant plot width, which allows such comparisons''')
     parser.add_argument('--terminal-pdf',
                         type=str,
                         help='''The gnuplotlib terminal for --make-documentation-plots .PDFs. Omit this
@@ -203,11 +225,12 @@ def triangulate_nograd( intrinsics_data,
                        (('Npoints',3),
                         (6,6),
                         (6,6),(6,6),
-                        ('Npoints',3,2),('Npoints',3,'Nintrinsics'),
-                        ('Npoints',3,2),('Npoints',3,'Nintrinsics'),
+                        ('Npoints',3,'Nintrinsics'),
+                        ('Npoints',3,'Nintrinsics'),
                         ('Npoints',3,3),('Npoints',3,3),
                         ('Npoints',3,3),('Npoints',3,3),('Npoints',3,3),
-                        ('Npoints','Nframes',3,6)))
+                        ('Npoints','Nframes',3,6),
+                        ('Npoints',3, 'Ncameras',2)))
 def triangulate_grad( intrinsics_data,
                       rt_cam_ref,
                       rt_ref_frame, rt_ref_frame_true,
@@ -308,6 +331,17 @@ def _triangulate(# shape (Ncameras, Nintrinsics)
             mrcal.triangulate_leecivera_mid2(v0, v1, rt01_baseline[3:],
                                              get_gradients = True)
 
+        shape_leading = dp_triangulated_dv0.shape[:-2]
+
+        dp_triangulated_dq = np.zeros(shape_leading + (3,) + q.shape[-2:], dtype=float)
+        nps.matmult( dp_triangulated_dv0,
+                     dvlocal0_dq0,
+                     out = dp_triangulated_dq[..., 0, :])
+        nps.matmult( dp_triangulated_dv1,
+                     dv1_dvlocal1,
+                     dvlocal1_dq1,
+                     out = dp_triangulated_dq[..., 1, :])
+
         Nframes = len(rt_ref_frame)
 
         if stabilize_coords:
@@ -337,23 +371,26 @@ def _triangulate(# shape (Ncameras, Nintrinsics)
             dp_triangulated_dv0  = nps.matmult(dpnew_dpold, dp_triangulated_dv0)
             dp_triangulated_dv1  = nps.matmult(dpnew_dpold, dp_triangulated_dv1)
             dp_triangulated_dt01 = nps.matmult(dpnew_dpold, dp_triangulated_dt01)
+            dp_triangulated_dq   = nps.xchg(nps.matmult( dpnew_dpold,
+                                                         nps.xchg(dp_triangulated_dq,
+                                                                  -2,-3)),
+                                            -2,-3)
 
             # shape (..., Nframes,3,6)
             dp_triangulated_drtrf = \
                 nps.matmult(dprefs_drt, drt_drtfr, drtfr_drtrf) / Nframes
         else:
-            shape_leading = dp_triangulated_dv0.shape[:-2]
             dp_triangulated_drtrf = np.zeros(shape_leading + (Nframes,3,6), dtype=float)
 
         return \
             p_triangulated, \
             drtr1_drt1r, \
             drt01_drt0r, drt01_drtr1, \
-            dvlocal0_dq0, dvlocal0_dintrinsics0, \
-            dvlocal1_dq1, dvlocal1_dintrinsics1, \
+            dvlocal0_dintrinsics0, dvlocal1_dintrinsics1, \
             dv1_dr01, dv1_dvlocal1, \
             dp_triangulated_dv0, dp_triangulated_dv1, dp_triangulated_dt01, \
-            dp_triangulated_drtrf
+            dp_triangulated_drtrf, \
+            dp_triangulated_dq
 
 
 
@@ -437,24 +474,57 @@ Rt01_true = mrcal.compose_Rt(mrcal.Rt_from_rt(extrinsics_rt_fromref_true[0]),
 Rt10_true = mrcal.invert_Rt(Rt01_true)
 
 
-# shape (Ncameras,Npoints,3)
-p_triangulated_true_local = nps.cat( p_triangulated_true,
-                                     mrcal.transform_point_Rt(Rt10_true, p_triangulated_true) )
+# shape (Npoints,Ncameras,3)
+p_triangulated_true_local = nps.xchg( nps.cat( p_triangulated_true,
+                                               mrcal.transform_point_Rt(Rt10_true, p_triangulated_true) ),
+                                      0,1)
 
 # Pixel coords at the perfect intersection
 # shape (Npoints,Ncameras,2)
-q_true = nps.xchg( np.array([ mrcal.project(p_triangulated_true_local[i],
+q_true = nps.xchg( np.array([ mrcal.project(p_triangulated_true_local[:,i,:],
                                             lensmodel,
                                             intrinsics_true[i]) \
                             for i in range(len(intrinsics_true))]),
                  0,1)
+
+
+
+# Let's define the observation-time pixel noise. The noise vector
+# q_true_sampled_noise has the same shape as q_true for each sample. so
+# q_true_sampled_noise.shape = (Nsamples,Npoints,Ncameras,2). The covariance is
+# a square matrix with each dimension of length Npoints*Ncameras*2
+N_q_true_noise = Npoints*args.Ncameras*2
+sigma_qt_sq = \
+    args.pixel_uncertainty_stdev_triangulation * \
+    args.pixel_uncertainty_stdev_triangulation
+var_qt = np.diagflat( (sigma_qt_sq,) * N_q_true_noise )
+var_qt_reshaped = var_qt.reshape( Npoints, args.Ncameras, 2,
+                                  Npoints, args.Ncameras, 2 )
+
+if args.Ncameras != 2:
+    raise Exception("Ncameras == 2 is assumed here")
+for ipt in range(Npoints):
+    var_qt_reshaped[ipt,0,0, ipt,1,0] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
+    var_qt_reshaped[ipt,1,0, ipt,0,0] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
+    var_qt_reshaped[ipt,0,1, ipt,1,1] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
+    var_qt_reshaped[ipt,1,1, ipt,0,1] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
+
+# Let's actually apply the noise to compute var(distancep) empirically to compare
+# against the var(distancep) prediction I just computed
+# shape (Nsamples,Npoints,Ncameras,2)
+qt_noise = \
+    np.random.multivariate_normal( mean = np.zeros((N_q_true_noise,),),
+                                   cov  = var_qt,
+                                   size = args.Nsamples ).reshape(args.Nsamples,Npoints,args.Ncameras,2)
+q_sampled = q_true + qt_noise
+
 
 # I have the perfect observation pixel coords. I triangulate them through my
 # sampled calibration
 p_triangulated_sampled = triangulate_nograd(intrinsics_sampled,
                                             extrinsics_sampled_mounted,
                                             frames_sampled, frames_true,
-                                            q_true,
+                                            q_sampled,
                                             lensmodel,
                                             stabilize_coords = args.stabilize_coords)
 
@@ -464,11 +534,11 @@ p_triangulated_sampled = triangulate_nograd(intrinsics_sampled,
 p_triangulated, \
 drtr1_drt1r, \
 drt01_drt0r, drt01_drtr1, \
-dvlocal0_dq0, dvlocal0_dintrinsics0, \
-dvlocal1_dq1, dvlocal1_dintrinsics1, \
+dvlocal0_dintrinsics0, dvlocal1_dintrinsics1, \
 dv1_dr01, dv1_dvlocal1, \
 dp_triangulated_dv0, dp_triangulated_dv1, dp_triangulated_dt01, \
-dp_triangulated_drtrf = \
+dp_triangulated_drtrf, \
+dp_triangulated_dq = \
     triangulate_grad([m.intrinsics()[1]         for m in models_baseline],
                      [m.extrinsics_rt_fromref() for m in models_baseline],
                      optimization_inputs_baseline['frames_rt_toref'], frames_true,
@@ -578,6 +648,14 @@ dp_triangulated_drtrf_empirical = grad(lambda rtrf: triangulate_nograd([m.intrin
                                                                        lensmodel,
                                                                        stabilize_coords=args.stabilize_coords),
                                        optimization_inputs_baseline['frames_rt_toref'])
+dp_triangulated_dq_empirical = grad(lambda q: triangulate_nograd([m.intrinsics()[1]         for m in models_baseline],
+                                                                 [m.extrinsics_rt_fromref() for m in models_baseline],
+                                                                 optimization_inputs_baseline['frames_rt_toref'], frames_true,
+                                                                 q,
+                                                                 lensmodel,
+                                                                 stabilize_coords=args.stabilize_coords),
+                                    q_true,
+                                    step = 1e-3)
 
 testutils.confirm_equal(dp_triangulated_dpstate[...,istate_i0:istate_i0+Nintrinsics],
                         dp_triangulated_di0_empirical,
@@ -604,6 +682,25 @@ testutils.confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_f
                         eps = 0.05,
                         msg = "Gradient check: dp_triangulated_drtrf")
 
+# dp_triangulated_dq_empirical has shape (Npoints,3,  Npoints,Ncameras,2)
+# The cross terms (p_triangulated(point=A), q(point=B)) should all be zero
+dp_triangulated_dq_empirical_cross_only = dp_triangulated_dq_empirical
+dp_triangulated_dq_empirical = np.zeros((Npoints,3,args.Ncameras,2), dtype=float)
+
+for ipt in range(Npoints):
+    dp_triangulated_dq_empirical[ipt,...] = dp_triangulated_dq_empirical_cross_only[ipt,:,ipt,:,:]
+    dp_triangulated_dq_empirical_cross_only[ipt,:,ipt,:,:] = 0
+testutils.confirm_equal(dp_triangulated_dq_empirical_cross_only,
+                        0,
+                        eps = 1e-6,
+                        msg = "Gradient check: dp_triangulated_dq: cross-point terms are 0")
+testutils.confirm_equal(dp_triangulated_dq,
+                        dp_triangulated_dq_empirical,
+                        relative = True,
+                        worstcase = True,
+                        eps = 1e-6,
+                        msg = "Gradient check: dp_triangulated_dq")
+
 Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs_baseline)
 if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs_baseline):
     # Note the special-case where I'm using all the observations
@@ -615,12 +712,36 @@ dp0p1_triangulated_dppacked = copy.deepcopy(dp_triangulated_dpstate)
 mrcal.unpack_state(dp0p1_triangulated_dppacked, **optimization_inputs_baseline)
 dp0p1_triangulated_dppacked = nps.clump(dp0p1_triangulated_dppacked,n=2)
 
+
+# My input vector, whose noise I'm propagating, is x = [q_calibration
+# q_triangulation]: the calibration-time pixel observations and the
+# observation-time pixel observations. These are independent, so Var(x) is
+# block-diagonal. I want to propagate the noise in x to some function f(x). As
+# usual, Var(f) = df/dx Var(x) (df/dx)T. I have x = [qc qt] and a block-diagonal
+# Var(x) so Var(f) = df/dqc Var(qc) (df/dqc)T + df/dqt Var(qt) (df/dqt)T. So I
+# can treat the two noise contributions separately, and add the two variances
+# together
+
+# The variance due to calibration-time noise
 Var_p0p1_triangulated = \
     mrcal.model_analysis._projection_uncertainty_make_output(factorization, Jpacked,
                                                              dp0p1_triangulated_dppacked,
                                                              Nmeasurements_observations,
                                                              args.pixel_uncertainty_stdev_calibration,
                                                              what = 'covariance')
+
+# The variance due to the observation-time noise can be simplified even further:
+# the noise in each pixel observation is independent, and I can accumulate it
+# independently
+for ipt in range(Npoints):
+    Var_p0p1_triangulated[3*ipt:3*ipt+3, 3*ipt:3*ipt+3] += \
+        nps.matmult( nps.clump(dp_triangulated_dq[ipt], n=-2),
+
+                 nps.clump( nps.clump(var_qt_reshaped[ipt,:,:,  ipt,:,:],
+                                      n=2),
+                            n=-2),
+
+                 nps.transpose( nps.clump(dp_triangulated_dq[ipt], n=-2) ) )
 
 
 if not (args.explore or \
@@ -643,6 +764,12 @@ if args.make_documentation_plots is not None:
     max_sigma_points = np.array([ np.max(np.sqrt(np.linalg.eig(V)[0])) for V in Var_p_diagonal ])
     max_sigma = np.max(max_sigma_points)
 
+    if args.ellipse_plot_radius is not None:
+        ellipse_plot_radius = args.ellipse_plot_radius
+    else:
+        ellipse_plot_radius = max_sigma*3
+
+
     title_triangulation = 'Triangulation uncertainty due to calibration-time noise. Cameras at the origin. Equal scaling in both plots'
     title_covariance    = 'Covariance of the [p0,p1] vector. Note the low variance of the y coordinate and the non-zero correlation between the points'
 
@@ -651,10 +778,10 @@ if args.make_documentation_plots is not None:
                                               Var_p_diagonal[ipt],
                                               "predicted"),
                   dict( square = True,
-                        _xrange = [p_triangulated[ipt,0] - max_sigma*3.,
-                                   p_triangulated[ipt,0] + max_sigma*3.],
-                        _yrange = [p_triangulated[ipt,2] - max_sigma*3.,
-                                   p_triangulated[ipt,2] + max_sigma*3.] )
+                        _xrange = [p_triangulated[ipt,0] - ellipse_plot_radius,
+                                   p_triangulated[ipt,0] + ellipse_plot_radius],
+                        _yrange = [p_triangulated[ipt,2] - ellipse_plot_radius,
+                                   p_triangulated[ipt,2] + ellipse_plot_radius] )
                   ) \
                  for ipt in range(Npoints) ]
 
@@ -708,6 +835,9 @@ noise
 
 fixedframes?
 
+triangulate_grad() should return less stuff. It can do more internally. It should
+return ONLY dp_triangulated_d... gradients
+
 What kind of nice API do I want for this? How much can I reuse the existing
 uncertainty code? Can/should I have a separate rotation-only/at-infinity path?
 Should finalize the API after I implement the deltapose-propagated uncertainty
@@ -726,12 +856,6 @@ look at distribution due to
 
 
 
-
-
-
-import IPython
-IPython.embed()
-sys.exit()
 
 
 
@@ -834,16 +958,6 @@ def compute_var_distancep_from_var_p(var_p):
 
 
 
-# Let's say the pixel observations are all independent; this is not
-# obviously true. Order in x: q00 q01 q10 q11
-Nx = 8
-var_x_independent = np.diagflat( (pixel_uncertainty_stdev*pixel_uncertainty_stdev,) * Nx )
-
-var_x = var_x_independent.copy()
-var_x[0,2] = var_x[2,0] = pixel_uncertainty_stdev*pixel_uncertainty_stdev*0.9
-var_x[1,3] = var_x[3,1] = pixel_uncertainty_stdev*pixel_uncertainty_stdev*0.9
-var_x[4,6] = var_x[6,4] = pixel_uncertainty_stdev*pixel_uncertainty_stdev*0.9
-var_x[5,7] = var_x[7,5] = pixel_uncertainty_stdev*pixel_uncertainty_stdev*0.9
 
 var_distancep             = compute_var_distancep_direct(var_x)
 var_distancep_independent = compute_var_distancep_direct(var_x_independent)
@@ -860,15 +974,6 @@ var_diffp = nps.matmult(ddiffp_dp01, var_p, nps.transpose(ddiffp_dp01))
 if np.abs(compute_var_distancep_from_var_p(var_p) - var_distancep) > 1e-6:
     raise Exception("Var(distancep) should identical whether you compute it from Var(p) or not")
 
-
-
-# Let's actually apply the noise to compute var(distancep) empirically to compare
-# against the var(distancep) prediction I just computed
-# shape (Nsamples,Npoints,Ncameras,2)
-dq = \
-    np.random.multivariate_normal( mean = np.zeros((Nx,),),
-                                   cov  = var_x,
-                                   size = args.Nsamples ).reshape(args.Nsamples,2,2,2)
 
 
 vlocal0 = mrcal.unproject(qref[:,0] + dq[:,:,0,:], *models[0].intrinsics())
