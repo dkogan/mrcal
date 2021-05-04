@@ -96,8 +96,10 @@ def parse_args():
                         type=str,
                         help='''If given, we produce plots for the documentation. Takes one argument: a
                         string describing this test. This will be used in the
-                        filenames of the resulting plots. To make interactive
-                        plots, pass ""''')
+                        filenames and titles of the resulting plots. Whitespace
+                        and funny characters are allowed: will be replaced with
+                        _ in the filenames. To make interactive plots, pass
+                        ""''')
     parser.add_argument('--ellipse-plot-radius',
                         type=float,
                         help='''By default, the ellipse plot autoscale to show the data and the ellipses
@@ -142,9 +144,22 @@ pointscale = dict(pdf = 1,
                   gp  = 1)
 pointscale[""] = 1.
 
+
+
+
+def shorter_terminal(t):
+    # Adjust the terminal string to be less tall. Makes the multiplots look
+    # better: less wasted space
+    m = re.match("(.*)( size.*?,)([0-9.]+)(.*?)$", t)
+    if m is None: return t
+    return m.group(1) + m.group(2) + str(float(m.group(3))*0.8) + m.group(4)
+
 if args.make_documentation_plots:
 
-    print(f"Will write documentation plots to {args.make_documentation_plots}-xxxx.pdf and .svg")
+    args.make_documentation_plots_extratitle = args.make_documentation_plots
+    args.make_documentation_plots_filename   = re.sub(r"[^0-9a-zA-Z_\.\-]", "_", args.make_documentation_plots)
+
+    print(f"Will write documentation plots to {args.make_documentation_plots_filename}-xxxx.pdf and .png and .svg")
 
     if terminal['svg'] is None: terminal['svg'] = 'svg size 800,600       noenhanced solid dynamic    font ",14"'
     if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color      font ",12"'
@@ -473,7 +488,6 @@ Rt01_true = mrcal.compose_Rt(mrcal.Rt_from_rt(extrinsics_rt_fromref_true[0]),
                              mrcal.invert_Rt(mrcal.Rt_from_rt(extrinsics_rt_fromref_true[1])))
 Rt10_true = mrcal.invert_Rt(Rt01_true)
 
-
 # shape (Npoints,Ncameras,3)
 p_triangulated_true_local = nps.xchg( nps.cat( p_triangulated_true,
                                                mrcal.transform_point_Rt(Rt10_true, p_triangulated_true) ),
@@ -798,11 +812,10 @@ if args.make_documentation_plots is not None:
     else:
         ellipse_plot_radius = max_sigma*3
 
-
-    title_triangulation = 'Triangulation uncertainty due to calibration-time noise. Cameras at the origin. Equal scaling in both plots'
-    title_covariance    = 'Covariance of the [p0,p1] vector. Note the low variance of the y coordinate and the non-zero correlation between the points'
-    title_range0        = 'Range to the left triangulated point'
-    title_distance      = 'Distance between the two triangulated points'
+    title_triangulation = f'Triangulation uncertainty. {args.make_documentation_plots_extratitle}'
+    title_covariance    = f'Covariance of the [p0,p1] vector (m^2). {args.make_documentation_plots_extratitle}'
+    title_range0        = f'Range to the left triangulated point. {args.make_documentation_plots_extratitle}'
+    title_distance      = f'Distance between the two triangulated points. {args.make_documentation_plots_extratitle}'
 
     subplots = [ (empirical_distributions_xz[ipt][1], # points; plot first to not obscure the ellipses
                   plot_arg_covariance_ellipse(p_triangulated[ipt][(0,2),],
@@ -813,30 +826,36 @@ if args.make_documentation_plots is not None:
                         _xrange = [p_triangulated[ipt,0] - ellipse_plot_radius,
                                    p_triangulated[ipt,0] + ellipse_plot_radius],
                         _yrange = [p_triangulated[ipt,2] - ellipse_plot_radius,
-                                   p_triangulated[ipt,2] + ellipse_plot_radius] )
+                                   p_triangulated[ipt,2] + ellipse_plot_radius],
+                        xlabel  = 'Triangulated point x (left/right) (m)',
+                        ylabel  = 'Triangulated point z (forward/back) (m)',)
                   ) \
                  for ipt in range(Npoints) ]
 
     def makeplots(dohardcopy, processoptions_base):
 
         processoptions = copy.deepcopy(processoptions_base)
-
         if dohardcopy:
             processoptions['hardcopy'] = \
-                f'{args.make_documentation_plots}--triangulation-uncertainty.{extension}'
+                f'{args.make_documentation_plots_filename}--triangulation-uncertainty.{extension}'
+            processoptions['terminal'] = shorter_terminal(processoptions['terminal'])
         gp.plot( *subplots,
                  multiplot = f'title "{title_triangulation}" layout 1,2',
                  **processoptions )
 
+        processoptions = copy.deepcopy(processoptions_base)
         if dohardcopy:
             processoptions['hardcopy'] = \
-                f'{args.make_documentation_plots}--p0-p1-magnitude-covariance.{extension}'
+                f'{args.make_documentation_plots_filename}--p0-p1-magnitude-covariance.{extension}'
         processoptions['title'] = title_covariance
         gp.plotimage( np.abs(Var_p0p1_triangulated),
                       square = True,
+                      xlabel = 'Variable index (left point x,y,z; right point x,y,z)',
+                      ylabel = 'Variable index (left point x,y,z; right point x,y,z)',
                       **processoptions)
 
 
+        processoptions = copy.deepcopy(processoptions_base)
         binwidth = np.sqrt(Var_range0) / 4.
         equation_range0_observed_gaussian = \
             mrcal.fitted_gaussian_equation(x        = range0_sampled,
@@ -850,8 +869,9 @@ if args.make_documentation_plots is not None:
                                            legend   = "Predicted")
         if dohardcopy:
             processoptions['hardcopy'] = \
-                f'{args.make_documentation_plots}--range-to-p0.{extension}'
+                f'{args.make_documentation_plots_filename}--range-to-p0.{extension}'
         processoptions['title'] = title_range0
+        gp.add_plot_option(processoptions, 'set', 'samples 1000')
         gp.plot(range0_sampled,
                 histogram       = True,
                 binwidth        = binwidth,
@@ -859,9 +879,9 @@ if args.make_documentation_plots is not None:
                                    equation_range0_observed_gaussian),
                 xlabel          = "Range to the left triangulated point (m)",
                 ylabel          = "Frequency",
-                _set            = 'samples 1000',
                 **processoptions)
 
+        processoptions = copy.deepcopy(processoptions_base)
         binwidth = np.sqrt(Var_distance) / 4.
         equation_distance_observed_gaussian = \
             mrcal.fitted_gaussian_equation(x        = distance_sampled,
@@ -875,8 +895,9 @@ if args.make_documentation_plots is not None:
                                            legend   = "Predicted")
         if dohardcopy:
             processoptions['hardcopy'] = \
-                f'{args.make_documentation_plots}--distance-p1-p0.{extension}'
+                f'{args.make_documentation_plots_filename}--distance-p1-p0.{extension}'
         processoptions['title'] = title_distance
+        gp.add_plot_option(processoptions, 'set', 'samples 1000')
         gp.plot(distance_sampled,
                 histogram       = True,
                 binwidth        = binwidth,
@@ -884,7 +905,6 @@ if args.make_documentation_plots is not None:
                                    equation_distance_observed_gaussian),
                 xlabel          = "Distance between triangulated points (m)",
                 ylabel          = "Frequency",
-                _set            = 'samples 1000',
                 **processoptions)
 
     if args.make_documentation_plots:
