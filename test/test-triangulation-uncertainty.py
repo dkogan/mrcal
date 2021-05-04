@@ -744,6 +744,35 @@ for ipt in range(Npoints):
                  nps.transpose( nps.clump(dp_triangulated_dq[ipt], n=-2) ) )
 
 
+range0              = nps.mag(p_triangulated[0])
+range0_true         = nps.mag(p_triangulated_true[0])
+range0_sampled      = nps.mag(p_triangulated_sampled[:,0,:])
+Mean_range0_sampled = nps.mag(range0_sampled).mean()
+Var_range0_sampled  = nps.mag(range0_sampled).var()
+# r = np.mag(p)
+# dr_dp = p/r
+# Var(r) = dr_dp var(p) dr_dpT
+#        = p var(p) pT / norm2(p)
+Var_range0 = nps.matmult(p_triangulated[0],
+                         Var_p0p1_triangulated[:3,:3],
+                         nps.transpose(p_triangulated[0]))[0] / nps.norm2(p_triangulated[0])
+
+
+diff                  = p_triangulated[1] - p_triangulated[0]
+distance              = nps.mag(diff)
+distance_true         = nps.mag(p_triangulated_true[:,0] - p_triangulated_true[:,1])
+distance_sampled      = nps.mag(p_triangulated_sampled[:,1,:] - p_triangulated_sampled[:,0,:])
+Mean_distance_sampled = nps.mag(distance_sampled).mean()
+Var_distance_sampled  = nps.mag(distance_sampled).var()
+# diff = p1-p0
+# dist = np.mag(diff)
+# ddist_dp01 = [-diff   diff] / dist
+# Var(dist) = ddist_dp01 var(p01) ddist_dp01T
+#           = [-diff   diff] var(p01) [-diff   diff]T / norm2(diff)
+Var_distance = nps.matmult(nps.glue( -diff, diff, axis=-1),
+                           Var_p0p1_triangulated,
+                           nps.transpose(nps.glue( -diff, diff, axis=-1),))[0] / nps.norm2(diff)
+
 if not (args.explore or \
         args.make_documentation_plots is not None):
     testutils.finish()
@@ -756,7 +785,7 @@ if args.make_documentation_plots is not None:
 
     empirical_distributions_xz = \
         [ plot_args_points_and_covariance_ellipse(p_triangulated_sampled[:,ipt,(0,2)],
-                                                  'Triangulation in moving cam0 coord system') \
+                                                  'Observed') \
           for ipt in range(Npoints) ]
     # Individual covariances
     Var_p_diagonal = [Var_p0p1_triangulated[ipt*3:ipt*3+3,ipt*3:ipt*3+3][(0,2),:][:,(0,2)] \
@@ -772,11 +801,14 @@ if args.make_documentation_plots is not None:
 
     title_triangulation = 'Triangulation uncertainty due to calibration-time noise. Cameras at the origin. Equal scaling in both plots'
     title_covariance    = 'Covariance of the [p0,p1] vector. Note the low variance of the y coordinate and the non-zero correlation between the points'
+    title_range0        = 'Range to the left triangulated point'
+    title_distance      = 'Distance between the two triangulated points'
 
-    subplots = [ (*empirical_distributions_xz[ipt],
+    subplots = [ (empirical_distributions_xz[ipt][1], # points; plot first to not obscure the ellipses
                   plot_arg_covariance_ellipse(p_triangulated[ipt][(0,2),],
                                               Var_p_diagonal[ipt],
-                                              "predicted"),
+                                              "Predicted"),
+                  empirical_distributions_xz[ipt][0],
                   dict( square = True,
                         _xrange = [p_triangulated[ipt,0] - ellipse_plot_radius,
                                    p_triangulated[ipt,0] + ellipse_plot_radius],
@@ -785,7 +817,7 @@ if args.make_documentation_plots is not None:
                   ) \
                  for ipt in range(Npoints) ]
 
-    def makeplot(dohardcopy, processoptions_base):
+    def makeplots(dohardcopy, processoptions_base):
 
         processoptions = copy.deepcopy(processoptions_base)
 
@@ -805,24 +837,69 @@ if args.make_documentation_plots is not None:
                       **processoptions)
 
 
+        binwidth = np.sqrt(Var_range0) / 4.
+        equation_range0_observed_gaussian = \
+            mrcal.fitted_gaussian_equation(x        = range0_sampled,
+                                           binwidth = binwidth,
+                                           legend   = "Idealized gaussian fit to data")
+        equation_range0_predicted_gaussian = \
+            mrcal.fitted_gaussian_equation(mean     = range0,
+                                           sigma    = np.sqrt(Var_range0),
+                                           N        = len(range0_sampled),
+                                           binwidth = binwidth,
+                                           legend   = "Predicted")
+        if dohardcopy:
+            processoptions['hardcopy'] = \
+                f'{args.make_documentation_plots}--range-to-p0.{extension}'
+        processoptions['title'] = title_range0
+        gp.plot(range0_sampled,
+                histogram       = True,
+                binwidth        = binwidth,
+                equation_above  = (equation_range0_predicted_gaussian,
+                                   equation_range0_observed_gaussian),
+                xlabel          = "Range to the left triangulated point (m)",
+                ylabel          = "Frequency",
+                _set            = 'samples 1000',
+                **processoptions)
+
+        binwidth = np.sqrt(Var_distance) / 4.
+        equation_distance_observed_gaussian = \
+            mrcal.fitted_gaussian_equation(x        = distance_sampled,
+                                           binwidth = binwidth,
+                                           legend   = "Idealized gaussian fit to data")
+        equation_distance_predicted_gaussian = \
+            mrcal.fitted_gaussian_equation(mean     = distance,
+                                           sigma    = np.sqrt(Var_distance),
+                                           N        = len(distance_sampled),
+                                           binwidth = binwidth,
+                                           legend   = "Predicted")
+        if dohardcopy:
+            processoptions['hardcopy'] = \
+                f'{args.make_documentation_plots}--distance-p1-p0.{extension}'
+        processoptions['title'] = title_distance
+        gp.plot(distance_sampled,
+                histogram       = True,
+                binwidth        = binwidth,
+                equation_above  = (equation_distance_predicted_gaussian,
+                                   equation_distance_observed_gaussian),
+                xlabel          = "Distance between triangulated points (m)",
+                ylabel          = "Frequency",
+                _set            = 'samples 1000',
+                **processoptions)
 
     if args.make_documentation_plots:
         for extension in ('pdf','svg','png','gp'):
-            makeplot(dohardcopy = True,
-                     processoptions_base = dict(wait      = False,
-                                                terminal  = terminal[extension],
-                                                _set      = extraset[extension]))
+            makeplots(dohardcopy = True,
+                      processoptions_base = dict(wait      = False,
+                                                 terminal  = terminal[extension],
+                                                 _set      = extraset[extension]))
     else:
-        makeplot(dohardcopy = False,
-                 processoptions_base = dict(wait = True))
+        makeplots(dohardcopy = False,
+                  processoptions_base = dict(wait = True))
 
 if args.explore:
     import IPython
     IPython.embed()
-
-sys.exit()
-
-
 
 
 
@@ -853,241 +930,3 @@ look at distribution due to
 
 - look at mean, variance
 '''
-
-
-
-
-
-
-
-
-
-
-
-diffp          = p[0] - p[1]
-ddiffp_dp01 = nps.glue(  np.eye(3, dtype=float),
-                        -np.eye(3, dtype=float),
-                         axis = -1)
-distancep      = nps.mag(diffp)
-ddistancep_dp0 =  diffp / distancep
-ddistancep_dp1 = -diffp / distancep
-
-# I now have all the gradients and all the internal variances, so I can
-# propagate everything. The big vector I want to propagate is
-#
-# - q: pixel noise
-# - intrinsics01
-# - extrinsics
-
-
-# For now let's just do q
-
-# I have 4 pixel observations. Let's say qij is the pixel observation of
-# point i in camera j
-
-
-
-def compute_var_p01(var_x):
-    # shape (Npoints, 3, Npoints,Ncameras,2)
-    # The trailing (Npoints,Ncameras,2) indexes the x
-    dp_dx = np.zeros((2,3,2,2,2), dtype=float)
-
-    # each has shape (3,2)
-    dp0_dq00 = dp_dx[0,:,0,0,:]
-    dp0_dq01 = dp_dx[0,:,0,1,:]
-    dp1_dq10 = dp_dx[1,:,1,0,:]
-    dp1_dq11 = dp_dx[1,:,1,1,:]
-
-    # each has shape (Npoints,3,2)
-    dv0_dq0 = dvlocal0_dq0
-    dv1_dq1 = nps.matmult2(dv1_dvlocal1, dvlocal1_dq1)
-
-    nps.matmult2(dp_dv0[0], dv0_dq0[0], out=dp0_dq00)
-    nps.matmult2(dp_dv1[0], dv1_dq1[0], out=dp0_dq01)
-    nps.matmult2(dp_dv0[1], dv0_dq0[1], out=dp1_dq10)
-    nps.matmult2(dp_dv1[1], dv1_dq1[1], out=dp1_dq11)
-
-    # shape (6,8)
-    dpflat_dx = nps.clump(nps.clump(dp_dx, n=-3), n=2)
-    return nps.matmult( dpflat_dx, var_x, nps.transpose(dpflat_dx))
-
-
-def compute_var_range(p, var_p):
-    # r = np.mag(p)
-    # dr_dp = p/r
-    # var(r) = dr_dp var_p dr_dpT
-    #        = p var_p pT / norm2(p)
-    return nps.matmult(p,var_p,nps.transpose(p))[0] / nps.norm2(p)
-
-
-def compute_var_distancep_direct(var_x):
-    # Distance between 2 3D points
-
-    # I have 4 pixel observations. Let's say qij is the pixel observation of
-    # point i in camera j
-
-    ddistancep_dx = np.zeros((1,8), dtype=float)
-    ddistancep_dq00 = ddistancep_dx[:,0:2]
-    ddistancep_dq01 = ddistancep_dx[:,2:4]
-    ddistancep_dq10 = ddistancep_dx[:,4:6]
-    ddistancep_dq11 = ddistancep_dx[:,6:8]
-
-    dv00_dq00,dv10_dq10 = dvlocal0_dq0
-    dv01_dq01,dv11_dq11 = nps.matmult2(dv1_dvlocal1, dvlocal1_dq1)
-
-    dp0_dv00,dp1_dv10 = dp_dv0
-    dp0_dv01,dp1_dv11 = dp_dv1
-
-    ddistancep_dv00 = nps.matmult( ddistancep_dp0, dp0_dv00 )
-    ddistancep_dv01 = nps.matmult( ddistancep_dp0, dp0_dv01 )
-    ddistancep_dv10 = nps.matmult( ddistancep_dp1, dp1_dv10 )
-    ddistancep_dv11 = nps.matmult( ddistancep_dp1, dp1_dv11 )
-
-    nps.matmult2(ddistancep_dv00, dv00_dq00, out=ddistancep_dq00)
-    nps.matmult2(ddistancep_dv01, dv01_dq01, out=ddistancep_dq01)
-    nps.matmult2(ddistancep_dv10, dv10_dq10, out=ddistancep_dq10)
-    nps.matmult2(ddistancep_dv11, dv11_dq11, out=ddistancep_dq11)
-
-    return nps.matmult( ddistancep_dx, var_x, nps.transpose(ddistancep_dx)).ravel()[0]
-
-
-def compute_var_distancep_from_var_p(var_p):
-
-    ddistancep_dp = nps.glue( ddistancep_dp0, ddistancep_dp1, axis=-1)
-    return nps.matmult( ddistancep_dp, var_p, nps.transpose(ddistancep_dp)).ravel()[0]
-
-
-
-
-var_distancep             = compute_var_distancep_direct(var_x)
-var_distancep_independent = compute_var_distancep_direct(var_x_independent)
-var_p                     = compute_var_p01(var_x)
-var_p_independent         = compute_var_p01(var_x_independent)
-
-var_r0             = compute_var_range(pref[0], var_p[:3,:3])
-var_r0_independent = compute_var_range(pref[0], var_p_independent[:3,:3])
-
-var_diffp = nps.matmult(ddiffp_dp01, var_p, nps.transpose(ddiffp_dp01))
-
-
-
-if np.abs(compute_var_distancep_from_var_p(var_p) - var_distancep) > 1e-6:
-    raise Exception("Var(distancep) should identical whether you compute it from Var(p) or not")
-
-
-
-vlocal0 = mrcal.unproject(qref[:,0] + dq[:,:,0,:], *models[0].intrinsics())
-vlocal1 = mrcal.unproject(qref[:,1] + dq[:,:,1,:], *models[1].intrinsics())
-v0      = vlocal0
-v1      = mrcal.rotate_point_R(Rt01[:3,:], vlocal1)
-p       = mrcal.triangulate_leecivera_mid2(v0, v1, Rt01[3,:])
-
-distancep     = nps.mag(p[:,0,:] - p[:,1,:])
-distancep_ref = nps.mag(pref[0] - pref[1])
-
-r0            = nps.mag(p[:,0,:])
-r0_ref        = nps.mag(pref[0])
-
-binwidth = 0.4*10
-
-equation_distancep_observed_gaussian = \
-    mrcal.fitted_gaussian_equation(x        = distancep,
-                                   binwidth = binwidth,
-                                   legend   = "Idealized gaussian fit to data")
-equation_distancep_predicted_gaussian = \
-    mrcal.fitted_gaussian_equation(mean     = distancep_ref,
-                                   sigma    = np.sqrt(var_distancep),
-                                   N        = len(distancep),
-                                   binwidth = binwidth,
-                                   legend   = "Predicted")
-equation_distancep_predicted_independent_gaussian = \
-    mrcal.fitted_gaussian_equation(mean     = distancep_ref,
-                                   sigma    = np.sqrt(var_distancep_independent),
-                                   N        = len(distancep),
-                                   binwidth = binwidth,
-                                   legend   = "Predicted, assuming independent noise")
-
-equation_r0_observed_gaussian = \
-    mrcal.fitted_gaussian_equation(x        = r0,
-                                   binwidth = binwidth,
-                                   legend   = "Idealized gaussian fit to data")
-equation_r0_predicted_gaussian = \
-    mrcal.fitted_gaussian_equation(mean     = r0_ref,
-                                   sigma    = np.sqrt(var_r0),
-                                   N        = len(r0),
-                                   binwidth = binwidth,
-                                   legend   = "Predicted")
-equation_r0_predicted_independent_gaussian = \
-    mrcal.fitted_gaussian_equation(mean     = r0_ref,
-                                   sigma    = np.sqrt(var_r0_independent),
-                                   N        = len(r0),
-                                   binwidth = binwidth,
-                                   legend   = "Predicted, assuming independent noise")
-
-gp.plot(distancep,
-        histogram       = True,
-        binwidth        = binwidth,
-        equation_above  = (equation_distancep_predicted_independent_gaussian,
-                           equation_distancep_predicted_gaussian,
-                           equation_distancep_observed_gaussian),
-        xlabel          = "Distance between points",
-        ylabel          = "Frequency",
-        title           = f"Triangulated distance between points: sensitivity to pixel noise. Predicted stdev: {np.sqrt(var_distancep):.0f}m",
-        _set            = 'samples 1000',
-        # hardcopy = '/tmp/distance-between.pdf',
-        wait=1)
-
-
-
-# I look at the xz uncertainty because y is very low. I just look at p[0]
-V = var_p[:3,:3]
-if np.min((V[0,0],V[2,2]))/V[1,1] < 10:
-    raise Exception("Assumption that var(y) << var(xz) is false. I want the worst-case ratio to be >10")
-
-V = V[(0,2),:][:,(0,2)]
-
-ellipse = \
-    plot_arg_covariance_ellipse(pref[0,(0,2)], V,
-                                'Observed point. Var(p_xz)')
-
-gp.plot( ( nps.glue( np.zeros((2,),),
-                     Rt01[3,(0,2)],
-                     axis=-2),
-           dict(legend    = 'cameras',
-                _with     = 'points pt 8 ps 1',
-                tuplesize = -2)),
-         ellipse,
-         square = True,
-         xlabel= 'x (m)',
-         ylabel= 'y (m)',
-         title = 'Top-down view of the world',
-         # hardcopy = '/tmp/world.pdf'
-         wait = True,
-        )
-
-gp.plot( ellipse,
-         square = True,
-         xlabel= 'x (m)',
-         ylabel= 'y (m)',
-         title = 'Top-down view of the world; ',
-         # hardcopy = '/tmp/uncertainty.pdf',
-         wait = True,
-        )
-
-gp.plot(r0,
-        histogram       = True,
-        binwidth        = binwidth,
-        equation_above  = (equation_r0_predicted_independent_gaussian,
-                           equation_r0_predicted_gaussian,
-                           equation_r0_observed_gaussian),
-        xlabel          = "Range to triangulated point",
-        ylabel          = "Frequency",
-        title           = f"Triangulated distance to the observation at 1600m: sensitivity to pixel noise. Predicted stdev: {np.sqrt(var_r0):.0f}m",
-        # hardcopy = '/tmp/range0.pdf',
-        _set            = 'samples 1000',
-        wait = True,
-        )
-
-
-
-testutils.finish()
