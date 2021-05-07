@@ -405,6 +405,15 @@ y, J_rt, J_x = mrcal.transform_point_rt(rt0_ref_copy, x_copy, get_gradients=True
 confirm_equal( y,
                nps.matmult(x-t0_ref, R0_ref),
                msg='transform_point_rt(inverted) result written in-place into t')
+rt0_ref_copy = np.array(rt0_ref)
+x_copy       = np.array(x)
+out36_copy   = np.array(out36)
+out33a_copy  = np.array(out33a)
+y, J_rt, J_x = mrcal.transform_point_rt(rt0_ref_copy, x_copy, get_gradients=True, inverted=True,
+                                        out = (x_copy,out36_copy,out33a_copy))
+confirm_equal( y,
+               nps.matmult(x-t0_ref, R0_ref),
+               msg='transform_point_rt(inverted) result written in-place into x')
 
 r = mrcal.r_from_R(R0_ref, out = out3)
 confirm_equal( r,
