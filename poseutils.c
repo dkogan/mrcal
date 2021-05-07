@@ -21,80 +21,117 @@
 
 // row vectors: vout = matmult(v,Mt)
 // equivalent col vector expression: vout = matmult(M,v)
+#define mul_vec3_gen33t_vout_scaled_full(vout, vout_stride0,            \
+                                         v,    v_stride0,               \
+                                         Mt,   Mt_stride0, Mt_stride1,  \
+                                         scale)                         \
+    do {                                                                \
+        /* needed for in-place operations */                            \
+        double outcopy[3] = {                                           \
+            scale *                                                     \
+            (_P2(Mt,Mt_stride0,Mt_stride1,0,0)*_P1(v,v_stride0,0) +     \
+             _P2(Mt,Mt_stride0,Mt_stride1,0,1)*_P1(v,v_stride0,1) +     \
+             _P2(Mt,Mt_stride0,Mt_stride1,0,2)*_P1(v,v_stride0,2) ),    \
+            scale *                                                     \
+            (_P2(Mt,Mt_stride0,Mt_stride1,1,0)*_P1(v,v_stride0,0) +     \
+             _P2(Mt,Mt_stride0,Mt_stride1,1,1)*_P1(v,v_stride0,1) +     \
+             _P2(Mt,Mt_stride0,Mt_stride1,1,2)*_P1(v,v_stride0,2) ),    \
+            scale *                                                     \
+            (_P2(Mt,Mt_stride0,Mt_stride1,2,0)*_P1(v,v_stride0,0) +     \
+             _P2(Mt,Mt_stride0,Mt_stride1,2,1)*_P1(v,v_stride0,1) +     \
+             _P2(Mt,Mt_stride0,Mt_stride1,2,2)*_P1(v,v_stride0,2) ) };  \
+        _P1(vout,vout_stride0,0) = outcopy[0];                          \
+        _P1(vout,vout_stride0,1) = outcopy[1];                          \
+        _P1(vout,vout_stride0,2) = outcopy[2];                          \
+    } while(0)
 #define mul_vec3_gen33t_vout_full(vout, vout_stride0,                   \
                                   v,    v_stride0,                      \
                                   Mt,   Mt_stride0, Mt_stride1)         \
-    do {                                                                \
-        _P1(vout,vout_stride0,0) =                                      \
-            _P2(Mt,Mt_stride0,Mt_stride1,0,0)*_P1(v,v_stride0,0) +      \
-            _P2(Mt,Mt_stride0,Mt_stride1,0,1)*_P1(v,v_stride0,1) +      \
-            _P2(Mt,Mt_stride0,Mt_stride1,0,2)*_P1(v,v_stride0,2);       \
-        _P1(vout,vout_stride0,1) =                                      \
-            _P2(Mt,Mt_stride0,Mt_stride1,1,0)*_P1(v,v_stride0,0) +      \
-            _P2(Mt,Mt_stride0,Mt_stride1,1,1)*_P1(v,v_stride0,1) +      \
-            _P2(Mt,Mt_stride0,Mt_stride1,1,2)*_P1(v,v_stride0,2);       \
-        _P1(vout,vout_stride0,2) =                                      \
-            _P2(Mt,Mt_stride0,Mt_stride1,2,0)*_P1(v,v_stride0,0) +      \
-            _P2(Mt,Mt_stride0,Mt_stride1,2,1)*_P1(v,v_stride0,1) +      \
-            _P2(Mt,Mt_stride0,Mt_stride1,2,2)*_P1(v,v_stride0,2);       \
-    } while(0)
+    mul_vec3_gen33t_vout_scaled_full(vout, vout_stride0,                \
+                                     v,    v_stride0,                   \
+                                     Mt,   Mt_stride0, Mt_stride1, 1.0)
 // row vectors: vout = scale*matmult(v,M)
 #define mul_vec3_gen33_vout_scaled_full(vout, vout_stride0,             \
                                         v,    v_stride0,                \
                                         M,    M_stride0, M_stride1,     \
                                         scale)                          \
     do {                                                                \
-        _P1(vout,vout_stride0,0) = scale *                              \
+        /* needed for in-place operations */                            \
+        double outcopy[3] = {                                           \
+            scale *                                                     \
             (_P2(M,M_stride0,M_stride1,0,0)*_P1(v,v_stride0,0) +        \
              _P2(M,M_stride0,M_stride1,1,0)*_P1(v,v_stride0,1) +        \
-             _P2(M,M_stride0,M_stride1,2,0)*_P1(v,v_stride0,2));        \
-        _P1(vout,vout_stride0,1) = scale *                              \
+             _P2(M,M_stride0,M_stride1,2,0)*_P1(v,v_stride0,2)),        \
+            scale *                                                     \
             (_P2(M,M_stride0,M_stride1,0,1)*_P1(v,v_stride0,0) +        \
              _P2(M,M_stride0,M_stride1,1,1)*_P1(v,v_stride0,1) +        \
-             _P2(M,M_stride0,M_stride1,2,1)*_P1(v,v_stride0,2));        \
-        _P1(vout,vout_stride0,2) = scale *                              \
+             _P2(M,M_stride0,M_stride1,2,1)*_P1(v,v_stride0,2)),        \
+            scale *                                                     \
             (_P2(M,M_stride0,M_stride1,0,2)*_P1(v,v_stride0,0) +        \
              _P2(M,M_stride0,M_stride1,1,2)*_P1(v,v_stride0,1) +        \
-             _P2(M,M_stride0,M_stride1,2,2)*_P1(v,v_stride0,2));        \
+             _P2(M,M_stride0,M_stride1,2,2)*_P1(v,v_stride0,2)) };      \
+        _P1(vout,vout_stride0,0) = outcopy[0];                          \
+        _P1(vout,vout_stride0,1) = outcopy[1];                          \
+        _P1(vout,vout_stride0,2) = outcopy[2];                          \
     } while(0)
+#define mul_vec3_gen33_vout_full(vout, vout_stride0,                   \
+                                 v,    v_stride0,                       \
+                                 Mt,   Mt_stride0, Mt_stride1)          \
+    mul_vec3_gen33_vout_scaled_full(vout, vout_stride0,                 \
+                                    v,    v_stride0,                    \
+                                    Mt,   Mt_stride0, Mt_stride1, 1.0)
+
 // row vectors: vout = matmult(v,Mt)
 // equivalent col vector expression: vout = matmult(M,v)
 #define mul_vec3_gen33t_vaccum_full(vout, vout_stride0,                 \
                                     v,    v_stride0,                    \
                                     Mt,   Mt_stride0, Mt_stride1)       \
     do {                                                                \
-        _P1(vout,vout_stride0,0) +=                                     \
+        /* needed for in-place operations */                            \
+        double outcopy[3] = {                                           \
+            _P1(vout,vout_stride0,0) +                                  \
             _P2(Mt,Mt_stride0,Mt_stride1,0,0)*_P1(v,v_stride0,0) +      \
             _P2(Mt,Mt_stride0,Mt_stride1,0,1)*_P1(v,v_stride0,1) +      \
-            _P2(Mt,Mt_stride0,Mt_stride1,0,2)*_P1(v,v_stride0,2);       \
-        _P1(vout,vout_stride0,1) +=                                     \
+            _P2(Mt,Mt_stride0,Mt_stride1,0,2)*_P1(v,v_stride0,2),       \
+            _P1(vout,vout_stride0,1) +                                  \
             _P2(Mt,Mt_stride0,Mt_stride1,1,0)*_P1(v,v_stride0,0) +      \
             _P2(Mt,Mt_stride0,Mt_stride1,1,1)*_P1(v,v_stride0,1) +      \
-            _P2(Mt,Mt_stride0,Mt_stride1,1,2)*_P1(v,v_stride0,2);       \
-        _P1(vout,vout_stride0,2) +=                                     \
+            _P2(Mt,Mt_stride0,Mt_stride1,1,2)*_P1(v,v_stride0,2),       \
+            _P1(vout,vout_stride0,2) +                                  \
             _P2(Mt,Mt_stride0,Mt_stride1,2,0)*_P1(v,v_stride0,0) +      \
             _P2(Mt,Mt_stride0,Mt_stride1,2,1)*_P1(v,v_stride0,1) +      \
-            _P2(Mt,Mt_stride0,Mt_stride1,2,2)*_P1(v,v_stride0,2);       \
+            _P2(Mt,Mt_stride0,Mt_stride1,2,2)*_P1(v,v_stride0,2) };     \
+        _P1(vout,vout_stride0,0) = outcopy[0];                          \
+        _P1(vout,vout_stride0,1) = outcopy[1];                          \
+        _P1(vout,vout_stride0,2) = outcopy[2];                          \
     } while(0)
+#warning the above didnt fix any tests
+
 // row vectors: vout = scale*matmult(v,M)
 #define mul_vec3_gen33_vaccum_scaled_full(vout, vout_stride0,           \
                                           v,    v_stride0,              \
                                           M,    M_stride0, M_stride1,   \
                                           scale)                        \
     do {                                                                \
-        _P1(vout,vout_stride0,0) += scale *                             \
+        /* needed for in-place operations */                            \
+        double outcopy[3] = {                                           \
+            _P1(vout,vout_stride0,0) + scale *                          \
             (_P2(M,M_stride0,M_stride1,0,0)*_P1(v,v_stride0,0) +        \
              _P2(M,M_stride0,M_stride1,1,0)*_P1(v,v_stride0,1) +        \
-             _P2(M,M_stride0,M_stride1,2,0)*_P1(v,v_stride0,2));        \
-        _P1(vout,vout_stride0,1) += scale *                             \
+             _P2(M,M_stride0,M_stride1,2,0)*_P1(v,v_stride0,2)),        \
+            _P1(vout,vout_stride0,1) + scale *                          \
             (_P2(M,M_stride0,M_stride1,0,1)*_P1(v,v_stride0,0) +        \
              _P2(M,M_stride0,M_stride1,1,1)*_P1(v,v_stride0,1) +        \
-             _P2(M,M_stride0,M_stride1,2,1)*_P1(v,v_stride0,2));        \
-        _P1(vout,vout_stride0,2) += scale *                             \
+             _P2(M,M_stride0,M_stride1,2,1)*_P1(v,v_stride0,2)),        \
+            _P1(vout,vout_stride0,2) + scale *                          \
             (_P2(M,M_stride0,M_stride1,0,2)*_P1(v,v_stride0,0) +        \
              _P2(M,M_stride0,M_stride1,1,2)*_P1(v,v_stride0,1) +        \
-             _P2(M,M_stride0,M_stride1,2,2)*_P1(v,v_stride0,2));        \
+             _P2(M,M_stride0,M_stride1,2,2)*_P1(v,v_stride0,2)) };      \
+        _P1(vout,vout_stride0,0) = outcopy[0];                          \
+        _P1(vout,vout_stride0,1) = outcopy[1];                          \
+        _P1(vout,vout_stride0,2) = outcopy[2];                          \
     } while(0)
+#warning did nt fix
 
 // multiply two (3,3) matrices
 static inline
@@ -210,11 +247,6 @@ void mrcal_rotate_point_R_full( // output
     init_stride_2D(R,     3,3 );
     init_stride_1D(x_in,  3 );
 
-    // R*x
-    mul_vec3_gen33t_vout_full(x_out, x_out_stride0,
-                              x_in,  x_in_stride0,
-                              R,     R_stride0, R_stride1);
-
     if(J_R)
     {
         // out[i] = inner(R[i,:],in)
@@ -235,6 +267,11 @@ void mrcal_rotate_point_R_full( // output
         for(int i=0; i<3; i++)
             for(int j=0; j<3; j++)
                 P2(J_x, i,j) = P2(R, i,j);
+
+    // R*x
+    mul_vec3_gen33t_vout_full(x_out, x_out_stride0,
+                              x_in,  x_in_stride0,
+                              R,     R_stride0, R_stride1);
 }
 
 
@@ -268,6 +305,9 @@ void mrcal_transform_point_Rt_full( // output
     init_stride_2D(Rt,    4,3 );
     // init_stride_1D(x_in,  3 );
 
+    // for in-place operation
+    double t[] = { P2(Rt,3,0), P2(Rt,3,1), P2(Rt,3,2) };
+
     // I want R*x + t
     // First R*x
     mrcal_rotate_point_R_full(x_out, x_out_stride0,
@@ -278,7 +318,7 @@ void mrcal_transform_point_Rt_full( // output
 
     // And now +t. The J_R, J_x gradients are unaffected. J_t is identity
     for(int i=0; i<3; i++)
-        P1(x_out,i) += P2(Rt,3,i);
+        P1(x_out,i) += t[i];
     if(J_Rt)
         mrcal_identity_R_full(&P3(J_Rt,0,3,0), J_Rt_stride0, J_Rt_stride2);
 }
@@ -504,16 +544,22 @@ void mrcal_invert_Rt_full( // output
     init_stride_2D(Rt_out, 4,3);
     init_stride_2D(Rt_in,  4,3);
 
-    // transpose(R)
+    // transpose(R). Extra stuff to make in-place operations work
     for(int i=0; i<3; i++)
-        for(int j=0; j<3; j++)
+        P2(Rt_out,i,i) = P2(Rt_in,i,i);
+    for(int i=0; i<3; i++)
+        for(int j=i+1; j<3; j++)
+        {
+            double tmp = P2(Rt_in,i,j);
             P2(Rt_out,i,j) = P2(Rt_in,j,i);
+            P2(Rt_out,j,i) = tmp;
+        }
 
     // -transpose(R)*t
-    mul_vec3_gen33_vout_scaled_full(&P2(Rt_out,3,0), Rt_out_stride1,
-                                    &P2(Rt_in, 3,0), Rt_in_stride1,
-                                    Rt_in, Rt_in_stride0, Rt_in_stride1,
-                                    -1.0);
+    mul_vec3_gen33t_vout_scaled_full(&P2(Rt_out,3,0), Rt_out_stride1,
+                                     &P2(Rt_in, 3,0), Rt_in_stride1,
+                                     Rt_out, Rt_out_stride0, Rt_out_stride1,
+                                     -1.0);
 }
 
 // Invert an rt transformation
@@ -586,18 +632,24 @@ void mrcal_compose_Rt_full( // output
     init_stride_2D(Rt_0,   4,3);
     init_stride_2D(Rt_1,   4,3);
 
-    // R0*R1
-    mul_gen33_gen33_vout_full( Rt_out, Rt_out_stride0, Rt_out_stride1,
-                               Rt_0,   Rt_0_stride0,   Rt_0_stride1,
-                               Rt_1,   Rt_1_stride0,   Rt_1_stride1 );
+    // for in-place operation
+    double t0[] = { P2(Rt_0,3,0),
+                    P2(Rt_0,3,1),
+                    P2(Rt_0,3,2) };
 
-    // R0*t1+t0
+    // t <- R0*t1
     mul_vec3_gen33t_vout_full(&P2(Rt_out,3,0), Rt_out_stride1,
                               &P2(Rt_1,  3,0), Rt_1_stride1,
                               Rt_0, Rt_0_stride0, Rt_0_stride1);
 
+    // R <- R0*R1
+    mul_gen33_gen33_vout_full( Rt_out, Rt_out_stride0, Rt_out_stride1,
+                               Rt_0,   Rt_0_stride0,   Rt_0_stride1,
+                               Rt_1,   Rt_1_stride0,   Rt_1_stride1 );
+
+    // t <- R0*t1+t0
     for(int i=0; i<3; i++)
-        P2(Rt_out,3,i) += P2(Rt_0,3,i);
+        P2(Rt_out,3,i) += t0[i];
 }
 
 // Compose two rt transformations. It is assumed that we're getting no gradients
@@ -671,6 +723,14 @@ void mrcal_compose_rt_full( // output
                          dR0_dr0, 0,0,0,
                          rt_0, rt_0_stride0 );
 
+    // to make in-place operations work
+    double t[3];
+    mul_vec3_gen33t_vout_full( t, sizeof(double),
+                               &P1(rt_1, 3), rt_1_stride0,
+                               R0, dt_t1_stride0, dt_t1_stride1);
+    for(int i=0; i<3; i++)
+        t[i] += P1(rt_0,3+i);
+
     double R1[3*3];
     double dR1_dr1[3*3*3];
     mrcal_R_from_r_full( R1, 0,0,
@@ -686,12 +746,6 @@ void mrcal_compose_rt_full( // output
     mrcal_r_from_R_full( rt_out, rt_out_stride0,
                          dr_dR, 0,0,0,
                          R, 0,0);
-
-    mul_vec3_gen33t_vout_full( &P1(rt_out, 3), rt_out_stride0,
-                               &P1(rt_1, 3), rt_1_stride0,
-                               R0, dt_t1_stride0, dt_t1_stride1);
-    for(int i=0; i<3; i++)
-        P1(rt_out,3+i) += P1(rt_0,3+i);
 
     // dr/dvecr0 = dr/dvecR dvecR/dvecR0 dvecR0/dvecr0
     // R = R0*R1
@@ -760,4 +814,7 @@ void mrcal_compose_rt_full( // output
                                         &P1(rt_1,3), rt_1_stride0,
                                         &dR0_dr0[9*i], 3*sizeof(dR0_dr0[0]), sizeof(dR0_dr0[0]),
                                         1.0);
+
+    for(int i=0; i<3; i++)
+        P1(rt_out,3+i) = t[i];
 }

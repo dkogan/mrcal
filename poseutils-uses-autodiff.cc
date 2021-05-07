@@ -219,6 +219,10 @@ void mrcal_transform_point_rt_full( // output
         init_stride_1D(rt,    6 );
         // init_stride_1D(x_in,  3 );
 
+        // to make in-place operations work
+        double t[3] = { P1(rt, 3),
+                        P1(rt, 4),
+                        P1(rt, 5) };
         // I want rotate(x) + t
         // First rotate(x)
         mrcal_rotate_point_r_full(x_out, x_out_stride0,
@@ -229,7 +233,7 @@ void mrcal_transform_point_rt_full( // output
 
         // And now +t. The J_r, J_x gradients are unaffected. J_t is identity
         for(int i=0; i<3; i++)
-            P1(x_out,i) += P1(rt,i+3);
+            P1(x_out,i) += t[i];
         if(J_rt)
             mrcal_identity_R_full(&P2(J_rt,0,3), J_rt_stride0, J_rt_stride1);
     }
