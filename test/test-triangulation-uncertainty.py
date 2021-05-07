@@ -936,9 +936,6 @@ if args.explore:
 r'''
 extend to work with non-ref camera
 
-Add pixel noise to look at uncertainty due to calibration AND run-time pixel
-noise
-
 fixedframes?
 
 triangulate_grad() should return less stuff. It can do more internally. It should
