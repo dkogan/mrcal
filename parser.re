@@ -462,7 +462,7 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
                 MSG("malloc() failed");
                 goto done;
             }
-            if( !read_list_values_generic(cameramodel_full->intrinsics_data,
+            if( !read_list_values_generic(cameramodel_full->intrinsics,
                                           ingest_double_consume_ignorable,
                                           &YYCURSOR, start_file,
                                           "intrinsics", Nparams) )

@@ -870,7 +870,7 @@ typedef struct
     double            rt_cam_ref[6];
     unsigned int      imagersize[2];
     mrcal_lensmodel_t lensmodel;
-    double            intrinsics_data[];
+    double            intrinsics[];
 } mrcal_cameramodel_t;
 
 // if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of

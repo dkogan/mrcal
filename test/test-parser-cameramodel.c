@@ -7,11 +7,11 @@
 #include "test-harness.h"
 
 
-#define CAMERAMODEL_T(Nintrinsics)              \
-struct                                          \
-{                                               \
-    mrcal_cameramodel_t cameramodel;            \
-    double intrinsics_data[Nintrinsics];        \
+#define CAMERAMODEL_T(Nintrinsics)         \
+struct                                     \
+{                                          \
+    mrcal_cameramodel_t cameramodel;       \
+    double intrinsics[Nintrinsics];        \
 }
 
 #define Nintrinsics_CAHVORE (4+5+3)
@@ -24,8 +24,8 @@ typedef CAMERAMODEL_T(Nintrinsics_CAHVORE) cameramodel_cahvore_t;
     {                                                                   \
       confirm_eq_int(m->    lensmodel.type,                             \
                      (ref)->lensmodel.type);                            \
-      confirm_eq_double_max_array(m->    intrinsics_data,               \
-                                  (ref)->intrinsics_data,               \
+      confirm_eq_double_max_array(m->    intrinsics,                    \
+                                  (ref)->intrinsics,                    \
                                   Nintrinsics_CAHVORE,                  \
                                   1e-6);                                \
       confirm_eq_double_max_array(m->    rt_cam_ref,                    \
@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
            .imagersize = {110,400},
            .rt_cam_ref = {0,1,2,33,44e4,-55.3e-3},
           },
-          .intrinsics_data = {4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12}
+          .intrinsics = {4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12}
         };
 
     // baseline

@@ -5141,7 +5141,7 @@ bool mrcal_write_cameramodel_file(const char* filename,
     fprintf(fp, "  'lensmodel':  '%s',\n", lensmodel_string);
     fprintf(fp, "  'intrinsics': [ ");
     for(int i=0; i<Nparams; i++)
-        fprintf(fp, "%g, ", cameramodel->intrinsics_data[i]);
+        fprintf(fp, "%g, ", cameramodel->intrinsics[i]);
     fprintf(fp, "],\n");
     fprintf(fp, "  'imagersize': [ %u, %u ],\n",
             cameramodel->imagersize[0],
