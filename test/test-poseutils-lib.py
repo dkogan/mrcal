@@ -218,6 +218,16 @@ confirm_equal( J_x,
                J_x_ref,
                msg='rotate_point_R J_x')
 
+# In-place
+R0_ref_copy = np.array(R0_ref)
+x_copy      = np.array(x)
+y = \
+    mrcal.rotate_point_R(R0_ref_copy, x_copy, out = x_copy)
+confirm_equal( y,
+               nps.matmult(x, nps.transpose(R0_ref)),
+               msg='rotate_point_R result written in-place into x')
+
+
 y = mrcal.rotate_point_r(r0_ref, x, out = out3)
 confirm_equal( y,
                nps.matmult(x, nps.transpose(R_from_r(r0_ref))),
@@ -238,6 +248,17 @@ confirm_equal( J_r,
 confirm_equal( J_x,
                J_x_ref,
                msg='rotate_point_r J_x')
+
+# inverted
+r0_ref_copy  = np.array(r0_ref)
+x_copy       = np.array(x)
+out33_copy   = np.array(out33)
+out33a_copy  = np.array(out33a)
+y, J_r, J_x = mrcal.rotate_point_r(r0_ref_copy, x_copy, get_gradients=True,
+                                   out = (x_copy, out33, out33a))
+confirm_equal( y,
+               nps.matmult(x, nps.transpose(R_from_r(r0_ref))),
+               msg='rotate_point_r result written in-place into x')
 
 y = mrcal.rotate_point_r(r0_ref, x, out = out3, inverted=True)
 confirm_equal( y,
@@ -261,6 +282,17 @@ confirm_equal( J_x,
                J_x_ref,
                msg='rotate_point_r(inverted) J_x')
 
+# inverted
+r0_ref_copy  = np.array(r0_ref)
+x_copy       = np.array(x)
+out33_copy   = np.array(out33)
+out33a_copy  = np.array(out33a)
+y, J_r, J_x = mrcal.rotate_point_r(r0_ref_copy, x_copy, get_gradients=True, inverted = True,
+                                   out = (x_copy, out33, out33a))
+confirm_equal( y,
+               nps.matmult(x, R_from_r(r0_ref)),
+               msg='rotate_point_r(inverted) result written in-place into x')
+
 y = mrcal.transform_point_Rt(Rt0_ref, x, out = out3)
 confirm_equal( y,
                nps.matmult(x, nps.transpose(R0_ref))+t0_ref,
@@ -280,6 +312,22 @@ confirm_equal( J_Rt,
 confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_Rt J_x')
+
+# In-place. I can imagine wanting to write the result in-place into t. But not
+# into any of R
+Rt0_ref_copy = np.array(Rt0_ref)
+x_copy       = np.array(x)
+y = mrcal.transform_point_Rt(Rt0_ref_copy, x_copy, out = Rt0_ref_copy[3,:])
+confirm_equal( y,
+               nps.matmult(x, nps.transpose(R0_ref))+t0_ref,
+               msg='transform_point_Rt result written in-place into t')
+Rt0_ref_copy = np.array(Rt0_ref)
+x_copy       = np.array(x)
+y = mrcal.transform_point_Rt(Rt0_ref_copy, x_copy, out = x_copy)
+confirm_equal( y,
+               nps.matmult(x, nps.transpose(R0_ref))+t0_ref,
+               msg='transform_point_Rt result written in-place into x')
+
 
 y = mrcal.transform_point_rt(rt0_ref, x, out = out3)
 confirm_equal( y,
@@ -301,6 +349,28 @@ confirm_equal( J_rt,
 confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_rt J_x')
+
+# In-place. I can imagine wanting to write the result in-place into t. But not
+# into any of r or J
+rt0_ref_copy = np.array(rt0_ref)
+x_copy       = np.array(x)
+out36_copy   = np.array(out36)
+out33a_copy  = np.array(out33a)
+y, J_rt, J_x = mrcal.transform_point_rt(rt0_ref_copy, x_copy, get_gradients=True,
+                                        out = (rt0_ref_copy[3:],out36_copy,out33a_copy))
+confirm_equal( y,
+               nps.matmult(x, nps.transpose(R0_ref))+t0_ref,
+               msg='transform_point_rt result written in-place into t')
+rt0_ref_copy = np.array(rt0_ref)
+x_copy       = np.array(x)
+out36_copy   = np.array(out36)
+out33a_copy  = np.array(out33a)
+y, J_rt, J_x = mrcal.transform_point_rt(rt0_ref_copy, x_copy, get_gradients=True,
+                                        out = (x_copy, out36_copy,out33a_copy))
+confirm_equal( y,
+               nps.matmult(x, nps.transpose(R0_ref))+t0_ref,
+               msg='transform_point_rt result written in-place into x')
+
 
 y = mrcal.transform_point_rt(rt0_ref, x, out = out3, inverted=True)
 confirm_equal( y,
@@ -324,6 +394,17 @@ confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_rt(inverted) J_x')
 
+# In-place. I can imagine wanting to write the result in-place into t. But not
+# into any of r or J
+rt0_ref_copy = np.array(rt0_ref)
+x_copy       = np.array(x)
+out36_copy   = np.array(out36)
+out33a_copy  = np.array(out33a)
+y, J_rt, J_x = mrcal.transform_point_rt(rt0_ref_copy, x_copy, get_gradients=True, inverted=True,
+                                        out = (rt0_ref_copy[3:],out36_copy,out33a_copy))
+confirm_equal( y,
+               nps.matmult(x-t0_ref, R0_ref),
+               msg='transform_point_rt(inverted) result written in-place into t')
 
 r = mrcal.r_from_R(R0_ref, out = out3)
 confirm_equal( r,
@@ -448,10 +529,25 @@ confirm_equal( Rt,
                invert_Rt(Rt0_ref),
                msg='invert_Rt result')
 
+# in-place
+Rt0_ref_copy = np.array(Rt0_ref)
+Rt = mrcal.invert_Rt(Rt0_ref_copy, out=Rt0_ref_copy)
+confirm_equal( Rt,
+               invert_Rt(Rt0_ref),
+               msg='invert_Rt result written in-place')
+
+
 rt = mrcal.invert_rt(rt0_ref, out=out6)
 confirm_equal( rt,
                invert_rt(rt0_ref),
                msg='invert_rt result')
+
+# in-place
+rt0_ref_copy = np.array(rt0_ref)
+rt = mrcal.invert_rt(rt0_ref_copy, out=rt0_ref_copy)
+confirm_equal( rt,
+               invert_rt(rt0_ref),
+               msg='invert_rt result written in-place')
 
 rt,drt_drt  = mrcal.invert_rt(rt0_ref, get_gradients = True,
                                  out=(out6,out66))
@@ -464,16 +560,57 @@ confirm_equal( drt_drt,
                drt_drt_ref,
                msg='invert_rt drt/drt result')
 
+# in-place
+rt0_ref_copy = np.array(rt0_ref)
+drt_drt_copy = np.array(drt_drt)
+rt,J = mrcal.invert_rt(rt0_ref_copy, out=(rt0_ref_copy,drt_drt_copy),
+                       get_gradients=True)
+confirm_equal( rt,
+               invert_rt(rt0_ref),
+               msg='invert_rt with grad result written in-place')
+
 Rt2 = mrcal.compose_Rt(Rt0_ref, Rt1_ref,
                        out=out43)
 confirm_equal( Rt2,
                compose_Rt(Rt0_ref, Rt1_ref),
                msg='compose_Rt result')
 
+# in-place
+Rt0_ref_copy = np.array(Rt0_ref)
+Rt1_ref_copy = np.array(Rt1_ref)
+Rt2 = mrcal.compose_Rt(Rt0_ref_copy, Rt1_ref_copy,
+                       out=Rt0_ref_copy)
+confirm_equal( Rt2,
+               compose_Rt(Rt0_ref, Rt1_ref),
+               msg='compose_Rt result written in-place to Rt0')
+Rt0_ref_copy = np.array(Rt0_ref)
+Rt1_ref_copy = np.array(Rt1_ref)
+Rt2 = mrcal.compose_Rt(Rt0_ref_copy, Rt1_ref_copy,
+                       out=Rt1_ref_copy)
+confirm_equal( Rt2,
+               compose_Rt(Rt0_ref, Rt1_ref),
+               msg='compose_Rt result written in-place to Rt1')
+
 rt2 = mrcal.compose_rt(rt0_ref, rt1_ref, out = out6)
 confirm_equal( rt2,
                compose_rt(rt0_ref, rt1_ref),
                msg='compose_rt result')
+
+# in-place
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+rt2 = mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                       out=rt0_ref_copy)
+confirm_equal( rt2,
+               compose_rt(rt0_ref, rt1_ref),
+               msg='compose_rt result written in-place to rt0')
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+rt2 = mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                       out=rt1_ref_copy)
+confirm_equal( rt2,
+               compose_rt(rt0_ref, rt1_ref),
+               msg='compose_rt result written in-place to rt1')
 
 # _compose_rt() is not excercised by the python library, so I explicitly test it
 # here
@@ -482,10 +619,25 @@ confirm_equal( rt2,
                compose_rt(rt0_ref, rt1_ref),
                msg='compose_rt result; calling _compose_rt() directly')
 
+# in-place
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+rt2 = _poseutils._compose_rt(rt0_ref_copy, rt1_ref_copy,
+                             out=rt0_ref_copy)
+confirm_equal( rt2,
+               compose_rt(rt0_ref, rt1_ref),
+               msg='compose_rt (calling _compose_rt() directly) written in-place to rt0')
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+rt2 = _poseutils._compose_rt(rt0_ref_copy, rt1_ref_copy,
+                             out=rt1_ref_copy)
+confirm_equal( rt2,
+               compose_rt(rt0_ref, rt1_ref),
+               msg='compose_rt (calling _compose_rt() directly) written in-place to rt1')
+
 rt2,drt2_drt0,drt2_drt1 = \
     mrcal.compose_rt(rt0_ref, rt1_ref, get_gradients=True,
                      out = (out6, out66, out66a))
-
 drt2_drt0_ref = grad(lambda rt0: compose_rt( rt0, rt1_ref), rt0_ref)
 drt2_drt1_ref = grad(lambda rt1: compose_rt( rt0_ref, rt1), rt1_ref)
 confirm_equal( rt2,
@@ -497,6 +649,24 @@ confirm_equal( drt2_drt0,
 confirm_equal( drt2_drt1,
                drt2_drt1_ref,
                msg='compose_rt drt2_drt1')
+
+# in-place
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+drt2_drt0_copy = np.array(drt2_drt0)
+drt2_drt1_copy = np.array(drt2_drt1)
+rt2,j0,j1 = mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy, get_gradients=True,
+                             out=(rt0_ref_copy,drt2_drt0_copy,drt2_drt1_copy))
+confirm_equal( rt2,
+               compose_rt(rt0_ref, rt1_ref),
+               msg='compose_rt result written in-place to rt0')
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+rt2,j0,j1 = mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy, get_gradients=True,
+                             out=(rt1_ref_copy,drt2_drt0_copy,drt2_drt1_copy))
+confirm_equal( rt2,
+               compose_rt(rt0_ref, rt1_ref),
+               msg='compose_rt result written in-place to rt1')
 
 Rt2 = mrcal.compose_Rt(Rt0_ref, Rt1_ref,Rt0_ref,
                        out=out43)
