@@ -863,7 +863,7 @@ int mrcal_num_states_calobject_warp(mrcal_problem_selections_t problem_selection
 
 
 
-// structure containing a camera pose + lens model. Used only for .cameramodel
+// structure containing a camera pose + lens model. Used for .cameramodel
 // input/output
 typedef struct
 {
