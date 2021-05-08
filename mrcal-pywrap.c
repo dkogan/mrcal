@@ -53,7 +53,7 @@ do {                                                                    \
 } while(0)
 
 #define PERCENT_S_COMMA(s,n) "'%s',"
-#define COMMA_LENSMODEL_NAME(s,n) , mrcal_lensmodel_name_unconfigured( (mrcal_lensmodel_t){.type = MRCAL_##s} )
+#define COMMA_LENSMODEL_NAME(s,n) , mrcal_lensmodel_name_unconfigured( &(mrcal_lensmodel_t){.type = MRCAL_##s} )
 #define VALID_LENSMODELS_FORMAT  "(" MRCAL_LENSMODEL_LIST(PERCENT_S_COMMA) ")"
 #define VALID_LENSMODELS_ARGLIST MRCAL_LENSMODEL_LIST(COMMA_LENSMODEL_NAME)
 
@@ -670,7 +670,7 @@ static bool parse_lensmodel_from_arg(// output
         return false;
     }
 
-    *lensmodel = mrcal_lensmodel_from_name(lensmodel_cstring);
+    mrcal_lensmodel_from_name(lensmodel, lensmodel_cstring);
     if( !mrcal_lensmodel_type_is_valid(lensmodel->type) )
     {
         if(lensmodel->type == MRCAL_LENSMODEL_INVALID_BADCONFIG)
@@ -700,7 +700,7 @@ static PyObject* lensmodel_metadata(PyObject* NPY_UNUSED(self),
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
         goto done;
 
-    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
+    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(&lensmodel);
 
 #define MRCAL_ITEM_BUILDVALUE_DEF(  name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) " s "pybuildvaluecode
 #define MRCAL_ITEM_BUILDVALUE_VALUE(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) , #name, cookie name
@@ -757,7 +757,7 @@ static PyObject* knots_for_splined_models(PyObject* NPY_UNUSED(self),
     {
         double ux[lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx];
         double uy[lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny];
-        if(!mrcal_knots_for_splined_models(ux,uy, lensmodel))
+        if(!mrcal_knots_for_splined_models(ux,uy, &lensmodel))
         {
             BARF( "mrcal_knots_for_splined_models() failed");
             goto done;
@@ -808,7 +808,7 @@ static PyObject* lensmodel_num_params(PyObject* NPY_UNUSED(self),
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
         goto done;
 
-    int Nparams = mrcal_lensmodel_num_params(lensmodel);
+    int Nparams = mrcal_lensmodel_num_params(&lensmodel);
 
     result = Py_BuildValue("i", Nparams);
 
@@ -907,7 +907,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 
 // Using this for both optimize() and optimizer_callback()
 static bool optimize_validate_args( // out
-                                    mrcal_lensmodel_t* mrcal_lensmodel_type,
+                                    mrcal_lensmodel_t* mrcal_lensmodel,
 
                                     // in
                                     bool is_optimize, // or optimizer_callback
@@ -970,10 +970,10 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    if(!parse_lensmodel_from_arg(mrcal_lensmodel_type, lensmodel))
+    if(!parse_lensmodel_from_arg(mrcal_lensmodel, lensmodel))
         return false;
 
-    int NlensParams = mrcal_lensmodel_num_params(*mrcal_lensmodel_type);
+    int NlensParams = mrcal_lensmodel_num_params(mrcal_lensmodel);
     if( NlensParams != PyArray_DIMS(intrinsics)[1] )
     {
         BARF("intrinsics.shape[1] MUST be %d. Instead got %ld",
@@ -1239,10 +1239,10 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 #undef SET_NULL_IF_NONE
 
 
-    mrcal_lensmodel_t mrcal_lensmodel_type;
+    mrcal_lensmodel_t mrcal_lensmodel;
     // Check the arguments for optimize(). If optimizer_callback, then the other
     // stuff is defined, but it all has valid, default values
-    if( !optimize_validate_args(&mrcal_lensmodel_type,
+    if( !optimize_validate_args(&mrcal_lensmodel,
                                 is_optimize,
                                 OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
                                 OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
@@ -1315,16 +1315,16 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                                    Nframes,
                                                    Npoints, Npoints_fixed,
                                                    problem_selections,
-                                                   mrcal_lensmodel_type);
+                                                   &mrcal_lensmodel);
 
-        int Nintrinsics_state = mrcal_num_intrinsics_optimization_params(problem_selections, mrcal_lensmodel_type);
+        int Nintrinsics_state = mrcal_num_intrinsics_optimization_params(problem_selections, &mrcal_lensmodel);
 
         // input
         int* c_imagersizes = PyArray_DATA(imagersizes);
 
         int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
                                       Nframes, Npoints, Npoints_fixed, Nobservations_board,
-                                      problem_selections, mrcal_lensmodel_type);
+                                      problem_selections, &mrcal_lensmodel);
 
         // both optimize() and optimizer_callback() use this
         p_packed_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nstate}), NPY_DOUBLE);
@@ -1361,7 +1361,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
                                 c_observations_board_pool,
 
-                                mrcal_lensmodel_type,
+                                &mrcal_lensmodel,
                                 observed_pixel_uncertainty,
                                 c_imagersizes,
                                 problem_selections, &problem_constants,
@@ -1434,7 +1434,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                                    c_observations_board,
                                                    c_observations_point,
                                                    problem_selections,
-                                                   mrcal_lensmodel_type);
+                                                   &mrcal_lensmodel);
             cholmod_sparse Jt = {
                 .nrow   = Nstate,
                 .ncol   = Nmeasurements,
@@ -1481,7 +1481,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
                                          c_observations_board_pool,
 
-                                         mrcal_lensmodel_type,
+                                         &mrcal_lensmodel,
                                          observed_pixel_uncertainty,
                                          c_imagersizes,
                                          problem_selections, &problem_constants,
@@ -1792,7 +1792,7 @@ static int callback_state_index_intrinsics(int i,
                                         Nframes,
                                         Npoints, Npoints_fixed, Nobservations_board,
                                         problem_selections,
-                                        lensmodel);
+                                        &lensmodel);
 }
 static PyObject* state_index_intrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -1815,7 +1815,7 @@ static int callback_num_states_intrinsics(int i,
                                           mrcal_problem_selections_t problem_selections)
 {
     return mrcal_num_states_intrinsics(Ncameras_intrinsics,
-                                       problem_selections, lensmodel);
+                                       problem_selections, &lensmodel);
 }
 static PyObject* num_states_intrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -1861,7 +1861,7 @@ static int callback_state_index_extrinsics(int i,
                                      Nframes,
                                      Npoints, Npoints_fixed, Nobservations_board,
                                      problem_selections,
-                                     lensmodel);
+                                     &lensmodel);
 }
 static PyObject* state_index_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -1930,7 +1930,7 @@ static int callback_state_index_frames(int i,
                                  Nframes,
                                  Npoints, Npoints_fixed, Nobservations_board,
                                  problem_selections,
-                                 lensmodel);
+                                 &lensmodel);
 }
 static PyObject* state_index_frames(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -1999,7 +1999,7 @@ static int callback_state_index_points(int i,
                                  Nframes,
                                  Npoints, Npoints_fixed, Nobservations_board,
                                  problem_selections,
-                                 lensmodel);
+                                 &lensmodel);
 }
 static PyObject* state_index_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2049,7 +2049,7 @@ static int callback_state_index_calobject_warp(int i,
                                           Nframes,
                                           Npoints, Npoints_fixed, Nobservations_board,
                                           problem_selections,
-                                          lensmodel);
+                                          &lensmodel);
 }
 static PyObject* state_index_calobject_warp(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2227,7 +2227,7 @@ static int callback_num_measurements_regularization(int i,
                                               Nframes,
                                               Npoints, Npoints_fixed, Nobservations_board,
                                               problem_selections,
-                                              lensmodel);
+                                              &lensmodel);
 }
 static PyObject* num_measurements_regularization(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2259,7 +2259,7 @@ static int callback_num_measurements_all(int i,
                                Nframes,
                                Npoints, Npoints_fixed,
                                problem_selections,
-                               lensmodel);
+                               &lensmodel);
 }
 static PyObject* num_measurements(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2336,8 +2336,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
           .do_apply_regularization           = do_apply_regularization
         };
 
-    mrcal_lensmodel_t mrcal_lensmodel_type;
-    if(!parse_lensmodel_from_arg(&mrcal_lensmodel_type, lensmodel))
+    mrcal_lensmodel_t mrcal_lensmodel;
+    if(!parse_lensmodel_from_arg(&mrcal_lensmodel, lensmodel))
         goto done;
 
     // checks dimensionality of array !IS_NULL. So if any array isn't passed-in,
@@ -2389,7 +2389,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
         mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
                          Nframes, Npoints, Npoints_fixed, Nobservations_board,
                          problem_selections,
-                         mrcal_lensmodel_type);
+                         &mrcal_lensmodel);
 
     if( dims[ndim-1] != Nstate )
     {
@@ -2405,7 +2405,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
             mrcal_pack_solver_state_vector( x,
                                             Ncameras_intrinsics, Ncameras_extrinsics,
                                             Nframes, Npoints, Npoints_fixed,
-                                            problem_selections, mrcal_lensmodel_type);
+                                            problem_selections, &mrcal_lensmodel);
             x = &x[Nstate];
         }
     else
@@ -2414,7 +2414,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
             mrcal_unpack_solver_state_vector( x,
                                               Ncameras_intrinsics, Ncameras_extrinsics,
                                               Nframes, Npoints, Npoints_fixed,
-                                              problem_selections, mrcal_lensmodel_type);
+                                              problem_selections, &mrcal_lensmodel);
             x = &x[Nstate];
         }
 

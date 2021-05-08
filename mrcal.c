@@ -81,9 +81,9 @@ MRCAL_LENSMODEL_WITHCONFIG_LIST(CHECK_CONFIG_NPARAM_WITHCONFIG)
     ,&config->name
 #define LENSMODEL_SCAN_CFG_ELEMENT_PLUS1(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
     +1
-const char* mrcal_lensmodel_name_unconfigured( mrcal_lensmodel_t model )
+const char* mrcal_lensmodel_name_unconfigured( const mrcal_lensmodel_t* lensmodel )
 {
-    switch(model.type)
+    switch(lensmodel->type)
     {
 #define CASE_STRING_NOCONFIG(s,n) case MRCAL_##s: ;     \
         return #s;
@@ -125,15 +125,15 @@ static int LENSMODEL_SPLINED_STEREOGRAPHIC__snprintf_model
                   MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_FMT, )
                   MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_VAR, ));
 }
-bool mrcal_lensmodel_name( char* out, int size, mrcal_lensmodel_t model )
+bool mrcal_lensmodel_name( char* out, int size, const mrcal_lensmodel_t* lensmodel )
 {
-    switch(model.type)
+    switch(lensmodel->type)
     {
 #define CASE_STRING_NOCONFIG(s,n) case MRCAL_##s: \
         return size > snprintf(out,size, #s);
 
 #define CASE_STRING_WITHCONFIG(s,n) case MRCAL_##s: \
-        return size > s##__snprintf_model(out, size, &model.s##__config);
+        return size > s##__snprintf_model(out, size, &lensmodel->s##__config);
 
         MRCAL_LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
         MRCAL_LENSMODEL_WITHCONFIG_LIST( CASE_STRING_WITHCONFIG )
@@ -198,36 +198,49 @@ const char* const* mrcal_supported_lensmodel_names( void )
 // Strings with valid model names but missing or unparseable configuration
 // return {.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}. Unknown model names return
 // {.type = MRCAL_LENSMODEL_INVALID}
-mrcal_lensmodel_t mrcal_lensmodel_from_name( const char* name )
+bool mrcal_lensmodel_from_name( // output
+                                mrcal_lensmodel_t* lensmodel,
+
+                                // input
+                                const char* name )
 {
 #define CHECK_AND_RETURN_NOCONFIG(s,n)                                  \
     if( 0 == strcmp( name, #s) )                                        \
-        return (mrcal_lensmodel_t){.type = MRCAL_##s};
+    {                                                                   \
+        *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_##s};            \
+        return true;                                                    \
+    }
 
 #define CHECK_AND_RETURN_WITHCONFIG(s,n)                                \
     /* Configured model. I need to extract the config from the string. */ \
     /* The string format is NAME_cfg1=var1_cfg2=var2... */              \
     if( 0 == strcmp( name, #s) )                                        \
-        return (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_BADCONFIG};      \
+    {                                                                   \
+        *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}; \
+        return false;                                                   \
+    }                                                                   \
     if( 0 == strncmp( name, #s"_", strlen(#s)+1) )                      \
     {                                                                   \
         /* found name. Now extract the config */                        \
-        mrcal_lensmodel_t model = {.type = MRCAL_##s};                  \
-        mrcal_##s##__config_t* config = &model.s##__config;             \
+        *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_##s};            \
+        mrcal_##s##__config_t* config = &lensmodel->s##__config;        \
                                                                         \
         const char* config_str = &name[strlen(#s)];                     \
                                                                         \
         if(s##__scan_model_config(config, config_str))                  \
-            return model;                                               \
+            return true;                                                \
         else                                                            \
-            return (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_BADCONFIG};  \
+        {                                                               \
+            *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}; \
+            return false;                                               \
+        }                                                               \
     }
 
     MRCAL_LENSMODEL_NOCONFIG_LIST(   CHECK_AND_RETURN_NOCONFIG );
     MRCAL_LENSMODEL_WITHCONFIG_LIST( CHECK_AND_RETURN_WITHCONFIG );
 
-    return (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID};
-
+    *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID};
+    return false;
 #undef CHECK_AND_RETURN_NOCONFIG
 #undef CHECK_AND_RETURN_WITHCONFIG
 }
@@ -254,9 +267,9 @@ mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name )
 #undef CHECK_AND_RETURN_WITHCONFIG
 }
 
-mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t m )
+mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* lensmodel )
 {
-    switch(m.type)
+    switch(lensmodel->type)
     {
     case MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC:
     case MRCAL_LENSMODEL_STEREOGRAPHIC:
@@ -280,20 +293,20 @@ mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t m )
 
     default: ;
     }
-    MSG("Unknown lens model %d. Barfing out", m.type);
+    MSG("Unknown lens model %d. Barfing out", lensmodel->type);
     assert(0);
 }
 
 static
-bool modelHasCore_fxfycxcy( const mrcal_lensmodel_t m )
+bool modelHasCore_fxfycxcy( const mrcal_lensmodel_t* lensmodel )
 {
-    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(m);
+    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
     return meta.has_core;
 }
 static
-bool model_supports_projection_behind_camera( const mrcal_lensmodel_t m )
+bool model_supports_projection_behind_camera( const mrcal_lensmodel_t* lensmodel )
 {
-    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(m);
+    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
     return meta.can_project_behind_camera;
 }
 
@@ -314,15 +327,15 @@ static int LENSMODEL_SPLINED_STEREOGRAPHIC__lensmodel_num_params(const mrcal_LEN
         // and I have a core
         4;
 }
-int mrcal_lensmodel_num_params(const mrcal_lensmodel_t m)
+int mrcal_lensmodel_num_params(const mrcal_lensmodel_t* lensmodel)
 {
-    switch(m.type)
+    switch(lensmodel->type)
     {
 #define CASE_NUM_NOCONFIG(s,n)                                          \
         case MRCAL_##s: return n;
 
 #define CASE_NUM_WITHCONFIG(s,n)                                        \
-        case MRCAL_##s: return s##__lensmodel_num_params(&m.s##__config);
+        case MRCAL_##s: return s##__lensmodel_num_params(&lensmodel->s##__config);
 
         MRCAL_LENSMODEL_NOCONFIG_LIST(   CASE_NUM_NOCONFIG )
         MRCAL_LENSMODEL_WITHCONFIG_LIST( CASE_NUM_WITHCONFIG )
@@ -337,7 +350,7 @@ int mrcal_lensmodel_num_params(const mrcal_lensmodel_t m)
 
 static
 int get_num_distortions_optimization_params(mrcal_problem_selections_t problem_selections,
-                                            mrcal_lensmodel_t lensmodel)
+                                            const mrcal_lensmodel_t* lensmodel)
 {
     if( !problem_selections.do_optimize_intrinsics_distortions )
         return 0;
@@ -349,7 +362,7 @@ int get_num_distortions_optimization_params(mrcal_problem_selections_t problem_s
 }
 
 int mrcal_num_intrinsics_optimization_params(mrcal_problem_selections_t problem_selections,
-                                             mrcal_lensmodel_t lensmodel)
+                                             const mrcal_lensmodel_t* lensmodel)
 {
     int N = get_num_distortions_optimization_params(problem_selections, lensmodel);
 
@@ -363,7 +376,7 @@ int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics,
                      int Nframes,
                      int Npoints, int Npoints_fixed, int Nobservations_board,
                      mrcal_problem_selections_t problem_selections,
-                     mrcal_lensmodel_t lensmodel)
+                     const mrcal_lensmodel_t* lensmodel)
 {
     return
         mrcal_num_states_intrinsics(Ncameras_intrinsics,
@@ -380,7 +393,7 @@ int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics,
 }
 
 static int num_regularization_terms_percamera(mrcal_problem_selections_t problem_selections,
-                                              mrcal_lensmodel_t lensmodel)
+                                              const mrcal_lensmodel_t* lensmodel)
 {
     if(!problem_selections.do_apply_regularization)
         return 0;
@@ -453,7 +466,7 @@ int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_
                                           int Nframes,
                                           int Npoints, int Npoints_fixed, int Nobservations_board,
                                           mrcal_problem_selections_t problem_selections,
-                                          mrcal_lensmodel_t lensmodel)
+                                          const mrcal_lensmodel_t* lensmodel)
 {
     return
         Ncameras_intrinsics *
@@ -468,7 +481,7 @@ int mrcal_num_measurements(int Nobservations_board,
                            int Nframes,
                            int Npoints, int Npoints_fixed,
                            mrcal_problem_selections_t problem_selections,
-                           mrcal_lensmodel_t lensmodel)
+                           const mrcal_lensmodel_t* lensmodel)
 {
     return
         mrcal_num_measurements_boards( Nobservations_board,
@@ -492,7 +505,7 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
                          const mrcal_observation_board_t* observations_board,
                          const mrcal_observation_point_t* observations_point,
                          mrcal_problem_selections_t problem_selections,
-                         mrcal_lensmodel_t lensmodel)
+                         const mrcal_lensmodel_t* lensmodel)
 {
     // each observation depends on all the parameters for THAT frame and for
     // THAT camera. Camera0 doesn't have extrinsics, so I need to loop through
@@ -503,10 +516,10 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
     // each one depends on ALL of the intrinsics. Splined models are sparse,
     // however, and there's only a partial dependence
     int Nintrinsics_per_measurement;
-    if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
+    if(lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
         int run_len =
-            lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1;
+            lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1;
         Nintrinsics_per_measurement =
             (problem_selections.do_optimize_intrinsics_core        ? 4                 : 0)  +
             (problem_selections.do_optimize_intrinsics_distortions ? (run_len*run_len) : 0);
@@ -901,13 +914,13 @@ void _project_point_parametric( // outputs
 
                                const double* restrict intrinsics,
                                bool camera_at_identity,
-                               mrcal_lensmodel_t lensmodel)
+                               const mrcal_lensmodel_t* lensmodel)
 {
     // u = distort(p, distortions)
     // q = uxy/uz * fxy + cxy
-    if( lensmodel.type == MRCAL_LENSMODEL_PINHOLE ||
-        lensmodel.type == MRCAL_LENSMODEL_STEREOGRAPHIC ||
-        MRCAL_LENSMODEL_IS_OPENCV(lensmodel.type) )
+    if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE ||
+        lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC ||
+        MRCAL_LENSMODEL_IS_OPENCV(lensmodel->type) )
     {
         // q = fxy pxy/pz + cxy
         // dqx/dp = d( fx px/pz + cx ) = fx/pz^2 (pz [1 0 0] - px [0 0 1])
@@ -917,7 +930,7 @@ void _project_point_parametric( // outputs
         const double cx = intrinsics[2];
         const double cy = intrinsics[3];
         mrcal_point3_t dq_dp[2];
-        if( lensmodel.type == MRCAL_LENSMODEL_PINHOLE )
+        if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE )
         {
             double pz_recip = 1. / p->z;
             q->x = p->x*pz_recip * fx + cx;
@@ -931,7 +944,7 @@ void _project_point_parametric( // outputs
             dq_dp[1].y = fy * pz_recip;
             dq_dp[1].z = -fy*p->y*pz_recip*pz_recip;
         }
-        else if(lensmodel.type == MRCAL_LENSMODEL_STEREOGRAPHIC)
+        else if(lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC)
         {
             mrcal_project_stereographic(q, dq_dp,
                                         p, 1, fx,fy,cx,cy);
@@ -969,7 +982,7 @@ void _project_point_parametric( // outputs
             dq_dfxy->y = (q->y - cy)/fy; // dqy/dfy
         }
     }
-    else if( lensmodel.type == MRCAL_LENSMODEL_CAHVOR )
+    else if( lensmodel->type == MRCAL_LENSMODEL_CAHVOR )
     {
         int NdistortionParams = mrcal_lensmodel_num_params(lensmodel) - 4;
 
@@ -1117,7 +1130,7 @@ void _project_point_parametric( // outputs
     else
     {
         MSG("Unhandled lens model: %d (%s)",
-            lensmodel.type, mrcal_lensmodel_name_unconfigured(lensmodel));
+            lensmodel->type, mrcal_lensmodel_name_unconfigured(lensmodel));
         assert(0);
     }
 }
@@ -1346,13 +1359,13 @@ static void _mrcal_precompute_lensmodel_data_MRCAL_LENSMODEL_SPLINED_STEREOGRAPH
 // NOT A PART OF THE EXTERNAL API. This is exported for the mrcal python wrapper
 // only
 void _mrcal_precompute_lensmodel_data(mrcal_projection_precomputed_t* precomputed,
-                                      mrcal_lensmodel_t lensmodel)
+                                      const mrcal_lensmodel_t* lensmodel)
 {
     // currently only this model has anything
-    if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
+    if(lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
         _mrcal_precompute_lensmodel_data_MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC
             ( &precomputed->LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed,
-              &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config );
+              &lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config );
     precomputed->ready = true;
 }
 
@@ -1360,9 +1373,9 @@ bool mrcal_knots_for_splined_models( // buffers must hold at least
                                      // config->Nx and config->Ny values
                                      // respectively
                                      double* ux, double* uy,
-                                     mrcal_lensmodel_t lensmodel)
+                                     const mrcal_lensmodel_t* lensmodel)
 {
-    if(lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
+    if(lensmodel->type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
         MSG("This function works only with the MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC model. '%s' passed in",
             mrcal_lensmodel_name_unconfigured(lensmodel));
@@ -1372,9 +1385,9 @@ bool mrcal_knots_for_splined_models( // buffers must hold at least
     mrcal_projection_precomputed_t precomputed_all;
     _mrcal_precompute_lensmodel_data(&precomputed_all, lensmodel);
 
-    mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
-        &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
-    mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t* precomputed =
+    const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
+        &lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config;
+    const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed_t* precomputed =
         &precomputed_all.LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed;
 
     // The logic I'm reversing is
@@ -1679,7 +1692,7 @@ void project( // out
              const mrcal_point2_t* restrict calobject_warp,
 
              bool camera_at_identity, // if true, camera_rt is unused
-             mrcal_lensmodel_t lensmodel,
+             const mrcal_lensmodel_t* lensmodel,
              const mrcal_projection_precomputed_t* precomputed,
 
              double calibration_object_spacing,
@@ -1782,8 +1795,8 @@ void project( // out
     mrcal_point2_t* p_dq_dfxy                  = NULL;
     double*   p_dq_dintrinsics_nocore    = NULL;
     bool      has_core                   = modelHasCore_fxfycxcy(lensmodel);
-    bool      has_dense_intrinsics_grad  = (lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
-    bool      has_sparse_intrinsics_grad = (lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    bool      has_dense_intrinsics_grad  = (lensmodel->type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    bool      has_sparse_intrinsics_grad = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
 
     if(dq_dintrinsics_pool_double != NULL)
     {
@@ -1808,15 +1821,15 @@ void project( // out
         }
         if(has_sparse_intrinsics_grad)
         {
-            if(lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
+            if(lensmodel->type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
             {
                 MSG("Unhandled lens model: %d (%s)",
-                    lensmodel.type,
+                    lensmodel->type,
                     mrcal_lensmodel_name_unconfigured(lensmodel));
                 assert(0);
             }
             const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
-                &lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
+                &lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config;
             *gradient_sparse_meta =
                 (gradient_sparse_meta_t)
                 {
@@ -1945,14 +1958,14 @@ void project( // out
                        // inputs
                        const mrcal_point3_t* p,
                        const double* restrict intrinsics,
-                       mrcal_lensmodel_t lensmodel,
+                       const mrcal_lensmodel_t* lensmodel,
                        const mrcal_point2_t* dpt_ref2_dwarp,
 
                        // if NULL then the camera is at the reference
                        bool camera_at_identity,
                        const double* Rj)
     {
-        if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
+        if(lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
         {
             // only need 3+3 for quadratic splines
             double grad_ABCDx_ABCDy[4+4];
@@ -1969,9 +1982,9 @@ void project( // out
                                    dp_drc, dp_dtc, dp_drf, dp_dtf,
                                    intrinsics,
                                    camera_at_identity,
-                                   lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order,
-                                   lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx,
-                                   lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny,
+                                   lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order,
+                                   lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx,
+                                   lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny,
                                    precomputed->LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed.segments_per_u);
             // WARNING: if I could assume that dq_dintrinsics_pool_double!=NULL then I wouldnt need to copy the context
             if(dq_dintrinsics_pool_int != NULL)
@@ -2028,8 +2041,8 @@ void project( // out
 
 
 
-    int runlen = (lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
-        (lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
+    int runlen = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        (lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
         0;
     if( calibration_object_width_n == 0 )
     { // projecting discrete points
@@ -2316,7 +2329,7 @@ bool _mrcal_project_internal( // out
                              // in
                              const mrcal_point3_t* p,
                              int N,
-                             mrcal_lensmodel_t lensmodel,
+                             const mrcal_lensmodel_t* lensmodel,
                              // core, distortions concatenated
                              const double* intrinsics,
 
@@ -2461,7 +2474,7 @@ bool mrcal_project( // out
                    // in
                    const mrcal_point3_t* p,
                    int N,
-                   mrcal_lensmodel_t lensmodel,
+                   const mrcal_lensmodel_t* lensmodel,
                    // core, distortions concatenated
                    const double* intrinsics)
 {
@@ -2481,9 +2494,9 @@ bool mrcal_project( // out
         }
     }
 
-    if( lensmodel.type == MRCAL_LENSMODEL_CAHVORE )
+    if( lensmodel->type == MRCAL_LENSMODEL_CAHVORE )
         return _mrcal_project_internal_cahvore(q, p, N, intrinsics,
-                                               lensmodel.LENSMODEL_CAHVORE__config.linearity);
+                                               lensmodel->LENSMODEL_CAHVORE__config.linearity);
 
     int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
 
@@ -2492,8 +2505,8 @@ bool mrcal_project( // out
     // is very slow. I can call it once, and use its fast internal loop,
     // however. This special case does the same thing, but much faster.
     if(dq_dintrinsics == NULL && dq_dp == NULL &&
-       (MRCAL_LENSMODEL_IS_OPENCV(lensmodel.type) ||
-        lensmodel.type == MRCAL_LENSMODEL_PINHOLE))
+       (MRCAL_LENSMODEL_IS_OPENCV(lensmodel->type) ||
+        lensmodel->type == MRCAL_LENSMODEL_PINHOLE))
     {
         _mrcal_project_internal_opencv( q, NULL,NULL,
                                         p, N, intrinsics, Nintrinsics);
@@ -2533,7 +2546,7 @@ bool mrcal_unproject( // out
                      // in
                      const mrcal_point2_t* q,
                      int N,
-                     mrcal_lensmodel_t lensmodel,
+                     const mrcal_lensmodel_t* lensmodel,
                      // core, distortions concatenated
                      const double* intrinsics)
 {
@@ -2547,7 +2560,7 @@ bool mrcal_unproject( // out
     }
 
     // easy special-cases
-    if( lensmodel.type == MRCAL_LENSMODEL_PINHOLE )
+    if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE )
     {
         double fx = intrinsics[0];
         double fy = intrinsics[1];
@@ -2565,7 +2578,7 @@ bool mrcal_unproject( // out
         }
         return true;
     }
-    if( lensmodel.type == MRCAL_LENSMODEL_STEREOGRAPHIC )
+    if( lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC )
     {
         double fx = intrinsics[0];
         double fy = intrinsics[1];
@@ -2591,7 +2604,7 @@ bool _mrcal_unproject_internal( // out
                                // in
                                const mrcal_point2_t* q,
                                int N,
-                               mrcal_lensmodel_t lensmodel,
+                               const mrcal_lensmodel_t* lensmodel,
                                // core, distortions concatenated
                                const double* intrinsics,
                                const mrcal_projection_precomputed_t* precomputed)
@@ -2750,7 +2763,7 @@ static int pack_solver_state_intrinsics( // out
 
                                          // in
                                          const double* intrinsics, // ALL variables. Not a subset
-                                         const mrcal_lensmodel_t lensmodel,
+                                         const mrcal_lensmodel_t* lensmodel,
                                          mrcal_problem_selections_t problem_selections,
                                          int Ncameras_intrinsics )
 {
@@ -2786,7 +2799,7 @@ static int pack_solver_state_intrinsics_subset_to_subset( // out,in
                                          double* p, // subset based on problem_selections
 
                                          // in
-                                         const mrcal_lensmodel_t lensmodel,
+                                         const mrcal_lensmodel_t* lensmodel,
                                          mrcal_problem_selections_t problem_selections,
                                          int Ncameras_intrinsics )
 {
@@ -2819,7 +2832,7 @@ static void pack_solver_state( // out
                               double* p,
 
                               // in
-                              const mrcal_lensmodel_t lensmodel,
+                              const mrcal_lensmodel_t* lensmodel,
                               const double* intrinsics, // Ncameras_intrinsics of these
                               const mrcal_pose_t*            extrinsics_fromref, // Ncameras_extrinsics of these
                               const mrcal_pose_t*            frames_toref,     // Nframes of these
@@ -2889,7 +2902,7 @@ void mrcal_pack_solver_state_vector( // out, in
                                      int Nframes,
                                      int Npoints, int Npoints_fixed,
                                      mrcal_problem_selections_t problem_selections,
-                                     const mrcal_lensmodel_t lensmodel)
+                                     const mrcal_lensmodel_t* lensmodel)
 {
     int Npoints_variable = Npoints - Npoints_fixed;
 
@@ -2955,7 +2968,7 @@ static int unpack_solver_state_intrinsics( // out
 
                                            // in
                                            const double* p, // subset based on problem_selections
-                                           const mrcal_lensmodel_t lensmodel,
+                                           const mrcal_lensmodel_t* lensmodel,
                                            mrcal_problem_selections_t problem_selections,
                                            int intrinsics_stride,
                                            int Ncameras_intrinsics )
@@ -2994,7 +3007,7 @@ static int unpack_solver_state_intrinsics_subset_to_subset( // in,out
                                            double* p, // subset based on problem_selections
 
                                            // in
-                                           const mrcal_lensmodel_t lensmodel,
+                                           const mrcal_lensmodel_t* lensmodel,
                                            mrcal_problem_selections_t problem_selections,
                                            int Ncameras_intrinsics )
 {
@@ -3099,7 +3112,7 @@ static void unpack_solver_state( // out
 
                                  // in
                                  const double* p,
-                                 const mrcal_lensmodel_t lensmodel,
+                                 const mrcal_lensmodel_t* lensmodel,
                                  mrcal_problem_selections_t problem_selections,
                                  int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes, int Npoints_variable,
 
@@ -3138,7 +3151,7 @@ void mrcal_unpack_solver_state_vector( // out, in
                                        int Nframes,
                                        int Npoints, int Npoints_fixed,
                                        mrcal_problem_selections_t problem_selections,
-                                       const mrcal_lensmodel_t lensmodel)
+                                       const mrcal_lensmodel_t* lensmodel)
 {
     int Npoints_variable = Npoints - Npoints_fixed;
 
@@ -3180,14 +3193,14 @@ int mrcal_state_index_intrinsics(int icam_intrinsics,
                                  int Nframes,
                                  int Npoints, int Npoints_fixed, int Nobservations_board,
                                  mrcal_problem_selections_t problem_selections,
-                                 mrcal_lensmodel_t lensmodel)
+                                 const mrcal_lensmodel_t* lensmodel)
 {
     return icam_intrinsics * mrcal_num_intrinsics_optimization_params(problem_selections, lensmodel);
 }
 
 int mrcal_num_states_intrinsics(int Ncameras_intrinsics,
                                 mrcal_problem_selections_t problem_selections,
-                                mrcal_lensmodel_t lensmodel)
+                                const mrcal_lensmodel_t* lensmodel)
 {
     return
         Ncameras_intrinsics *
@@ -3199,7 +3212,7 @@ int mrcal_state_index_extrinsics(int icam_extrinsics,
                                  int Nframes,
                                  int Npoints, int Npoints_fixed, int Nobservations_board,
                                  mrcal_problem_selections_t problem_selections,
-                                 mrcal_lensmodel_t lensmodel)
+                                 const mrcal_lensmodel_t* lensmodel)
 {
     return
         mrcal_num_states_intrinsics(Ncameras_intrinsics,
@@ -3219,7 +3232,7 @@ int mrcal_state_index_frames(int iframe,
                              int Nframes,
                              int Npoints, int Npoints_fixed, int Nobservations_board,
                              mrcal_problem_selections_t problem_selections,
-                             mrcal_lensmodel_t lensmodel)
+                             const mrcal_lensmodel_t* lensmodel)
 {
     return
         mrcal_num_states_intrinsics(Ncameras_intrinsics,
@@ -3241,7 +3254,7 @@ int mrcal_state_index_points(int i_point,
                              int Nframes,
                              int Npoints, int Npoints_fixed, int Nobservations_board,
                              mrcal_problem_selections_t problem_selections,
-                             mrcal_lensmodel_t lensmodel)
+                             const mrcal_lensmodel_t* lensmodel)
 {
     return
         mrcal_num_states_intrinsics(Ncameras_intrinsics,
@@ -3265,7 +3278,7 @@ int mrcal_state_index_calobject_warp(int Ncameras_intrinsics, int Ncameras_extri
                                      int Nframes,
                                      int Npoints, int Npoints_fixed, int Nobservations_board,
                                      mrcal_problem_selections_t problem_selections,
-                                     mrcal_lensmodel_t lensmodel)
+                                     const mrcal_lensmodel_t* lensmodel)
 {
     return
         mrcal_num_states_intrinsics(Ncameras_intrinsics,
@@ -3609,8 +3622,8 @@ void optimizer_callback(// input state
     } while(0)
 
 
-    int Ncore = modelHasCore_fxfycxcy(ctx->lensmodel) ? 4 : 0;
-    int Ncore_state = (modelHasCore_fxfycxcy(ctx->lensmodel) &&
+    int Ncore = modelHasCore_fxfycxcy(&ctx->lensmodel) ? 4 : 0;
+    int Ncore_state = (modelHasCore_fxfycxcy(&ctx->lensmodel) &&
                        ctx->problem_selections.do_optimize_intrinsics_core) ? 4 : 0;
 
     // If I'm locking down some parameters, then the state vector contains a
@@ -3627,7 +3640,7 @@ void optimizer_callback(// input state
         mrcal_state_index_calobject_warp(ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_selections, ctx->lensmodel);
+                                         ctx->problem_selections, &ctx->lensmodel);
     if(ctx->problem_selections.do_optimize_calobject_warp)
         unpack_solver_state_calobject_warp(&calobject_warp_local, &packed_state[i_var_calobject_warp]);
     else if(ctx->calobject_warp != NULL)
@@ -3647,7 +3660,7 @@ void optimizer_callback(// input state
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_selections, ctx->lensmodel);
+                                         ctx->problem_selections, &ctx->lensmodel);
         if(Ncore)
         {
             if( ctx->problem_selections.do_optimize_intrinsics_core )
@@ -3683,7 +3696,7 @@ void optimizer_callback(// input state
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_selections, ctx->lensmodel);
+                                         ctx->problem_selections, &ctx->lensmodel);
         if(ctx->problem_selections.do_optimize_extrinsics)
             unpack_solver_state_extrinsics_one(&camera_rt[icam_extrinsics], &packed_state[i_var_camera_rt]);
         else
@@ -3708,7 +3721,7 @@ void optimizer_callback(// input state
                                      ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                      ctx->Nframes,
                                      ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                     ctx->problem_selections, ctx->lensmodel);
+                                     ctx->problem_selections, &ctx->lensmodel);
 
         mrcal_pose_t frame_rt;
         if(ctx->problem_selections.do_optimize_frames)
@@ -3721,14 +3734,14 @@ void optimizer_callback(// input state
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_selections, ctx->lensmodel);
+                                         ctx->problem_selections, &ctx->lensmodel);
         // invalid if icam_extrinsics < 0, but unused in that case
         const int i_var_camera_rt  =
             mrcal_state_index_extrinsics(icam_extrinsics,
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_selections, ctx->lensmodel);
+                                         ctx->problem_selections, &ctx->lensmodel);
 
         // these are computed in respect to the real-unit parameters,
         // NOT the unit-scale parameters used by the optimizer
@@ -3779,7 +3792,7 @@ void optimizer_callback(// input state
                 &camera_rt[icam_extrinsics], &frame_rt,
                 ctx->calobject_warp == NULL ? NULL : &calobject_warp_local,
                 icam_extrinsics < 0,
-                ctx->lensmodel, &ctx->precomputed,
+                &ctx->lensmodel, &ctx->precomputed,
                 ctx->calibration_object_spacing,
                 ctx->calibration_object_width_n,
                 ctx->calibration_object_height_n);
@@ -4018,20 +4031,20 @@ void optimizer_callback(// input state
                                              ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                              ctx->Nframes,
                                              ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                             ctx->problem_selections, ctx->lensmodel);
+                                             ctx->problem_selections, &ctx->lensmodel);
             // invalid if icam_extrinsics < 0, but unused in that case
             const int i_var_camera_rt  =
                 mrcal_state_index_extrinsics(icam_extrinsics,
                                              ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                              ctx->Nframes,
                                              ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                             ctx->problem_selections, ctx->lensmodel);
+                                             ctx->problem_selections, &ctx->lensmodel);
             const int i_var_point      =
                 mrcal_state_index_points(i_point,
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_selections, ctx->lensmodel);
+                                         ctx->problem_selections, &ctx->lensmodel);
 
             // I have my two measurements (dx, dy). I propagate their
             // gradient and store them
@@ -4101,20 +4114,20 @@ void optimizer_callback(// input state
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_selections, ctx->lensmodel);
+                                         ctx->problem_selections, &ctx->lensmodel);
         // invalid if icam_extrinsics < 0, but unused in that case
         const int i_var_camera_rt  =
             mrcal_state_index_extrinsics(icam_extrinsics,
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                          ctx->Nframes,
                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                         ctx->problem_selections, ctx->lensmodel);
+                                         ctx->problem_selections, &ctx->lensmodel);
         const int i_var_point      =
             mrcal_state_index_points(i_point,
                                      ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                      ctx->Nframes,
                                      ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                     ctx->problem_selections, ctx->lensmodel);
+                                     ctx->problem_selections, &ctx->lensmodel);
         mrcal_point3_t point_ref;
         if(use_position_from_state)
             unpack_solver_state_point_one(&point_ref, &packed_state[i_var_point]);
@@ -4165,7 +4178,7 @@ void optimizer_callback(// input state
                 NULL,
 
                 icam_extrinsics < 0,
-                ctx->lensmodel, &ctx->precomputed,
+                &ctx->lensmodel, &ctx->precomputed,
                 0,0,0);
 #pragma GCC diagnostic pop
 
@@ -4299,7 +4312,7 @@ void optimizer_callback(// input state
                 point_ref.y*point_ref.y +
                 point_ref.z*point_ref.z;
             double penalty, dpenalty_ddistsq;
-            if(model_supports_projection_behind_camera(ctx->lensmodel) ||
+            if(model_supports_projection_behind_camera(&ctx->lensmodel) ||
                point_ref.z > 0.0)
                 get_penalty(&penalty, &dpenalty_ddistsq, distsq);
             else
@@ -4343,7 +4356,7 @@ void optimizer_callback(// input state
                 pcam.y*pcam.y +
                 pcam.z*pcam.z;
             double penalty, dpenalty_ddistsq;
-            if(model_supports_projection_behind_camera(ctx->lensmodel) ||
+            if(model_supports_projection_behind_camera(&ctx->lensmodel) ||
                pcam.z > 0.0)
                 get_penalty(&penalty, &dpenalty_ddistsq, distsq);
             else
@@ -4406,7 +4419,7 @@ void optimizer_callback(// input state
     // regularization terms for the intrinsics. I favor smaller distortion
     // parameters
     if(ctx->problem_selections.do_apply_regularization &&
-       modelHasCore_fxfycxcy(ctx->lensmodel) &&
+       modelHasCore_fxfycxcy(&ctx->lensmodel) &&
        ( ctx->problem_selections.do_optimize_intrinsics_distortions ||
          ctx->problem_selections.do_optimize_intrinsics_core
          ))
@@ -4487,7 +4500,7 @@ void optimizer_callback(// input state
                                              ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                              ctx->Nframes,
                                              ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                             ctx->problem_selections, ctx->lensmodel);
+                                             ctx->problem_selections, &ctx->lensmodel);
 
             if( ctx->problem_selections.do_optimize_intrinsics_distortions)
             {
@@ -4647,7 +4660,7 @@ bool mrcal_optimizer_callback(// out
                              // z<0 indicates that this is an outlier
                              const mrcal_point3_t* observations_board_pool,
 
-                             mrcal_lensmodel_t lensmodel,
+                             const mrcal_lensmodel_t* lensmodel,
                              double observed_pixel_uncertainty,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
 
@@ -4743,7 +4756,7 @@ bool mrcal_optimizer_callback(// out
         .observations_point         = observations_point,
         .Nobservations_point        = Nobservations_point,
         .verbose                    = verbose,
-        .lensmodel                  = lensmodel,
+        .lensmodel                  = *lensmodel,
         .imagersizes                = imagersizes,
         .problem_selections         = problem_selections,
         .problem_constants          = problem_constants,
@@ -4825,7 +4838,7 @@ mrcal_optimize( // out
                 // marked with z<0 on output, so this isn't const
                 mrcal_point3_t* observations_board_pool,
 
-                mrcal_lensmodel_t lensmodel,
+                const mrcal_lensmodel_t* lensmodel,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
                 mrcal_problem_selections_t       problem_selections,
@@ -4898,7 +4911,7 @@ mrcal_optimize( // out
         .observations_point         = observations_point,
         .Nobservations_point        = Nobservations_point,
         .verbose                    = verbose,
-        .lensmodel                  = lensmodel,
+        .lensmodel                  = *lensmodel,
         .imagersizes                = imagersizes,
         .problem_selections         = problem_selections,
         .problem_constants          = problem_constants,
@@ -5122,14 +5135,14 @@ bool mrcal_write_cameramodel_file(const char* filename,
 
     char lensmodel_string[1024];
     if(!mrcal_lensmodel_name(lensmodel_string, sizeof(lensmodel_string),
-                             cameramodel->lensmodel))
+                             &cameramodel->lensmodel))
     {
         MSG("Couldn't construct lensmodel string. Unconfigured string: '%s'",
-            mrcal_lensmodel_name_unconfigured(cameramodel->lensmodel));
+            mrcal_lensmodel_name_unconfigured(&cameramodel->lensmodel));
         goto done;
     }
 
-    int Nparams = mrcal_lensmodel_num_params(cameramodel->lensmodel);
+    int Nparams = mrcal_lensmodel_num_params(&cameramodel->lensmodel);
     if(Nparams<0)
     {
         MSG("Couldn't get valid Nparams from lensmodel string '%s'",

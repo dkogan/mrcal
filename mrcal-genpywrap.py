@@ -45,7 +45,7 @@ bool validate_lensmodel_un_project(// out; valid if we returned true
         return false;
     }
 
-    *lensmodel = mrcal_lensmodel_from_name(lensmodel_str);
+    mrcal_lensmodel_from_name(lensmodel, lensmodel_str);
     if( !mrcal_lensmodel_type_is_valid(lensmodel->type) )
     {
         PyErr_Format(PyExc_RuntimeError,
@@ -53,7 +53,7 @@ bool validate_lensmodel_un_project(// out; valid if we returned true
         return false;
     }
 
-    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(*lensmodel);
+    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
     if( !is_project && !meta.has_gradients )
     {
         PyErr_Format(PyExc_RuntimeError,
@@ -61,7 +61,7 @@ bool validate_lensmodel_un_project(// out; valid if we returned true
         return false;
     }
 
-    int NlensParams = mrcal_lensmodel_num_params(*lensmodel);
+    int NlensParams = mrcal_lensmodel_num_params(lensmodel);
     if( NlensParams != Nintrinsics_in_arg )
     {
         PyErr_Format(PyExc_RuntimeError,
@@ -167,8 +167,8 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                      CHECK_CONTIGUOUS_AND_SETERROR_ALL()))
                   return false;
 
-              cookie->Nintrinsics = mrcal_lensmodel_num_params(cookie->lensmodel);
-              _mrcal_precompute_lensmodel_data(&cookie->precomputed, cookie->lensmodel);
+              cookie->Nintrinsics = mrcal_lensmodel_num_params(&cookie->lensmodel);
+              _mrcal_precompute_lensmodel_data(&cookie->precomputed, &cookie->lensmodel);
               return true;
 ''',
 
@@ -203,7 +203,7 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                                              NULL, NULL,
                                              (const mrcal_point3_t*)data_slice__points,
                                              N,
-                                             cookie->lensmodel,
+                                             &cookie->lensmodel,
                                              // core, distortions concatenated
                                              (const double*)data_slice__intrinsics,
                                              cookie->Nintrinsics, &cookie->precomputed);
@@ -255,15 +255,15 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                      CHECK_CONTIGUOUS_AND_SETERROR_ALL()))
                   return false;
 
-              mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(cookie->lensmodel);
+              mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(&cookie->lensmodel);
               if(!meta.has_gradients)
               {
                   PyErr_Format(PyExc_RuntimeError,
                                "_project(get_gradients=True) requires a lens model that has gradient support");
                   return false;
               }
-              cookie->Nintrinsics = mrcal_lensmodel_num_params(cookie->lensmodel);
-              _mrcal_precompute_lensmodel_data(&cookie->precomputed, cookie->lensmodel);
+              cookie->Nintrinsics = mrcal_lensmodel_num_params(&cookie->lensmodel);
+              _mrcal_precompute_lensmodel_data(&cookie->precomputed, &cookie->lensmodel);
               return true;
 ''',
 
@@ -282,7 +282,7 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                                              (double*)  data_slice__output2,
                                              (const mrcal_point3_t*)data_slice__points,
                                              N,
-                                             cookie->lensmodel,
+                                             &cookie->lensmodel,
                                              // core, distortions concatenated
                                              (const double*)data_slice__intrinsics,
                                              cookie->Nintrinsics, &cookie->precomputed);
@@ -331,7 +331,7 @@ mrcal-genpywrap.py. Please keep them in sync """,
                      CHECK_CONTIGUOUS_AND_SETERROR_ALL()))
                   return false;
 
-              _mrcal_precompute_lensmodel_data(&cookie->precomputed, cookie->lensmodel);
+              _mrcal_precompute_lensmodel_data(&cookie->precomputed, &cookie->lensmodel);
               return true;
 ''',
 
@@ -345,7 +345,7 @@ mrcal-genpywrap.py. Please keep them in sync """,
                      mrcal_unproject((mrcal_point3_t*)data_slice__output,
                                      (const mrcal_point2_t*)data_slice__points,
                                      N,
-                                     cookie->lensmodel,
+                                     &cookie->lensmodel,
                                      // core, distortions concatenated
                                      (const double*)data_slice__intrinsics);
                      return true;
@@ -354,7 +354,7 @@ mrcal-genpywrap.py. Please keep them in sync """,
                      _mrcal_unproject_internal((mrcal_point3_t*)data_slice__output,
                                                (const mrcal_point2_t*)data_slice__points,
                                                N,
-                                               cookie->lensmodel,
+                                               &cookie->lensmodel,
                                                // core, distortions concatenated
                                                (const double*)data_slice__intrinsics,
                                                &cookie->precomputed);

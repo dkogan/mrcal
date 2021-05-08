@@ -433,8 +433,7 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
             memcpy(lensmodel_string, lensmodel.s, lensmodel.len);
             lensmodel_string[lensmodel.len] = '\0';
 
-            cameramodel_core.lensmodel = mrcal_lensmodel_from_name(lensmodel_string);
-            if( cameramodel_core.lensmodel.type < 0 )
+            if( !mrcal_lensmodel_from_name(&cameramodel_core.lensmodel, lensmodel_string) )
             {
                 MSG("Could not parse lensmodel '%s'", lensmodel_string);
                 goto done;
@@ -454,7 +453,7 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
                 goto done;
             }
 
-            int Nparams = mrcal_lensmodel_num_params(cameramodel_core.lensmodel);
+            int Nparams = mrcal_lensmodel_num_params(&cameramodel_core.lensmodel);
             cameramodel_full = malloc(sizeof(mrcal_cameramodel_t) +
                                       Nparams*sizeof(double));
             if(NULL == cameramodel_full)

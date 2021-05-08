@@ -6,9 +6,9 @@
 #include "mrcal.h"
 
 static
-bool modelHasCore_fxfycxcy( const mrcal_lensmodel_t m )
+bool modelHasCore_fxfycxcy( const mrcal_lensmodel_t* lensmodel )
 {
-    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(m);
+    mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
     return meta.has_core;
 }
 
@@ -189,13 +189,13 @@ int main(int argc, char* argv[] )
         lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.fov_x_deg    = 200;
     }
 
-    if(!modelHasCore_fxfycxcy(lensmodel))
+    if(!modelHasCore_fxfycxcy(&lensmodel))
         // There is no core
         problem_selections.do_optimize_intrinsics_core = false;
 
-    int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
+    int Nintrinsics = mrcal_lensmodel_num_params(&lensmodel);
     int Ndistortion = Nintrinsics;
-    if(modelHasCore_fxfycxcy(lensmodel))
+    if(modelHasCore_fxfycxcy(&lensmodel))
         Ndistortion -= 4;
     double intrinsics[Ncameras_intrinsics * Nintrinsics];
 
@@ -303,7 +303,7 @@ int main(int argc, char* argv[] )
                                         Nframes,
                                         Npoints, Npoints_fixed, Nobservations_board,
                                         problem_selections,
-                                        lensmodel));
+                                        &lensmodel));
     printf("## Extrinsics: %d variables per camera for all cameras except camera 0 (%d total). Starts at variable %d\n",
            (problem_selections.do_optimize_extrinsics ? 6                     : 0),
            (problem_selections.do_optimize_extrinsics ? 6*Ncameras_extrinsics : 0),
@@ -311,7 +311,7 @@ int main(int argc, char* argv[] )
                                         Nframes,
                                         Npoints, Npoints_fixed, Nobservations_board,
                                         problem_selections,
-                                        lensmodel));
+                                        &lensmodel));
     printf("## Frames: %d variables per frame (%d total). Starts at variable %d\n",
            (problem_selections.do_optimize_frames ? 6         : 0),
            (problem_selections.do_optimize_frames ? 6*Nframes : 0),
@@ -319,7 +319,7 @@ int main(int argc, char* argv[] )
                                     Nframes,
                                     Npoints, Npoints_fixed, Nobservations_board,
                                     problem_selections,
-                                    lensmodel));
+                                    &lensmodel));
     printf("## Discrete points: %d variables per point (%d total). Starts at variable %d\n",
            (problem_selections.do_optimize_frames ? 3                        : 0),
            (problem_selections.do_optimize_frames ? 3*(Npoints-Npoints_fixed) : 0),
@@ -327,14 +327,14 @@ int main(int argc, char* argv[] )
                                     Nframes,
                                     Npoints, Npoints_fixed, Nobservations_board,
                                     problem_selections,
-                                    lensmodel));
+                                    &lensmodel));
     printf("## calobject_warp: %d variables. Starts at variable %d\n",
            (problem_selections.do_optimize_calobject_warp ? 2 : 0),
            mrcal_state_index_calobject_warp(Ncameras_intrinsics, Ncameras_extrinsics,
                                             Nframes,
                                             Npoints, Npoints_fixed, Nobservations_board,
                                             problem_selections,
-                                            lensmodel));
+                                            &lensmodel));
     int Nmeasurements_boards         = mrcal_num_measurements_boards(Nobservations_board,
                                                                      calibration_object_width_n,
                                                                      calibration_object_height_n);
@@ -343,7 +343,7 @@ int main(int argc, char* argv[] )
                                                                              Nframes,
                                                                              Npoints, Npoints_fixed, Nobservations_board,
                                                                              problem_selections,
-                                                                             lensmodel);
+                                                                             &lensmodel);
     printf("## Measurement calobjects: %d measurements. Starts at measurement %d\n",
            Nmeasurements_boards, 0);
     printf("## Measurement points: %d measurements. Starts at measurement %d\n",
@@ -371,7 +371,7 @@ int main(int argc, char* argv[] )
 
                     (mrcal_point3_t*)observations_px,
 
-                    lensmodel,
+                    &lensmodel,
                     1.0,
                     imagersizes,
                     problem_selections,

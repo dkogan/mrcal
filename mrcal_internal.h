@@ -71,21 +71,21 @@ bool _mrcal_project_internal( // out
                              // in
                              const mrcal_point3_t* p,
                              int N,
-                             mrcal_lensmodel_t lensmodel,
+                             const mrcal_lensmodel_t* lensmodel,
                              // core, distortions concatenated
                              const double* intrinsics,
 
                              int Nintrinsics,
                              const mrcal_projection_precomputed_t* precomputed);
 void _mrcal_precompute_lensmodel_data(mrcal_projection_precomputed_t* precomputed,
-                                      mrcal_lensmodel_t lensmodel);
+                                      const mrcal_lensmodel_t* lensmodel);
 bool _mrcal_unproject_internal( // out
                                mrcal_point3_t* out,
 
                                // in
                                const mrcal_point2_t* q,
                                int N,
-                               mrcal_lensmodel_t lensmodel,
+                               const mrcal_lensmodel_t* lensmodel,
                                // core, distortions concatenated
                                const double* intrinsics,
                                const mrcal_projection_precomputed_t* precomputed);
@@ -101,4 +101,4 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
                          const mrcal_observation_board_t* observations_board,
                          const mrcal_observation_point_t* observations_point,
                          mrcal_problem_selections_t problem_selections,
-                         mrcal_lensmodel_t lensmodel);
+                         const mrcal_lensmodel_t* lensmodel);

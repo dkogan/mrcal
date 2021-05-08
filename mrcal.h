@@ -135,7 +135,7 @@ static bool mrcal_lensmodel_type_is_valid(mrcal_lensmodel_type_t t)
 // converted to a mrcal_lensmodel_t with mrcal_lensmodel_from_name()
 //
 // This is the inverse of mrcal_lensmodel_type_from_name()
-const char* mrcal_lensmodel_name_unconfigured( mrcal_lensmodel_t model );
+const char* mrcal_lensmodel_name_unconfigured( const mrcal_lensmodel_t* lensmodel );
 
 
 // Return a CONFIGURED string describing a lens model.
@@ -152,7 +152,8 @@ const char* mrcal_lensmodel_name_unconfigured( mrcal_lensmodel_t model );
 // snprintf(), which is used internally. Returns true on success
 //
 // This is the inverse of mrcal_lensmodel_from_name()
-bool mrcal_lensmodel_name( char* out, int size, mrcal_lensmodel_t model );
+bool mrcal_lensmodel_name( char* out, int size,
+                           const mrcal_lensmodel_t* lensmodel );
 
 
 // Parse the lens model type from a lens model name string
@@ -177,7 +178,11 @@ mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name );
 // can be checked with mrcal_lensmodel_type_is_valid(lensmodel->type)
 //
 // This is the inverse of mrcal_lensmodel_name()
-mrcal_lensmodel_t mrcal_lensmodel_from_name( const char* name );
+bool mrcal_lensmodel_from_name( // output
+                                mrcal_lensmodel_t* lensmodel,
+
+                                // input
+                                const char* name );
 
 
 // An X-macro-generated mrcal_lensmodel_metadata_t. Each lens model type has
@@ -211,7 +216,7 @@ typedef struct
 //
 // The available metadata is described in the definition of the
 // MRCAL_LENSMODEL_META_LIST() macro
-mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t m );
+mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* lensmodel );
 
 
 // Return the number of parameters required to specify a given lens model
@@ -220,7 +225,7 @@ mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t m )
 // depends on the configuration. For instance, splined models use the model
 // parameters as the spline control points, so the spline density (specified in
 // the configuration) directly affects how many parameters such a model requires
-int mrcal_lensmodel_num_params( const mrcal_lensmodel_t m );
+int mrcal_lensmodel_num_params( const mrcal_lensmodel_t* lensmodel );
 
 
 // Return the locations of x and y spline knots
@@ -233,7 +238,7 @@ int mrcal_lensmodel_num_params( const mrcal_lensmodel_t m );
 //
 // This function applies to splined models only. Returns true on success
 bool mrcal_knots_for_splined_models( double* ux, double* uy,
-                                     mrcal_lensmodel_t lensmodel);
+                                     const mrcal_lensmodel_t* lensmodel);
 
 
 
@@ -275,7 +280,7 @@ bool mrcal_project( // out
                    // in
                    const mrcal_point3_t* p,
                    int N,
-                   mrcal_lensmodel_t lensmodel,
+                   const mrcal_lensmodel_t* lensmodel,
                    // core, distortions concatenated
                    const double* intrinsics);
 
@@ -302,7 +307,7 @@ bool mrcal_unproject( // out
                      // in
                      const mrcal_point2_t* q,
                      int N,
-                     mrcal_lensmodel_t lensmodel,
+                     const mrcal_lensmodel_t* lensmodel,
                      // core, distortions concatenated
                      const double* intrinsics);
 
@@ -471,7 +476,7 @@ typedef struct
 // problem selections. Any intrinsics parameters locked down in the
 // mrcal_problem_selections_t do NOT count towards the optimization parameters
 int mrcal_num_intrinsics_optimization_params( mrcal_problem_selections_t problem_selections,
-                                              mrcal_lensmodel_t m );
+                                              const mrcal_lensmodel_t* lensmodel );
 
 
 // Scales a state vector to the packed, unitless form used by the optimizer
@@ -493,7 +498,7 @@ void mrcal_pack_solver_state_vector( // out, in
                                      int Nframes,
                                      int Npoints, int Npoints_fixed,
                                      mrcal_problem_selections_t problem_selections,
-                                     const mrcal_lensmodel_t lensmodel);
+                                     const mrcal_lensmodel_t* lensmodel);
 
 
 // Scales a state vector from the packed, unitless form used by the optimizer
@@ -517,7 +522,7 @@ void mrcal_unpack_solver_state_vector( // out, in
                                        int Nframes,
                                        int Npoints, int Npoints_fixed,
                                        mrcal_problem_selections_t problem_selections,
-                                       const mrcal_lensmodel_t lensmodel);
+                                       const mrcal_lensmodel_t* lensmodel);
 
 
 // Reports the icam_extrinsics corresponding to a given icam_intrinsics.
@@ -621,7 +626,7 @@ mrcal_optimize( // out
                 // marked with .z<0 on output, so this isn't const
                 mrcal_point3_t* observations_board_pool,
 
-                mrcal_lensmodel_t lensmodel,
+                const mrcal_lensmodel_t* lensmodel,
                 double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
                 mrcal_problem_selections_t       problem_selections,
@@ -704,7 +709,7 @@ bool mrcal_optimizer_callback(// out
                              // .z<0 indicates that this is an outlier
                              const mrcal_point3_t* observations_board_pool,
 
-                             mrcal_lensmodel_t lensmodel,
+                             const mrcal_lensmodel_t* lensmodel,
                              double observed_pixel_uncertainty,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
                              mrcal_problem_selections_t       problem_selections,
@@ -803,7 +808,7 @@ int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_
                                           int Nframes,
                                           int Npoints, int Npoints_fixed, int Nobservations_board,
                                           mrcal_problem_selections_t problem_selections,
-                                          mrcal_lensmodel_t lensmodel);
+                                          const mrcal_lensmodel_t* lensmodel);
 
 int mrcal_num_measurements(int Nobservations_board,
                            int Nobservations_point,
@@ -813,28 +818,28 @@ int mrcal_num_measurements(int Nobservations_board,
                            int Nframes,
                            int Npoints, int Npoints_fixed,
                            mrcal_problem_selections_t problem_selections,
-                           mrcal_lensmodel_t lensmodel);
+                           const mrcal_lensmodel_t* lensmodel);
 
 int mrcal_num_states(int Ncameras_intrinsics, int Ncameras_extrinsics,
                      int Nframes,
                      int Npoints, int Npoints_fixed, int Nobservations_board,
                      mrcal_problem_selections_t problem_selections,
-                     mrcal_lensmodel_t lensmodel);
+                     const mrcal_lensmodel_t* lensmodel);
 int mrcal_state_index_intrinsics(int icam_intrinsics,
                                  int Ncameras_intrinsics, int Ncameras_extrinsics,
                                  int Nframes,
                                  int Npoints, int Npoints_fixed, int Nobservations_board,
                                  mrcal_problem_selections_t problem_selections,
-                                 mrcal_lensmodel_t lensmodel);
+                                 const mrcal_lensmodel_t* lensmodel);
 int mrcal_num_states_intrinsics(int Ncameras_intrinsics,
                                 mrcal_problem_selections_t problem_selections,
-                                mrcal_lensmodel_t lensmodel);
+                                const mrcal_lensmodel_t* lensmodel);
 int mrcal_state_index_extrinsics(int icam_extrinsics,
                                  int Ncameras_intrinsics, int Ncameras_extrinsics,
                                  int Nframes,
                                  int Npoints, int Npoints_fixed, int Nobservations_board,
                                  mrcal_problem_selections_t problem_selections,
-                                 mrcal_lensmodel_t lensmodel);
+                                 const mrcal_lensmodel_t* lensmodel);
 int mrcal_num_states_extrinsics(int Ncameras_extrinsics,
                                 mrcal_problem_selections_t problem_selections);
 int mrcal_state_index_frames(int iframe,
@@ -842,7 +847,7 @@ int mrcal_state_index_frames(int iframe,
                              int Nframes,
                              int Npoints, int Npoints_fixed, int Nobservations_board,
                              mrcal_problem_selections_t problem_selections,
-                             mrcal_lensmodel_t lensmodel);
+                             const mrcal_lensmodel_t* lensmodel);
 int mrcal_num_states_frames(int Nframes,
                             mrcal_problem_selections_t problem_selections);
 int mrcal_state_index_points(int i_point,
@@ -850,14 +855,14 @@ int mrcal_state_index_points(int i_point,
                              int Nframes,
                              int Npoints, int Npoints_fixed, int Nobservations_board,
                              mrcal_problem_selections_t problem_selections,
-                             mrcal_lensmodel_t lensmodel);
+                             const mrcal_lensmodel_t* lensmodel);
 int mrcal_num_states_points(int Npoints, int Npoints_fixed,
                             mrcal_problem_selections_t problem_selections);
 int mrcal_state_index_calobject_warp(int Ncameras_intrinsics, int Ncameras_extrinsics,
                                      int Nframes,
                                      int Npoints, int Npoints_fixed, int Nobservations_board,
                                      mrcal_problem_selections_t problem_selections,
-                                     mrcal_lensmodel_t lensmodel);
+                                     const mrcal_lensmodel_t* lensmodel);
 int mrcal_num_states_calobject_warp(mrcal_problem_selections_t problem_selections,
                                     int Nobservations_board);
 
