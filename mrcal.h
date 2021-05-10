@@ -187,7 +187,8 @@ bool mrcal_lensmodel_from_name( // output
 
 // An X-macro-generated mrcal_lensmodel_metadata_t. Each lens model type has
 // some metadata that describes its inherent properties. These properties can be
-// queried by calling mrcal_lensmodel_metadata(). The available properties and
+// queried by calling mrcal_lensmodel_metadata() in C and
+// mrcal.lensmodel_metadata_and_config() in Python. The available properties and
 // their meaning are listed in MRCAL_LENSMODEL_META_LIST()
 #define MRCAL_LENSMODEL_META_LIST(_, cookie)                            \
     /* If true, this model contains an "intrinsics core". This is described */ \

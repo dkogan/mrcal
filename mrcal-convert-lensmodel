@@ -177,7 +177,7 @@ import mrcal
 lensmodel_to = args.to
 
 try:
-    meta = mrcal.lensmodel_metadata(lensmodel_to)
+    meta = mrcal.lensmodel_metadata_and_config(lensmodel_to)
 except:
     print(f"Invalid lens model '{lensmodel_to}': couldn't get the metadata",
           file=sys.stderr)
@@ -215,7 +215,7 @@ if not args.sampled:
         raise Exception("--distance requires --sampled")
     if args.intrinsics_only:
         raise Exception("--intrinsics-only requires --sampled")
-    if not mrcal.lensmodel_metadata(lensmodel_from)['has_core']:
+    if not mrcal.lensmodel_metadata_and_config(lensmodel_from)['has_core']:
         raise Exception("Without --sampled, the TO models must support contain an intrinsics core. It COULD work otherwise, but somebody needs to implement it")
 
     optimization_inputs = m.optimization_inputs()

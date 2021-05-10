@@ -1633,7 +1633,7 @@ plot
     if gridn_height is None:
         gridn_height = int(round(H/W*gridn_width))
 
-    if not mrcal.lensmodel_metadata(lensmodel)['has_core']:
+    if not mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']:
         raise Exception("This currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
     fxy = intrinsics_data[ :2]
     cxy = intrinsics_data[2:4]
@@ -1996,7 +1996,7 @@ plot
         kwargs['title'] = title
 
     ux_knots,uy_knots = mrcal.knots_for_splined_models(lensmodel)
-    meta = mrcal.lensmodel_metadata(lensmodel)
+    meta = mrcal.lensmodel_metadata_and_config(lensmodel)
     Nx = meta['Nx']
     Ny = meta['Ny']
 

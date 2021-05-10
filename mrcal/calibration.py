@@ -549,7 +549,7 @@ camera coordinate system FROM the calibration object coordinate system.
 
     intrinsics_data_pinhole = intrinsics_data_input[..., :4].copy()
 
-    if not all([mrcal.lensmodel_metadata(m)['has_core'] for m in lensmodels]):
+    if not all([mrcal.lensmodel_metadata_and_config(m)['has_core'] for m in lensmodels]):
         raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
 
     # Each slice is

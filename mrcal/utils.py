@@ -542,7 +542,7 @@ An array of shape (N,2) containing a contour representing the projection domain.
     # shape (Ny,Nx,2)
     u = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(ux,uy)), 0, -1))
 
-    meta = mrcal.lensmodel_metadata(lensmodel)
+    meta = mrcal.lensmodel_metadata_and_config(lensmodel)
     if meta['order'] == 2:
         # spline order is 3. The valid region is 1/2 segments inwards from the
         # outer contour
@@ -1118,7 +1118,7 @@ None
             iunpacked0,iunpacked1 = None,None # everything by default
 
             lensmodel    = optimization_inputs['lensmodel']
-            has_core     = mrcal.lensmodel_metadata(lensmodel)['has_core']
+            has_core     = mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']
             Ncore        = 4 if has_core else 0
             Ndistortions = mrcal.lensmodel_num_params(lensmodel) - Ncore
 

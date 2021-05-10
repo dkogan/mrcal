@@ -41,7 +41,7 @@ def check(intrinsics, p_ref, q_ref):
                             msg = f"Projecting {intrinsics[0]} in-place",
                             eps = 1e-2)
 
-    meta = mrcal.lensmodel_metadata(intrinsics[0])
+    meta = mrcal.lensmodel_metadata_and_config(intrinsics[0])
     if meta['has_gradients']:
         @nps.broadcast_define( ((3,),('N',)) )
         def grad_broadcasted(p_ref, i_ref):

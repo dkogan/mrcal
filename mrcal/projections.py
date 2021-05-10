@@ -190,7 +190,7 @@ if get_gradients: we return a tuple:
 
 
     try:
-        meta = mrcal.lensmodel_metadata(lensmodel)
+        meta = mrcal.lensmodel_metadata_and_config(lensmodel)
     except:
         raise Exception(f"Invalid lens model '{lensmodel}': couldn't get the metadata")
     if meta['has_gradients']:

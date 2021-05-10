@@ -67,7 +67,7 @@ The lens model structures are defined here:
 
 - =mrcal_lensmodel_type_t=: an enum decribing the lens model /type/. No
   [[file:lensmodels.org::#representation][configuration]] is stored here.
-- =mrcal_lensmodel_t=: a lens model type /and/ the [[file:lensmodels.org::#Representation][configuration]] parameters. The
+- =mrcal_lensmodel_t=: a lens model type /and/ the [[file:lensmodels.org::#representation][configuration]] parameters. The
   configuration lives in a =union= supporting all the known lens models
 - =mrcal_lensmodel_metadata_t=: some metadata that decribes a model type.
   These are inherent properties of a particular model type; answers questions

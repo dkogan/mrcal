@@ -1,0 +1,31 @@
+Returns a model's meta-information and configuration
+
+SYNOPSIS
+
+  import pprint
+  pprint.pprint(mrcal.lensmodel_metadata_and_config('LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=16_Ny=14_fov_x_deg=200'))
+
+    {'Nx': 16,
+     'Ny': 14,
+     'can_project_behind_camera': 1,
+     'fov_x_deg': 200,
+     'has_core': 1,
+     'has_gradients': 1,
+     'order': 3}
+
+Each lens model has some metadata (inherent properties of a model family) and
+may have some configuration (parameters that specify details about the model,
+but aren't subject to optimization). The configuration parameters are embedded
+in the model string. This function returns a dict containing the metadata and
+all the configuration values. See the documentation for details:
+
+  http://mrcal.secretsauce.net/lensmodels.html#representation
+
+ARGUMENTS
+
+- lensmodel: the "LENSMODEL_..." string we're querying
+
+RETURNED VALUE
+
+A dict containing all the metadata and configuration properties for that model
+

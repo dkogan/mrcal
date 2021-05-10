@@ -687,8 +687,8 @@ static bool parse_lensmodel_from_arg(// output
     return true;
 }
 
-static PyObject* lensmodel_metadata(PyObject* NPY_UNUSED(self),
-                                    PyObject* args)
+static PyObject* lensmodel_metadata_and_config(PyObject* NPY_UNUSED(self),
+                                               PyObject* args)
 {
     PyObject* result = NULL;
     SET_SIGINT();
@@ -2628,8 +2628,8 @@ static const char optimize_docstring[] =
 static const char optimizer_callback_docstring[] =
 #include "optimizer_callback.docstring.h"
     ;
-static const char lensmodel_metadata_docstring[] =
-#include "lensmodel_metadata.docstring.h"
+static const char lensmodel_metadata_and_config_docstring[] =
+#include "lensmodel_metadata_and_config.docstring.h"
     ;
 static const char lensmodel_num_params_docstring[] =
 #include "lensmodel_num_params.docstring.h"
@@ -2665,10 +2665,10 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, num_measurements,                METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, corresponding_icam_extrinsics,METH_VARARGS | METH_KEYWORDS),
 
-      PYMETHODDEF_ENTRY(,lensmodel_metadata,       METH_VARARGS),
-      PYMETHODDEF_ENTRY(,lensmodel_num_params,     METH_VARARGS),
-      PYMETHODDEF_ENTRY(,supported_lensmodels,     METH_NOARGS),
-      PYMETHODDEF_ENTRY(,knots_for_splined_models, METH_VARARGS),
+      PYMETHODDEF_ENTRY(,lensmodel_metadata_and_config,METH_VARARGS),
+      PYMETHODDEF_ENTRY(,lensmodel_num_params,         METH_VARARGS),
+      PYMETHODDEF_ENTRY(,supported_lensmodels,         METH_NOARGS),
+      PYMETHODDEF_ENTRY(,knots_for_splined_models,     METH_VARARGS),
       {}
     };
 

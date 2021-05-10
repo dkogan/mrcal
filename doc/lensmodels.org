@@ -7,23 +7,57 @@ projection behaviors are described here.
 :PROPERTIES:
 :CUSTOM_ID: representation
 :END:
-In Python the models are identified with a string =LENSMODEL_XXX= where the
-=XXX= selects the specific model. The =XXX= specifies a model /family/ (or
-/type/) and for the models types that need it, a /configuration/. A sample model
-string with a configuration:
+
+A =mrcal= lens model represents a lens independent of its pose in space. A lens
+model is fully specified by
+
+- A model /family/ (or /type). This is something like =LENSMODEL_PINHOLE= or
+  =LENSMODEL_SPLINED_STEREOGRAPHIC=
+- /Configuration/ parameters. This is a set of key/value pairs, which is
+  required only by some model families. These values are /not/ subject to
+  optimization, and may affect how many optimization parameters are needed.
+- Optimization parameters. These are the parameters that the optimization
+  routine sets during its operation
+
+Each model family also has some /metadata/ key/value pairs associated with it.
+These are inherent properties of a model family, and are not settable. At the
+time of this writing there are 3 metadata keys:
+
+- =has_core=: True if the first 4 optimization values the "core": fx,fy,cx,cy
+- =can_project_behind_camera=: True if this model is able to project vectors
+  from behind the camera. If it cannot, then [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] will never
+  report =z= < 0
+- =has_gradients=: True if this model has gradients implemented
+
+In Python, the models are identified with a string =LENSMODEL_XXX= where the
+=XXX= selects the specific model family and the configuration, if needed. A
+sample model string with a configuration:
 =LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=170=. The
-configuration parameters (=order=3=, =Nx=30= and so on) specify the model, and
-are /not/ subject to optimization. Currently only the [[#splined-stereographic-lens-model][splined stereographic
-models]] have any configuration.
+configuration is the pairs =order=3=, =Nx=30= and so on. Model families that
+accept a configuration /require/ it to be specified fully. Calling Python
+functions with =LENSMODEL_SPLINED_STEREOGRAPHIC= or
+=LENSMODEL_SPLINED_STEREOGRAPHIC_order=3= will fail due to an incomplete
+configuration. The [[file:mrcal-python-api-reference.html#-lensmodel_metadata_and_config][=mrcal.lensmodel_metadata_and_config()=]] function returns a
+dict containing the metadata and configuration for a particular model string.
 
 In C, the model family is selected with the [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h#mrcal_lensmodel_type_t][=mrcal_lensmodel_type_t=]] enum. The
 elements are the same as the Python model names, but with =MRCAL_= prepended. So
-in C the above splined model is of type =MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC=.
-In C the type /and/ configuration are represented by the [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]]
-structure. Most routines require the configuration to be available. For
-instance, the number of parameters needed to fully describe a given model can be
-obtained by calling [[file:mrcal-python-api-reference.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or
-[[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h#mrcal_lensmodel_num_params][=mrcal_lensmodel_num_params()=]] in C (requires the full [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]]).
+sample model from above has type =MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC=. In C
+the [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]] structure contains the type /and/ configuration. This
+structure is thus an analogue the the model strings, as Python sees them. So a
+number of C functions accepting [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]] arguments are analogous to
+Python functions taking model strings. For instance, the number of parameters
+needed to fully describe a given model can be obtained by calling
+[[file:mrcal-python-api-reference.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h#mrcal_lensmodel_num_params][=mrcal_lensmodel_num_params()=]] in C.
+Given a [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t lensmodel=]] structure of type =XXX= (i.e. if
+=lensmodel.type == MRCAL_LENSMODEL_XXX=) then the configuration is available in
+=lensmodel.LENSMODEL_XXX__config=, which has type
+=mrcal_LENSMODEL_XXX__config_t=. The metadata is requestable by calling this
+function:
+
+#+begin_src c
+mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* lensmodel )
+#+end_src
 
 * Intrinsics core
 :PROPERTIES:

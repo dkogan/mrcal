@@ -952,7 +952,7 @@ else:                    we return an array of shape (...)
 
         i0,i1 = None,None # everything by default
 
-        has_core     = mrcal.lensmodel_metadata(lensmodel)['has_core']
+        has_core     = mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']
         Ncore        = 4 if has_core else 0
         Ndistortions = mrcal.lensmodel_num_params(lensmodel) - Ncore
 

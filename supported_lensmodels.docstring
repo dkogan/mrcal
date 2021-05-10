@@ -18,8 +18,8 @@ mrcal knows about some set of lens models, which can be queried here. The above
 list is correct as of this writing, but more models could be added with time.
 
 The returned lens models are all supported, with possible gaps in capabilities.
-The capabilities of each model are returned by lensmodel_metadata(). At this
-time, the only missing functionality that CAHVORE is gradients aren't
+The capabilities of each model are returned by lensmodel_metadata_and_config().
+At this time, the only missing functionality that CAHVORE is gradients aren't
 implemented, so we can't compute an optimal CAHVORE model.
 
 Models ending in '...' have configuration parameters given in the model string,
