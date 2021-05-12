@@ -69,8 +69,8 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing arrays,
-  specify them with the 'out' kwarg. If get_gradients: 'out' is the one numpy
-  array we will write into. Else: 'out' is a tuple of all the output numpy
+  specify them with the 'out' kwarg. If not get_gradients: 'out' is the one
+  numpy array we will write into. Else: 'out' is a tuple of all the output numpy
   arrays. If 'out' is given, we return the same arrays passed in. This is the
   standard behavior provided by numpysane_pywrap.
 
@@ -165,8 +165,8 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing arrays,
-  specify them with the 'out' kwarg. If get_gradients: 'out' is the one numpy
-  array we will write into. Else: 'out' is a tuple of all the output numpy
+  specify them with the 'out' kwarg. If not get_gradients: 'out' is the one
+  numpy array we will write into. Else: 'out' is a tuple of all the output numpy
   arrays. If 'out' is given, we return the same arrays passed in. This is the
   standard behavior provided by numpysane_pywrap. AT THIS TIME THIS IS
   UNSUPPORTED WITH get_gradients
@@ -393,8 +393,8 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing arrays,
-  specify them with the 'out' kwarg. If get_gradients: 'out' is the one numpy
-  array we will write into. Else: 'out' is a tuple of all the output numpy
+  specify them with the 'out' kwarg. If not get_gradients: 'out' is the one
+  numpy array we will write into. Else: 'out' is a tuple of all the output numpy
   arrays. If 'out' is given, we return the same arrays passed in. This is the
   standard behavior provided by numpysane_pywrap.
 
@@ -483,8 +483,8 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing arrays,
-  specify them with the 'out' kwarg. If get_gradients: 'out' is the one numpy
-  array we will write into. Else: 'out' is a tuple of all the output numpy
+  specify them with the 'out' kwarg. If not get_gradients: 'out' is the one
+  numpy array we will write into. Else: 'out' is a tuple of all the output numpy
   arrays. If 'out' is given, we return the same arrays passed in. This is the
   standard behavior provided by numpysane_pywrap.
 
