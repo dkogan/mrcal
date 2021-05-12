@@ -363,7 +363,7 @@ We return a tuple:
             grid
 
 
-def hypothesis_chessboard_corner_positions(icam_intrinsics = None,
+def hypothesis_board_corner_positions(icam_intrinsics = None,
                                 idx_inliers     = None,
                                 **optimization_inputs):
     r'''Reports the 3D chessboard points observed by a camera at calibration time
@@ -375,7 +375,7 @@ SYNOPSIS
     optimization_inputs = model.optimization_inputs()
 
     # shape (Nobservations, Nheight, Nwidth, 3)
-    pcam = mrcal.hypothesis_chessboard_corner_positions(**optimization_inputs)
+    pcam = mrcal.hypothesis_board_corner_positions(**optimization_inputs)
 
     i_intrinsics = \
       optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,1]

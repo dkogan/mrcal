@@ -249,11 +249,11 @@ if not args.sampled:
     idx_inliers1 = optimization_inputs['observations_board'][...,2] > 0
 
     calobject0 = \
-        mrcal.hypothesis_chessboard_corner_positions(m.icam_intrinsics(),
+        mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
                                           **optimization_inputs_before,
                                           idx_inliers = idx_inliers1 )[1]
     calobject1 = \
-        mrcal.hypothesis_chessboard_corner_positions(m.icam_intrinsics(),
+        mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
                                           **optimization_inputs,
                                           idx_inliers = idx_inliers1 )[1]
 
