@@ -131,9 +131,17 @@ observation vector: this follows the arbitrary scaling used by unproject(). It
 is possible to pass normalize=True; we then return NORMALIZED observation
 vectors and the gradients of those NORMALIZED vectors. In that case, those
 gradients are guaranteed to be orthogonal to the observation vector. The vector
-normalization involves a bit more computation, so it isn't the default. Note that
-the magnitude of the returned observation vector may change if get_gradients is
-changed.
+normalization involves a bit more computation, so it isn't the default.
+
+NOTE: THE MAGNITUDE OF THE RETURNED VECTOR CHANGES IF get_gradients CHANGES. The
+reported gradients are correct relative to the output returned with
+get_gradients=True. Passing normalize=True can be used to smooth this out:
+
+    unproject(..., normalize=True)
+
+returns the same vectors as
+
+    unproject(..., normalize=True, get_gradients=True)[0]
 
 Broadcasting is fully supported across q and intrinsics_data.
 
@@ -163,7 +171,9 @@ ARGUMENTS
   vectors
 
 - get_gradients: optional boolean that defaults to False. Whether we should
-  compute and report the gradients. This affects what we return
+  compute and report the gradients. This affects what we return (see below). If
+  not normalize, the magnitude of the reported vectors changes if get_gradients
+  is turned on/off (see above)
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing arrays,

@@ -85,20 +85,32 @@ def check(intrinsics, p_ref, q_ref):
 
 
     ########## unproject
+    if 1:
+        ##### Un-normalized
+        v_unprojected = mrcal.unproject(q_projected, *intrinsics,
+                                        normalize = False)
 
-    v_unprojected = mrcal.unproject(q_projected, *intrinsics,
-                                    normalize = True)
+        cos = nps.inner(v_unprojected, p_ref) / nps.mag(p_ref)
+        cos = np.clip(cos, -1, 1)
+        testutils.confirm_equal( np.arccos(cos),
+                                 np.zeros((p_ref.shape[0],), dtype=float),
+                                 msg = f"Unprojecting {intrinsics[0]}",
+                                 eps = 1e-6)
+    if 1:
+        ##### Normalized
+        v_unprojected_nograd = mrcal.unproject(q_projected, *intrinsics,
+                                               normalize = True)
 
-    testutils.confirm_equal( nps.norm2(v_unprojected),
-                             1,
-                             msg = f"Unprojected v are normalized",
-                             eps = 1e-6)
-    cos = nps.inner(v_unprojected, p_ref) / nps.mag(p_ref)
-    cos = np.clip(cos, -1, 1)
-    testutils.confirm_equal( np.arccos(cos),
-                             np.zeros((p_ref.shape[0],), dtype=float),
-                             msg = f"Unprojecting {intrinsics[0]}",
-                             eps = 1e-6)
+        testutils.confirm_equal( nps.norm2(v_unprojected_nograd),
+                                 1,
+                                 msg = f"Unprojected v are normalized",
+                                 eps = 1e-6)
+        cos = nps.inner(v_unprojected_nograd, p_ref) / nps.mag(p_ref)
+        cos = np.clip(cos, -1, 1)
+        testutils.confirm_equal( np.arccos(cos),
+                                 np.zeros((p_ref.shape[0],), dtype=float),
+                                 msg = f"Unprojecting {intrinsics[0]} (normalized)",
+                                 eps = 1e-6)
 
     if not meta['has_gradients']:
         # no in-place output for the no-gradients unproject() path
@@ -123,15 +135,13 @@ def check(intrinsics, p_ref, q_ref):
     v_unprojected,dv_dq,dv_di = mrcal.unproject(q_projected,
                                                 *intrinsics, get_gradients=True)
 
-    # # v - inner(v,axis)axis
-    # dv_dq -= nps.xchg(nps.dummy(nps.inner( nps.xchg(dv_dq,-1,-2),
-    #                                        nps.dummy(v_unprojected, -2) ),
-    #                             -1) * nps.dummy(v_unprojected, -2),
-    #                   -1, -2)
-    # dv_di -= nps.xchg(nps.dummy(nps.inner( nps.xchg(dv_di,-1,-2),
-    #                                        nps.dummy(v_unprojected, -2) ),
-    #                             -1) * nps.dummy(v_unprojected, -2),
-    #                   -1, -2)
+    # I'd like to turn this on, but unproject() doesn't behave the way it
+    # should, so this test always fails currently
+    #
+    # testutils.confirm_equal( v_unprojected,
+    #                          v_unprojected_nograd,
+    #                          msg = f"Unproject() should return the same thing whether get_gradients or not",
+    #                          eps = 1e-6)
 
     @nps.broadcast_define( ((2,),('N',)) )
     def grad_broadcasted(q_ref, i_ref):
