@@ -793,7 +793,7 @@ typedef struct
 // only
 void _mrcal_project_internal_opencv( // outputs
                                     mrcal_point2_t* q,
-                                    mrcal_point3_t* dq_dp,               // may be NULL
+                                    mrcal_point3_t* dq_dp,         // may be NULL
                                     double* dq_dintrinsics_nocore, // may be NULL
 
                                     // inputs
@@ -879,13 +879,13 @@ void _mrcal_project_internal_opencv( // outputs
                         dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 7] = fy*y*cdist*(-icdist2)*icdist2*r6;
                         if( Nintrinsics-4 > 8 )
                         {
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 8] = fx*r2; //s1
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 8] = fy*0; //s1
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 9] = fx*r4; //s2
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 9] = fy*0; //s2
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 10] = fx*0;//s3
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 8]  = fx*r2; //s1
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 8]  = fy*0;  //s1
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 9]  = fx*r4; //s2
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 9]  = fy*0;  //s2
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 10] = fx*0;  //s3
                             dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 10] = fy*r2; //s3
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 11] = fx*0;//s4
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 11] = fx*0;  //s4
                             dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 11] = fy*r4; //s4
                         }
                     }
@@ -1197,7 +1197,7 @@ void mrcal_project_stereographic( // output
                                         .z = fy * (v[i].y * (B*v[i].z + A))};
         }
         q[i] = (mrcal_point2_t){.x = v[i].x * scale * fx + cx,
-                          .y = v[i].y * scale * fy + cy};
+                                .y = v[i].y * scale * fy + cy};
     }
 }
 
@@ -2364,7 +2364,7 @@ bool _mrcal_project_internal( // out
     for(int i=0; i<N; i++)
     {
         mrcal_pose_t frame = {.r = {},
-                        .t = p[i]};
+                              .t = p[i]};
 
         // simple non-intrinsics-gradient path. dp_dp is handled entirely in
         // project()
