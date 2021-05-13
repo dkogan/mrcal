@@ -2357,6 +2357,10 @@ bool _mrcal_project_internal( // out
         return true;
     }
 
+    // Some models have sparse gradients, but I'm returning a dense array here.
+    // So I init everything to 0
+    memset(dq_dintrinsics, 0, N*2*Nintrinsics*sizeof(double));
+
     for(int i=0; i<N; i++)
     {
         mrcal_pose_t frame = {.r = {},
@@ -2512,11 +2516,6 @@ bool mrcal_project( // out
                                         p, N, intrinsics, Nintrinsics);
         return true;
     }
-
-    // Some models have sparse gradients, but I'm returning a dense array here.
-    // So I init everything at 0
-    if(dq_dintrinsics != NULL)
-        memset(dq_dintrinsics, 0, N*2*Nintrinsics*sizeof(double));
 
     mrcal_projection_precomputed_t precomputed;
     _mrcal_precompute_lensmodel_data(&precomputed, lensmodel);

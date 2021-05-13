@@ -272,10 +272,6 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                  r'''
                  const int N = 1;
 
-                 // Some models have sparse gradients, but I'm returning a dense array here.
-                 // So I init everything at 0
-                 memset(data_slice__output2, 0, N*2*cookie->Nintrinsics*sizeof(double));
-
                  return
                      _mrcal_project_internal((mrcal_point2_t*)data_slice__output0,
                                              (mrcal_point3_t*)data_slice__output1,
