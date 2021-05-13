@@ -182,24 +182,24 @@ def check(intrinsics, p_ref, q_ref):
                     mrcal.unproject(qi[:2], intrinsics[0], qi[2:], normalize=True),
                     nps.glue(q_ref,i_ref, axis=-1))
 
-    dv_dqi_ref = grad_normalized_broadcasted(q_projected,intrinsics[1])
+    dvnormalized_dqi_ref = grad_normalized_broadcasted(q_projected,intrinsics[1])
 
     testutils.confirm_equal(dv_dq,
-                            dv_dqi_ref[...,:2],
+                            dvnormalized_dqi_ref[...,:2],
                             msg = f"dv_dq (normalized v): {intrinsics[0]}",
                             worstcase = True,
                             relative  = True,
                             eps = 0.01)
     testutils.confirm_equal(dv_di,
-                            dv_dqi_ref[...,2:],
+                            dvnormalized_dqi_ref[...,2:],
                             msg = f"dv_di (normalized v): {intrinsics[0]}",
                             worstcase = True,
                             relative  = True,
                             eps = 0.01)
 
-    if 0:
-        # In-place reporting of unproject() gradients isn't supported yet, so I
-        # don't test it
+    # unproject() with gradients, in-place
+    if 1:
+        # Normalized output
         out=[v_unprojected,dv_dq,dv_di]
         out[0] *= 0
         out[1] *= 0
@@ -222,17 +222,51 @@ def check(intrinsics, p_ref, q_ref):
                                  eps = 1e-6)
 
         testutils.confirm_equal(dv_dq,
-                                dv_dqi_ref[...,:2],
+                                dvnormalized_dqi_ref[...,:2],
                                 msg = f"dv_dq (normalized v, in-place): {intrinsics[0]}",
                                 worstcase = True,
                                 relative  = True,
                                 eps = 0.01)
         testutils.confirm_equal(dv_di,
-                                dv_dqi_ref[...,2:],
+                                dvnormalized_dqi_ref[...,2:],
                                 msg = f"dv_di (normalized v, in-place): {intrinsics[0]}",
                                 worstcase = True,
                                 relative  = True,
                                 eps = 0.01)
+
+    if 1:
+        # un-normalized output
+        out=[v_unprojected,dv_dq,dv_di]
+        out[0] *= 0
+        out[1] *= 0
+        out[2] *= 0
+
+        mrcal.unproject(q_projected,
+                        *intrinsics,
+                        normalize     = False,
+                        get_gradients = True,
+                        out           = out)
+        cos = nps.inner(v_unprojected, p_ref) / nps.mag(p_ref)
+        cos = np.clip(cos, -1, 1)
+        testutils.confirm_equal( np.arccos(cos),
+                                 np.zeros((p_ref.shape[0],), dtype=float),
+                                 msg = f"Unprojecting (non-normalized, with gradients, in-place) {intrinsics[0]}",
+                                 eps = 1e-6)
+
+        testutils.confirm_equal(dv_dq,
+                                dv_dqi_ref[...,:2],
+                                msg = f"dv_dq (unnormalized v, in-place): {intrinsics[0]}",
+                                worstcase = True,
+                                relative  = True,
+                                eps = 0.01)
+        testutils.confirm_equal(dv_di,
+                                dv_dqi_ref[...,2:],
+                                msg = f"dv_di (unnormalized v, in-place): {intrinsics[0]}",
+                                worstcase = True,
+                                relative  = True,
+                                eps = 0.01)
+
+
 
 
 # a few points, some wide, some not. None behind the camera

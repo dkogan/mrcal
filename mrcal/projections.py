@@ -127,11 +127,13 @@ are computed by manipulating the gradients reported by project() at the
 solution. The reported gradients are relative to whatever unproject() is
 reporting; the unprojection is unique only up-to-length, and the magnitude isn't
 fixed. So the gradients may include a component in the direction of the returned
-observation vector. It is possible to pass normalize=True; we then return
-normalized observation vectors AND the gradients of those normalized vectors.
-Those gradients are guaranteed to be orthogonal to the observation vector.
-There's a bit more computation to do this. Note that the magnitude of the
-returned observation vector may change if get_gradients is changed.
+observation vector: this follows the arbitrary scaling used by unproject(). It
+is possible to pass normalize=True; we then return NORMALIZED observation
+vectors and the gradients of those NORMALIZED vectors. In that case, those
+gradients are guaranteed to be orthogonal to the observation vector. The vector
+normalization involves a bit more computation, so it isn't the default. Note that
+the magnitude of the returned observation vector may change if get_gradients is
+changed.
 
 Broadcasting is fully supported across q and intrinsics_data.
 
@@ -168,8 +170,7 @@ ARGUMENTS
   specify them with the 'out' kwarg. If not get_gradients: 'out' is the one
   numpy array we will write into. Else: 'out' is a tuple of all the output numpy
   arrays. If 'out' is given, we return the same arrays passed in. This is the
-  standard behavior provided by numpysane_pywrap. AT THIS TIME THIS IS
-  UNSUPPORTED WITH get_gradients
+  standard behavior provided by numpysane_pywrap.
 
 RETURNED VALUE
 
@@ -207,12 +208,7 @@ if get_gradients: we return a tuple:
             return v
 
         else:
-
-            if out is not None:
-                raise Exception("not yet implemented")
-
-            v = mrcal._mrcal_npsp._unproject(q, intrinsics_data, lensmodel=lensmodel,
-                                             out=out)
+            v = mrcal._mrcal_npsp._unproject(q, intrinsics_data, lensmodel=lensmodel)
 
             # I have no gradients available for unproject(), and I need to invert a
             # non-square matrix to use the gradients from project(). I deal with this
@@ -224,8 +220,12 @@ if get_gradients: we return a tuple:
             # I reproject v, to produce a scaled one that is described by the
             # du/dv and dv/du gradients
             u = mrcal.project_stereographic(v)
-            v, dv_du = mrcal.unproject_stereographic(u,
-                                                     get_gradients = True)
+            dv_du = np.zeros( v.shape + (2,), dtype=float)
+            v, dv_du = \
+                mrcal.unproject_stereographic(u,
+                                              get_gradients = True,
+                                              out = (v if out is None else out[0],
+                                                     dv_du))
 
             _,dq_dv,dq_di = mrcal.project(v,
                                           lensmodel, intrinsics_data,
@@ -238,12 +238,19 @@ if get_gradients: we return a tuple:
             #       = dv/du inv(dq/du)
             #       = transpose(inv(transpose(dq/du)) transpose(dv/du))
             dv_dq = nps.transpose(np.linalg.solve( nps.transpose(dq_du), nps.transpose(dv_du) ))
+            if out is not None:
+                out[1] *= 0.
+                out[1] += dv_dq
+                dv_dq = out[1]
+
 
             # dv/di is a bit different. I have (q,i) -> v. I want to find out
             # how moving i affects v while keeping q constant. Taylor expansion
             # of projection: q = q0 + dq/dv dv + dq/di di. q is constant so
             # dq/dv dv + dq/di di = 0 -> dv/di = - dv/dq dq/di
-            dv_di = -nps.matmult(dv_dq, dq_di)
+            dv_di = nps.matmult(dv_dq, dq_di,
+                                out = None if out is None else out[2])
+            dv_di *= -1.
 
             if normalize:
 
