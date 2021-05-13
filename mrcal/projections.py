@@ -207,82 +207,82 @@ if get_gradients: we return a tuple:
                 v /= nps.dummy(nps.mag(v), -1)
             return v
 
-        else:
-            v = mrcal._mrcal_npsp._unproject(q, intrinsics_data, lensmodel=lensmodel)
+        # We need to report gradients
+        v = mrcal._mrcal_npsp._unproject(q, intrinsics_data, lensmodel=lensmodel)
 
-            # I have no gradients available for unproject(), and I need to invert a
-            # non-square matrix to use the gradients from project(). I deal with this
-            # with a stereographic mapping
-            #
-            # With a simple unprojection I have    q -> v
-            # Instead I now do                     q -> v -> u -> v
+        # I have no gradients available for unproject(), and I need to invert a
+        # non-square matrix to use the gradients from project(). I deal with this
+        # with a stereographic mapping
+        #
+        # With a simple unprojection I have    q -> v
+        # Instead I now do                     q -> v -> u -> v
 
-            # I reproject v, to produce a scaled one that is described by the
-            # du/dv and dv/du gradients
-            u = mrcal.project_stereographic(v)
-            dv_du = np.zeros( v.shape + (2,), dtype=float)
-            v, dv_du = \
-                mrcal.unproject_stereographic(u,
-                                              get_gradients = True,
-                                              out = (v if out is None else out[0],
-                                                     dv_du))
+        # I reproject v, to produce a scaled one that is described by the
+        # du/dv and dv/du gradients
+        u = mrcal.project_stereographic(v)
+        dv_du = np.zeros( v.shape + (2,), dtype=float)
+        v, dv_du = \
+            mrcal.unproject_stereographic(u,
+                                          get_gradients = True,
+                                          out = (v if out is None else out[0],
+                                                 dv_du))
 
-            _,dq_dv,dq_di = mrcal.project(v,
-                                          lensmodel, intrinsics_data,
-                                          get_gradients = True)
+        _,dq_dv,dq_di = mrcal.project(v,
+                                      lensmodel, intrinsics_data,
+                                      get_gradients = True)
 
-            # shape (..., 2,2). Square. Invertible!
-            dq_du = nps.matmult( dq_dv, dv_du )
+        # shape (..., 2,2). Square. Invertible!
+        dq_du = nps.matmult( dq_dv, dv_du )
 
-            # dv/dq = dv/du du/dq =
-            #       = dv/du inv(dq/du)
-            #       = transpose(inv(transpose(dq/du)) transpose(dv/du))
-            dv_dq = nps.transpose(np.linalg.solve( nps.transpose(dq_du), nps.transpose(dv_du) ))
-            if out is not None:
-                out[1] *= 0.
-                out[1] += dv_dq
-                dv_dq = out[1]
+        # dv/dq = dv/du du/dq =
+        #       = dv/du inv(dq/du)
+        #       = transpose(inv(transpose(dq/du)) transpose(dv/du))
+        dv_dq = nps.transpose(np.linalg.solve( nps.transpose(dq_du), nps.transpose(dv_du) ))
+        if out is not None:
+            out[1] *= 0.
+            out[1] += dv_dq
+            dv_dq = out[1]
 
 
-            # dv/di is a bit different. I have (q,i) -> v. I want to find out
-            # how moving i affects v while keeping q constant. Taylor expansion
-            # of projection: q = q0 + dq/dv dv + dq/di di. q is constant so
-            # dq/dv dv + dq/di di = 0 -> dv/di = - dv/dq dq/di
-            dv_di = nps.matmult(dv_dq, dq_di,
-                                out = None if out is None else out[2])
-            dv_di *= -1.
+        # dv/di is a bit different. I have (q,i) -> v. I want to find out
+        # how moving i affects v while keeping q constant. Taylor expansion
+        # of projection: q = q0 + dq/dv dv + dq/di di. q is constant so
+        # dq/dv dv + dq/di di = 0 -> dv/di = - dv/dq dq/di
+        dv_di = nps.matmult(dv_dq, dq_di,
+                            out = None if out is None else out[2])
+        dv_di *= -1.
 
-            if normalize:
+        if normalize:
 
-                # vn = v/mag(v)
-                # dvn = dv (1/mag(v)) + v d(1/mag(v))
-                #     = dv( 1/mag(v) - v vt / mag^3(v) )
-                #     = dv( 1/mag(v) - vn vnt / mag(v) )
-                #     = dv/mag(v) ( 1 - vn vnt )
+            # vn = v/mag(v)
+            # dvn = dv (1/mag(v)) + v d(1/mag(v))
+            #     = dv( 1/mag(v) - v vt / mag^3(v) )
+            #     = dv( 1/mag(v) - vn vnt / mag(v) )
+            #     = dv/mag(v) ( 1 - vn vnt )
 
-                # v has shape (...,3)
-                # dv_dq has shape (...,3,2)
-                # dv_di has shape (...,3,N)
+            # v has shape (...,3)
+            # dv_dq has shape (...,3,2)
+            # dv_di has shape (...,3,N)
 
-                # shape (...,1)
-                magv_recip = 1. / nps.dummy(nps.mag(v), -1)
-                v *= magv_recip
+            # shape (...,1)
+            magv_recip = 1. / nps.dummy(nps.mag(v), -1)
+            v *= magv_recip
 
-                # shape (...,1,1)
-                magv_recip = nps.dummy(magv_recip,-1)
-                dv_dq *= magv_recip
+            # shape (...,1,1)
+            magv_recip = nps.dummy(magv_recip,-1)
+            dv_dq *= magv_recip
 
-                dv_dq -= nps.xchg( nps.matmult( nps.dummy(nps.xchg(dv_dq, -1,-2), -2),
-                                                nps.dummy(nps.outer(v,v),-3) )[...,0,:],
-                                   -1, -2)
+            dv_dq -= nps.xchg( nps.matmult( nps.dummy(nps.xchg(dv_dq, -1,-2), -2),
+                                            nps.dummy(nps.outer(v,v),-3) )[...,0,:],
+                               -1, -2)
 
-                dv_di *= magv_recip
+            dv_di *= magv_recip
 
-                dv_di -= nps.xchg( nps.matmult( nps.dummy(nps.xchg(dv_di, -1,-2), -2),
-                                                nps.dummy(nps.outer(v,v),-3) )[...,0,:],
-                                   -1, -2)
+            dv_di -= nps.xchg( nps.matmult( nps.dummy(nps.xchg(dv_di, -1,-2), -2),
+                                            nps.dummy(nps.outer(v,v),-3) )[...,0,:],
+                               -1, -2)
 
-            return v, dv_dq, dv_di
+        return v, dv_dq, dv_di
 
 
 
