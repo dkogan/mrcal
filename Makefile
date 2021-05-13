@@ -65,11 +65,11 @@ DIST_BIN :=					\
 DIST_MAN := $(addsuffix .1,$(DIST_BIN))
 
 # parser
-parser_GENERATED.c: parser.re mrcal.h
+cameramodel-parser_GENERATED.c: cameramodel-parser.re mrcal.h
 	re2c $< > $@.tmp && mv $@.tmp $@
-LIB_SOURCES += parser_GENERATED.c
-EXTRA_CLEAN += parser_GENERATED.c
-parser_GENERATED.o: CCXXFLAGS += -fno-fast-math
+LIB_SOURCES += cameramodel-parser_GENERATED.c
+EXTRA_CLEAN += cameramodel-parser_GENERATED.c
+cameramodel-parser_GENERATED.o: CCXXFLAGS += -fno-fast-math
 
 ALL_PY_EXTENSION_MODULES := _mrcal _mrcal_npsp _poseutils
 %/:
