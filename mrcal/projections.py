@@ -201,20 +201,28 @@ if get_gradients: we return a tuple:
 
     # First, handle some trivial cases. I don't want to run the
     # optimization-based unproject() if I don't have to
-    if lensmodel == 'LENSMODEL_EQUIRECTANGULAR':
+    if lensmodel == 'LENSMODEL_EQUIRECTANGULAR' or \
+       lensmodel == 'LENSMODEL_STEREOGRAPHIC':
+
+        if lensmodel == 'LENSMODEL_EQUIRECTANGULAR':
+            func = mrcal.unproject_equirectangular
+        elif lensmodel == 'LENSMODEL_STEREOGRAPHIC':
+            func = mrcal.unproject_stereographic
+
+
         fxy = intrinsics_data[:2]
         cxy = intrinsics_data[2:]
         if not get_gradients:
             # unproject_equirectangular() is always normalized, so I don't ask
             # for it
-            return mrcal.unproject_equirectangular(q, *fxy, *cxy,
-                                                   out = out)
+            return func(q, *fxy, *cxy,
+                        out = out)
 
         else:
             v, dv_dq = \
-                mrcal.unproject_equirectangular(q, *fxy, *cxy,
-                                                get_gradients = True,
-                                                out = None if out is None else (out[0],out[1]))
+                func(q, *fxy, *cxy,
+                     get_gradients = True,
+                     out = None if out is None else (out[0],out[1]))
 
             # q = f l(v) + c
             # l(v) = (q-c)/f
