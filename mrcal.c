@@ -2692,45 +2692,6 @@ bool mrcal_unproject( // out
         return false;
     }
 
-    // easy special-cases
-    if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE )
-    {
-        double fx = intrinsics[0];
-        double fy = intrinsics[1];
-        double cx = intrinsics[2];
-        double cy = intrinsics[3];
-
-        for(int i=0; i<N; i++)
-        {
-            out->x = (q[i].x - cx) / fx;
-            out->y = (q[i].y - cy) / fy;
-            out->z = 1.0;
-
-            // advance
-            out++;
-        }
-        return true;
-    }
-    if( lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC )
-    {
-        double fx = intrinsics[0];
-        double fy = intrinsics[1];
-        double cx = intrinsics[2];
-        double cy = intrinsics[3];
-        mrcal_unproject_stereographic(out, NULL, q, N, fx,fy,cx,cy);
-        return true;
-    }
-    if( lensmodel->type == MRCAL_LENSMODEL_EQUIRECTANGULAR )
-    {
-        double fx = intrinsics[0];
-        double fy = intrinsics[1];
-        double cx = intrinsics[2];
-        double cy = intrinsics[3];
-        mrcal_unproject_equirectangular(out, NULL, q, N, fx,fy,cx,cy);
-        return true;
-    }
-
-
     mrcal_projection_precomputed_t precomputed;
     _mrcal_precompute_lensmodel_data(&precomputed, lensmodel);
 
@@ -2754,6 +2715,33 @@ bool _mrcal_unproject_internal( // out
     double fy = intrinsics[1];
     double cx = intrinsics[2];
     double cy = intrinsics[3];
+
+    // easy special-cases
+    if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE )
+    {
+        for(int i=0; i<N; i++)
+        {
+            out->x = (q[i].x - cx) / fx;
+            out->y = (q[i].y - cy) / fy;
+            out->z = 1.0;
+
+            // advance
+            out++;
+        }
+        return true;
+    }
+    if( lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC )
+    {
+        mrcal_unproject_stereographic(out, NULL, q, N, fx,fy,cx,cy);
+        return true;
+    }
+    if( lensmodel->type == MRCAL_LENSMODEL_EQUIRECTANGULAR )
+    {
+        mrcal_unproject_equirectangular(out, NULL, q, N, fx,fy,cx,cy);
+        return true;
+    }
+
+
 
     // I optimize in the space of the stereographic projection. This is a 2D
     // space with a direct mapping to/from observation vectors with a single

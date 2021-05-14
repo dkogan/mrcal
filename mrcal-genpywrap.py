@@ -335,17 +335,6 @@ mrcal-genpywrap.py. Please keep them in sync """,
                 {np.float64:
                  r'''
                  const int N = 1;
-                 if( cookie->lensmodel.type == MRCAL_LENSMODEL_PINHOLE ||
-                     cookie->lensmodel.type == MRCAL_LENSMODEL_STEREOGRAPHIC )
-                 {
-                     mrcal_unproject((mrcal_point3_t*)data_slice__output,
-                                     (const mrcal_point2_t*)data_slice__points,
-                                     N,
-                                     &cookie->lensmodel,
-                                     // core, distortions concatenated
-                                     (const double*)data_slice__intrinsics);
-                     return true;
-                 }
                  return
                      _mrcal_unproject_internal((mrcal_point3_t*)data_slice__output,
                                                (const mrcal_point2_t*)data_slice__points,
