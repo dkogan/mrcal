@@ -1294,18 +1294,20 @@ void mrcal_unproject_stereographic( // output
     //     v = np.array(((1., 2., 3.),
     //                   (3., -2., -4.)))
     //     print( unproj(proj(v)) / v)
+    double fx_recip = 1./fx;
+    double fy_recip = 1./fy;
     for(int i=0; i<N; i++)
     {
-        mrcal_point2_t u = {.x = (q[i].x - cx) / fx,
-                            .y = (q[i].y - cy) / fy};
+        mrcal_point2_t u = {.x = (q[i].x - cx) * fx_recip,
+                            .y = (q[i].y - cy) * fy_recip};
 
         double norm2u = u.x*u.x + u.y*u.y;
         if(dv_dq)
         {
-            dv_dq[3*i + 0] = (mrcal_point2_t){.x = 1.0/fx};
-            dv_dq[3*i + 1] = (mrcal_point2_t){.y = 1.0/fy};
-            dv_dq[3*i + 2] = (mrcal_point2_t){.x = -u.x/2.0/fx,
-                                              .y = -u.y/2.0/fy};
+            dv_dq[3*i + 0] = (mrcal_point2_t){.x = 1.0*fx_recip};
+            dv_dq[3*i + 1] = (mrcal_point2_t){.y = 1.0*fy_recip};
+            dv_dq[3*i + 2] = (mrcal_point2_t){.x = -u.x/2.0*fx_recip,
+                                              .y = -u.y/2.0*fy_recip};
         }
         v[i] = (mrcal_point3_t){ .x = u.x,
                                  .y = u.y,
