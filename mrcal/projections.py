@@ -199,6 +199,44 @@ if get_gradients: we return a tuple:
 
     '''
 
+    # First, handle some trivial cases. I don't want to run the
+    # optimization-based unproject() if I don't have to
+    if lensmodel == 'LENSMODEL_EQUIRECTANGULAR':
+        fxy = intrinsics_data[:2]
+        cxy = intrinsics_data[2:]
+        if not get_gradients:
+            # unproject_equirectangular() is always normalized, so I don't ask
+            # for it
+            return mrcal.unproject_equirectangular(q, *fxy, *cxy,
+                                                   out = out)
+
+        else:
+            v, dv_dq = \
+                mrcal.unproject_equirectangular(q, *fxy, *cxy,
+                                                get_gradients = True,
+                                                out = None if out is None else (out[0],out[1]))
+
+            # q = f l(v) + c
+            # l(v) = (q-c)/f
+            #
+            # dl/dv dv/df = (c-q) / f^2
+            # dl/dv dv/dq = 1/f
+            # -> dl/dv = 1 / ( f dv/dq )
+            # -> dv/df =  (c-q) / (f^2 dl/dv) = (c-q) dv/dq / f
+            #
+            # dl/dv dv/dc = -1/f
+            # -> dv/dc =  -1 / (f dl/dv) = -1 / (f /( f dv/dq )) = -dv/dq
+            if out is None:
+                dv_di = np.zeros( dv_dq.shape[:-1] + (4,), dtype=float)
+            else:
+                dv_di = out[2]
+
+            # dv/df
+            dv_di[..., :2] += (cxy - q) * dv_dq / fxy
+            # dv/dc
+            dv_di[..., 2:] -= dv_dq
+
+            return v,dv_dq,dv_di
 
     try:
         meta = mrcal.lensmodel_metadata_and_config(lensmodel)
