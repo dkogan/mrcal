@@ -21,6 +21,7 @@
 #define MRCAL_LENSMODEL_NOCONFIG_LIST(_)                                         \
     _(LENSMODEL_PINHOLE,               4)                                        \
     _(LENSMODEL_STEREOGRAPHIC,         4)  /* Simple stereographic-only model */ \
+    _(LENSMODEL_EQUIRECTANGULAR,       4)                                        \
     _(LENSMODEL_OPENCV4,               8)                                        \
     _(LENSMODEL_OPENCV5,               9)                                        \
     _(LENSMODEL_OPENCV8,               12)                                       \
@@ -37,6 +38,7 @@
 // parametric models have no extra configuration
 typedef struct {} mrcal_LENSMODEL_PINHOLE__config_t;
 typedef struct {} mrcal_LENSMODEL_STEREOGRAPHIC__config_t;
+typedef struct {} mrcal_LENSMODEL_EQUIRECTANGULAR__config_t;
 typedef struct {} mrcal_LENSMODEL_OPENCV4__config_t;
 typedef struct {} mrcal_LENSMODEL_OPENCV5__config_t;
 typedef struct {} mrcal_LENSMODEL_OPENCV8__config_t;
@@ -325,8 +327,8 @@ bool mrcal_unproject( // out
 // if (dq_dp != NULL) we report the gradient dq/dp in a dense (N,2,3) array
 // ((N,2) mrcal_point3_t objects).
 //
-// This is a special case of mrcal_project(). Useful as part of data analysis,
-// not to represent any real-world lens
+// This is a simplified special case of mrcal_project(). Useful as part of data
+// analysis, not to represent any real-world lens
 void mrcal_project_stereographic( // output
                                  mrcal_point2_t* q,
                                  mrcal_point3_t* dq_dp,
@@ -350,8 +352,8 @@ void mrcal_project_stereographic( // output
 // if (dv_dq != NULL) we report the gradient dv/dq in a dense (N,3,2) array
 // ((N,3) mrcal_point2_t objects).
 //
-// This is a special case of mrcal_unproject(). Useful as part of data analysis,
-// not to represent any real-world lens
+// This is a simplified special case of mrcal_unproject(). Useful as part of
+// data analysis, not to represent any real-world lens
 void mrcal_unproject_stereographic( // output
                                    mrcal_point3_t* v,
                                    mrcal_point2_t* dv_dq,
@@ -362,6 +364,69 @@ void mrcal_unproject_stereographic( // output
                                    double fx, double fy,
                                    double cx, double cy);
 
+
+// Project the given camera-coordinate-system points using an equirectangular
+// projection
+//
+// Compute a "projection", a mapping of points defined in the camera coordinate
+// system to their observed pixel coordinates. If requested, gradients are
+// computed as well.
+//
+// We project N 3D points p to N 2D pixel coordinates q using the
+// equirectangular projection with the given intrinsics core. The core computes:
+//
+//   qx = fx*lon + cx
+//   qy = fy*lat + cy
+//
+// if (dq_dp != NULL) we report the gradient dq/dp in a dense (N,2,3) array
+// ((N,2) mrcal_point3_t objects).
+//
+// This is a simplified special case of mrcal_project(). Useful as part of data
+// analysis, not to represent any real-world lens. Lenses do NOT follow this
+// projection. This is primarily useful to represent wide panorama strips, such
+// as wide views of a horizon.
+void mrcal_project_equirectangular( // output
+                                    mrcal_point2_t* q,
+                                    mrcal_point3_t* dq_dv, // May be NULL. Each point
+                                                           // gets a block of 2 mrcal_point3_t
+                                                           // objects
+
+                                    // input
+                                    const mrcal_point3_t* v,
+                                    int N,
+                                    double fx, double fy,
+                                    double cx, double cy);
+
+// Unproject the given pixel coordinates using an equirectangular projection
+//
+// Compute an "unprojection", a mapping pixel coordinates to the camera
+// coordinate system.
+//
+// We project N 2D pixel coordinates q to N 3D direction vectors v using the
+// equirectangular model with the given intrinsics core. The returned vectors v
+// are always normalized. The core computes:
+//
+//   qx = fx*lon + cx
+//   qy = fy*lat + cy
+//
+// if (dv_dq != NULL) we report the gradient dv/dq in a dense (N,3,2) array
+// ((N,3) mrcal_point2_t objects).
+//
+// This is a simplified special case of mrcal_unproject(). Useful as part of
+// data analysis, not to represent any real-world lens. Lenses do NOT follow
+// this projection. This is primarily useful to represent wide panorama strips,
+// such as wide views of a horizon.
+void mrcal_unproject_equirectangular( // output
+                                      mrcal_point3_t* v,
+                                      mrcal_point2_t* dv_dq, // May be NULL. Each point
+                                                             // gets a block of 3 mrcal_point2_t
+                                                             // objects
+
+                                      // input
+                                      const mrcal_point2_t* q,
+                                      int N,
+                                      double fx, double fy,
+                                      double cx, double cy);
 
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -530,3 +530,143 @@ if get_gradients: we return a tuple:
                                                                cx=cx,
                                                                cy=cy,
                                                                out=out)
+
+def project_equirectangular(points,
+                            fx, fy, cx, cy,
+                            get_gradients = False,
+                            out           = None):
+    r'''Projects a set of 3D camera-frame points using an equirectangular map
+
+SYNOPSIS
+
+    q = mrcal.project_equirectangular( # (N,3) array of 3d points we're projecting
+                                     points )
+
+    # q is now a (N,2) array of normalized equirectangular coordinates
+
+This is a simplified special case of mrcal.project(). Useful not for
+representing lenses, but for describing the projection function of wide
+panoramic images. Lenses do not follow this model.
+
+Given a (N,3) array of points in the camera frame (x,y aligned with the imager
+coords, z 'forward') and the parameters fx,fy,cx,cy, this function computes the
+projection, optionally with gradients.
+
+ARGUMENTS
+
+- points: array of dims (...,3); the points we're projecting. This supports
+  broadcasting fully, and any leading dimensions are allowed, including none
+
+- fx, fy: "focal-lengths", in pixels. These specify the angular resolution of
+  the image, in pixels/radian
+
+- cx, cy: pixel coordinates corresponding to the projection of p = [0,0,1]
+
+- get_gradients: optional boolean, defaults to False. This affects what we
+  return (see below)
+
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing arrays,
+  specify them with the 'out' kwarg. If not get_gradients: 'out' is the one
+  numpy array we will write into. Else: 'out' is a tuple of all the output numpy
+  arrays. If 'out' is given, we return the same arrays passed in. This is the
+  standard behavior provided by numpysane_pywrap.
+
+RETURNED VALUE
+
+if not get_gradients: we return an (...,2) array of projected equirectangular
+coordinates
+
+if get_gradients: we return a tuple:
+
+  - (...,2) array of projected equirectangular coordinates
+  - (...,2,3) array of the gradients of the equirectangular coordinates in respect
+    to the input 3D point positions
+    '''
+
+    # Internal function must have a different argument order so
+    # that all the broadcasting stuff is in the leading arguments
+    if not get_gradients:
+        return mrcal._mrcal_npsp._project_equirectangular(points,
+                                                          fx=fx,
+                                                          fy=fy,
+                                                          cx=cx,
+                                                          cy=cy,
+                                                          out=out)
+    return mrcal._mrcal_npsp._project_equirectangular_withgrad(points,
+                                                               fx=fx,
+                                                               fy=fy,
+                                                               cx=cx,
+                                                               cy=cy,
+                                                               out=out)
+
+
+def unproject_equirectangular(points,
+                              fx, fy, cx, cy,
+                              get_gradients = False,
+                              out           = None):
+    r'''Unprojects a set of 2D pixel coordinates using an equirectangular map
+
+SYNOPSIS
+
+    v = mrcal.unproject_equirectangular( # (N,2) array of 2d imager points
+                                       points,
+                                       fx, fy, cx, cy )
+
+    # v is now a (N,3) array of observation directions. v are not normalized
+
+This is a simplified special case of mrcal.unproject(). Useful not for
+representing lenses, but for describing the projection function of wide
+panoramic images. Lenses do not follow this model.
+
+Given a (N,2) array of equirectangular coordinates and the parameters
+fx,fy,cx,cy, this function computes the inverse projection, optionally with
+gradients.
+
+The vectors returned by this function are normalized.
+
+ARGUMENTS
+
+- points: array of dims (...,2); the equirectangular coordinates we're
+  projecting. This supports broadcasting fully, and any leading dimensions are
+  allowed, including none
+
+- fx, fy: "focal-lengths", in pixels. These specify the angular resolution of
+  the image, in pixels/radian
+
+- cx, cy: pixel coordinates corresponding to the projection of p = [0,0,1]
+
+- get_gradients: optional boolean, defaults to False. This affects what we
+  return (see below)
+
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing arrays,
+  specify them with the 'out' kwarg. If not get_gradients: 'out' is the one
+  numpy array we will write into. Else: 'out' is a tuple of all the output numpy
+  arrays. If 'out' is given, we return the same arrays passed in. This is the
+  standard behavior provided by numpysane_pywrap.
+
+RETURNED VALUE
+
+if not get_gradients: we return an (...,3) array of unprojected observation
+vectors. These are normalized.
+
+if get_gradients: we return a tuple:
+
+  - (...,3) array of unprojected observation vectors. These are normalized.
+  - (...,3,2) array of the gradients of the observation vectors in respect to
+    the input 2D equirectangular coordinates
+    '''
+    if not get_gradients:
+        return mrcal._mrcal_npsp._unproject_equirectangular(points,
+                                                            fx=fx,
+                                                            fy=fy,
+                                                            cx=cx,
+                                                            cy=cy,
+                                                            out=out)
+    return mrcal._mrcal_npsp._unproject_equirectangular_withgrad(points,
+                                                                 fx=fx,
+                                                                 fy=fy,
+                                                                 cx=cx,
+                                                                 cy=cy,
+                                                                 out=out)

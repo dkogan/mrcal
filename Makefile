@@ -211,6 +211,7 @@ TESTS :=									      \
   test/test-poseutils-lib.py							      \
   test/test-projections.py							      \
   test/test-projections-stereographic.py					      \
+  test/test-projections-equirectangular.py					      \
   test/test-gradients.py							      \
   test/test-py-gradients.py							      \
   test/test-cahvor								      \

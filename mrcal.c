@@ -273,6 +273,7 @@ mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* le
     {
     case MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC:
     case MRCAL_LENSMODEL_STEREOGRAPHIC:
+    case MRCAL_LENSMODEL_EQUIRECTANGULAR:
         return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
                                               .can_project_behind_camera = true,
                                               .has_gradients             = true};
@@ -920,6 +921,7 @@ void _project_point_parametric( // outputs
     // q = uxy/uz * fxy + cxy
     if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE ||
         lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC ||
+        lensmodel->type == MRCAL_LENSMODEL_EQUIRECTANGULAR ||
         MRCAL_LENSMODEL_IS_OPENCV(lensmodel->type) )
     {
         // q = fxy pxy/pz + cxy
@@ -948,6 +950,11 @@ void _project_point_parametric( // outputs
         {
             mrcal_project_stereographic(q, dq_dp,
                                         p, 1, fx,fy,cx,cy);
+        }
+        else if(lensmodel->type == MRCAL_LENSMODEL_EQUIRECTANGULAR)
+        {
+            mrcal_project_equirectangular(q, dq_dp,
+                                          p, 1, fx,fy,cx,cy);
         }
         else
         {
@@ -1305,6 +1312,131 @@ void mrcal_unproject_stereographic( // output
                                  .z = 1. - 1./4. * norm2u };
     }
 }
+
+
+void mrcal_project_equirectangular( // output
+                                    mrcal_point2_t* q,
+                                    mrcal_point3_t* dq_dv, // May be NULL. Each point
+                                                           // gets a block of 2 mrcal_point3_t
+                                                           // objects
+
+                                    // input
+                                    const mrcal_point3_t* v,
+                                    int N,
+                                    double fx, double fy,
+                                    double cx, double cy)
+{
+    // equirectangular projection:
+    //   q   = (lon, lat)
+    //   lon = arctan2(vx, vz)
+    //   lat = arcsin(vy / mag(v))
+    //
+    // At the optical axis we have vx ~ vy ~ 0 and vz ~1, so
+    //   lon ~ vx
+    //   lat ~ vy
+
+    // qx ~ arctan( vx/vz ) ->
+    // dqx/dv = 1/(1 + (vx/vz)^2) 1/vz^2 ( dvx/dv vz - vx dvz/dv ) =
+    //        = [vz 0 -vx] / (vx^2 + vz^2)
+    //
+    // qy ~ arcsin( vy / mag(v) ) ->
+    // dqy/dv = 1 / sqrt( 1 - vy^2/norm2(v) ) 1/norm2(v) (dvy/dv mag(v)  - dmag(v)/dv vy)
+    //        = 1 / sqrt( norm2(v) - vy^2 ) 1/mag(v)  ( [0 mag(v)   0] - v/mag(v) vy)
+    //        = 1 / sqrt( norm2(v) - vy^2 ) ( [0 1 0] - v/norm2(v) vy)
+    //        = 1 / sqrt( vx^2 + vz^2 ) ( [0 1 0] - v/norm2(v) vy)
+    for(int i=0; i<N; i++)
+    {
+        double norm2_xyz_recip = 1. / (v[i].x*v[i].x +
+                                       v[i].y*v[i].y +
+                                       v[i].z*v[i].z );
+        double mag_xyz_recip = sqrt(norm2_xyz_recip);
+        double norm2_xz_recip = 1. / (v[i].x*v[i].x +
+                                      v[i].z*v[i].z );
+        double mag_xz_recip = sqrt(norm2_xz_recip);
+
+
+        if(dq_dv)
+        {
+            dq_dv[2*i + 0] = (mrcal_point3_t){.x =  fx*norm2_xz_recip * v[i].z,
+                                              .z = -fx*norm2_xz_recip * v[i].x };
+            dq_dv[2*i + 1] = (mrcal_point3_t){.x = -fy*mag_xz_recip   * (v[i].y*v[i].x * norm2_xyz_recip),
+                                              .y = -fy*mag_xz_recip   * (v[i].y*v[i].y * norm2_xyz_recip - 1.),
+                                              .z = -fy*mag_xz_recip   * (v[i].y*v[i].z * norm2_xyz_recip) };
+        }
+        q[i] = (mrcal_point2_t){.x = atan2(v[i].x, v[i].z)          * fx + cx,
+                                .y = asin( v[i].y * mag_xyz_recip ) * fy + cy};
+    }
+}
+
+
+void mrcal_unproject_equirectangular( // output
+                                      mrcal_point3_t* v,
+                                      mrcal_point2_t* dv_dq, // May be NULL. Each point
+                                                             // gets a block of 3 mrcal_point2_t
+                                                             // objects
+
+                                      // input
+                                      const mrcal_point2_t* q,
+                                      int N,
+                                      double fx, double fy,
+                                      double cx, double cy)
+{
+    // equirectangular projection:
+    //   q   = (lon, lat)
+    //   lon = arctan2(vx, vz)
+    //   lat = arcsin(vy / mag(v))
+    //
+    // Let's say v is normalized. Then:
+    //
+    // vx/vz = tan(lon)
+    // vy    = sin(lat)
+    //
+    // -> vx = vz tan(lon)
+    // -> 1-sin^2(lat) = vz^2 (1 + tan^2(lon)) =
+    //    cos^2(lat)   = (vz/cos(lon))^2
+    //
+    // -> vx = cos(lat) sin(lon)
+    //    vy = sin(lat)
+    //    vz = cos(lat) cos(lon)
+    //
+    // mag(v) is arbitrary, and I can simplify:
+    //
+    // -> v_unnormalized_x = sin(lon)
+    //    v_unnormalized_y = tan(lat)
+    //    v_unnormalized_z = cos(lon)
+    //
+    // If the computational cost of tan(lat) is smaller than of
+    // sin(lat),cos(lat) and 2 multiplications, then this is a better
+    // representation. A quick web search tells me that the cost of sincos ~ the
+    // cost of either sin or cos. And that tan is more costly. So I use the
+    // normalized form
+    //
+    // dv/dlon = [ cos(lat) cos(lon)   0          -cos(lat) sin(lon)]
+    // dv/dlat = [-sin(lat) sin(lon)   cos(lat)   -sin(lat) cos(lon)]
+    double fx_recip = 1./fx;
+    double fy_recip = 1./fy;
+    for(int i=0; i<N; i++)
+    {
+        double lon = (q[i].x - cx) * fx_recip;
+        double lat = (q[i].y - cy) * fy_recip;
+
+        double clon,slon,clat,slat;
+        sincos(lat, &slat, &clat);
+        sincos(lon, &slon, &clon);
+        if(dv_dq)
+        {
+            dv_dq[3*i + 0] = (mrcal_point2_t){.x =  fx_recip * clat * clon,
+                                              .y = -fy_recip * slat * slon};
+            dv_dq[3*i + 1] = (mrcal_point2_t){.y =  fy_recip * clat };
+            dv_dq[3*i + 2] = (mrcal_point2_t){.x = -fx_recip * clat * slon,
+                                              .y = -fy_recip * slat * clon };
+        }
+        v[i] = (mrcal_point3_t){.x = clat * slon,
+                                .y = slat,
+                                .z = clat * clon};
+    }
+}
+
 
 static void _mrcal_precompute_lensmodel_data_MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC
   ( // output
@@ -2583,8 +2715,16 @@ bool mrcal_unproject( // out
         double fy = intrinsics[1];
         double cx = intrinsics[2];
         double cy = intrinsics[3];
-
         mrcal_unproject_stereographic(out, NULL, q, N, fx,fy,cx,cy);
+        return true;
+    }
+    if( lensmodel->type == MRCAL_LENSMODEL_EQUIRECTANGULAR )
+    {
+        double fx = intrinsics[0];
+        double fy = intrinsics[1];
+        double cx = intrinsics[2];
+        double cy = intrinsics[3];
+        mrcal_unproject_equirectangular(out, NULL, q, N, fx,fy,cx,cy);
         return true;
     }
 
