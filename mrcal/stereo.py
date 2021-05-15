@@ -29,8 +29,8 @@ SYNOPSIS
     import numpy as np
 
     # Read commandline arguments: model0 model1 image0 image1
-    models = [ mrcal.cameramodel(sys.argv[1]),
-               mrcal.cameramodel(sys.argv[2]), ]
+    models = [ mrcal.cameramodel(sys.argv[i]) \
+               for i in (1,2) ]
 
     images = [ cv2.imread(sys.argv[i]) \
                for i in (3,4) ]
@@ -181,7 +181,8 @@ ARGUMENTS
   image. If omitted (or None), we use the resolution of the input image at
   (azimuth, elevation) = 0. If a resolution of <0 is requested, we use this as a
   scale factor on the resolution of the input image. For instance, to downsample
-  by a factor of 2, pass pixels_per_deg_az = -0.5
+  by a factor of 2, pass pixels_per_deg_az = -0.5. This value will be tweaked to
+  fit into the requested field-of-view with an integer number of pixels
 
 - pixels_per_deg_el: same as pixels_per_deg_az but in the elevation direction
 
@@ -203,7 +204,7 @@ We return a tuple
         raise Exception("I need exactly 2 camera models")
 
     def normalize(v):
-        v /= nps.mag(v)
+        v /= nps.dummy(nps.mag(v), axis=-1)
         return v
 
     def remove_projection(a, proj_base):
@@ -220,21 +221,27 @@ We return a tuple
     ######## y: completes the system from x,z
     ######## z: component of the cameras' viewing direction
     ########    normal to the baseline
-    Rt_cam0_ref = models[0].extrinsics_Rt_fromref()
-    Rt01 = mrcal.compose_Rt( Rt_cam0_ref,
+    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref())
-    Rt10 = mrcal.invert_Rt(Rt01)
 
     # Rotation relating camera0 coords to the rectified camera coords. I fill in
     # each row separately
-    R_stereo_cam0 = np.zeros((3,3), dtype=float)
-    right         = R_stereo_cam0[0,:]
-    down          = R_stereo_cam0[1,:]
-    forward       = R_stereo_cam0[2,:]
+    R_rect0_cam0 = np.zeros((3,3), dtype=float)
+    R_cam0_rect0 = nps.transpose(R_rect0_cam0)
+
+    # rect1 coord system has the same orientation as rect0, but is translated so
+    # that its origin is at the origin of cam1
+    R_rect1_cam0  = R_rect0_cam0
+    R_rect1_cam1  = nps.matmult(R_rect1_cam0, Rt01[:3,:])
+
+    # Axes of the rectified system, in the cam0 coord system
+    right       = R_rect0_cam0[0,:]
+    down        = R_rect0_cam0[1,:]
+    forward     = R_rect0_cam0[2,:]
 
     # "right" of the rectified coord system: towards the origin of camera1 from
     # camera0, in camera0 coords
-    right[:] = Rt01[3,:]
+    right += Rt01[3,:]
     baseline = nps.mag(right)
     right   /= baseline
 
@@ -242,16 +249,13 @@ We return a tuple
     forward0 = np.array((0,0,1.))
     forward1 = Rt01[:3,2]
 
-    # "forward" of the rectified coord system, in camera0 coords. The mean of
-    # the two non-right "forward" directions
-    forward[:] = normalize( ( remove_projection(forward0,right) +
-                              remove_projection(forward1,right) ) / 2. )
+    # "forward" of the rectified coord system, in camera0 coords. The mean
+    # optical-axis direction of the two cameras
+    forward += normalize(remove_projection(forward0+forward1,right))
 
     # "down" of the rectified coord system, in camera0 coords. Completes the
     # right,down,forward coordinate system
     down[:] = np.cross(forward,right)
-
-    R_cam0_stereo = nps.transpose(R_stereo_cam0)
 
 
 
@@ -288,8 +292,8 @@ We return a tuple
         # perpendicular to the baseline. Thus I compute the mean "forward"
         # direction of the cameras in the rectified system, and set that as the
         # center azimuth az0.
-        v0 = nps.matmult( forward0, R_cam0_stereo ).ravel()
-        v1 = nps.matmult( forward1, R_cam0_stereo ).ravel()
+        v0 = nps.matmult( forward0, R_cam0_rect0 ).ravel()
+        v1 = nps.matmult( forward1, R_cam0_rect0 ).ravel()
         v0[1] = 0.0
         v1[1] = 0.0
         normalize(v0)
@@ -325,8 +329,8 @@ We return a tuple
 
 
         v, dv_dazel = stereo_unproject(az0, el0, get_gradients = True)
-        v0          = mrcal.rotate_point_R(R_cam0_stereo, v)
-        dv0_dazel   = nps.matmult(R_cam0_stereo, dv_dazel)
+        v0          = mrcal.rotate_point_R(R_cam0_rect0, v)
+        dv0_dazel   = nps.matmult(R_cam0_rect0, dv_dazel)
 
         _,dq_dv0,_ = mrcal.project(v0, *models[0].intrinsics(), get_gradients = True)
 
@@ -373,28 +377,34 @@ We return a tuple
     Naz = round(az_fov_deg*pixels_per_deg_az)
     Nel = round(el_fov_deg*pixels_per_deg_el)
 
-    # Adjust the fov to keep the requested resolution and pixel counts
-    az_fov_radius_deg = Naz / (2.*pixels_per_deg_az)
-    el_fov_radius_deg = Nel / (2.*pixels_per_deg_el)
+    # Adjust resolution to be consistent with my just-computed integer pixel
+    # counts
+    pixels_per_deg_az = Naz/az_fov_deg
+    pixels_per_deg_el = Nel/el_fov_deg
+
+    # The field of view values I have are N pixels wide: from the left edge of
+    # the first pixel to the right edge of the last pixel. I want the
+    # coordinates of the centers of each of my pixels. The center-center field
+    # of view is 1 pixel smaller, and I make the adjustment here
 
     # shape (Naz,)
-    az = np.linspace(az0 - az_fov_radius_deg*np.pi/180.,
-                     az0 + az_fov_radius_deg*np.pi/180.,
+    az = np.linspace(az0 - az_fov_deg/2. * (Naz-1.)/Naz * np.pi/180.,
+                     az0 + az_fov_deg/2. * (Naz-1.)/Naz * np.pi/180.,
                      Naz)
     # shape (Nel,1)
-    el = nps.dummy( np.linspace(el0 - el_fov_radius_deg*np.pi/180.,
-                                el0 + el_fov_radius_deg*np.pi/180.,
+    el = nps.dummy( np.linspace(el0 - el_fov_deg/2. * (Nel-1.)/Nel * np.pi/180.,
+                                el0 + el_fov_deg/2. * (Nel-1.)/Nel * np.pi/180.,
                                 Nel),
                     -1 )
 
     # v has shape (Nel,Naz,3)
     v = stereo_unproject(az, el)
 
-    v0 = nps.matmult( nps.dummy(v,  -2), R_stereo_cam0 )[...,0,:]
-    v1 = nps.matmult( nps.dummy(v0, -2), Rt01[:3,:]    )[...,0,:]
+    v0 = nps.matmult( nps.dummy(v,  -2), R_rect0_cam0 )[...,0,:]
+    v1 = nps.matmult( nps.dummy(v,  -2), R_rect1_cam1 )[...,0,:]
 
     cookie = \
-        dict( Rt_cam0_stereo    = nps.glue(R_cam0_stereo, np.zeros((3,)), axis=-2),
+        dict( Rt_cam0_stereo    = nps.glue(R_cam0_rect0, np.zeros((3,)), axis=-2),
               baseline          = baseline,
               az_row            = az,
               el_col            = el,
