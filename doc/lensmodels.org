@@ -122,17 +122,18 @@ model has $\vec u \equiv \frac{\vec p_{xy}} {\left| \vec p_{xy} \right|} \tan
 stereographic model function similarly: $\tan \theta \approx 2 \tan
 \frac{\theta}{2}$ as $\theta \rightarrow 0$
 
-** =LENSMODEL_EQUIRECTANGULAR=
+** =LENSMODEL_LONLAT=
 :PROPERTIES:
-:CUSTOM_ID: lensmodel-equirectangular
+:CUSTOM_ID: lensmodel-lonlat
 :END:
 
-This is a trivial model useful not for representing lenses, but for describing
-the projection function of wide panoramic images. This works just like latitude
-an longitude on a globe, with a linear angular map on latitude and longitude.
-The 4 intrinsics core parameters are used to linearly map latitude, longitude to
-pixel coordinates. The full projection expression to map a camera-coordinate
-point $\vec p$ to an image pixel $vec q$:
+This is a standard [[https://en.wikipedia.org/wiki/Equirectangular_projection][equirectangular projection]]. It's a trivial model useful
+not for representing lenses, but for describing the projection function of wide
+panoramic images. This works just like latitude an longitude on a globe, with a
+linear angular map on latitude and longitude. The 4 intrinsics core parameters
+are used to linearly map latitude, longitude to pixel coordinates. The full
+projection expression to map a camera-coordinate point $\vec p$ to an image
+pixel $vec q$:
 
 \[
 \vec q =

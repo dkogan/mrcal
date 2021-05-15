@@ -491,14 +491,14 @@ call THAT function, and see the docs for that function. The differences:
 )
 
 
-m.function( "_project_equirectangular",
+m.function( "_project_lonlat",
             """Internal equirectangular projection routine
 
-This is the internals for mrcal.project_equirectangular(). As a user, please call
+This is the internals for mrcal.project_lonlat(). As a user, please call
 THAT function, and see the docs for that function. The differences:
 
 - This is just the no-gradients function. The internal function that reports the
-  gradients also is _project_equirectangular_withgrad()
+  gradients also is _project_lonlat_withgrad()
 
 - This function is wrapped with numpysane_pywrap, so the points broadcast as
   expected
@@ -519,22 +519,22 @@ THAT function, and see the docs for that function. The differences:
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-                 mrcal_project_equirectangular((mrcal_point2_t*)data_slice__output,
-                                             NULL,
-                                             (const mrcal_point3_t*)data_slice__points,
-                                             1,
-                                             *fx,*fy,*cx,*cy);
+                 mrcal_project_lonlat((mrcal_point2_t*)data_slice__output,
+                                      NULL,
+                                      (const mrcal_point3_t*)data_slice__points,
+                                      1,
+                                      *fx,*fy,*cx,*cy);
                  return true;'''},
 )
 
-m.function( "_project_equirectangular_withgrad",
+m.function( "_project_lonlat_withgrad",
             """Internal equirectangular projection routine
 
-This is the internals for mrcal.project_equirectangular(). As a user, please call
+This is the internals for mrcal.project_lonlat(). As a user, please call
 THAT function, and see the docs for that function. The differences:
 
 - This is just the gradient-reporting function. The internal function that
-  does not report the gradients is _project_equirectangular()
+  does not report the gradients is _project_lonlat()
 
 - This function is wrapped with numpysane_pywrap, so the points broadcast as
   expected
@@ -555,22 +555,22 @@ THAT function, and see the docs for that function. The differences:
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-                 mrcal_project_equirectangular((mrcal_point2_t*)data_slice__output0,
-                                             (mrcal_point3_t*)data_slice__output1,
-                                             (const mrcal_point3_t*)data_slice__points,
-                                             1,
-                                             *fx,*fy,*cx,*cy);
+                 mrcal_project_lonlat((mrcal_point2_t*)data_slice__output0,
+                                      (mrcal_point3_t*)data_slice__output1,
+                                      (const mrcal_point3_t*)data_slice__points,
+                                      1,
+                                      *fx,*fy,*cx,*cy);
                  return true;'''},
 )
 
-m.function( "_unproject_equirectangular",
+m.function( "_unproject_lonlat",
             """Internal equirectangular unprojection routine
 
-This is the internals for mrcal.unproject_equirectangular(). As a user, please
+This is the internals for mrcal.unproject_lonlat(). As a user, please
 call THAT function, and see the docs for that function. The differences:
 
 - This is just the no-gradients function. The internal function that reports the
-  gradients also is _unproject_equirectangular_withgrad()
+  gradients also is _unproject_lonlat_withgrad()
 
 - This function is wrapped with numpysane_pywrap, so the points broadcast as
   expected
@@ -591,22 +591,22 @@ call THAT function, and see the docs for that function. The differences:
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-                 mrcal_unproject_equirectangular((mrcal_point3_t*)data_slice__output,
-                                               NULL,
-                                               (const mrcal_point2_t*)data_slice__points,
-                                               1,
-                                               *fx,*fy,*cx,*cy);
+                 mrcal_unproject_lonlat((mrcal_point3_t*)data_slice__output,
+                                        NULL,
+                                        (const mrcal_point2_t*)data_slice__points,
+                                        1,
+                                        *fx,*fy,*cx,*cy);
                  return true;'''},
 )
 
-m.function( "_unproject_equirectangular_withgrad",
+m.function( "_unproject_lonlat_withgrad",
             """Internal equirectangular unprojection routine
 
-This is the internals for mrcal.unproject_equirectangular(). As a user, please
+This is the internals for mrcal.unproject_lonlat(). As a user, please
 call THAT function, and see the docs for that function. The differences:
 
 - This is just the gradient-reporting function. The internal function that does
-  not report the gradients is _unproject_equirectangular()
+  not report the gradients is _unproject_lonlat()
 
 - This function is wrapped with numpysane_pywrap, so the points broadcast as
   expected
@@ -627,11 +627,11 @@ call THAT function, and see the docs for that function. The differences:
             Ccode_slice_eval = \
                 {np.float64:
                  r'''
-                 mrcal_unproject_equirectangular((mrcal_point3_t*)data_slice__output0,
-                                               (mrcal_point2_t*)data_slice__output1,
-                                               (const mrcal_point2_t*)data_slice__points,
-                                               1,
-                                               *fx,*fy,*cx,*cy);
+                 mrcal_unproject_lonlat((mrcal_point3_t*)data_slice__output0,
+                                        (mrcal_point2_t*)data_slice__output1,
+                                        (const mrcal_point2_t*)data_slice__points,
+                                        1,
+                                        *fx,*fy,*cx,*cy);
                  return true;'''},
 )
 

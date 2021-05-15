@@ -273,7 +273,7 @@ mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* le
     {
     case MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC:
     case MRCAL_LENSMODEL_STEREOGRAPHIC:
-    case MRCAL_LENSMODEL_EQUIRECTANGULAR:
+    case MRCAL_LENSMODEL_LONLAT:
         return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
                                               .can_project_behind_camera = true,
                                               .has_gradients             = true};
@@ -921,7 +921,7 @@ void _project_point_parametric( // outputs
     // q = uxy/uz * fxy + cxy
     if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE ||
         lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC ||
-        lensmodel->type == MRCAL_LENSMODEL_EQUIRECTANGULAR ||
+        lensmodel->type == MRCAL_LENSMODEL_LONLAT ||
         MRCAL_LENSMODEL_IS_OPENCV(lensmodel->type) )
     {
         // q = fxy pxy/pz + cxy
@@ -951,10 +951,10 @@ void _project_point_parametric( // outputs
             mrcal_project_stereographic(q, dq_dp,
                                         p, 1, fx,fy,cx,cy);
         }
-        else if(lensmodel->type == MRCAL_LENSMODEL_EQUIRECTANGULAR)
+        else if(lensmodel->type == MRCAL_LENSMODEL_LONLAT)
         {
-            mrcal_project_equirectangular(q, dq_dp,
-                                          p, 1, fx,fy,cx,cy);
+            mrcal_project_lonlat(q, dq_dp,
+                                 p, 1, fx,fy,cx,cy);
         }
         else
         {
@@ -1316,17 +1316,17 @@ void mrcal_unproject_stereographic( // output
 }
 
 
-void mrcal_project_equirectangular( // output
-                                    mrcal_point2_t* q,
-                                    mrcal_point3_t* dq_dv, // May be NULL. Each point
-                                                           // gets a block of 2 mrcal_point3_t
-                                                           // objects
+void mrcal_project_lonlat( // output
+                           mrcal_point2_t* q,
+                           mrcal_point3_t* dq_dv, // May be NULL. Each point
+                                                  // gets a block of 2 mrcal_point3_t
+                                                  // objects
 
-                                    // input
-                                    const mrcal_point3_t* v,
-                                    int N,
-                                    double fx, double fy,
-                                    double cx, double cy)
+                           // input
+                           const mrcal_point3_t* v,
+                           int N,
+                           double fx, double fy,
+                           double cx, double cy)
 {
     // equirectangular projection:
     //   q   = (lon, lat)
@@ -1371,17 +1371,17 @@ void mrcal_project_equirectangular( // output
 }
 
 
-void mrcal_unproject_equirectangular( // output
-                                      mrcal_point3_t* v,
-                                      mrcal_point2_t* dv_dq, // May be NULL. Each point
-                                                             // gets a block of 3 mrcal_point2_t
-                                                             // objects
+void mrcal_unproject_lonlat( // output
+                             mrcal_point3_t* v,
+                             mrcal_point2_t* dv_dq, // May be NULL. Each point
+                                                    // gets a block of 3 mrcal_point2_t
+                                                    // objects
 
-                                      // input
-                                      const mrcal_point2_t* q,
-                                      int N,
-                                      double fx, double fy,
-                                      double cx, double cy)
+                             // input
+                             const mrcal_point2_t* q,
+                             int N,
+                             double fx, double fy,
+                             double cx, double cy)
 {
     // equirectangular projection:
     //   q   = (lon, lat)
@@ -2735,9 +2735,9 @@ bool _mrcal_unproject_internal( // out
         mrcal_unproject_stereographic(out, NULL, q, N, fx,fy,cx,cy);
         return true;
     }
-    if( lensmodel->type == MRCAL_LENSMODEL_EQUIRECTANGULAR )
+    if( lensmodel->type == MRCAL_LENSMODEL_LONLAT )
     {
-        mrcal_unproject_equirectangular(out, NULL, q, N, fx,fy,cx,cy);
+        mrcal_unproject_lonlat(out, NULL, q, N, fx,fy,cx,cy);
         return true;
     }
 

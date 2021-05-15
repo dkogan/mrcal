@@ -2,7 +2,7 @@
 
 r'''Tests special-case projection functions
 
-Simple things like project_equirectangular(), project_stereographic(), etc.
+Simple things like project_lonlat(), project_stereographic(), etc.
 
 I do 3 things:
 
@@ -31,12 +31,12 @@ import testutils
 from test_calibration_helpers import grad
 
 if len(sys.argv) != 2:
-    raise Exception("Need one argument on the commandline: the projection type. Currently I support 'equirectangular','stereographic'")
-if   sys.argv[1] == 'equirectangular':
-    lensmodel      = 'LENSMODEL_EQUIRECTANGULAR'
-    func_project   = mrcal.project_equirectangular
-    func_unproject = mrcal.unproject_equirectangular
-    name           = 'equirectangular'
+    raise Exception("Need one argument on the commandline: the projection type. Currently I support 'lonlat','stereographic'")
+if   sys.argv[1] == 'lonlat':
+    lensmodel      = 'LENSMODEL_LONLAT'
+    func_project   = mrcal.project_lonlat
+    func_unproject = mrcal.unproject_lonlat
+    name           = 'lonlat'
 
     # pixels/rad
     fx,fy = 3000., 2000.
@@ -75,7 +75,7 @@ elif sys.argv[1] == 'stereographic':
     unproject_is_normalized = False
 
 else:
-    raise Exception("Unknown projection type. Currently I support 'equirectangular','stereographic'")
+    raise Exception("Unknown projection type. Currently I support 'lonlat','stereographic'")
 
 
 

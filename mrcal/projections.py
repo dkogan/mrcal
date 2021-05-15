@@ -201,11 +201,11 @@ if get_gradients: we return a tuple:
 
     # First, handle some trivial cases. I don't want to run the
     # optimization-based unproject() if I don't have to
-    if lensmodel == 'LENSMODEL_EQUIRECTANGULAR' or \
+    if lensmodel == 'LENSMODEL_LONLAT' or \
        lensmodel == 'LENSMODEL_STEREOGRAPHIC':
 
-        if lensmodel == 'LENSMODEL_EQUIRECTANGULAR':
-            func = mrcal.unproject_equirectangular
+        if lensmodel == 'LENSMODEL_LONLAT':
+            func = mrcal.unproject_lonlat
         elif lensmodel == 'LENSMODEL_STEREOGRAPHIC':
             func = mrcal.unproject_stereographic
 
@@ -213,7 +213,7 @@ if get_gradients: we return a tuple:
         fxy = intrinsics_data[:2]
         cxy = intrinsics_data[2:]
         if not get_gradients:
-            # unproject_equirectangular() is always normalized, so I don't ask
+            # unproject_lonlat() is always normalized, so I don't ask
             # for it
             return func(q, *fxy, *cxy,
                         out = out)
@@ -577,22 +577,25 @@ if get_gradients: we return a tuple:
                                                                cy=cy,
                                                                out=out)
 
-def project_equirectangular(points,
-                            fx, fy, cx, cy,
-                            get_gradients = False,
-                            out           = None):
+def project_lonlat(points,
+                   fx, fy, cx, cy,
+                   get_gradients = False,
+                   out           = None):
     r'''Projects a set of 3D camera-frame points using an equirectangular map
 
 SYNOPSIS
 
-    q = mrcal.project_equirectangular( # (N,3) array of 3d points we're projecting
-                                     points )
+    # points is a (N,3) array of 3D points we're projecting
+    q = mrcal.project_lonlat( points )
 
-    # q is now a (N,2) array of normalized equirectangular coordinates
+    # q is now a (N,2) array of equirectangular coordinates
 
 This is a simplified special case of mrcal.project(). Useful not for
 representing lenses, but for describing the projection function of wide
-panoramic images. Lenses do not follow this model.
+panoramic images. Lenses do not follow this model. See the lensmodel
+documentation for details:
+
+http://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
 
 Given a (N,3) array of points in the camera frame (x,y aligned with the imager
 coords, z 'forward') and the parameters fx,fy,cx,cy, this function computes the
@@ -628,42 +631,46 @@ if get_gradients: we return a tuple:
   - (...,2) array of projected equirectangular coordinates
   - (...,2,3) array of the gradients of the equirectangular coordinates in respect
     to the input 3D point positions
+
     '''
 
     # Internal function must have a different argument order so
     # that all the broadcasting stuff is in the leading arguments
     if not get_gradients:
-        return mrcal._mrcal_npsp._project_equirectangular(points,
-                                                          fx=fx,
-                                                          fy=fy,
-                                                          cx=cx,
-                                                          cy=cy,
-                                                          out=out)
-    return mrcal._mrcal_npsp._project_equirectangular_withgrad(points,
-                                                               fx=fx,
-                                                               fy=fy,
-                                                               cx=cx,
-                                                               cy=cy,
-                                                               out=out)
+        return mrcal._mrcal_npsp._project_lonlat(points,
+                                                 fx=fx,
+                                                 fy=fy,
+                                                 cx=cx,
+                                                 cy=cy,
+                                                 out=out)
+    return mrcal._mrcal_npsp._project_lonlat_withgrad(points,
+                                                      fx=fx,
+                                                      fy=fy,
+                                                      cx=cx,
+                                                      cy=cy,
+                                                      out=out)
 
 
-def unproject_equirectangular(points,
-                              fx, fy, cx, cy,
-                              get_gradients = False,
-                              out           = None):
+def unproject_lonlat(points,
+                     fx, fy, cx, cy,
+                     get_gradients = False,
+                     out           = None):
     r'''Unprojects a set of 2D pixel coordinates using an equirectangular map
 
 SYNOPSIS
 
-    v = mrcal.unproject_equirectangular( # (N,2) array of 2d imager points
-                                       points,
-                                       fx, fy, cx, cy )
+    v = mrcal.unproject_lonlat( # (N,2) array of 2d imager points
+                                points,
+                                fx, fy, cx, cy )
 
     # v is now a (N,3) array of observation directions. v are not normalized
 
 This is a simplified special case of mrcal.unproject(). Useful not for
 representing lenses, but for describing the projection function of wide
-panoramic images. Lenses do not follow this model.
+panoramic images. Lenses do not follow this model. See the lensmodel
+documentation for details:
+
+http://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
 
 Given a (N,2) array of equirectangular coordinates and the parameters
 fx,fy,cx,cy, this function computes the inverse projection, optionally with
@@ -702,17 +709,18 @@ if get_gradients: we return a tuple:
   - (...,3) array of unprojected observation vectors. These are normalized.
   - (...,3,2) array of the gradients of the observation vectors in respect to
     the input 2D equirectangular coordinates
+
     '''
     if not get_gradients:
-        return mrcal._mrcal_npsp._unproject_equirectangular(points,
-                                                            fx=fx,
-                                                            fy=fy,
-                                                            cx=cx,
-                                                            cy=cy,
-                                                            out=out)
-    return mrcal._mrcal_npsp._unproject_equirectangular_withgrad(points,
-                                                                 fx=fx,
-                                                                 fy=fy,
-                                                                 cx=cx,
-                                                                 cy=cy,
-                                                                 out=out)
+        return mrcal._mrcal_npsp._unproject_lonlat(points,
+                                                   fx=fx,
+                                                   fy=fy,
+                                                   cx=cx,
+                                                   cy=cy,
+                                                   out=out)
+    return mrcal._mrcal_npsp._unproject_lonlat_withgrad(points,
+                                                        fx=fx,
+                                                        fy=fy,
+                                                        cx=cx,
+                                                        cy=cy,
+                                                        out=out)
