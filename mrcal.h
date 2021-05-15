@@ -315,20 +315,15 @@ bool mrcal_unproject( // out
                      const double* intrinsics);
 
 
-// Project the given camera-coordinate-system points using a stereographic model
+// Project the given camera-coordinate-system points using a stereographic
+// model. See the docs for projection details:
+// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-stereographic
 //
-// Compute a "projection", a mapping of points defined in the camera coordinate
-// system to their observed pixel coordinates. If requested, gradients are
-// computed as well.
-//
-// We project N 3D points p to N 2D pixel coordinates q using the stereographic
-// model with the given intrinsics core.
+// This is a simplified special case of mrcal_project(). We project N
+// camera-coordinate-system points p to N pixel coordinates q
 //
 // if (dq_dp != NULL) we report the gradient dq/dp in a dense (N,2,3) array
 // ((N,2) mrcal_point3_t objects).
-//
-// This is a simplified special case of mrcal_project(). Useful as part of data
-// analysis, not to represent any real-world lens
 void mrcal_project_stereographic( // output
                                  mrcal_point2_t* q,
                                  mrcal_point3_t* dq_dp,
@@ -340,20 +335,16 @@ void mrcal_project_stereographic( // output
                                  double cx, double cy);
 
 
-// Unproject the given pixel coordinates using a stereographic model
+// Unproject the given pixel coordinates using a stereographic model.
+// See the docs for projection details:
+// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-stereographic
 //
-// Compute an "unprojection", a mapping pixel coordinates to the camera
-// coordinate system.
-//
-// We project N 2D pixel coordinates q to N 3D direction vectors v using the
-// stereographic model with the given intrinsics core. The returned vectors v
-// are not normalized, and may have any length.
+// This is a simplified special case of mrcal_unproject(). We unproject N 2D
+// pixel coordinates q to N camera-coordinate-system vectors v. The returned
+// vectors v are not normalized, and may have any length.
 //
 // if (dv_dq != NULL) we report the gradient dv/dq in a dense (N,3,2) array
 // ((N,3) mrcal_point2_t objects).
-//
-// This is a simplified special case of mrcal_unproject(). Useful as part of
-// data analysis, not to represent any real-world lens
 void mrcal_unproject_stereographic( // output
                                    mrcal_point3_t* v,
                                    mrcal_point2_t* dv_dq,
@@ -366,25 +357,14 @@ void mrcal_unproject_stereographic( // output
 
 
 // Project the given camera-coordinate-system points using an equirectangular
-// projection
+// projection. See the docs for projection details:
+// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
 //
-// Compute a "projection", a mapping of points defined in the camera coordinate
-// system to their observed pixel coordinates. If requested, gradients are
-// computed as well.
-//
-// We project N 3D points p to N 2D pixel coordinates q using the
-// equirectangular projection with the given intrinsics core. The core computes:
-//
-//   qx = fx*lon + cx
-//   qy = fy*lat + cy
+// This is a simplified special case of mrcal_project(). We project N
+// camera-coordinate-system points p to N pixel coordinates q
 //
 // if (dq_dp != NULL) we report the gradient dq/dp in a dense (N,2,3) array
 // ((N,2) mrcal_point3_t objects).
-//
-// This is a simplified special case of mrcal_project(). Useful as part of data
-// analysis, not to represent any real-world lens. Lenses do NOT follow this
-// projection. This is primarily useful to represent wide panorama strips, such
-// as wide views of a horizon.
 void mrcal_project_lonlat( // output
                            mrcal_point2_t* q,
                            mrcal_point3_t* dq_dv, // May be NULL. Each point
@@ -397,25 +377,16 @@ void mrcal_project_lonlat( // output
                            double fx, double fy,
                            double cx, double cy);
 
-// Unproject the given pixel coordinates using an equirectangular projection
+// Unproject the given pixel coordinates using an equirectangular projection.
+// See the docs for projection details:
+// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
 //
-// Compute an "unprojection", a mapping pixel coordinates to the camera
-// coordinate system.
-//
-// We project N 2D pixel coordinates q to N 3D direction vectors v using the
-// equirectangular model with the given intrinsics core. The returned vectors v
-// are always normalized. The core computes:
-//
-//   qx = fx*lon + cx
-//   qy = fy*lat + cy
+// This is a simplified special case of mrcal_unproject(). We unproject N 2D
+// pixel coordinates q to N camera-coordinate-system vectors v. The returned
+// vectors v are normalized.
 //
 // if (dv_dq != NULL) we report the gradient dv/dq in a dense (N,3,2) array
 // ((N,3) mrcal_point2_t objects).
-//
-// This is a simplified special case of mrcal_unproject(). Useful as part of
-// data analysis, not to represent any real-world lens. Lenses do NOT follow
-// this projection. This is primarily useful to represent wide panorama strips,
-// such as wide views of a horizon.
 void mrcal_unproject_lonlat( // output
                             mrcal_point3_t* v,
                             mrcal_point2_t* dv_dq, // May be NULL. Each point
@@ -427,6 +398,7 @@ void mrcal_unproject_lonlat( // output
                             int N,
                             double fx, double fy,
                             double cx, double cy);
+
 
 
 ////////////////////////////////////////////////////////////////////////////////

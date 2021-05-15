@@ -410,23 +410,24 @@ def project_stereographic(points,
                           cy = 0.0,
                           get_gradients = False,
                           out           = None):
-    r'''Projects a set of 3D camera-frame points using a stereographic map
+    r'''Projects a set of 3D camera-frame points using a stereographic model
 
 SYNOPSIS
 
-    # points is a (N,3) array of 3D points we're projecting
+    # points is a (N,3) array of camera-coordinate-system points
     q = mrcal.project_stereographic( points )
 
     # q is now a (N,2) array of normalized stereographic coordinates
 
+This is a special case of mrcal.project(). No actual lens ever follows this
+model exactly, but this is useful as a baseline for other models. See the
+lensmodel documentation for details:
 
-This is a special case of mrcal.project(). Useful as part of data analysis, not
-to represent any real-world lens.
+http://mrcal.secretsauce.net/lensmodels.html#lensmodel-stereographic
 
 Given a (N,3) array of points in the camera frame (x,y aligned with the imager
 coords, z 'forward') and parameters of a perfect stereographic camera, this
-function computes the projection, optionally with gradients. No actual lens ever
-follows this model exactly, but this is useful as a baseline for other models.
+function computes the projection, optionally with gradients.
 
 The user can pass in focal length and center-pixel values. Or they can be
 omitted to compute a "normalized" stereographic projection (fx = fy = 1, cx = cy
@@ -473,9 +474,6 @@ if get_gradients: we return a tuple:
     to the input 3D point positions
 
     '''
-
-    # Internal function must have a different argument order so
-    # that all the broadcasting stuff is in the leading arguments
     if not get_gradients:
         return mrcal._mrcal_npsp._project_stereographic(points,
                                                         fx=fx,
@@ -498,24 +496,26 @@ def unproject_stereographic(points,
                             cy = 0.0,
                             get_gradients = False,
                             out           = None):
-    r'''Unprojects a set of 2D pixel coordinates using a stereographic map
+    r'''Unprojects a set of 2D pixel coordinates using a stereographic model
 
 SYNOPSIS
 
-    # points is a (N,2) array of 2D imager points
+    # points is a (N,2) array of pixel coordinates
     v = mrcal.unproject_stereographic( points,
                                        fx, fy, cx, cy )
 
-    # v is now a (N,3) array of observation directions. v are not normalized
+    # v is now a (N,3) array of observation directions in the camera coordinate
+    # system. v are not normalized
 
+This is a special case of mrcal.unproject(). No actual lens ever follows this
+model exactly, but this is useful as a baseline for other models. See the
+lensmodel documentation for details:
 
-This is a special case of mrcal.unproject(). Useful as part of data analysis,
-not to represent any real-world lens.
+http://mrcal.secretsauce.net/lensmodels.html#lensmodel-stereographic
 
 Given a (N,2) array of stereographic coordinates and parameters of a perfect
 stereographic camera, this function computes the inverse projection, optionally
-with gradients. No actual lens ever follows this model exactly, but this is
-useful as a baseline for other models.
+with gradients.
 
 The user can pass in focal length and center-pixel values. Or they can be
 omitted to compute a "normalized" stereographic projection (fx = fy = 1, cx = cy
@@ -531,9 +531,9 @@ image center.
 
 ARGUMENTS
 
-- points: array of dims (...,2); the stereographic coordinates we're projecting.
-  This supports broadcasting fully, and any leading dimensions are allowed,
-  including none
+- points: array of dims (...,2); the stereographic coordinates we're
+  unprojecting. This supports broadcasting fully, and any leading dimensions are
+  allowed, including none
 
 - fx, fy: optional focal-lengths, in pixels. Both default to 1, as in the
   normalized stereographic projection
@@ -577,20 +577,21 @@ if get_gradients: we return a tuple:
                                                                cy=cy,
                                                                out=out)
 
+
 def project_lonlat(points,
                    fx, fy, cx, cy,
                    get_gradients = False,
                    out           = None):
-    r'''Projects a set of 3D camera-frame points using an equirectangular map
+    r'''Projects a set of 3D camera-frame points using an equirectangular projection
 
 SYNOPSIS
 
-    # points is a (N,3) array of 3D points we're projecting
-    q = mrcal.project_lonlat( points )
+    # points is a (N,3) array of camera-coordinate-system points
+    q = mrcal.project_lonlat( points, fx, fy, cx, cy )
 
     # q is now a (N,2) array of equirectangular coordinates
 
-This is a simplified special case of mrcal.project(). Useful not for
+This is a special case of mrcal.project(). Useful not for
 representing lenses, but for describing the projection function of wide
 panoramic images. Lenses do not follow this model. See the lensmodel
 documentation for details:
@@ -655,17 +656,18 @@ def unproject_lonlat(points,
                      fx, fy, cx, cy,
                      get_gradients = False,
                      out           = None):
-    r'''Unprojects a set of 2D pixel coordinates using an equirectangular map
+    r'''Unprojects a set of 2D pixel coordinates using an equirectangular projection
 
 SYNOPSIS
 
-    # points is a (N,2) array of 2D imager points
+    # points is a (N,2) array of imager points
     v = mrcal.unproject_lonlat( points,
                                 fx, fy, cx, cy )
 
-    # v is now a (N,3) array of observation directions. v are not normalized
+    # v is now a (N,3) array of observation directions in the camera coordinate
+    # system. v are normalized
 
-This is a simplified special case of mrcal.unproject(). Useful not for
+This is a special case of mrcal.unproject(). Useful not for
 representing lenses, but for describing the projection function of wide
 panoramic images. Lenses do not follow this model. See the lensmodel
 documentation for details:
@@ -681,7 +683,7 @@ The vectors returned by this function are normalized.
 ARGUMENTS
 
 - points: array of dims (...,2); the equirectangular coordinates we're
-  projecting. This supports broadcasting fully, and any leading dimensions are
+  unprojecting. This supports broadcasting fully, and any leading dimensions are
   allowed, including none
 
 - fx, fy: "focal-lengths", in pixels. These specify the angular resolution of
