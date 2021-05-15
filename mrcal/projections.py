@@ -199,6 +199,36 @@ if get_gradients: we return a tuple:
 
     '''
 
+    def apply_normalization_to_output_with_gradients(v,dv_dq,dv_di):
+        # vn = v/mag(v)
+        # dvn = dv (1/mag(v)) + v d(1/mag(v))
+        #     = dv( 1/mag(v) - v vt / mag^3(v) )
+        #     = dv( 1/mag(v) - vn vnt / mag(v) )
+        #     = dv/mag(v) ( 1 - vn vnt )
+
+        # v has shape (...,3)
+        # dv_dq has shape (...,3,2)
+        # dv_di has shape (...,3,N)
+
+        # shape (...,1)
+        magv_recip = 1. / nps.dummy(nps.mag(v), -1)
+        v *= magv_recip
+
+        # shape (...,1,1)
+        magv_recip = nps.dummy(magv_recip,-1)
+        dv_dq *= magv_recip
+
+        dv_dq -= nps.xchg( nps.matmult( nps.dummy(nps.xchg(dv_dq, -1,-2), -2),
+                                        nps.dummy(nps.outer(v,v),-3) )[...,0,:],
+                           -1, -2)
+
+        dv_di *= magv_recip
+
+        dv_di -= nps.xchg( nps.matmult( nps.dummy(nps.xchg(dv_di, -1,-2), -2),
+                                        nps.dummy(nps.outer(v,v),-3) )[...,0,:],
+                           -1, -2)
+
+
     # First, handle some trivial cases. I don't want to run the
     # optimization-based unproject() if I don't have to
     if lensmodel == 'LENSMODEL_LONLAT' or \
@@ -207,19 +237,23 @@ if get_gradients: we return a tuple:
 
         if   lensmodel == 'LENSMODEL_LONLAT':
             func = mrcal.unproject_lonlat
+            always_normalized = True
         elif lensmodel == 'LENSMODEL_LATLON':
             func = mrcal.unproject_latlon
+            always_normalized = True
         elif lensmodel == 'LENSMODEL_STEREOGRAPHIC':
             func = mrcal.unproject_stereographic
+            always_normalized = False
 
 
         fxy = intrinsics_data[:2]
         cxy = intrinsics_data[2:]
         if not get_gradients:
-            # unproject_lonlat() is always normalized, so I don't ask
-            # for it
-            return func(q, *fxy, *cxy,
-                        out = out)
+
+            v = func(q, *fxy, *cxy, out = out)
+            if normalize and not always_normalized:
+                v /= nps.dummy(nps.mag(v), axis=-1)
+            return v
 
         else:
             v, dv_dq = \
@@ -246,6 +280,9 @@ if get_gradients: we return a tuple:
             dv_di[..., :2] += (cxy - q) * dv_dq / fxy
             # dv/dc
             dv_di[..., 2:] -= dv_dq
+
+            if normalize and not always_normalized:
+                apply_normalization_to_output_with_gradients(v,dv_dq,dv_di)
 
             return v,dv_dq,dv_di
 
@@ -312,34 +349,7 @@ if get_gradients: we return a tuple:
         dv_di *= -1.
 
         if normalize:
-
-            # vn = v/mag(v)
-            # dvn = dv (1/mag(v)) + v d(1/mag(v))
-            #     = dv( 1/mag(v) - v vt / mag^3(v) )
-            #     = dv( 1/mag(v) - vn vnt / mag(v) )
-            #     = dv/mag(v) ( 1 - vn vnt )
-
-            # v has shape (...,3)
-            # dv_dq has shape (...,3,2)
-            # dv_di has shape (...,3,N)
-
-            # shape (...,1)
-            magv_recip = 1. / nps.dummy(nps.mag(v), -1)
-            v *= magv_recip
-
-            # shape (...,1,1)
-            magv_recip = nps.dummy(magv_recip,-1)
-            dv_dq *= magv_recip
-
-            dv_dq -= nps.xchg( nps.matmult( nps.dummy(nps.xchg(dv_dq, -1,-2), -2),
-                                            nps.dummy(nps.outer(v,v),-3) )[...,0,:],
-                               -1, -2)
-
-            dv_di *= magv_recip
-
-            dv_di -= nps.xchg( nps.matmult( nps.dummy(nps.xchg(dv_di, -1,-2), -2),
-                                            nps.dummy(nps.outer(v,v),-3) )[...,0,:],
-                               -1, -2)
+            apply_normalization_to_output_with_gradients(v,dv_dq,dv_di)
 
         return v, dv_dq, dv_di
 
