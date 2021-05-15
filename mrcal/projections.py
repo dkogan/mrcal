@@ -26,8 +26,8 @@ def project(v, lensmodel, intrinsics_data,
 
 SYNOPSIS
 
-    points = mrcal.project( # (...,3) array of 3d points we're projecting
-                            v,
+    # v is a (...,3) array of 3D points we're projecting
+    points = mrcal.project( v,
 
                             lensmodel, intrinsics_data)
 
@@ -105,8 +105,8 @@ def unproject(q, lensmodel, intrinsics_data,
 
 SYNOPSIS
 
-    v = mrcal.unproject( # (...,2) array of pixel observations
-                         q,
+    # q is a (...,2) array of pixel observations
+    v = mrcal.unproject( q,
                          lensmodel, intrinsics_data )
 
 Maps a set of 2D imager points q to a set of 3D vectors in camera coordinates
@@ -414,8 +414,8 @@ def project_stereographic(points,
 
 SYNOPSIS
 
-    q = mrcal.project_stereographic( # (N,3) array of 3d points we're projecting
-                                     points )
+    # points is a (N,3) array of 3D points we're projecting
+    q = mrcal.project_stereographic( points )
 
     # q is now a (N,2) array of normalized stereographic coordinates
 
@@ -502,8 +502,8 @@ def unproject_stereographic(points,
 
 SYNOPSIS
 
-    v = mrcal.unproject_stereographic( # (N,2) array of 2d imager points
-                                       points,
+    # points is a (N,2) array of 2D imager points
+    v = mrcal.unproject_stereographic( points,
                                        fx, fy, cx, cy )
 
     # v is now a (N,3) array of observation directions. v are not normalized
@@ -659,8 +659,8 @@ def unproject_lonlat(points,
 
 SYNOPSIS
 
-    v = mrcal.unproject_lonlat( # (N,2) array of 2d imager points
-                                points,
+    # points is a (N,2) array of 2D imager points
+    v = mrcal.unproject_lonlat( points,
                                 fx, fy, cx, cy )
 
     # v is now a (N,3) array of observation directions. v are not normalized
