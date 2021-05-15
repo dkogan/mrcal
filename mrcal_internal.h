@@ -7,6 +7,7 @@
 typedef struct {} mrcal_LENSMODEL_PINHOLE__precomputed_t;
 typedef struct {} mrcal_LENSMODEL_STEREOGRAPHIC__precomputed_t;
 typedef struct {} mrcal_LENSMODEL_LONLAT__precomputed_t;
+typedef struct {} mrcal_LENSMODEL_LATLON__precomputed_t;
 typedef struct {} mrcal_LENSMODEL_OPENCV4__precomputed_t;
 typedef struct {} mrcal_LENSMODEL_OPENCV5__precomputed_t;
 typedef struct {} mrcal_LENSMODEL_OPENCV8__precomputed_t;

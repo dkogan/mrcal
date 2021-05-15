@@ -274,6 +274,7 @@ mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* le
     case MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC:
     case MRCAL_LENSMODEL_STEREOGRAPHIC:
     case MRCAL_LENSMODEL_LONLAT:
+    case MRCAL_LENSMODEL_LATLON:
         return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
                                               .can_project_behind_camera = true,
                                               .has_gradients             = true};
@@ -922,6 +923,7 @@ void _project_point_parametric( // outputs
     if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE ||
         lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC ||
         lensmodel->type == MRCAL_LENSMODEL_LONLAT ||
+        lensmodel->type == MRCAL_LENSMODEL_LATLON ||
         MRCAL_LENSMODEL_IS_OPENCV(lensmodel->type) )
     {
         // q = fxy pxy/pz + cxy
@@ -947,15 +949,14 @@ void _project_point_parametric( // outputs
             dq_dp[1].z = -fy*p->y*pz_recip*pz_recip;
         }
         else if(lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC)
-        {
             mrcal_project_stereographic(q, dq_dp,
                                         p, 1, fx,fy,cx,cy);
-        }
         else if(lensmodel->type == MRCAL_LENSMODEL_LONLAT)
-        {
             mrcal_project_lonlat(q, dq_dp,
                                  p, 1, fx,fy,cx,cy);
-        }
+        else if(lensmodel->type == MRCAL_LENSMODEL_LATLON)
+            mrcal_project_latlon(q, dq_dp,
+                                 p, 1, fx,fy,cx,cy);
         else
         {
             int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
@@ -1435,6 +1436,81 @@ void mrcal_unproject_lonlat( // output
         }
         v[i] = (mrcal_point3_t){.x = clat * slon,
                                 .y = slat,
+                                .z = clat * clon};
+    }
+}
+
+void mrcal_project_latlon( // output
+                           mrcal_point2_t* q,
+                           mrcal_point3_t* dq_dv, // May be NULL. Each point
+                                                  // gets a block of 2 mrcal_point3_t
+                                                  // objects
+
+                           // input
+                           const mrcal_point3_t* v,
+                           int N,
+                           double fx, double fy,
+                           double cx, double cy)
+{
+    // copy of mrcal_project_lonlat(), with swapped x/y
+    for(int i=0; i<N; i++)
+    {
+        double norm2_xyz_recip = 1. / (v[i].x*v[i].x +
+                                       v[i].y*v[i].y +
+                                       v[i].z*v[i].z );
+        double mag_xyz_recip = sqrt(norm2_xyz_recip);
+        double norm2_yz_recip = 1. / (v[i].y*v[i].y +
+                                      v[i].z*v[i].z );
+        double mag_yz_recip = sqrt(norm2_yz_recip);
+
+
+        if(dq_dv)
+        {
+            dq_dv[2*i + 0] = (mrcal_point3_t){.x = -fx*mag_yz_recip   * (v[i].x*v[i].x * norm2_xyz_recip - 1.),
+                                              .y = -fx*mag_yz_recip   * (v[i].x*v[i].y * norm2_xyz_recip),
+                                              .z = -fx*mag_yz_recip   * (v[i].x*v[i].z * norm2_xyz_recip) };
+            dq_dv[2*i + 1] = (mrcal_point3_t){.y =  fy*norm2_yz_recip * v[i].z,
+                                              .z = -fy*norm2_yz_recip * v[i].y };
+        }
+        q[i] = (mrcal_point2_t){.x = asin( v[i].x * mag_xyz_recip ) * fx + cx,
+                                .y = atan2(v[i].y, v[i].z)          * fy + cy};
+    }
+}
+
+
+void mrcal_unproject_latlon( // output
+                             mrcal_point3_t* v,
+                             mrcal_point2_t* dv_dq, // May be NULL. Each point
+                                                    // gets a block of 3 mrcal_point2_t
+                                                    // objects
+
+                             // input
+                             const mrcal_point2_t* q,
+                             int N,
+                             double fx, double fy,
+                             double cx, double cy)
+{
+    // copy of mrcal_unproject_lonlat(), with swapped x/y
+    double fx_recip = 1./fx;
+    double fy_recip = 1./fy;
+    for(int i=0; i<N; i++)
+    {
+        double lat = (q[i].x - cx) * fx_recip;
+        double lon = (q[i].y - cy) * fy_recip;
+
+        double clon,slon,clat,slat;
+        sincos(lat, &slat, &clat);
+        sincos(lon, &slon, &clon);
+        if(dv_dq)
+        {
+            dv_dq[3*i + 0] = (mrcal_point2_t){.x =  fx_recip * clat };
+            dv_dq[3*i + 1] = (mrcal_point2_t){.x = -fx_recip * slat * slon,
+                                              .y =  fy_recip * clat * clon };
+            dv_dq[3*i + 2] = (mrcal_point2_t){.x = -fx_recip * slat * clon,
+                                              .y = -fy_recip * clat * slon };
+        }
+        v[i] = (mrcal_point3_t){.x = slat,
+                                .y = clat * slon,
                                 .z = clat * clon};
     }
 }
@@ -2738,6 +2814,11 @@ bool _mrcal_unproject_internal( // out
     if( lensmodel->type == MRCAL_LENSMODEL_LONLAT )
     {
         mrcal_unproject_lonlat(out, NULL, q, N, fx,fy,cx,cy);
+        return true;
+    }
+    if( lensmodel->type == MRCAL_LENSMODEL_LATLON )
+    {
+        mrcal_unproject_latlon(out, NULL, q, N, fx,fy,cx,cy);
         return true;
     }
 

@@ -202,10 +202,13 @@ if get_gradients: we return a tuple:
     # First, handle some trivial cases. I don't want to run the
     # optimization-based unproject() if I don't have to
     if lensmodel == 'LENSMODEL_LONLAT' or \
+       lensmodel == 'LENSMODEL_LATLON' or \
        lensmodel == 'LENSMODEL_STEREOGRAPHIC':
 
-        if lensmodel == 'LENSMODEL_LONLAT':
+        if   lensmodel == 'LENSMODEL_LONLAT':
             func = mrcal.unproject_lonlat
+        elif lensmodel == 'LENSMODEL_LATLON':
+            func = mrcal.unproject_latlon
         elif lensmodel == 'LENSMODEL_STEREOGRAPHIC':
             func = mrcal.unproject_stereographic
 
@@ -721,6 +724,154 @@ if get_gradients: we return a tuple:
                                                    cy=cy,
                                                    out=out)
     return mrcal._mrcal_npsp._unproject_lonlat_withgrad(points,
+                                                        fx=fx,
+                                                        fy=fy,
+                                                        cx=cx,
+                                                        cy=cy,
+                                                        out=out)
+
+
+def project_latlon(points,
+                   fx, fy, cx, cy,
+                   get_gradients = False,
+                   out           = None):
+    r'''Projects 3D camera-frame points using a transverse equirectangular projection
+
+SYNOPSIS
+
+    # points is a (N,3) array of camera-coordinate-system points
+    q = mrcal.project_latlon( points, fx, fy, cx, cy )
+
+    # q is now a (N,2) array of transverse equirectangular coordinates
+
+This is a special case of mrcal.project(). Useful not for representing lenses,
+but for performing stereo rectification. Lenses do not follow this model. See
+the lensmodel documentation for details:
+
+http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
+
+Given a (N,3) array of points in the camera frame (x,y aligned with the imager
+coords, z 'forward') and the parameters fx,fy,cx,cy, this function computes the
+projection, optionally with gradients.
+
+ARGUMENTS
+
+- points: array of dims (...,3); the points we're projecting. This supports
+  broadcasting fully, and any leading dimensions are allowed, including none
+
+- fx, fy: "focal-lengths", in pixels. These specify the angular resolution of
+  the image, in pixels/radian
+
+- cx, cy: pixel coordinates corresponding to the projection of p = [0,0,1]
+
+- get_gradients: optional boolean, defaults to False. This affects what we
+  return (see below)
+
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing arrays,
+  specify them with the 'out' kwarg. If not get_gradients: 'out' is the one
+  numpy array we will write into. Else: 'out' is a tuple of all the output numpy
+  arrays. If 'out' is given, we return the same arrays passed in. This is the
+  standard behavior provided by numpysane_pywrap.
+
+RETURNED VALUE
+
+if not get_gradients: we return an (...,2) array of projected transverse
+equirectangular coordinates
+
+if get_gradients: we return a tuple:
+
+  - (...,2) array of projected transverse equirectangular coordinates
+  - (...,2,3) array of the gradients of the transverse equirectangular
+    coordinates in respect to the input 3D point positions
+
+    '''
+
+    # Internal function must have a different argument order so
+    # that all the broadcasting stuff is in the leading arguments
+    if not get_gradients:
+        return mrcal._mrcal_npsp._project_latlon(points,
+                                                 fx=fx,
+                                                 fy=fy,
+                                                 cx=cx,
+                                                 cy=cy,
+                                                 out=out)
+    return mrcal._mrcal_npsp._project_latlon_withgrad(points,
+                                                      fx=fx,
+                                                      fy=fy,
+                                                      cx=cx,
+                                                      cy=cy,
+                                                      out=out)
+
+
+def unproject_latlon(points,
+                     fx, fy, cx, cy,
+                     get_gradients = False,
+                     out           = None):
+    r'''Unprojects 2D pixel coordinates using a transverse equirectangular projection
+
+SYNOPSIS
+
+    # points is a (N,2) array of imager points
+    v = mrcal.unproject_latlon( points,
+                                fx, fy, cx, cy )
+
+    # v is now a (N,3) array of observation directions in the camera coordinate
+    # system. v are normalized
+
+This is a special case of mrcal.unproject(). Useful not for representing lenses,
+but for performing stereo rectification. Lenses do not follow this model. See
+the lensmodel documentation for details:
+
+http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
+
+Given a (N,2) array of transverse equirectangular coordinates and the parameters
+fx,fy,cx,cy, this function computes the inverse projection, optionally with
+gradients.
+
+The vectors returned by this function are normalized.
+
+ARGUMENTS
+
+- points: array of dims (...,2); the transverse equirectangular coordinates
+  we're unprojecting. This supports broadcasting fully, and any leading
+  dimensions are allowed, including none
+
+- fx, fy: "focal-lengths", in pixels. These specify the angular resolution of
+  the image, in pixels/radian
+
+- cx, cy: pixel coordinates corresponding to the projection of p = [0,0,1]
+
+- get_gradients: optional boolean, defaults to False. This affects what we
+  return (see below)
+
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing arrays,
+  specify them with the 'out' kwarg. If not get_gradients: 'out' is the one
+  numpy array we will write into. Else: 'out' is a tuple of all the output numpy
+  arrays. If 'out' is given, we return the same arrays passed in. This is the
+  standard behavior provided by numpysane_pywrap.
+
+RETURNED VALUE
+
+if not get_gradients: we return an (...,3) array of unprojected observation
+vectors. These are normalized.
+
+if get_gradients: we return a tuple:
+
+  - (...,3) array of unprojected observation vectors. These are normalized.
+  - (...,3,2) array of the gradients of the observation vectors in respect to
+    the input 2D transverse equirectangular coordinates
+
+    '''
+    if not get_gradients:
+        return mrcal._mrcal_npsp._unproject_latlon(points,
+                                                   fx=fx,
+                                                   fy=fy,
+                                                   cx=cx,
+                                                   cy=cy,
+                                                   out=out)
+    return mrcal._mrcal_npsp._unproject_latlon_withgrad(points,
                                                         fx=fx,
                                                         fy=fy,
                                                         cx=cx,

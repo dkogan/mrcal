@@ -158,6 +158,44 @@ axis, which produces the same, usual $\vec q$. However, this projection doesn't
 represent a lens and there is no "camera" or an "optical axis". The view may be
 centered anywhere, so $c_x$ and $c_y$ could be anything, even negative.
 
+This projection has a singularity at the poles, approached as $y \rightarrow \pm
+\infty$
+
+** =LENSMODEL_LATLON=
+:PROPERTIES:
+:CUSTOM_ID: lensmodel-latlon
+:END:
+
+This is a "transverse equirectangular projection". It works just like
+[[#lensmodel-lonlat][=LENSMODEL_LONLAT=]], but rotated 90 degrees. So instead of a globe oriented as
+usual with a vertical North-South axis, this projection has a horizontal
+North-South axis. The projected $x$ coordinate corresponds to the latitude, and
+the projected $y$ coordinate corresponds to the longitude.
+
+As with [[#lensmodel-lonlat][=LENSMODEL_LONLAT=]], lenses do not follow this model. It is useful as the
+core of a rectified view used in stereo processing. The full projection
+expression to map a camera-coordinate point $\vec p$ to an image pixel $\vec q$:
+
+\[
+\vec q =
+\left[ \begin{aligned}
+f_x \, \mathrm{lat} + c_x \\
+f_y \, \mathrm{lon} + c_y
+\end{aligned} \right]
+=
+\left[ \begin{aligned}
+f_x \sin^{-1}\left(\frac{p_x}{\left|\vec p\right|}\right) + c_x \\
+f_y \tan^{-1}\left(\frac{p_y}{p_z}\right) + c_y
+\end{aligned} \right]
+\]
+
+As with [[#lensmodel-lonlat][=LENSMODEL_LONLAT=]], $f_x$ and $f_y$ specify the angular resolution, in
+pixels/radian. And $c_x$ and $c_y$ specify the projection at the optical axis
+$\vec p = \left[ \begin{aligned} 0 \\ 0 \\ 1 \end{aligned} \right]$.
+
+This projection has a singularity at the poles, approached as $x \rightarrow \pm
+\infty$
+
 ** =LENSMODEL_OPENCV4=, =LENSMODEL_OPENCV5=, =LENSMODEL_OPENCV8=, =LENSMODEL_OPENCV12=
 :PROPERTIES:
 :CUSTOM_ID: lensmodel-opencv

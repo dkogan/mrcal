@@ -32,11 +32,8 @@ from test_calibration_helpers import grad
 
 if len(sys.argv) != 2:
     raise Exception("Need one argument on the commandline: the projection type. Currently I support 'lonlat','stereographic'")
-if   sys.argv[1] == 'lonlat':
-    lensmodel      = 'LENSMODEL_LONLAT'
-    func_project   = mrcal.project_lonlat
-    func_unproject = mrcal.unproject_lonlat
-    name           = 'lonlat'
+if   sys.argv[1] == 'lonlat' or \
+     sys.argv[1] == 'latlon':
 
     # pixels/rad
     fx,fy = 3000., 2000.
@@ -49,11 +46,27 @@ if   sys.argv[1] == 'lonlat':
                   (-1.1, 0.3, -1.0),
                   (-0.9, -1.5, -1.0)))
 
-    q_projected_ref = np.array([[ -9700.99404253,   4392.88198287],
-                                [-16925.83416075,   4398.25498944],
-                                [-17226.33265541,   2320.61601685]])
-
     unproject_is_normalized = True
+
+    if sys.argv[1] == 'lonlat':
+        lensmodel      = 'LENSMODEL_LONLAT'
+        func_project   = mrcal.project_lonlat
+        func_unproject = mrcal.unproject_lonlat
+        name           = 'lonlat'
+
+        q_projected_ref = np.array([[ -9700.99404253,   4392.88198287],
+                                    [-16925.83416075,   4398.25498944],
+                                    [-17226.33265541,   2320.61601685]])
+
+    else:
+        lensmodel      = 'LENSMODEL_LATLON'
+        func_project   = mrcal.project_latlon
+        func_unproject = mrcal.unproject_latlon
+        name           = 'latlon'
+
+        q_projected_ref = np.array([[ -9706.7632608 ,   4394.7911197 ],
+                                    [-12434.4909092 ,   9700.27171822],
+                                    [-11389.09468198,   -317.59786068]])
 
 elif sys.argv[1] == 'stereographic':
     lensmodel      = 'LENSMODEL_STEREOGRAPHIC'

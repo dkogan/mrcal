@@ -22,6 +22,7 @@
     _(LENSMODEL_PINHOLE,               4)                                        \
     _(LENSMODEL_STEREOGRAPHIC,         4)  /* Simple stereographic-only model */ \
     _(LENSMODEL_LONLAT,                4)                                        \
+    _(LENSMODEL_LATLON,                4)                                        \
     _(LENSMODEL_OPENCV4,               8)                                        \
     _(LENSMODEL_OPENCV5,               9)                                        \
     _(LENSMODEL_OPENCV8,               12)                                       \
@@ -39,6 +40,7 @@
 typedef struct {} mrcal_LENSMODEL_PINHOLE__config_t;
 typedef struct {} mrcal_LENSMODEL_STEREOGRAPHIC__config_t;
 typedef struct {} mrcal_LENSMODEL_LONLAT__config_t;
+typedef struct {} mrcal_LENSMODEL_LATLON__config_t;
 typedef struct {} mrcal_LENSMODEL_OPENCV4__config_t;
 typedef struct {} mrcal_LENSMODEL_OPENCV5__config_t;
 typedef struct {} mrcal_LENSMODEL_OPENCV8__config_t;
@@ -388,6 +390,50 @@ void mrcal_project_lonlat( // output
 // if (dv_dq != NULL) we report the gradient dv/dq in a dense (N,3,2) array
 // ((N,3) mrcal_point2_t objects).
 void mrcal_unproject_lonlat( // output
+                            mrcal_point3_t* v,
+                            mrcal_point2_t* dv_dq, // May be NULL. Each point
+                                                   // gets a block of 3 mrcal_point2_t
+                                                   // objects
+
+                            // input
+                            const mrcal_point2_t* q,
+                            int N,
+                            double fx, double fy,
+                            double cx, double cy);
+
+
+// Project the given camera-coordinate-system points using a transverse
+// equirectangular projection. See the docs for projection details:
+// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
+//
+// This is a simplified special case of mrcal_project(). We project N
+// camera-coordinate-system points p to N pixel coordinates q
+//
+// if (dq_dp != NULL) we report the gradient dq/dp in a dense (N,2,3) array
+// ((N,2) mrcal_point3_t objects).
+void mrcal_project_latlon( // output
+                           mrcal_point2_t* q,
+                           mrcal_point3_t* dq_dv, // May be NULL. Each point
+                                                  // gets a block of 2 mrcal_point3_t
+                                                  // objects
+
+                           // input
+                           const mrcal_point3_t* v,
+                           int N,
+                           double fx, double fy,
+                           double cx, double cy);
+
+// Unproject the given pixel coordinates using a transverse equirectangular
+// projection. See the docs for projection details:
+// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
+//
+// This is a simplified special case of mrcal_unproject(). We unproject N 2D
+// pixel coordinates q to N camera-coordinate-system vectors v. The returned
+// vectors v are normalized.
+//
+// if (dv_dq != NULL) we report the gradient dv/dq in a dense (N,3,2) array
+// ((N,3) mrcal_point2_t objects).
+void mrcal_unproject_latlon( // output
                             mrcal_point3_t* v,
                             mrcal_point2_t* dv_dq, // May be NULL. Each point
                                                    // gets a block of 3 mrcal_point2_t

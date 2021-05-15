@@ -447,7 +447,7 @@ unproject_withgrad_simple_code = '''
                                         *fx,*fy,*cx,*cy);
             return true;'''
 
-for what in ('stereographic', 'lonlat'):
+for what in ('stereographic', 'lonlat', 'latlon'):
     m.function( f"_project_{what}",
                 project_simple_doc.format(what = what),
                 Ccode_slice_eval = {np.float64:
