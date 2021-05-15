@@ -133,7 +133,7 @@ panoramic images. This works just like latitude an longitude on a globe, with a
 linear angular map on latitude and longitude. The 4 intrinsics core parameters
 are used to linearly map latitude, longitude to pixel coordinates. The full
 projection expression to map a camera-coordinate point $\vec p$ to an image
-pixel $vec q$:
+pixel $\vec q$:
 
 \[
 \vec q =
@@ -148,11 +148,15 @@ f_y \sin^{-1}\left(\frac{p_y}{\left|\vec p\right|}\right) + c_y
 \end{aligned} \right]
 \]
 
-So $f_x$ and $f_y$ specify the angular resolution, in pixels/radian. The offsets
-$c_x$ and $c_y$ specify the pixel coordinates in the "forward" direction: $\vec
-p = \left[ \begin{aligned} 0 \\ 0 \\ 1 \end{aligned} \right]$. This projection
-doesn't represent a lens, and there is not "camera", so $c_x$ and $c_y$ could be
-anything, even negative; depending on what's being represented.
+So $f_x$ and $f_y$ specify the angular resolution, in pixels/radian.
+
+For normal lens models the optical axis is at $\vec p = \left[ \begin{aligned} 0
+\\ 0 \\ 1 \end{aligned} \right]$, and projects to roughly the center of the
+image, roughly at $\vec q = \left[ \begin{aligned} c_x \\ c_y \end{aligned}
+\right]$. /This/ model has $\mathrm{lon} = \mathrm{lat} = 0$ at the optical
+axis, which produces the same, usual $\vec q$. However, this projection doesn't
+represent a lens and there is no "camera" or an "optical axis". The view may be
+centered anywhere, so $c_x$ and $c_y$ could be anything, even negative.
 
 ** =LENSMODEL_OPENCV4=, =LENSMODEL_OPENCV5=, =LENSMODEL_OPENCV8=, =LENSMODEL_OPENCV12=
 :PROPERTIES:
