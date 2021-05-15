@@ -129,12 +129,36 @@ else:
                              msg = f"unproject_{name}()",
                              worstcase = True)
 
+    # Not normalized by default. Make sure that if I ask for it to be
+    # normalized, that it is
+    testutils.confirm_equal( nps.mag( mrcal.unproject(q_projected, *intrinsics, normalize = True) ),
+                             1.,
+                             msg = f"unproject({name},normalize = True) returns normalized vectors",
+                             worstcase = True,
+                             relative  = True)
+    testutils.confirm_equal( nps.mag( mrcal.unproject(q_projected, *intrinsics, normalize = True, get_gradients = True)[0] ),
+                             1.,
+                             msg = f"unproject({name},normalize = True, get_gradients=True) returns normalized vectors",
+                             worstcase = True,
+                             relative  = True)
 
 
 
 testutils.confirm_equal( mrcal.unproject(q_projected, *intrinsics),
                          v_unprojected,
                          msg = f"unproject({name}) returns the same as unproject_{name}()",
+                         worstcase = True,
+                         relative  = True)
+
+testutils.confirm_equal( mrcal.project(mrcal.unproject(q_projected, *intrinsics),*intrinsics),
+                         q_projected,
+                         msg = f"project(unproject()) is an identity",
+                         worstcase = True,
+                         relative  = True)
+
+testutils.confirm_equal( func_project(func_unproject(q_projected,fx,fy,cx,cy),fx,fy,cx,cy),
+                         q_projected,
+                         msg = f"project_{name}(unproject_{name}()) is an identity",
                          worstcase = True,
                          relative  = True)
 
@@ -176,43 +200,50 @@ testutils.confirm_equal(dv_dq_reported,
                         msg = f"unproject_{name}() dv/dq",
                         worstcase = True,
                         relative  = True)
-v_unprojected,dv_dq_reported,dv_di_reported = mrcal.unproject(q_projected[ipt], *intrinsics, get_gradients=True)
-dv_dq_observed = grad(lambda q: mrcal.unproject(q, *intrinsics),
-                      q_projected[ipt])
-dv_di_observed = grad(lambda intrinsics_data: mrcal.unproject(q_projected[ipt], intrinsics[0],intrinsics_data),
-                      intrinsics[1])
-testutils.confirm_equal(dv_dq_reported,
-                        dv_dq_observed,
-                        msg = f"unproject({name}) dv/dq",
-                        worstcase = True,
-                        relative  = True)
-testutils.confirm_equal(dv_di_reported,
-                        dv_di_observed,
-                        msg = f"unproject({name}) dv/di",
-                        worstcase = True,
-                        relative  = True,
-                        eps = 1e-5)
 
-v_unprojected_inplace  = v_unprojected.copy() *0
-dv_dq_reported_inplace = dv_dq_reported.copy()*0
-dv_di_reported_inplace = dv_di_reported.copy()*0
 
-mrcal.unproject(q_projected[ipt], *intrinsics, get_gradients=True,
-                out = [v_unprojected_inplace,dv_dq_reported_inplace,dv_di_reported_inplace])
-testutils.confirm_equal(v_unprojected_inplace,
-                        v_unprojected,
-                        msg = f"unproject({name}) works in-place: v_unprojected",
-                        worstcase = True,
-                        relative  = True)
-testutils.confirm_equal(dv_dq_reported_inplace,
-                        dv_dq_reported,
-                        msg = f"unproject({name}) works in-place: dv_dq",
-                        worstcase = True,
-                        relative  = True)
-testutils.confirm_equal(dv_di_reported_inplace,
-                        dv_di_reported,
-                        msg = f"unproject({name}) works in-place: dv_di",
-                        worstcase = True,
-                        relative  = True)
+for normalize in (False, True):
+
+    v_unprojected,dv_dq_reported,dv_di_reported = \
+        mrcal.unproject(q_projected[ipt], *intrinsics,
+                        get_gradients = True,
+                        normalize = normalize)
+    dv_dq_observed = grad(lambda q: mrcal.unproject(q, *intrinsics, normalize=normalize),
+                          q_projected[ipt])
+    dv_di_observed = grad(lambda intrinsics_data: mrcal.unproject(q_projected[ipt], intrinsics[0],intrinsics_data, normalize=normalize),
+                          intrinsics[1])
+    testutils.confirm_equal(dv_dq_reported,
+                            dv_dq_observed,
+                            msg = f"unproject({name}, normalize={normalize}) dv/dq",
+                            worstcase = True,
+                            relative  = True)
+    testutils.confirm_equal(dv_di_reported,
+                            dv_di_observed,
+                            msg = f"unproject({name}, normalize={normalize}) dv/di",
+                            worstcase = True,
+                            relative  = True,
+                            eps = 1e-5)
+
+    v_unprojected_inplace  = v_unprojected.copy() *0
+    dv_dq_reported_inplace = dv_dq_reported.copy()*0
+    dv_di_reported_inplace = dv_di_reported.copy()*0
+
+    mrcal.unproject(q_projected[ipt], *intrinsics, get_gradients=True, normalize=normalize,
+                    out = [v_unprojected_inplace,dv_dq_reported_inplace,dv_di_reported_inplace])
+    testutils.confirm_equal(v_unprojected_inplace,
+                            v_unprojected,
+                            msg = f"unproject({name}, normalize={normalize}) works in-place: v_unprojected",
+                            worstcase = True,
+                            relative  = True)
+    testutils.confirm_equal(dv_dq_reported_inplace,
+                            dv_dq_reported,
+                            msg = f"unproject({name}, normalize={normalize}) works in-place: dv_dq",
+                            worstcase = True,
+                            relative  = True)
+    testutils.confirm_equal(dv_di_reported_inplace,
+                            dv_di_reported,
+                            msg = f"unproject({name}, normalize={normalize}) works in-place: dv_di",
+                            worstcase = True,
+                            relative  = True)
 
 testutils.finish()
