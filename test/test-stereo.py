@@ -27,18 +27,30 @@ model1.extrinsics_rt_toref( mrcal.compose_rt(model0.extrinsics_rt_toref(),
 
 az_fov_deg = 90
 el_fov_deg = 50
-rectification_maps,cookie = \
-    mrcal.stereo_rectify_prepare( (model0, model1),
-                                  az_fov_deg = az_fov_deg,
-                                  el_fov_deg = el_fov_deg,
-                                  pixels_per_deg_az = -1./8.,
-                                  pixels_per_deg_el = -1./4.)
-Rt_cam0_stereo = cookie['Rt_cam0_stereo']
+models_rectified = \
+    mrcal.rectified_system( (model0, model1),
+                            az_fov_deg = az_fov_deg,
+                            el_fov_deg = el_fov_deg,
+                            pixels_per_deg_az = -1./8.,
+                            pixels_per_deg_el = -1./4.)
+try:
+    mrcal.stereo._validate_models_rectified(models_rectified)
+    testutils.confirm(True,
+                      msg='Generated models pass validation')
+except:
+    testutils.confirm(False,
+                      msg='Generated models pass validation')
+
+Rt_cam0_stereo = mrcal.compose_Rt( model0.extrinsics_Rt_fromref(),
+                                   models_rectified[0].extrinsics_Rt_toref())
+Rt01_rectified = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
+                                   models_rectified[1].extrinsics_Rt_toref())
+fxycxy = models_rectified[0].intrinsics()[1]
 
 testutils.confirm_equal(Rt_cam0_stereo, mrcal.identity_Rt(),
                         msg='vanilla stereo has a vanilla geometry')
 
-testutils.confirm_equal( cookie['baseline'],
+testutils.confirm_equal( Rt01_rectified[3,0],
                          nps.mag(rt01[3:]),
                          msg='vanilla stereo: baseline')
 
@@ -46,47 +58,15 @@ q0,q0x,q0y = mrcal.project( np.array(((0,      0,1.),
                                       (1e-6,   0,1.),
                                       (0,   1e-6, 1.))), *model0.intrinsics() )
 
-testutils.confirm_equal(cookie['pixels_per_deg_az'] * 8.,
+testutils.confirm_equal(fxycxy[0] * np.pi/180. * 8.,
                         (q0x-q0)[0] / 1e-6 * np.pi/180.,
-                        msg='vanilla stereo: correct az pixel density')
+                        msg='vanilla stereo: correct az pixel density',
+                        eps = 0.05)
 
-testutils.confirm_equal(cookie['pixels_per_deg_el'] * 4.,
+testutils.confirm_equal(fxycxy[1] * np.pi/180. * 4.,
                         (q0y-q0)[1] / 1e-6 * np.pi/180.,
-                        msg='vanilla stereo: correct el pixel density')
-
-testutils.confirm_equal(cookie['az_row'].ndim, 1,
-                        msg='correct az shape')
-Naz = cookie['az_row'].shape[0]
-
-testutils.confirm_equal(cookie['el_col'].ndim, 2,
-                        msg='correct el shape')
-testutils.confirm_equal(cookie['el_col'].shape[-1], 1,
-                        msg='correct el shape')
-Nel = cookie['el_col'].shape[0]
-
-testutils.confirm_equal( cookie['az_row'][-1] - cookie['az_row'][0],
-                         az_fov_deg * np.pi/180.,
-                         relative = True,
-                         eps = 0.01,
-                         msg='az_fov_deg')
-
-testutils.confirm_equal( cookie['el_col'][-1,0] - cookie['el_col'][0,0],
-                         el_fov_deg * np.pi/180.,
-                         relative = True,
-                         eps = 0.01,
-                         msg='el_fov_deg')
-
-testutils.confirm_equal( cookie['az_row'][1] - cookie['az_row'][0],
-                         np.pi/180./cookie['pixels_per_deg_az'],
-                         relative = True,
-                         eps = 0.01,
-                         msg='az spacing')
-
-testutils.confirm_equal( cookie['el_col'][1] - cookie['el_col'][0],
-                         np.pi/180./cookie['pixels_per_deg_el'],
-                         relative = True,
-                         eps = 0.01,
-                         msg='el spacing')
+                        msg='vanilla stereo: correct el pixel density',
+                        eps = 0.05)
 
 
 # Weirder geometry. Left-right stereo, with sizeable rotation and position fuzz.
@@ -94,14 +74,25 @@ testutils.confirm_equal( cookie['el_col'][1] - cookie['el_col'][0],
 rt01 = np.array((0.1, 0.2, 0.05,  3.0, 0.2, 1.0))
 model1.extrinsics_rt_toref( mrcal.compose_rt(model0.extrinsics_rt_toref(),
                                              rt01))
-rectification_maps,cookie = \
-    mrcal.stereo_rectify_prepare( (model0, model1),
-                                  az_fov_deg = az_fov_deg,
-                                  el_fov_deg = el_fov_deg,
-                                  pixels_per_deg_az = -1./8.,
-                                  pixels_per_deg_el = -1./4.)
-Rt_cam0_stereo = cookie['Rt_cam0_stereo']
+models_rectified = \
+    mrcal.rectified_system( (model0, model1),
+                            az_fov_deg = az_fov_deg,
+                            el_fov_deg = el_fov_deg,
+                            pixels_per_deg_az = -1./8.,
+                            pixels_per_deg_el = -1./4.)
+try:
+    mrcal.stereo._validate_models_rectified(models_rectified)
+    testutils.confirm(True,
+                      msg='Generated models pass validation')
+except:
+    testutils.confirm(False,
+                      msg='Generated models pass validation')
 
+Rt_cam0_stereo = mrcal.compose_Rt( model0.extrinsics_Rt_fromref(),
+                                   models_rectified[0].extrinsics_Rt_toref())
+Rt01_rectified = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
+                                   models_rectified[1].extrinsics_Rt_toref())
+fxycxy = models_rectified[0].intrinsics()[1]
 
 # I visualized the geometry, and confirmed that it is correct. The below array
 # is the correct-looking geometry
@@ -117,22 +108,22 @@ Rt_cam0_stereo = cookie['Rt_cam0_stereo']
 # print(repr(Rt_cam0_stereo))
 
 testutils.confirm_equal(Rt_cam0_stereo,
-                        np.array([[ 0.9467916 , -0.08583181, -0.31019116],
-                                  [ 0.06311944,  0.99458609, -0.08254964],
-                                  [ 0.3155972 ,  0.05857821,  0.94708342],
-                                  [ 0.        ,  0.        ,  0.        ]]),
+                        np.array([[ 0.9467916 , -0.08500675, -0.31041828],
+                                  [ 0.06311944,  0.99480206, -0.07990489],
+                                  [ 0.3155972 ,  0.05605985,  0.94723582],
+                                  [ 0.        , -0.        , -0.        ]]),
                         msg='funny stereo geometry')
 
-testutils.confirm_equal( cookie['baseline'],
+testutils.confirm_equal( Rt01_rectified[3,0],
                          nps.mag(rt01[3:]),
                          msg='funny stereo: baseline')
-
 
 # I examine points somewhere in space. I make sure the rectification maps
 # transform it properly. And I compute what its az,el and disparity would have
 # been, and I check the geometric functions
 pcam0 = np.array(((  1., 2., 10.),
-                  (-4.,  3., 10.)))
+                   (-4., 3., 10.)))
+
 qcam0 = mrcal.project( pcam0, *model0.intrinsics() )
 
 pcam1 = mrcal.transform_point_rt(mrcal.invert_rt(rt01), pcam0)
@@ -143,39 +134,41 @@ pstereo0 = mrcal.transform_point_Rt( mrcal.invert_Rt(Rt_cam0_stereo), pcam0)
 el0 = np.arctan2(pstereo0[:,1], pstereo0[:,2])
 az0 = np.arctan2(pstereo0[:,0], pstereo0[:,2] / np.cos(el0))
 
-pstereo1 = pstereo0 - np.array((cookie['baseline'], 0, 0))
+pstereo1 = pstereo0 - Rt01_rectified[3,:]
 el1 = np.arctan2(pstereo1[:,1], pstereo1[:,2])
 az1 = np.arctan2(pstereo1[:,0], pstereo1[:,2] / np.cos(el1))
 
-disparity = az0 - az1
+Naz,Nel = models_rectified[0].imagersize()
+az_row = (np.arange(Naz, dtype=float) - fxycxy[2]) / fxycxy[0]
+el_col = (np.arange(Nel, dtype=float) - fxycxy[3]) / fxycxy[1]
 
+rectification_maps = mrcal.rectification_maps((model0,model1),
+                                              models_rectified)
 
 interp_rectification_map0x = \
-    scipy.interpolate.RectBivariateSpline(cookie['az_row'].ravel(),
-                                          cookie['el_col'].ravel(),
+    scipy.interpolate.RectBivariateSpline(az_row, el_col,
                                           nps.transpose(rectification_maps[0][...,0]))
 interp_rectification_map0y = \
-    scipy.interpolate.RectBivariateSpline(cookie['az_row'].ravel(),
-                                          cookie['el_col'].ravel(),
+    scipy.interpolate.RectBivariateSpline(az_row, el_col,
                                           nps.transpose(rectification_maps[0][...,1]))
 interp_rectification_map1x = \
-    scipy.interpolate.RectBivariateSpline(cookie['az_row'].ravel(),
-                                          cookie['el_col'].ravel(),
+    scipy.interpolate.RectBivariateSpline(az_row, el_col,
                                           nps.transpose(rectification_maps[1][...,0]))
 interp_rectification_map1y = \
-    scipy.interpolate.RectBivariateSpline(cookie['az_row'].ravel(),
-                                          cookie['el_col'].ravel(),
+    scipy.interpolate.RectBivariateSpline(az_row, el_col,
                                           nps.transpose(rectification_maps[1][...,1]))
 
-qrect0 = nps.transpose( nps.cat( interp_rectification_map0x(az0,el0, grid=False),
-                                 interp_rectification_map0y(az0,el0, grid=False) ) )
-qrect1 = nps.transpose( nps.cat( interp_rectification_map1x(az1,el1, grid=False),
-                                 interp_rectification_map1y(az1,el1, grid=False) ) )
+qcam0_from_map = \
+    nps.transpose( nps.cat( interp_rectification_map0x(az0,el0, grid=False),
+                            interp_rectification_map0y(az0,el0, grid=False) ) )
+qcam1_from_map = \
+    nps.transpose( nps.cat( interp_rectification_map1x(az1,el1, grid=False),
+                            interp_rectification_map1y(az1,el1, grid=False) ) )
 
-testutils.confirm_equal( qrect0, qcam0,
+testutils.confirm_equal( qcam0_from_map, qcam0,
                          eps=1e-1,
                          msg='rectification map for camera 0 points')
-testutils.confirm_equal( qrect1, qcam1,
+testutils.confirm_equal( qcam1_from_map, qcam1,
                          eps=1e-1,
                          msg='rectification map for camera 1 points')
 
@@ -183,33 +176,12 @@ testutils.confirm_equal( qrect1, qcam1,
 testutils.confirm_equal( el0, el1,
                          msg='elevations of the same observed point match')
 
-
-r = mrcal.stereo_range( disparity * 180./np.pi * cookie['pixels_per_deg_az'],
-                        az = az0,
-                        **cookie )
+disparity = az0 - az1
+r = mrcal.stereo_range( disparity * fxycxy[0],
+                        models_rectified,
+                        az_deg = az0 * 180./np.pi )
 
 testutils.confirm_equal( r, nps.mag(pcam0),
                          msg=f'stereo_range reports the right thing')
-
-v0 = mrcal.stereo_unproject(az0, el0)
-testutils.confirm_equal( v0, pstereo0/nps.dummy(nps.mag(pstereo0), -1),
-                         msg=f'stereo_unproject reports the right vector')
-
-v0,dv_dazel = mrcal.stereo_unproject(az0, el0, get_gradients = True)
-testutils.confirm_equal( v0, pstereo0/nps.dummy(nps.mag(pstereo0), -1),
-                         msg=f'stereo_unproject reports the right vector with get_gradients=True')
-
-v0az = mrcal.stereo_unproject(az0 + 1e-6, el0)
-v0el = mrcal.stereo_unproject(az0,        el0 + 1e-6)
-testutils.confirm_equal( dv_dazel[...,0], (v0az - v0) / 1e-6,
-                         msg=f'stereo_unproject az gradient')
-testutils.confirm_equal( dv_dazel[...,1], (v0el - v0) / 1e-6,
-                         msg=f'stereo_unproject el gradient')
-
-punproj = mrcal.stereo_unproject(az0, el0,
-                                 disparity_pixels = disparity * 180./np.pi * cookie['pixels_per_deg_az'],
-                                 **cookie)
-testutils.confirm_equal( punproj, pstereo0,
-                         msg=f'stereo_unproject can parse the disparity')
 
 testutils.finish()
