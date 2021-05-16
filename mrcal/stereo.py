@@ -341,7 +341,7 @@ direction in rectified coordinates.
     return models_rectified
 
 
-def _validate(models_rectified):
+def _validate_models_rectified(models_rectified):
     r'''Internal function to validate a rectified system
 
 These should have been returned by rectified_system(). Should have two
@@ -453,7 +453,7 @@ contains corresponding pixel coordinates in the input image
 
     '''
 
-    _validate(models_rectified)
+    _validate_models_rectified(models_rectified)
 
     Naz,Nel = models_rectified[0].imagersize()
     fxycxy  = models_rectified[0].intrinsics()[1]
@@ -622,7 +622,7 @@ RETURNED VALUES
 
     '''
 
-    _validate(models_rectified)
+    _validate_models_rectified(models_rectified)
 
     intrinsics = models_rectified[0].intrinsics()
 
