@@ -11,15 +11,15 @@ import numpy as np
 import numpysane as nps
 import mrcal
 
-def stereo_rectify_prepare(models,
-                           az_fov_deg,
-                           el_fov_deg,
-                           az0_deg           = None,
-                           el0_deg           = 0,
-                           pixels_per_deg_az = None,
-                           pixels_per_deg_el = None):
+def rectified_system(models,
+                     az_fov_deg,
+                     el_fov_deg,
+                     az0_deg           = None,
+                     el0_deg           = 0,
+                     pixels_per_deg_az = None,
+                     pixels_per_deg_el = None):
 
-    r'''Precompute everything needed for stereo rectification and matching
+    r'''Build rectified models for stereo rectification
 
 SYNOPSIS
 
@@ -28,44 +28,27 @@ SYNOPSIS
     import cv2
     import numpy as np
 
-    # Read commandline arguments: model0 model1 image0 image1
-    models = [ mrcal.cameramodel(sys.argv[i]) \
-               for i in (1,2) ]
+    models = [ mrcal.cameramodel(f) \
+               for f in ('left.cameramodel',
+                         'right.cameramodel') ]
 
-    images = [ cv2.imread(sys.argv[i]) \
-               for i in (3,4) ]
+    images = [ cv2.imread(f) \
+               for f in ('left.jpg', 'right.jpg') ]
 
-    # Prepare the stereo system
-    rectification_maps,cookie = \
-        mrcal.stereo_rectify_prepare(models,
-                                     az_fov_deg = 120,
-                                     el_fov_deg = 100)
+    models_rectified = \
+        mrcal.rectified_system(models,
+                               az_fov_deg = 120,
+                               el_fov_deg = 100)
 
-    # Visualize the geometry of the two cameras and of the rotated stereo
-    # coordinate system
-    Rt_cam0_ref    = models[0].extrinsics_Rt_fromref()
-    Rt_cam0_stereo = cookie['Rt_cam0_stereo']
-    Rt_stereo_ref  = mrcal.compose_Rt( mrcal.invert_Rt(Rt_cam0_stereo),
-                                       Rt_cam0_ref )
-    rt_stereo_ref  = mrcal.rt_from_Rt(Rt_stereo_ref)
+    rectification_maps = mrcal.rectification_maps(models, models_rectified)
 
-    mrcal.show_geometry( models + [ rt_stereo_ref ],
-                         ( "camera0", "camera1", "stereo" ),
-                         show_calobjects = False,
-                         wait            = True )
-
-    # Rectify the images
-    images_rectified = \
-      [ mrcal.transform_image(images[i], rectification_maps[i]) \
-        for i in range(2) ]
-
-    cv2.imwrite('/tmp/rectified0.jpg', images_rectified[0])
-    cv2.imwrite('/tmp/rectified1.jpg', images_rectified[1])
+    images_rectified = [ mrcal.transform_image(images[i], rectification_maps[i]) \
+                         for i in range(2) ]
 
     # Find stereo correspondences using OpenCV
     block_size = 3
     max_disp   = 160 # in pixels
-    stereo = \
+    matcher = \
         cv2.StereoSGBM_create(minDisparity      = 0,
                               numDisparities    = max_disp,
                               blockSize         = block_size,
@@ -76,127 +59,89 @@ SYNOPSIS
                               disp12MaxDiff     = 1,
                               speckleWindowSize = 50,
                               speckleRange      = 1)
-    disparity16 = stereo.compute(*images_rectified) # in pixels*16
+    disparity16 = matcher.compute(*images_rectified) # in pixels*16
 
-    cv2.imwrite('/tmp/disparity.png',
-                mrcal.apply_color_map(disparity16,
-                                      0, max_disp*16.))
-
-    # Convert the disparities to range to camera0
+    # Convert the disparities to range-to-camera0
     r = mrcal.stereo_range( disparity16.astype(np.float32) / 16.,
-                            **cookie )
+                            models_rectified )
 
-    cv2.imwrite('/tmp/range.png', mrcal.apply_color_map(r, 5, 1000))
+This function computes the geometry of a rectified system from the two
+cameramodels describing the stereo pair. The output is a pair of "rectified"
+models. Each of these is a normal mrcal.cameramodel object describing a camera
+somewhere in space, with some particular projection behavior. The pair of models
+returned here have the desired property that each row of pixels represents a
+plane in space AND each corresponding row in the pair of rectified images
+represents the SAME plane. The we can use the rectified models returned by this
+function to transform the input images into "rectified" images, and then we can
+perform stereo matching effiently, by treating each row independently.
 
-This function does the initial computation required to perform stereo matching,
-and to get ranges from a stereo pair. It computes
-
-- the pose of the rectified stereo coordinate system
-
-- the azimuth/elevation grid used in the rectified images
-
-- the rectification maps used to transform images into the rectified space
-
-Using the results of one call to this function we can compute the stereo
-disparities of many pairs of synchronized images.
-
-This function is generic: the two cameras may have any lens models, any
+This function is generic: the two input cameras may use any lens models, any
 resolution and any geometry. They don't even have to match. As long as there's
-some non-zero baseline and some overlapping views, we can set up stereo matching
-using this function. The input images are tranformed into a "rectified" space.
-Geometrically, the rectified coordinate system sits at the origin of camera0,
-with a rotation. The axes of the rectified coordinate system:
+some non-zero baseline and some overlapping views, we can run stereo processing.
 
-- x: from the origin of camera0 to the origin of camera1 (the baseline direction)
+The two rectified models describe the poses of the rectified cameras. Each
+rectified camera sits at the same position as the input camera, but with a
+different orientation. The orientations of the two cameras in the rectified
+system are identical. The only difference between the poses of the two rectified
+cameras is a translation of the second camera along the x axis. The axes of the
+rectified coordinate system:
+
+- x: from the origin of the first camera to the origin of the second camera (the
+  baseline direction)
 
 - y: completes the system from x,z
 
-- z: the "forward" direction of the two cameras, with the component parallel to
-     the baseline subtracted off
+- z: the mean "forward" direction of the two input cameras, with the component
+     parallel to the baseline subtracted off
 
-In a nominal geometry (the two cameras are square with each other, camera1
-strictly to the right of camera0), the rectified coordinate system exactly
-matches the coordinate system of camera0. The above formulation supports any
-geometry, however, including vertical and/or forward/backward shifts. Vertical
-stereo is supported.
+In a nominal geometry (the two cameras are square with each other, the second
+camera strictly to the right of the first camera), the geometry of the rectified
+models exactly matches the geometry of the input models. The above formulation
+supports any geometry, however, including vertical and/or forward/backward
+shifts. Vertical stereo is supported: we still run stereo matching on ROWS of
+the rectified images, but the rectification transformation will rotate the
+images by 90 degrees.
 
-Rectified images represent 3D planes intersecting the origins of the two
-cameras. The tilt of each plane is the "elevation". While the left/right
-direction inside each plane is the "azimuth". We generate rectified images where
-each pixel coordinate represents (x = azimuth, y = elevation). Thus each row
-scans the azimuths in a particular elevation, and thus each row in the two
-rectified images represents the same plane in 3D, and matching features in each
-row can produce a stereo disparity and a range.
-
-In the rectified system, elevation is a rotation along the x axis, while azimuth
-is a rotation normal to the resulting tilted plane.
-
-We produce rectified images whose pixel coordinates are linear with azimuths and
-elevations. This means that the azimuth angular resolution is constant
-everywhere, even at the edges of a wide-angle image.
-
-We return a set of transformation maps and a cookie. The maps can be used to
-generate rectified images. These rectified images can be processed by any
-stereo-matching routine to generate a disparity image. To interpret the
-disparity image, call stereo_unproject() or stereo_range() with the cookie
-returned here.
-
-The cookie is a Python dict that describes the rectified space. It is guaranteed
-to have the following keys:
-
-- Rt_cam0_stereo: an Rt transformation to map a representation of points in the
-  rectified coordinate system to a representation in the camera0 coordinate system
-
-- baseline: the distance between the two cameras
-
-- az_row: an array of shape (Naz,) describing the azimuths in each row of the
-  disparity image
-
-- el_col: an array of shape (Nel,1) describing the elevations in each column of
-  the disparity image
+The lensmodel used in the cameramodels we return is LENSMODEL_LATLON (described
+in detail here: http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon ).
+This lens model has even angular spacing between pixels and has the desired
+property of mapping rows of pixels to planes in space.
 
 ARGUMENTS
 
 - models: an iterable of two mrcal.cameramodel objects representing the cameras
-  in the stereo system. Any sane combination of lens models and resolutions and
+  in the stereo pair. Any sane combination of lens models and resolutions and
   geometries is valid
 
 - az_fov_deg: required value for the azimuth (along-the-baseline) field-of-view
-  of the desired rectified view, in pixels
+  of the desired rectified system, in degrees
 
 - el_fov_deg: required value for the elevation (across-the-baseline)
-  field-of-view of the desired rectified view, in pixels
+  field-of-view of the desired rectified system, in degrees
 
 - az0_deg: optional value for the azimuth center of the rectified images. This
   is especially significant in a camera system with some forward/backward shift.
   That causes the baseline to no longer be perpendicular with the view axis of
-  the cameras, and thus azimuth = 0 is no longer at the center of the input
-  images. If omitted, we compute the center azimuth that aligns with the center
-  of the cameras' view
+  the cameras, and thus the azimuth=0 vector no longer points "forward". If
+  omitted, we compute az0_deg to aligns the center of the rectified system with
+  the center of the two cameras' views
 
 - el0_deg: optional value for the elevation center of the rectified system.
   Defaults to 0.
 
 - pixels_per_deg_az: optional value for the azimuth resolution of the rectified
-  image. If omitted (or None), we use the resolution of the input image at
-  (azimuth, elevation) = 0. If a resolution of <0 is requested, we use this as a
-  scale factor on the resolution of the input image. For instance, to downsample
-  by a factor of 2, pass pixels_per_deg_az = -0.5. This value will be tweaked to
-  fit into the requested field-of-view with an integer number of pixels
+  image. If omitted (or None), we use the resolution of the input image at the
+  center of the rectified system. If a resolution of <0 is requested, we use
+  this as a scale factor on the resolution of the input image. For instance, to
+  downsample by a factor of 2, pass pixels_per_deg_az = -0.5
 
 - pixels_per_deg_el: same as pixels_per_deg_az but in the elevation direction
 
 RETURNED VALUES
 
-We return a tuple
-
-- transformation maps: a tuple of length-2 containing transformation maps for
-  each camera. Each map can be used to mrcal.transform_image() images to the
-  rectified space
-
-- cookie: a dict describing the rectified space. Intended as input to
-  stereo_unproject() and stereo_range(). See the description above for more
-  detail
+We return a tuple of mrcal.cameramodels describing the two rectified cameras.
+These two models are identical, except for a baseline translation in the +x
+direction in rectified coordinates.
 
     '''
 
@@ -210,10 +155,6 @@ We return a tuple
     ######## y: completes the system from x,z
     ######## z: component of the cameras' viewing direction
     ########    normal to the baseline
-    def normalize(v):
-        v /= nps.dummy(nps.mag(v), axis=-1)
-        return v
-
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref())
 
@@ -240,7 +181,8 @@ We return a tuple
     # optical-axis direction of the two cameras: component orthogonal to "right"
     forward01 = forward0 + forward1
     forward01_proj_right = nps.inner(forward01,right)
-    forward += normalize(forward01 - forward01_proj_right*right)
+    forward += forward01 - forward01_proj_right*right
+    forward /= nps.mag(forward)
 
     # "down" of the rectified coord system, in camera0 coords. Completes the
     # right,down,forward coordinate system
@@ -396,7 +338,129 @@ We return a tuple
                              imagersize = (Naz, Nel),
                              extrinsics_Rt_fromref = Rt_rect1_ref) )
 
-    ######### Build rectification maps
+    return models_rectified
+
+
+def _validate(models_rectified):
+    r'''Internal function to validate a rectified system
+
+These should have been returned by rectified_system(). Should have two
+LENSMODEL_LATLON cameras with identical intrinsics. extrinsics should be
+identical too EXCEPT for a baseline translation in the x rectified direction
+
+    '''
+
+    if len(models_rectified) != 2:
+        raise Exception(f"Must have received exactly two models. Got {len(models_rectified)} instead")
+
+    intrinsics = [m.intrinsics() for m in models_rectified]
+    Rt01 = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
+                             models_rectified[1].extrinsics_Rt_toref())
+
+    if intrinsics[0][0] != 'LENSMODEL_LATLON' or \
+       intrinsics[1][0] != 'LENSMODEL_LATLON':
+        raise Exception(f"Expected lensmodel 'LENSMODEL_LATLON' but got {intrinsics[0][0]} and {intrinsics[1][0]}")
+
+    if nps.norm2(intrinsics[0][1] - intrinsics[1][1]) > 1e-6:
+        raise Exception("The two rectified models MUST have the same intrinsics values")
+
+    imagersize_diff = \
+        np.array(models_rectified[0].imagersize()) - \
+        np.array(models_rectified[1].imagersize())
+    if imagersize_diff[0] != 0 or imagersize_diff[1] != 0:
+        raise Exceptions("The two rectified models MUST have the same imager size")
+
+    costh = (np.trace(Rt01[:3,:]) - 1.) / 2.
+    if costh < 0.999999:
+        raise Exception("The two rectified models MUST have the same relative rotation")
+
+    if nps.norm2(Rt01[3,1:]) > 1e-9:
+        raise Exception("The two rectified models MUST have a translation ONLY in the +x rectified direction")
+
+
+def rectification_maps(models,
+                       models_rectified):
+
+    r'''Construct image transformation maps to make rectified images
+
+SYNOPSIS
+
+    import sys
+    import mrcal
+    import cv2
+    import numpy as np
+
+    models = [ mrcal.cameramodel(f) \
+               for f in ('left.cameramodel',
+                         'right.cameramodel') ]
+
+    images = [ cv2.imread(f) \
+               for f in ('left.jpg', 'right.jpg') ]
+
+    models_rectified = \
+        mrcal.rectified_system(models,
+                               az_fov_deg = 120,
+                               el_fov_deg = 100)
+
+    rectification_maps = mrcal.rectification_maps(models, models_rectified)
+
+    images_rectified = [ mrcal.transform_image(images[i], rectification_maps[i]) \
+                         for i in range(2) ]
+
+    # Find stereo correspondences using OpenCV
+    block_size = 3
+    max_disp   = 160 # in pixels
+    matcher = \
+        cv2.StereoSGBM_create(minDisparity      = 0,
+                              numDisparities    = max_disp,
+                              blockSize         = block_size,
+                              P1                = 8 *3*block_size*block_size,
+                              P2                = 32*3*block_size*block_size,
+                              uniquenessRatio   = 5,
+
+                              disp12MaxDiff     = 1,
+                              speckleWindowSize = 50,
+                              speckleRange      = 1)
+    disparity16 = matcher.compute(*images_rectified) # in pixels*16
+
+    # Convert the disparities to range-to-camera0
+    r = mrcal.stereo_range( disparity16.astype(np.float32) / 16.,
+                            models_rectified )
+
+After the pair of rectified models has been built by mrcal.rectified_system(),
+this function can be called to compute the rectification maps. These can be
+passed to mrcal.transform_image() to remap input images into the rectified
+space.
+
+The documentation for mrcal.rectified_system() applies here.
+
+ARGUMENTS
+
+- models: an iterable of two mrcal.cameramodel objects representing the cameras
+  in the stereo pair
+
+- models_rectified: the pair of rectified models, corresponding to the input
+  images. Usually this is returned by mrcal.rectified_system()
+
+RETURNED VALUES
+
+We return a length-2 tuple of numpy arrays containing transformation maps for
+each camera. Each map can be used to mrcal.transform_image() images into
+rectified space. Each array contains 32-bit floats (as expected by
+mrcal.transform_image() and cv2.remap()). Each array has shape (Nel,Naz,2),
+where (Nel,Naz) is the shape of each rectified image. Each shape-(2,) row
+contains corresponding pixel coordinates in the input image
+
+    '''
+
+    _validate(models_rectified)
+
+    Naz,Nel = models_rectified[0].imagersize()
+    fxycxy  = models_rectified[0].intrinsics()[1]
+
+    Rt_cam_rect = [ mrcal.compose_Rt(models          [i].extrinsics_Rt_fromref(),
+                                     models_rectified[i].extrinsics_Rt_toref()) \
+                    for i in range(2) ]
 
     # This is massively inefficient. I should
     #
@@ -415,123 +479,140 @@ We return a tuple
                    0, -1)),
                                  *fxycxy)
 
-    v0 = nps.matmult( nps.dummy(v,  -2), R_rect0_cam0 )[...,0,:]
-    v1 = nps.matmult( nps.dummy(v,  -2), R_rect1_cam1 )[...,0,:]
-
-    cookie = \
-        dict( Rt_cam0_stereo    = nps.glue(R_cam0_rect0, np.zeros((3,)), axis=-2),
-              baseline          = baseline,
-              az_row            = az,
-              el_col            = el,
-
-              # The caller should NOT assume these are available in the cookie:
-              # some other rectification scheme may not produce linear az/el
-              # maps
-              pixels_per_deg_az = pixels_per_deg_az,
-              pixels_per_deg_el = pixels_per_deg_el,
-
-              models_rectified = models_rectified
-            )
+    v0 = mrcal.rotate_point_R(Rt_cam_rect[0][:3,:], v)
+    v1 = mrcal.rotate_point_R(Rt_cam_rect[1][:3,:], v)
 
     return                                                                \
         (mrcal.project( v0, *models[0].intrinsics()).astype(np.float32),  \
-         mrcal.project( v1, *models[1].intrinsics()).astype(np.float32)), \
-        cookie
+         mrcal.project( v1, *models[1].intrinsics()).astype(np.float32))
 
 
 def stereo_range(disparity_pixels,
-
-                 baseline,
-                 pixels_per_deg_az,
-
-                 az     = None,
-                 az_row = None,
-
-
-                 # to capture the remainder I don't need
-                 **kwargs):
+                 models_rectified,
+                 az_deg = None):
 
     r'''Compute ranges from observed disparities
 
 SYNOPSIS
 
-    ...
+    import sys
+    import mrcal
+    import cv2
+    import numpy as np
 
-    rectification_maps,cookie = \
-        mrcal.stereo_rectify_prepare(models, ...)
+    models = [ mrcal.cameramodel(f) \
+               for f in ('left.cameramodel',
+                         'right.cameramodel') ]
 
-    ...
+    images = [ cv2.imread(f) \
+               for f in ('left.jpg', 'right.jpg') ]
 
-    disparity16 = stereo.compute(*images_rectified) # in pixels*16
+    models_rectified = \
+        mrcal.rectified_system(models,
+                               az_fov_deg = 120,
+                               el_fov_deg = 100)
 
+    rectification_maps = mrcal.rectification_maps(models, models_rectified)
+
+    images_rectified = [ mrcal.transform_image(images[i], rectification_maps[i]) \
+                         for i in range(2) ]
+
+    # Find stereo correspondences using OpenCV
+    block_size = 3
+    max_disp   = 160 # in pixels
+    matcher = \
+        cv2.StereoSGBM_create(minDisparity      = 0,
+                              numDisparities    = max_disp,
+                              blockSize         = block_size,
+                              P1                = 8 *3*block_size*block_size,
+                              P2                = 32*3*block_size*block_size,
+                              uniquenessRatio   = 5,
+
+                              disp12MaxDiff     = 1,
+                              speckleWindowSize = 50,
+                              speckleRange      = 1)
+    disparity16 = matcher.compute(*images_rectified) # in pixels*16
+
+    # Convert the disparities to range-to-camera0
     r = mrcal.stereo_range( disparity16.astype(np.float32) / 16.,
-                            **cookie )
+                            models_rectified )
 
+As shown in the example above, we can perform stereo processing by building
+rectified models and transformation maps, rectifying our images, and then doing
+stereo matching to get pixel disparities. This function performs the last step:
+converting pixel disparities to ranges.
 
-See the docstring stereo_rectify_prepare() for a complete example, and for a
-description of the rectified space and the meaning of "azimuth" and "elevations"
-in this context.
+In the most common usage we take a full disparity IMAGE, and then convert it to
+a range IMAGE. In this common case we call
 
-The rectification maps from stereo_rectify_prepare() can be used to produce
-rectified images, which can then be processed by a stereo-matching routine to
-get a disparity image. The next step is converting the disparities to ranges,
-and is implemented by this function. If instead of ranges we want 3D points,
-call stereo_unproject() instead.
+    range_image = mrcal.stereo_range(disparity_image, models_rectified)
 
-In the most common usage we produce a disparity IMAGE, and then convert it to a
-range IMAGE. In this common case we can simply call
+If we aren't processing the full disparity image, we can pass in an array of
+azimuths in the "az_deg" argument. These must be broadcastable with the
+disparity_pixels argument. So we can pass in a scalar for disparity_pixels and
+az_deg. or we can pass in full shape (H,W) images for both. Or we can pass in a
+shape (H,W) image for disparity_pixels, but only a shape (W,) array for az_deg:
+this would use the same az value for a whole column of disparity_pixels, as
+dictated by the broadcasting rules. Such identical-az-in-a-column behavior is
+valid in our current rectification system.
 
-    r = mrcal.stereo_range(disparity, **cookie)
+A top view onto an epipolar plane:
 
-Where the cookie was returned to us by mrcal.stereo_rectify_prepare(). It is a
-dict that contains all the information needed to interpret the disparities.
+camera0
++ . . . .
+\ az0
+|----------------
+|               \--------------------
+|                         range      \-----------------------
+|                                                            \-------- p
+|                                                             a -----/
+|                                                         -----/
+|                                                   -----/
+|baseline                                     -----/
+|                                       -----/
+|                                 -----/
+|                           -----/
+|                     -----/
+|               -----/
+|         -----/
+|   -----/
+---/ az1
++. . . . .
+camera1
 
-If we aren't processing the full disparity IMAGE, we can still use this
-function. Pass in the disparities of any shape. And the corresponding azimuths
-in the "az" argument. The "az" and "disparity_pixels" arrays describe
-corresponding points. They may have identical dimensions. If there's any
-redundancy (if every row of the disparity array has identical azimuths for
-instance), then being broadcasting-compatible is sufficient. A very common case
-of this is disparity images. In this case the disparity array has shape
-(Nel,Naz), with each row containing an identical sequences of azimuths. We can
-then pass an azimuth array of shape (Naz,).
+The cameras are at the top-left and bottom-left of the figure, looking out to
+the right at a point p in space. The observation ray from camera0 makes an angle
+az0 with the "forward" direction (here az0 > 0), while the observation ray from
+camera1 makes an angle az1 (here az1 < 0). A disparity is a difference of
+azimuths: disparity ~ az0-az1.
 
-The azimuths may also be passed in the "az_row" argument. This is usually not
-done by the user directly, but via the **cookie from stereo_rectify_prepare().
-At least one of "az", "az_row" must be given. If both are given, we use "az".
+The law of sines tells us that
+
+    baseline / sin(a) = range / sin(90 + az1)
+
+Thus
+
+    range = baseline cos(az1) / sin(a) =
+          = baseline cos(az1) / sin( 180 - (90-az0 + 90+az1) ) =
+          = baseline cos(az1) / sin(az0 - az1) =
+          = baseline cos(az1) / sin(disparity)
+          = baseline cos(az0 - disparity) / sin(disparity)
 
 ARGUMENTS
 
-- disparity_pixels: the numpy array of disparities being processed. This
-  array contains disparity in PIXELS. If the stereo-matching algorithm you're
-  using reports a scaled value, you need to convert it to pixels, possibly
-  converting to floating-point in the process. Any array shape is supported. In
-  the common case of a disparity IMAGE, this is an array of shape (Nel, Naz)
+- disparity_pixels: a numpy array of disparities being processed. This array
+  contains disparity in PIXELS. If the stereo-matching algorithm you're using
+  reports a scaled value, you need to convert it to pixels. Usually this is a
+  floating-point array. Any array shape is supported. In the common case of a
+  disparity IMAGE, this is an array of shape (Nel, Naz)
 
-- baseline: the distance between the two stereo cameras. This is required, and
-  usually it comes from **cookie, with the cookie returned by
-  stereo_rectify_prepare()
+- models_rectified: the pair of rectified models, corresponding to the input
+  images. Usually this is returned by mrcal.rectified_system()
 
-- pixels_per_deg_az: the angular resolution of the disparity image. This is
-  required, and usually it comes from **cookie, with the cookie returned by
-  stereo_rectify_prepare(). Don't pass this yourself. This argument may go away
-  in the future
-
-- az: optional array of azimuths corresponding to the given disparities. If
-  processing normal disparity images, this can be omitted, and we'll use az_row
-  from **cookie, with the cookie returned by stereo_rectify_prepare(). If
-  processing anything other than a full disparity image, pass the azimuths here.
-  The az array must be broadcasting-compatible with disparity_pixels. The
-  dimensions of the two arrays may be identical, but brodcasting can be used to
-  exploit any redundancy. For instance, disparity images have shape (Nel, Naz)
-  with each row containing identical azimuths. We can thus work with az of shape
-  (Naz,). At least one of az and az_row must be non-None. If both are given, we
-  use az.
-
-- az_row: optional array of azimuths in the disparity_pixels array. Works
-  exactly like the "az" array. At least one MUST be given. If both are given, we
-  use "az". Usually az_row is not given by the user directly, but via a **cookie
-  from stereo_rectify_prepare()
+- az_deg: optional array of azimuths corresponding to the given disparities. By
+  default, a full disparity image is assumed. Otherwise we use the given
+  azimuths. The shape of this array must be broadcasting-compatible with the the
+  disparity_pixels array. See the description above.
 
 RETURNED VALUES
 
@@ -541,49 +622,34 @@ RETURNED VALUES
 
     '''
 
-    # +. . . . .
-    # |\__az0_________________________
-    # |                 range         \___________
-    # |                                       a  -
-    # |                                      ----/
-    # |                                 ----/
-    # | baseline                   ----/
-    # |                      -----/
-    # |                 ----/
-    # |            ----/
-    # |       ----/
-    # |  ----/ az1
-    # +-/. . . . . . . . . .
+    _validate(models_rectified)
 
-    # A disparity image is indexed by (azimuth,elevation). Each row of a
-    # disparity represents a plane tilted by a contant elevation angle. Inside
-    # each row, pixels linearly span a space of azimuths. A disparity is a
-    # difference of azimuths: disparity ~ az0-az1.
-    #
-    # I measure asimuth from the forward direction. In the above az0 > 0 and az1
-    # < 0
+    intrinsics = models_rectified[0].intrinsics()
 
-    #     baseline / sin(a) = range / sin(90 + az1)
+    fx  = intrinsics[1][0]
+    cx  = intrinsics[1][2]
 
-    # -->
+    W,H = models_rectified[0].imagersize()
+    if az_deg is None:
+        if disparity_pixels.shape != (H,W):
+            raise Exception(f"az_deg is None, so the disparity image must have the full dimensions of a rectified image")
 
-    #     range = baseline cos(az1) / sin(a) =
-    #           = baseline cos(az1) / sin( 180 - (90-az0 + 90+az1) ) =
-    #           = baseline cos(az1) / sin(az0 - az1) =
-    #           = baseline cos(az1) / sin(disparity)
-    #           = baseline cos(az0 - disparity) / sin(disparity)
+        az = (np.arange(W, dtype=float) - cx)/fx
 
-    if az is None:
-        if az_row is None:
-            raise Exception("At least one of (az, az_row) must be non-None.")
-        az = az_row
+    else:
+        az = az_deg * np.pi/180.
 
-    disparity_rad = disparity_pixels / pixels_per_deg_az / 180.*np.pi
+    pixels_per_rad_az = fx
+    disparity_rad = disparity_pixels / pixels_per_rad_az
 
     mask_invalid = (disparity_pixels <= 0)
 
     s = np.sin(disparity_rad)
     s[mask_invalid] = 1 # to prevent division by 0
+
+    Rt01 = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
+                             models_rectified[1].extrinsics_Rt_toref())
+    baseline = nps.mag(Rt01[3,:])
 
     r = baseline * np.cos(az - disparity_rad) / s
     r[mask_invalid] = 0

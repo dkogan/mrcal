@@ -37,24 +37,20 @@ else:
         azel_kwargs = dict(az_fov_deg = 80.,
                            el_fov_deg = 80.,
                            el0_deg    = 0 )
-    rectification_maps, cookie = \
-        mrcal.stereo_rectify_prepare(models, **azel_kwargs)
+
+    models_rectified = mrcal.rectified_system(models, **azel_kwargs)
+    rectification_maps = mrcal.rectification_maps(models, models_rectified)
 
     # Display the geometry of the two cameras in the stereo pair, and of the
     # rectified system
-    Rt_cam0_stereo = cookie['Rt_cam0_stereo']
-    Rt_cam0_ref    = models[0].extrinsics_Rt_fromref()
-    Rt_stereo_ref  = mrcal.compose_Rt( mrcal.invert_Rt(Rt_cam0_stereo),
-                                      Rt_cam0_ref )
-    rt_stereo_ref  = mrcal.rt_from_Rt(Rt_stereo_ref)
 
     terminal = dict(pdf = 'pdf size 8in,6in       noenhanced solid color      font ",12"',
                     svg = 'svg size 800,600       noenhanced solid dynamic    font ",14"',
                     png = 'pngcairo size 1024,768 transparent noenhanced crop font ",12"',
                     gp  = 'gp')
     for extension in terminal.keys():
-        mrcal.show_geometry( models + [ rt_stereo_ref ],
-                             ( "camera0", "camera1", "stereo" ),
+        mrcal.show_geometry( list(models) + list( models_rectified),
+                             ( "camera0", "camera1", "camera0_rectified", "camera1_rectified" ),
                              show_calobjects = False,
                              _set            = ('xyplane at -0.5',
                                                 'view 60,30,1.7'),
@@ -89,6 +85,6 @@ cv2.imwrite(f'/tmp/disparity-{kind}.png',
 
 if models[0] is not None and models[1] is not None:
     # Convert the disparity image to ranges, and write to disk
-    r = mrcal.stereo_range( disparity_pixels = disparity.astype(np.float32) / 16.,
-                            **cookie )
+    r = mrcal.stereo_range( disparity.astype(np.float32) / 16.,
+                            models_rectified )
     cv2.imwrite(f'/tmp/range-{kind}.png', mrcal.apply_color_map(r, 5, 1000))
