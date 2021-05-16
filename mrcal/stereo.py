@@ -203,17 +203,6 @@ We return a tuple
     if len(models) != 2:
         raise Exception("I need exactly 2 camera models")
 
-    def normalize(v):
-        v /= nps.dummy(nps.mag(v), axis=-1)
-        return v
-
-    def remove_projection(a, proj_base):
-        r'''Returns the normalized component of a orthogonal to proj_base
-
-        proj_base assumed normalized'''
-        v = a - nps.inner(a,proj_base)*proj_base
-        return normalize(v)
-
     ######## Compute the geometry of the rectified stereo system. This is a
     ######## rotation, centered at camera0. More or less we have axes:
     ########
@@ -221,18 +210,16 @@ We return a tuple
     ######## y: completes the system from x,z
     ######## z: component of the cameras' viewing direction
     ########    normal to the baseline
+    def normalize(v):
+        v /= nps.dummy(nps.mag(v), axis=-1)
+        return v
+
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref())
 
     # Rotation relating camera0 coords to the rectified camera coords. I fill in
     # each row separately
     R_rect0_cam0 = np.zeros((3,3), dtype=float)
-    R_cam0_rect0 = nps.transpose(R_rect0_cam0)
-
-    # rect1 coord system has the same orientation as rect0, but is translated so
-    # that its origin is at the origin of cam1
-    R_rect1_cam0  = R_rect0_cam0
-    R_rect1_cam1  = nps.matmult(R_rect1_cam0, Rt01[:3,:])
 
     # Axes of the rectified system, in the cam0 coord system
     right       = R_rect0_cam0[0,:]
@@ -250,18 +237,26 @@ We return a tuple
     forward1 = Rt01[:3,2]
 
     # "forward" of the rectified coord system, in camera0 coords. The mean
-    # optical-axis direction of the two cameras
-    forward += normalize(remove_projection(forward0+forward1,right))
+    # optical-axis direction of the two cameras: component orthogonal to "right"
+    forward01 = forward0 + forward1
+    forward01_proj_right = nps.inner(forward01,right)
+    forward += normalize(forward01 - forward01_proj_right*right)
 
     # "down" of the rectified coord system, in camera0 coords. Completes the
     # right,down,forward coordinate system
     down[:] = np.cross(forward,right)
 
+    # All components of R_rect0_cam0 are now filled in
 
+    R_cam0_rect0 = nps.transpose(R_rect0_cam0)
+
+    # rect1 coord system has the same orientation as rect0, but is translated so
+    # that its origin is at the origin of cam1
+    R_rect1_cam0  = R_rect0_cam0
+    R_rect1_cam1  = nps.matmult(R_rect1_cam0, Rt01[:3,:])
 
     ######## Done with the geometry! Now to get the az/el grid. I need to figure
     ######## out the resolution and the extents
-
 
     if az0_deg is not None:
         az0 = az0_deg * np.pi/180.
@@ -292,15 +287,7 @@ We return a tuple
         # perpendicular to the baseline. Thus I compute the mean "forward"
         # direction of the cameras in the rectified system, and set that as the
         # center azimuth az0.
-        v0 = nps.matmult( forward0, R_cam0_rect0 ).ravel()
-        v1 = nps.matmult( forward1, R_cam0_rect0 ).ravel()
-        v0[1] = 0.0
-        v1[1] = 0.0
-        normalize(v0)
-        normalize(v1)
-        v = v0 + v1
-        az0 = np.arctan2(v[0],v[2])
-
+        az0 = np.arcsin( forward01_proj_right / nps.mag(forward01) )
 
     el0 = el0_deg * np.pi/180.
 
@@ -308,71 +295,69 @@ We return a tuple
     if pixels_per_deg_az is None or pixels_per_deg_az < 0 or \
        pixels_per_deg_el is None or pixels_per_deg_el < 0:
         # I need to compute the resolution of the rectified images. I try to
-        # match the resolution of the cameras. I just look at camera0. If you
-        # have different cameras, pass in pixels_per_deg yourself :)
+        # match the resolution of the cameras. I just look at camera0. If your
+        # two cameras are different, pass in the pixels_per_deg yourself
         #
         # I look at the center of the stereo field of view. There I have q =
         # project(v) where v is a unit projection vector. I compute dq/dth where
         # th is an angular perturbation applied to v.
-        def rotation_any_v_to_z(v):
-            r'''Return any rotation matrix that maps the given unit vector v to [0,0,1]'''
-            z = v
-            if np.abs(v[0]) < .9:
-                x = np.array((1,0,0))
-            else:
-                x = np.array((0,1,0))
-            x -= nps.inner(x,v)*v
-            x /= nps.mag(x)
-            y = np.cross(z,x)
-
-            return nps.cat(x,y,z)
-
-
-        v, dv_dazel = stereo_unproject(az0, el0, get_gradients = True)
-        v0          = mrcal.rotate_point_R(R_cam0_rect0, v)
-        dv0_dazel   = nps.matmult(R_cam0_rect0, dv_dazel)
+        v,dv_dazel = mrcal.unproject_latlon( np.array((az0,el0)),
+                                             get_gradients = True )
+        v0         = mrcal.rotate_point_R(R_cam0_rect0, v)
+        dv0_dazel  = nps.matmult(R_cam0_rect0, dv_dazel)
 
         _,dq_dv0,_ = mrcal.project(v0, *models[0].intrinsics(), get_gradients = True)
 
-        # I rotate my v to a coordinate system where u = rotate(v) is [0,0,1].
-        # Then u = [a,b,0] are all orthogonal to v. So du/dth = [cos, sin, 0].
-        # I then have dq/dth = dq/dv dv/du [cos, sin, 0]t
-        # ---> dq/dth = dq/dv dv/du[:,:2] [cos, sin]t = M [cos,sin]t
+        # More complex method that's probably not any better
         #
-        # norm2(dq/dth) = [cos,sin] MtM [cos,sin]t is then an ellipse with the
-        # eigenvalues of MtM giving me the best and worst sensitivities. I can
-        # use mrcal.worst_direction_stdev() to find the densest direction. But I
-        # actually know the directions I care about, so I evaluate them
-        # independently for the az and el directions
+        # if False:
+        #     # I rotate my v to a coordinate system where u = rotate(v) is [0,0,1].
+        #     # Then u = [a,b,0] are all orthogonal to v. So du/dth = [cos, sin, 0].
+        #     # I then have dq/dth = dq/dv dv/du [cos, sin, 0]t
+        #     # ---> dq/dth = dq/dv dv/du[:,:2] [cos, sin]t = M [cos,sin]t
+        #     #
+        #     # norm2(dq/dth) = [cos,sin] MtM [cos,sin]t is then an ellipse with the
+        #     # eigenvalues of MtM giving me the best and worst sensitivities. I can
+        #     # use mrcal.worst_direction_stdev() to find the densest direction. But I
+        #     # actually know the directions I care about, so I evaluate them
+        #     # independently for the az and el directions
+        #     def rotation_any_v_to_z(v):
+        #         r'''Return any rotation matrix that maps the given unit vector v to [0,0,1]'''
+        #         z = v
+        #         if np.abs(v[0]) < .9:
+        #             x = np.array((1,0,0))
+        #         else:
+        #             x = np.array((0,1,0))
+        #         x -= nps.inner(x,v)*v
+        #         x /= nps.mag(x)
+        #         y = np.cross(z,x)
+        #         return nps.cat(x,y,z)
+        #     Ruv = rotation_any_v_to_z(v0)
+        #     M = nps.matmult(dq_dv0, nps.transpose(Ruv[:2,:]))
+        #     # I pick the densest direction: highest |dq/dth|
+        #     pixels_per_rad = mrcal.worst_direction_stdev( nps.matmult( nps.transpose(M),M) )
 
-        # Ruv = rotation_any_v_to_z(v0)
-        # M = nps.matmult(dq_dv0, nps.transpose(Ruv[:2,:]))
-        # # I pick the densest direction: highest |dq/dth|
-        # pixels_per_rad = mrcal.worst_direction_stdev( nps.matmult( nps.transpose(M),M) )
+        dq_dazel = nps.matmult(dq_dv0, dv0_dazel)
 
         if pixels_per_deg_az is None or pixels_per_deg_az < 0:
-            dq_daz = nps.inner( dq_dv0, dv0_dazel[:,0] )
-            pixels_per_rad_az_have = nps.mag(dq_daz)
+            pixels_per_deg_az_have = nps.mag(dq_dazel[:,0])*np.pi/180.
 
             if pixels_per_deg_az is not None:
                 # negative pixels_per_deg_az requested means I use the requested
                 # value as a scaling
-                pixels_per_deg_az = -pixels_per_deg_az * pixels_per_rad_az_have*np.pi/180.
+                pixels_per_deg_az = -pixels_per_deg_az * pixels_per_deg_az_have
             else:
-                pixels_per_deg_az = pixels_per_rad_az_have*np.pi/180.
+                pixels_per_deg_az = pixels_per_deg_az_have
 
         if pixels_per_deg_el is None or pixels_per_deg_el < 0:
-            dq_del = nps.inner( dq_dv0, dv0_dazel[:,1] )
-            pixels_per_rad_el_have = nps.mag(dq_del)
+            pixels_per_deg_el_have = nps.mag(dq_dazel[:,1])*np.pi/180.
 
             if pixels_per_deg_el is not None:
                 # negative pixels_per_deg_el requested means I use the requested
                 # value as a scaling
-                pixels_per_deg_el = -pixels_per_deg_el * pixels_per_rad_el_have*np.pi/180.
+                pixels_per_deg_el = -pixels_per_deg_el * pixels_per_deg_el_have
             else:
-                pixels_per_deg_el = pixels_per_rad_el_have*np.pi/180.
-
-
+                pixels_per_deg_el = pixels_per_deg_el_have
 
     Naz = round(az_fov_deg*pixels_per_deg_az)
     Nel = round(el_fov_deg*pixels_per_deg_el)
@@ -382,23 +367,53 @@ We return a tuple
     pixels_per_deg_az = Naz/az_fov_deg
     pixels_per_deg_el = Nel/el_fov_deg
 
-    # The field of view values I have are N pixels wide: from the left edge of
-    # the first pixel to the right edge of the last pixel. I want the
-    # coordinates of the centers of each of my pixels. The center-center field
-    # of view is 1 pixel smaller, and I make the adjustment here
 
-    # shape (Naz,)
-    az = np.linspace(az0 - az_fov_deg/2. * (Naz-1.)/Naz * np.pi/180.,
-                     az0 + az_fov_deg/2. * (Naz-1.)/Naz * np.pi/180.,
-                     Naz)
-    # shape (Nel,1)
-    el = nps.dummy( np.linspace(el0 - el_fov_deg/2. * (Nel-1.)/Nel * np.pi/180.,
-                                el0 + el_fov_deg/2. * (Nel-1.)/Nel * np.pi/180.,
-                                Nel),
-                    -1 )
+    ######## Construct rectified models. These can be used for all further
+    ######## stereo processing
+    Rt_rect0_cam0 = nps.glue(R_rect0_cam0, np.zeros((3,),), axis=-2)
+    Rt_rect0_ref  = mrcal.compose_Rt( Rt_rect0_cam0,
+                                      models[0].extrinsics_Rt_fromref())
+    # rect1 coord system has the same orientation as rect0, but is translated so
+    # that its origin is at the origin of cam1
+    Rt_rect1_cam1 = nps.glue(R_rect1_cam1, np.zeros((3,),), axis=-2)
+    Rt_rect1_ref  = mrcal.compose_Rt( Rt_rect1_cam1,
+                                      models[1].extrinsics_Rt_fromref())
 
-    # v has shape (Nel,Naz,3)
-    v = stereo_unproject(az, el)
+    fxycxy = np.zeros((4,), dtype=float)
+    fxycxy[:2] = np.array((pixels_per_deg_az, pixels_per_deg_el)) / np.pi*180.
+    # (az0,el0) = unproject(imager center)
+    v = mrcal.unproject_latlon( np.array((az0,el0)) )
+    fxycxy[2:] = \
+        np.array(((Naz-1.)/2.,(Nel-1.)/2.)) - \
+        mrcal.project_latlon( v, *fxycxy[:2] )
+
+    models_rectified = \
+        ( mrcal.cameramodel( intrinsics = ('LENSMODEL_LATLON', fxycxy),
+                             imagersize = (Naz, Nel),
+                             extrinsics_Rt_fromref = Rt_rect0_ref),
+
+          mrcal.cameramodel( intrinsics = ('LENSMODEL_LATLON', fxycxy),
+                             imagersize = (Naz, Nel),
+                             extrinsics_Rt_fromref = Rt_rect1_ref) )
+
+    ######### Build rectification maps
+
+    # This is massively inefficient. I should
+    #
+    # - Not generate any intermediate ARRAYS, but loop through each pixel, and
+    #   perform the full transformation on each pixel. All the way through the
+    #   project(v0, ...) below
+    #
+    # - Not compute full sin/cos separately for each pixel, but take advantage
+    #   of my even angle steps to compute the sin/cos once, and take
+    #   multiplication/addition steps from there
+
+    # shape (Nel,Naz,3)
+    v = mrcal.unproject_latlon( np.ascontiguousarray( \
+           nps.mv( nps.cat( *np.meshgrid(np.arange(Naz,dtype=float),
+                                         np.arange(Nel,dtype=float))),
+                   0, -1)),
+                                 *fxycxy)
 
     v0 = nps.matmult( nps.dummy(v,  -2), R_rect0_cam0 )[...,0,:]
     v1 = nps.matmult( nps.dummy(v,  -2), R_rect1_cam1 )[...,0,:]
@@ -414,6 +429,8 @@ We return a tuple
               # maps
               pixels_per_deg_az = pixels_per_deg_az,
               pixels_per_deg_el = pixels_per_deg_el,
+
+              models_rectified = models_rectified
             )
 
     return                                                                \
