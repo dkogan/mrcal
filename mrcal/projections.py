@@ -592,7 +592,10 @@ if get_gradients: we return a tuple:
 
 
 def project_lonlat(points,
-                   fx, fy, cx, cy,
+                   fx = 1.0,
+                   fy = 1.0,
+                   cx = 0.0,
+                   cy = 0.0,
                    get_gradients = False,
                    out           = None):
     r'''Projects a set of 3D camera-frame points using an equirectangular projection
@@ -620,10 +623,13 @@ ARGUMENTS
 - points: array of dims (...,3); the points we're projecting. This supports
   broadcasting fully, and any leading dimensions are allowed, including none
 
-- fx, fy: "focal-lengths", in pixels. These specify the angular resolution of
-  the image, in pixels/radian
+- fx, fy: optional "focal-lengths", in pixels. These specify the angular
+  resolution of the image, in pixels/radian. Both default to 1, as in the
+  normalized equirectangular projection, which produces q = (lon,lat)
 
-- cx, cy: pixel coordinates corresponding to the projection of p = [0,0,1]
+- cx, cy: optional pixel coordinates corresponding to the projection of p =
+  [0,0,1]. Both default to 0, as in the normalized equirectangular projection,
+  which produces q = (lon,lat)
 
 - get_gradients: optional boolean, defaults to False. This affects what we
   return (see below)
@@ -666,7 +672,10 @@ if get_gradients: we return a tuple:
 
 
 def unproject_lonlat(points,
-                     fx, fy, cx, cy,
+                     fx = 1.0,
+                     fy = 1.0,
+                     cx = 0.0,
+                     cy = 0.0,
                      get_gradients = False,
                      out           = None):
     r'''Unprojects a set of 2D pixel coordinates using an equirectangular projection
@@ -699,10 +708,13 @@ ARGUMENTS
   unprojecting. This supports broadcasting fully, and any leading dimensions are
   allowed, including none
 
-- fx, fy: "focal-lengths", in pixels. These specify the angular resolution of
-  the image, in pixels/radian
+- fx, fy: optional "focal-lengths", in pixels. These specify the angular
+  resolution of the image, in pixels/radian. Both default to 1, as in the
+  normalized equirectangular projection, which produces q = (lon,lat)
 
-- cx, cy: pixel coordinates corresponding to the projection of p = [0,0,1]
+- cx, cy: optional pixel coordinates corresponding to the projection of p =
+  [0,0,1]. Both default to 0, as in the normalized equirectangular projection,
+  which produces q = (lon,lat)
 
 - get_gradients: optional boolean, defaults to False. This affects what we
   return (see below)
@@ -742,7 +754,10 @@ if get_gradients: we return a tuple:
 
 
 def project_latlon(points,
-                   fx, fy, cx, cy,
+                   fx = 1.0,
+                   fy = 1.0,
+                   cx = 0.0,
+                   cy = 0.0,
                    get_gradients = False,
                    out           = None):
     r'''Projects 3D camera-frame points using a transverse equirectangular projection
@@ -769,10 +784,13 @@ ARGUMENTS
 - points: array of dims (...,3); the points we're projecting. This supports
   broadcasting fully, and any leading dimensions are allowed, including none
 
-- fx, fy: "focal-lengths", in pixels. These specify the angular resolution of
-  the image, in pixels/radian
+- fx, fy: optional "focal-lengths", in pixels. These specify the angular
+  resolution of the image, in pixels/radian. Both default to 1, as in the
+  normalized transverse equirectangular projection, which produces q = (lat,lon)
 
-- cx, cy: pixel coordinates corresponding to the projection of p = [0,0,1]
+- cx, cy: optional pixel coordinates corresponding to the projection of p =
+  [0,0,1]. Both default to 0, as in the normalized transverse equirectangular
+  projection, which produces q = (lat,lon)
 
 - get_gradients: optional boolean, defaults to False. This affects what we
   return (see below)
@@ -815,7 +833,10 @@ if get_gradients: we return a tuple:
 
 
 def unproject_latlon(points,
-                     fx, fy, cx, cy,
+                     fx = 1.0,
+                     fy = 1.0,
+                     cx = 0.0,
+                     cy = 0.0,
                      get_gradients = False,
                      out           = None):
     r'''Unprojects 2D pixel coordinates using a transverse equirectangular projection
@@ -847,10 +868,13 @@ ARGUMENTS
   we're unprojecting. This supports broadcasting fully, and any leading
   dimensions are allowed, including none
 
-- fx, fy: "focal-lengths", in pixels. These specify the angular resolution of
-  the image, in pixels/radian
+- fx, fy: optional "focal-lengths", in pixels. These specify the angular
+  resolution of the image, in pixels/radian. Both default to 1, as in the
+  normalized transverse equirectangular projection, which produces q = (lat,lon)
 
-- cx, cy: pixel coordinates corresponding to the projection of p = [0,0,1]
+- cx, cy: optional pixel coordinates corresponding to the projection of p =
+  [0,0,1]. Both default to 0, as in the normalized transverse equirectangular
+  projection, which produces q = (lat,lon)
 
 - get_gradients: optional boolean, defaults to False. This affects what we
   return (see below)

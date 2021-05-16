@@ -158,6 +158,16 @@ axis, which produces the same, usual $\vec q$. However, this projection doesn't
 represent a lens and there is no "camera" or an "optical axis". The view may be
 centered anywhere, so $c_x$ and $c_y$ could be anything, even negative.
 
+The special case of $f_x = f_y = 1$ and $c_x = c_y = 0$ (the default values in
+[[file:mrcal-python-api-reference.html#-project_lonlat][=mrcal.project_lonlat()=]]) produces a /normalized/ equirectangular projection:
+
+\[
+\vec q_\mathrm{normalized} =
+\left[ \begin{aligned}
+\mathrm{lon} \\\mathrm{lat}
+\end{aligned} \right]
+\]
+
 This projection has a singularity at the poles, approached as $y \rightarrow \pm
 \infty$
 
@@ -192,6 +202,17 @@ f_y \tan^{-1}\left(\frac{p_y}{p_z}\right) + c_y
 As with [[#lensmodel-lonlat][=LENSMODEL_LONLAT=]], $f_x$ and $f_y$ specify the angular resolution, in
 pixels/radian. And $c_x$ and $c_y$ specify the projection at the optical axis
 $\vec p = \left[ \begin{aligned} 0 \\ 0 \\ 1 \end{aligned} \right]$.
+
+The special case of $f_x = f_y = 1$ and $c_x = c_y = 0$ (the default values in
+[[file:mrcal-python-api-reference.html#-project_latlon][=mrcal.project_latlon()=]]) produces a /normalized/ transverse equirectangular
+projection:
+
+\[
+\vec q_\mathrm{normalized} =
+\left[ \begin{aligned}
+\mathrm{lat} \\\mathrm{lon}
+\end{aligned} \right]
+\]
 
 This projection has a singularity at the poles, approached as $x \rightarrow \pm
 \infty$
