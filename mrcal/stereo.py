@@ -458,9 +458,9 @@ contains corresponding pixel coordinates in the input image
     Naz,Nel = models_rectified[0].imagersize()
     fxycxy  = models_rectified[0].intrinsics()[1]
 
-    Rt_cam_rect = [ mrcal.compose_Rt(models          [i].extrinsics_Rt_fromref(),
-                                     models_rectified[i].extrinsics_Rt_toref()) \
-                    for i in range(2) ]
+    R_cam_rect = [ nps.matmult(models          [i].extrinsics_Rt_fromref()[:3,:],
+                               models_rectified[i].extrinsics_Rt_toref  ()[:3,:]) \
+                   for i in range(2) ]
 
     # This is massively inefficient. I should
     #
@@ -479,8 +479,8 @@ contains corresponding pixel coordinates in the input image
                    0, -1)),
                                  *fxycxy)
 
-    v0 = mrcal.rotate_point_R(Rt_cam_rect[0][:3,:], v)
-    v1 = mrcal.rotate_point_R(Rt_cam_rect[1][:3,:], v)
+    v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
+    v1 = mrcal.rotate_point_R(R_cam_rect[1], v)
 
     return                                                                \
         (mrcal.project( v0, *models[0].intrinsics()).astype(np.float32),  \
