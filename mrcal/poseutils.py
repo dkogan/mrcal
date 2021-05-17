@@ -134,6 +134,51 @@ and the gradient (R, dR/dr):
         return _poseutils._R_from_r_withgrad(r, out=out)
     return _poseutils._R_from_r(r, out=out)
 
+def invert_R(R, out=None):
+    r"""Invert a rotation matrix
+
+SYNOPSIS
+
+    print(R.shape)
+    ===>
+    (3,3)
+
+    R10 = mrcal.invert_R(R01)
+
+    print(x1.shape)
+    ===>
+    (3,)
+
+    x0 = mrcal.rotate_point_R(R01, x1)
+
+    print( nps.norm2( x1 - \
+                      mrcal.rotate_point_R(R10, x0) ))
+    ===>
+    0
+
+Given a rotation specified as a (3,3) rotation matrix outputs another rotation
+matrix that has the opposite effect. This is simply a matrix transpose.
+
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- R: array of shape (3,3), a rotation matrix. It is assumed that this is a valid
+  rotation (matmult(R,transpose(R)) = I, det(R) = 1), but that is not checked
+
+- out: optional argument specifying the destination. By default, a new numpy
+  array is created and returned. To write the results into an existing (and
+  possibly non-contiguous) array, specify it with the 'out' kwarg. If 'out' is
+  given, we return the same array passed in. This is the standard behavior
+  provided by numpysane_pywrap.
+
+RETURNED VALUE
+
+The inverse rotation matrix in an array of shape (3,3).
+
+    """
+    return _poseutils._invert_R(R, out=out)
+
 def rt_from_Rt(Rt, get_gradients=False, out=None):
     r"""Compute an rt transformation from a Rt transformation
 

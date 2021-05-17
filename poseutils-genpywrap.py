@@ -457,6 +457,27 @@ for that function for details.
 '''}
 )
 
+m.function( "_invert_R",
+            """Invert a rotation matrix
+
+This is an internal function. You probably want mrcal.invert_R(). See the docs
+for that function for details.
+""",
+            args_input       = ('R',),
+            prototype_input  = ((3,3),),
+            prototype_output = (3,3),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_invert_R_full( (double*)data_slice__output,
+                         strides_slice__output[0], strides_slice__output[1],
+                         (const double*)data_slice__R,
+                         strides_slice__R[0], strides_slice__R[1] );
+    return true;
+'''},
+)
+
 m.function( "_rt_from_Rt",
             """Compute an rt transformation from a Rt transformation
 

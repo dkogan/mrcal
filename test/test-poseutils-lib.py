@@ -99,6 +99,12 @@ def invert_Rt(Rt):
     tinv = -nps.matmult(Rt[3,:], R)
     return nps.glue( nps.transpose(R), tinv.ravel(), axis=-2)
 
+def invert_R(R):
+    r'''Simple reference implementation
+
+'''
+    return nps.transpose(R)
+
 def compose_Rt(Rt0, Rt1):
     r'''Simple reference implementation
 
@@ -667,6 +673,17 @@ confirm_equal( Rt,
                invert_Rt(Rt0_ref),
                msg='invert_Rt result written in-place')
 
+R = mrcal.invert_R(R0_ref, out=out33)
+confirm_equal( R,
+               invert_R(R0_ref),
+               msg='invert_R result')
+
+# in-place
+R0_ref_copy = np.array(R0_ref)
+R = mrcal.invert_R(R0_ref_copy, out=R0_ref_copy)
+confirm_equal( R,
+               invert_R(R0_ref),
+               msg='invert_R result written in-place')
 
 rt = mrcal.invert_rt(rt0_ref, out=out6)
 confirm_equal( rt,

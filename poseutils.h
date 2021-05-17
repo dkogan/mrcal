@@ -232,6 +232,24 @@ void mrcal_R_from_r_full( // outputs
                          int r_stride0    // in bytes. <= 0 means "contiguous"
                           );
 
+// Invert a rotation matrix. This is a transpose
+//
+// The input is given in R_in in a (3,3) array
+//
+// The result is returned in a (3,3) array R_out. In-place operation is
+// supported
+#define mrcal_invert_R(R_out,R_in) mrcal_invert_R_full(R_out,0,0,R_in,0,0)
+void mrcal_invert_R_full( // output
+                         double* R_out,      // (3,3) array
+                         int R_out_stride0,  // in bytes. <= 0 means "contiguous"
+                         int R_out_stride1,  // in bytes. <= 0 means "contiguous"
+
+                         // input
+                         const double* R_in, // (3,3) array
+                         int R_in_stride0,   // in bytes. <= 0 means "contiguous"
+                         int R_in_stride1    // in bytes. <= 0 means "contiguous"
+                         );
+
 // Convert an Rt transformation in a (4,3) array to an rt transformation in a
 // (6,) array
 //

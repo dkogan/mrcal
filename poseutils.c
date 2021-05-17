@@ -469,6 +469,38 @@ void mrcal_R_from_r_full( // outputs
     }
 }
 
+// Invert a rotation matrix. This is a transpose
+//
+// The input is given in R_in in a (3,3) array
+//
+// The result is returned in a (3,3) array R_out. In-place operation is
+// supported
+void mrcal_invert_R_full( // output
+                         double* R_out,      // (3,3) array
+                         int R_out_stride0,  // in bytes. <= 0 means "contiguous"
+                         int R_out_stride1,  // in bytes. <= 0 means "contiguous"
+
+                         // input
+                         const double* R_in, // (3,3) array
+                         int R_in_stride0,   // in bytes. <= 0 means "contiguous"
+                         int R_in_stride1    // in bytes. <= 0 means "contiguous"
+                         )
+{
+    init_stride_2D(R_out, 3,3);
+    init_stride_2D(R_in,  3,3);
+
+    // transpose(R). Extra stuff to make in-place operations work
+    for(int i=0; i<3; i++)
+        P2(R_out,i,i) = P2(R_in,i,i);
+    for(int i=0; i<3; i++)
+        for(int j=i+1; j<3; j++)
+        {
+            double tmp = P2(R_in,i,j);
+            P2(R_out,i,j) = P2(R_in,j,i);
+            P2(R_out,j,i) = tmp;
+        }
+}
+
 // Convert a transformation representation from Rt to rt. This is mostly a
 // convenience functions since 99% of the work is done by mrcal_r_from_R().
 void mrcal_rt_from_Rt_full(// output
