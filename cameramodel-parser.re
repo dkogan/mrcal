@@ -30,9 +30,6 @@ typedef struct
   // No filling. All the data is available at the start
   re2c:yyfill:enable = 0;
 
-  // Generate fancier, more compact C code
-  re2c:flags:case-ranges = 1;
-
   // I use @ tags
   re2c:flags:tags = 1;
 
