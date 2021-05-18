@@ -5,6 +5,7 @@ r'''Triangulate a feature in a pair of images to report a range
 SYNOPSIS
 
   $ mrcal-triangulate
+      --range-estimate 870
       left.cameramodel right.cameramodel
       left.jpg right.jpg
       1234 2234
