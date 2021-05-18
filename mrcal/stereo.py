@@ -27,6 +27,7 @@ SYNOPSIS
     import mrcal
     import cv2
     import numpy as np
+    import numpysane as nps
 
     models = [ mrcal.cameramodel(f) \
                for f in ('left.cameramodel',
@@ -62,8 +63,29 @@ SYNOPSIS
     disparity16 = matcher.compute(*images_rectified) # in pixels*16
 
     # Convert the disparities to range-to-camera0
-    r = mrcal.stereo_range( disparity16.astype(np.float32) / 16.,
-                            models_rectified )
+    ranges = mrcal.stereo_range( disparity16.astype(np.float32) / 16.,
+                                 models_rectified )
+
+    H,W = disparity16.shape
+
+    # shape (H,W,2)
+    q = np.ascontiguousarray( \
+           nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
+                                         np.arange(H,dtype=float))),
+                   0, -1))
+
+    # Point cloud in rectified camera-0 coordinates
+    # shape (H,W,3)
+    p_rect0 = \
+        mrcal.unproject_latlon(q, *models_rectified[0].intrinsics()[1]) * \
+        nps.dummy(ranges, axis=-1)
+
+    Rt_cam0_rect0 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+                                      models_rectified[0].extrinsics_Rt_toref() )
+
+    # Point cloud in camera-0 coordinates
+    # shape (H,W,3)
+    p_cam0 = mrcal.transform_point_Rt(Rt_cam0_rect0, p_rect0)
 
 This function computes the geometry of a rectified system from the two
 cameramodels describing the stereo pair. The output is a pair of "rectified"
@@ -389,6 +411,7 @@ SYNOPSIS
     import mrcal
     import cv2
     import numpy as np
+    import numpysane as nps
 
     models = [ mrcal.cameramodel(f) \
                for f in ('left.cameramodel',
@@ -424,8 +447,29 @@ SYNOPSIS
     disparity16 = matcher.compute(*images_rectified) # in pixels*16
 
     # Convert the disparities to range-to-camera0
-    r = mrcal.stereo_range( disparity16.astype(np.float32) / 16.,
-                            models_rectified )
+    ranges = mrcal.stereo_range( disparity16.astype(np.float32) / 16.,
+                                 models_rectified )
+
+    H,W = disparity16.shape
+
+    # shape (H,W,2)
+    q = np.ascontiguousarray( \
+           nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
+                                         np.arange(H,dtype=float))),
+                   0, -1))
+
+    # Point cloud in rectified camera-0 coordinates
+    # shape (H,W,3)
+    p_rect0 = \
+        mrcal.unproject_latlon(q, *models_rectified[0].intrinsics()[1]) * \
+        nps.dummy(ranges, axis=-1)
+
+    Rt_cam0_rect0 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+                                      models_rectified[0].extrinsics_Rt_toref() )
+
+    # Point cloud in camera-0 coordinates
+    # shape (H,W,3)
+    p_cam0 = mrcal.transform_point_Rt(Rt_cam0_rect0, p_rect0)
 
 After the pair of rectified models has been built by mrcal.rectified_system(),
 this function can be called to compute the rectification maps. These can be
@@ -499,6 +543,7 @@ SYNOPSIS
     import mrcal
     import cv2
     import numpy as np
+    import numpysane as nps
 
     models = [ mrcal.cameramodel(f) \
                for f in ('left.cameramodel',
@@ -534,8 +579,29 @@ SYNOPSIS
     disparity16 = matcher.compute(*images_rectified) # in pixels*16
 
     # Convert the disparities to range-to-camera0
-    r = mrcal.stereo_range( disparity16.astype(np.float32) / 16.,
-                            models_rectified )
+    ranges = mrcal.stereo_range( disparity16.astype(np.float32) / 16.,
+                                 models_rectified )
+
+    H,W = disparity16.shape
+
+    # shape (H,W,2)
+    q = np.ascontiguousarray( \
+           nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
+                                         np.arange(H,dtype=float))),
+                   0, -1))
+
+    # Point cloud in rectified camera-0 coordinates
+    # shape (H,W,3)
+    p_rect0 = \
+        mrcal.unproject_latlon(q, *models_rectified[0].intrinsics()[1]) * \
+        nps.dummy(ranges, axis=-1)
+
+    Rt_cam0_rect0 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+                                      models_rectified[0].extrinsics_Rt_toref() )
+
+    # Point cloud in camera-0 coordinates
+    # shape (H,W,3)
+    p_cam0 = mrcal.transform_point_Rt(Rt_cam0_rect0, p_rect0)
 
 As shown in the example above, we can perform stereo processing by building
 rectified models and transformation maps, rectifying our images, and then doing
