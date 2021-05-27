@@ -152,10 +152,7 @@ rt_camnewintrinsics_ref = \
                       rt_camoldintrinsics_ref)
 
 
-joint = mrcal.cameramodel( intrinsics                          = model_intrinsics.intrinsics(),
-                           extrinsics_rt_fromref               = rt_camnewintrinsics_ref,
-                           imagersize                          = model_intrinsics.imagersize(),
-                           valid_intrinsics_region             = model_intrinsics.valid_intrinsics_region())
+model_intrinsics.extrinsics_rt_fromref(rt_camnewintrinsics_ref)
 
 note = \
     "Generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -165,4 +162,4 @@ sys.stderr.write("Combined\nIntrinsics from '{}'\nExtrinsics from '{}'\n". \
     format(args.intrinsics,
            args.extrinsics))
 
-joint.write(sys.stdout, note)
+model_intrinsics.write(sys.stdout, note)
