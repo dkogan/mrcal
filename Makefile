@@ -210,6 +210,7 @@ TESTS :=										\
   test/test-cameramodel.py								\
   test/test-poseutils-lib.py								\
   test/test-projections.py								\
+  test/test-projection--special-cases.py__pinhole					\
   test/test-projection--special-cases.py__stereographic					\
   test/test-projection--special-cases.py__lonlat					\
   test/test-projection--special-cases.py__latlon					\

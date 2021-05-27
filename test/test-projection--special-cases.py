@@ -31,9 +31,10 @@ import testutils
 from test_calibration_helpers import grad
 
 if len(sys.argv) != 2:
-    raise Exception("Need one argument on the commandline: the projection type. Currently I support 'lonlat','stereographic'")
-if   sys.argv[1] == 'lonlat' or \
-     sys.argv[1] == 'latlon':
+    raise Exception("Need one argument on the commandline: the projection type. Currently I support 'pinhole','latlon','lonlat','stereographic'")
+if   sys.argv[1] == 'pinhole' or \
+     sys.argv[1] == 'latlon'  or \
+     sys.argv[1] == 'lonlat':
 
     # pixels/rad
     fx,fy = 3000., 2000.
@@ -46,9 +47,25 @@ if   sys.argv[1] == 'lonlat' or \
                   (-1.1, 0.3, -1.0),
                   (-0.9, -1.5, -1.0)))
 
-    unproject_is_normalized = True
+    if sys.argv[1] == 'pinhole': unproject_is_normalized = False
+    else:                        unproject_is_normalized = True
 
-    if sys.argv[1] == 'lonlat':
+    if sys.argv[1] == 'pinhole':
+
+        # pinhole projects ahead only
+        p[:,2] = abs(p[:,2])
+
+    if sys.argv[1] == 'pinhole':
+        lensmodel      = 'LENSMODEL_PINHOLE'
+        func_project   = mrcal.project_pinhole
+        func_unproject = mrcal.unproject_pinhole
+        name           = 'pinhole'
+
+        q_projected_ref = np.array([[ -9700.,  4400.],
+                                    [ -13300., 4600.],
+                                    [ -12700., 1000.]])
+
+    elif sys.argv[1] == 'lonlat':
         lensmodel      = 'LENSMODEL_LONLAT'
         func_project   = mrcal.project_lonlat
         func_unproject = mrcal.unproject_lonlat
@@ -58,7 +75,8 @@ if   sys.argv[1] == 'lonlat' or \
                                     [-16925.83416075,   4398.25498944],
                                     [-17226.33265541,   2320.61601685]])
 
-    else:
+    elif sys.argv[1] == 'latlon':
+
         lensmodel      = 'LENSMODEL_LATLON'
         func_project   = mrcal.project_latlon
         func_unproject = mrcal.unproject_latlon
@@ -216,7 +234,8 @@ for normalize in (False, True):
                             dv_dq_observed,
                             msg = f"unproject({name}, normalize={normalize}) dv/dq",
                             worstcase = True,
-                            relative  = True)
+                            relative  = True,
+                            eps = 1e-5)
     testutils.confirm_equal(dv_di_reported,
                             dv_di_observed,
                             msg = f"unproject({name}, normalize={normalize}) dv/di",

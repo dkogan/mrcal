@@ -320,6 +320,46 @@ bool mrcal_unproject( // out
                      const double* intrinsics);
 
 
+// Project the given camera-coordinate-system points using a pinhole
+// model. See the docs for projection details:
+// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-pinhole
+//
+// This is a simplified special case of mrcal_project(). We project N
+// camera-coordinate-system points p to N pixel coordinates q
+//
+// if (dq_dp != NULL) we report the gradient dq/dp in a dense (N,2,3) array
+// ((N,2) mrcal_point3_t objects).
+void mrcal_project_pinhole( // output
+                            mrcal_point2_t* q,
+                            mrcal_point3_t* dq_dp,
+
+                             // input
+                            const mrcal_point3_t* p,
+                            int N,
+                            double fx, double fy,
+                            double cx, double cy);
+
+
+// Unproject the given pixel coordinates using a pinhole model.
+// See the docs for projection details:
+// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-pinhole
+//
+// This is a simplified special case of mrcal_unproject(). We unproject N 2D
+// pixel coordinates q to N camera-coordinate-system vectors v. The returned
+// vectors v are not normalized, and may have any length.
+//
+// if (dv_dq != NULL) we report the gradient dv/dq in a dense (N,3,2) array
+// ((N,3) mrcal_point2_t objects).
+void mrcal_unproject_pinhole( // output
+                              mrcal_point3_t* v,
+                              mrcal_point2_t* dv_dq,
+
+                              // input
+                              const mrcal_point2_t* q,
+                              int N,
+                              double fx, double fy,
+                              double cx, double cy);
+
 // Project the given camera-coordinate-system points using a stereographic
 // model. See the docs for projection details:
 // http://mrcal.secretsauce.net/lensmodels.html#lensmodel-stereographic

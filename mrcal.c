@@ -926,28 +926,14 @@ void _project_point_parametric( // outputs
         lensmodel->type == MRCAL_LENSMODEL_LATLON ||
         MRCAL_LENSMODEL_IS_OPENCV(lensmodel->type) )
     {
-        // q = fxy pxy/pz + cxy
-        // dqx/dp = d( fx px/pz + cx ) = fx/pz^2 (pz [1 0 0] - px [0 0 1])
-        // dqy/dp = d( fy py/pz + cy ) = fy/pz^2 (pz [0 1 0] - py [0 0 1])
         const double fx = intrinsics[0];
         const double fy = intrinsics[1];
         const double cx = intrinsics[2];
         const double cy = intrinsics[3];
         mrcal_point3_t dq_dp[2];
         if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE )
-        {
-            double pz_recip = 1. / p->z;
-            q->x = p->x*pz_recip * fx + cx;
-            q->y = p->y*pz_recip * fy + cy;
-
-            dq_dp[0].x = fx * pz_recip;
-            dq_dp[0].y = 0;
-            dq_dp[0].z = -fx*p->x*pz_recip*pz_recip;
-
-            dq_dp[1].x = 0;
-            dq_dp[1].y = fy * pz_recip;
-            dq_dp[1].z = -fy*p->y*pz_recip*pz_recip;
-        }
+            mrcal_project_pinhole(q, dq_dp,
+                                  p, 1, fx,fy,cx,cy);
         else if(lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC)
             mrcal_project_stereographic(q, dq_dp,
                                         p, 1, fx,fy,cx,cy);
@@ -1140,6 +1126,71 @@ void _project_point_parametric( // outputs
         MSG("Unhandled lens model: %d (%s)",
             lensmodel->type, mrcal_lensmodel_name_unconfigured(lensmodel));
         assert(0);
+    }
+}
+
+// Compute a pinhole projection using a constant fxy, cxy
+void mrcal_project_pinhole( // output
+                            mrcal_point2_t* q,
+                            mrcal_point3_t* dq_dv, // May be NULL. Each point
+                                                   // gets a block of 2 mrcal_point3_t
+                                                   // objects
+
+                            // input
+                            const mrcal_point3_t* v,
+                            int N,
+                            double fx, double fy,
+                            double cx, double cy)
+{
+    // q = fxy pxy/pz + cxy
+    // dqx/dp = d( fx px/pz + cx ) = fx/pz^2 (pz [1 0 0] - px [0 0 1])
+    // dqy/dp = d( fy py/pz + cy ) = fy/pz^2 (pz [0 1 0] - py [0 0 1])
+    for(int i=0; i<N; i++)
+    {
+        double pz_recip = 1. / v[i].z;
+        q->x = v[i].x*pz_recip * fx + cx;
+        q->y = v[i].y*pz_recip * fy + cy;
+
+        if(dq_dv)
+        {
+            dq_dv[2*i + 0].x = fx * pz_recip;
+            dq_dv[2*i + 0].y = 0;
+            dq_dv[2*i + 0].z = -fx*v[i].x*pz_recip*pz_recip;
+
+            dq_dv[2*i + 1].x = 0;
+            dq_dv[2*i + 1].y = fy * pz_recip;
+            dq_dv[2*i + 1].z = -fy*v[i].y*pz_recip*pz_recip;
+        }
+    }
+}
+
+// Compute a pinhole unprojection using a constant fxy, cxy
+void mrcal_unproject_pinhole( // output
+                              mrcal_point3_t* v,
+                              mrcal_point2_t* dv_dq, // May be NULL. Each point
+                                                     // gets a block of 3
+                                                     // mrcal_point2_t objects
+
+                              // input
+                              const mrcal_point2_t* q,
+                              int N,
+                              double fx, double fy,
+                              double cx, double cy)
+{
+    double fx_recip = 1./fx;
+    double fy_recip = 1./fy;
+    for(int i=0; i<N; i++)
+    {
+        v[i].x = (q[i].x - cx) / fx;
+        v[i].y = (q[i].y - cy) / fy;
+        v[i].z = 1.0;
+
+        if(dv_dq)
+        {
+            dv_dq[3*i + 0] = (mrcal_point2_t){.x = fx_recip};
+            dv_dq[3*i + 1] = (mrcal_point2_t){.y = fy_recip};
+            dv_dq[3*i + 2] = (mrcal_point2_t){};
+        }
     }
 }
 
@@ -2795,15 +2846,7 @@ bool _mrcal_unproject_internal( // out
     // easy special-cases
     if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE )
     {
-        for(int i=0; i<N; i++)
-        {
-            out->x = (q[i].x - cx) / fx;
-            out->y = (q[i].y - cy) / fy;
-            out->z = 1.0;
-
-            // advance
-            out++;
-        }
+        mrcal_unproject_pinhole(out, NULL, q, N, fx,fy,cx,cy);
         return true;
     }
     if( lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC )
