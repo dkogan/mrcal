@@ -70,6 +70,9 @@ void mrcal_identity_rt_full(double* rt,      // (6,) array
 //
 // The gradient dx_out/dx_in is returned in a (3,3) array J_x. This is simply
 // the matrix R. Set to NULL if this is not wanted
+//
+// In-place operation is supported; the output array may be the same as the
+// input arrays to overwrite the input.
 #define mrcal_rotate_point_R(         x_out,J_R,J_x,R,x_in) mrcal_rotate_point_R_full(x_out,0,J_R,0,0,0,J_x,0,0,R,0,0,x_in,0, false)
 #define mrcal_rotate_point_R_inverted(x_out,J_R,J_x,R,x_in) mrcal_rotate_point_R_full(x_out,0,J_R,0,0,0,J_x,0,0,R,0,0,x_in,0, true)
 void mrcal_rotate_point_R_full( // output
@@ -106,6 +109,9 @@ void mrcal_rotate_point_R_full( // output
 //
 // The gradient dx_out/dx_in is returned in a (3,3) array J_x. Set to NULL if
 // this is not wanted
+//
+// In-place operation is supported; the output array may be the same as the
+// input arrays to overwrite the input.
 #define mrcal_rotate_point_r(         x_out,J_r,J_x,r,x_in) mrcal_rotate_point_r_full(x_out,0,J_r,0,0,J_x,0,0,r,0,x_in,0, false)
 #define mrcal_rotate_point_r_inverted(x_out,J_r,J_x,r,x_in) mrcal_rotate_point_r_full(x_out,0,J_r,0,0,J_x,0,0,r,0,x_in,0, true)
 void mrcal_rotate_point_r_full( // output
@@ -141,6 +147,9 @@ void mrcal_rotate_point_r_full( // output
 //
 // The gradient dx_out/dx_in is returned in a (3,3) array J_x. This is simply
 // the matrix R. Set to NULL if this is not wanted
+//
+// In-place operation is supported; the output array may be the same as the
+// input arrays to overwrite the input.
 #define mrcal_transform_point_Rt(         x_out,J_Rt,J_x,Rt,x_in) mrcal_transform_point_Rt_full(x_out,0,J_Rt,0,0,0,J_x,0,0,Rt,0,0,x_in,0, false)
 #define mrcal_transform_point_Rt_inverted(x_out,J_Rt,J_x,Rt,x_in) mrcal_transform_point_Rt_full(x_out,0,J_Rt,0,0,0,J_x,0,0,Rt,0,0,x_in,0, true)
 void mrcal_transform_point_Rt_full( // output
@@ -177,6 +186,9 @@ void mrcal_transform_point_Rt_full( // output
 //
 // The gradient dx_out/dx_in is returned in a (3,3) array J_x. This is simply
 // the matrix R. Set to NULL if this is not wanted
+//
+// In-place operation is supported; the output array may be the same as the
+// input arrays to overwrite the input.
 #define mrcal_transform_point_rt(         x_out,J_rt,J_x,rt,x_in) mrcal_transform_point_rt_full(x_out,0,J_rt,0,0,J_x,0,0,rt,0,x_in,0, false)
 #define mrcal_transform_point_rt_inverted(x_out,J_rt,J_x,rt,x_in) mrcal_transform_point_rt_full(x_out,0,J_rt,0,0,J_x,0,0,rt,0,x_in,0, true)
 void mrcal_transform_point_rt_full( // output
@@ -250,8 +262,10 @@ void mrcal_R_from_r_full( // outputs
 //
 // The input is given in R_in in a (3,3) array
 //
-// The result is returned in a (3,3) array R_out. In-place operation is
-// supported
+// The result is returned in a (3,3) array R_out
+//
+// In-place operation is supported; the output array may be the same as the
+// input arrays to overwrite the input.
 #define mrcal_invert_R(R_out,R_in) mrcal_invert_R_full(R_out,0,0,R_in,0,0)
 void mrcal_invert_R_full( // output
                          double* R_out,      // (3,3) array
@@ -325,6 +339,9 @@ void mrcal_Rt_from_rt_full(   // output
 // The input is given in Rt_in in a (4,3) array
 //
 // The result is returned in a (4,3) array Rt_out
+//
+// In-place operation is supported; the output array may be the same as the
+// input arrays to overwrite the input.
 #define mrcal_invert_Rt(Rt_out,Rt_in) mrcal_invert_Rt_full(Rt_out,0,0,Rt_in,0,0)
 void mrcal_invert_Rt_full( // output
                           double* Rt_out,      // (4,3) array
@@ -352,6 +369,9 @@ void mrcal_invert_Rt_full( // output
 // The gradient drout/drin is always -identity. So it is not returned
 //
 // The gradient drout/dtin is always 0. So it is not returned
+//
+// In-place operation is supported; the output array may be the same as the
+// input arrays to overwrite the input.
 #define mrcal_invert_rt(rt_out,dtout_drin,dtout_dtin,rt_in) mrcal_invert_rt_full(rt_out,0,dtout_drin,0,0,dtout_dtin,0,0,rt_in,0)
 void mrcal_invert_rt_full( // output
                           double* rt_out,          // (6,) array
@@ -375,6 +395,9 @@ void mrcal_invert_rt_full( // output
 // The input transformations are given in (4,3) arrays Rt_0 and Rt_1
 //
 // The result is returned in a (4,3) array Rt_out
+//
+// In-place operation is supported; the output array may be the same as either
+// of the input arrays to overwrite the input.
 #define mrcal_compose_Rt(Rt_out,Rt_0,Rt_1) mrcal_compose_Rt_full(Rt_out,0,0,Rt_0,0,0,Rt_1,0,0)
 void mrcal_compose_Rt_full( // output
                            double* Rt_out,      // (4,3) array
@@ -413,6 +436,9 @@ void mrcal_compose_Rt_full( // output
 // The gradients dr/dt0, dr/dt1, dt/dr1 are always 0, so they are never returned
 //
 // The gradient dt/dt0 is always identity, so it is never returned
+//
+// In-place operation is supported; the output array may be the same as either
+// of the input arrays to overwrite the input.
 #define mrcal_compose_rt(rt_out,dr_dr0,dr_dr1,dt_dr0,dt_dt1,rt_0,rt_1) mrcal_compose_rt_full(rt_out,0,dr_dr0,0,0,dr_dr1,0,0,dt_dr0,0,0,dt_dt1,0,0,rt_0,0,rt_1,0)
 void mrcal_compose_rt_full( // output
                            double* rt_out,       // (6,) array

@@ -161,6 +161,9 @@ matrix that has the opposite effect. This is simply a matrix transpose.
 
 This function supports broadcasting fully.
 
+In-place operation is supported; the output array may be the same as the input
+array to overwrite the input.
+
 ARGUMENTS
 
 - R: array of shape (3,3), a rotation matrix. It is assumed that this is a valid
@@ -387,6 +390,9 @@ docs for mrcal._transform_point_Rt() for more detail.
 
 This function supports broadcasting fully.
 
+In-place operation is supported; the output array may be the same as the input
+array to overwrite the input.
+
 ARGUMENTS
 
 - Rt: array of shape (4,3). This matrix defines the transformation. Rt[:3,:] is
@@ -473,6 +479,9 @@ more convenient) arrays.
 
 This function supports broadcasting fully.
 
+In-place operation is supported; the output array may be the same as the input
+array to overwrite the input.
+
 ARGUMENTS
 
 - rt: array of shape (6,). This vector defines the input transformation. rt[:3]
@@ -549,6 +558,9 @@ and an addition. x and t are stored as a row vector (that's how numpy stores
 
 This function supports broadcasting fully, so we can compose lots of
 transformations at the same time.
+
+In-place operation is supported; the output array may be the same as either of
+the input arrays to overwrite the input.
 
 ARGUMENTS
 
@@ -640,6 +652,9 @@ more convenient) arrays.
 
 This function supports broadcasting fully, so we can compose lots of
 transformations at the same time.
+
+In-place operation is supported; the output array may be the same as either of
+the input arrays to overwrite the input.
 
 ARGUMENTS
 
@@ -734,6 +749,9 @@ gradients, pass get_gradients=True. Logic:
 This function supports broadcasting fully, so we can rotate lots of points at
 the same time and/or apply lots of different rotations at the same time
 
+In-place operation is supported; the output array may be the same as the input
+arrays to overwrite the input.
+
 ARGUMENTS
 
 - r: array of shape (3,). The Rodrigues vector that defines the rotation. This is
@@ -821,6 +839,9 @@ gradients, pass get_gradients=True. Logic:
 
 This function supports broadcasting fully, so we can rotate lots of points at
 the same time and/or apply lots of different rotations at the same time
+
+In-place operation is supported; the output array may be the same as the input
+arrays to overwrite the input.
 
 ARGUMENTS
 
@@ -915,6 +936,9 @@ gradients, pass get_gradients=True. Logic:
 This function supports broadcasting fully, so we can transform lots of points at
 the same time and/or apply lots of different transformations at the same time
 
+In-place operation is supported; the output array may be the same as the input
+arrays to overwrite the input.
+
 ARGUMENTS
 
 - rt: array of shape (6,). This vector defines the transformation. rt[:3] is a
@@ -1006,6 +1030,9 @@ gradients, pass get_gradients=True. Logic:
 
 This function supports broadcasting fully, so we can transform lots of points at
 the same time and/or apply lots of different transformations at the same time
+
+In-place operation is supported; the output array may be the same as the input
+arrays to overwrite the input.
 
 ARGUMENTS
 
