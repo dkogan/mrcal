@@ -202,6 +202,7 @@ confirm_equal( mrcal.identity_rt(out=out6),
                np.zeros((6,)),
                msg='identity_rt')
 
+################# rotate_point_R
 y = \
     mrcal.rotate_point_R(R0_ref, x, out = out3)
 confirm_equal( y,
@@ -233,6 +234,40 @@ confirm_equal( y,
                nps.matmult(x, nps.transpose(R0_ref)),
                msg='rotate_point_R result written in-place into x')
 
+# inverted
+y = \
+    mrcal.rotate_point_R(R0_ref, x, out = out3, inverted=True)
+confirm_equal( y,
+               nps.matmult(x, R0_ref),
+               msg='rotate_point_R(inverted) result')
+
+y, J_R, J_x = \
+    mrcal.rotate_point_R(R0_ref, x, get_gradients=True,
+                         out = (out3,out333,out33),
+                         inverted = True)
+J_R_ref = grad(lambda R: nps.matmult(x, R),
+               R0_ref)
+J_x_ref = nps.transpose(R0_ref)
+confirm_equal( y,
+               nps.matmult(x, R0_ref),
+               msg='rotate_point_R(inverted) result')
+confirm_equal( J_R,
+               J_R_ref,
+               msg='rotate_point_R(inverted) J_R')
+confirm_equal( J_x,
+               J_x_ref,
+               msg='rotate_point_R(inverted) J_x')
+
+# inverted in-place
+R0_ref_copy = np.array(R0_ref)
+x_copy      = np.array(x)
+y = \
+    mrcal.rotate_point_R(R0_ref_copy, x_copy, out = x_copy, inverted = True)
+confirm_equal( y,
+               nps.matmult(x, R0_ref),
+               msg='rotate_point_R result written in-place into x')
+
+################# rotate_point_r
 
 y = mrcal.rotate_point_r(r0_ref, x, out = out3)
 confirm_equal( y,
@@ -327,7 +362,7 @@ confirm_equal( J_x,
                msg='rotate_point_r(inverted, with-gradients result written in-place into x) J_x')
 
 
-
+################# transform_point_Rt
 
 
 y = mrcal.transform_point_Rt(Rt0_ref, x, out = out3)
@@ -394,8 +429,79 @@ confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_Rt (with gradients) result written in-place into x: J_x')
 
+# inverted
+y = mrcal.transform_point_Rt(Rt0_ref, x, out = out3,
+                             inverted = True)
+confirm_equal( y,
+               nps.matmult(x, R0_ref) - nps.matmult(t0_ref, R0_ref),
+               msg='transform_point_Rt(inverted) result')
+
+y, J_Rt, J_x = mrcal.transform_point_Rt(Rt0_ref, x, get_gradients=True,
+                                        out = (out3, out343, out33),
+                                        inverted = True)
+J_Rt_ref = grad(lambda Rt: nps.matmult(x, Rt[:3,:]) - nps.matmult(Rt[3,:], Rt[:3,:]),
+                Rt0_ref)
+J_x_ref = nps.transpose(R0_ref)
+confirm_equal( y,
+               nps.matmult(x, R0_ref)-nps.matmult(t0_ref, R0_ref),
+               msg='transform_point_Rt(inverted) result')
+confirm_equal( J_Rt,
+               J_Rt_ref,
+               msg='transform_point_Rt(inverted) J_Rt')
+confirm_equal( J_x,
+               J_x_ref,
+               msg='transform_point_Rt(inverted) J_x')
+
+# inverted in-place. I can imagine wanting to write the result in-place into t. But not
+# into any of R
+Rt0_ref_copy = np.array(Rt0_ref)
+x_copy       = np.array(x)
+y = mrcal.transform_point_Rt(Rt0_ref_copy, x_copy, out = Rt0_ref_copy[3,:],
+                             inverted = True)
+confirm_equal( y,
+               nps.matmult(x, R0_ref)-nps.matmult(t0_ref, R0_ref),
+               msg='transform_point_Rt(inverted) result written in-place into t')
+Rt0_ref_copy = np.array(Rt0_ref)
+x_copy       = np.array(x)
+y = mrcal.transform_point_Rt(Rt0_ref_copy, x_copy, out = x_copy,
+                             inverted = True)
+confirm_equal( y,
+               nps.matmult(x, R0_ref)-nps.matmult(t0_ref, R0_ref),
+               msg='transform_point_Rt(inverted) result written in-place into x')
+
+Rt0_ref_copy = np.array(Rt0_ref)
+x_copy       = np.array(x)
+y, J_Rt, J_x = mrcal.transform_point_Rt(Rt0_ref_copy, x_copy,
+                                        out = (Rt0_ref_copy[3,:], out343, out33),
+                                        get_gradients = True,
+                                        inverted = True)
+confirm_equal( y,
+               nps.matmult(x, R0_ref)-nps.matmult(t0_ref, R0_ref),
+               msg='transform_point_Rt(inverted) (with gradients) result written in-place into t')
+confirm_equal( J_Rt,
+               J_Rt_ref,
+               msg='transform_point_Rt(inverted) (with gradients) result written in-place into t: J_Rt')
+confirm_equal( J_x,
+               J_x_ref,
+               msg='transform_point_Rt(inverted) (with gradients) result written in-place into t: J_x')
+Rt0_ref_copy = np.array(Rt0_ref)
+x_copy       = np.array(x)
+y, J_Rt, J_x = mrcal.transform_point_Rt(Rt0_ref_copy, x_copy,
+                                        out = (x_copy, out343, out33),
+                                        get_gradients = True,
+                                        inverted = True)
+confirm_equal( y,
+               nps.matmult(x, R0_ref)-nps.matmult(t0_ref, R0_ref),
+               msg='transform_point_Rt(inverted) (with gradients) result written in-place into x')
+confirm_equal( J_Rt,
+               J_Rt_ref,
+               msg='transform_point_Rt(inverted) (with gradients) result written in-place into x: J_Rt')
+confirm_equal( J_x,
+               J_x_ref,
+               msg='transform_point_Rt(inverted) (with gradients) result written in-place into x: J_x')
 
 
+################# transform_point_rt
 
 
 y = mrcal.transform_point_rt(rt0_ref, x, out = out3)
@@ -467,7 +573,7 @@ confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_rt (with gradients) result written in-place into x: J_x')
 
-
+# Inverted
 y = mrcal.transform_point_rt(rt0_ref, x, out = out3, inverted=True)
 confirm_equal( y,
                nps.matmult(x-t0_ref, R0_ref),
@@ -490,8 +596,8 @@ confirm_equal( J_x,
                J_x_ref,
                msg='transform_point_rt(inverted) J_x')
 
-# In-place. I can imagine wanting to write the result in-place into t. But not
-# into any of r or J
+# Inverted in-place. I can imagine wanting to write the result in-place into t.
+# But not into any of r or J
 rt0_ref_copy = np.array(rt0_ref)
 x_copy       = np.array(x)
 y = mrcal.transform_point_rt(rt0_ref_copy, x_copy, inverted=True,
@@ -539,8 +645,7 @@ confirm_equal( J_x,
                msg='transform_point_rt(inverted, with gradients) result written in-place into x: J_x')
 
 
-
-
+################# r_from_R
 
 
 r = mrcal.r_from_R(R0_ref, out = out3)

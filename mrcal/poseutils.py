@@ -780,7 +780,7 @@ A tuple (u=r(x),du/dr,du/dx):
         return _poseutils._rotate_point_r(r,x, out=out, inverted=inverted)
     return _poseutils._rotate_point_r_withgrad(r,x, out=out, inverted=inverted)
 
-def rotate_point_R(R, x, get_gradients=False, out=None):
+def rotate_point_R(R, x, get_gradients=False, out=None, inverted=False):
     r"""Rotate point(s) using a rotation matrix
 
 SYNOPSIS
@@ -834,6 +834,9 @@ ARGUMENTS
   array of rotated points. Otherwise we return a tuple of arrays of rotated
   points and their gradients.
 
+- inverted: optional boolean, defaulting to False. If True, the opposite
+  rotation is computed. The gradient du/dR is returned in respect to the input R
+
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing (and
   possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
@@ -862,8 +865,8 @@ the gradients (u=R(x),du/dR,du/dx):
     """
 
     if not get_gradients:
-        return _poseutils._rotate_point_R(R,x, out=out)
-    return _poseutils._rotate_point_R_withgrad(R,x, out=out)
+        return _poseutils._rotate_point_R(R,x, out=out, inverted=inverted)
+    return _poseutils._rotate_point_R_withgrad(R,x, out=out, inverted=inverted)
 
 def transform_point_rt(rt, x, get_gradients=False, out=None, inverted=False):
     r"""Transform point(s) using an rt transformation
@@ -958,7 +961,7 @@ gradients (u=rt(x),du/drt,du/dx):
         return _poseutils._transform_point_rt(rt,x, out=out, inverted=inverted)
     return _poseutils._transform_point_rt_withgrad(rt,x, out=out, inverted=inverted)
 
-def transform_point_Rt(Rt, x, get_gradients=False, out=None):
+def transform_point_Rt(Rt, x, get_gradients=False, out=None, inverted=False):
     r"""Transform point(s) using an Rt transformation
 
 SYNOPSIS
@@ -1017,6 +1020,10 @@ ARGUMENTS
   array of transformed points. Otherwise we return a tuple of arrays of
   transformed points and their gradients.
 
+- inverted: optional boolean, defaulting to False. If True, the opposite
+  transformation is computed. The gradient du/dRt is returned in respect to the
+  input Rt
+
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing (and
   possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
@@ -1045,8 +1052,8 @@ gradients (u=Rt(x),du/dRt,du/dx):
     """
 
     if not get_gradients:
-        return _poseutils._transform_point_Rt(Rt,x, out=out)
-    return _poseutils._transform_point_Rt_withgrad(Rt,x, out=out)
+        return _poseutils._transform_point_Rt(Rt,x, out=out, inverted=inverted)
+    return _poseutils._transform_point_Rt_withgrad(Rt,x, out=out, inverted=inverted)
 
 @nps.broadcast_define( ((4,),),
                        (3,3) )

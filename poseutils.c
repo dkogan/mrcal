@@ -238,7 +238,12 @@ void mrcal_rotate_point_R_full( // output
                                int R_stride0,      // in bytes. <= 0 means "contiguous"
                                int R_stride1,      // in bytes. <= 0 means "contiguous"
                                const double* x_in, // (3,) array. May be NULL
-                               int x_in_stride0    // in bytes. <= 0 means "contiguous"
+                               int x_in_stride0,   // in bytes. <= 0 means "contiguous"
+
+                               bool inverted       // if true, I apply a
+                                                   // rotation in the opposite
+                                                   // direction. J_R corresponds
+                                                   // to the input R
                                 )
 {
     init_stride_1D(x_out, 3);
@@ -246,6 +251,20 @@ void mrcal_rotate_point_R_full( // output
     init_stride_2D(J_x,   3,3 );
     init_stride_2D(R,     3,3 );
     init_stride_1D(x_in,  3 );
+
+    if(inverted)
+    {
+        // transpose R
+        int tmp;
+
+        tmp = R_stride0;
+        R_stride0 = R_stride1;
+        R_stride1 = tmp;
+
+        tmp = J_R_stride1;
+        J_R_stride1 = J_R_stride2;
+        J_R_stride2 = tmp;
+    }
 
     if(J_R)
     {
@@ -296,7 +315,12 @@ void mrcal_transform_point_Rt_full( // output
                                    int Rt_stride0,     // in bytes. <= 0 means "contiguous"
                                    int Rt_stride1,     // in bytes. <= 0 means "contiguous"
                                    const double* x_in, // (3,) array. May be NULL
-                                   int x_in_stride0    // in bytes. <= 0 means "contiguous"
+                                   int x_in_stride0,   // in bytes. <= 0 means "contiguous"
+
+                                   bool inverted       // if true, I apply a
+                                                       // transformation in the opposite
+                                                       // direction. J_Rt corresponds
+                                                       // to the input Rt
                                     )
 {
     init_stride_1D(x_out, 3);
@@ -305,22 +329,52 @@ void mrcal_transform_point_Rt_full( // output
     init_stride_2D(Rt,    4,3 );
     // init_stride_1D(x_in,  3 );
 
-    // for in-place operation
-    double t[] = { P2(Rt,3,0), P2(Rt,3,1), P2(Rt,3,2) };
+    if(!inverted)
+    {
+        // for in-place operation
+        double t[] = { P2(Rt,3,0), P2(Rt,3,1), P2(Rt,3,2) };
 
-    // I want R*x + t
-    // First R*x
-    mrcal_rotate_point_R_full(x_out, x_out_stride0,
-                              J_Rt,  J_Rt_stride0,  J_Rt_stride1, J_Rt_stride2,
-                              J_x,   J_x_stride0,   J_x_stride1,
-                              Rt,    Rt_stride0,    Rt_stride1,
-                              x_in,  x_in_stride0);
+        // I want R*x + t
+        // First R*x
+        mrcal_rotate_point_R_full(x_out, x_out_stride0,
+                                  J_Rt,  J_Rt_stride0,  J_Rt_stride1, J_Rt_stride2,
+                                  J_x,   J_x_stride0,   J_x_stride1,
+                                  Rt,    Rt_stride0,    Rt_stride1,
+                                  x_in,  x_in_stride0,
+                                  false);
 
-    // And now +t. The J_R, J_x gradients are unaffected. J_t is identity
-    for(int i=0; i<3; i++)
-        P1(x_out,i) += t[i];
-    if(J_Rt)
-        mrcal_identity_R_full(&P3(J_Rt,0,3,0), J_Rt_stride0, J_Rt_stride2);
+        // And now +t. The J_R, J_x gradients are unaffected. J_t is identity
+        for(int i=0; i<3; i++)
+            P1(x_out,i) += t[i];
+        if(J_Rt)
+            mrcal_identity_R_full(&P3(J_Rt,0,3,0), J_Rt_stride0, J_Rt_stride2);
+    }
+    else
+    {
+        // inverted operation means
+        //   y = transpose(R) (x - t)
+
+        double x_minus_t[] = { P1(x_in,0) - P2(Rt,3,0),
+                               P1(x_in,1) - P2(Rt,3,1),
+                               P1(x_in,2) - P2(Rt,3,2)};
+
+        // Compute. After this:
+        //   x_out is done
+        //   J_R is done
+        //   J_x is done
+        mrcal_rotate_point_R_full(x_out, x_out_stride0,
+                                  J_Rt,  J_Rt_stride0,  J_Rt_stride1, J_Rt_stride2,
+                                  J_x,   J_x_stride0,   J_x_stride1,
+                                  Rt,    Rt_stride0,    Rt_stride1,
+                                  x_minus_t,  sizeof(double),
+                                  true);
+
+        // I want J_t = -transpose(R)
+        if(J_Rt)
+            for(int i=0; i<3; i++)
+                for(int j=0; j<3; j++)
+                    P3(J_Rt, i, 3, j) = -P2(Rt, j, i);
+    }
 }
 
 // The implementation of mrcal_R_from_r is based on opencv.
