@@ -304,7 +304,16 @@ if get_gradients: we return a tuple:
             v = mrcal._mrcal_npsp._unproject(q, intrinsics_data, lensmodel=lensmodel,
                                              out=out)
             if normalize:
+
+                # Explicitly handle nan and inf to set their normalized values
+                # to 0. Otherwise I get a scary-looking warning from numpy
+                i_vgood = \
+                    np.isfinite(v[...,0]) * \
+                    np.isfinite(v[...,1]) * \
+                    np.isfinite(v[...,2])
+                v[~i_vgood] = np.array((0.,0.,1.))
                 v /= nps.dummy(nps.mag(v), -1)
+                v[~i_vgood] = np.array((0.,0.,0.))
             return v
 
         # We need to report gradients
