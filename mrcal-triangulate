@@ -104,8 +104,8 @@ def parse_args():
                         accept only very good matches. A lower threshold may
                         still result in usable matches, but do interactively
                         check the feature-matcher results by passing
-                        --viz-match''')
-    parser.add_argument('--viz-match',
+                        --viz''')
+    parser.add_argument('--viz',
                         action='store_true',
                         help='''If given, we visualize the feature-matcher results. This produces an
                         interactive gnuplot window with 2 overlaid images: the
@@ -547,9 +547,9 @@ if args.make_corrected_model1:
     models[1].extrinsics_rt_fromref(rt_1r)
     models[1].write(sys.stdout)
 
-if args.viz_match:
+if args.viz:
     if match_feature_diagnostics is None:
-        print("## WARNING: no feature matching was performed, so --viz-match does nothing")
+        print("## WARNING: no feature matching was performed, so --viz does nothing")
     else:
         import gnuplotlib as gp
         # don't plot the correlation map (the last plot data tuple)
