@@ -115,6 +115,26 @@ def parse_args():
                         legend in the top-right of the plot. It's generally most
                         useful to show/hide the template to visually verify the
                         resulting alignment.''')
+    parser.add_argument('--extratitle',
+                        type=str,
+                        default = None,
+                        help='''Extra title string for the --viz plot''')
+
+    parser.add_argument('--hardcopy',
+                        type=str,
+                        help='''Write the --viz output to disk, instead of an interactive plot''')
+    parser.add_argument('--terminal',
+                        type=str,
+                        help=r'''The gnuplotlib terminal used in --viz. The default is good almost always, so most people don't
+                        need this option''')
+    parser.add_argument('--set',
+                        type=str,
+                        action='append',
+                        help='''Extra 'set' directives to gnuplotlib for --viz. Can be given multiple times''')
+    parser.add_argument('--unset',
+                        type=str,
+                        action='append',
+                        help='''Extra 'unset' directives to gnuplotlib --viz. Can be given multiple times''')
     parser.add_argument('models',
                         type=str,
                         nargs = 2,
@@ -552,7 +572,23 @@ if args.viz:
         print("## WARNING: no feature matching was performed, so --viz does nothing")
     else:
         import gnuplotlib as gp
+
+        plot_options = match_feature_diagnostics['plot_options']
+        data_tuples  = match_feature_diagnostics['plot_data_tuples']
+
+        if args.extratitle is not None:
+            if 'title' in plot_options:
+                plot_options['title'] += ": " + args.extratitle
+            else:
+                plot_options['title'] = args.extratitle
+        if args.set   is not None:
+            gp.add_plot_option(plot_options, 'set',   args.set)
+        if args.unset is not None:
+            gp.add_plot_option(plot_options, 'unset', args.unset)
+        if args.hardcopy is not None:
+            gp.add_plot_option(plot_options, 'hardcopy', args.hardcopy, overwrite=True)
+        if args.terminal is not None:
+            gp.add_plot_option(plot_options, 'terminal', args.terminal, overwrite=True)
+
         # don't plot the correlation map (the last plot data tuple)
-        gp.plot( * match_feature_diagnostics['plot_data_tuples'][:-1],
-                 **match_feature_diagnostics['plot_options'],
-                 wait=True)
+        gp.plot( *data_tuples[:-1], **plot_options, wait=True)
