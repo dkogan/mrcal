@@ -574,12 +574,6 @@ camera coordinate system FROM the calibration object coordinate system.
     # No calobject_warp. Good-enough for the seeding
     full_object = mrcal.ref_calibration_object(object_width_n, object_height_n, object_spacing)
 
-    observations_in = observations
-    observations    = observations.copy()
-    v               = observations.copy()
-
-
-
 
     class SolvePnPerror_negz(Exception):
         def __init__(self, err): self.err = err
@@ -603,22 +597,19 @@ camera coordinate system FROM the calibration object coordinate system.
         camera_matrix_pinhole_scaled[0,0] *= s
         camera_matrix_pinhole_scaled[1,1] *= s
 
-
-        mrcal.unproject(observations_in[i_observation,...,:2],
-                        lensmodels[icam],
-                        intrinsics_data_input_scaled,
-                        out = v[i_observation])
-        mrcal.project(v[i_observation],
-                      'LENSMODEL_PINHOLE',
-                      intrinsics_data_pinhole_scaled,
-                      out = observations[i_observation,...,:2])
-
-        # shape (Nh,Nw,3)
-        d = observations[i_observation, ...]
-
         # shape (Nh,Nw,6); each row is an x,y,weight pixel observation followed
         # by the xyz coord of the point in the calibration object
-        d = nps.glue(d, full_object, axis=-1)
+        d = np.zeros((object_height_n,object_width_n,6), dtype=float)
+        d[..., 2] = observations[i_observation, ..., 2]
+        d[...,3:] = full_object
+
+        v = mrcal.unproject(observations[i_observation,...,:2],
+                            lensmodels[icam],
+                            intrinsics_data_input_scaled)
+        mrcal.project(v,
+                      'LENSMODEL_PINHOLE',
+                      intrinsics_data_pinhole_scaled,
+                      out = d[...,:2])
 
         # shape (Nh*Nw,6)
         d = nps.clump( d, n=2)
