@@ -617,9 +617,9 @@ camera coordinate system FROM the calibration object coordinate system.
         # I pick off those rows where the point observation is valid. Result
         # should be (N,6) where N <= object_height_n*object_width_n
         i = \
-            (~np.isnan(d[..., 0])) * (d[..., 0] >= 0) * \
-            (~np.isnan(d[..., 1])) * (d[..., 1] >= 0) * \
-            (~np.isnan(d[..., 2])) * (d[..., 2] >= 0)
+            (~np.isnan(d[..., 0])) * \
+            (~np.isnan(d[..., 1])) * \
+            (~np.isnan(d[..., 2]))
         dvalid = d[i,:]
 
         try:
