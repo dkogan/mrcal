@@ -2309,6 +2309,8 @@ def show_residuals_board_observation(optimization_inputs,
                                      i_observations_sorted_from_worst = None,
                                      residuals                        = None,
                                      paths                            = None,
+                                     image_path_prefix                = None,
+                                     image_directory                  = None,
                                      circlescale                      = 1.0,
                                      vectorscale                      = 1.0,
                                      showimage                        = True,
@@ -2366,8 +2368,18 @@ ARGUMENTS
   mrcal.optimizer_callback(**optimization_inputs)[1]
 
 - paths: optional iterable of strings, containing image filenames corresponding
-  to each observation. If omitted or None or if the image doesn't exist, the
-  residuals will be plotted without the source image beneath.
+  to each observation. If omitted or None or if the image couldn't be found, the
+  residuals will be plotted without the source image. The path we search is
+  controlled by the image_path_prefix and image_directory options
+
+- image_path_prefix: optional argument, defaulting to None, exclusive with
+  "image_directory". If given, the image paths in the "paths" argument are
+  prefixed with the given string.
+
+- image_directory: optional argument, defaulting to None, exclusive with
+  "image_path_prefix". If given, we extract the filename from the image path in
+  the "paths" argument, and look for the images in the directory given here
+  instead
 
 - circlescale: optional scale factor to adjust the size of the plotted circles.
   If omitted, a unit scale (1.0) is used. This exists to improve the legibility
@@ -2408,6 +2420,10 @@ plot
     '''
 
     import gnuplotlib as gp
+
+    if image_path_prefix is not None and \
+       image_directory   is not None:
+        raise Exception("image_path_prefix and image_directory are mutually exclusive")
 
     if residuals is None:
         # Flattened residuals. The board measurements are at the start of the
@@ -2467,10 +2483,25 @@ plot
 
                        overwrite = False)
 
-    if paths is not None and showimage and os.path.isfile(paths[i_observation]):
+    if paths is not None and showimage:
+        imagepath = paths[i_observation]
+
+        if image_path_prefix is not None:
+            imagepath = f"{image_path_prefix}/{imagepath}"
+        elif image_directory is not None:
+            imagepath = f"{image_directory}/{os.path.basename(imagepath)}"
+
+        if not os.path.isfile(imagepath):
+            print(f"WARNING: Couldn't read image at '{imagepath}'", file=sys.stderr)
+            imagepath = None
+    else:
+        imagepath = None
+
+    if imagepath is not None:
+
         # only plot an image overlay if the image exists
         gp.add_plot_option(plot_options,
-                           rgbimage = paths[i_observation],
+                           rgbimage = imagepath,
                            overwrite = True)
         gp.add_plot_option(plot_options,
                            'set',

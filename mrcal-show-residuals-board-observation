@@ -56,6 +56,15 @@ def parse_args():
                         worst-fitting observation). By default we index the
                         observations in the order they appear in the solve''')
 
+    parser.add_argument('--image-path-prefix',
+                        help='''If given, we prepend the given prefix to the image paths. Exclusive with
+                        --image-directory''')
+
+    parser.add_argument('--image-directory',
+                        help='''If given, we extract the filenames from the image paths in the solve, and use
+                        the given directory to find those filenames. Exclusive
+                        with --image-path-prefix''')
+
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''Write the output to disk, instead of making an interactive plot''')
@@ -92,6 +101,10 @@ def parse_args():
                         to the best-fitting instead''')
 
     args = parser.parse_args()
+
+    if args.image_path_prefix is not None and \
+       args.image_directory is not None:
+        raise Exception("--image-path-prefix and --image-directory are mutually exclusive")
 
     return args
 
@@ -160,6 +173,8 @@ def show(i_observation):
                                            i_observations_sorted_from_worst = i_observations_sorted_from_worst,
                                            residuals                        = residuals,
                                            paths                            = paths,
+                                           image_path_prefix                = args.image_path_prefix,
+                                           image_directory                  = args.image_directory,
                                            circlescale                      = args.circlescale,
                                            vectorscale                      = args.vectorscale,
                                            extratitle                       = args.extratitle,
