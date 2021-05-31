@@ -14,10 +14,11 @@ import mrcal
 def rectified_system(models,
                      az_fov_deg,
                      el_fov_deg,
-                     az0_deg           = None,
-                     el0_deg           = 0,
-                     pixels_per_deg_az = None,
-                     pixels_per_deg_el = None):
+                     az0_deg             = None,
+                     el0_deg             = 0,
+                     pixels_per_deg_az   = None,
+                     pixels_per_deg_el   = None,
+                     rectification_model = 'LENSMODEL_LATLON'):
 
     r'''Build rectified models for stereo rectification
 
@@ -87,15 +88,16 @@ SYNOPSIS
     # shape (H,W,3)
     p_cam0 = mrcal.transform_point_Rt(Rt_cam0_rect0, p_rect0)
 
-This function computes the geometry of a rectified system from the two
-cameramodels describing the stereo pair. The output is a pair of "rectified"
-models. Each of these is a normal mrcal.cameramodel object describing a camera
-somewhere in space, with some particular projection behavior. The pair of models
-returned here have the desired property that each row of pixels represents a
-plane in space AND each corresponding row in the pair of rectified images
-represents the SAME plane. The we can use the rectified models returned by this
-function to transform the input images into "rectified" images, and then we can
-perform stereo matching effiently, by treating each row independently.
+This function computes the parameters of a rectified system from two
+cameramodels in a stereo pair. The output is a pair of "rectified" models. Each
+of these is a normal mrcal.cameramodel object describing a "camera" somewhere in
+space, with some particular projection behavior. The pair of models returned
+here have the desired property that each row of pixels represents a plane in
+space AND each corresponding row in the pair of rectified images represents the
+SAME plane: the epipolar lines are aligned. We can use the rectified models
+returned by this function to transform the input images into "rectified" images,
+and then we can perform stereo matching efficiently, by treating each row
+independently.
 
 This function is generic: the two input cameras may use any lens models, any
 resolution and any geometry. They don't even have to match. As long as there's
@@ -124,10 +126,19 @@ shifts. Vertical stereo is supported: we still run stereo matching on ROWS of
 the rectified images, but the rectification transformation will rotate the
 images by 90 degrees.
 
-The lensmodel used in the cameramodels we return is LENSMODEL_LATLON (described
-in detail here: http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon ).
-This lens model has even angular spacing between pixels and has the desired
-property of mapping rows of pixels to planes in space.
+Several projection functions may be used in the rectified system. These are
+selectable using the "rectification_model" keyword argument; they're a string
+representing the lensmodel that will be used in the cameramodel objects we
+return. Two projections are currently supported:
+
+- "LENSMODEL_LATLON": the default projection that utilizes a transverse
+  equirectangular map. This projection has even angular spacing between pixels,
+  so it works well even with wide lenses. The documentation has more information:
+  http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
+
+- "LENSMODEL_PINHOLE": the traditional projection function that utilizes a
+  pinhole camera. This works badly with wide lenses, and is recommended if
+  compatibility with other stereo processes is desired
 
 ARGUMENTS
 
@@ -139,7 +150,11 @@ ARGUMENTS
   of the desired rectified system, in degrees
 
 - el_fov_deg: required value for the elevation (across-the-baseline)
-  field-of-view of the desired rectified system, in degrees
+  field-of-view of the desired rectified system, in degrees. Note that this
+  applies at the center of the rectified system: az = 0. With a skewed stereo
+  system (if we have a forward/backward shift or if a nonzero az0_deg is given),
+  this rectification center will not be at the horizontal center of the image,
+  and may not be in-bounds of the image at all.
 
 - az0_deg: optional value for the azimuth center of the rectified images. This
   is especially significant in a camera system with some forward/backward shift.
@@ -159,6 +174,11 @@ ARGUMENTS
 
 - pixels_per_deg_el: same as pixels_per_deg_az but in the elevation direction
 
+- rectification_model: optional string that selects the projection function to
+  use in the resulting rectified system. This is a string selecting the mrcal
+  lens model. Currently supported are "LENSMODEL_LATLON" (the default) and
+  "LENSMODEL_PINHOLE"
+
 RETURNED VALUES
 
 We return a tuple of mrcal.cameramodels describing the two rectified cameras.
@@ -166,6 +186,16 @@ These two models are identical, except for a baseline translation in the +x
 direction in rectified coordinates.
 
     '''
+
+    if rectification_model == 'LENSMODEL_LATLON':
+        unproject_rectified = mrcal.unproject_latlon
+        project_rectified   = mrcal.project_latlon
+    elif rectification_model == 'LENSMODEL_PINHOLE':
+        unproject_rectified = mrcal.unproject_pinhole
+        project_rectified   = mrcal.project_pinhole
+    else:
+        raise(f"Unsupported rectification model '{rectification_model}'. Only LENSMODEL_LATLON and LENSMODEL_PINHOLE are supported.")
+
 
     if len(models) != 2:
         raise Exception("I need exactly 2 camera models")
@@ -255,6 +285,9 @@ direction in rectified coordinates.
 
     el0 = el0_deg * np.pi/180.
 
+    cos_az0 = np.cos(az0)
+    cos_el0 = np.cos(el0)
+
     ####### Rectified image resolution
     if pixels_per_deg_az is None or pixels_per_deg_az < 0 or \
        pixels_per_deg_el is None or pixels_per_deg_el < 0:
@@ -265,8 +298,22 @@ direction in rectified coordinates.
         # I look at the center of the stereo field of view. There I have q =
         # project(v) where v is a unit projection vector. I compute dq/dth where
         # th is an angular perturbation applied to v.
-        v,dv_dazel = mrcal.unproject_latlon( np.array((az0,el0)),
-                                             get_gradients = True )
+
+        if rectification_model == 'LENSMODEL_LATLON':
+            q0_normalized = np.array((az0,el0))
+            v,dv_dazel = \
+                unproject_rectified( q0_normalized,
+                                     get_gradients = True )
+        else:
+            q0_normalized = np.array((np.tan(az0),np.tan(el0)))
+            v,dv_dq0normalized = \
+                unproject_rectified( q0_normalized,
+                                     get_gradients = True )
+            # dq/dth = dtanth/dth = 1/cos^2(th)
+            dv_dazel = dv_dq0normalized
+            dv_dq0normalized[:,0] /= cos_az0*cos_az0
+            dv_dq0normalized[:,1] /= cos_el0*cos_el0
+
         v0         = mrcal.rotate_point_R(R_cam0_rect0, v)
         dv0_dazel  = nps.matmult(R_cam0_rect0, dv_dazel)
 
@@ -323,17 +370,112 @@ direction in rectified coordinates.
             else:
                 pixels_per_deg_el = pixels_per_deg_el_have
 
-    Naz = round(az_fov_deg*pixels_per_deg_az)
-    Nel = round(el_fov_deg*pixels_per_deg_el)
+    # How do we apply the desired pixels_per_deg?
+    #
+    # With LENSMODEL_LATLON we have even angular spacing, so q = f th + c ->
+    # dq/dth = f everywhere.
+    #
+    # With LENSMODEL_PINHOLE the angular resolution changes across the image: q
+    # = f tan(th) + c -> dq/dth = f/cos^2(th). So at the center, th=0 and we
+    # have the maximum resolution
+    fxycxy = np.array((pixels_per_deg_az / np.pi*180.,
+                       pixels_per_deg_el / np.pi*180.,
+                       0., 0.), dtype=float)
+    if rectification_model == 'LENSMODEL_LATLON':
+        # The angular resolution is consistent everywhere, so fx,fy are already
+        # set. Let's set cx,cy such that
+        # (az0,el0) = unproject(imager center)
+        Naz = round(az_fov_deg*pixels_per_deg_az)
+        Nel = round(el_fov_deg*pixels_per_deg_el)
+        v = unproject_rectified( np.array((az0,el0)) )
+        fxycxy[2:] = \
+            np.array(((Naz-1.)/2.,(Nel-1.)/2.)) - \
+            project_rectified( v, *fxycxy[:2] )
 
-    # Adjust resolution to be consistent with my just-computed integer pixel
-    # counts
-    pixels_per_deg_az = Naz/az_fov_deg
-    pixels_per_deg_el = Nel/el_fov_deg
+    elif rectification_model == 'LENSMODEL_PINHOLE':
+        fxycxy[0] *= cos_az0*cos_az0
+        fxycxy[1] *= cos_el0*cos_el0
+
+        # fx,fy are set. Let's set cx,cy. Unlike the LENSMODEL_LATLON case, this
+        # is asymmetric, so I explicitly solve for (cx,Naz). cy,Nel work the
+        # same way. I want
+        #
+        #  tan(az0)*fx + cx = (Naz-1)/2
+        #
+        #  inner( normalized(unproject(x=0)),
+        #         normalized(unproject(x=Naz-1)) ) = cos(fov)
+        #
+        # unproject(x=0    ) = [ (0     - cx)/fx, 0, 1]
+        # unproject(x=Naz-1) = [ (Naz-1 - cx)/fx, 0, 1]
+        #
+        # -> v0 ~ [ -cx/fx,           0, 1]
+        # -> v1 ~ [ 2*tanaz0 + cx/fx, 0, 1]
+        #
+        # Let K = 2*tanaz0 (we have K). Let C = cx/fx (we want to find C)
+        # -> v0 ~ [-C,1], v1 ~ [K+C,1]
+        # -> cosfov = (1 - K*C - C^2) / sqrt( (1+C^2)*(1+C^2+K^2+2*K*C))
+        # -> cos2fov*(1+C^2)*(1+C^2+K^2+2*K*C) - (1 - K*C - C^2)^2 = 0
+        # -> 0 =
+        #        C^4 * (cos2fov - 1) +
+        #        C^3 * 2 K (cos2fov - 1 ) +
+        #        C^2 * (cos2fov K^2 + 2 cos2fov - K^2 + 2) +
+        #        C   * 2 K ( cos2fov + 1 ) +
+        #        cos2fov ( K^2 + 1 ) - 1
+        #
+        # I can solve this numerically
+        def cxy(fxy, tanazel0, fov_deg):
+            cosfov = np.cos(fov_deg*np.pi/180.)
+            cos2fov = cosfov*cosfov
+            K = 2.*tanazel0
+
+            C = np.roots( [ (cos2fov - 1),
+                            2.* K * (cos2fov - 1 ),
+                            cos2fov * K*K + 2.*cos2fov - K*K + 2,
+                            2.* K * (cos2fov + 1 ),
+                            cos2fov * (K*K + 1.) - 1 ] )
+
+            # Some numerical fuzz (if fov ~ 90deg) may give me slightly
+            # imaginary numbers, so I just look at the real component.
+            # Similarly, I allow a bit of numerical fuzz in the logic below
+            C = np.real(C)
+
+            # I solve my quadratic polynomial numerically. I get 4 solutions,
+            # and I need to throw out the invalid ones.
+            #
+            # fov may be > 90deg, so cos(fov) may be <0. The solution will make
+            # sure that cos^2(fov) matches up, but the solution may assume the
+            # wrong sign for cos(fov). From above:
+            #
+            #   cosfov = (1 - K*C - C^2) / sqrt( (1+C^2)*(1+C^2+K^2+2*K*C))
+            #
+            # So I must have cosfov*(1 - K*C - C^2) > 0
+            C = C[cosfov*(1 - K*C - C*C) >= -1e-9]
+
+            # And the implied imager size MUST be positive
+            C = C[(tanazel0*fxy + C*fxy)*2. + 1 > 0]
+
+            if len(C) == 0:
+                raise Exception("Couldn't compute the rectified pinhole center pixel. Something is wrong.")
+
+            # I should have exactly one solution let. Due to some numerical
+            # fuzz, I might have more, and I pick the most positive one in the
+            # condition above
+            return C[np.argmax(cosfov*(1 - K*C - C*C))] * fxy
 
 
-    ######## Construct rectified models. These can be used for all further
-    ######## stereo processing
+
+        tanaz0 = np.tan(az0)
+        tanel0 = np.tan(el0)
+        fxycxy[2] = cxy(fxycxy[0], tanaz0, az_fov_deg)
+        fxycxy[3] = cxy(fxycxy[1], tanel0, el_fov_deg)
+
+        Naz = round((tanaz0*fxycxy[0] + fxycxy[2])*2.) + 1
+        Nel = round((tanel0*fxycxy[1] + fxycxy[3])*2.) + 1
+
+    else:
+        raise Exception("Shouldn't get here; This case was checked above")
+
+    ######## The geometry
     Rt_rect0_cam0 = nps.glue(R_rect0_cam0, np.zeros((3,),), axis=-2)
     Rt_rect0_ref  = mrcal.compose_Rt( Rt_rect0_cam0,
                                       models[0].extrinsics_Rt_fromref())
@@ -343,20 +485,12 @@ direction in rectified coordinates.
     Rt_rect1_ref  = mrcal.compose_Rt( Rt_rect1_cam1,
                                       models[1].extrinsics_Rt_fromref())
 
-    fxycxy = np.zeros((4,), dtype=float)
-    fxycxy[:2] = np.array((pixels_per_deg_az, pixels_per_deg_el)) / np.pi*180.
-    # (az0,el0) = unproject(imager center)
-    v = mrcal.unproject_latlon( np.array((az0,el0)) )
-    fxycxy[2:] = \
-        np.array(((Naz-1.)/2.,(Nel-1.)/2.)) - \
-        mrcal.project_latlon( v, *fxycxy[:2] )
-
     models_rectified = \
-        ( mrcal.cameramodel( intrinsics = ('LENSMODEL_LATLON', fxycxy),
+        ( mrcal.cameramodel( intrinsics = (rectification_model, fxycxy),
                              imagersize = (Naz, Nel),
                              extrinsics_Rt_fromref = Rt_rect0_ref),
 
-          mrcal.cameramodel( intrinsics = ('LENSMODEL_LATLON', fxycxy),
+          mrcal.cameramodel( intrinsics = (rectification_model, fxycxy),
                              imagersize = (Naz, Nel),
                              extrinsics_Rt_fromref = Rt_rect1_ref) )
 
@@ -367,8 +501,9 @@ def _validate_models_rectified(models_rectified):
     r'''Internal function to validate a rectified system
 
 These should have been returned by rectified_system(). Should have two
-LENSMODEL_LATLON cameras with identical intrinsics. extrinsics should be
-identical too EXCEPT for a baseline translation in the x rectified direction
+LENSMODEL_LATLON or LENSMODEL_PINHOLE cameras with identical intrinsics.
+extrinsics should be identical too EXCEPT for a baseline translation in the x
+rectified direction
 
     '''
 
@@ -379,8 +514,8 @@ identical too EXCEPT for a baseline translation in the x rectified direction
     Rt01 = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
                              models_rectified[1].extrinsics_Rt_toref())
 
-    if intrinsics[0][0] != 'LENSMODEL_LATLON' or \
-       intrinsics[1][0] != 'LENSMODEL_LATLON':
+    if not ( (intrinsics[0][0] == 'LENSMODEL_LATLON'  and intrinsics[1][0] == 'LENSMODEL_LATLON' ) or \
+             (intrinsics[0][0] == 'LENSMODEL_PINHOLE' and intrinsics[1][0] == 'LENSMODEL_PINHOLE') ):
         raise Exception(f"Expected lensmodel 'LENSMODEL_LATLON' but got {intrinsics[0][0]} and {intrinsics[1][0]}")
 
     if nps.norm2(intrinsics[0][1] - intrinsics[1][1]) > 1e-6:
@@ -517,11 +652,18 @@ contains corresponding pixel coordinates in the input image
     #   multiplication/addition steps from there
 
     # shape (Nel,Naz,3)
-    v = mrcal.unproject_latlon( np.ascontiguousarray( \
-           nps.mv( nps.cat( *np.meshgrid(np.arange(Naz,dtype=float),
-                                         np.arange(Nel,dtype=float))),
-                   0, -1)),
-                                 *fxycxy)
+    if models_rectified[0].intrinsics()[0] == 'LENSMODEL_LATLON':
+        v = mrcal.unproject_latlon( np.ascontiguousarray( \
+               nps.mv( nps.cat( *np.meshgrid(np.arange(Naz,dtype=float),
+                                             np.arange(Nel,dtype=float))),
+                       0, -1)),
+                                     *fxycxy)
+    else:
+        v = mrcal.unproject_pinhole( np.ascontiguousarray( \
+               nps.mv( nps.cat( *np.meshgrid(np.arange(Naz,dtype=float),
+                                             np.arange(Nel,dtype=float))),
+                       0, -1)),
+                                     *fxycxy)
 
     v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
     v1 = mrcal.rotate_point_R(R_cam_rect[1], v)
@@ -533,7 +675,7 @@ contains corresponding pixel coordinates in the input image
 
 def stereo_range(disparity_pixels,
                  models_rectified,
-                 az_deg = None):
+                 qrect0 = None):
 
     r'''Compute ranges from observed disparities
 
@@ -614,15 +756,18 @@ a range IMAGE. In this common case we call
     range_image = mrcal.stereo_range(disparity_image, models_rectified)
 
 If we aren't processing the full disparity image, we can pass in an array of
-azimuths in the "az_deg" argument. These must be broadcastable with the
-disparity_pixels argument. So we can pass in a scalar for disparity_pixels and
-az_deg. or we can pass in full shape (H,W) images for both. Or we can pass in a
-shape (H,W) image for disparity_pixels, but only a shape (W,) array for az_deg:
-this would use the same az value for a whole column of disparity_pixels, as
-dictated by the broadcasting rules. Such identical-az-in-a-column behavior is
-valid in our current rectification system.
+rectified pixel coordinates (in the first rectified camera) in the "qrect0"
+argument. These must be broadcastable with the disparity_pixels argument. So we
+can pass in a scalar for disparity_pixels and a single (2,) array for qrect0. Or
+we can pass in full arrays for both. Or we can pass in a shape (H,W) image for
+disparity_pixels, but only a shape (W,2) array for qrect0: this would use the
+same qrect0 value for a whole column of disparity_pixels, as dictated by the
+broadcasting rules. Such identical-az-in-a-column behavior is valid for
+LENSMODEL_LATLON stereo, but not for LENSMODEL_PINHOLE stereo. It's the user's
+responsibility to know when to omit data like this. When in doubt, pass a
+separate qrect0 for each disparity value.
 
-A top view onto an epipolar plane:
+Each epipolar plane looks like this:
 
 camera0
 + . . . .
@@ -649,8 +794,9 @@ camera1
 The cameras are at the top-left and bottom-left of the figure, looking out to
 the right at a point p in space. The observation ray from camera0 makes an angle
 az0 with the "forward" direction (here az0 > 0), while the observation ray from
-camera1 makes an angle az1 (here az1 < 0). A disparity is a difference of
-azimuths: disparity ~ az0-az1.
+camera1 makes an angle az1 (here az1 < 0). A LENSMODEL_LATLON disparity is a
+difference of azimuth angles: disparity ~ az0-az1. A LENSMODEL_PINHOLE disparity
+is a scaled difference of tangents: disparity ~ tan(az0)-tan(az1)
 
 The law of sines tells us that
 
@@ -660,9 +806,58 @@ Thus
 
     range = baseline cos(az1) / sin(a) =
           = baseline cos(az1) / sin( 180 - (90-az0 + 90+az1) ) =
-          = baseline cos(az1) / sin(az0 - az1) =
-          = baseline cos(az1) / sin(disparity)
-          = baseline cos(az0 - disparity) / sin(disparity)
+          = baseline cos(az1) / sin(az0-az1) =
+          = baseline cos(az0 - az0-az1) / sin(az0-az1)
+
+az0-az1 is the angular disparity. If using LENSMODEL_LATLON, this is what we
+have, and this is a usable expression. Otherwise we keep going:
+
+    range = baseline cos(az0 - az0-az1) / sin(az0-az1)
+          = baseline (cos(az0)cos(az0-az1) + sin(az0)sin(az0-az1)) / sin(az0-az1)
+          = baseline cos(az0)/tan(az0-az1) + sin(az0)
+          = baseline cos(az0)* (1 + tan(az0)tan(az1))/(tan(az0) - tan(az1)) + sin(az0)
+          = baseline cos(az0)*((1 + tan(az0)tan(az1))/(tan(az0) - tan(az1)) + tan(az0))
+
+A scaled tan(az0)-tan(az1) is the disparity when using LENSMODEL_PINHOLE, so
+this is the final expression we use.
+
+When using LENSMODEL_LATLON, the azimuth values in the projection ARE the
+azimuth values inside each epipolar plane, so there's nothing extra to do. When
+using LENSMODEL_PINHOLE however, there's extra work to do. We need to convert
+pixel disparity values to az0 and az1.
+
+Let's say we're looking two rectified pinhole points on the same epipolar plane,
+a "forward" point and a "query" point:
+
+    q0 = [0, qy]    and    q1 = [qx1, qy]
+
+We convert these to normalized coords: t = (q-cxy)/fxy
+
+    t0 = [0, ty]    and    t1 = [tx1, ty]
+
+These unproject to
+
+    v0 = [0, ty, 1]    and    v1 = [tx1, ty, 1]
+
+These lie on an epipolar plane with normal [0, -1, ty]. I define a coordinate
+system basis using the normal as one axis. The other two axes are
+
+    b0 = [1, 0,    0  ]
+    b1 = [0, ty/L, 1/L]
+
+where L = sqrt(ty^2 + 1)
+
+Projecting my two vectors to (b0,b1) I get
+
+    [0,   ty^2/L + 1/L]
+    [tx1, ty^2/L + 1/L]
+
+Thus the the angle this query point makes with the "forward" vector is
+
+    tan(az_in_epipolar_plane) = tx1 / ( (ty^2 + 1)/L ) = tx1 / sqrt(ty^2 + 1)
+
+Thus to get tan(az) expressions we use to compute ranges, we need to scale our
+(qx1-cx)/fx values by 1./sqrt(ty^2 + 1)
 
 ARGUMENTS
 
@@ -675,10 +870,11 @@ ARGUMENTS
 - models_rectified: the pair of rectified models, corresponding to the input
   images. Usually this is returned by mrcal.rectified_system()
 
-- az_deg: optional array of azimuths corresponding to the given disparities. By
-  default, a full disparity image is assumed. Otherwise we use the given
-  azimuths. The shape of this array must be broadcasting-compatible with the the
-  disparity_pixels array. See the description above.
+- qrect0: optional array of rectified camera0 pixel coordinates corresponding to
+  the given disparities. By default, a full disparity image is assumed.
+  Otherwise we use the given rectified coordinates. The shape of this array must
+  be broadcasting-compatible with the disparity_pixels array. See the
+  description above.
 
 RETURNED VALUES
 
@@ -692,32 +888,61 @@ RETURNED VALUES
 
     intrinsics = models_rectified[0].intrinsics()
 
-    fx  = intrinsics[1][0]
-    cx  = intrinsics[1][2]
-
-    W,H = models_rectified[0].imagersize()
-    if az_deg is None:
-        if disparity_pixels.shape != (H,W):
-            raise Exception(f"az_deg is None, so the disparity image must have the full dimensions of a rectified image")
-
-        az = (np.arange(W, dtype=float) - cx)/fx
-
-    else:
-        az = az_deg * np.pi/180.
-
-    pixels_per_rad_az = fx
-    disparity_rad = disparity_pixels / pixels_per_rad_az
-
-    mask_invalid = (disparity_pixels <= 0)
-
-    s = np.sin(disparity_rad)
-    s[mask_invalid] = 1 # to prevent division by 0
+    fx = intrinsics[1][0]
+    cx = intrinsics[1][2]
 
     Rt01 = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
                              models_rectified[1].extrinsics_Rt_toref())
     baseline = nps.mag(Rt01[3,:])
 
-    r = baseline * np.cos(az - disparity_rad) / s
+    if intrinsics[0] == 'LENSMODEL_LATLON':
+        if qrect0 is None:
+            W,H = models_rectified[0].imagersize()
+            if disparity_pixels.shape != (H,W):
+                raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
+
+            az0 = (np.arange(W, dtype=float) - cx)/fx
+
+        else:
+            az0 = (qrect0[...,0] - cx)/fx
+
+        disparity_rad = disparity_pixels / fx
+
+        mask_invalid = (disparity_pixels <= 0)
+
+        s = np.sin(disparity_rad)
+        s[mask_invalid] = 1 # to prevent division by 0
+
+        r = baseline * np.cos(az0 - disparity_rad) / s
+
+    else:
+        # pinhole
+
+        fy = intrinsics[1][1]
+        cy = intrinsics[1][3]
+
+        ty = (qrect0[...,1] - cy)/fy
+        s = 1. / np.sqrt(ty*ty + 1)
+
+        if qrect0 is None:
+            W,H = models_rectified[0].imagersize()
+            if disparity_pixels.shape != (H,W):
+                raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
+
+            tanaz0 = (np.arange(W, dtype=float) - cx)/fx * s
+
+        else:
+            tanaz0 = (qrect0[...,0] - cx)/fx * s
+
+        tanaz0_tanaz1 = disparity_pixels / fx * s
+        tanaz1 = tanaz0 - tanaz0_tanaz1
+
+        mask_invalid = (tanaz0_tanaz1 <= 0)
+        tanaz0_tanaz1[mask_invalid] = 1 # to prevent division by 0
+
+        cosaz0 = 1./np.sqrt(1. + tanaz0*tanaz0)
+        r = baseline * cosaz0 * ((1. + tanaz0*tanaz1) / tanaz0_tanaz1 + tanaz0)
+
     r[mask_invalid] = 0
 
     return r
