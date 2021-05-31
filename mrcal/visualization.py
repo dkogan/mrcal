@@ -57,9 +57,9 @@ This function visualizes the world described by a set of camera models. It shows
 the geometry of the cameras themselves (each one is represented by the axes of
 its coordinate system). If available (via a frames_rt_toref argument or from
 model.optimization_inputs() in the given models), the geometry of the
-calibration objects used to compute these models is shown also. We use
-frames_rt_toref if this is given. If not, we use the optimization_inputs() from
-the FIRST model that provides them.
+calibration objects used to compute these models is shown if show_calobjects. We
+use frames_rt_toref if this is given. If not, we use the optimization_inputs()
+from the FIRST model that provides them.
 
 This function can also be used to visualize the output (or input) of
 mrcal.optimize(); the relevant parameters are all identical to those
@@ -99,7 +99,6 @@ ARGUMENTS
   none of the models have this data and frames_rt_toref is omitted or NULL, then
   I don't plot any frames at all
 
-
 - object_width_n: the number of horizontal points in the calibration object
   grid. Required only if frames_rt_toref is not None
 
@@ -126,7 +125,8 @@ ARGUMENTS
 
 - show_calobjects: optional boolean defaults to True. if show_calobjects: we
   render the observed calibration objects (if they are available in
-  frames_rt_toref of model.optimization_inputs())
+  model.optimization_inputs()['frames_rt_toref']; we look at the FIRST model
+  that provides this data)
 
 - axis_scale: optional scale factor for the size of the axes used to represent
   the cameras. Can be omitted to use some reasonable default size, but for very
@@ -177,7 +177,9 @@ plot
         # No frames were given. I grab them from the first .cameramodel that has
         # them. If none of the models have this data, I don't plot any frames at
         # all
-        for m in models_or_extrinsics_rt_fromref:
+        for i_model in range(len(models_or_extrinsics_rt_fromref)):
+            m = models_or_extrinsics_rt_fromref[i_model]
+
             _frames_rt_toref = None
             _object_spacing  = None
             _object_width_n  = None
@@ -192,6 +194,23 @@ plot
                 _object_width_n  = optimization_inputs['observations_board'].shape[-2]
                 _object_height_n = optimization_inputs['observations_board'].shape[-3]
                 _calobject_warp  = optimization_inputs['calobject_warp']
+
+                # The current frames_rt_toref uses the calibration-time ref, NOT
+                # the current ref. I transform. frames_rt_toref = T_rcal_f
+                # I want T_rnow_rcal T_rcal_f
+                icam_extrinsics = \
+                    mrcal.corresponding_icam_extrinsics(m.icam_intrinsics(),
+                                                        **optimization_inputs)
+                if icam_extrinsics >= 0:
+                    _frames_rt_toref = \
+                        mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model]),
+                                          optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics],
+                                          _frames_rt_toref )
+                else:
+                    _frames_rt_toref = \
+                        mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model]),
+                                          _frames_rt_toref )
+
             except:
                 _frames_rt_toref = None
                 _object_spacing  = None
