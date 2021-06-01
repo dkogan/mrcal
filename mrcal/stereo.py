@@ -64,8 +64,9 @@ SYNOPSIS
     disparity16 = matcher.compute(*images_rectified) # in pixels*16
 
     # Convert the disparities to range-to-camera0
-    ranges = mrcal.stereo_range( disparity16.astype(np.float32) / 16.,
-                                 models_rectified )
+    ranges = mrcal.stereo_range( disparity16,
+                                 models_rectified,
+                                 disparity_scale = 16 )
 
     H,W = disparity16.shape
 
@@ -582,8 +583,9 @@ SYNOPSIS
     disparity16 = matcher.compute(*images_rectified) # in pixels*16
 
     # Convert the disparities to range-to-camera0
-    ranges = mrcal.stereo_range( disparity16.astype(np.float32) / 16.,
-                                 models_rectified )
+    ranges = mrcal.stereo_range( disparity16,
+                                 models_rectified,
+                                 disparity_scale = 16 )
 
     H,W = disparity16.shape
 
@@ -673,9 +675,10 @@ contains corresponding pixel coordinates in the input image
          mrcal.project( v1, *models[1].intrinsics()).astype(np.float32))
 
 
-def stereo_range(disparity_pixels,
+def stereo_range(disparity,
                  models_rectified,
-                 qrect0 = None):
+                 disparity_scale = 1,
+                 qrect0          = None):
 
     r'''Compute ranges from observed disparities
 
@@ -721,8 +724,9 @@ SYNOPSIS
     disparity16 = matcher.compute(*images_rectified) # in pixels*16
 
     # Convert the disparities to range-to-camera0
-    ranges = mrcal.stereo_range( disparity16.astype(np.float32) / 16.,
-                                 models_rectified )
+    ranges = mrcal.stereo_range( disparity16,
+                                 models_rectified,
+                                 disparity_scale = 16 )
 
     H,W = disparity16.shape
 
@@ -757,11 +761,11 @@ a range IMAGE. In this common case we call
 
 If we aren't processing the full disparity image, we can pass in an array of
 rectified pixel coordinates (in the first rectified camera) in the "qrect0"
-argument. These must be broadcastable with the disparity_pixels argument. So we
-can pass in a scalar for disparity_pixels and a single (2,) array for qrect0. Or
+argument. These must be broadcastable with the disparity argument. So we
+can pass in a scalar for disparity and a single (2,) array for qrect0. Or
 we can pass in full arrays for both. Or we can pass in a shape (H,W) image for
-disparity_pixels, but only a shape (W,2) array for qrect0: this would use the
-same qrect0 value for a whole column of disparity_pixels, as dictated by the
+disparity, but only a shape (W,2) array for qrect0: this would use the
+same qrect0 value for a whole column of disparity, as dictated by the
 broadcasting rules. Such identical-az-in-a-column behavior is valid for
 LENSMODEL_LATLON stereo, but not for LENSMODEL_PINHOLE stereo. It's the user's
 responsibility to know when to omit data like this. When in doubt, pass a
@@ -861,24 +865,30 @@ Thus to get tan(az) expressions we use to compute ranges, we need to scale our
 
 ARGUMENTS
 
-- disparity_pixels: a numpy array of disparities being processed. This array
-  contains disparity in PIXELS. If the stereo-matching algorithm you're using
-  reports a scaled value, you need to convert it to pixels. Usually this is a
-  floating-point array. Any array shape is supported. In the common case of a
-  disparity IMAGE, this is an array of shape (Nel, Naz)
+- disparity: a numpy array of disparities being processed. If disparity_scale is
+  omitted, this array contains floating-point disparity values in PIXELS. Many
+  stereo-matching algorithms produce integer disparities, in units of some
+  constant number of pixels (the OpenCV StereoSGBM and StereoBM routines use
+  16). In this common case, you can pass the integer scaled disparities here,
+  with the scale factor in disparity_scale. Any array shape is supported. In the
+  common case of a disparity IMAGE, this is an array of shape (Nel, Naz)
 
 - models_rectified: the pair of rectified models, corresponding to the input
   images. Usually this is returned by mrcal.rectified_system()
 
+- disparity_scale: optional scale factor for the "disparity" array. If omitted,
+  the "disparity" array is assumed to contain the disparities, in pixels.
+  Otherwise it contains data in the units of 1/disparity_scale pixels.
+
 - qrect0: optional array of rectified camera0 pixel coordinates corresponding to
   the given disparities. By default, a full disparity image is assumed.
   Otherwise we use the given rectified coordinates. The shape of this array must
-  be broadcasting-compatible with the disparity_pixels array. See the
+  be broadcasting-compatible with the disparity array. See the
   description above.
 
 RETURNED VALUES
 
-- An array of ranges of the same dimensionality as the input disparity_pixels
+- An array of ranges of the same dimensionality as the input disparity
   array. Contains floating-point data. Invalid or missing ranges are represented
   as 0.
 
@@ -898,7 +908,7 @@ RETURNED VALUES
     if intrinsics[0] == 'LENSMODEL_LATLON':
         if qrect0 is None:
             W,H = models_rectified[0].imagersize()
-            if disparity_pixels.shape != (H,W):
+            if disparity.shape != (H,W):
                 raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
 
             az0 = (np.arange(W, dtype=float) - cx)/fx
@@ -906,9 +916,9 @@ RETURNED VALUES
         else:
             az0 = (qrect0[...,0] - cx)/fx
 
-        disparity_rad = disparity_pixels / fx
+        disparity_rad = disparity.astype(np.float32) / (fx * disparity_scale)
 
-        mask_invalid = (disparity_pixels <= 0)
+        mask_invalid = (disparity <= 0)
 
         s = np.sin(disparity_rad)
         s[mask_invalid] = 1 # to prevent division by 0
@@ -926,7 +936,7 @@ RETURNED VALUES
 
         if qrect0 is None:
             W,H = models_rectified[0].imagersize()
-            if disparity_pixels.shape != (H,W):
+            if disparity.shape != (H,W):
                 raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
 
             tanaz0 = (np.arange(W, dtype=float) - cx)/fx * s
@@ -934,7 +944,7 @@ RETURNED VALUES
         else:
             tanaz0 = (qrect0[...,0] - cx)/fx * s
 
-        tanaz0_tanaz1 = disparity_pixels / fx * s
+        tanaz0_tanaz1 = disparity.astype(np.float32) / (fx * disparity_scale) * s
         tanaz1 = tanaz0 - tanaz0_tanaz1
 
         mask_invalid = (tanaz0_tanaz1 <= 0)
