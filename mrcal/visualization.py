@@ -365,12 +365,10 @@ plot
         calobject_ref = mrcal.ref_calibration_object(object_width_n, object_height_n,
                                                      object_spacing, calobject_warp)
 
-        Rf = mrcal.R_from_r(frames_rt_toref[..., :3])
-        Rf = nps.mv(Rf,                       0, -4)
-        tf = nps.mv(frames_rt_toref[..., 3:], 0, -4)
-
-        # object in the cam0 coord system. shape=(Nframes, object_height_n, object_width_n, 3)
-        calobject_cam0 = nps.matmult( calobject_ref, nps.transpose(Rf)) + tf
+        # object in the cam0 coord system.
+        # shape (Nframes, object_height_n, object_width_n, 3)
+        calobject_cam0 = mrcal.transform_point_rt(nps.mv(frames_rt_toref, -2, -4),
+                                                  calobject_ref)
 
         # if icam_highlight is not None:
         #     # shape=(Nobservations, object_height_n, object_width_n, 2)
