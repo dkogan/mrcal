@@ -14,10 +14,10 @@ SYNOPSIS
 This tool combines intrinsics and extrinsics from different sources into a
 single model. The output is written to standard output.
 
-By default, the operation is very simple: we combine the intrinsics from one
-model with the extrinsics of another. A common use case is a system where the
-intrinsics are calibrated prior to moving the cameras to their final location,
-and then computing the extrinsics separately after the cameras are moved.
+We combine the intrinsics from one model with the extrinsics of another. A
+common use case is a system where the intrinsics are calibrated prior to moving
+the cameras to their final location, and then computing the extrinsics
+separately after the cameras are moved.
 
 If we have computed such a combined model, and we decide to recompute the
 intrinsics afterwards, we can graft the new intrinsics to the previous
