@@ -96,14 +96,20 @@ def parse_args():
 
     parser.add_argument('intrinsics',
                         type=str,
-                        help='''Input camera model for the intrinsics. If "-' is given, we read standard
-                        input''')
+                        help='''Input camera model for the intrinsics. If "-" is given, we read standard
+                        input. Both the intrinsics and extrinsics sources may not be "-"''')
     parser.add_argument('extrinsics',
                         type=str,
-                        help='''Input camera model for the extrinsics. If "-' is given, we read standard
-                        input''')
+                        help='''Input camera model for the extrinsics. If "-" is given, we read standard
+                        input. Both the intrinsics and extrinsics sources may not be "-"''')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.intrinsics == "-" and args.extrinsics == "-":
+        print("Error: both intrinsics and extrinsics may not be given as '-'", file=sys.stderr)
+        sys.exit(1)
+
+    return args
 
 args = parse_args()
 
