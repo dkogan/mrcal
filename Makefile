@@ -151,7 +151,7 @@ $(DOC_HTML): doc/mrcal-preamble-GENERATED.html
 # If the git HEAD moves, I regenerate the preamble. It contains a version string
 # that uses the git info. This still isn't complete. A new git tag SHOULD
 # trigger this to be regenerated, but it doesn't. I'll do that later
-doc/mrcal-preamble-GENERATED.html: doc/mrcal-preamble.html $(and $(wildcard .git),.git/$(shell cut -d' ' -f2 .git/HEAD))
+doc/mrcal-preamble-GENERATED.html: doc/mrcal-preamble-TEMPLATE.html $(and $(wildcard .git),.git/$(shell cut -d' ' -f2 .git/HEAD))
 	< $< sed s/@@VERSION@@/$(VERSION)/g > $@.tmp && mv $@.tmp $@
 EXTRA_CLEAN += doc/mrcal-preamble-GENERATED.html
 
