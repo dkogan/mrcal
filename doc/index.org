@@ -1,5 +1,11 @@
 #+title: mrcal - camera calibrations and more!
 
+@@html:<b>@@
+Note: this is a work-in-progress documentation for a work-in-progress upcoming
+mrcal 2.0 release. See the [[./docs-1.0][mrcal 1.0.1 documentation]] for the current stable
+version.
+@@html:</b>@@
+
 mrcal is a toolkit (originating at NASA/JPL) for working with lens models,
 camera geometry, images, projections, and the various related operations such as
 camera calibration. Any task that produces or consumes camera models can utilize
