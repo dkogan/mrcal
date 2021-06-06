@@ -72,7 +72,7 @@ def parse_args():
                         how much correlation. This is a value in [0,1] scaling
                         the variance. 0 means "independent" (the default). 1.0
                         means "100% correlated".''')
-    parser.add_argument('--baseline-calibration',
+    parser.add_argument('--baseline',
                         type    = float,
                         default = 2.,
                         help='''The baseline of the camera pair''')
@@ -196,8 +196,8 @@ object_height_n         = 9
 calobject_warp_true     = np.array((0.002, -0.005))
 
 extrinsics_rt_fromref_true = \
-    np.array(((0,    0,    0,                                  0,   0,   0),
-              (0.08, 0.2,  0.02,   args.baseline_calibration,  0.09, 0.01), ))
+    np.array(((0,    0,    0,                      0,   0,   0),
+              (0.08, 0.2,  0.02,   args.baseline,  0.09, 0.01), ))
 
 # 1km straight ahead
 # shape (Npoints,3)
