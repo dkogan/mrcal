@@ -2,6 +2,11 @@
 
 r'''Triangulation uncertainty quantification test
 
+We look at the triangulated position computed from a pixel observation in two
+cameras. Calibration-time noise and triangulation-time noise both affect the
+accuracy of the triangulated result. This tool samples both of these noise
+sources to make sure the analytical uncertainty predictions are correct
+
 '''
 
 import sys
@@ -87,11 +92,13 @@ def parse_args():
     parser.add_argument('--cache',
                         type=str,
                         choices=('read','write'),
-                        help=f'''Whether we should read or write the cache instead of sampling. The cache file
-                        is hardcoded to {cache_file}. By default, we do neither:
-                        we don't read the cache (we sample instead), and we do
-                        not write it to disk when we're done. This option is
-                        useful for tests where we reprocess the same scenario repeatedly''')
+                        help=f'''A cache file stores the recalibration results; computing these can take a
+                        long time. This option allows us to or write the cache
+                        instead of sampling. The cache file is hardcoded to
+                        {cache_file}. By default, we do neither: we don't read
+                        the cache (we sample instead), and we do not write it to
+                        disk when we're done. This option is useful for tests
+                        where we reprocess the same scenario repeatedly''')
     parser.add_argument('--make-documentation-plots',
                         type=str,
                         help='''If given, we produce plots for the documentation. Takes one argument: a
