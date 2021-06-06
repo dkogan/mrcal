@@ -7,9 +7,39 @@ this toolkit. It was originally built to generate the high-accuracy calibrations
 demanded by long-range stereo, so it provides facilities to analyze calibration
 accuracy and to propagate and report uncertainties.
 
-[[https://docs.opencv.org/master/][OpenCV]] is a library often used to solve similar problems. It can't produce
-calibrations that are as good as mrcal's, and it can't report on how good its
-results really are.
+* Why mrcal?
+In essense: because all other tools are terrible if you care about accuracy.
+They make basic questions like "how much data should I gather for a
+calibration?" and "how good is this calibration I just computed?" and "how
+different are these two models?" unanswerable.
+
+Big assumptions and obliviousness to sources of error are commonplace. This is
+clearly seen from the core documentation on the subject. [[https://en.wikipedia.org/wiki/Camera_resectioning][The wikipedia article
+on camera calibration]] only talks about fitting a pinhole model to lenses, even
+though no real lenses follow this model (telephoto lenses do somewhat; wider
+lenses don't at all). [[https://www.opencv.org][OpenCV]] is a dominant library in this area; its [[https://docs.opencv.org/master/dc/dbb/tutorial_py_calibration.html][calibration
+tutorial]] cheerfully says that
+
+#+begin_example
+Re-projection error gives a good estimation of just how exact the found
+parameters are. The closer the re-projection error is to zero, the more accurate
+the parameters we found are.
+#+end_example
+
+This statement is trivially proven false: throw away most of your calibration
+data, and your reprojection error becomes very low. But we can all agree that a
+calibration computed from less data is actually worse. Right?
+
+All the various assumptions and hacks in the existing tooling are fine as long
+as you don't need a whole lot of accuracy out of your models.
+
+mrcal is meant to address these shortcomings. This toolkit tries hard to allow
+the user to produce calibrations that are as good as possible. It provides lots
+of visualization capabilities to evaluate various properties of a model
+solution. And it provides several powerful analysis methods, such as
+quantification of projection and triangulation uncertainty. And model
+differencing. And functions are provided to avoid making a pinhole-camera
+assumption where it is not appropriate, such as with wide-angle stereo.
 
 * Documentation index
 Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
