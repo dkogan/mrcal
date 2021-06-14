@@ -1179,10 +1179,10 @@ We return a tuple:
     q0 = mrcal.apply_homography(np.linalg.inv(H10), q1)
     checkdims( image0.shape[-1], image0.shape[-2],
                "image0",
-               q1[ 0, 0],
-               q1[-1, 0],
-               q1[ 0,-1],
-               q1[-1,-1] )
+               q0[ 0, 0],
+               q0[-1, 0],
+               q0[ 0,-1],
+               q0[-1,-1] )
 
     image0_template = mrcal.transform_image(image0, q0)
 
