@@ -959,9 +959,9 @@ RETURNED VALUES
 
 
 def match_feature( image0, image1,
-                   template_size, # (width,height)
+                   template_size1, # (width,height)
                    method,
-                   search_radius,
+                   search_radius1,
                    q0,
                    H10,
                    visualize = False):
@@ -972,9 +972,9 @@ SYNOPSIS
 
     q1_matched, diagnostics = \
         mrcal.match_feature( image0, image1,
-                             template_size = (17,17),
+                             template_size1 = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
-                             search_radius = 20,
+                             search_radius1 = 20,
                              q0,  # pixel coordinate in image0
                              H10, # homography mapping q0 to q1
                            )
@@ -1008,7 +1008,7 @@ big differences are
 
 All inputs and outputs use the (x,y) convention normally utilized when talking
 about images; NOT the (y,x) convention numpy uses to talk about matrices. So
-template_size is (width,height).
+template_size1 is (width,height).
 
 The H10 homography estimate is used in two separate ways:
 
@@ -1031,7 +1031,7 @@ transformation, pass in
 If the template being matched is out-of-bounds in either image, this function
 raises an exception.
 
-If the search_radius pushes the search outside of the search image, the search
+If the search_radius1 pushes the search outside of the search image, the search
 bounds are reduced to fit into the given image, and the function works as
 expected.
 
@@ -1050,7 +1050,7 @@ ARGUMENTS
   with image 0, this MUST be a 2-dimensional numpy array: only grayscale images
   are accepted.
 
-- template_size: the (width,height) iterable describing the size of the template
+- template_size1: the (width,height) iterable describing the size of the template
   used for the matching
 
 - method: one of the methods accepted by cv2.matchTemplate() See
@@ -1061,7 +1061,8 @@ ARGUMENTS
 
   method = cv2.TM_CCORR_NORMED
 
-- search_radius: integer selecting how far we should search for the match
+- search_radius1: integer selecting how far we should search for the match, in
+  image1 pixels
 
 - q0: a numpy array of shape (2,) representing the pixel coordinate in image0
   for which we see a correspondence in image1
@@ -1137,7 +1138,7 @@ We return a tuple:
 
     H10           = H10.astype(np.float32)
     q0            = q0 .astype(np.float32)
-    template_size = np.array(template_size)
+    template_size1 = np.array(template_size1)
 
     ################### BUILD TEMPLATE
     # I construct the template I'm searching for. This is a slice of image0 that
@@ -1148,8 +1149,8 @@ We return a tuple:
 
     q1_estimate = mrcal.apply_homography(H10, q0)
 
-    q1_template_min = np.round(q1_estimate - (template_size-1.)/2.).astype(int)
-    q1_template_max = q1_template_min + template_size
+    q1_template_min = np.round(q1_estimate - (template_size1-1.)/2.).astype(int)
+    q1_template_max = q1_template_min + template_size1
 
     # (W,H)
     image1_dim = np.array((image1.shape[-1],image1.shape[-2]))
@@ -1187,8 +1188,8 @@ We return a tuple:
 
 
     ################### MATCH TEMPLATE
-    q1_min = q1_template_min - search_radius
-    q1_max = q1_template_min + search_radius + template_size # one past the edge
+    q1_min = q1_template_min - search_radius1
+    q1_max = q1_template_min + search_radius1 + template_size1 # one past the edge
 
     # the margins are needed in case we get past the edges
     q1_min_margin = -np.clip(q1_min,
@@ -1205,8 +1206,8 @@ We return a tuple:
     # image1. The margins are the sizes of the out-of-bounds region
     image1_cut = image1[ q1_min[1]:q1_max[1], q1_min[0]:q1_max[0] ]
 
-    template_size_hw = np.array((template_size[-1],template_size[-2]))
-    matchoutput = np.zeros( image1_cut.shape - template_size_hw+1, dtype=np.float32 )
+    template_size1_hw = np.array((template_size1[-1],template_size1[-2]))
+    matchoutput = np.zeros( image1_cut.shape - template_size1_hw+1, dtype=np.float32 )
     cv2.matchTemplate(image1_cut,
                       image0_template,
                       method, matchoutput)
