@@ -67,14 +67,18 @@ def parse_args():
                         type=positive_int,
                         nargs=2,
                         default = (13,13),
-                        help='''The size of the template used for feature matching. Two arguments are
-                        required: width height. This is passed directly to mrcal.match_feature()''')
+                        help='''The size of the template used for feature
+                        matching, in pixel coordinates of the second image. Two
+                        arguments are required: width height. This is passed
+                        directly to mrcal.match_feature()''')
     parser.add_argument('--searchradius',
                         type=positive_int,
                         default = 20,
-                        help='''How far the feature-matching routine should search. This should be larger if
-                        the range estimate is poor, especially, at near ranges.
-                        This is passed directly to mrcal.match_feature()''')
+                        help='''How far the feature-matching routine should
+                        search, in pixel coordinates of the second image. This
+                        should be larger if the range estimate is poor,
+                        especially, at near ranges. This is passed directly to
+                        mrcal.match_feature()''')
     parser.add_argument('--range-estimate',
                         type=positive_float,
                         default = 50,
@@ -335,14 +339,23 @@ else:
     q1_perfect = mrcal.apply_homography(H10, q0_ref)
     print(f"## Feature {q0_ref} in the left image corresponds to {q1_perfect} at {args.range_estimate}m")
 
-    q1_ref, match_feature_diagnostics = \
+    match_feature_out = \
         mrcal.match_feature(*images,
-                            args.templatesize,
-                            method        = cv2.TM_CCORR_NORMED,
-                            search_radius = args.searchradius,
-                            q0            = q0_ref,
-                            H10           = H10,
-                            visualize     = False)
+                            q0               = q0_ref,
+                            H10              = H10,
+                            search_radius1   = args.searchradius,
+                            template_size1   = args.templatesize,
+
+                            visualize        = args.viz,
+                            return_plot_args = True,
+                            extratitle       = args.extratitle,
+                            _set             = args.set,
+                            unset            = args.unset,
+                            hardcopy         = args.hardcopy,
+                            terminal         = args.terminal)
+
+    q1_ref, match_feature_diagnostics = match_feature_out[:2]
+
     if q1_ref is None or \
        match_feature_diagnostics['matchoutput_optimum_subpixel'] < args.corr_floor:
         print("## Feature-matching failed! Maybe increase the search radius?")
@@ -573,22 +586,7 @@ if args.viz:
     else:
         import gnuplotlib as gp
 
-        plot_options = match_feature_diagnostics['plot_options']
-        data_tuples  = match_feature_diagnostics['plot_data_tuples']
-
-        if args.extratitle is not None:
-            if 'title' in plot_options:
-                plot_options['title'] += ": " + args.extratitle
-            else:
-                plot_options['title'] = args.extratitle
-        if args.set   is not None:
-            gp.add_plot_option(plot_options, 'set',   args.set)
-        if args.unset is not None:
-            gp.add_plot_option(plot_options, 'unset', args.unset)
-        if args.hardcopy is not None:
-            gp.add_plot_option(plot_options, 'hardcopy', args.hardcopy, overwrite=True)
-        if args.terminal is not None:
-            gp.add_plot_option(plot_options, 'terminal', args.terminal, overwrite=True)
+        data_tuples, plot_options = match_feature_out[2:]
 
         # don't plot the correlation map (the last plot data tuple)
         gp.plot( *data_tuples[:-1], **plot_options, wait=True)

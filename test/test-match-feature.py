@@ -54,11 +54,11 @@ H10_shifted[1,2] -= 20.4
 
 q1_matched, diagnostics = \
     mrcal.match_feature( image, image1,
-                         templatesize,
-                         cv2.TM_CCOEFF_NORMED,
-                         50,
                          q0,
-                         H10_shifted)
+                         H10_shifted,
+                         search_radius1 = 50,
+                         template_size1 = templatesize,
+                         method         = cv2.TM_CCOEFF_NORMED)
 testutils.confirm_equal( q1_matched,
                          mrcal.apply_homography(H10, q0),
                          worstcase = True,
@@ -67,11 +67,11 @@ testutils.confirm_equal( q1_matched,
 
 q1_matched, diagnostics = \
     mrcal.match_feature( image, image1,
-                         templatesize,
-                         cv2.TM_SQDIFF_NORMED,
-                         50,
                          q0,
-                         H10_shifted)
+                         H10_shifted,
+                         search_radius1 = 50,
+                         template_size1 = templatesize,
+                         method         = cv2.TM_SQDIFF_NORMED)
 testutils.confirm_equal( q1_matched,
                          mrcal.apply_homography(H10, q0),
                          worstcase = True,
@@ -80,11 +80,11 @@ testutils.confirm_equal( q1_matched,
 
 q1_matched, diagnostics = \
     mrcal.match_feature( image, image1,
-                         templatesize,
-                         cv2.TM_CCOEFF_NORMED,
-                         1000,
                          q0,
-                         H10_shifted)
+                         H10_shifted,
+                         search_radius1 = 1000,
+                         template_size1 = templatesize,
+                         method         = cv2.TM_CCOEFF_NORMED)
 testutils.confirm_equal( q1_matched,
                          mrcal.apply_homography(H10, q0),
                          worstcase = True,
@@ -97,21 +97,21 @@ testutils.confirm_equal( diagnostics['matchoutput_image'].shape,
 
 q1_matched, diagnostics = \
     mrcal.match_feature( image*0, image1,
-                         templatesize,
-                         cv2.TM_CCOEFF_NORMED,
-                         50,
                          q0,
-                         H10_shifted)
+                         H10_shifted,
+                         search_radius1 = 50,
+                         template_size1 = templatesize,
+                         method         = cv2.TM_CCOEFF_NORMED)
 testutils.confirm_equal( q1_matched, None,
                          msg = 'failing correlation returns None')
 
 try:
     mrcal.match_feature( image*0, image1,
-                         (5000,5000),
-                         cv2.TM_CCOEFF_NORMED,
-                         50,
                          q0,
-                         H10_shifted)
+                         H10_shifted,
+                         search_radius1 = 50,
+                         template_size1 = (5000, 5000),
+                         method         = cv2.TM_CCOEFF_NORMED)
 except:
     testutils.confirm(True, msg='Too-big template size throws an exception')
 else:
