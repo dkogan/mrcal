@@ -657,26 +657,26 @@ testutils.confirm_equal(dp_triangulated_dpstate[...,istate_i0:istate_i0+Nintrins
                         dp_triangulated_di0_empirical,
                         relative = True,
                         worstcase = True,
-                        eps = 0.05,
+                        eps = 0.08,
                         msg = "Gradient check: dp_triangulated_dpstate[intrinsics0]")
 testutils.confirm_equal(dp_triangulated_dpstate[...,istate_i1:istate_i1+Nintrinsics],
                         dp_triangulated_di1_empirical,
                         relative = True,
                         worstcase = True,
-                        eps = 0.05,
+                        eps = 0.08,
                         msg = "Gradient check: dp_triangulated_dpstate[intrinsics1]")
 testutils.confirm_equal(dp_triangulated_dpstate[...,istate_e1:istate_e1+6],
                         dp_triangulated_de1_empirical,
                         relative = True,
                         worstcase = True,
-                        eps = 2e-6,
+                        eps = 1e-5,
                         msg = "Gradient check: dp_triangulated_dpstate[extrinsics1]")
 if fixedframes:
     testutils.confirm_equal(dp_triangulated_dpstate[...,istate_e0:istate_e0+6],
                             dp_triangulated_de0_empirical,
                             relative = True,
                             worstcase = True,
-                            eps = 2e-6,
+                            eps = 1e-5,
                             msg = "Gradient check: dp_triangulated_dpstate[extrinsics0]")
 else:
     testutils.confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_frames],
