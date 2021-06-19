@@ -1026,19 +1026,25 @@ additional functionality. The big differences are
    at their center are tedious and error-prone, and they're handled by this
    function.
 
-2. mrcal.match_feature() can take into account a transformation that must be
-   applied to the two images to match their appearance. The caller can estimate
-   this from the relative geometry of the two cameras and the geometry of the
-   observed object. This transformation can include a scaling (if the two
-   cameras are looking at the same object from different distances) and/or a
-   rotation (if the two cameras are oriented differently) and/or a skewing (if
-   the object is being observed from different angles)
+2. mrcal.match_feature() can take into account a homography that is applied to
+   the two images to match their appearance. The caller can estimate this from
+   the relative geometry of the two cameras and the geometry of the observed
+   object. If two pinhole cameras are observing a plane in space, a homography
+   exists to perfectly represent the observed images everywhere in view. The
+   homography can include a scaling (if the two cameras are looking at the same
+   object from different distances) and/or a rotation (if the two cameras are
+   oriented differently) and/or a skewing (if the object is being observed from
+   different angles)
 
 3. mrcal.match_feature() performs simple sub-pixel interpolation to increase the
    resolution of the reported pixel match
 
 4. Visualization capabilities are included to allow the user to evaluate the
    results
+
+It is usually required to pre-filter the images being matched to get good
+results. This function does not do this, and it is the caller's job to apply the
+appropriate filters.
 
 All inputs and outputs use the (x,y) convention normally utilized when talking
 about images; NOT the (y,x) convention numpy uses to talk about matrices. So
@@ -1108,14 +1114,10 @@ ARGUMENTS
 
 - image0: the first image to use in the matching. This image is cropped, and
   transformed using the H10 homography to produce the matching template. This is
-  interpreted as a grayscale image: we accept either
+  interpreted as a grayscale image: 2-dimensional numpy array
 
-  - a 2-dimensional numpy array
 
-  - a 3-dimensional numpy array of shape (height,width,3). This is assumed to be
-    an RGB image, and we convert to grayscale with
 
-    cv2.cvtColor(..., cv2.COLOR_RGB2GRAY)
 
 - image1: the second image to use in the matching. This image is not
   transformed, but cropped to accomodate the given template size and search
@@ -1212,21 +1214,11 @@ data_tuples, plot_options. The plot can then be made with gp.plot(*data_tuples,
 
     import cv2
 
-    if image0.ndim == 2:
-        # grayscale image
-        pass
-    elif image0.ndim == 3 and image0.shape[-1] == 3:
-        image0 = cv2.cvtColor(image0, cv2.COLOR_RGB2GRAY)
-    else:
-        raise Exception("match_feature() accepts ONLY grayscale images of shape (H,W) or RGB images of shape (H,W,3)")
+    if image0.ndim != 2:
+        raise Exception("match_feature() accepts ONLY grayscale images of shape (H,W)")
 
-    if image1.ndim == 2:
-        # grayscale image
-        pass
-    elif image1.ndim == 3 and image1.shape[-1] == 3:
-        image1 = cv2.cvtColor(image1, cv2.COLOR_RGB2GRAY)
-    else:
-        raise Exception("match_feature() accepts ONLY grayscale images of shape (H,W) or RGB images of shape (H,W,3)")
+    if image1.ndim != 2:
+        raise Exception("match_feature() accepts ONLY grayscale images of shape (H,W)")
 
     # I default to normalized cross-correlation. The method arg defaults to None
     # instead of cv2.TM_CCORR_NORMED so that I don't need to import cv2, unless
