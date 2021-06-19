@@ -696,7 +696,7 @@ testutils.confirm_equal(dp_triangulated_dpstate[...,istate_e1:istate_e1+6],
                         dp_triangulated_de1_empirical,
                         relative = True,
                         worstcase = True,
-                        eps = 1e-6,
+                        eps = 2e-6,
                         msg = "Gradient check: dp_triangulated_dpstate[extrinsics1]")
 testutils.confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_frames],
                         nps.clump(dp_triangulated_drtrf_empirical, n=-2),
