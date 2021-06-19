@@ -442,23 +442,29 @@ broadcasting
     return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
 
 
-def _projection_uncertainty_make_output( factorization, Jpacked, dq_dpief_packed,
-                                         Nmeasurements_observations,
-                                         observed_pixel_uncertainty, what ):
-    r'''Helper for projection uncertainty functions
+def _propagate_calibration_uncertainty( dF_dppacked,
+                                        factorization, Jpacked,
+                                        Nmeasurements_observations,
+                                        observed_pixel_uncertainty, what ):
+    r'''Helper for uncertainty propagation functions
+
+Propagates the calibration-time uncertainty to compute Var(F) for some arbitrary
+vector F. The user specifies the gradient dF/dp: the sensitivity of F to noise
+in the calibration state. The vector F can have any length: this is inferred
+from the dimensions of the given dF/dp gradient.
 
 The given factorization uses the packed, unitless state: p*.
 
-The given Jpacked uses the packed, unitless state: p*. Jpacked applies to
-all observations. The leading Nmeasurements_observations rows apply to the
+The given Jpacked uses the packed, unitless state: p*. Jpacked applies to all
+observations. The leading Nmeasurements_observations rows apply to the
 observations of the calibration object, and we use just those for the input
-noise propagation. if Nmeasurements_observations is None: assume that ALL
-the measurements come from the calibration object observations; a simplifed
+noise propagation. if Nmeasurements_observations is None: assume that ALL the
+measurements come from the calibration object observations; a simplifed
 expression can be used in this case
 
-The given dq_dpief_packed uses the packed, unitless state p*, so it already
-includes the multiplication by D in the expressions below. It's sparse, but
-stored densely, so it already includes the multiplication by S
+The given dF_dppacked uses the packed, unitless state p*, so it already includes
+the multiplication by D in the expressions below. It's usually sparse, but
+stored densely.
 
 The uncertainty computation in
 http://mrcal.secretsauce.net/uncertainty.html concludes that
@@ -476,39 +482,36 @@ My factorization is of packed (scaled, unitless) flavors of J (J*). So
 
   Var(p) = D Var(p*) D
 
-I want Var(q) = dq/dp[ief] Var(p[ief]) dq/dp[ief]t. Let S = [I 0] where the
-specific nonzero locations specify the locations of [ief]:
-
-  Var(p[ief]) = S Var(p) St
+I want Var(F) = dF/dp Var(p) dF/dpt
 
 So
 
-  Var(q) = dq/dp[ief] S D Var(p*) D St dq/dp[ief]t
+  Var(F) = dF/dp D Var(p*) D dF/dpt
 
 In the regularized case I have
 
-  Var(q) = dq/dp[ief] S D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D St dq/dp[ief]t observed_pixel_uncertainty^2
+  Var(F) = dF/dp D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D dF/dpt observed_pixel_uncertainty^2
 
-It is far more efficient to compute inv(J*tJ*) D St dq/dp[ief]t than
+It is far more efficient to compute inv(J*tJ*) D dF/dpt than
 inv(J*tJ*) J*[observations]t: there's far less to compute, and the matrices
 are far smaller. Thus I don't compute the covariances directly.
 
 In the non-regularized case:
 
-  Var(q) = dq/dp[ief] S D inv(J*tJ*) D St dq/dp[ief]t
+  Var(F) = dF/dp D inv(J*tJ*) D dF/dpt
 
-  1. solve( J*tJ*, D St dq/dp[ief]t)
+  1. solve( J*tJ*, D dF/dpt)
      The result has shape (Nstate,2)
 
-  2. pre-multiply by dq/dp[ief] S D
+  2. pre-multiply by dF/dp D
 
   3. multiply by observed_pixel_uncertainty^2
 
 In the regularized case:
 
-  Var(q) = dq/dp[ief] S D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D St dq/dp[ief]t
+  Var(F) = dF/dp D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D dF/dpt
 
-  1. solve( J*tJ*, D St dq/dp[ief]t)
+  1. solve( J*tJ*, D dF/dpt)
      The result has shape (Nstate,2)
 
   2. Pre-multiply by J*[observations]
@@ -521,22 +524,22 @@ In the regularized case:
     '''
 
     # shape (2,Nstate)
-    A = factorization.solve_xt_JtJ_bt( dq_dpief_packed )
+    A = factorization.solve_xt_JtJ_bt( dF_dppacked )
     if Nmeasurements_observations is not None:
         # I have regularization. Use the more complicated expression
 
         # I see no python way to do matrix multiplication with sparse matrices,
         # so I have my own routine in C. AND the C routine does the outer
         # product, so there's no big temporary expression. It's much faster
-        Var_dq = mrcal._mrcal_npsp._A_Jt_J_At(A, Jpacked.indptr, Jpacked.indices, Jpacked.data,
+        Var_dF = mrcal._mrcal_npsp._A_Jt_J_At(A, Jpacked.indptr, Jpacked.indices, Jpacked.data,
                                               Nleading_rows_J = Nmeasurements_observations)
     else:
         # No regularization. Use the simplified expression
-        Var_dq = nps.matmult(dq_dpief_packed, nps.transpose(A))
+        Var_dF = nps.matmult(dF_dppacked, nps.transpose(A))
 
-    if what == 'covariance':           return Var_dq * observed_pixel_uncertainty*observed_pixel_uncertainty
-    if what == 'worstdirection-stdev': return worst_direction_stdev(Var_dq) * observed_pixel_uncertainty
-    if what == 'rms-stdev':            return np.sqrt(nps.trace(Var_dq)/2.) * observed_pixel_uncertainty
+    if what == 'covariance':           return Var_dF * observed_pixel_uncertainty*observed_pixel_uncertainty
+    if what == 'worstdirection-stdev': return worst_direction_stdev(Var_dF) * observed_pixel_uncertainty
+    if what == 'rms-stdev':            return np.sqrt(nps.trace(Var_dF)/2.) * observed_pixel_uncertainty
     else: raise Exception("Shouldn't have gotten here. There's a bug")
 
 
@@ -551,7 +554,7 @@ def _projection_uncertainty( p_cam,
                              what):
     r'''Helper for projection_uncertainty()
 
-    See docs for _projection_uncertainty_make_output() and
+    See docs for _propagate_calibration_uncertainty() and
     projection_uncertainty()
 
     This function does all the work when observing points with a finite range
@@ -628,10 +631,11 @@ def _projection_uncertainty( p_cam,
     # state is in the denominator
     mrcal.unpack_state(dq_dpief, **optimization_inputs)
     return \
-        _projection_uncertainty_make_output( factorization, Jpacked,
-                                             dq_dpief, Nmeasurements_observations,
-                                             observed_pixel_uncertainty,
-                                             what)
+        _propagate_calibration_uncertainty( dq_dpief,
+                                            factorization, Jpacked,
+                                            Nmeasurements_observations,
+                                            observed_pixel_uncertainty,
+                                            what)
 
 
 def _projection_uncertainty_rotationonly( p_cam,
@@ -645,7 +649,7 @@ def _projection_uncertainty_rotationonly( p_cam,
                                           what):
     r'''Helper for projection_uncertainty()
 
-    See docs for _projection_uncertainty_make_output() and
+    See docs for _propagate_calibration_uncertainty() and
     projection_uncertainty()
 
     This function does all the work when observing points at infinity
@@ -722,10 +726,11 @@ def _projection_uncertainty_rotationonly( p_cam,
     # state is in the denominator
     mrcal.unpack_state(dq_dpief, **optimization_inputs)
     return \
-        _projection_uncertainty_make_output( factorization, Jpacked,
-                                             dq_dpief, Nmeasurements_observations,
-                                             observed_pixel_uncertainty,
-                                             what)
+        _propagate_calibration_uncertainty( dq_dpief,
+                                            factorization, Jpacked,
+                                            Nmeasurements_observations,
+                                            observed_pixel_uncertainty,
+                                            what)
 
 
 def projection_uncertainty( p_cam, model,

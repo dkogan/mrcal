@@ -731,6 +731,7 @@ if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs_ba
 
 # I look at the two triangulated points together. This is a (6,) vector. And I
 # pack the denominator by unpacking the numerator
+# dp_triangulated_dpstate has shape (Npoints,3,Nstate)
 dp0p1_triangulated_dppacked = copy.deepcopy(dp_triangulated_dpstate)
 mrcal.unpack_state(dp0p1_triangulated_dppacked, **optimization_inputs_baseline)
 dp0p1_triangulated_dppacked = nps.clump(dp0p1_triangulated_dppacked,n=2)
@@ -747,11 +748,11 @@ dp0p1_triangulated_dppacked = nps.clump(dp0p1_triangulated_dppacked,n=2)
 
 # The variance due to calibration-time noise
 Var_p0p1_triangulated = \
-    mrcal.model_analysis._projection_uncertainty_make_output(factorization, Jpacked,
-                                                             dp0p1_triangulated_dppacked,
-                                                             Nmeasurements_observations,
-                                                             args.pixel_uncertainty_stdev_calibration,
-                                                             what = 'covariance')
+    mrcal.model_analysis._propagate_calibration_uncertainty(dp0p1_triangulated_dppacked,
+                                                            factorization, Jpacked,
+                                                            Nmeasurements_observations,
+                                                            args.pixel_uncertainty_stdev_calibration,
+                                                            what = 'covariance')
 
 # The variance due to the observation-time noise can be simplified even further:
 # the noise in each pixel observation is independent, and I can accumulate it
