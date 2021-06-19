@@ -47,6 +47,12 @@ def parse_args():
                         type    = int,
                         default = 2,
                         help='''How many cameras to simulate. At this time, only "2" is supported''')
+    parser.add_argument('--no-sampling',
+                        action='store_true',
+                        help='''By default we check some things, and then
+                        generate lots of statistical samples to compare the
+                        empirical distributions with analytic predictions. This
+                        is slow, so we may want to omit it''')
     parser.add_argument('--stabilize-coords',
                         action = 'store_true',
                         help='''Whether we report the triangulation in the camera-0 coordinate system (which
@@ -440,37 +446,6 @@ if args.cache is None or args.cache == 'write':
                              fixedframes,
                              testdir,
                              cull_left_of_center = args.cull_left_of_center)
-
-
-    ( intrinsics_sampled,         \
-      extrinsics_sampled_mounted, \
-      frames_sampled,             \
-      calobject_warp_sampled ) =  \
-          calibration_sample( args.Nsamples, args.Ncameras, args.Nframes,
-                              Nintrinsics,
-                              optimization_inputs_baseline,
-                              observations_true,
-                              args.pixel_uncertainty_stdev_calibration,
-                              fixedframes)
-
-    if args.cache is not None and args.cache == 'write':
-        with open(cache_file,"wb") as f:
-            pickle.dump((optimization_inputs_baseline,
-                         models_true,
-                         models_baseline,
-                         indices_frame_camintrinsics_camextrinsics,
-                         lensmodel,
-                         Nintrinsics,
-                         imagersizes,
-                         intrinsics_true,
-                         extrinsics_true_mounted,
-                         frames_true,
-                         observations_true,
-                         intrinsics_sampled,
-                         extrinsics_sampled_mounted,
-                         frames_sampled,
-                         calobject_warp_sampled),
-                        f)
 else:
     with open(cache_file,"rb") as f:
         (optimization_inputs_baseline,
@@ -509,49 +484,6 @@ q_true = nps.xchg( np.array([ mrcal.project(p_triangulated_true_local[:,i,:],
                                             intrinsics_true[i]) \
                             for i in range(len(intrinsics_true))]),
                  0,1)
-
-
-
-# Let's define the observation-time pixel noise. The noise vector
-# q_true_sampled_noise has the same shape as q_true for each sample. so
-# q_true_sampled_noise.shape = (Nsamples,Npoints,Ncameras,2). The covariance is
-# a square matrix with each dimension of length Npoints*Ncameras*2
-N_q_true_noise = Npoints*args.Ncameras*2
-sigma_qt_sq = \
-    args.pixel_uncertainty_stdev_triangulation * \
-    args.pixel_uncertainty_stdev_triangulation
-var_qt = np.diagflat( (sigma_qt_sq,) * N_q_true_noise )
-var_qt_reshaped = var_qt.reshape( Npoints, args.Ncameras, 2,
-                                  Npoints, args.Ncameras, 2 )
-
-if args.Ncameras != 2:
-    raise Exception("Ncameras == 2 is assumed here")
-for ipt in range(Npoints):
-    var_qt_reshaped[ipt,0,0, ipt,1,0] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
-    var_qt_reshaped[ipt,1,0, ipt,0,0] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
-    var_qt_reshaped[ipt,0,1, ipt,1,1] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
-    var_qt_reshaped[ipt,1,1, ipt,0,1] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
-
-# Let's actually apply the noise to compute var(distancep) empirically to compare
-# against the var(distancep) prediction I just computed
-# shape (Nsamples,Npoints,Ncameras,2)
-qt_noise = \
-    np.random.multivariate_normal( mean = np.zeros((N_q_true_noise,),),
-                                   cov  = var_qt,
-                                   size = args.Nsamples ).reshape(args.Nsamples,Npoints,args.Ncameras,2)
-q_sampled = q_true + qt_noise
-
-
-# I have the perfect observation pixel coords. I triangulate them through my
-# sampled calibration
-p_triangulated_sampled = triangulate_nograd(intrinsics_sampled,
-                                            extrinsics_sampled_mounted,
-                                            frames_sampled, frames_true,
-                                            q_sampled,
-                                            lensmodel,
-                                            stabilize_coords = args.stabilize_coords)
-
-
 
 ################ At baseline, with gradients
 p_triangulated, \
@@ -795,6 +727,26 @@ dp0p1_triangulated_dppacked = nps.clump(dp0p1_triangulated_dppacked,n=2)
 # can treat the two noise contributions separately, and add the two variances
 # together
 
+# Let's define the observation-time pixel noise. The noise vector
+# q_true_sampled_noise has the same shape as q_true for each sample. so
+# q_true_sampled_noise.shape = (Nsamples,Npoints,Ncameras,2). The covariance is
+# a square matrix with each dimension of length Npoints*Ncameras*2
+N_q_true_noise = Npoints*args.Ncameras*2
+sigma_qt_sq = \
+    args.pixel_uncertainty_stdev_triangulation * \
+    args.pixel_uncertainty_stdev_triangulation
+var_qt = np.diagflat( (sigma_qt_sq,) * N_q_true_noise )
+var_qt_reshaped = var_qt.reshape( Npoints, args.Ncameras, 2,
+                                  Npoints, args.Ncameras, 2 )
+
+if args.Ncameras != 2:
+    raise Exception("Ncameras == 2 is assumed here")
+for ipt in range(Npoints):
+    var_qt_reshaped[ipt,0,0, ipt,1,0] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
+    var_qt_reshaped[ipt,1,0, ipt,0,0] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
+    var_qt_reshaped[ipt,0,1, ipt,1,1] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
+    var_qt_reshaped[ipt,1,1, ipt,0,1] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
+
 # The variance due to calibration-time noise
 Var_p0p1_triangulated = \
     mrcal.model_analysis._propagate_calibration_uncertainty(dp0p1_triangulated_dppacked,
@@ -815,6 +767,70 @@ for ipt in range(Npoints):
                             n=-2),
 
                  nps.transpose( nps.clump(dp_triangulated_dq[ipt], n=-2) ) )
+
+
+if args.no_sampling:
+    testutils.finish()
+    sys.exit()
+
+try:
+    intrinsics_sampled
+    did_sample = True
+except:
+    did_sample = False
+
+if not did_sample:
+
+    ( intrinsics_sampled,         \
+      extrinsics_sampled_mounted, \
+      frames_sampled,             \
+      calobject_warp_sampled ) =  \
+          calibration_sample( args.Nsamples, args.Ncameras, args.Nframes,
+                              Nintrinsics,
+                              optimization_inputs_baseline,
+                              observations_true,
+                              args.pixel_uncertainty_stdev_calibration,
+                              fixedframes)
+
+    if args.cache is not None and args.cache == 'write':
+        with open(cache_file,"wb") as f:
+            pickle.dump((optimization_inputs_baseline,
+                         models_true,
+                         models_baseline,
+                         indices_frame_camintrinsics_camextrinsics,
+                         lensmodel,
+                         Nintrinsics,
+                         imagersizes,
+                         intrinsics_true,
+                         extrinsics_true_mounted,
+                         frames_true,
+                         observations_true,
+                         intrinsics_sampled,
+                         extrinsics_sampled_mounted,
+                         frames_sampled,
+                         calobject_warp_sampled),
+                        f)
+
+
+
+# Let's actually apply the noise to compute var(distancep) empirically to compare
+# against the var(distancep) prediction I just computed
+# shape (Nsamples,Npoints,Ncameras,2)
+qt_noise = \
+    np.random.multivariate_normal( mean = np.zeros((N_q_true_noise,),),
+                                   cov  = var_qt,
+                                   size = args.Nsamples ).reshape(args.Nsamples,Npoints,args.Ncameras,2)
+q_sampled = q_true + qt_noise
+
+
+# I have the perfect observation pixel coords. I triangulate them through my
+# sampled calibration
+p_triangulated_sampled = triangulate_nograd(intrinsics_sampled,
+                                            extrinsics_sampled_mounted,
+                                            frames_sampled, frames_true,
+                                            q_sampled,
+                                            lensmodel,
+                                            stabilize_coords = args.stabilize_coords)
 
 
 range0              = nps.mag(p_triangulated[0])
