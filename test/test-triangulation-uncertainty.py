@@ -582,8 +582,8 @@ testutils.confirm_equal(p_triangulated, p_triangulated_true,
 ppacked,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs_baseline)
 Nstate = len(ppacked)
 
-# I store dp_triangulated_dp initialy, without worrying about the "packed" part.
-# I'll scale the thing when done to pack it
+# I store dp_triangulated_dpstate initially, without worrying about the "packed"
+# part. I'll scale the thing when done to pack it
 dp_triangulated_dpstate = np.zeros((Npoints,3,Nstate), dtype=float)
 
 istate_i0 = mrcal.state_index_intrinsics(0, **optimization_inputs_baseline)
