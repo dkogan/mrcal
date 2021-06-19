@@ -801,10 +801,11 @@ if not (args.explore or \
     testutils.finish()
     sys.exit()
 
-import gnuplotlib as gp
 
 
 if args.make_documentation_plots is not None:
+
+    import gnuplotlib as gp
 
     empirical_distributions_xz = \
         [ plot_args_points_and_covariance_ellipse(p_triangulated_sampled[:,ipt,(0,2)],
@@ -934,6 +935,7 @@ if args.make_documentation_plots is not None:
                   processoptions_base = dict(wait = True))
 
 if args.explore:
+    import gnuplotlib as gp
     import IPython
     IPython.embed()
 
