@@ -447,76 +447,76 @@ def _projection_uncertainty_make_output( factorization, Jpacked, dq_dpief_packed
                                          observed_pixel_uncertainty, what ):
     r'''Helper for projection uncertainty functions
 
-    The given factorization uses the packed, unitless state: p*.
+The given factorization uses the packed, unitless state: p*.
 
-    The given Jpacked uses the packed, unitless state: p*. Jpacked applies to
-    all observations. The leading Nmeasurements_observations rows apply to the
-    observations of the calibration object, and we use just those for the input
-    noise propagation. if Nmeasurements_observations is None: assume that ALL
-    the measurements come from the calibration object observations; a simplifed
-    expression can be used in this case
+The given Jpacked uses the packed, unitless state: p*. Jpacked applies to
+all observations. The leading Nmeasurements_observations rows apply to the
+observations of the calibration object, and we use just those for the input
+noise propagation. if Nmeasurements_observations is None: assume that ALL
+the measurements come from the calibration object observations; a simplifed
+expression can be used in this case
 
-    The given dq_dpief_packed uses the packed, unitless state p*, so it already
-    includes the multiplication by D in the expressions below. It's sparse, but
-    stored densely, so it already includes the multiplication by S
+The given dq_dpief_packed uses the packed, unitless state p*, so it already
+includes the multiplication by D in the expressions below. It's sparse, but
+stored densely, so it already includes the multiplication by S
 
-    The uncertainty computation in
-    http://mrcal.secretsauce.net/uncertainty.html concludes that
+The uncertainty computation in
+http://mrcal.secretsauce.net/uncertainty.html concludes that
 
-      Var(p*) = observed_pixel_uncertainty^2 inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
+  Var(p*) = observed_pixel_uncertainty^2 inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
 
-    where p* and J* are the UNITLESS state and the jacobian respectively.
+where p* and J* are the UNITLESS state and the jacobian respectively.
 
-    In the special case where all the measurements come from
-    observations, this simplifies to
+In the special case where all the measurements come from
+observations, this simplifies to
 
-      Var(p*) = observed_pixel_uncertainty^2 inv(J*tJ*)
+  Var(p*) = observed_pixel_uncertainty^2 inv(J*tJ*)
 
-    My factorization is of packed (scaled, unitless) flavors of J (J*). So
+My factorization is of packed (scaled, unitless) flavors of J (J*). So
 
-      Var(p) = D Var(p*) D
+  Var(p) = D Var(p*) D
 
-    I want Var(q) = dq/dp[ief] Var(p[ief]) dq/dp[ief]t. Let S = [I 0] where the
-    specific nonzero locations specify the locations of [ief]:
+I want Var(q) = dq/dp[ief] Var(p[ief]) dq/dp[ief]t. Let S = [I 0] where the
+specific nonzero locations specify the locations of [ief]:
 
-      Var(p[ief]) = S Var(p) St
+  Var(p[ief]) = S Var(p) St
 
-    So
+So
 
-      Var(q) = dq/dp[ief] S D Var(p*) D St dq/dp[ief]t
+  Var(q) = dq/dp[ief] S D Var(p*) D St dq/dp[ief]t
 
-    In the regularized case I have
+In the regularized case I have
 
-      Var(q) = dq/dp[ief] S D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D St dq/dp[ief]t observed_pixel_uncertainty^2
+  Var(q) = dq/dp[ief] S D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D St dq/dp[ief]t observed_pixel_uncertainty^2
 
-    It is far more efficient to compute inv(J*tJ*) D St dq/dp[ief]t than
-    inv(J*tJ*) J*[observations]t: there's far less to compute, and the matrices
-    are far smaller. Thus I don't compute the covariances directly.
+It is far more efficient to compute inv(J*tJ*) D St dq/dp[ief]t than
+inv(J*tJ*) J*[observations]t: there's far less to compute, and the matrices
+are far smaller. Thus I don't compute the covariances directly.
 
-    In the non-regularized case:
+In the non-regularized case:
 
-      Var(q) = dq/dp[ief] S D inv(J*tJ*) D St dq/dp[ief]t
+  Var(q) = dq/dp[ief] S D inv(J*tJ*) D St dq/dp[ief]t
 
-      1. solve( J*tJ*, D St dq/dp[ief]t)
-         The result has shape (Nstate,2)
+  1. solve( J*tJ*, D St dq/dp[ief]t)
+     The result has shape (Nstate,2)
 
-      2. pre-multiply by dq/dp[ief] S D
+  2. pre-multiply by dq/dp[ief] S D
 
-      3. multiply by observed_pixel_uncertainty^2
+  3. multiply by observed_pixel_uncertainty^2
 
-    In the regularized case:
+In the regularized case:
 
-      Var(q) = dq/dp[ief] S D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D St dq/dp[ief]t
+  Var(q) = dq/dp[ief] S D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D St dq/dp[ief]t
 
-      1. solve( J*tJ*, D St dq/dp[ief]t)
-         The result has shape (Nstate,2)
+  1. solve( J*tJ*, D St dq/dp[ief]t)
+     The result has shape (Nstate,2)
 
-      2. Pre-multiply by J*[observations]
-         The result has shape (Nmeasurements_observations,2)
+  2. Pre-multiply by J*[observations]
+     The result has shape (Nmeasurements_observations,2)
 
-      3. Compute the sum of the outer products of each row
+  3. Compute the sum of the outer products of each row
 
-      4. multiply by observed_pixel_uncertainty^2
+  4. multiply by observed_pixel_uncertainty^2
 
     '''
 
