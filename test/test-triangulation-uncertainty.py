@@ -131,8 +131,6 @@ def parse_args():
 
     args = parser.parse_args()
 
-    if args.fixed != 'cam0':
-        raise Exception("'--fixed cam0' is the only supported option at this time")
     if args.Ncameras != 2:
         raise Exception("'--Ncameras 2' is the only supported option at this time")
     return args
@@ -284,6 +282,8 @@ def _triangulate(# shape (Ncameras, Nintrinsics)
                  stabilize_coords,
                  get_gradients):
 
+    r'''reports the triangulated position in the coords of cam0'''
+
     if not ( intrinsics_data.ndim == 2 and intrinsics_data.shape[0] == 2 and \
              rt_cam_ref.shape == (2,6) and \
              rt_ref_frame.ndim == 2 and rt_ref_frame.shape[-1] == 6 and \
@@ -297,8 +297,8 @@ def _triangulate(# shape (Ncameras, Nintrinsics)
 
     if not get_gradients:
 
-        rtr1          = mrcal.invert_rt(rt1r)
-        rt01_baseline = mrcal.compose_rt(rt0r, rtr1)
+        rt01_baseline = mrcal.compose_rt(rt0r,
+                                         mrcal.invert_rt(rt1r))
 
         # all the v have shape (...,3)
         vlocal0 = \
@@ -560,7 +560,7 @@ drt01_drt_0ref, drt01_drt_ref1, \
 dvlocal0_dintrinsics0, dvlocal1_dintrinsics1, \
 dv1_dr01, dv1_dvlocal1, \
 dp_triangulated_dv0, dp_triangulated_dv1, dp_triangulated_dt01, \
-dp_triangulated_drt_reff, \
+dp_triangulated_drtrf, \
 dp_triangulated_dq = \
     triangulate_grad([m.intrinsics()[1]         for m in models_baseline],
                      [m.extrinsics_rt_fromref() for m in models_baseline],
@@ -574,11 +574,14 @@ testutils.confirm_equal(p_triangulated, p_triangulated_true,
                         eps = 1.0,
                         msg = "Re-optimized triangulation should be close to the reference. This checks the regularization bias")
 
-# I have q0,i0           -> v0
-#        q1,i1           -> vlocal1
-#        vlocal1,r_0ref,r_1ref -> v1
-#        r_0ref,r_1ref,t_0ref,t_1ref -> t01
-#        v0,v1,t01       -> p_triangulated
+### Sensitivities
+# The data flow:
+#   q0,i0                       -> v0 (same as vlocal0; I'm working in the cam0 coord system)
+#   q1,i1                       -> vlocal1
+#   r_0ref,r_1ref               -> r01
+#   r_0ref,r_1ref,t_0ref,t_1ref -> t01
+#   vlocal1,r01                 -> v1
+#   v0,v1,t01                   -> p_triangulated
 ppacked,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs_baseline)
 Nstate = len(ppacked)
 
@@ -594,12 +597,22 @@ istate_i1 = mrcal.state_index_intrinsics(1, **optimization_inputs_baseline)
 # correct
 icam_extrinsics0 = mrcal.corresponding_icam_extrinsics(0, **optimization_inputs_baseline)
 icam_extrinsics1 = mrcal.corresponding_icam_extrinsics(1, **optimization_inputs_baseline)
-if not (icam_extrinsics0 < 0 and icam_extrinsics1 == 0):
-    raise Exception("Vanilla calibration problem expected, but got something else instead. Among others, _triangulate() assumes the triangulated result is in cam0, which is the same as the ref coord system")
-istate_e1 = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs_baseline)
 
-istate_f0     = mrcal.state_index_frames(0, **optimization_inputs_baseline)
-Nstate_frames = mrcal.num_states_frames(**optimization_inputs_baseline)
+if not fixedframes:
+    if not (icam_extrinsics0 < 0 and icam_extrinsics1 == 0):
+        raise Exception("Vanilla calibration problem expected, but got something else instead. Among others, _triangulate() assumes the triangulated result is in cam0, which is the same as the ref coord system")
+
+    istate_e1     = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs_baseline)
+    istate_f0     = mrcal.state_index_frames(0, **optimization_inputs_baseline)
+    Nstate_frames = mrcal.num_states_frames(**optimization_inputs_baseline)
+
+else:
+    if not (icam_extrinsics0 == 0 and icam_extrinsics1 == 1):
+        raise Exception("Vanilla calibration problem expected, but got something else instead")
+
+    istate_e0     = mrcal.state_index_extrinsics(icam_extrinsics0, **optimization_inputs_baseline)
+    istate_e1     = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs_baseline)
+
 
 # dp_triangulated_di0 = dp_triangulated_dv0              dvlocal0_di0
 # dp_triangulated_di1 = dp_triangulated_dv1 dv1_dvlocal1 dvlocal1_di1
@@ -611,36 +624,55 @@ nps.matmult( dp_triangulated_dv1,
              dvlocal1_dintrinsics1,
              out = dp_triangulated_dpstate[..., istate_i1:istate_i1+Nintrinsics])
 
-# dp_triangulated_de0 doesn't exist: assuming vanilla calibration problem, so
-# there is no e0
-
-# dp_triangulated_dr_1ref =
-#   dp_triangulated_dv1 dv1_dr01 dr01_dr_1ref +
-#   dp_triangulated_dt01 dt01_dr_1ref
-dr01_dr_ref1  = drt01_drt_ref1[:3,:3]
-dr_ref1_dr_1ref  = drt_ref1_drt_1ref[:3,:3]
-dr01_dr_1ref  = nps.matmult(dr01_dr_ref1, dr_ref1_dr_1ref)
+# dp_triangulated_dr_0ref = dp_triangulated_dv1  dv1_dr01 dr01_dr_0ref +
+#                           dp_triangulated_dt01          dt01_dr_0ref
+# dp_triangulated_dr_1ref = dp_triangulated_dv1  dv1_dr01 dr01_dr_1ref +
+#                           dp_triangulated_dt01          dt01_dr_1ref
+# dp_triangulated_dt_0ref = dp_triangulated_dt01          dt01_dt_0ref
+# dp_triangulated_dt_1ref = dp_triangulated_dt01          dt01_dt_1ref
+dr01_dr_ref1    = drt01_drt_ref1[:3,:3]
+dr_ref1_dr_1ref = drt_ref1_drt_1ref[:3,:3]
+dr01_dr_1ref    = nps.matmult(dr01_dr_ref1, dr_ref1_dr_1ref)
 
 dt01_drt_ref1 = drt01_drt_ref1[3:,:]
 dt01_dr_1ref  = nps.matmult(dt01_drt_ref1, drt_ref1_drt_1ref[:,:3])
 dt01_dt_1ref  = nps.matmult(dt01_drt_ref1, drt_ref1_drt_1ref[:,3:])
+
 nps.matmult( dp_triangulated_dv1,
              dv1_dr01,
              dr01_dr_1ref,
              out = dp_triangulated_dpstate[..., istate_e1:istate_e1+3])
-
 dp_triangulated_dpstate[..., istate_e1:istate_e1+3] += \
     nps.matmult(dp_triangulated_dt01, dt01_dr_1ref)
 
-# dp_triangulated_dt_1ref =
-#   dp_triangulated_dt01 dt01_dt_1ref
 nps.matmult( dp_triangulated_dt01,
              dt01_dt_1ref,
              out = dp_triangulated_dpstate[..., istate_e1+3:istate_e1+6])
 
-# dp_triangulated_drt_reff has shape (Npoints,Nframes,3,6). I reshape to (Npoints,3,Nframes*6)
-dp_triangulated_dpstate[..., istate_f0:istate_f0+Nstate_frames] = \
-    nps.clump(nps.xchg(dp_triangulated_drt_reff,-2,-3), n=-2)
+if fixedframes:
+    # The ..._drt_0ref gradients are identity if not fixedframes. In this case,
+    # the ref coord system is defined to sit at the cam0 coord system. In THIS
+    # path, we do have those gradients
+    dr01_dr_0ref = drt01_drt_0ref[:3,:3]
+    dt01_dr_0ref = drt01_drt_0ref[3:,:3]
+    dt01_dt_0ref = drt01_drt_0ref[3:,3:]
+
+    nps.matmult( dp_triangulated_dv1,
+                 dv1_dr01,
+                 dr01_dr_0ref,
+                 out = dp_triangulated_dpstate[..., istate_e0:istate_e0+3])
+    dp_triangulated_dpstate[..., istate_e0:istate_e0+3] += \
+        nps.matmult(dp_triangulated_dt01, dt01_dr_0ref)
+
+    nps.matmult( dp_triangulated_dt01,
+                 dt01_dt_0ref,
+                 out = dp_triangulated_dpstate[..., istate_e0+3:istate_e0+6])
+
+else:
+    # dp_triangulated_drtrf has shape (Npoints,Nframes,3,6). I reshape to (Npoints,3,Nframes*6)
+    dp_triangulated_dpstate[..., istate_f0:istate_f0+Nstate_frames] = \
+        nps.clump(nps.xchg(dp_triangulated_drtrf,-2,-3), n=-2)
+
 
 ########## Gradient check
 dp_triangulated_di0_empirical = grad(lambda i0: triangulate_nograd([i0, models_baseline[1].intrinsics()[1]],
@@ -664,13 +696,22 @@ dp_triangulated_de1_empirical = grad(lambda e1: triangulate_nograd([m.intrinsics
                                                                    lensmodel,
                                                                    stabilize_coords=args.stabilize_coords),
                                      models_baseline[1].extrinsics_rt_fromref())
-dp_triangulated_drt_reff_empirical = grad(lambda rt_reff: triangulate_nograd([m.intrinsics()[1]         for m in models_baseline],
-                                                                       [m.extrinsics_rt_fromref() for m in models_baseline],
-                                                                       rt_reff, frames_true,
+if fixedframes:
+    dp_triangulated_de0_empirical = grad(lambda e0: triangulate_nograd([m.intrinsics()[1]         for m in models_baseline],
+                                                                       [e0,models_baseline[1].extrinsics_rt_fromref()],
+                                                                       optimization_inputs_baseline['frames_rt_toref'], frames_true,
                                                                        q_true,
                                                                        lensmodel,
                                                                        stabilize_coords=args.stabilize_coords),
-                                       optimization_inputs_baseline['frames_rt_toref'])
+                                         models_baseline[0].extrinsics_rt_fromref())
+else:
+    dp_triangulated_drtrf_empirical = grad(lambda rtrf: triangulate_nograd([m.intrinsics()[1]         for m in models_baseline],
+                                                                           [m.extrinsics_rt_fromref() for m in models_baseline],
+                                                                           rtrf, frames_true,
+                                                                           q_true,
+                                                                           lensmodel,
+                                                                           stabilize_coords=args.stabilize_coords),
+                                           optimization_inputs_baseline['frames_rt_toref'])
 dp_triangulated_dq_empirical = grad(lambda q: triangulate_nograd([m.intrinsics()[1]         for m in models_baseline],
                                                                  [m.extrinsics_rt_fromref() for m in models_baseline],
                                                                  optimization_inputs_baseline['frames_rt_toref'], frames_true,
@@ -698,12 +739,20 @@ testutils.confirm_equal(dp_triangulated_dpstate[...,istate_e1:istate_e1+6],
                         worstcase = True,
                         eps = 2e-6,
                         msg = "Gradient check: dp_triangulated_dpstate[extrinsics1]")
-testutils.confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_frames],
-                        nps.clump(dp_triangulated_drt_reff_empirical, n=-2),
-                        relative = True,
-                        worstcase = True,
-                        eps = 0.1,
-                        msg = "Gradient check: dp_triangulated_drt_reff")
+if fixedframes:
+    testutils.confirm_equal(dp_triangulated_dpstate[...,istate_e0:istate_e0+6],
+                            dp_triangulated_de0_empirical,
+                            relative = True,
+                            worstcase = True,
+                            eps = 2e-6,
+                            msg = "Gradient check: dp_triangulated_dpstate[extrinsics0]")
+else:
+    testutils.confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_frames],
+                            nps.clump(dp_triangulated_drtrf_empirical, n=-2),
+                            relative = True,
+                            worstcase = True,
+                            eps = 0.1,
+                            msg = "Gradient check: dp_triangulated_drtrf")
 
 # dp_triangulated_dq_empirical has shape (Npoints,3,  Npoints,Ncameras,2)
 # The cross terms (p_triangulated(point=A), q(point=B)) should all be zero
