@@ -532,7 +532,7 @@ icam_extrinsics1 = mrcal.corresponding_icam_extrinsics(1, **optimization_inputs_
 
 if not fixedframes:
     if not (icam_extrinsics0 < 0 and icam_extrinsics1 == 0):
-        raise Exception("Vanilla calibration problem expected, but got something else instead. Among others, _triangulate() assumes the triangulated result is in cam0, which is the same as the ref coord system")
+        raise Exception("Expected vanilla calibration problem without fixed frames, but got something else instead. Among others, _triangulate() assumes the triangulated result is in cam0, which is the same as the ref coord system")
 
     istate_e1     = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs_baseline)
     istate_f0     = mrcal.state_index_frames(0, **optimization_inputs_baseline)
@@ -540,7 +540,7 @@ if not fixedframes:
 
 else:
     if not (icam_extrinsics0 == 0 and icam_extrinsics1 == 1):
-        raise Exception("Vanilla calibration problem expected, but got something else instead")
+        raise Exception("Expected vanilla calibration problem withoutout fixed frames, but got something else instead")
 
     istate_e0     = mrcal.state_index_extrinsics(icam_extrinsics0, **optimization_inputs_baseline)
     istate_e1     = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs_baseline)
