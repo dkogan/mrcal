@@ -643,7 +643,8 @@ else:
                                                                            q_true,
                                                                            lensmodel,
                                                                            stabilize_coords=args.stabilize_coords),
-                                           optimization_inputs_baseline['frames_rt_toref'])
+                                           optimization_inputs_baseline['frames_rt_toref'],
+                                           step = 1e-5)
 dp_triangulated_dq_empirical = grad(lambda q: triangulate_nograd([m.intrinsics()[1]         for m in models_baseline],
                                                                  [m.extrinsics_rt_fromref() for m in models_baseline],
                                                                  optimization_inputs_baseline['frames_rt_toref'], frames_true,
@@ -657,26 +658,26 @@ testutils.confirm_equal(dp_triangulated_dpstate[...,istate_i0:istate_i0+Nintrins
                         dp_triangulated_di0_empirical,
                         relative = True,
                         worstcase = True,
-                        eps = 0.08,
+                        eps = 0.1,
                         msg = "Gradient check: dp_triangulated_dpstate[intrinsics0]")
 testutils.confirm_equal(dp_triangulated_dpstate[...,istate_i1:istate_i1+Nintrinsics],
                         dp_triangulated_di1_empirical,
                         relative = True,
                         worstcase = True,
-                        eps = 0.08,
+                        eps = 0.1,
                         msg = "Gradient check: dp_triangulated_dpstate[intrinsics1]")
 testutils.confirm_equal(dp_triangulated_dpstate[...,istate_e1:istate_e1+6],
                         dp_triangulated_de1_empirical,
                         relative = True,
                         worstcase = True,
-                        eps = 1e-5,
+                        eps = 1e-4,
                         msg = "Gradient check: dp_triangulated_dpstate[extrinsics1]")
 if fixedframes:
     testutils.confirm_equal(dp_triangulated_dpstate[...,istate_e0:istate_e0+6],
                             dp_triangulated_de0_empirical,
                             relative = True,
                             worstcase = True,
-                            eps = 1e-5,
+                            eps = 1e-4,
                             msg = "Gradient check: dp_triangulated_dpstate[extrinsics0]")
 else:
     testutils.confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_frames],
@@ -702,7 +703,7 @@ testutils.confirm_equal(dp_triangulated_dq,
                         dp_triangulated_dq_empirical,
                         relative = True,
                         worstcase = True,
-                        eps = 1e-6,
+                        eps = 1e-4,
                         msg = "Gradient check: dp_triangulated_dq")
 
 Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs_baseline)
