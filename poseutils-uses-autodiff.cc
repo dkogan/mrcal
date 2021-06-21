@@ -80,10 +80,7 @@ r_from_R_core(// output
               // inputs
               const val_withgrad_t<N>* Rg)
 {
-    val_withgrad_t<N> tr    = Rg[0] + Rg[4] + Rg[8];
-    val_withgrad_t<N> costh = (tr - 1.) / 2.;
-
-    val_withgrad_t<N> th = costh.acos();
+    val_withgrad_t<N> tr = Rg[0] + Rg[4] + Rg[8];
     val_withgrad_t<N> axis[3] =
         {
             Rg[2*3 + 1] - Rg[1*3 + 2],
@@ -91,9 +88,15 @@ r_from_R_core(// output
             Rg[1*3 + 0] - Rg[0*3 + 1]
         };
 
-    if(th.x > 1e-10)
+    if( (fabs(axis[0].x) > 1e-10 ||
+         fabs(axis[1].x) > 1e-10 ||
+         fabs(axis[2].x) > 1e-10) &&
+        ( tr.x  >= -1. && 3 >= tr.x) )
     {
         // normal path
+        val_withgrad_t<N> costh = (tr - 1.) / 2.;
+        val_withgrad_t<N> th = costh.acos();
+
         val_withgrad_t<N> mag_axis_recip =
             val_withgrad_t<N>(1.) /
             ((axis[0]*axis[0] +

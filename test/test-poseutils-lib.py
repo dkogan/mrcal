@@ -24,12 +24,13 @@ def R_from_r(r):
     https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
 '''
 
-    th = nps.mag(r)
+    th_sq = nps.norm2(r)
     Kth = np.array(((    0, -r[2],  r[1]),
                      ( r[2],    0, -r[0]),
                      (-r[1], r[0],     0)))
-    if th > 1e-10:
+    if th_sq > 1e-20:
         # normal path
+        th = np.sqrt(th_sq)
         s = np.sin(th)
         c = np.cos(th)
         K = Kth  / th
@@ -54,17 +55,17 @@ def r_from_R(R):
 
     '''
 
-    costh = (np.trace(R) - 1.)/2.
-    th = np.arccos(costh)
     axis = np.array((R[2,1] - R[1,2],
                      R[0,2] - R[2,0],
                      R[1,0] - R[0,1] ))
 
-    if th > 1e-10:
+    if nps.norm2(axis) > 1e-20:
         # normal path
+        costh = (np.trace(R) - 1.)/2.
+        th = np.arccos(costh)
         return axis / nps.mag(axis) * th
 
-    # small th. Can't divide by it. But I can look at the limit.
+    # small mag(axis). Can't divide by it. But I can look at the limit.
     #
     # axis / (2 sinth)*th = axis/2 *th/sinth ~ axis/2
     return axis/2.
@@ -165,6 +166,7 @@ Rt1_ref = base[2,:4,:3,2]
 
 base[1,3,:6,1]= nps.glue(r1_ref, t1_ref, axis=-1)
 rt1_ref = base[1,3,:6,1]
+
 
 # the implementation has a separate path for tiny R, so I test it separately
 base[1,5,0:3,1] = np.array((-2.e-18, 3.e-19, -5.e-18))
@@ -684,7 +686,15 @@ confirm_equal( r,
 #                msg='r_from_R J_R, comparing with cv2.Rodrigues')
 
 
+# I've seen this show up in the wild. r_from_R() was producing [nan nan nan]
+R_fuzzed_I = \
+    np.array([[ 0.9999999999999999              , -0.000000000000000010408340855861,  0.                              ],
+              [-0.000000000000000010408340855861,  0.9999999999999999              ,  0.000000000000000013877787807814],
+              [ 0.                              ,  0.000000000000000013877787807814,  0.9999999999999999              ]])
+confirm_equal( mrcal.r_from_R(R_fuzzed_I), np.zeros((3,)),
+               msg = 'r_from_R() can handle numerical fuzz')
 
+################# R_from_r
 R = mrcal.R_from_r(r0_ref, out = out33)
 confirm_equal( R,
                R0_ref,
