@@ -233,17 +233,17 @@ extrinsics_rt_fromref_true[:,:3] = np.random.randn(args.Ncameras,3) * 0.1
 extrinsics_rt_fromref_true[:, 3] = args.baseline * np.arange(args.Ncameras)
 extrinsics_rt_fromref_true[:,4:] = np.random.randn(args.Ncameras,2) * 0.1
 
-# 1km straight ahead
+# 1km straight ahead. In the cam0 coord system
 # shape (Npoints,3)
-p_triangulated_true = np.array((args.observed_point,
-                                args.observed_point),
-                               dtype=float)
+p_triangulated_true0 = np.array((args.observed_point,
+                                 args.observed_point),
+                                dtype=float)
 # first point has x<0
-p_triangulated_true[0,0] = -np.abs(p_triangulated_true[0,0])
+p_triangulated_true0[0,0] = -np.abs(p_triangulated_true0[0,0])
 # second point is the same, but with a negated x: x>0
-p_triangulated_true[1,0] = -p_triangulated_true[0,0]
+p_triangulated_true0[1,0] = -p_triangulated_true0[0,0]
 
-Npoints = p_triangulated_true.shape[0]
+Npoints = p_triangulated_true0.shape[0]
 
 
 
@@ -253,13 +253,13 @@ Npoints = p_triangulated_true.shape[0]
                         ('Npoints',2,2)),
                        ('Npoints',3))
 def triangulate_nograd( intrinsics_data0,intrinsics_data1,
-                        rt_cam_ref0,rt_cam_ref1,
+                        rt_cam0_ref,rt_cam1_ref,
                         rt_ref_frame, rt_ref_frame_true,
                         q,
                         lensmodel,
                         stabilize_coords = True):
     return _triangulate( intrinsics_data0, intrinsics_data1,
-                         rt_cam_ref0, rt_cam_ref1,
+                         rt_cam0_ref, rt_cam1_ref,
                          rt_ref_frame,
                          rt_ref_frame_true,
                          nps.atleast_dims(q,-3),
@@ -282,13 +282,13 @@ def triangulate_nograd( intrinsics_data0,intrinsics_data1,
                         ('Npoints','Nframes',3,6),
                         ('Npoints',3, 2,2)))
 def triangulate_grad( intrinsics_data0,intrinsics_data1,
-                      rt_cam_ref0,rt_cam_ref1,
+                      rt_cam0_ref,rt_cam1_ref,
                       rt_ref_frame, rt_ref_frame_true,
                       q,
                       lensmodel,
                       stabilize_coords = True):
     return _triangulate( intrinsics_data0,intrinsics_data1,
-                         rt_cam_ref0,rt_cam_ref1,
+                         rt_cam0_ref,rt_cam1_ref,
                          rt_ref_frame,
                          rt_ref_frame_true,
                          nps.atleast_dims(q,-3),
@@ -300,7 +300,7 @@ def triangulate_grad( intrinsics_data0,intrinsics_data1,
 def _triangulate(# shape (Nintrinsics,)
                  intrinsics_data0, intrinsics_data1,
                  # shape (6,)
-                 rt_cam_ref0, rt_cam_ref1,
+                 rt_cam0_ref, rt_cam1_ref,
                  # shape (Nframes,6),
                  rt_ref_frame, rt_ref_frame_true,
                  # shape (..., 2 (Ncameras), 2 (xy))
@@ -315,8 +315,8 @@ def _triangulate(# shape (Nintrinsics,)
     if not ( intrinsics_data0.ndim == 1 and \
              intrinsics_data1.ndim == 1 and \
              intrinsics_data0.shape[0] == intrinsics_data1.shape[0] and \
-             rt_cam_ref0.shape == (6,) and \
-             rt_cam_ref1.shape == (6,) and \
+             rt_cam0_ref.shape == (6,) and \
+             rt_cam1_ref.shape == (6,) and \
              rt_ref_frame.ndim == 2 and rt_ref_frame.shape[-1] == 6 and \
              q.shape[-2:] == (2,2 ) ):
         raise Exception("Arguments must consistent dimensions")
@@ -326,8 +326,8 @@ def _triangulate(# shape (Nintrinsics,)
 
     if not get_gradients:
 
-        rt01_baseline = mrcal.compose_rt(rt_cam_ref0,
-                                         mrcal.invert_rt(rt_cam_ref1))
+        rt01_baseline = mrcal.compose_rt(rt_cam0_ref,
+                                         mrcal.invert_rt(rt_cam1_ref))
 
         # all the v have shape (...,3)
         vlocal0 = \
@@ -360,9 +360,9 @@ def _triangulate(# shape (Nintrinsics,)
 
         return p_triangulated
     else:
-        rtr1,drtr1_drt1r = mrcal.invert_rt(rt_cam_ref1,
+        rtr1,drtr1_drt1r = mrcal.invert_rt(rt_cam1_ref,
                                            get_gradients=True)
-        rt01_baseline,drt01_drt0r, drt01_drtr1 = mrcal.compose_rt(rt_cam_ref0, rtr1, get_gradients=True)
+        rt01_baseline,drt01_drt0r, drt01_drtr1 = mrcal.compose_rt(rt_cam0_ref, rtr1, get_gradients=True)
 
         # all the v have shape (...,3)
         vlocal0, dvlocal0_dq0, dvlocal0_dintrinsics0 = \
@@ -495,8 +495,8 @@ Rt01_true = mrcal.compose_Rt(mrcal.Rt_from_rt(extrinsics_rt_fromref_true[icam0])
 Rt10_true = mrcal.invert_Rt(Rt01_true)
 
 # shape (Npoints,Ncameras,3)
-p_triangulated_true_local = nps.xchg( nps.cat( p_triangulated_true,
-                                               mrcal.transform_point_Rt(Rt10_true, p_triangulated_true) ),
+p_triangulated_true_local = nps.xchg( nps.cat( p_triangulated_true0,
+                                               mrcal.transform_point_Rt(Rt10_true, p_triangulated_true0) ),
                                       0,1)
 
 # Pixel coords at the perfect intersection
@@ -523,7 +523,7 @@ dp_triangulated_dq = \
                      lensmodel,
                      stabilize_coords = args.stabilize_coords)
 
-testutils.confirm_equal(p_triangulated, p_triangulated_true,
+testutils.confirm_equal(p_triangulated, p_triangulated_true0,
                         worstcase = True,
                         eps = 1.0,
                         msg = "Re-optimized triangulation should be close to the reference. This checks the regularization bias")
@@ -861,7 +861,7 @@ p_triangulated_sampled = triangulate_nograd(intrinsics_sampled[...,icam0,:], int
 
 
 range0              = nps.mag(p_triangulated[0])
-range0_true         = nps.mag(p_triangulated_true[0])
+range0_true         = nps.mag(p_triangulated_true0[0])
 range0_sampled      = nps.mag(p_triangulated_sampled[:,0,:])
 Mean_range0_sampled = nps.mag(range0_sampled).mean()
 Var_range0_sampled  = nps.mag(range0_sampled).var()
@@ -876,7 +876,7 @@ Var_range0 = nps.matmult(p_triangulated[0],
 
 diff                  = p_triangulated[1] - p_triangulated[0]
 distance              = nps.mag(diff)
-distance_true         = nps.mag(p_triangulated_true[:,0] - p_triangulated_true[:,1])
+distance_true         = nps.mag(p_triangulated_true0[:,0] - p_triangulated_true0[:,1])
 distance_sampled      = nps.mag(p_triangulated_sampled[:,1,:] - p_triangulated_sampled[:,0,:])
 Mean_distance_sampled = nps.mag(distance_sampled).mean()
 Var_distance_sampled  = nps.mag(distance_sampled).var()
