@@ -507,6 +507,19 @@ q_true = nps.xchg( np.array([ mrcal.project(p_triangulated_true_local[:,i,:],
                             for i in range(len(intrinsics_true))]),
                  0,1)
 
+# Sanity check. Without noise, the triangulation should report the test point exactly
+p_triangulated = \
+    triangulate_nograd(models_true[icam0].intrinsics()[1],         models_true[icam1].intrinsics()[1],
+                       models_true[icam0].extrinsics_rt_fromref(), models_true[icam1].extrinsics_rt_fromref(),
+                       frames_true, frames_true,
+                       q_true,
+                       lensmodel,
+                       stabilize_coords = args.stabilize_coords)
+
+testutils.confirm_equal(p_triangulated, p_triangulated_true0,
+                        eps = 1e-6,
+                        msg = "Noiseless triangulation should be perfect")
+
 ################ At baseline, with gradients
 p_triangulated, \
 drt_ref1_drt_1ref, \
