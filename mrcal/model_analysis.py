@@ -580,10 +580,10 @@ def _projection_uncertainty( p_cam,
         p_frames = mrcal.transform_point_rt( mrcal.invert_rt(frames_rt_toref),
                                              nps.dummy(p_ref,-2) )
 
-        # I now have the observed point represented in the coordinate system of the
-        # frames. This is indendent of any intrinsics-implied rotation, or anything
-        # of the sort. I project this point back to pixels, through noisy estimates
-        # of the frames, extrinsics and intrinsics.
+        # I now have the observed point represented in the coordinate system of
+        # the frames. This is independent of any intrinsics-implied rotation, or
+        # anything of the sort. I project this point back to pixels, through
+        # noisy estimates of the frames, extrinsics and intrinsics.
         #
         # I transform each frame-represented point back to the reference coordinate
         # system, and I average out each estimate to get the one p_ref I will use. I
@@ -674,10 +674,10 @@ def _projection_uncertainty_rotationonly( p_cam,
         p_frames = mrcal.rotate_point_r( -frames_rt_toref[...,:3],
                                          nps.dummy(p_ref,-2) )
 
-        # I now have the observed point represented in the coordinate system of the
-        # frames. This is indendent of any intrinsics-implied rotation, or anything
-        # of the sort. I project this point back to pixels, through noisy estimates
-        # of the frames, extrinsics and intrinsics.
+        # I now have the observed point represented in the coordinate system of
+        # the frames. This is independent of any intrinsics-implied rotation, or
+        # anything of the sort. I project this point back to pixels, through
+        # noisy estimates of the frames, extrinsics and intrinsics.
         #
         # I transform each frame-represented point back to the reference coordinate
         # system, and I average out each estimate to get the one p_ref I will use. I
