@@ -516,8 +516,8 @@ p_triangulated_true_local = nps.xchg( nps.cat( p_triangulated_true0,
 # shape (Npoints,Ncameras,2)
 q_true = nps.xchg( np.array([ mrcal.project(p_triangulated_true_local[:,i,:],
                                             lensmodel,
-                                            intrinsics_true[i]) \
-                            for i in range(len(intrinsics_true))]),
+                                            intrinsics_true[args.cameras[i]]) \
+                            for i in range(2)]),
                  0,1)
 
 # Sanity check. Without noise, the triangulation should report the test point exactly
@@ -718,14 +718,14 @@ if istate_e0 is not None:
                             dp_triangulated_de0_empirical,
                             relative = True,
                             worstcase = True,
-                            eps = 1e-4,
+                            eps = 5e-4,
                             msg = "Gradient check: dp_triangulated_dpstate[extrinsics0]")
 if istate_e1 is not None:
     testutils.confirm_equal(dp_triangulated_dpstate[...,istate_e1:istate_e1+6],
                             dp_triangulated_de1_empirical,
                             relative = True,
                             worstcase = True,
-                            eps = 1e-4,
+                            eps = 5e-4,
                             msg = "Gradient check: dp_triangulated_dpstate[extrinsics1]")
 if istate_f0 is not None:
     testutils.confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_frames],
