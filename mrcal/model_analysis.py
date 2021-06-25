@@ -577,7 +577,10 @@ def _projection_uncertainty( p_cam,
     if frames_rt_toref is not None:
         # The point in the coord system of all the frames. I index the frames on
         # axis -2
-        p_frames = mrcal.transform_point_rt( mrcal.invert_rt(frames_rt_toref),
+        # shape (..., Nframes, 3)
+        p_frames = mrcal.transform_point_rt( # shape (Nframes,6)
+                                             mrcal.invert_rt(frames_rt_toref),
+                                             # shape (...,1,3)
                                              nps.dummy(p_ref,-2) )
 
         # I now have the observed point represented in the coordinate system of
@@ -671,7 +674,10 @@ def _projection_uncertainty_rotationonly( p_cam,
     if frames_rt_toref is not None:
         # The point in the coord system of all the frames. I index the frames on
         # axis -2
-        p_frames = mrcal.rotate_point_r( -frames_rt_toref[...,:3],
+        # shape (..., Nframes, 3)
+        p_frames = mrcal.rotate_point_r( # shape (Nframes,3)
+                                         -frames_rt_toref[...,:3],
+                                         # shape (...,1,3)
                                          nps.dummy(p_ref,-2) )
 
         # I now have the observed point represented in the coordinate system of
