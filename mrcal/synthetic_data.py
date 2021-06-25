@@ -354,8 +354,8 @@ We return a tuple:
         for i in range(Ncameras):
             W,H = models[i].imagersize()
             mask_visible[:,i,...] *= \
-                (q[:,i,:,:,0] < W) * \
-                (q[:,i,:,:,1] < H)
+                (q[:,i,:,:,0] <= W-1) * \
+                (q[:,i,:,:,1] <= H-1)
 
         # shape (Nframes, Ncameras)
         Nvisible = np.count_nonzero(mask_visible, axis=(-1,-2) )
