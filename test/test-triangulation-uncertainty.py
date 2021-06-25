@@ -544,9 +544,12 @@ dp_triangulated_dq = \
                      lensmodel,
                      stabilize_coords = args.stabilize_coords)
 
+
 testutils.confirm_equal(p_triangulated0, p_triangulated_true0,
-                        worstcase = True,
-                        eps = 1.0,
+                        worstcase   = True,
+                        relative    = True,
+                        eps         = 1e-4,
+                        reldiff_eps = 1e-1,
                         msg = "Re-optimized triangulation should be close to the reference. This checks the regularization bias")
 
 ### Sensitivities
