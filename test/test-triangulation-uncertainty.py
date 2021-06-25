@@ -341,8 +341,8 @@ def _triangulate(# shape (Nintrinsics,)
         v1 = \
             mrcal.rotate_point_r(rt01_baseline[:3], vlocal1)
 
-        # p_triangulated has shape (..., 3)
-        p_triangulated = \
+        # p_triangulated0 has shape (..., 3)
+        p_triangulated0 = \
             mrcal.triangulate_leecivera_mid2(v0, v1, rt01_baseline[3:])
 
         if stabilize_coords:
@@ -356,9 +356,9 @@ def _triangulate(# shape (Nintrinsics,)
             p_refs = mrcal.transform_point_rt(rt_ref_frame_true, p_frames_new)
 
             # shape (..., 3)
-            p_triangulated = np.mean(p_refs, axis=-2)
+            p_triangulated0 = np.mean(p_refs, axis=-2)
 
-        return p_triangulated
+        return p_triangulated0
     else:
         rtr1,drtr1_drt1r = mrcal.invert_rt(rt_cam1_ref,
                                            get_gradients=True)
@@ -379,8 +379,8 @@ def _triangulate(# shape (Nintrinsics,)
             mrcal.rotate_point_r(rt01_baseline[:3], vlocal1,
                                  get_gradients=True)
 
-        # p_triangulated has shape (..., 3)
-        p_triangulated, dp_triangulated_dv0, dp_triangulated_dv1, dp_triangulated_dt01 = \
+        # p_triangulated0 has shape (..., 3)
+        p_triangulated0, dp_triangulated_dv0, dp_triangulated_dv1, dp_triangulated_dt01 = \
             mrcal.triangulate_leecivera_mid2(v0, v1, rt01_baseline[3:],
                                              get_gradients = True)
 
@@ -411,11 +411,11 @@ def _triangulate(# shape (Nintrinsics,)
             # shape (..., Nframes, 3)
             p_refs,dprefs_drt,dprefs_dptriangulated = \
                 mrcal.transform_point_rt(rt_true_shifted,
-                                         nps.dummy(p_triangulated,-2),
+                                         nps.dummy(p_triangulated0,-2),
                                          get_gradients = True)
 
             # shape (..., 3)
-            p_triangulated = np.mean(p_refs, axis=-2)
+            p_triangulated0 = np.mean(p_refs, axis=-2)
 
             # I have dpold/dx. dpnew/dx = dpnew/dpold dpold/dx
 
@@ -436,7 +436,7 @@ def _triangulate(# shape (Nintrinsics,)
             dp_triangulated_drtrf = np.zeros(shape_leading + (Nframes,3,6), dtype=float)
 
         return \
-            p_triangulated, \
+            p_triangulated0, \
             drtr1_drt1r, \
             drt01_drt0r, drt01_drtr1, \
             dvlocal0_dintrinsics0, dvlocal1_dintrinsics1, \
@@ -508,7 +508,7 @@ q_true = nps.xchg( np.array([ mrcal.project(p_triangulated_true_local[:,i,:],
                  0,1)
 
 # Sanity check. Without noise, the triangulation should report the test point exactly
-p_triangulated = \
+p_triangulated0 = \
     triangulate_nograd(models_true[icam0].intrinsics()[1],         models_true[icam1].intrinsics()[1],
                        models_true[icam0].extrinsics_rt_fromref(), models_true[icam1].extrinsics_rt_fromref(),
                        frames_true, frames_true,
@@ -516,12 +516,12 @@ p_triangulated = \
                        lensmodel,
                        stabilize_coords = args.stabilize_coords)
 
-testutils.confirm_equal(p_triangulated, p_triangulated_true0,
+testutils.confirm_equal(p_triangulated0, p_triangulated_true0,
                         eps = 1e-6,
                         msg = "Noiseless triangulation should be perfect")
 
 ################ At baseline, with gradients
-p_triangulated, \
+p_triangulated0, \
 drt_ref1_drt_1ref, \
 drt01_drt_0ref, drt01_drt_ref1, \
 dvlocal0_dintrinsics0, dvlocal1_dintrinsics1, \
@@ -536,7 +536,7 @@ dp_triangulated_dq = \
                      lensmodel,
                      stabilize_coords = args.stabilize_coords)
 
-testutils.confirm_equal(p_triangulated, p_triangulated_true0,
+testutils.confirm_equal(p_triangulated0, p_triangulated_true0,
                         worstcase = True,
                         eps = 1.0,
                         msg = "Re-optimized triangulation should be close to the reference. This checks the regularization bias")
@@ -865,32 +865,32 @@ else:
     extrinsics_sampled_cam0 = extrinsics_sampled_mounted[..., icam_extrinsics0+1,:]
     extrinsics_sampled_cam1 = extrinsics_sampled_mounted[..., icam_extrinsics1+1,:]
 
-p_triangulated_sampled = triangulate_nograd(intrinsics_sampled[...,icam0,:], intrinsics_sampled[...,icam1,:],
-                                            extrinsics_sampled_cam0, extrinsics_sampled_cam1,
-                                            frames_sampled, frames_true,
-                                            q_sampled,
-                                            lensmodel,
-                                            stabilize_coords = args.stabilize_coords)
+p_triangulated0_sampled = triangulate_nograd(intrinsics_sampled[...,icam0,:], intrinsics_sampled[...,icam1,:],
+                                             extrinsics_sampled_cam0, extrinsics_sampled_cam1,
+                                             frames_sampled, frames_true,
+                                             q_sampled,
+                                             lensmodel,
+                                             stabilize_coords = args.stabilize_coords)
 
 
-range0              = nps.mag(p_triangulated[0])
-range0_true         = nps.mag(p_triangulated_true0[0])
-range0_sampled      = nps.mag(p_triangulated_sampled[:,0,:])
+range0              = nps.mag(p_triangulated0[0])
+range0_true         = nps.mag(p_triangulated0_true0[0])
+range0_sampled      = nps.mag(p_triangulated0_sampled[:,0,:])
 Mean_range0_sampled = nps.mag(range0_sampled).mean()
 Var_range0_sampled  = nps.mag(range0_sampled).var()
 # r = np.mag(p)
 # dr_dp = p/r
 # Var(r) = dr_dp var(p) dr_dpT
 #        = p var(p) pT / norm2(p)
-Var_range0 = nps.matmult(p_triangulated[0],
+Var_range0 = nps.matmult(p_triangulated0[0],
                          Var_p0p1_triangulated[:3,:3],
-                         nps.transpose(p_triangulated[0]))[0] / nps.norm2(p_triangulated[0])
+                         nps.transpose(p_triangulated0[0]))[0] / nps.norm2(p_triangulated0[0])
 
 
-diff                  = p_triangulated[1] - p_triangulated[0]
+diff                  = p_triangulated0[1] - p_triangulated0[0]
 distance              = nps.mag(diff)
-distance_true         = nps.mag(p_triangulated_true0[:,0] - p_triangulated_true0[:,1])
-distance_sampled      = nps.mag(p_triangulated_sampled[:,1,:] - p_triangulated_sampled[:,0,:])
+distance_true         = nps.mag(p_triangulated0_true0[:,0] - p_triangulated0_true0[:,1])
+distance_sampled      = nps.mag(p_triangulated0_sampled[:,1,:] - p_triangulated0_sampled[:,0,:])
 Mean_distance_sampled = nps.mag(distance_sampled).mean()
 Var_distance_sampled  = nps.mag(distance_sampled).var()
 # diff = p1-p0
@@ -914,7 +914,7 @@ if args.make_documentation_plots is not None:
     import gnuplotlib as gp
 
     empirical_distributions_xz = \
-        [ plot_args_points_and_covariance_ellipse(p_triangulated_sampled[:,ipt,(0,2)],
+        [ plot_args_points_and_covariance_ellipse(p_triangulated0_sampled[:,ipt,(0,2)],
                                                   'Observed') \
           for ipt in range(Npoints) ]
     # Individual covariances
@@ -941,15 +941,15 @@ if args.make_documentation_plots is not None:
 
 
     subplots = [ (empirical_distributions_xz[ipt][1], # points; plot first to not obscure the ellipses
-                  plot_arg_covariance_ellipse(p_triangulated[ipt][(0,2),],
+                  plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
                                               Var_p_diagonal[ipt],
                                               "Predicted"),
                   empirical_distributions_xz[ipt][0],
                   dict( square = True,
-                        _xrange = [p_triangulated[ipt,0] - ellipse_plot_radius,
-                                   p_triangulated[ipt,0] + ellipse_plot_radius],
-                        _yrange = [p_triangulated[ipt,2] - ellipse_plot_radius,
-                                   p_triangulated[ipt,2] + ellipse_plot_radius],
+                        _xrange = [p_triangulated0[ipt,0] - ellipse_plot_radius,
+                                   p_triangulated0[ipt,0] + ellipse_plot_radius],
+                        _yrange = [p_triangulated0[ipt,2] - ellipse_plot_radius,
+                                   p_triangulated0[ipt,2] + ellipse_plot_radius],
                         xlabel  = 'Triangulated point x (left/right) (m)',
                         ylabel  = 'Triangulated point z (forward/back) (m)',)
                   ) \
