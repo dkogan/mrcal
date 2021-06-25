@@ -352,18 +352,23 @@ def _triangulate(# shape (Nintrinsics,)
         p_triangulated0 = \
             mrcal.triangulate_leecivera_mid2(v0, v1, rt01_baseline[3:])
 
+        p_triangulated_ref = mrcal.transform_point_rt(rt_cam0_ref, p_triangulated0,
+                                                      inverted = True)
+
         if stabilize_coords:
 
             # shape (..., Nframes, 3)
             p_frames_new = \
-                mrcal.transform_point_rt(mrcal.invert_rt(rt_ref_frame),
-                                         nps.dummy(p_triangulated,-2))
+                mrcal.transform_point_rt(rt_ref_frame,
+                                         nps.dummy(p_triangulated_ref,-2),
+                                         inverted = True)
 
             # shape (..., Nframes, 3)
             p_refs = mrcal.transform_point_rt(rt_ref_frame_true, p_frames_new)
 
             # shape (..., 3)
-            p_triangulated0 = np.mean(p_refs, axis=-2)
+            p_triangulated_ref = np.mean(p_refs, axis=-2)
+            p_triangulated0 = mrcal.transform_point_rt(rt_cam0_ref, p_triangulated_ref)
 
         return p_triangulated0
     else:
