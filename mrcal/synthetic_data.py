@@ -138,7 +138,7 @@ SYNOPSIS
 
     # shapes (Nframes, Ncameras, object_height_n, object_width_n, 2) and
     #        (Nframes, 4, 3)
-    q,Rt_cam0_boardref = \
+    q,Rt_ref_boardref = \
         mrcal.synthesize_board_observations( \
           models,
 
@@ -185,10 +185,10 @@ The "models" provides the intrinsics and extrinsics.
 
 The calibration objects are nominally have pose rt_ref_boardcenter in the
 reference coordinate system, with each pose perturbed uniformly with radius
-rt_ref_boardcenter__noiseradius. This is slightly nonstandard since here I'm
-placing the board origin at its center instead of the corner (as
+rt_ref_boardcenter__noiseradius. This is nonstandard since here I'm placing the
+board origin at its center instead of the corner (as
 mrcal.ref_calibration_object() does). But this is more appropriate to the usage
-of this function. The returned Rt_cam0_boardref transformation DOES use the
+of this function. The returned Rt_ref_boardref transformation DOES use the
 normal corner-referenced board geometry
 
 Returns the point observations and the chessboard poses that produced these
@@ -245,9 +245,9 @@ We return a tuple:
 - q: an array of shape (Nframes, Ncameras, object_height, object_width, 2)
   containing the pixel coordinates of the generated observations
 
-- Rt_cam0_boardref: an array of shape (Nframes, 4,3) containing the poses of the
+- Rt_ref_boardref: an array of shape (Nframes, 4,3) containing the poses of the
   chessboards. This transforms the object returned by ref_calibration_object()
-  to the pose that was projected
+  to the pose that was projected, in the ref coord system
 
     '''
 
@@ -259,14 +259,14 @@ We return a tuple:
     model = mrcal.cameramodel( intrinsics = ('LENSMODEL_PINHOLE',
                                              np.array((1000., 1000., 1000., 1000.,))),
                                imagersize = np.array((2000,2000)) )
-    Rt_cam0_boardref = \
+    Rt_ref_boardref = \
         mrcal.synthesize_board_observations([model],
                                             5,20,0.1,None,
                                             nps.glue(r, np.array((0,0,3.)), axis=-1),
                                             np.array((0,0,0., 0,0,0)),
                                             1) [1]
     mrcal.show_geometry( models_or_extrinsics_rt_fromref = np.zeros((1,1,6), dtype=float),
-                         frames_rt_toref                 = mrcal.rt_from_Rt(Rt_cam0_boardref),
+                         frames_rt_toref                 = mrcal.rt_from_Rt(Rt_ref_boardref),
                          object_width_n                  = 20,
                          object_height_n                 = 5,
                          object_spacing                  = 0.1,
@@ -318,32 +318,32 @@ We return a tuple:
         randomblock = np.random.uniform(low=-1.0, high=1.0, size=(Nframes,6))
 
         # shape(Nframes,4,3)
-        Rt_cam0_boardref = \
+        Rt_ref_boardref = \
             mrcal.Rt_from_rt( rt_ref_boardcenter + randomblock * rt_ref_boardcenter__noiseradius )
 
         # shape = (Nframes, Nh,Nw,3)
-        boards_cam0 = mrcal.transform_point_Rt( # shape (Nframes, 1,1,4,3)
-                                                nps.mv(Rt_cam0_boardref, 0, -5),
+        boards_ref = mrcal.transform_point_Rt( # shape (Nframes, 1,1,4,3)
+                                               nps.mv(Rt_ref_boardref, 0, -5),
 
-                                                # shape ( Nh,Nw,3)
-                                                board_reference )
+                                               # shape ( Nh,Nw,3)
+                                               board_reference )
 
         # I project full_board. Shape: (Nframes,Ncameras,Nh,Nw,2)
         q = \
           nps.mv( \
             nps.cat( \
-              *[ mrcal.project( mrcal.transform_point_Rt(models[i].extrinsics_Rt_fromref(), boards_cam0),
+              *[ mrcal.project( mrcal.transform_point_Rt(models[i].extrinsics_Rt_fromref(), boards_ref),
                                 *models[i].intrinsics()) \
                  for i in range(Ncameras) ]),
                   0,1 )
 
-        return q,Rt_cam0_boardref
+        return q,Rt_ref_boardref
 
-    def cull_out_of_view(q,Rt_cam0_boardref,
+    def cull_out_of_view(q,Rt_ref_boardref,
                          which):
 
-        # q                has shape (Nframes,Ncameras,Nh,Nw,2)
-        # Rt_cam0_boardref has shape (Nframes,4,3)
+        # q               has shape (Nframes,Ncameras,Nh,Nw,2)
+        # Rt_ref_boardref has shape (Nframes,4,3)
 
         # I pick only those frames where at least one cameras sees the whole
         # board
@@ -371,9 +371,9 @@ We return a tuple:
         else:
             raise Exception("Unknown 'which' argument. This is a bug. I checked for the valid options at the top of this function")
 
-        # q                has shape (Nframes_inview,Ncameras,Nh*Nw,2)
-        # Rt_cam0_boardref has shape (Nframes_inview,4,3)
-        return q[iframe, ...], Rt_cam0_boardref[iframe, ...]
+        # q               has shape (Nframes_inview,Ncameras,Nh*Nw,2)
+        # Rt_ref_boardref has shape (Nframes_inview,4,3)
+        return q[iframe, ...], Rt_ref_boardref[iframe, ...]
 
     # shape (Nframes_sofar,Ncameras,Nh,Nw,2)
     q = np.zeros((0,
@@ -382,23 +382,23 @@ We return a tuple:
                   2),
                  dtype=float)
     # shape (Nframes_sofar,4,3)
-    Rt_cam0_boardref = np.zeros((0,4,3), dtype=float)
+    Rt_ref_boardref = np.zeros((0,4,3), dtype=float)
 
     # I keep creating data, until I get Nframes-worth of in-view observations
     while True:
-        q_here, Rt_cam0_boardref_here = get_observation_chunk()
+        q_here, Rt_ref_boardref_here = get_observation_chunk()
 
-        q_here, Rt_cam0_boardref_here = \
-            cull_out_of_view(q_here, Rt_cam0_boardref_here,
+        q_here, Rt_ref_boardref_here = \
+            cull_out_of_view(q_here, Rt_ref_boardref_here,
                              which)
 
         q = nps.glue(q, q_here, axis=-5)
-        Rt_cam0_boardref = nps.glue(Rt_cam0_boardref, Rt_cam0_boardref_here, axis=-3)
+        Rt_ref_boardref = nps.glue(Rt_ref_boardref, Rt_ref_boardref_here, axis=-3)
         if q.shape[0] >= Nframes:
-            q                = q               [:Nframes,...]
-            Rt_cam0_boardref = Rt_cam0_boardref[:Nframes,...]
+            q               = q               [:Nframes,...]
+            Rt_ref_boardref = Rt_ref_boardref[:Nframes,...]
             break
 
-    return q, mrcal.compose_Rt(Rt_cam0_boardref, Rt_boardref_origboardref)
+    return q, mrcal.compose_Rt(Rt_ref_boardref, Rt_boardref_origboardref)
 
 

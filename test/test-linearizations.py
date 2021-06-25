@@ -60,7 +60,7 @@ calobject_warp_ref      = np.array((0.002, -0.005))
 
 # shapes (Nframes, Ncameras, Nh, Nw, 2),
 #        (Nframes, 4,3)
-q_ref,Rt_cam0_board_ref = \
+q_ref,Rt_ref_board_ref = \
     mrcal.synthesize_board_observations(models_ref,
                                         object_width_n, object_height_n, object_spacing,
                                         calobject_warp_ref,
@@ -87,7 +87,7 @@ intrinsics_ref = nps.cat( *[m.intrinsics()[1]         for m in models_ref] )
 extrinsics_ref = nps.cat( *[m.extrinsics_rt_fromref() for m in models_ref[1:]] )
 if extrinsics_ref.size == 0:
     extrinsics_ref = np.zeros((0,6), dtype=float)
-frames_ref     = mrcal.rt_from_Rt(Rt_cam0_board_ref)
+frames_ref     = mrcal.rt_from_Rt(Rt_ref_board_ref)
 
 
 # Dense observations. All the cameras see all the boards

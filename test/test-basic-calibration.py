@@ -58,14 +58,14 @@ calobject_warp_ref      = np.array((0.002, -0.005))
 
 # shapes (Nframes, Ncameras, Nh, Nw, 2),
 #        (Nframes, 4,3)
-q_ref,Rt_cam0_board_ref = \
+q_ref,Rt_ref_board_ref = \
     mrcal.synthesize_board_observations(models_ref,
                                         object_width_n, object_height_n, object_spacing,
                                         calobject_warp_ref,
                                         np.array((0.,  0.,  0., -2,   0,  4.0)),
                                         np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5, 2.5, 2.0)),
                                         Nframes)
-frames_ref = mrcal.rt_from_Rt(Rt_cam0_board_ref)
+frames_ref = mrcal.rt_from_Rt(Rt_ref_board_ref)
 
 ############# I have perfect observations in q_ref. I corrupt them by noise
 # weight has shape (Nframes, Ncameras, Nh, Nw),
@@ -263,7 +263,7 @@ for icam in range(1,len(models_ref)):
 
 Rt_frame_err = \
     mrcal.compose_Rt( mrcal.Rt_from_rt(optimization_inputs['frames_rt_toref']),
-                      mrcal.invert_Rt(Rt_cam0_board_ref) )
+                      mrcal.invert_Rt(Rt_ref_board_ref) )
 
 testutils.confirm_equal( np.max(nps.mag(Rt_frame_err[..., 3,:])),
                          0.0,

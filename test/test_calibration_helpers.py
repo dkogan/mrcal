@@ -152,7 +152,7 @@ ARGUMENTS
 
     # shapes (Nframes, Ncameras, Nh, Nw, 2),
     #        (Nframes, 4,3)
-    q_true,Rt_cam0_board_true = \
+    q_true,Rt_ref_board_true = \
         mrcal.synthesize_board_observations(models_true,
                                             object_width_n, object_height_n, object_spacing,
                                             calobject_warp_true,
@@ -170,16 +170,18 @@ ARGUMENTS
             nps.glue( np.eye(3),
                       np.array((0,0,extra_observation_at)),
                       axis=-2)
+        Rt_ref_board_true_far = mrcal.compose_Rt(models_true[0].extrinsics_Rt_toref(),
+                                                 Rt_cam0_board_true_far)
         q_true_far = \
             mrcal.project(mrcal.transform_point_Rt(Rt_cam0_board_true_far, c),
                           *models_true[0].intrinsics())
 
-        q_true             = nps.glue( q_true_far, q_true, axis=-5)
-        Rt_cam0_board_true = nps.glue( Rt_cam0_board_true_far, Rt_cam0_board_true, axis=-3)
+        q_true            = nps.glue( q_true_far, q_true, axis=-5)
+        Rt_ref_board_true = nps.glue( Rt_ref_board_true_far, Rt_ref_board_true, axis=-3)
 
         Nframes += 1
 
-    frames_true             = mrcal.rt_from_Rt(Rt_cam0_board_true)
+    frames_true = mrcal.rt_from_Rt(Rt_ref_board_true)
 
     ############# I have perfect observations in q_true. I corrupt them by noise
     # weight has shape (Nframes, Ncameras, Nh, Nw),

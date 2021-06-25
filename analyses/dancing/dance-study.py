@@ -377,32 +377,32 @@ def solve(Ncameras,
           object_spacing,
           models_true,
 
-          # q.shape             = (Nframes, Ncameras, object_height, object_width, 2)
-          # Rt_cam0_board.shape = (Nframes, 4,3)
+          # q.shape            = (Nframes, Ncameras, object_height, object_width, 2)
+          # Rt_ref_board.shape = (Nframes, 4,3)
 
-          q_true_near, Rt_cam0_board_true_near,
-          q_true_far,  Rt_cam0_board_true_far,
+          q_true_near, Rt_ref_board_true_near,
+          q_true_far,  Rt_ref_board_true_far,
           fixed_frames = args.fixed_frames):
 
-    q_true_near             = q_true_near            [:Nframes_near]
-    Rt_cam0_board_true_near = Rt_cam0_board_true_near[:Nframes_near]
+    q_true_near            = q_true_near            [:Nframes_near]
+    Rt_ref_board_true_near = Rt_ref_board_true_near[:Nframes_near]
 
     if q_true_far is not None:
-        q_true_far              = q_true_far             [:Nframes_far ]
-        Rt_cam0_board_true_far  = Rt_cam0_board_true_far [:Nframes_far ]
+        q_true_far             = q_true_far             [:Nframes_far ]
+        Rt_ref_board_true_far  = Rt_ref_board_true_far [:Nframes_far ]
     else:
-        q_true_far              = np.zeros( (0,) + q_true_near.shape[1:],
+        q_true_far             = np.zeros( (0,) + q_true_near.shape[1:],
                                             dtype = q_true_near.dtype)
-        Rt_cam0_board_true_far  = np.zeros( (0,) + Rt_cam0_board_true_near.shape[1:],
-                                            dtype = Rt_cam0_board_true_near.dtype)
+        Rt_ref_board_true_far  = np.zeros( (0,) + Rt_ref_board_true_near.shape[1:],
+                                            dtype = Rt_ref_board_true_near.dtype)
 
     calobject_warp_true = calobject_warp_true_ref.copy()
 
     Nframes_all = Nframes_near + Nframes_far
 
-    Rt_cam0_board_true = nps.glue( Rt_cam0_board_true_near,
-                                   Rt_cam0_board_true_far,
-                                   axis = -3 )
+    Rt_ref_board_true = nps.glue( Rt_ref_board_true_near,
+                                  Rt_ref_board_true_far,
+                                  axis = -3 )
 
     # Dense observations. All the cameras see all the boards
     indices_frame_camera = np.zeros( (Nframes_all*Ncameras, 2), dtype=np.int32)
@@ -475,7 +475,7 @@ def solve(Ncameras,
     optimization_inputs = \
         dict( # intrinsics filled in later
               extrinsics_rt_fromref                     = extrinsics,
-              frames_rt_toref                           = mrcal.rt_from_Rt(Rt_cam0_board_true),
+              frames_rt_toref                           = mrcal.rt_from_Rt(Rt_ref_board_true),
               points                                    = None,
               observations_board                        = observations,
               indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
@@ -597,7 +597,7 @@ def eval_one_rangenear_tilt(models_true,
 
     # shapes (Nframes, Ncameras, Nh, Nw, 2),
     #        (Nframes, 4,3)
-    q_true_near, Rt_cam0_board_true_near = \
+    q_true_near, Rt_ref_board_true_near = \
         mrcal.synthesize_board_observations(models_true,
                                             object_width_n, object_height_n, object_spacing,
                                             calobject_warp_true_ref,
@@ -611,7 +611,7 @@ def eval_one_rangenear_tilt(models_true,
                                             np.max(Nframes_near_samples),
                                             which = which)
     if range_far is not None:
-        q_true_far, Rt_cam0_board_true_far  = \
+        q_true_far, Rt_ref_board_true_far  = \
             mrcal.synthesize_board_observations(models_true,
                                                 object_width_n, object_height_n, object_spacing,
                                                 calobject_warp_true_ref,
@@ -625,8 +625,8 @@ def eval_one_rangenear_tilt(models_true,
                                                 np.max(Nframes_far_samples),
                                                 which = which)
     else:
-        q_true_far             = None
-        Rt_cam0_board_true_far = None
+        q_true_far            = None
+        Rt_ref_board_true_far = None
 
     for i_Nframes_far in range(len(Nframes_far_samples)):
 
@@ -637,8 +637,8 @@ def eval_one_rangenear_tilt(models_true,
                                     Nframes_near, Nframes_far,
                                     object_spacing,
                                     models_true,
-                                    q_true_near, Rt_cam0_board_true_near,
-                                    q_true_far,  Rt_cam0_board_true_far)
+                                    q_true_near, Rt_ref_board_true_near,
+                                    q_true_far,  Rt_ref_board_true_far)
 
         models_out = \
             [ mrcal.cameramodel( optimization_inputs = optimization_inputs,
