@@ -289,12 +289,13 @@ We return a tuple:
     # Camera coords: x,y with pixels, z forward
     # Board coords:  x,y in-plane. z forward (i.e. back towards the camera)
 
-    # shape: (Nh,Nw,3)
     # The center of the board is at the origin (ignoring warping)
     board_center = \
-        np.array(( (object_height_n-1)*object_spacing/2.,
-                   (object_width_n -1)*object_spacing/2.,
+        np.array(( (object_width_n -1)*object_spacing/2.,
+                   (object_height_n-1)*object_spacing/2.,
                    0 ))
+
+    # shape: (Nh,Nw,3)
     board_reference = \
         mrcal.ref_calibration_object(object_width_n,object_height_n,
                                      object_spacing,calobject_warp) - \
