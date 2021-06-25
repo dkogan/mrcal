@@ -233,6 +233,13 @@ extrinsics_rt_fromref_true[:,:3] = np.random.randn(args.Ncameras,3) * 0.1
 extrinsics_rt_fromref_true[:, 3] = args.baseline * np.arange(args.Ncameras)
 extrinsics_rt_fromref_true[:,4:] = np.random.randn(args.Ncameras,2) * 0.1
 
+# cam0 is at the identity. This makes my life easy: I can assume that the
+# optimization_inputs returned by calibration_baseline() use the same ref
+# coordinate system as these transformations. I explicitly state this by passing
+# calibration_baseline(allow_nonidentity_cam0_transform=False) later
+extrinsics_rt_fromref_true[0] *= 0
+
+
 # 1km straight ahead. In the cam0 coord system
 # shape (Npoints,3)
 p_triangulated_true0 = np.array((args.observed_point,
@@ -468,7 +475,8 @@ if args.cache is None or args.cache == 'write':
                              calobject_warp_true,
                              fixedframes,
                              testdir,
-                             cull_left_of_center = args.cull_left_of_center)
+                             cull_left_of_center = args.cull_left_of_center,
+                             allow_nonidentity_cam0_transform = False)
 else:
     with open(cache_file,"rb") as f:
         (optimization_inputs_baseline,

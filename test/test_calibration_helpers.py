@@ -103,12 +103,25 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          calobject_warp_true,
                          fixedframes,
                          testdir,
-                         cull_left_of_center = False):
+                         cull_left_of_center = False,
+                         allow_nonidentity_cam0_transform = False):
     r'''Compute a calibration baseline as a starting point for experiments
 
 This is a perfect, noiseless solve. Regularization IS enabled, and the returned
 model is at the optimization optimum. So the returned models will not sit
-exactly at the ground-truth
+exactly at the ground-truth.
+
+NOTE: if not fixedframes: the ref frame in the returned
+optimization_inputs_baseline is NOT the ref frame used by the returned
+extrinsics and frames arrays. The arrays in optimization_inputs_baseline had to
+be transformed to reference off camera 0. If the extrinsics of camera 0 are the
+identity, then the two ref coord systems are the same. To avoid accidental bugs,
+we have a kwarg allow_nonidentity_cam0_transform, which defaults to False. if
+not allow_nonidentity_cam0_transform and norm(extrinsics_rt_fromref_true[0]) >
+0: raise
+
+This logic is here purely for safety. A caller that handles non-identity cam0
+transforms has to explicitly say that
 
 ARGUMENTS
 
@@ -142,6 +155,10 @@ ARGUMENTS
 
     for i in range(Ncameras):
         models_true[i].extrinsics_rt_fromref(extrinsics_rt_fromref_true[i])
+
+    if not allow_nonidentity_cam0_transform and \
+       nps.norm2(extrinsics_rt_fromref_true[0]) > 0:
+        raise Exception("A non-identity cam0 transform was given, but the caller didn't explicitly say that they support this")
 
     imagersizes = nps.cat( *[m.imagersize() for m in models_true] )
 
@@ -243,8 +260,6 @@ ARGUMENTS
     # noise-induced motions off this optimization optimum
     optimization_inputs_baseline = \
         dict( intrinsics                                = copy.deepcopy(intrinsics_true),
-              extrinsics_rt_fromref                     = copy.deepcopy(extrinsics_true_mounted if fixedframes else extrinsics_true_mounted[1:,:]),
-              frames_rt_toref                           = copy.deepcopy(frames_true),
               points                                    = None,
               observations_board                        = observations_true,
               indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
@@ -263,6 +278,21 @@ ARGUMENTS
               do_optimize_calobject_warp                = True,
               do_apply_regularization                   = True,
               do_apply_outlier_rejection                = False)
+
+    if fixedframes:
+        # Frames are fixed: each camera has an independent pose
+        optimization_inputs_baseline['extrinsics_rt_fromref'] = \
+            copy.deepcopy(extrinsics_true_mounted)
+        optimization_inputs_baseline['frames_rt_toref'] = copy.deepcopy(frames_true)
+    else:
+        # Frames are NOT fixed: cam0 is fixed as the reference coord system. I
+        # transform each optimization extrinsics vector to be relative to cam0
+        optimization_inputs_baseline['extrinsics_rt_fromref'] = \
+            mrcal.compose_rt(extrinsics_true_mounted[1:,:],
+                             mrcal.invert_rt(extrinsics_true_mounted[0,:]))
+        optimization_inputs_baseline['frames_rt_toref'] = \
+            mrcal.compose_rt(extrinsics_true_mounted[0,:], frames_true)
+
     mrcal.optimize(**optimization_inputs_baseline)
 
     models_baseline = \
