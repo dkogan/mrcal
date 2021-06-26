@@ -195,7 +195,7 @@ testutils.confirm_equal( dE_predicted, dE,
 xtJ0 = nps.inner(nps.transpose(J0),x0)
 mrcal.pack_state(xtJ0, **optimization_inputs)
 testutils.confirm_equal( xtJ0, 0,
-                         eps = 1e-2,
+                         eps = 1.5e-2,
                          worstcase = True,
                          msg = "dE/dp = 0 at the optimum: original")
 
