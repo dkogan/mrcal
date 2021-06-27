@@ -259,36 +259,38 @@ if get_gradients: we return a tuple:
                 v /= nps.dummy(nps.mag(v), axis=-1)
             return v
 
+
+        v, dv_dq = \
+            func(q, *fxy, *cxy,
+                 get_gradients = True,
+                 out = None if out is None else (out[0],out[1]))
+
+        # q = f l(v) + c
+        # l(v) = (q-c)/f
+        #
+        # dl/dv dv/df = (c-q) / f^2
+        # dl/dv dv/dq = 1/f
+        # -> dl/dv = 1 / ( f dv/dq )
+        # -> dv/df =  (c-q) / (f^2 dl/dv) = (c-q) dv/dq / f
+        #
+        # dl/dv dv/dc = -1/f
+        # -> dv/dc =  -1 / (f dl/dv) = -1 / (f /( f dv/dq )) = -dv/dq
+        if out is None:
+            dv_di = np.zeros( dv_dq.shape[:-1] + (4,), dtype=float)
         else:
-            v, dv_dq = \
-                func(q, *fxy, *cxy,
-                     get_gradients = True,
-                     out = None if out is None else (out[0],out[1]))
+            dv_di = out[2]
 
-            # q = f l(v) + c
-            # l(v) = (q-c)/f
-            #
-            # dl/dv dv/df = (c-q) / f^2
-            # dl/dv dv/dq = 1/f
-            # -> dl/dv = 1 / ( f dv/dq )
-            # -> dv/df =  (c-q) / (f^2 dl/dv) = (c-q) dv/dq / f
-            #
-            # dl/dv dv/dc = -1/f
-            # -> dv/dc =  -1 / (f dl/dv) = -1 / (f /( f dv/dq )) = -dv/dq
-            if out is None:
-                dv_di = np.zeros( dv_dq.shape[:-1] + (4,), dtype=float)
-            else:
-                dv_di = out[2]
+        # dv/df
+        dv_di[..., :2] += (cxy - q) * dv_dq / fxy
+        # dv/dc
+        dv_di[..., 2:] -= dv_dq
 
-            # dv/df
-            dv_di[..., :2] += (cxy - q) * dv_dq / fxy
-            # dv/dc
-            dv_di[..., 2:] -= dv_dq
+        if normalize and not always_normalized:
+            apply_normalization_to_output_with_gradients(v,dv_dq,dv_di)
 
-            if normalize and not always_normalized:
-                apply_normalization_to_output_with_gradients(v,dv_dq,dv_di)
+        return v,dv_dq,dv_di
 
-            return v,dv_dq,dv_di
+
 
     try:
         meta = mrcal.lensmodel_metadata_and_config(lensmodel)
