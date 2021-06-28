@@ -718,14 +718,14 @@ if istate_e0 is not None:
                             dp_triangulated_de0_empirical,
                             relative = True,
                             worstcase = True,
-                            eps = 5e-4,
+                            eps = 5e-3,
                             msg = "Gradient check: dp_triangulated_dpstate[extrinsics0]")
 if istate_e1 is not None:
     testutils.confirm_equal(dp_triangulated_dpstate[...,istate_e1:istate_e1+6],
                             dp_triangulated_de1_empirical,
                             relative = True,
                             worstcase = True,
-                            eps = 5e-4,
+                            eps = 5e-3,
                             msg = "Gradient check: dp_triangulated_dpstate[extrinsics1]")
 if istate_f0 is not None:
     testutils.confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_frames],
@@ -751,7 +751,7 @@ testutils.confirm_equal(dp_triangulated_dq,
                         dp_triangulated_dq_empirical,
                         relative = True,
                         worstcase = True,
-                        eps = 1e-4,
+                        eps = 5e-3,
                         msg = "Gradient check: dp_triangulated_dq")
 
 Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs_baseline)
@@ -935,7 +935,7 @@ Var_p0p1_sampled  = nps.matmult( nps.transpose(p0p1_sampled - mean_p0p1_sampled)
 testutils.confirm_equal(mean_p0p1_sampled,
                         p_triangulated_true0.ravel(),
                         worstcase = True,
-                        eps = p_triangulated_true0[0,2]/1000.,
+                        eps = p_triangulated_true0[0,2]/500.,
                         msg = "Triangulated position matches sampled mean")
 
 for ipt in range(2):
