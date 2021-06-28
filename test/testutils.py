@@ -243,7 +243,7 @@ def confirm_covariances_equal(var, var_ref,
 
     confirm_equal(l_observed,
                   l_predicted,
-                  eps_eigenvalues,
+                  eps = eps_eigenvalues,
                   worstcase = True,
                   relative  = True,
                   msg = f"Var(dq) eigenvalues match for {what}")
@@ -253,7 +253,7 @@ def confirm_covariances_equal(var, var_ref,
     if eccentricity_predicted > 2.:
         confirm_equal(np.arcsin(nps.mag(np.cross(v0_observed,v0_predicted))) * 180./np.pi,
                       0,
-                      eps_eigenvectors_deg,
+                      eps = eps_eigenvectors_deg,
                       worstcase = True,
                       msg = f"Var(dq) eigenvectors match for {what}")
 
