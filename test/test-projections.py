@@ -2,12 +2,27 @@
 
 r'''Tests for project() and unproject()
 
-Here I make sure the projection functions return the correct values. This is a
-regression test, so the "right" project() results were recorded at some point,
-and any deviation is flagged.
+Here I make sure the projection functions return the correct values. A part of
+this is a regression test: the "right" project() results were recorded at some
+point, and any deviation is flagged.
 
-This also test gradients, normalization and in-place output. The reference
-values for those are computed on the fly, rather than being hard-coded a-priori
+This also test gradients, normalization and in-place output.
+
+I want to check all combinations of
+
+
+
+add others here: latlon, lonlat, stereographic. Broadcasted and not. Test the
+project() and unproject() paths
+
+- project/unproject
+- get_gradients:       yes/no
+- model simple:        yes/no
+- broadcasted:         yes/no
+- unproject normalize: yes/no
+- explicit "out" in args
+
+check() covers all of these for ONE model
 
 '''
 
@@ -143,15 +158,32 @@ def check(intrinsics, p_ref, q_ref):
     #                          msg = f"Unproject() should return the same thing whether get_gradients or not",
     #                          eps = 1e-6)
 
-    @nps.broadcast_define( ((2,),('N',)) )
-    def grad_broadcasted(q_ref, i_ref):
-        return grad(lambda qi: \
-                    mrcal.unproject_stereographic( \
-                    mrcal.project_stereographic(
-                        mrcal.unproject(qi[:2], intrinsics[0], qi[2:]))),
-                    nps.glue(q_ref,i_ref, axis=-1))
+    # Two different gradient computations, to match the two different ways the
+    # internal computation is performed
+    if intrinsics[0] == 'LENSMODEL_PINHOLE'       or \
+       intrinsics[0] == 'LENSMODEL_STEREOGRAPHIC' or \
+       intrinsics[0] == 'LENSMODEL_LATLON'        or \
+       intrinsics[0] == 'LENSMODEL_LONLAT':
 
-    dv_dqi_ref = grad_broadcasted(q_projected,intrinsics[1])
+        @nps.broadcast_define( ((2,),('N',)) )
+        def grad_broadcasted(q_ref, i_ref):
+            return grad(lambda qi: mrcal.unproject(qi[:2], intrinsics[0], qi[2:]),
+                        nps.glue(q_ref,i_ref, axis=-1))
+
+        dv_dqi_ref = grad_broadcasted(q_projected,intrinsics[1])
+
+    else:
+
+        @nps.broadcast_define( ((2,),('N',)) )
+        def grad_broadcasted(q_ref, i_ref):
+            return grad(lambda qi: \
+                        mrcal.unproject_stereographic( \
+                        mrcal.project_stereographic(
+                            mrcal.unproject(qi[:2], intrinsics[0], qi[2:]))),
+                        nps.glue(q_ref,i_ref, axis=-1))
+
+        dv_dqi_ref = grad_broadcasted(q_projected,intrinsics[1])
+
 
     testutils.confirm_equal(mrcal.project(v_unprojected, *intrinsics),
                             q_projected,
@@ -292,11 +324,29 @@ check( ('LENSMODEL_PINHOLE', np.array(((1512., 1112, 500., 333.),
                  [-1163.2,   766.6],
                  [ -860.8, -1135. ]]))
 
-check( ('LENSMODEL_STEREOGRAPHIC', np.array((1512., 1112, 500., 333.))),
+check( ('LENSMODEL_STEREOGRAPHIC', np.array(((1512., 1112, 500., 333.),
+                                             (1502., 1112, 500., 433.),
+                                             (1522., 1112, 500., 533.)))),
        p,
        np.array([[ 649.35582325,  552.6874014],
-                 [-821.79644263,  598.1222302],
-                 [-402.7032835,  -773.48815174]]))
+                 [-813.05440267,  698.1222302],
+                 [-408.67354332,  -573.48815174]]))
+
+check( ('LENSMODEL_LATLON', np.array(((1512., 1112, 500., 333.),
+                                      (1502., 1112, 500., 433.),
+                                      (1522., 1112, 500., 533.)))),
+       p,
+       np.array([[ 647.79131656,  552.50386255],
+                 [-718.86844854,  757.09995546],
+                 [-204.73403533, -559.86662025]]))
+
+check( ('LENSMODEL_LONLAT', np.array(((1512., 1112, 500., 333.),
+                                      (1502., 1112, 500., 433.),
+                                      (1522., 1112, 500., 533.)))),
+       p,
+       np.array([[ 650.69900257,  551.44238248],
+                 [-751.13786254,  654.42977413],
+                 [-615.34458492, -400.73749463]]))
 
 check( ('LENSMODEL_OPENCV4', np.array((1512., 1112, 500., 333.,
                                        -0.012, 0.035, -0.001, 0.002))),
