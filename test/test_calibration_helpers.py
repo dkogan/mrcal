@@ -323,7 +323,8 @@ def calibration_sample(Nsamples, Ncameras, Nframes,
     calobject_warp_sampled     = np.zeros((Nsamples,2),                    dtype=float)
 
     for isample in range(Nsamples):
-        print(f"Sampling {isample+1}/{Nsamples}")
+        if (isample+1) % 20 == 0:
+            print(f"Sampling {isample+1}/{Nsamples}")
 
         optimization_inputs = copy.deepcopy(optimization_inputs_baseline)
         optimization_inputs['observations_board'] = \
