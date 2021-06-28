@@ -7,6 +7,8 @@ import os
 import re
 from inspect import currentframe
 
+from test_calibration_helpers import sorted_eig
+
 Nchecks = 0
 NchecksFailed = 0
 
@@ -217,6 +219,48 @@ def confirm_does_not_raise(f, msg=''):
         print_red("FAILED{}".format((': ' + msg) if msg else ''))
         NchecksFailed = NchecksFailed + 1
         return False
+
+
+def confirm_covariances_equal(var, var_ref,
+                              what,
+                              eps_eigenvalues,
+                              eps_eigenvectors_deg):
+
+    # First, the thing is symmetric, right?
+    confirm_equal(nps.transpose(var),
+                  var,
+                  worstcase = True,
+                  msg = f"Var(dq) is symmetric for {what}")
+
+
+    l_predicted,v = sorted_eig(var)
+    v0_predicted  = v[:,0]
+
+    l_observed,v = sorted_eig(var_ref)
+    v0_observed  = v[:,0]
+
+    eccentricity_predicted = l_predicted[1] / l_predicted[0]
+
+    confirm_equal(l_observed,
+                  l_predicted,
+                  eps_eigenvalues,
+                  worstcase = True,
+                  relative  = True,
+                  msg = f"Var(dq) eigenvalues match for {what}")
+
+    # I only check the eigenvector directions if the ellipse is sufficiently
+    # non-circular. A circular ellipse has poorly-defined eigenvector directions
+    if eccentricity_predicted > 2.:
+        confirm_equal(np.arcsin(nps.mag(np.cross(v0_observed,v0_predicted))) * 180./np.pi,
+                      0,
+                      eps_eigenvectors_deg,
+                      worstcase = True,
+                      msg = f"Var(dq) eigenvectors match for {what}")
+
+    # I don't bother checking v1. I already made sure the matrix is
+    # symmetric. Thus the eigenvectors are orthogonal, so any angle offset
+    # in v0 will be exactly the same in v1
+
 
 
 def finish():

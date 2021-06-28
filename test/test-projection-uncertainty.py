@@ -155,7 +155,7 @@ import copy
 import numpy as np
 import numpysane as nps
 
-from test_calibration_helpers import sorted_eig,plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse,calibration_baseline,calibration_sample
+from test_calibration_helpers import plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse,calibration_baseline,calibration_sample
 
 
 fixedframes = (args.fixed == 'frames')
@@ -780,41 +780,13 @@ def check_uncertainties_at(q0_baseline, idistance):
     # I now compare the variances. The cross terms have lots of apparent error,
     # but it's more meaningful to compare the eigenvectors and eigenvalues, so I
     # just do that
-
-    # First, the thing is symmetric, right?
-    testutils.confirm_equal(nps.transpose(Var_dq),
-                            Var_dq,
-                            worstcase = True,
-                            msg = f"Var(dq) is symmetric at distance = {distancestr}")
-
     for icam in range(args.Ncameras):
-        l_predicted,v = sorted_eig(Var_dq[icam])
-        v0_predicted  = v[:,0]
-
-        l_observed,v = sorted_eig(Var_dq_observed[icam])
-        v0_observed  = v[:,0]
-
-        testutils.confirm_equal(l_observed,
-                                l_predicted,
-                                eps = 0.35, # high error tolerance. Nsamples is too low for better
-                                worstcase = True,
-                                relative  = True,
-                                msg = f"Var(dq) eigenvalues match for camera {icam} at distance = {distancestr}")
-
-        if icam == 3:
-            # I only check the eigenvectors for camera 3. The other cameras have
-            # isotropic covariances, so the eigenvectors aren't well defined. If
-            # one isn't isotropic for some reason, the eigenvalue check will
-            # fail
-            testutils.confirm_equal(np.arcsin(nps.mag(np.cross(v0_observed,v0_predicted))) * 180./np.pi,
-                                    0,
-                                    eps = 15, # high error tolerance. Nsamples is too low for better
-                                    worstcase = True,
-                                    msg = f"Var(dq) eigenvectors match for camera {icam} at distance = {distancestr}")
-
-            # I don't bother checking v1. I already made sure the matrix is
-            # symmetric. Thus the eigenvectors are orthogonal, so any angle offset
-            # in v0 will be exactly the same in v1
+        testutils.confirm_covariances_equal(Var_dq[icam],
+                                            Var_dq_observed[icam],
+                                            what = f"camera {icam} at distance = {distancestr}",
+                                            # high error tolerances; Nsamples is too low for better
+                                            eps_eigenvalues      = 0.35,
+                                            eps_eigenvectors_deg = 15)
 
     return q_sampled,Var_dq
 
