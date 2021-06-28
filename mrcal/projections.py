@@ -254,14 +254,14 @@ if get_gradients: we return a tuple:
         cxy = intrinsics_data[2:]
         if not get_gradients:
 
-            v = func(q, *fxy, *cxy, out = out)
+            v = func(q, intrinsics_data, out = out)
             if normalize and not always_normalized:
                 v /= nps.dummy(nps.mag(v), axis=-1)
             return v
 
 
         v, dv_dq = \
-            func(q, *fxy, *cxy,
+            func(q, intrinsics_data,
                  get_gradients = True,
                  out = None if out is None else (out[0],out[1]))
 
@@ -432,10 +432,7 @@ if get_gradients: we return a tuple:
 
 
 def project_pinhole(points,
-                    fx = 1.0,
-                    fy = 1.0,
-                    cx = 0.0,
-                    cy = 0.0,
+                    fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
                     get_gradients = False,
                     out           = None):
     r'''Projects 3D camera-frame points using a pinhole projection
@@ -443,7 +440,7 @@ def project_pinhole(points,
 SYNOPSIS
 
     # points is a (N,3) array of camera-coordinate-system points
-    q = mrcal.project_pinhole( points, fx, fy, cx, cy )
+    q = mrcal.project_pinhole( points, fxycxy )
 
     # q is now a (N,2) array of pinhole coordinates
 
@@ -454,7 +451,7 @@ more-or-less DO follow this model. See the lensmodel documentation for details:
 http://mrcal.secretsauce.net/lensmodels.html#lensmodel-pinhole
 
 Given a (N,3) array of points in the camera frame (x,y aligned with the imager
-coords, z 'forward') and the parameters fx,fy,cx,cy, this function computes the
+coords, z 'forward') and the parameters fxycxy, this function computes the
 projection, optionally with gradients.
 
 ARGUMENTS
@@ -462,10 +459,11 @@ ARGUMENTS
 - points: array of dims (...,3); the points we're projecting. This supports
   broadcasting fully, and any leading dimensions are allowed, including none
 
-- fx, fy: optional focal-lengths, in pixels. Both default to 1
-
-- cx, cy: optional pixel coordinates corresponding to the projection of p =
-  [0,0,1]. Both default to 0.
+- fxycxy: optional intrinsics core. This is a shape (4,) array (fx,fy,cx,cy),
+  with all elements given in units of pixels. fx and fy are the horizontal and
+  vertical focal lengths, respectively. (cx,cy) are pixel coordinates
+  corresponding to the projection of p = [0,0,1]. If omitted, default values are
+  used: fx=fy=1.0 and cx=cy=0.0.
 
 - get_gradients: optional boolean, defaults to False. This affects what we
   return (see below)
@@ -493,25 +491,14 @@ if get_gradients: we return a tuple:
     # Internal function must have a different argument order so
     # that all the broadcasting stuff is in the leading arguments
     if not get_gradients:
-        return mrcal._mrcal_npsp._project_pinhole(points,
-                                                  fx=fx,
-                                                  fy=fy,
-                                                  cx=cx,
-                                                  cy=cy,
+        return mrcal._mrcal_npsp._project_pinhole(points, fxycxy,
                                                   out=out)
-    return mrcal._mrcal_npsp._project_pinhole_withgrad(points,
-                                                       fx=fx,
-                                                       fy=fy,
-                                                       cx=cx,
-                                                       cy=cy,
+    return mrcal._mrcal_npsp._project_pinhole_withgrad(points, fxycxy,
                                                        out=out)
 
 
 def unproject_pinhole(points,
-                      fx = 1.0,
-                      fy = 1.0,
-                      cx = 0.0,
-                      cy = 0.0,
+                      fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
                       get_gradients = False,
                       out           = None):
     r'''Unprojects 2D pixel coordinates using a pinhole projection
@@ -520,7 +507,7 @@ SYNOPSIS
 
     # points is a (N,2) array of imager points
     v = mrcal.unproject_pinhole( points,
-                                fx, fy, cx, cy )
+                                 fxycxy )
 
     # v is now a (N,3) array of observation directions in the camera coordinate
     # system. v are NOT normalized
@@ -531,9 +518,8 @@ more-or-less DO follow this model. See the lensmodel documentation for details:
 
 http://mrcal.secretsauce.net/lensmodels.html#lensmodel-pinhole
 
-Given a (N,2) array of pinhole coordinates and the parameters
-fx,fy,cx,cy, this function computes the inverse projection, optionally with
-gradients.
+Given a (N,2) array of pinhole coordinates and the parameters fxycxy, this
+function computes the inverse projection, optionally with gradients.
 
 The vectors returned by this function are NOT normalized.
 
@@ -543,10 +529,11 @@ ARGUMENTS
   we're unprojecting. This supports broadcasting fully, and any leading
   dimensions are allowed, including none
 
-- fx, fy: optional focal-lengths, in pixels. Both default to 1
-
-- cx, cy: optional pixel coordinates corresponding to the projection of p =
-  [0,0,1]. Both default to 0.
+- fxycxy: optional intrinsics core. This is a shape (4,) array (fx,fy,cx,cy),
+  with all elements given in units of pixels. fx and fy are the horizontal and
+  vertical focal lengths, respectively. (cx,cy) are pixel coordinates
+  corresponding to the projection of p = [0,0,1]. If omitted, default values are
+  used: fx=fy=1.0 and cx=cy=0.0.
 
 - get_gradients: optional boolean, defaults to False. This affects what we
   return (see below)
@@ -571,25 +558,14 @@ if get_gradients: we return a tuple:
 
     '''
     if not get_gradients:
-        return mrcal._mrcal_npsp._unproject_pinhole(points,
-                                                    fx=fx,
-                                                    fy=fy,
-                                                    cx=cx,
-                                                    cy=cy,
+        return mrcal._mrcal_npsp._unproject_pinhole(points, fxycxy,
                                                     out=out)
-    return mrcal._mrcal_npsp._unproject_pinhole_withgrad(points,
-                                                        fx=fx,
-                                                        fy=fy,
-                                                        cx=cx,
-                                                        cy=cy,
-                                                        out=out)
+    return mrcal._mrcal_npsp._unproject_pinhole_withgrad(points, fxycxy,
+                                                         out=out)
 
 
 def project_stereographic(points,
-                          fx = 1.0,
-                          fy = 1.0,
-                          cx = 0.0,
-                          cy = 0.0,
+                          fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
                           get_gradients = False,
                           out           = None):
     r'''Projects a set of 3D camera-frame points using a stereographic model
@@ -628,11 +604,12 @@ ARGUMENTS
 - points: array of dims (...,3); the points we're projecting. This supports
   broadcasting fully, and any leading dimensions are allowed, including none
 
-- fx, fy: optional focal-lengths, in pixels. Both default to 1, as in the
-  normalized stereographic projection
-
-- cx, cy: optional projection center, in pixels. Both default to 0, as in the
-  normalized stereographic projection
+- fxycxy: optional intrinsics core. This is a shape (4,) array (fx,fy,cx,cy),
+  with all elements given in units of pixels. fx and fy are the horizontal and
+  vertical focal lengths, respectively. (cx,cy) are pixel coordinates
+  corresponding to the projection of p = [0,0,1]. If omitted, default values are
+  used to specify a normalized stereographic projection : fx=fy=1.0 and
+  cx=cy=0.0.
 
 - get_gradients: optional boolean, defaults to False. This affects what we
   return (see below)
@@ -657,25 +634,14 @@ if get_gradients: we return a tuple:
 
     '''
     if not get_gradients:
-        return mrcal._mrcal_npsp._project_stereographic(points,
-                                                        fx=fx,
-                                                        fy=fy,
-                                                        cx=cx,
-                                                        cy=cy,
+        return mrcal._mrcal_npsp._project_stereographic(points, fxycxy,
                                                         out=out)
-    return mrcal._mrcal_npsp._project_stereographic_withgrad(points,
-                                                             fx=fx,
-                                                             fy=fy,
-                                                             cx=cx,
-                                                             cy=cy,
+    return mrcal._mrcal_npsp._project_stereographic_withgrad(points, fxycxy,
                                                              out=out)
 
 
 def unproject_stereographic(points,
-                            fx = 1.0,
-                            fy = 1.0,
-                            cx = 0.0,
-                            cy = 0.0,
+                            fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
                             get_gradients = False,
                             out           = None):
     r'''Unprojects a set of 2D pixel coordinates using a stereographic model
@@ -683,8 +649,7 @@ def unproject_stereographic(points,
 SYNOPSIS
 
     # points is a (N,2) array of pixel coordinates
-    v = mrcal.unproject_stereographic( points,
-                                       fx, fy, cx, cy )
+    v = mrcal.unproject_stereographic( points, fxycxy)
 
     # v is now a (N,3) array of observation directions in the camera coordinate
     # system. v are NOT normalized
@@ -717,11 +682,12 @@ ARGUMENTS
   unprojecting. This supports broadcasting fully, and any leading dimensions are
   allowed, including none
 
-- fx, fy: optional focal-lengths, in pixels. Both default to 1, as in the
-  normalized stereographic projection
-
-- cx, cy: optional projection center, in pixels. Both default to 0, as in the
-  normalized stereographic projection
+- fxycxy: optional intrinsics core. This is a shape (4,) array (fx,fy,cx,cy),
+  with all elements given in units of pixels. fx and fy are the horizontal and
+  vertical focal lengths, respectively. (cx,cy) are pixel coordinates
+  corresponding to the projection of p = [0,0,1]. If omitted, default values are
+  used to specify a normalized stereographic projection : fx=fy=1.0 and
+  cx=cy=0.0.
 
 - get_gradients: optional boolean, defaults to False. This affects what we
   return (see below)
@@ -746,25 +712,14 @@ if get_gradients: we return a tuple:
 
     '''
     if not get_gradients:
-        return mrcal._mrcal_npsp._unproject_stereographic(points,
-                                                          fx=fx,
-                                                          fy=fy,
-                                                          cx=cx,
-                                                          cy=cy,
+        return mrcal._mrcal_npsp._unproject_stereographic(points, fxycxy,
                                                           out=out)
-    return mrcal._mrcal_npsp._unproject_stereographic_withgrad(points,
-                                                               fx=fx,
-                                                               fy=fy,
-                                                               cx=cx,
-                                                               cy=cy,
+    return mrcal._mrcal_npsp._unproject_stereographic_withgrad(points, fxycxy,
                                                                out=out)
 
 
 def project_lonlat(points,
-                   fx = 1.0,
-                   fy = 1.0,
-                   cx = 0.0,
-                   cy = 0.0,
+                   fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
                    get_gradients = False,
                    out           = None):
     r'''Projects a set of 3D camera-frame points using an equirectangular projection
@@ -772,7 +727,7 @@ def project_lonlat(points,
 SYNOPSIS
 
     # points is a (N,3) array of camera-coordinate-system points
-    q = mrcal.project_lonlat( points, fx, fy, cx, cy )
+    q = mrcal.project_lonlat( points, fxycxy )
 
     # q is now a (N,2) array of equirectangular coordinates
 
@@ -784,7 +739,7 @@ documentation for details:
 http://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
 
 Given a (N,3) array of points in the camera frame (x,y aligned with the imager
-coords, z 'forward') and the parameters fx,fy,cx,cy, this function computes the
+coords, z 'forward') and the parameters fxycxy, this function computes the
 projection, optionally with gradients.
 
 ARGUMENTS
@@ -792,13 +747,12 @@ ARGUMENTS
 - points: array of dims (...,3); the points we're projecting. This supports
   broadcasting fully, and any leading dimensions are allowed, including none
 
-- fx, fy: optional "focal-lengths", in pixels. These specify the angular
-  resolution of the image, in pixels/radian. Both default to 1, as in the
-  normalized equirectangular projection, which produces q = (lon,lat)
-
-- cx, cy: optional pixel coordinates corresponding to the projection of p =
-  [0,0,1]. Both default to 0, as in the normalized equirectangular projection,
-  which produces q = (lon,lat)
+- fxycxy: optional intrinsics core. This is a shape (4,) array (fx,fy,cx,cy). fx
+  and fy are the "focal lengths": they specify the angular resolution of the
+  image, in pixels/radian. (cx,cy) are pixel coordinates corresponding to the
+  projection of p = [0,0,1]. If omitted, default values are used to specify a
+  normalized equirectangular projection : fx=fy=1.0 and cx=cy=0.0. This produces
+  q = (lon,lat)
 
 - get_gradients: optional boolean, defaults to False. This affects what we
   return (see below)
@@ -826,25 +780,14 @@ if get_gradients: we return a tuple:
     # Internal function must have a different argument order so
     # that all the broadcasting stuff is in the leading arguments
     if not get_gradients:
-        return mrcal._mrcal_npsp._project_lonlat(points,
-                                                 fx=fx,
-                                                 fy=fy,
-                                                 cx=cx,
-                                                 cy=cy,
+        return mrcal._mrcal_npsp._project_lonlat(points, fxycxy,
                                                  out=out)
-    return mrcal._mrcal_npsp._project_lonlat_withgrad(points,
-                                                      fx=fx,
-                                                      fy=fy,
-                                                      cx=cx,
-                                                      cy=cy,
+    return mrcal._mrcal_npsp._project_lonlat_withgrad(points, fxycxy,
                                                       out=out)
 
 
 def unproject_lonlat(points,
-                     fx = 1.0,
-                     fy = 1.0,
-                     cx = 0.0,
-                     cy = 0.0,
+                     fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
                      get_gradients = False,
                      out           = None):
     r'''Unprojects a set of 2D pixel coordinates using an equirectangular projection
@@ -852,8 +795,7 @@ def unproject_lonlat(points,
 SYNOPSIS
 
     # points is a (N,2) array of imager points
-    v = mrcal.unproject_lonlat( points,
-                                fx, fy, cx, cy )
+    v = mrcal.unproject_lonlat( points, fxycxy )
 
     # v is now a (N,3) array of observation directions in the camera coordinate
     # system. v are normalized
@@ -865,9 +807,8 @@ documentation for details:
 
 http://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
 
-Given a (N,2) array of equirectangular coordinates and the parameters
-fx,fy,cx,cy, this function computes the inverse projection, optionally with
-gradients.
+Given a (N,2) array of equirectangular coordinates and the parameters fxycxy,
+this function computes the inverse projection, optionally with gradients.
 
 The vectors returned by this function are normalized.
 
@@ -877,13 +818,12 @@ ARGUMENTS
   unprojecting. This supports broadcasting fully, and any leading dimensions are
   allowed, including none
 
-- fx, fy: optional "focal-lengths", in pixels. These specify the angular
-  resolution of the image, in pixels/radian. Both default to 1, as in the
-  normalized equirectangular projection, which produces q = (lon,lat)
-
-- cx, cy: optional pixel coordinates corresponding to the projection of p =
-  [0,0,1]. Both default to 0, as in the normalized equirectangular projection,
-  which produces q = (lon,lat)
+- fxycxy: optional intrinsics core. This is a shape (4,) array (fx,fy,cx,cy). fx
+  and fy are the "focal lengths": they specify the angular resolution of the
+  image, in pixels/radian. (cx,cy) are pixel coordinates corresponding to the
+  projection of p = [0,0,1]. If omitted, default values are used to specify a
+  normalized equirectangular projection : fx=fy=1.0 and cx=cy=0.0. This produces
+  q = (lon,lat)
 
 - get_gradients: optional boolean, defaults to False. This affects what we
   return (see below)
@@ -908,25 +848,14 @@ if get_gradients: we return a tuple:
 
     '''
     if not get_gradients:
-        return mrcal._mrcal_npsp._unproject_lonlat(points,
-                                                   fx=fx,
-                                                   fy=fy,
-                                                   cx=cx,
-                                                   cy=cy,
+        return mrcal._mrcal_npsp._unproject_lonlat(points, fxycxy,
                                                    out=out)
-    return mrcal._mrcal_npsp._unproject_lonlat_withgrad(points,
-                                                        fx=fx,
-                                                        fy=fy,
-                                                        cx=cx,
-                                                        cy=cy,
+    return mrcal._mrcal_npsp._unproject_lonlat_withgrad(points, fxycxy,
                                                         out=out)
 
 
 def project_latlon(points,
-                   fx = 1.0,
-                   fy = 1.0,
-                   cx = 0.0,
-                   cy = 0.0,
+                   fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
                    get_gradients = False,
                    out           = None):
     r'''Projects 3D camera-frame points using a transverse equirectangular projection
@@ -934,7 +863,7 @@ def project_latlon(points,
 SYNOPSIS
 
     # points is a (N,3) array of camera-coordinate-system points
-    q = mrcal.project_latlon( points, fx, fy, cx, cy )
+    q = mrcal.project_latlon( points, fxycxy )
 
     # q is now a (N,2) array of transverse equirectangular coordinates
 
@@ -945,7 +874,7 @@ the lensmodel documentation for details:
 http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
 
 Given a (N,3) array of points in the camera frame (x,y aligned with the imager
-coords, z 'forward') and the parameters fx,fy,cx,cy, this function computes the
+coords, z 'forward') and the parameters fxycxy, this function computes the
 projection, optionally with gradients.
 
 ARGUMENTS
@@ -953,13 +882,12 @@ ARGUMENTS
 - points: array of dims (...,3); the points we're projecting. This supports
   broadcasting fully, and any leading dimensions are allowed, including none
 
-- fx, fy: optional "focal-lengths", in pixels. These specify the angular
-  resolution of the image, in pixels/radian. Both default to 1, as in the
-  normalized transverse equirectangular projection, which produces q = (lat,lon)
-
-- cx, cy: optional pixel coordinates corresponding to the projection of p =
-  [0,0,1]. Both default to 0, as in the normalized transverse equirectangular
-  projection, which produces q = (lat,lon)
+- fxycxy: optional intrinsics core. This is a shape (4,) array (fx,fy,cx,cy). fx
+  and fy are the "focal lengths": they specify the angular resolution of the
+  image, in pixels/radian. (cx,cy) are pixel coordinates corresponding to the
+  projection of p = [0,0,1]. If omitted, default values are used to specify a
+  normalized transverse equirectangular projection : fx=fy=1.0 and cx=cy=0.0.
+  This produces q = (lat,lon)
 
 - get_gradients: optional boolean, defaults to False. This affects what we
   return (see below)
@@ -987,25 +915,14 @@ if get_gradients: we return a tuple:
     # Internal function must have a different argument order so
     # that all the broadcasting stuff is in the leading arguments
     if not get_gradients:
-        return mrcal._mrcal_npsp._project_latlon(points,
-                                                 fx=fx,
-                                                 fy=fy,
-                                                 cx=cx,
-                                                 cy=cy,
+        return mrcal._mrcal_npsp._project_latlon(points, fxycxy,
                                                  out=out)
-    return mrcal._mrcal_npsp._project_latlon_withgrad(points,
-                                                      fx=fx,
-                                                      fy=fy,
-                                                      cx=cx,
-                                                      cy=cy,
+    return mrcal._mrcal_npsp._project_latlon_withgrad(points, fxycxy,
                                                       out=out)
 
 
 def unproject_latlon(points,
-                     fx = 1.0,
-                     fy = 1.0,
-                     cx = 0.0,
-                     cy = 0.0,
+                     fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
                      get_gradients = False,
                      out           = None):
     r'''Unprojects 2D pixel coordinates using a transverse equirectangular projection
@@ -1013,8 +930,7 @@ def unproject_latlon(points,
 SYNOPSIS
 
     # points is a (N,2) array of imager points
-    v = mrcal.unproject_latlon( points,
-                                fx, fy, cx, cy )
+    v = mrcal.unproject_latlon( points, fxycxy )
 
     # v is now a (N,3) array of observation directions in the camera coordinate
     # system. v are normalized
@@ -1026,7 +942,7 @@ the lensmodel documentation for details:
 http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
 
 Given a (N,2) array of transverse equirectangular coordinates and the parameters
-fx,fy,cx,cy, this function computes the inverse projection, optionally with
+fxycxy, this function computes the inverse projection, optionally with
 gradients.
 
 The vectors returned by this function are normalized.
@@ -1037,13 +953,12 @@ ARGUMENTS
   we're unprojecting. This supports broadcasting fully, and any leading
   dimensions are allowed, including none
 
-- fx, fy: optional "focal-lengths", in pixels. These specify the angular
-  resolution of the image, in pixels/radian. Both default to 1, as in the
-  normalized transverse equirectangular projection, which produces q = (lat,lon)
-
-- cx, cy: optional pixel coordinates corresponding to the projection of p =
-  [0,0,1]. Both default to 0, as in the normalized transverse equirectangular
-  projection, which produces q = (lat,lon)
+- fxycxy: optional intrinsics core. This is a shape (4,) array (fx,fy,cx,cy),
+  with all elements given in units of pixels. fx and fy are the horizontal and
+  vertical focal lengths, respectively. (cx,cy) are pixel coordinates
+  corresponding to the projection of p = [0,0,1]. If omitted, default values are
+  used to specify a normalized transverse equirectangular projection : fx=fy=1.0
+  and cx=cy=0.0. This produces q = (lat,lon)
 
 - get_gradients: optional boolean, defaults to False. This affects what we
   return (see below)
@@ -1068,15 +983,7 @@ if get_gradients: we return a tuple:
 
     '''
     if not get_gradients:
-        return mrcal._mrcal_npsp._unproject_latlon(points,
-                                                   fx=fx,
-                                                   fy=fy,
-                                                   cx=cx,
-                                                   cy=cy,
+        return mrcal._mrcal_npsp._unproject_latlon(points, fxycxy,
                                                    out=out)
-    return mrcal._mrcal_npsp._unproject_latlon_withgrad(points,
-                                                        fx=fx,
-                                                        fy=fy,
-                                                        cx=cx,
-                                                        cy=cy,
+    return mrcal._mrcal_npsp._unproject_latlon_withgrad(points, fxycxy,
                                                         out=out)

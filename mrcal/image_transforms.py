@@ -460,7 +460,7 @@ This array can be passed to mrcal.transform_image()
         v[...,  2] = 1
     elif lensmodel_to == "LENSMODEL_STEREOGRAPHIC":
         # Faster path for the unproject. Nice, simple closed-form solution
-        v = mrcal.unproject_stereographic(grid, *intrinsics_data_to[:4])
+        v = mrcal.unproject_stereographic(grid, intrinsics_data_to[:4])
     else:
         v = mrcal.unproject(grid, lensmodel_to, intrinsics_data_to)
 

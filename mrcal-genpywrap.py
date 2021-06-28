@@ -399,52 +399,52 @@ call THAT function, and see the docs for that function. The differences:
 """
 
 simple_kwargs_base = \
-    dict(args_input = ('points',),
-         extra_args = (("double", "fx", "1.0", "d"),
-                       ("double", "fy", "1.0", "d"),
-                       ("double", "cx", "0.0", "d"),
-                       ("double", "cy", "0.0", "d"),),
-          Ccode_validate = r'''return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''')
+    dict(args_input = ('points','fxycxy'),
+         Ccode_validate = r'''return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''')
 project_simple_kwargs = \
-    dict( prototype_input  = ((3,),),
+    dict( prototype_input  = ((3,),(4,)),
           prototype_output = (2,))
 project_withgrad_simple_kwargs = \
-    dict( prototype_input  = ((3,),),
+    dict( prototype_input  = ((3,),(4,)),
           prototype_output = ((2,), (2,3)))
 unproject_simple_kwargs = \
-    dict( prototype_input  = ((2,),),
+    dict( prototype_input  = ((2,),(4,)),
           prototype_output = (3,))
 unproject_withgrad_simple_kwargs = \
-    dict( prototype_input  = ((2,),),
+    dict( prototype_input  = ((2,),(4,)),
           prototype_output = ((3,), (3,2)))
 
 project_simple_code = '''
+            const double* fxycxy = (const double*)data_slice__fxycxy;
             mrcal_project_{what}((mrcal_point2_t*)data_slice__output,
                                         NULL,
                                         (const mrcal_point3_t*)data_slice__points,
                                         1,
-                                        *fx,*fy,*cx,*cy);
+                                        fxycxy[0], fxycxy[1], fxycxy[2], fxycxy[3]);
             return true;'''
 project_withgrad_simple_code = '''
+            const double* fxycxy = (const double*)data_slice__fxycxy;
             mrcal_project_{what}((mrcal_point2_t*)data_slice__output0,
                                         (mrcal_point3_t*)data_slice__output1,
                                         (const mrcal_point3_t*)data_slice__points,
                                         1,
-                                        *fx,*fy,*cx,*cy);
+                                        fxycxy[0], fxycxy[1], fxycxy[2], fxycxy[3]);
             return true;'''
 unproject_simple_code = '''
+            const double* fxycxy = (const double*)data_slice__fxycxy;
             mrcal_unproject_{what}((mrcal_point3_t*)data_slice__output,
                                         NULL,
                                         (const mrcal_point2_t*)data_slice__points,
                                         1,
-                                        *fx,*fy,*cx,*cy);
+                                        fxycxy[0], fxycxy[1], fxycxy[2], fxycxy[3]);
             return true;'''
 unproject_withgrad_simple_code = '''
+            const double* fxycxy = (const double*)data_slice__fxycxy;
             mrcal_unproject_{what}((mrcal_point3_t*)data_slice__output0,
                                         (mrcal_point2_t*)data_slice__output1,
                                         (const mrcal_point2_t*)data_slice__points,
                                         1,
-                                        *fx,*fy,*cx,*cy);
+                                        fxycxy[0], fxycxy[1], fxycxy[2], fxycxy[3]);
             return true;'''
 
 for what in ('pinhole', 'stereographic', 'lonlat', 'latlon'):

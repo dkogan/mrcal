@@ -21,7 +21,7 @@ observation vectors at the knots:
 
     ux,uy = mrcal.knots_for_splined_models('LENSMODEL_SPLINED_STEREOGRAPHIC_order=2_Nx=4_Ny=3_fov_x_deg=200')
     u  = np.ascontiguousarray(nps.mv(nps.cat(*np.meshgrid(ux,uy)), 0, -1))
-    v  = mrcal.unproject_stereographic(u, 1,1,0,0)
+    v  = mrcal.unproject_stereographic(u)
 
     # v[index_y, index_x] is now an observation vector that will project to this
     # knot

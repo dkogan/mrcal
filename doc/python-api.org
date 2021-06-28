@@ -45,8 +45,18 @@ Routines for manipulating [[file:lensmodels.org][lens models]].
 * Projections
 - [[file:mrcal-python-api-reference.html#-project][=mrcal.project()=]]: Projects a set of 3D camera-frame points to the imager
 - [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]]: Unprojects pixel coordinates to observation vectors
+- [[file:mrcal-python-api-reference.html#-project_pinhole][=mrcal.project_pinhole()=]]: Projects a set of 3D camera-frame points using a pinhole model
+- [[file:mrcal-python-api-reference.html#-unproject_pinhole][=mrcal.unproject_pinhole()=]]: Unprojects a set of 2D pixel coordinates using a pinhole model
 - [[file:mrcal-python-api-reference.html#-project_stereographic][=mrcal.project_stereographic()=]]: Projects a set of 3D camera-frame points using a stereographic map
 - [[file:mrcal-python-api-reference.html#-unproject_stereographic][=mrcal.unproject_stereographic()=]]: Unprojects a set of 2D pixel coordinates using a stereographic map
+- [[file:mrcal-python-api-reference.html#-project_latlon][=mrcal.project_latlon()=]]: Projects a set of 3D camera-frame points using a
+  transverse equirectangular projection (used primarily for wide-angle stereo)
+- [[file:mrcal-python-api-reference.html#-unproject_latlon][=mrcal.unproject_latlon()=]]: Unprojects a set of 2D pixel coordinates using a
+  transverse equirectangular projection (used primarily for wide-angle stereo)
+- [[file:mrcal-python-api-reference.html#-project_lonlat][=mrcal.project_lonlat()=]]: Projects a set of 3D camera-frame points using an
+  equirectangular projection (useful for representing 360-degree panoramas)
+- [[file:mrcal-python-api-reference.html#-unproject_lonlat][=mrcal.unproject_lonlat()=]]: Unprojects a set of 2D pixel coordinates using an
+  equirectangular projection (useful for representing 360-degree panoramas)
 
 * Visualization
 ** Driver routines

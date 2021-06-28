@@ -79,7 +79,7 @@ SYNOPSIS
     # Point cloud in rectified camera-0 coordinates
     # shape (H,W,3)
     p_rect0 = \
-        mrcal.unproject_latlon(q, *models_rectified[0].intrinsics()[1]) * \
+        mrcal.unproject_latlon(q, models_rectified[0].intrinsics()[1]) * \
         nps.dummy(ranges, axis=-1)
 
     Rt_cam0_rect0 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
@@ -391,7 +391,7 @@ direction in rectified coordinates.
         v = unproject_rectified( np.array((az0,el0)) )
         fxycxy[2:] = \
             np.array(((Naz-1.)/2.,(Nel-1.)/2.)) - \
-            project_rectified( v, *fxycxy[:2] )
+            project_rectified( v, fxycxy )
 
     elif rectification_model == 'LENSMODEL_PINHOLE':
         fxycxy[0] *= cos_az0*cos_az0
@@ -598,7 +598,7 @@ SYNOPSIS
     # Point cloud in rectified camera-0 coordinates
     # shape (H,W,3)
     p_rect0 = \
-        mrcal.unproject_latlon(q, *models_rectified[0].intrinsics()[1]) * \
+        mrcal.unproject_latlon(q, models_rectified[0].intrinsics()[1]) * \
         nps.dummy(ranges, axis=-1)
 
     Rt_cam0_rect0 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
@@ -659,13 +659,13 @@ contains corresponding pixel coordinates in the input image
                nps.mv( nps.cat( *np.meshgrid(np.arange(Naz,dtype=float),
                                              np.arange(Nel,dtype=float))),
                        0, -1)),
-                                     *fxycxy)
+                                     fxycxy)
     else:
         v = mrcal.unproject_pinhole( np.ascontiguousarray( \
                nps.mv( nps.cat( *np.meshgrid(np.arange(Naz,dtype=float),
                                              np.arange(Nel,dtype=float))),
                        0, -1)),
-                                     *fxycxy)
+                                     fxycxy)
 
     v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
     v1 = mrcal.rotate_point_R(R_cam_rect[1], v)
@@ -739,7 +739,7 @@ SYNOPSIS
     # Point cloud in rectified camera-0 coordinates
     # shape (H,W,3)
     p_rect0 = \
-        mrcal.unproject_latlon(q, *models_rectified[0].intrinsics()[1]) * \
+        mrcal.unproject_latlon(q, models_rectified[0].intrinsics()[1]) * \
         nps.dummy(ranges, axis=-1)
 
     Rt_cam0_rect0 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),

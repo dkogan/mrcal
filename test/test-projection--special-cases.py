@@ -114,7 +114,7 @@ else:
 
 intrinsics = (lensmodel, np.array((fx,fy,cx,cy)))
 
-q_projected = func_project(p, fx,fy,cx,cy)
+q_projected = func_project(p, intrinsics[1])
 testutils.confirm_equal(q_projected,
                         q_projected_ref,
                         msg = f"project_{name}()",
@@ -127,7 +127,7 @@ testutils.confirm_equal(mrcal.project(p, *intrinsics),
                         worstcase = True,
                         relative  = True)
 
-v_unprojected = func_unproject(q_projected, fx,fy,cx,cy)
+v_unprojected = func_unproject(q_projected, intrinsics[1])
 if unproject_is_normalized:
     testutils.confirm_equal( nps.mag(v_unprojected),
                              1.,
@@ -174,7 +174,7 @@ testutils.confirm_equal( mrcal.project(mrcal.unproject(q_projected, *intrinsics)
                          worstcase = True,
                          relative  = True)
 
-testutils.confirm_equal( func_project(func_unproject(q_projected,fx,fy,cx,cy),fx,fy,cx,cy),
+testutils.confirm_equal( func_project(func_unproject(q_projected,intrinsics[1]),intrinsics[1]),
                          q_projected,
                          msg = f"project_{name}(unproject_{name}()) is an identity",
                          worstcase = True,
@@ -183,8 +183,8 @@ testutils.confirm_equal( func_project(func_unproject(q_projected,fx,fy,cx,cy),fx
 
 # Now gradients for project()
 ipt = 1
-_,dq_dp_reported = func_project(p[ipt], fx,fy,cx,cy, get_gradients=True)
-dq_dp_observed = grad(lambda p: func_project(p, fx,fy,cx,cy),
+_,dq_dp_reported = func_project(p[ipt], intrinsics[1], get_gradients=True)
+dq_dp_observed = grad(lambda p: func_project(p, intrinsics[1]),
                       p[ipt])
 testutils.confirm_equal(dq_dp_reported,
                         dq_dp_observed,
@@ -210,8 +210,8 @@ testutils.confirm_equal(dq_di_reported,
 
 # Now gradients for unproject()
 ipt = 1
-_,dv_dq_reported = func_unproject(q_projected[ipt], fx,fy,cx,cy, get_gradients=True)
-dv_dq_observed = grad(lambda q: func_unproject(q, fx,fy,cx,cy),
+_,dv_dq_reported = func_unproject(q_projected[ipt], intrinsics[1], get_gradients=True)
+dv_dq_observed = grad(lambda q: func_unproject(q, intrinsics[1]),
                       q_projected[ipt])
 testutils.confirm_equal(dv_dq_reported,
                         dv_dq_observed,
