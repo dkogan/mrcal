@@ -910,8 +910,8 @@ diff                  = p_triangulated0[1] - p_triangulated0[0]
 distance              = nps.mag(diff)
 distance_true         = nps.mag(p_triangulated_true0[:,0] - p_triangulated_true0[:,1])
 distance_sampled      = nps.mag(p_triangulated_sampled0[:,1,:] - p_triangulated_sampled0[:,0,:])
-Mean_distance_sampled = nps.mag(distance_sampled).mean()
-Var_distance_sampled  = nps.mag(distance_sampled).var()
+mean_distance_sampled = distance_sampled.mean()
+Var_distance_sampled  = distance_sampled.var()
 # diff = p1-p0
 # dist = np.mag(diff)
 # ddist_dp01 = [-diff   diff] / dist
@@ -920,6 +920,33 @@ Var_distance_sampled  = nps.mag(distance_sampled).var()
 Var_distance = nps.matmult(nps.glue( -diff, diff, axis=-1),
                            Var_p0p1_triangulated,
                            nps.transpose(nps.glue( -diff, diff, axis=-1),))[0] / nps.norm2(diff)
+
+
+
+# I have the observed and predicted distributions, so I make sure things match.
+# For some not-yet-understood reason, the distance distribution isn't
+# normally-distributed: there's a noticeable fat tail. Thus I'm not comparing
+# those two distributions (Var_distance,Var_distance_sampled) in this test.
+p0p1_sampled = nps.clump(p_triangulated_sampled0, n=-2)
+mean_p0p1_sampled = np.mean(p0p1_sampled, axis=-2)
+Var_p0p1_sampled  = nps.matmult( nps.transpose(p0p1_sampled - mean_p0p1_sampled),
+                                 p0p1_sampled - mean_p0p1_sampled ) / args.Nsamples
+
+testutils.confirm_equal(mean_p0p1_sampled,
+                        p_triangulated_true0.ravel(),
+                        worstcase = True,
+                        eps = p_triangulated_true0[0,2]/1000.,
+                        msg = "Triangulated position matches sampled mean")
+
+for ipt in range(2):
+    testutils.confirm_covariances_equal(Var_p0p1_triangulated[ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3],
+                                        Var_p0p1_sampled     [ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3],
+                                        what = f"triangulated point variance for point {ipt}",
+                                        eps_eigenvalues      = 0.1,
+                                        eps_eigenvectors_deg = 5)
+
+
+
 
 if not (args.explore or \
         args.make_documentation_plots is not None):
