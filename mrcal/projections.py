@@ -250,8 +250,6 @@ if get_gradients: we return a tuple:
             always_normalized = False
 
 
-        fxy = intrinsics_data[:2]
-        cxy = intrinsics_data[2:]
         if not get_gradients:
 
             v = func(q, intrinsics_data, out = out)
@@ -260,6 +258,11 @@ if get_gradients: we return a tuple:
             return v
 
 
+        # shapes (...,2)
+        fxy = intrinsics_data[..., :2]
+        cxy = intrinsics_data[..., 2:]
+
+        # shapes (...,3) and (...,3,2)
         v, dv_dq = \
             func(q, intrinsics_data,
                  get_gradients = True,
@@ -275,13 +278,18 @@ if get_gradients: we return a tuple:
         #
         # dl/dv dv/dc = -1/f
         # -> dv/dc =  -1 / (f dl/dv) = -1 / (f /( f dv/dq )) = -dv/dq
+        dv_di_shape = dv_dq.shape[:-1] + (4,)
         if out is None:
-            dv_di = np.zeros( dv_dq.shape[:-1] + (4,), dtype=float)
+            dv_di = np.zeros( dv_di_shape, dtype=float)
         else:
+            if not (out[2].shape[-len(dv_di_shape):] == dv_di_shape and \
+                    not any(np.array(out[2].shape[:-len(dv_di_shape)]) - 1)):
+                raise Exception(f"Shape of out[2] doesn't match broadcasted shape for dv_di. Wanted {dv_di_shape}, but got {out[2].shape}")
             dv_di = out[2]
+            dv_di *= 0
 
         # dv/df
-        dv_di[..., :2] += (cxy - q) * dv_dq / fxy
+        dv_di[..., :2] += nps.dummy((cxy - q)/fxy, -2) * dv_dq
         # dv/dc
         dv_di[..., 2:] -= dv_dq
 
@@ -385,8 +393,8 @@ if get_gradients: we return a tuple:
     if out is not None:
         raise Exception(f"unproject(..., out) is unsupported if out is not None and we're using a model with no gradients, such as '{lensmodel}'")
 
-    fxy = intrinsics_data[ :2]
-    cxy = intrinsics_data[2:4]
+    fxy = intrinsics_data[...,  :2]
+    cxy = intrinsics_data[..., 2:4]
 
     # undistort the q, by running an optimizer
 
