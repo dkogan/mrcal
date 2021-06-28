@@ -889,18 +889,21 @@ p_triangulated_sampled0 = triangulate_nograd(intrinsics_sampled[...,icam0,:], in
                                              stabilize_coords = args.stabilize_coords)
 
 
-range0              = nps.mag(p_triangulated0[0])
-range0_true         = nps.mag(p_triangulated_true0[0])
-range0_sampled      = nps.mag(p_triangulated_sampled0[:,0,:])
-Mean_range0_sampled = nps.mag(range0_sampled).mean()
-Var_range0_sampled  = nps.mag(range0_sampled).var()
+ranges              = nps.mag(p_triangulated0)
+ranges_true         = nps.mag(p_triangulated_true0)
+ranges_sampled      = nps.transpose(nps.mag(p_triangulated_sampled0))
+mean_ranges_sampled = ranges_sampled.mean( axis = -1)
+Var_ranges_sampled  = ranges_sampled.var(  axis = -1)
 # r = np.mag(p)
 # dr_dp = p/r
 # Var(r) = dr_dp var(p) dr_dpT
 #        = p var(p) pT / norm2(p)
-Var_range0 = nps.matmult(p_triangulated0[0],
-                         Var_p0p1_triangulated[:3,:3],
-                         nps.transpose(p_triangulated0[0]))[0] / nps.norm2(p_triangulated0[0])
+Var_ranges = np.zeros((Npoints,), dtype=float)
+for ipt in range(Npoints):
+    Var_ranges[ipt] = \
+        nps.matmult(p_triangulated0[ipt],
+                    Var_p0p1_triangulated[ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3],
+                    nps.transpose(p_triangulated0[ipt]))[0] / nps.norm2(p_triangulated0[ipt])
 
 
 diff                  = p_triangulated0[1] - p_triangulated0[0]
@@ -995,15 +998,15 @@ if args.make_documentation_plots is not None:
 
 
         processoptions = copy.deepcopy(processoptions_base)
-        binwidth = np.sqrt(Var_range0) / 4.
+        binwidth = np.sqrt(Var_ranges[0]) / 4.
         equation_range0_observed_gaussian = \
-            mrcal.fitted_gaussian_equation(x        = range0_sampled,
+            mrcal.fitted_gaussian_equation(x        = ranges_sampled[0],
                                            binwidth = binwidth,
                                            legend   = "Idealized gaussian fit to data")
         equation_range0_predicted_gaussian = \
-            mrcal.fitted_gaussian_equation(mean     = range0,
-                                           sigma    = np.sqrt(Var_range0),
-                                           N        = len(range0_sampled),
+            mrcal.fitted_gaussian_equation(mean     = ranges[0],
+                                           sigma    = np.sqrt(Var_ranges[0]),
+                                           N        = len(ranges_sampled[0]),
                                            binwidth = binwidth,
                                            legend   = "Predicted")
         if dohardcopy:
@@ -1011,7 +1014,7 @@ if args.make_documentation_plots is not None:
                 f'{args.make_documentation_plots_filename}--range-to-p0.{extension}'
         processoptions['title'] = title_range0
         gp.add_plot_option(processoptions, 'set', 'samples 1000')
-        gp.plot(range0_sampled,
+        gp.plot(ranges_sampled[0],
                 histogram       = True,
                 binwidth        = binwidth,
                 equation_above  = (equation_range0_predicted_gaussian,
