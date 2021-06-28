@@ -420,7 +420,7 @@ project_simple_code = '''
                                         NULL,
                                         (const mrcal_point3_t*)data_slice__points,
                                         1,
-                                        fxycxy[0], fxycxy[1], fxycxy[2], fxycxy[3]);
+                                        fxycxy);
             return true;'''
 project_withgrad_simple_code = '''
             const double* fxycxy = (const double*)data_slice__fxycxy;
@@ -428,7 +428,7 @@ project_withgrad_simple_code = '''
                                         (mrcal_point3_t*)data_slice__output1,
                                         (const mrcal_point3_t*)data_slice__points,
                                         1,
-                                        fxycxy[0], fxycxy[1], fxycxy[2], fxycxy[3]);
+                                        fxycxy);
             return true;'''
 unproject_simple_code = '''
             const double* fxycxy = (const double*)data_slice__fxycxy;
@@ -436,7 +436,7 @@ unproject_simple_code = '''
                                         NULL,
                                         (const mrcal_point2_t*)data_slice__points,
                                         1,
-                                        fxycxy[0], fxycxy[1], fxycxy[2], fxycxy[3]);
+                                        fxycxy);
             return true;'''
 unproject_withgrad_simple_code = '''
             const double* fxycxy = (const double*)data_slice__fxycxy;
@@ -444,7 +444,7 @@ unproject_withgrad_simple_code = '''
                                         (mrcal_point2_t*)data_slice__output1,
                                         (const mrcal_point2_t*)data_slice__points,
                                         1,
-                                        fxycxy[0], fxycxy[1], fxycxy[2], fxycxy[3]);
+                                        fxycxy);
             return true;'''
 
 for what in ('pinhole', 'stereographic', 'lonlat', 'latlon'):

@@ -926,23 +926,19 @@ void _project_point_parametric( // outputs
         lensmodel->type == MRCAL_LENSMODEL_LATLON ||
         MRCAL_LENSMODEL_IS_OPENCV(lensmodel->type) )
     {
-        const double fx = intrinsics[0];
-        const double fy = intrinsics[1];
-        const double cx = intrinsics[2];
-        const double cy = intrinsics[3];
         mrcal_point3_t dq_dp[2];
         if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE )
             mrcal_project_pinhole(q, dq_dp,
-                                  p, 1, fx,fy,cx,cy);
+                                  p, 1, intrinsics);
         else if(lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC)
             mrcal_project_stereographic(q, dq_dp,
-                                        p, 1, fx,fy,cx,cy);
+                                        p, 1, intrinsics);
         else if(lensmodel->type == MRCAL_LENSMODEL_LONLAT)
             mrcal_project_lonlat(q, dq_dp,
-                                 p, 1, fx,fy,cx,cy);
+                                 p, 1, intrinsics);
         else if(lensmodel->type == MRCAL_LENSMODEL_LATLON)
             mrcal_project_latlon(q, dq_dp,
-                                 p, 1, fx,fy,cx,cy);
+                                 p, 1, intrinsics);
         else
         {
             int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
@@ -970,6 +966,11 @@ void _project_point_parametric( // outputs
         // I have the projection, and I now need to propagate the gradients
         if( dq_dfxy )
         {
+            const double fx = intrinsics[0];
+            const double fy = intrinsics[1];
+            const double cx = intrinsics[2];
+            const double cy = intrinsics[3];
+
             // I have the projection, and I now need to propagate the gradients
             // xy = fxy * distort(xy)/distort(z) + cxy
             dq_dfxy->x = (q->x - cx)/fx; // dqx/dfx
@@ -1139,9 +1140,13 @@ void mrcal_project_pinhole( // output
                             // input
                             const mrcal_point3_t* v,
                             int N,
-                            double fx, double fy,
-                            double cx, double cy)
+                            const double* fxycxy)
 {
+    const double fx = fxycxy[0];
+    const double fy = fxycxy[1];
+    const double cx = fxycxy[2];
+    const double cy = fxycxy[3];
+
     // q = fxy pxy/pz + cxy
     // dqx/dp = d( fx px/pz + cx ) = fx/pz^2 (pz [1 0 0] - px [0 0 1])
     // dqy/dp = d( fy py/pz + cy ) = fy/pz^2 (pz [0 1 0] - py [0 0 1])
@@ -1174,9 +1179,13 @@ void mrcal_unproject_pinhole( // output
                               // input
                               const mrcal_point2_t* q,
                               int N,
-                              double fx, double fy,
-                              double cx, double cy)
+                              const double* fxycxy)
 {
+    const double fx = fxycxy[0];
+    const double fy = fxycxy[1];
+    const double cx = fxycxy[2];
+    const double cy = fxycxy[3];
+
     double fx_recip = 1./fx;
     double fy_recip = 1./fy;
     for(int i=0; i<N; i++)
@@ -1206,9 +1215,13 @@ void mrcal_project_stereographic( // output
                                  // input
                                  const mrcal_point3_t* v,
                                  int N,
-                                 double fx, double fy,
-                                 double cx, double cy)
+                                 const double* fxycxy)
 {
+    const double fx = fxycxy[0];
+    const double fy = fxycxy[1];
+    const double cx = fxycxy[2];
+    const double cy = fxycxy[3];
+
     // stereographic projection:
     //   (from https://en.wikipedia.org/wiki/Fisheye_lens)
     //   u = xy_unit * tan(th/2) * 2
@@ -1270,9 +1283,13 @@ void mrcal_unproject_stereographic( // output
                                    // input
                                    const mrcal_point2_t* q,
                                    int N,
-                                   double fx, double fy,
-                                   double cx, double cy)
+                                   const double* fxycxy)
 {
+    const double fx = fxycxy[0];
+    const double fy = fxycxy[1];
+    const double cx = fxycxy[2];
+    const double cy = fxycxy[3];
+
     // stereographic projection:
     //   (from https://en.wikipedia.org/wiki/Fisheye_lens)
     //   u = xy_unit * tan(th/2) * 2
@@ -1377,9 +1394,13 @@ void mrcal_project_lonlat( // output
                            // input
                            const mrcal_point3_t* v,
                            int N,
-                           double fx, double fy,
-                           double cx, double cy)
+                           const double* fxycxy)
 {
+    const double fx = fxycxy[0];
+    const double fy = fxycxy[1];
+    const double cx = fxycxy[2];
+    const double cy = fxycxy[3];
+
     // equirectangular projection:
     //   q   = (lon, lat)
     //   lon = arctan2(vx, vz)
@@ -1432,9 +1453,13 @@ void mrcal_unproject_lonlat( // output
                              // input
                              const mrcal_point2_t* q,
                              int N,
-                             double fx, double fy,
-                             double cx, double cy)
+                             const double* fxycxy)
 {
+    const double fx = fxycxy[0];
+    const double fy = fxycxy[1];
+    const double cx = fxycxy[2];
+    const double cy = fxycxy[3];
+
     // equirectangular projection:
     //   q   = (lon, lat)
     //   lon = arctan2(vx, vz)
@@ -1500,9 +1525,13 @@ void mrcal_project_latlon( // output
                            // input
                            const mrcal_point3_t* v,
                            int N,
-                           double fx, double fy,
-                           double cx, double cy)
+                           const double* fxycxy)
 {
+    const double fx = fxycxy[0];
+    const double fy = fxycxy[1];
+    const double cx = fxycxy[2];
+    const double cy = fxycxy[3];
+
     // copy of mrcal_project_lonlat(), with swapped x/y
     for(int i=0; i<N; i++)
     {
@@ -1538,9 +1567,13 @@ void mrcal_unproject_latlon( // output
                              // input
                              const mrcal_point2_t* q,
                              int N,
-                             double fx, double fy,
-                             double cx, double cy)
+                             const double* fxycxy)
 {
+    const double fx = fxycxy[0];
+    const double fy = fxycxy[1];
+    const double cx = fxycxy[2];
+    const double cy = fxycxy[3];
+
     // copy of mrcal_unproject_lonlat(), with swapped x/y
     double fx_recip = 1./fx;
     double fy_recip = 1./fy;
@@ -2838,30 +2871,25 @@ bool _mrcal_unproject_internal( // out
                                const double* intrinsics,
                                const mrcal_projection_precomputed_t* precomputed)
 {
-    double fx = intrinsics[0];
-    double fy = intrinsics[1];
-    double cx = intrinsics[2];
-    double cy = intrinsics[3];
-
     // easy special-cases
     if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE )
     {
-        mrcal_unproject_pinhole(out, NULL, q, N, fx,fy,cx,cy);
+        mrcal_unproject_pinhole(out, NULL, q, N, intrinsics);
         return true;
     }
     if( lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC )
     {
-        mrcal_unproject_stereographic(out, NULL, q, N, fx,fy,cx,cy);
+        mrcal_unproject_stereographic(out, NULL, q, N, intrinsics);
         return true;
     }
     if( lensmodel->type == MRCAL_LENSMODEL_LONLAT )
     {
-        mrcal_unproject_lonlat(out, NULL, q, N, fx,fy,cx,cy);
+        mrcal_unproject_lonlat(out, NULL, q, N, intrinsics);
         return true;
     }
     if( lensmodel->type == MRCAL_LENSMODEL_LATLON )
     {
-        mrcal_unproject_latlon(out, NULL, q, N, fx,fy,cx,cy);
+        mrcal_unproject_latlon(out, NULL, q, N, intrinsics);
         return true;
     }
 
@@ -2885,7 +2913,7 @@ bool _mrcal_unproject_internal( // out
             mrcal_pose_t frame = {};
             mrcal_unproject_stereographic( &frame.t, dv_du,
                                            (mrcal_point2_t*)u, 1,
-                                           fx,fy,cx,cy );
+                                           intrinsics );
 
             mrcal_point3_t dq_dtframe[2];
             mrcal_point2_t q_hypothesis;
@@ -2923,7 +2951,12 @@ bool _mrcal_unproject_internal( // out
         }
 
 
-        // WARNING: This should go away. For some reason it makes unproject() converge better, and it makes the tests pass. But it's not even right!
+        const double fx = intrinsics[0];
+        const double fy = intrinsics[1];
+        const double cx = intrinsics[2];
+        const double cy = intrinsics[3];
+
+        // WARNING: This should go away. For some reason, the 0.7 path makes unproject() converge better, and it makes the tests pass. But it's not even right!
 #if 0
         out->xyz[0] = (q[i].x-cx)/fx;
         out->xyz[1] = (q[i].y-cy)/fy;
@@ -2977,7 +3010,7 @@ bool _mrcal_unproject_internal( // out
             // This is the normal no-error path
             mrcal_unproject_stereographic((mrcal_point3_t*)out, NULL,
                                           (mrcal_point2_t*)out, 1,
-                                          fx,fy,cx,cy);
+                                          intrinsics);
             if(!model_supports_projection_behind_camera(lensmodel) && out->xyz[2] < 0.0)
             {
                 out->xyz[0] *= -1.0;

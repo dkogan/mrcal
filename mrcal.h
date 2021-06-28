@@ -336,8 +336,7 @@ void mrcal_project_pinhole( // output
                              // input
                             const mrcal_point3_t* p,
                             int N,
-                            double fx, double fy,
-                            double cx, double cy);
+                            const double* fxycxy);
 
 
 // Unproject the given pixel coordinates using a pinhole model.
@@ -357,8 +356,7 @@ void mrcal_unproject_pinhole( // output
                               // input
                               const mrcal_point2_t* q,
                               int N,
-                              double fx, double fy,
-                              double cx, double cy);
+                              const double* fxycxy);
 
 // Project the given camera-coordinate-system points using a stereographic
 // model. See the docs for projection details:
@@ -376,8 +374,7 @@ void mrcal_project_stereographic( // output
                                   // input
                                  const mrcal_point3_t* p,
                                  int N,
-                                 double fx, double fy,
-                                 double cx, double cy);
+                                 const double* fxycxy);
 
 
 // Unproject the given pixel coordinates using a stereographic model.
@@ -397,8 +394,7 @@ void mrcal_unproject_stereographic( // output
                                    // input
                                    const mrcal_point2_t* q,
                                    int N,
-                                   double fx, double fy,
-                                   double cx, double cy);
+                                   const double* fxycxy);
 
 
 // Project the given camera-coordinate-system points using an equirectangular
@@ -419,8 +415,7 @@ void mrcal_project_lonlat( // output
                            // input
                            const mrcal_point3_t* v,
                            int N,
-                           double fx, double fy,
-                           double cx, double cy);
+                           const double* fxycxy);
 
 // Unproject the given pixel coordinates using an equirectangular projection.
 // See the docs for projection details:
@@ -441,8 +436,7 @@ void mrcal_unproject_lonlat( // output
                             // input
                             const mrcal_point2_t* q,
                             int N,
-                            double fx, double fy,
-                            double cx, double cy);
+                            const double* fxycxy);
 
 
 // Project the given camera-coordinate-system points using a transverse
@@ -463,8 +457,7 @@ void mrcal_project_latlon( // output
                            // input
                            const mrcal_point3_t* v,
                            int N,
-                           double fx, double fy,
-                           double cx, double cy);
+                           const double* fxycxy);
 
 // Unproject the given pixel coordinates using a transverse equirectangular
 // projection. See the docs for projection details:
@@ -485,8 +478,7 @@ void mrcal_unproject_latlon( // output
                             // input
                             const mrcal_point2_t* q,
                             int N,
-                            double fx, double fy,
-                            double cx, double cy);
+                            const double* fxycxy);
 
 
 
