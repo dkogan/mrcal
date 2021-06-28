@@ -233,13 +233,14 @@ def confirm_covariances_equal(var, var_ref,
                   msg = f"Var(dq) is symmetric for {what}")
 
 
+    # I look at the last (biggest) ellipse axis
     l_predicted,v = sorted_eig(var)
-    v0_predicted  = v[:,0]
+    v0_predicted  = v[:,-1]
 
     l_observed,v = sorted_eig(var_ref)
-    v0_observed  = v[:,0]
+    v0_observed  = v[:,-1]
 
-    eccentricity_predicted = l_predicted[1] / l_predicted[0]
+    eccentricity_predicted = l_predicted[-1] / l_predicted[-2]
 
     confirm_equal(l_observed,
                   l_predicted,
