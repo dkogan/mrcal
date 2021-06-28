@@ -73,12 +73,12 @@ def parse_args():
                         help='''Comma-separated list of distance where we test the uncertainty predictions.
                         Numbers an "inf" understood. The first value on this
                         list is used for visualization in --show-distribution''')
-    parser.add_argument('--no-sampling',
+    parser.add_argument('--do-sample',
                         action='store_true',
-                        help='''By default we check some things, and then generate lots of statistical
-                        samples to compare the empirical distributions with
-                        analytic predictions. This is slow, so we may want to
-                        omit it''')
+                        help='''By default we don't run the time-intensive
+                        samples of the calibration solves. This runs a very
+                        limited set of tests, and exits. To perform the full set
+                        of tests, pass --do-sample''')
     parser.add_argument('--show-distribution',
                         action='store_true',
                         help='''If given, we produce plots showing the distribution of samples''')
@@ -689,7 +689,7 @@ for icam in (0,3):
                             relative  = True,
                             msg = f"var(dq) (infinity) is invariant to point scale for camera {icam}")
 
-if args.no_sampling:
+if not args.do_sample:
     testutils.finish()
     sys.exit()
 

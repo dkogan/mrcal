@@ -57,12 +57,12 @@ def parse_args():
                         These need to be different, and in [0,Ncameras-1]. The
                         vanilla case will have Ncameras=2, so the default value
                         for this argument (0,1) is correct''')
-    parser.add_argument('--no-sampling',
+    parser.add_argument('--do-sample',
                         action='store_true',
-                        help='''By default we check some things, and then
-                        generate lots of statistical samples to compare the
-                        empirical distributions with analytic predictions. This
-                        is slow, so we may want to omit it''')
+                        help='''By default we don't run the time-intensive
+                        samples of the calibration solves. This runs a very
+                        limited set of tests, and exits. To perform the full set
+                        of tests, pass --do-sample''')
     parser.add_argument('--stabilize-coords',
                         action = 'store_true',
                         help='''Whether we report the triangulation in the camera-0 coordinate system (which
@@ -816,7 +816,7 @@ for ipt in range(Npoints):
                  nps.transpose( nps.clump(dp_triangulated_dq[ipt], n=-2) ) )
 
 
-if args.no_sampling:
+if not args.do_sample:
     testutils.finish()
     sys.exit()
 

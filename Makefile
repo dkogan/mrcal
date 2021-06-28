@@ -220,9 +220,9 @@ TESTS :=										\
   test/test-optimizer-callback.py							\
   test/test-basic-sfm.py								\
   test/test-basic-calibration.py							\
-  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4			\
-  test/test-projection-uncertainty.py__--fixed__frames__--model__opencv4		\
-  test/test-projection-uncertainty.py__--fixed__cam0__--model__splined__--no-sampling	\
+  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample	\
+  test/test-projection-uncertainty.py__--fixed__frames__--model__opencv4__--do-sample	\
+  test/test-projection-uncertainty.py__--fixed__cam0__--model__splined			\
   test/test-triangulation-uncertainty.py						\
   test/test-linearizations.py								\
   test/test-lensmodel-string-manipulation						\
