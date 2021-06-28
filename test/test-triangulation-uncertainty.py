@@ -881,7 +881,7 @@ else:
     extrinsics_sampled_cam0 = extrinsics_sampled_mounted[..., icam_extrinsics0+1,:]
     extrinsics_sampled_cam1 = extrinsics_sampled_mounted[..., icam_extrinsics1+1,:]
 
-p_triangulated0_sampled = triangulate_nograd(intrinsics_sampled[...,icam0,:], intrinsics_sampled[...,icam1,:],
+p_triangulated_sampled0 = triangulate_nograd(intrinsics_sampled[...,icam0,:], intrinsics_sampled[...,icam1,:],
                                              extrinsics_sampled_cam0, extrinsics_sampled_cam1,
                                              frames_sampled, frames_true,
                                              q_sampled,
@@ -890,8 +890,8 @@ p_triangulated0_sampled = triangulate_nograd(intrinsics_sampled[...,icam0,:], in
 
 
 range0              = nps.mag(p_triangulated0[0])
-range0_true         = nps.mag(p_triangulated0_true0[0])
-range0_sampled      = nps.mag(p_triangulated0_sampled[:,0,:])
+range0_true         = nps.mag(p_triangulated_true0[0])
+range0_sampled      = nps.mag(p_triangulated_sampled0[:,0,:])
 Mean_range0_sampled = nps.mag(range0_sampled).mean()
 Var_range0_sampled  = nps.mag(range0_sampled).var()
 # r = np.mag(p)
@@ -905,8 +905,8 @@ Var_range0 = nps.matmult(p_triangulated0[0],
 
 diff                  = p_triangulated0[1] - p_triangulated0[0]
 distance              = nps.mag(diff)
-distance_true         = nps.mag(p_triangulated0_true0[:,0] - p_triangulated0_true0[:,1])
-distance_sampled      = nps.mag(p_triangulated0_sampled[:,1,:] - p_triangulated0_sampled[:,0,:])
+distance_true         = nps.mag(p_triangulated_true0[:,0] - p_triangulated_true0[:,1])
+distance_sampled      = nps.mag(p_triangulated_sampled0[:,1,:] - p_triangulated_sampled0[:,0,:])
 Mean_distance_sampled = nps.mag(distance_sampled).mean()
 Var_distance_sampled  = nps.mag(distance_sampled).var()
 # diff = p1-p0
@@ -930,7 +930,7 @@ if args.make_documentation_plots is not None:
     import gnuplotlib as gp
 
     empirical_distributions_xz = \
-        [ plot_args_points_and_covariance_ellipse(p_triangulated0_sampled[:,ipt,(0,2)],
+        [ plot_args_points_and_covariance_ellipse(p_triangulated_sampled0[:,ipt,(0,2)],
                                                   'Observed') \
           for ipt in range(Npoints) ]
     # Individual covariances
