@@ -255,20 +255,20 @@ Npoints = p_triangulated_true0.shape[0]
 
 
 @nps.broadcast_define( (('Nintrinsics',),('Nintrinsics',),
-                        (6,),(6,),
+                        (6,),(6,),(6,),
                         ('Nframes',6), ('Nframes',6),
                         ('Npoints',2,2)),
                        ('Npoints',3))
 def triangulate_nograd( intrinsics_data0,intrinsics_data1,
-                        rt_cam0_ref,rt_cam1_ref,
-                        rt_ref_frame, rt_ref_frame_true,
+                        rt_cam0_ref,rt_cam0_ref_baseline,rt_cam1_ref,
+                        rt_ref_frame, rt_ref_frame_baseline,
                         q,
                         lensmodel,
                         stabilize_coords = True):
     return _triangulate( intrinsics_data0, intrinsics_data1,
-                         rt_cam0_ref, rt_cam1_ref,
+                         rt_cam0_ref, rt_cam0_ref_baseline, rt_cam1_ref,
                          rt_ref_frame,
-                         rt_ref_frame_true,
+                         rt_ref_frame_baseline,
                          nps.atleast_dims(q,-3),
                          lensmodel,
                          stabilize_coords = stabilize_coords,
@@ -276,7 +276,7 @@ def triangulate_nograd( intrinsics_data0,intrinsics_data1,
 
 
 @nps.broadcast_define( (('Nintrinsics',),('Nintrinsics',),
-                        (6,),(6,),
+                        (6,),(6,),(6,),
                         ('Nframes',6), ('Nframes',6),
                         ('Npoints',2,2)),
                        (('Npoints',3),
@@ -287,17 +287,18 @@ def triangulate_nograd( intrinsics_data0,intrinsics_data1,
                         ('Npoints',3,3),('Npoints',3,3),
                         ('Npoints',3,3),('Npoints',3,3),('Npoints',3,3),
                         ('Npoints','Nframes',3,6),
+                        ('Npoints',          3,6),
                         ('Npoints',3, 2,2)))
 def triangulate_grad( intrinsics_data0,intrinsics_data1,
-                      rt_cam0_ref,rt_cam1_ref,
-                      rt_ref_frame, rt_ref_frame_true,
+                      rt_cam0_ref,rt_cam0_ref_baseline,rt_cam1_ref,
+                      rt_ref_frame, rt_ref_frame_baseline,
                       q,
                       lensmodel,
                       stabilize_coords = True):
     return _triangulate( intrinsics_data0,intrinsics_data1,
-                         rt_cam0_ref,rt_cam1_ref,
+                         rt_cam0_ref, rt_cam0_ref_baseline, rt_cam1_ref,
                          rt_ref_frame,
-                         rt_ref_frame_true,
+                         rt_ref_frame_baseline,
                          nps.atleast_dims(q,-3),
                          lensmodel,
                          stabilize_coords = stabilize_coords,
@@ -307,9 +308,9 @@ def triangulate_grad( intrinsics_data0,intrinsics_data1,
 def _triangulate(# shape (Nintrinsics,)
                  intrinsics_data0, intrinsics_data1,
                  # shape (6,)
-                 rt_cam0_ref, rt_cam1_ref,
+                 rt_cam0_ref, rt_cam0_ref_baseline, rt_cam1_ref,
                  # shape (Nframes,6),
-                 rt_ref_frame, rt_ref_frame_true,
+                 rt_ref_frame, rt_ref_frame_baseline,
                  # shape (..., 2 (Ncameras), 2 (xy))
                  q,
 
@@ -328,12 +329,9 @@ def _triangulate(# shape (Nintrinsics,)
              q.shape[-2:] == (2,2 ) ):
         raise Exception("Arguments must consistent dimensions")
 
-    # I now compute the same triangulation, but just at the un-perturbed baseline,
-    # and keeping track of all the gradients
-
     if not get_gradients:
 
-        rt01_baseline = mrcal.compose_rt(rt_cam0_ref,
+        rt01 = mrcal.compose_rt(rt_cam0_ref,
                                          mrcal.invert_rt(rt_cam1_ref))
 
         # all the v have shape (...,3)
@@ -346,35 +344,54 @@ def _triangulate(# shape (Nintrinsics,)
 
         v0 = vlocal0
         v1 = \
-            mrcal.rotate_point_r(rt01_baseline[:3], vlocal1)
+            mrcal.rotate_point_r(rt01[:3], vlocal1)
 
-        # p_triangulated0 has shape (..., 3)
+        # The triangulated point in the perturbed camera-0 coordinate system.
+        # Calibration-time perturbations move this coordinate system, so to get
+        # a better estimate of the triangulation uncertainty, we try to
+        # transform this to the original camera-0 coordinate system; the
+        # stabilization path below does that.
+        #
+        # shape (..., 3)
         p_triangulated0 = \
-            mrcal.triangulate_leecivera_mid2(v0, v1, rt01_baseline[3:])
-
-        p_triangulated_ref = mrcal.transform_point_rt(rt_cam0_ref, p_triangulated0,
-                                                      inverted = True)
+            mrcal.triangulate_leecivera_mid2(v0, v1, rt01[3:])
 
         if stabilize_coords:
 
+            # Stabilization path. This uses the "true" solution, so I cannot do
+            # this in the field. But I CAN do this in the randomized trials in
+            # the test. And I can use the gradients to propagate the uncertainty
+            # of this computation in the field
+            #
+            # Data flow:
+            #   point_cam_perturbed -> point_ref_perturbed -> point_frames
+            #   point_frames -> point_ref_baseline -> point_cam_baseline
+
+            p_cam0_perturbed = p_triangulated0
+
+            p_ref_perturbed = mrcal.transform_point_rt(rt_cam0_ref, p_cam0_perturbed,
+                                                       inverted = True)
+
             # shape (..., Nframes, 3)
-            p_frames_new = \
+            p_frames = \
                 mrcal.transform_point_rt(rt_ref_frame,
-                                         nps.dummy(p_triangulated_ref,-2),
+                                         nps.dummy(p_ref_perturbed,-2),
                                          inverted = True)
 
             # shape (..., Nframes, 3)
-            p_refs = mrcal.transform_point_rt(rt_ref_frame_true, p_frames_new)
+            p_ref_baseline_all = mrcal.transform_point_rt(rt_ref_frame_baseline, p_frames)
 
             # shape (..., 3)
-            p_triangulated_ref = np.mean(p_refs, axis=-2)
-            p_triangulated0 = mrcal.transform_point_rt(rt_cam0_ref, p_triangulated_ref)
+            p_ref_baseline = np.mean(p_ref_baseline_all, axis=-2)
+
+            # shape (..., 3)
+            p_triangulated0 = mrcal.transform_point_rt(rt_cam0_ref_baseline, p_ref_baseline)
 
         return p_triangulated0
     else:
         rtr1,drtr1_drt1r = mrcal.invert_rt(rt_cam1_ref,
                                            get_gradients=True)
-        rt01_baseline,drt01_drt0r, drt01_drtr1 = mrcal.compose_rt(rt_cam0_ref, rtr1, get_gradients=True)
+        rt01,drt01_drt0r, drt01_drtr1 = mrcal.compose_rt(rt_cam0_ref, rtr1, get_gradients=True)
 
         # all the v have shape (...,3)
         vlocal0, dvlocal0_dq0, dvlocal0_dintrinsics0 = \
@@ -388,12 +405,12 @@ def _triangulate(# shape (Nintrinsics,)
 
         v0 = vlocal0
         v1, dv1_dr01, dv1_dvlocal1 = \
-            mrcal.rotate_point_r(rt01_baseline[:3], vlocal1,
+            mrcal.rotate_point_r(rt01[:3], vlocal1,
                                  get_gradients=True)
 
         # p_triangulated0 has shape (..., 3)
         p_triangulated0, dp_triangulated_dv0, dp_triangulated_dv1, dp_triangulated_dt01 = \
-            mrcal.triangulate_leecivera_mid2(v0, v1, rt01_baseline[3:],
+            mrcal.triangulate_leecivera_mid2(v0, v1, rt01[3:],
                                              get_gradients = True)
 
         shape_leading = dp_triangulated_dv0.shape[:-2]
@@ -411,28 +428,65 @@ def _triangulate(# shape (Nintrinsics,)
 
         if stabilize_coords:
 
-            # shape (Nframes,6)
-            rt_frame_ref, drtfr_drtrf = \
-                mrcal.invert_rt(rt_ref_frame, get_gradients=True)
+            # Stabilization path. This uses the "true" solution, so I cannot do
+            # this in the field. But I CAN do this in the randomized trials in
+            # the test. And I can use the gradients to propagate the uncertainty
+            # of this computation in the field
+            #
+            # Data flow:
+            #   point_cam_perturbed -> point_ref_perturbed -> point_frames
+            #   point_frames -> point_ref_baseline -> point_cam_baseline
+            #
+            # For the purpose of computing gradients I consider very small
+            # perturbations, so all point_..._baseline ~ point_..._perturbed,
+            # and all the transformations are similar. But point_..._perturbed
+            # produces gradients, while point_..._baseline are constant
 
-            # shape (Nframes,6)
-            rt_true_shifted, _, drt_drtfr = \
-                mrcal.compose_rt(rt_ref_frame_true, rt_frame_ref,
-                                 get_gradients=True)
+            p_cam0_perturbed = p_triangulated0
+
+            # triangulated point in the perturbed reference coordinate system
+            p_ref_perturbed,                     \
+            dp_ref_perturbed_drt0r,              \
+            dp_ref_perturbed_dp_cam0_perturbed = \
+                mrcal.transform_point_rt(rt_cam0_ref, p_cam0_perturbed,
+                                         get_gradients = True,
+                                         inverted      = True)
 
             # shape (..., Nframes, 3)
-            p_refs,dprefs_drt,dprefs_dptriangulated = \
-                mrcal.transform_point_rt(rt_true_shifted,
-                                         nps.dummy(p_triangulated0,-2),
+            p_frames,                    \
+            dp_frames_drtrf,             \
+            dp_frames_dp_ref_perturbed = \
+                mrcal.transform_point_rt(rt_ref_frame,
+                                         nps.dummy(p_ref_perturbed,-2),
+                                         get_gradients = True,
+                                         inverted      = True)
+
+            # shape (..., Nframes, 3)
+            p_ref_baseline_all,                         \
+            _, \
+            dp_ref_baseline_all_dp_frames =             \
+                mrcal.transform_point_rt(rt_ref_frame_baseline, p_frames,
                                          get_gradients = True)
 
             # shape (..., 3)
-            p_triangulated0 = np.mean(p_refs, axis=-2)
+            p_ref_baseline = np.mean(p_ref_baseline_all, axis=-2)
 
-            # I have dpold/dx. dpnew/dx = dpnew/dpold dpold/dx
+            # shape (..., 3)
+            p_triangulated0, \
+            _, \
+            dp_triangulated0_dp_ref_baseline = \
+                mrcal.transform_point_rt(rt_cam0_ref_baseline, p_ref_baseline,
+                                         get_gradients = True)
 
-            # shape (...,3,3)
-            dpnew_dpold = np.mean(dprefs_dptriangulated, axis=-3)
+            # I have dp_triangulated_old/dx ->
+            # dp_triangulated_new/dx = dpnew/dpold dpold/dx
+            dpnew_dpold = \
+                np.mean( nps.matmult(nps.dummy(dp_triangulated0_dp_ref_baseline, axis=-3),
+                                     dp_ref_baseline_all_dp_frames,
+                                     dp_frames_dp_ref_perturbed,
+                                     nps.dummy(dp_ref_perturbed_dp_cam0_perturbed, axis=-3)),
+                         axis=-3 )
+
             dp_triangulated_dv0  = nps.matmult(dpnew_dpold, dp_triangulated_dv0)
             dp_triangulated_dv1  = nps.matmult(dpnew_dpold, dp_triangulated_dv1)
             dp_triangulated_dt01 = nps.matmult(dpnew_dpold, dp_triangulated_dt01)
@@ -440,12 +494,23 @@ def _triangulate(# shape (Nintrinsics,)
                                                          nps.xchg(dp_triangulated_dq,
                                                                   -2,-3)),
                                             -2,-3)
-
             # shape (..., Nframes,3,6)
             dp_triangulated_drtrf = \
-                nps.matmult(dprefs_drt, drt_drtfr, drtfr_drtrf) / Nframes
+                nps.matmult(nps.dummy(dp_triangulated0_dp_ref_baseline, axis=-3),
+                            dp_ref_baseline_all_dp_frames,
+                            dp_frames_drtrf) / Nframes
+
+            # shape (..., 3,6)
+            dp_triangulated_drt0r = \
+                np.mean( nps.matmult(nps.dummy(dp_triangulated0_dp_ref_baseline, axis=-3),
+                                     dp_ref_baseline_all_dp_frames,
+                                     dp_frames_dp_ref_perturbed,
+                                     nps.dummy(dp_ref_perturbed_drt0r, axis=-3)),
+                         axis=-3 )
+
         else:
             dp_triangulated_drtrf = np.zeros(shape_leading + (Nframes,3,6), dtype=float)
+            dp_triangulated_drt0r = np.zeros(shape_leading + (        3,6), dtype=float)
 
         return \
             p_triangulated0, \
@@ -455,6 +520,7 @@ def _triangulate(# shape (Nintrinsics,)
             dv1_dr01, dv1_dvlocal1, \
             dp_triangulated_dv0, dp_triangulated_dv1, dp_triangulated_dt01, \
             dp_triangulated_drtrf, \
+            dp_triangulated_drt0r, \
             dp_triangulated_dq
 
 
@@ -500,6 +566,7 @@ else:
          frames_sampled,
          calobject_warp_sampled) = pickle.load(f)
 
+baseline_rt_ref_frame = optimization_inputs_baseline['frames_rt_toref']
 
 icam0,icam1 = args.cameras
 
@@ -523,7 +590,9 @@ q_true = nps.xchg( np.array([ mrcal.project(p_triangulated_true_local[:,i,:],
 # Sanity check. Without noise, the triangulation should report the test point exactly
 p_triangulated0 = \
     triangulate_nograd(models_true[icam0].intrinsics()[1],         models_true[icam1].intrinsics()[1],
-                       models_true[icam0].extrinsics_rt_fromref(), models_true[icam1].extrinsics_rt_fromref(),
+                       models_true[icam0].extrinsics_rt_fromref(),
+                       models_true[icam0].extrinsics_rt_fromref(),
+                       models_true[icam1].extrinsics_rt_fromref(),
                        frames_true, frames_true,
                        q_true,
                        lensmodel,
@@ -541,10 +610,13 @@ dvlocal0_dintrinsics0, dvlocal1_dintrinsics1, \
 dv1_dr01, dv1_dvlocal1, \
 dp_triangulated_dv0, dp_triangulated_dv1, dp_triangulated_dt01, \
 dp_triangulated_drtrf, \
+dp_triangulated_drt0r, \
 dp_triangulated_dq = \
     triangulate_grad(models_baseline[icam0].intrinsics()[1],         models_baseline[icam1].intrinsics()[1],
-                     models_baseline[icam0].extrinsics_rt_fromref(), models_baseline[icam1].extrinsics_rt_fromref(),
-                     optimization_inputs_baseline['frames_rt_toref'], frames_true,
+                     models_baseline[icam0].extrinsics_rt_fromref(),
+                     models_baseline[icam0].extrinsics_rt_fromref(),
+                     models_baseline[icam1].extrinsics_rt_fromref(),
+                     baseline_rt_ref_frame, baseline_rt_ref_frame,
                      q_true,
                      lensmodel,
                      stabilize_coords = args.stabilize_coords)
@@ -646,6 +718,10 @@ if istate_e0 is not None:
                  dt01_dt_0ref,
                  out = dp_triangulated_dpstate[..., istate_e0+3:istate_e0+6])
 
+    dp_triangulated_dpstate[..., istate_e0:istate_e0+6] += \
+        dp_triangulated_drt0r
+
+
 if istate_f0 is not None:
     # dp_triangulated_drtrf has shape (Npoints,Nframes,3,6). I reshape to (Npoints,3,Nframes*6)
     dp_triangulated_dpstate[..., istate_f0:istate_f0+Nstate_frames] = \
@@ -654,47 +730,60 @@ if istate_f0 is not None:
 
 ########## Gradient check
 dp_triangulated_di0_empirical = grad(lambda i0: triangulate_nograd(i0, models_baseline[icam1].intrinsics()[1],
-                                                                   models_baseline[icam0].extrinsics_rt_fromref(), models_baseline[icam1].extrinsics_rt_fromref(),
-                                                                   optimization_inputs_baseline['frames_rt_toref'], frames_true,
+                                                                   models_baseline[icam0].extrinsics_rt_fromref(),
+                                                                   models_baseline[icam0].extrinsics_rt_fromref(),
+                                                                   models_baseline[icam1].extrinsics_rt_fromref(),
+                                                                   baseline_rt_ref_frame, baseline_rt_ref_frame,
                                                                    q_true,
                                                                    lensmodel,
                                                                    stabilize_coords=args.stabilize_coords),
-                                     models_baseline[icam0].intrinsics()[1])
+                                     models_baseline[icam0].intrinsics()[1],
+                                     step = 1e-5)
 dp_triangulated_di1_empirical = grad(lambda i1: triangulate_nograd(models_baseline[icam0].intrinsics()[1],i1,
-                                                                   models_baseline[icam0].extrinsics_rt_fromref(), models_baseline[icam1].extrinsics_rt_fromref(),
-                                                                   optimization_inputs_baseline['frames_rt_toref'], frames_true,
+                                                                   models_baseline[icam0].extrinsics_rt_fromref(),
+                                                                   models_baseline[icam0].extrinsics_rt_fromref(),
+                                                                   models_baseline[icam1].extrinsics_rt_fromref(),
+                                                                   baseline_rt_ref_frame, baseline_rt_ref_frame,
                                                                    q_true,
                                                                    lensmodel,
                                                                    stabilize_coords=args.stabilize_coords),
                                      models_baseline[icam1].intrinsics()[1])
 dp_triangulated_de1_empirical = grad(lambda e1: triangulate_nograd(models_baseline[icam0].intrinsics()[1], models_baseline[icam1].intrinsics()[1],
-                                                                   models_baseline[icam0].extrinsics_rt_fromref(),e1,
-                                                                   optimization_inputs_baseline['frames_rt_toref'], frames_true,
+                                                                   models_baseline[icam0].extrinsics_rt_fromref(),
+                                                                   models_baseline[icam0].extrinsics_rt_fromref(),
+                                                                   e1,
+                                                                   baseline_rt_ref_frame, baseline_rt_ref_frame,
                                                                    q_true,
                                                                    lensmodel,
                                                                    stabilize_coords=args.stabilize_coords),
                                      models_baseline[icam1].extrinsics_rt_fromref())
 
 dp_triangulated_de0_empirical = grad(lambda e0: triangulate_nograd(models_baseline[icam0].intrinsics()[1], models_baseline[icam1].intrinsics()[1],
-                                                                   e0,models_baseline[icam1].extrinsics_rt_fromref(),
-                                                                   optimization_inputs_baseline['frames_rt_toref'], frames_true,
+                                                                   e0,
+                                                                   models_baseline[icam0].extrinsics_rt_fromref(),
+                                                                   models_baseline[icam1].extrinsics_rt_fromref(),
+                                                                   baseline_rt_ref_frame, baseline_rt_ref_frame,
                                                                    q_true,
                                                                    lensmodel,
                                                                    stabilize_coords=args.stabilize_coords),
                                      models_baseline[icam0].extrinsics_rt_fromref())
 
 dp_triangulated_drtrf_empirical = grad(lambda rtrf: triangulate_nograd(models_baseline[icam0].intrinsics()[1], models_baseline[icam1].intrinsics()[1],
-                                                                       models_baseline[icam0].extrinsics_rt_fromref(), models_baseline[icam1].extrinsics_rt_fromref(),
-                                                                       rtrf, frames_true,
+                                                                       models_baseline[icam0].extrinsics_rt_fromref(),
+                                                                       models_baseline[icam0].extrinsics_rt_fromref(),
+                                                                       models_baseline[icam1].extrinsics_rt_fromref(),
+                                                                       rtrf, baseline_rt_ref_frame,
                                                                        q_true,
                                                                        lensmodel,
                                                                        stabilize_coords=args.stabilize_coords),
-                                       optimization_inputs_baseline['frames_rt_toref'],
+                                       baseline_rt_ref_frame,
                                        step = 1e-5)
 
 dp_triangulated_dq_empirical = grad(lambda q: triangulate_nograd(models_baseline[icam0].intrinsics()[1], models_baseline[icam1].intrinsics()[1],
-                                                                 models_baseline[icam0].extrinsics_rt_fromref(), models_baseline[icam1].extrinsics_rt_fromref(),
-                                                                 optimization_inputs_baseline['frames_rt_toref'], frames_true,
+                                                                 models_baseline[icam0].extrinsics_rt_fromref(),
+                                                                 models_baseline[icam0].extrinsics_rt_fromref(),
+                                                                 models_baseline[icam1].extrinsics_rt_fromref(),
+                                                                 baseline_rt_ref_frame, baseline_rt_ref_frame,
                                                                  q,
                                                                  lensmodel,
                                                                  stabilize_coords=args.stabilize_coords),
@@ -882,8 +971,10 @@ else:
     extrinsics_sampled_cam1 = extrinsics_sampled_mounted[..., icam_extrinsics1+1,:]
 
 p_triangulated_sampled0 = triangulate_nograd(intrinsics_sampled[...,icam0,:], intrinsics_sampled[...,icam1,:],
-                                             extrinsics_sampled_cam0, extrinsics_sampled_cam1,
-                                             frames_sampled, frames_true,
+                                             extrinsics_sampled_cam0,
+                                             models_baseline[icam0].extrinsics_rt_fromref(),
+                                             extrinsics_sampled_cam1,
+                                             frames_sampled, baseline_rt_ref_frame,
                                              q_sampled,
                                              lensmodel,
                                              stabilize_coords = args.stabilize_coords)
@@ -944,9 +1035,6 @@ for ipt in range(2):
                                         what = f"triangulated point variance for point {ipt}",
                                         eps_eigenvalues      = 0.1,
                                         eps_eigenvectors_deg = 5)
-
-
-
 
 if not (args.explore or \
         args.make_documentation_plots is not None):
