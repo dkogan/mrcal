@@ -1033,7 +1033,11 @@ for ipt in range(2):
     testutils.confirm_covariances_equal(Var_p0p1_triangulated[ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3],
                                         Var_p0p1_sampled     [ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3],
                                         what = f"triangulated point variance for point {ipt}",
-                                        eps_eigenvalues      = 0.1,
+
+                                        # This is a relatively-high threshold. I can tighten
+                                        # it, but then I'd need to collect more
+                                        # samples
+                                        eps_eigenvalues      = 0.15,
                                         eps_eigenvectors_deg = 5)
 
 if not (args.explore or \
