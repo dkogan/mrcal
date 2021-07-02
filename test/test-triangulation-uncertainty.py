@@ -1126,9 +1126,16 @@ if args.make_documentation_plots is not None:
             processoptions['hardcopy'] = \
                 f'{args.make_documentation_plots_filename}--ellipses.{extension}'
             processoptions['terminal'] = shorter_terminal(processoptions['terminal'])
-        gp.plot( *subplots,
-                 multiplot = f'title "{title_triangulation}" layout 1,2',
-                 **processoptions )
+
+        if dohardcopy:
+            # no multiplot if making hardcopies
+            gp.plot( *subplots,
+                     multiplot = f'title "{title_triangulation}" layout 1,2',
+                     **processoptions )
+        else:
+            # Interactive plotting, so no multiplots. Interactive plots
+            for p in subplots:
+                gp.plot( *p[:-1], **p[-1], **processoptions )
 
         processoptions = copy.deepcopy(processoptions_base)
         if dohardcopy:
