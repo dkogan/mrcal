@@ -883,14 +883,6 @@ for ipt in range(Npoints):
     var_qt_reshaped[ipt,0,1, ipt,1,1] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
     var_qt_reshaped[ipt,1,1, ipt,0,1] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
 
-# The variance due to calibration-time noise
-Var_p0p1_calibration = \
-    mrcal.model_analysis._propagate_calibration_uncertainty(dp0p1_triangulated_dppacked,
-                                                            factorization, Jpacked,
-                                                            Nmeasurements_observations,
-                                                            args.pixel_uncertainty_stdev_calibration,
-                                                            what = 'covariance')
-
 Var_p0p1_observations = np.zeros((3*Npoints,3*Npoints), dtype=float)
 
 # The variance due to the observation-time noise can be simplified even further:
@@ -905,6 +897,14 @@ for ipt in range(Npoints):
                             n=-2),
 
                  nps.transpose( nps.clump(dp_triangulated_dq[ipt], n=-2) ) )
+
+# The variance due to calibration-time noise
+Var_p0p1_calibration = \
+    mrcal.model_analysis._propagate_calibration_uncertainty(dp0p1_triangulated_dppacked,
+                                                            factorization, Jpacked,
+                                                            Nmeasurements_observations,
+                                                            args.pixel_uncertainty_stdev_calibration,
+                                                            what = 'covariance')
 
 
 Var_p0p1_joint = Var_p0p1_calibration + Var_p0p1_observations
