@@ -626,7 +626,7 @@ testutils.confirm_equal(p_triangulated0, p_triangulated_true0,
                         worstcase   = True,
                         relative    = True,
                         eps         = 1e-2,
-                        reldiff_eps = 1e-1,
+                        reldiff_eps = 0.2,
                         msg = "Re-optimized triangulation should be close to the reference. This checks the regularization bias")
 
 ### Sensitivities
@@ -1041,7 +1041,9 @@ Var_p0p1_sampled  = nps.matmult( nps.transpose(p0p1_sampled - mean_p0p1_sampled)
 testutils.confirm_equal(mean_p0p1_sampled,
                         p_triangulated_true0.ravel(),
                         worstcase = True,
-                        eps = p_triangulated_true0[0,2]/500.,
+                        # High threshold. Need many more samples to be able to
+                        # reduce it
+                        eps = p_triangulated_true0[0,2]/150.,
                         msg = "Triangulated position matches sampled mean")
 
 for ipt in range(2):
