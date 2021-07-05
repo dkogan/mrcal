@@ -1322,6 +1322,22 @@ The optimization_inputs dict, or None if one isn't stored in this model.
         return x
 
 
+    def _optimization_inputs_match(self, other_model):
+        if self.       _optimization_inputs_string is None:
+            if other_model._optimization_inputs_string is None:
+                return True
+            else:
+                return False
+
+        if other_model._optimization_inputs_string is None:
+            return False;
+
+        # Both non-None
+        return \
+            self.       _optimization_inputs_string == \
+            other_model._optimization_inputs_string
+
+
     def icam_intrinsics(self):
         r'''Get the camera index indentifying this camera at optimization time
 
