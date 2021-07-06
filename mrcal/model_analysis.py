@@ -1357,6 +1357,26 @@ A tuple
     return difflen, diff, q0, implied_Rt10
 
 
+def _compute_Var_q_triangulation(sigma, var_cross_camera_correlation):
+
+    # For each triangulation we ingest one pixel observation per camera.
+    # This is 4 numbers: 2 cameras, with (x,y) for each one
+    Ncameras = 2
+    Nxy      = 2
+    var_q = np.eye(Ncameras*Nxy) * sigma*sigma
+    var_q_reshaped = var_q.reshape( Ncameras, Nxy,
+                                    Ncameras, Nxy )
+
+    # cam0-cam1 correlations
+    var_q_reshaped[0,0, 1,0] = sigma*sigma*var_cross_camera_correlation
+    var_q_reshaped[0,1, 1,1] = sigma*sigma*var_cross_camera_correlation
+
+    # cam1-cam0 correlations
+    var_q_reshaped[1,0, 0,0] = sigma*sigma*var_cross_camera_correlation
+    var_q_reshaped[1,1, 0,1] = sigma*sigma*var_cross_camera_correlation
+
+    return var_q
+
 def triangulation_uncertainty( # shape (..., 2), dtype=obj
                                models,
                                # (..., 2,2), dtype=float
@@ -1386,27 +1406,6 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
     #   Var(f) = df/dq_cal  Var(q_cal)  (df/dq_cal)T  +
     #            df/dq_obs0 Var(q_obs0) (df/dq_obs0)T +
     #            df/dq_obs1 Var(q_obs1) (df/dq_obs1)T + ...
-
-
-    def compute_Var_q_triangulation(sigma, var_cross_camera_correlation):
-
-        # For each triangulation we ingest one pixel observation per camera.
-        # This is 4 numbers: 2 cameras, with (x,y) for each one
-        Ncameras = 2
-        Nxy      = 2
-        var_q = np.eye(Ncameras*Nxy) * sigma*sigma
-        var_q_reshaped = var_q.reshape( Ncameras, Nxy,
-                                        Ncameras, Nxy )
-
-        # cam0-cam1 correlations
-        var_q_reshaped[0,0, 1,0] = sigma*sigma*var_cross_camera_correlation
-        var_q_reshaped[0,1, 1,1] = sigma*sigma*var_cross_camera_correlation
-
-        # cam1-cam0 correlations
-        var_q_reshaped[1,0, 0,0] = sigma*sigma*var_cross_camera_correlation
-        var_q_reshaped[1,1, 0,1] = sigma*sigma*var_cross_camera_correlation
-
-        return var_q
 
 
     def triangulate_grad_simple(triangulation_function, q, models):
@@ -1623,8 +1622,8 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
     if pixel_uncertainty_stdev_triangulation > 0:
         # shape (4,4). Each dim is (Ncameras*Nxy)
         Var_q_triangulation_flat = \
-            compute_Var_q_triangulation(pixel_uncertainty_stdev_triangulation,
-                                        pixel_uncertainty_triangulation_correlation)
+            _compute_Var_q_triangulation(pixel_uncertainty_stdev_triangulation,
+                                         pixel_uncertainty_triangulation_correlation)
     else:
         Var_q_triangulation_flat = None
 

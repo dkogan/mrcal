@@ -843,72 +843,36 @@ testutils.confirm_equal(dp_triangulated_dq,
                         eps = 5e-3,
                         msg = "Gradient check: dp_triangulated_dq")
 
-Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs_baseline)
-if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs_baseline):
-    # Note the special-case where I'm using all the observations
-    Nmeasurements_observations = None
-
-# I look at the two triangulated points together. This is a (6,) vector. And I
-# pack the denominator by unpacking the numerator
-# dp_triangulated_dpstate has shape (Npoints,3,Nstate)
-dp0p1_triangulated_dppacked = copy.deepcopy(dp_triangulated_dpstate)
-mrcal.unpack_state(dp0p1_triangulated_dppacked, **optimization_inputs_baseline)
-dp0p1_triangulated_dppacked = nps.clump(dp0p1_triangulated_dppacked,n=2)
-
-
-# My input vector, whose noise I'm propagating, is x = [q_calibration
-# q_triangulation]: the calibration-time pixel observations and the
-# observation-time pixel observations. These are independent, so Var(x) is
-# block-diagonal. I want to propagate the noise in x to some function f(x). As
-# usual, Var(f) = df/dx Var(x) (df/dx)T. I have x = [qc qt] and a block-diagonal
-# Var(x) so Var(f) = df/dqc Var(qc) (df/dqc)T + df/dqt Var(qt) (df/dqt)T. So I
-# can treat the two noise contributions separately, and add the two variances
-# together
-
-# Let's define the observation-time pixel noise. The noise vector
-# q_true_sampled_noise has the same shape as q_true for each sample. so
-# q_true_sampled_noise.shape = (Nsamples,Npoints,Ncameras,2). The covariance is
-# a square matrix with each dimension of length Npoints*Ncameras*2
-N_q_true_noise = Npoints*2*2
-sigma_qt_sq = \
-    args.pixel_uncertainty_stdev_triangulation * \
-    args.pixel_uncertainty_stdev_triangulation
-var_qt = np.diagflat( (sigma_qt_sq,) * N_q_true_noise )
-var_qt_reshaped = var_qt.reshape( Npoints, 2, 2,
-                                  Npoints, 2, 2 )
-
-for ipt in range(Npoints):
-    var_qt_reshaped[ipt,0,0, ipt,1,0] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
-    var_qt_reshaped[ipt,1,0, ipt,0,0] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
-    var_qt_reshaped[ipt,0,1, ipt,1,1] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
-    var_qt_reshaped[ipt,1,1, ipt,0,1] = sigma_qt_sq*args.pixel_uncertainty_triangulation_correlation
-
-Var_p0p1_observations = np.zeros((3*Npoints,3*Npoints), dtype=float)
-
-# The variance due to the observation-time noise can be simplified even further:
-# the noise in each pixel observation is independent, and I can accumulate it
-# independently
-for ipt in range(Npoints):
-    Var_p0p1_observations[3*ipt:3*ipt+3, 3*ipt:3*ipt+3] = \
-        nps.matmult( nps.clump(dp_triangulated_dq[ipt], n=-2),
-
-                 nps.clump( nps.clump(var_qt_reshaped[ipt,:,:,  ipt,:,:],
-                                      n=2),
-                            n=-2),
-
-                 nps.transpose( nps.clump(dp_triangulated_dq[ipt], n=-2) ) )
-
-# The variance due to calibration-time noise
 Var_p0p1_calibration = \
-    mrcal.model_analysis._propagate_calibration_uncertainty(dp0p1_triangulated_dppacked,
-                                                            factorization, Jpacked,
-                                                            Nmeasurements_observations,
-                                                            args.pixel_uncertainty_stdev_calibration,
-                                                            what = 'covariance')
+    mrcal.triangulation_uncertainty( # shape (..., 2), dtype=obj
+                               (models_baseline[icam0],models_baseline[icam1]),
+                               # (..., 2,2), dtype=float
+                               q_true,
+                               pixel_uncertainty_stdev_calibration   = args.pixel_uncertainty_stdev_calibration,
+                               stabilize_coords                      = args.stabilize_coords )
+Var_p0p1_observations = \
+    mrcal.triangulation_uncertainty( # shape (..., 2), dtype=obj
+                               (models_baseline[icam0],models_baseline[icam1]),
+                               # (..., 2,2), dtype=float
+                               q_true,
+                               pixel_uncertainty_stdev_triangulation       = args.pixel_uncertainty_stdev_triangulation,
+                               pixel_uncertainty_triangulation_correlation = args.pixel_uncertainty_triangulation_correlation,
+                               stabilize_coords                            = args.stabilize_coords )
+Var_p0p1_joint = \
+    mrcal.triangulation_uncertainty( # shape (..., 2), dtype=obj
+                               (models_baseline[icam0],models_baseline[icam1]),
+                               # (..., 2,2), dtype=float
+                               q_true,
+                               pixel_uncertainty_stdev_calibration         = args.pixel_uncertainty_stdev_calibration,
+                               pixel_uncertainty_stdev_triangulation       = args.pixel_uncertainty_stdev_triangulation,
+                               pixel_uncertainty_triangulation_correlation = args.pixel_uncertainty_triangulation_correlation,
+                               stabilize_coords                            = args.stabilize_coords )
 
-
-Var_p0p1_joint = Var_p0p1_calibration + Var_p0p1_observations
-
+testutils.confirm_equal(Var_p0p1_joint,
+                        Var_p0p1_calibration + Var_p0p1_observations,
+                        worstcase = True,
+                        eps       = 1e-9,
+                        msg       = "Var(joint) should be Var(cal-time-noise) + Var(obs-time-noise)")
 
 if not args.do_sample:
     testutils.finish()
@@ -957,8 +921,14 @@ if not did_sample:
 # Let's actually apply the noise to compute var(distancep) empirically to compare
 # against the var(distancep) prediction I just computed
 # shape (Nsamples,Npoints,2,2)
+var_qt_onepoint = \
+    mrcal.model_analysis._compute_Var_q_triangulation(args.pixel_uncertainty_stdev_triangulation,
+                                                      args.pixel_uncertainty_triangulation_correlation)
+var_qt = np.zeros((Npoints*2*2, Npoints*2*2), dtype=float)
+for i in range(Npoints):
+    var_qt[4*i:4*(i+1), 4*i:4*(i+1)] = var_qt_onepoint
 qt_noise = \
-    np.random.multivariate_normal( mean = np.zeros((N_q_true_noise,),),
+    np.random.multivariate_normal( mean = np.zeros((Npoints*2*2,),),
                                    cov  = var_qt,
                                    size = args.Nsamples ).reshape(args.Nsamples,Npoints,2,2)
 q_sampled = q_true + qt_noise
