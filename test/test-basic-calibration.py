@@ -152,6 +152,9 @@ optimization_inputs['do_optimize_calobject_warp']         = False
 mrcal.optimize(**optimization_inputs,
                do_apply_outlier_rejection = True)
 
+testutils.confirm_equal( mrcal.num_states(**optimization_inputs),
+                         4*Ncameras + 6*(Ncameras-1) + 6*Nframes,
+                         "num_states()")
 testutils.confirm_equal( mrcal.num_states_intrinsics(**optimization_inputs),
                          4*Ncameras,
                          "num_states_intrinsics()")

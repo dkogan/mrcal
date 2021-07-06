@@ -2081,6 +2081,32 @@ static PyObject* num_states_calobject_warp(PyObject* self, PyObject* args, PyObj
                                callback_num_states_calobject_warp);
 }
 
+static int callback_num_states(int i,
+                               int Ncameras_intrinsics,
+                               int Ncameras_extrinsics,
+                               int Nframes,
+                               int Npoints,
+                               int Npoints_fixed,
+                               int Nobservations_board,
+                               int Nobservations_point,
+                               int calibration_object_width_n,
+                               int calibration_object_height_n,
+                               const mrcal_lensmodel_t* lensmodel,
+                               mrcal_problem_selections_t problem_selections)
+{
+    return
+        mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
+                         Nframes, Npoints, Npoints_fixed, Nobservations_board,
+                         problem_selections,
+                         lensmodel);
+}
+static PyObject* num_states(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return state_index_generic(self, args, kwargs,
+                               NULL,
+                               callback_num_states);
+}
+
 static int callback_measurement_index_boards(int i,
                                              int Ncameras_intrinsics,
                                              int Ncameras_extrinsics,
@@ -2617,6 +2643,10 @@ static const char corresponding_icam_extrinsics_docstring[] =
 #include "corresponding_icam_extrinsics.docstring.h"
     ;
 
+static const char num_states_docstring[] =
+#include "num_states.docstring.h"
+    ;
+
 
 
 
@@ -2654,6 +2684,7 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, num_states_frames,               METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, num_states_points,               METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, num_states_calobject_warp,       METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, num_states,                      METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, pack_state,                      METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, unpack_state,                    METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, measurement_index_boards,        METH_VARARGS | METH_KEYWORDS),

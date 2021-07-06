@@ -167,6 +167,7 @@ Functions to interpret the contentes of the [[file:formulation.org][state and me
 - [[file:mrcal-python-api-reference.html#-num_measurements_points][=mrcal.num_measurements_points()=]]: Return how many measurements we have from point observations
 - [[file:mrcal-python-api-reference.html#-num_measurements_regularization][=mrcal.num_measurements_regularization()=]]: Return how many measurements we have from regularization
 - [[file:mrcal-python-api-reference.html#-num_measurements][=mrcal.num_measurements()=]]: Return how many measurements we have in the full optimization problem
+- [[file:mrcal-python-api-reference.html#-num_states][=mrcal.num_states()=]]: Get the total number of parameters in the optimization vector
 
 * State packing
 The optimization routine works in the [[file:formulation.org::#state-packing][space of scaled parameters]], and several

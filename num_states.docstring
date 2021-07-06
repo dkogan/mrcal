@@ -1,0 +1,64 @@
+Get the total number of parameters in the optimization vector
+
+SYNOPSIS
+
+    m = mrcal.cameramodel('xxx.cameramodel')
+
+    f( m.optimization_inputs() )
+
+
+    ...
+
+    def f(optimization_inputs):
+        Nstates  = mrcal.num_states (**optimization_inputs)
+        ...
+
+The optimization algorithm sees its world described in one, big vector of state.
+The optimizer doesn't know or care about the meaning of each element of this
+vector, but for later analysis, it is useful to know what's what. The
+mrcal.num_states_...() functions report how many variables in the optimization
+vector are taken up by each particular kind of measurement.
+
+THIS function reports how many variables are used to represent the FULL state
+vector.
+
+In order to determine the variable mapping, we need quite a bit of context. If
+we have the full set of inputs to the optimization function, we can pass in
+those (as shown in the example above). Or we can pass the individual arguments
+that are needed (see ARGUMENTS section for the full list). If the optimization
+inputs and explicitly-given arguments conflict about the size of some array, the
+explicit arguments take precedence. If any array size is not specified, it is
+assumed to be 0. Thus most arguments are optional.
+
+ARGUMENTS
+
+- **kwargs: if the optimization inputs are available, they can be passed-in as
+  kwargs. These inputs contain everything this function needs to operate. If we
+  don't have these, then the rest of the variables will need to be given
+
+- lensmodel: string specifying the lensmodel we're using (this is always
+  'LENSMODEL_...'). The full list of valid models is returned by
+  mrcal.supported_lensmodels(). This is required if we're not passing in the
+  optimization inputs
+
+- do_optimize_intrinsics_core
+  do_optimize_intrinsics_distortions
+  do_optimize_extrinsics
+  do_optimize_calobject_warp
+  do_optimize_frames
+
+  optional booleans; default to True. These specify what we're optimizing. See
+  the documentation for mrcal.optimize() for details
+
+- Ncameras_intrinsics
+  Ncameras_extrinsics
+  Nframes
+  Npoints
+  Npoints_fixed
+
+  optional integers; default to 0. These specify the sizes of various arrays in
+  the optimization. See the documentation for mrcal.optimize() for details
+
+RETURNED VALUE
+
+The integer reporting the total variable count in the state vector
