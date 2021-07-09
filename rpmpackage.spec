@@ -45,7 +45,7 @@ BuildRequires: chrpath
 BuildRequires: re2c >= 2.0.3
 
 Requires: numpysane >= 0.29-1
-Requires: gnuplotlib >= 0.36
+Requires: gnuplotlib >= 0.38
 Requires: opencv-python36
 Requires: python36-numpy >= 1.14.5
 Requires: python36-scipy >= 0.18.1
