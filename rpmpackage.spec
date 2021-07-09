@@ -13,7 +13,13 @@ BuildRequires: python36-numpy
 
 # For the non-global parameters
 BuildRequires: libdogleg-devel >= 0.15.4
-BuildRequires: suitesparse-devel >= 4.1.0
+BuildRequires: suitesparse-devel >= 5.4.0
+BuildRequires: re2c >= 2
+
+# I want suitesparse >= 5 at runtime. I'm using CHOLMOD_FUNCTION_DEFAULTS, which
+# makes a reference to SuiteSparse_divcomplex
+Requires: suitesparse >= 5.4.0
+
 BuildRequires: lapack-devel
 BuildRequires: python36-devel
 BuildRequires: python36-libs
