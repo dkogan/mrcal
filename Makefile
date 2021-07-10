@@ -274,7 +274,7 @@ endef
 # "test" is the full set of tests
 # "test-nosampling" excludes the very time-consuming tests
 test check test-nosampling check-nosampling: all
-	@FAILED=""; $(foreach t,$(call get_test_set,$@),echo "========== RUNNING: $t"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
+	@FAILED=""; $(foreach t,$(call get_test_set,$@),echo "========== RUNNING: $(subst __, ,$t)"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
 .PHONY: test check
 
 include mrbuild/Makefile.common.footer
