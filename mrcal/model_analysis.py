@@ -1377,81 +1377,63 @@ def _compute_Var_q_triangulation(sigma, var_cross_camera_correlation):
 
     return var_q
 
-def triangulation_uncertainty( # shape (..., 2), dtype=obj
-                               models,
-                               # (..., 2,2), dtype=float
-                               q,
-                               pixel_uncertainty_stdev_calibration         = 0,
-                               pixel_uncertainty_stdev_triangulation       = 0,
-                               pixel_uncertainty_triangulation_correlation = 0,
-                               triangulation_function = mrcal.triangulation.triangulate_leecivera_mid2,
-                               stabilize_coords = True ):
+def _triangulate_grad_simple(models, q,
+                             triangulation_function = mrcal.triangulation.triangulate_leecivera_mid2):
 
-    # I'm propagating noise in the input vector
-    #
-    #   x = [q_cal q_obs0 q_obs1 q_obs2 ...]
-    #
-    # This is the noise in the pixel observations at calibration-time and at
-    # triangulation time. All the triangulated points are assumed to originate
-    # from cameras calibrated using this one calibration run (using observations
-    # q_cal). For each triangulation we want to compute, we have a separate set
-    # of observations. I want to propagate the noise in x to some function f(x).
-    # As usual
-    #
-    #   Var(f) = df/dx Var(x) (df/dx)T.
-    #
-    # The noise on all the triangulation-time points is independent, as is the
-    # calibration-time noise. Thus Var(x) is block-diagonal and
-    #
-    #   Var(f) = df/dq_cal  Var(q_cal)  (df/dq_cal)T  +
-    #            df/dq_obs0 Var(q_obs0) (df/dq_obs0)T +
-    #            df/dq_obs1 Var(q_obs1) (df/dq_obs1)T + ...
+    # Simplified path. We don't need most of the gradients
 
+    rt01 = \
+        mrcal.compose_rt(models[0].extrinsics_rt_fromref(),
+                         models[1].extrinsics_rt_toref())
 
-    def triangulate_grad_simple(triangulation_function, q, models):
+    # all the v have shape (3,)
+    vlocal0, dvlocal0_dq0, _ = \
+        mrcal.unproject(q[0,:],
+                        *models[0].intrinsics(),
+                        get_gradients = True)
+    vlocal1, dvlocal1_dq1, _ = \
+        mrcal.unproject(q[1,:],
+                        *models[1].intrinsics(),
+                        get_gradients = True)
 
-        # Simplified path. We don't need most of the gradients
+    v0 = vlocal0
+    v1, _, dv1_dvlocal1 = \
+        mrcal.rotate_point_r(rt01[:3], vlocal1,
+                             get_gradients=True)
 
-        rt01 = \
-            mrcal.compose_rt(models[0].extrinsics_rt_fromref(),
-                             models[1].extrinsics_rt_toref())
+    # Each has shape (3,3)
+    _,                   \
+    dp_triangulated_dv0, \
+    dp_triangulated_dv1, \
+    _ =                  \
+        triangulation_function(v0, v1, rt01[3:],
+                               get_gradients = True)
 
-        # all the v have shape (3,)
-        vlocal0, dvlocal0_dq0, _ = \
-            mrcal.unproject(q[0,:],
-                            *models[0].intrinsics(),
-                            get_gradients = True)
-        vlocal1, dvlocal1_dq1, _ = \
-            mrcal.unproject(q[1,:],
-                            *models[1].intrinsics(),
-                            get_gradients = True)
+    dp_triangulated_dq = np.zeros((3,) + q.shape[-2:], dtype=float)
+    nps.matmult( dp_triangulated_dv0,
+                 dvlocal0_dq0,
+                 out = dp_triangulated_dq[..., 0, :])
+    nps.matmult( dp_triangulated_dv1,
+                 dv1_dvlocal1,
+                 dvlocal1_dq1,
+                 out = dp_triangulated_dq[..., 1, :])
 
-        v0 = vlocal0
-        v1, _, dv1_dvlocal1 = \
-            mrcal.rotate_point_r(rt01[:3], vlocal1,
-                                 get_gradients=True)
-
-        # Each has shape (3,3)
-        _,                   \
-        dp_triangulated_dv0, \
-        dp_triangulated_dv1, \
-        _ =                  \
-            triangulation_function(v0, v1, rt01[3:],
-                                   get_gradients = True)
-
-        dp_triangulated_dq = np.zeros((3,) + q.shape[-2:], dtype=float)
-        nps.matmult( dp_triangulated_dv0,
-                     dvlocal0_dq0,
-                     out = dp_triangulated_dq[..., 0, :])
-        nps.matmult( dp_triangulated_dv1,
-                     dv1_dvlocal1,
-                     dvlocal1_dq1,
-                     out = dp_triangulated_dq[..., 1, :])
-
-        return dp_triangulated_dq
+    # shape (3,4)
+    return nps.clump(dp_triangulated_dq, n=-2)
 
 
-    def triangulate_grad(triangulation_function, q, models):
+def _compute_dp_triangulated_dpstate(Npoints,
+                                     slices,
+                                     optimization_inputs,
+                                     rt_ref_frame,
+                                     istate_f0, Nstate_frames,
+                                     # shape (4,4). Each dim is (Ncameras*Nxy)
+                                     Var_q_triangulation_flat,
+                                     triangulation_function = mrcal.triangulation.triangulate_leecivera_mid2,
+                                     do_propagate_noise_calibration   = True,
+                                     stabilize_coords                 = True):
+
+    def triangulate_grad(models, q, triangulation_function):
 
         # Full path. Compute and return the gradients for most things
         rt_ref1,drt_ref1_drt_1ref = \
@@ -1488,6 +1470,9 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
                      dv1_dvlocal1,
                      dvlocal1_dq1,
                      out = dp_triangulated_dq[..., 1, :])
+
+        # shape (3,4)
+        dp_triangulated_dq = nps.clump(dp_triangulated_dq, n=-2)
 
         return                     \
             p_cam0_perturbed,      \
@@ -1606,10 +1591,193 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
 
 
 
+    if optimization_inputs is not None:
+
+        Nintrinsics = mrcal.num_states_intrinsics(**optimization_inputs) // len(optimization_inputs['intrinsics'])
+        Nstate      = mrcal.num_states(**optimization_inputs)
+
+        # I store dp_triangulated_dpstate initially, without worrying about the "packed"
+        # part. I'll scale the thing when done to pack it
+        dp_triangulated_dpstate = np.zeros((Npoints,3,Nstate), dtype=float)
+    else:
+        dp_triangulated_dpstate = None
+        istate_i0               = None
+        istate_i1               = None
+        icam_extrinsics0        = None
+        icam_extrinsics1        = None
+        istate_e1               = None
+        istate_e0               = None
+
+    # Output goes here
+    Var_p = np.zeros((3*Npoints,3*Npoints), dtype=float)
+
+    for ipt in range(Npoints):
+        models01,q = slices[ipt]
+
+        if optimization_inputs is None:
+            # shape (3,Ncameras*Nxy=4)
+            dp_triangulated_dq = \
+                _triangulate_grad_simple(models01, q, triangulation_function)
+
+        else:
+            p_cam0_perturbed,      \
+            dp_triangulated_dq,    \
+            drt_ref1_drt_1ref,     \
+            drt01_drt_0ref,        \
+            drt01_drt_ref1,        \
+            dvlocal0_dintrinsics0, \
+            dvlocal1_dintrinsics1, \
+            dv1_dr01,              \
+            dv1_dvlocal1,          \
+            dp_triangulated_dv0,   \
+            dp_triangulated_dv1,   \
+            dp_triangulated_dt01 = \
+                triangulate_grad(models01, q, triangulation_function)
+
+        # triangulation-time uncertainty
+        if Var_q_triangulation_flat is not None:
+            Var_p[3*ipt:3*ipt+3, 3*ipt:3*ipt+3] = \
+                nps.matmult( dp_triangulated_dq,
+                             Var_q_triangulation_flat,
+                             nps.transpose(dp_triangulated_dq) )
+
+
+        if optimization_inputs is None:
+            continue
+
+        # calibration-time uncertainty
+        if stabilize_coords:
+            dp_triangulated_drtrf,     \
+            dp_triangulated_drt_0ref = \
+                stabilize(p_cam0_perturbed,
+                          models01[0].extrinsics_rt_fromref(),
+                          rt_ref_frame)
+        else:
+            dp_triangulated_drtrf    = None
+            dp_triangulated_drt_0ref = None
+
+        ### Sensitivities
+        # The data flow:
+        #   q0,i0                       -> v0 (same as vlocal0; I'm working in the cam0 coord system)
+        #   q1,i1                       -> vlocal1
+        #   r_0ref,r_1ref               -> r01
+        #   r_0ref,r_1ref,t_0ref,t_1ref -> t01
+        #   vlocal1,r01                 -> v1
+        #   v0,v1,t01                   -> p_triangulated
+        icam_intrinsics0 = models01[0].icam_intrinsics()
+        icam_intrinsics1 = models01[1].icam_intrinsics()
+
+        istate_i0 = mrcal.state_index_intrinsics(icam_intrinsics0, **optimization_inputs)
+        istate_i1 = mrcal.state_index_intrinsics(icam_intrinsics1, **optimization_inputs)
+
+        icam_extrinsics0 = mrcal.corresponding_icam_extrinsics(icam_intrinsics0, **optimization_inputs)
+        icam_extrinsics1 = mrcal.corresponding_icam_extrinsics(icam_intrinsics1, **optimization_inputs)
+
+        istate_e0 = mrcal.state_index_extrinsics(icam_extrinsics0, **optimization_inputs) \
+            if icam_extrinsics0 >= 0 else None
+        istate_e1 = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs) \
+            if icam_extrinsics1 >= 0 else None
+
+        # dp_triangulated_di0 = dp_triangulated_dv0              dvlocal0_di0
+        # dp_triangulated_di1 = dp_triangulated_dv1 dv1_dvlocal1 dvlocal1_di1
+        nps.matmult( dp_triangulated_dv0,
+                     dvlocal0_dintrinsics0,
+                     out = dp_triangulated_dpstate[ipt, :, istate_i0:istate_i0+Nintrinsics])
+        nps.matmult( dp_triangulated_dv1,
+                     dv1_dvlocal1,
+                     dvlocal1_dintrinsics1,
+                     out = dp_triangulated_dpstate[ipt, :, istate_i1:istate_i1+Nintrinsics])
+
+        if istate_e1 is not None:
+            # dp_triangulated_dr_0ref = dp_triangulated_dv1  dv1_dr01 dr01_dr_0ref +
+            #                           dp_triangulated_dt01          dt01_dr_0ref
+            # dp_triangulated_dr_1ref = dp_triangulated_dv1  dv1_dr01 dr01_dr_1ref +
+            #                           dp_triangulated_dt01          dt01_dr_1ref
+            # dp_triangulated_dt_0ref = dp_triangulated_dt01          dt01_dt_0ref
+            # dp_triangulated_dt_1ref = dp_triangulated_dt01          dt01_dt_1ref
+            dr01_dr_ref1    = drt01_drt_ref1[:3,:3]
+            dr_ref1_dr_1ref = drt_ref1_drt_1ref[:3,:3]
+            dr01_dr_1ref    = nps.matmult(dr01_dr_ref1, dr_ref1_dr_1ref)
+
+            dt01_drt_ref1 = drt01_drt_ref1[3:,:]
+            dt01_dr_1ref  = nps.matmult(dt01_drt_ref1, drt_ref1_drt_1ref[:,:3])
+            dt01_dt_1ref  = nps.matmult(dt01_drt_ref1, drt_ref1_drt_1ref[:,3:])
+
+            nps.matmult( dp_triangulated_dv1,
+                         dv1_dr01,
+                         dr01_dr_1ref,
+                         out = dp_triangulated_dpstate[ipt, :, istate_e1:istate_e1+3])
+            dp_triangulated_dpstate[ipt, :, istate_e1:istate_e1+3] += \
+                nps.matmult(dp_triangulated_dt01, dt01_dr_1ref)
+
+            nps.matmult( dp_triangulated_dt01,
+                         dt01_dt_1ref,
+                         out = dp_triangulated_dpstate[ipt, :, istate_e1+3:istate_e1+6])
+
+        if istate_e0 is not None:
+            dr01_dr_0ref = drt01_drt_0ref[:3,:3]
+            dt01_dr_0ref = drt01_drt_0ref[3:,:3]
+            dt01_dt_0ref = drt01_drt_0ref[3:,3:]
+
+            nps.matmult( dp_triangulated_dv1,
+                         dv1_dr01,
+                         dr01_dr_0ref,
+                         out = dp_triangulated_dpstate[ipt, :, istate_e0:istate_e0+3])
+            dp_triangulated_dpstate[ipt, :, istate_e0:istate_e0+3] += \
+                nps.matmult(dp_triangulated_dt01, dt01_dr_0ref)
+
+            nps.matmult( dp_triangulated_dt01,
+                         dt01_dt_0ref,
+                         out = dp_triangulated_dpstate[ipt, :, istate_e0+3:istate_e0+6])
+
+            if dp_triangulated_drt_0ref is not None:
+                dp_triangulated_dpstate[ipt, :, istate_e0:istate_e0+6] += dp_triangulated_drt_0ref
+
+        if istate_f0 is not None and \
+           dp_triangulated_drtrf is not None:
+            # dp_triangulated_drtrf has shape (Npoints,Nframes,3,6). I reshape to (Npoints,3,Nframes*6)
+            dp_triangulated_dpstate[ipt, :, istate_f0:istate_f0+Nstate_frames] = \
+                nps.clump(nps.xchg(dp_triangulated_drtrf,-2,-3), n=-2)
+
+    return Var_p, dp_triangulated_dpstate, \
+        istate_i0,                         \
+        istate_i1,                         \
+        icam_extrinsics0,                  \
+        icam_extrinsics1,                  \
+        istate_e1,                         \
+        istate_e0
 
 
 
+def triangulation_uncertainty( # shape (..., 2), dtype=obj
+                               models,
+                               # (..., 2,2), dtype=float
+                               q,
+                               pixel_uncertainty_stdev_calibration         = 0,
+                               pixel_uncertainty_stdev_triangulation       = 0,
+                               pixel_uncertainty_triangulation_correlation = 0,
+                               triangulation_function = mrcal.triangulation.triangulate_leecivera_mid2,
+                               stabilize_coords = True ):
 
+    # I'm propagating noise in the input vector
+    #
+    #   x = [q_cal q_obs0 q_obs1 q_obs2 ...]
+    #
+    # This is the noise in the pixel observations at calibration-time and at
+    # triangulation time. All the triangulated points are assumed to originate
+    # from cameras calibrated using this one calibration run (using observations
+    # q_cal). For each triangulation we want to compute, we have a separate set
+    # of observations. I want to propagate the noise in x to some function f(x).
+    # As usual
+    #
+    #   Var(f) = df/dx Var(x) (df/dx)T.
+    #
+    # The noise on all the triangulation-time points is independent, as is the
+    # calibration-time noise. Thus Var(x) is block-diagonal and
+    #
+    #   Var(f) = df/dq_cal  Var(q_cal)  (df/dq_cal)T  +
+    #            df/dq_obs0 Var(q_obs0) (df/dq_obs0)T +
+    #            df/dq_obs1 Var(q_obs1) (df/dq_obs1)T + ...
     if pixel_uncertainty_stdev_calibration < 0:
         raise Exception("pixel_uncertainty_stdev_calibration MUST be >= 0")
     if pixel_uncertainty_stdev_triangulation < 0:
@@ -1618,14 +1786,6 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
     if pixel_uncertainty_stdev_calibration   == 0 and \
        pixel_uncertainty_stdev_triangulation == 0:
         raise Exception("At least one of (pixel_uncertainty_stdev_calibration,pixel_uncertainty_stdev_triangulation) should be > 0. We should be propagating SOME source of noise")
-
-    if pixel_uncertainty_stdev_triangulation > 0:
-        # shape (4,4). Each dim is (Ncameras*Nxy)
-        Var_q_triangulation_flat = \
-            _compute_Var_q_triangulation(pixel_uncertainty_stdev_triangulation,
-                                         pixel_uncertainty_triangulation_correlation)
-    else:
-        Var_q_triangulation_flat = None
 
     if not isinstance(models, np.ndarray):
         models = np.array(models, dtype=object)
@@ -1660,12 +1820,6 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
             Nstate_frames = None
 
         ppacked,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs)
-        Nstate = len(ppacked)
-        Nintrinsics = mrcal.num_states_intrinsics(**optimization_inputs) // len(optimization_inputs['intrinsics'])
-
-        # I store dp_triangulated_dpstate initially, without worrying about the "packed"
-        # part. I'll scale the thing when done to pack it
-        dp_triangulated_dpstate = np.zeros((Npoints,3,Nstate), dtype=float)
 
     else:
         optimization_inputs = None
@@ -1673,143 +1827,24 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
         istate_f0           = None
         Nstate_frames       = None
 
-    # Output goes here
-    Var_p = np.zeros((3*Npoints,3*Npoints), dtype=float)
 
-    for ipt in range(Npoints):
-        models01,q = slices[ipt]
+    if pixel_uncertainty_stdev_triangulation > 0:
+        # shape (4,4). Each dim is (Ncameras*Nxy)
+        Var_q_triangulation_flat = \
+            _compute_Var_q_triangulation(pixel_uncertainty_stdev_triangulation,
+                                         pixel_uncertainty_triangulation_correlation)
+    else:
+        Var_q_triangulation_flat = None
 
-        if pixel_uncertainty_stdev_calibration == 0:
-            # shape (3,Ncameras=2,Nxy=2)
-            dp_triangulated_dq = \
-                triangulate_grad_simple(triangulation_function, q, models01)
-
-            # shape (3,4)
-            dp_triangulated_dq = nps.clump(dp_triangulated_dq, n=-2)
-        else:
-            p_cam0_perturbed,      \
-            dp_triangulated_dq,    \
-            drt_ref1_drt_1ref,     \
-            drt01_drt_0ref,        \
-            drt01_drt_ref1,        \
-            dvlocal0_dintrinsics0, \
-            dvlocal1_dintrinsics1, \
-            dv1_dr01,              \
-            dv1_dvlocal1,          \
-            dp_triangulated_dv0,   \
-            dp_triangulated_dv1,   \
-            dp_triangulated_dt01 = \
-                triangulate_grad(triangulation_function, q, models01)
-
-            # shape (3,4)
-            dp_triangulated_dq = nps.clump(dp_triangulated_dq, n=-2)
-
-
-
-        # triangulation-time uncertainty
-        if pixel_uncertainty_stdev_triangulation > 0:
-            Var_p[3*ipt:3*ipt+3, 3*ipt:3*ipt+3] = \
-                nps.matmult( dp_triangulated_dq,
-                             Var_q_triangulation_flat,
-                             nps.transpose(dp_triangulated_dq) )
-
-
-        # calibration-time uncertainty
-        if pixel_uncertainty_stdev_calibration > 0:
-            if stabilize_coords:
-                dp_triangulated_drtrf,     \
-                dp_triangulated_drt_0ref = \
-                    stabilize(p_cam0_perturbed,
-                              models01[0].extrinsics_rt_fromref(),
-                              rt_ref_frame)
-            else:
-                dp_triangulated_drtrf    = None
-                dp_triangulated_drt_0ref = None
-
-            ### Sensitivities
-            # The data flow:
-            #   q0,i0                       -> v0 (same as vlocal0; I'm working in the cam0 coord system)
-            #   q1,i1                       -> vlocal1
-            #   r_0ref,r_1ref               -> r01
-            #   r_0ref,r_1ref,t_0ref,t_1ref -> t01
-            #   vlocal1,r01                 -> v1
-            #   v0,v1,t01                   -> p_triangulated
-            icam_intrinsics0 = models01[0].icam_intrinsics()
-            icam_intrinsics1 = models01[1].icam_intrinsics()
-
-            istate_i0 = mrcal.state_index_intrinsics(icam_intrinsics0, **optimization_inputs)
-            istate_i1 = mrcal.state_index_intrinsics(icam_intrinsics1, **optimization_inputs)
-
-            icam_extrinsics0 = mrcal.corresponding_icam_extrinsics(icam_intrinsics0, **optimization_inputs)
-            icam_extrinsics1 = mrcal.corresponding_icam_extrinsics(icam_intrinsics1, **optimization_inputs)
-
-            istate_e0 = mrcal.state_index_extrinsics(icam_extrinsics0, **optimization_inputs) \
-                if icam_extrinsics0 >= 0 else None
-            istate_e1 = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs) \
-                if icam_extrinsics1 >= 0 else None
-
-            # dp_triangulated_di0 = dp_triangulated_dv0              dvlocal0_di0
-            # dp_triangulated_di1 = dp_triangulated_dv1 dv1_dvlocal1 dvlocal1_di1
-            nps.matmult( dp_triangulated_dv0,
-                         dvlocal0_dintrinsics0,
-                         out = dp_triangulated_dpstate[ipt, :, istate_i0:istate_i0+Nintrinsics])
-            nps.matmult( dp_triangulated_dv1,
-                         dv1_dvlocal1,
-                         dvlocal1_dintrinsics1,
-                         out = dp_triangulated_dpstate[ipt, :, istate_i1:istate_i1+Nintrinsics])
-
-            if istate_e1 is not None:
-                # dp_triangulated_dr_0ref = dp_triangulated_dv1  dv1_dr01 dr01_dr_0ref +
-                #                           dp_triangulated_dt01          dt01_dr_0ref
-                # dp_triangulated_dr_1ref = dp_triangulated_dv1  dv1_dr01 dr01_dr_1ref +
-                #                           dp_triangulated_dt01          dt01_dr_1ref
-                # dp_triangulated_dt_0ref = dp_triangulated_dt01          dt01_dt_0ref
-                # dp_triangulated_dt_1ref = dp_triangulated_dt01          dt01_dt_1ref
-                dr01_dr_ref1    = drt01_drt_ref1[:3,:3]
-                dr_ref1_dr_1ref = drt_ref1_drt_1ref[:3,:3]
-                dr01_dr_1ref    = nps.matmult(dr01_dr_ref1, dr_ref1_dr_1ref)
-
-                dt01_drt_ref1 = drt01_drt_ref1[3:,:]
-                dt01_dr_1ref  = nps.matmult(dt01_drt_ref1, drt_ref1_drt_1ref[:,:3])
-                dt01_dt_1ref  = nps.matmult(dt01_drt_ref1, drt_ref1_drt_1ref[:,3:])
-
-                nps.matmult( dp_triangulated_dv1,
-                             dv1_dr01,
-                             dr01_dr_1ref,
-                             out = dp_triangulated_dpstate[ipt, :, istate_e1:istate_e1+3])
-                dp_triangulated_dpstate[ipt, :, istate_e1:istate_e1+3] += \
-                    nps.matmult(dp_triangulated_dt01, dt01_dr_1ref)
-
-                nps.matmult( dp_triangulated_dt01,
-                             dt01_dt_1ref,
-                             out = dp_triangulated_dpstate[ipt, :, istate_e1+3:istate_e1+6])
-
-            if istate_e0 is not None:
-                dr01_dr_0ref = drt01_drt_0ref[:3,:3]
-                dt01_dr_0ref = drt01_drt_0ref[3:,:3]
-                dt01_dt_0ref = drt01_drt_0ref[3:,3:]
-
-                nps.matmult( dp_triangulated_dv1,
-                             dv1_dr01,
-                             dr01_dr_0ref,
-                             out = dp_triangulated_dpstate[ipt, :, istate_e0:istate_e0+3])
-                dp_triangulated_dpstate[ipt, :, istate_e0:istate_e0+3] += \
-                    nps.matmult(dp_triangulated_dt01, dt01_dr_0ref)
-
-                nps.matmult( dp_triangulated_dt01,
-                             dt01_dt_0ref,
-                             out = dp_triangulated_dpstate[ipt, :, istate_e0+3:istate_e0+6])
-
-                if dp_triangulated_drt_0ref is not None:
-                    dp_triangulated_dpstate[ipt, :, istate_e0:istate_e0+6] += dp_triangulated_drt_0ref
-
-            if istate_f0 is not None and \
-               dp_triangulated_drtrf is not None:
-                # dp_triangulated_drtrf has shape (Npoints,Nframes,3,6). I reshape to (Npoints,3,Nframes*6)
-                dp_triangulated_dpstate[ipt, :, istate_f0:istate_f0+Nstate_frames] = \
-                    nps.clump(nps.xchg(dp_triangulated_drtrf,-2,-3), n=-2)
-
-
+    Var_p, \
+    dp_triangulated_dpstate = \
+        _compute_dp_triangulated_dpstate(Npoints, slices,
+                                         optimization_inputs,
+                                         rt_ref_frame,
+                                         istate_f0, Nstate_frames,
+                                         Var_q_triangulation_flat,
+                                         triangulation_function = triangulation_function,
+                                         stabilize_coords       = stabilize_coords)[:2]
 
     # Done looping through all the triangulated points. I have computed the
     # observation-time noise contributions in Var_p. And I have all the
