@@ -1435,8 +1435,7 @@ separately for the benefit of the test
     return nps.clump(dp_triangulated_dq, n=-2)
 
 
-def _triangulation_uncertainty_internal(Npoints,
-                                        slices,
+def _triangulation_uncertainty_internal(slices,
                                         optimization_inputs,
                                         rt_ref_frame,
                                         istate_f0, Nstate_frames,
@@ -1609,6 +1608,7 @@ separately for the benefit of the test
 
 
 
+    Npoints = len(slices)
 
     if optimization_inputs is not None:
 
@@ -1812,8 +1812,6 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
 
     slices = list( nps.broadcast_generate( ((2,), (2,2)),
                                            (models, q) ) )
-    Npoints = len(slices)
-
 
     if pixel_uncertainty_stdev_calibration > 0:
         # we're trying to propagate calibration-time noise
@@ -1857,7 +1855,7 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
 
     Var_p, \
     dp_triangulated_dpstate = \
-        _triangulation_uncertainty_internal(Npoints, slices,
+        _triangulation_uncertainty_internal(slices,
                                             optimization_inputs,
                                             rt_ref_frame,
                                             istate_f0, Nstate_frames,

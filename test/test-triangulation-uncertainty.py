@@ -474,7 +474,7 @@ icam_extrinsics0,        \
 icam_extrinsics1,        \
 istate_e1,               \
 istate_e0 =              \
-    mrcal.model_analysis._triangulation_uncertainty_internal(2, slices,
+    mrcal.model_analysis._triangulation_uncertainty_internal(slices,
                                                              optimization_inputs_baseline,
                                                              rt_ref_frame,
                                                              istate_f0, Nstate_frames,
