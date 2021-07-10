@@ -39,7 +39,7 @@ def parse_args():
                         camera sees every corner of every chessboard pose''')
     parser.add_argument('--Nsamples',
                         type=int,
-                        default=200,
+                        default=500,
                         help='''How many random samples to evaluate''')
     parser.add_argument('--Ncameras',
                         type    = int,
