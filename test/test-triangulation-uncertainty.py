@@ -960,30 +960,3 @@ if args.explore:
     import gnuplotlib as gp
     import IPython
     IPython.embed()
-
-
-
-
-r'''
-extend to work with non-ref camera
-
-fixedframes?
-
-triangulate_grad() should return less stuff. It can do more internally. It should
-return ONLY dp_triangulated_d... gradients
-
-What kind of nice API do I want for this? How much can I reuse the existing
-uncertainty code? Can/should I have a separate rotation-only/at-infinity path?
-Should finalize the API after I implement the deltapose-propagated uncertainty
-
-Gnuplot: ellipses should move correctly when pressing "7"
-
-
-tests:
-
-look at distribution due to
-
-- intrinsics/extrinsics and/or pixel observations
-
-- look at mean, variance
-'''
