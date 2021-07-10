@@ -1357,7 +1357,7 @@ A tuple
     return difflen, diff, q0, implied_Rt10
 
 
-def _compute_Var_q_triangulation(sigma, var_cross_camera_correlation):
+def _compute_Var_q_triangulation(sigma, stdev_cross_camera_correlation):
     r'''Compute triangulation variance due to observation noise
 
 This is an internal piece of mrcal.triangulation_uncertainty(). It's available
@@ -1373,13 +1373,16 @@ separately for the benefit of the test
     var_q_reshaped = var_q.reshape( Ncameras, Nxy,
                                     Ncameras, Nxy )
 
+    sigma_cross = sigma*stdev_cross_camera_correlation
+    var_cross   = sigma_cross*sigma_cross
+
     # cam0-cam1 correlations
-    var_q_reshaped[0,0, 1,0] = sigma*sigma*var_cross_camera_correlation
-    var_q_reshaped[0,1, 1,1] = sigma*sigma*var_cross_camera_correlation
+    var_q_reshaped[0,0, 1,0] = var_cross
+    var_q_reshaped[0,1, 1,1] = var_cross
 
     # cam1-cam0 correlations
-    var_q_reshaped[1,0, 0,0] = sigma*sigma*var_cross_camera_correlation
-    var_q_reshaped[1,1, 0,1] = sigma*sigma*var_cross_camera_correlation
+    var_q_reshaped[1,0, 0,0] = var_cross
+    var_q_reshaped[1,1, 0,1] = var_cross
 
     return var_q
 
@@ -1772,10 +1775,10 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
                                models,
                                # (..., 2,2), dtype=float
                                q,
-                               pixel_uncertainty_stdev_calibration         = 0,
-                               pixel_uncertainty_stdev_triangulation       = 0,
-                               pixel_uncertainty_triangulation_correlation = 0,
-                               triangulation_function = mrcal.triangulation.triangulate_leecivera_mid2,
+                               q_calibration_stdev             = 0,
+                               q_observation_stdev             = 0,
+                               q_observation_stdev_correlation = 0,
+                               triangulation_function    = mrcal.triangulation.triangulate_leecivera_mid2,
                                stabilize_coords = True ):
 
     # I'm propagating noise in the input vector
@@ -1797,14 +1800,14 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
     #   Var(f) = df/dq_cal  Var(q_cal)  (df/dq_cal)T  +
     #            df/dq_obs0 Var(q_obs0) (df/dq_obs0)T +
     #            df/dq_obs1 Var(q_obs1) (df/dq_obs1)T + ...
-    if pixel_uncertainty_stdev_calibration < 0:
-        raise Exception("pixel_uncertainty_stdev_calibration MUST be >= 0")
-    if pixel_uncertainty_stdev_triangulation < 0:
-        raise Exception("pixel_uncertainty_stdev_triangulation MUST be >= 0")
+    if q_calibration_stdev < 0:
+        raise Exception("q_calibration_stdev MUST be >= 0")
+    if q_observation_stdev < 0:
+        raise Exception("q_observation_stdev MUST be >= 0")
 
-    if pixel_uncertainty_stdev_calibration   == 0 and \
-       pixel_uncertainty_stdev_triangulation == 0:
-        raise Exception("At least one of (pixel_uncertainty_stdev_calibration,pixel_uncertainty_stdev_triangulation) should be > 0. We should be propagating SOME source of noise")
+    if q_calibration_stdev == 0 and \
+       q_observation_stdev == 0:
+        raise Exception("At least one of (q_calibration_stdev,q_observation_stdev) should be > 0. We should be propagating SOME source of noise")
 
     if not isinstance(models, np.ndarray):
         models = np.array(models, dtype=object)
@@ -1813,7 +1816,7 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
     slices = list( nps.broadcast_generate( ((2,), (2,2)),
                                            (models, q) ) )
 
-    if pixel_uncertainty_stdev_calibration > 0:
+    if q_calibration_stdev > 0:
         # we're trying to propagate calibration-time noise
 
         models_flat = models.ravel()
@@ -1845,11 +1848,11 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
         Nstate_frames       = None
 
 
-    if pixel_uncertainty_stdev_triangulation > 0:
+    if q_observation_stdev > 0:
         # shape (4,4). Each dim is (Ncameras*Nxy)
         Var_q_triangulation_flat = \
-            _compute_Var_q_triangulation(pixel_uncertainty_stdev_triangulation,
-                                         pixel_uncertainty_triangulation_correlation)
+            _compute_Var_q_triangulation(q_observation_stdev,
+                                         q_observation_stdev_correlation)
     else:
         Var_q_triangulation_flat = None
 
@@ -1867,7 +1870,7 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
     # observation-time noise contributions in Var_p. And I have all the
     # gradients in dp_triangulated_dpstate
 
-    if pixel_uncertainty_stdev_calibration > 0:
+    if q_calibration_stdev > 0:
         # pack the denominator by unpacking the numerator
         mrcal.unpack_state(dp_triangulated_dpstate, **optimization_inputs)
 
@@ -1884,7 +1887,7 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
             _propagate_calibration_uncertainty(dp_triangulated_dpstate,
                                                factorization, Jpacked,
                                                Nmeasurements_observations,
-                                               pixel_uncertainty_stdev_calibration,
+                                               q_calibration_stdev,
                                                what = 'covariance')
 
     return Var_p

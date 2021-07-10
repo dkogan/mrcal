@@ -70,27 +70,28 @@ def parse_args():
                         action = 'store_true',
                         help='''If given, the calibration data in the left half of the imager is thrown
                         out''')
-    parser.add_argument('--pixel-uncertainty-stdev-calibration',
+    parser.add_argument('--q-calibration-stdev',
                         type    = float,
                         default = 0.5,
                         help='''The observed_pixel_uncertainty of the chessboard observations at calibration
                         time''')
-    parser.add_argument('--pixel-uncertainty-stdev-triangulation',
+    parser.add_argument('--q-observation-stdev',
                         type    = float,
                         default = 0.5,
                         help='''The observed_pixel_uncertainty of the point observations at triangulation
                         time''')
-    parser.add_argument('--pixel-uncertainty-triangulation-correlation',
+    parser.add_argument('--q-observation-stdev-correlation',
                         type    = float,
                         default = 0.0,
-                        help='''By default, the noise in the observation-time pixel observations is assumed
-                        independent. This isn't entirely realistic: observations
-                        of the same feature in multiple cameras originate from
-                        an imager correlation operation, so they will have some
-                        amount of correlation. If given, this argument specifies
-                        how much correlation. This is a value in [0,1] scaling
-                        the variance. 0 means "independent" (the default). 1.0
-                        means "100% correlated".''')
+                        help='''By default, the noise in the observation-time
+                        pixel observations is assumed independent. This isn't
+                        entirely realistic: observations of the same feature in
+                        multiple cameras originate from an imager correlation
+                        operation, so they will have some amount of correlation.
+                        If given, this argument specifies how much correlation.
+                        This is a value in [0,1] scaling the stdev. 0 means
+                        "independent" (the default). 1.0 means "100%
+                        correlated".''')
     parser.add_argument('--baseline',
                         type    = float,
                         default = 2.,
@@ -371,7 +372,7 @@ if args.cache is None or args.cache == 'write':
                              args.Ncameras,
                              args.Nframes,
                              None,
-                             args.pixel_uncertainty_stdev_calibration,
+                             args.q_calibration_stdev,
                              object_width_n,
                              object_height_n,
                              object_spacing,
@@ -605,29 +606,29 @@ testutils.confirm_equal(dp_triangulated_dq,
                         msg = "Gradient check: dp_triangulated_dq")
 
 Var_p0p1_calibration = \
-    mrcal.triangulation_uncertainty( # shape (..., 2), dtype=obj
+    mrcal.triangulation_uncertainty( # shape (..., 2), dtype = obj
                                (models_baseline[icam0],models_baseline[icam1]),
-                               # (..., 2,2), dtype=float
+                               # (..., 2,2), dtype = float
                                q_true,
-                               pixel_uncertainty_stdev_calibration   = args.pixel_uncertainty_stdev_calibration,
-                               stabilize_coords                      = args.stabilize_coords )
+                               q_calibration_stdev = args.q_calibration_stdev,
+                               stabilize_coords    = args.stabilize_coords )
 Var_p0p1_observations = \
-    mrcal.triangulation_uncertainty( # shape (..., 2), dtype=obj
+    mrcal.triangulation_uncertainty( # shape (..., 2), dtype = obj
                                (models_baseline[icam0],models_baseline[icam1]),
-                               # (..., 2,2), dtype=float
+                               # (..., 2,2), dtype = float
                                q_true,
-                               pixel_uncertainty_stdev_triangulation       = args.pixel_uncertainty_stdev_triangulation,
-                               pixel_uncertainty_triangulation_correlation = args.pixel_uncertainty_triangulation_correlation,
-                               stabilize_coords                            = args.stabilize_coords )
+                               q_observation_stdev             = args.q_observation_stdev,
+                               q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                               stabilize_coords                = args.stabilize_coords )
 Var_p0p1_joint = \
-    mrcal.triangulation_uncertainty( # shape (..., 2), dtype=obj
+    mrcal.triangulation_uncertainty( # shape (..., 2), dtype = obj
                                (models_baseline[icam0],models_baseline[icam1]),
-                               # (..., 2,2), dtype=float
+                               # (..., 2,2), dtype = float
                                q_true,
-                               pixel_uncertainty_stdev_calibration         = args.pixel_uncertainty_stdev_calibration,
-                               pixel_uncertainty_stdev_triangulation       = args.pixel_uncertainty_stdev_triangulation,
-                               pixel_uncertainty_triangulation_correlation = args.pixel_uncertainty_triangulation_correlation,
-                               stabilize_coords                            = args.stabilize_coords )
+                               q_calibration_stdev             = args.q_calibration_stdev,
+                               q_observation_stdev             = args.q_observation_stdev,
+                               q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                               stabilize_coords                = args.stabilize_coords )
 
 testutils.confirm_equal(Var_p0p1_joint,
                         Var_p0p1_calibration + Var_p0p1_observations,
@@ -655,7 +656,7 @@ if not did_sample:
                               Nintrinsics,
                               optimization_inputs_baseline,
                               observations_true,
-                              args.pixel_uncertainty_stdev_calibration,
+                              args.q_calibration_stdev,
                               fixedframes)
 
     if args.cache is not None and args.cache == 'write':
@@ -684,8 +685,8 @@ if not did_sample:
 # against the var(distancep) prediction I just computed
 # shape (Nsamples,Npoints,2,2)
 var_qt_onepoint = \
-    mrcal.model_analysis._compute_Var_q_triangulation(args.pixel_uncertainty_stdev_triangulation,
-                                                      args.pixel_uncertainty_triangulation_correlation)
+    mrcal.model_analysis._compute_Var_q_triangulation(args.q_observation_stdev,
+                                                      args.q_observation_stdev_correlation)
 var_qt = np.zeros((Npoints*2*2, Npoints*2*2), dtype=float)
 for i in range(Npoints):
     var_qt[4*i:4*(i+1), 4*i:4*(i+1)] = var_qt_onepoint
