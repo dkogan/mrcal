@@ -14,8 +14,6 @@ import argparse
 import re
 import os
 
-cache_file = "/tmp/test-triangulation-uncertainty.pickle"
-
 def parse_args():
 
     parser = \
@@ -110,13 +108,14 @@ def parse_args():
     parser.add_argument('--cache',
                         type=str,
                         choices=('read','write'),
-                        help=f'''A cache file stores the recalibration results; computing these can take a
-                        long time. This option allows us to or write the cache
-                        instead of sampling. The cache file is hardcoded to
-                        {cache_file}. By default, we do neither: we don't read
-                        the cache (we sample instead), and we do not write it to
-                        disk when we're done. This option is useful for tests
-                        where we reprocess the same scenario repeatedly''')
+                        help=f'''A cache file stores the recalibration results;
+                        computing these can take a long time. This option allows
+                        us to or write the cache instead of sampling. The cache
+                        file is hardcoded to a cache file (in /tmp). By default,
+                        we do neither: we don't read the cache (we sample
+                        instead), and we do not write it to disk when we're
+                        done. This option is useful for tests where we reprocess
+                        the same scenario repeatedly''')
     parser.add_argument('--make-documentation-plots',
                         type=str,
                         help='''If given, we produce plots for the documentation. Takes one argument: a
@@ -357,6 +356,9 @@ def _triangulate(# shape (Nintrinsics,)
 
 
 ################# Sampling
+cache_id = f"{args.fixed}-{args.model}-{args.Nframes}-{args.Nsamples}-{args.Ncameras}-{args.cameras[0]}-{args.cameras[1]}-{1 if args.stabilize_coords else 0}"
+cache_file = f"/tmp/test-triangulation-uncertainty--{cache_id}.pickle"
+
 if args.cache is None or args.cache == 'write':
     optimization_inputs_baseline,                          \
     models_true, models_baseline,                          \
@@ -674,6 +676,7 @@ if not did_sample:
                          frames_sampled,
                          calobject_warp_sampled),
                         f)
+        print(f"Wrote cache to {cache_file}")
 
 
 
