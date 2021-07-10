@@ -479,7 +479,7 @@ istate_e0 =              \
                                                              optimization_inputs_baseline,
                                                              rt_ref_frame,
                                                              istate_f0, Nstate_frames,
-                                                             None,
+                                                             0,0,
                                                              stabilize_coords = args.stabilize_coords)
 
 ########## Gradient check

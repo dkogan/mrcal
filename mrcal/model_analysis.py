@@ -1442,8 +1442,8 @@ def _triangulation_uncertainty_internal(slices,
                                         optimization_inputs,
                                         rt_ref_frame,
                                         istate_f0, Nstate_frames,
-                                        # shape (4,4). Each dim is (Ncameras*Nxy)
-                                        Var_q_triangulation_flat,
+                                        q_observation_stdev,
+                                        q_observation_stdev_correlation,
                                         triangulation_function = mrcal.triangulation.triangulate_leecivera_mid2,
                                         do_propagate_noise_calibration   = True,
                                         stabilize_coords                 = True):
@@ -1630,8 +1630,17 @@ separately for the benefit of the test
         istate_e1               = None
         istate_e0               = None
 
-    # Output goes here
+    # Output goes here. This function fills in the observation-time stuff.
+    # Otherwise this function just returns the array of 0s, which the callers
+    # will fill using the dp_triangulated_dpstate data this function returns
     Var_p = np.zeros((3*Npoints,3*Npoints), dtype=float)
+
+    if q_observation_stdev > 0:
+        # observation-time variance of each observed pair of points
+        # shape (Ncameras*Nxy, Ncameras*Nxy) = (4,4)
+        Var_q_observation_flat = \
+            _compute_Var_q_triangulation(q_observation_stdev,
+                                         q_observation_stdev_correlation)
 
     for ipt in range(Npoints):
         models01,q = slices[ipt]
@@ -1657,10 +1666,10 @@ separately for the benefit of the test
                 triangulate_grad(models01, q, triangulation_function)
 
         # triangulation-time uncertainty
-        if Var_q_triangulation_flat is not None:
+        if q_observation_stdev > 0:
             Var_p[3*ipt:3*ipt+3, 3*ipt:3*ipt+3] = \
                 nps.matmult( dp_triangulated_dq,
-                             Var_q_triangulation_flat,
+                             Var_q_observation_flat,
                              nps.transpose(dp_triangulated_dq) )
 
 
@@ -1761,6 +1770,7 @@ separately for the benefit of the test
             dp_triangulated_dpstate[ipt, :, istate_f0:istate_f0+Nstate_frames] = \
                 nps.clump(nps.xchg(dp_triangulated_drtrf,-2,-3), n=-2)
 
+    # returning the istate stuff for the test suite
     return Var_p, dp_triangulated_dpstate, \
         istate_i0,                         \
         istate_i1,                         \
@@ -1848,21 +1858,14 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
         Nstate_frames       = None
 
 
-    if q_observation_stdev > 0:
-        # shape (4,4). Each dim is (Ncameras*Nxy)
-        Var_q_triangulation_flat = \
-            _compute_Var_q_triangulation(q_observation_stdev,
-                                         q_observation_stdev_correlation)
-    else:
-        Var_q_triangulation_flat = None
-
     Var_p, \
     dp_triangulated_dpstate = \
         _triangulation_uncertainty_internal(slices,
                                             optimization_inputs,
                                             rt_ref_frame,
                                             istate_f0, Nstate_frames,
-                                            Var_q_triangulation_flat,
+                                            q_observation_stdev,
+                                            q_observation_stdev_correlation,
                                             triangulation_function = triangulation_function,
                                             stabilize_coords       = stabilize_coords)[:2]
 
