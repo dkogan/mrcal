@@ -1358,6 +1358,12 @@ A tuple
 
 
 def _compute_Var_q_triangulation(sigma, var_cross_camera_correlation):
+    r'''Compute triangulation variance due to observation noise
+
+This is an internal piece of mrcal.triangulation_uncertainty(). It's available
+separately for the benefit of the test
+
+    '''
 
     # For each triangulation we ingest one pixel observation per camera.
     # This is 4 numbers: 2 cameras, with (x,y) for each one
@@ -1377,8 +1383,15 @@ def _compute_Var_q_triangulation(sigma, var_cross_camera_correlation):
 
     return var_q
 
+
 def _triangulate_grad_simple(models, q,
                              triangulation_function = mrcal.triangulation.triangulate_leecivera_mid2):
+    r'''Compute a single triangulation, reporting a single gradient
+
+This is an internal piece of mrcal.triangulation_uncertainty(). It's available
+separately for the benefit of the test
+
+    '''
 
     # Simplified path. We don't need most of the gradients
 
@@ -1432,6 +1445,12 @@ def _triangulation_uncertainty_internal(Npoints,
                                         triangulation_function = mrcal.triangulation.triangulate_leecivera_mid2,
                                         do_propagate_noise_calibration   = True,
                                         stabilize_coords                 = True):
+    r'''Compute most of the triangulation uncertainty logic
+
+This is an internal piece of mrcal.triangulation_uncertainty(). It's available
+separately for the benefit of the test
+
+    '''
 
     def triangulate_grad(models, q, triangulation_function):
 
