@@ -242,12 +242,12 @@ def confirm_covariances_equal(var, var_ref,
 
     eccentricity_predicted = l_predicted[-1] / l_predicted[-2]
 
-    confirm_equal(l_observed,
-                  l_predicted,
+    confirm_equal(l_observed[-1],
+                  l_predicted[-1],
                   eps = eps_eigenvalues,
                   worstcase = True,
                   relative  = True,
-                  msg = f"Var(dq) eigenvalues match for {what}")
+                  msg = f"Var(dq) worst eigenvalue match for {what}")
 
     # I only check the eigenvector directions if the ellipse is sufficiently
     # non-circular. A circular ellipse has poorly-defined eigenvector directions
