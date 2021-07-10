@@ -474,12 +474,12 @@ icam_extrinsics0,        \
 icam_extrinsics1,        \
 istate_e1,               \
 istate_e0 =              \
-    mrcal.model_analysis._compute_dp_triangulated_dpstate(2, slices,
-                                                          optimization_inputs_baseline,
-                                                          rt_ref_frame,
-                                                          istate_f0, Nstate_frames,
-                                                          None,
-                                                          stabilize_coords = args.stabilize_coords)
+    mrcal.model_analysis._triangulation_uncertainty_internal(2, slices,
+                                                             optimization_inputs_baseline,
+                                                             rt_ref_frame,
+                                                             istate_f0, Nstate_frames,
+                                                             None,
+                                                             stabilize_coords = args.stabilize_coords)
 
 ########## Gradient check
 dp_triangulated_di0_empirical = grad(lambda i0: triangulate_nograd(i0, models_baseline[icam1].intrinsics()[1],

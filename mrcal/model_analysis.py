@@ -1422,16 +1422,16 @@ def _triangulate_grad_simple(models, q,
     return nps.clump(dp_triangulated_dq, n=-2)
 
 
-def _compute_dp_triangulated_dpstate(Npoints,
-                                     slices,
-                                     optimization_inputs,
-                                     rt_ref_frame,
-                                     istate_f0, Nstate_frames,
-                                     # shape (4,4). Each dim is (Ncameras*Nxy)
-                                     Var_q_triangulation_flat,
-                                     triangulation_function = mrcal.triangulation.triangulate_leecivera_mid2,
-                                     do_propagate_noise_calibration   = True,
-                                     stabilize_coords                 = True):
+def _triangulation_uncertainty_internal(Npoints,
+                                        slices,
+                                        optimization_inputs,
+                                        rt_ref_frame,
+                                        istate_f0, Nstate_frames,
+                                        # shape (4,4). Each dim is (Ncameras*Nxy)
+                                        Var_q_triangulation_flat,
+                                        triangulation_function = mrcal.triangulation.triangulate_leecivera_mid2,
+                                        do_propagate_noise_calibration   = True,
+                                        stabilize_coords                 = True):
 
     def triangulate_grad(models, q, triangulation_function):
 
@@ -1838,13 +1838,13 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
 
     Var_p, \
     dp_triangulated_dpstate = \
-        _compute_dp_triangulated_dpstate(Npoints, slices,
-                                         optimization_inputs,
-                                         rt_ref_frame,
-                                         istate_f0, Nstate_frames,
-                                         Var_q_triangulation_flat,
-                                         triangulation_function = triangulation_function,
-                                         stabilize_coords       = stabilize_coords)[:2]
+        _triangulation_uncertainty_internal(Npoints, slices,
+                                            optimization_inputs,
+                                            rt_ref_frame,
+                                            istate_f0, Nstate_frames,
+                                            Var_q_triangulation_flat,
+                                            triangulation_function = triangulation_function,
+                                            stabilize_coords       = stabilize_coords)[:2]
 
     # Done looping through all the triangulated points. I have computed the
     # observation-time noise contributions in Var_p. And I have all the
