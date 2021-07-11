@@ -66,4 +66,5 @@ ARGUMENTS
 RETURNED VALUE
 
 The integer reporting the location in the state vector where the contiguous
-block of variables for the calibration object warping begins
+block of variables for the calibration object warping begins. If we're not
+optimizing the calibration object shape, returns None

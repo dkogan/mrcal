@@ -74,4 +74,5 @@ ARGUMENTS
 RETURNED VALUE
 
 The integer reporting the location in the state vector where the contiguous
-block of extrinsics for camera icam_extrinsics begins
+block of extrinsics for camera icam_extrinsics begins. If we're not optimizing
+the extrinsics, or we're asking for an out-of-bounds camera, returns None

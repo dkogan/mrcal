@@ -1740,10 +1740,14 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
                    calibration_object_height_n,
                    &mrcal_lensmodel,
                    problem_selections);
-    if(index < 0)
-        goto done;
 
-    result = Py_BuildValue("i", index);
+    if(index >= 0)
+        result = Py_BuildValue("i", index);
+    else
+    {
+        result = Py_None;
+        Py_INCREF(result);
+    }
 
  done:
 #pragma GCC diagnostic push
@@ -1768,25 +1772,6 @@ static int callback_state_index_intrinsics(int i,
                                            const mrcal_lensmodel_t* lensmodel,
                                            mrcal_problem_selections_t problem_selections)
 {
-    if(Ncameras_intrinsics == 0 ||
-       (!problem_selections.do_optimize_intrinsics_core &&
-        !problem_selections.do_optimize_intrinsics_distortions) )
-    {
-        BARF("No intrinsics are being optimized, so no state index can be returned");
-        return -1;
-    }
-    if( i < 0 )
-    {
-        BARF( "icam_intrinsics must be given, and must refer to a valid camera: must have icam_intrinsics>=0. Instead got %d",
-              i);
-        return -1;
-    }
-    if( i >= Ncameras_intrinsics)
-    {
-        BARF( "icam_intrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
-              Ncameras_intrinsics-1,i);
-        return -1;
-    }
     return mrcal_state_index_intrinsics(i,
                                         Ncameras_intrinsics, Ncameras_extrinsics,
                                         Nframes,
@@ -1837,24 +1822,6 @@ static int callback_state_index_extrinsics(int i,
                                            const mrcal_lensmodel_t* lensmodel,
                                            mrcal_problem_selections_t problem_selections)
 {
-    if(Ncameras_extrinsics == 0 ||
-       !problem_selections.do_optimize_extrinsics )
-    {
-        BARF("No extrinsics are being optimized, so no state index can be returned");
-        return -1;
-    }
-    if( i < 0 )
-    {
-        BARF( "icam_extrinsics must be given, and must refer to a valid camera: must have icam_extrinsics>=0. Instead got %d",
-              i);
-        return -1;
-    }
-    if( i >= Ncameras_extrinsics)
-    {
-        BARF( "icam_extrinsics must refer to a valid camera, i.e. be in the range [0,%d] inclusive. Instead I got %d",
-              Ncameras_extrinsics-1,i);
-        return -1;
-    }
     return
         mrcal_state_index_extrinsics(i,
                                      Ncameras_intrinsics, Ncameras_extrinsics,
@@ -1906,24 +1873,6 @@ static int callback_state_index_frames(int i,
                                        const mrcal_lensmodel_t* lensmodel,
                                        mrcal_problem_selections_t problem_selections)
 {
-    if(Nframes == 0 ||
-       !problem_selections.do_optimize_frames )
-    {
-        BARF("No frames are being optimized, so no state index can be returned");
-        return -1;
-    }
-    if( i < 0 )
-    {
-        BARF( "iframe must be given, and must refer to a valid frame: must have iframe>=0. Instead got %d",
-              i);
-        return -1;
-    }
-    if( i >= Nframes)
-    {
-        BARF( "iframe must refer to a valid frame, i.e. be in the range [0,%d] inclusive. Instead I got %d",
-              Nframes-1,i);
-        return -1;
-    }
     return
         mrcal_state_index_frames(i,
                                  Ncameras_intrinsics, Ncameras_extrinsics,
@@ -1975,24 +1924,6 @@ static int callback_state_index_points(int i,
                                        const mrcal_lensmodel_t* lensmodel,
                                        mrcal_problem_selections_t problem_selections)
 {
-    if(Npoints - Npoints_fixed <= 0 ||
-       !problem_selections.do_optimize_frames )
-    {
-        BARF("No points are being optimized, so no state index can be returned");
-        return -1;
-    }
-    if( i < 0 )
-    {
-        BARF( "i_point must be given, and must refer to a valid point: must have i_point>=0. Instead got %d",
-              i);
-        return -1;
-    }
-    if( i >= Npoints-Npoints_fixed)
-    {
-        BARF( "i_point must refer to a valid point, i.e. be in the range [0,%d] inclusive. Instead I got %d",
-              Npoints-Npoints_fixed-1, i);
-        return -1;
-    }
     return
         mrcal_state_index_points(i,
                                  Ncameras_intrinsics, Ncameras_extrinsics,

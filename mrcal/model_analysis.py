@@ -975,10 +975,7 @@ else:                    we return an array of shape (...)
 
         slice_optimized_intrinsics  = slice(i0,i1)
 
-    try:
-        istate_frames = mrcal.state_index_frames(0, **optimization_inputs)
-    except:
-        istate_frames = None
+    istate_frames = mrcal.state_index_frames(0, **optimization_inputs)
 
     if icam_extrinsics < 0:
         extrinsics_rt_fromref = None

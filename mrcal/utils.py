@@ -961,15 +961,15 @@ A list of 'set' directives passable as plot options to gnuplotlib
     '''
     istate0 = []
 
-    try:    istate0.append(mrcal.state_index_intrinsics    (0, **optimization_inputs))
+    try:    istate0.append(int(mrcal.state_index_intrinsics    (0, **optimization_inputs)))
     except: pass
-    try:    istate0.append(mrcal.state_index_extrinsics    (0, **optimization_inputs))
+    try:    istate0.append(int(mrcal.state_index_extrinsics    (0, **optimization_inputs)))
     except: pass
-    try:    istate0.append(mrcal.state_index_frames        (0, **optimization_inputs))
+    try:    istate0.append(int(mrcal.state_index_frames        (0, **optimization_inputs)))
     except: pass
-    try:    istate0.append(mrcal.state_index_points        (0, **optimization_inputs))
+    try:    istate0.append(int(mrcal.state_index_points        (0, **optimization_inputs)))
     except: pass
-    try:    istate0.append(mrcal.state_index_calobject_warp(   **optimization_inputs))
+    try:    istate0.append(int(mrcal.state_index_calobject_warp(   **optimization_inputs)))
     except: pass
 
     return [f"arrow nohead from {x},graph 0 to {x},graph 1" for x in istate0]
@@ -1112,8 +1112,7 @@ None
     if do_optimize_intrinsics_core or \
        do_optimize_intrinsics_distortions:
 
-        try:    ivar0 = mrcal.state_index_intrinsics(0, **optimization_inputs)
-        except: ivar0 = None
+        ivar0 = mrcal.state_index_intrinsics(0, **optimization_inputs)
         if ivar0 is not None:
             iunpacked0,iunpacked1 = None,None # everything by default
 
@@ -1131,26 +1130,22 @@ None
                 p[ ivar0:Nvars_intrinsics ]
 
     if do_optimize_extrinsics:
-        try:    ivar0 = mrcal.state_index_extrinsics(0, **optimization_inputs)
-        except: ivar0 = None
+        ivar0 = mrcal.state_index_extrinsics(0, **optimization_inputs)
         if ivar0 is not None:
             extrinsics.ravel()[:] = p[ivar0:ivar0+Nvars_extrinsics]
 
     if do_optimize_frames:
-        try:    ivar0 = mrcal.state_index_frames(0, **optimization_inputs)
-        except: ivar0 = None
+        ivar0 = mrcal.state_index_frames(0, **optimization_inputs)
         if ivar0 is not None:
             frames.ravel()[:] = p[ivar0:ivar0+Nvars_frames]
 
     if do_optimize_frames:
-        try:    ivar0 = mrcal.state_index_points(0, **optimization_inputs)
-        except: ivar0 = None
+        ivar0 = mrcal.state_index_points(0, **optimization_inputs)
         if ivar0 is not None:
             points.ravel()[:-Npoints_fixed*3] = p[ivar0:ivar0+Nvars_points]
 
     if do_optimize_calobject_warp:
-        try:    ivar0 = mrcal.state_index_calobject_warp(**optimization_inputs)
-        except: ivar0 = None
+        ivar0 = mrcal.state_index_calobject_warp(**optimization_inputs)
         if ivar0 is not None:
             calobject_warp.ravel()[:] = p[ivar0:ivar0+Nvars_calobject_warp]
 

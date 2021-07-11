@@ -68,4 +68,5 @@ ARGUMENTS
 RETURNED VALUE
 
 The integer reporting the location in the state vector where the contiguous
-block of variables for point i_point begins
+block of variables for point i_point begins If we're not optimizing the points,
+or we're asking for an out-of-bounds point, returns None

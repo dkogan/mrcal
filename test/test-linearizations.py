@@ -257,9 +257,8 @@ dp_predicted = nps.matmult( dqref.ravel(), nps.transpose(M)).ravel()
 
 istate0_frames         = mrcal.state_index_frames (0, **baseline)
 istate0_calobject_warp = mrcal.state_index_calobject_warp(**baseline)
-try:
-    istate0_extrinsics = mrcal.state_index_extrinsics(0, **baseline)
-except:
+istate0_extrinsics = mrcal.state_index_extrinsics(0, **baseline)
+if istate0_extrinsics is None:
     istate0_extrinsics = istate0_frames
 
 slice_intrinsics = slice(0, istate0_extrinsics)
