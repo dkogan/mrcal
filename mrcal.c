@@ -3481,8 +3481,12 @@ int mrcal_state_index_intrinsics(int icam_intrinsics,
                                  mrcal_problem_selections_t problem_selections,
                                  const mrcal_lensmodel_t* lensmodel)
 {
+    if(Ncameras_intrinsics <= 0)
+        return -1;
     int Nintrinsics = mrcal_num_intrinsics_optimization_params(problem_selections, lensmodel);
     if(Nintrinsics <= 0)
+        return -1;
+    if(!(0 <= icam_intrinsics && icam_intrinsics < Ncameras_intrinsics))
         return -1;
     return icam_intrinsics * Nintrinsics;
 }
@@ -3503,7 +3507,11 @@ int mrcal_state_index_extrinsics(int icam_extrinsics,
                                  mrcal_problem_selections_t problem_selections,
                                  const mrcal_lensmodel_t* lensmodel)
 {
+    if(Ncameras_extrinsics <= 0)
+        return -1;
     if(!problem_selections.do_optimize_extrinsics)
+        return -1;
+    if(!(0 <= icam_extrinsics && icam_extrinsics < Ncameras_extrinsics))
         return -1;
 
     return
@@ -3526,7 +3534,11 @@ int mrcal_state_index_frames(int iframe,
                              mrcal_problem_selections_t problem_selections,
                              const mrcal_lensmodel_t* lensmodel)
 {
+    if(Nframes <= 0)
+        return -1;
     if(!problem_selections.do_optimize_frames)
+        return -1;
+    if(!(0 <= iframe && iframe < Nframes))
         return -1;
 
     return
@@ -3551,7 +3563,11 @@ int mrcal_state_index_points(int i_point,
                              mrcal_problem_selections_t problem_selections,
                              const mrcal_lensmodel_t* lensmodel)
 {
+    if(Npoints - Npoints_fixed <= 0)
+        return -1;
     if(!problem_selections.do_optimize_frames)
+        return -1;
+    if(!(0 <= i_point && i_point < Npoints - Npoints_fixed))
         return -1;
 
     return
