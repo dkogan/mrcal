@@ -274,6 +274,8 @@ And in Python:
 - [[file:mrcal-python-api-reference.html#-num_states_points][=mrcal.num_states_points()=]]: Get the number of point-position parameters in the optimization vector
 - [[file:mrcal-python-api-reference.html#-num_states_calobject_warp][=mrcal.num_states_calobject_warp()=]]: Get the number of parameters in the optimization vector for the board warp
 
+- [[file:mrcal-python-api-reference.html#-num_states][=mrcal.num_states()=]]: Get the full length of the optimization vector
+
 If plotting a whole vector of state (or a vector of measurements), it is really
 helpful to annotate the plot to make it clear which variables correspond to each
 block of state (or measurements). mrcal provides helper functions to help with
