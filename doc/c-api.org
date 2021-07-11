@@ -480,6 +480,7 @@ useful to know where specific quantities lie inside those vectors. Here we have
   - frames
   - points
   - calobject_warp
+  If we're not optimizing the THING, return <0
 
 - =int mrcal_num_states_THING()=: Returns the number of values in the contiguous
   block in the state vector $\vec p$ that describe the given THING. THING is any

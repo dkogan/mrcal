@@ -896,6 +896,7 @@ typedef struct
 //   - frames
 //   - points
 //   - calobject_warp
+//   If we're not optimizing the THING, return <0
 //
 // int mrcal_num_states_THING()
 //   Returns the number of values in the contiguous block in the state
