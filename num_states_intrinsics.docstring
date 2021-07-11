@@ -20,15 +20,19 @@ vector, but for later analysis, it is useful to know what's what. The
 mrcal.num_states_...() functions report how many variables in the optimization
 vector are taken up by each particular kind of measurement.
 
-THIS function reports how many variables are used to represent ALL the camera
-intrinsics. The intrinsics are stored contiguously. They consist of a 4-element
-"intrinsics core" (focallength-x, focallength-y, centerpixel-x, centerpixel-y)
-followed by a lensmodel-specific vector of "distortions". The number of
-intrinsics elements (including the core) for a particular lens model can be
-queried with mrcal.lensmodel_num_params(lensmodel). Note that
-do_optimize_intrinsics_core and do_optimize_intrinsics_distortions can be used
-to lock down one or both of those quantities, which would omit them from the
-optimization vector.
+THIS function reports how many optimization variables are used to represent ALL
+the camera intrinsics. The intrinsics are stored contiguously. They consist of a
+4-element "intrinsics core" (focallength-x, focallength-y, centerpixel-x,
+centerpixel-y) followed by a lensmodel-specific vector of "distortions". A
+similar function mrcal.num_intrinsics_optimization_params() is available to
+report the number of optimization variables used for just ONE camera. If all the
+intrinsics are being optimized, then the mrcal.lensmodel_num_params() returns
+the same value: the number of values needed to describe the intrinsics of a
+single camera. It is possible to lock down some of the intrinsics during
+optimization (by setting the do_optimize_intrinsics_... variables
+appropriately). These variables control what
+mrcal.num_intrinsics_optimization_params() and mrcal.num_states_intrinsics()
+return, but not mrcal.lensmodel_num_params().
 
 In order to determine the variable mapping, we need quite a bit of context. If
 we have the full set of inputs to the optimization function, we can pass in

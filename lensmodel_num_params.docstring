@@ -23,8 +23,10 @@ The full list can be obtained with mrcal.supported_lensmodels()
 
 Note that when optimizing a lens model, some lens parameters may be locked down,
 resulting in fewer parameters than this function returns. To retrieve the number
-of optimization parameters used to represent the intrinsics for ALL the cameras
-in an optimization, call mrcal.num_states_intrinsics()
+of parameters used to represent the intrinsics of a camera in an optimization,
+call mrcal.num_intrinsics_optimization_params(). Or to get the number of
+parameters used to represent the intrinsics of ALL the cameras in an
+optimization, call mrcal.num_states_intrinsics()
 
 ARGUMENTS
 
