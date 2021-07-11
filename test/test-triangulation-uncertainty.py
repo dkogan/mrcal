@@ -455,15 +455,6 @@ testutils.confirm_equal(p_triangulated0, p_triangulated_true0,
                         reldiff_eps = 0.2,
                         msg = "Re-optimized triangulation should be close to the reference. This checks the regularization bias")
 
-if optimization_inputs_baseline.get('do_optimize_frames'):
-    rt_ref_frame  = optimization_inputs_baseline['frames_rt_toref']
-    istate_f0     = mrcal.state_index_frames(0, **optimization_inputs_baseline)
-    Nstate_frames = mrcal.num_states_frames(    **optimization_inputs_baseline)
-else:
-    rt_ref_frame  = None
-    istate_f0     = None
-    Nstate_frames = None
-
 
 slices = ( ((models_baseline[icam0],models_baseline[icam1]), q_true[0]),
            ((models_baseline[icam0],models_baseline[icam1]), q_true[1]) )
@@ -477,8 +468,6 @@ istate_e1,               \
 istate_e0 =              \
     mrcal.model_analysis._triangulation_uncertainty_internal(slices,
                                                              optimization_inputs_baseline,
-                                                             rt_ref_frame,
-                                                             istate_f0, Nstate_frames,
                                                              0,0,
                                                              stabilize_coords = args.stabilize_coords)
 
@@ -570,7 +559,11 @@ if istate_e1 is not None:
                             worstcase = True,
                             eps = 5e-3,
                             msg = "Gradient check: dp_triangulated_dpstate[extrinsics1]")
-if istate_f0 is not None:
+
+
+if optimization_inputs_baseline.get('do_optimize_frames'):
+    istate_f0     = mrcal.state_index_frames(0, **optimization_inputs_baseline)
+    Nstate_frames = mrcal.num_states_frames(    **optimization_inputs_baseline)
     testutils.confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_frames],
                             nps.clump(dp_triangulated_drtrf_empirical, n=-2),
                             relative = True,

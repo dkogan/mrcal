@@ -1439,9 +1439,7 @@ separately for the benefit of the test
 
 
 def _triangulation_uncertainty_internal(slices,
-                                        optimization_inputs,
-                                        rt_ref_frame,
-                                        istate_f0, Nstate_frames,
+                                        optimization_inputs, # if None: we're not propagating calibration-time noise
                                         q_observation_stdev,
                                         q_observation_stdev_correlation,
                                         triangulation_function = mrcal.triangulation.triangulate_leecivera_mid2,
@@ -1510,7 +1508,7 @@ separately for the benefit of the test
             dp_triangulated_dt01
 
 
-    def stabilize(p_cam0_perturbed,
+    def stabilize(p_cam0,
                   rt_cam0_ref,
                   rt_ref_frame):
 
@@ -1558,6 +1556,9 @@ separately for the benefit of the test
         #
         #   dpoint_cam_baseline/dparam = dpoint_cam_perturbed/dparam
         #
+        # Thus there's nothing for this function to do to handle these indirect
+        # dependencies.
+        #
         # For the direct dependencies, we consider point_frames to be the
         # nominal representation of the point. So for the purpose of
         # computing gradients we don't look at the baseline parameter
@@ -1565,48 +1566,80 @@ separately for the benefit of the test
         #
         #   dpoint_cam_baseline/dparam =
         #     dpoint_cam_baseline/dpoint_frames
-        #     dpoint_frames/dparam
+        #     dpoint_frames/dparam =
+        #
+        # Simplifying notation:
+        #
+        #   dpc/dparam = dpc/dpf dpf/dparam
         #
         # Thus we have exactly two transformations whose parameters should
         # be propagated:
         #
-        # 1. rt_cam_ref    (perturbed)
-        # 2. rt_ref_frames (perturbed)
-        Nframes = len(rt_ref_frame)
+        # 1. rt_cam_ref
+        # 2. rt_ref_frames
+        #
+        # Propagating rt_cam_ref:
+        #
+        #   dpc/drt_cr = dpc/dpf dpf/drt_cr
+        #              = dpc/dpr dpr/dpf dpf/dpr dpr/drt_cr
+        #              = dpc/dpr dpr/drt_cr
+        #
+        # Propagating rt_ref_frames:
+        #
+        #   dpc/drt_rf = dpc/dpf dpf/drt_rf
+        #              = dpc/dpr dpr/dpf dpf/drt_rf
+
+        #
+        # If the frames are fixed, the same logic applies, with some
+        # simplifications. The cameras move in respect to the ref frame, but the
+        # frames are fixed in the ref frame. So the ref frame is the nominal
+        # representation
+        #
+        #   dpoint_cam_baseline/dparam =
+        #     dpoint_cam_baseline/dpoint_ref
+        #     dpoint_ref/dparam
 
         # triangulated point in the perturbed reference coordinate system
-        p_ref_perturbed,                     \
-        dp_ref_perturbed_drt_0ref,           \
-        dp_ref_perturbed_dp_cam0_perturbed = \
-            mrcal.transform_point_rt(rt_cam0_ref, p_cam0_perturbed,
+        p_ref,                     \
+        dp_ref_drt_0ref,           \
+        dp_ref_dp_cam0 = \
+            mrcal.transform_point_rt(rt_cam0_ref, p_cam0,
                                      get_gradients = True,
                                      inverted      = True)
-
-        # dp_frames_drtrf            has shape (..., Nframes, 3,6)
-        # dp_frames_dp_ref_perturbed has shape (..., Nframes, 3,3)
-        _,                           \
-        dp_frames_drtrf,             \
-        dp_frames_dp_ref_perturbed = \
-            mrcal.transform_point_rt(rt_ref_frame,
-                                     nps.dummy(p_ref_perturbed,-2),
-                                     get_gradients = True,
-                                     inverted      = True)
-
-        dp_frames_dp_cam0_perturbed = \
-            nps.matmult( dp_frames_dp_ref_perturbed,
-                         nps.dummy(dp_ref_perturbed_dp_cam0_perturbed, -3))
-
-        # shape (..., 3,6)
-        dp_triangulated_drtrf = np.linalg.solve(dp_frames_dp_cam0_perturbed,
-                                                dp_frames_drtrf) / Nframes
 
         dp_triangulated_drt_0ref = \
-            np.linalg.solve( dp_ref_perturbed_dp_cam0_perturbed,
-                             dp_ref_perturbed_drt_0ref)
+            np.linalg.solve( dp_ref_dp_cam0,
+                             dp_ref_drt_0ref)
+
+
+        if rt_ref_frames is not None:
+
+            # dp_frames_drtrf  has shape (..., Nframes, 3,6)
+            # dp_frames_dp_ref has shape (..., Nframes, 3,3)
+            _,                 \
+            dp_frames_drtrf,   \
+            dp_frames_dp_ref = \
+                mrcal.transform_point_rt(rt_ref_frame,
+                                         nps.dummy(p_ref,-2),
+                                         get_gradients = True,
+                                         inverted      = True)
+
+            dp_frames_dp_cam0 = \
+                nps.matmult( dp_frames_dp_ref,
+                             nps.dummy(dp_ref_dp_cam0, -3))
+
+            Nframes = len(rt_ref_frame)
+
+            # shape (..., 3,6)
+            dp_triangulated_drtrf = np.linalg.solve(dp_frames_dp_cam0,
+                                                    dp_frames_drtrf) / Nframes
+        else:
+            dp_triangulated_drtrf = None
 
         return \
             dp_triangulated_drtrf, \
             dp_triangulated_drt_0ref
+
 
 
 
@@ -1621,6 +1654,16 @@ separately for the benefit of the test
         # I store dp_triangulated_dpstate initially, without worrying about the "packed"
         # part. I'll scale the thing when done to pack it
         dp_triangulated_dpstate = np.zeros((Npoints,3,Nstate), dtype=float)
+
+        if optimization_inputs.get('do_optimize_frames'):
+            rt_ref_frame  = optimization_inputs['frames_rt_toref']
+            istate_f0     = mrcal.state_index_frames(0, **optimization_inputs)
+            Nstate_frames = mrcal.num_states_frames(    **optimization_inputs)
+        else:
+            rt_ref_frame  = None
+            istate_f0     = None
+            Nstate_frames = None
+
     else:
         dp_triangulated_dpstate = None
         istate_i0               = None
@@ -1671,7 +1714,6 @@ separately for the benefit of the test
                 nps.matmult( dp_triangulated_dq,
                              Var_q_observation_flat,
                              nps.transpose(dp_triangulated_dq) )
-
 
         if optimization_inputs is None:
             continue
@@ -1764,8 +1806,10 @@ separately for the benefit of the test
             if dp_triangulated_drt_0ref is not None:
                 dp_triangulated_dpstate[ipt, :, istate_e0:istate_e0+6] += dp_triangulated_drt_0ref
 
-        if istate_f0 is not None and \
-           dp_triangulated_drtrf is not None:
+        if dp_triangulated_drtrf is not None:
+            # We're re-optimizing (looking at calibration uncertainty) AND we
+            # have stabilization enabled
+
             # dp_triangulated_drtrf has shape (Npoints,Nframes,3,6). I reshape to (Npoints,3,Nframes*6)
             dp_triangulated_dpstate[ipt, :, istate_f0:istate_f0+Nstate_frames] = \
                 nps.clump(nps.xchg(dp_triangulated_drtrf,-2,-3), n=-2)
@@ -1778,7 +1822,6 @@ separately for the benefit of the test
         icam_extrinsics1,                  \
         istate_e1,                         \
         istate_e0
-
 
 
 def triangulation_uncertainty( # shape (..., 2), dtype=obj
@@ -1840,30 +1883,12 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
         if optimization_inputs is None:
             raise Exception("optimization_inputs are not available, so I cannot propagate calibration-time noise")
 
-        if optimization_inputs.get('do_optimize_frames'):
-            rt_ref_frame  = optimization_inputs['frames_rt_toref']
-            istate_f0     = mrcal.state_index_frames(0, **optimization_inputs)
-            Nstate_frames = mrcal.num_states_frames(    **optimization_inputs)
-        else:
-            rt_ref_frame  = None
-            istate_f0     = None
-            Nstate_frames = None
-
-        ppacked,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs)
-
-    else:
-        optimization_inputs = None
-        rt_ref_frame        = None
-        istate_f0           = None
-        Nstate_frames       = None
 
 
     Var_p, \
     dp_triangulated_dpstate = \
         _triangulation_uncertainty_internal(slices,
-                                            optimization_inputs,
-                                            rt_ref_frame,
-                                            istate_f0, Nstate_frames,
+                                            optimization_inputs if q_calibration_stdev>0 else None,
                                             q_observation_stdev,
                                             q_observation_stdev_correlation,
                                             triangulation_function = triangulation_function,
@@ -1885,6 +1910,8 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
         if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs):
             # Note the special-case where I'm using all the observations
             Nmeasurements_observations = None
+
+        ppacked,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs)
 
         Var_p += \
             _propagate_calibration_uncertainty(dp_triangulated_dpstate,
