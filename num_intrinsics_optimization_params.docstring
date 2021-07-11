@@ -1,0 +1,63 @@
+Get the number of optimization parameters for a single camera's intrinsics
+
+SYNOPSIS
+
+    m = mrcal.cameramodel('xxx.cameramodel')
+
+    f( m.optimization_inputs() )
+
+
+    ...
+
+    def f(optimization_inputs):
+        Nstates  = mrcal.num_intrinsics_optimization_params(**optimization_inputs)
+        ...
+
+
+Return the number of parameters used in the optimization of the intrinsics of a
+camera.
+
+The optimization algorithm sees its world described in one, big vector of state.
+The optimizer doesn't know or care about the meaning of each element of this
+vector, but for later analysis, it is useful to know what's what.
+
+This function reports how many optimization parameters are used to represent the
+intrinsics of a single camera. This is very similar to
+mrcal.lensmodel_num_params(), except THIS function takes into account the
+do_optimize_intrinsics_... variables used to lock down some parts of the
+intrinsics vector. Similarly, we have mrcal.num_states_intrinsics(), which takes
+into account the optimization details also, but reports the number of variables
+needed to describe ALL the cameras instead of just one.
+
+In order to determine the variable mapping, we need quite a bit of context. If
+we have the full set of inputs to the optimization function, we can pass in
+those (as shown in the example above). Or we can pass the individual arguments
+that are needed (see ARGUMENTS section for the full list). If the optimization
+inputs and explicitly-given arguments conflict about the size of some array, the
+explicit arguments take precedence. If any array size is not specified, it is
+assumed to be 0. Thus most arguments are optional.
+
+ARGUMENTS
+
+- **kwargs: if the optimization inputs are available, they can be passed-in as
+  kwargs. These inputs contain everything this function needs to operate. If we
+  don't have these, then the rest of the variables will need to be given
+
+- lensmodel: string specifying the lensmodel we're using (this is always
+  'LENSMODEL_...'). The full list of valid models is returned by
+  mrcal.supported_lensmodels(). This is required if we're not passing in the
+  optimization inputs
+
+- do_optimize_intrinsics_core
+  do_optimize_intrinsics_distortions
+  do_optimize_extrinsics
+  do_optimize_calobject_warp
+  do_optimize_frames
+
+  optional booleans; default to True. These specify what we're optimizing. See
+  the documentation for mrcal.optimize() for details
+
+RETURNED VALUE
+
+The integer reporting the number of optimization parameters used to describe the
+intrinsics of a single camera

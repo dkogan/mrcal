@@ -1648,7 +1648,7 @@ separately for the benefit of the test
 
     if optimization_inputs is not None:
 
-        Nintrinsics = mrcal.num_states_intrinsics(**optimization_inputs) // len(optimization_inputs['intrinsics'])
+        Nintrinsics = mrcal.num_intrinsics_optimization_params(**optimization_inputs)
         Nstate      = mrcal.num_states(**optimization_inputs)
 
         # I store dp_triangulated_dpstate initially, without worrying about the "packed"

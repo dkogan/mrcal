@@ -158,6 +158,9 @@ testutils.confirm_equal( mrcal.num_states(**optimization_inputs),
 testutils.confirm_equal( mrcal.num_states_intrinsics(**optimization_inputs),
                          4*Ncameras,
                          "num_states_intrinsics()")
+testutils.confirm_equal( mrcal.num_intrinsics_optimization_params(**optimization_inputs),
+                         4,
+                         "num_intrinsics_optimization_params()")
 testutils.confirm_equal( mrcal.num_states_extrinsics(**optimization_inputs),
                          6*(Ncameras-1),
                          "num_states_extrinsics()")

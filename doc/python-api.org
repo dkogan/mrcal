@@ -160,6 +160,7 @@ Functions to interpret the contentes of the [[file:formulation.org][state and me
 - [[file:mrcal-python-api-reference.html#-num_states_frames][=mrcal.num_states_frames()=]]: Get the number of calibration object pose parameters in the optimization vector
 - [[file:mrcal-python-api-reference.html#-num_states_points][=mrcal.num_states_points()=]]: Get the number of point-position parameters in the optimization vector
 - [[file:mrcal-python-api-reference.html#-num_states_calobject_warp][=mrcal.num_states_calobject_warp()=]]: Get the number of parameters in the optimization vector for the board warp
+- [[file:mrcal-python-api-reference.html#-num_intrinsics_optimization_params][=mrcal.num_intrinsics_optimization_params()=]]: Get the number of intrinsics parameters to describe /one/ camera
 - [[file:mrcal-python-api-reference.html#-measurement_index_boards][=mrcal.measurement_index_boards()=]]: Return the measurement index of the start of a given board observation
 - [[file:mrcal-python-api-reference.html#-measurement_index_points][=mrcal.measurement_index_points()=]]: Return the measurement index of the start of a given point observation
 - [[file:mrcal-python-api-reference.html#-measurement_index_regularization][=mrcal.measurement_index_regularization()=]]: Return the index of the start of the regularization measurements
