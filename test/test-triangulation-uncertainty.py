@@ -248,7 +248,6 @@ extrinsics_rt_fromref_true[:,4:] = np.random.randn(args.Ncameras,2) * 0.1
 extrinsics_rt_fromref_true[0] *= 0
 
 
-# 1km straight ahead. In the cam0 coord system
 # shape (Npoints,3)
 p_triangulated_true0 = np.array((args.observed_point,
                                  args.observed_point),
