@@ -1800,10 +1800,8 @@ separately to allow the test suite to validate some of the internals
         istate_e0
 
 
-def triangulation_uncertainty( # shape (..., 2), dtype=obj
+def triangulation_uncertainty( q,
                                models,
-                               # (..., 2,2), dtype=float
-                               q,
                                q_calibration_stdev             = 0,
                                q_observation_stdev             = 0,
                                q_observation_stdev_correlation = 0,

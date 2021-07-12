@@ -179,7 +179,7 @@ for ipt in range(Npoints):
                                        *M[imp][1].intrinsics())
 
 Var_p0p1_big = \
-    mrcal.triangulation_uncertainty( M, q,
+    mrcal.triangulation_uncertainty( q, M,
                                      q_calibration_stdev             = args.q_calibration_stdev,
                                      q_observation_stdev             = args.q_observation_stdev,
                                      q_observation_stdev_correlation = args.q_observation_stdev_correlation,
@@ -193,7 +193,7 @@ testutils.confirm_equal(Var_p0p1_big.shape,
 for ipt in range(Npoints):
     for imp in range(Nmodelpairs):
         Var_p0p1 = \
-            mrcal.triangulation_uncertainty( M[imp], q[ipt,imp],
+            mrcal.triangulation_uncertainty( q[ipt,imp], M[imp],
                                              q_calibration_stdev             = args.q_calibration_stdev,
                                              q_observation_stdev             = args.q_observation_stdev,
                                              q_observation_stdev_correlation = args.q_observation_stdev_correlation,

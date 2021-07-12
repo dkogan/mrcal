@@ -579,10 +579,7 @@ testutils.confirm_equal(dp_triangulated_dq,
 
 if args.q_calibration_stdev > 0:
     Var_p0p1_calibration = \
-        mrcal.triangulation_uncertainty( # shape (..., 2), dtype = obj
-                                   (models_baseline[icam0],models_baseline[icam1]),
-                                   # (..., 2,2), dtype = float
-                                   q_true,
+        mrcal.triangulation_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
                                    q_calibration_stdev = args.q_calibration_stdev,
                                    stabilize_coords    = args.stabilize_coords )
 else:
@@ -590,10 +587,7 @@ else:
 
 if args.q_observation_stdev > 0:
     Var_p0p1_observations = \
-        mrcal.triangulation_uncertainty( # shape (..., 2), dtype = obj
-                                   (models_baseline[icam0],models_baseline[icam1]),
-                                   # (..., 2,2), dtype = float
-                                   q_true,
+        mrcal.triangulation_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
                                    q_observation_stdev             = args.q_observation_stdev,
                                    q_observation_stdev_correlation = args.q_observation_stdev_correlation,
                                    stabilize_coords                = args.stabilize_coords )
@@ -601,10 +595,7 @@ else:
     Var_p0p1_observations = np.zeros((Npoints*3, Npoints*3), dtype=float)
 
 Var_p0p1_joint = \
-    mrcal.triangulation_uncertainty( # shape (..., 2), dtype = obj
-                               (models_baseline[icam0],models_baseline[icam1]),
-                               # (..., 2,2), dtype = float
-                               q_true,
+    mrcal.triangulation_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
                                q_calibration_stdev             = args.q_calibration_stdev,
                                q_observation_stdev             = args.q_observation_stdev,
                                q_observation_stdev_correlation = args.q_observation_stdev_correlation,
