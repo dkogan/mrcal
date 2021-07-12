@@ -1445,7 +1445,7 @@ def _triangulation_uncertainty_internal(slices,
     r'''Compute most of the triangulation uncertainty logic
 
 This is an internal piece of mrcal.triangulation_uncertainty(). It's available
-separately for the benefit of the test
+separately to allow the test suite to validate some of the internals
 
     '''
 
@@ -1611,6 +1611,8 @@ separately for the benefit of the test
 
         if rt_ref_frames is not None:
 
+            # we're optimizing the frames
+
             # dp_frames_drtrf  has shape (..., Nframes, 3,6)
             # dp_frames_dp_ref has shape (..., Nframes, 3,3)
             _,                 \
@@ -1631,6 +1633,7 @@ separately for the benefit of the test
             dp_triangulated_drtrf = np.linalg.solve(dp_frames_dp_cam0,
                                                     dp_frames_drtrf) / Nframes
         else:
+            # the frames are fixed; not subject to optimization
             dp_triangulated_drtrf = None
 
         return \
@@ -1640,10 +1643,16 @@ separately for the benefit of the test
 
 
 
-
     Npoints = len(slices)
 
+    # Output goes here. This function fills in the observation-time stuff.
+    # Otherwise this function just returns the array of 0s, which the callers
+    # will fill using the dp_triangulated_dpstate data this function returns
+    Var_p = np.zeros((3*Npoints,3*Npoints), dtype=float)
+
     if optimization_inputs is not None:
+
+        # We're propagating the calibration-time noise
 
         Nintrinsics = mrcal.num_intrinsics_optimization_params(**optimization_inputs)
         Nstate      = mrcal.num_states(**optimization_inputs)
@@ -1652,7 +1661,10 @@ separately for the benefit of the test
         # part. I'll scale the thing when done to pack it
         dp_triangulated_dpstate = np.zeros((Npoints,3,Nstate), dtype=float)
 
-        if optimization_inputs.get('do_optimize_frames'):
+        if stabilize_coords and optimization_inputs.get('do_optimize_frames'):
+            # We're re-optimizing (looking at calibration uncertainty) AND we
+            # are optimizing the frames AND we have stabilization enabled.
+            # Without stabilization, there's no dependence on rt_ref_frames
             rt_ref_frame  = optimization_inputs['frames_rt_toref']
             istate_f0     = mrcal.state_index_frames(0, **optimization_inputs)
             Nstate_frames = mrcal.num_states_frames(    **optimization_inputs)
@@ -1662,6 +1674,7 @@ separately for the benefit of the test
             Nstate_frames = None
 
     else:
+        # We don't need to evaluate the calibration-time noise.
         dp_triangulated_dpstate = None
         istate_i0               = None
         istate_i1               = None
@@ -1669,11 +1682,6 @@ separately for the benefit of the test
         icam_extrinsics1        = None
         istate_e1               = None
         istate_e0               = None
-
-    # Output goes here. This function fills in the observation-time stuff.
-    # Otherwise this function just returns the array of 0s, which the callers
-    # will fill using the dp_triangulated_dpstate data this function returns
-    Var_p = np.zeros((3*Npoints,3*Npoints), dtype=float)
 
     if q_observation_stdev > 0:
         # observation-time variance of each observed pair of points
@@ -1713,6 +1721,7 @@ separately for the benefit of the test
                              nps.transpose(dp_triangulated_dq) )
 
         if optimization_inputs is None:
+            # Not evaluating calibration-time uncertainty. Nothing else to do.
             continue
 
         # calibration-time uncertainty
@@ -1739,24 +1748,25 @@ separately for the benefit of the test
 
         istate_i0 = mrcal.state_index_intrinsics(icam_intrinsics0, **optimization_inputs)
         istate_i1 = mrcal.state_index_intrinsics(icam_intrinsics1, **optimization_inputs)
+        if istate_i0 is not None:
+            # dp_triangulated_di0 = dp_triangulated_dv0              dvlocal0_di0
+            # dp_triangulated_di1 = dp_triangulated_dv1 dv1_dvlocal1 dvlocal1_di1
+            nps.matmult( dp_triangulated_dv0,
+                         dvlocal0_dintrinsics0,
+                         out = dp_triangulated_dpstate[ipt, :, istate_i0:istate_i0+Nintrinsics])
+        if istate_i1 is not None:
+            nps.matmult( dp_triangulated_dv1,
+                         dv1_dvlocal1,
+                         dvlocal1_dintrinsics1,
+                         out = dp_triangulated_dpstate[ipt, :, istate_i1:istate_i1+Nintrinsics])
+
 
         icam_extrinsics0 = mrcal.corresponding_icam_extrinsics(icam_intrinsics0, **optimization_inputs)
         icam_extrinsics1 = mrcal.corresponding_icam_extrinsics(icam_intrinsics1, **optimization_inputs)
 
-        istate_e0 = mrcal.state_index_extrinsics(icam_extrinsics0, **optimization_inputs) \
-            if icam_extrinsics0 >= 0 else None
-        istate_e1 = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs) \
-            if icam_extrinsics1 >= 0 else None
-
-        # dp_triangulated_di0 = dp_triangulated_dv0              dvlocal0_di0
-        # dp_triangulated_di1 = dp_triangulated_dv1 dv1_dvlocal1 dvlocal1_di1
-        nps.matmult( dp_triangulated_dv0,
-                     dvlocal0_dintrinsics0,
-                     out = dp_triangulated_dpstate[ipt, :, istate_i0:istate_i0+Nintrinsics])
-        nps.matmult( dp_triangulated_dv1,
-                     dv1_dvlocal1,
-                     dvlocal1_dintrinsics1,
-                     out = dp_triangulated_dpstate[ipt, :, istate_i1:istate_i1+Nintrinsics])
+        # set to None if icam_extrinsics<0 (i.e. when looking at the reference camera)
+        istate_e0 = mrcal.state_index_extrinsics(icam_extrinsics0, **optimization_inputs)
+        istate_e1 = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs)
 
         if istate_e1 is not None:
             # dp_triangulated_dr_0ref = dp_triangulated_dv1  dv1_dr01 dr01_dr_0ref +
@@ -1805,13 +1815,16 @@ separately for the benefit of the test
 
         if dp_triangulated_drtrf is not None:
             # We're re-optimizing (looking at calibration uncertainty) AND we
-            # have stabilization enabled
+            # are optimizing the frames AND we have stabilization enabled.
+            # Without stabilization, there's no dependence on rt_ref_frames
 
             # dp_triangulated_drtrf has shape (Npoints,Nframes,3,6). I reshape to (Npoints,3,Nframes*6)
             dp_triangulated_dpstate[ipt, :, istate_f0:istate_f0+Nstate_frames] = \
                 nps.clump(nps.xchg(dp_triangulated_drtrf,-2,-3), n=-2)
 
-    # returning the istate stuff for the test suite
+    # Returning the istate stuff for the test suite. These are the istate_...
+    # and icam_... for the last slice only. This is good-enough for the test
+    # suite
     return Var_p, dp_triangulated_dpstate, \
         istate_i0,                         \
         istate_i1,                         \
@@ -1879,8 +1892,6 @@ def triangulation_uncertainty( # shape (..., 2), dtype=obj
 
         if optimization_inputs is None:
             raise Exception("optimization_inputs are not available, so I cannot propagate calibration-time noise")
-
-
 
     Var_p, \
     dp_triangulated_dpstate = \
