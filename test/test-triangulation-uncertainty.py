@@ -606,21 +606,29 @@ testutils.confirm_equal(dp_triangulated_dq,
                         eps = 5e-3,
                         msg = "Gradient check: dp_triangulated_dq")
 
-Var_p0p1_calibration = \
-    mrcal.triangulation_uncertainty( # shape (..., 2), dtype = obj
-                               (models_baseline[icam0],models_baseline[icam1]),
-                               # (..., 2,2), dtype = float
-                               q_true,
-                               q_calibration_stdev = args.q_calibration_stdev,
-                               stabilize_coords    = args.stabilize_coords )
-Var_p0p1_observations = \
-    mrcal.triangulation_uncertainty( # shape (..., 2), dtype = obj
-                               (models_baseline[icam0],models_baseline[icam1]),
-                               # (..., 2,2), dtype = float
-                               q_true,
-                               q_observation_stdev             = args.q_observation_stdev,
-                               q_observation_stdev_correlation = args.q_observation_stdev_correlation,
-                               stabilize_coords                = args.stabilize_coords )
+if args.q_calibration_stdev > 0:
+    Var_p0p1_calibration = \
+        mrcal.triangulation_uncertainty( # shape (..., 2), dtype = obj
+                                   (models_baseline[icam0],models_baseline[icam1]),
+                                   # (..., 2,2), dtype = float
+                                   q_true,
+                                   q_calibration_stdev = args.q_calibration_stdev,
+                                   stabilize_coords    = args.stabilize_coords )
+else:
+    Var_p0p1_calibration = np.zeros((Npoints*3, Npoints*3), dtype=float)
+
+if args.q_observation_stdev > 0:
+    Var_p0p1_observations = \
+        mrcal.triangulation_uncertainty( # shape (..., 2), dtype = obj
+                                   (models_baseline[icam0],models_baseline[icam1]),
+                                   # (..., 2,2), dtype = float
+                                   q_true,
+                                   q_observation_stdev             = args.q_observation_stdev,
+                                   q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                                   stabilize_coords                = args.stabilize_coords )
+else:
+    Var_p0p1_observations = np.zeros((Npoints*3, Npoints*3), dtype=float)
+
 Var_p0p1_joint = \
     mrcal.triangulation_uncertainty( # shape (..., 2), dtype = obj
                                (models_baseline[icam0],models_baseline[icam1]),
