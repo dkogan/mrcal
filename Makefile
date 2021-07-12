@@ -266,11 +266,10 @@ define get_test_set
 	$(if $(filter %-nosampling,$1),$(TESTS_NOSAMPLING),$(TESTS))
 endef
 
-# "test..." and "check.." are synonyms
 # "test" is the full set of tests
 # "test-nosampling" excludes the very time-consuming tests
-test check test-nosampling check-nosampling: all
+test test-nosampling: all
 	@FAILED=""; $(foreach t,$(call get_test_set,$@),echo "========== RUNNING: $(subst __, ,$t)"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
-.PHONY: test check
+.PHONY: test
 
 include mrbuild/Makefile.common.footer
