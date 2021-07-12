@@ -238,30 +238,26 @@ TESTS :=										\
   test/test-parser-cameramodel
 
 
-# calibration-time-only noise. near/far
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__cam0__--model__opencv4__--stabilize-coords__--q-calibration-stdev__0.5__--observed-point__-40__0__200__--do-sample
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__cam0__--model__opencv4__--stabilize-coords__--q-calibration-stdev__0.5__--observed-point__-2__0__10__--do-sample
-# observation-time-only noise. uncorrelated. near/far
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__cam0__--model__opencv4__--stabilize-coords__--q-observation-stdev__0.5__--observed-point__-40__0__200__--do-sample
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__cam0__--model__opencv4__--stabilize-coords__--q-observation-stdev__0.5__--observed-point__-2__0__10__--do-sample
-# observation-time-only noise. very correlated. near/far
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__cam0__--model__opencv4__--stabilize-coords__--q-observation-stdev__0.5__--q-observation-stdev-correlation__0.99__--observed-point__-40__0__200__--do-sample
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__cam0__--model__opencv4__--stabilize-coords__--q-observation-stdev__0.5__--q-observation-stdev-correlation__0.99__--observed-point__-2__0__10__--do-sample
+# triangulation-uncertainty tests. Lots and lots of tests to exhaustively try
+# out different scenarios
+BASE := test/test-triangulation-uncertainty.py__--model__opencv4__--observed-point__-40__0__200__--Ncameras__3__--cameras__2__1__--q-observation-stdev-correlation__0.6
+# Must be at the end
+FOOTER := --do-sample
+TESTS := $(TESTS) \
+  $(foreach stabilization,__--stabilize-coords NONE, \
+  $(foreach fixed,cam0 frames, \
+  $(foreach only,observation calibration, \
+  $(BASE)-$(if $(filter NONE,$(stabilization)),,$(stabilization))__--fixed__$(fixed)__--q-$(only)-stdev__0.5__$(FOOTER))))
+# Both sets of noise. Looking at different camera
+BASE := test/test-triangulation-uncertainty.py__--model__opencv4__--Ncameras__2__--cameras__1__0__--q-observation-stdev__0.5__--q-calibration-stdev__0.5
+# Different amounts of correlation and near/far
+TESTS := $(TESTS) \
+  $(foreach stabilization,__--stabilize-coords NONE, \
+  $(foreach fixed,cam0 frames, \
+  $(foreach corr,0.1 0.9, \
+  $(foreach where,near far, \
+  $(BASE)-$(if $(filter NONE,$(stabilization)),,$(stabilization))__--fixed__$(fixed)__--q-observation-stdev-correlation__$(corr)__$(if $(filter near,$(where)),--observed-point__-2__0__10,--observed-point__-40__0__200)__)$(FOOTER))))
 
-# both kinds of noise. partially-correlated. far. with/without stabilization
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__cam0__--model__opencv4__--stabilize-coords__--q-calibration-stdev__0.5__--q-observation-stdev__0.5__--q-observation-stdev-correlation__0.6__--observed-point__-40__0__200__--do-sample
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__cam0__--model__opencv4__--q-calibration-stdev__0.5__--q-observation-stdev__0.5__--q-observation-stdev-correlation__0.6__--observed-point__-40__0__200__--do-sample
-# both kinds of noise. partially-correlated. near. with/without stabilization
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__cam0__--model__opencv4__--stabilize-coords__--q-calibration-stdev__0.5__--q-observation-stdev__0.5__--q-observation-stdev-correlation__0.6__--observed-point__-40__0__200__--do-sample
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__cam0__--model__opencv4__--q-calibration-stdev__0.5__--q-observation-stdev__0.5__--q-observation-stdev-correlation__0.6__--observed-point__-40__0__200__--do-sample
-
-# both kinds of noise. partially-correlated. near. with/without stabilization. Funny camera indices
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__cam0__--model__opencv4__--stabilize-coords__--q-calibration-stdev__0.5__--q-observation-stdev__0.5__--q-observation-stdev-correlation__0.6__--observed-point__-40__0__200__--Ncameras__3__--cameras__2__1__--do-sample
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__cam0__--model__opencv4__--q-calibration-stdev__0.5__--q-observation-stdev__0.5__--q-observation-stdev-correlation__0.6__--observed-point__-40__0__200__--Ncameras__3__--cameras__2__1__--do-sample
-
-# fixed frames
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__frames__--model__opencv4__--stabilize-coords__--q-calibration-stdev__0.5__--q-observation-stdev__0.5__--q-observation-stdev-correlation__0.6__--observed-point__-40__0__200__--Ncameras__3__--cameras__2__1__--do-sample
-TESTS := $(TESTS) test/test-triangulation-uncertainty.py__--fixed__frames__--model__opencv4__--q-calibration-stdev__0.5__--q-observation-stdev__0.5__--q-observation-stdev-correlation__0.6__--observed-point__-40__0__200__--Ncameras__3__--cameras__2__1__--do-sample
 
 
 TESTS_NOSAMPLING := $(filter-out %do-sample,$(TESTS))
