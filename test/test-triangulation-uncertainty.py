@@ -274,36 +274,8 @@ def triangulate_nograd( intrinsics_data0, intrinsics_data1,
                         q,
                         lensmodel,
                         stabilize_coords = True):
-    return _triangulate( intrinsics_data0, intrinsics_data1,
-                         rt_cam0_ref, rt_cam0_ref_baseline, rt_cam1_ref,
-                         rt_ref_frame,
-                         rt_ref_frame_baseline,
-                         nps.atleast_dims(q,-3),
-                         lensmodel,
-                         stabilize_coords = stabilize_coords)
 
-def _triangulate(# shape (Nintrinsics,)
-                 intrinsics_data0, intrinsics_data1,
-                 # shape (6,)
-                 rt_cam0_ref, rt_cam0_ref_baseline, rt_cam1_ref,
-                 # shape (Nframes,6),
-                 rt_ref_frame, rt_ref_frame_baseline,
-                 # shape (..., 2 (Ncameras), 2 (xy))
-                 q,
-
-                 lensmodel,
-                 stabilize_coords):
-
-    r'''reports the triangulated position in the coords of cam0'''
-
-    if not ( intrinsics_data0.ndim == 1 and \
-             intrinsics_data1.ndim == 1 and \
-             intrinsics_data0.shape[0] == intrinsics_data1.shape[0] and \
-             rt_cam0_ref.shape == (6,) and \
-             rt_cam1_ref.shape == (6,) and \
-             rt_ref_frame.ndim == 2 and rt_ref_frame.shape[-1] == 6 and \
-             q.shape[-2:] == (2,2 ) ):
-        raise Exception("Arguments must consistent dimensions")
+    q = nps.atleast_dims(q,-3)
 
     rt01 = mrcal.compose_rt(rt_cam0_ref,
                                      mrcal.invert_rt(rt_cam1_ref))
