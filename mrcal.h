@@ -906,6 +906,7 @@ typedef struct
 //   - frames
 //   - points
 //   - calobject_warp
+//   If we're not optimizing the THING, return 0
 int mrcal_measurement_index_boards(int i_observation_board,
                                    int Nobservations_board,
                                    int Nobservations_point,
