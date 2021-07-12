@@ -1573,7 +1573,7 @@ separately to allow the test suite to validate some of the internals
         # be propagated:
         #
         # 1. rt_cam_ref
-        # 2. rt_ref_frames
+        # 2. rt_ref_frame
         #
         # Propagating rt_cam_ref:
         #
@@ -1581,7 +1581,7 @@ separately to allow the test suite to validate some of the internals
         #              = dpc/dpr dpr/dpf dpf/dpr dpr/drt_cr
         #              = dpc/dpr dpr/drt_cr
         #
-        # Propagating rt_ref_frames:
+        # Propagating rt_ref_frame:
         #
         #   dpc/drt_rf = dpc/dpf dpf/drt_rf
         #              = dpc/dpr dpr/dpf dpf/drt_rf
@@ -1609,7 +1609,7 @@ separately to allow the test suite to validate some of the internals
                              dp_ref_drt_0ref)
 
 
-        if rt_ref_frames is not None:
+        if rt_ref_frame is not None:
 
             # we're optimizing the frames
 
@@ -1664,7 +1664,7 @@ separately to allow the test suite to validate some of the internals
         if stabilize_coords and optimization_inputs.get('do_optimize_frames'):
             # We're re-optimizing (looking at calibration uncertainty) AND we
             # are optimizing the frames AND we have stabilization enabled.
-            # Without stabilization, there's no dependence on rt_ref_frames
+            # Without stabilization, there's no dependence on rt_ref_frame
             rt_ref_frame  = optimization_inputs['frames_rt_toref']
             istate_f0     = mrcal.state_index_frames(0, **optimization_inputs)
             Nstate_frames = mrcal.num_states_frames(    **optimization_inputs)
@@ -1816,7 +1816,7 @@ separately to allow the test suite to validate some of the internals
         if dp_triangulated_drtrf is not None:
             # We're re-optimizing (looking at calibration uncertainty) AND we
             # are optimizing the frames AND we have stabilization enabled.
-            # Without stabilization, there's no dependence on rt_ref_frames
+            # Without stabilization, there's no dependence on rt_ref_frame
 
             # dp_triangulated_drtrf has shape (Npoints,Nframes,3,6). I reshape to (Npoints,3,Nframes*6)
             dp_triangulated_dpstate[ipt, :, istate_f0:istate_f0+Nstate_frames] = \
