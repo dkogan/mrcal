@@ -32,6 +32,7 @@ TESTS :=										\
   test/test-solvepnp.py									\
   test/test-match-feature.py								\
   test/test-triangulation.py								\
+  test/test-uncertainty-broadcasting.py							\
   test/test-parser-cameramodel
 
 
