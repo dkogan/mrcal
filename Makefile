@@ -240,36 +240,41 @@ TESTS :=										\
 
 # triangulation-uncertainty tests. Lots and lots of tests to exhaustively try
 # out different scenarios
-BASE := test/test-triangulation-uncertainty.py__--model__opencv4__--observed-point__-40__0__200__--Ncameras__3__--cameras__2__1__--q-observation-stdev-correlation__0.6
-# Must be at the end
-FOOTER := --do-sample
-TESTS := $(TESTS) \
+BASE := test/test-triangulation-uncertainty.py__--do-sample__--model__opencv4__--observed-point__-40__0__200__--Ncameras__3__--cameras__2__1__--q-observation-stdev-correlation__0.6
+TESTS_TRIANGULATION_UNCERTAINTY := \
   $(foreach stabilization,__--stabilize-coords NONE, \
   $(foreach fixed,cam0 frames, \
   $(foreach only,observation calibration, \
-  $(BASE)-$(if $(filter NONE,$(stabilization)),,$(stabilization))__--fixed__$(fixed)__--q-$(only)-stdev__0.5__$(FOOTER))))
+  $(BASE)$(if $(filter NONE,$(stabilization)),,$(stabilization))__--fixed__$(fixed)__--q-$(only)-stdev__0.5)))
 # Both sets of noise. Looking at different camera
-BASE := test/test-triangulation-uncertainty.py__--model__opencv4__--Ncameras__2__--cameras__1__0__--q-observation-stdev__0.5__--q-calibration-stdev__0.5
+BASE := test/test-triangulation-uncertainty.py__--do-sample__--model__opencv4__--Ncameras__2__--cameras__1__0__--q-observation-stdev__0.5__--q-calibration-stdev__0.5
 # Different amounts of correlation and near/far
-TESTS := $(TESTS) \
+TESTS_TRIANGULATION_UNCERTAINTY := $(TESTS_TRIANGULATION_UNCERTAINTY) \
   $(foreach stabilization,__--stabilize-coords NONE, \
   $(foreach fixed,cam0 frames, \
   $(foreach corr,0.1 0.9, \
   $(foreach where,near far, \
-  $(BASE)-$(if $(filter NONE,$(stabilization)),,$(stabilization))__--fixed__$(fixed)__--q-observation-stdev-correlation__$(corr)__$(if $(filter near,$(where)),--observed-point__-2__0__10,--observed-point__-40__0__200)__)$(FOOTER))))
+  $(BASE)$(if $(filter NONE,$(stabilization)),,$(stabilization))__--fixed__$(fixed)__--q-observation-stdev-correlation__$(corr)__--observed-point__$(if $(filter near,$(where)),-2__0__10,-40__0__200)))))
 
 
 
+# TESTS_TRIANGULATION_UNCERTAINTY not included in TESTS yet, so TESTS_NOSAMPLING
+# includes none of those
 TESTS_NOSAMPLING := $(filter-out %do-sample,$(TESTS))
 
-define get_test_set
-	$(if $(filter %-nosampling,$1),$(TESTS_NOSAMPLING),$(TESTS))
+TESTS := $(TESTS) $(TESTS_TRIANGULATION_UNCERTAINTY)
+
+# "make test"				-> TESTS
+# "make test-nosampling"		-> TESTS_NOSAMPLING
+# "make test-triangulation-uncertainty" -> TESTS_TRIANGULATION_UNCERTAINTY
+define test_set
+	$(if $(filter %-nosampling,$1),$(TESTS_NOSAMPLING),$(if $(filter %-triangulation-uncertainty,$1),$(TESTS_TRIANGULATION_UNCERTAINTY),$(TESTS)))
 endef
 
 # "test" is the full set of tests
 # "test-nosampling" excludes the very time-consuming tests
-test test-nosampling: all
-	@FAILED=""; $(foreach t,$(call get_test_set,$@),echo "========== RUNNING: $(subst __, ,$t)"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
+test test-nosampling test-triangulation-uncertainty: all
+	@FAILED=""; $(foreach t,$(call test_set,$@),echo "========== RUNNING: $(subst __, ,$t)"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
 .PHONY: test
 
 include mrbuild/Makefile.common.footer
