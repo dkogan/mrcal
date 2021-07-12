@@ -28,8 +28,12 @@ SYNOPSIS
 
     # v is a (...,3) array of 3D points we're projecting
     points = mrcal.project( v,
+                            lensmodel, intrinsics_data )
 
-                            lensmodel, intrinsics_data)
+    ### OR ###
+
+    m = mrcal.cameramodel(...)
+    points = mrcal.project( v, *m.intrinsics() )
 
     # points is a (...,2) array of pixel coordinates
 
@@ -108,6 +112,11 @@ SYNOPSIS
     # q is a (...,2) array of pixel observations
     v = mrcal.unproject( q,
                          lensmodel, intrinsics_data )
+
+    ### OR ###
+
+    m = mrcal.cameramodel(...)
+    v = mrcal.unproject( q, *m.intrinsics() )
 
 Maps a set of 2D imager points q to a set of 3D vectors in camera coordinates
 that produced these pixel observations. Each 3D vector is unique only
