@@ -223,6 +223,9 @@ def confirm_does_not_raise(f, msg=''):
 
 def confirm_covariances_equal(var, var_ref,
                               what,
+                              # scalar float to use for all the eigenvalues, of
+                              # a list of length 3, to use in order from largest
+                              # to smallest. None to skip that axis
                               eps_eigenvalues,
                               eps_eigenvectors_deg):
 
@@ -233,25 +236,35 @@ def confirm_covariances_equal(var, var_ref,
                   msg = f"Var(dq) is symmetric for {what}")
 
 
-    # I look at the last (biggest) ellipse axis
-    l_predicted,v = sorted_eig(var)
-    v0_predicted  = v[:,-1]
-
-    l_observed,v = sorted_eig(var_ref)
-    v0_observed  = v[:,-1]
+    l_predicted,v_predicted = sorted_eig(var)
+    l_observed,v_observed   = sorted_eig(var_ref)
 
     eccentricity_predicted = l_predicted[-1] / l_predicted[-2]
 
-    confirm_equal(l_observed[-1],
-                  l_predicted[-1],
-                  eps = eps_eigenvalues,
-                  worstcase = True,
-                  relative  = True,
-                  msg = f"Var(dq) worst eigenvalue match for {what}")
+    for i in range(3):
+        # check all the eigenvalues, in order from largest to smallest
+        if isinstance(eps_eigenvalues, float):
+            eps = eps_eigenvalues
+        else:
+            eps = eps_eigenvalues[i]
+            if eps is None:
+                continue
+
+        confirm_equal(l_observed[-1-i],
+                      l_predicted[-1-i],
+                      eps = eps,
+                      worstcase = True,
+                      relative  = True,
+                      msg = f"Var(dq) worst[{i}] eigenvalue match for {what}")
 
     # I only check the eigenvector directions if the ellipse is sufficiently
     # non-circular. A circular ellipse has poorly-defined eigenvector directions
     if eccentricity_predicted > 2.:
+
+        # I look at the direction of the largest ellipse axis only
+        v0_predicted = v_predicted[:,-1]
+        v0_observed  = v_observed [:,-1]
+
         confirm_equal(np.arcsin(nps.mag(np.cross(v0_observed,v0_predicted))) * 180./np.pi,
                       0,
                       eps = eps_eigenvectors_deg,
