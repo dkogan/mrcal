@@ -795,8 +795,9 @@ for ipt in range(2):
 
                                         # This is a relatively-high threshold. I can tighten
                                         # it, but then I'd need to collect more
-                                        # samples
-                                        eps_eigenvalues      = 0.15,
+                                        # samples. Non-major axes have more
+                                        # relative error
+                                        eps_eigenvalues      = (0.11, 0.2, 0.3),
                                         eps_eigenvectors_deg = 5)
 
 if not (args.explore or \
