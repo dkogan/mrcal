@@ -72,14 +72,18 @@ def parse_args():
                         out''')
     parser.add_argument('--q-calibration-stdev',
                         type    = float,
-                        default = 0.5,
-                        help='''The observed_pixel_uncertainty of the chessboard observations at calibration
-                        time''')
+                        default = 0.0,
+                        help='''The observed_pixel_uncertainty of the chessboard
+                        observations at calibration time. Defaults to 0.0. At
+                        least one of --q-calibration-stdev and
+                        --q-observation-stdev MUST be given as > 0''')
     parser.add_argument('--q-observation-stdev',
                         type    = float,
-                        default = 0.5,
-                        help='''The observed_pixel_uncertainty of the point observations at triangulation
-                        time''')
+                        default = 0.0,
+                        help='''The observed_pixel_uncertainty of the point
+                        observations at triangulation time. Defaults to 0.0. At
+                        least one of --q-calibration-stdev and
+                        --q-observation-stdev MUST be given as > 0''')
     parser.add_argument('--q-observation-stdev-correlation',
                         type    = float,
                         default = 0.0,
@@ -157,6 +161,10 @@ def parse_args():
         raise Exception("--cameras must select two different cameras, each in [0,Ncameras-1]")
     if args.cameras[1] < 0 or args.cameras[1] >= args.Ncameras:
         raise Exception("--cameras must select two different cameras, each in [0,Ncameras-1]")
+
+    if args.q_calibration_stdev <= 0.0 and \
+       args.q_observation_stdev <= 0.0:
+        raise Exception('At least one of --q-calibration-stdev and --q-observation-stdev MUST be given as > 0')
     return args
 
 
