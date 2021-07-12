@@ -787,56 +787,22 @@ corners through the optimization problem we're solving during calibration time
 to the solved parameters. And then propagating the noise on the parameters
 through projection.
 
-The below derivation is double-checked via simulated noise in
-test-projection-uncertainty.py
-
 The uncertainties can be visualized with the mrcal-show-projection-uncertainty
 tool.
 
 ARGUMENTS
 
-This function accepts an array of camera-referenced points p_cam and some
-representation of parameters and uncertainties (either a single
-mrcal.cameramodel object or all of
-(lensmodel,intrinsics_data,extrinsics_rt_fromref,frames_rt_toref,Var_ief)). And
-a few meta-parameters that describe details of the behavior. This function
-broadcasts on p_cam only. We accept
+This function accepts an array of camera-referenced points p_cam, a
+mrcal.cameramodel object and a few meta-parameters that describe details of the
+behavior. This function broadcasts on p_cam only. We accept
 
 - p_cam: a numpy array of shape (..., 3). This is the set of camera-coordinate
   points where we're querying uncertainty. if not atinfinity: then the full 3D
   coordinates of p_cam are significant, even distance to the camera. if
   atinfinity: the distance to the camera is ignored.
 
-- model: a mrcal.cameramodel object containing the intrinsics, extrinsics, frame
-  poses and their covariance. If this isn't given, then each of these MUST be
-  given in a separate argument
-
-- lensmodel: a string describing which lens model we're using. This is something
-  like 'LENSMODEL_OPENCV4'. This is required if and only if model is None
-
-- intrinsics_data: a numpy array of shape (Nintrinsics,) where Nintrinsics is
-  the number of parameters in the intrinsics vector for this lens model,
-  returned by mrcal.lensmodel_num_params(lensmodel). This is required if and only if
-  model is None
-
-- extrinsics_rt_fromref: a numpy array of shape (6,) or None. This is an rt
-  transformation from the reference coordinate system to the camera coordinate
-  system. If None: the camera is at the reference coordinate system. Note that
-  these are the extrinsics AT CALIBRATION TIME. If we moved the camera after
-  calibrating, then this is OK, but for the purposes of uncertainty
-  computations, we care about where the camera used to be. This is required if
-  and only if model is None
-
-- frames_rt_toref: a numpy array of shape (Nframes,6). These are rt
-  transformations from the coordinate system of each calibration object coord
-  system to the reference coordinate system. This array represents ALL the
-  observed chessboards in a calibration optimization problem. This is required
-  if and only if model is None
-
-- Var_ief: a square numpy array with the intrinsics, extrinsics, frame
-  covariance. It is the caller's responsibility to make sure that the dimensions
-  match the frame counts and whether extrinsics_rt_fromref is None or not. This
-  is required if and only if model is None
+- model: a mrcal.cameramodel object that contains optimization_inputs, which are
+  used to propagate the uncertainty
 
 - atinfinity: optional boolean, defaults to False. If True, we want to know the
   projection uncertainty, looking at a point infinitely-far away. We propagate
