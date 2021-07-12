@@ -365,7 +365,7 @@ def _triangulate(# shape (Nintrinsics,)
 
 
 ################# Sampling
-cache_id = f"{args.fixed}-{args.model}-{args.Nframes}-{args.Nsamples}-{args.Ncameras}-{args.cameras[0]}-{args.cameras[1]}-{1 if args.stabilize_coords else 0}"
+cache_id = f"{args.fixed}-{args.model}-{args.Nframes}-{args.Nsamples}-{args.Ncameras}-{args.cameras[0]}-{args.cameras[1]}-{1 if args.stabilize_coords else 0}-{args.q_calibration_stdev}-{args.q_observation_stdev}-{args.q_observation_stdev_correlation}"
 cache_file = f"/tmp/test-triangulation-uncertainty--{cache_id}.pickle"
 
 if args.cache is None or args.cache == 'write':
