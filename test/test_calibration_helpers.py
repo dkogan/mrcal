@@ -73,6 +73,12 @@ def grad(f, x, step=1e-6):
 
 def plot_arg_covariance_ellipse(q_mean, Var, what):
 
+    # if the variance is 0, the ellipse is infinitely small, and I don't even
+    # try to plot it. Gnuplot has the arguably-buggy behavior where drawing an
+    # ellipse with major_diam = minor_diam = 0 plots a nominally-sized ellipse.
+    if np.max(np.abs(Var)) == 0:
+        return None
+
     l,v   = sorted_eig(Var)
     l0,l1 = l
     v0,v1 = nps.transpose(v)

@@ -842,25 +842,28 @@ if args.make_documentation_plots is not None:
         title_distance      += f'. {args.make_documentation_plots_extratitle}'
 
 
-    subplots = [ (empirical_distributions_xz[ipt][1], # points; plot first to not obscure the ellipses
-                  plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
-                                              Var_p0p1_joint_diagonal[ipt],
-                                              "Predicted-joint"),
-                  plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
-                                              Var_p0p1_calibration_diagonal[ipt],
-                                              "Predicted-calibration-only"),
-                  plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
-                                              Var_p0p1_observations_diagonal[ipt],
-                                              "Predicted-observations-only"),
-                  empirical_distributions_xz[ipt][0],
-                  dict( square = True,
-                        _xrange = [p_triangulated0[ipt,0] - ellipse_plot_radius,
-                                   p_triangulated0[ipt,0] + ellipse_plot_radius],
-                        _yrange = [p_triangulated0[ipt,2] - ellipse_plot_radius,
-                                   p_triangulated0[ipt,2] + ellipse_plot_radius],
-                        xlabel  = 'Triangulated point x (left/right) (m)',
-                        ylabel  = 'Triangulated point z (forward/back) (m)',)
-                  ) \
+    subplots = [ [p for p in (empirical_distributions_xz[ipt][1], # points; plot first to not obscure the ellipses
+                              plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
+                                                          Var_p0p1_joint_diagonal[ipt],
+                                                          "Predicted-joint"),
+                              plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
+                                                          Var_p0p1_calibration_diagonal[ipt],
+                                                          "Predicted-calibration-only"),
+                              plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
+                                                          Var_p0p1_observations_diagonal[ipt],
+                                                          "Predicted-observations-only"),
+                              empirical_distributions_xz[ipt][0],
+                              dict( square = True,
+                                    _xrange = [p_triangulated0[ipt,0] - ellipse_plot_radius,
+                                               p_triangulated0[ipt,0] + ellipse_plot_radius],
+                                    _yrange = [p_triangulated0[ipt,2] - ellipse_plot_radius,
+                                               p_triangulated0[ipt,2] + ellipse_plot_radius],
+                                    xlabel  = 'Triangulated point x (left/right) (m)',
+                                    ylabel  = 'Triangulated point z (forward/back) (m)',)
+                              )
+                  # ignore all None plot items. This will throw away any
+                  # infinitely-small ellipses
+                  if p is not None ] \
                  for ipt in range(Npoints) ]
 
     def makeplots(dohardcopy, processoptions_base):
