@@ -12,13 +12,15 @@ SYNOPSIS
 File formats supported by mrcal are described at
 http://mrcal.secretsauce.net/cameramodels.html#cameramodel-file-formats
 
-This tool converts a given model to the cameramodel file format. No changes to the
-content are made; this is purely a format converter. Model filenames are given
-on the commandline. Output is written to the same directory, with the same
+This tool converts a given model to the cameramodel file format. No changes to
+the content are made; this is purely a format converter. Use the
+mrcal-convert-lensmodel tool to fit a different lens model. Model filenames are
+given on the commandline. Output is written to the same directory, with the same
 filename, but with a .cameramodel extension.
 
 If the model is omitted or given as "-", the input is read from standard input,
 and the output is written to standard output
+
 '''
 
 import sys

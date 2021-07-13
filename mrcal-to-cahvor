@@ -13,8 +13,9 @@ File formats supported by mrcal are described at
 http://mrcal.secretsauce.net/cameramodels.html#cameramodel-file-formats
 
 This tool converts a given model to the cahvor file format. No changes to the
-content are made; this is purely a format converter. Model filenames are given
-on the commandline. Output is written to the same directory, with the same
+content are made; this is purely a format converter. Use the
+mrcal-convert-lensmodel tool to fit a different lens model. Model filenames are
+given on the commandline. Output is written to the same directory, with the same
 filename, but with a .cahvor extension.
 
 If the model is omitted or given as "-", the input is read from standard input,
