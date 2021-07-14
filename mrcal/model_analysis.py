@@ -1323,8 +1323,8 @@ A tuple
 def _compute_Var_q_triangulation(sigma, stdev_cross_camera_correlation):
     r'''Compute triangulation variance due to observation noise
 
-This is an internal piece of mrcal.triangulation_uncertainty(). It's available
-separately for the benefit of the test
+This is an internal piece of mrcal.triangulation_with_uncertainty(). It's
+available separately for the benefit of the test
 
     '''
 
@@ -1351,11 +1351,12 @@ separately for the benefit of the test
 
 
 def _triangulate_grad_simple(models, q,
+                             out,
                              triangulation_function = mrcal.triangulation.triangulate_leecivera_mid2):
     r'''Compute a single triangulation, reporting a single gradient
 
-This is an internal piece of mrcal.triangulation_uncertainty(). It's available
-separately for the benefit of the test
+This is an internal piece of mrcal.triangulation_with_uncertainty(). It's
+available separately for the benefit of the test
 
     '''
 
@@ -1381,7 +1382,7 @@ separately for the benefit of the test
                              get_gradients=True)
 
     # Each has shape (3,3)
-    _,                   \
+    out[...],            \
     dp_triangulated_dv0, \
     dp_triangulated_dv1, \
     _ =                  \
@@ -1410,12 +1411,12 @@ def _triangulation_uncertainty_internal(slices,
                                         stabilize_coords                 = True):
     r'''Compute most of the triangulation uncertainty logic
 
-This is an internal piece of mrcal.triangulation_uncertainty(). It's available
-separately to allow the test suite to validate some of the internals
+This is an internal piece of mrcal.triangulation_with_uncertainty(). It's
+available separately to allow the test suite to validate some of the internals
 
     '''
 
-    def triangulate_grad(models, q, triangulation_function):
+    def triangulate_grad(models, q, out, triangulation_function):
 
         # Full path. Compute and return the gradients for most things
         rt_ref1,drt_ref1_drt_1ref = \
@@ -1439,8 +1440,8 @@ separately to allow the test suite to validate some of the internals
             mrcal.rotate_point_r(rt01[:3], vlocal1,
                                  get_gradients=True)
 
-        # p_cam0_perturbed has shape (3,)
-        p_cam0_perturbed, dp_triangulated_dv0, dp_triangulated_dv1, dp_triangulated_dt01 = \
+        # out has shape (3,)
+        out[...], dp_triangulated_dv0, dp_triangulated_dv1, dp_triangulated_dt01 = \
             triangulation_function(v0, v1, rt01[3:],
                                    get_gradients = True)
 
@@ -1457,7 +1458,6 @@ separately to allow the test suite to validate some of the internals
         dp_triangulated_dq = nps.clump(dp_triangulated_dq, n=-2)
 
         return                     \
-            p_cam0_perturbed,      \
             dp_triangulated_dq,    \
             drt_ref1_drt_1ref,     \
             drt01_drt_0ref,        \
@@ -1614,6 +1614,7 @@ separately to allow the test suite to validate some of the internals
     # Output goes here. This function fills in the observation-time stuff.
     # Otherwise this function just returns the array of 0s, which the callers
     # will fill using the dp_triangulated_dpstate data this function returns
+    p     = np.zeros((Npoints,3),           dtype=float)
     Var_p = np.zeros((3*Npoints,3*Npoints), dtype=float)
 
     if optimization_inputs is not None:
@@ -1662,10 +1663,11 @@ separately to allow the test suite to validate some of the internals
         if optimization_inputs is None:
             # shape (3,Ncameras*Nxy=4)
             dp_triangulated_dq = \
-                _triangulate_grad_simple(models01, q, triangulation_function)
+                _triangulate_grad_simple(models01, q,
+                                         out = p[ipt],
+                                         triangulation_function = triangulation_function)
 
         else:
-            p_cam0_perturbed,      \
             dp_triangulated_dq,    \
             drt_ref1_drt_1ref,     \
             drt01_drt_0ref,        \
@@ -1677,7 +1679,9 @@ separately to allow the test suite to validate some of the internals
             dp_triangulated_dv0,   \
             dp_triangulated_dv1,   \
             dp_triangulated_dt01 = \
-                triangulate_grad(models01, q, triangulation_function)
+                triangulate_grad(models01, q,
+                                 out = p[ipt],
+                                 triangulation_function = triangulation_function)
 
         # triangulation-time uncertainty
         if q_observation_stdev > 0:
@@ -1694,7 +1698,7 @@ separately to allow the test suite to validate some of the internals
         if stabilize_coords:
             dp_triangulated_drtrf,     \
             dp_triangulated_drt_0ref = \
-                stabilize(p_cam0_perturbed,
+                stabilize(p[ipt],
                           models01[0].extrinsics_rt_fromref(),
                           rt_ref_frame)
         else:
@@ -1791,22 +1795,22 @@ separately to allow the test suite to validate some of the internals
     # Returning the istate stuff for the test suite. These are the istate_...
     # and icam_... for the last slice only. This is good-enough for the test
     # suite
-    return Var_p, dp_triangulated_dpstate, \
-        istate_i0,                         \
-        istate_i1,                         \
-        icam_extrinsics0,                  \
-        icam_extrinsics1,                  \
-        istate_e1,                         \
+    return p, Var_p, dp_triangulated_dpstate, \
+        istate_i0,                            \
+        istate_i1,                            \
+        icam_extrinsics0,                     \
+        icam_extrinsics1,                     \
+        istate_e1,                            \
         istate_e0
 
 
-def triangulation_uncertainty( q,
-                               models,
-                               q_calibration_stdev             = 0,
-                               q_observation_stdev             = 0,
-                               q_observation_stdev_correlation = 0,
-                               triangulation_function    = mrcal.triangulation.triangulate_leecivera_mid2,
-                               stabilize_coords = True ):
+def triangulation_with_uncertainty( q,
+                                    models,
+                                    q_calibration_stdev             = 0,
+                                    q_observation_stdev             = 0,
+                                    q_observation_stdev_correlation = 0,
+                                    triangulation_function    = mrcal.triangulation.triangulate_leecivera_mid2,
+                                    stabilize_coords = True ):
 
     # I'm propagating noise in the input vector
     #
@@ -1832,16 +1836,12 @@ def triangulation_uncertainty( q,
     if q_observation_stdev < 0:
         raise Exception("q_observation_stdev MUST be >= 0")
 
-    if q_calibration_stdev == 0 and \
-       q_observation_stdev == 0:
-        raise Exception("At least one of (q_calibration_stdev,q_observation_stdev) should be > 0. We should be propagating SOME source of noise")
-
     if not isinstance(models, np.ndarray):
         models = np.array(models, dtype=object)
 
 
-    slices = list( nps.broadcast_generate( ((2,), (2,2)),
-                                           (models, q) ) )
+    slices = list(      nps.broadcast_generate(   ((2,), (2,2)), (models, q) ) )
+    broadcasted_shape = nps.broadcast_extra_dims( ((2,), (2,2)), (models, q) )
 
     if q_calibration_stdev > 0:
         # we're trying to propagate calibration-time noise
@@ -1857,6 +1857,7 @@ def triangulation_uncertainty( q,
         if optimization_inputs is None:
             raise Exception("optimization_inputs are not available, so I cannot propagate calibration-time noise")
 
+    p,     \
     Var_p, \
     dp_triangulated_dpstate = \
         _triangulation_uncertainty_internal(slices,
@@ -1864,7 +1865,7 @@ def triangulation_uncertainty( q,
                                             q_observation_stdev,
                                             q_observation_stdev_correlation,
                                             triangulation_function = triangulation_function,
-                                            stabilize_coords       = stabilize_coords)[:2]
+                                            stabilize_coords       = stabilize_coords)[:3]
 
     # Done looping through all the triangulated points. I have computed the
     # observation-time noise contributions in Var_p. And I have all the
@@ -1892,7 +1893,17 @@ def triangulation_uncertainty( q,
                                                q_calibration_stdev,
                                                what = 'covariance')
 
-    return Var_p
+    # I used broadcast_generate() to implement the broadcasting logic. This
+    # function flattened the broadcasted output, so at this time I have
+    #   p.shape     = (Npoints,3)
+    #   Var_p.shape = (Npoints*3, Npoints*3)
+    #
+    # I now reshape the output into its proper shape. I have the leading shape I
+    # want in broadcasted_shape (I know that reduce(broadcast_extra_dims, *) =
+    # Npoints)
+    p     = p    .reshape(broadcasted_shape + [3])
+    Var_p = Var_p.reshape(broadcasted_shape + [3] + broadcasted_shape + [3])
+    return p, Var_p
 
 
 def is_within_valid_intrinsics_region(q, model):

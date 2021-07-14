@@ -178,29 +178,34 @@ for ipt in range(Npoints):
                                                                  p_triangulated_true0[ipt]),
                                        *M[imp][1].intrinsics())
 
+p, \
 Var_p0p1_big = \
-    mrcal.triangulation_uncertainty( q, M,
-                                     q_calibration_stdev             = args.q_calibration_stdev,
-                                     q_observation_stdev             = args.q_observation_stdev,
-                                     q_observation_stdev_correlation = args.q_observation_stdev_correlation,
-                                     stabilize_coords                = args.stabilize_coords )
+    mrcal.triangulation_with_uncertainty( q, M,
+                                          q_calibration_stdev             = args.q_calibration_stdev,
+                                          q_observation_stdev             = args.q_observation_stdev,
+                                          q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                                          stabilize_coords                = args.stabilize_coords )
+
+testutils.confirm_equal(p.shape,
+                        (Npoints,Nmodelpairs,3),
+                        msg = "point array has the right shape")
 
 testutils.confirm_equal(Var_p0p1_big.shape,
-                        (Npoints*Nmodelpairs*3, Npoints*Nmodelpairs*3),
+                        (Npoints,Nmodelpairs,3, Npoints,Nmodelpairs,3),
                         msg = "Big covariance matrix has the right shape")
 
-# Now I check each quadrant individually
+# Now I check each block in the diagonal individually
 for ipt in range(Npoints):
     for imp in range(Nmodelpairs):
+        p, \
         Var_p0p1 = \
-            mrcal.triangulation_uncertainty( q[ipt,imp], M[imp],
-                                             q_calibration_stdev             = args.q_calibration_stdev,
-                                             q_observation_stdev             = args.q_observation_stdev,
-                                             q_observation_stdev_correlation = args.q_observation_stdev_correlation,
-                                             stabilize_coords                = args.stabilize_coords )
+            mrcal.triangulation_with_uncertainty( q[ipt,imp], M[imp],
+                                                  q_calibration_stdev             = args.q_calibration_stdev,
+                                                  q_observation_stdev             = args.q_observation_stdev,
+                                                  q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                                                  stabilize_coords                = args.stabilize_coords )
 
-        i0 = ipt*Nmodelpairs + imp
-        testutils.confirm_equal(Var_p0p1_big[3*i0:3*(i0+1), 3*i0:3*(i0+1)],
+        testutils.confirm_equal(Var_p0p1_big[ipt,imp,:,ipt,imp,:],
                                 Var_p0p1,
                                 msg = f"Covariance sub-matrix ipt={ipt} imp={imp}")
 

@@ -437,6 +437,8 @@ testutils.confirm_equal(p_triangulated0, p_triangulated_true0,
 
 slices = ( ((models_baseline[icam0],models_baseline[icam1]), q_true[0]),
            ((models_baseline[icam0],models_baseline[icam1]), q_true[1]) )
+
+_,                       \
 _,                       \
 dp_triangulated_dpstate, \
 istate_i0,               \
@@ -562,8 +564,9 @@ for ipt in range(Npoints):
     dp_triangulated_dq_empirical[ipt,...] = dp_triangulated_dq_empirical_cross_only[ipt,:,ipt,:,:]
     dp_triangulated_dq_empirical_cross_only[ipt,:,ipt,:,:] = 0
 
+    p = np.zeros((3,), dtype=float)
     dp_triangulated_dq_flattened[ipt] = \
-        mrcal.model_analysis._triangulate_grad_simple(*slices[ipt])
+        mrcal.model_analysis._triangulate_grad_simple(*slices[ipt], p)
 
 
 testutils.confirm_equal(dp_triangulated_dq_empirical_cross_only,
@@ -578,28 +581,43 @@ testutils.confirm_equal(dp_triangulated_dq,
                         msg = "Gradient check: dp_triangulated_dq")
 
 if args.q_calibration_stdev > 0:
+    p,                     \
     Var_p0p1_calibration = \
-        mrcal.triangulation_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
-                                         q_calibration_stdev = args.q_calibration_stdev,
-                                         stabilize_coords    = args.stabilize_coords )
+        mrcal.triangulation_with_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
+                                              q_calibration_stdev = args.q_calibration_stdev,
+                                              stabilize_coords    = args.stabilize_coords )
+    testutils.confirm_equal(p,
+                            p_triangulated0,
+                            eps = 1e-6,
+                            msg = "triangulation_with_uncertainty() returns the right point")
 else:
-    Var_p0p1_calibration = np.zeros((Npoints*3, Npoints*3), dtype=float)
+    Var_p0p1_calibration = np.zeros((Npoints,3, Npoints,3), dtype=float)
 
 if args.q_observation_stdev > 0:
+    p,                     \
     Var_p0p1_observations = \
-        mrcal.triangulation_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
-                                         q_observation_stdev             = args.q_observation_stdev,
-                                         q_observation_stdev_correlation = args.q_observation_stdev_correlation,
-                                         stabilize_coords                = args.stabilize_coords )
+        mrcal.triangulation_with_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
+                                              q_observation_stdev             = args.q_observation_stdev,
+                                              q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                                              stabilize_coords                = args.stabilize_coords )
+    testutils.confirm_equal(p,
+                            p_triangulated0,
+                            eps = 1e-6,
+                            msg = "triangulation_with_uncertainty() returns the right point")
 else:
-    Var_p0p1_observations = np.zeros((Npoints*3, Npoints*3), dtype=float)
+    Var_p0p1_observations = np.zeros((Npoints,3, Npoints,3), dtype=float)
 
+p,               \
 Var_p0p1_joint = \
-    mrcal.triangulation_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
-                                     q_calibration_stdev             = args.q_calibration_stdev,
-                                     q_observation_stdev             = args.q_observation_stdev,
-                                     q_observation_stdev_correlation = args.q_observation_stdev_correlation,
-                                     stabilize_coords                = args.stabilize_coords )
+    mrcal.triangulation_with_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
+                                          q_calibration_stdev             = args.q_calibration_stdev,
+                                          q_observation_stdev             = args.q_observation_stdev,
+                                          q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                                          stabilize_coords                = args.stabilize_coords )
+testutils.confirm_equal(p,
+                        p_triangulated0,
+                        eps = 1e-6,
+                        msg = "triangulation_with_uncertainty() returns the right point")
 
 testutils.confirm_equal(Var_p0p1_joint,
                         Var_p0p1_calibration + Var_p0p1_observations,
@@ -704,15 +722,15 @@ Var_ranges_observations = np.zeros((Npoints,), dtype=float)
 for ipt in range(Npoints):
     Var_ranges_joint[ipt] = \
         nps.matmult(p_triangulated0[ipt],
-                    Var_p0p1_joint[ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3],
+                    Var_p0p1_joint[ipt,:,ipt,:],
                     nps.transpose(p_triangulated0[ipt]))[0] / nps.norm2(p_triangulated0[ipt])
     Var_ranges_calibration[ipt] = \
         nps.matmult(p_triangulated0[ipt],
-                    Var_p0p1_calibration[ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3],
+                    Var_p0p1_calibration[ipt,:,ipt,:],
                     nps.transpose(p_triangulated0[ipt]))[0] / nps.norm2(p_triangulated0[ipt])
     Var_ranges_observations[ipt] = \
         nps.matmult(p_triangulated0[ipt],
-                    Var_p0p1_observations[ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3],
+                    Var_p0p1_observations[ipt,:,ipt,:],
                     nps.transpose(p_triangulated0[ipt]))[0] / nps.norm2(p_triangulated0[ipt])
 
 
@@ -728,7 +746,7 @@ Var_distance_sampled  = distance_sampled.var()
 # Var(dist) = ddist_dp01 var(p01) ddist_dp01T
 #           = [-diff   diff] var(p01) [-diff   diff]T / norm2(diff)
 Var_distance = nps.matmult(nps.glue( -diff, diff, axis=-1),
-                           Var_p0p1_joint,
+                           Var_p0p1_joint.reshape(Npoints*3,Npoints*3),
                            nps.transpose(nps.glue( -diff, diff, axis=-1),))[0] / nps.norm2(diff)
 
 
@@ -751,8 +769,8 @@ testutils.confirm_equal(mean_p0p1_sampled,
                         msg = "Triangulated position matches sampled mean")
 
 for ipt in range(2):
-    testutils.confirm_covariances_equal(Var_p0p1_joint[ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3],
-                                        Var_p0p1_sampled     [ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3],
+    testutils.confirm_covariances_equal(Var_p0p1_joint[ipt,:,ipt,:],
+                                        Var_p0p1_sampled[ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3],
                                         what = f"triangulated point variance for point {ipt}",
 
                                         # This is a relatively-high threshold. I can tighten
@@ -778,11 +796,11 @@ if args.make_documentation_plots is not None:
                                                   'Observed') \
           for ipt in range(Npoints) ]
     # Individual covariances
-    Var_p0p1_joint_diagonal = [Var_p0p1_joint[ipt*3:ipt*3+3,ipt*3:ipt*3+3][(0,2),:][:,(0,2)] \
+    Var_p0p1_joint_diagonal = [Var_p0p1_joint[ipt,:,ipt,:][(0,2),:][:,(0,2)] \
                                for ipt in range(Npoints)]
-    Var_p0p1_calibration_diagonal = [Var_p0p1_calibration[ipt*3:ipt*3+3,ipt*3:ipt*3+3][(0,2),:][:,(0,2)] \
+    Var_p0p1_calibration_diagonal = [Var_p0p1_calibration[ipt,:,ipt,:][(0,2),:][:,(0,2)] \
                                      for ipt in range(Npoints)]
-    Var_p0p1_observations_diagonal = [Var_p0p1_observations[ipt*3:ipt*3+3,ipt*3:ipt*3+3][(0,2),:][:,(0,2)] \
+    Var_p0p1_observations_diagonal = [Var_p0p1_observations[ipt,:,ipt,:][(0,2),:][:,(0,2)] \
                                       for ipt in range(Npoints)]
 
     max_sigma_points = np.array([ np.max(np.sqrt(np.linalg.eig(V)[0])) for V in Var_p0p1_joint_diagonal ])
@@ -852,7 +870,7 @@ if args.make_documentation_plots is not None:
             processoptions['hardcopy'] = \
                 f'{args.make_documentation_plots_filename}--p0-p1-magnitude-covariance.{extension}'
         processoptions['title'] = title_covariance
-        gp.plotimage( np.abs(Var_p0p1_joint),
+        gp.plotimage( np.abs(Var_p0p1_joint.reshape(Npoints*3,Npoints*3)),
                       square = True,
                       xlabel = 'Variable index (left point x,y,z; right point x,y,z)',
                       ylabel = 'Variable index (left point x,y,z; right point x,y,z)',
