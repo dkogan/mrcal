@@ -447,7 +447,7 @@ icam_extrinsics0,        \
 icam_extrinsics1,        \
 istate_e1,               \
 istate_e0 =              \
-    mrcal.model_analysis._triangulation_uncertainty_internal(slices,
+    mrcal.triangulation._triangulation_uncertainty_internal(slices,
                                                              optimization_inputs_baseline,
                                                              0,0,
                                                              stabilize_coords = args.stabilize_coords)
@@ -566,7 +566,7 @@ for ipt in range(Npoints):
 
     p = np.zeros((3,), dtype=float)
     dp_triangulated_dq_flattened[ipt] = \
-        mrcal.model_analysis._triangulate_grad_simple(*slices[ipt], p)
+        mrcal.triangulation._triangulate_grad_simple(*slices[ipt], p)
 
 
 testutils.confirm_equal(dp_triangulated_dq_empirical_cross_only,
@@ -676,8 +676,8 @@ if not did_sample:
 # against the var(distancep) prediction I just computed
 # shape (Nsamples,Npoints,2,2)
 var_qt_onepoint = \
-    mrcal.model_analysis._compute_Var_q_triangulation(args.q_observation_stdev,
-                                                      args.q_observation_stdev_correlation)
+    mrcal.triangulation._compute_Var_q_triangulation(args.q_observation_stdev,
+                                                     args.q_observation_stdev_correlation)
 var_qt = np.zeros((Npoints*2*2, Npoints*2*2), dtype=float)
 for i in range(Npoints):
     var_qt[4*i:4*(i+1), 4*i:4*(i+1)] = var_qt_onepoint
