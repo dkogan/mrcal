@@ -929,8 +929,8 @@ if get_gradients: we return a tuple:
 def _compute_Var_q_triangulation(sigma, stdev_cross_camera_correlation):
     r'''Compute triangulation variance due to observation noise
 
-This is an internal piece of mrcal.triangulation_with_uncertainty(). It's
-available separately for the benefit of the test
+This is an internal piece of mrcal.triangulate(). It's available separately for
+the benefit of the test
 
     '''
 
@@ -961,8 +961,8 @@ def _triangulate_grad_simple(models, q,
                              triangulation_function = triangulate_leecivera_mid2):
     r'''Compute a single triangulation, reporting a single gradient
 
-This is an internal piece of mrcal.triangulation_with_uncertainty(). It's
-available separately for the benefit of the test
+This is an internal piece of mrcal.triangulate(). It's available separately for
+the benefit of the test
 
     '''
 
@@ -1019,8 +1019,8 @@ def _triangulation_uncertainty_internal(slices,
                                         stabilize_coords                 = True):
     r'''Compute most of the triangulation uncertainty logic
 
-This is an internal piece of mrcal.triangulation_with_uncertainty(). It's
-available separately to allow the test suite to validate some of the internals
+This is an internal piece of mrcal.triangulate(). It's available separately to
+allow the test suite to validate some of the internals
 
     '''
 
@@ -1417,13 +1417,13 @@ available separately to allow the test suite to validate some of the internals
         istate_e0
 
 
-def triangulation_with_uncertainty( q,
-                                    models,
-                                    q_calibration_stdev             = None,
-                                    q_observation_stdev             = 0,
-                                    q_observation_stdev_correlation = 0,
-                                    triangulation_function = triangulate_leecivera_mid2,
-                                    stabilize_coords = True ):
+def triangulate( q,
+                 models,
+                 q_calibration_stdev             = None,
+                 q_observation_stdev             = 0,
+                 q_observation_stdev_correlation = 0,
+                 triangulation_function = triangulate_leecivera_mid2,
+                 stabilize_coords = True ):
 
     # I'm propagating noise in the input vector
     #

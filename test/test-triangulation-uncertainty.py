@@ -583,43 +583,43 @@ testutils.confirm_equal(dp_triangulated_dq,
 if args.q_calibration_stdev > 0:
     p,                     \
     Var_p0p1_calibration = \
-        mrcal.triangulation_with_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
-                                              q_calibration_stdev = args.q_calibration_stdev,
-                                              q_observation_stdev = 0,
-                                              stabilize_coords    = args.stabilize_coords )
+        mrcal.triangulate( q_true, (models_baseline[icam0],models_baseline[icam1]),
+                           q_calibration_stdev = args.q_calibration_stdev,
+                           q_observation_stdev = 0,
+                           stabilize_coords    = args.stabilize_coords )
     testutils.confirm_equal(p,
                             p_triangulated0,
                             eps = 1e-6,
-                            msg = "triangulation_with_uncertainty() returns the right point")
+                            msg = "triangulate() returns the right point")
 else:
     Var_p0p1_calibration = np.zeros((Npoints,3, Npoints,3), dtype=float)
 
 if args.q_observation_stdev > 0:
     p,                     \
     Var_p0p1_observations = \
-        mrcal.triangulation_with_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
-                                              q_calibration_stdev             = 0,
-                                              q_observation_stdev             = args.q_observation_stdev,
-                                              q_observation_stdev_correlation = args.q_observation_stdev_correlation,
-                                              stabilize_coords                = args.stabilize_coords )
+        mrcal.triangulate( q_true, (models_baseline[icam0],models_baseline[icam1]),
+                           q_calibration_stdev             = 0,
+                           q_observation_stdev             = args.q_observation_stdev,
+                           q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                           stabilize_coords                = args.stabilize_coords )
     testutils.confirm_equal(p,
                             p_triangulated0,
                             eps = 1e-6,
-                            msg = "triangulation_with_uncertainty() returns the right point")
+                            msg = "triangulate() returns the right point")
 else:
     Var_p0p1_observations = np.zeros((Npoints,3, Npoints,3), dtype=float)
 
 p,               \
 Var_p0p1_joint = \
-    mrcal.triangulation_with_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
-                                          q_calibration_stdev             = args.q_calibration_stdev,
-                                          q_observation_stdev             = args.q_observation_stdev,
-                                          q_observation_stdev_correlation = args.q_observation_stdev_correlation,
-                                          stabilize_coords                = args.stabilize_coords )
+    mrcal.triangulate( q_true, (models_baseline[icam0],models_baseline[icam1]),
+                       q_calibration_stdev             = args.q_calibration_stdev,
+                       q_observation_stdev             = args.q_observation_stdev,
+                       q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                       stabilize_coords                = args.stabilize_coords )
 testutils.confirm_equal(p,
                         p_triangulated0,
                         eps = 1e-6,
-                        msg = "triangulation_with_uncertainty() returns the right point")
+                        msg = "triangulate() returns the right point")
 
 testutils.confirm_equal(Var_p0p1_joint,
                         Var_p0p1_calibration + Var_p0p1_observations,
