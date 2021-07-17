@@ -13,7 +13,7 @@ import numpy as np
 import numpysane as nps
 import sys
 import mrcal
-import mrcal._mrcal_npsp
+import mrcal._triangulation_npsp
 
 def _parse_args(v1,
                 t01,
@@ -177,9 +177,9 @@ if get_gradients: we return a tuple:
                           get_gradients, v_are_local, Rt01)
 
     if not get_gradients:
-        return mrcal._mrcal_npsp._triangulate_geometric(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_geometric(v0, v1, t01)
     else:
-        return mrcal._mrcal_npsp._triangulate_geometric_withgrad(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_geometric_withgrad(v0, v1, t01)
 
 
 def triangulate_leecivera_l1(v0, v1,
@@ -315,9 +315,9 @@ if get_gradients: we return a tuple:
                           get_gradients, v_are_local, Rt01)
 
     if not get_gradients:
-        return mrcal._mrcal_npsp._triangulate_leecivera_l1(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_l1(v0, v1, t01)
     else:
-        return mrcal._mrcal_npsp._triangulate_leecivera_l1_withgrad(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_l1_withgrad(v0, v1, t01)
 
 
 def triangulate_leecivera_linf(v0, v1,
@@ -454,9 +454,9 @@ if get_gradients: we return a tuple:
                           get_gradients, v_are_local, Rt01)
 
     if not get_gradients:
-        return mrcal._mrcal_npsp._triangulate_leecivera_linf(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_linf(v0, v1, t01)
     else:
-        return mrcal._mrcal_npsp._triangulate_leecivera_linf_withgrad(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_linf_withgrad(v0, v1, t01)
 
 
 def triangulate_leecivera_mid2(v0, v1,
@@ -588,9 +588,9 @@ if get_gradients: we return a tuple:
                           get_gradients, v_are_local, Rt01)
 
     if not get_gradients:
-        return mrcal._mrcal_npsp._triangulate_leecivera_mid2(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_mid2(v0, v1, t01)
     else:
-        return mrcal._mrcal_npsp._triangulate_leecivera_mid2_withgrad(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_mid2_withgrad(v0, v1, t01)
 
 
 def triangulate_leecivera_wmid2(v0, v1,
@@ -722,9 +722,9 @@ if get_gradients: we return a tuple:
                           get_gradients, v_are_local, Rt01)
 
     if not get_gradients:
-        return mrcal._mrcal_npsp._triangulate_leecivera_wmid2(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_wmid2(v0, v1, t01)
     else:
-        return mrcal._mrcal_npsp._triangulate_leecivera_wmid2_withgrad(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_wmid2_withgrad(v0, v1, t01)
 
 
 def triangulate_lindstrom(v0, v1, Rt01,
@@ -863,6 +863,6 @@ if get_gradients: we return a tuple:
         v1 = mrcal.rotate_point_R(nps.transpose(Rt01[:3,:]), v1)
 
     if not get_gradients:
-        return mrcal._mrcal_npsp._triangulate_lindstrom(v0, v1, Rt01)
+        return mrcal._triangulation_npsp._triangulate_lindstrom(v0, v1, Rt01)
     else:
-        return mrcal._mrcal_npsp._triangulate_lindstrom_withgrad(v0, v1, Rt01)
+        return mrcal._triangulation_npsp._triangulate_lindstrom_withgrad(v0, v1, Rt01)
