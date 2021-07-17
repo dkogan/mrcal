@@ -54,7 +54,8 @@ def triangulate_geometric(v0, v1,
                           t01           = None,
                           get_gradients = False,
                           v_are_local   = False,
-                          Rt01          = None):
+                          Rt01          = None,
+                          out           = None):
 
     r'''Simple geometric triangulation
 
@@ -155,6 +156,14 @@ ARGUMENTS
   coordinates instead of t01. If v_are_local: then Rt01 MUST be given instead of
   t01. This exists for API compatibility with the other triangulation routines.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
+
 RETURNED VALUE
 
 if not get_gradients:
@@ -178,16 +187,17 @@ if get_gradients: we return a tuple:
                           get_gradients, v_are_local, Rt01)
 
     if not get_gradients:
-        return mrcal._triangulation_npsp._triangulate_geometric(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_geometric(v0, v1, t01, out=out)
     else:
-        return mrcal._triangulation_npsp._triangulate_geometric_withgrad(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_geometric_withgrad(v0, v1, t01, out=out)
 
 
 def triangulate_leecivera_l1(v0, v1,
                              t01           = None,
                              get_gradients = False,
                              v_are_local   = False,
-                             Rt01          = None):
+                             Rt01          = None,
+                             out           = None):
 
     r'''Triangulation minimizing the L1-norm of angle differences
 
@@ -293,6 +303,14 @@ ARGUMENTS
   coordinates instead of t01. If v_are_local: then Rt01 MUST be given instead of
   t01. This exists for API compatibility with the other triangulation routines.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
+
 RETURNED VALUE
 
 if not get_gradients:
@@ -316,16 +334,17 @@ if get_gradients: we return a tuple:
                           get_gradients, v_are_local, Rt01)
 
     if not get_gradients:
-        return mrcal._triangulation_npsp._triangulate_leecivera_l1(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_l1(v0, v1, t01, out=out)
     else:
-        return mrcal._triangulation_npsp._triangulate_leecivera_l1_withgrad(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_l1_withgrad(v0, v1, t01, out=out)
 
 
 def triangulate_leecivera_linf(v0, v1,
                                t01           = None,
                                get_gradients = False,
                                v_are_local   = False,
-                               Rt01          = None):
+                               Rt01          = None,
+                               out           = None):
 
     r'''Triangulation minimizing the infinity-norm of angle differences
 
@@ -432,6 +451,14 @@ ARGUMENTS
   coordinates instead of t01. If v_are_local: then Rt01 MUST be given instead of
   t01. This exists for API compatibility with the other triangulation routines.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
+
 RETURNED VALUE
 
 if not get_gradients:
@@ -455,16 +482,17 @@ if get_gradients: we return a tuple:
                           get_gradients, v_are_local, Rt01)
 
     if not get_gradients:
-        return mrcal._triangulation_npsp._triangulate_leecivera_linf(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_linf(v0, v1, t01, out=out)
     else:
-        return mrcal._triangulation_npsp._triangulate_leecivera_linf_withgrad(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_linf_withgrad(v0, v1, t01, out=out)
 
 
 def triangulate_leecivera_mid2(v0, v1,
                                t01           = None,
                                get_gradients = False,
                                v_are_local   = False,
-                               Rt01          = None):
+                               Rt01          = None,
+                               out           = None):
 
     r'''Triangulation using Lee and Civera's alternative midpoint method
 
@@ -566,6 +594,14 @@ ARGUMENTS
   coordinates instead of t01. If v_are_local: then Rt01 MUST be given instead of
   t01. This exists for API compatibility with the other triangulation routines.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
+
 RETURNED VALUE
 
 if not get_gradients:
@@ -589,16 +625,17 @@ if get_gradients: we return a tuple:
                           get_gradients, v_are_local, Rt01)
 
     if not get_gradients:
-        return mrcal._triangulation_npsp._triangulate_leecivera_mid2(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_mid2(v0, v1, t01, out=out)
     else:
-        return mrcal._triangulation_npsp._triangulate_leecivera_mid2_withgrad(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_mid2_withgrad(v0, v1, t01, out=out)
 
 
 def triangulate_leecivera_wmid2(v0, v1,
                                 t01           = None,
                                 get_gradients = False,
                                 v_are_local   = False,
-                                Rt01          = None):
+                                Rt01          = None,
+                                out           = None):
 
     r'''Triangulation using Lee and Civera's weighted alternative midpoint method
 
@@ -700,6 +737,14 @@ ARGUMENTS
   coordinates instead of t01. If v_are_local: then Rt01 MUST be given instead of
   t01. This exists for API compatibility with the other triangulation routines.
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
+
 RETURNED VALUE
 
 if not get_gradients:
@@ -723,14 +768,15 @@ if get_gradients: we return a tuple:
                           get_gradients, v_are_local, Rt01)
 
     if not get_gradients:
-        return mrcal._triangulation_npsp._triangulate_leecivera_wmid2(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_wmid2(v0, v1, t01, out=out)
     else:
-        return mrcal._triangulation_npsp._triangulate_leecivera_wmid2_withgrad(v0, v1, t01)
+        return mrcal._triangulation_npsp._triangulate_leecivera_wmid2_withgrad(v0, v1, t01, out=out)
 
 
 def triangulate_lindstrom(v0, v1, Rt01,
                           get_gradients = False,
-                          v_are_local   = True):
+                          v_are_local   = True,
+                          out           = None):
 
     r'''Triangulation minimizing the 2-norm of pinhole reprojection errors
 
@@ -839,6 +885,14 @@ ARGUMENTS
   function interpret v1 similarly to the other triangulation routines. Must have
   the default value if get_gradients
 
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
+
 RETURNED VALUE
 
 if not get_gradients:
@@ -864,9 +918,9 @@ if get_gradients: we return a tuple:
         v1 = mrcal.rotate_point_R(nps.transpose(Rt01[:3,:]), v1)
 
     if not get_gradients:
-        return mrcal._triangulation_npsp._triangulate_lindstrom(v0, v1, Rt01)
+        return mrcal._triangulation_npsp._triangulate_lindstrom(v0, v1, Rt01, out=out)
     else:
-        return mrcal._triangulation_npsp._triangulate_lindstrom_withgrad(v0, v1, Rt01)
+        return mrcal._triangulation_npsp._triangulate_lindstrom_withgrad(v0, v1, Rt01, out=out)
 
 
 
@@ -933,13 +987,15 @@ available separately for the benefit of the test
         mrcal.rotate_point_r(rt01[:3], vlocal1,
                              get_gradients=True)
 
-    # Each has shape (3,3)
-    out[...],            \
-    dp_triangulated_dv0, \
-    dp_triangulated_dv1, \
-    _ =                  \
-        triangulation_function(v0, v1, rt01[3:],
-                               get_gradients = True)
+    dp_triangulated_dv0  = np.zeros( out.shape + (3,), dtype=float)
+    dp_triangulated_dv1  = np.zeros( out.shape + (3,), dtype=float)
+    dp_triangulated_dt01 = np.zeros( out.shape + (3,), dtype=float)
+    triangulation_function(v0, v1, rt01[3:],
+                           out = (out,
+                                  dp_triangulated_dv0,
+                                  dp_triangulated_dv1,
+                                  dp_triangulated_dt01),
+                           get_gradients = True)
 
     dp_triangulated_dq = np.zeros((3,) + q.shape[-2:], dtype=float)
     nps.matmult( dp_triangulated_dv0,
@@ -992,10 +1048,15 @@ available separately to allow the test suite to validate some of the internals
             mrcal.rotate_point_r(rt01[:3], vlocal1,
                                  get_gradients=True)
 
-        # out has shape (3,)
-        out[...], dp_triangulated_dv0, dp_triangulated_dv1, dp_triangulated_dt01 = \
-            triangulation_function(v0, v1, rt01[3:],
-                                   get_gradients = True)
+        dp_triangulated_dv0  = np.zeros(out.shape + (3,), dtype=float)
+        dp_triangulated_dv1  = np.zeros(out.shape + (3,), dtype=float)
+        dp_triangulated_dt01 = np.zeros(out.shape + (3,), dtype=float)
+        triangulation_function(v0, v1, rt01[3:],
+                               out = (out,
+                                      dp_triangulated_dv0,
+                                      dp_triangulated_dv1,
+                                      dp_triangulated_dt01),
+                               get_gradients = True)
 
         dp_triangulated_dq = np.zeros((3,) + q.shape[-2:], dtype=float)
         nps.matmult( dp_triangulated_dv0,
