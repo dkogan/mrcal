@@ -681,6 +681,9 @@ var_qt_onepoint = \
 var_qt = np.zeros((Npoints*2*2, Npoints*2*2), dtype=float)
 for i in range(Npoints):
     var_qt[4*i:4*(i+1), 4*i:4*(i+1)] = var_qt_onepoint
+# I want the RNG to be deterministic. If I turn caching on/off I'd be at a
+# different place in the RNG here. I reset to keep things consistent
+np.random.seed(0)
 qt_noise = \
     np.random.multivariate_normal( mean = np.zeros((Npoints*2*2,),),
                                    cov  = var_qt,
