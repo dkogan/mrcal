@@ -1,0 +1,69 @@
+#+TITLE: Triangulation uncertainty
+#+OPTIONS: toc:t
+
+A very common thing to want to do with a calibrated camera system is to convert
+a pair of pixel observations to a point in space that produced these
+observations, a process known as [[https://en.wikipedia.org/wiki/Triangulation_(computer_vision)][triangulation]] (or [[file:stereo.org][stereo vision]], which is an
+efficient formulation of the same). This can be sensitive to noise, creating a
+strong need for proper error modeling and propagation. Let's say we have an
+idealized geometry:
+
+[[file:figures/triangulation-symmetric.svg]]
+
+Let $b \equiv \mathrm{baseline}$ and $r \equiv \mathrm{range}$. Two cameras are
+looking at a point in space. Given two camera models and a pair of pixel
+observations we can compute the range to the point. Basic geometry tells us that
+
+\[\sin\left(\theta\right) \propto \frac{b}{r}\]
+
+Differentiating, we get
+
+\[\cos\left(\theta\right) \mathrm{d}\theta \propto \frac{b}{r^2} \mathrm{d}r\]
+
+When looking far away $\theta \approx 0$, so
+
+\[\frac{\mathrm{d}r}{\mathrm{d}\theta} \approx \frac{r^2}{b}\]
+
+
+Thus a small error in $\theta$ causes an error in the computed range that is
+proportional to the /square/ of $r$. This relationship sets the fundamental
+limit for the ranging capabilities of stereo systems: if you try to look out too
+far, the precision of $\theta$ required to get a precise-enough $r$ becomes
+unattainable. And because we have $r^2$, this range limit is approached very
+quickly. A bigger baseline helps, but does so only linearly.
+
+The angle $\theta$ comes from the extrinsics and intrinsics in the camera model,
+so the noise modeling and uncertainty propagation in mrcal are essential to a
+long-range stereo system.
+
+
+perpendicular observation/calibration:
+
+test/test-triangulation-uncertainty.py \
+  --do-sample \
+  --observed-point -2 0 10 \
+  --fixed cam0 \
+  --Nsamples 20 \
+  --q-calibration-stdev 0.2 \
+  --q-observation-stdev 0.2 \
+  --q-observation-stdev-correlation 0.5 \
+  --make-documentation-plots '' \
+  >& /dev/null
+
+
+
+
+
+skewed observation/calibration:
+(stabilization primarily causes the skewing, I think)
+test/test-triangulation-uncertainty.py \
+  --do-sample \
+  --observed-point -2 0 10 \
+  --fixed cam0 \
+  --Nsamples 20 \
+  --q-calibration-stdev 0.5 \
+  --q-observation-stdev 0.5 \
+  --q-observation-stdev-correlation 0.99 \
+  --make-documentation-plots '' \
+  --stabilize-coords \
+  >& /dev/null
