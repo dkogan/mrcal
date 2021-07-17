@@ -1806,7 +1806,7 @@ available separately to allow the test suite to validate some of the internals
 
 def triangulation_with_uncertainty( q,
                                     models,
-                                    q_calibration_stdev             = 0,
+                                    q_calibration_stdev             = None,
                                     q_observation_stdev             = 0,
                                     q_observation_stdev_correlation = 0,
                                     triangulation_function    = mrcal.triangulation.triangulate_leecivera_mid2,
@@ -1831,8 +1831,9 @@ def triangulation_with_uncertainty( q,
     #   Var(f) = df/dq_cal  Var(q_cal)  (df/dq_cal)T  +
     #            df/dq_obs0 Var(q_obs0) (df/dq_obs0)T +
     #            df/dq_obs1 Var(q_obs1) (df/dq_obs1)T + ...
-    if q_calibration_stdev < 0:
-        raise Exception("q_calibration_stdev MUST be >= 0")
+    if not (q_calibration_stdev is None or \
+            q_calibration_stdev >= 0):
+        raise Exception("q_calibration_stdev MUST be >= 0 or None")
     if q_observation_stdev < 0:
         raise Exception("q_observation_stdev MUST be >= 0")
 
@@ -1843,7 +1844,8 @@ def triangulation_with_uncertainty( q,
     slices = list(      nps.broadcast_generate(   ((2,), (2,2)), (models, q) ) )
     broadcasted_shape = nps.broadcast_extra_dims( ((2,), (2,2)), (models, q) )
 
-    if q_calibration_stdev > 0:
+    if q_calibration_stdev is None or \
+       q_calibration_stdev > 0:
         # we're trying to propagate calibration-time noise
 
         models_flat = models.ravel()
@@ -1856,6 +1858,9 @@ def triangulation_with_uncertainty( q,
 
         if optimization_inputs is None:
             raise Exception("optimization_inputs are not available, so I cannot propagate calibration-time noise")
+
+        if q_calibration_stdev is None:
+            q_calibration_stdev = optimization_inputs['observed_pixel_uncertainty']
 
     p,     \
     Var_p, \

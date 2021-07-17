@@ -585,6 +585,7 @@ if args.q_calibration_stdev > 0:
     Var_p0p1_calibration = \
         mrcal.triangulation_with_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
                                               q_calibration_stdev = args.q_calibration_stdev,
+                                              q_observation_stdev = 0,
                                               stabilize_coords    = args.stabilize_coords )
     testutils.confirm_equal(p,
                             p_triangulated0,
@@ -597,6 +598,7 @@ if args.q_observation_stdev > 0:
     p,                     \
     Var_p0p1_observations = \
         mrcal.triangulation_with_uncertainty( q_true, (models_baseline[icam0],models_baseline[icam1]),
+                                              q_calibration_stdev             = 0,
                                               q_observation_stdev             = args.q_observation_stdev,
                                               q_observation_stdev_correlation = args.q_observation_stdev_correlation,
                                               stabilize_coords                = args.stabilize_coords )
