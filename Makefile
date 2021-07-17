@@ -71,7 +71,8 @@ LIB_SOURCES += cameramodel-parser_GENERATED.c
 EXTRA_CLEAN += cameramodel-parser_GENERATED.c
 cameramodel-parser_GENERATED.o: CCXXFLAGS += -fno-fast-math
 
-ALL_PY_EXTENSION_MODULES := _mrcal _mrcal_npsp _poseutils
+ALL_NPSP_EXTENSION_MODULES := $(patsubst %-genpywrap.py,%,$(wildcard *-genpywrap.py))
+ALL_PY_EXTENSION_MODULES   := _mrcal $(patsubst %,_%_npsp,$(ALL_NPSP_EXTENSION_MODULES))
 %/:
 	mkdir -p $@
 
@@ -168,25 +169,25 @@ EXTRA_CLEAN += doc/out
 
 
 ######### python stuff
-mrcal-npsp-pywrap-GENERATED.c: mrcal-genpywrap.py
+%-npsp-pywrap-GENERATED.c: %-genpywrap.py
 	python3 $< > $@.tmp && mv $@.tmp $@
-poseutils-pywrap-GENERATED.c: poseutils-genpywrap.py
-	python3 $< > $@.tmp && mv $@.tmp $@
-mrcal/_mrcal_npsp$(PY_EXT_SUFFIX): mrcal-npsp-pywrap-GENERATED.o libmrcal.so
+mrcal/_%_npsp$(PY_EXT_SUFFIX): %-npsp-pywrap-GENERATED.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
-mrcal/_poseutils$(PY_EXT_SUFFIX): poseutils-pywrap-GENERATED.o libmrcal.so
-	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
-EXTRA_CLEAN += mrcal-npsp-pywrap-GENERATED.c poseutils-pywrap-GENERATED.c
+
+ALL_NPSP_C  := $(patsubst %,%-npsp-pywrap-GENERATED.c,$(ALL_NPSP_EXTENSION_MODULES))
+ALL_NPSP_O  := $(patsubst %,%-npsp-pywrap-GENERATED.o,$(ALL_NPSP_EXTENSION_MODULES))
+ALL_NPSP_SO := $(patsubst %,mrcal/_%_npsp$(PY_EXT_SUFFIX),$(ALL_NPSP_EXTENSION_MODULES))
+
+EXTRA_CLEAN += $(ALL_NPSP_C)
 
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95635
-poseutils-pywrap-GENERATED.o:  CFLAGS += -Wno-array-bounds
-mrcal-npsp-pywrap-GENERATED.o: CFLAGS += -Wno-array-bounds
+$(ALL_NPSP_O): CFLAGS += -Wno-array-bounds
 
 mrcal-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
 
-PYTHON_OBJECTS := mrcal-npsp-pywrap-GENERATED.o poseutils-pywrap-GENERATED.o mrcal-pywrap.o
+PYTHON_OBJECTS := mrcal-pywrap.o $(ALL_NPSP_O)
 
 # In the python api I have to cast a PyCFunctionWithKeywords to a PyCFunction,
 # and the compiler complains. But that's how Python does it! So I tell the
@@ -198,7 +199,7 @@ $(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
 # mrcal/
 DIST_PY3_MODULES := mrcal
 
-all: mrcal/_mrcal$(PY_EXT_SUFFIX) mrcal/_mrcal_npsp$(PY_EXT_SUFFIX) mrcal/_poseutils$(PY_EXT_SUFFIX)
+all: mrcal/_mrcal$(PY_EXT_SUFFIX) $(ALL_NPSP_SO)
 EXTRA_CLEAN += mrcal/*.so
 
 include Makefile.tests

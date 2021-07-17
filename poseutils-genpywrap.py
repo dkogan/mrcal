@@ -27,7 +27,7 @@ mrcal._poseutils.fff() or mrcal.fff(). The latter is preferred.
 '''
 
 
-m = npsp.module( name      = "_poseutils",
+m = npsp.module( name      = "_poseutils_npsp",
                  docstring = docstring_module,
                  header    = r'''
 #include "poseutils.h"

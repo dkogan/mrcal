@@ -18,7 +18,7 @@ from .projections           import *
 from .cameramodel           import *
 from .poseutils             import *
 # The C wrapper is generated from poseutils-genpywrap.py
-from ._poseutils            import *
+from ._poseutils_npsp       import *
 from .stereo                import *
 from .visualization         import *
 from .model_analysis        import *

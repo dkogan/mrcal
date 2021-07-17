@@ -3,8 +3,8 @@
 '''Routines to manipulate poses, transformations and points
 
 Most of these are Python wrappers around the written-in-C Python extension
-module mrcal._poseutils. Most of the time you want to use this module instead of
-touching mrcal._poseutils directly.
+module mrcal._poseutils_npsp. Most of the time you want to use this module
+instead of touching mrcal._poseutils_npsp directly.
 
 All functions are exported into the mrcal module. So you can call these via
 mrcal.poseutils.fff() or mrcal.fff(). The latter is preferred.
@@ -17,7 +17,7 @@ import numpysane as nps
 # for python3
 from functools import reduce
 
-from . import _poseutils
+from . import _poseutils_npsp
 
 def r_from_R(R, get_gradients=False, out=None):
     r"""Compute a Rodrigues vector from a rotation matrix
@@ -75,8 +75,8 @@ and the gradients (r, dr/dR)
     """
 
     if get_gradients:
-        return _poseutils._r_from_R_withgrad(R, out=out)
-    return _poseutils._r_from_R(R, out=out)
+        return _poseutils_npsp._r_from_R_withgrad(R, out=out)
+    return _poseutils_npsp._r_from_R(R, out=out)
 
 def R_from_r(r, get_gradients=False, out=None):
     r"""Compute a rotation matrix from a Rodrigues vector
@@ -131,8 +131,8 @@ and the gradient (R, dR/dr):
     """
 
     if get_gradients:
-        return _poseutils._R_from_r_withgrad(r, out=out)
-    return _poseutils._R_from_r(r, out=out)
+        return _poseutils_npsp._R_from_r_withgrad(r, out=out)
+    return _poseutils_npsp._R_from_r(r, out=out)
 
 def invert_R(R, out=None):
     r"""Invert a rotation matrix
@@ -180,7 +180,7 @@ RETURNED VALUE
 The inverse rotation matrix in an array of shape (3,3).
 
     """
-    return _poseutils._invert_R(R, out=out)
+    return _poseutils_npsp._invert_R(R, out=out)
 
 def rt_from_Rt(Rt, get_gradients=False, out=None):
     r"""Compute an rt transformation from a Rt transformation
@@ -260,8 +260,8 @@ and the gradient (rt, dr/dR):
 
     """
     if get_gradients:
-        return _poseutils._rt_from_Rt_withgrad(Rt, out=out)
-    return _poseutils._rt_from_Rt(Rt, out=out)
+        return _poseutils_npsp._rt_from_Rt_withgrad(Rt, out=out)
+    return _poseutils_npsp._rt_from_Rt(Rt, out=out)
 
 def Rt_from_rt(rt, get_gradients=False, out=None):
     r"""Compute an Rt transformation from a rt transformation
@@ -339,8 +339,8 @@ and the gradient (Rt, dR/dr):
 
     """
     if get_gradients:
-        return _poseutils._Rt_from_rt_withgrad(rt, out=out)
-    return _poseutils._Rt_from_rt(rt, out=out)
+        return _poseutils_npsp._Rt_from_rt_withgrad(rt, out=out)
+    return _poseutils_npsp._Rt_from_rt(rt, out=out)
 
 def invert_Rt(Rt, out=None):
     r"""Invert an Rt transformation
@@ -411,7 +411,7 @@ RETURNED VALUE
 The inverse Rt transformation in an array of shape (4,3).
 
     """
-    return _poseutils._invert_Rt(Rt, out=out)
+    return _poseutils_npsp._invert_Rt(Rt, out=out)
 
 def invert_rt(rt, get_gradients=False, out=None):
     r"""Invert an rt transformation
@@ -514,8 +514,8 @@ and the gradients (rt, drtout/drtin)
 
     """
     if get_gradients:
-        return _poseutils._invert_rt_withgrad(rt, out=out)
-    return _poseutils._invert_rt(rt, out=out)
+        return _poseutils_npsp._invert_rt_withgrad(rt, out=out)
+    return _poseutils_npsp._invert_rt(rt, out=out)
 
 def compose_Rt(*Rt, out=None):
     r"""Compose Rt transformations
@@ -579,8 +579,8 @@ RETURNED VALUE
 An array of composed Rt transformations. Each broadcasted slice has shape (4,3)
 
     """
-    Rt1onwards = reduce( _poseutils._compose_Rt, Rt[1:], _poseutils.identity_Rt() )
-    return _poseutils._compose_Rt(Rt[0], Rt1onwards, out=out)
+    Rt1onwards = reduce( _poseutils_npsp._compose_Rt, Rt[1:], _poseutils_npsp.identity_Rt() )
+    return _poseutils_npsp._compose_Rt(Rt[0], Rt1onwards, out=out)
 
 def compose_rt(*rt, get_gradients=False, out=None):
     r"""Compose rt transformations
@@ -698,14 +698,14 @@ drt/drt0,drt/drt1):
     if get_gradients:
         if len(rt) != 2:
             raise Exception("compose_rt(..., get_gradients=True) is supported only if exactly 2 inputs are given")
-        return _poseutils._compose_rt_withgrad(*rt, out=out)
+        return _poseutils_npsp._compose_rt_withgrad(*rt, out=out)
 
     # I convert them all to Rt and compose for efficiency. Otherwise each
     # internal composition will convert to Rt, compose, and then convert back to
     # rt. The way I'm doing it I convert to rt just once, at the end. This will
     # save operations if I'm composing more than 2 transformations
-    Rt = compose_Rt(*[_poseutils._Rt_from_rt(_rt) for _rt in rt])
-    return _poseutils._rt_from_Rt( Rt, out=out)
+    Rt = compose_Rt(*[_poseutils_npsp._Rt_from_rt(_rt) for _rt in rt])
+    return _poseutils_npsp._rt_from_Rt( Rt, out=out)
 
 def rotate_point_r(r, x, get_gradients=False, out=None, inverted=False):
     r"""Rotate point(s) using a Rodrigues vector
@@ -795,8 +795,8 @@ A tuple (u=r(x),du/dr,du/dx):
 
     """
     if not get_gradients:
-        return _poseutils._rotate_point_r(r,x, out=out, inverted=inverted)
-    return _poseutils._rotate_point_r_withgrad(r,x, out=out, inverted=inverted)
+        return _poseutils_npsp._rotate_point_r(r,x, out=out, inverted=inverted)
+    return _poseutils_npsp._rotate_point_r_withgrad(r,x, out=out, inverted=inverted)
 
 def rotate_point_R(R, x, get_gradients=False, out=None, inverted=False):
     r"""Rotate point(s) using a rotation matrix
@@ -886,8 +886,8 @@ the gradients (u=R(x),du/dR,du/dx):
     """
 
     if not get_gradients:
-        return _poseutils._rotate_point_R(R,x, out=out, inverted=inverted)
-    return _poseutils._rotate_point_R_withgrad(R,x, out=out, inverted=inverted)
+        return _poseutils_npsp._rotate_point_R(R,x, out=out, inverted=inverted)
+    return _poseutils_npsp._rotate_point_R_withgrad(R,x, out=out, inverted=inverted)
 
 def transform_point_rt(rt, x, get_gradients=False, out=None, inverted=False):
     r"""Transform point(s) using an rt transformation
@@ -982,8 +982,8 @@ gradients (u=rt(x),du/drt,du/dx):
     """
 
     if not get_gradients:
-        return _poseutils._transform_point_rt(rt,x, out=out, inverted=inverted)
-    return _poseutils._transform_point_rt_withgrad(rt,x, out=out, inverted=inverted)
+        return _poseutils_npsp._transform_point_rt(rt,x, out=out, inverted=inverted)
+    return _poseutils_npsp._transform_point_rt_withgrad(rt,x, out=out, inverted=inverted)
 
 def transform_point_Rt(Rt, x, get_gradients=False, out=None, inverted=False):
     r"""Transform point(s) using an Rt transformation
@@ -1079,8 +1079,8 @@ gradients (u=Rt(x),du/dRt,du/dx):
     """
 
     if not get_gradients:
-        return _poseutils._transform_point_Rt(Rt,x, out=out, inverted=inverted)
-    return _poseutils._transform_point_Rt_withgrad(Rt,x, out=out, inverted=inverted)
+        return _poseutils_npsp._transform_point_Rt(Rt,x, out=out, inverted=inverted)
+    return _poseutils_npsp._transform_point_Rt_withgrad(Rt,x, out=out, inverted=inverted)
 
 @nps.broadcast_define( ((4,),),
                        (3,3) )
