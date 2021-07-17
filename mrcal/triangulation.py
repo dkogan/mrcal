@@ -1454,8 +1454,8 @@ def triangulation_with_uncertainty( q,
         models = np.array(models, dtype=object)
 
 
-    slices = list(      nps.broadcast_generate(   ((2,), (2,2)), (models, q) ) )
-    broadcasted_shape = nps.broadcast_extra_dims( ((2,), (2,2)), (models, q) )
+    slices            = tuple(nps.broadcast_generate(   ((2,), (2,2)), (models, q) ) )
+    broadcasted_shape = tuple(nps.broadcast_extra_dims( ((2,), (2,2)), (models, q) ))
 
     if q_calibration_stdev is None or \
        q_calibration_stdev > 0:
@@ -1521,6 +1521,6 @@ def triangulation_with_uncertainty( q,
     # I now reshape the output into its proper shape. I have the leading shape I
     # want in broadcasted_shape (I know that reduce(broadcast_extra_dims, *) =
     # Npoints)
-    p     = p    .reshape(broadcasted_shape + [3])
-    Var_p = Var_p.reshape(broadcasted_shape + [3] + broadcasted_shape + [3])
+    p     = p    .reshape(broadcasted_shape + (3,))
+    Var_p = Var_p.reshape(broadcasted_shape + (3,) + broadcasted_shape + (3,))
     return p, Var_p
