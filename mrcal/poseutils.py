@@ -53,10 +53,11 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing (and
-  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
   get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
-  a tuple of all the output numpy arrays. If 'out' is given, we return the same
-  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
 
 RETURNED VALUE
 
@@ -108,10 +109,11 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing (and
-  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
   get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
-  a tuple of all the output numpy arrays. If 'out' is given, we return the same
-  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
 
 RETURNED VALUE
 
@@ -172,7 +174,7 @@ ARGUMENTS
 - out: optional argument specifying the destination. By default, a new numpy
   array is created and returned. To write the results into an existing (and
   possibly non-contiguous) array, specify it with the 'out' kwarg. If 'out' is
-  given, we return the same array passed in. This is the standard behavior
+  given, we return the 'out' that was passed in. This is the standard behavior
   provided by numpysane_pywrap.
 
 RETURNED VALUE
@@ -238,10 +240,11 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing (and
-  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
   get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
-  a tuple of all the output numpy arrays. If 'out' is given, we return the same
-  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
 
 RETURNED VALUE
 
@@ -317,10 +320,11 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing (and
-  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
   get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
-  a tuple of all the output numpy arrays. If 'out' is given, we return the same
-  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
 
 RETURNED VALUE
 
@@ -403,7 +407,7 @@ ARGUMENTS
 - out: optional argument specifying the destination. By default, a new numpy
   array is created and returned. To write the results into an existing (and
   possibly non-contiguous) array, specify it with the 'out' kwarg. If 'out' is
-  given, we return the same array passed in. This is the standard behavior
+  given, we return the 'out' that was passed in. This is the standard behavior
   provided by numpysane_pywrap.
 
 RETURNED VALUE
@@ -493,10 +497,11 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing (and
-  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
   get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
-  a tuple of all the output numpy arrays. If 'out' is given, we return the same
-  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
 
 RETURNED VALUE
 
@@ -571,7 +576,7 @@ ARGUMENTS
 - out: optional argument specifying the destination. By default, a new numpy
   array is created and returned. To write the results into an existing (and
   possibly non-contiguous) array, specify it with the 'out' kwarg. If 'out' is
-  given, we return the same array passed in. This is the standard behavior
+  given, we return the 'out' that was passed in. This is the standard behavior
   provided by numpysane_pywrap.
 
 RETURNED VALUE
@@ -669,10 +674,11 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing (and
-  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
   get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
-  a tuple of all the output numpy arrays. If 'out' is given, we return the same
-  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
 
 RETURNED VALUE
 
@@ -768,10 +774,11 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing (and
-  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
   get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
-  a tuple of all the output numpy arrays. If 'out' is given, we return the same
-  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
 
 RETURNED VALUE
 
@@ -860,10 +867,11 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing (and
-  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
   get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
-  a tuple of all the output numpy arrays. If 'out' is given, we return the same
-  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
 
 RETURNED VALUE
 
@@ -956,10 +964,11 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing (and
-  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
   get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
-  a tuple of all the output numpy arrays. If 'out' is given, we return the same
-  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
 
 RETURNED VALUE
 
@@ -1053,10 +1062,11 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, new numpy
   array(s) are created and returned. To write the results into existing (and
-  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
   get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
-  a tuple of all the output numpy arrays. If 'out' is given, we return the same
-  arrays passed in. This is the standard behavior provided by numpysane_pywrap.
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
 
 RETURNED VALUE
 
