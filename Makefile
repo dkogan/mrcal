@@ -179,7 +179,7 @@ mrcal/_poseutils$(PY_EXT_SUFFIX): poseutils-pywrap-GENERATED.o libmrcal.so
 EXTRA_CLEAN += mrcal-npsp-pywrap-GENERATED.c poseutils-pywrap-GENERATED.c
 
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95635
-poseutils-pywrap-GENERATED.o:         CFLAGS += -Wno-array-bounds
+poseutils-pywrap-GENERATED.o:  CFLAGS += -Wno-array-bounds
 mrcal-npsp-pywrap-GENERATED.o: CFLAGS += -Wno-array-bounds
 
 mrcal-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
