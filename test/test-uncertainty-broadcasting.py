@@ -179,7 +179,9 @@ for ipt in range(Npoints):
                                        *M[imp][1].intrinsics())
 
 p, \
-Var_p0p1_big = \
+Var_p0p1_calibration_big, \
+Var_p0p1_observation_big, \
+Var_p0p1_joint_big = \
     mrcal.triangulate( q, M,
                        q_calibration_stdev             = args.q_calibration_stdev,
                        q_observation_stdev             = args.q_observation_stdev,
@@ -190,14 +192,21 @@ testutils.confirm_equal(p.shape,
                         (Npoints,Nmodelpairs,3),
                         msg = "point array has the right shape")
 
-testutils.confirm_equal(Var_p0p1_big.shape,
+testutils.confirm_equal(Var_p0p1_calibration_big.shape,
                         (Npoints,Nmodelpairs,3, Npoints,Nmodelpairs,3),
-                        msg = "Big covariance matrix has the right shape")
+                        msg = "Big covariance (calibration) matrix has the right shape")
+testutils.confirm_equal(Var_p0p1_observation_big.shape,
+                        (Npoints,Nmodelpairs,3,3),
+                        msg = "Big covariance (observation) matrix has the right shape")
+testutils.confirm_equal(Var_p0p1_joint_big.shape,
+                        (Npoints,Nmodelpairs,3, Npoints,Nmodelpairs,3),
+                        msg = "Big covariance (joint) matrix has the right shape")
 
 # Now I check each block in the diagonal individually
 for ipt in range(Npoints):
     for imp in range(Nmodelpairs):
         p, \
+        _, _, \
         Var_p0p1 = \
             mrcal.triangulate( q[ipt,imp], M[imp],
                                q_calibration_stdev             = args.q_calibration_stdev,
@@ -205,8 +214,11 @@ for ipt in range(Npoints):
                                q_observation_stdev_correlation = args.q_observation_stdev_correlation,
                                stabilize_coords                = args.stabilize_coords )
 
-        testutils.confirm_equal(Var_p0p1_big[ipt,imp,:,ipt,imp,:],
+        testutils.confirm_equal(Var_p0p1_joint_big[ipt,imp,:,ipt,imp,:],
                                 Var_p0p1,
-                                msg = f"Covariance sub-matrix ipt={ipt} imp={imp}")
+                                msg = f"Covariance (joint) sub-matrix ipt={ipt} imp={imp}")
+        testutils.confirm_equal(Var_p0p1_calibration_big[ipt,imp,:,ipt,imp,:] + Var_p0p1_observation_big[ipt,imp,:,:],
+                                Var_p0p1,
+                                msg = f"Covariance (cal + obs) sub-matrix ipt={ipt} imp={imp}")
 
 testutils.finish()

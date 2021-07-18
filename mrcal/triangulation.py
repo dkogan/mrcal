@@ -1022,7 +1022,7 @@ def _triangulation_uncertainty_internal(slices,
 This is an internal piece of mrcal.triangulate(). It's available separately to
 allow the test suite to validate some of the internals.
 
-    if optimization_inputs is None and q_observation_stdev == 0:
+    if optimization_inputs is None and q_observation_stdev is None:
         We're not propagating any noise. Just return the triangulated point
 
     '''
@@ -1230,12 +1230,9 @@ allow the test suite to validate some of the internals.
     # Output goes here. This function fills in the observation-time stuff.
     # Otherwise this function just returns the array of 0s, which the callers
     # will fill using the dp_triangulated_dpstate data this function returns
-    p     = np.zeros((Npoints,3),           dtype=float)
-    Var_p = np.zeros((3*Npoints,3*Npoints), dtype=float)
+    p = np.zeros((Npoints,3), dtype=float)
 
     if optimization_inputs is not None:
-
-        # We're propagating the calibration-time noise
 
         Nintrinsics = mrcal.num_intrinsics_optimization_params(**optimization_inputs)
         Nstate      = mrcal.num_states(**optimization_inputs)
@@ -1266,12 +1263,16 @@ allow the test suite to validate some of the internals.
         istate_e1               = None
         istate_e0               = None
 
-    if q_observation_stdev > 0:
+    if q_observation_stdev is not None:
         # observation-time variance of each observed pair of points
         # shape (Ncameras*Nxy, Ncameras*Nxy) = (4,4)
         Var_q_observation_flat = \
             _compute_Var_q_triangulation(q_observation_stdev,
                                          q_observation_stdev_correlation)
+        Var_p_observation = np.zeros((Npoints,3,3), dtype=float)
+    else:
+        Var_p_observation = None
+
 
     for ipt in range(Npoints):
         q,models01 = slices[ipt]
@@ -1300,11 +1301,11 @@ allow the test suite to validate some of the internals.
                                  triangulation_function = triangulation_function)
 
         # triangulation-time uncertainty
-        if q_observation_stdev > 0:
-            Var_p[3*ipt:3*ipt+3, 3*ipt:3*ipt+3] = \
-                nps.matmult( dp_triangulated_dq,
-                             Var_q_observation_flat,
-                             nps.transpose(dp_triangulated_dq) )
+        if q_observation_stdev is not None:
+            nps.matmult( dp_triangulated_dq,
+                         Var_q_observation_flat,
+                         nps.transpose(dp_triangulated_dq),
+                         out = Var_p_observation[ipt,...])
 
         if optimization_inputs is None:
             # Not evaluating calibration-time uncertainty. Nothing else to do.
@@ -1411,7 +1412,7 @@ allow the test suite to validate some of the internals.
     # Returning the istate stuff for the test suite. These are the istate_...
     # and icam_... for the last slice only. This is good-enough for the test
     # suite
-    return p, Var_p, dp_triangulated_dpstate, \
+    return p, Var_p_observation, dp_triangulated_dpstate, \
         istate_i0,                            \
         istate_i1,                            \
         icam_extrinsics0,                     \
@@ -1423,7 +1424,7 @@ allow the test suite to validate some of the internals.
 def triangulate( q,
                  models,
                  q_calibration_stdev             = None,
-                 q_observation_stdev             = 0,
+                 q_observation_stdev             = None,
                  q_observation_stdev_correlation = 0,
                  triangulation_function = triangulate_leecivera_mid2,
                  stabilize_coords = True ):
@@ -1447,19 +1448,19 @@ def triangulate( q,
     #   Var(f) = df/dq_cal  Var(q_cal)  (df/dq_cal)T  +
     #            df/dq_obs0 Var(q_obs0) (df/dq_obs0)T +
     #            df/dq_obs1 Var(q_obs1) (df/dq_obs1)T + ...
-    if not (q_calibration_stdev is None or \
-            q_calibration_stdev >= 0):
-        raise Exception("q_calibration_stdev MUST be >= 0 or None")
-    if q_observation_stdev < 0:
-        raise Exception("q_observation_stdev MUST be >= 0")
+    if q_observation_stdev is not None and \
+       q_observation_stdev < 0:
+        raise Exception("q_observation_stdev MUST be None or >= 0")
 
     if not isinstance(models, np.ndarray):
         models = np.array(models, dtype=object)
 
 
+    slices            = tuple(nps.broadcast_generate(   ((2,2),(2,)), (q, models) ) )
+    broadcasted_shape = tuple(nps.broadcast_extra_dims( ((2,2),(2,)), (q, models) ))
 
-    if q_calibration_stdev == 0 and \
-       q_observation_stdev == 0:
+    if (q_calibration_stdev is None or q_calibration_stdev == 0) and \
+       (q_observation_stdev is None or q_observation_stdev == 0):
 
         @nps.broadcast_define(((2,2),(2,)), (3,))
         def triangulate_slice(q01, m01):
@@ -1475,16 +1476,32 @@ def triangulate( q,
             v1 = mrcal.rotate_point_r(rt01[:3], vlocal1)
             return triangulation_function(v0, v1, rt01[3:])
 
-        return triangulate_slice(q, models)
+        p = triangulate_slice(q, models)
+
+        if q_calibration_stdev is None:
+            Var_p_calibration = np.zeros(broadcasted_shape + (3,) +
+                                         broadcasted_shape + (3,),
+                                         dtype=float)
+
+            if q_observation_stdev is None:
+                return p
+
+            Var_p_observation = np.zeros(broadcasted_shape + (3,3), dtype=float)
+            return p, Var_p_observation
+
+        if q_observation_stdev is None:
+            return p, Var_p_calibration
+
+        Var_p_observation = np.zeros(broadcasted_shape + (3,3), dtype=float)
+        return p, Var_p_calibration, Var_p_observation
 
 
 
-    slices            = tuple(nps.broadcast_generate(   ((2,2),(2,)), (q, models) ) )
-    broadcasted_shape = tuple(nps.broadcast_extra_dims( ((2,2),(2,)), (q, models) ))
 
-    if q_calibration_stdev is None or \
-       q_calibration_stdev > 0:
-        # we're trying to propagate calibration-time noise
+
+    if q_calibration_stdev is not None and \
+       q_calibration_stdev != 0:
+        # we're propagating calibration-time noise
 
         models_flat = models.ravel()
         for i0 in range(len(models_flat)):
@@ -1497,11 +1514,13 @@ def triangulate( q,
         if optimization_inputs is None:
             raise Exception("optimization_inputs are not available, so I cannot propagate calibration-time noise")
 
-        if q_calibration_stdev is None:
+        if q_calibration_stdev < 0:
             q_calibration_stdev = optimization_inputs['observed_pixel_uncertainty']
 
-    p,     \
-    Var_p, \
+
+
+    p,                      \
+    Var_p_observation_flat, \
     dp_triangulated_dpstate = \
         _triangulation_uncertainty_internal(
                         slices,
@@ -1512,8 +1531,8 @@ def triangulate( q,
                         stabilize_coords       = stabilize_coords)[:3]
 
     # Done looping through all the triangulated points. I have computed the
-    # observation-time noise contributions in Var_p. And I have all the
-    # gradients in dp_triangulated_dpstate
+    # observation-time noise contributions in Var_p_observation. And I have all
+    # the gradients in dp_triangulated_dpstate
 
     if q_calibration_stdev > 0:
         # pack the denominator by unpacking the numerator
@@ -1530,7 +1549,7 @@ def triangulate( q,
 
         ppacked,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs)
 
-        Var_p += \
+        Var_p_calibration_flat = \
             mrcal.model_analysis._propagate_calibration_uncertainty(
                                                dp_triangulated_dpstate,
                                                factorization, Jpacked,
@@ -1540,12 +1559,35 @@ def triangulate( q,
 
     # I used broadcast_generate() to implement the broadcasting logic. This
     # function flattened the broadcasted output, so at this time I have
-    #   p.shape     = (Npoints,3)
-    #   Var_p.shape = (Npoints*3, Npoints*3)
+    #   p.shape                      = (Npoints,3)
+    #   Var_p_calibration_flat.shape = (Npoints*3, Npoints*3)
+    #   Var_p_observation_flat.shape = (Npoints,3,3)
     #
     # I now reshape the output into its proper shape. I have the leading shape I
     # want in broadcasted_shape (I know that reduce(broadcast_extra_dims, *) =
     # Npoints)
-    p     = p    .reshape(broadcasted_shape + (3,))
-    Var_p = Var_p.reshape(broadcasted_shape + (3,) + broadcasted_shape + (3,))
-    return p, Var_p
+    p = p.reshape(broadcasted_shape + (3,))
+    if Var_p_calibration_flat is not None:
+        Var_p_calibration = \
+            Var_p_calibration_flat.reshape(broadcasted_shape + (3,) +
+                                           broadcasted_shape + (3,))
+    if Var_p_observation_flat is not None:
+        Var_p_observation = \
+            Var_p_observation_flat.reshape(broadcasted_shape + (3,3))
+
+
+    if q_calibration_stdev is None:
+        # q_observation_stdev must not be None
+        return p, Var_p_observation
+    if q_observation_stdev is None:
+        # q_calibration_stdev must not be None
+        return p, Var_p_calibration
+
+    # Propagating both types of noise. I create a joint covariance matrix
+    Var_p_joint = Var_p_calibration.copy()
+    Var_p_joint_flat = Var_p_joint.reshape(Var_p_calibration_flat.shape)
+    for ipt in range(len(slices)):
+        Var_p_joint_flat[ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3] += \
+            Var_p_observation_flat[ipt,...]
+
+    return p, Var_p_calibration, Var_p_observation, Var_p_joint

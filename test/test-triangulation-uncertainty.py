@@ -580,52 +580,65 @@ testutils.confirm_equal(dp_triangulated_dq,
                         eps = 5e-3,
                         msg = "Gradient check: dp_triangulated_dq")
 
-if args.q_calibration_stdev > 0:
-    p,                     \
-    Var_p_calibration = \
-        mrcal.triangulate( q_true, (models_baseline[icam0],models_baseline[icam1]),
-                           q_calibration_stdev = args.q_calibration_stdev,
-                           q_observation_stdev = 0,
-                           stabilize_coords    = args.stabilize_coords )
-    testutils.confirm_equal(p,
-                            p_triangulated0,
-                            eps = 1e-6,
-                            msg = "triangulate() returns the right point")
-else:
-    Var_p_calibration = np.zeros((Npoints,3, Npoints,3), dtype=float)
 
-if args.q_observation_stdev > 0:
-    p,                     \
-    Var_p_observations = \
-        mrcal.triangulate( q_true, (models_baseline[icam0],models_baseline[icam1]),
-                           q_calibration_stdev             = 0,
-                           q_observation_stdev             = args.q_observation_stdev,
-                           q_observation_stdev_correlation = args.q_observation_stdev_correlation,
-                           stabilize_coords                = args.stabilize_coords )
-    testutils.confirm_equal(p,
-                            p_triangulated0,
-                            eps = 1e-6,
-                            msg = "triangulate() returns the right point")
-else:
-    Var_p_observations = np.zeros((Npoints,3, Npoints,3), dtype=float)
-
-p,               \
+p_alone = \
+    mrcal.triangulate( q_true, (models_baseline[icam0],models_baseline[icam1]),
+                       stabilize_coords = args.stabilize_coords )
+p_calnoise,               \
+Var_p_calibration_alone = \
+    mrcal.triangulate( q_true, (models_baseline[icam0],models_baseline[icam1]),
+                       q_calibration_stdev = args.q_calibration_stdev,
+                       stabilize_coords    = args.stabilize_coords )
+p_obsnoise,               \
+Var_p_observation_alone = \
+    mrcal.triangulate( q_true, (models_baseline[icam0],models_baseline[icam1]),
+                       q_observation_stdev             = args.q_observation_stdev,
+                       q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                       stabilize_coords    = args.stabilize_coords )
+p,                  \
+Var_p_calibration,  \
+Var_p_observation,  \
 Var_p_joint = \
     mrcal.triangulate( q_true, (models_baseline[icam0],models_baseline[icam1]),
                        q_calibration_stdev             = args.q_calibration_stdev,
                        q_observation_stdev             = args.q_observation_stdev,
                        q_observation_stdev_correlation = args.q_observation_stdev_correlation,
-                       stabilize_coords                = args.stabilize_coords )
-testutils.confirm_equal(p,
+                       stabilize_coords    = args.stabilize_coords )
+
+testutils.confirm_equal(p_alone,
                         p_triangulated0,
                         eps = 1e-6,
-                        msg = "triangulate() returns the right point")
+                        msg = "triangulate(no noise) returns the right point")
+testutils.confirm_equal(p_alone,
+                        p_calnoise,
+                        eps = 1e-6,
+                        msg = "triangulate(cal noise) returns the right point")
+testutils.confirm_equal(p_alone,
+                        p_obsnoise,
+                        eps = 1e-6,
+                        msg = "triangulate(obs noise) returns the right point")
+testutils.confirm_equal(p_alone,
+                        p,
+                        eps = 1e-6,
+                        msg = "triangulate(both noise) returns the right point")
+testutils.confirm_equal(Var_p_calibration_alone,
+                        Var_p_calibration,
+                        eps = 1e-6,
+                        msg = "triangulate(cal noise) returns a consistent Var_p_calibration")
+testutils.confirm_equal(Var_p_observation_alone,
+                        Var_p_observation,
+                        eps = 1e-6,
+                        msg = "triangulate(obs noise) returns a consistent Var_p_observation")
+testutils.confirm_equal(Var_p_joint.shape,
+                        Var_p_calibration.shape,
+                        msg = "Var_p_joint.shape matches Var_p_calibration.shape")
 
-testutils.confirm_equal(Var_p_joint,
-                        Var_p_calibration + Var_p_observations,
-                        worstcase = True,
-                        eps       = 1e-9,
-                        msg       = "Var(joint) should be Var(cal-time-noise) + Var(obs-time-noise)")
+for ipt in range(Npoints):
+    testutils.confirm_equal(Var_p_joint[ipt,:,ipt,:],
+                            Var_p_calibration[ipt,:,ipt,:] + Var_p_observation[ipt,:,:],
+                            worstcase = True,
+                            eps       = 1e-9,
+                            msg       = "Var(joint) should be Var(cal-time-noise) + Var(obs-time-noise)")
 
 if not args.do_sample:
     testutils.finish()
@@ -735,7 +748,7 @@ for ipt in range(Npoints):
                     nps.transpose(p_triangulated0[ipt]))[0] / nps.norm2(p_triangulated0[ipt])
     Var_ranges_observations[ipt] = \
         nps.matmult(p_triangulated0[ipt],
-                    Var_p_observations[ipt,:,ipt,:],
+                    Var_p_observation[ipt,:,:],
                     nps.transpose(p_triangulated0[ipt]))[0] / nps.norm2(p_triangulated0[ipt])
 
 
@@ -805,7 +818,7 @@ if args.make_documentation_plots is not None:
                                for ipt in range(Npoints)]
     Var_p_calibration_diagonal = [Var_p_calibration[ipt,:,ipt,:][(0,2),:][:,(0,2)] \
                                      for ipt in range(Npoints)]
-    Var_p_observations_diagonal = [Var_p_observations[ipt,:,ipt,:][(0,2),:][:,(0,2)] \
+    Var_p_observation_diagonal = [Var_p_observation[ipt,:,:][(0,2),:][:,(0,2)] \
                                       for ipt in range(Npoints)]
 
     max_sigma_points = np.array([ np.max(np.sqrt(np.linalg.eig(V)[0])) for V in Var_p_joint_diagonal ])
@@ -836,7 +849,7 @@ if args.make_documentation_plots is not None:
                                                           Var_p_calibration_diagonal[ipt],
                                                           "Predicted-calibration-only"),
                               plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
-                                                          Var_p_observations_diagonal[ipt],
+                                                          Var_p_observation_diagonal[ipt],
                                                           "Predicted-observations-only"),
                               empirical_distributions_xz[ipt][0],
                               dict( square = True,
