@@ -14,15 +14,15 @@ Let $b \equiv \mathrm{baseline}$ and $r \equiv \mathrm{range}$. Two cameras are
 looking at a point in space. Given two camera models and a pair of pixel
 observations we can compute the range to the point. Basic geometry tells us that
 
-\[\sin\left(\theta\right) \propto \frac{b}{r}\]
+\[\sin \theta \propto \frac{b}{r}\]
 
 Differentiating, we get
 
-\[\cos\left(\theta\right) \mathrm{d}\theta \propto \frac{b}{r^2} \mathrm{d}r\]
+\[\cos \theta \; \mathrm{d}\theta \propto \frac{b}{r^2} \mathrm{d}r\]
 
 When looking far away $\theta \approx 0$, so
 
-\[\frac{\mathrm{d}r}{\mathrm{d}\theta} \approx \frac{r^2}{b}\]
+\[\frac{\mathrm{d}r}{\mathrm{d}\theta} \propto \frac{r^2}{b}\]
 
 
 Thus a small error in $\theta$ causes an error in the computed range that is
@@ -34,7 +34,20 @@ quickly. A bigger baseline helps, but does so only linearly.
 
 The angle $\theta$ comes from the extrinsics and intrinsics in the camera model,
 so the noise modeling and uncertainty propagation in mrcal are essential to a
-long-range stereo system.
+usable long-range stereo system.
+
+* stuff
+
+What noise we're propagating
+
+show some example plots
+
+show correlations
+
+Apply to the dtla data (obs only)
+
+Talk about =mrcal-triangulate= tool
+
 
 
 perpendicular observation/calibration:
