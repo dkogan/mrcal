@@ -448,9 +448,9 @@ icam_extrinsics1,        \
 istate_e1,               \
 istate_e0 =              \
     mrcal.triangulation._triangulation_uncertainty_internal(slices,
-                                                             optimization_inputs_baseline,
-                                                             0,0,
-                                                             stabilize_coords = args.stabilize_coords)
+                                                            optimization_inputs_baseline,
+                                                            0,0,
+                                                            stabilize_coords = args.stabilize_coords)
 
 ########## Gradient check
 dp_triangulated_di0_empirical = grad(lambda i0: triangulate_nograd(i0, models_baseline[icam1].intrinsics()[1],
