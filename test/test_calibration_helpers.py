@@ -11,6 +11,7 @@ import re
 testdir = os.path.dirname(os.path.realpath(__file__))
 sys.path[:0] = f"{testdir}/..",
 import mrcal
+import mrcal.utils
 
 def sample_dqref(observations,
                  pixel_uncertainty_stdev,
@@ -34,13 +35,6 @@ def sample_dqref(observations,
     observations_perturbed = observations.copy()
     observations_perturbed[...,:2] += q_noise
     return q_noise, observations_perturbed
-
-
-def sorted_eig(C):
-    'like eig(), but the results are sorted by eigenvalue'
-    l,v = np.linalg.eig(C)
-    i = np.argsort(l)
-    return l[i], v[:,i]
 
 
 def grad(f, x, step=1e-6):
@@ -79,7 +73,7 @@ def plot_arg_covariance_ellipse(q_mean, Var, what):
     if np.max(np.abs(Var)) == 0:
         return None
 
-    l,v   = sorted_eig(Var)
+    l,v   = mrcal.utils._sorted_eig(Var)
     l0,l1 = l
     v0,v1 = nps.transpose(v)
 

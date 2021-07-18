@@ -1257,3 +1257,10 @@ unsigned integers. The last row is the RGB color-mapped values.
     out[..., 2] = clip_and_convert(np.sin(x * 2.*np.pi)) # function 15
 
     return out
+
+
+def _sorted_eig(C):
+    'like eig(), but the results are sorted by eigenvalue'
+    l,v = np.linalg.eig(C)
+    i = np.argsort(l)
+    return l[i], v[:,i]
