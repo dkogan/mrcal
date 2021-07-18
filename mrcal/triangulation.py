@@ -1531,6 +1531,9 @@ def triangulate( q,
         if q_calibration_stdev < 0:
             q_calibration_stdev = optimization_inputs['observed_pixel_uncertainty']
 
+    else:
+        optimization_inputs = None
+
 
 
     p,                      \
@@ -1538,7 +1541,7 @@ def triangulate( q,
     dp_triangulated_dpstate = \
         _triangulation_uncertainty_internal(
                         slices,
-                        optimization_inputs if q_calibration_stdev>0 else None,
+                        optimization_inputs,
                         q_observation_stdev,
                         q_observation_stdev_correlation,
                         triangulation_function = triangulation_function,
@@ -1548,7 +1551,7 @@ def triangulate( q,
     # observation-time noise contributions in Var_p_observation. And I have all
     # the gradients in dp_triangulated_dpstate
 
-    if q_calibration_stdev > 0:
+    if optimization_inputs is not None:
         # pack the denominator by unpacking the numerator
         mrcal.unpack_state(dp_triangulated_dpstate, **optimization_inputs)
 
@@ -1570,6 +1573,9 @@ def triangulate( q,
                                                Nmeasurements_observations,
                                                q_calibration_stdev,
                                                what = 'covariance')
+
+    else:
+        Var_p_calibration_flat = None
 
     # I used broadcast_generate() to implement the broadcasting logic. This
     # function flattened the broadcasted output, so at this time I have
