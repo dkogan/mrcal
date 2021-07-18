@@ -1322,6 +1322,20 @@ allow the test suite to validate some of the internals.
             dp_triangulated_drtrf    = None
             dp_triangulated_drt_0ref = None
 
+
+        # Do the right thing is we're optimizing partial intrinsics only
+        i0,i1 = None,None # everything by default
+        has_core     = mrcal.lensmodel_metadata_and_config(optimization_inputs['lensmodel'])['has_core']
+        Ncore        = 4 if has_core else 0
+        Ndistortions = mrcal.lensmodel_num_params(optimization_inputs['lensmodel']) - Ncore
+        if not optimization_inputs.get('do_optimize_intrinsics_core'):
+            i0 = Ncore
+        if not optimization_inputs.get('do_optimize_intrinsics_distortions'):
+            i1 = -Ndistortions
+        slice_optimized_intrinsics  = slice(i0,i1)
+        dvlocal0_dintrinsics0 = dvlocal0_dintrinsics0[...,slice_optimized_intrinsics]
+        dvlocal1_dintrinsics1 = dvlocal1_dintrinsics1[...,slice_optimized_intrinsics]
+
         ### Sensitivities
         # The data flow:
         #   q0,i0                       -> v0 (same as vlocal0; I'm working in the cam0 coord system)
