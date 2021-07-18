@@ -1020,7 +1020,10 @@ def _triangulation_uncertainty_internal(slices,
     r'''Compute most of the triangulation uncertainty logic
 
 This is an internal piece of mrcal.triangulate(). It's available separately to
-allow the test suite to validate some of the internals
+allow the test suite to validate some of the internals.
+
+    if optimization_inputs is None and q_observation_stdev == 0:
+        We're not propagating any noise. Just return the triangulated point
 
     '''
 
@@ -1452,6 +1455,28 @@ def triangulate( q,
 
     if not isinstance(models, np.ndarray):
         models = np.array(models, dtype=object)
+
+
+
+    if q_calibration_stdev == 0 and \
+       q_observation_stdev == 0:
+
+        @nps.broadcast_define(((2,2),(2,)), (3,))
+        def triangulate_slice(q01, m01):
+            rt01 = \
+                mrcal.compose_rt(m01[0].extrinsics_rt_fromref(),
+                                 m01[1].extrinsics_rt_toref())
+
+            # all the v have shape (3,)
+            vlocal0 = mrcal.unproject(q01[0,:], *m01[0].intrinsics())
+            vlocal1 = mrcal.unproject(q01[1,:], *m01[1].intrinsics())
+
+            v0 = vlocal0
+            v1 = mrcal.rotate_point_r(rt01[:3], vlocal1)
+            return triangulation_function(v0, v1, rt01[3:])
+
+        return triangulate_slice(q, models)
+
 
 
     slices            = tuple(nps.broadcast_generate(   ((2,2),(2,)), (q, models) ) )
