@@ -306,6 +306,9 @@ def compute_H10_planes(models, q0, plane_n, plane_d):
 
 
 
+np.set_printoptions(precision = 2)
+
+
 
 models = [mrcal.cameramodel(m) for m in args.models]
 images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in args.images]
@@ -448,7 +451,7 @@ else:
 
     range_err_have = range0 - args.range_estimate
 
-    print("## Range: {:.3f} m (error: {:.3f} m)".format(range0, range_err_have))
+    print("## Range: {:.2f} m (error: {:.2f} m)".format(range0, range_err_have))
     print(f"## Reprojection error between intersection and q0: {mrcal.project(p0_ref, *models[0].intrinsics()) - q0_ref}pixels")
 
     # half-assed sensitivity testing. Finite differences for each piece
@@ -464,7 +467,7 @@ else:
         if rangeerr > rangeerr_worst_qerr:
             rangeerr_worst_qerr = rangeerr
             vq_worst_err        = vq
-    print("## Observed-pixel sensitivity: {:.3f}m/pixel. Worst direction: {}. Linearized correction: {:.3f} pixels ". \
+    print("## Observed-pixel sensitivity: {:.2f}m/pixel. Worst direction: {}. Linearized correction: {:.2f} pixels ". \
           format(rangeerr_worst_qerr/delta,
                  vq_worst_err,
                  -range_err_have/rangeerr_worst_qerr*delta ))
@@ -478,7 +481,7 @@ else:
     if r == 0:
         raise Exception("Sampled rays divergent")
     rangeerr_yaw = r - range0
-    print("## Calibration yaw sensitivity: {:.3f}m/deg. Linearized correction: {:.3f} degrees of yaw". \
+    print("## Calibration yaw sensitivity: {:.2f}m/deg. Linearized correction: {:.2f} degrees of yaw". \
           format(rangeerr_yaw/delta,
                  -range_err_have/rangeerr_yaw*delta))
 
@@ -488,7 +491,7 @@ else:
     if r == 0:
         raise Exception("Sampled rays divergent")
     rangeerr_pitch = r - range0
-    print("## Calibration pitch sensitivity: {:.3f}m/deg.".format(rangeerr_pitch/delta))
+    print("## Calibration pitch sensitivity: {:.2f}m/deg.".format(rangeerr_pitch/delta))
 
 
 
@@ -508,7 +511,7 @@ else:
                 rangeerr_worst_t01err = rangeerr
                 vt01_worst_err        = vt01
 
-    print("## Calibration translation sensitivity: {:.3f}m/m. Worst direction: {}. Linearized correction: {:.3f} meters of translation". \
+    print("## Calibration translation sensitivity: {:.2f}m/m. Worst direction: {}. Linearized correction: {:.2f} meters of translation". \
           format(rangeerr_worst_t01err/delta,
                  vt01_worst_err,
                  -range_err_have/rangeerr_worst_t01err*delta))
@@ -566,14 +569,14 @@ else:
         raise Exception("Initial search couldn't make the rays converge")
 
 dyaw,dpitch = scipy.optimize.minimize(get_range_err_yaw_pitch_sq, dyawdpitch).x
-print("## Optimized yaw correction   = {:.5f} degrees".format(dyaw/np.pi*180))
-print("## Optimized pitch correction = {:.5f} degrees".format(dpitch/np.pi*180))
+print("## Optimized yaw correction   = {:.2f} degrees".format(dyaw/np.pi*180))
+print("## Optimized pitch correction = {:.2f} degrees".format(dpitch/np.pi*180))
 
 rt10 = get_rt10_perturbed(r01err_yaw_axis   = nyaw,
                           r01err_yaw        = dyaw,
                           r01err_pitch_axis = npitch,
                           r01err_pitch      = dpitch)
-print("## Optimized relative yaw (1 <- 0): {:.5f} degrees".format(rt10[1] * 180./np.pi))
+print("## Optimized relative yaw (1 <- 0): {:.2f} degrees".format(rt10[1] * 180./np.pi))
 
 if args.make_corrected_model1:
     if dyaw is None:
