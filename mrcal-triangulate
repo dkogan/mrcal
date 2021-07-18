@@ -223,8 +223,9 @@ def get_R_abn(n):
     return nps.transpose(nps.cat(a,b,n))
 
 
-def homography_planes(models, q0, plane_n, plane_d):
+def compute_H10_planes(models, q0, plane_n, plane_d):
 
+    r'''Report a homography for two cameras observing a point on a plane'''
 
     Rt10 = mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
                              models[0].extrinsics_Rt_toref() )
@@ -241,7 +242,8 @@ def homography_planes(models, q0, plane_n, plane_d):
     # Find the 3D point on the plane, and translate the homography to match them
     # up
     # inner(k*v0, n) = d -> k = d / inner(v0,n)
-    p0 = v0 * (plane_d / nps.inner(v0, plane_n))
+    k = plane_d / nps.inner(v0, plane_n)
+    p0 = k * v0
     p1 = mrcal.transform_point_Rt(Rt10, p0)
 
     # I now compute the "projection matrix" for the two cameras at p. Such a
@@ -316,25 +318,28 @@ if len(args.features) == 4:
 
 else:
     if args.plane_n is not None:
-        H10 = homography_planes(models,
-                                q0_ref,
-                                np.array(args.plane_n),
-                                args.plane_d)
+        H10 = compute_H10_planes(models,
+                                 q0_ref,
+                                 np.array(args.plane_n),
+                                 args.plane_d)
 
     else:
         # no plane defined. So I make up a plane that's the given distance away,
         # viewed head-on.
 
-        # "mean" forward view of the cameras
+        # I compute the "mean" forward view of the cameras
         Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                                  models[1].extrinsics_Rt_toref() )
+        # "forward" for cam0 in cam0 coords
         n0 = np.array((0,0,1.))
+        # "forward" for cam1 in cam0 coords
         n1 = mrcal.rotate_point_R(Rt01[:3,:], np.array((0,0,1.)))
         n = n0+n1
+        # normalized "mean forward" in cam0 coords
         n /= nps.mag(n)
-        H10 = homography_planes(models,
-                                q0_ref,
-                                n, args.range_estimate)
+        H10 = compute_H10_planes(models,
+                                 q0_ref,
+                                 n, args.range_estimate)
 
     q1_perfect = mrcal.apply_homography(H10, q0_ref)
     print(f"## Feature {q0_ref} in the left image corresponds to {q1_perfect} at {args.range_estimate}m")
@@ -380,9 +385,7 @@ if nps.norm2(p0_ref) == 0:
 # containing the 2 cameras and the observed point
 nyaw = np.cross(p0_ref, Rt01_ref[3,:])
 nyaw /= nps.mag(nyaw)
-# I also want to look at the pitch. The yaw normal will be mostly "up" (along
-# the y axis). Let the "pitch" axis be the projection of the x-axis onto the
-# plane orthogonal to the yaw axis
+# I also want to look at the pitch: the rotation around the baseline vector
 npitch = Rt01_ref[3,:] / nps.mag(Rt01_ref[3,:])
 
 
