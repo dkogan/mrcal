@@ -956,7 +956,7 @@ the benefit of the test
     return var_q
 
 
-def _triangulate_grad_simple(models, q,
+def _triangulate_grad_simple(q, models,
                              out,
                              triangulation_function = triangulate_leecivera_mid2):
     r'''Compute a single triangulation, reporting a single gradient
@@ -1271,12 +1271,12 @@ allow the test suite to validate some of the internals
                                          q_observation_stdev_correlation)
 
     for ipt in range(Npoints):
-        models01,q = slices[ipt]
+        q,models01 = slices[ipt]
 
         if optimization_inputs is None:
             # shape (3,Ncameras*Nxy=4)
             dp_triangulated_dq = \
-                _triangulate_grad_simple(models01, q,
+                _triangulate_grad_simple(q, models01,
                                          out = p[ipt],
                                          triangulation_function = triangulation_function)
 
@@ -1454,8 +1454,8 @@ def triangulate( q,
         models = np.array(models, dtype=object)
 
 
-    slices            = tuple(nps.broadcast_generate(   ((2,), (2,2)), (models, q) ) )
-    broadcasted_shape = tuple(nps.broadcast_extra_dims( ((2,), (2,2)), (models, q) ))
+    slices            = tuple(nps.broadcast_generate(   ((2,2),(2,)), (q, models) ) )
+    broadcasted_shape = tuple(nps.broadcast_extra_dims( ((2,2),(2,)), (q, models) ))
 
     if q_calibration_stdev is None or \
        q_calibration_stdev > 0:

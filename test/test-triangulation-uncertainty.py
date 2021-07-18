@@ -435,8 +435,8 @@ testutils.confirm_equal(p_triangulated0, p_triangulated_true0,
                         msg = "Re-optimized triangulation should be close to the reference. This checks the regularization bias")
 
 
-slices = ( ((models_baseline[icam0],models_baseline[icam1]), q_true[0]),
-           ((models_baseline[icam0],models_baseline[icam1]), q_true[1]) )
+slices = ( (q_true[0], (models_baseline[icam0],models_baseline[icam1])),
+           (q_true[1], (models_baseline[icam0],models_baseline[icam1])) )
 
 _,                       \
 _,                       \
