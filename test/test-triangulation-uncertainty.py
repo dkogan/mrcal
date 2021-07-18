@@ -582,7 +582,7 @@ testutils.confirm_equal(dp_triangulated_dq,
 
 if args.q_calibration_stdev > 0:
     p,                     \
-    Var_p0p1_calibration = \
+    Var_p_calibration = \
         mrcal.triangulate( q_true, (models_baseline[icam0],models_baseline[icam1]),
                            q_calibration_stdev = args.q_calibration_stdev,
                            q_observation_stdev = 0,
@@ -592,11 +592,11 @@ if args.q_calibration_stdev > 0:
                             eps = 1e-6,
                             msg = "triangulate() returns the right point")
 else:
-    Var_p0p1_calibration = np.zeros((Npoints,3, Npoints,3), dtype=float)
+    Var_p_calibration = np.zeros((Npoints,3, Npoints,3), dtype=float)
 
 if args.q_observation_stdev > 0:
     p,                     \
-    Var_p0p1_observations = \
+    Var_p_observations = \
         mrcal.triangulate( q_true, (models_baseline[icam0],models_baseline[icam1]),
                            q_calibration_stdev             = 0,
                            q_observation_stdev             = args.q_observation_stdev,
@@ -607,10 +607,10 @@ if args.q_observation_stdev > 0:
                             eps = 1e-6,
                             msg = "triangulate() returns the right point")
 else:
-    Var_p0p1_observations = np.zeros((Npoints,3, Npoints,3), dtype=float)
+    Var_p_observations = np.zeros((Npoints,3, Npoints,3), dtype=float)
 
 p,               \
-Var_p0p1_joint = \
+Var_p_joint = \
     mrcal.triangulate( q_true, (models_baseline[icam0],models_baseline[icam1]),
                        q_calibration_stdev             = args.q_calibration_stdev,
                        q_observation_stdev             = args.q_observation_stdev,
@@ -621,8 +621,8 @@ testutils.confirm_equal(p,
                         eps = 1e-6,
                         msg = "triangulate() returns the right point")
 
-testutils.confirm_equal(Var_p0p1_joint,
-                        Var_p0p1_calibration + Var_p0p1_observations,
+testutils.confirm_equal(Var_p_joint,
+                        Var_p_calibration + Var_p_observations,
                         worstcase = True,
                         eps       = 1e-9,
                         msg       = "Var(joint) should be Var(cal-time-noise) + Var(obs-time-noise)")
@@ -727,15 +727,15 @@ Var_ranges_observations = np.zeros((Npoints,), dtype=float)
 for ipt in range(Npoints):
     Var_ranges_joint[ipt] = \
         nps.matmult(p_triangulated0[ipt],
-                    Var_p0p1_joint[ipt,:,ipt,:],
+                    Var_p_joint[ipt,:,ipt,:],
                     nps.transpose(p_triangulated0[ipt]))[0] / nps.norm2(p_triangulated0[ipt])
     Var_ranges_calibration[ipt] = \
         nps.matmult(p_triangulated0[ipt],
-                    Var_p0p1_calibration[ipt,:,ipt,:],
+                    Var_p_calibration[ipt,:,ipt,:],
                     nps.transpose(p_triangulated0[ipt]))[0] / nps.norm2(p_triangulated0[ipt])
     Var_ranges_observations[ipt] = \
         nps.matmult(p_triangulated0[ipt],
-                    Var_p0p1_observations[ipt,:,ipt,:],
+                    Var_p_observations[ipt,:,ipt,:],
                     nps.transpose(p_triangulated0[ipt]))[0] / nps.norm2(p_triangulated0[ipt])
 
 
@@ -751,7 +751,7 @@ Var_distance_sampled  = distance_sampled.var()
 # Var(dist) = ddist_dp01 var(p01) ddist_dp01T
 #           = [-diff   diff] var(p01) [-diff   diff]T / norm2(diff)
 Var_distance = nps.matmult(nps.glue( -diff, diff, axis=-1),
-                           Var_p0p1_joint.reshape(Npoints*3,Npoints*3),
+                           Var_p_joint.reshape(Npoints*3,Npoints*3),
                            nps.transpose(nps.glue( -diff, diff, axis=-1),))[0] / nps.norm2(diff)
 
 
@@ -760,12 +760,12 @@ Var_distance = nps.matmult(nps.glue( -diff, diff, axis=-1),
 # For some not-yet-understood reason, the distance distribution isn't
 # normally-distributed: there's a noticeable fat tail. Thus I'm not comparing
 # those two distributions (Var_distance,Var_distance_sampled) in this test.
-p0p1_sampled = nps.clump(p_triangulated_sampled0, n=-2)
-mean_p0p1_sampled = np.mean(p0p1_sampled, axis=-2)
-Var_p0p1_sampled  = nps.matmult( nps.transpose(p0p1_sampled - mean_p0p1_sampled),
-                                 p0p1_sampled - mean_p0p1_sampled ) / args.Nsamples
+p_sampled = nps.clump(p_triangulated_sampled0, n=-2)
+mean_p_sampled = np.mean(p_sampled, axis=-2)
+Var_p_sampled  = nps.matmult( nps.transpose(p_sampled - mean_p_sampled),
+                                 p_sampled - mean_p_sampled ) / args.Nsamples
 
-testutils.confirm_equal(mean_p0p1_sampled,
+testutils.confirm_equal(mean_p_sampled,
                         p_triangulated_true0.ravel(),
                         worstcase = True,
                         # High threshold. Need many more samples to be able to
@@ -774,8 +774,8 @@ testutils.confirm_equal(mean_p0p1_sampled,
                         msg = "Triangulated position matches sampled mean")
 
 for ipt in range(2):
-    testutils.confirm_covariances_equal(Var_p0p1_joint[ipt,:,ipt,:],
-                                        Var_p0p1_sampled[ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3],
+    testutils.confirm_covariances_equal(Var_p_joint[ipt,:,ipt,:],
+                                        Var_p_sampled[ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3],
                                         what = f"triangulated point variance for point {ipt}",
 
                                         # This is a relatively-high threshold. I can tighten
@@ -801,14 +801,14 @@ if args.make_documentation_plots is not None:
                                                   'Observed') \
           for ipt in range(Npoints) ]
     # Individual covariances
-    Var_p0p1_joint_diagonal = [Var_p0p1_joint[ipt,:,ipt,:][(0,2),:][:,(0,2)] \
+    Var_p_joint_diagonal = [Var_p_joint[ipt,:,ipt,:][(0,2),:][:,(0,2)] \
                                for ipt in range(Npoints)]
-    Var_p0p1_calibration_diagonal = [Var_p0p1_calibration[ipt,:,ipt,:][(0,2),:][:,(0,2)] \
+    Var_p_calibration_diagonal = [Var_p_calibration[ipt,:,ipt,:][(0,2),:][:,(0,2)] \
                                      for ipt in range(Npoints)]
-    Var_p0p1_observations_diagonal = [Var_p0p1_observations[ipt,:,ipt,:][(0,2),:][:,(0,2)] \
+    Var_p_observations_diagonal = [Var_p_observations[ipt,:,ipt,:][(0,2),:][:,(0,2)] \
                                       for ipt in range(Npoints)]
 
-    max_sigma_points = np.array([ np.max(np.sqrt(np.linalg.eig(V)[0])) for V in Var_p0p1_joint_diagonal ])
+    max_sigma_points = np.array([ np.max(np.sqrt(np.linalg.eig(V)[0])) for V in Var_p_joint_diagonal ])
     max_sigma = np.max(max_sigma_points)
 
     if args.ellipse_plot_radius is not None:
@@ -830,13 +830,13 @@ if args.make_documentation_plots is not None:
 
     subplots = [ [p for p in (empirical_distributions_xz[ipt][1], # points; plot first to not obscure the ellipses
                               plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
-                                                          Var_p0p1_joint_diagonal[ipt],
+                                                          Var_p_joint_diagonal[ipt],
                                                           "Predicted-joint"),
                               plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
-                                                          Var_p0p1_calibration_diagonal[ipt],
+                                                          Var_p_calibration_diagonal[ipt],
                                                           "Predicted-calibration-only"),
                               plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
-                                                          Var_p0p1_observations_diagonal[ipt],
+                                                          Var_p_observations_diagonal[ipt],
                                                           "Predicted-observations-only"),
                               empirical_distributions_xz[ipt][0],
                               dict( square = True,
@@ -875,7 +875,7 @@ if args.make_documentation_plots is not None:
             processoptions['hardcopy'] = \
                 f'{args.make_documentation_plots_filename}--p0-p1-magnitude-covariance.{extension}'
         processoptions['title'] = title_covariance
-        gp.plotimage( np.abs(Var_p0p1_joint.reshape(Npoints*3,Npoints*3)),
+        gp.plotimage( np.abs(Var_p_joint.reshape(Npoints*3,Npoints*3)),
                       square = True,
                       xlabel = 'Variable index (left point x,y,z; right point x,y,z)',
                       ylabel = 'Variable index (left point x,y,z; right point x,y,z)',
