@@ -51,7 +51,10 @@ SYNOPSIS
     plot2 = \
       mrcal.show_geometry(extrinsics_rt_fromref,
                           frames_rt_toref = frames_rt_toref,
-                          points          = points)
+                          points          = points,
+                          xlabel          = 'Northing (m)',
+                          ylabel          = 'Easting (m)',
+                          zlabel          = 'Down (m)')
 
 This function visualizes the world described by a set of camera models. It shows
 the geometry of the cameras themselves (each one is represented by the axes of
@@ -68,6 +71,8 @@ mrcal.optimize() takes.
 This function is the core of the mrcal-show-geometry tool.
 
 All arguments except models_or_extrinsics_rt_fromref are optional.
+
+Extra **kwargs are passed directly to gnuplotlib to control the plot.
 
 ARGUMENTS
 
@@ -429,12 +434,16 @@ plot
     curves_calobjects = gen_curves_calobjects()
     curves_points     = gen_curves_points()
 
+    kwargs = dict(kwargs)
+    gp.add_plot_option(kwargs,
+                       xlabel = 'x',
+                       ylabel = 'y',
+                       zlabel = 'z',
+                       overwrite = False)
+
     plot_options = \
         dict(_3d=1,
              square=1,
-             xlabel='x',
-             ylabel='y',
-             zlabel='z',
              **kwargs)
 
     if 'title' not in plot_options:
