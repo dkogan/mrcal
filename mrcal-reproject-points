@@ -46,12 +46,11 @@ def parse_args():
 
     parser.add_argument('model-from',
                         type=str,
-                        help='''Camera model for the input points. If "-' is given, we read standard input''')
+                        help='''Camera model for the input points.''')
 
     parser.add_argument('model-to',
                         type=str,
-                        help='''Camera model for the output points. If "-' is given, we read standard
-                        input''')
+                        help='''Camera model for the output points.''')
 
     return parser.parse_args()
 
