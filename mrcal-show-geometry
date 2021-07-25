@@ -24,10 +24,11 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--scale-axes',
+    parser.add_argument('--axis-scale',
                         type=float,
-                        default = 1.0,
-                        help='''Scale for the camera axes. By default these are 1.0m long''')
+                        help='''Scale for the camera axes. By default a
+                        reasonable default is chosen (see mrcal.show_geometry()
+                        for the logic)''')
     parser.add_argument('--title',
                         type=str,
                         default = None,
@@ -119,6 +120,7 @@ plot = mrcal.show_geometry(models,
                            cameranames         = args.models,
                            cameras_Rt_plot_ref = cameras_Rt_plot_ref,
                            show_calobjects     = not args.hide_boards,
+                           axis_scale          = args.axis_scale,
                            **plotkwargs)
 
 if args.hardcopy is None:
