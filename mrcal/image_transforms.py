@@ -500,7 +500,8 @@ This array can be passed to mrcal.transform_image()
 
 def transform_image(image, mapxy,
                     out = None,
-                    borderMode    = cv2.BORDER_TRANSPARENT,
+                    borderMode    = cv2.BORDER_CONSTANT,
+                    borderValue   = 0,
                     interpolation = cv2.INTER_LINEAR):
 
     r'''Transforms a given image using a given map
@@ -565,4 +566,5 @@ RGB. Contains the transformed image.
     return cv2.remap(image, mapxy, None,
                      borderMode    = borderMode,
                      interpolation = interpolation,
+                     borderValue   = borderValue,
                      dst           = out)
