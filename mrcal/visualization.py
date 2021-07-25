@@ -22,7 +22,7 @@ def show_geometry(models_or_extrinsics_rt_fromref,
                   points                      = None,
 
                   show_calobjects    = True,
-                  axis_scale         = 1.0,
+                  axis_scale         = None,
                   object_width_n     = None,
                   object_height_n    = None,
                   object_spacing     = 0,
@@ -134,8 +134,10 @@ ARGUMENTS
   that provides this data)
 
 - axis_scale: optional scale factor for the size of the axes used to represent
-  the cameras. Can be omitted to use some reasonable default size, but for very
-  large or very small problems, this may be required to make the plot look right
+  the cameras. Can be omitted to use some reasonable default size, but tweaking
+  it might be necessary to make the plot look right. If less than 1 camera is
+  given, this defaults to 1.0. If at least 2 cameras are given, we default to
+  1/4 the distance between the FIRST pair of cameras
 
 - extratitle: optional string to include in the title of the resulting plot.
   Used to extend the default title string. If kwargs['title'] is given, it is
@@ -174,7 +176,20 @@ plot
     extrinsics_Rt_toref = \
         nps.cat(*[get_extrinsics_Rt_toref_one(m) \
                   for m in models_or_extrinsics_rt_fromref])
+
+    # reshape extrinsics_Rt_toref to exactly (N,4,3)
     extrinsics_Rt_toref = nps.atleast_dims(extrinsics_Rt_toref, -3)
+    extrinsics_Rt_toref = nps.clump( extrinsics_Rt_toref,
+                                     n = extrinsics_Rt_toref.ndim-3 )
+
+    if axis_scale is None:
+        if len(extrinsics_Rt_toref) <= 1:
+            axis_scale = 1.0
+        else:
+            Rt01 = mrcal.compose_Rt( mrcal.invert_Rt(extrinsics_Rt_toref[0]),
+                                     extrinsics_Rt_toref[1] )
+            d = nps.mag(Rt01[3,:])
+            axis_scale = d/3.
 
     if not show_calobjects:
         frames_rt_toref = None
@@ -182,7 +197,7 @@ plot
         # No frames were given. I grab them from the first .cameramodel that has
         # them. If none of the models have this data, I don't plot any frames at
         # all
-        for i_model in range(len(models_or_extrinsics_rt_fromref)):
+        for i_model in range(len(extrinsics_Rt_toref)):
             m = models_or_extrinsics_rt_fromref[i_model]
 
             _frames_rt_toref = None
