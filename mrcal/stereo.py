@@ -896,6 +896,10 @@ RETURNED VALUES
 
     _validate_models_rectified(models_rectified)
 
+    W,H = models_rectified[0].imagersize()
+    if qrect0 is None and disparity.shape != (H,W):
+        raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
+
     intrinsics = models_rectified[0].intrinsics()
 
     fx = intrinsics[1][0]
@@ -907,12 +911,7 @@ RETURNED VALUES
 
     if intrinsics[0] == 'LENSMODEL_LATLON':
         if qrect0 is None:
-            W,H = models_rectified[0].imagersize()
-            if disparity.shape != (H,W):
-                raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
-
             az0 = (np.arange(W, dtype=float) - cx)/fx
-
         else:
             az0 = (qrect0[...,0] - cx)/fx
 
@@ -935,12 +934,7 @@ RETURNED VALUES
         s = 1. / np.sqrt(ty*ty + 1)
 
         if qrect0 is None:
-            W,H = models_rectified[0].imagersize()
-            if disparity.shape != (H,W):
-                raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
-
             tanaz0 = (np.arange(W, dtype=float) - cx)/fx * s
-
         else:
             tanaz0 = (qrect0[...,0] - cx)/fx * s
 
