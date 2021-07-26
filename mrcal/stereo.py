@@ -197,9 +197,13 @@ direction in rectified coordinates.
     else:
         raise(f"Unsupported rectification model '{rectification_model}'. Only LENSMODEL_LATLON and LENSMODEL_PINHOLE are supported.")
 
-
     if len(models) != 2:
         raise Exception("I need exactly 2 camera models")
+
+    if pixels_per_deg_az is not None and pixels_per_deg_az == 0:
+        raise Exception("pixels_per_deg_az == 0 is illegal. Must be >0 if we're trying to specify a value, or <0 to autodetect")
+    if pixels_per_deg_el is not None and pixels_per_deg_el == 0:
+        raise Exception("pixels_per_deg_el == 0 is illegal. Must be >0 if we're trying to specify a value, or <0 to autodetect")
 
     ######## Compute the geometry of the rectified stereo system. This is a
     ######## rotation, centered at camera0. More or less we have axes:
