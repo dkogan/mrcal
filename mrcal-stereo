@@ -223,16 +223,12 @@ def parse_args():
                         valid-intrinsics region. This will end up in the
                         rectified images, and make it clear where successful
                         matching shouldn't be expected''')
-    parser.add_argument('--range-image-nearest',
+    parser.add_argument('--range-image-limits',
                         type=positive_float,
-                        default=1,
-                        help='''The closest range to encode in the range image.
-                        Defaults to 1, arbitrarily''')
-    parser.add_argument('--range-image-furthest',
-                        type=positive_float,
-                        default=1000,
-                        help='''The furthest range to encode in the range image.
-                        Defaults to 1000, arbitrarily''')
+                        nargs=2,
+                        default=(1,1000),
+                        help='''The nearest,furthest range to encode in the range image.
+                        Defaults to 1,1000, arbitrarily''')
 
     parser.add_argument('--sgbm-block-size',
                         type=int,
@@ -530,6 +526,5 @@ for i in range(Nimages):
                                  models_rectified )
     write_output(lambda filename: \
                  cv2.imwrite(filename, mrcal.apply_color_map(_range,
-                                                             args.range_image_nearest,
-                                                             args.range_image_furthest)),
+                                                             *args.range_image_limits)),
                  image_filenames_base[0] + '-range.png')
