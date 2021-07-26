@@ -517,7 +517,7 @@ rectified direction
 
     if not ( (intrinsics[0][0] == 'LENSMODEL_LATLON'  and intrinsics[1][0] == 'LENSMODEL_LATLON' ) or \
              (intrinsics[0][0] == 'LENSMODEL_PINHOLE' and intrinsics[1][0] == 'LENSMODEL_PINHOLE') ):
-        raise Exception(f"Expected lensmodel 'LENSMODEL_LATLON' but got {intrinsics[0][0]} and {intrinsics[1][0]}")
+        raise Exception(f"Expected two models with the same  'LENSMODEL_LATLON' or 'LENSMODEL_PINHOLE' but got {intrinsics[0][0]} and {intrinsics[1][0]}")
 
     if nps.norm2(intrinsics[0][1] - intrinsics[1][1]) > 1e-6:
         raise Exception("The two rectified models MUST have the same intrinsics values")
