@@ -827,8 +827,8 @@ this is the final expression we use.
 
 When using LENSMODEL_LATLON, the azimuth values in the projection ARE the
 azimuth values inside each epipolar plane, so there's nothing extra to do. When
-using LENSMODEL_PINHOLE however, there's extra work to do. We need to convert
-pixel disparity values to az0 and az1.
+using LENSMODEL_PINHOLE however, there's an extra step. We need to convert pixel
+disparity values to az0 and az1.
 
 Let's say we're looking two rectified pinhole points on the same epipolar plane,
 a "forward" point and a "query" point:
@@ -861,7 +861,10 @@ Thus the the angle this query point makes with the "forward" vector is
     tan(az_in_epipolar_plane) = tx1 / ( (ty^2 + 1)/L ) = tx1 / sqrt(ty^2 + 1)
 
 Thus to get tan(az) expressions we use to compute ranges, we need to scale our
-(qx1-cx)/fx values by 1./sqrt(ty^2 + 1)
+(qx1-cx)/fx values by 1./sqrt(ty^2 + 1). This is one reason to use
+LENSMODEL_LATLON for stereo processing instead of LENSMODEL_PINHOLE: the az
+angular scale stays constant across different el, which produces better stereo
+matches.
 
 ARGUMENTS
 
@@ -930,22 +933,26 @@ RETURNED VALUES
         fy = intrinsics[1][1]
         cy = intrinsics[1][3]
 
-        ty = (qrect0[...,1] - cy)/fy
-        s = 1. / np.sqrt(ty*ty + 1)
-
         if qrect0 is None:
-            tanaz0 = (np.arange(W, dtype=float) - cx)/fx * s
+            tanaz0 = (np.arange(W, dtype=float) - cx)/fx
+            ty = nps.dummy((np.arange(H, dtype=float) - cy)/fy,
+                           -1)
         else:
-            tanaz0 = (qrect0[...,0] - cx)/fx * s
+            tanaz0 = (qrect0[...,0] - cx) / fx
+            ty = (qrect0[...,1] - cy)/fy
+        s_sq_recip = ty*ty + 1.
 
-        tanaz0_tanaz1 = disparity.astype(np.float32) / (fx * disparity_scale) * s
-        tanaz1 = tanaz0 - tanaz0_tanaz1
 
-        mask_invalid = (tanaz0_tanaz1 <= 0)
+        tanaz0_tanaz1 = disparity.astype(np.float32) / (fx * disparity_scale)
+
+        mask_invalid  = (disparity <= 0)
         tanaz0_tanaz1[mask_invalid] = 1 # to prevent division by 0
 
-        cosaz0 = 1./np.sqrt(1. + tanaz0*tanaz0)
-        r = baseline * cosaz0 * ((1. + tanaz0*tanaz1) / tanaz0_tanaz1 + tanaz0)
+        tanaz1        = tanaz0 - tanaz0_tanaz1
+        r = baseline / \
+            np.sqrt(s_sq_recip + tanaz0*tanaz0) * \
+            ((s_sq_recip + tanaz0*tanaz1) / tanaz0_tanaz1 + \
+             tanaz0)
 
     r[mask_invalid] = 0
 
