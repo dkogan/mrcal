@@ -148,6 +148,12 @@ def parse_args():
                         directives to pass to gnuplotlib. May be given multiple
                         times''')
 
+    parser.add_argument('--already-rectified',
+                        action='store_true',
+                        help='''If given, assume the given models and images
+                        already represent a rectified system. This will be
+                        checked, and the models will be used as-is if the checks
+                        pass''')
 
     ######## --show-geometry
     parser.add_argument('--show-geometry',
@@ -351,15 +357,19 @@ if args.tag is not None:
 
 models = [mrcal.cameramodel(m) for m in args.models]
 
-models_rectified = \
-    mrcal.rectified_system(models,
-                           az_fov_deg          = args.az_fov_deg,
-                           el_fov_deg          = args.el_fov_deg,
-                           el0_deg             = args.el0_deg,
-                           az0_deg             = args.az0_deg,
-                           pixels_per_deg_az   = pixels_per_deg_az,
-                           pixels_per_deg_el   = pixels_per_deg_el,
-                           rectification_model = args.rectification)
+if not args.already_rectified:
+    models_rectified = \
+        mrcal.rectified_system(models,
+                               az_fov_deg          = args.az_fov_deg,
+                               el_fov_deg          = args.el_fov_deg,
+                               el0_deg             = args.el0_deg,
+                               az0_deg             = args.az0_deg,
+                               pixels_per_deg_az   = pixels_per_deg_az,
+                               pixels_per_deg_el   = pixels_per_deg_el,
+                               rectification_model = args.rectification)
+else:
+    models_rectified = models
+    mrcal.stereo._validate_models_rectified(models_rectified)
 
 if args.show_geometry:
     # Display the geometry of the two cameras in the stereo pair, and of the
@@ -441,12 +451,13 @@ def write_output(func, filename):
     print(f"Writing '{filename}'")
     func(filename)
 
-write_output(lambda filename: models_rectified[0].write(filename),
-             'rectified0.cameramodel')
-write_output(lambda filename: models_rectified[1].write(filename),
-             'rectified1.cameramodel')
+if not args.already_rectified:
+    write_output(lambda filename: models_rectified[0].write(filename),
+                 'rectified0.cameramodel')
+    write_output(lambda filename: models_rectified[1].write(filename),
+                 'rectified1.cameramodel')
 
-rectification_maps = mrcal.rectification_maps(models, models_rectified)
+    rectification_maps = mrcal.rectification_maps(models, models_rectified)
 
 
 
@@ -470,16 +481,20 @@ for i in range(Nimages):
         for i in range(2):
             mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
 
-    images_rectified = [mrcal.transform_image(images[i],
-                                              rectification_maps[i]) for i in range(2)]
-
     image_filenames_base = \
         [os.path.splitext(os.path.split(f)[1])[0] for f in image_filenames]
 
-    write_output(lambda filename: cv2.imwrite(filename, images_rectified[0]),
-                 image_filenames_base[0] + '-rectified.jpg')
-    write_output(lambda filename: cv2.imwrite(filename, images_rectified[1]),
-                 image_filenames_base[1] + '-rectified.jpg')
+    if not args.already_rectified:
+        images_rectified = [mrcal.transform_image(images[i],
+                                                  rectification_maps[i]) \
+                            for i in range(2)]
+
+        write_output(lambda filename: cv2.imwrite(filename, images_rectified[0]),
+                     image_filenames_base[0] + '-rectified.jpg')
+        write_output(lambda filename: cv2.imwrite(filename, images_rectified[1]),
+                     image_filenames_base[1] + '-rectified.jpg')
+    else:
+        images_rectified = images
 
 
     # Done with all the preliminaries. Run the stereo matching
