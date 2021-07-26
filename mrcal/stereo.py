@@ -117,7 +117,7 @@ rectified coordinate system:
 - y: completes the system from x,z
 
 - z: the mean "forward" direction of the two input cameras, with the component
-     parallel to the baseline subtracted off
+  parallel to the baseline subtracted off
 
 In a nominal geometry (the two cameras are square with each other, the second
 camera strictly to the right of the first camera), the geometry of the rectified
