@@ -3299,8 +3299,8 @@ SYNOPSIS
 
     cv2.imwrite('data.png', image_colorcoded)
 
-This is very similar to cv2.applyColorMap(); more flexible in several important
-ways. Differences:
+This is very similar to cv2.applyColorMap() but more flexible in several
+important ways. Differences:
 
 - Supports arrays of any shape. Most of the time the input is 2-dimensional
   images, but this isn't required
