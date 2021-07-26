@@ -3312,7 +3312,7 @@ important ways. Differences:
   supported (the default Gnuplot color map). Other gnuplot color maps will be
   supported in the future.
 
-The color map is applied to each value in the input, each one producing an RGB
+The color map is applied to each value in the input, each one producing an BGR
 row of shape (3,). So output.shape is input.shape + (3,).
 
 The output has dtype=numpy.uint8, so these arrays can be output as images, and
@@ -3336,7 +3336,7 @@ ARGUMENTS
 RETURNED VALUE
 
 The color-mapped output array of shape array.shape + (3,) and containing 8-bit
-unsigned integers. The last row is the RGB color-mapped values.
+unsigned integers. The last row is the BGR color-mapped values.
 
     '''
 
@@ -3378,8 +3378,8 @@ unsigned integers. The last row is the RGB color-mapped values.
         np.clip(x*255, 0, 255, x)
         return x.round().astype(np.uint8)
 
-    out[..., 0] = clip_and_convert(np.sqrt(x))           # function 7
-    out[..., 1] = clip_and_convert(x*x*x)                # function 5
-    out[..., 2] = clip_and_convert(np.sin(x * 2.*np.pi)) # function 15
+    out[..., 2] = clip_and_convert(np.sqrt(x))           # R: function 7
+    out[..., 1] = clip_and_convert(x*x*x)                # G: function 5
+    out[..., 0] = clip_and_convert(np.sin(x * 2.*np.pi)) # B: function 15
 
     return out
