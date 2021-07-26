@@ -16,8 +16,8 @@ def rectified_system(models,
                      el_fov_deg,
                      az0_deg             = None,
                      el0_deg             = 0,
-                     pixels_per_deg_az   = None,
-                     pixels_per_deg_el   = None,
+                     pixels_per_deg_az   = -1.,
+                     pixels_per_deg_el   = -1.,
                      rectification_model = 'LENSMODEL_LATLON'):
 
     r'''Build rectified models for stereo rectification
@@ -168,10 +168,11 @@ ARGUMENTS
   Defaults to 0.
 
 - pixels_per_deg_az: optional value for the azimuth resolution of the rectified
-  image. If omitted (or None), we use the resolution of the input image at the
-  center of the rectified system. If a resolution of <0 is requested, we use
-  this as a scale factor on the resolution of the input image. For instance, to
-  downsample by a factor of 2, pass pixels_per_deg_az = -0.5
+  image. If a resultion of >0 is requested, the value is used as is. If a
+  resolution of <0 is requested, we use this as a scale factor on the resolution
+  of the input image. For instance, to downsample by a factor of 2, pass
+  pixels_per_deg_az = -0.5. By default, we use -1: the resolution of the input
+  image at the center of the rectified system.
 
 - pixels_per_deg_el: same as pixels_per_deg_az but in the elevation direction
 
@@ -200,9 +201,9 @@ direction in rectified coordinates.
     if len(models) != 2:
         raise Exception("I need exactly 2 camera models")
 
-    if pixels_per_deg_az is not None and pixels_per_deg_az == 0:
+    if pixels_per_deg_az == 0:
         raise Exception("pixels_per_deg_az == 0 is illegal. Must be >0 if we're trying to specify a value, or <0 to autodetect")
-    if pixels_per_deg_el is not None and pixels_per_deg_el == 0:
+    if pixels_per_deg_el == 0:
         raise Exception("pixels_per_deg_el == 0 is illegal. Must be >0 if we're trying to specify a value, or <0 to autodetect")
 
     ######## Compute the geometry of the rectified stereo system. This is a
@@ -294,8 +295,8 @@ direction in rectified coordinates.
     cos_el0 = np.cos(el0)
 
     ####### Rectified image resolution
-    if pixels_per_deg_az is None or pixels_per_deg_az < 0 or \
-       pixels_per_deg_el is None or pixels_per_deg_el < 0:
+    if pixels_per_deg_az < 0 or \
+       pixels_per_deg_el < 0:
         # I need to compute the resolution of the rectified images. I try to
         # match the resolution of the cameras. I just look at camera0. If your
         # two cameras are different, pass in the pixels_per_deg yourself
@@ -355,25 +356,13 @@ direction in rectified coordinates.
 
         dq_dazel = nps.matmult(dq_dv0, dv0_dazel)
 
-        if pixels_per_deg_az is None or pixels_per_deg_az < 0:
+        if pixels_per_deg_az < 0:
             pixels_per_deg_az_have = nps.mag(dq_dazel[:,0])*np.pi/180.
+            pixels_per_deg_az = -pixels_per_deg_az * pixels_per_deg_az_have
 
-            if pixels_per_deg_az is not None:
-                # negative pixels_per_deg_az requested means I use the requested
-                # value as a scaling
-                pixels_per_deg_az = -pixels_per_deg_az * pixels_per_deg_az_have
-            else:
-                pixels_per_deg_az = pixels_per_deg_az_have
-
-        if pixels_per_deg_el is None or pixels_per_deg_el < 0:
+        if pixels_per_deg_el < 0:
             pixels_per_deg_el_have = nps.mag(dq_dazel[:,1])*np.pi/180.
-
-            if pixels_per_deg_el is not None:
-                # negative pixels_per_deg_el requested means I use the requested
-                # value as a scaling
-                pixels_per_deg_el = -pixels_per_deg_el * pixels_per_deg_el_have
-            else:
-                pixels_per_deg_el = pixels_per_deg_el_have
+            pixels_per_deg_el = -pixels_per_deg_el * pixels_per_deg_el_have
 
     # How do we apply the desired pixels_per_deg?
     #
