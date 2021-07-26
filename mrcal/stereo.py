@@ -189,13 +189,8 @@ direction in rectified coordinates.
 
     '''
 
-    if rectification_model == 'LENSMODEL_LATLON':
-        unproject_rectified = mrcal.unproject_latlon
-        project_rectified   = mrcal.project_latlon
-    elif rectification_model == 'LENSMODEL_PINHOLE':
-        unproject_rectified = mrcal.unproject_pinhole
-        project_rectified   = mrcal.project_pinhole
-    else:
+    if not (rectification_model == 'LENSMODEL_LATLON' or \
+            rectification_model == 'LENSMODEL_PINHOLE'):
         raise(f"Unsupported rectification model '{rectification_model}'. Only LENSMODEL_LATLON and LENSMODEL_PINHOLE are supported.")
 
     if len(models) != 2:
@@ -308,17 +303,17 @@ direction in rectified coordinates.
         if rectification_model == 'LENSMODEL_LATLON':
             q0_normalized = np.array((az0,el0))
             v,dv_dazel = \
-                unproject_rectified( q0_normalized,
-                                     get_gradients = True )
+                mrcal.unproject_latlon( q0_normalized,
+                                        get_gradients = True )
         else:
             q0_normalized = np.array((np.tan(az0),np.tan(el0)))
             v,dv_dq0normalized = \
-                unproject_rectified( q0_normalized,
-                                     get_gradients = True )
+                mrcal.unproject_pinhole( q0_normalized,
+                                         get_gradients = True )
             # dq/dth = dtanth/dth = 1/cos^2(th)
             dv_dazel = dv_dq0normalized
-            dv_dq0normalized[:,0] /= cos_az0*cos_az0
-            dv_dq0normalized[:,1] /= cos_el0*cos_el0
+            dv_dazel[:,0] /= cos_az0*cos_az0
+            dv_dazel[:,1] /= cos_el0*cos_el0
 
         v0         = mrcal.rotate_point_R(R_cam0_rect0, v)
         dv0_dazel  = nps.matmult(R_cam0_rect0, dv_dazel)
@@ -381,10 +376,10 @@ direction in rectified coordinates.
         # (az0,el0) = unproject(imager center)
         Naz = round(az_fov_deg*pixels_per_deg_az)
         Nel = round(el_fov_deg*pixels_per_deg_el)
-        v = unproject_rectified( np.array((az0,el0)) )
+        v = mrcal.unproject_latlon( np.array((az0,el0)) )
         fxycxy[2:] = \
             np.array(((Naz-1.)/2.,(Nel-1.)/2.)) - \
-            project_rectified( v, fxycxy )
+            mrcal.project_latlon( v, fxycxy )
 
     elif rectification_model == 'LENSMODEL_PINHOLE':
         fxycxy[0] *= cos_az0*cos_az0
