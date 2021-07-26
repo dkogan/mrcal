@@ -161,7 +161,7 @@ ARGUMENTS
   is especially significant in a camera system with some forward/backward shift.
   That causes the baseline to no longer be perpendicular with the view axis of
   the cameras, and thus the azimuth=0 vector no longer points "forward". If
-  omitted, we compute az0_deg to aligns the center of the rectified system with
+  omitted, we compute az0_deg to align the center of the rectified system with
   the center of the two cameras' views
 
 - el0_deg: optional value for the elevation center of the rectified system.
