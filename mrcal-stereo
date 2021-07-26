@@ -103,17 +103,15 @@ def parse_args():
 
     ######## geometry and rectification system parameters
     parser.add_argument('--az-fov-deg',
-                        required = True,
                         type=float,
                         help='''The field of view in the azimuth direction, in
                         degrees. There's no auto-detection at this time, so this
-                        argument is required''')
+                        argument is required (unless --already-rectified)''')
     parser.add_argument('--el-fov-deg',
-                        required = True,
                         type=float,
                         help='''The field of view in the elevation direction, in
                         degrees. There's no auto-detection at this time, so this
-                        argument is required''')
+                        argument is required (unless --already-rectified)''')
     parser.add_argument('--az0-deg',
                         default = None,
                         type=float,
@@ -312,7 +310,7 @@ def parse_args():
             args.pixels_per_deg = l
         except:
             print("""Argument-parsing error:
-      --pixels_per_deg requires RESX,RESY or RESXY, where RES... is a value <0 or >0""",
+  --pixels_per_deg requires RESX,RESY or RESXY, where RES... is a value <0 or >0""",
                   file=sys.stderr)
             sys.exit(1)
 
@@ -323,6 +321,14 @@ def parse_args():
         elif args.sgbm_mode == 'SGBM_3WAY': args.sgbm_mode = cv2.StereoSGBM_MODE_SGBM_3WAY
         else:
             raise Exception("arg-parsing error. This is a bug. Please report")
+
+    if not args.already_rectified and \
+       (args.az_fov_deg is None or \
+        args.el_fov_deg is None ):
+        print("""Argument-parsing error:
+  --az-fov-deg and --el-fov-deg are required if not --already-rectified""",
+              file=sys.stderr)
+        sys.exit(1)
 
     return args
 
