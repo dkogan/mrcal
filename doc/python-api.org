@@ -62,7 +62,8 @@ Routines for manipulating [[file:lensmodels.org][lens models]].
 ** Driver routines
 These are all backends for the corresponding [[file:commandline-tools.org][commandline tools]].
 
-- [[file:mrcal-python-api-reference.html#-show_geometry][=mrcal.show_geometry()=]]: Visualize the world resulting from a calibration run
+- [[file:mrcal-python-api-reference.html#-show_geometry][=mrcal.show_geometry()=]]: Visualize the world represented by some number of
+  cameras and chessboards and points. For instance, result of a calibration run.
 - [[file:mrcal-python-api-reference.html#-show_projection_diff][=mrcal.show_projection_diff()=]]: Visualize the difference in projection between N models
 - [[file:mrcal-python-api-reference.html#-show_projection_uncertainty][=mrcal.show_projection_uncertainty()=]]: Visualize the uncertainty in camera projection
 - [[file:mrcal-python-api-reference.html#-show_projection_uncertainty_vs_distance][=mrcal.show_projection_uncertainty_vs_distance()=]]: Visualize the uncertainty in camera projection along one observation ray

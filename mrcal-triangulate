@@ -70,7 +70,8 @@ def parse_args():
                         help='''The size of the template used for feature
                         matching, in pixel coordinates of the second image. Two
                         arguments are required: width height. This is passed
-                        directly to mrcal.match_feature()''')
+                        directly to mrcal.match_feature(). We default to
+                        13x13''')
     parser.add_argument('--searchradius',
                         type=positive_int,
                         default = 20,
@@ -78,7 +79,7 @@ def parse_args():
                         search, in pixel coordinates of the second image. This
                         should be larger if the range estimate is poor,
                         especially, at near ranges. This is passed directly to
-                        mrcal.match_feature()''')
+                        mrcal.match_feature(). We default to 20 pixels''')
     parser.add_argument('--range-estimate',
                         type=positive_float,
                         default = 50,

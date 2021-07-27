@@ -35,11 +35,14 @@ def parse_args():
                         help='''Title string for the plot''')
     parser.add_argument('--hardcopy',
                         type=str,
-                        help='''Write the output to disk, instead of making an interactive plot''')
+                        help='''Write the output to disk, instead of making an
+                        interactive plot. The output filename is given in the
+                        option''')
     parser.add_argument('--terminal',
                         type=str,
-                        help=r'''gnuplotlib terminal. The default is good almost always, so most people don't
-                        need this option''')
+                        help=r'''The gnuplotlib terminal. The default is almost
+                        always right, so most people don't need this
+                        option''')
 
     parser.add_argument('--hide-boards',
                         action='store_true',
