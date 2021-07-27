@@ -102,6 +102,23 @@ def parse_args():
                         distance-along-the-normal to the plane, in from-camera
                         coordinates is given here. The plane is all points p
                         such that inner(p,planen) = planed''')
+    parser.add_argument('--q-observation-stdev',
+                        type    = float,
+                        help='''The uncertainty of the point observations at
+                        observation time. If given, we report the
+                        analytically-computed effects of this noise.''')
+    parser.add_argument('--q-observation-stdev-correlation',
+                        type    = float,
+                        default = 0.0,
+                        help='''By default, the noise in the observation-time
+                        pixel observations is assumed independent. This isn't
+                        entirely realistic: observations of the same feature in
+                        multiple cameras originate from an imager correlation
+                        operation, so they will have some amount of correlation.
+                        If given, this argument specifies how much correlation.
+                        This is a value in [0,1] scaling the stdev. 0 means
+                        "independent" (the default). 1.0 means "100%%
+                        correlated".''')
     parser.add_argument('--corr-floor',
                         type=float,
                         default=0.9,
@@ -186,6 +203,7 @@ import numpysane as nps
 import cv2
 
 import mrcal
+import mrcal.utils
 import scipy.optimize
 import time
 
@@ -376,14 +394,36 @@ else:
 Rt01_ref = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
 
-v0_ref = mrcal.unproject(q0_ref, *models[0].intrinsics())
-v1_ref = mrcal.unproject(q1_ref, *models[1].intrinsics())
-p0_ref = triangulate( v0_ref, v1_ref,
-                      Rt01        = Rt01_ref,
-                      v_are_local = True)
+if args.q_observation_stdev is not None:
+    p0_ref, \
+    Var_p_observation = \
+        mrcal.triangulate( nps.cat(q0_ref, q1_ref),
+                           models,
+                           # q_calibration_stdev = 0.2,
+                           q_observation_stdev              = args.q_observation_stdev,
+                           q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                           triangulation_function = triangulate )
+else:
+    Var_p_observation = None
+    p0_ref = \
+        mrcal.triangulate( nps.cat(q0_ref, q1_ref),
+                           models,
+                           triangulation_function = triangulate )
 
 if nps.norm2(p0_ref) == 0:
     raise Exception("Baseline divergent")
+
+# I use the lower-level triangulation function further on, for the empirical
+# sensitivity calculation. I call it here as a sanity check, to make sure that
+# mrcal.triangulate() gave me the same thing
+v0_ref = mrcal.unproject(q0_ref, *models[0].intrinsics())
+v1_ref = mrcal.unproject(q1_ref, *models[1].intrinsics())
+
+if nps.norm2( p0_ref - triangulate( v0_ref, v1_ref,
+                                    Rt01        = Rt01_ref,
+                                    v_are_local = True) ) > 1e-6:
+    print("## WARNING: mrcal.triangulate() returned something different from the internal routine. This is a bug. The empirical sensitivities may be off")
+
 
 # worst-case rotation axis will be the yaw. This axis is the normal to the plane
 # containing the 2 cameras and the observed point
@@ -454,6 +494,15 @@ else:
 
     print("## Range: {:.2f} m (error: {:.2f} m)".format(range0, range_err_have))
     print(f"## Reprojection error between intersection and q0: {mrcal.project(p0_ref, *models[0].intrinsics()) - q0_ref}pixels")
+
+    if Var_p_observation is not None:
+        l,v = mrcal.utils._sorted_eig(Var_p_observation)
+        # look at the least-confident direction
+        sigma = np.sqrt(l[-1])
+        v     = v[:,-1]
+        print(f"## Observation-time noise suggests: sigma={sigma:.2f}m along {v}")
+
+
 
     # half-assed sensitivity testing. Finite differences for each piece
     delta = 1e-3
