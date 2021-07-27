@@ -63,7 +63,7 @@ def parse_args():
                         action='store_true',
                         help='''If given, we assume the --range-estimate is correct, and output to standard
                         output a rotated camera1 to produce this range''')
-    parser.add_argument('--templatesize',
+    parser.add_argument('--template-size',
                         type=positive_int,
                         nargs=2,
                         default = (13,13),
@@ -72,7 +72,7 @@ def parse_args():
                         arguments are required: width height. This is passed
                         directly to mrcal.match_feature(). We default to
                         13x13''')
-    parser.add_argument('--searchradius',
+    parser.add_argument('--search-radius',
                         type=positive_int,
                         default = 20,
                         help='''How far the feature-matching routine should
@@ -352,8 +352,8 @@ else:
         mrcal.match_feature(*images,
                             q0               = q0_ref,
                             H10              = H10,
-                            search_radius1   = args.searchradius,
-                            template_size1   = args.templatesize,
+                            search_radius1   = args.search_radius,
+                            template_size1   = args.template_size,
 
                             visualize        = args.viz,
                             return_plot_args = True,
