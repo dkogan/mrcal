@@ -509,18 +509,28 @@ for i in range(Nimages):
     # implementation requires this
     disp_max = disparity_scale*round(disp_max/disparity_scale)
 
+    # I only add non-default args. StereoSGBM_create() doesn't like being given
+    # None args
+    kwargs = dict()
+    if args.sgbm_p1 is not None:
+        kwargs['P1']                = args.sgbm_p1
+    if args.sgbm_p2 is not None:
+        kwargs['P2']                = args.sgbm_p2
+    if args.sgbm_disp12_max_diff is not None:
+        kwargs['disp12MaxDiff']     = args.sgbm_disp12_max_diff
+    if args.sgbm_uniqueness_ratio is not None:
+        kwargs['uniquenessRatio']   = args.sgbm_uniqueness_ratio
+    if args.sgbm_speckle_window_size is not None:
+        kwargs['speckleWindowSize'] = args.sgbm_speckle_window_size
+    if args.sgbm_speckle_range is not None:
+        kwargs['speckleRange']      = args.sgbm_speckle_range
+    if args.sgbm_mode is not None:
+        kwargs['mode']              = args.sgbm_mode
     stereo = \
         cv2.StereoSGBM_create(minDisparity      = disp_min,
                               numDisparities    = disp_max,
                               blockSize         = args.sgbm_block_size,
-                              P1                = args.sgbm_p1,
-                              P2                = args.sgbm_p2,
-                              disp12MaxDiff     = args.sgbm_disp12_max_diff,
-                              preFilterCap      = args.sgbm_pre_filter_cap,
-                              uniquenessRatio   = args.sgbm_uniqueness_ratio,
-                              speckleWindowSize = args.sgbm_speckle_window_size,
-                              speckleRange      = args.sgbm_speckle_range,
-                              mode              = args.sgbm_mode)
+                              **kwargs)
     disparity = stereo.compute(*images_rectified)
     write_output(lambda filename: \
                  cv2.imwrite(filename,
