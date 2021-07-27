@@ -314,14 +314,6 @@ def parse_args():
                   file=sys.stderr)
             sys.exit(1)
 
-    if args.sgbm_mode is not None:
-        if   args.sgbm_mode == 'SGBM':      args.sgbm_mode = cv2.StereoSGBM_MODE_SGBM
-        elif args.sgbm_mode == 'HH':        args.sgbm_mode = cv2.StereoSGBM_MODE_HH
-        elif args.sgbm_mode == 'HH4':       args.sgbm_mode = cv2.StereoSGBM_MODE_HH4
-        elif args.sgbm_mode == 'SGBM_3WAY': args.sgbm_mode = cv2.StereoSGBM_MODE_SGBM_3WAY
-        else:
-            raise Exception("arg-parsing error. This is a bug. Please report")
-
     if not args.already_rectified and \
        (args.az_fov_deg is None or \
         args.el_fov_deg is None ):
@@ -347,6 +339,14 @@ import numpysane as nps
 import cv2
 import glob
 import mrcal
+
+if args.sgbm_mode is not None:
+    if   args.sgbm_mode == 'SGBM':      args.sgbm_mode = cv2.StereoSGBM_MODE_SGBM
+    elif args.sgbm_mode == 'HH':        args.sgbm_mode = cv2.StereoSGBM_MODE_HH
+    elif args.sgbm_mode == 'HH4':       args.sgbm_mode = cv2.StereoSGBM_MODE_HH4
+    elif args.sgbm_mode == 'SGBM_3WAY': args.sgbm_mode = cv2.StereoSGBM_MODE_SGBM_3WAY
+    else:
+        raise Exception("arg-parsing error. This is a bug. Please report")
 
 if len(args.pixels_per_deg) == 2:
     pixels_per_deg_az,pixels_per_deg_el = args.pixels_per_deg
