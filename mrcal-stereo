@@ -142,9 +142,14 @@ def parse_args():
     parser.add_argument('--rectification',
                         choices=('LENSMODEL_PINHOLE', 'LENSMODEL_LATLON'),
                         default = 'LENSMODEL_LATLON',
-                        help='''Used if --show-geometry. Extra 'unset'
-                        directives to pass to gnuplotlib. May be given multiple
-                        times''')
+                        help='''The lens model to use for rectification.
+                        Currently two models are supported: LENSMODEL_LATLON
+                        (the default) and LENSMODEL_PINHOLE. Pinhole stereo
+                        works badly for wide lenses and suffers from varying
+                        angular resolution across the image. LENSMODEL_LATLON
+                        rectification uses a transverse equirectangular
+                        projection, and does not suffer from these effects. It
+                        is thus the recommended model''')
 
     parser.add_argument('--already-rectified',
                         action='store_true',
