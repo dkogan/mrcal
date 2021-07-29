@@ -179,9 +179,14 @@ def parse_args():
     parser.add_argument('--scan',
                         type=str,
                         default='',
-                        choices=('range','tilt_radius','Nframes','Ncameras',
-                                 'object_width_n', 'object_spacing',
-                                 'num_far_constant_Nframes_near', 'num_far_constant_Nframes_all'),
+                        choices=('range',
+                                 'tilt_radius',
+                                 'Nframes',
+                                 'Ncameras',
+                                 'object_width_n',
+                                 'object_spacing',
+                                 'num_far_constant_Nframes_near',
+                                 'num_far_constant_Nframes_all'),
                         help='''Study the effect of some parameter on uncertainty. The parameter is given as
                         an argument ot this function. Valid choices:
                         ('range','tilt_radius','Nframes','Ncameras',
