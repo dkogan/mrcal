@@ -120,6 +120,22 @@ def parse_args():
                         given on the commandline. We may want to use a
                         parametric model to generate data (model on the
                         commandline), but a richer splined model to solve''')
+    parser.add_argument('--skip-calobject-warp-solve',
+                        action='store_true',
+                        default=False,
+                        help='''By default we assume the calibration target is
+                        slightly deformed, and we compute this deformation. If
+                        we want to assume that the chessboard shape is fixed,
+                        pass this option. The actual shape of the board is given
+                        by --calobject-warp''')
+    parser.add_argument('--calobject-warp',
+                        type=float,
+                        nargs=2,
+                        default=(0.002, -0.005),
+                        help='''The "calibration-object warp". These specify the
+                        flex of the chessboard. By default, the board is
+                        slightly warped (as is usually the case in real life).
+                        To use a perfectly flat board, specify "0 0" here''')
 
     parser.add_argument('--show-geometry-first-solve',
                         action = 'store_true',
@@ -369,7 +385,7 @@ np.random.seed(0)
 
 model_intrinsics = mrcal.cameramodel(args.model)
 
-calobject_warp_true_ref = np.array((0.002, -0.005))
+calobject_warp_true_ref = np.array(args.calobject_warp)
 
 
 def solve(Ncameras,
@@ -491,7 +507,7 @@ def solve(Ncameras,
               # do_optimize_intrinsics_core filled in later
               do_optimize_frames                        = False,
               do_optimize_intrinsics_distortions        = True,
-              do_optimize_calobject_warp                = False, # turn this on, and reoptimize later
+              do_optimize_calobject_warp                = False, # turn this on, and reoptimize later, if needed
               do_apply_regularization                   = True,
               do_apply_outlier_rejection                = False)
 
@@ -551,9 +567,10 @@ def solve(Ncameras,
     stats = mrcal.optimize(**optimization_inputs)
     print(f"## optimized. rms = {stats['rms_reproj_error__pixels']}", file=sys.stderr)
 
-    optimization_inputs['do_optimize_calobject_warp'] = True
-    stats = mrcal.optimize(**optimization_inputs)
-    print(f"## optimized. rms = {stats['rms_reproj_error__pixels']}", file=sys.stderr)
+    if not args.skip_calobject_warp_solve:
+        optimization_inputs['do_optimize_calobject_warp'] = True
+        stats = mrcal.optimize(**optimization_inputs)
+        print(f"## optimized. rms = {stats['rms_reproj_error__pixels']}", file=sys.stderr)
 
     return optimization_inputs
 
