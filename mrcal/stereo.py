@@ -823,7 +823,7 @@ a "forward" point and a "query" point:
 
     q0 = [0, qy]    and    q1 = [qx1, qy]
 
-We convert these to normalized coords: t = (q-cxy)/fxy
+We convert these to normalized coords: tanxy = (q-cxy)/fxy
 
     t0 = [0, ty]    and    t1 = [tx1, ty]
 
@@ -923,12 +923,12 @@ RETURNED VALUES
 
         if qrect0 is None:
             tanaz0 = (np.arange(W, dtype=float) - cx)/fx
-            ty = nps.dummy((np.arange(H, dtype=float) - cy)/fy,
-                           -1)
+            tanel  = (np.arange(H, dtype=float) - cy)/fy
+            tanel  = nps.dummy(tanel, -1)
         else:
             tanaz0 = (qrect0[...,0] - cx) / fx
-            ty = (qrect0[...,1] - cy)/fy
-        s_sq_recip = ty*ty + 1.
+            tanel  = (qrect0[...,1] - cy) / fy
+        s_sq_recip = tanel*tanel + 1.
 
 
         tanaz0_tanaz1 = disparity.astype(np.float32) / (fx * disparity_scale)
@@ -936,7 +936,7 @@ RETURNED VALUES
         mask_invalid  = (disparity <= 0)
         tanaz0_tanaz1[mask_invalid] = 1 # to prevent division by 0
 
-        tanaz1        = tanaz0 - tanaz0_tanaz1
+        tanaz1 = tanaz0 - tanaz0_tanaz1
         r = baseline / \
             np.sqrt(s_sq_recip + tanaz0*tanaz0) * \
             ((s_sq_recip + tanaz0*tanaz1) / tanaz0_tanaz1 + \
