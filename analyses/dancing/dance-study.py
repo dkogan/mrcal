@@ -216,6 +216,44 @@ def parse_args():
                         TILT-MIN,TILT-MAX specifying the bounds of the two
                         tilt-radius values to evaluate. Otherwise: this is the
                         one value we use''')
+    parser.add_argument('--yaw-radius',
+                        type=float,
+                        default=20.,
+                        help='''The synthetic chessboard orientation is sampled
+                        from a uniform distribution: [-RADIUS,RADIUS]. The
+                        pitch,roll radius is specified by the --tilt-radius. The
+                        yaw radius is selected here. "Yaw" is the rotation along
+                        the axis normal to the chessboard plane. Default is
+                        20deg''')
+    parser.add_argument('--x-radius',
+                        type=float,
+                        default=None,
+                        help='''The synthetic chessboard position is sampled
+                        from a uniform distribution: [-RADIUS,RADIUS]. The x
+                        radius is selected here. "x" is direction in the
+                        chessboard plane, and is also the axis along which the
+                        cameras are distributed. A resonable default (possibly
+                        range-dependent) is chosen if omitted. MUST be None if
+                        --scan num_far_...''')
+    parser.add_argument('--y-radius',
+                        type=float,
+                        default=None,
+                        help='''The synthetic chessboard position is sampled
+                        from a uniform distribution: [-RADIUS,RADIUS]. The y
+                        radius is selected here. "y" is direction in the
+                        chessboard plane, and is also normal to the axis along
+                        which the cameras are distributed. A resonable default
+                        (possibly range-dependent) is chosen if omitted. MUST be
+                        None if --scan num_far_...''')
+    parser.add_argument('--z-radius',
+                        type=float,
+                        default=None,
+                        help='''The synthetic chessboard position is sampled
+                        from a uniform distribution: [-RADIUS,RADIUS]. The z
+                        radius is selected here. "z" is direction normal to the
+                        chessboard plane. A resonable default (possibly
+                        range-dependent) is chosen if omitted. MUST be None if
+                        --scan num_far_...''')
     parser.add_argument('--Ncameras',
                         default = '1',
                         type=str,
@@ -338,6 +376,12 @@ elif  len(controllable_arg_2values) == 1: controllable_arg_2values = controllabl
 else: raise Exception(f"At most 1 controllable arg may have 2 values. Instead I saw: {controllable_arg_2values}")
 
 if re.match("num_far_constant_Nframes_", args.scan):
+
+    if args.x_radius is not None or \
+       args.y_radius is not None or \
+       args.z_radius is not None:
+        raise Exception("--x-radius and --y-radius and --z-radius are exclusive with --scan num_far_...")
+
     # special case
     if 'Nframes' not in controllable_arg_0values:
         raise Exception(f"I'm scanning '{args.scan}', so --Nframes must not have been given")
@@ -612,6 +656,11 @@ def eval_one_rangenear_tilt(models_true,
     else:
         which = 'all_cameras_must_see_half_board'
 
+
+    x_radius = args.x_radius if args.x_radius is not None else range_near*2. + radius_cameras
+    y_radius = args.y_radius if args.y_radius is not None else range_near*2.
+    z_radius = args.z_radius if args.z_radius is not None else range_near/10.
+
     # shapes (Nframes, Ncameras, Nh, Nw, 2),
     #        (Nframes, 4,3)
     q_true_near, Rt_ref_board_true_near = \
@@ -621,10 +670,8 @@ def eval_one_rangenear_tilt(models_true,
                                             np.array((0.,  0., 0., radius_cameras, 0,  range_near,)),
                                             np.array((np.pi/180. * tilt_radius,
                                                       np.pi/180. * tilt_radius,
-                                                      np.pi/180. * 20.,
-                                                      range_near*2. + radius_cameras,
-                                                      range_near*2.,
-                                                      range_near/10.)),
+                                                      np.pi/180. * args.yaw_radius,
+                                                      x_radius, y_radius, z_radius)),
                                             np.max(Nframes_near_samples),
                                             which = which)
     if range_far is not None:
@@ -635,7 +682,7 @@ def eval_one_rangenear_tilt(models_true,
                                                 np.array((0.,  0., 0., radius_cameras, 0,  range_far,)),
                                                 np.array((np.pi/180. * tilt_radius,
                                                           np.pi/180. * tilt_radius,
-                                                          np.pi/180. * 20.,
+                                                          np.pi/180. * args.yaw_radius,
                                                           range_far*2. + radius_cameras,
                                                           range_far*2.,
                                                           range_far/10.)),
