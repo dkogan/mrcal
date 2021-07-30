@@ -241,7 +241,7 @@ def confirm_covariances_equal(var, var_ref,
 
     eccentricity_predicted = l_predicted[-1] / l_predicted[-2]
 
-    for i in range(3):
+    for i in range(var.shape[-1]):
         # check all the eigenvalues, in order from largest to smallest
         if isinstance(eps_eigenvalues, float):
             eps = eps_eigenvalues
