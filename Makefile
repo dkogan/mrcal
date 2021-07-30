@@ -3,7 +3,7 @@ PYTHON_VERSION_FOR_EXTENSIONS := 3
 include mrbuild/Makefile.common.header
 
 PROJECT_NAME := mrcal
-ABI_VERSION  := 1
+ABI_VERSION  := 2
 TAIL_VERSION := 0
 
 # Custom version from git (or from debian/changelog if no git repo available)
