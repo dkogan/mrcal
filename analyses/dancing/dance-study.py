@@ -314,7 +314,8 @@ if args.object_width_n  is None and \
     args.object_width_n  = "10"
     args.object_height_n = 10
 elif not ( args.object_width_n  is not None and \
-           args.object_height_n is not None):
+           args.object_height_n is not None) and \
+           args.scan != 'object_width_n':
     raise Exception("Either --object-width-n or --object-height-n are given: you must pass both or neither")
 
 # arg-parsing is done before the imports so that --help works without building
