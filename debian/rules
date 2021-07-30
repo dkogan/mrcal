@@ -14,3 +14,6 @@ export PKG_CONFIG := $(DEB_HOST_GNU_TYPE)-pkg-config
 override_dh_python3:
 	dh_numpy3
 	dh_python3
+
+override_dh_auto_test:
+	make test-nosampling

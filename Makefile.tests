@@ -71,8 +71,13 @@ define test_set
 	$(if $(filter %-nosampling,$1),$(TESTS_NOSAMPLING),$(if $(filter %-triangulation-uncertainty,$1),$(TESTS_TRIANGULATION_UNCERTAINTY),$(TESTS)))
 endef
 
-# "test" is the full set of tests
+# "test-all" is the full set of tests
 # "test-nosampling" excludes the very time-consuming tests
-test test-nosampling test-triangulation-uncertainty: all
+TESTS_ALL_TARGETS := test-all test-nosampling test-triangulation-uncertainty
+$(TESTS_ALL_TARGETS): all
 	@FAILED=""; $(foreach t,$(call test_set,$@),echo "========== RUNNING: $(subst __, ,$t)"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
+.PHONY: $(TESTS_ALL_TARGETS)
+
+test:
+	@echo "Which test set should we run? I know about '$(TESTS_ALL_TARGETS)" >> /dev/stderr; false
 .PHONY: test

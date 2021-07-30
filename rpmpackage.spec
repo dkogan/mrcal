@@ -78,7 +78,7 @@ rm -rf $RPM_BUILD_ROOT
 %make_install
 
 %check
-make test
+make test-nosampling
 
 %files
 %doc
