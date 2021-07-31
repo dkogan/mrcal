@@ -242,9 +242,11 @@ def get_R_abn(n):
     return nps.transpose(nps.cat(a,b,n))
 
 
-def compute_H10_planes(models, q0, plane_n, plane_d):
+def compute_H10_planes(models, q0, v0, plane_n, plane_d):
 
-    r'''Report a homography for two cameras observing a point on a plane'''
+    r'''Report a homography for two cameras observing a point on a plane
+
+    v0 is assumed normalized'''
 
     Rt10 = mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
                              models[0].extrinsics_Rt_toref() )
@@ -255,8 +257,6 @@ def compute_H10_planes(models, q0, plane_n, plane_d):
     # "Motion and structure from motion in a piecewise planar environment"
     # by Olivier Faugeras, F. Lustman.
     H10 = plane_d * R10 + nps.outer(t10, plane_n)
-
-    v0 = mrcal.unproject(q0, *models[0].intrinsics())
 
     # Find the 3D point on the plane, and translate the homography to match them
     # up
@@ -332,6 +332,8 @@ np.set_printoptions(precision = 2)
 models = [mrcal.cameramodel(m) for m in args.models]
 images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in args.images]
 q0_ref = np.array(args.features[:2], dtype=float)
+v0_ref = mrcal.unproject(q0_ref, *models[0].intrinsics(), normalize = True)
+
 
 if len(args.features) == 4:
     q1_ref = np.array(args.features[2:], dtype=float)
@@ -341,10 +343,9 @@ if len(args.features) == 4:
 else:
     if args.plane_n is not None:
         H10 = compute_H10_planes(models,
-                                 q0_ref,
+                                 q0_ref, v0_ref,
                                  np.array(args.plane_n),
                                  args.plane_d)
-
     else:
         # no plane defined. So I make up a plane that's the given distance away,
         # viewed head-on.
@@ -359,9 +360,12 @@ else:
         n = n0+n1
         # normalized "mean forward" in cam0 coords
         n /= nps.mag(n)
+
+        # inner(n,k*v) = d
+        d = nps.inner(n, args.range_estimate*v0_ref)
         H10 = compute_H10_planes(models,
-                                 q0_ref,
-                                 n, args.range_estimate)
+                                 q0_ref, v0_ref,
+                                 n, d)
 
     q1_perfect = mrcal.apply_homography(H10, q0_ref)
     print(f"## Feature {q0_ref} in the left image corresponds to {q1_perfect} at {args.range_estimate}m")
@@ -416,7 +420,6 @@ if nps.norm2(p0_ref) == 0:
 # I use the lower-level triangulation function further on, for the empirical
 # sensitivity calculation. I call it here as a sanity check, to make sure that
 # mrcal.triangulate() gave me the same thing
-v0_ref = mrcal.unproject(q0_ref, *models[0].intrinsics())
 v1_ref = mrcal.unproject(q1_ref, *models[1].intrinsics())
 
 if nps.norm2( p0_ref - triangulate( v0_ref, v1_ref,
