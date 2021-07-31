@@ -96,26 +96,26 @@ def get_variable_map(s):
     4 discrete points
     5 calobject_warp'''
 
-    m = re.search("^## Intrinsics: (\d+) variables per camera \((\d+) for the core, (\d+) for the rest; (\d+) total\). Starts at variable (\d+)", s, re.M)
+    m = re.search("^## Intrinsics: (\d+) variables per camera \((\d+) for the core, (\d+) for the rest; (\d+) total\). Starts at variable (-?\d+)", s, re.M)
     NintrinsicsPerCamera            = int(m.group(1))
     NintrinsicsCorePerCamera        = int(m.group(2))
     NintrinsicsDistortionsPerCamera = int(m.group(3))
     Nvar_intrinsics                 = int(m.group(4))
     ivar0_intrinsics                = int(m.group(5))
 
-    m = re.search("^## Extrinsics: \d+ variables per camera for all cameras except camera 0 \((\d+) total\). Starts at variable (\d+)", s, re.M)
+    m = re.search("^## Extrinsics: \d+ variables per camera for all cameras except camera 0 \((\d+) total\). Starts at variable (-?\d+)", s, re.M)
     Nvar_extrinsics  = int(m.group(1))
     ivar0_extrinsics = int(m.group(2))
 
-    m = re.search("^## Frames: \d+ variables per frame \((\d+) total\). Starts at variable (\d+)", s, re.M)
+    m = re.search("^## Frames: \d+ variables per frame \((\d+) total\). Starts at variable (-?\d+)", s, re.M)
     Nvar_frames  = int(m.group(1))
     ivar0_frames = int(m.group(2))
 
-    m = re.search("^## Discrete points: \d+ variables per point \((\d+) total\). Starts at variable (\d+)", s, re.M)
+    m = re.search("^## Discrete points: \d+ variables per point \((\d+) total\). Starts at variable (-?\d+)", s, re.M)
     Nvar_points  = int(m.group(1))
     ivar0_points = int(m.group(2))
 
-    m = re.search("^## calobject_warp: (\d+) variables. Starts at variable (\d+)", s, re.M)
+    m = re.search("^## calobject_warp: (\d+) variables. Starts at variable (-?\d+)", s, re.M)
     Nvar_calobject_warp  = int(m.group(1))
     ivar0_calobject_warp = int(m.group(2))
 
