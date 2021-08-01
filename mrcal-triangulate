@@ -102,6 +102,11 @@ def parse_args():
                         distance-along-the-normal to the plane, in from-camera
                         coordinates is given here. The plane is all points p
                         such that inner(p,planen) = planed''')
+    parser.add_argument('--q-calibration-stdev',
+                        type    = float,
+                        help='''The uncertainty of the point observations at
+                        calibration time. If given, we report the
+                        analytically-computed effects of this noise.''')
     parser.add_argument('--q-observation-stdev',
                         type    = float,
                         help='''The uncertainty of the point observations at
@@ -398,21 +403,26 @@ else:
 Rt01_ref = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
 
-if args.q_observation_stdev is not None:
-    p0_ref, \
-    Var_p_observation = \
-        mrcal.triangulate( nps.cat(q0_ref, q1_ref),
-                           models,
-                           # q_calibration_stdev = 0.2,
-                           q_observation_stdev              = args.q_observation_stdev,
-                           q_observation_stdev_correlation = args.q_observation_stdev_correlation,
-                           triangulation_function = triangulate )
-else:
-    Var_p_observation = None
+if args.q_calibration_stdev is None and \
+   args.q_observation_stdev is None:
     p0_ref = \
         mrcal.triangulate( nps.cat(q0_ref, q1_ref),
                            models,
                            triangulation_function = triangulate )
+    Var_p_calibration = None
+    Var_p_observation = None
+    Var_p_joint       = None
+else:
+    p0_ref,             \
+    Var_p_calibration,  \
+    Var_p_observation,  \
+    Var_p_joint = \
+        mrcal.triangulate( nps.cat(q0_ref, q1_ref),
+                           models,
+                           q_calibration_stdev             = args.q_calibration_stdev,
+                           q_observation_stdev             = args.q_observation_stdev,
+                           q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                           triangulation_function          = triangulate )
 
 if nps.norm2(p0_ref) == 0:
     raise Exception("Baseline divergent")
@@ -498,12 +508,17 @@ else:
     print("## Range: {:.2f} m (error: {:.2f} m)".format(range0, range_err_have))
     print(f"## Reprojection error between intersection and q0: {mrcal.project(p0_ref, *models[0].intrinsics()) - q0_ref}pixels")
 
-    if Var_p_observation is not None:
-        l,v = mrcal.utils._sorted_eig(Var_p_observation)
-        # look at the least-confident direction
-        sigma = np.sqrt(l[-1])
-        v     = v[:,-1]
-        print(f"## Observation-time noise suggests: sigma={sigma:.2f}m along {v}")
+
+    for what,var in ( ("Calibration", Var_p_calibration),
+                      ("Observation", Var_p_observation),
+                      ("Joint",       Var_p_joint)):
+
+        if var is not None:
+            l,v = mrcal.utils._sorted_eig(var)
+            # look at the least-confident direction
+            sigma = np.sqrt(l[-1])
+            v     = v[:,-1]
+            print(f"## {what}-time noise suggests worst confidence of sigma={sigma:.2f}m along {v}")
 
 
 
