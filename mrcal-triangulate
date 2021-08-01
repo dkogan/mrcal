@@ -166,30 +166,26 @@ def parse_args():
                         type=str,
                         nargs = 2,
                         help='''Camera models for the images. Both intrinsics and extrinsics are used''')
-    parser.add_argument('images',
+    parser.add_argument('images_and_features',
                         type=str,
-                        nargs=2,
-                        help='''The images to use for the triangulation''')
-    parser.add_argument('features',
-                        nargs='*',
-                        type=positive_float,
-                        help='''Feature coordinate in the first image optionally followed by the coresponding
-                        feature position in the second image. The first 2
-                        arguments are the pixel coordinates of the feature in
-                        the first image. If no more arguments are given I seek a
-                        matching feature in the second image. If 2 more
-                        arguments are given, I use these extra arguments as the
-                        corresponding feature coordinates in the second image''')
+                        nargs=4,
+                        help='''The images and/or feature pixes coordinates to
+                        use for the triangulation. This is either IMAGE0 IMAGE1
+                        FEATURE0X FEATURE0Y or FEATURE0X FEATURE0Y FEATURE1X
+                        FEATURE1Y. If images are given, the given pixel is a
+                        feature in image0, and we search for the corresponding
+                        feature in image1.''')
 
     return parser.parse_args()
 
 args = parse_args()
 
-if len(args.features) != 2 and \
-   len(args.features) != 4:
-    print(f"I need either 2 or 4 values for the feature positions, instead got {len(args.features)}",
-          file=sys.stderr)
-    sys.exit(1)
+def float_or_none(s):
+    try:    f = float(s)
+    except: f = None
+    return f
+features = [float_or_none(s) for s in args.images_and_features]
+
 
 if (args.plane_n is     None and args.plane_d is not None) or \
    (args.plane_n is not None and args.plane_d is     None):
@@ -204,6 +200,21 @@ if (args.plane_n is     None and args.plane_d is not None) or \
 
 
 import numpy as np
+
+if   all(type(x) is float for x in features):
+    q0_ref = np.array(features[:2], dtype=float)
+    q1_ref = np.array(features[2:], dtype=float)
+    images = None
+elif all(type(x) is float for x in features[2:]):
+    q0_ref = np.array(features[2:], dtype=float)
+    q1_ref = None
+    images = args.images_and_features[:2]
+else:
+    print(f"Need exactly 4 positional arguments: either IMAGE0 IMAGE1 FEATURE0X FEATURE0Y or FEATURE0X FEATURE0Y FEATURE1X FEATURE1Y",
+          file=sys.stderr)
+    sys.exit(1)
+
+
 import numpysane as nps
 import cv2
 
@@ -334,14 +345,13 @@ np.set_printoptions(precision = 2)
 
 
 
+if images is not None:
+    images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in images]
+
 models = [mrcal.cameramodel(m) for m in args.models]
-images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in args.images]
-q0_ref = np.array(args.features[:2], dtype=float)
 v0_ref = mrcal.unproject(q0_ref, *models[0].intrinsics(), normalize = True)
 
-
-if len(args.features) == 4:
-    q1_ref = np.array(args.features[2:], dtype=float)
+if q1_ref is not None:
     print(f"## Using user-supplied feature match at {q1_ref}")
     match_feature_diagnostics = None
 
