@@ -35,8 +35,8 @@ TESTS :=										\
   test/test-match-feature.py								\
   test/test-triangulation.py								\
   test/test-uncertainty-broadcasting.py__--q-calibration-stdev__0.3__--q-observation-stdev__0.3__--q-observation-stdev-correlation__0.5 \
-  test/test-parser-cameramodel
-
+  test/test-parser-cameramodel                                                      \
+  test/test-extrinsics_unmoved_since_calibration.py
 
 # triangulation-uncertainty tests. Lots and lots of tests to exhaustively try
 # out different scenarios

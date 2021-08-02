@@ -1338,6 +1338,24 @@ The optimization_inputs dict, or None if one isn't stored in this model.
             other_model._optimization_inputs_string
 
 
+    def _extrinsics_unmoved_since_calibration(self):
+        optimization_inputs = self.optimization_inputs()
+        icam_extrinsics = \
+            mrcal.corresponding_icam_extrinsics(self.icam_intrinsics(),
+                                                **optimization_inputs)
+
+        rt_cam_ref = self.extrinsics_rt_fromref()
+
+        if icam_extrinsics < 0:
+            # extrinsics WERE at the reference. So I should have an identity
+            # transform
+            return np.max(np.abs(rt_cam_ref)) == 0.0
+
+        d = rt_cam_ref - \
+            optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
+        return np.max(np.abs(d)) < 1e-6
+
+
     def icam_intrinsics(self):
         r'''Get the camera index indentifying this camera at optimization time
 
