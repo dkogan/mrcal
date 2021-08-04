@@ -36,8 +36,9 @@ def parse_args():
 
     parser.add_argument('--write-image',
                         action='store_true',
-                        help='''By default I make a plot. If --write-image is given, I output an annotated
-                        image instead''')
+                        help='''By default I make a plot. If --write-image is
+                        given, I output an annotated image instead. The image to
+                        annotate is then required, and is given in --image''')
     parser.add_argument('--force', '-f',
                         action='store_true',
                         default=False,
@@ -69,7 +70,7 @@ def parse_args():
     parser.add_argument('--image',
                         type=str,
                         required = False,
-                        help='''Image to annotate''')
+                        help='''Image to annotate. Used both with and without --write-image''')
     parser.add_argument('models',
                         type=str,
                         nargs='+',
