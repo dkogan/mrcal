@@ -4,7 +4,7 @@ r'''Visualize the valid-intrinsics region
 
 SYNOPSIS
 
-  $ mrcal-show-valid-intrinsics-region --writeimage --image image.png left.cameramodel
+  $ mrcal-show-valid-intrinsics-region --write-image --image image.png left.cameramodel
   Wrote image-valid-intrinsics-region.png
 
 Given a camera model (or models), this tool displays the valid-intrinsics
@@ -16,9 +16,9 @@ If an image is given, the region is rendered overlaid onto the image.
 If --points then we also read x,y points from STDIN, and plot those too.
 
 By default, we use gnuplotlib to make an interactive plot. Alternately, pass
---writeimage to annotate a given image, and write the new image on disk.
+--write-image to annotate a given image, and write the new image on disk.
 
---writeimage is not supported together with --points.
+--write-image is not supported together with --points.
 
 '''
 
@@ -34,19 +34,19 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--writeimage',
+    parser.add_argument('--write-image',
                         action='store_true',
-                        help='''By default I make a plot. If --writeimage is given, I output an annotated
+                        help='''By default I make a plot. If --write-image is given, I output an annotated
                         image instead''')
     parser.add_argument('--force', '-f',
                         action='store_true',
                         default=False,
-                        help='''With --writeimage we refuse to overwrite any existing images. Pass --force to
+                        help='''With --write-image we refuse to overwrite any existing images. Pass --force to
                         allow overwriting''')
     parser.add_argument('--points',
                         action='store_true',
                         help='''If given, I read a set of xy points from STDIN, and include them in the plot.
-                        This applies ONLY if not --writeimage''')
+                        This applies ONLY if not --write-image''')
     parser.add_argument('--title',
                         type=str,
                         default = None,
@@ -83,19 +83,19 @@ args = parse_args()
 # stuff, so that I can generate the manpages and README
 
 
-if args.writeimage:
+if args.write_image:
     if args.image is None:
-        raise Exception("--writeimage NEEDS an image to annotate")
+        raise Exception("--write-image NEEDS an image to annotate")
 
     if args.title    is not None or \
        args.hardcopy is not None or \
        args.terminal is not None or \
        args.set      is not None or \
        args.unset    is not None:
-        raise Exception("--title and --hardcopy and --terminal and --set and --unset are only valid without --writeimage")
+        raise Exception("--title and --hardcopy and --terminal and --set and --unset are only valid without --write-image")
 
     if args.points:
-        raise Exception("Currently --points is implemented ONLY if not --writeimage")
+        raise Exception("Currently --points is implemented ONLY if not --write-image")
 
 
 
@@ -108,7 +108,7 @@ models = [mrcal.cameramodel(m) for m in args.models]
 if any( m.valid_intrinsics_region() is None for m in models ):
     raise Exception("Not all given models have a valid-intrinsics contour! Giving up")
 
-if args.writeimage:
+if args.write_image:
 
     import cv2
 
