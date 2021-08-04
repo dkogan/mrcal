@@ -174,18 +174,12 @@ def _read(s, name):
             if 'E' in x:
                 raise Exception('Cahvor file {} LOOKS like a cahvor, but has an E'.format(name))
 
-            if abs(beta) < 1e-8 and \
-               ( 'R' not in x or np.linalg.norm(x['R']) < 1e-8):
+            if 'R' not in x or np.linalg.norm(x['R']) < 1e-8:
                 # pinhole
-                alpha = 0
-                beta  = 0
-            else:
-                R0,R1,R2 = x['R'].ravel()
-
-            if alpha == 0 and beta == 0:
                 distortions = np.array(())
                 lensmodel = 'LENSMODEL_PINHOLE'
             else:
+                R0,R1,R2 = x['R'].ravel()
                 distortions = np.array((alpha,beta,R0,R1,R2), dtype=float)
                 lensmodel = 'LENSMODEL_CAHVOR'
 
