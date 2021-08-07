@@ -603,7 +603,7 @@ Var_p_joint = \
                        q_calibration_stdev             = args.q_calibration_stdev,
                        q_observation_stdev             = args.q_observation_stdev,
                        q_observation_stdev_correlation = args.q_observation_stdev_correlation,
-                       stabilize_coords    = args.stabilize_coords )
+                       stabilize_coords                = args.stabilize_coords)
 
 testutils.confirm_equal(p_alone,
                         p_triangulated0,
