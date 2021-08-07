@@ -413,15 +413,32 @@ else:
 Rt01_ref = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
 
+Var_p_calibration = None
+Var_p_observation = None
+Var_p_joint       = None
 if args.q_calibration_stdev is None and \
    args.q_observation_stdev is None:
     p0_ref = \
         mrcal.triangulate( nps.cat(q0_ref, q1_ref),
                            models,
                            triangulation_function = triangulate )
-    Var_p_calibration = None
-    Var_p_observation = None
-    Var_p_joint       = None
+elif args.q_calibration_stdev is not None and \
+     args.q_observation_stdev is None:
+    p0_ref,             \
+    Var_p_calibration = \
+        mrcal.triangulate( nps.cat(q0_ref, q1_ref),
+                           models,
+                           q_calibration_stdev             = args.q_calibration_stdev,
+                           triangulation_function          = triangulate )
+elif args.q_calibration_stdev is None and \
+     args.q_observation_stdev is not None:
+    p0_ref,             \
+    Var_p_observation = \
+        mrcal.triangulate( nps.cat(q0_ref, q1_ref),
+                           models,
+                           q_observation_stdev             = args.q_observation_stdev,
+                           q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                           triangulation_function          = triangulate )
 else:
     p0_ref,             \
     Var_p_calibration,  \

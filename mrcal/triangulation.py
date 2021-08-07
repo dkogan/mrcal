@@ -1440,8 +1440,8 @@ def triangulate( q,
                  q_calibration_stdev             = None,
                  q_observation_stdev             = None,
                  q_observation_stdev_correlation = 0,
-                 triangulation_function = triangulate_leecivera_mid2,
-                 stabilize_coords = True ):
+                 triangulation_function          = triangulate_leecivera_mid2,
+                 stabilize_coords                = True):
 
     # I'm propagating noise in the input vector
     #
@@ -1476,6 +1476,8 @@ def triangulate( q,
     if (q_calibration_stdev is None or q_calibration_stdev == 0) and \
        (q_observation_stdev is None or q_observation_stdev == 0):
 
+        # I don't need to propagate any noise
+
         @nps.broadcast_define(((2,2),(2,)), (3,))
         def triangulate_slice(q01, m01):
             rt01 = \
@@ -1492,26 +1494,28 @@ def triangulate( q,
 
         p = triangulate_slice(q, models)
 
-        if q_calibration_stdev is None:
+        if q_calibration_stdev is None and \
+           q_observation_stdev is None:
+            return p
+
+        if q_calibration_stdev is not None:
             Var_p_calibration = np.zeros(broadcasted_shape + (3,) +
                                          broadcasted_shape + (3,),
                                          dtype=float)
-
-            if q_observation_stdev is None:
-                return p
-
+        if q_observation_stdev is not None:
             Var_p_observation = np.zeros(broadcasted_shape + (3,3), dtype=float)
+
+        if q_calibration_stdev is not None:
+            if q_observation_stdev is not None:
+                return p, Var_p_calibration, Var_p_observation, Var_p_calibration
+            else:
+                return p, Var_p_calibration
+        else:
             return p, Var_p_observation
 
-        if q_observation_stdev is None:
-            return p, Var_p_calibration
-
-        Var_p_observation = np.zeros(broadcasted_shape + (3,3), dtype=float)
-        return p, Var_p_calibration, Var_p_observation
 
 
-
-
+    # SOMETHING is non-zero, so we need to do noise propagation
 
     if q_calibration_stdev is not None and \
        q_calibration_stdev != 0:
@@ -1536,6 +1540,9 @@ def triangulate( q,
 
 
 
+    # p has shape (Npoints + (3,))
+    # Var_p_observation_flat has shape (Npoints + (3,3))
+    # dp_triangulated_dpstate has shape (Npoints*3 + (Nstate,))
     p,                      \
     Var_p_observation_flat, \
     dp_triangulated_dpstate = \
@@ -1566,6 +1573,7 @@ def triangulate( q,
 
         ppacked,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs)
 
+        # Var_p_calibration_flat has shape (Npoints*3,Npoints*3)
         Var_p_calibration_flat = \
             mrcal.model_analysis._propagate_calibration_uncertainty(
                                                dp_triangulated_dpstate,
@@ -1591,23 +1599,30 @@ def triangulate( q,
         Var_p_calibration = \
             Var_p_calibration_flat.reshape(broadcasted_shape + (3,) +
                                            broadcasted_shape + (3,))
+    else:
+        Var_p_calibration = None
     if Var_p_observation_flat is not None:
         Var_p_observation = \
             Var_p_observation_flat.reshape(broadcasted_shape + (3,3))
+    else:
+        Var_p_observation = None
 
-
-    if q_calibration_stdev is None:
-        # q_observation_stdev must not be None
-        return p, Var_p_observation
-    if q_observation_stdev is None:
-        # q_calibration_stdev must not be None
+    if Var_p_observation is None:
         return p, Var_p_calibration
+    if Var_p_calibration is None:
+        return p, Var_p_observation
 
     # Propagating both types of noise. I create a joint covariance matrix
-    Var_p_joint = Var_p_calibration.copy()
-    Var_p_joint_flat = Var_p_joint.reshape(Var_p_calibration_flat.shape)
-    for ipt in range(len(slices)):
-        Var_p_joint_flat[ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3] += \
-            Var_p_observation_flat[ipt,...]
+    if Var_p_calibration is not None:
+        Var_p_joint = Var_p_calibration.copy()
+    else:
+        Var_p_joint = np.zeros((broadcasted_shape + (3,) +
+                                broadcasted_shape + (3,)), dtype=float)
+    if Var_p_observation is not None:
+        Var_p_joint_flat = Var_p_joint.reshape(len(slices)*3,
+                                               len(slices)*3)
+        for ipt in range(len(slices)):
+            Var_p_joint_flat[ipt*3:(ipt+1)*3,ipt*3:(ipt+1)*3] += \
+                Var_p_observation_flat[ipt,...]
 
     return p, Var_p_calibration, Var_p_observation, Var_p_joint
