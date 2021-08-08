@@ -59,14 +59,17 @@ captured by model1, do this:
 
 Each of the given images will be reprojected, and written to disk as
 "image....-reprojected.jpg". Nothing will be written to standard output. By
-default, the rotation component of the relative extrinsics between the two
-models is used in the reprojection. To ignore it, pass --intrinsics-only.
-Relative translation is always ignored. The usual use case is to validate the
-relative intrinsics and extrinsics in two models. If you have a pair of models
-and a pair of observed images, you can compute the reprojection, and compare the
-reprojection-to-model1 to images that were actually captured by model1. If the
-intrinsics and extrinsics were correct, then the two images would line up
-exactly for objects at infinity (where the translation=0 assumption is correct).
+default, full relative extrinsics between the two models are used in the
+reprojection. The unprojection distance (given with --distance) is infinity by
+default, so only the relative rotation is used by default. To ignore the
+extrinsics entirely, pass --intrinsics-only.
+
+A common use case is to validate the relative intrinsics and extrinsics in two
+models. If you have a pair of models and a pair of observed images, you can
+compute the reprojection, and compare the reprojection-to-model1 to images that
+were actually captured by model1. If the intrinsics and extrinsics were correct,
+then the two images would line up exactly for relevant objects (far-away observations with the default --distance, ground plane with --plane-n, etc).
+
 Computing this reprojection map is often very slow. But if the use case is
 comparing two sets of captured images, the next, much faster invocation method
 can be used.
@@ -103,10 +106,6 @@ the distance to the normal given by plane-d. The plane is all points p such that
 inner(p,planen) = planed. planen does not need to be normalized. This mode does
 not require --to-pinhole, but it makes the computations run much faster, as
 before.
-
-In the non-plane-remapping modes, if 2 camera models are given, we use the
-rotation component of the extrinsics, unless --intrinsics-only. The translation
-is always ignored.
 
 If --to-pinhole, then we generate a pinhole model, that is written to standard
 output. By default, the focal length of this pinhole model is the same as that
@@ -162,10 +161,21 @@ def parse_args():
 
     parser.add_argument('--intrinsics-only',
                         action='store_true',
-                        help='''If two camera models are given, then by default the relative camera rotation
-                        is used in the transformation. If we want to use the
-                        intrinsics ONLY, pass --intrinsics-only. Note that
-                        relative translation is ALWAYS ignored''')
+                        help='''If two camera models are given, then by default
+                        the full relative transformation is used in the
+                        reprojection. If we want to use the intrinsics ONLY,
+                        pass this option''')
+
+    parser.add_argument('--distance',
+                        type=float,
+                        help='''The fundamental operation of this tool is to
+                        unproject points from one camera, and to reproject them
+                        into the other. The distance used for the unprojection
+                        is set by this argument. If omitted, infinity is used;
+                        this is equivalent to only using the rotation component
+                        of the relative transformation between the cameras. This
+                        option only makes sense without --intrinsics-only and
+                        without --plane-n/--plane-d''')
 
     parser.add_argument('--fit',
                         type=str,
@@ -317,6 +327,21 @@ if (args.plane_n is     None and args.plane_d is not None) or \
     print("--plane-n and --plane-d should both be given or neither should be", file=sys.stderr)
     sys.exit(1)
 
+if args.plane_n is not None and \
+   args.intrinsics_only:
+    print("We're looking at remapping a plane (--plane-d, --plane-n are given), so --intrinsics-only doesn't make sense",
+          file=sys.stderr)
+    sys.exit(1)
+
+if args.distance is not None and \
+   (args.plane_n is not None or args.intrinsics_only):
+    print("--distance makes sense only without --plane-n/--plane-d and without --intrinsics-only", file=sys.stderr)
+    sys.exit(1)
+
+
+
+
+
 import numpy as np
 import numpysane as nps
 
@@ -393,9 +418,6 @@ if args.plane_n is not None:
     if getattr(args, 'model-to') is None:
        print("Plane remapping requires BOTH camera models to be given", file=sys.stderr)
        sys.exit(1)
-    if args.intrinsics_only:
-       print("Plane remapping makes no sense with --intrinsics-only", file=sys.stderr)
-       sys.exit(1)
 
     args.plane_n = np.array(args.plane_n, dtype=float)
 
@@ -422,7 +444,7 @@ def _transform_this(inout):
     print(f"Wrote {inout[1]}", file=sys.stderr)
 
 def process(model_from, model_to, image_globs, suffix,
-            use_rotation, plane_n, plane_d):
+            intrinsics_only, distance, plane_n, plane_d):
 
     def target_image_filename(filename_in, suffix):
 
@@ -452,7 +474,8 @@ def process(model_from, model_to, image_globs, suffix,
     if args.valid_intrinsics_region:
         model_valid_intrinsics_region = model_from
     mapxy = mrcal.image_transformation_map(model_from, model_to,
-                                           intrinsics_only = not use_rotation,
+                                           intrinsics_only = intrinsics_only,
+                                           distance        = distance,
                                            plane_n         = plane_n,
                                            plane_d         = plane_d,
                                            mask_valid_intrinsics_region_from = \
@@ -485,10 +508,10 @@ if args.to_pinhole and getattr(args, 'model-to'):
     # I'm reprojecting each of my sets of images to a pinhole model (a DIFFERENT
     # model from TO and FROM)
     process(model_from, model_target, (getattr(args, 'imageglobs')[0],), "pinhole-remapped",
-            not args.intrinsics_only, args.plane_n, args.plane_d)
+            args.intrinsics_only, args.distance, args.plane_n, args.plane_d)
     process(model_to,   model_target, (getattr(args, 'imageglobs')[1],), "pinhole",
-            not args.intrinsics_only, None, None)
+            args.intrinsics_only, args.distance, None, None)
 else:
     # Simple case. I have my two models, and I reproject all the images
     process(model_from, model_to, getattr(args, 'imageglobs'), "reprojected",
-            not args.intrinsics_only, args.plane_n, args.plane_d)
+            args.intrinsics_only, args.distance, args.plane_n, args.plane_d)
