@@ -14,9 +14,8 @@ SYNOPSIS
 This tool combines intrinsics and extrinsics from different sources into a
 single model. The output is written to standard output.
 
-We combine the intrinsics from one model with the extrinsics of another. A
-common use case is a system where the intrinsics are calibrated prior to moving
-the cameras to their final location, and then computing the extrinsics
+A common use case is a system where the intrinsics are calibrated prior to
+moving the cameras to their final location, and then computing the extrinsics
 separately after the cameras are moved.
 
 If we have computed such a combined model, and we decide to recompute the
@@ -76,10 +75,11 @@ def parse_args():
     parser.add_argument('--radius',
                         type=float,
                         default=0.,
-                        help='''Used if we're computing the implied-by-the-intrinsics transformation. Radius
-                        of the region of interest. If ==0, we do NOT fit an
-                        implied transformation at all. If omitted or <0, we use
-                        a "reasonable" value: the whole imager if we're using
+                        help='''Used if we're computing the
+                        implied-by-the-intrinsics transformation. Radius of the
+                        region of interest. If ==0 (the default), we do NOT fit
+                        an implied transformation at all. If <0, we use a
+                        "reasonable" value: the whole imager if we're using
                         uncertainties, or min(width,height)/6 if
                         --no-uncertainties. To fit with data across the whole
                         imager in either case, pass in a very large radius''')
