@@ -37,7 +37,7 @@ model_pinhole.extrinsics_rt_toref( \
                      rt_yaw) )
 
 mapxy = mrcal.image_transformation_map(model, model_pinhole,
-                                       use_rotation = True)
+                                       intrinsics_only = False)
 
 image_transformed = mrcal.transform_image(image, mapxy)
 

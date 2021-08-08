@@ -155,7 +155,8 @@ SYNOPSIS
     model_pinhole = mrcal.pinhole_model_for_reprojection(model_orig,
                                                          fit = "corners")
 
-    mapxy = mrcal.image_transformation_map(model_orig, model_pinhole)
+    mapxy = mrcal.image_transformation_map(model_orig, model_pinhole,
+                                           intrinsics_only = True)
 
     image_undistorted = mrcal.transform_image(image_orig, mapxy)
 
@@ -266,7 +267,8 @@ the input model.
 
 def image_transformation_map(model_from, model_to,
 
-                             use_rotation                      = False,
+                             intrinsics_only                   = False,
+                             distance                          = None,
                              plane_n                           = None,
                              plane_d                           = None,
                              mask_valid_intrinsics_region_from = False):
@@ -281,7 +283,8 @@ SYNOPSIS
     model_pinhole = mrcal.pinhole_model_for_reprojection(model_orig,
                                                          fit = "corners")
 
-    mapxy = mrcal.image_transformation_map(model_orig, model_pinhole)
+    mapxy = mrcal.image_transformation_map(model_orig, model_pinhole,
+                                           intrinsics_only = True)
 
     image_undistorted = mrcal.transform_image(image_orig, mapxy)
 
@@ -299,62 +302,66 @@ This function returns a transformation map in an (Nheight,Nwidth,2) array. The
 image made by model_to will have shape (Nheight,Nwidth). Each pixel (x,y) in
 this image corresponds to a pixel mapxy[y,x,:] in the image made by model_from.
 
-This function has 3 modes of operation:
+One application of this function is to validate the models in a stereo pair. For
+instance, reprojecting one camera's image at distance=infinity should produce
+exactly the same image that is observed by the other camera when looking at very
+far objects, IF the intrinsics and rotation are correct. If the images don't
+line up well, we know that some part of the models is off. Similarly, we can use
+big planes (such as observations of the ground) and plane_n, plane_d to validate.
 
-- intrinsics-only
+This function has several modes of operation:
 
-  This is the default. Selected if
+- intrinsics, extrinsics
 
-  - use_rotation = False
-  - plane_n      = None
-  - plane_d      = None
+  Used if not intrinsics_only and \
+          plane_n is None     and \
+          plane_d is None
 
-  All of the extrinsics are ignored. If the two cameras have the same
-  orientation, then their observations of infinitely-far-away objects will line
-  up exactly
+  This is the default. For each pixel in the output, we use the full model to
+  unproject a given distance out, and then use the full model to project back
+  into the other camera.
 
-- rotation
+- intrinsics only
 
-  This can be selected explicitly with
+  Used if intrinsics_only and \
+          plane_n is None and \
+          plane_d is None
 
-  - use_rotation = True
-  - plane_n      = None
-  - plane_d      = None
-
-  Here we use the rotation component of the relative extrinsics. The relative
-  translation is impossible to use without knowing what we're looking at, so IT
-  IS ALWAYS IGNORED. If the relative orientation in the models matches reality,
-  then the two cameras' observations of infinitely-far-away objects will line up
-  exactly
+  Similar, but the extrinsics are ignored. We unproject the pixels in one model,
+  and project the into the other camera. The two camera coordinate systems are
+  assumed to line up perfectly
 
 - plane
 
-  This is selected if
+  Used if plane_n is not None and
+          plane_d is not None
 
-  - use_rotation = True
-  - plane_n is not None
-  - plane_d is not None
-
-  We map observations of a given plane in camera FROM coordinates
-  coordinates to where this plane would be observed by camera TO. This uses
-  ALL the intrinsics, extrinsics and the plane representation. If all of
-  these are correct, the observations of this plane would line up exactly in
-  the remapped-camera-fromimage and the camera-to image. The plane is
-  represented in camera-from coordinates by a normal vector plane_n, and the
-  distance to the normal plane_d. The plane is all points p such that
-  inner(p,plane_n) = plane_d. plane_n does not need to be normalized; any
-  scaling is compensated in plane_d.
+  We map observations of a given plane in camera FROM coordinates coordinates to
+  where this plane would be observed by camera TO. We unproject each pixel in
+  one camera, compute the intersection point with the plane, and project that
+  intersection point back to the other camera. This uses ALL the intrinsics,
+  extrinsics and the plane representation. The plane is represented by a normal
+  vector plane_n, and the distance to the normal plane_d. The plane is all
+  points p such that inner(p,plane_n) = plane_d. plane_n does not need to be
+  normalized; any scaling is compensated in plane_d.
 
 ARGUMENTS
 
 - model_from: the mrcal.cameramodel object describing the camera used to capture
-  the input image
+  the input image. We always use the intrinsics. if not intrinsics_only: we use
+  the extrinsics also
 
 - model_to: the mrcal.cameramodel object describing the camera that would have
-  captured the image we're producing
+  captured the image we're producing. We always use the intrinsics. if not
+  intrinsics_only: we use the extrinsics also
 
-- use_rotation: optional boolean, defaulting to False. If True: we respect the
-  relative rotation in the extrinsics of the camera models.
+- intrinsics_only: optional boolean, defaulting to False. If False: we respect
+  the relative transformation in the extrinsics of the camera models.
+
+- distance: optional value, defaulting to None. Used only if not
+  intrinsics_only. We reproject points in space a given distance out. If
+  distance is None (the default), we look out to infinity. This is equivalent to
+  using only the rotation component of the extrinsics, ignoring the translation.
 
 - plane_n: optional numpy array of shape (3,); None by default. If given, we
   produce a transformation to map observations of a given plane to the same
@@ -362,7 +369,7 @@ ARGUMENTS
   vector in the coordinate system of model_from. The plane is all points p such
   that inner(p,plane_n) = plane_d. plane_n does not need to be normalized; any
   scaling is compensated in plane_d. If given, plane_d should be given also, and
-  use_rotation should be True. if given, we use the full intrinsics and
+  intrinsics_only should be False. if given, we use the full intrinsics and
   extrinsics of both camera models
 
 - plane_d: optional floating-point value; None by default. If given, we produce
@@ -370,7 +377,7 @@ ARGUMENTS
   the source and target images. The plane is all points p such that
   inner(p,plane_n) = plane_d. plane_n does not need to be normalized; any
   scaling is compensated in plane_d. If given, plane_n should be given also, and
-  use_rotation should be True. if given, we use the full intrinsics and
+  intrinsics_only should be False. if given, we use the full intrinsics and
   extrinsics of both camera models
 
 - mask_valid_intrinsics_region_from: optional boolean defaulting to False. If
@@ -389,15 +396,19 @@ This array can be passed to mrcal.transform_image()
     if (plane_n is      None and plane_d is not None) or \
        (plane_n is not  None and plane_d is     None):
         raise Exception("plane_n and plane_d should both be None or neither should be None")
-    if plane_n is not None and plane_d is not None and \
-       not use_rotation:
-        raise Exception("We're looking at remapping a plane (plane_d, plane_n are not None), so use_rotation should be True")
+    if plane_n is not None and \
+       intrinsics_only:
+        raise Exception("We're looking at remapping a plane (plane_d, plane_n are not None), so intrinsics_only should be False")
 
-    Rt_to_from = None
-    if use_rotation:
-        Rt_to_r    = model_to.  extrinsics_Rt_fromref()
-        Rt_r_from  = model_from.extrinsics_Rt_toref()
-        Rt_to_from = mrcal.compose_Rt(Rt_to_r, Rt_r_from)
+    if distance is not None and \
+       (plane_n is not None or intrinsics_only):
+        raise Exception("'distance' makes sense only without plane_n/plane_d and without intrinsics_only")
+
+    if intrinsics_only:
+        Rt_to_from = None
+    else:
+        Rt_to_from = mrcal.compose_Rt(model_to.  extrinsics_Rt_fromref(),
+                                      model_from.extrinsics_Rt_toref())
 
     lensmodel_from,intrinsics_data_from = model_from.intrinsics()
     lensmodel_to,  intrinsics_data_to   = model_to.  intrinsics()
@@ -405,7 +416,8 @@ This array can be passed to mrcal.transform_image()
     if re.match("LENSMODEL_OPENCV",lensmodel_from) and \
        lensmodel_to == "LENSMODEL_PINHOLE"         and \
        plane_n is None                             and \
-       not mask_valid_intrinsics_region_from:
+       not mask_valid_intrinsics_region_from       and \
+       distance is None:
 
         # This is a common special case. This branch works identically to the
         # other path (the other side of this "if" can always be used instead),
@@ -451,18 +463,7 @@ This array can be passed to mrcal.transform_image()
                                                             np.arange(H_to))),
                                        0,-1),
                                 dtype = float)
-    if lensmodel_to == "LENSMODEL_PINHOLE":
-        # Faster path for the unproject. Nice, simple closed-form solution
-        fxy_to = intrinsics_data_to[0:2]
-        cxy_to = intrinsics_data_to[2:4]
-        v = np.zeros( (grid.shape[0], grid.shape[1], 3), dtype=float)
-        v[..., :2] = (grid-cxy_to)/fxy_to
-        v[...,  2] = 1
-    elif lensmodel_to == "LENSMODEL_STEREOGRAPHIC":
-        # Faster path for the unproject. Nice, simple closed-form solution
-        v = mrcal.unproject_stereographic(grid, intrinsics_data_to[:4])
-    else:
-        v = mrcal.unproject(grid, lensmodel_to, intrinsics_data_to)
+    v = mrcal.unproject(grid, lensmodel_to, intrinsics_data_to)
 
     if plane_n is not None:
 
@@ -478,9 +479,11 @@ This array can be passed to mrcal.transform_image()
 
     else:
         if Rt_to_from is not None:
-            R_to_from = Rt_to_from[:3,:]
-            if np.trace(R_to_from) < 3. - 1e-12:
-                # rotation isn't identity. apply
+            if distance is not None:
+                v = mrcal.transform_point_Rt(mrcal.invert_Rt(Rt_to_from),
+                                             v/nps.dummy(nps.mag(v),-1) * distance)
+            else:
+                R_to_from = Rt_to_from[:3,:]
                 v = nps.matmult(v, R_to_from)
 
     mapxy = mrcal.project( v, lensmodel_from, intrinsics_data_from )
@@ -514,7 +517,8 @@ SYNOPSIS
     model_pinhole = mrcal.pinhole_model_for_reprojection(model_orig,
                                                          fit = "corners")
 
-    mapxy = mrcal.image_transformation_map(model_orig, model_pinhole)
+    mapxy = mrcal.image_transformation_map(model_orig, model_pinhole,
+                                           intrinsics_only = True)
 
     image_undistorted = mrcal.transform_image(image_orig, mapxy)
 

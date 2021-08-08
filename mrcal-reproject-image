@@ -452,7 +452,7 @@ def process(model_from, model_to, image_globs, suffix,
     if args.valid_intrinsics_region:
         model_valid_intrinsics_region = model_from
     mapxy = mrcal.image_transformation_map(model_from, model_to,
-                                           use_rotation    = use_rotation,
+                                           intrinsics_only = not use_rotation,
                                            plane_n         = plane_n,
                                            plane_d         = plane_d,
                                            mask_valid_intrinsics_region_from = \
