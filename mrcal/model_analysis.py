@@ -991,12 +991,12 @@ def projection_diff(models,
                     gridn_width  = 60,
                     gridn_height = None,
 
-                    distance     = None,
+                    intrinsics_only = False,
+                    distance        = None,
 
-                    use_uncertainties= True,
-                    focus_center     = None,
-                    focus_radius     = -1.,
-                    implied_Rt10     = None):
+                    use_uncertainties     = True,
+                    focus_center          = None,
+                    focus_radius          = -1.):
     r'''Compute the difference in projection between N models
 
 SYNOPSIS
@@ -1023,27 +1023,46 @@ It is often useful to compare the projection behavior of two camera models. For
 instance, one may want to validate a calibration by comparing the results of two
 different chessboard dances. Or one may want to evaluate the stability of the
 intrinsics in response to mechanical or thermal stresses. This function makes
-these comparisons, and returns the results. mrcal.show_projection_diff() ALSO
-produces a visualization.
+these comparisons, and returns the results. A visualization wrapper is
+available: mrcal.show_projection_diff()
 
 In the most common case we're given exactly 2 models to compare, and we compute
 the differences in projection of each point. If we're given more than 2 models,
 we instead compute the standard deviation of the differences between models 1..N
 and model0.
 
-We do this:
+The top-level operation of this function:
 
-- grid the imager
-- unproject each point in the grid from one camera to produce a world point
-- apply a transformation we compute to match up the two camera geometries
-- reproject the transformed points to the other camera
-- look at the resulting pixel difference in the reprojection
+- Grid the imager
+- Unproject each point in the grid using one camera model
+- Apply a transformation to map this point from one camera's coord system to the
+  other. How we obtain this transformation is described below
+- Project the transformed points to the other camera
+- Look at the resulting pixel difference in the reprojection
 
-When looking at multiple cameras, their lens intrinsics differ. Less obviously,
-the position and orientation of the camera coordinate system in respect to the
-physical camera housing differ also. These geometric uncertainties are baked
-into the intrinsics. So when we project "the same world point" into both
-cameras, we must apply a geometric transformation because we want to be
+Several variables control how we obtain the transformation. Top-level logic:
+
+  if intrinsics_only:
+      Rt10 = identity_Rt()
+  else:
+      if focus_radius == 0:
+          Rt10 = relative_extrinsics(models)
+      else:
+          Rt10 = implied_Rt10__from_unprojections()
+
+Sometimes we want to look at the intrinsics differences in isolation (if
+intrinsics_only), and sometimes we want to use the known geometry in the given
+models (not intrinsics_only and focus_radius == 0). If neither of these apply,
+we estimate the transformation: this is needed if we're comparing different
+calibration results from the same lens.
+
+Given different camera models, we have a different set of intrinsics for each.
+Extrinsics differ also, even if we're looking at different calibration of the
+same stationary lens: the position and orientation of the camera coordinate
+system in respect to the physical camera housing shift with each calibration.
+This geometric variation is baked into the intrinsics. So when we project "the
+same world point" into both cameras (as is desired when comparing repeated
+calibrations), we must apply a geometric transformation because we want to be
 comparing projections of world points (relative to the camera housing), not
 projections relative to the (floating) camera coordinate systems. This
 transformation is unknown, but we can estimate it by fitting projections across
@@ -1080,10 +1099,6 @@ observations used in the calibration were concentrated to the side of the image
 (off-center), no uncertainties were used, and the focus_center was not pointed
 to that area.
 
-If we KNOW that there is no geometric difference between our cameras, and we
-thus should look at the intrinsics differences only, then we don't need to
-estimate the transformation. Indicate this case by passing focus_radius=0.
-
 Unlike the projection operation, the diff operation is NOT invariant under
 geometric scaling: if we look at the projection difference for two points at
 different locations along a single observation ray, there will be a variation in
@@ -1101,8 +1116,8 @@ time.
 ARGUMENTS
 
 - models: iterable of mrcal.cameramodel objects we're comparing. Usually there
-  will be 2 of these, but more than 2 is possible. The intrinsics are used; the
-  extrinsics are NOT.
+  will be 2 of these, but more than 2 is allowed. The intrinsics are always
+  used; the extrinsics are used only if not intrinsics_only and focus_radius==0
 
 - gridn_width: optional value, defaulting to 60. How many points along the
   horizontal gridding dimension
@@ -1111,40 +1126,40 @@ ARGUMENTS
   we compute an integer gridn_height to maintain a square-ish grid:
   gridn_height/gridn_width ~ imager_height/imager_width
 
-- distance: optional value, defaulting to None. The projection difference varies
-  depending on the range to the observed world points, with the queried range
-  set in this 'distance' argument. If None (the default) we look out to
-  infinity. We can compute the implied-by-the-intrinsics transformation off
-  multiple distances if they're given here as an iterable. This is especially
-  useful if we have uncertainties, since then we'll emphasize the best-fitting
-  distances.
+- intrinsics_only: optional boolean, defaulting to False. If True: we evaluate
+  the intrinsics of each lens in isolation by assuming that the coordinate
+  systems of each camera line up exactly
 
-- use_uncertainties: optional boolean, defaulting to True. If True we use the
-  whole imager to fit the implied-by-the-intrinsics transformation, using the
-  uncertainties to emphasize the confident regions. If False, it is important to
-  select the confident region using the focus_center and focus_radius arguments.
-  If use_uncertainties is True, but that data isn't available, we report a
-  warning, and try to proceed without.
+- distance: optional value, defaulting to None. Has an effect only if not
+  intrinsics_only. The projection difference varies depending on the range to
+  the observed world points, with the queried range set in this 'distance'
+  argument. If None (the default) we look out to infinity. We can compute the
+  implied-by-the-intrinsics transformation off multiple distances if they're
+  given here as an iterable. This is especially useful if we have uncertainties,
+  since then we'll emphasize the best-fitting distances.
+
+- use_uncertainties: optional boolean, defaulting to True. Used only if not
+  intrinsics_only and focus_radius!=0. If True we use the whole imager to fit
+  the implied-by-the-intrinsics transformation, using the uncertainties to
+  emphasize the confident regions. If False, it is important to select the
+  confident region using the focus_center and focus_radius arguments. If
+  use_uncertainties is True, but that data isn't available, we report a warning,
+  and try to proceed without.
 
 - focus_center: optional array of shape (2,); the imager center by default. Used
-  to indicate that the implied-by-the-intrinsics transformation should use only
-  those pixels a distance focus_radius from focus_center. This is intended to be
-  used if no uncertainties are available, and we need to manually select the
-  focus region.
+  only if not intrinsics_only and focus_radius!=0. Used to indicate that the
+  implied-by-the-intrinsics transformation should use only those pixels a
+  distance focus_radius from focus_center. This is intended to be used if no
+  uncertainties are available, and we need to manually select the focus region.
 
 - focus_radius: optional value. If use_uncertainties then the default is LARGE,
   to use the whole imager. Else the default is min(width,height)/6. Used to
   indicate that the implied-by-the-intrinsics transformation should use only
   those pixels a distance focus_radius from focus_center. This is intended to be
   used if no uncertainties are available, and we need to manually select the
-  focus region. Pass focus_radius=0 to avoid computing the transformation, and
-  to use the identity. This would mean there're no geometric differences, and
-  we're comparing the intrinsics only
-
-- implied_Rt10: optional Rt transformation (numpy array of shape (4,3)). If
-  given, I use the given value for the implied-by-the-intrinsics transformation
-  instead of fitting it. If omitted, I compute the transformation. Exclusive
-  with focus_center, focus_radius. Valid only if exactly two models are given.
+  focus region. To avoid computing the transformation, either pass
+  focus_radius=0 (to use the extrinsics in the given models) or pass
+  intrinsics_only=True (to use the identity transform).
 
 RETURNED VALUE
 
@@ -1162,9 +1177,9 @@ A tuple
 - q0: a numpy array of shape (gridn_height,gridn_width,2) containing the pixel
   coordinates of each grid cell
 
-- implied_Rt10: the geometric Rt transformation in an array of shape (...,4,3).
-  This is either whatever was passed into this function (if anything was), or
-  the identity if focus_radius==0 or the fitted results. if len(models)>2: this
+- Rt10: the geometric Rt transformation in an array of shape (...,4,3). This is
+  the relative transformation we ended up using, which is computed using the
+  logic above (using intrinsics_only and focus_radius). if len(models)>2: this
   is an array of shape (len(models)-1,4,3), with slice i representing the
   transformation between camera 0 and camera i+1.
 
@@ -1172,13 +1187,6 @@ A tuple
 
     if len(models) < 2:
         raise Exception("At least 2 models are required to compute the diff")
-    if implied_Rt10 is not None:
-        if len(models) != 2:
-            raise Exception("implied_Rt10 may be given ONLY if I have exactly two models")
-        if focus_center is not None:
-            raise Exception("implied_Rt10 is given, so focus_center, focus_radius shouldn't be")
-
-        use_uncertainties = False
 
     if distance is None:
         atinfinity = True
@@ -1204,10 +1212,9 @@ A tuple
                                          lensmodels, intrinsics_data,
                                          normalize = True)
 
-    if focus_radius == 0:
-        use_uncertainties = False
-
-    if use_uncertainties:
+    uncertainties = None
+    if not intrinsics_only and focus_radius != 0 and \
+       use_uncertainties:
         try:
             # len(uncertainties) = Ncameras. Each has shape (len(distance),Nh,Nw)
             uncertainties = \
@@ -1219,53 +1226,50 @@ A tuple
         except Exception as e:
             print(f"WARNING: projection_diff() was asked to use uncertainties, but they aren't available/couldn't be computed. Falling back on the region-based-only logic\nException: {e}",
                   file = sys.stderr)
-            use_uncertainties = False
-            uncertainties     = None
-    else:
-        use_uncertainties = False
-        uncertainties     = None
 
-    if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
+    if focus_center is None:
+        focus_center = ((W-1.)/2., (H-1.)/2.)
+
     if focus_radius < 0:
-        if use_uncertainties:
+        if uncertainties is not None:
             focus_radius = max(W,H) * 100 # whole imager
         else:
             focus_radius = min(W,H)/6.
 
     if len(models) == 2:
         # Two models. Take the difference and call it good
-
-        if implied_Rt10 is not None:
-            # I already have the transformation, so no need to compute it
-            pass
-        elif focus_radius == 0:
-            implied_Rt10 = mrcal.identity_Rt()
+        if intrinsics_only:
+            Rt10 = mrcal.identity_Rt()
         else:
-            # weights has shape (len(distance),Nh,Nw))
-            if uncertainties is not None:
-                weights = 1.0 / (uncertainties[0]*uncertainties[1])
-
-                # It appears to work better if I discount the uncertain regions
-                # even more. This isn't a principled decision, and is supported
-                # only by a little bit of data. The differencing.org I'm writing
-                # now will contain a weighted diff of culled and not-culled
-                # splined model data. That diff computation requires this.
-                weights *= weights
+            if focus_radius == 0:
+                Rt10 = mrcal.compose_Rt(models[1].extrinsics_Rt_fromref(),
+                                        models[0].extrinsics_Rt_toref())
             else:
-                weights = None
+                # weights has shape (len(distance),Nh,Nw))
+                if uncertainties is not None:
+                    weights = 1.0 / (uncertainties[0]*uncertainties[1])
 
-            # weight may be inf or nan. implied_Rt10__from_unprojections() will
-            # clean those up, as well as any inf/nan in v (from failed
-            # unprojections)
-            implied_Rt10 = \
-                implied_Rt10__from_unprojections(q0,
-                                                 v[0,...] * distance,
-                                                 v[1,...],
-                                                 weights,
-                                                 atinfinity,
-                                                 focus_center, focus_radius)
+                    # It appears to work better if I discount the uncertain regions
+                    # even more. This isn't a principled decision, and is supported
+                    # only by a little bit of data. The differencing.org I'm writing
+                    # now will contain a weighted diff of culled and not-culled
+                    # splined model data. That diff computation requires this.
+                    weights *= weights
+                else:
+                    weights = None
 
-        q1 = mrcal.project( mrcal.transform_point_Rt(implied_Rt10,
+                # weight may be inf or nan. implied_Rt10__from_unprojections() will
+                # clean those up, as well as any inf/nan in v (from failed
+                # unprojections)
+                Rt10 = \
+                    implied_Rt10__from_unprojections(q0,
+                                                     v[0,...] * distance,
+                                                     v[1,...],
+                                                     weights,
+                                                     atinfinity,
+                                                     focus_center, focus_radius)
+
+        q1 = mrcal.project( mrcal.transform_point_Rt(Rt10,
                                                      v[0,...] * distance),
                             lensmodels[1], intrinsics_data[1])
         # shape (len(distance),Nheight,Nwidth,2)
@@ -1277,37 +1281,46 @@ A tuple
     else:
 
         # Many models. Look at the stdev
-        def get_implied_Rt10( i0, i1,
-                              focus_center, focus_radius):
-            v0 = v[i0,...]
-            v1 = v[i1,...]
+        def get_Rt10( i0, i1 ):
 
-            if focus_radius == 0:
+            if intrinsics_only:
                 return mrcal.identity_Rt()
 
+            if focus_radius == 0:
+                return mrcal.compose_Rt(models[i1].extrinsics_Rt_fromref(),
+                                        models[i0].extrinsics_Rt_toref())
+
+            # weights has shape (len(distance),Nh,Nw))
             if uncertainties is not None:
                 weights = 1.0 / (uncertainties[i0]*uncertainties[i1])
+
+                # It appears to work better if I discount the uncertain regions
+                # even more. This isn't a principled decision, and is supported
+                # only by a little bit of data. The differencing.org I'm writing
+                # now will contain a weighted diff of culled and not-culled
+                # splined model data. That diff computation requires this.
+                weights *= weights
             else:
                 weights = None
+
+            v0 = v[i0,...]
+            v1 = v[i1,...]
 
             return \
                 implied_Rt10__from_unprojections(q0, v0*distance, v1,
                                                  weights, atinfinity,
                                                  focus_center, focus_radius)
-        def get_reprojections(q0, implied_Rt10,
+        def get_reprojections(q0, Rt10,
                               lensmodel, intrinsics_data):
-            q1 = mrcal.project(mrcal.transform_point_Rt(implied_Rt10,
-                                                        v[0,...]*distance),
+            q1 = mrcal.project(mrcal.transform_point_Rt(Rt10, v[0,...]*distance),
                                lensmodel, intrinsics_data)
             # returning shape (len(distance),Nheight,Nwidth,2)
             return nps.atleast_dims(q1, -4)
 
-        implied_Rt10 = nps.cat(*[ get_implied_Rt10(0,i,
-                                                   focus_center, focus_radius) \
-                                  for i in range(1,len(v))])
+        Rt10 = nps.cat(*[ get_Rt10(0,i) for i in range(1,len(v))])
 
         # shape (Ncameras-1,len(distance),Nheight,Nwidth,2)
-        grids = nps.cat(*[get_reprojections(q0, implied_Rt10[i-1],
+        grids = nps.cat(*[get_reprojections(q0, Rt10[i-1],
                                             lensmodels[i], intrinsics_data[i]) \
                           for i in range(1,len(v))])
 
@@ -1316,7 +1329,7 @@ A tuple
                                           axis=-3),
                                    axis=0))
 
-    return difflen, diff, q0, implied_Rt10
+    return difflen, diff, q0, Rt10
 
 
 def is_within_valid_intrinsics_region(q, model):

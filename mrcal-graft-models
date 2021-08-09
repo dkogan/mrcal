@@ -140,25 +140,29 @@ else:
     except:
         raise Exception("--distances must be given a comma-separated list of distances")
 
-difflen,diff,q0, Rt_camoldintrinsics_camnewintrinsics = \
-    mrcal.projection_diff((model_intrinsics, model_extrinsics),
+if args.radius == 0:
+    rt_cr = model_extrinsics.extrinsics_rt_fromref()
+    model_intrinsics.extrinsics_rt_fromref(rt_cr)
+else:
+    difflen,diff,q0, Rt_camoldintrinsics_camnewintrinsics = \
+        mrcal.projection_diff((model_intrinsics, model_extrinsics),
 
-                          gridn_width       = args.gridn[0],
-                          gridn_height      = args.gridn[1],
-                          distance          = distance,
-                          use_uncertainties = not args.no_uncertainties,
-                          focus_center      = args.where,
-                          focus_radius      = args.radius,
-                          implied_Rt10      = None)
+                              gridn_width       = args.gridn[0],
+                              gridn_height      = args.gridn[1],
+                              distance          = distance,
+                              use_uncertainties = not args.no_uncertainties,
+                              focus_center      = args.where,
+                              focus_radius      = args.radius)
 
-rt_camoldintrinsics_ref = model_extrinsics.extrinsics_rt_fromref()
+    rt_camoldintrinsics_ref = model_extrinsics.extrinsics_rt_fromref()
 
-rt_camnewintrinsics_ref = \
-    mrcal.compose_rt( mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_camoldintrinsics_camnewintrinsics)),
-                      rt_camoldintrinsics_ref)
+    rt_camnewintrinsics_ref = \
+        mrcal.compose_rt( mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_camoldintrinsics_camnewintrinsics)),
+                          rt_camoldintrinsics_ref)
+
+    model_intrinsics.extrinsics_rt_fromref(rt_camnewintrinsics_ref)
 
 
-model_intrinsics.extrinsics_rt_fromref(rt_camnewintrinsics_ref)
 
 note = \
     "Generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),

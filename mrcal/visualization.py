@@ -711,13 +711,12 @@ SYNOPSIS
 The operation of this tool is documented at
 http://mrcal.secretsauce.net/differencing.html
 
+This function visualizes the results of mrcal.projection_diff()
+
 It is often useful to compare the projection behavior of two camera models. For
 instance, one may want to evaluate the quality of a calibration by comparing the
 results of two different chessboard dances. Or one may want to evaluate the
-stability of the intrinsics in response to mechanical or thermal stresses. This
-function makes these comparisons, and produces a visualization of the results.
-mrcal.projection_diff() computes the differences, and returns the results
-WITHOUT making plots.
+stability of the intrinsics in response to mechanical or thermal stresses.
 
 In the most common case we're given exactly 2 models to compare. We then display
 the projection difference as either a vector field or a heat map. If we're given
@@ -778,11 +777,6 @@ ARGUMENTS
   focus region. Pass focus_radius=0 to avoid computing the transformation, and
   to use the identity. This would mean there're no geometric differences, and
   we're comparing the intrinsics only
-
-- implied_Rt10: optional Rt transformation (numpy array of shape (4,3)). If
-  given, I use the given value for the implied-by-the-intrinsics transformation
-  instead of fitting it. If omitted, I compute the transformation. Exclusive
-  with focus_center, focus_radius. Valid only if exactly two models are given.
 
 - vectorfield: optional boolean, defaulting to False. By default we produce a
   heat map of the projection differences. If vectorfield: we produce a vector
@@ -845,9 +839,9 @@ A tuple:
     import gnuplotlib as gp
 
     if 'title' not in kwargs:
-        if implied_Rt10 is not None:
-            title_note = "using given extrinsics transform"
-        elif focus_radius == 0:
+        # if implied_Rt10 is not None:
+        #     title_note = "using given extrinsics transform"
+        if focus_radius == 0:
             title_note = "using an identity extrinsics transform"
         else:
             distance_string = "infinity" if distance is None else f"distance={distance}"
@@ -883,10 +877,12 @@ A tuple:
     # Now do all the actual work
     difflen,diff,q0,implied_Rt10 = mrcal.projection_diff(models,
                                                          gridn_width, gridn_height,
-                                                         distance,
-                                                         use_uncertainties,
-                                                         focus_center,focus_radius,
-                                                         implied_Rt10)
+                                                         intrinsics_only   = False,
+                                                         distance          = distance,
+                                                         use_uncertainties = use_uncertainties,
+                                                         focus_center      = focus_center,
+                                                         focus_radius      = focus_radius)
+
     if not vectorfield:
         curve_options = \
             _options_heatmap_with_contours(
