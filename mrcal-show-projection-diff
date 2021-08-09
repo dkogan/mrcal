@@ -10,6 +10,8 @@ SYNOPSIS
 The operation of this tool is documented at
 http://mrcal.secretsauce.net/differencing.html
 
+This tool visualizes the results of mrcal.projection_diff()
+
 It is often useful to compare the projection behavior of two camera models. For
 instance, one may want to validate a calibration by comparing the results of two
 different chessboard dances. Or one may want to evaluate the stability of the
@@ -22,69 +24,27 @@ more than 2 models, then a vector field isn't possible and we instead display as
 a heatmap the standard deviation of the differences between models 1..N and
 model0.
 
-How are we computing the differences? The details are in the docstring of
-mrcal.projection_diff(). Broadly, we do this:
+The top-level operation of this tool:
 
-- grid the imager
-- unproject each point in the grid from one camera to produce a world point
-- apply a transformation we compute to match up the two camera geometries
-- reproject the transformed points to the other camera
-- look at the resulting pixel difference in the reprojection
+- Grid the imager
+- Unproject each point in the grid using one camera model
+- Apply a transformation to map this point from one camera's coord system to the
+  other. How we obtain this transformation is described below
+- Project the transformed points to the other camera
+- Look at the resulting pixel difference in the reprojection
 
-When looking at multiple cameras, their lens intrinsics differ. Less obviously,
-the position and orientation of the camera coordinate system in respect to the
-physical camera housing differ also. These geometric uncertainties are baked
-into the intrinsics. So when we project "the same world point" into both
-cameras, we must apply a geometric transformation because we want to be
-comparing projections of world points (relative to the camera housing), not
-projections relative to the (floating) camera coordinate systems. This
-transformation is unknown, but we can estimate it in one of several ways:
+Several arguments control how we obtain the transformation. Top-level logic:
 
-- If we KNOW that there is no geometric difference between our cameras, and we
-  thus should look at the intrinsics differences only, we assuming that
-  implied_Rt10 = identity. Indicate this case by passing --radius 0
+  if --intrinsics-only:
+      Rt10 = identity_Rt()
+  else:
+      if --radius 0:
+          Rt10 = relative_extrinsics(models)
+      else:
+          Rt10 = implied_Rt10__from_unprojections()
 
-- Otherwise, we fit projections across the imager: the "right" transformation
-  would result in apparent low projection differences in a wide area.
-
-This fitted transformation is computed by implied_Rt10__from_unprojections(),
-and some details of its operation are significant:
-
-- The imager area we use for the fit
-- Which world points we're looking at
-
-In most practical usages, we would not expect a good fit everywhere in the
-imager: areas where no chessboards were observed will not fit well, for
-instance. From the point of view of the fit we perform, those ill-fitting areas
-should be treated as outliers, and they should NOT be a part of the solve. How
-do we specify the well-fitting area? The best way is to use the model
-uncertainties: these can be used to emphasize the confident regions of the
-imager. This is the default behavior. If uncertainties aren't available, or if
-we want a faster solve, pass --no-uncertainties. The well-fitting region can
-then be passed using --where and --radius to indicate the circle in the imager
-we care about.
-
-If using uncertainties then we utilize all the data in the imager by default. if
---no-uncertainties, then the defaults are to use a more reasonable circle of
-radius min(width,height)/6 at the center of the imager. Usually this is
-sufficiently correct, and we don't need to mess with it. If we aren't guided to
-the correct focus region, the implied-by-the-intrinsics solve will try to fit
-lots of outliers, which would result in an incorrect transformation, which in
-turn would produce overly-high reported diffs. A common case when this happens
-is if the chessboard observations used in the calibration were concentrated to
-the side of the image (off-center), no uncertainties were used, and --where was
-not pointed to that area.
-
-Unlike the projection operation, the diff operation is NOT invariant under
-geometric scaling: if we look at the projection difference for two points at
-different locations along a single observation ray, there will be a variation in
-the observed diff. This is due to the geometric difference in the two cameras.
-If the models differed only in their intrinsics parameters, then this variation
-would not appear. Thus we need to know how far from the camera to look, and this
-is specified by --distance. By default we look out to infinity. If we care about
-the projection difference at some other distance, pass that here. Generally the
-most confident distance will be where the chessboards were observed at
-calibration time.
+The details of how the comparison is computed, and the meaning of the arguments
+controlling this, are in the docstring of mrcal.projection_diff().
 
 '''
 
@@ -107,33 +67,44 @@ def parse_args():
                         help='''How densely we should sample the imager. By default we use a 60x40 grid''')
     parser.add_argument('--distance',
                         type=str,
-                        help='''By default we compute the implied transformation for points infinitely far
-                        away from the camera. If we want to look closer in, the
-                        desired observation distance can be given in this
-                        argument. We can also fit multiple distances at the same
-                        time by passing them here in a comma-separated,
-                        whitespace-less list. If multiple distances are given,
-                        we fit the implied-by-the-intrinsics transformation
-                        using ALL the distances, but we display the best-fitting
-                        difference for each point. Only one distance is
-                        supported if --vectorfield. Multiple distances are
-                        especially useful if we have uncertainties: the most
-                        confident distance will be found, and displayed.''')
+                        help='''Has an effect only without --intrinsics-only.
+                        The projection difference varies depending on the range
+                        to the observed world points, with the queried range set
+                        in this argument. If omitted we look out to infinity. We
+                        can also fit multiple distances at the same time by
+                        passing them here in a comma-separated, whitespace-less
+                        list. If multiple distances are given, we fit the
+                        implied-by-the-intrinsics transformation using ALL the
+                        distances, but we display the best-fitting difference
+                        for each point. Only one distance is supported if
+                        --vectorfield. Multiple distances are especially useful
+                        if we have uncertainties: the most confident distance
+                        will be found, and displayed.''')
+
+    parser.add_argument('--intrinsics-only',
+                        action='store_true',
+                        help='''If given, we evaluate the intrinsics of each
+                        lens in isolation by assuming that the coordinate
+                        systems of each camera line up exactly''')
+
     parser.add_argument('--where',
                         type=float,
                         nargs=2,
-                        help='''Center of the region of interest for this diff. It is usually impossible for
-                        the models to match everywhere, but focusing on a
-                        particular area can work better. The implied
-                        transformation will be fit to match as large as possible
-                        an area centered on this argument. If omitted, we will
-                        focus on the center of the imager''')
+                        help='''Center of the region of interest for this diff.
+                        Used only without --intrinsics-only and without
+                        "--radius 0". It is usually impossible for the models to
+                        match everywhere, but focusing on a particular area can
+                        work better. The implied transformation will be fit to
+                        match as large as possible an area centered on this
+                        argument. If omitted, we will focus on the center of the
+                        imager''')
     parser.add_argument('--radius',
                         type=float,
                         default=-1.,
-                        help='''Radius of the region of interest. If ==0, we do NOT fit an implied
-                        transformation at all. If omitted or <0, we use a
-                        "reasonable" value: the whole imager if we're using
+                        help='''Radius of the region of interest. If ==0, we do
+                        NOT fit an implied transformation at all, but use the
+                        transformations in the models. If omitted or <0, we use
+                        a "reasonable" value: the whole imager if we're using
                         uncertainties, or min(width,height)/6 if
                         --no-uncertainties. To fit with data across the whole
                         imager in either case, pass in a very large radius''')
@@ -198,11 +169,13 @@ def parse_args():
 
     parser.add_argument('--no-uncertainties',
                         action = 'store_true',
-                        help='''By default we use the uncertainties in the model to weigh the fit. This will
-                        focus the fit on the confident region in the models
-                        without --where or --radius. The computation will run
-                        faster with --no-uncertainties, but the default --where
-                        and --radius may need to be adjusted''')
+                        help='''Used only without --intrinsics-only and without
+                        "--radius 0". By default we use the uncertainties in the
+                        model to weigh the fit. This will focus the fit on the
+                        confident region in the models without --where or
+                        --radius. The computation will run faster with
+                        --no-uncertainties, but the default --where and --radius
+                        may need to be adjusted''')
 
     parser.add_argument('--hardcopy',
                         type=str,
@@ -309,7 +282,7 @@ if args.same_dance:
                                                 idx_inliers = idx_inliers[0]*idx_inliers[1] )[1] \
               for model in models ]
 
-        implied_Rt10 = mrcal.align_procrustes_points_Rt01(calobjects[1], calobjects[0])
+        Rt10 = mrcal.align_procrustes_points_Rt01(calobjects[1], calobjects[0])
 
     elif 1:
 
@@ -366,7 +339,7 @@ if args.same_dance:
         else:
             Rt_cr1 = mrcal.identity_Rt()
 
-        implied_Rt10 = \
+        Rt10 = \
             mrcal.compose_Rt(Rt_cr1,
                              Rt_ref10,
                              mrcal.invert_Rt(Rt_cr0))
@@ -430,15 +403,15 @@ if args.same_dance:
 
         # print(f"p1_cam = {p1_cam}")
         # print(f"q1 = {q1}")
-        # print(f"before:\n{implied_Rt10}")
+        # print(f"before:\n{Rt10}")
 
-        implied_Rt10 = Rt_r1r0
+        Rt10 = Rt_r1r0
 
-        # print(f"after:\n{implied_Rt10}")
+        # print(f"after:\n{Rt10}")
 
 
 
-        # print(f"--same-dance Rt10: {implied_Rt10}")
+        # print(f"--same-dance Rt10: {Rt10}")
         # print(f"--same-dance Ninliers = {np.count_nonzero(idx_inliers[0]*idx_inliers[1])} Ntotal = {np.size(idx_inliers[0])}")
 
         # print(f"idx_inliers[0].shape: {idx_inliers[0].shape}")
@@ -449,31 +422,29 @@ if args.same_dance:
         # # IPython.embed()
         # # sys.exit()
 
-else:
-    implied_Rt10 = None
+plot,Rt10 = mrcal.show_projection_diff(models,
+                                       args.gridn[0], args.gridn[1],
+                                       observations            = args.observations,
+                                       valid_intrinsics_region = args.valid_intrinsics_region,
+                                       distance                = distance,
+                                       intrinsics_only         = args.intrinsics_only,
+                                       use_uncertainties       = not args.no_uncertainties,
+                                       focus_center            = args.where,
+                                       focus_radius            = args.radius,
+                                       vectorfield             = args.vectorfield,
+                                       vectorscale             = args.vectorscale,
+                                       directions              = args.directions,
+                                       hardcopy                = args.hardcopy,
+                                       terminal                = args.terminal,
+                                       cbmax                   = args.cbmax,
+                                       extratitle              = args.extratitle,
+                                       **plotkwargs_extra)
 
+if not args.intrinsics_only and args.radius != 0 and \
+   Rt10 is not None and Rt10.shape == (4,3):
+    rt10 = mrcal.rt_from_Rt(Rt10)
 
-plot,implied_Rt10 = mrcal.show_projection_diff(models,
-                                               args.gridn[0], args.gridn[1],
-                                               observations            = args.observations,
-                                               valid_intrinsics_region = args.valid_intrinsics_region,
-                                               distance                = distance,
-                                               use_uncertainties       = not args.no_uncertainties,
-                                               focus_center            = args.where,
-                                               focus_radius            = args.radius,
-                                               vectorfield             = args.vectorfield,
-                                               vectorscale             = args.vectorscale,
-                                               directions              = args.directions,
-                                               hardcopy                = args.hardcopy,
-                                               terminal                = args.terminal,
-                                               cbmax                   = args.cbmax,
-                                               extratitle              = args.extratitle,
-                                               **plotkwargs_extra)
-
-if implied_Rt10 is not None and implied_Rt10.shape == (4,3):
-    rt10 = mrcal.rt_from_Rt(implied_Rt10)
-
-    print(f"implied rotation cam1 <-- cam0:  rotation: {nps.mag(rt10[:3])*180./np.pi:.03f} degrees, translation: {rt10[3:]} m")
+    print(f"Transformation cam1 <-- cam0:  rotation: {nps.mag(rt10[:3])*180./np.pi:.03f} degrees, translation: {rt10[3:]} m")
 
 if args.hardcopy is None:
     plot.wait()
