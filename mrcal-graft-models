@@ -149,10 +149,15 @@ else:
 
                               gridn_width       = args.gridn[0],
                               gridn_height      = args.gridn[1],
+                              intrinsics_only   = False,
                               distance          = distance,
                               use_uncertainties = not args.no_uncertainties,
                               focus_center      = args.where,
                               focus_radius      = args.radius)
+
+    rt10 = mrcal.rt_from_Rt(Rt_camoldintrinsics_camnewintrinsics)
+    print(f"Transformation cam1 <-- cam0:  rotation: {nps.mag(rt10[:3])*180./np.pi:.03f} degrees, translation: {rt10[3:]} m",
+          file = sys.stderr)
 
     rt_camoldintrinsics_ref = model_extrinsics.extrinsics_rt_fromref()
 
