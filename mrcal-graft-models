@@ -4,12 +4,61 @@ r'''Combines the intrinsics of one cameramodel with the extrinsics of another
 
 SYNOPSIS
 
+  # We have intrinsics.cameramodel containing improved intrinsics from a later
+  # calibration, and extrinsics.cameramodel that has the old intrinsics, but the
+  # right extrinsics
+
   $ mrcal-graft-models
       intrinsics.cameramodel
       extrinsics.cameramodel
       > joint.cameramodel
-  Merged intrinsics from 'intrinsics.cameramodel' with extrinsics from
-  'exrinsics.cameramodel'
+
+  Combined
+  intrinsics from 'intrinsics.cameramodel'
+  Extrinsics from 'exrinsics.cameramodel'
+
+
+  $ mrcal-show-projection-diff
+      joint.cameramodel
+      extrinsics.cameramodel
+
+  [A plot pops up showing a low difference, just representing the two sets of
+  intrinsics. The recalibrated models have a large implied extrinsics
+  difference, but the diff tool computed and applised the implied
+  transformation]
+
+  $ mrcal-show-projection-diff
+      --radius 0
+      joint.cameramodel
+      extrinsics.cameramodel
+
+  [A plot pops up showing a high difference. Here the diff tool didn't apply the
+  implied transformation, so the differences in extrinsics are evident. Thus
+  here, joint.cameramodel is not a drop-in replacement for
+  extrinsics.cameramodel]
+
+
+  $ mrcal-graft-models
+      --radius -1
+      intrinsics.cameramodel
+      extrinsics.cameramodel
+    > joint.cameramodel
+
+  Transformation cam1 <-- cam0:  rotation: 8.429 degrees, translation: [0. 0. 0.] m
+  Combined
+  intrinsics from 'intrinsics.cameramodel'
+  Extrinsics from 'exrinsics.cameramodel'
+
+
+  $ mrcal-show-projection-diff
+      --radius 0
+      joint.cameramodel
+      extrinsics.cameramodel
+
+  [A plot pops up showing a low difference. The graft tool applied the implied
+  transformation, so the models match without the diff tool needing to transform
+  anything. Thus here, joint.cameramodel IS a drop-in replacement for
+  extrinsics.cameramodel]
 
 This tool combines intrinsics and extrinsics from different sources into a
 single model. The output is written to standard output.
@@ -20,12 +69,11 @@ separately after the cameras are moved.
 
 If we have computed such a combined model, and we decide to recompute the
 intrinsics afterwards, we can graft the new intrinsics to the previous
-extrinsics. However, this won't be a drop-in replacement for the previous model,
-since the intrinsics come with an implied geometric transformation, which will
-be different in the new intrinsics. If the "extrinsics" models contains the old
-intrinsics, then this tool is able to compute the relative implied
-transformation, and to apply it to the extrinsics. As a result, on average, the
-projection of any world point ends up at the same pixel coordinate as before.
+extrinsics. By default, this wouldn't be a drop-in replacement for the previous
+model, since the intrinsics come with an implied geometric transformation, which
+will be different in the new intrinsics. By passing a non-zero --radius value,
+we can compute and apply the implied geometric transformation, so the combined
+model would be usable as a drop-in replacement.
 
 The implied transformation logic is controlled by a number of commandline
 arguments, same ones as used by the mrcal-show-projection-diff tool. The only
