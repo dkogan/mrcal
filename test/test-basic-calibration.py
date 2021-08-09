@@ -286,7 +286,7 @@ testutils.confirm_equal( np.min( (nps.trace(Rt_frame_err[..., :3,:]) - 1)/2. ),
 # intrinsics comparisons. I make sure that within some distance of the pixel
 # center, the projections match up to within some number of pixels
 Nw = 60
-def projection_diff(models_ref, max_dist_from_center, fit_implied_Rt = True):
+def projection_diff(models_ref, max_dist_from_center):
     lensmodels      = [model.intrinsics()[0] for model in models_ref]
     intrinsics_data = [model.intrinsics()[1] for model in models_ref]
 
@@ -300,7 +300,7 @@ def projection_diff(models_ref, max_dist_from_center, fit_implied_Rt = True):
 
     W,H = imagersizes[0]
     focus_center = None
-    focus_radius = -1 if fit_implied_Rt else 0
+    focus_radius = -1
     if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
     if focus_radius < 0:     focus_radius = min(W,H)/6.
 
@@ -328,7 +328,7 @@ def projection_diff(models_ref, max_dist_from_center, fit_implied_Rt = True):
 
 
 for icam in range(len(models_ref)):
-    diff = projection_diff( (models_ref[icam], models_solved[icam]), 800, True)
+    diff = projection_diff( (models_ref[icam], models_solved[icam]), 800)
 
     testutils.confirm_equal(diff, 0,
                             worstcase = True,
