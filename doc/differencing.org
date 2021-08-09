@@ -30,8 +30,8 @@ expect a low difference. However, the above algorithm produces a difference that
 is very high. As a heat map:
 
 #+begin_src sh
-mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key \
-                           data/board/opencv8.cameramodel     \
+mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key \
+                           data/board/opencv8.cameramodel            \
                            data/board/splined.cameramodel
 #+end_src
 
@@ -40,7 +40,7 @@ mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key \
 And as a vector field:
 
 #+begin_src sh
-mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key          \
+mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key   \
                            --vectorfield --vectorscale 5 --gridn 30 20 \
                            data/board/opencv8.cameramodel
                            data/board/splined.cameramodel

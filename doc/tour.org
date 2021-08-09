@@ -689,12 +689,12 @@ This is a very common thing to want to do, so mrcal provides a [[file:mrcal-show
 Let's compare the two models:
 
 #+begin_src sh
-mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key \
+mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key \
                            opencv8.cameramodel splined.cameramodel
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
-mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel \
+mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel \
   --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-radius0-heatmap-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
@@ -706,16 +706,16 @@ this plot indicates? If we ask for the vector field of differences instead of a
 heat map, we get a hint about what's going on:
 
 #+begin_src sh
-mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key \
+mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key \
                            --vectorfield --vectorscale 5 --gridn 30 20 \
                            opencv8.cameramodel splined.cameramodel
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
-mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel \
+mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel \
   --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
 
-mrcal-show-projection-diff --radius 0 --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel \
+mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel \
   --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-radius0-vectorfield-splined-opencv8.pdf  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
 #+end_src
 
@@ -755,8 +755,8 @@ But we don't know anything about the physical coordinate system of either
 camera. How can we compute this transformation? We do a fit. The "right"
 transformation will transform $\vec p$ in such a way that the reported
 mismatches in $\vec q$ will be minimized. Lots of [[file:differencing.org][details]] are glossed-over here.
-Previously we passed =--radius 0= to bypass the fit. Let's leave out that option
-to get the usable diff:
+Previously we passed =--intrinsics-only= to bypass the fit. Let's leave out that
+option to get the usable diff:
 
 #+begin_src sh
 mrcal-show-projection-diff --unset key \
