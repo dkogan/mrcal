@@ -683,12 +683,12 @@ def show_projection_diff(models,
 
                          observations            = False,
                          valid_intrinsics_region = False,
+                         intrinsics_only         = False,
                          distance                = None,
 
                          use_uncertainties= True,
                          focus_center     = None,
                          focus_radius     = -1.,
-                         implied_Rt10     = None,
 
                          vectorfield      = False,
                          vectorscale      = 1.0,
@@ -724,6 +724,25 @@ more than 2 models, then a vector field isn't possible and we instead display as
 a heatmap the standard deviation of the differences between models 1..N and
 model0.
 
+The top-level operation of this function:
+
+- Grid the imager
+- Unproject each point in the grid using one camera model
+- Apply a transformation to map this point from one camera's coord system to the
+  other. How we obtain this transformation is described below
+- Project the transformed points to the other camera
+- Look at the resulting pixel difference in the reprojection
+
+Several variables control how we obtain the transformation. Top-level logic:
+
+  if intrinsics_only:
+      Rt10 = identity_Rt()
+  else:
+      if focus_radius == 0:
+          Rt10 = relative_extrinsics(models)
+      else:
+          Rt10 = implied_Rt10__from_unprojections()
+
 The details of how the comparison is computed, and the meaning of the arguments
 controlling this, are in the docstring of mrcal.projection_diff().
 
@@ -748,35 +767,40 @@ ARGUMENTS
   overlay the valid-intrinsics regions onto the plot. If the valid-intrinsics
   regions aren't available, we will silently omit them
 
-- distance: optional value, defaulting to None. The projection difference varies
-  depending on the range to the observed world points, with the queried range
-  set in this 'distance' argument. If None (the default) we look out to
-  infinity. We can compute the implied-by-the-intrinsics transformation off
-  multiple distances if they're given here as an iterable. This is especially
-  useful if we have uncertainties, since then we'll emphasize the best-fitting
-  distances.
+- intrinsics_only: optional boolean, defaulting to False. If True: we evaluate
+  the intrinsics of each lens in isolation by assuming that the coordinate
+  systems of each camera line up exactly
 
-- use_uncertainties: optional boolean, defaulting to True. If True we use the
-  whole imager to fit the implied-by-the-intrinsics transformation, using the
-  uncertainties to emphasize the confident regions. If False, it is important to
-  select the confident region using the focus_center and focus_radius arguments.
-  If use_uncertainties is True, but that data isn't available, we report a
-  warning, and try to proceed without.
+- distance: optional value, defaulting to None. Has an effect only if not
+  intrinsics_only. The projection difference varies depending on the range to
+  the observed world points, with the queried range set in this 'distance'
+  argument. If None (the default) we look out to infinity. We can compute the
+  implied-by-the-intrinsics transformation off multiple distances if they're
+  given here as an iterable. This is especially useful if we have uncertainties,
+  since then we'll emphasize the best-fitting distances.
+
+- use_uncertainties: optional boolean, defaulting to True. Used only if not
+  intrinsics_only and focus_radius!=0. If True we use the whole imager to fit
+  the implied-by-the-intrinsics transformation, using the uncertainties to
+  emphasize the confident regions. If False, it is important to select the
+  confident region using the focus_center and focus_radius arguments. If
+  use_uncertainties is True, but that data isn't available, we report a warning,
+  and try to proceed without.
 
 - focus_center: optional array of shape (2,); the imager center by default. Used
-  to indicate that the implied-by-the-intrinsics transformation should use only
-  those pixels a distance focus_radius from focus_center. This is intended to be
-  used if no uncertainties are available, and we need to manually select the
-  focus region.
+  only if not intrinsics_only and focus_radius!=0. Used to indicate that the
+  implied-by-the-intrinsics transformation should use only those pixels a
+  distance focus_radius from focus_center. This is intended to be used if no
+  uncertainties are available, and we need to manually select the focus region.
 
 - focus_radius: optional value. If use_uncertainties then the default is LARGE,
   to use the whole imager. Else the default is min(width,height)/6. Used to
   indicate that the implied-by-the-intrinsics transformation should use only
   those pixels a distance focus_radius from focus_center. This is intended to be
   used if no uncertainties are available, and we need to manually select the
-  focus region. Pass focus_radius=0 to avoid computing the transformation, and
-  to use the identity. This would mean there're no geometric differences, and
-  we're comparing the intrinsics only
+  focus region. To avoid computing the transformation, either pass
+  focus_radius=0 (to use the extrinsics in the given models) or pass
+  intrinsics_only=True (to use the identity transform).
 
 - vectorfield: optional boolean, defaulting to False. By default we produce a
   heat map of the projection differences. If vectorfield: we produce a vector
@@ -824,9 +848,9 @@ A tuple:
   made with gp.plot(*data_tuples, **plot_options). Useful if we want to include
   this as a part of a more complex plot
 
-- implied_Rt10: the geometric Rt transformation in an array of shape (...,4,3).
-  This is either whatever was passed into this function (if anything was), or
-  the identity if focus_radius==0 or the fitted results. if len(models)>1: this
+- Rt10: the geometric Rt transformation in an array of shape (...,4,3). This is
+  the relative transformation we ended up using, which is computed using the
+  logic above (using intrinsics_only and focus_radius). if len(models)>2: this
   is an array of shape (len(models)-1,4,3), with slice i representing the
   transformation between camera 0 and camera i+1.
 
@@ -839,10 +863,10 @@ A tuple:
     import gnuplotlib as gp
 
     if 'title' not in kwargs:
-        # if implied_Rt10 is not None:
-        #     title_note = "using given extrinsics transform"
-        if focus_radius == 0:
+        if intrinsics_only:
             title_note = "using an identity extrinsics transform"
+        elif focus_radius == 0:
+            title_note = "using given extrinsics transform"
         else:
             distance_string = "infinity" if distance is None else f"distance={distance}"
 
@@ -875,13 +899,13 @@ A tuple:
                         format(len(models)))
 
     # Now do all the actual work
-    difflen,diff,q0,implied_Rt10 = mrcal.projection_diff(models,
-                                                         gridn_width, gridn_height,
-                                                         intrinsics_only   = False,
-                                                         distance          = distance,
-                                                         use_uncertainties = use_uncertainties,
-                                                         focus_center      = focus_center,
-                                                         focus_radius      = focus_radius)
+    difflen,diff,q0,Rt10 = mrcal.projection_diff(models,
+                                                 gridn_width, gridn_height,
+                                                 intrinsics_only   = intrinsics_only,
+                                                 distance          = distance,
+                                                 use_uncertainties = use_uncertainties,
+                                                 focus_center      = focus_center,
+                                                 focus_radius      = focus_radius)
 
     if not vectorfield:
         curve_options = \
@@ -960,7 +984,7 @@ A tuple:
         # more densely.
         v1 = mrcal.unproject(mrcal.utils._densify_polyline(valid_region1, spacing = 50),
                              *models[1].intrinsics())
-        valid_region1 = mrcal.project( mrcal.transform_point_Rt( mrcal.invert_Rt(implied_Rt10),
+        valid_region1 = mrcal.project( mrcal.transform_point_Rt( mrcal.invert_Rt(Rt10),
                                                                  v1 ),
                                        *models[0].intrinsics() )
         if vectorfield:
@@ -1010,8 +1034,8 @@ A tuple:
     if not return_plot_args:
         plot = gp.gnuplotlib(**plot_options)
         plot.plot(*data_tuples)
-        return plot, implied_Rt10
-    return (data_tuples, plot_options), implied_Rt10
+        return plot, Rt10
+    return (data_tuples, plot_options), Rt10
 
 
 def show_projection_uncertainty(model,
