@@ -1019,14 +1019,14 @@ A tuple:
                                          q_cam_calobjects_inliers[...,1] ) +
                                        ( () if _2d else ( np.zeros(q_cam_calobjects_inliers.shape[:-1]), )) +
                                        ( dict( tuplesize = 2 if _2d else 3,
-                                               _with     = 'points lc "black"' + ("" if _2d else ' nocontour'),
+                                               _with     = f'points lc "black" pt {1+i}' + ("" if _2d else ' nocontour'),
                                                legend    = f'Camera {i} inliers'), ))
             if len(q_cam_calobjects_outliers):
                 plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
                                          q_cam_calobjects_outliers[...,1] ) +
                                        ( () if _2d else ( np.zeros(q_cam_calobjects_outliers.shape[:-1]), )) +
                                        ( dict( tuplesize = 2 if _2d else 3,
-                                               _with     = 'points lc "red"' + ("" if _2d else ' nocontour'),
+                                               _with     = f'points lc "red" pt {1+i}' + ("" if _2d else ' nocontour'),
                                                legend    = f'Camera {i} outliers'), ))
 
     data_tuples = plot_data_args
@@ -1237,14 +1237,14 @@ plot
                                      q_cam_calobjects_inliers[...,1],
                                      np.zeros(q_cam_calobjects_inliers.shape[:-1]),
                                      dict( tuplesize = 3,
-                                           _with  = 'points lc "black" nocontour',
+                                           _with  = 'points lc "black" pt 1 nocontour',
                                            legend = 'inliers')) )
         if len(q_cam_calobjects_outliers):
             plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
                                      q_cam_calobjects_outliers[...,1],
                                      np.zeros(q_cam_calobjects_outliers.shape[:-1]),
                                      dict( tuplesize = 3,
-                                           _with  = 'points lc "red" nocontour',
+                                           _with  = 'points lc "red" pt 1 nocontour',
                                            legend = 'outliers')) )
 
     plot_options = kwargs
@@ -2236,13 +2236,13 @@ plot
             plot_data_tuples_inliers = \
                 ( ( q_cam_calobjects_inliers,
                     dict( tuplesize = -2,
-                          _with  = 'points lc "black"',
+                          _with  = 'points lc "black" pt 1',
                           legend = 'inliers')), )
         if len(q_cam_calobjects_outliers):
             plot_data_tuples_outliers = \
                 ( ( q_cam_calobjects_outliers,
                     dict( tuplesize = -2,
-                          _with  = 'points lc "red"',
+                          _with  = 'points lc "red" pt 1',
                           legend = 'outliers')), )
 
     # Anything outside the valid region contour but inside the imager is an
