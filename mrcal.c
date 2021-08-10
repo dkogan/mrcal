@@ -5198,10 +5198,10 @@ mrcal_optimize( // out
     // These were derived empirically, seeking high accuracy, fast convergence
     // and without serious concern for performance. I looked only at a single
     // frame. Tweak them please
-    dogleg_parameters.Jt_x_threshold = 0;
-    dogleg_parameters.update_threshold = 1e-6;
-    dogleg_parameters.trustregion_threshold = 0;
-    dogleg_parameters.max_iterations = 300;
+    dogleg_parameters.Jt_x_threshold                    = 0;
+    dogleg_parameters.update_threshold                  = 1e-6;
+    dogleg_parameters.trustregion_threshold             = 0;
+    dogleg_parameters.max_iterations                    = 300;
     // dogleg_parameters.trustregion_decrease_factor    = 0.1;
     // dogleg_parameters.trustregion_decrease_threshold = 0.15;
     // dogleg_parameters.trustregion_increase_factor    = 4.0
