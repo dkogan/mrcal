@@ -15,9 +15,9 @@ Splined models are built with a splined surface that we index to compute the
 projection. The meaning of what indexes the surface and the values of the
 surface varies by model, but in all cases, visualizing the surface is useful.
 
-This tool can produce a plot in the imager domain (the default) or in the spline
-index domain (normalized stereographic coordinates, usually). Both are useful.
-Pass --spline-index-domain to choose that domain
+This tool can produce a plot in the imager domain or in the spline index domain
+(normalized stereographic coordinates, usually). Both are useful. We plot in the
+spline index domain by default; pass --imager-domain to make the other choice.
 
 One use for this tool is to check that the field-of-view we're using for this
 model is reasonable. We'd like the field of view to be wide-enough to cover the
@@ -39,11 +39,25 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
+    parser.add_argument('--vectorfield',
+                        action = 'store_true',
+                        default = False,
+                        help='''Display the spline correction as a vector field
+                        instead of as a heat map of the deltaux or deltauy
+                        components. if --vectorfield: the 'xy' argument is
+                        ignored, and --imager-domain is not allowed''')
+
+    parser.add_argument('--vectorscale',
+                        type = float,
+                        default = 1.0,
+                        help='''If plotting a vector field, scale all the
+                        vectors by this factor. Useful to improve legibility if
+                        the vectors are too small to see''')
+
     parser.add_argument('--extratitle',
                         type=str,
                         default = None,
                         help='''Extra title string for the plot''')
-
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''Write the output to disk, instead of making an interactive plot''')
@@ -64,7 +78,7 @@ def parse_args():
                         help='''By default, this produces a visualization in the domain of the spline-index
                         (normalized stereographic coordinates). Sometimes it's
                         more informative to look at the imager domain instead,
-                        by passing this option''')
+                        by passing this option. Exclusive with --vectorfield''')
     parser.add_argument('--imager-bounds',
                         action='store_true',
                         help='''By default we communicate the usable projection region to the user by
@@ -87,9 +101,16 @@ def parse_args():
                         choices = ('x','y'),
                         default = 'x',
                         nargs   = '?',
-                        help='''Optional 'x' or 'y': which surface we're looking at''')
+                        help='''Optional 'x' or 'y': which surface we're looking
+                        at. Ignored if --vectorfield''')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.vectorfield and args.imager_domain:
+        print("--vectorfield and --imager-domain are mutually exclusive", file=sys.stderr)
+        sys.exit(1)
+
+    return args
 
 args = parse_args()
 
@@ -122,6 +143,8 @@ if args.unset is not None:
 
 plot = mrcal.show_splined_model_surface(model, args.xy,
                                         imager_domain           = args.imager_domain,
+                                        vectorfield             = args.vectorfield,
+                                        vectorscale             = args.vectorscale,
                                         valid_intrinsics_region = not args.imager_bounds,
                                         observations            = args.observations,
                                         extratitle              = args.extratitle,

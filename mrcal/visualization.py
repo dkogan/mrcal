@@ -1912,6 +1912,8 @@ A tuple:
 def show_splined_model_surface(model,
                                xy                      = 'x',
                                imager_domain           = False,
+                               vectorfield             = False,
+                               vectorscale             = 1.0,
                                valid_intrinsics_region = True,
                                observations            = False,
                                extratitle              = None,
@@ -1930,7 +1932,7 @@ SYNOPSIS
     ... default "x" coordinate), the spline-in-bounds regions and the
     ... valid-intrinsics region
 
-Splined models are parametried by flexible surfaces that define the projection,
+Splined models are parametrized by flexible surfaces that define the projection,
 and visualizing these surfaces is useful for understanding projection behavior
 of a given lens. Details of these models are described in the documentation:
 
@@ -1973,8 +1975,9 @@ individual chessboard corners by passing observations=True. The valid-intrinsics
 region largely corresponds to the area where the observations were available.
 
 This function can produce a plot in the imager domain or in the spline index
-domain. Both are useful, and this is controlled by the imager_domain argument
-(the default is False). The spline is defined in the stereographic projection
+domain, controlled by the imager_domain argument. By default, the deltaux or
+deltauy surfaces are shown as a heatmap. If vectorfield: we plot the correction
+vector deltau instead. The spline is defined in the stereographic projection
 domain, so in the imager domain the knot grid and the domain boundary become
 skewed. Note: if calibration data coverage is missing at the edges (a very
 common case), the edges of the spline-in-bounds region will have poorly-defined
@@ -1987,7 +1990,8 @@ ARGUMENTS
 
 - xy: optional string, defaulting to 'x'. Selects the surface we're looking at;
   may be 'x' or 'y'. We have a separate surface for the x and y coordinates,
-  with the two sharing the knot positions
+  with the two sharing the knot positions. if vectorfield: this argument is
+  ignored
 
 - imager_domain: optional boolean defaults to False. If False: we plot
   everything against normalized stereographic coordinates; in this
@@ -1995,6 +1999,16 @@ ARGUMENTS
   rectangle, but the imager boundary is curved. If True: we plot everything
   against the rendered pixel coordinates; the imager boundary is a rectangle,
   while the knots and domain become curved
+
+- vectorfield: optional boolean defaults to False. if vectorfield: we plot the
+  stereographic correction deltau as vectors, one at each knot. if not
+  vectorfield (the default): we plot either deltaux or deltauy as a heat map.
+  vectorfield plotting is not compatible with imager_domain. And if vectorfield:
+  we ignore the 'xy' argument.
+
+- vectorscale: optional value defaulting to 1.0. if vectorfield: this is a scale
+  factor on the length of the vectors. If we have small deltau, longer vectors
+  increase legibility of the plot.
 
 - valid_intrinsics_region: optional boolean defaults to True. If True: we
   communicate the usable projection region to the user by displaying the
@@ -2035,10 +2049,18 @@ plot
 
     '''
 
-    if   xy == 'x': ixy = 0
-    elif xy == 'y': ixy = 1
+
+    if vectorfield:
+        if imager_domain:
+            raise Exception('A vector field can only be plotted in the spline domain, NOT the imager domain')
+
+        xy = ''
+
     else:
-        raise Exception("xy should be either 'x' or 'y'")
+        if   xy == 'x': ixy = 0
+        elif xy == 'y': ixy = 1
+        else:
+            raise Exception("xy should be either 'x' or 'y'")
 
     lensmodel,intrinsics_data = model.intrinsics()
     W,H                       = model.imagersize()
@@ -2075,10 +2097,17 @@ plot
         # linear with the knots. I can thus get u at the edges, and linearly
         # interpolate between
 
-        # Shape (Ny,Nx,2); contains (x,y) rows
+        gridn_height = Ny
+        gridn_width  = Nx
+
+        if not vectorfield:
+            gridn_height *= 5
+            gridn_width  *= 5
+
+        # Shape (gridn_height,gridn_width,2); contains (x,y) rows
         u = \
-            nps.mv( nps.cat(*np.meshgrid( np.linspace(ux_knots[0], ux_knots[-1],Nx*5),
-                                          np.linspace(uy_knots[0], uy_knots[-1],Ny*5) )),
+            nps.mv( nps.cat(*np.meshgrid( np.linspace(ux_knots[0], ux_knots[-1],gridn_width),
+                                          np.linspace(uy_knots[0], uy_knots[-1],gridn_height) )),
                     0,-1)
 
         # My projection is q = (u + deltau) * fxy + cxy. deltau is queried from the
@@ -2114,30 +2143,43 @@ plot
                     lensmodel, intrinsics_data ))
 
     plot_options = dict(kwargs,
-                       zlabel   = f"Deltau{xy} (unitless)")
-    surface_curveoptions = dict()
+                        square  = True,
+                        yinv    = True,
+                        ascii   = True,
+                        zlabel   = f"Deltau{xy} (unitless)")
+
     if imager_domain:
         plot_options['xlabel'] = 'X pixel coord'
         plot_options['ylabel'] = 'Y pixel coord'
-        surface_curveoptions['using'] = \
-            f'($1/({deltau.shape[1]-1})*({W-1})):' + \
-            f'($2/({deltau.shape[0]-1})*({H-1})):' + \
-            '3'
     else:
         plot_options['xlabel'] = 'Stereographic ux'
         plot_options['ylabel'] = 'Stereographic uy'
-        surface_curveoptions['using'] = \
-            f'({ux_knots[0]}+$1/({deltau.shape[1]-1})*({ux_knots[-1]-ux_knots[0]})):' + \
-            f'({uy_knots[0]}+$2/({deltau.shape[0]-1})*({uy_knots[-1]-uy_knots[0]})):' + \
-            '3'
 
-    plot_options['square']   = True
-    plot_options['yinv']     = True
-    plot_options['ascii']    = True
-    surface_curveoptions['_with']     = 'image'
-    surface_curveoptions['tuplesize'] = 3
+    if not vectorfield:
+        surface_curveoptions = dict( _with     = 'image',
+                                     tuplesize = 3 )
+        if imager_domain:
+            surface_curveoptions['using'] = \
+                f'($1/({deltau.shape[1]-1})*({W-1})):' + \
+                f'($2/({deltau.shape[0]-1})*({H-1})):' + \
+                '3'
+        else:
+            surface_curveoptions['using'] = \
+                f'({ux_knots[0]}+$1/({deltau.shape[1]-1})*({ux_knots[-1]-ux_knots[0]})):' + \
+                f'({uy_knots[0]}+$2/({deltau.shape[0]-1})*({uy_knots[-1]-uy_knots[0]})):' + \
+                '3'
 
-    plot_data_tuples_surface = ( ( deltau[..., ixy], surface_curveoptions ), )
+        plot_data_tuples_surface = ( ( deltau[..., ixy], surface_curveoptions ), )
+
+    else:
+        if imager_domain:
+            raise Exception("This path isn't supported. The if statements above should have blocked this. This is a bug")
+        plot_data_tuples_surface = ( ( *(x.ravel() for x in (u[...,0],
+                                                             u[...,1],
+                                                             vectorscale * deltau[..., 0],
+                                                             vectorscale * deltau[..., 1])),
+                                       dict( _with     = 'vectors size screen 0.01,20 fixed filled',
+                                             tuplesize = 4) ), )
 
     domain_contour_u = mrcal.utils._splined_stereographic_domain(lensmodel)
     knots_u = nps.clump(nps.mv(nps.cat(*np.meshgrid(ux_knots,uy_knots)),
