@@ -933,7 +933,7 @@ A tuple:
                             _yrange=[H,0],
                             **kwargs)
 
-        curve_options = dict(_with='vectors size screen 0.01,20 fixed filled palette',
+        curve_options = dict(_with='vectors filled palette',
                              tuplesize=5)
 
     if not directions:
@@ -1748,7 +1748,7 @@ plot
 
         data_tuples = \
             ( (grid[:,0], grid[:,1], delta[:,0], delta[:,1],
-               {'with': 'vectors size screen 0.01,20 fixed filled',
+               {'with': 'vectors filled',
                 'tuplesize': 4,
                }),
               (grid[:,0], grid[:,1],
@@ -2178,7 +2178,7 @@ plot
                                                              u[...,1],
                                                              vectorscale * deltau[..., 0],
                                                              vectorscale * deltau[..., 1])),
-                                       dict( _with     = 'vectors size screen 0.01,20 fixed filled',
+                                       dict( _with     = 'vectors filled',
                                              tuplesize = 4) ), )
 
     domain_contour_u = mrcal.utils._splined_stereographic_domain(lensmodel)
@@ -2636,7 +2636,7 @@ plot
              obs[:,1],
              vectorscale*residuals[:,0],
              vectorscale*residuals[:,1],
-             dict(_with     = 'vectors size screen 0.01,20 fixed filled lw 2',
+             dict(_with     = 'vectors filled lw 2',
                   tuplesize = 4)) )
 
     if not return_plot_args:
@@ -2957,7 +2957,7 @@ plot
     data_tuples = [(obs[:,0], obs[:,1],
                     vectorscale*err[:,0], vectorscale*err[:,1],
                     np.sqrt(nps.norm2(err)),
-                    dict(_with='vectors size screen 0.01,20 fixed filled palette',
+                    dict(_with='vectors filled palette',
                          tuplesize=5))]
     if valid_intrinsics_region_plotarg_2d is not None:
         data_tuples.append(valid_intrinsics_region_plotarg_2d)
