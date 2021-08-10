@@ -41,7 +41,7 @@ typedef struct
   UNSIGNED_INT = "0"|[1-9][0-9]*;
 */
 
-/*!stags:re2c format = 'const char *@@;'; */
+/*!stags:re2c format = 'static const char *@@;'; */
 
 static bool string_is(const char* ref, string_t key)
 {
