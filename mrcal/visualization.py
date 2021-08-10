@@ -714,9 +714,9 @@ http://mrcal.secretsauce.net/differencing.html
 This function visualizes the results of mrcal.projection_diff()
 
 It is often useful to compare the projection behavior of two camera models. For
-instance, one may want to evaluate the quality of a calibration by comparing the
-results of two different chessboard dances. Or one may want to evaluate the
-stability of the intrinsics in response to mechanical or thermal stresses.
+instance, one may want to validate a calibration by comparing the results of two
+different chessboard dances. Or one may want to evaluate the stability of the
+intrinsics in response to mechanical or thermal stresses.
 
 In the most common case we're given exactly 2 models to compare. We then display
 the projection difference as either a vector field or a heat map. If we're given
