@@ -37,7 +37,8 @@ int main(int argc, char* argv[] )
         return 0;
     }
 
-    mrcal_problem_selections_t problem_selections = {};
+    mrcal_problem_selections_t problem_selections =
+        {.do_apply_regularization = true};
 
 
     int iarg = 1;
