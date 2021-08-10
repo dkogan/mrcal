@@ -569,10 +569,26 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
             N += 6;
     }
 
-    N +=
-        Ncameras_intrinsics *
-        num_regularization_terms_percamera(problem_selections,
-                                           lensmodel);
+    if(lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
+    {
+        // Each regularization term depends on
+        // - two values for distortions
+        // - one value for the center pixel
+        N +=
+            Ncameras_intrinsics *
+            2 *
+            num_regularization_terms_percamera(problem_selections,
+                                               lensmodel);
+        // I multiplied by 2, so I double-counted the center pixel
+        // contributions. Subtract those off
+        if(problem_selections.do_optimize_intrinsics_core)
+            N -= Ncameras_intrinsics*2;
+    }
+    else
+        N +=
+            Ncameras_intrinsics *
+            num_regularization_terms_percamera(problem_selections,
+                                               lensmodel);
 
     return N;
 }
@@ -4821,52 +4837,118 @@ void optimizer_callback(// input state
 
             if( ctx->problem_selections.do_optimize_intrinsics_distortions)
             {
-                for(int j=0; j<ctx->Nintrinsics-Ncore; j++)
+                if(ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
                 {
-                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                    // Splined model regularization. I do directional L2
+                    // regularization. At each knot I penalize contributions in
+                    // the tangential direction much more than in the radial
+                    // direction. Otherwise noise in the data produces lots of
+                    // curl in the vector field. This isn't wrong, but it's much
+                    // nicer if "right" in the camera coordinate system
+                    // corresponds to "right" in pixel space
+                    const int Nx = ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx;
+                    const int Ny = ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny;
 
-                    // This maybe should live elsewhere, but I put it here
-                    // for now. Various distortion coefficients have
-                    // different meanings, and should be regularized in
-                    // different ways. Specific logic follows
-                    double scale = scale_regularization_distortion;
+                    for(int iy=0; iy<Ny; iy++)
+                        for(int ix=0; ix<Nx; ix++)
+                        {
+                            double scale = scale_regularization_distortion;
 
-                    if( MRCAL_LENSMODEL_IS_OPENCV(ctx->lensmodel.type) &&
-                        ctx->lensmodel.type >= MRCAL_LENSMODEL_OPENCV8 &&
-                        5 <= j && j <= 7 )
+                            int ivar = 2*( iy*Nx + ix );
+                            const double deltaux = intrinsics_all[icam_intrinsics][Ncore + ivar + 0];
+                            const double deltauy = intrinsics_all[icam_intrinsics][Ncore + ivar + 1];
+
+#warning "Precompute ux,uy. This is lots of unnecessary computation in the inner loop"
+                            double ux = (double)(2*ix - Nx + 1);
+                            double uy = (double)(2*iy - Ny + 1);
+                            bool anisotropic = true;
+                            if(2*ix == Nx - 1 &&
+                               2*iy == Ny - 1 )
+                            {
+                                ux = 1.0;
+                                anisotropic = false;
+                            }
+                            else
+                            {
+                                double mag_recip = 1. / hypot(ux,uy);
+                                ux *= mag_recip;
+                                uy *= mag_recip;
+                            }
+
+                            double err;
+
+                            // I penalize radial corrections
+                            if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                            err              = scale*(deltaux*ux + deltauy*uy);
+                            x[iMeasurement]  = err;
+                            norm2_error     += err*err;
+                            STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 0,
+                                            scale * ux * SCALE_DISTORTION );
+                            STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 1,
+                                            scale * uy * SCALE_DISTORTION );
+                            iMeasurement++;
+
+                            // I REALLY penalize tangential corrections
+                            if(anisotropic) scale *= 10.;
+                            if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                            err              = scale*(deltaux*uy - deltauy*ux);
+                            x[iMeasurement]  = err;
+                            norm2_error     += err*err;
+                            STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 0,
+                                            scale * uy * SCALE_DISTORTION );
+                            STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 1,
+                                            -scale * ux * SCALE_DISTORTION );
+                            iMeasurement++;
+                        }
+                }
+                else
+                {
+                    for(int j=0; j<ctx->Nintrinsics-Ncore; j++)
                     {
-                        // The radial distortion in opencv is x_distorted =
-                        // x*scale where r2 = norm2(xy - xyc) and
-                        //
-                        // scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
-                        //
-                        // Note that k2,k3 are tangential (NOT radial)
-                        // distortion components. Note that the r6 factor in
-                        // the numerator is only present for
-                        // >=MRCAL_LENSMODEL_OPENCV5. Note that the denominator
-                        // is only present for >= MRCAL_LENSMODEL_OPENCV8. The
-                        // danger with a rational model is that it's
-                        // possible to get into a situation where scale ~
-                        // 0/0 ~ 1. This would have very poorly behaved
-                        // derivatives. If all the rational coefficients are
-                        // ~0, then the denominator is always ~1, and this
-                        // problematic case can't happen. I favor that by
-                        // regularizing the coefficients in the denominator
-                        // more strongly
-                        scale *= 5.;
+                        // This maybe should live elsewhere, but I put it here
+                        // for now. Various distortion coefficients have
+                        // different meanings, and should be regularized in
+                        // different ways. Specific logic follows
+                        double scale = scale_regularization_distortion;
+
+                        if( MRCAL_LENSMODEL_IS_OPENCV(ctx->lensmodel.type) &&
+                            ctx->lensmodel.type >= MRCAL_LENSMODEL_OPENCV8 &&
+                            5 <= j && j <= 7 )
+                        {
+                            // The radial distortion in opencv is x_distorted =
+                            // x*scale where r2 = norm2(xy - xyc) and
+                            //
+                            // scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
+                            //
+                            // Note that k2,k3 are tangential (NOT radial)
+                            // distortion components. Note that the r6 factor in
+                            // the numerator is only present for
+                            // >=MRCAL_LENSMODEL_OPENCV5. Note that the denominator
+                            // is only present for >= MRCAL_LENSMODEL_OPENCV8. The
+                            // danger with a rational model is that it's
+                            // possible to get into a situation where scale ~
+                            // 0/0 ~ 1. This would have very poorly behaved
+                            // derivatives. If all the rational coefficients are
+                            // ~0, then the denominator is always ~1, and this
+                            // problematic case can't happen. I favor that by
+                            // regularizing the coefficients in the denominator
+                            // more strongly
+                            scale *= 5.;
+                        }
+
+                        if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                        double err       = scale*intrinsics_all[icam_intrinsics][j+Ncore];
+                        x[iMeasurement]  = err;
+                        norm2_error     += err*err;
+
+                        STORE_JACOBIAN( i_var_intrinsics + Ncore_state + j,
+                                        scale * SCALE_DISTORTION );
+
+                        iMeasurement++;
+                        if(dump_regularizaton_details)
+                            MSG("regularization distortion: %g; norm2: %g", err, err*err);
+
                     }
-
-                    double err       = scale*intrinsics_all[icam_intrinsics][j+Ncore];
-                    x[iMeasurement]  = err;
-                    norm2_error     += err*err;
-
-                    STORE_JACOBIAN( i_var_intrinsics + Ncore_state + j,
-                                    scale * SCALE_DISTORTION );
-
-                    iMeasurement++;
-                    if(dump_regularizaton_details)
-                        MSG("regularization distortion: %g; norm2: %g", err, err*err);
-
                 }
             }
 
