@@ -4960,22 +4960,24 @@ void optimizer_callback(// input state
                 double cx_target = 0.5 * (double)(ctx->imagersizes[icam_intrinsics*2 + 0] - 1);
                 double cy_target = 0.5 * (double)(ctx->imagersizes[icam_intrinsics*2 + 1] - 1);
 
-                double err = scale_regularization_centerpixel *
+                double err;
+
+                if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                err = scale_regularization_centerpixel *
                     (intrinsics_all[icam_intrinsics][2] - cx_target);
                 x[iMeasurement]  = err;
                 norm2_error     += err*err;
-                if(Jt) Jrowptr[iMeasurement] = iJacobian;
                 STORE_JACOBIAN( i_var_intrinsics + 2,
                                 scale_regularization_centerpixel * SCALE_INTRINSICS_CENTER_PIXEL );
                 iMeasurement++;
                 if(dump_regularizaton_details)
                     MSG("regularization center pixel off-center: %g; norm2: %g", err, err*err);
 
+                if(Jt) Jrowptr[iMeasurement] = iJacobian;
                 err = scale_regularization_centerpixel *
                     (intrinsics_all[icam_intrinsics][3] - cy_target);
                 x[iMeasurement]  = err;
                 norm2_error     += err*err;
-                if(Jt) Jrowptr[iMeasurement] = iJacobian;
                 STORE_JACOBIAN( i_var_intrinsics + 3,
                                 scale_regularization_centerpixel * SCALE_INTRINSICS_CENTER_PIXEL );
                 iMeasurement++;
