@@ -2757,12 +2757,16 @@ plot
     sigma_expected = optimization_inputs['observed_pixel_uncertainty']
     sigma_observed = np.std(x)
 
-    equations = [fitted_gaussian_equation(sigma    = sigma,
+    equations = [fitted_gaussian_equation(sigma    = sigma_expected,
+                                          mean     = 0,
                                           N        = len(x),
                                           binwidth = binwidth,
-                                          legend   = legend) for sigma,legend in \
-                 ( (sigma_expected, 'Normal distribution of residuals with expected stdev: {:.02f} pixels'.format(sigma_expected)),
-                   (sigma_observed, 'Normal distribution of residuals with observed stdev: {:.02f} pixels'.format(sigma_observed)))]
+                                          legend   = f'Normal distribution of residuals with expected stdev: {sigma_expected:.02f} pixels'),
+                 fitted_gaussian_equation(sigma    = sigma_observed,
+                                          mean     = np.mean(x),
+                                          N        = len(x),
+                                          binwidth = binwidth,
+                                          legend   = f'Normal distribution of residuals with observed stdev: {sigma_observed:.02f} pixels')]
 
     plot_options = dict(kwargs)
 
