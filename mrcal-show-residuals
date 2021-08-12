@@ -76,6 +76,11 @@ def parse_args():
     mode_group.add_argument('--histogram',
                             action='store_true',
                             help='''Visualize the distribution of the optimized residuals''')
+    mode_group.add_argument('--histogram-this-camera',
+                            action='store_true',
+                            help='''If given, we show the histogram for residuals for THIS camera only. Otherwise
+                            (by default) we display the residuals for all the
+                            cameras in this solve. Implies --histogram''')
 
 
     parser.add_argument('--valid-intrinsics-region',
@@ -88,11 +93,6 @@ def parse_args():
                         nargs = 2,
                         help='''How densely we should bin the imager. By default we use a 20x14 grid of bins.
                         Applies only if --regional''')
-    parser.add_argument('--histogram-this-camera',
-                        action='store_true',
-                        help='''If given, we show the histogram for residuals for THIS camera only. Otherwise
-                        (by default) we display the residuals for all the
-                        cameras in this solve. Applies only if --histogram''')
     parser.add_argument('--binwidth',
                         type=float,
                         default=0.02,
@@ -131,6 +131,9 @@ def parse_args():
                         this model''')
 
     args = parser.parse_args()
+
+    if args.histogram_this_camera:
+        args.histogram = True
 
     return args
 
