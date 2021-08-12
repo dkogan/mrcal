@@ -2096,13 +2096,12 @@ plot
         # In the splined_stereographic models, the spline is indexed by u. So u is
         # linear with the knots. I can thus get u at the edges, and linearly
         # interpolate between
-
-        gridn_height = Ny
-        gridn_width  = Nx
-
-        if not vectorfield:
-            gridn_height *= 5
-            gridn_width  *= 5
+        if vectorfield:
+            gridn_height = Ny*2
+            gridn_width  = Nx*2
+        else:
+            gridn_height = Ny*5
+            gridn_width  = Nx*5
 
         # Shape (gridn_height,gridn_width,2); contains (x,y) rows
         u = \
