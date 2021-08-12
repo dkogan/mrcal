@@ -485,6 +485,18 @@ for i in range(Nimages):
                        image_filenames_all[1][i])
     images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in image_filenames]
 
+    # This doesn't really matter: I don't use the input imagersize. But a
+    # mismatch suggests the user probably messed up, and it would save them time
+    # to yell at them
+    imagersize_image = np.array((images[0].shape[1], images[0].shape[0]))
+    imagersize_model = models[0].imagersize()
+    if np.any(imagersize_image - imagersize_model):
+        raise Exception(f"Image '{image_filenames_all[0][i]}' dimensions {imagersize_image} don't match the model '{args.models[0]}' dimensions {imagersize_model}")
+    imagersize_image = np.array((images[1].shape[1], images[1].shape[0]))
+    imagersize_model = models[1].imagersize()
+    if np.any(imagersize_image - imagersize_model):
+        raise Exception(f"Image '{image_filenames_all[1][i]}' dimensions {imagersize_image} don't match the model '{args.models[1]}' dimensions {imagersize_model}")
+
     if args.show_valid_intrinsics_region:
         for i in range(2):
             mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
