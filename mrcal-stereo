@@ -21,8 +21,8 @@ SYNOPSIS
   Writing '/tmp/rectified0.cameramodel'
   Writing '/tmp/rectified1.cameramodel'
   ##### processing left.jpg and right.jpg
-  Writing '/tmp/left-rectified.jpg'
-  Writing '/tmp/right-rectified.jpg'
+  Writing '/tmp/left-rectified.png'
+  Writing '/tmp/right-rectified.png'
   Writing '/tmp/left-disparity.png'
   Writing '/tmp/left-range.png'
 
@@ -525,9 +525,9 @@ for i in range(Nimages):
                             for i in range(2)]
 
         write_output(lambda filename: cv2.imwrite(filename, images_rectified[0]),
-                     image_filenames_base[0] + '-rectified.jpg')
+                     image_filenames_base[0] + '-rectified.png')
         write_output(lambda filename: cv2.imwrite(filename, images_rectified[1]),
-                     image_filenames_base[1] + '-rectified.jpg')
+                     image_filenames_base[1] + '-rectified.png')
     else:
         images_rectified = images
 
