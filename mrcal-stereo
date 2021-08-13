@@ -158,6 +158,13 @@ def parse_args():
                         checked, and the models will be used as-is if the checks
                         pass''')
 
+    ######## image pre-filtering
+    parser.add_argument('--clahe',
+                        action='store_true',
+                        help='''If given, apply CLAHE equalization to the images
+                        prior to the stereo matching. If --already-rectified, we
+                        DO apply this equalization''')
+
     ######## --show-geometry
     parser.add_argument('--show-geometry',
                         action='store_true',
@@ -470,6 +477,11 @@ if not args.already_rectified:
 
 
 
+if args.clahe:
+    clahe = cv2.createCLAHE()
+    clahe.setClipLimit(8)
+
+
 image_filenames_all = [sorted(glob.glob(os.path.expanduser(g))) for g in args.images]
 
 if len(image_filenames_all[0]) != len(image_filenames_all[1]):
@@ -496,6 +508,9 @@ for i in range(Nimages):
     imagersize_model = models[1].imagersize()
     if np.any(imagersize_image - imagersize_model):
         raise Exception(f"Image '{image_filenames_all[1][i]}' dimensions {imagersize_image} don't match the model '{args.models[1]}' dimensions {imagersize_model}")
+
+    if args.clahe:
+        images = [ clahe.apply(image) for image in images ]
 
     if args.show_valid_intrinsics_region:
         for i in range(2):
