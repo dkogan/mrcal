@@ -5456,6 +5456,29 @@ mrcal_optimize( // out
                              problem_selections,
                              Ncameras_intrinsics, Ncameras_extrinsics,
                              Nframes, Npoints-Npoints_fixed, Nstate);
+
+        if(problem_selections.do_apply_regularization)
+        {
+            int Nmeasurements_regularization =
+                mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
+                                                      Nframes,
+                                                      Npoints, Npoints_fixed, Nobservations_board,
+                                                      problem_selections, lensmodel);
+            double norm2_err_regularization = 0;
+            for(int i=0; i<Nmeasurements_regularization; i++)
+            {
+                double x = solver_context->beforeStep->x[ctx.Nmeasurements-1 - i];
+                norm2_err_regularization += x*x;
+            }
+
+            double norm2_err_nonregularization = norm2_error - norm2_err_regularization;
+            double ratio_regularization_cost   = norm2_err_regularization / norm2_error;
+            MSG("norm2_error:               %.3f", norm2_error);
+            MSG("norm2_err_regularization:  %.3f", norm2_err_regularization);
+            MSG("regularization cost ratio: %.3g", ratio_regularization_cost);
+        }
+
+
         if(verbose)
         {
             // Not using dogleg_markOutliers() (for now?)
@@ -5472,21 +5495,6 @@ mrcal_optimize( // out
             //        optimizer_callback(packed_state, NULL, NULL, &ctx);
             if(problem_selections.do_apply_regularization)
             {
-                double norm2_err_regularization = 0;
-                int    Nmeasurements_regularization =
-                    Ncameras_intrinsics *
-                    num_regularization_terms_percamera(problem_selections,
-                                                       lensmodel);
-
-                for(int i=0; i<Nmeasurements_regularization; i++)
-                {
-                    double x = solver_context->beforeStep->x[ctx.Nmeasurements-1 - i];
-                    norm2_err_regularization += x*x;
-                }
-
-                double norm2_err_nonregularization = norm2_error - norm2_err_regularization;
-                double ratio_regularization_cost   = norm2_err_regularization / norm2_error;
-
                 // Disable this by default. Splined models have LOTS of
                 // parameters, and I don't want to print them. Usually.
                 //
@@ -5495,9 +5503,6 @@ mrcal_optimize( // out
                 //     double x = solver_context->beforeStep->x[ctx.Nmeasurements - Nmeasurements_regularization + i];
                 //     MSG("regularization %d: %f (squared: %f)", i, x, x*x);
                 // }
-                MSG("norm2_error: %f",               norm2_error);
-                MSG("norm2_err_regularization: %f",  norm2_err_regularization);
-                MSG("regularization cost ratio: %g", ratio_regularization_cost);
             }
         }
     }
