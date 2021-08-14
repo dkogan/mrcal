@@ -471,9 +471,12 @@ int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_
                                           mrcal_problem_selections_t problem_selections,
                                           const mrcal_lensmodel_t* lensmodel)
 {
-    return
+    int N =
         Ncameras_intrinsics *
         num_regularization_terms_percamera(problem_selections, lensmodel);
+    if(problem_selections.do_optimize_calobject_warp)
+        N += MRCAL_NSTATE_CALOBJECT_WARP;
+    return N;
 }
 
 int mrcal_num_measurements(int Nobservations_board,
@@ -590,6 +593,9 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
             Ncameras_intrinsics *
             num_regularization_terms_percamera(problem_selections,
                                                lensmodel);
+
+    if(problem_selections.do_optimize_calobject_warp)
+        N += MRCAL_NSTATE_CALOBJECT_WARP;
 
     return N;
 }
@@ -4820,7 +4826,8 @@ void optimizer_callback(// input state
     // parameters
     if(ctx->problem_selections.do_apply_regularization &&
        (ctx->problem_selections.do_optimize_intrinsics_distortions ||
-        ctx->problem_selections.do_optimize_intrinsics_core))
+        ctx->problem_selections.do_optimize_intrinsics_core        ||
+        ctx->problem_selections.do_optimize_calobject_warp))
     {
         const bool dump_regularizaton_details = false;
 
@@ -4830,16 +4837,22 @@ void optimizer_callback(// input state
         // regularization to account for ~ .5% of the other error
         // contributions:
         //
-        //   Nmeasurements_rest*normal_pixel_error_sq * 0.005/2. =
+        //   Nregularization_types = 3;
+        //   Nmeasurements_rest*normal_pixel_error_sq * 0.005/Nregularization_types =
         //   Nmeasurements_regularization_distortion *normal_regularization_distortion_error_sq  =
         //   Nmeasurements_regularization_centerpixel*normal_regularization_centerpixel_error_sq =
+        //   Nmeasurements_regularization_calobject_warp *normal_regularization_calobject_warp_error_sq
         //
-        //   normal_regularization_distortion_error_sq  = (scale*normal_centerpixel_offset)^2
-        //   normal_regularization_centerpixel_error_sq = (scale*normal_distortion_value  )^2
+        //   normal_regularization_distortion_error_sq     = (scale*normal_centerpixel_offset   )^2
+        //   normal_regularization_centerpixel_error_sq    = (scale*normal_distortion_value     )^2
+        //   normal_regularization_calobject_warp_error_sq = (scale*normal_calobject_warp_value )^2
         //
         // Regularization introduces a bias to the solution. The
         // test-projection-uncertainty test measures it, and barfs if it is too
         // high. The constants should be adjusted if that test fails.
+
+        const int Nregularization_types = 3;
+
         int Nmeasurements_regularization_distortion  = 0;
         if(ctx->problem_selections.do_optimize_intrinsics_distortions)
             Nmeasurements_regularization_distortion =
@@ -4850,10 +4863,16 @@ void optimizer_callback(// input state
             Nmeasurements_regularization_centerpixel =
                 ctx->Ncameras_intrinsics*2;
 
+        int Nmeasurements_regularization_calobject_warp = 0;
+        if(ctx->problem_selections.do_optimize_calobject_warp)
+            Nmeasurements_regularization_calobject_warp =
+                MRCAL_NSTATE_CALOBJECT_WARP;
+
         int Nmeasurements_nonregularization =
             ctx->Nmeasurements -
             (Nmeasurements_regularization_distortion +
-             Nmeasurements_regularization_centerpixel);
+             Nmeasurements_regularization_centerpixel+
+             Nmeasurements_regularization_calobject_warp);
 
         double normal_pixel_error = 1.0;
         double expected_total_pixel_error_sq =
@@ -4874,7 +4893,7 @@ void optimizer_callback(// input state
                 normal_distortion_value;
 
             double scale_sq =
-                expected_total_pixel_error_sq * 0.005/2. / expected_regularization_distortion_error_sq_noscale;
+                expected_total_pixel_error_sq * 0.005/(double)Nregularization_types / expected_regularization_distortion_error_sq_noscale;
 
             if(dump_regularizaton_details)
                 MSG("expected_regularization_distortion_error_sq: %f", expected_regularization_distortion_error_sq_noscale*scale_sq);
@@ -4893,12 +4912,32 @@ void optimizer_callback(// input state
                 normal_centerpixel_offset;
 
             double scale_sq =
-                expected_total_pixel_error_sq * 0.005/2. / expected_regularization_centerpixel_error_sq_noscale;
+                expected_total_pixel_error_sq * 0.005/(double)Nregularization_types / expected_regularization_centerpixel_error_sq_noscale;
 
             if(dump_regularizaton_details)
                 MSG("expected_regularization_centerpixel_error_sq: %f", expected_regularization_centerpixel_error_sq_noscale*scale_sq);
 
             scale_regularization_centerpixel = sqrt(scale_sq);
+        }
+
+        double scale_regularization_calobject_warp = 0;
+        if(ctx->problem_selections.do_optimize_calobject_warp)
+        {
+            // Each err will be x/SCALE_CALOBJECT_WARP
+            double normal_calobject_warp_value = 1.0;
+
+            double expected_regularization_calobject_warp_error_sq_noscale =
+                (double)Nmeasurements_regularization_calobject_warp*
+                normal_calobject_warp_value*
+                normal_calobject_warp_value;
+
+            double scale_sq =
+                expected_total_pixel_error_sq * 0.005/(double)Nregularization_types / expected_regularization_calobject_warp_error_sq_noscale;
+
+            if(dump_regularizaton_details)
+                MSG("expected_regularization_calobject_warp_error_sq: %f", expected_regularization_calobject_warp_error_sq_noscale*scale_sq);
+
+            scale_regularization_calobject_warp = sqrt(scale_sq);
         }
 
         if( ctx->problem_selections.do_optimize_intrinsics_distortions ||
@@ -5063,6 +5102,42 @@ void optimizer_callback(// input state
                     if(dump_regularizaton_details)
                         MSG("regularization center pixel off-center: %g; norm2: %g", err, err*err);
                 }
+            }
+        }
+
+        if( ctx->problem_selections.do_optimize_calobject_warp )
+        {
+            static_assert(offsetof(mrcal_calobject_warp_t,cx) == 0,
+                          "Here I assume that cx,cy lead mrcal_calobject_warp_t");
+            static_assert(offsetof(mrcal_calobject_warp_t,cy) == 1*sizeof(double),
+                          "Here I assume that cx,cy lead mrcal_calobject_warp_t");
+            for(int i=0; i<2; i++)
+            {
+                double err;
+
+                if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                err = scale_regularization_calobject_warp * calobject_warp_local.values[i] / SCALE_CALOBJECT_WARP_CX;
+                x[iMeasurement]  = err;
+                norm2_error     += err*err;
+                STORE_JACOBIAN( i_var_calobject_warp + i,
+                                scale_regularization_calobject_warp);
+                iMeasurement++;
+                if(dump_regularizaton_details)
+                    MSG("regularization calobject_warp: %g; norm2: %g", err, err*err);
+            }
+            for(int i=2; i<MRCAL_NSTATE_CALOBJECT_WARP; i++)
+            {
+                double err;
+
+                if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                err = scale_regularization_calobject_warp * calobject_warp_local.values[i] / SCALE_CALOBJECT_WARP;
+                x[iMeasurement]  = err;
+                norm2_error     += err*err;
+                STORE_JACOBIAN( i_var_calobject_warp + i,
+                                scale_regularization_calobject_warp );
+                iMeasurement++;
+                if(dump_regularizaton_details)
+                    MSG("regularization calobject_warp: %g; norm2: %g", err, err*err);
             }
         }
     }
