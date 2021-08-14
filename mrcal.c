@@ -4752,7 +4752,6 @@ void optimizer_callback(// input state
     // regularization terms for the intrinsics. I favor smaller distortion
     // parameters
     if(ctx->problem_selections.do_apply_regularization &&
-       modelHasCore_fxfycxcy(&ctx->lensmodel) &&
        ( ctx->problem_selections.do_optimize_intrinsics_distortions ||
          ctx->problem_selections.do_optimize_intrinsics_core
          ))
@@ -4952,7 +4951,8 @@ void optimizer_callback(// input state
                 }
             }
 
-            if( ctx->problem_selections.do_optimize_intrinsics_core)
+            if( modelHasCore_fxfycxcy(&ctx->lensmodel) &&
+                ctx->problem_selections.do_optimize_intrinsics_core)
             {
                 // And another regularization term: optical center should be
                 // near the middle. This breaks the symmetry between moving the
