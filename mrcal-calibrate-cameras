@@ -583,7 +583,7 @@ optimization_inputs = \
                   observations, indices_frame_camera)
 
 if not args.skip_calobject_warp_solve:
-    calobject_warp = np.array((0,0), dtype=float)
+    calobject_warp = (np.random.random((5,)) - 0.5)*2. *1e-9
 else:
     calobject_warp = None
 
