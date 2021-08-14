@@ -5628,23 +5628,62 @@ mrcal_optimize( // out
 
         if(problem_selections.do_apply_regularization)
         {
-            int Nmeasurements_regularization =
-                mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
-                                                      Nframes,
-                                                      Npoints, Npoints_fixed, Nobservations_board,
-                                                      problem_selections, lensmodel);
-            double norm2_err_regularization = 0;
-            for(int i=0; i<Nmeasurements_regularization; i++)
-            {
-                double x = solver_context->beforeStep->x[ctx.Nmeasurements-1 - i];
-                norm2_err_regularization += x*x;
-            }
+            int Ncore = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
 
-            double norm2_err_nonregularization = norm2_error - norm2_err_regularization;
-            double ratio_regularization_cost   = norm2_err_regularization / norm2_error;
-            MSG("norm2_error:               %.3f", norm2_error);
-            MSG("norm2_err_regularization:  %.3f", norm2_err_regularization);
-            MSG("regularization cost ratio: %.3g", ratio_regularization_cost);
+            int Nmeasurements_regularization_distortion  = 0;
+            if(problem_selections.do_optimize_intrinsics_distortions)
+                Nmeasurements_regularization_distortion =
+                    Ncameras_intrinsics*(ctx.Nintrinsics-Ncore);
+
+            int Nmeasurements_regularization_centerpixel = 0;
+            if(problem_selections.do_optimize_intrinsics_core)
+                Nmeasurements_regularization_centerpixel =
+                    Ncameras_intrinsics*2;
+
+            int Nmeasurements_regularization_calobject_warp = 0;
+            if(problem_selections.do_optimize_calobject_warp)
+                Nmeasurements_regularization_calobject_warp =
+                    MRCAL_NSTATE_CALOBJECT_WARP;
+
+            double norm2_err_regularization_distortion     = 0;
+            double norm2_err_regularization_centerpixel    = 0;
+            double norm2_err_regularization_calobject_warp = 0;
+
+            int imeas_reg0 =
+                mrcal_measurement_index_regularization(Nobservations_board,
+                                                       Nobservations_point,
+                                                       calibration_object_width_n,
+                                                       calibration_object_height_n);
+            const double* xreg = &solver_context->beforeStep->x[imeas_reg0];
+
+            for(int i=0; i<Nmeasurements_regularization_distortion; i++)
+            {
+                double x = *(xreg++);
+                norm2_err_regularization_distortion += x*x;
+            }
+            for(int i=0; i<Nmeasurements_regularization_centerpixel; i++)
+            {
+                double x = *(xreg++);
+                norm2_err_regularization_centerpixel += x*x;
+            }
+            for(int i=0; i<Nmeasurements_regularization_calobject_warp; i++)
+            {
+                double x = *(xreg++);
+                norm2_err_regularization_calobject_warp += x*x;
+            }
+            assert(xreg == &solver_context->beforeStep->x[ctx.Nmeasurements]);
+
+            MSG("Regularization stats:");
+            MSG("norm2(error): %.3f",
+                norm2_error);
+            MSG("reg distortion,centerpixel,calobject_warp: %.3f %.3f %.3f",
+                norm2_err_regularization_distortion,
+                norm2_err_regularization_centerpixel,
+                norm2_err_regularization_calobject_warp);
+            MSG("reg err ratio: %.3f %.3f %.3f",
+                norm2_err_regularization_distortion      / norm2_error,
+                norm2_err_regularization_centerpixel     / norm2_error,
+                norm2_err_regularization_calobject_warp / norm2_error);
         }
 
 
