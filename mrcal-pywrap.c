@@ -882,7 +882,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 // Defaults for do_optimize... MUST match those in ingest_packed_state()
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) \
     _(observed_pixel_uncertainty,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
-    _(calobject_warp,                     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, calobject_warp, NPY_DOUBLE, {2}) \
+    _(calobject_warp,                     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, calobject_warp, NPY_DOUBLE, {}) \
     _(Npoints_fixed,                      int,            0,       "i",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_intrinsics_core,        int,            1,       "p",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_intrinsics_distortions, int,            1,       "p",  ,                                  NULL,           -1,         {})  \
@@ -925,6 +925,28 @@ static bool optimize_validate_args( // out
     OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(CHECK_LAYOUT);
 #pragma GCC diagnostic pop
+
+    // Need to check this specially, since a shape of either (2,) or (5,) is
+    // accepted
+    if(!IS_NULL(calobject_warp))
+    {
+        int ndims = 1;
+
+        if(PyArray_NDIM((PyArrayObject*)calobject_warp) != 1)
+        {
+            BARF("'calobject_warp' must have exactly 1 dimension; got %d",
+                 PyArray_NDIM((PyArrayObject*)calobject_warp));
+            return false;
+        }
+        if(!(PyArray_DIMS((PyArrayObject*)calobject_warp)[0] == 2 ||
+             PyArray_DIMS((PyArrayObject*)calobject_warp)[0] == MRCAL_NSTATE_CALOBJECT_WARP))
+        {
+            BARF("'calobject_warp' must have shape either (2,) or (%d,). Got (%d,) instead",
+                 MRCAL_NSTATE_CALOBJECT_WARP,
+                 PyArray_DIMS((PyArrayObject*)calobject_warp)[0]);
+            return false;
+        }
+    }
 
     int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
     int Ncameras_extrinsics = PyArray_DIMS(extrinsics_rt_fromref)[0];
@@ -1271,10 +1293,19 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         mrcal_pose_t*       c_extrinsics     = (mrcal_pose_t*)  PyArray_DATA(extrinsics_rt_fromref);
         mrcal_pose_t*       c_frames         = (mrcal_pose_t*)  PyArray_DATA(frames_rt_toref);
         mrcal_point3_t*     c_points         = (mrcal_point3_t*)PyArray_DATA(points);
-        mrcal_point2_t*     c_calobject_warp =
-            IS_NULL(calobject_warp) ?
-            NULL : (mrcal_point2_t*)PyArray_DATA(calobject_warp);
 
+        mrcal_calobject_warp_t* c_calobject_warp = NULL;
+
+        if(!IS_NULL(calobject_warp))
+        {
+#warning "doesn't work for len-2 calobject-warp"
+            if(PyArray_DIMS((PyArrayObject*)calobject_warp)[0] != MRCAL_NSTATE_CALOBJECT_WARP)
+            {
+                BARF("can only support 5-param warping");
+                goto done;
+            }
+            c_calobject_warp = (mrcal_calobject_warp_t*)PyArray_DATA(calobject_warp);
+        }
 
         mrcal_point3_t* c_observations_board_pool = (mrcal_point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
         mrcal_observation_board_t c_observations_board[Nobservations_board];

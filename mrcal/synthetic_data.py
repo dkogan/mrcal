@@ -110,13 +110,22 @@ The calibration object geometry in a (H,W,3) array
     full_object *= object_spacing
 
     if calobject_warp is not None:
+
+        # Layout must match mrcal_calobject_warp_t in mrcal.h
+        cx,cy,x2,xy,y2 = calobject_warp
+
+        # Logic must match project() in mrcal.c
+
+        # [0..1]
         xr = xx / (W-1)
         yr = yy / (H-1)
-        dx = 4. * xr * (1. - xr)
-        dy = 4. * yr * (1. - yr)
 
-        full_object[..., 2] += calobject_warp[0] * dx
-        full_object[..., 2] += calobject_warp[1] * dy
+        xr -= cx + 0.5
+        yr -= cy + 0.5
+        full_object[..., 2] += \
+            xr*xr * x2 + \
+            xr*yr * xy + \
+            yr*yr * y2
 
     return full_object
 

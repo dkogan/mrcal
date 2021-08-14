@@ -128,7 +128,9 @@ int main(int argc, char* argv[] )
     mrcal_point3_t points[] =
         { {.xyz = {-5.3,   2.3, 20.4}},
           {.xyz = {-15.3, -3.2, 200.4}}};
-    mrcal_point2_t calobject_warp = {.x = 0.001, .y = -0.005};
+    mrcal_calobject_warp_t calobject_warp = {.cx = 0.1,
+                                             .cy = -0.05,
+                                             .x2 = 0.1, .xy = 0.001, .y2 = -0.03};
 
     int Npoints      = sizeof(points)/sizeof(points[0]);
     int Npoints_fixed = 1;
@@ -330,7 +332,7 @@ int main(int argc, char* argv[] )
                                     problem_selections,
                                     &lensmodel));
     printf("## calobject_warp: %d variables. Starts at variable %d\n",
-           (problem_selections.do_optimize_calobject_warp ? 2 : 0),
+           (problem_selections.do_optimize_calobject_warp ? MRCAL_NSTATE_CALOBJECT_WARP : 0),
            mrcal_state_index_calobject_warp(Ncameras_intrinsics, Ncameras_extrinsics,
                                             Nframes,
                                             Npoints, Npoints_fixed, Nobservations_board,
