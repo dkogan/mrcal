@@ -223,6 +223,7 @@ Nplots = len(args.observations)
 if args.hardcopy:
     for i in range(Nplots):
         show(args.observations[i])
+    print(f"Wrote {args.hardcopy}")
     sys.exit(0)
 
 pids = [0] * Nplots
