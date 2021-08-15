@@ -681,6 +681,9 @@ def _densify_polyline(p, spacing):
 
     '''
 
+    if p is None or p.size == 0:
+        return p
+
     p1 = np.array(p[0,:], dtype=p.dtype)
 
     for i in range(1,len(p)):
