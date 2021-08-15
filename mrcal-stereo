@@ -171,7 +171,7 @@ def parse_args():
                         help='''If given, we construct the rectified stereo
                         system, but instead of continuing with the stereo
                         processing, we render the geometry of the stereo world.
-                        No images should be given in this mode.''')
+                        The images are ignored in this mode.''')
     parser.add_argument('--axis-scale',
                         type=float,
                         help='''Used if --show-geometry. Scale for the camera
@@ -290,20 +290,12 @@ def parse_args():
                         nargs='*',
                         help='''The image globs to use for the triangulation. If
                         not --show-geometry: exactly two image globs must be
-                        given. If --show-geometry: we're not actually performing
-                        stereo processing so 0 images should be given''')
+                        given. If --show-geometry: the images are ignored''')
 
     args = parser.parse_args()
 
-    if args.show_geometry:
-        if len(args.images) != 0:
-            print("""Argument-parsing error:
-  --show-geometry given: no images should have been given, since we're not
-  performing stereo processing""",
-                  file=sys.stderr)
-            sys.exit(1)
-    else:
-        if len(args.images) != 2:
+    if not args.show_geometry and \
+       len(args.images) != 2:
             print("""Argument-parsing error:
   --show-geometry not given: exactly 2 images should have been given, since we're
   performing stereo processing""",
