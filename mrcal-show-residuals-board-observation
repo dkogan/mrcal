@@ -5,7 +5,7 @@ r'''Visualize calibration residuals for one or more observations of a board
 SYNOPSIS
 
   $ mrcal-show-residuals-board-observation
-      --from-worst --explore left.cameramodel 0 1 2
+      --from-worst --explore left.cameramodel 0-2
 
   ... a plot pops up showing the 3 worst-fitting chessboard observations in this
   ... solve. And a REPL opens up to allow further study
@@ -93,18 +93,46 @@ def parse_args():
                         this model''')
 
     parser.add_argument('observations',
-                        type=int,
+                        type=str,
                         nargs='+',
-                        help=r'''The observation indices we're looking at. By default these index the board
-                        observations in the order they appear in the solve. If
-                        --from-worst, then we index them from the worst-fitting
-                        to the best-fitting instead''')
+                        help=r'''The observation indices we're looking at. A
+                        list of integers and/or A-B ranges. By default these
+                        index the board observations in the order they appear in
+                        the solve. If --from-worst, then we index them from the
+                        worst-fitting to the best-fitting instead''')
 
     args = parser.parse_args()
 
     if args.image_path_prefix is not None and \
        args.image_directory is not None:
         raise Exception("--image-path-prefix and --image-directory are mutually exclusive")
+
+    def list_ints_from_range_string(s):
+        try:
+            i = int(s)
+            if i < 0:
+                print(f"Observations should be a list of positive integers and/or A-B ranges. Invalid observation given: '{s}'",
+                      file=sys.stderr)
+                sys.exit(1)
+            return [i]
+        except Exception as e:
+            pass
+
+        m = re.match("^([0-9]+)-([0-9]+)$", s)
+        if m is None:
+            print(f"Observations should be a list of positive integers and/or A-B ranges. Invalid observation given: '{s}'",
+                  file=sys.stderr)
+            sys.exit(1)
+        try:
+            i0 = int(m.group(1))
+            i1 = int(m.group(2))
+        except Exception as e:
+            print(f"Observations should be a list of positive integers and/or A-B ranges. Invalid observation given: '{s}'",
+                  file=sys.stderr)
+            sys.exit(1)
+        return list(range(i0,i1+1))
+
+    args.observations = [o for obs in args.observations for o in list_ints_from_range_string(obs)]
 
     return args
 
