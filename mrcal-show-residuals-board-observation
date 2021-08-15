@@ -140,7 +140,7 @@ def parse_args():
         if len(args.observations) != 1:
             print(f"--hardcopy given, so exactly one observation should have been given. Instead got these observations: {args.observations}",
                   file=sys.stderr)
-        sys.exit(1)
+            sys.exit(1)
     return args
 
 args = parse_args()
