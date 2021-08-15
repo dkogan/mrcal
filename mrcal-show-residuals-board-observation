@@ -67,7 +67,9 @@ def parse_args():
 
     parser.add_argument('--hardcopy',
                         type=str,
-                        help='''Write the output to disk, instead of making an interactive plot''')
+                        help='''Write the output to disk, instead of making an
+                        interactive plot. If given, only ONE observation may be
+                        specified''')
     parser.add_argument('--terminal',
                         type=str,
                         help=r'''gnuplotlib terminal. The default is good almost always, so most people don't
@@ -134,6 +136,11 @@ def parse_args():
 
     args.observations = [o for obs in args.observations for o in list_ints_from_range_string(obs)]
 
+    if args.hardcopy is not None:
+        if len(args.observations) != 1:
+            print(f"--hardcopy given, so exactly one observation should have been given. Instead got these observations: {args.observations}",
+                  file=sys.stderr)
+        sys.exit(1)
     return args
 
 args = parse_args()
