@@ -4927,7 +4927,7 @@ void optimizer_callback(// input state
             if(ctx->problem_selections.do_optimize_calobject_warp)
             {
                 // Each err will be x/SCALE_CALOBJECT_WARP
-                double normal_calobject_warp_value = 1.0;
+                double normal_calobject_warp_value = 1.0e1;
 
                 double expected_regularization_calobject_warp_error_sq_noscale =
                     (double)Nmeasurements_regularization_calobject_warp*
