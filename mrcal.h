@@ -112,6 +112,18 @@ typedef struct
 } mrcal_lensmodel_t;
 
 
+typedef union
+{
+    struct
+    {
+        double x2, y2;
+    };
+    double values[2];
+} mrcal_calobject_warp_t;
+
+#define MRCAL_NSTATE_CALOBJECT_WARP ((int)((sizeof(mrcal_calobject_warp_t)/sizeof(double))))
+
+
 // Return an array of strings listing all the available lens models
 //
 // These are all "unconfigured" strings that use "..." placeholders for any
@@ -718,7 +730,7 @@ mrcal_optimize( // out
                 mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
                 mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
                 mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
-                mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
+                mrcal_calobject_warp_t* calobject_warp,     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
 
                 // in
                 int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
@@ -804,7 +816,7 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_pose_t*       extrinsics_fromref, // Ncameras_extrinsics of these. Transform FROM the reference frame
                              const mrcal_pose_t*       frames_toref,       // Nframes of these.    Transform TO the reference frame
                              const mrcal_point3_t*     points,             // Npoints of these.    In the reference frame
-                             const mrcal_point2_t*     calobject_warp,     // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
+                             const mrcal_calobject_warp_t* calobject_warp, // 1 of these. May be NULL if !problem_selections.do_optimize_calobject_warp
 
                              int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
                              int Npoints, int Npoints_fixed, // at the end of points[]

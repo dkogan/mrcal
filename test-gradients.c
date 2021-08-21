@@ -128,7 +128,7 @@ int main(int argc, char* argv[] )
     mrcal_point3_t points[] =
         { {.xyz = {-5.3,   2.3, 20.4}},
           {.xyz = {-15.3, -3.2, 200.4}}};
-    mrcal_point2_t calobject_warp = {.x = 0.001, .y = -0.005};
+    mrcal_calobject_warp_t calobject_warp = {.x2 = 0.001, .y2 = -0.005};
 
     int Npoints      = sizeof(points)/sizeof(points[0]);
     int Npoints_fixed = 1;

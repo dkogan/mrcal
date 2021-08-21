@@ -1271,9 +1271,9 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         mrcal_pose_t*       c_extrinsics     = (mrcal_pose_t*)  PyArray_DATA(extrinsics_rt_fromref);
         mrcal_pose_t*       c_frames         = (mrcal_pose_t*)  PyArray_DATA(frames_rt_toref);
         mrcal_point3_t*     c_points         = (mrcal_point3_t*)PyArray_DATA(points);
-        mrcal_point2_t*     c_calobject_warp =
+        mrcal_calobject_warp_t*     c_calobject_warp =
             IS_NULL(calobject_warp) ?
-            NULL : (mrcal_point2_t*)PyArray_DATA(calobject_warp);
+            NULL : (mrcal_calobject_warp_t*)PyArray_DATA(calobject_warp);
 
 
         mrcal_point3_t* c_observations_board_pool = (mrcal_point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
