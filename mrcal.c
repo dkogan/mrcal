@@ -5499,6 +5499,8 @@ mrcal_optimize( // out
                              Ncameras_intrinsics, Ncameras_extrinsics,
                              Nframes, Npoints-Npoints_fixed, Nstate);
 
+        double regularization_ratio_distortion  = 0.0;
+        double regularization_ratio_centerpixel = 0.0;
         if(problem_selections.do_apply_regularization)
         {
             int Ncore = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
@@ -5535,15 +5537,15 @@ mrcal_optimize( // out
             }
             assert(xreg == &solver_context->beforeStep->x[ctx.Nmeasurements]);
 
-            MSG("Regularization stats:");
-            MSG("norm2(error): %.3f",
-                norm2_error);
-            MSG("reg distortion,centerpixel: %.3f %.3f",
-                norm2_err_regularization_distortion,
-                norm2_err_regularization_centerpixel);
-            MSG("reg err ratio: %.3f %.3f",
-                norm2_err_regularization_distortion      / norm2_error,
-                norm2_err_regularization_centerpixel     / norm2_error);
+            regularization_ratio_distortion  = norm2_err_regularization_distortion      / norm2_error;
+            regularization_ratio_centerpixel = norm2_err_regularization_centerpixel     / norm2_error;
+
+            if(regularization_ratio_distortion > 0.01)
+                MSG("WARNING: regularization ratio for lens distortion exceeds 1%%. Is the scale factor too high? Ratio = %.3f",
+                    regularization_ratio_distortion);
+            if(regularization_ratio_centerpixel > 0.01)
+                MSG("WARNING: regularization ratio for the projection centerpixel exceeds 1%%. Is the scale factor too high? Ratio = %.3f",
+                    regularization_ratio_centerpixel);
         }
 
 
@@ -5571,6 +5573,11 @@ mrcal_optimize( // out
                 //     double x = solver_context->beforeStep->x[ctx.Nmeasurements - Nmeasurements_regularization + i];
                 //     MSG("regularization %d: %f (squared: %f)", i, x, x*x);
                 // }
+
+                MSG("Regularization stats:");
+                MSG("reg err ratio (distortion,centerpixel): %.3f %.3f",
+                    regularization_ratio_distortion,
+                    regularization_ratio_centerpixel);
             }
         }
     }
