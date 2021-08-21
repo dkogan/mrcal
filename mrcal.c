@@ -2410,10 +2410,10 @@ void project( // out
                     double yr = (double)y / (double)(calibration_object_height_n-1);
                     double dx = 4. * xr * (1. - xr);
                     double dy = 4. * yr * (1. - yr);
-                    pt_ref.z += calobject_warp->x * dx;
-                    pt_ref.z += calobject_warp->y * dy;
-                    dpt_refz_dwarp.x = dx;
-                    dpt_refz_dwarp.y = dy;
+                    pt_ref.z += calobject_warp->x2 * dx;
+                    pt_ref.z += calobject_warp->y2 * dy;
+                    dpt_refz_dwarp.x2 = dx;
+                    dpt_refz_dwarp.y2 = dy;
 #else
 
 
