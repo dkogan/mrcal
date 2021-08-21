@@ -4749,8 +4749,7 @@ void optimizer_callback(// input state
     }
 
 
-    // regularization terms for the intrinsics. I favor smaller distortion
-    // parameters
+    ///////////////// Regularization
     if(ctx->problem_selections.do_apply_regularization &&
        (ctx->problem_selections.do_optimize_intrinsics_distortions ||
         ctx->problem_selections.do_optimize_intrinsics_core))
