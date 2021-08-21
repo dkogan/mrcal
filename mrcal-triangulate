@@ -661,17 +661,19 @@ else:
         if err < 1e6:
             break
     if err >= 1e6:
-        raise Exception("Initial search couldn't make the rays converge")
+        print("## Initial search couldn't make the rays converge. Will not report optimized corrections")
+        dyawdpitch = None
 
-dyaw,dpitch = scipy.optimize.minimize(get_range_err_yaw_pitch_sq, dyawdpitch).x
-print("## Optimized yaw correction   = {:.2f} degrees".format(dyaw/np.pi*180))
-print("## Optimized pitch correction = {:.2f} degrees".format(dpitch/np.pi*180))
+if dyawdpitch is not None:
+    dyaw,dpitch = scipy.optimize.minimize(get_range_err_yaw_pitch_sq, dyawdpitch).x
+    print("## Optimized yaw correction   = {:.2f} degrees".format(dyaw/np.pi*180))
+    print("## Optimized pitch correction = {:.2f} degrees".format(dpitch/np.pi*180))
 
-rt10 = get_rt10_perturbed(r01err_yaw_axis   = nyaw,
-                          r01err_yaw        = dyaw,
-                          r01err_pitch_axis = npitch,
-                          r01err_pitch      = dpitch)
-print("## Optimized relative yaw (1 <- 0): {:.2f} degrees".format(rt10[1] * 180./np.pi))
+    rt10 = get_rt10_perturbed(r01err_yaw_axis   = nyaw,
+                              r01err_yaw        = dyaw,
+                              r01err_pitch_axis = npitch,
+                              r01err_pitch      = dpitch)
+    print("## Optimized relative yaw (1 <- 0): {:.2f} degrees".format(rt10[1] * 180./np.pi))
 
 if args.make_corrected_model1:
     if dyaw is None:
