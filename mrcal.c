@@ -4762,16 +4762,19 @@ void optimizer_callback(// input state
         // regularization to account for ~ .5% of the other error
         // contributions:
         //
-        //   Nmeasurements_rest*normal_pixel_error_sq * 0.005/2. =
+        //   Nregularization_types = 2;
+        //   Nmeasurements_rest*normal_pixel_error_sq * 0.005/Nregularization_types =
         //   Nmeasurements_regularization_distortion *normal_regularization_distortion_error_sq  =
         //   Nmeasurements_regularization_centerpixel*normal_regularization_centerpixel_error_sq =
         //
-        //   normal_regularization_distortion_error_sq  = (scale*normal_centerpixel_offset)^2
-        //   normal_regularization_centerpixel_error_sq = (scale*normal_distortion_value  )^2
+        //   normal_regularization_distortion_error_sq     = (scale*normal_centerpixel_offset   )^2
+        //   normal_regularization_centerpixel_error_sq    = (scale*normal_distortion_value     )^2
         //
         // Regularization introduces a bias to the solution. The
         // test-projection-uncertainty test measures it, and barfs if it is too
         // high. The constants should be adjusted if that test fails.
+        const int Nregularization_types = 2;
+
         int Nmeasurements_regularization_distortion  = 0;
         if(ctx->problem_selections.do_optimize_intrinsics_distortions)
             Nmeasurements_regularization_distortion =
@@ -4795,58 +4798,61 @@ void optimizer_callback(// input state
         if(dump_regularizaton_details)
             MSG("expected_total_pixel_error_sq: %f", expected_total_pixel_error_sq);
 
-        double scale_regularization_distortion = 0.0;
-        if(ctx->problem_selections.do_optimize_intrinsics_distortions)
+        double scale_regularization_distortion     = 0.0;
+        double scale_regularization_centerpixel    = 0.0;
+
+        // compute scales
         {
-            double normal_distortion_value = 2.0;
-
-            double expected_regularization_distortion_error_sq_noscale =
-                (double)Nmeasurements_regularization_distortion *
-                normal_distortion_value *
-                normal_distortion_value;
-
-            double scale_sq =
-                expected_total_pixel_error_sq * 0.005/2. / expected_regularization_distortion_error_sq_noscale;
-
-            if(dump_regularizaton_details)
-                MSG("expected_regularization_distortion_error_sq: %f", expected_regularization_distortion_error_sq_noscale*scale_sq);
-
-            scale_regularization_distortion = sqrt(scale_sq);
-        }
-
-        double scale_regularization_centerpixel = 0.0;
-        if(ctx->problem_selections.do_optimize_intrinsics_core)
-        {
-            double normal_centerpixel_offset = 500.0;
-
-            double expected_regularization_centerpixel_error_sq_noscale =
-                (double)Nmeasurements_regularization_centerpixel *
-                normal_centerpixel_offset *
-                normal_centerpixel_offset;
-
-            double scale_sq =
-                expected_total_pixel_error_sq * 0.005/2. / expected_regularization_centerpixel_error_sq_noscale;
-
-            if(dump_regularizaton_details)
-                MSG("expected_regularization_centerpixel_error_sq: %f", expected_regularization_centerpixel_error_sq_noscale*scale_sq);
-
-            scale_regularization_centerpixel = sqrt(scale_sq);
-        }
-
-        if( ctx->problem_selections.do_optimize_intrinsics_distortions ||
-            ctx->problem_selections.do_optimize_intrinsics_core )
-        {
-            for(int icam_intrinsics=0; icam_intrinsics<ctx->Ncameras_intrinsics; icam_intrinsics++)
+            if(ctx->problem_selections.do_optimize_intrinsics_distortions)
             {
-                const int i_var_intrinsics =
-                    mrcal_state_index_intrinsics(icam_intrinsics,
-                                                 ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
-                                                 ctx->Nframes,
-                                                 ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                                 ctx->problem_selections, &ctx->lensmodel);
+                double normal_distortion_value = 2.0;
 
-                if( ctx->problem_selections.do_optimize_intrinsics_distortions)
+                double expected_regularization_distortion_error_sq_noscale =
+                    (double)Nmeasurements_regularization_distortion *
+                    normal_distortion_value *
+                    normal_distortion_value;
+
+                double scale_sq =
+                    expected_total_pixel_error_sq * 0.005/(double)Nregularization_types / expected_regularization_distortion_error_sq_noscale;
+
+                if(dump_regularizaton_details)
+                    MSG("expected_regularization_distortion_error_sq: %f", expected_regularization_distortion_error_sq_noscale*scale_sq);
+
+                scale_regularization_distortion = sqrt(scale_sq);
+            }
+
+            if(modelHasCore_fxfycxcy(&ctx->lensmodel) &&
+               ctx->problem_selections.do_optimize_intrinsics_core)
+            {
+                double normal_centerpixel_offset = 500.0;
+
+                double expected_regularization_centerpixel_error_sq_noscale =
+                    (double)Nmeasurements_regularization_centerpixel *
+                    normal_centerpixel_offset *
+                    normal_centerpixel_offset;
+
+                double scale_sq =
+                    expected_total_pixel_error_sq * 0.005/(double)Nregularization_types / expected_regularization_centerpixel_error_sq_noscale;
+
+                if(dump_regularizaton_details)
+                    MSG("expected_regularization_centerpixel_error_sq: %f", expected_regularization_centerpixel_error_sq_noscale*scale_sq);
+
+                scale_regularization_centerpixel = sqrt(scale_sq);
+            }
+        }
+
+        // compute and store regularization terms
+        {
+            if( ctx->problem_selections.do_optimize_intrinsics_distortions )
+                for(int icam_intrinsics=0; icam_intrinsics<ctx->Ncameras_intrinsics; icam_intrinsics++)
                 {
+                    const int i_var_intrinsics =
+                        mrcal_state_index_intrinsics(icam_intrinsics,
+                                                     ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                     ctx->Nframes,
+                                                     ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                     ctx->problem_selections, &ctx->lensmodel);
+
                     if(ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
                     {
                         // Splined model regularization. I do directional L2
@@ -4962,9 +4968,17 @@ void optimizer_callback(// input state
                     }
                 }
 
-                if( modelHasCore_fxfycxcy(&ctx->lensmodel) &&
-                    ctx->problem_selections.do_optimize_intrinsics_core)
+            if( modelHasCore_fxfycxcy(&ctx->lensmodel) &&
+                ctx->problem_selections.do_optimize_intrinsics_core )
+                for(int icam_intrinsics=0; icam_intrinsics<ctx->Ncameras_intrinsics; icam_intrinsics++)
                 {
+                    const int i_var_intrinsics =
+                        mrcal_state_index_intrinsics(icam_intrinsics,
+                                                     ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                     ctx->Nframes,
+                                                     ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                     ctx->problem_selections, &ctx->lensmodel);
+
                     // And another regularization term: optical center should be
                     // near the middle. This breaks the symmetry between moving the
                     // center pixel coords and pitching/yawing the camera.
@@ -4995,7 +5009,6 @@ void optimizer_callback(// input state
                     if(dump_regularizaton_details)
                         MSG("regularization center pixel off-center: %g; norm2: %g", err, err*err);
                 }
-            }
         }
     }
 
