@@ -300,7 +300,7 @@ Rt01 = nps.glue(R01, t01, axis=-2)
 p  = np.array(( 5000., 300.,  2000.))
 q0 = mrcal.project(p, *model0.intrinsics())
 
-Nsamples = 2000
+Nsamples = 20000
 sigma    = 0.1
 
 v0local_noisy, v1local_noisy,v0_noisy,v1_noisy,_,_,_,_ = \
@@ -321,29 +321,50 @@ q0_sampled_leecivera_linf  = mrcal.project(p_sampled_leecivera_linf, *model0.int
 q0_sampled_leecivera_mid2  = mrcal.project(p_sampled_leecivera_mid2, *model0.intrinsics())
 q0_sampled_leecivera_wmid2 = mrcal.project(p_sampled_leecivera_wmid2, *model0.intrinsics())
 
-# q0_sampled_geometric       = p_sampled_geometric[:,1:]
-# q0_sampled_lindstrom       = p_sampled_lindstrom[:,1:]
-# q0_sampled_leecivera_l1    = p_sampled_leecivera_l1[:,1:]
-# q0_sampled_leecivera_linf  = p_sampled_leecivera_linf[:,1:]
-# q0_sampled_leecivera_mid2  = p_sampled_leecivera_mid2[:,1:]
-# q0_sampled_leecivera_wmid2 = p_sampled_leecivera_wmid2[:,1:]
-# q0 = p[1:]
-
+range_sampled_geometric       = nps.mag(p_sampled_geometric)
+range_sampled_lindstrom       = nps.mag(p_sampled_lindstrom)
+range_sampled_leecivera_l1    = nps.mag(p_sampled_leecivera_l1)
+range_sampled_leecivera_linf  = nps.mag(p_sampled_leecivera_linf)
+range_sampled_leecivera_mid2  = nps.mag(p_sampled_leecivera_mid2)
+range_sampled_leecivera_wmid2 = nps.mag(p_sampled_leecivera_wmid2)
 
 import gnuplotlib as gp
-gp.plot( *plot_args_points_and_covariance_ellipse( q0_sampled_geometric,      'geometric' ),
-         *plot_args_points_and_covariance_ellipse( q0_sampled_lindstrom,      'lindstrom' ),
-         *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_l1,   'lee-civera-l1' ),
-         *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_linf, 'lee-civera-linf' ),
-         *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_mid2, 'lee-civera-mid2' ),
-         *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_wmid2,'lee-civera-wmid2' ),
-         ( q0,
-           dict(_with     = 'points pt 3 ps 2',
-                tuplesize = -2,
-                legend    = 'Ground truth')),
-         square = True,
-         wait   = True)
+
+if False:
+    # Plot the reprojected pixel
+    gp.plot( *plot_args_points_and_covariance_ellipse( q0_sampled_geometric,      'geometric' ),
+             *plot_args_points_and_covariance_ellipse( q0_sampled_lindstrom,      'lindstrom' ),
+             *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_l1,   'lee-civera-l1' ),
+             *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_linf, 'lee-civera-linf' ),
+             *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_mid2, 'lee-civera-mid2' ),
+             *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_wmid2,'lee-civera-wmid2' ),
+             ( q0,
+               dict(_with     = 'points pt 3 ps 2',
+                    tuplesize = -2,
+                    legend    = 'Ground truth')),
+             square = True,
+             title  = 'Reprojected triangulated point')
+
+else:
+    # Plot the range distribution
+    range_ref = nps.mag(p)
+    gp.plot( nps.cat( range_sampled_geometric,
+                      range_sampled_lindstrom,
+                      range_sampled_leecivera_l1,
+                      range_sampled_leecivera_linf,
+                      range_sampled_leecivera_mid2,
+                      range_sampled_leecivera_wmid2 ),
+             legend = np.array(( 'range_sampled_geometric',
+                                 'range_sampled_lindstrom',
+                                 'range_sampled_leecivera_l1',
+                                 'range_sampled_leecivera_linf',
+                                 'range_sampled_leecivera_mid2',
+                                 'range_sampled_leecivera_wmid2' )),
+             histogram=True,
+             binwidth=300,
+             _with='lines',
+             _set = f'arrow from {range_ref},graph 0 to {range_ref},graph 1 nohead lw 5',
+             wait = True,
+             title = "Range distribution")
 
 
-# import IPython
-# IPython.embed()
