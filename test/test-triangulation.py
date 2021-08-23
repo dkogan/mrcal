@@ -31,40 +31,6 @@ model1 = mrcal.cameramodel( intrinsics = ('LENSMODEL_PINHOLE',
                             imagersize = np.array((1000,1000)) )
 
 
-def noisy_observation_vectors(p, Rt10, Nsamples, sigma):
-
-    # p has shape (...,3)
-
-    # shape (..., 2)
-    q0 = mrcal.project( p,
-                        *model0.intrinsics() )
-    q1 = mrcal.project( mrcal.transform_point_Rt( Rt10, p),
-                        *model1.intrinsics() )
-
-    # shape (..., 1,2). Each has x,y
-    q0 = nps.dummy(q0,-2)
-    q1 = nps.dummy(q1,-2)
-
-    q_noise = np.random.randn(*p.shape[:-1], Nsamples,2,2) * sigma
-    # shape (..., Nsamples,2). Each has x,y
-    q0_noise = q_noise[...,:,0,:]
-    q1_noise = q_noise[...,:,1,:]
-
-    q0_noisy = q0 + q0_noise
-    q1_noisy = q1 + q1_noise
-
-    # shape (..., Nsamples, 3)
-    v0local_noisy = mrcal.unproject( q0_noisy, *model0.intrinsics() )
-    v1local_noisy = mrcal.unproject( q1_noisy, *model1.intrinsics() )
-    v0_noisy      = v0local_noisy
-    v1_noisy      = mrcal.rotate_point_R(Rt01[:3,:], v1local_noisy)
-
-    # All have shape (..., Nsamples,3)
-    return \
-        v0local_noisy, v1local_noisy, v0_noisy,v1_noisy, \
-        q0,q1, q0_noisy, q1_noisy
-
-
 # All the callback functions can broadcast on p,v
 @nps.broadcast_define( ((3,), (3,), (3,), (3,)),
                        ())
@@ -133,8 +99,13 @@ def test_geometry( Rt01, p, whatgeometry,
     # p has shape (Np,3)
     # v has shape (Np,2)
     v0local_noisy, v1local_noisy,v0_noisy,v1_noisy,q0_ref,q1_ref,q0_noisy,q1_noisy = \
-        [v[...,0,:] for v in noisy_observation_vectors(p, mrcal.invert_Rt(Rt01), 1,
-                                                       sigma = 0.1)]
+        [v[...,0,:] for v in \
+         mrcal.synthetic_data.
+         _noisy_observation_vectors_for_triangulation(p, Rt01,
+                                                      model0.intrinsics(),
+                                                      model1.intrinsics(),
+                                                      1,
+                                                      sigma = 0.1)]
 
     scenarios = \
         ( (mrcal.triangulate_geometric,      callback_l2_geometric,    v0_noisy,      v1_noisy,      t01),
@@ -304,8 +275,9 @@ Nsamples = 20000
 sigma    = 0.1
 
 v0local_noisy, v1local_noisy,v0_noisy,v1_noisy,_,_,_,_ = \
-    noisy_observation_vectors(p, mrcal.invert_Rt(Rt01),
-                              Nsamples, sigma = sigma)
+    mrcal.synthetic_data. \
+    _noisy_observation_vectors_for_triangulation(p, mrcal.invert_Rt(Rt01),
+                                                 Nsamples, sigma = sigma)
 
 p_sampled_geometric       = mrcal.triangulate_geometric(      v0_noisy,      v1_noisy,      t01 )
 p_sampled_lindstrom       = mrcal.triangulate_lindstrom(      v0local_noisy, v1local_noisy, Rt01 )
