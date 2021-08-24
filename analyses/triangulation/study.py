@@ -34,7 +34,7 @@ Rt01 = nps.glue(R01, t01, axis=-2)
 p  = np.array(( 5000., 300.,  2000.))
 q0 = mrcal.project(p, *model0.intrinsics())
 
-Nsamples = 20000
+Nsamples = 100000
 sigma    = 0.1
 
 v0local_noisy, v1local_noisy,v0_noisy,v1_noisy,_,_,_,_ = \
@@ -97,7 +97,7 @@ else:
                                  'range_sampled_leecivera_mid2',
                                  'range_sampled_leecivera_wmid2' )),
              histogram=True,
-             binwidth=300,
+             binwidth=200,
              _with='lines',
              _set = f'arrow from {range_ref},graph 0 to {range_ref},graph 1 nohead lw 5',
              wait = True,
