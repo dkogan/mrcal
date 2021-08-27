@@ -252,3 +252,5 @@ p = np.array((( 110.,  25.,    50.  ),
               (  90.,  -100.,  -5.),
               ))
 test_geometry(Rt01, p, "cameras-90deg-to-each-other out-of-bounds", out_of_bounds = True )
+
+testutils.finish()
