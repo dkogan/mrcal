@@ -436,15 +436,15 @@ if args.q_calibration_stdev is None and \
     p0_ref = \
         mrcal.triangulate( nps.cat(q0_ref, q1_ref),
                            models,
-                           triangulation_function = method )
+                           method = method )
 elif args.q_calibration_stdev is not None and \
      args.q_observation_stdev is None:
     p0_ref,             \
     Var_p_calibration = \
         mrcal.triangulate( nps.cat(q0_ref, q1_ref),
                            models,
-                           q_calibration_stdev             = args.q_calibration_stdev,
-                           triangulation_function          = method )
+                           q_calibration_stdev = args.q_calibration_stdev,
+                           method              = method )
 elif args.q_calibration_stdev is None and \
      args.q_observation_stdev is not None:
     p0_ref,             \
@@ -453,7 +453,7 @@ elif args.q_calibration_stdev is None and \
                            models,
                            q_observation_stdev             = args.q_observation_stdev,
                            q_observation_stdev_correlation = args.q_observation_stdev_correlation,
-                           triangulation_function          = method )
+                           method                          = method )
 else:
     p0_ref,             \
     Var_p_calibration,  \
@@ -464,7 +464,7 @@ else:
                            q_calibration_stdev             = args.q_calibration_stdev,
                            q_observation_stdev             = args.q_observation_stdev,
                            q_observation_stdev_correlation = args.q_observation_stdev_correlation,
-                           triangulation_function          = method )
+                           method                          = method )
 
 if nps.norm2(p0_ref) == 0:
     raise Exception("Baseline divergent")
