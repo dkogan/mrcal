@@ -1040,8 +1040,8 @@ def _triangulation_uncertainty_internal(slices,
 This is an internal piece of mrcal.triangulate(). It's available separately to
 allow the test suite to validate some of the internals.
 
-    if optimization_inputs is None and q_observation_stdev is None:
-        We're not propagating any noise. Just return the triangulated point
+if optimization_inputs is None and q_observation_stdev is None:
+    We're not propagating any noise. Just return the triangulated point
 
     '''
 
