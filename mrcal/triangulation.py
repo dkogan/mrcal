@@ -93,6 +93,9 @@ SYNOPSIS
     # the two cameras
     p = mrcal.triangulate_geometric( v0, v1, t01 )
 
+This is the lower-level triangulation routine. For a richer function that can be
+used to propagate uncertainties, see mrcal.triangulate()
+
 This function implements a very simple closest-approach-in-3D routine. It finds
 the point on each ray that's nearest to the other ray, and returns the mean of
 these two points. This is the "Mid" method in the paper
@@ -234,6 +237,9 @@ SYNOPSIS
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
     p = mrcal.triangulate_leecivera_l1( v0, v1, t01 )
+
+This is the lower-level triangulation routine. For a richer function that can be
+used to propagate uncertainties, see mrcal.triangulate()
 
 This function implements a triangulation routine minimizing the L1 norm of
 angular errors. This is described in
@@ -381,6 +387,9 @@ SYNOPSIS
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
     p = mrcal.triangulate_leecivera_linf( v0, v1, t01 )
+
+This is the lower-level triangulation routine. For a richer function that can be
+used to propagate uncertainties, see mrcal.triangulate()
 
 This function implements a triangulation routine minimizing the infinity norm of
 angular errors (it minimizes the larger of the two angle errors). This is
@@ -530,6 +539,9 @@ SYNOPSIS
     # the two cameras
     p = mrcal.triangulate_leecivera_mid2( v0, v1, t01 )
 
+This is the lower-level triangulation routine. For a richer function that can be
+used to propagate uncertainties, see mrcal.triangulate()
+
 This function implements the "Mid2" triangulation routine in
 
   "Triangulation: Why Optimize?", Seong Hun Lee and Javier Civera.
@@ -673,6 +685,9 @@ SYNOPSIS
     # the two cameras
     p = mrcal.triangulate_leecivera_wmid2( v0, v1, t01 )
 
+This is the lower-level triangulation routine. For a richer function that can be
+used to propagate uncertainties, see mrcal.triangulate()
+
 This function implements the "wMid2" triangulation routine in
 
   "Triangulation: Why Optimize?", Seong Hun Lee and Javier Civera.
@@ -814,6 +829,9 @@ SYNOPSIS
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
     p = mrcal.triangulate_lindstrom( v0, v1, Rt01 )
+
+This is the lower-level triangulation routine. For a richer function that can be
+used to propagate uncertainties, see mrcal.triangulate()
 
 This function implements a triangulation routine minimizing the 2-norm of
 reprojection errors, ASSUMING a pinhole projection. This is described in
