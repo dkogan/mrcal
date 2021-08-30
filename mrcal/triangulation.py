@@ -1461,6 +1461,168 @@ def triangulate( q,
                  method                          = triangulate_leecivera_mid2,
                  stabilize_coords                = True):
 
+    r'''Triangulate N points with uncertainty propagation
+
+SYNOPSIS
+
+    p,                  \
+    Var_p_calibration,  \
+    Var_p_observation,  \
+    Var_p_joint =       \
+        mrcal.triangulate( nps.cat(q0, q),
+                           (model0, model1),
+                           q_calibration_stdev             = q_calibration_stdev,
+                           q_observation_stdev             = q_observation_stdev,
+                           q_observation_stdev_correlation = q_observation_stdev_correlation )
+
+    # p is now the triangulated point, in camera0 coordinates. The uncertainties
+    # of p from different sources are returned in the Var_p_... arrays
+
+DESCRIPTION
+
+This is the interface to the triangulation computations described in
+http://mrcal.secretsauce.net/triangulation.html
+
+Let's say two cameras observe a point p in space. The pixel observations of this
+point in the two cameras are q0 and q1 respectively. If the two cameras are
+calibrated (both intrinsics and extrinsics), I can reconstruct the observed
+point p from the calibration and the two pixel observations. This is the
+"triangulation" operation implemented by this function.
+
+If the calibration and the pixel observations q0,q1 were perfect, computing the
+corresponding point p would be trivial: unproject q0 and q1, and find the
+intersection of the resulting rays. Since everything is perfect, the rays will
+intersect exactly at p.
+
+But in reality, both the calibration and the pixel observations are noisy. This
+function propagates these sources of noise through the triangulation, to produce
+covariance matrices of p.
+
+Two kinds of noise are propagated:
+
+- Calibration-time noise. This is the noise in the pixel observations of the
+  chessboard corners, propagated through the calibration to the triangulation
+  result. The normal use case is to calibrate once, and then use the same
+  calibration result many times. So each time we use a given calibration, we
+  have the same calibration-time noise, resulting in correlated errors between
+  each such triangulation operation. This is a source of bias: averaging many
+  different triangulation results will NOT push the errors to 0.
+
+  Here, only the calibration-time input noise is taken into account. Other
+  sources of calibration-time errors (bad input data, outliers, non-fitting
+  model) are ignored.
+
+  Furthermore, currently a vanilla calibration is assumed: both cameras in the
+  camera pair must have been calibrated together, and the cameras were not moved
+  in respect to each other after the calibration.
+
+- Observation-time noise. This is the noise in the pixel observations of the
+  point being propagated: q0, q1. Unlike the calibration-time noise, each sample
+  of observations (q0,q1) IS independent from every other sample. So if we
+  observe the same point p many times, this observation noise will average out.
+
+Both sources of noise are assumed normal with the noise on the x and y
+components of the observation being independent. The standard deviation of the
+noise is given by the q_calibration_stdev and q_observation_stdev arguments.
+Since q0 and q1 often arise from an image correlation operation, they are
+usually correlated with each other. It's not yet clear to me how to estimate
+this correlation, but it can be specified in this function with the
+q_observation_stdev_correlation argument:
+
+- q_observation_stdev_correlation = 0: the noise on q0 and q1 is independent
+- q_observation_stdev_correlation = 1: the noise on q0 and q1 is 100% correlated
+
+The (q0x,q1x) and (q0y,q1y) cross terms of the covariance matrix are
+(q_observation_stdev_correlation*q_observation_stdev)^2
+
+Since the distribution of the calibration-time input noise is given at
+calibration time, we can just use that distribution instead of specifying it
+again: pass q_calibration_stdev<0 to do that.
+
+COORDINATE STABILIZATION
+
+We're analyzing the effects of calibration-time noise. As with projection
+uncertainty, varying calibration-time noise affects the pose of the camera
+coordinate system in respect to the physical camera housing. So Var(p) in the
+camera coord system includes this coordinate-system fuzz, which is usually not
+something we want to include. To compensate for this fuzz pass
+stabilize_coords=True to return Var(p) in the physical camera housing coords.
+The underlying method is exactly the same as how this is done with projection
+uncertainty:
+
+  http://mrcal.secretsauce.net/uncertainty.html#propagating-through-projection
+
+BROADCASTING
+
+Broadcasting is fully supported on models and q. Each slice has 2 models and 2
+pixel observations (q0,q1). If multiple models and/or observation pairs are
+given, we compute the covariances with all the cross terms, so
+Var_p_calibration.size grows quadratically with the number of broadcasted slices.
+
+RETURN VALUES
+
+What we return depends on the input arguments. The general logic is:
+
+    if q_xxx_stdev is None:
+        don't propagate or return that source of uncertainty
+
+    if q_xxx_stdev == 0:
+        don't propagate that source of uncertainty, but return
+        Var_p_xxx = np.zeros(...)
+
+    if both q_xxx_stdev are not None:
+        we compute and report the two separate uncertainty components AND a
+        joint covariance combining the two
+
+If we need to return Var_p_calibration, it has shape (...,3, ...,3) where ... is
+the broadcasting shape. If a single triangulation is being performed, there's no
+broadcasting, and Var_p_calibration.shape = (3,3). This representation allows us
+to represent the correlated covariances (non-zero cross terms) that arise due to
+calibration-time uncertainty.
+
+If we need to return Var_p_observation, it has shape (...,3,3) where ... is the
+broadcasting shape. If a single triangulation is being performed, there's no
+broadcasting, and Var_p_observation.shape = (3,3). This representation is more
+compact than that for Var_p_calibration because it assumes independent
+covariances (zero cross terms) that result when propagating observation-time
+uncertainty.
+
+If we need to return Var_p_joint, it has shape (...,3, ...,3) where ... is the
+broadcasting shape. If a single triangulation is being performed, there's no
+broadcasting, and Var_p_joint.shape = (3,3). This representation allows us to
+represent the correlated covariances (non-zero cross terms) that arise due to
+calibration-time uncertainty.
+
+Complete logic:
+
+    if Var_p_calibration is None and
+       Var_p_observation is None:
+        # p.shape = (...,3)
+        return p
+
+    if Var_p_calibration is not None and
+       Var_p_observation is None:
+        # p.shape = (...,3)
+        # Var_p_calibration.shape = (...,3,...,3)
+        return p, Var_p_calibration
+
+    if Var_p_calibration is None and
+       Var_p_observation is not None:
+        # p.shape = (...,3)
+        # Var_p_observation.shape = (...,3,3)
+        return p, Var_p_observation
+
+    if Var_p_calibration is not None and
+       Var_p_observation is not None:
+        # p.shape = (...,3)
+        # Var_p_calibration.shape = (...,3,...,3)
+        # Var_p_observation.shape = (...,3,    3)
+        # Var_p_joint.shape       = (...,3,...,3)
+        return p, Var_p_calibration, Var_p_observation, Var_p_joint
+
+    '''
+
+
     # I'm propagating noise in the input vector
     #
     #   x = [q_cal q_obs0 q_obs1 q_obs2 ...]
