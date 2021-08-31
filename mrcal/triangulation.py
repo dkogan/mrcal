@@ -1707,6 +1707,9 @@ Complete logic:
                 if not models_flat[i0]._optimization_inputs_match(models_flat[i1]):
                     raise Exception("The optimization_inputs() for all of the given models must be identical")
 
+            if models_flat[i0]._extrinsics_moved_since_calibration():
+                raise Exception(f"The given models must have been fixed inside the initial calibration. Model {i0} has been moved")
+
         optimization_inputs = models_flat[0].optimization_inputs()
 
         if optimization_inputs is None:
