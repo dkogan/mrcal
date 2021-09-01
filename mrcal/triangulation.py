@@ -1010,6 +1010,8 @@ the benefit of the test
     dp_triangulated_dv0  = np.zeros( out.shape + (3,), dtype=float)
     dp_triangulated_dv1  = np.zeros( out.shape + (3,), dtype=float)
     dp_triangulated_dt01 = np.zeros( out.shape + (3,), dtype=float)
+    if method is mrcal.triangulate_lindstrom:
+        raise Exception("Triangulation gradients not supported (yet?) with method=triangulate_lindstrom. It has slightly different inputs and slightly different gradients")
     method(v0, v1, rt01[3:],
            out = (out,
                   dp_triangulated_dv0,
@@ -1074,6 +1076,9 @@ if optimization_inputs is None and q_observation_stdev is None:
         dp_triangulated_dv0  = np.zeros(out.shape + (3,), dtype=float)
         dp_triangulated_dv1  = np.zeros(out.shape + (3,), dtype=float)
         dp_triangulated_dt01 = np.zeros(out.shape + (3,), dtype=float)
+
+        if method is mrcal.triangulate_lindstrom:
+            raise Exception("Triangulation gradients not supported (yet?) with method=triangulate_lindstrom. It has slightly different inputs and slightly different gradients")
         method(v0, v1, rt01[3:],
                out = (out,
                       dp_triangulated_dv0,
