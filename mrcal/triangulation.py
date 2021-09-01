@@ -1703,6 +1703,11 @@ Complete logic:
        q_calibration_stdev != 0:
         # we're propagating calibration-time noise
 
+        optimization_inputs = models_flat[0].optimization_inputs()
+
+        if optimization_inputs is None:
+            raise Exception("optimization_inputs are not available, so I cannot propagate calibration-time noise")
+
         models_flat = models.ravel()
         for i0 in range(len(models_flat)):
             for i1 in range(i0):
@@ -1711,11 +1716,6 @@ Complete logic:
 
             if models_flat[i0]._extrinsics_moved_since_calibration():
                 raise Exception(f"The given models must have been fixed inside the initial calibration. Model {i0} has been moved")
-
-        optimization_inputs = models_flat[0].optimization_inputs()
-
-        if optimization_inputs is None:
-            raise Exception("optimization_inputs are not available, so I cannot propagate calibration-time noise")
 
         if q_calibration_stdev < 0:
             q_calibration_stdev = optimization_inputs['observed_pixel_uncertainty']
