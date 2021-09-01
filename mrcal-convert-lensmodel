@@ -240,8 +240,8 @@ if not args.sampled:
 
     optimization_inputs_before = copy.deepcopy(optimization_inputs)
 
-    stats = mrcal.optimize(**optimization_inputs,
-                           do_apply_outlier_rejection = True)
+    stats = mrcal.optimize(**optimization_inputs)
+
 
     # I pick the inlier set using the post-solve inliers/outliers. The solve
     # could add some outliers, but it won't take any away, so the union of the
