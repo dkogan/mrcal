@@ -1049,7 +1049,7 @@ if optimization_inputs is None and q_observation_stdev is None:
 
     '''
 
-    def triangulate_grad(models, q, out, method):
+    def _triangulate_grad(models, q, out, method):
 
         # Full path. Compute and return the gradients for most things
         rt_ref1,drt_ref1_drt_1ref = \
@@ -1321,9 +1321,9 @@ if optimization_inputs is None and q_observation_stdev is None:
             dp_triangulated_dv0,   \
             dp_triangulated_dv1,   \
             dp_triangulated_dt01 = \
-                triangulate_grad(models01, q,
-                                 out = p[ipt],
-                                 method = method)
+                _triangulate_grad(models01, q,
+                                  out = p[ipt],
+                                  method = method)
 
         # triangulation-time uncertainty
         if q_observation_stdev is not None:
