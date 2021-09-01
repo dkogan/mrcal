@@ -788,7 +788,9 @@ if get_gradients: we return a tuple:
         return mrcal._triangulation_npsp._triangulate_leecivera_wmid2_withgrad(v0, v1, t01, out=out)
 
 
-def triangulate_lindstrom(v0, v1, Rt01,
+def triangulate_lindstrom(v0, v1,
+                          # The other routines take t01 here
+                          Rt01,
                           get_gradients = False,
                           v_are_local   = True,
                           out           = None):
@@ -1705,7 +1707,7 @@ Complete logic:
         for i0 in range(len(models_flat)):
             for i1 in range(i0):
                 if not models_flat[i0]._optimization_inputs_match(models_flat[i1]):
-                    raise Exception("The optimization_inputs() for all of the given models must be identical")
+                    raise Exception("The optimization_inputs for all of the given models must be identical")
 
             if models_flat[i0]._extrinsics_moved_since_calibration():
                 raise Exception(f"The given models must have been fixed inside the initial calibration. Model {i0} has been moved")
