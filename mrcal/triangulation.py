@@ -1662,17 +1662,17 @@ Complete logic:
 
         @nps.broadcast_define(((2,2),(2,)), (3,))
         def triangulate_slice(q01, m01):
-            rt01 = \
-                mrcal.compose_rt(m01[0].extrinsics_rt_fromref(),
-                                 m01[1].extrinsics_rt_toref())
+            Rt01 = \
+                mrcal.compose_Rt(m01[0].extrinsics_Rt_fromref(),
+                                 m01[1].extrinsics_Rt_toref())
 
             # all the v have shape (3,)
             vlocal0 = mrcal.unproject(q01[0,:], *m01[0].intrinsics())
             vlocal1 = mrcal.unproject(q01[1,:], *m01[1].intrinsics())
 
-            v0 = vlocal0
-            v1 = mrcal.rotate_point_r(rt01[:3], vlocal1)
-            return method(v0, v1, rt01[3:])
+            return method(vlocal0, vlocal1,
+                          v_are_local = True,
+                          Rt01        = Rt01)
 
         p = triangulate_slice(q, models)
 
