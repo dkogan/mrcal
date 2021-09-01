@@ -233,9 +233,6 @@ import mrcal.utils
 import scipy.optimize
 import time
 
-print("## generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
-                                              ' '.join(mrcal.shellquote(s) for s in sys.argv)))
-
 
 if   args.method == 'geometric':       method = mrcal.triangulate_geometric
 elif args.method == 'lindstrom':       method = mrcal.triangulate_lindstrom
@@ -359,11 +356,35 @@ def compute_H10_planes(models, q0, v0, plane_n, plane_d):
 np.set_printoptions(precision = 2)
 
 
-
 if images is not None:
     images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in images]
 
 models = [mrcal.cameramodel(m) for m in args.models]
+
+if args.q_calibration_stdev is not None and \
+   args.q_calibration_stdev != 0:
+
+    optimization_inputs = models[0].optimization_inputs()
+
+    if optimization_inputs is None:
+        print("optimization_inputs are not available, so I cannot propagate calibration-time noise",
+              file=sys.stderr)
+        sys.exit(1)
+
+    if not models[0]._optimization_inputs_match(models[1]):
+        print("The optimization_inputs for both models must be identical",
+              file=sys.stderr)
+        sys.exit(1)
+
+    for i in (0,1):
+        if models[i]._extrinsics_moved_since_calibration():
+            print(f"The given models must have been fixed inside the initial calibration. Model {i} has been moved",
+                  file=sys.stderr)
+            sys.exit(1)
+
+print("## generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
+                                              ' '.join(mrcal.shellquote(s) for s in sys.argv)))
+
 v0_ref = mrcal.unproject(q0_ref, *models[0].intrinsics(), normalize = True)
 
 if q1_ref is not None:
