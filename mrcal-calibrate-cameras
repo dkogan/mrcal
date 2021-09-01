@@ -501,7 +501,7 @@ args.images = [os.path.expanduser(g) for g in args.images]
 
 Ncameras = len(args.images)
 if Ncameras > 10:
-    raise Exception("Got {} image globs. It should be one glob per camera, and this sounds like WAY too make cameras. Did you forget to escape your glob?". \
+    raise Exception("Got {} image globs. It should be one glob per camera, and this sounds like WAY too many cameras. Did you forget to escape your glob?". \
                     format(Ncameras))
 
 if args.pairs and Ncameras % 2:
