@@ -1559,6 +1559,11 @@ uncertainty:
 
   http://mrcal.secretsauce.net/uncertainty.html#propagating-through-projection
 
+In the usual case, the translation component of this extra transformation is
+negligible, but the rotation (even a small one) produces lateral uncertainty
+that isn't really there. Enabling stabilization usually reduces the size of the
+uncertainty ellipse in the lateral direction.
+
 BROADCASTING
 
 Broadcasting is fully supported on models and q. Each slice has 2 models and 2
@@ -1566,9 +1571,52 @@ pixel observations (q0,q1). If multiple models and/or observation pairs are
 given, we compute the covariances with all the cross terms, so
 Var_p_calibration.size grows quadratically with the number of broadcasted slices.
 
+ARGUMENTS
+
+- q: (..., 2,2) numpy array of pixel observations. Each broadcasted slice
+  describes a pixel observation from each of the two cameras
+
+- models: iterable of shape (..., 2). Complex shapes may be represented in a
+  numpy array of dtype=np.object. Each slice is a mrcal.cameramodel describing
+  the left and right cameras
+
+- q_calibration_stdev: optional value describing the calibration-time noise. If
+  omitted or None, we do not compute or return the uncertainty resulting from
+  this noise. The noise in the observations of chessboard corners is assumed to
+  be normal and independent for each corner and for the x and y components.
+  This is the same thing as the "observed_pixel_uncertainty" argument to
+  mrcal.optimize() and the corresponding key in the optimization_inputs dict. To
+  use the value in the dict, pass any q_calibration_stdev < 0
+
+- q_observation_stdev: optional value describing the observation-time noise. If
+  omitted or None, we do not compute or return the uncertainty resulting from
+  this noise. The noise in the observations is assumed to be normal and
+  independent for the x and y components
+
+- q_observation_stdev_correlation: optional value, describing the correlation
+  between the pair of pixel coordinates observing the same point in space. Since
+  q0 and q1 often arise from an image correlation operation, they are usually
+  correlated with each other. This argument linearly scales q_observation_stdev:
+  0 = "independent", 1 = "100% correlated". The default is 0
+
+- method: optional value selecting the triangulation method. This is one of the
+  mrcal.triangulate_... functions. If omitted, we select
+  mrcal.triangulate_leecivera_mid2. At this time, mrcal.triangulate_lindstrom is
+  usable only if we do not propagate any uncertainties
+
+- stabilize_coords: optional boolean, defaulting to True. We always return the
+  triangulated point in camera-0 coordinates. If we're propagating
+  calibration-time noise, then the origin of those coordinates moves around
+  inside the housing of the camera. Characterizing this extra motion is
+  generally not desired in Var_p_calibration. To compensate for this motion, and
+  return Var_p_calibration in the coordinate system of the HOUSING of camera-0,
+  pass stabilize_coords = True.
+
 RETURN VALUES
 
-What we return depends on the input arguments. The general logic is:
+We always return p: the coordinates of the triangulated point(s) in the camera-0
+coordinate system. Depending on the input arguments, we may also return
+uncertainties. The general logic is:
 
     if q_xxx_stdev is None:
         don't propagate or return that source of uncertainty
