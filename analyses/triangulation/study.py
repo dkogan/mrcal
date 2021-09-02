@@ -81,6 +81,7 @@ if False:
                     tuplesize = -2,
                     legend    = 'Ground truth')),
              square = True,
+             wait   = True,
              title  = 'Reprojected triangulated point')
 
 else:
