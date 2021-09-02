@@ -12,6 +12,8 @@ scriptdir = os.path.dirname(os.path.realpath(__file__))
 sys.path[:0] = f"{scriptdir}/../..",
 import mrcal
 
+sys.path[:0] = f"{scriptdir}/../../test",
+from test_calibration_helpers import plot_args_points_and_covariance_ellipse
 
 ############ bias visualization
 #
