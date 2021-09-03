@@ -572,16 +572,16 @@ else:
     print(f"## Reprojection error between intersection and q0: {mrcal.project(p0_ref, *models[0].intrinsics()) - q0_ref}pixels")
 
 
-    for what,var in ( ("Calibration", Var_p_calibration),
-                      ("Observation", Var_p_observation),
-                      ("Joint",       Var_p_joint)):
+    for what,var in ( ("calibration", Var_p_calibration),
+                      ("observation", Var_p_observation),
+                      ("joint",       Var_p_joint)):
 
         if var is not None:
             l,v = mrcal.utils._sorted_eig(var)
             # look at the least-confident direction
             sigma = np.sqrt(l[-1])
             v     = v[:,-1]
-            print(f"## {what}-time noise suggests worst confidence of sigma={sigma:.2f}m along {v}")
+            print(f"## Uncertainty propagation: {what}-time noise suggests worst confidence of sigma={sigma:.2f}m along {v}")
 
 
 
