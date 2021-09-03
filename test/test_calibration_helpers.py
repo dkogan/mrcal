@@ -11,7 +11,6 @@ import re
 testdir = os.path.dirname(os.path.realpath(__file__))
 sys.path[:0] = f"{testdir}/..",
 import mrcal
-import mrcal.utils
 
 def sample_dqref(observations,
                  pixel_uncertainty_stdev,
@@ -63,35 +62,6 @@ def grad(f, x, step=1e-6):
     # grad variable is in last dim
     Jflat = nps.mv(Jflat, 0, -1)
     return Jflat.reshape( Jflat.shape[:-1] + d.shape )
-
-
-def plot_arg_covariance_ellipse(q_mean, Var, what):
-
-    # if the variance is 0, the ellipse is infinitely small, and I don't even
-    # try to plot it. Gnuplot has the arguably-buggy behavior where drawing an
-    # ellipse with major_diam = minor_diam = 0 plots a nominally-sized ellipse.
-    if np.max(np.abs(Var)) == 0:
-        return None
-
-    l,v   = mrcal.utils._sorted_eig(Var)
-    l0,l1 = l
-    v0,v1 = nps.transpose(v)
-
-    major = np.sqrt(l0)
-    minor = np.sqrt(l1)
-
-    return \
-      (q_mean[0], q_mean[1], 2*major, 2*minor, 180./np.pi*np.arctan2(v0[1],v0[0]),
-       dict(_with='ellipses', tuplesize=5, legend=what))
-
-
-def plot_args_points_and_covariance_ellipse(q, what):
-    q_mean  = np.mean(q,axis=-2)
-    q_mean0 = q - q_mean
-    Var     = np.mean( nps.outer(q_mean0,q_mean0), axis=0 )
-    return ( plot_arg_covariance_ellipse(q_mean,Var, what),
-             ( q, dict(_with = 'points pt 6 ps 0.5',
-                         tuplesize = -2)) )
 
 
 def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,

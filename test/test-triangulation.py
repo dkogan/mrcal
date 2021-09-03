@@ -10,7 +10,7 @@ testdir = os.path.dirname(os.path.realpath(__file__))
 sys.path[:0] = f"{testdir}/..",
 import mrcal
 import testutils
-from test_calibration_helpers import grad,plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse
+from test_calibration_helpers import grad
 
 import scipy.optimize
 

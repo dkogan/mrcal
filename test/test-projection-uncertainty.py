@@ -155,7 +155,7 @@ import copy
 import numpy as np
 import numpysane as nps
 
-from test_calibration_helpers import plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse,calibration_baseline,calibration_sample
+from test_calibration_helpers import calibration_baseline,calibration_sample
 
 
 fixedframes = (args.fixed == 'frames')
@@ -810,8 +810,8 @@ def make_plot(icam, report_center_points = True, **kwargs):
     def make_tuple(*args): return args
 
     data_tuples = \
-        make_tuple(*plot_args_points_and_covariance_ellipse(q_sampled[:,icam,:], "Observed uncertainty"),
-                   plot_arg_covariance_ellipse(q_sampled_mean, Var_dq[icam], "Predicted uncertainty"),)
+        make_tuple(*mrcal.utils._plot_args_points_and_covariance_ellipse(q_sampled[:,icam,:], "Observed uncertainty"),
+                   mrcal.utils._plot_arg_covariance_ellipse(q_sampled_mean, Var_dq[icam], "Predicted uncertainty"),)
 
     if report_center_points:
         data_tuples += \

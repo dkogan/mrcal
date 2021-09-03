@@ -12,9 +12,6 @@ scriptdir = os.path.dirname(os.path.realpath(__file__))
 sys.path[:0] = f"{scriptdir}/../..",
 import mrcal
 
-sys.path[:0] = f"{scriptdir}/../../test",
-from test_calibration_helpers import plot_args_points_and_covariance_ellipse
-
 ############ bias visualization
 #
 # I simulate pixel noise, and see what that does to the triangulation. Play with
@@ -70,12 +67,12 @@ range_sampled_leecivera_wmid2 = nps.mag(p_sampled_leecivera_wmid2)
 
 if False:
     # Plot the reprojected pixel
-    gp.plot( *plot_args_points_and_covariance_ellipse( q0_sampled_geometric,      'geometric' ),
-             *plot_args_points_and_covariance_ellipse( q0_sampled_lindstrom,      'lindstrom' ),
-             *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_l1,   'lee-civera-l1' ),
-             *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_linf, 'lee-civera-linf' ),
-             *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_mid2, 'lee-civera-mid2' ),
-             *plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_wmid2,'lee-civera-wmid2' ),
+    gp.plot( *mrcal.utils._plot_args_points_and_covariance_ellipse( q0_sampled_geometric,      'geometric' ),
+             *mrcal.utils._plot_args_points_and_covariance_ellipse( q0_sampled_lindstrom,      'lindstrom' ),
+             *mrcal.utils._plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_l1,   'lee-civera-l1' ),
+             *mrcal.utils._plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_linf, 'lee-civera-linf' ),
+             *mrcal.utils._plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_mid2, 'lee-civera-mid2' ),
+             *mrcal.utils._plot_args_points_and_covariance_ellipse( q0_sampled_leecivera_wmid2,'lee-civera-wmid2' ),
              ( q0,
                dict(_with     = 'points pt 3 ps 2',
                     tuplesize = -2,
