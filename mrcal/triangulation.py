@@ -1756,12 +1756,13 @@ Complete logic:
        q_calibration_stdev != 0:
         # we're propagating calibration-time noise
 
+        models_flat = models.ravel()
+
         optimization_inputs = models_flat[0].optimization_inputs()
 
         if optimization_inputs is None:
             raise Exception("optimization_inputs are not available, so I cannot propagate calibration-time noise")
 
-        models_flat = models.ravel()
         for i0 in range(len(models_flat)):
             for i1 in range(i0):
                 if not models_flat[i0]._optimization_inputs_match(models_flat[i1]):
