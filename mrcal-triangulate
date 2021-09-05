@@ -124,6 +124,12 @@ def parse_args():
                         This is a value in [0,1] scaling the stdev. 0 means
                         "independent" (the default). 1.0 means "100%%
                         correlated".''')
+    parser.add_argument('--stabilize-coords',
+                        action = 'store_true',
+                        help='''If propagating calibration-time noise
+                        (--q-calibration-stdev > 0), we report the uncertainty
+                        ellipse in a stabilized coordinate system, compensating
+                        for the camera-0 coord system motion''')
     parser.add_argument('--method',
                         choices=( 'geometric',
                                   'lindstrom',
@@ -141,12 +147,15 @@ def parse_args():
                         accept only very good matches. A lower threshold may
                         still result in usable matches, but do interactively
                         check the feature-matcher results by passing
-                        --viz''')
+                        "--viz match"''')
     parser.add_argument('--viz',
-                        action='store_true',
-                        help='''If given, we visualize the feature-matcher results. This produces an
-                        interactive gnuplot window with 2 overlaid images: the
-                        larger image being searched and the transformed
+                        choices=('match', 'uncertainty'),
+                        help='''If given, we visualize either the
+                        feature-matcher results ("--viz match") or the
+                        uncertainty ellipse(s) ("--viz uncertainty"). By
+                        default, this produces an interactive gnuplot window.
+                        The feature-match visualization shows 2 overlaid images:
+                        the larger image being searched and the transformed
                         template, placed at its best-fitting location. Each
                         individual image can be hidden/shown by clicking on its
                         legend in the top-right of the plot. It's generally most
@@ -186,7 +195,12 @@ def parse_args():
                         feature in image0, and we search for the corresponding
                         feature in image1.''')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.viz is None:
+        args.viz = ''
+
+    return args
 
 args = parse_args()
 
@@ -428,7 +442,7 @@ else:
                             search_radius1   = args.search_radius,
                             template_size1   = args.template_size,
 
-                            visualize        = args.viz,
+                            visualize        = args.viz == 'match',
                             return_plot_args = True,
                             extratitle       = args.extratitle,
                             _set             = args.set,
@@ -457,6 +471,7 @@ if args.q_calibration_stdev is None and \
     p0_ref = \
         mrcal.triangulate( nps.cat(q0_ref, q1_ref),
                            models,
+                           stabilize_coords = args.stabilize_coords,
                            method = method )
 elif args.q_calibration_stdev is not None and \
      args.q_observation_stdev is None:
@@ -465,6 +480,7 @@ elif args.q_calibration_stdev is not None and \
         mrcal.triangulate( nps.cat(q0_ref, q1_ref),
                            models,
                            q_calibration_stdev = args.q_calibration_stdev,
+                           stabilize_coords    = args.stabilize_coords,
                            method              = method )
 elif args.q_calibration_stdev is None and \
      args.q_observation_stdev is not None:
@@ -474,6 +490,7 @@ elif args.q_calibration_stdev is None and \
                            models,
                            q_observation_stdev             = args.q_observation_stdev,
                            q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                           stabilize_coords                = args.stabilize_coords,
                            method                          = method )
 else:
     p0_ref,             \
@@ -485,6 +502,7 @@ else:
                            q_calibration_stdev             = args.q_calibration_stdev,
                            q_observation_stdev             = args.q_observation_stdev,
                            q_observation_stdev_correlation = args.q_observation_stdev_correlation,
+                           stabilize_coords                = args.stabilize_coords,
                            method                          = method )
 
 if nps.norm2(p0_ref) == 0:
@@ -572,16 +590,16 @@ else:
     print(f"## Reprojection error between intersection and q0: {mrcal.project(p0_ref, *models[0].intrinsics()) - q0_ref}pixels")
 
 
-    for what,var in ( ("calibration", Var_p_calibration),
-                      ("observation", Var_p_observation),
-                      ("joint",       Var_p_joint)):
+    for what,var in ( ("calibration-time", Var_p_calibration),
+                      ("observation-time", Var_p_observation),
+                      ("joint",            Var_p_joint)):
 
         if var is not None:
             l,v = mrcal.utils._sorted_eig(var)
             # look at the least-confident direction
             sigma = np.sqrt(l[-1])
             v     = v[:,-1]
-            print(f"## Uncertainty propagation: {what}-time noise suggests worst confidence of sigma={sigma:.2f}m along {v}")
+            print(f"## Uncertainty propagation: {what} noise suggests worst confidence of sigma={sigma:.2f}m along {v}")
 
 
 
@@ -720,12 +738,109 @@ if args.make_corrected_model1:
     models[1].write(sys.stdout)
 
 if args.viz:
-    if match_feature_diagnostics is None:
-        print("## WARNING: no feature matching was performed, so --viz does nothing")
+    import gnuplotlib as gp
+
+
+    if args.viz == 'match':
+        if match_feature_diagnostics is None:
+            print("## WARNING: no feature matching was performed, so not visualizing the feature-matching results")
+        else:
+            data_tuples, plot_options = match_feature_out[2:]
+
+            # don't plot the correlation map (the last plot data tuple)
+            gp.plot( *data_tuples[:-1], **plot_options,
+                     wait = args.hardcopy is None)
+
+    elif args.viz == 'uncertainty':
+
+        if Var_p_calibration is None and \
+           Var_p_observation is None and \
+           Var_p_joint       is None:
+
+            print("## WARNING: don't have any ellipses, so not visualizing them")
+
+        else:
+            def get__puv__R_uv_cam0(Rt01, p):
+                # I look at the epipolar plane, formed by the two camera positions and the
+                # triangulated points. I define an epipolar-plane-centered coordinate system
+                # uvn, where the first two coords are inside the plane, and the 3rd is normal. I
+                # define the transformation between cam0 and uvn coordinates as a rotation
+                # around the baseline.
+                axis  = Rt01[3,:].copy()
+                axis /= nps.mag(axis)
+
+                # rotating p around the axis should yield (..., ..., 0)
+                # Rodrigues rotation formula, rotating p around the axis by angle th
+                #   p cos(th) + cross(axis,p) sin(th) + axis inner(axis,p) (1-cos(th))
+                #
+                # I want p_rotated[2] = 0 ->
+                #   ((p - axis inner(axis,p)) cos(th) + cross(axis,p) sin(th))[2] = (-axis inner(axis,p))[2]
+                #
+                #  I have A cos(th) + B sin(th) = C
+                # -> A/magAB cos(th) + B/magAB sin(h) = C/magAB
+                #
+                # sin(th + ph) = sin(ph) cos(th) + cos(ph) sin(th)
+                # -> A/magAB = sin(ph), B/magAB = cos(ph), C/magAB = sin(th + ph)
+                A = p[2] - axis[2]*nps.inner(axis, p)
+                B = axis[0]*p[1]-axis[1]*p[0]
+                C = -axis[2] * nps.inner(axis,p)
+
+                ph = np.arctan2(A, B)
+                th = np.arcsin(C / np.sqrt(A*A + B*B)) - ph
+
+                c,s = np.cos(th),np.sin(th)
+                p_rotated = p*c + np.cross(axis,p)*s + axis*nps.inner(axis,p)*(1.-c)
+
+                # I have th in [-pi/2,pi/2], but it might actually be outside of
+                # that. I want p_rotated[1] > 0
+                if p_rotated[1] < 0:
+                    # Use the other solution of th. th+ph <- pi - (th+ph)
+                    th = np.pi - th - 2.*ph
+                    c,s = np.cos(th),np.sin(th)
+                    p_rotated = p*c + np.cross(axis,p)*s + axis*nps.inner(axis,p)*(1.-c)
+                if np.abs(p_rotated[2]) > 1e-6:
+                    raise Exception("Error computing p_rotated. This is probably a bug")
+                R_uvn_cam0 = np.eye(3)*c + skew_symmetric(axis)*s + nps.outer(axis, axis)*(1.-c)
+                return p_rotated[:2], R_uvn_cam0[:2,:]
+
+
+            # I want to plot the ellipse in uv coords. So I want to plot
+            # Var(R_uvn_cam0*p_cam0) = R_uv_cam0 Var(p_cam0) nps.transpose(R_uv_cam0)
+            p_uv,R_uv_cam0 = get__puv__R_uv_cam0(Rt01_ref, p0_ref)
+            plotargs = []
+            for what,var in ( ("Calibration-time", Var_p_calibration),
+                              ("Observation-time", Var_p_observation),
+                              ("Joint",            Var_p_joint)):
+                if var is None: continue
+
+                var = nps.matmult( R_uv_cam0,
+                                   var,
+                                   nps.transpose(R_uv_cam0) )
+
+                plotargs.append( \
+                    mrcal.utils._plot_arg_covariance_ellipse(p_uv, var,
+                                                             f"{what} noise") )
+
+            plot_options = dict(square = True,
+                                xlabel = 'Epipolar plane x (along the baseline) (m)',
+                                ylabel = 'Epipolar plane y (forward/back) (m)',
+                                title  = "Uncertainty propagation",
+                                wait   = args.hardcopy is None)
+
+            if args.extratitle:
+                plot_options['title'] += f": {args.extratitle}"
+
+            gp.add_plot_option(plot_options,
+                               _set       = args.set,
+                               unset      = args.unset,
+                               hardcopy   = args.hardcopy,
+                               terminal   = args.terminal,
+                               overwrite  = True)
+
+            gp.plot(*plotargs, **plot_options)
+
     else:
-        import gnuplotlib as gp
+        raise Exception("Unknown --viz arg. This is a bug")
 
-        data_tuples, plot_options = match_feature_out[2:]
 
-        # don't plot the correlation map (the last plot data tuple)
-        gp.plot( *data_tuples[:-1], **plot_options, wait=True)
+
