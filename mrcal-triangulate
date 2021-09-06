@@ -367,7 +367,8 @@ def compute_H10_planes(models, q0, v0, plane_n, plane_d):
 
 
 
-np.set_printoptions(precision = 2)
+np.set_printoptions(precision = 3,
+                    suppress  = True)
 
 
 if images is not None:
@@ -586,6 +587,7 @@ else:
 
     range_err_have = range0 - args.range_estimate
 
+    print(f"## Triangulated point at {p0_ref}; direction: {v0_ref}")
     print("## Range: {:.2f} m (error: {:.2f} m)".format(range0, range_err_have))
     print(f"## Reprojection error between intersection and q0: {mrcal.project(p0_ref, *models[0].intrinsics()) - q0_ref}pixels")
 
