@@ -49,6 +49,9 @@ differences:
 - This function is wrapped with numpysane_pywrap, so the arguments broadcast as
   expected
 
+A higher-level function mrcal.triangulate() is also available for higher-level
+analysis.
+
 """
 DOCS_WITHGRAD = r"""Internal {LONGNAME} triangulation routine (with gradients)
 
@@ -61,6 +64,9 @@ differences:
 
 - This function is wrapped with numpysane_pywrap, so the arguments broadcast as
   expected
+
+A higher-level function mrcal.triangulate() is also available for higher-level
+analysis.
 
 """
 BODY_SLICE =  r'''
