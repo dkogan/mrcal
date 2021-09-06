@@ -830,6 +830,3 @@ if args.viz:
 
     else:
         raise Exception("Unknown --viz arg. This is a bug")
-
-
-
