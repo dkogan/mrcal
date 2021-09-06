@@ -760,47 +760,21 @@ if args.viz:
             print("## WARNING: don't have any ellipses, so not visualizing them")
 
         else:
+
             def get__puv__R_uv_cam0(Rt01, p):
-                # I look at the epipolar plane, formed by the two camera positions and the
-                # triangulated points. I define an epipolar-plane-centered coordinate system
-                # uvn, where the first two coords are inside the plane, and the 3rd is normal. I
-                # define the transformation between cam0 and uvn coordinates as a rotation
-                # around the baseline.
-                axis  = Rt01[3,:].copy()
-                axis /= nps.mag(axis)
+                # I remap the point to the epipolar-plane-centered coords:
+                # - x: along the baseline
+                # - y: forward to the point
+                # - z: normal
+                x  = Rt01[3,:].copy()
+                x /= nps.mag(x)
+                y  = p.copy()
+                y -= nps.inner(x,y)*x
+                y /= nps.mag(y)
+                z  = np.cross(x,y)
 
-                # rotating p around the axis should yield (..., ..., 0)
-                # Rodrigues rotation formula, rotating p around the axis by angle th
-                #   p cos(th) + cross(axis,p) sin(th) + axis inner(axis,p) (1-cos(th))
-                #
-                # I want p_rotated[2] = 0 ->
-                #   ((p - axis inner(axis,p)) cos(th) + cross(axis,p) sin(th))[2] = (-axis inner(axis,p))[2]
-                #
-                #  I have A cos(th) + B sin(th) = C
-                # -> A/magAB cos(th) + B/magAB sin(h) = C/magAB
-                #
-                # sin(th + ph) = sin(ph) cos(th) + cos(ph) sin(th)
-                # -> A/magAB = sin(ph), B/magAB = cos(ph), C/magAB = sin(th + ph)
-                A = p[2] - axis[2]*nps.inner(axis, p)
-                B = axis[0]*p[1]-axis[1]*p[0]
-                C = -axis[2] * nps.inner(axis,p)
-
-                ph = np.arctan2(A, B)
-                th = np.arcsin(C / np.sqrt(A*A + B*B)) - ph
-
-                c,s = np.cos(th),np.sin(th)
-                p_rotated = p*c + np.cross(axis,p)*s + axis*nps.inner(axis,p)*(1.-c)
-
-                # I have th in [-pi/2,pi/2], but it might actually be outside of
-                # that. I want p_rotated[1] > 0
-                if p_rotated[1] < 0:
-                    # Use the other solution of th. th+ph <- pi - (th+ph)
-                    th = np.pi - th - 2.*ph
-                    c,s = np.cos(th),np.sin(th)
-                    p_rotated = p*c + np.cross(axis,p)*s + axis*nps.inner(axis,p)*(1.-c)
-                if np.abs(p_rotated[2]) > 1e-6:
-                    raise Exception("Error computing p_rotated. This is probably a bug")
-                R_uvn_cam0 = np.eye(3)*c + skew_symmetric(axis)*s + nps.outer(axis, axis)*(1.-c)
+                R_uvn_cam0 = nps.cat(x,y,z)
+                p_rotated = mrcal.rotate_point_R(R_uvn_cam0, p)
                 return p_rotated[:2], R_uvn_cam0[:2,:]
 
 
