@@ -14,8 +14,8 @@ SYNOPSIS
   ## Feature match found at [2916.51891391 1771.86593517]
   ## q1 - q1_perfect_at_range = [-1.43873946 -0.76196924]
   ## Range: 677.699 m (error: -192.301 m)
-  ## Reprojection error between intersection and q0: [5.62522473e-10 3.59364094e-09]pixels
-  ## Observed-pixel sensitivity: 103.641m/pixel. Worst direction: [1. 0.]. Linearized correction: 1.855 pixels
+  ## Reprojection error between triangulated point and q0: [5.62522473e-10 3.59364094e-09]pixels
+  ## Observed-pixel sensitivity: 103.641m/pixel (q1). Worst direction: [1. 0.]. Linearized correction: 1.855 pixels
   ## Calibration yaw sensitivity: -3760.702m/deg. Linearized correction: -0.051 degrees of yaw
   ## Calibration pitch sensitivity: 0.059m/deg.
   ## Calibration translation sensitivity: 319.484m/m. Worst direction: [1 0 0].
@@ -524,6 +524,11 @@ if nps.norm2( p0_ref - method( v0_ref, v1_ref,
 # containing the 2 cameras and the observed point
 nyaw = np.cross(p0_ref, Rt01_ref[3,:])
 nyaw /= nps.mag(nyaw)
+# I want nyaw to point in the same direction as the cam0 y axis, since that's
+# the nominal yaw axis
+if nyaw[1] < 0:
+    nyaw *= -1.
+
 # I also want to look at the pitch: the rotation around the baseline vector
 npitch = Rt01_ref[3,:] / nps.mag(Rt01_ref[3,:])
 
@@ -589,7 +594,7 @@ else:
 
     print(f"## Triangulated point at {p0_ref}; direction: {v0_ref}")
     print("## Range: {:.2f} m (error: {:.2f} m)".format(range0, range_err_have))
-    print(f"## Reprojection error between intersection and q0: {mrcal.project(p0_ref, *models[0].intrinsics()) - q0_ref}pixels")
+    print(f"## Reprojection error between triangulated point and q0: {mrcal.project(p0_ref, *models[0].intrinsics()) - q0_ref}pixels")
 
 
     for what,var in ( ("calibration-time", Var_p_calibration),
@@ -618,7 +623,7 @@ else:
         if rangeerr > rangeerr_worst_qerr:
             rangeerr_worst_qerr = rangeerr
             vq_worst_err        = vq
-    print("## Observed-pixel sensitivity: {:.2f}m/pixel. Worst direction: {}. Linearized correction: {:.2f} pixels ". \
+    print("## Observed-pixel sensitivity: {:.2f}m/pixel (q1). Worst direction: {}. Linearized correction: {:.2f} pixels". \
           format(rangeerr_worst_qerr/delta,
                  vq_worst_err,
                  -range_err_have/rangeerr_worst_qerr*delta ))
@@ -627,12 +632,22 @@ else:
     # worst-case rotation axis will be the yaw. This axis is the normal to the plane
     # containing the 2 cameras and the observed point
     delta = 1e-6
+
     r = get_range(r01err_yaw_axis = nyaw,
                   r01err_yaw      = delta * np.pi/180.)
     if r == 0:
         raise Exception("Sampled rays divergent")
     rangeerr_yaw = r - range0
-    print("## Calibration yaw sensitivity: {:.2f}m/deg. Linearized correction: {:.2f} degrees of yaw". \
+    print("## Calibration yaw (rotation in epipolar plane) sensitivity: {:.2f}m/deg. Linearized correction: {:.2f} degrees of yaw". \
+          format(rangeerr_yaw/delta,
+                 -range_err_have/rangeerr_yaw*delta))
+
+    r = get_range(r01err_yaw_axis = np.array((0., 1., 0.,)),
+                  r01err_yaw      = delta * np.pi/180.)
+    if r == 0:
+        raise Exception("Sampled rays divergent")
+    rangeerr_yaw = r - range0
+    print("## Calibration yaw (cam0 y axis)                sensitivity: {:.2f}m/deg. Linearized correction: {:.2f} degrees of yaw". \
           format(rangeerr_yaw/delta,
                  -range_err_have/rangeerr_yaw*delta))
 
@@ -642,7 +657,7 @@ else:
     if r == 0:
         raise Exception("Sampled rays divergent")
     rangeerr_pitch = r - range0
-    print("## Calibration pitch sensitivity: {:.2f}m/deg.".format(rangeerr_pitch/delta))
+    print("## Calibration pitch (tilt of epipolar plane) sensitivity: {:.2f}m/deg.".format(rangeerr_pitch/delta))
 
 
 
