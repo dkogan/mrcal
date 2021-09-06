@@ -226,12 +226,12 @@ if (args.plane_n is     None and args.plane_d is not None) or \
 import numpy as np
 
 if   all(type(x) is float for x in features):
-    q0_ref = np.array(features[:2], dtype=float)
-    q1_ref = np.array(features[2:], dtype=float)
+    q0 = np.array(features[:2], dtype=float)
+    q1 = np.array(features[2:], dtype=float)
     images = None
 elif all(type(x) is float for x in features[2:]):
-    q0_ref = np.array(features[2:], dtype=float)
-    q1_ref = None
+    q0 = np.array(features[2:], dtype=float)
+    q1 = None
     images = args.images_and_features[:2]
 else:
     print(f"Need exactly 4 positional arguments: either IMAGE0 IMAGE1 FEATURE0X FEATURE0Y or FEATURE0X FEATURE0Y FEATURE1X FEATURE1Y",
@@ -258,37 +258,39 @@ else:
     raise Exception("Getting here is a bug")
 
 
-def get_R_abn(n):
-    r'''Return a valid rotation matrix with the given n as the last column
-
-    n is assumed to be a normal vector: nps.norm2(n) = 1
-
-    Returns a rotation matrix where the 3rd column is the given vector n. The
-    first two vectors are arbitrary, but are guaranteed to produce a valid
-    rotation: RtR = I, det(R) = 1
-
-    '''
-
-    # arbitrary, but can't be exactly n
-    a = np.array((1., 0, 0, ))
-    proj = nps.inner(a, n)
-    if abs(proj) > 0.8:
-        # Any other orthogonal vector will do. If this projection was >
-        # 0.8, I'm guaranteed that all others will be smaller
-        a = np.array((0, 1., 0, ))
-        proj = nps.inner(a, n)
-
-    a -= proj*n
-    a /= nps.mag(a)
-    b = np.cross(n,a)
-    return nps.transpose(nps.cat(a,b,n))
-
-
 def compute_H10_planes(models, q0, v0, plane_n, plane_d):
 
     r'''Report a homography for two cameras observing a point on a plane
 
     v0 is assumed normalized'''
+
+    def get_R_abn(n):
+        r'''Return a valid rotation matrix with the given n as the last column
+
+        n is assumed to be a normal vector: nps.norm2(n) = 1
+
+        Returns a rotation matrix where the 3rd column is the given vector n. The
+        first two vectors are arbitrary, but are guaranteed to produce a valid
+        rotation: RtR = I, det(R) = 1
+
+        '''
+
+        # arbitrary, but can't be exactly n
+        a = np.array((1., 0, 0, ))
+        proj = nps.inner(a, n)
+        if abs(proj) > 0.8:
+            # Any other orthogonal vector will do. If this projection was >
+            # 0.8, I'm guaranteed that all others will be smaller
+            a = np.array((0, 1., 0, ))
+            proj = nps.inner(a, n)
+
+        a -= proj*n
+        a /= nps.mag(a)
+        b = np.cross(n,a)
+        return nps.transpose(nps.cat(a,b,n))
+
+
+
 
     Rt10 = mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
                              models[0].extrinsics_Rt_toref() )
@@ -400,16 +402,19 @@ if args.q_calibration_stdev is not None and \
 print("## generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                               ' '.join(mrcal.shellquote(s) for s in sys.argv)))
 
-v0_ref = mrcal.unproject(q0_ref, *models[0].intrinsics(), normalize = True)
+v0 = mrcal.unproject(q0, *models[0].intrinsics(), normalize = True)
 
-if q1_ref is not None:
-    print(f"## Using user-supplied feature match at {q1_ref}")
+Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+                         models[1].extrinsics_Rt_toref() )
+
+if q1 is not None:
+    print(f"## Using user-supplied feature match at {q1}")
     match_feature_diagnostics = None
 
 else:
     if args.plane_n is not None:
         H10 = compute_H10_planes(models,
-                                 q0_ref, v0_ref,
+                                 q0, v0,
                                  np.array(args.plane_n),
                                  args.plane_d)
     else:
@@ -417,8 +422,7 @@ else:
         # viewed head-on.
 
         # I compute the "mean" forward view of the cameras
-        Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                                 models[1].extrinsics_Rt_toref() )
+
         # "forward" for cam0 in cam0 coords
         n0 = np.array((0,0,1.))
         # "forward" for cam1 in cam0 coords
@@ -428,17 +432,17 @@ else:
         n /= nps.mag(n)
 
         # inner(n,k*v) = d
-        d = nps.inner(n, args.range_estimate*v0_ref)
+        d = nps.inner(n, args.range_estimate*v0)
         H10 = compute_H10_planes(models,
-                                 q0_ref, v0_ref,
+                                 q0, v0,
                                  n, d)
 
-    q1_perfect = mrcal.apply_homography(H10, q0_ref)
-    print(f"## Feature {q0_ref} in the left image corresponds to {q1_perfect} at {args.range_estimate}m")
+    q1_perfect = mrcal.apply_homography(H10, q0)
+    print(f"## Feature {q0} in the left image corresponds to {q1_perfect} at {args.range_estimate}m")
 
     match_feature_out = \
         mrcal.match_feature(*images,
-                            q0               = q0_ref,
+                            q0               = q0,
                             H10              = H10,
                             search_radius1   = args.search_radius,
                             template_size1   = args.template_size,
@@ -451,54 +455,51 @@ else:
                             hardcopy         = args.hardcopy,
                             terminal         = args.terminal)
 
-    q1_ref, match_feature_diagnostics = match_feature_out[:2]
+    q1, match_feature_diagnostics = match_feature_out[:2]
 
-    if q1_ref is None or \
+    if q1 is None or \
        match_feature_diagnostics['matchoutput_optimum_subpixel'] < args.corr_floor:
         print("## Feature-matching failed! Maybe increase the search radius?")
         sys.exit(1)
 
-    print(f"## Feature match found at {q1_ref}")
-    print(f"## q1 - q1_perfect_at_range = {q1_ref - q1_perfect}")
-
-Rt01_ref = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                             models[1].extrinsics_Rt_toref() )
+    print(f"## Feature match found at {q1}")
+    print(f"## q1 - q1_perfect_at_range = {q1 - q1_perfect}")
 
 Var_p_calibration = None
 Var_p_observation = None
 Var_p_joint       = None
 if args.q_calibration_stdev is None and \
    args.q_observation_stdev is None:
-    p0_ref = \
-        mrcal.triangulate( nps.cat(q0_ref, q1_ref),
+    p0 = \
+        mrcal.triangulate( nps.cat(q0, q1),
                            models,
                            stabilize_coords = args.stabilize_coords,
                            method = method )
 elif args.q_calibration_stdev is not None and \
      args.q_observation_stdev is None:
-    p0_ref,             \
+    p0,             \
     Var_p_calibration = \
-        mrcal.triangulate( nps.cat(q0_ref, q1_ref),
+        mrcal.triangulate( nps.cat(q0, q1),
                            models,
                            q_calibration_stdev = args.q_calibration_stdev,
                            stabilize_coords    = args.stabilize_coords,
                            method              = method )
 elif args.q_calibration_stdev is None and \
      args.q_observation_stdev is not None:
-    p0_ref,             \
+    p0,             \
     Var_p_observation = \
-        mrcal.triangulate( nps.cat(q0_ref, q1_ref),
+        mrcal.triangulate( nps.cat(q0, q1),
                            models,
                            q_observation_stdev             = args.q_observation_stdev,
                            q_observation_stdev_correlation = args.q_observation_stdev_correlation,
                            stabilize_coords                = args.stabilize_coords,
                            method                          = method )
 else:
-    p0_ref,             \
+    p0,             \
     Var_p_calibration,  \
     Var_p_observation,  \
     Var_p_joint = \
-        mrcal.triangulate( nps.cat(q0_ref, q1_ref),
+        mrcal.triangulate( nps.cat(q0, q1),
                            models,
                            q_calibration_stdev             = args.q_calibration_stdev,
                            q_observation_stdev             = args.q_observation_stdev,
@@ -506,31 +507,31 @@ else:
                            stabilize_coords                = args.stabilize_coords,
                            method                          = method )
 
-if nps.norm2(p0_ref) == 0:
+if nps.norm2(p0) == 0:
     raise Exception("Baseline divergent")
 
 # I use the lower-level triangulation function further on, for the empirical
 # sensitivity calculation. I call it here as a sanity check, to make sure that
 # mrcal.triangulate() gave me the same thing
-v1_ref = mrcal.unproject(q1_ref, *models[1].intrinsics())
+v1 = mrcal.unproject(q1, *models[1].intrinsics())
 
-if nps.norm2( p0_ref - method( v0_ref, v1_ref,
-                               Rt01        = Rt01_ref,
-                               v_are_local = True) ) > 1e-6:
+if nps.norm2( p0 - method( v0, v1,
+                           Rt01        = Rt01,
+                           v_are_local = True) ) > 1e-6:
     print("## WARNING: mrcal.triangulate() returned something different from the internal routine. This is a bug. The empirical sensitivities may be off")
 
 
 # worst-case rotation axis will be the yaw. This axis is the normal to the plane
 # containing the 2 cameras and the observed point
-nyaw = np.cross(p0_ref, Rt01_ref[3,:])
-nyaw /= nps.mag(nyaw)
-# I want nyaw to point in the same direction as the cam0 y axis, since that's
+n_epipolar_plane = np.cross(p0, Rt01[3,:])
+n_epipolar_plane /= nps.mag(n_epipolar_plane)
+# I want n_epipolar_plane to point in the same direction as the cam0 y axis, since that's
 # the nominal yaw axis
-if nyaw[1] < 0:
-    nyaw *= -1.
+if n_epipolar_plane[1] < 0:
+    n_epipolar_plane *= -1.
 
 # I also want to look at the pitch: the rotation around the baseline vector
-npitch = Rt01_ref[3,:] / nps.mag(Rt01_ref[3,:])
+v_pitch = Rt01[3,:] / nps.mag(Rt01[3,:])
 
 
 def skew_symmetric(v):
@@ -556,7 +557,7 @@ def get_rt10_perturbed( t01err            = np.array((0,0,0)),
         Rpitch = np.eye(3) + np.sin(r01err_pitch) * K + (1. - np.cos(r01err_pitch))*nps.matmult(K,K)
         R = nps.matmult(R, Rpitch)
 
-    rt10 = mrcal.rt_from_Rt( mrcal.compose_Rt(mrcal.invert_Rt(Rt01_ref),
+    rt10 = mrcal.rt_from_Rt( mrcal.compose_Rt(mrcal.invert_Rt(Rt01),
                                               nps.glue(R, np.zeros((3,)), axis=-2)))
     rt10[3:] -= t01err
     return rt10
@@ -565,13 +566,10 @@ def get_world_intersection_point(qerr1 = np.array((0,0)),
                                  **kwargs):
 
     rt10 = get_rt10_perturbed(**kwargs)
-    Rt10 = mrcal.Rt_from_rt(rt10)
-    Rt01 = mrcal.invert_Rt(Rt10)
+    v1 = mrcal.unproject(q1 + qerr1, *models[1].intrinsics())
 
-    v1 = mrcal.unproject(q1_ref + qerr1, *models[1].intrinsics())
-
-    return method( v0_ref, v1,
-                   Rt01        = Rt01,
+    return method( v0, v1,
+                   Rt01        = mrcal.invert_Rt( mrcal.Rt_from_rt(rt10) ),
                    v_are_local = True)
 
 def get_range(**kwargs):
@@ -592,9 +590,9 @@ else:
 
     range_err_have = range0 - args.range_estimate
 
-    print(f"## Triangulated point at {p0_ref}; direction: {v0_ref}")
+    print(f"## Triangulated point at {p0}; direction: {v0}")
     print("## Range: {:.2f} m (error: {:.2f} m)".format(range0, range_err_have))
-    print(f"## Reprojection error between triangulated point and q0: {mrcal.project(p0_ref, *models[0].intrinsics()) - q0_ref}pixels")
+    print(f"## Reprojection error between triangulated point and q0: {mrcal.project(p0, *models[0].intrinsics()) - q0}pixels")
 
 
     for what,var in ( ("calibration-time", Var_p_calibration),
@@ -633,7 +631,7 @@ else:
     # containing the 2 cameras and the observed point
     delta = 1e-6
 
-    r = get_range(r01err_yaw_axis = nyaw,
+    r = get_range(r01err_yaw_axis = n_epipolar_plane,
                   r01err_yaw      = delta * np.pi/180.)
     if r == 0:
         raise Exception("Sampled rays divergent")
@@ -652,7 +650,7 @@ else:
                  -range_err_have/rangeerr_yaw*delta))
 
     # I also want to look at the pitch
-    r = get_range(r01err_pitch_axis = npitch,
+    r = get_range(r01err_pitch_axis = v_pitch,
                   r01err_pitch      = delta * np.pi/180.)
     if r == 0:
         raise Exception("Sampled rays divergent")
@@ -688,9 +686,9 @@ else:
 # correct the y shift in the image.
 def get_range_err_yaw_pitch_sq(dyawdpitch):
 
-    p = get_world_intersection_point(r01err_yaw_axis   = nyaw,
+    p = get_world_intersection_point(r01err_yaw_axis   = n_epipolar_plane,
                                      r01err_yaw        = dyawdpitch[0],
-                                     r01err_pitch_axis = npitch,
+                                     r01err_pitch_axis = v_pitch,
                                      r01err_pitch      = dyawdpitch[1])
 
     r = nps.mag(p)
@@ -699,7 +697,7 @@ def get_range_err_yaw_pitch_sq(dyawdpitch):
         # very large
         return 1e6
     erange        = r - args.range_estimate
-    ereprojection = mrcal.project(p, *models[0].intrinsics()) - q0_ref
+    ereprojection = mrcal.project(p, *models[0].intrinsics()) - q0
 
     # The range errors are generally much higher than pixel errors, so I scale
     # these. Nothing about any of this is particularly principled, but it is
@@ -737,12 +735,12 @@ else:
 
 if dyawdpitch is not None:
     dyaw,dpitch = scipy.optimize.minimize(get_range_err_yaw_pitch_sq, dyawdpitch).x
-    print("## Optimized yaw correction   = {:.2f} degrees".format(dyaw/np.pi*180))
-    print("## Optimized pitch correction = {:.2f} degrees".format(dpitch/np.pi*180))
+    print("## Optimized yaw   (rotation in epipolar plane) correction = {:.2f} degrees".format(dyaw/np.pi*180))
+    print("## Optimized pitch (tilt of epipolar plane)     correction = {:.2f} degrees".format(dpitch/np.pi*180))
 
-    rt10 = get_rt10_perturbed(r01err_yaw_axis   = nyaw,
+    rt10 = get_rt10_perturbed(r01err_yaw_axis   = n_epipolar_plane,
                               r01err_yaw        = dyaw,
-                              r01err_pitch_axis = npitch,
+                              r01err_pitch_axis = v_pitch,
                               r01err_pitch      = dpitch)
     print("## Optimized relative yaw (1 <- 0): {:.2f} degrees".format(rt10[1] * 180./np.pi))
 
@@ -797,7 +795,7 @@ if args.viz:
 
             # I want to plot the ellipse in uv coords. So I want to plot
             # Var(R_uvn_cam0*p_cam0) = R_uv_cam0 Var(p_cam0) nps.transpose(R_uv_cam0)
-            p_uv,R_uv_cam0 = get__puv__R_uv_cam0(Rt01_ref, p0_ref)
+            p_uv,R_uv_cam0 = get__puv__R_uv_cam0(Rt01, p0)
             plotargs = []
             for what,var in ( ("Calibration-time", Var_p_calibration),
                               ("Observation-time", Var_p_observation),
