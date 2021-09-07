@@ -71,7 +71,7 @@ def parse_args():
                         type=str,
                         default='5,inf',
                         help='''Comma-separated list of distance where we test the uncertainty predictions.
-                        Numbers an "inf" understood. The first value on this
+                        Numbers and "inf" understood. The first value on this
                         list is used for visualization in --show-distribution''')
     parser.add_argument('--do-sample',
                         action='store_true',
