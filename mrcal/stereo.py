@@ -953,9 +953,10 @@ RETURNED VALUES
 
 def match_feature( image0, image1,
                    q0,
-                   H10,
                    search_radius1,
                    template_size1,
+                   q1_estimate      = None,
+                   H10              = None,
                    method           = None,
                    visualize        = False,
                    extratitle       = None,
@@ -1007,7 +1008,7 @@ SYNOPSIS
     q1, diagnostics = \
         mrcal.match_feature( image0, image1,
                              q0,
-                             H10,
+                             H10            = H10,
                              search_radius1 = 200,
                              template_size1 = 17 )
 
@@ -1052,10 +1053,10 @@ The H10 homography estimate is used in two separate ways:
 
    q1_estimate = mrcal.apply_homography(H10, q0)
 
-A common use case is to pass a translation-only homography. This avoids any
-image transformation, but does select a q1_estimate. So if we want to find the
-corresponding q1 for a given q0, with a q1_estimate, and without an image
-transformation, pass in
+A common use case is a translation-only homography. This avoids any image
+transformation, but does select a q1_estimate. This special case is supported by
+this function accepting a q1_estimate argument instead of H10. Equivalently, a
+full translation-only homography may be passed in:
 
   H10 = np.array((( 1., 0., q1_estimate[0]-q0[0]),
                   ( 0., 1., q1_estimate[1]-q0[1]),
@@ -1120,14 +1121,22 @@ ARGUMENTS
 - q0: a numpy array of shape (2,) representing the pixel coordinate in image0
   for which we seek a correspondence in image1
 
-- H10: the homography mapping q0 to q1 in the vicinity of the match
-
 - search_radius1: integer selecting the search window size, in image1 pixels
 
 - template_size1: an integer width or an iterable (width,height) describing the
   size of the template used for matching. If an integer width is given, we use
   (width,width). This is given in image1 coordinates, even though the template
   itself comes from image0
+
+- q1_estimate: optional numpy array of shape (2,) representing the pixel
+  coordinate in image1, which is our rough estimate for the camera1 observation
+  of the q0 observation in image0. If omitted, H10 specifies the initial
+  estimate. Exactly one of (q1_estimate,H10) must be given
+
+- H10: optional numpy array of shape (3,3) containing the homography mapping q0
+  to q1 in the vicinity of the match. If omitted, we assume a translation-only
+  homography mapping q0 to q1_estimate. Exactly one of (q1_estimate,H10) must be
+  given
 
 - method: optional constant, selecting the correlation function used in the
   template comparison. If omitted or None, we default to normalized
@@ -1206,6 +1215,44 @@ data_tuples, plot_options. The plot can then be made with gp.plot(*data_tuples,
 
     template_size1 = np.array(template_size1, dtype=int)
 
+    if image0.ndim != 2:
+        raise Exception("match_feature() accepts ONLY grayscale images of shape (H,W)")
+
+    if image1.ndim != 2:
+        raise Exception("match_feature() accepts ONLY grayscale images of shape (H,W)")
+
+    if (H10 is      None and q1_estimate is     None) or \
+       (H10 is not  None and q1_estimate is not None):
+        raise Exception("Exactly one of (q1_estimate,H10) must be given")
+
+    q0 = q0.astype(np.float32)
+
+    if H10 is None:
+        H10 = np.array((( 1., 0., q1_estimate[0]-q0[0]),
+                        ( 0., 1., q1_estimate[1]-q0[1]),
+                        ( 0., 0., 1.)), dtype=np.float32)
+        q1_estimate = q1_estimate.astype(np.float32)
+    else:
+        H10 = H10.astype(np.float32)
+        q1_estimate = mrcal.apply_homography(H10, q0)
+
+    # I default to normalized cross-correlation. The method arg defaults to None
+    # instead of cv2.TM_CCORR_NORMED so that I don't need to import cv2, unless
+    # the user actually calls this function
+    import cv2
+    if method is None:
+        method = cv2.TM_CCORR_NORMED
+
+    ################### BUILD TEMPLATE
+    # I construct the template I'm searching for. This is a slice of image0 that
+    # is
+    # - centered at the given q0
+    # - remapped using the homography to correct for the geometric
+    #   differences in the two images
+
+    q1_template_min = np.round(q1_estimate - (template_size1-1.)/2.).astype(int)
+    q1_template_max = q1_template_min + template_size1 - 1 # last pixel
+
 
     def checkdims(image_shape, what, *qall):
         for q in qall:
@@ -1217,36 +1264,6 @@ data_tuples, plot_options. The plot can then be made with gp.plot(*data_tuples,
                 raise Exception(f"Too close to the right edge in {what} ")
             if q[1] >= image_shape[0]:
                 raise Exception(f"Too close to the bottom edge in {what} ")
-
-
-    import cv2
-
-    if image0.ndim != 2:
-        raise Exception("match_feature() accepts ONLY grayscale images of shape (H,W)")
-
-    if image1.ndim != 2:
-        raise Exception("match_feature() accepts ONLY grayscale images of shape (H,W)")
-
-    # I default to normalized cross-correlation. The method arg defaults to None
-    # instead of cv2.TM_CCORR_NORMED so that I don't need to import cv2, unless
-    # the user actually calls this function
-    if method is None:
-        method = cv2.TM_CCORR_NORMED
-
-    H10            = H10.astype(np.float32)
-    q0             = q0 .astype(np.float32)
-
-    ################### BUILD TEMPLATE
-    # I construct the template I'm searching for. This is a slice of image0 that
-    # is
-    # - centered at the given q0
-    # - remapped using the homography to correct for the geometric
-    #   differences in the two images
-
-    q1_estimate = mrcal.apply_homography(H10, q0)
-
-    q1_template_min = np.round(q1_estimate - (template_size1-1.)/2.).astype(int)
-    q1_template_max = q1_template_min + template_size1 - 1 # last pixel
 
     checkdims( image1.shape,
                "image1",
