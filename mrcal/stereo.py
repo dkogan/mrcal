@@ -1177,11 +1177,6 @@ We return a tuple:
 
   - matchoutput_image: the matchoutput array computed by cv2.matchTemplate()
 
-  - matchoutput_optimum_at: the integer pixel coordinate of the optimum in the
-    matchoutput_image
-
-  - matchoutput_optimum: the value of the optimum in the matchoutput image
-
   - matchoutput_optimum_subpixel_at: the subpixel-refined coordinate of the
     optimum in the matchoutput image
 
@@ -1315,9 +1310,7 @@ data_tuples, plot_options. The plot can then be made with gp.plot(*data_tuples,
         np.array( np.unravel_index(matchoutput_optimum_flatindex,
                                    matchoutput.shape) )[(-1,-2),]
     diagnostics = \
-        dict(matchoutput_image      = matchoutput,
-             matchoutput_optimum_at = q1_cut.copy(),
-             matchoutput_optimum    = matchoutput_optimum)
+        dict(matchoutput_image = matchoutput)
 
     ###################### SUBPIXEL INTERPOLATION
     # I fit a simple quadratic surface to the 3x3 points around the discrete
