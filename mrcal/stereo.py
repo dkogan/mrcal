@@ -1165,7 +1165,7 @@ We return a tuple:
 
 - q1: a numpy array of shape (2,): the pixel coordinate in image1 corresponding
   to the given q0. If the computation fails in some data-dependent way, this
-  value is None (instead of raising an Exception)
+  value is None
 
 - diagnostics: a dict containing diagnostics that describe the match. keys:
 
