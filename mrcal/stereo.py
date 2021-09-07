@@ -201,6 +201,10 @@ direction in rectified coordinates.
     if pixels_per_deg_el == 0:
         raise Exception("pixels_per_deg_el == 0 is illegal. Must be >0 if we're trying to specify a value, or <0 to autodetect")
 
+    if az_fov_deg is None or el_fov_deg is None or \
+       az_fov_deg <= 0.   or el_fov_deg <= 0.:
+        raise Exception("az_fov_deg, el_fov_deg must be > 0. No auto-detection implemented yet")
+
     ######## Compute the geometry of the rectified stereo system. This is a
     ######## rotation, centered at camera0. More or less we have axes:
     ########
