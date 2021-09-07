@@ -636,7 +636,7 @@ else:
     if r == 0:
         raise Exception("Sampled rays divergent")
     rangeerr_yaw = r - range0
-    print("## Calibration yaw (rotation in epipolar plane) sensitivity: {:.2f}m/deg. Linearized correction: {:.2f} degrees of yaw". \
+    print("## Calibration yaw (rotation in epipolar plane) sensitivity: {:.2f}m/deg. Linearized correction: {:.3f} degrees of yaw". \
           format(rangeerr_yaw/delta,
                  -range_err_have/rangeerr_yaw*delta))
 
@@ -645,7 +645,7 @@ else:
     if r == 0:
         raise Exception("Sampled rays divergent")
     rangeerr_yaw = r - range0
-    print("## Calibration yaw (cam0 y axis)                sensitivity: {:.2f}m/deg. Linearized correction: {:.2f} degrees of yaw". \
+    print("## Calibration yaw (cam0 y axis)                sensitivity: {:.2f}m/deg. Linearized correction: {:.3f} degrees of yaw". \
           format(rangeerr_yaw/delta,
                  -range_err_have/rangeerr_yaw*delta))
 
@@ -735,14 +735,14 @@ else:
 
 if dyawdpitch is not None:
     dyaw,dpitch = scipy.optimize.minimize(get_range_err_yaw_pitch_sq, dyawdpitch).x
-    print("## Optimized yaw   (rotation in epipolar plane) correction = {:.2f} degrees".format(dyaw/np.pi*180))
-    print("## Optimized pitch (tilt of epipolar plane)     correction = {:.2f} degrees".format(dpitch/np.pi*180))
+    print("## Optimized yaw   (rotation in epipolar plane) correction = {:.3f} degrees".format(dyaw/np.pi*180))
+    print("## Optimized pitch (tilt of epipolar plane)     correction = {:.3f} degrees".format(dpitch/np.pi*180))
 
     rt10 = get_rt10_perturbed(r01err_yaw_axis   = n_epipolar_plane,
                               r01err_yaw        = dyaw,
                               r01err_pitch_axis = v_pitch,
                               r01err_pitch      = dpitch)
-    print("## Optimized relative yaw (1 <- 0): {:.2f} degrees".format(rt10[1] * 180./np.pi))
+    print("## Optimized relative yaw (1 <- 0): {:.3f} degrees".format(rt10[1] * 180./np.pi))
 
 if args.make_corrected_model1:
     if dyaw is None:
