@@ -1177,13 +1177,13 @@ We return a tuple:
 
   - matchoutput_image: the matchoutput array computed by cv2.matchTemplate()
 
-  - matchoutput_optimum_at: the integer pixel of the optimum in the
+  - matchoutput_optimum_at: the integer pixel coordinate of the optimum in the
     matchoutput_image
 
   - matchoutput_optimum: the value of the optimum in the matchoutput image
 
-  - matchoutput_optimum_subpixel_at: the subpixel-refined coordinate of the optimum
-    in the matchoutput image
+  - matchoutput_optimum_subpixel_at: the subpixel-refined coordinate of the
+    optimum in the matchoutput image
 
   - matchoutput_optimum_subpixel: the value of the subpixel-refined optimum in the
     matchoutput_image
