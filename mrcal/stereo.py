@@ -1110,9 +1110,6 @@ ARGUMENTS
   transformed using the H10 homography to produce the matching template. This is
   interpreted as a grayscale image: 2-dimensional numpy array
 
-
-
-
 - image1: the second image to use in the matching. This image is not
   transformed, but cropped to accomodate the given template size and search
   radius. We use this image as the base to compare the template against. The
