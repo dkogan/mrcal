@@ -1009,7 +1009,7 @@ SYNOPSIS
                              q0,
                              H10,
                              search_radius1 = 200,
-                             template_size1 = (17,17) )
+                             template_size1 = 17 )
 
 This function wraps the OpenCV cv2.matchTemplate() function to provide
 additional functionality. The big differences are
@@ -1041,7 +1041,7 @@ appropriate filters.
 
 All inputs and outputs use the (x,y) convention normally utilized when talking
 about images; NOT the (y,x) convention numpy uses to talk about matrices. So
-template_size1 is (width,height).
+template_size1 is specified as (width,height).
 
 The H10 homography estimate is used in two separate ways:
 
@@ -1065,7 +1065,7 @@ The top-level logic of this function:
 
 1. q1_estimate = mrcal.apply_homography(H10, q0)
 
-2. Select a region in image1, centered at q1_estimate, with dimensions
+2. Select a region in image1, centered at q1_estimate, with dimensions given in
    template_size1
 
 3. Transform this region to image0, using H10. The resulting transformed image
@@ -1124,9 +1124,10 @@ ARGUMENTS
 
 - search_radius1: integer selecting the search window size, in image1 pixels
 
-- template_size1: the (width,height) iterable describing the size of the
-  template used for matching. This is given in image1 coordinates, even though
-  the template itself comes from image0
+- template_size1: an integer width or an iterable (width,height) describing the
+  size of the template used for matching. If an integer width is given, we use
+  (width,width). This is given in image1 coordinates, even though the template
+  itself comes from image0
 
 - method: optional constant, selecting the correlation function used in the
   template comparison. If omitted or None, we default to normalized
@@ -1190,7 +1191,21 @@ We return a tuple:
 If visualize and return_plot_args: we return two more elements in the tuple:
 data_tuples, plot_options. The plot can then be made with gp.plot(*data_tuples,
 **plot_options).
+
     '''
+    try:
+        N = len(template_size1)
+    except:
+        N = 2
+        template_size1 = (template_size1, template_size1)
+    if N != 2:
+        raise Exception(f"template_size1 must be an interable of length 2 OR a scalar. Got an iterable of length {N}")
+    for i in range(2):
+        if not (isinstance(template_size1[i], int) and template_size1[i] > 0):
+            raise Exception(f"Each element of template_size1 must be an integer > 0. Got {template_size1[i]}")
+
+    template_size1 = np.array(template_size1, dtype=int)
+
 
     def checkdims(image_shape, what, *qall):
         for q in qall:
@@ -1202,7 +1217,6 @@ data_tuples, plot_options. The plot can then be made with gp.plot(*data_tuples,
                 raise Exception(f"Too close to the right edge in {what} ")
             if q[1] >= image_shape[0]:
                 raise Exception(f"Too close to the bottom edge in {what} ")
-
 
 
     import cv2
@@ -1221,7 +1235,6 @@ data_tuples, plot_options. The plot can then be made with gp.plot(*data_tuples,
 
     H10            = H10.astype(np.float32)
     q0             = q0 .astype(np.float32)
-    template_size1 = np.array(template_size1)
 
     ################### BUILD TEMPLATE
     # I construct the template I'm searching for. This is a slice of image0 that
