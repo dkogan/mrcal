@@ -3745,9 +3745,8 @@ bool markOutliers(// output, input
     // extra points: all points worse than the lower threshold. This serves to
     // reduce the required re-optimizations
 
-    // threshold. +- 3sigma includes 99.7% of the data in a normal distribution
-    const double k0 = 3.0;
-    const double k1 = 3.5;
+    const double k0 = 4.0;
+    const double k1 = 5.0;
     *Noutliers = 0;
 
     int i_pt,i_feature;
@@ -3785,9 +3784,9 @@ bool markOutliers(// output, input
 
         double dx = x_measurements[2*i_feature + 0];
         double dy = x_measurements[2*i_feature + 1];
-
-        var += *weight * (dx*dx + dy*dy);
-        sum_weight += *weight;
+        double w2 = (*weight)*(*weight);
+        var += w2 * (dx*dx + dy*dy);
+        sum_weight += w2;
     }
     LOOP_FEATURE_END();
     var /= (2.*sum_weight);
@@ -3800,17 +3799,21 @@ bool markOutliers(// output, input
 
         double dx = x_measurements[2*i_feature + 0];
         double dy = x_measurements[2*i_feature + 1];
-        if(dx*dx > k1*k1*var ||
-           dy*dy > k1*k1*var )
+        // I have sigma = sqrt(var). Outliers have w*abs(x) > k*sigma
+        // -> w^2 x^2 > k^2 var
+        double w2 = (*weight)*(*weight);
+        if(w2*dx*dx > k1*k1*var ||
+           w2*dy*dy > k1*k1*var )
         {
             *weight   = -1.0;
             markedAny = true;
             (*Noutliers)++;
-
-            // MSG_IF_VERBOSE("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean. Observed stdev: %f, limit: %f",
-            //                i_feature, dx/sqrt(var), dy/sqrt(var), sqrt(var), k1);
-
-
+            // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean (assumed 0). Observed stdev: %f, limit: %f",
+            //     i_feature,
+            //     (*weight)*dx/sqrt(var),
+            //     (*weight)*dy/sqrt(var),
+            //     sqrt(var),
+            //     k1);
         }
     }
     LOOP_FEATURE_END();
@@ -3828,15 +3831,14 @@ bool markOutliers(// output, input
 
         double dx = x_measurements[2*i_feature + 0];
         double dy = x_measurements[2*i_feature + 1];
-        if(dx*dx > k0*k0*var ||
-           dy*dy > k0*k0*var )
+        // I have sigma = sqrt(var). Outliers have w*abs(x) > k*sigma
+        // -> w^2 x^2 > k^2 var
+        double w2 = (*weight)*(*weight);
+        if(w2*dx*dx > k0*k0*var ||
+           w2*dy*dy > k0*k0*var )
         {
             *weight *= -1.0;
             (*Noutliers)++;
-
-            // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean. Observed stdev: %f, limit: %f",
-            //                i_feature, dx/sqrt(var), dy/sqrt(var), sqrt(var), k0);
-
         }
     }
     LOOP_FEATURE_END();
