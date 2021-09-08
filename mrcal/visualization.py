@@ -2662,7 +2662,7 @@ SYNOPSIS
     mrcal.show_residuals_histogram( model.optimization_inputs() )
 
     ... A plot pops up showing the empirical distribution of fit errors
-    ... in this solve. For ALL the cameras and ALL the observations
+    ... in this solve. For ALL the cameras
 
 Given a calibration solve, visualizes the distribution of errors at the optimal
 solution. We display a histogram of residuals and overlay it with an idealized
@@ -2717,45 +2717,13 @@ plot
 
     import gnuplotlib as gp
 
-
-    if residuals is None:
-        # Flattened residuals. The board measurements are at the start of the
-        # array
-        residuals = \
-            mrcal.optimizer_callback(**optimization_inputs,
-                                     no_jacobian      = True,
-                                     no_factorization = True)[1]
-
-    # shape (Nobservations, object_height_n, object_width_n, 3)
-    observations = optimization_inputs['observations_board']
-    residuals_shape = observations.shape[:-1] + (2,)
-
-    # shape (Nobservations, object_height_n, object_width_n, 2)
-    residuals = residuals[:np.product(residuals_shape)].reshape(*residuals_shape)
-
-    # shape (Nobservations, object_height_n, object_width_n, 3)
-    indices_frame_camera = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][...,:2]
-
-    # shape (Nobservations, object_height_n, object_width_n)
-    idx = np.ones( observations.shape[:-1], dtype=bool)
-
-    if i_cam is None:
-        what = 'all the cameras'
-    else:
-        what = f"camera {i_cam}"
-        # select residuals from THIS camera
-        idx[indices_frame_camera[:,1] != i_cam, ...] = False
-
-    # select non-outliers
-    idx[ observations[...,2] <= 0.0 ] = False
-
-    # shape (N,2)
-    err = residuals   [idx, ...]
-
-    x = err.ravel()
-
-    sigma_expected = optimization_inputs['observed_pixel_uncertainty']
+    residuals_flat = \
+        mrcal.residuals_chessboard(optimization_inputs = optimization_inputs,
+                                   i_cam               = i_cam,
+                                   residuals           = residuals)
+    x = residuals_flat.ravel()
     sigma_observed = np.std(x)
+    sigma_expected = optimization_inputs['observed_pixel_uncertainty']
 
     equations = [fitted_gaussian_equation(sigma    = sigma_expected,
                                           mean     = 0,
@@ -2767,6 +2735,11 @@ plot
                                           N        = len(x),
                                           binwidth = binwidth,
                                           legend   = f'Normal distribution of residuals with observed stdev: {sigma_observed:.02f} pixels')]
+
+    if i_cam is None:
+        what = 'all the cameras'
+    else:
+        what = f"camera {i_cam}"
 
     plot_options = dict(kwargs)
 

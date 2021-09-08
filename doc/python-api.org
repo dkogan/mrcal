@@ -217,3 +217,4 @@ arguments. The available methods:
 - [[file:mrcal-python-api-reference.html#-close_contour][=mrcal.close_contour()=]]: Close a polyline, if it isn't already closed
 - [[file:mrcal-python-api-reference.html#-apply_homography][=mrcal.apply_homography()=]]: Apply a homogeneous-coordinate homography to a set of 2D points
 - [[file:mrcal-python-api-reference.html#-corresponding_icam_extrinsics][=mrcal.corresponding_icam_extrinsics()=]]: Return the icam_extrinsics corresponding to a given icam_intrinsics
+- [[file:mrcal-python-api-reference.html#-residuals_chessboard][=mrcal.residuals_chessboard()=]]: Compute and return the chessboard residuals
