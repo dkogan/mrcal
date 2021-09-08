@@ -1187,3 +1187,77 @@ def _plot_args_points_and_covariance_ellipse(q, what):
     return ( _plot_arg_covariance_ellipse(q_mean,Var, what),
              ( q, dict(_with = 'points pt 6 ps 0.5',
                          tuplesize = -2)) )
+
+
+def residuals_chessboard(optimization_inputs,
+                         i_cam     = None,
+                         residuals = None):
+    r'''Compute and return the chessboard residuals
+
+SYNOPSIS
+
+    model = mrcal.cameramodel(model_filename)
+
+    gp.plot( mrcal.residuals_chessboard(
+               optimization_inputs = model.optimization_inputs(),
+               i_cam               = i_cam ).ravel(),
+             histogram = True,
+             binwidth  = 0.02 )
+
+    ... A plot pops up showing the empirical distribution of chessboard fit
+    ... errors in this solve. For ALL the cameras
+
+Given a calibration solve, returns the residuals visualizes of chessboard
+observations, throwing out outliers and, optionally, selecting the residuals
+from a specific camera.
+
+ARGUMENTS
+
+- optimization_inputs: the optimization inputs dict passed into and returned
+  from mrcal.optimize(). This describes the solved optimization problem that
+  we're visualizing
+
+- i_cam: optional integer to select the camera whose residuals we're visualizing
+  If omitted or None, we display the residuals for ALL the cameras together.
+
+- residuals: optional numpy array of shape (Nmeasurements,) containing the
+  optimization residuals. If omitted or None, this will be recomputed. To use a
+  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+  mrcal.optimizer_callback(**optimization_inputs)[1]
+
+RETURNED VALUES
+
+Numpy array of shape (N,2) of all the residuals. N is the number of pixel
+observations remaining after outliers and and other cameras are thrown out
+    '''
+
+    if residuals is None:
+        # Flattened residuals. The board measurements are at the start of the
+        # array
+        residuals = \
+            mrcal.optimizer_callback(**optimization_inputs,
+                                     no_jacobian      = True,
+                                     no_factorization = True)[1]
+
+    # shape (Nobservations, object_height_n, object_width_n, 3)
+    observations = optimization_inputs['observations_board']
+    residuals_shape = observations.shape[:-1] + (2,)
+
+    # shape (Nobservations, object_height_n, object_width_n, 2)
+    residuals = residuals[:np.product(residuals_shape)].reshape(*residuals_shape)
+
+    # shape (Nobservations, object_height_n, object_width_n, 3)
+    indices_frame_camera = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][...,:2]
+
+    # shape (Nobservations, object_height_n, object_width_n)
+    idx = np.ones( observations.shape[:-1], dtype=bool)
+
+    if i_cam is not None:
+        # select residuals from THIS camera
+        idx[indices_frame_camera[:,1] != i_cam, ...] = False
+
+    # select non-outliers
+    idx[ observations[...,2] <= 0.0 ] = False
+
+    # shape (N,2)
+    return residuals[idx, ...]

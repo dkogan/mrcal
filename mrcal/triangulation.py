@@ -1583,10 +1583,8 @@ ARGUMENTS
 - q_calibration_stdev: optional value describing the calibration-time noise. If
   omitted or None, we do not compute or return the uncertainty resulting from
   this noise. The noise in the observations of chessboard corners is assumed to
-  be normal and independent for each corner and for the x and y components.
-  This is the same thing as the "observed_pixel_uncertainty" argument to
-  mrcal.optimize() and the corresponding key in the optimization_inputs dict. To
-  use the value in the dict, pass any q_calibration_stdev < 0
+  be normal and independent for each corner and for the x and y components. To
+  use the optimization residuals, pass any q_calibration_stdev < 0
 
 - q_observation_stdev: optional value describing the observation-time noise. If
   omitted or None, we do not compute or return the uncertainty resulting from
@@ -1771,8 +1769,12 @@ Complete logic:
             if models_flat[i0]._extrinsics_moved_since_calibration():
                 raise Exception(f"The given models must have been fixed inside the initial calibration. Model {i0} has been moved")
 
+        ppacked,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs)
+
         if q_calibration_stdev < 0:
-            q_calibration_stdev = optimization_inputs['observed_pixel_uncertainty']
+            q_calibration_stdev = \
+                np.std(mrcal.residuals_chessboard(optimization_inputs,
+                                                  residuals = x).ravel())
 
     else:
         optimization_inputs = None
@@ -1809,8 +1811,6 @@ Complete logic:
         if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs):
             # Note the special-case where I'm using all the observations
             Nmeasurements_observations = None
-
-        ppacked,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs)
 
         # Var_p_calibration_flat has shape (Npoints*3,Npoints*3)
         Var_p_calibration_flat = \

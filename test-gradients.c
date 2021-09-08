@@ -375,7 +375,6 @@ int main(int argc, char* argv[] )
                     (mrcal_point3_t*)observations_px,
 
                     &lensmodel,
-                    1.0,
                     imagersizes,
                     problem_selections,
                     &problem_constants,

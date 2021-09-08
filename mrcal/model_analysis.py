@@ -900,8 +900,8 @@ else:                    we return an array of shape (...)
     if not optimization_inputs.get('do_optimize_extrinsics'):
         raise Exception("Computing uncertainty if !do_optimize_extrinsics not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for fixed extrinsics like they already do for fixed frames")
 
-    Jpacked,factorization = \
-        mrcal.optimizer_callback( **optimization_inputs )[2:]
+    ppacked,x,Jpacked,factorization = \
+        mrcal.optimizer_callback( **optimization_inputs )
 
     if factorization is None:
         raise Exception("Cannot compute the uncertainty: factorization computation failed")
@@ -959,7 +959,9 @@ else:                    we return an array of shape (...)
         # Note the special-case where I'm using all the observations
         Nmeasurements_observations = None
 
-    observed_pixel_uncertainty = optimization_inputs['observed_pixel_uncertainty']
+    observed_pixel_uncertainty = \
+        np.std(mrcal.residuals_chessboard(optimization_inputs,
+                                          residuals = x).ravel())
 
     # Two distinct paths here that are very similar, but different-enough to not
     # share any code. If atinfinity, I ignore all translations

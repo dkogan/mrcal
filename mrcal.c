@@ -3779,7 +3779,6 @@ bool markOutliers(// output, input
                   int calibration_object_height_n,
 
                   const double* x_measurements,
-                  double observed_pixel_uncertainty,
                   bool verbose)
 {
     // I define an outlier as a feature that's > k stdevs past the mean. I make
@@ -3787,33 +3786,15 @@ bool markOutliers(// output, input
     // with mean 0. This is reasonable because this function is applied after
     // running the optimization.
     //
-    // The threshold stdev is the larger of
-    //
-    // - The stdev of my observed residuals
-    // - The expected stdev of my noise passed-in as the
-    //   observed_pixel_uncertainty
-    //
-    // The rationale:
-    //
-    // - If I have a really good solve, the stdev of my data set will be very
-    //   low, so deviations off that already-very-good solve aren't important. I
-    //   use the expected-noise stdev in this case
-    //
-    // - If the solve isn't great, my errors may exceed the expected-noise stdev
-    //   (if my model doesn't fit very well, say). In that case I want to use
-    //   the stdev from the data
-    //
-    // This assumes that the given obsered_pixel_uncertainty isn't very
-    // well-known
+    // The threshold stdev is the stdev of my observed residuals
     //
     // I have two separate thresholds. If any measurements are worse than the
     // higher threshold, then I will need to reoptimize, so I throw out some
     // extra points: all points worse than the lower threshold. This serves to
     // reduce the required re-optimizations
 
-    // threshold. +- 3sigma includes 99.7% of the data in a normal distribution
-    const double k0 = 3.0;
-    const double k1 = 3.5;
+    const double k0 = 4.0;
+    const double k1 = 5.0;
     *Noutliers = 0;
 
     int i_pt,i_feature;
@@ -3851,14 +3832,12 @@ bool markOutliers(// output, input
 
         double dx = x_measurements[2*i_feature + 0];
         double dy = x_measurements[2*i_feature + 1];
-
-        var += *weight * (dx*dx + dy*dy);
-        sum_weight += *weight;
+        double w2 = (*weight)*(*weight);
+        var += w2 * (dx*dx + dy*dy);
+        sum_weight += w2;
     }
     LOOP_FEATURE_END();
     var /= (2.*sum_weight);
-
-    var = fmax(var, observed_pixel_uncertainty*observed_pixel_uncertainty);
 
     bool markedAny = false;
     LOOP_FEATURE_BEGIN()
@@ -3868,17 +3847,21 @@ bool markOutliers(// output, input
 
         double dx = x_measurements[2*i_feature + 0];
         double dy = x_measurements[2*i_feature + 1];
-        if(dx*dx > k1*k1*var ||
-           dy*dy > k1*k1*var )
+        // I have sigma = sqrt(var). Outliers have w*abs(x) > k*sigma
+        // -> w^2 x^2 > k^2 var
+        double w2 = (*weight)*(*weight);
+        if(w2*dx*dx > k1*k1*var ||
+           w2*dy*dy > k1*k1*var )
         {
             *weight   = -1.0;
             markedAny = true;
             (*Noutliers)++;
-
-            // MSG_IF_VERBOSE("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean. Observed stdev: %f, limit: %f",
-            //                i_feature, dx/sqrt(var), dy/sqrt(var), sqrt(var), k1);
-
-
+            // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean (assumed 0). Observed stdev: %f, limit: %f",
+            //     i_feature,
+            //     (*weight)*dx/sqrt(var),
+            //     (*weight)*dy/sqrt(var),
+            //     sqrt(var),
+            //     k1);
         }
     }
     LOOP_FEATURE_END();
@@ -3896,15 +3879,14 @@ bool markOutliers(// output, input
 
         double dx = x_measurements[2*i_feature + 0];
         double dy = x_measurements[2*i_feature + 1];
-        if(dx*dx > k0*k0*var ||
-           dy*dy > k0*k0*var )
+        // I have sigma = sqrt(var). Outliers have w*abs(x) > k*sigma
+        // -> w^2 x^2 > k^2 var
+        double w2 = (*weight)*(*weight);
+        if(w2*dx*dx > k0*k0*var ||
+           w2*dy*dy > k0*k0*var )
         {
             *weight *= -1.0;
             (*Noutliers)++;
-
-            // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean. Observed stdev: %f, limit: %f",
-            //                i_feature, dx/sqrt(var), dy/sqrt(var), sqrt(var), k0);
-
         }
     }
     LOOP_FEATURE_END();
@@ -5233,7 +5215,6 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_point3_t* observations_board_pool,
 
                              const mrcal_lensmodel_t* lensmodel,
-                             double observed_pixel_uncertainty,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
 
                              mrcal_problem_selections_t       problem_selections,
@@ -5411,7 +5392,6 @@ mrcal_optimize( // out
                 mrcal_point3_t* observations_board_pool,
 
                 const mrcal_lensmodel_t* lensmodel,
-                double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
                 mrcal_problem_selections_t       problem_selections,
                 const mrcal_problem_constants_t* problem_constants,
@@ -5612,7 +5592,6 @@ mrcal_optimize( // out
                               calibration_object_width_n,
                               calibration_object_height_n,
                               solver_context->beforeStep->x,
-                              observed_pixel_uncertainty,
                               verbose) &&
                  ({MSG("Threw out some outliers (have a total of %d now); going again", stats.Noutliers); true;}));
 

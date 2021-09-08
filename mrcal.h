@@ -759,7 +759,6 @@ mrcal_optimize( // out
                 mrcal_point3_t* observations_board_pool,
 
                 const mrcal_lensmodel_t* lensmodel,
-                double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
                 mrcal_problem_selections_t       problem_selections,
                 const mrcal_problem_constants_t* problem_constants,
@@ -842,7 +841,6 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_point3_t* observations_board_pool,
 
                              const mrcal_lensmodel_t* lensmodel,
-                             double observed_pixel_uncertainty,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
                              mrcal_problem_selections_t       problem_selections,
                              const mrcal_problem_constants_t* problem_constants,

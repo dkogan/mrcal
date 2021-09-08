@@ -46,14 +46,14 @@ def parse_args():
     parser.add_argument('--q-calibration-stdev',
                         type    = float,
                         default = 0.0,
-                        help='''The observed_pixel_uncertainty of the chessboard
+                        help='''The observed pixel uncertainty of the chessboard
                         observations at calibration time. Defaults to 0.0. At
                         least one of --q-calibration-stdev and
                         --q-observation-stdev MUST be given as > 0''')
     parser.add_argument('--q-observation-stdev',
                         type    = float,
                         default = 0.0,
-                        help='''The observed_pixel_uncertainty of the point
+                        help='''The observed pixel uncertainty of the point
                         observations at triangulation time. Defaults to 0.0. At
                         least one of --q-calibration-stdev and
                         --q-observation-stdev MUST be given as > 0''')
@@ -143,7 +143,6 @@ args.Nframes =                                         \
                          Ncameras,
                          args.Nframes,
                          None,
-                         args.q_calibration_stdev,
                          object_width_n,
                          object_height_n,
                          object_spacing,
