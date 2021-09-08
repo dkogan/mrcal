@@ -135,6 +135,12 @@ if not re.match('LENSMODEL_SPLINED', lensmodel):
           file = sys.stderr)
     sys.exit(1)
 
+if not args.imager_bounds and \
+   model.valid_intrinsics_region() is None:
+    print("The given model has no valid-intrinsics region. Pass --imager-bounds",
+          file = sys.stderr)
+    sys.exit(1)
+
 plotkwargs = {}
 if args.set is not None:
     plotkwargs['set'] = args.set

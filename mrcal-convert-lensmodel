@@ -95,10 +95,10 @@ def parse_args():
                         aren't available''')
     parser.add_argument('--gridn',
                         type=int,
-                        default = (60,40),
+                        default = (30,20),
                         nargs = 2,
                         help='''Used if --sampled. How densely we should sample the imager. By default we use
-                        a 60x40 grid''')
+                        a 30x20 grid''')
     parser.add_argument('--distance',
                         type=float,
                         help='''Used (and required) if --sampled and not --intrinsics-only. A sampled solve
@@ -240,8 +240,8 @@ if not args.sampled:
 
     optimization_inputs_before = copy.deepcopy(optimization_inputs)
 
-    stats = mrcal.optimize(**optimization_inputs,
-                           do_apply_outlier_rejection = True)
+    stats = mrcal.optimize(**optimization_inputs)
+
 
     # I pick the inlier set using the post-solve inliers/outliers. The solve
     # could add some outliers, but it won't take any away, so the union of the
@@ -465,6 +465,8 @@ m_to.write(sys.stdout, note=note)
 if args.viz:
     plot,_ = mrcal.show_projection_diff( (m, m_to),
                                          distance     = args.distance,
-                                         cbmax        = 4)
+                                         cbmax        = 4,
+                                         gridn_width  = None if args.gridn is None else args.gridn[0],
+                                         gridn_height = None if args.gridn is None else args.gridn[1] )
     plot.wait()
 

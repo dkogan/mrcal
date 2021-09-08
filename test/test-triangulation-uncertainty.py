@@ -94,7 +94,7 @@ def parse_args():
                         operation, so they will have some amount of correlation.
                         If given, this argument specifies how much correlation.
                         This is a value in [0,1] scaling the stdev. 0 means
-                        "independent" (the default). 1.0 means "100%
+                        "independent" (the default). 1.0 means "100%%
                         correlated".''')
     parser.add_argument('--baseline',
                         type    = float,
@@ -221,7 +221,7 @@ import numpy as np
 import numpysane as nps
 import pickle
 
-from test_calibration_helpers import plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse,calibration_baseline,calibration_sample,grad
+from test_calibration_helpers import calibration_baseline,calibration_sample,grad
 
 
 ############# Set up my world, and compute all the perfect positions, pixel
@@ -810,8 +810,8 @@ if args.make_documentation_plots is not None:
     import gnuplotlib as gp
 
     empirical_distributions_xz = \
-        [ plot_args_points_and_covariance_ellipse(p_triangulated_sampled0[:,ipt,(0,2)],
-                                                  'Observed') \
+        [ mrcal.utils._plot_args_points_and_covariance_ellipse(p_triangulated_sampled0[:,ipt,(0,2)],
+                                                               'Observed') \
           for ipt in range(Npoints) ]
     # Individual covariances
     Var_p_joint_diagonal = [Var_p_joint[ipt,:,ipt,:][(0,2),:][:,(0,2)] \
@@ -842,15 +842,15 @@ if args.make_documentation_plots is not None:
 
 
     subplots = [ [p for p in (empirical_distributions_xz[ipt][1], # points; plot first to not obscure the ellipses
-                              plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
-                                                          Var_p_joint_diagonal[ipt],
-                                                          "Predicted-joint"),
-                              plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
-                                                          Var_p_calibration_diagonal[ipt],
-                                                          "Predicted-calibration-only"),
-                              plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
-                                                          Var_p_observation_diagonal[ipt],
-                                                          "Predicted-observations-only"),
+                              mrcal.utils._plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
+                                                                       Var_p_joint_diagonal[ipt],
+                                                                       "Predicted-joint"),
+                              mrcal.utils._plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
+                                                                       Var_p_calibration_diagonal[ipt],
+                                                                       "Predicted-calibration-only"),
+                              mrcal.utils._plot_arg_covariance_ellipse(p_triangulated0[ipt][(0,2),],
+                                                                       Var_p_observation_diagonal[ipt],
+                                                                       "Predicted-observations-only"),
                               empirical_distributions_xz[ipt][0],
                               dict( square = True,
                                     _xrange = [p_triangulated0[ipt,0] - ellipse_plot_radius,

@@ -55,7 +55,7 @@ H10_shifted[1,2] -= 20.4
 q1_matched, diagnostics = \
     mrcal.match_feature( image, image1,
                          q0,
-                         H10_shifted,
+                         H10            = H10_shifted,
                          search_radius1 = 50,
                          template_size1 = templatesize,
                          method         = cv2.TM_CCOEFF_NORMED)
@@ -68,7 +68,7 @@ testutils.confirm_equal( q1_matched,
 q1_matched, diagnostics = \
     mrcal.match_feature( image, image1,
                          q0,
-                         H10_shifted,
+                         H10            = H10_shifted,
                          search_radius1 = 50,
                          template_size1 = templatesize,
                          method         = cv2.TM_SQDIFF_NORMED)
@@ -81,7 +81,7 @@ testutils.confirm_equal( q1_matched,
 q1_matched, diagnostics = \
     mrcal.match_feature( image, image1,
                          q0,
-                         H10_shifted,
+                         H10            = H10_shifted,
                          search_radius1 = 1000,
                          template_size1 = templatesize,
                          method         = cv2.TM_CCOEFF_NORMED)
@@ -98,7 +98,7 @@ testutils.confirm_equal( diagnostics['matchoutput_image'].shape,
 q1_matched, diagnostics = \
     mrcal.match_feature( image*0, image1,
                          q0,
-                         H10_shifted,
+                         H10            = H10_shifted,
                          search_radius1 = 50,
                          template_size1 = templatesize,
                          method         = cv2.TM_CCOEFF_NORMED)
@@ -108,7 +108,7 @@ testutils.confirm_equal( q1_matched, None,
 try:
     mrcal.match_feature( image*0, image1,
                          q0,
-                         H10_shifted,
+                         H10            = H10_shifted,
                          search_radius1 = 50,
                          template_size1 = (5000, 5000),
                          method         = cv2.TM_CCOEFF_NORMED)

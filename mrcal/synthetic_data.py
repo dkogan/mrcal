@@ -412,3 +412,38 @@ We return a tuple:
     return q, mrcal.compose_Rt(Rt_ref_boardref, Rt_boardref_origboardref)
 
 
+def _noisy_observation_vectors_for_triangulation(p,
+                                                 Rt01,
+                                                 intrinsics0, intrinsics1,
+                                                 Nsamples, sigma):
+
+    # p has shape (...,3)
+
+    # shape (..., 2)
+    q0 = mrcal.project( p,
+                        *intrinsics0 )
+    q1 = mrcal.project( mrcal.transform_point_Rt( mrcal.invert_Rt(Rt01), p),
+                        *intrinsics1 )
+
+    # shape (..., 1,2). Each has x,y
+    q0 = nps.dummy(q0,-2)
+    q1 = nps.dummy(q1,-2)
+
+    q_noise = np.random.randn(*p.shape[:-1], Nsamples,2,2) * sigma
+    # shape (..., Nsamples,2). Each has x,y
+    q0_noise = q_noise[...,:,0,:]
+    q1_noise = q_noise[...,:,1,:]
+
+    q0_noisy = q0 + q0_noise
+    q1_noisy = q1 + q1_noise
+
+    # shape (..., Nsamples, 3)
+    v0local_noisy = mrcal.unproject( q0_noisy, *intrinsics0 )
+    v1local_noisy = mrcal.unproject( q1_noisy, *intrinsics1 )
+    v0_noisy      = v0local_noisy
+    v1_noisy      = mrcal.rotate_point_R(Rt01[:3,:], v1local_noisy)
+
+    # All have shape (..., Nsamples,3)
+    return \
+        v0local_noisy, v1local_noisy, v0_noisy,v1_noisy, \
+        q0,q1, q0_noisy, q1_noisy

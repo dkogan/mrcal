@@ -93,6 +93,9 @@ SYNOPSIS
     # the two cameras
     p = mrcal.triangulate_geometric( v0, v1, t01 )
 
+This is the lower-level triangulation routine. For a richer function that can be
+used to propagate uncertainties, see mrcal.triangulate()
+
 This function implements a very simple closest-approach-in-3D routine. It finds
 the point on each ray that's nearest to the other ray, and returns the mean of
 these two points. This is the "Mid" method in the paper
@@ -234,6 +237,9 @@ SYNOPSIS
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
     p = mrcal.triangulate_leecivera_l1( v0, v1, t01 )
+
+This is the lower-level triangulation routine. For a richer function that can be
+used to propagate uncertainties, see mrcal.triangulate()
 
 This function implements a triangulation routine minimizing the L1 norm of
 angular errors. This is described in
@@ -381,6 +387,9 @@ SYNOPSIS
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
     p = mrcal.triangulate_leecivera_linf( v0, v1, t01 )
+
+This is the lower-level triangulation routine. For a richer function that can be
+used to propagate uncertainties, see mrcal.triangulate()
 
 This function implements a triangulation routine minimizing the infinity norm of
 angular errors (it minimizes the larger of the two angle errors). This is
@@ -530,6 +539,9 @@ SYNOPSIS
     # the two cameras
     p = mrcal.triangulate_leecivera_mid2( v0, v1, t01 )
 
+This is the lower-level triangulation routine. For a richer function that can be
+used to propagate uncertainties, see mrcal.triangulate()
+
 This function implements the "Mid2" triangulation routine in
 
   "Triangulation: Why Optimize?", Seong Hun Lee and Javier Civera.
@@ -673,6 +685,9 @@ SYNOPSIS
     # the two cameras
     p = mrcal.triangulate_leecivera_wmid2( v0, v1, t01 )
 
+This is the lower-level triangulation routine. For a richer function that can be
+used to propagate uncertainties, see mrcal.triangulate()
+
 This function implements the "wMid2" triangulation routine in
 
   "Triangulation: Why Optimize?", Seong Hun Lee and Javier Civera.
@@ -773,7 +788,9 @@ if get_gradients: we return a tuple:
         return mrcal._triangulation_npsp._triangulate_leecivera_wmid2_withgrad(v0, v1, t01, out=out)
 
 
-def triangulate_lindstrom(v0, v1, Rt01,
+def triangulate_lindstrom(v0, v1,
+                          # The other routines take t01 here
+                          Rt01,
                           get_gradients = False,
                           v_are_local   = True,
                           out           = None):
@@ -814,6 +831,9 @@ SYNOPSIS
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
     p = mrcal.triangulate_lindstrom( v0, v1, Rt01 )
+
+This is the lower-level triangulation routine. For a richer function that can be
+used to propagate uncertainties, see mrcal.triangulate()
 
 This function implements a triangulation routine minimizing the 2-norm of
 reprojection errors, ASSUMING a pinhole projection. This is described in
@@ -958,7 +978,7 @@ the benefit of the test
 
 def _triangulate_grad_simple(q, models,
                              out,
-                             triangulation_function = triangulate_leecivera_mid2):
+                             method = triangulate_leecivera_mid2):
     r'''Compute a single triangulation, reporting a single gradient
 
 This is an internal piece of mrcal.triangulate(). It's available separately for
@@ -990,12 +1010,14 @@ the benefit of the test
     dp_triangulated_dv0  = np.zeros( out.shape + (3,), dtype=float)
     dp_triangulated_dv1  = np.zeros( out.shape + (3,), dtype=float)
     dp_triangulated_dt01 = np.zeros( out.shape + (3,), dtype=float)
-    triangulation_function(v0, v1, rt01[3:],
-                           out = (out,
-                                  dp_triangulated_dv0,
-                                  dp_triangulated_dv1,
-                                  dp_triangulated_dt01),
-                           get_gradients = True)
+    if method is mrcal.triangulate_lindstrom:
+        raise Exception("Triangulation gradients not supported (yet?) with method=triangulate_lindstrom. It has slightly different inputs and slightly different gradients")
+    method(v0, v1, rt01[3:],
+           out = (out,
+                  dp_triangulated_dv0,
+                  dp_triangulated_dv1,
+                  dp_triangulated_dt01),
+           get_gradients = True)
 
     dp_triangulated_dq = np.zeros((3,) + q.shape[-2:], dtype=float)
     nps.matmult( dp_triangulated_dv0,
@@ -1014,7 +1036,7 @@ def _triangulation_uncertainty_internal(slices,
                                         optimization_inputs, # if None: we're not propagating calibration-time noise
                                         q_observation_stdev,
                                         q_observation_stdev_correlation,
-                                        triangulation_function = triangulate_leecivera_mid2,
+                                        method = triangulate_leecivera_mid2,
                                         do_propagate_noise_calibration   = True,
                                         stabilize_coords                 = True):
     r'''Compute most of the triangulation uncertainty logic
@@ -1022,12 +1044,12 @@ def _triangulation_uncertainty_internal(slices,
 This is an internal piece of mrcal.triangulate(). It's available separately to
 allow the test suite to validate some of the internals.
 
-    if optimization_inputs is None and q_observation_stdev is None:
-        We're not propagating any noise. Just return the triangulated point
+if optimization_inputs is None and q_observation_stdev is None:
+    We're not propagating any noise. Just return the triangulated point
 
     '''
 
-    def triangulate_grad(models, q, out, triangulation_function):
+    def _triangulate_grad(models, q, out, method):
 
         # Full path. Compute and return the gradients for most things
         rt_ref1,drt_ref1_drt_1ref = \
@@ -1054,12 +1076,15 @@ allow the test suite to validate some of the internals.
         dp_triangulated_dv0  = np.zeros(out.shape + (3,), dtype=float)
         dp_triangulated_dv1  = np.zeros(out.shape + (3,), dtype=float)
         dp_triangulated_dt01 = np.zeros(out.shape + (3,), dtype=float)
-        triangulation_function(v0, v1, rt01[3:],
-                               out = (out,
-                                      dp_triangulated_dv0,
-                                      dp_triangulated_dv1,
-                                      dp_triangulated_dt01),
-                               get_gradients = True)
+
+        if method is mrcal.triangulate_lindstrom:
+            raise Exception("Triangulation gradients not supported (yet?) with method=triangulate_lindstrom. It has slightly different inputs and slightly different gradients")
+        method(v0, v1, rt01[3:],
+               out = (out,
+                      dp_triangulated_dv0,
+                      dp_triangulated_dv1,
+                      dp_triangulated_dt01),
+               get_gradients = True)
 
         dp_triangulated_dq = np.zeros((3,) + q.shape[-2:], dtype=float)
         nps.matmult( dp_triangulated_dv0,
@@ -1282,7 +1307,7 @@ allow the test suite to validate some of the internals.
             dp_triangulated_dq = \
                 _triangulate_grad_simple(q, models01,
                                          out = p[ipt],
-                                         triangulation_function = triangulation_function)
+                                         method = method)
 
         else:
             dp_triangulated_dq,    \
@@ -1296,9 +1321,9 @@ allow the test suite to validate some of the internals.
             dp_triangulated_dv0,   \
             dp_triangulated_dv1,   \
             dp_triangulated_dt01 = \
-                triangulate_grad(models01, q,
-                                 out = p[ipt],
-                                 triangulation_function = triangulation_function)
+                _triangulate_grad(models01, q,
+                                  out = p[ipt],
+                                  method = method)
 
         # triangulation-time uncertainty
         if q_observation_stdev is not None:
@@ -1440,8 +1465,218 @@ def triangulate( q,
                  q_calibration_stdev             = None,
                  q_observation_stdev             = None,
                  q_observation_stdev_correlation = 0,
-                 triangulation_function          = triangulate_leecivera_mid2,
+                 method                          = triangulate_leecivera_mid2,
                  stabilize_coords                = True):
+
+    r'''Triangulate N points with uncertainty propagation
+
+SYNOPSIS
+
+    p,                  \
+    Var_p_calibration,  \
+    Var_p_observation,  \
+    Var_p_joint =       \
+        mrcal.triangulate( nps.cat(q0, q),
+                           (model0, model1),
+                           q_calibration_stdev             = q_calibration_stdev,
+                           q_observation_stdev             = q_observation_stdev,
+                           q_observation_stdev_correlation = q_observation_stdev_correlation )
+
+    # p is now the triangulated point, in camera0 coordinates. The uncertainties
+    # of p from different sources are returned in the Var_p_... arrays
+
+DESCRIPTION
+
+This is the interface to the triangulation computations described in
+http://mrcal.secretsauce.net/triangulation.html
+
+Let's say two cameras observe a point p in space. The pixel observations of this
+point in the two cameras are q0 and q1 respectively. If the two cameras are
+calibrated (both intrinsics and extrinsics), I can reconstruct the observed
+point p from the calibration and the two pixel observations. This is the
+"triangulation" operation implemented by this function.
+
+If the calibration and the pixel observations q0,q1 were perfect, computing the
+corresponding point p would be trivial: unproject q0 and q1, and find the
+intersection of the resulting rays. Since everything is perfect, the rays will
+intersect exactly at p.
+
+But in reality, both the calibration and the pixel observations are noisy. This
+function propagates these sources of noise through the triangulation, to produce
+covariance matrices of p.
+
+Two kinds of noise are propagated:
+
+- Calibration-time noise. This is the noise in the pixel observations of the
+  chessboard corners, propagated through the calibration to the triangulation
+  result. The normal use case is to calibrate once, and then use the same
+  calibration result many times. So each time we use a given calibration, we
+  have the same calibration-time noise, resulting in correlated errors between
+  each such triangulation operation. This is a source of bias: averaging many
+  different triangulation results will NOT push the errors to 0.
+
+  Here, only the calibration-time input noise is taken into account. Other
+  sources of calibration-time errors (bad input data, outliers, non-fitting
+  model) are ignored.
+
+  Furthermore, currently a vanilla calibration is assumed: both cameras in the
+  camera pair must have been calibrated together, and the cameras were not moved
+  in respect to each other after the calibration.
+
+- Observation-time noise. This is the noise in the pixel observations of the
+  point being propagated: q0, q1. Unlike the calibration-time noise, each sample
+  of observations (q0,q1) IS independent from every other sample. So if we
+  observe the same point p many times, this observation noise will average out.
+
+Both sources of noise are assumed normal with the noise on the x and y
+components of the observation being independent. The standard deviation of the
+noise is given by the q_calibration_stdev and q_observation_stdev arguments.
+Since q0 and q1 often arise from an image correlation operation, they are
+usually correlated with each other. It's not yet clear to me how to estimate
+this correlation, but it can be specified in this function with the
+q_observation_stdev_correlation argument:
+
+- q_observation_stdev_correlation = 0: the noise on q0 and q1 is independent
+- q_observation_stdev_correlation = 1: the noise on q0 and q1 is 100% correlated
+
+The (q0x,q1x) and (q0y,q1y) cross terms of the covariance matrix are
+(q_observation_stdev_correlation*q_observation_stdev)^2
+
+Since the distribution of the calibration-time input noise is given at
+calibration time, we can just use that distribution instead of specifying it
+again: pass q_calibration_stdev<0 to do that.
+
+COORDINATE STABILIZATION
+
+We're analyzing the effects of calibration-time noise. As with projection
+uncertainty, varying calibration-time noise affects the pose of the camera
+coordinate system in respect to the physical camera housing. So Var(p) in the
+camera coord system includes this coordinate-system fuzz, which is usually not
+something we want to include. To compensate for this fuzz pass
+stabilize_coords=True to return Var(p) in the physical camera housing coords.
+The underlying method is exactly the same as how this is done with projection
+uncertainty:
+
+  http://mrcal.secretsauce.net/uncertainty.html#propagating-through-projection
+
+In the usual case, the translation component of this extra transformation is
+negligible, but the rotation (even a small one) produces lateral uncertainty
+that isn't really there. Enabling stabilization usually reduces the size of the
+uncertainty ellipse in the lateral direction.
+
+BROADCASTING
+
+Broadcasting is fully supported on models and q. Each slice has 2 models and 2
+pixel observations (q0,q1). If multiple models and/or observation pairs are
+given, we compute the covariances with all the cross terms, so
+Var_p_calibration.size grows quadratically with the number of broadcasted slices.
+
+ARGUMENTS
+
+- q: (..., 2,2) numpy array of pixel observations. Each broadcasted slice
+  describes a pixel observation from each of the two cameras
+
+- models: iterable of shape (..., 2). Complex shapes may be represented in a
+  numpy array of dtype=np.object. Each slice is a mrcal.cameramodel describing
+  the left and right cameras
+
+- q_calibration_stdev: optional value describing the calibration-time noise. If
+  omitted or None, we do not compute or return the uncertainty resulting from
+  this noise. The noise in the observations of chessboard corners is assumed to
+  be normal and independent for each corner and for the x and y components.
+  This is the same thing as the "observed_pixel_uncertainty" argument to
+  mrcal.optimize() and the corresponding key in the optimization_inputs dict. To
+  use the value in the dict, pass any q_calibration_stdev < 0
+
+- q_observation_stdev: optional value describing the observation-time noise. If
+  omitted or None, we do not compute or return the uncertainty resulting from
+  this noise. The noise in the observations is assumed to be normal and
+  independent for the x and y components
+
+- q_observation_stdev_correlation: optional value, describing the correlation
+  between the pair of pixel coordinates observing the same point in space. Since
+  q0 and q1 often arise from an image correlation operation, they are usually
+  correlated with each other. This argument linearly scales q_observation_stdev:
+  0 = "independent", 1 = "100% correlated". The default is 0
+
+- method: optional value selecting the triangulation method. This is one of the
+  mrcal.triangulate_... functions. If omitted, we select
+  mrcal.triangulate_leecivera_mid2. At this time, mrcal.triangulate_lindstrom is
+  usable only if we do not propagate any uncertainties
+
+- stabilize_coords: optional boolean, defaulting to True. We always return the
+  triangulated point in camera-0 coordinates. If we're propagating
+  calibration-time noise, then the origin of those coordinates moves around
+  inside the housing of the camera. Characterizing this extra motion is
+  generally not desired in Var_p_calibration. To compensate for this motion, and
+  return Var_p_calibration in the coordinate system of the HOUSING of camera-0,
+  pass stabilize_coords = True.
+
+RETURN VALUES
+
+We always return p: the coordinates of the triangulated point(s) in the camera-0
+coordinate system. Depending on the input arguments, we may also return
+uncertainties. The general logic is:
+
+    if q_xxx_stdev is None:
+        don't propagate or return that source of uncertainty
+
+    if q_xxx_stdev == 0:
+        don't propagate that source of uncertainty, but return
+        Var_p_xxx = np.zeros(...)
+
+    if both q_xxx_stdev are not None:
+        we compute and report the two separate uncertainty components AND a
+        joint covariance combining the two
+
+If we need to return Var_p_calibration, it has shape (...,3, ...,3) where ... is
+the broadcasting shape. If a single triangulation is being performed, there's no
+broadcasting, and Var_p_calibration.shape = (3,3). This representation allows us
+to represent the correlated covariances (non-zero cross terms) that arise due to
+calibration-time uncertainty.
+
+If we need to return Var_p_observation, it has shape (...,3,3) where ... is the
+broadcasting shape. If a single triangulation is being performed, there's no
+broadcasting, and Var_p_observation.shape = (3,3). This representation is more
+compact than that for Var_p_calibration because it assumes independent
+covariances (zero cross terms) that result when propagating observation-time
+uncertainty.
+
+If we need to return Var_p_joint, it has shape (...,3, ...,3) where ... is the
+broadcasting shape. If a single triangulation is being performed, there's no
+broadcasting, and Var_p_joint.shape = (3,3). This representation allows us to
+represent the correlated covariances (non-zero cross terms) that arise due to
+calibration-time uncertainty.
+
+Complete logic:
+
+    if Var_p_calibration is None and
+       Var_p_observation is None:
+        # p.shape = (...,3)
+        return p
+
+    if Var_p_calibration is not None and
+       Var_p_observation is None:
+        # p.shape = (...,3)
+        # Var_p_calibration.shape = (...,3,...,3)
+        return p, Var_p_calibration
+
+    if Var_p_calibration is None and
+       Var_p_observation is not None:
+        # p.shape = (...,3)
+        # Var_p_observation.shape = (...,3,3)
+        return p, Var_p_observation
+
+    if Var_p_calibration is not None and
+       Var_p_observation is not None:
+        # p.shape = (...,3)
+        # Var_p_calibration.shape = (...,3,...,3)
+        # Var_p_observation.shape = (...,3,    3)
+        # Var_p_joint.shape       = (...,3,...,3)
+        return p, Var_p_calibration, Var_p_observation, Var_p_joint
+
+    '''
+
 
     # I'm propagating noise in the input vector
     #
@@ -1480,17 +1715,17 @@ def triangulate( q,
 
         @nps.broadcast_define(((2,2),(2,)), (3,))
         def triangulate_slice(q01, m01):
-            rt01 = \
-                mrcal.compose_rt(m01[0].extrinsics_rt_fromref(),
-                                 m01[1].extrinsics_rt_toref())
+            Rt01 = \
+                mrcal.compose_Rt(m01[0].extrinsics_Rt_fromref(),
+                                 m01[1].extrinsics_Rt_toref())
 
             # all the v have shape (3,)
             vlocal0 = mrcal.unproject(q01[0,:], *m01[0].intrinsics())
             vlocal1 = mrcal.unproject(q01[1,:], *m01[1].intrinsics())
 
-            v0 = vlocal0
-            v1 = mrcal.rotate_point_r(rt01[:3], vlocal1)
-            return triangulation_function(v0, v1, rt01[3:])
+            return method(vlocal0, vlocal1,
+                          v_are_local = True,
+                          Rt01        = Rt01)
 
         p = triangulate_slice(q, models)
 
@@ -1522,15 +1757,19 @@ def triangulate( q,
         # we're propagating calibration-time noise
 
         models_flat = models.ravel()
-        for i0 in range(len(models_flat)):
-            for i1 in range(i0):
-                if not models_flat[i0]._optimization_inputs_match(models_flat[i1]):
-                    raise Exception("The optimization_inputs() for all of the given models must be identical")
 
         optimization_inputs = models_flat[0].optimization_inputs()
 
         if optimization_inputs is None:
             raise Exception("optimization_inputs are not available, so I cannot propagate calibration-time noise")
+
+        for i0 in range(len(models_flat)):
+            for i1 in range(i0):
+                if not models_flat[i0]._optimization_inputs_match(models_flat[i1]):
+                    raise Exception("The optimization_inputs for all of the given models must be identical")
+
+            if models_flat[i0]._extrinsics_moved_since_calibration():
+                raise Exception(f"The given models must have been fixed inside the initial calibration. Model {i0} has been moved")
 
         if q_calibration_stdev < 0:
             q_calibration_stdev = optimization_inputs['observed_pixel_uncertainty']
@@ -1551,8 +1790,8 @@ def triangulate( q,
                         optimization_inputs,
                         q_observation_stdev,
                         q_observation_stdev_correlation,
-                        triangulation_function = triangulation_function,
-                        stabilize_coords       = stabilize_coords)[:3]
+                        method           = method,
+                        stabilize_coords = stabilize_coords)[:3]
 
     # Done looping through all the triangulated points. I have computed the
     # observation-time noise contributions in Var_p_observation. And I have all

@@ -71,7 +71,7 @@ def parse_args():
                         type=str,
                         default='5,inf',
                         help='''Comma-separated list of distance where we test the uncertainty predictions.
-                        Numbers an "inf" understood. The first value on this
+                        Numbers and "inf" understood. The first value on this
                         list is used for visualization in --show-distribution''')
     parser.add_argument('--do-sample',
                         action='store_true',
@@ -155,7 +155,7 @@ import copy
 import numpy as np
 import numpysane as nps
 
-from test_calibration_helpers import plot_args_points_and_covariance_ellipse,plot_arg_covariance_ellipse,calibration_baseline,calibration_sample
+from test_calibration_helpers import calibration_baseline,calibration_sample
 
 
 fixedframes = (args.fixed == 'frames')
@@ -810,8 +810,8 @@ def make_plot(icam, report_center_points = True, **kwargs):
     def make_tuple(*args): return args
 
     data_tuples = \
-        make_tuple(*plot_args_points_and_covariance_ellipse(q_sampled[:,icam,:], "Observed uncertainty"),
-                   plot_arg_covariance_ellipse(q_sampled_mean, Var_dq[icam], "Predicted uncertainty"),)
+        make_tuple(*mrcal.utils._plot_args_points_and_covariance_ellipse(q_sampled[:,icam,:], "Observed uncertainty"),
+                   mrcal.utils._plot_arg_covariance_ellipse(q_sampled_mean, Var_dq[icam], "Predicted uncertainty"),)
 
     if report_center_points:
         data_tuples += \

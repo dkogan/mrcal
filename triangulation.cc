@@ -23,34 +23,70 @@ triangulate_assume_intersect( // output
     //
     //   k0 v0 = t01 + k1 v1
     //
-    // I look at just two components of these vectors (forward (z) and
-    // along-the-baseline (x) should be the dominant directions), and solve the
-    // system of equations.
-    //
     //   t01 = [v0 -v1] k
+    //
+    // This is over-determined: k has 2DOF, but I have 3 equations. I know that
+    // the vectors intersect, so I can use 2 axes only, which makes the problem
+    // uniquely determined. Let's pick the 2 axes to use. The "forward"
+    // direction (z) is dominant, so let's use that. For the second axis, let's
+    // use whichever is best numerically: biggest abs(det), so that I divide by
+    // something as far away from 0 as possible. I have
+    //
+    double fabs_det_xz = fabs(-v0.v[0].x*v1.v[2].x + v0.v[2].x*v1.v[0].x);
+    double fabs_det_yz = fabs(-v0.v[1].x*v1.v[2].x + v0.v[2].x*v1.v[1].x);
+
+    // If using xz, I have:
     //
     //   k = 1/(-v0[0]*v1[2] + v0[2]*v1[0]) * [-v1[2]     v1[0] ] t01
     //                                        [-v0[2]     v0[0] ]
-    val_withgrad_t<NGRAD> det = v1.v[0]*v0.v[2] - v0.v[0]*v1.v[2];
-    if(-1e-10 <= det.x && det.x <= 1e-10)
-        return false;
+    // [0] -> [1] if using yz
+    val_withgrad_t<NGRAD> k0;
+    if(fabs_det_xz > fabs_det_yz)
+    {
+        // xz
+        if(fabs_det_xz <= 1e-10)
+            return false;
 
-    val_withgrad_t<NGRAD> k0 = (t01.v[2]*v1.v[0] - t01.v[0]*v1.v[2]) / det;
-    if(k0.x <= 0.0)
-        return false;
-    bool k1_negative = (t01.v[2].x*v0.v[0].x > t01.v[0].x*v0.v[2].x) ^ (det.x > 0);
-    if(k1_negative)
-        return false;
-
-    m = v0 * k0;
+        val_withgrad_t<NGRAD> det = v1.v[0]*v0.v[2] - v0.v[0]*v1.v[2];
+        k0 = (t01.v[2]*v1.v[0] - t01.v[0]*v1.v[2]) / det;
+        if(k0.x <= 0.0)
+            return false;
+        bool k1_negative = (t01.v[2].x*v0.v[0].x > t01.v[0].x*v0.v[2].x) ^ (det.x > 0);
+        if(k1_negative)
+            return false;
 
 #if 0
-    val_withgrad_t<NGRAD> k1 = (t01.v[2]*v0.v[0] - t01.v[0]*v0.v[2]) / det;
+        val_withgrad_t<NGRAD> k1 = (t01.v[2]*v0.v[0] - t01.v[0]*v0.v[2]) / det;
+        vec_withgrad_t<NGRAD,3> m2 = v1*k1 + t01;
+        m2 -= m;
+        double d2 = m2.v[0].x*m2.v[0].x + m2.v[1].x*m2.v[1].x + m2.v[2].x*m2.v[2].x;
+        fprintf(stderr, "diff: %f\n", d2);
+#endif
+    }
+    else
+    {
+        // yz
+        if(fabs_det_yz <= 1e-10)
+            return false;
+
+        val_withgrad_t<NGRAD> det = v1.v[1]*v0.v[2] - v0.v[1]*v1.v[2];
+        k0 = (t01.v[2]*v1.v[1] - t01.v[1]*v1.v[2]) / det;
+        if(k0.x <= 0.0)
+            return false;
+        bool k1_negative = (t01.v[2].x*v0.v[1].x > t01.v[1].x*v0.v[2].x) ^ (det.x > 0);
+        if(k1_negative)
+            return false;
+
+#if 0
+    val_withgrad_t<NGRAD> k1 = (t01.v[2]*v0.v[1] - t01.v[1]*v0.v[2]) / det;
     vec_withgrad_t<NGRAD,3> m2 = v1*k1 + t01;
     m2 -= m;
-    double d2 = m2.v[0].x*m2.v[0].x + m2.v[1].x*m2.v[1].x + m2.v[2].x*m2.v[2].x;
+    double d2 = m2.v[1].x*m2.v[1].x + m2.v[1].x*m2.v[1].x + m2.v[2].x*m2.v[2].x;
     fprintf(stderr, "diff: %f\n", d2);
 #endif
+    }
+
+    m = v0 * k0;
 
     return true;
 }
@@ -415,7 +451,7 @@ mrcal_triangulate_leecivera_l1(// outputs
     // abs(dot(v0/len(v0), t)) > abs(dot(v1/len(v1), t)) ~
     // (dot(v0/len(v0), t))^2 > (dot(v1/len(v1), t))^2 ~
     // (dot(v0, t))^2 norm2(v1) > (dot(v1, t))^2 norm2(v0) ~
-    if( dot_v0t.x*dot_v0t.x * dot_v1v1.x > dot_v1t.x*dot_v1t.x * dot_v0v0.x )
+    if(dot_v0t.x*dot_v0t.x * dot_v1v1.x > dot_v1t.x*dot_v1t.x * dot_v0v0.x )
     {
         // Equation (12)
         vec_withgrad_t<9,3> n1 = cross<9>(v1, t01);

@@ -206,6 +206,3 @@ Somewhere talk about these:
 talk about --seed and how that can be used to validate intrinsics
 
 add punchline note at the end of the tour
-
-* TODO stereo tool addition                                        :noexport:
-Add commandline tool for stereo-matching

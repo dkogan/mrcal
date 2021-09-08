@@ -44,10 +44,9 @@ def parse_args():
                         always right, so most people don't need this
                         option''')
 
-    parser.add_argument('--hide-boards',
+    parser.add_argument('--show-boards',
                         action='store_true',
-                        help='''If given, do not draw the calibration object observations. By default we do
-                        draw them if they are available''')
+                        help='''If given, draw the calibration object observations''')
 
     parser.add_argument('--transforms',
                         type=str,
@@ -122,7 +121,7 @@ if args.unset is not None:
 plot = mrcal.show_geometry(models,
                            cameranames         = args.models,
                            cameras_Rt_plot_ref = cameras_Rt_plot_ref,
-                           show_calobjects     = not args.hide_boards,
+                           show_calobjects     = args.show_boards,
                            axis_scale          = args.axis_scale,
                            **plotkwargs)
 

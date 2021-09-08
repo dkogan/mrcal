@@ -1528,14 +1528,14 @@ Command to test all the ranges
 
 #+begin_src sh :exports none :eval no-export
 what=opencv8; (
-PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 2874 1231 --range-estimate 566 --searchradius 10
-PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 2968 1767 --range-estimate 870 --searchradius 10
-PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 1885 864  --range-estimate 594 --searchradius 10
-PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 3090 1384 --range-estimate 862 --searchradius 10
-PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg  541  413 --range-estimate 402 --searchradius 10
-PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 4489 1631 --range-estimate 522 --searchradius 10
-PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 5483  930 --range-estimate 311 --searchradius 10
-PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_any:/home/dima/jpl/deltapose-lite ~/jpl/tracking-analysis-tools/triangulate-feature.py $D/$what-[01].cameramodel $D/[01].jpg 5351  964 --range-estimate 311 --searchradius 10
+./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 2874 1231 --range-estimate 566 --searchradius 10
+./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 2968 1767 --range-estimate 870 --searchradius 10
+./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 1885 864  --range-estimate 594 --searchradius 10
+./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 3090 1384 --range-estimate 862 --searchradius 10
+./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg  541  413 --range-estimate 402 --searchradius 10
+./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 4489 1631 --range-estimate 522 --searchradius 10
+./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 5483  930 --range-estimate 311 --searchradius 10
+./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 5351  964 --range-estimate 311 --searchradius 10
 ) | egrep 'q1|Range'
 #+end_src
 
