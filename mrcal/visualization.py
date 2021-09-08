@@ -2647,8 +2647,8 @@ plot
 
 def show_residuals_histogram(optimization_inputs,
                              i_cam            = None,
-                             binwidth         = 0.02,
                              residuals        = None,
+                             binwidth         = 0.02,
                              extratitle       = None,
                              return_plot_args = False,
                              **kwargs):
@@ -2681,13 +2681,13 @@ ARGUMENTS
 - i_cam: optional integer to select the camera whose residuals we're visualizing
   If omitted or None, we display the residuals for ALL the cameras together.
 
-- binwidth: optional floating-point value selecting the width of each bin in the
-  computed histogram. A default of 0.02 pixels is used if this value is omitted.
-
 - residuals: optional numpy array of shape (Nmeasurements,) containing the
   optimization residuals. If omitted or None, this will be recomputed. To use a
   cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
   mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- binwidth: optional floating-point value selecting the width of each bin in the
+  computed histogram. A default of 0.02 pixels is used if this value is omitted.
 
 - extratitle: optional string to include in the title of the resulting plot.
   Used to extend the default title string. If kwargs['title'] is given, it is
