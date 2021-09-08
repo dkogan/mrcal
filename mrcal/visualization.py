@@ -2666,11 +2666,7 @@ SYNOPSIS
 
 Given a calibration solve, visualizes the distribution of errors at the optimal
 solution. We display a histogram of residuals and overlay it with an idealized
-gaussian distribution. If the optimization was successful, and if
-observed_pixel_uncertainty represented the input errors faithfully AND there was
-no overfitting, the two would line up. All of these rarely occur together, and
-usually the predicted distribution is significantly less certain than the
-observed distribution: there's usually a strong overfitting effect.
+gaussian distribution.
 
 ARGUMENTS
 
@@ -2717,24 +2713,17 @@ plot
 
     import gnuplotlib as gp
 
-    residuals_flat = \
+    x = \
         mrcal.residuals_chessboard(optimization_inputs = optimization_inputs,
                                    i_cam               = i_cam,
-                                   residuals           = residuals)
-    x = residuals_flat.ravel()
+                                   residuals           = residuals).ravel()
     sigma_observed = np.std(x)
-    sigma_expected = optimization_inputs['observed_pixel_uncertainty']
 
-    equations = [fitted_gaussian_equation(sigma    = sigma_expected,
-                                          mean     = 0,
-                                          N        = len(x),
-                                          binwidth = binwidth,
-                                          legend   = f'Normal distribution of residuals with expected stdev: {sigma_expected:.02f} pixels'),
-                 fitted_gaussian_equation(sigma    = sigma_observed,
-                                          mean     = np.mean(x),
-                                          N        = len(x),
-                                          binwidth = binwidth,
-                                          legend   = f'Normal distribution of residuals with observed stdev: {sigma_observed:.02f} pixels')]
+    equation = fitted_gaussian_equation(sigma    = sigma_observed,
+                                        mean     = np.mean(x),
+                                        N        = len(x),
+                                        binwidth = binwidth,
+                                        legend   = f'Normal distribution of residuals with observed stdev: {sigma_observed:.02f} pixels')
 
     if i_cam is None:
         what = 'all the cameras'
@@ -2750,7 +2739,7 @@ plot
         plot_options['title'] = title
 
     gp.add_plot_option(plot_options,
-                       equation_above = equations,
+                       equation_above = equation,
                        overwrite = True)
     gp.add_plot_option(plot_options,
                        xlabel = 'Residuals (pixels). x and y components of error are counted separately',

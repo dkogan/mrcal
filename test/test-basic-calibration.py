@@ -132,7 +132,6 @@ optimization_inputs = \
           imagersizes                               = imagersizes,
           calibration_object_spacing                = object_spacing,
           verbose                                   = False,
-          observed_pixel_uncertainty                = pixel_uncertainty_stdev,
           do_apply_regularization                   = True)
 
 # Solve this thing incrementally

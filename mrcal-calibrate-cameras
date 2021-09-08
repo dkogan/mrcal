@@ -9,7 +9,6 @@ SYNOPSIS
       --lensmodel LENSMODEL_OPENCV8
       --focal 1700 --object-spacing 0.01 --object-width-n 10
       --outdir /tmp
-      --observed-pixel-uncertainty 0.5
       --pairs
       'left*.png' 'right*.png'
 
@@ -230,17 +229,6 @@ def parse_args():
                         required=False,
                         default=False,
                         help='''After the solve open an interactive shell to examine the solution''')
-    parser.add_argument('--observed-pixel-uncertainty',
-                        type=positive_float,
-                        required=True,
-                        help='''The standard deviation of x and y pixel coordinates of the input
-                        observations. The distribution of the inputs is assumed
-                        to be gaussian, with the standard deviation specified by
-                        this argument. Note: this is the x and y standard
-                        deviation, treated independently. If each of these is s,
-                        then the LENGTH of the deviation of each pixel is a
-                        Rayleigh distribution with expected value s*sqrt(pi/2) ~
-                        s*1.25''')
 
     parser.add_argument('images',
                         type=str,
@@ -350,7 +338,6 @@ def solve_initial(args, seedmodels, imagersizes,
                                None, None,
                                lensmodel,
                                imagersizes                       = imagersizes,
-                               observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
                                do_optimize_intrinsics_core       = False,
                                do_optimize_intrinsics_distortions= False,
                                do_optimize_calobject_warp        = False,
@@ -366,7 +353,6 @@ def solve_initial(args, seedmodels, imagersizes,
                                None, None,
                                lensmodel,
                                imagersizes                       = imagersizes,
-                               observed_pixel_uncertainty        = args.observed_pixel_uncertainty,
                                do_optimize_intrinsics_core       = True,
                                do_optimize_intrinsics_distortions= False,
                                do_optimize_calobject_warp        = False,
@@ -482,7 +468,6 @@ def solve_initial(args, seedmodels, imagersizes,
               do_optimize_calobject_warp                = False,
               calibration_object_spacing                = args.object_spacing,
               do_apply_outlier_rejection                = not args.skip_outlier_rejection,
-              observed_pixel_uncertainty                = args.observed_pixel_uncertainty,
               do_apply_regularization                   = True,
               verbose                                   = False,
               imagepaths                                = paths )
@@ -592,7 +577,6 @@ print("## final, full optimization",
 optimization_inputs['calobject_warp']             = calobject_warp
 optimization_inputs['do_optimize_calobject_warp'] = not args.skip_calobject_warp_solve
 optimization_inputs['do_apply_regularization']    = not args.skip_regularization
-optimization_inputs['observed_pixel_uncertainty'] = args.observed_pixel_uncertainty
 optimization_inputs['do_apply_outlier_rejection'] = not args.skip_outlier_rejection
 optimization_inputs['verbose']                    = args.verbose_solver
 
@@ -657,9 +641,13 @@ i_observations_sorted_from_worst = \
 if not args.skip_intrinsics_solve and \
    args.valid_intrinsics_region_parameters is not None:
 
-    threshold_uncertainty = args.valid_intrinsics_region_parameters[0] * args.observed_pixel_uncertainty
+    observed_pixel_uncertainty = \
+        np.std(mrcal.residuals_chessboard(optimization_inputs,
+                                          residuals = stats['x']).ravel())
+
+    threshold_uncertainty = args.valid_intrinsics_region_parameters[0] * observed_pixel_uncertainty
     threshold_mean        = args.valid_intrinsics_region_parameters[1]
-    threshold_stdev       = args.valid_intrinsics_region_parameters[2] * args.observed_pixel_uncertainty
+    threshold_stdev       = args.valid_intrinsics_region_parameters[2] * observed_pixel_uncertainty
     threshold_count       = args.valid_intrinsics_region_parameters[3]
     distance              = args.valid_intrinsics_region_parameters[4]
 

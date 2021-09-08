@@ -552,7 +552,6 @@ def solve(Ncameras,
               imagersizes                               = imagersizes,
               calibration_object_spacing                = object_spacing,
               verbose                                   = False,
-              observed_pixel_uncertainty                = args.observed_pixel_uncertainty,
               # do_optimize_extrinsics filled in later
               # do_optimize_intrinsics_core filled in later
               do_optimize_frames                        = False,

@@ -10,7 +10,6 @@ SYNOPSIS
 
                             lensmodel,
                             imagersizes                       = imagersizes,
-                            observed_pixel_uncertainty        = observed_pixel_uncertainty,
                             do_optimize_intrinsics_core       = True,
                             do_optimize_intrinsics_distortions= True,
                             calibration_object_spacing        = object_spacing,
@@ -130,15 +129,14 @@ REQUIRED ARGUMENTS
   Each slice is an (x,y,weight) tuple where (x,y) are the observed pixel
   coordinates of the corners in the calibration object, and "weight" is the
   relative weight of this point observation. Most of the weights are expected to
-  be 1.0, which implies that the noise on that observation has standard
-  deviation of observed_pixel_uncertainty (in addition to the overall assumption
-  of gaussian noise, independent on x,y). observed_pixel_uncertainty scales
-  inversely with the weight. weight<0 indicates that this is an outlier. This is
-  respected on input (even if !do_apply_outlier_rejection). New outliers are
-  marked with weight<0 on output. Subpixel interpolation is assumed, so these
-  contain 64-bit floating point values, like all the other data. The frame and
-  camera that produced these observations are given in the
-  indices_frame_camintrinsics_camextrinsics
+  be 1.0, which implies that the noise on that observation has the nominal
+  standard deviation of observed_pixel_uncertainty (in addition to the overall
+  assumption of gaussian noise, independent on x,y). weight<0 indicates that
+  this is an outlier. This is respected on input (even if
+  !do_apply_outlier_rejection). New outliers are marked with weight<0 on output.
+  Subpixel interpolation is assumed, so these contain 64-bit floating point
+  values, like all the other data. The frame and camera that produced these
+  observations are given in the indices_frame_camintrinsics_camextrinsics
 
   THIS ARRAY IS MODIFIED BY THIS CALL (to mark outliers)
 
@@ -157,14 +155,13 @@ REQUIRED ARGUMENTS
   (x,y,weight) tuple where (x,y) are the pixel coordinates of the observed
   point, and "weight" is the relative weight of this point observation. Most of
   the weights are expected to be 1.0, which implies that the noise on the
-  observation is gaussian, independent on x,y, and has standard deviation of
-  observed_pixel_uncertainty. observed_pixel_uncertainty scales inversely with
-  the weight. weight<0 indicates that this is an outlier. This is respected on
-  input (even if !do_apply_outlier_rejection). At this time, no new outliers are
-  detected for point observations. Subpixel interpolation is assumed, so these
-  contain 64-bit floating point values, like all the other data. The point index
-  and camera that produced these observations are given in the
-  indices_point_camera_points array.
+  observation is gaussian, independent on x,y, and has the nominal standard
+  deviation of observed_pixel_uncertainty. weight<0 indicates that this is an
+  outlier. This is respected on input (even if !do_apply_outlier_rejection). At
+  this time, no new outliers are detected for point observations. Subpixel
+  interpolation is assumed, so these contain 64-bit floating point values, like
+  all the other data. The point index and camera that produced these
+  observations are given in the indices_point_camera_points array.
 
 - indices_point_camintrinsics_camextrinsics: array of dims (Nobservations_point,
   3). For each observation these are an
@@ -226,14 +223,6 @@ OPTIONAL ARGUMENTS
 
 - do_apply_regularization: if False, don't include regularization terms in the
   solver. Defaults to True
-
-- observed_pixel_uncertainty: Required if do_apply_outlier_rejection. The
-  standard deviation of x and y pixel coordinates of the input observations. The
-  distribution of the inputs is assumed to be gaussian, with the standard
-  deviation specified by this argument. Note: this is the x and y standard
-  deviation, treated independently. If each of these is s, then the LENGTH of
-  the deviation of each pixel is a Rayleigh distribution with expected value
-  s*sqrt(pi/2) ~ s*1.25. This is used to set the outlier rejection threshold
 
 - point_min_range, point_max_range: Required ONLY if point observations are
   given. These are lower, upper bounds for the distance of a point observation

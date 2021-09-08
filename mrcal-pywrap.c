@@ -880,6 +880,9 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT32,    {-1 COMMA 2        } )
 
 // Defaults for do_optimize... MUST match those in ingest_packed_state()
+//
+// Accepting observed_pixel_uncertainty for backwards compatibility. It doesn't
+// do anything anymore
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) \
     _(observed_pixel_uncertainty,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(calobject_warp,                     PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, calobject_warp, NPY_DOUBLE, {2}) \
@@ -1092,13 +1095,6 @@ static bool optimize_validate_args( // out
                          Ncameras_extrinsics-1, icam_extrinsics, i_observation);
             return false;
         }
-    }
-
-    if( is_optimize && do_apply_outlier_rejection && observed_pixel_uncertainty <= 0.0 )
-    {
-        // The pixel uncertainty is used and must be valid
-        BARF("do_apply_outlier_rejection, so observed_pixel_uncertainty MUST be a valid float > 0");
-        return false;
     }
 
     return true;
@@ -1362,7 +1358,6 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                 c_observations_board_pool,
 
                                 &mrcal_lensmodel,
-                                observed_pixel_uncertainty,
                                 c_imagersizes,
                                 problem_selections, &problem_constants,
 
@@ -1482,7 +1477,6 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                          c_observations_board_pool,
 
                                          &mrcal_lensmodel,
-                                         observed_pixel_uncertainty,
                                          c_imagersizes,
                                          problem_selections, &problem_constants,
 

@@ -235,7 +235,6 @@ args.Nframes =                                         \
                          args.Ncameras,
                          args.Nframes,
                          args.extra_observation_at,
-                         pixel_uncertainty_stdev,
                          object_width_n,
                          object_height_n,
                          object_spacing,

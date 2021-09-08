@@ -846,7 +846,6 @@ mrcal_optimize( // out
                 mrcal_point3_t* observations_board_pool,
 
                 mrcal_lensmodel_t lensmodel,
-                double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
                 mrcal_problem_selections_t       problem_selections,
                 const mrcal_problem_constants_t* problem_constants,
@@ -929,7 +928,6 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_point3_t* observations_board_pool,
 
                              mrcal_lensmodel_t lensmodel,
-                             double observed_pixel_uncertainty,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
                              mrcal_problem_selections_t       problem_selections,
                              const mrcal_problem_constants_t* problem_constants,
@@ -994,11 +992,6 @@ ignored points on input the [[file:formulation.org::#outlier-rejection][outlier 
 return the outlier points will be marked with =.z < 0=.
 
 The [[file:lensmodels.org][lens model]] of /all/ the cameras is specified in the =lensmodel= argument.
-
-The [[file:formulation.org::#noise-model][expected uncertainty]] of the pixel observations is given in
-=observed_pixel_uncertainty=. This is used primarily by the caller to estimate
-uncertainties. These functions currently use this value only in the [[file:formulation.org::#outlier-rejection][outlier
-rejection]] routine.
 
 The =imagersizes= array contains the (width,height) dimensions of the imager of
 all the cameras. Each camera is specified separately, so =Ncameras_intrinsics*2=

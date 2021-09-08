@@ -22,7 +22,6 @@ from test_calibration_helpers import calibration_baseline
 
 ############# Set up my world, and compute all the perfect positions, pixel
 ############# observations of everything
-pixel_uncertainty_stdev = 1.5
 object_spacing          = 0.1
 object_width_n          = 10
 object_height_n         = 9
@@ -50,7 +49,6 @@ Nframes =                                         \
                          Ncameras,
                          Nframes,
                          None,
-                         pixel_uncertainty_stdev,
                          object_width_n,
                          object_height_n,
                          object_spacing,

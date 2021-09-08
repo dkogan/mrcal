@@ -127,8 +127,7 @@ baseline = \
          do_optimize_extrinsics                    = True,
          imagersizes                               = imagersizes,
          calibration_object_spacing                = object_spacing,
-         do_apply_regularization                   = True,
-         observed_pixel_uncertainty                = pixel_uncertainty_stdev,)
+         do_apply_regularization                   = True)
 
 mrcal.optimize(**baseline,
                do_apply_outlier_rejection = False)
@@ -142,7 +141,6 @@ Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
 
 Nmeasurements_boards         = mrcal.num_measurements_boards(**baseline)
 Nmeasurements_regularization = mrcal.num_measurements_regularization(**baseline)
-pixel_uncertainty_stdev      = baseline['observed_pixel_uncertainty']
 
 p0,x0,J0 = mrcal.optimizer_callback(no_factorization = True,
                                     **baseline)[:3]

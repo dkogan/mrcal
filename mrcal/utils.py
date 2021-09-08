@@ -1198,8 +1198,9 @@ SYNOPSIS
 
     model = mrcal.cameramodel(model_filename)
 
-    gp.plot( residuals_chessboard(optimization_inputs = model.optimization_inputs(),
-                                  i_cam               = i_cam).ravel(),
+    gp.plot( mrcal.residuals_chessboard(
+               optimization_inputs = model.optimization_inputs(),
+               i_cam               = i_cam ).ravel(),
              histogram = True,
              binwidth  = 0.02 )
 

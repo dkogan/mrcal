@@ -65,7 +65,6 @@ def grad(f, x, step=1e-6):
 
 
 def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
-                         pixel_uncertainty_stdev,
                          object_width_n,
                          object_height_n,
                          object_spacing,
@@ -240,7 +239,6 @@ ARGUMENTS
               imagersizes                               = imagersizes,
               calibration_object_spacing                = object_spacing,
               verbose                                   = False,
-              observed_pixel_uncertainty                = pixel_uncertainty_stdev,
               do_optimize_frames                        = not fixedframes,
               do_optimize_intrinsics_core               = False if model =='splined' else True,
               do_optimize_intrinsics_distortions        = True,

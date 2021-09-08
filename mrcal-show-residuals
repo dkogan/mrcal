@@ -40,12 +40,7 @@ arguments. Exactly one of these mode options must be given:
 
   --histogram   Visualize the distribution of the optimized residuals. We display
                 a histogram of residuals and overlay it with an idealized
-                gaussian distribution. If the optimization was successful, and
-                if observed_pixel_uncertainty represented the input errors
-                faithfully AND there was no overfitting, the two would line up.
-                All of these rarely occur together, and usually the predicted
-                distribution is significantly less certain than the observed
-                distribution: there's usually a strong overfitting effect.
+                gaussian distribution.
 
 '''
 

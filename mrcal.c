@@ -3731,7 +3731,6 @@ bool markOutliers(// output, input
                   int calibration_object_height_n,
 
                   const double* x_measurements,
-                  double observed_pixel_uncertainty,
                   bool verbose)
 {
     // I define an outlier as a feature that's > k stdevs past the mean. I make
@@ -3739,24 +3738,7 @@ bool markOutliers(// output, input
     // with mean 0. This is reasonable because this function is applied after
     // running the optimization.
     //
-    // The threshold stdev is the larger of
-    //
-    // - The stdev of my observed residuals
-    // - The expected stdev of my noise passed-in as the
-    //   observed_pixel_uncertainty
-    //
-    // The rationale:
-    //
-    // - If I have a really good solve, the stdev of my data set will be very
-    //   low, so deviations off that already-very-good solve aren't important. I
-    //   use the expected-noise stdev in this case
-    //
-    // - If the solve isn't great, my errors may exceed the expected-noise stdev
-    //   (if my model doesn't fit very well, say). In that case I want to use
-    //   the stdev from the data
-    //
-    // This assumes that the given obsered_pixel_uncertainty isn't very
-    // well-known
+    // The threshold stdev is the stdev of my observed residuals
     //
     // I have two separate thresholds. If any measurements are worse than the
     // higher threshold, then I will need to reoptimize, so I throw out some
@@ -3809,8 +3791,6 @@ bool markOutliers(// output, input
     }
     LOOP_FEATURE_END();
     var /= (2.*sum_weight);
-
-    var = fmax(var, observed_pixel_uncertainty*observed_pixel_uncertainty);
 
     bool markedAny = false;
     LOOP_FEATURE_BEGIN()
@@ -5112,7 +5092,6 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_point3_t* observations_board_pool,
 
                              const mrcal_lensmodel_t* lensmodel,
-                             double observed_pixel_uncertainty,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
 
                              mrcal_problem_selections_t       problem_selections,
@@ -5290,7 +5269,6 @@ mrcal_optimize( // out
                 mrcal_point3_t* observations_board_pool,
 
                 const mrcal_lensmodel_t* lensmodel,
-                double observed_pixel_uncertainty,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
                 mrcal_problem_selections_t       problem_selections,
                 const mrcal_problem_constants_t* problem_constants,
@@ -5491,7 +5469,6 @@ mrcal_optimize( // out
                               calibration_object_width_n,
                               calibration_object_height_n,
                               solver_context->beforeStep->x,
-                              observed_pixel_uncertainty,
                               verbose) &&
                  ({MSG("Threw out some outliers (have a total of %d now); going again", stats.Noutliers); true;}));
 
