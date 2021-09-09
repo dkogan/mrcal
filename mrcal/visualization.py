@@ -1358,15 +1358,19 @@ plot
         mrcal.utils.hypothesis_board_corner_positions(model.icam_intrinsics(),
                                                 **model.optimization_inputs())[1]
 
-    if   where == 'center':
-        q = (model.imagersize() - 1.) / 2.
+    if isinstance(where, str):
+        if   where == 'center':
+            q = (model.imagersize() - 1.) / 2.
 
-        vcam = mrcal.unproject(q, *model.intrinsics(),
-                               normalize = True)
+            vcam = mrcal.unproject(q, *model.intrinsics(),
+                                   normalize = True)
 
-    elif where == 'centroid':
-        p    = np.mean(p_cam_observed_at_calibration_time, axis=-2)
-        vcam = p / nps.mag(p)
+        elif where == 'centroid':
+            p    = np.mean(p_cam_observed_at_calibration_time, axis=-2)
+            vcam = p / nps.mag(p)
+
+        else:
+            raise Exception("'where' should be 'center' or an array specifying a pixel")
 
     elif isinstance(where, np.ndarray):
         q    = where
