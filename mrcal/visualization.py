@@ -3228,7 +3228,9 @@ ARGUMENTS
   include this as a part of a more complex plot
 
 - **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
-  Useful to make hardcopies, etc
+  Useful to make hardcopies, etc. A "hardcopy" here is a base name:
+  kwargs['hardcopy']="/a/b/c/d.pdf" will produce plots in "/a/b/c/d.XXX.pdf"
+  where XXX is the type of plot being made
 
 RETURNED VALUES
 
@@ -3261,6 +3263,8 @@ plot
             # the "what" without special characters
             what = re.sub('[^a-zA-Z0-9_-]+', '_', title)
             plot_options['hardcopy'] = re.sub(r'(\.[^\.]+$)', '.' + what + r'\1', plot_options['hardcopy'])
+
+            print(f"Writing '{plot_options['hardcopy']}'")
 
         if 'title' not in plot_options:
             if extratitle is not None:

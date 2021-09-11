@@ -104,7 +104,12 @@ def parse_args():
                         help='''Extra title string for the plot''')
     parser.add_argument('--hardcopy',
                         type=str,
-                        help='''Write the output to disk, instead of making an interactive plot''')
+                        help='''Write the output to disk, instead of making an
+                        interactive plot. If --regional, then several plots are
+                        made, and the --hardcopy argument is a base name:
+                        "--hardcopy /a/b/c/d.pdf" will produce plots in
+                        "/a/b/c/d.XXX.pdf" where XXX is the type of plot being
+                        made''')
     parser.add_argument('--terminal',
                         type=str,
                         help=r'''gnuplotlib terminal. The default is good almost always, so most people don't
@@ -201,7 +206,7 @@ elif args.regional:
                                       valid_intrinsics_region = args.valid_intrinsics_region,
                                       gridn_width             = args.gridn[0],
                                       gridn_height            = args.gridn[1],
-                                      return_plot_args        = True,
+                                      return_plot_args        = args.hardcopy is None,
                                       **kwargs)
 
     if args.hardcopy:
