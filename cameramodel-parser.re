@@ -446,7 +446,7 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
 
             if(cameramodel_core.lensmodel.type < 0)
             {
-                MSG("The 'lensmodel' MUST appear in the file before the 'intrinsics'. Please reorder your model file");
+                MSG("Saw 'intrinsics' key, before a 'lensmodel' key. Make sure that a 'lensmodel' key exists, and that it appears in the file before the 'intrinsics'");
                 goto done;
             }
 
