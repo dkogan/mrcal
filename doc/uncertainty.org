@@ -281,6 +281,7 @@ is set by the specifics of the chessboard dance.
 
 See the [[file:tour.org::#uncertainty][tour of mrcal]] for a simulation validating the approach and for some
 empirical results.
+
 * Planned improvements
 The current implementation is very usable, but a few things should be extended
 or fixed:
