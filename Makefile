@@ -16,6 +16,7 @@ VERSION = $(if $(_VERSION_EXPANDED),,$(eval _VERSION_EXPANDED:=$$(_VERSION)))$(_
 
 LIB_SOURCES +=			\
   mrcal.c			\
+  mrcal-opencv.c		\
   poseutils.c			\
   poseutils-opencv.c		\
   poseutils-uses-autodiff.cc	\

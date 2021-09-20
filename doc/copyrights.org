@@ -24,7 +24,7 @@ provisions. Copyright 2011 Oblong Industries. This library is distributed under
 the terms of the GNU LGPL
 
 * opencv projection
-The [[https://www.github.com/dkogan/mrcal/blob/bface334218c0e49cca6fe9bf5517fea2233a92e/mrcal.c#L747][opencv projection function]] is a cut-down implementation from the OpenCV
+The [[https://www.github.com/dkogan/mrcal/blob/master/mrcal-opencv.c][opencv projection function]] is a cut-down implementation from the OpenCV
 project. Distributed under an BSD-style license. Copyright (C) 2000-2008, Intel
 Corporation, all rights reserved. Copyright (C) 2009, Willow Garage Inc., all
 rights reserved.
