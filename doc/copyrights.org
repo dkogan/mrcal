@@ -30,7 +30,7 @@ Corporation, all rights reserved. Copyright (C) 2009, Willow Garage Inc., all
 rights reserved.
 
 * =mrcal_r_from_R()=
-The [[https://www.github.com/dkogan/mrcal/blob/1c05b0ea20660e493e942488e11a4c265c500a8d/poseutils.c#L324][=mrcal_r_from_R()= sources]] originated in the OpenCV project. Distributed
+The [[https://www.github.com/dkogan/mrcal/blob/master/poseutils-opencv.c][=mrcal_r_from_R()= sources]] originated in the OpenCV project. Distributed
 under an BSD-style license. Copyright (C) 2000-2008, Intel Corporation, all
 rights reserved. Copyright (C) 2009, Willow Garage Inc., all rights reserved.
 

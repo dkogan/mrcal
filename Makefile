@@ -14,7 +14,12 @@ _VERSION = $(shell test -d .git && \
 # cached result during subsequent calls
 VERSION = $(if $(_VERSION_EXPANDED),,$(eval _VERSION_EXPANDED:=$$(_VERSION)))$(_VERSION_EXPANDED)
 
-LIB_SOURCES += mrcal.c poseutils.c poseutils-uses-autodiff.cc triangulation.cc
+LIB_SOURCES +=			\
+  mrcal.c			\
+  poseutils.c			\
+  poseutils-opencv.c		\
+  poseutils-uses-autodiff.cc	\
+  triangulation.cc
 
 BIN_SOURCES +=					\
   test-gradients.c				\
