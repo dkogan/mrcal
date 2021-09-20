@@ -35,7 +35,7 @@ under an BSD-style license. Copyright (C) 2000-2008, Intel Corporation, all
 rights reserved. Copyright (C) 2009, Willow Garage Inc., all rights reserved.
 
 * [[file:mrcal-python-api-reference.html#-quat_from_R][=mrcal.quat_from_R()=]]
-The [[https://www.github.com/dkogan/mrcal/blob/bface334218c0e49cca6fe9bf5517fea2233a92e/mrcal/poseutils.py#L1042][=mrcal.quat_from_R()= sources]] came from scipy. Distributed under an
+The [[https://www.github.com/dkogan/mrcal/blob/master/mrcal/_poseutils_scipy.py][=mrcal.quat_from_R()= sources]] came from scipy. Distributed under an
 BSD-style license. Copyright (c) 2001-2002 Enthought, Inc. 2003-2019, SciPy
 Developers.
 
