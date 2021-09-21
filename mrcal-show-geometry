@@ -46,7 +46,9 @@ def parse_args():
 
     parser.add_argument('--show-calobjects',
                         action='store_true',
-                        help='''If given, draw the calibration object observations''')
+                        help='''If given, draw the calibration object
+                        observations from the FIRST given camera model that
+                        contains the optimization_inputs''')
 
     parser.add_argument('--transforms',
                         type=str,
