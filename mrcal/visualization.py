@@ -2447,7 +2447,7 @@ Given a calibration solve, visualizes the fit for a single observation. Plots
 the chessboard image overlaid with its residuals. Each residual is plotted as a
 circle and a vector. The circles are color-coded by the residual error. The size
 of the circle indicates the weight. Bigger means higher weight. The vector shows
-the weighted residual. Outliers are omitted.
+the weighted residual from the observation to the prediction.
 
 ARGUMENTS
 
