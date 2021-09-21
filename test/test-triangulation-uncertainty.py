@@ -123,12 +123,13 @@ def parse_args():
                         the same scenario repeatedly''')
     parser.add_argument('--make-documentation-plots',
                         type=str,
-                        help='''If given, we produce plots for the documentation. Takes one argument: a
-                        string describing this test. This will be used in the
-                        filenames and titles of the resulting plots. Whitespace
-                        and funny characters are allowed: will be replaced with
-                        _ in the filenames. To make interactive plots, pass
-                        ""''')
+                        help='''If given, we produce plots for the
+                        documentation. Takes one argument: a string describing
+                        this test. This will be used in the filenames and titles
+                        of the resulting plots. Leading directories will be
+                        used; whitespace and funny characters in the filename
+                        are allowed: will be replaced with _. To make
+                        interactive plots, pass ""''')
     parser.add_argument('--ellipse-plot-radius',
                         type=float,
                         help='''By default, the ellipse plot autoscale to show the data and the ellipses
@@ -193,10 +194,11 @@ def shorter_terminal(t):
 
 if args.make_documentation_plots:
 
-    args.make_documentation_plots_extratitle = args.make_documentation_plots
-    args.make_documentation_plots_filename   = re.sub(r"[^0-9a-zA-Z_\.\-]", "_", args.make_documentation_plots)
+    d,f = os.path.split(args.make_documentation_plots)
+    args.make_documentation_plots_extratitle = f
+    args.make_documentation_plots_path = os.path.join(d, re.sub(r"[^0-9a-zA-Z_\.\-]", "_", f))
 
-    print(f"Will write documentation plots to {args.make_documentation_plots_filename}-xxxx.pdf and .png and .svg")
+    print(f"Will write documentation plots to {args.make_documentation_plots_path}-xxxx.pdf and .png and .svg")
 
     if terminal['svg'] is None: terminal['svg'] = 'svg size 800,600       noenhanced solid dynamic    font ",14"'
     if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color      font ",12"'
@@ -869,7 +871,7 @@ if args.make_documentation_plots is not None:
         processoptions = copy.deepcopy(processoptions_base)
         if dohardcopy:
             processoptions['hardcopy'] = \
-                f'{args.make_documentation_plots_filename}--ellipses.{extension}'
+                f'{args.make_documentation_plots_path}--ellipses.{extension}'
             processoptions['terminal'] = shorter_terminal(processoptions['terminal'])
 
         if dohardcopy:
@@ -885,7 +887,7 @@ if args.make_documentation_plots is not None:
         processoptions = copy.deepcopy(processoptions_base)
         if dohardcopy:
             processoptions['hardcopy'] = \
-                f'{args.make_documentation_plots_filename}--p0-p1-magnitude-covariance.{extension}'
+                f'{args.make_documentation_plots_path}--p0-p1-magnitude-covariance.{extension}'
         processoptions['title'] = title_covariance
         gp.plotimage( np.abs(Var_p_joint.reshape(Npoints*3,Npoints*3)),
                       square = True,
@@ -920,7 +922,7 @@ if args.make_documentation_plots is not None:
                                            legend   = "Predicted-observations")
         if dohardcopy:
             processoptions['hardcopy'] = \
-                f'{args.make_documentation_plots_filename}--range-to-p0.{extension}'
+                f'{args.make_documentation_plots_path}--range-to-p0.{extension}'
         processoptions['title'] = title_range0
         gp.add_plot_option(processoptions, 'set', 'samples 1000')
         gp.plot(ranges_sampled[0],
@@ -948,7 +950,7 @@ if args.make_documentation_plots is not None:
                                            legend   = "Predicted")
         if dohardcopy:
             processoptions['hardcopy'] = \
-                f'{args.make_documentation_plots_filename}--distance-p1-p0.{extension}'
+                f'{args.make_documentation_plots_path}--distance-p1-p0.{extension}'
         processoptions['title'] = title_distance
         gp.add_plot_option(processoptions, 'set', 'samples 1000')
         gp.plot(distance_sampled,
