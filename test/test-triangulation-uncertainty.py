@@ -831,7 +831,7 @@ if args.make_documentation_plots is not None:
         ellipse_plot_radius = max_sigma*3
 
     title_triangulation = 'Triangulation uncertainty'
-    title_covariance    = 'Covariance of the [p0,p1] vector (m^2)'
+    title_covariance    = 'Abs(Covariance) of the [p0,p1] vector (m^2)'
     title_range0        = 'Range to the left triangulated point'
     title_distance      = 'Distance between the two triangulated points'
 
