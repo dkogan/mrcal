@@ -21,7 +21,7 @@ def show_geometry(models_or_extrinsics_rt_fromref,
                   frames_rt_toref             = None,
                   points                      = None,
 
-                  show_calobjects    = True,
+                  show_calobjects    = False,
                   axis_scale         = None,
                   object_width_n     = None,
                   object_height_n    = None,
@@ -128,7 +128,7 @@ ARGUMENTS
   labelled in this way. If omitted, none of the points will be labelled
   specially. This is used only if points is not None
 
-- show_calobjects: optional boolean defaults to True. if show_calobjects: we
+- show_calobjects: optional boolean defaults to False. if show_calobjects: we
   render the observed calibration objects (if they are available in
   model.optimization_inputs()['frames_rt_toref']; we look at the FIRST model
   that provides this data)
