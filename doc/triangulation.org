@@ -9,12 +9,12 @@
 \)
 #+END_HTML
 
-
 A very common thing to want to do with a calibrated camera system is to convert
 a pair of pixel observations to a point in space that produced these
 observations, a process known as [[https://en.wikipedia.org/wiki/Triangulation_(computer_vision)][triangulation]] (or [[file:stereo.org][stereo vision]], which is an
 efficient formulation of the same). This can be sensitive to noise, creating a
-strong need for proper error modeling and propagation.
+strong need for proper error modeling and propagation. This describes the logic
+behind the [[file:mrcal-triangulate.html][=mrcal-triangulate=]] tool and the [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]] Python routine.
 
 * Overview
 Let's say we have an idealized geometry:
@@ -162,47 +162,102 @@ multiple times will produce correlated triangulation. So calibration-time noise
 produces a bias, and it is thus essential to make and use low-uncertainty
 calibrations to minimize this.
 
-* stuff
+** Sample uncertainties
+The [[https://github.com/dkogan/mrcal/blob/master/test/test-triangulation-uncertainty.py][=test-triangulation-uncertainty.py=]] test generates models and triangulation
+scenarios. It can be used to produce an illustrative diagram:
 
-What noise we're propagating
-
-show some example plots
-
-show correlations
-
-Apply to the dtla data (obs only)
-
-Talk about =mrcal-triangulate= tool
-
-
-
-perpendicular observation/calibration:
-
-test/test-triangulation-uncertainty.py \
-  --do-sample \
-  --observed-point -2 0 10 \
-  --fixed cam0 \
-  --Nsamples 20 \
-  --q-calibration-stdev 0.2 \
-  --q-observation-stdev 0.2 \
+#+begin_src sh
+test/test-triangulation-uncertainty.py  \
+  --do-sample                           \
+  --cache write                         \
+  --observed-point -2 0 10              \
+  --fixed cam0                          \
+  --Nsamples 200                        \
+  --Ncameras 2                          \
   --q-observation-stdev-correlation 0.5 \
-  --make-documentation-plots '' \
-  >& /dev/null
+  --q-calibration-stdev 0.2             \
+  --q-observation-stdev 0.2             \
+  --make-documentation-plots
+#+end_src
+#+begin_src sh :exports none :eval no-export
+test/test-triangulation-uncertainty.py  \
+  --do-sample                           \
+  --cache write                         \
+  --observed-point -2 0 10              \
+  --fixed cam0                          \
+  --Nsamples 200                        \
+  --Ncameras 2                          \
+  --q-observation-stdev-correlation 0.5 \
+  --q-calibration-stdev 0.2             \
+  --q-observation-stdev 0.2             \
+  --make-documentation-plots ~/projects/mrcal-doc-external/figures/triangulation/sample
+#+end_src
 
+[[file:external/figures/triangulation/sample--ellipses.svg]]
 
+Here we have two cameras arranged in the usual left/right stereo configuration,
+looking at two points somewhere ahead. We generate calibration and observation
+noise, and display the results in the horizontal plane. The vertical dimension
+is insignificant here, so it is not shown, even though all the computations are
+performed in full 3D. For each of the two observed points we display:
 
+- The empirical noise samples, and the 1-sigma ellipse they represent
+- The predicted 1-sigma ellipse for the calibration-time noise
+- The predicted 1-sigma ellipse for the observation-time noise
+- The predicted 1-sigma ellipse for the joint noise
 
+We can see that the observed and predicted covariances line up nicely. We can
+also see that the observation-time noise acts primarily in the forward/backward
+direction, while the calibration-time noise has a much larger lateral effect.
+This pattern varies greatly depending on the lenses and the calibration and the
+geometry. As we get further out, the uncertainty in the forward/backward
+direction dominates for both noise sources, as expected.
 
-skewed observation/calibration:
-(stabilization primarily causes the skewing, I think)
-test/test-triangulation-uncertainty.py \
-  --do-sample \
-  --observed-point -2 0 10 \
-  --fixed cam0 \
-  --Nsamples 20 \
-  --q-calibration-stdev 0.5 \
-  --q-observation-stdev 0.5 \
-  --q-observation-stdev-correlation 0.99 \
-  --make-documentation-plots '' \
-  --stabilize-coords \
-  >& /dev/null
+** Stabilization
+In the above plot, the uncertainties are displayed in the coordinate system of
+the left camera. But, as described on the [[file:uncertainty.org::#propagating-through-projection][projection uncertainty page]], the
+origin and orientation of each camera's coordinate system is subject to
+calibration noise:
+
+[[file:figures/uncertainty.svg]]
+
+So what we usually want to do is to consider the covariance of the triangulation
+in the coordinates of the camera housing, /not/ the camera coordinate system. We
+achieve this with "stabilization", computed exactly as described on the
+[[file:uncertainty.org::#propagating-through-projection][projection uncertainty page]]. We can recompute the triangulation uncertainty in
+the previous example (same geometry, lens, etc), but with stabilization enabled:
+
+#+begin_src sh
+test/test-triangulation-uncertainty.py  \
+  --do-sample                           \
+  --cache write                         \
+  --observed-point -2 0 10              \
+  --fixed cam0                          \
+  --Nsamples 200                        \
+  --Ncameras 2                          \
+  --q-observation-stdev-correlation 0.5 \
+  --q-calibration-stdev 0.2             \
+  --q-observation-stdev 0.2             \
+  --stabilize                           \
+  --make-documentation-plots
+#+end_src
+#+begin_src sh :exports none :eval no-export
+test/test-triangulation-uncertainty.py  \
+  --do-sample                           \
+  --cache write                         \
+  --observed-point -2 0 10              \
+  --fixed cam0                          \
+  --Nsamples 200                        \
+  --Ncameras 2                          \
+  --q-observation-stdev-correlation 0.5 \
+  --q-calibration-stdev 0.2             \
+  --q-observation-stdev 0.2             \
+  --stabilize                           \
+  --make-documentation-plots ~/projects/mrcal-doc-external/figures/triangulation/sample-stabilized
+#+end_src
+
+[[file:external/figures/triangulation/sample-stabilized--ellipses.svg]]
+
+We can now clearly see that the forward/backward uncertainty was a real effect,
+/but/ the lateral uncertainty was largely due to the moving camera coordinate
+system.
