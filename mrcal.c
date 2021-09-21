@@ -5386,11 +5386,11 @@ mrcal_optimize( // out
             regularization_ratio_centerpixel = norm2_err_regularization_centerpixel     / norm2_error;
 
             if(regularization_ratio_distortion > 0.01)
-                MSG("WARNING: regularization ratio for lens distortion exceeds 1%%. Is the scale factor too high? Ratio = %.3f",
-                    regularization_ratio_distortion);
+                MSG("WARNING: regularization ratio for lens distortion exceeds 1%%. Is the scale factor too high? Ratio = %.3f/%.3f = %.3f",
+                    norm2_err_regularization_distortion,  norm2_error, regularization_ratio_distortion);
             if(regularization_ratio_centerpixel > 0.01)
-                MSG("WARNING: regularization ratio for the projection centerpixel exceeds 1%%. Is the scale factor too high? Ratio = %.3f",
-                    regularization_ratio_centerpixel);
+                MSG("WARNING: regularization ratio for the projection centerpixel exceeds 1%%. Is the scale factor too high? Ratio = %.3f/%.3f = %.3f",
+                    norm2_err_regularization_centerpixel, norm2_error, regularization_ratio_centerpixel);
         }
 
 
