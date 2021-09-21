@@ -836,10 +836,10 @@ if args.make_documentation_plots is not None:
     title_distance      = 'Distance between the two triangulated points'
 
     if args.make_documentation_plots_extratitle is not None:
-        title_triangulation += f'. {args.make_documentation_plots_extratitle}'
-        title_covariance    += f'. {args.make_documentation_plots_extratitle}'
-        title_range0        += f'. {args.make_documentation_plots_extratitle}'
-        title_distance      += f'. {args.make_documentation_plots_extratitle}'
+        title_triangulation += f': {args.make_documentation_plots_extratitle}'
+        title_covariance    += f': {args.make_documentation_plots_extratitle}'
+        title_range0        += f': {args.make_documentation_plots_extratitle}'
+        title_distance      += f': {args.make_documentation_plots_extratitle}'
 
 
     subplots = [ [p for p in (empirical_distributions_xz[ipt][1], # points; plot first to not obscure the ellipses
@@ -869,15 +869,32 @@ if args.make_documentation_plots is not None:
     def makeplots(dohardcopy, processoptions_base):
 
         processoptions = copy.deepcopy(processoptions_base)
+        gp.add_plot_option(processoptions,
+                           'set',
+                           ('xtics 0.01',
+                            'ytics 0.01'))
+
+        # The key should use smaller text than the rest of the plot, if possible
+        if 'terminal' in processoptions:
+            m = re.search('font ",([0-9]+)"', processoptions['terminal'])
+            if m is not None:
+                s = int(m.group(1))
+
+                gp.add_plot_option(processoptions,
+                                   'set',
+                                   ('xtics 0.01',
+                                    'ytics 0.01',
+                                    f'key font ",{int(s*0.8)}"'))
+
         if dohardcopy:
             processoptions['hardcopy'] = \
                 f'{args.make_documentation_plots_path}--ellipses.{extension}'
             processoptions['terminal'] = shorter_terminal(processoptions['terminal'])
 
-        if dohardcopy:
-            # no multiplot if making hardcopies
+            # Hardcopies do things a little differently, to be nicer for docs
             gp.plot( *subplots,
-                     multiplot = f'title "{title_triangulation}" layout 1,2',
+                     multiplot = f'layout 1,2',
+                     unset = 'grid',
                      **processoptions )
         else:
             # Interactive plotting, so no multiplots. Interactive plots
