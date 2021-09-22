@@ -2,10 +2,12 @@
 #+OPTIONS: toc:t
 
 #+LATEX_HEADER: \DeclareMathOperator*{\argmin}{argmin}
+#+LATEX_HEADER: \DeclareMathOperator*{\Var}{Var}
 
 #+BEGIN_HTML
 \(
 \DeclareMathOperator*{\argmin}{argmin}
+\DeclareMathOperator*{\Var}{Var}
 \)
 #+END_HTML
 
@@ -25,9 +27,9 @@ Let $b \equiv \mathrm{baseline}$ and $r \equiv \mathrm{range}$. Two cameras are
 looking at a point in space. Given two camera models and a pair of pixel
 observations we can compute the range to the point. Basic geometry tells us that
 
-\[r \propto \frac{b}{\sin \theta}\]
+\[\frac{r}{\sin \phi} \propto \frac{b}{\sin \theta}\]
 
-When looking far away, we have $\theta \approx 0$, so
+When looking far away, straight ahead, we have $\theta \approx 0$ and $\phi \approx 90^\circ$, so
 
 \[ r \propto \frac{b}{\theta}\]
 
@@ -148,19 +150,35 @@ error-propagation technique:
 ** Noise sources
 We want to capture the effect of two different sources of error:
 
-- Calibration-time noise. We propagate the noise in chessboard observations
+- /Calibration-time/ noise. We propagate the noise in chessboard observations
   obtained during the chessboard dance. This is the [[file:formulation.org::#noise-model-inputs][noise]] that we propagate when
-  evaluating [[file:uncertainty.org][projection uncertainty]]
-- Observation-time noise. Each triangulation processes observations $\vec q$ of
-  a feature in space. These are noisy, and we propagate these errors
+  evaluating [[file:uncertainty.org][projection uncertainty]]. This is specified in the
+  =--q-calibration-stdev= argument to [[file:mrcal-triangulate.html][=mrcal-triangulate=]] or in the
+  =q_calibration_stdev= argument to [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]]. This is usually known
+  from the calibration, and we can request the calibrated value by passing a
+  stdev of -1. See the relevant interface documentation (just-mentioned links)
+  for details.
+- /Observation-time/ noise. Each triangulation processes observations $\vec q$
+  of a feature in space. These are noisy, and we propagate the noise. As with
+  the calibration-time noise, this noise is assumed to be normally distributed,
+  independent in $x$ and $y$. This is specified in the =--q-observation-stdev=
+  argument to [[file:mrcal-triangulate.html][=mrcal-triangulate=]] or in the =q_observation_stdev= argument to
+  [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]]. A common source of these pixel observations is a pixel
+  correlation operation where a patch in one image is matched against the second
+  image. Corresponding pixel observations observed this way are correlated: the
+  noise in $\vec q_0$ not independent of the noise in $\vec q_1$. I do not yet
+  know how to estimate this correlation, but the tools are able to ingest and
+  propagate such an estimate: using the =--q-observation-stdev-correlation=
+  commandline option to [[file:mrcal-triangulate.html][=mrcal-triangulate=]] or the
+  =q_observation_stdev_correlation= argument to [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]].
 
-The big point to note here is that repeated observations of the same feature
-have independent observation-time noise. So these observation-time errors
-average out with multiple observations. This is /not/ true of the
-calibration-time noise however. Using the same calibration to observe a feature
-multiple times will produce correlated triangulation. So calibration-time noise
-produces a bias, and it is thus essential to make and use low-uncertainty
-calibrations to minimize this.
+A big point to note here is that repeated observations of the same feature have
+independent observation-time noise. So these observation-time errors average out
+with multiple observations. This is /not/ true of the calibration-time noise
+however. Using the same calibration to observe a feature multiple times will
+produce correlated triangulation results. So calibration-time noise is biased,
+and it is thus essential to make and use low-uncertainty calibrations to
+minimize this effect.
 
 ** Sample uncertainties
 The [[https://github.com/dkogan/mrcal/blob/master/test/test-triangulation-uncertainty.py][=test-triangulation-uncertainty.py=]] test generates models and triangulation
@@ -195,11 +213,12 @@ test/test-triangulation-uncertainty.py  \
 
 [[file:external/figures/triangulation/sample--ellipses.svg]]
 
-Here we have two cameras arranged in the usual left/right stereo configuration,
-looking at two points somewhere ahead. We generate calibration and observation
-noise, and display the results in the horizontal plane. The vertical dimension
-is insignificant here, so it is not shown, even though all the computations are
-performed in full 3D. For each of the two observed points we display:
+Here we have *two* cameras arranged in the usual left/right stereo
+configuration, looking at *two* points somewhere ahead. We generate calibration
+and observation noise, and display the results in the horizontal plane. The
+vertical dimension is insignificant here, so it is not shown, even though all
+the computations are performed in full 3D. For each of the two observed points
+we display:
 
 - The empirical noise samples, and the 1-sigma ellipse they represent
 - The predicted 1-sigma ellipse for the calibration-time noise
@@ -261,3 +280,176 @@ test/test-triangulation-uncertainty.py  \
 We can now clearly see that the forward/backward uncertainty was a real effect,
 /but/ the lateral uncertainty was largely due to the moving camera coordinate
 system.
+
+** Calibration-time noise produces correlated estimates
+As mentioned above, the calibration-time noise produces correlations (and thus
+biases) in the triangulated measurements. Since the
+[[https://github.com/dkogan/mrcal/blob/master/test/test-triangulation-uncertainty.py][=test-triangulation-uncertainty.py=]] command triangulates two different points,
+we can directly observe these correlations. Let's look at the magnitude of each
+element of $\Var {\vec p_{01}}$ where $\vec p_{01}$ is a 6-dimensional vector
+that contains both the triangulated 3D points: $\vec p_{01} \equiv
+\left[ \begin{array}{cc} \vec p_0 \\ \vec p_1 \end{array} \right]$. If we had
+/only/ observation-time noise, $\vec p_0$ and $\vec p_1$ would be independent,
+and the off-diagonal terms in the covariance matrix would be 0. However, we also
+have calibration-time noise, so the errors are correlated:
+
+[[file:external/figures/triangulation/sample--p0-p1-magnitude-covariance.png]]
+
+As before, the exact pattern varies greatly depending on the lenses and the
+calibration and the geometry, but calibration-time noise always creates these
+correlations. To reduce these correlations and the biases they cause: lower the
+uncertainty of your calibrations by [[file:tour.org::#choreography][dancing better]]
+
+* Applying these techniques
+** Object tracking
+Visual tracking of an object over time is one application that would benefit
+from a more complete error model of its input. Repeated noisy observations of a
+moving object $\vec q_{01}(t)$ can be triangulated into a noisy estimate of the
+object motion $\vec p(t)$. If for each point in time $t$ we have $\Var \vec
+p(t)$, we can combine everything into an estimate $\hat p(t)$. The better our
+covariances, the closer the estimate. The [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]] routine can be
+used to compute the triangulations, and to report the full covariances matrices.
+
+** Ranging with diagnostics
+The existing tools can be used to compute a single triangulation operation, with
+lots of diagnostics. This is very useful on its own, or to debug a bigger
+ranging system.
+
+Let's use the Downtown Los Angeles images in the [[file:tour.org::#stereo][the tour of mrcal]]. Before we
+start, one important caveat: there's only one camera, which was calibrated
+monocularly. I moved this camera to capture the two images used to triangulate.
+The extrinsics were computed with a not-yet-in-mrcal tool, and mrcal cannot yet
+propagate the calibration noise in this scenario. Thus we only propagate the
+observation-time noise here.
+
+Image from the left camera:
+
+[[file:external/data/figueroa-overpass-looking-S/0.jpg][file:external/figures/stereo/0.downsampled.jpg]]
+
+Let's compute the range to the top of the [[https://en.wikipedia.org/wiki/City_National_Plaza]["Paul Hastings" tower]], near the center
+of the image. I'm looking at the "Paul Hastings" logo, roughly 566m from the
+camera. I have a pixel coordinate on the logo. This is enough information to
+triangulate:
+
+#+begin_example
+$ mrcal-triangulate                       \
+    --range-estimate 566                  \
+    --q-observation-stdev 0.2             \
+    --q-observation-stdev-correlation 0.5 \
+    --stabilize-coords                    \
+    --template-size 31 17                 \
+    --search-radius 10                    \
+    --viz match                           \
+    splined-[01].cameramodel              \
+    [01].jpg                              \
+    2874 1231 
+
+## Feature [2874. 1231.] in the left image corresponds to [2832.473 1234.974] at 566.0m
+## Feature match found at [2831.536 1233.916]
+## q1 - q1_perfect_at_range = [-0.937 -1.058]
+## Triangulated point at [ -41.153 -165.328  473.295]; direction: [-0.082 -0.328  0.941]
+## Range: 503.03 m (error: -62.97 m)
+## q0 - q0_triangulation = [-0.02   0.531]
+## Uncertainty propagation: observation-time noise suggests worst confidence of sigma=13.70m along [ 0.084  0.329 -0.941]
+## Observed-pixel sensitivity: 55.94m/pixel (q1). Worst direction: [0.99  0.139]. Linearized correction: 1.13 pixels
+## Calibration yaw (rotation in epipolar plane) sensitivity: -2067.73m/deg. Linearized correction: -0.030 degrees of yaw
+## Calibration yaw (cam0 y axis)                sensitivity: -1949.28m/deg. Linearized correction: -0.032 degrees of yaw
+## Calibration pitch (tilt of epipolar plane) sensitivity: 246.88m/deg.
+## Calibration translation sensitivity: 236.83m/m. Worst direction: [0.986 0.    0.165]. Linearized correction: 0.27 meters of translation
+## Optimized yaw   (rotation in epipolar plane) correction = -0.025 degrees
+## Optimized pitch (tilt of epipolar plane)     correction = 0.029 degrees
+## Optimized relative yaw (1 <- 0): -1.365 degrees
+#+end_example
+#+begin_src sh :exports none :eval no-export
+D=../mrcal-doc-external/data/figueroa-overpass-looking-S
+./mrcal-triangulate                       \
+    --range-estimate 566                  \
+    --q-observation-stdev 0.2             \
+    --q-observation-stdev-correlation 0.5 \
+    --stabilize-coords                    \
+    --template-size 31 17                 \
+    --search-radius  10                   \
+    --viz uncertainty                         \
+    --hardcopy ../mrcal-doc-external/figures/triangulation/figueroa-ellipse.svg \
+    $D/splined-[01].cameramodel           \
+    $D/[01].jpg                           \
+    2874 1231 
+#+end_src
+
+We used the splined model computed in [[file:tour.org::#stereo][the tour of mrcal]]. We gave it the range
+estimate. And we gave it the expected observation noise level: 0.2 pixels. We
+declared the left-camera/right-camera pixel observations to be correlated with a
+factor of 0.5 on the stdev, so the relevant cross terms of the covariance are
+(0.2*0.5 pixels)^2. It's not yet clear how to get the true value of this
+correlation, but we can use this tool to gauge its effects.
+
+The [[file:mrcal-triangulate.html][=mrcal-triangulate=]] tool finds the corresponding feature in the second
+image, and the =--viz match= pops up an interactive window so that a human can
+validate the match (which is good here). We could also pass =--viz uncertainty=,
+which shows the uncertainty ellipse. Unless we're looking very close, this
+ellipse is almost always extremely long and extremely skinny. Here we have:
+
+[[file:external/figures/triangulation/figueroa-ellipse.svg]]
+
+So /looking/ at the ellipse usually isn't very useful, and the value printed in
+the statistics presents the same information better. We get /lots/ of reported
+statistics. We see that
+
+- The range we compute here is 503.03m, not 566m as desired
+- There's a vertical shift 0.531pixels between the triangulated point and the
+  observation in the left camera: the epipolar lines aren't quite aligned, which
+  means the calibration is a bit off. Either in the intrinsics or the extrinsics
+- With the given observation noise, the 1-sigma uncertainty in the range is
+  13.70m, almost exactly in the observation direction. This is significantly
+  smaller than the actual error of 62.97m, which could be explained by our
+  made-up values of =--q-observation-stdev= and
+  =--q-observation-stdev-correlation=
+- Moving the matched feature coordinate in the right image affects the range at
+  worst at a rate of 55.94m/pixel. Unsurprisingly, the most sensitive direction
+  of motion is left/right. At this rate, it would take 1.13 pixels of motion to
+  "fix" our range measurement
+- Similarly, we compute and report the range sensitivity of extrinsic yaw
+  (defined as the rotation in the epipolar plane or around the y axis of the
+  left camera). In either case, an extrinsics yaw shift of 0.03 degrees would
+  "fix" the range measurement.
+- We also compute sensitivities for pitch and translation, but we don't expect
+  those to affect the range very much, and we see that
+- Finally, we reoptimize the extrinsics, and compute a better yaw correction to
+  "fix" the range: 0.025 degrees. This is different from the previous value of
+  0.03 degrees because that computation used a linearized yaw-vs-range
+  dependence
+
+This is all quite useful, and suggests that a small extrinsics error is a
+problem.
+
+What about =--q-observation-stdev-correlation=? What would be the effect of more
+or less correlation in our pixel observations? Running the same command with
+
+- =--q-observation-stdev-correlation 0= (the left and right pixel observations
+  are independent) produces
+
+  #+begin_example
+## Uncertainty propagation: observation-time noise suggests worst confidence of sigma=15.82m along [ 0.084  0.329 -0.941]
+  #+end_example
+
+
+- =--q-observation-stdev-correlation 1= (the left and right pixel observations
+  are perfectly coupled) produces
+
+  #+begin_example
+## Uncertainty propagation: observation-time noise suggests worst confidence of sigma=0.26m along [-0.11  -0.153  0.982]
+  #+end_example
+
+I.e. correlations in the pixel measurements increase our range uncertainty. To
+the point where perfectly-correlated observations produce almost perfect
+ranging. We'll still have range errors, but they would come from other sources
+than slightly mismatched feature observations.
+
+
+
+* todo                                                             :noexport:
+Should I intead be propagating the uncertainty to
+project_stereographic(unproject()) ? I can then do monocular tracking
+
+Talk about the synthetic tests in analyses/triangulation/study.py. Talk about
+range bias and reprojection bias. Recommend lee-civera-linf instead of mid2
