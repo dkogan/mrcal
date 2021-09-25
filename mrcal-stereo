@@ -34,6 +34,13 @@ mrcal functions are used to construct the rectified system. Currently only the
 OpenCV SGBM routine is available to perform stereo matching, but more options
 will be made available with time.
 
+The commandline arguments to configure the SGBM matcher (--sgbm-...) map to the
+corresponding OpenCV APIs. Omitting an --sgbm-... argument will result in the
+defaults being used in the cv2.StereoSGBM_create() call. Usually the
+cv2.StereoSGBM_create() defaults are terrible, and produce a disparity map that
+isn't great. The --sgbm-... arguments in the synopsis above are a good start to
+get usable stereo.
+
 The rectified system is constructed with the axes
 
 - x: from the origin of the first camera to the origin of the second camera (the
