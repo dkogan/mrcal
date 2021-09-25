@@ -227,7 +227,7 @@ def parse_args():
                         pixels. Two integers are expected: MIN_DISPARITY
                         MAX_DISPARITY. Completely arbitrarily, we default to
                         MIN_DISPARITY=0 and MAX_DISPARITY=100''')
-    parser.add_argument('--show-valid-intrinsics-region',
+    parser.add_argument('--valid-intrinsics-region',
                         action='store_true',
                         help='''If given, annotate the image with its
                         valid-intrinsics region. This will end up in the
@@ -504,7 +504,7 @@ for i in range(Nimages):
     if args.clahe:
         images = [ clahe.apply(image) for image in images ]
 
-    if args.show_valid_intrinsics_region:
+    if args.valid_intrinsics_region:
         for i in range(2):
             mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
 
