@@ -288,9 +288,20 @@ This is a stereographic model with correction factors. This is one of many
 possible ways to define a rich projection function based on splined surfaces.
 Improved representations will be evaluated and implemented in the future.
 
-First, we compute the normalized stereographic projection $\vec u$ as in the
-[[#lensmodel-stereographic][=LENSMODEL_STEREOGRAPHIC=]] definition above:
+Note that the idea of using a very rich representation to describe lens behavior
+has been described in literature (for instance [[https://ieeexplore.ieee.org/abstract/document/8500466][here]] and [[https://arxiv.org/abs/1912.02908][here]]). However, every
+paper I've seen models unprojection (mapping pixels to observation vectors)
+instead of projection (observation vectors to pixels). Projection is the usual
+direction, employed by every other lens model in every other toolkit, so
+following the papers would require rewriting lots and lots of code specifically
+to support this one model. mrcal's rich representation models projection, so
+this new model fits into the same framework as all the other models, and all the
+higher-level logic (differencing, uncertainty quantification, etc) continues to
+work with no changes.
 
+To compute a projection using this new model, we first compute the normalized
+stereographic projection $\vec u$ as in the [[#lensmodel-stereographic][=LENSMODEL_STEREOGRAPHIC=]] definition
+above:
 
 \[ \theta \equiv \tan^{-1} \frac{\left| \vec p_{xy} \right|}{p_z} \]
 
