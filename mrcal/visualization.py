@@ -311,7 +311,7 @@ plot
                                    (np.array(('x', 'y', 'z')),
                                     dict(_with     = 'labels',
                                          tuplesize = 4,
-                                         legend    = 'labels'),)
+                                         legend    = None),)
 
 
 
