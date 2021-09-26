@@ -1473,24 +1473,75 @@ for what (splined opencv8) { PYTHONPATH=/home/dima/jpl/mrcal:/home/dima/jpl/img_
 #+end_src
 
 I then use the mrcal APIs to compute rectification maps, rectify the images,
-compute disparities and convert them to ranges. This is done with the script
-[[https://www.github.com/dkogan/mrcal/blob/master/doc/stereo.py][=stereo.py=]]. We run it like this:
+compute disparities and convert them to ranges. This is done with the
+[[file:mrcal-stereo.html][=mrcal-stereo=]] tool. We run it like this:
 
 #+begin_src sh
-python3 stereo.py splined-[01].cameramodel [01].jpg splined
+mrcal-stereo                     \
+  --az-fov-deg 145               \
+  --el-fov-deg 135               \
+  --el0-deg    5                 \
+  --disparity-range 0 400        \
+  --sgbm-p1 600                  \
+  --sgbm-p2 2400                 \
+  --sgbm-uniqueness-ratio 5      \
+  --sgbm-disp12-max-diff 1       \
+  --sgbm-speckle-window-size 200 \
+  --sgbm-speckle-range 2         \
+  --valid-intrinsics-region      \
+  splined-[01].cameramodel       \
+  [01].jpg
 #+end_src
+#+begin_src sh :exports none :eval no-export
+D=doc/out/external/data/figueroa-overpass-looking-S/
+
+mrcal-stereo                     \
+  --az-fov-deg 145               \
+  --el-fov-deg 135               \
+  --el0-deg    5                 \
+  --disparity-range 0 400        \
+  --sgbm-p1 600                  \
+  --sgbm-p2 2400                 \
+  --sgbm-uniqueness-ratio 5      \
+  --sgbm-disp12-max-diff 1       \
+  --sgbm-speckle-window-size 200 \
+  --sgbm-speckle-range 2         \
+  --valid-intrinsics-region      \
+  --outdir /tmp                  \
+  $D/splined-[01].cameramodel    \
+  $D/[01].jpg
+
+zmv -f -W \
+  '/tmp/[01]-rectified.png' \
+  'doc/out/external/figures/stereo/rectified[01]-splined.png'
+
+mv \
+  /tmp/0-disparity.png \
+  doc/out/external/figures/stereo/disparity-splined.png
+
+mv \
+  /tmp/0-range.png \
+  doc/out/external/figures/stereo/range-splined.png
+
+for img ( doc/out/external/figures/stereo/{rectified[01],disparity,range}-splined.png ) { \
+  convert $img -scale 12% ${img:r}.downsampled.${img:e}
+}
+#+end_src
+
+The =--sgbm-...= options configure the [[https://docs.opencv.org/4.5.3/d2/d85/classcv_1_1StereoSGBM.html][OpenCV SGBM stereo matcher]]. Not
+specifying them uses the OpenCV defaults, which usually produces poor results.
 
 The rectified images look like this:
 
-[[file:external/data/figueroa-overpass-looking-S/rectified0-splined.jpg][file:external/figures/stereo/rectified0-splined.downsampled.jpg]]
-[[file:external/data/figueroa-overpass-looking-S/rectified1-splined.jpg][file:external/figures/stereo/rectified1-splined.downsampled.jpg]]
+[[file:external/figures/stereo/rectified0-splined.png][file:external/figures/stereo/rectified0-splined.downsampled.png]]
+[[file:external/figures/stereo/rectified1-splined.png][file:external/figures/stereo/rectified1-splined.downsampled.png]]
 
 And the disparity and range images looks like this:
 
-[[file:external/data/figueroa-overpass-looking-S/disparity-splined.png][file:external/figures/stereo/disparity-splined.downsampled.png]]
-[[file:external/data/figueroa-overpass-looking-S/range-splined.png][file:external/figures/stereo/range-splined.downsampled.png]]
+[[file:external/figures/stereo/disparity-splined.png][file:external/figures/stereo/disparity-splined.downsampled.png]]
+[[file:external/figures/stereo/range-splined.png][file:external/figures/stereo/range-splined.downsampled.png]]
 
-Clearly this is working well.
+This appears to be working well.
 
 If you've used other stereo libraries previously, these rectified images may
 look odd. In mrcal I produce images that sample the azimuth and elevation angles
@@ -1712,17 +1763,52 @@ For the narrow mapping:
 [[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.png][file:external/figures/stereo/jplv-stereo-rect-left-scale0.6.downsampled.png]]
 [[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.png][file:external/figures/stereo/jplv-stereo-rect-right-scale0.6.downsampled.png]]
 
-Here we see that jplv's rectification function also has some implicit pinhole
-projection assumption in there, and the scale within each row is dramatically
-uneven.
+Here we see that jplv's rectification function uses a pinhole model, so the
+scale within each row is dramatically uneven.
 
 The above command gave me jplv's computed disparities, but to compare
-apples-to-apples, let's re-compute them using the same opencv routine from
+apples-to-apples, let's re-compute them using the same OpenCV SGBM routine from
 above:
 
 #+begin_src sh
 python3 stereo.py - - jplv-stereo-rect-{left,right}-scale0.35.png jplv-scale0.35
 python3 stereo.py - - jplv-stereo-rect-{left,right}-scale0.6.png  jplv-scale0.6
+#+end_src
+
+*REDO OR THROW OUT THIS SECTION. SHOW JPLV DISPARITIES?*
+
+#+begin_src sh
+mrcal-stereo                     \
+  --az-fov-deg 145               \
+  --el-fov-deg 135               \
+  --el0-deg    5                 \
+  --disparity-range 0 400        \
+  --sgbm-p1 600                  \
+  --sgbm-p2 2400                 \
+  --sgbm-uniqueness-ratio 5      \
+  --sgbm-disp12-max-diff 1       \
+  --sgbm-speckle-window-size 200 \
+  --sgbm-speckle-range 2         \
+  --valid-intrinsics-region      \
+  splined-[01].scale0.35.cahvor  \
+  jplv-stereo-rect-{left,right}-scale0.35.png
+#+end_src
+#+begin_src sh :exports none :eval no-export
+zmv -f -W \
+  '/tmp/[01]-rectified.png' \
+  'doc/out/external/figures/stereo/rectified[01]-splined.png'
+
+mv \
+  /tmp/0-disparity.png \
+  doc/out/external/figures/stereo/disparity-splined.png
+
+mv \
+  /tmp/0-range.png \
+  doc/out/external/figures/stereo/range-splined.png
+
+for img ( doc/out/external/figures/stereo/{rectified[01],disparity,range}-splined.png ) { \
+  convert $img -scale 12% ${img:r}.downsampled.${img:e}
+}
 #+end_src
 
 [[file:external/data/figueroa-overpass-looking-S/disparity-jplv-scale0.35.png][file:external/figures/stereo/disparity-jplv-scale0.35.downsampled.png]]
@@ -1756,6 +1842,20 @@ for each of my images:
 python3 narrow-section.py splined-0.cameramodel 0.jpg -45 left
 python3 narrow-section.py splined-1.cameramodel 1.jpg -45 right
 #+end_src
+#+begin_src sh :exports none :eval no-export
+D=doc/out/external/data/figueroa-overpass-looking-S/
+PYTHONPATH=/home/dima/projects/mrcal python3 doc/narrow-section.py $D/splined-0.cameramodel $D/0.jpg -45 left
+PYTHONPATH=/home/dima/projects/mrcal python3 doc/narrow-section.py $D/splined-1.cameramodel $D/1.jpg -45 right
+
+mv                                                     \
+    /tmp/narrow-{left,right}.jpg                       \
+    /tmp/pinhole-narrow-yawed-{left,right}.cameramodel \
+    $D
+
+for img ( $D/narrow-{left,right}.jpg ) { \
+  convert $img -scale 12% doc/out/external/figures/stereo/${img:r:t}.downsampled.${img:e}
+}
+#+end_src
 
 The images look like this:
 
@@ -1768,13 +1868,60 @@ so they don't look distorted like before. The corresponding pinhole models:
 - [[file:external/data/figueroa-overpass-looking-S/pinhole-narrow-yawed-left.cameramodel][left]]
 - [[file:external/data/figueroa-overpass-looking-S/pinhole-narrow-yawed-right.cameramodel][right]]
 
-We can feed these to the =stereo.py= tool as before:
+We can feed these to the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool as before:
 
 #+begin_src sh
-python3 stereo.py                               \
+mrcal-stereo                                    \
+  --az-fov-deg 80                               \
+  --el-fov-deg 80                               \
+  --pixels-per-deg -0.5                         \
+  --disparity-range 0 200                       \
+  --sgbm-p1 600                                 \
+  --sgbm-p2 2400                                \
+  --sgbm-uniqueness-ratio 5                     \
+  --sgbm-disp12-max-diff 1                      \
+  --sgbm-speckle-window-size 200                \
+  --sgbm-speckle-range 2                        \
   pinhole-narrow-yawed-{left,right}.cameramodel \
-  narrow-{left,right}.jpg                       \
-  narrow
+  narrow-{left,right}.jpg
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=doc/out/external/data/figueroa-overpass-looking-S/
+
+./mrcal-stereo                                    \
+  --az-fov-deg 80                               \
+  --el-fov-deg 80                               \
+  --pixels-per-deg -0.5                         \
+  --disparity-range 0 200                       \
+  --sgbm-p1 600                                 \
+  --sgbm-p2 2400                                \
+  --sgbm-uniqueness-ratio 5                     \
+  --sgbm-disp12-max-diff 1                      \
+  --sgbm-speckle-window-size 200                \
+  --sgbm-speckle-range 2                        \
+  --outdir /tmp                                 \
+  $D/pinhole-narrow-yawed-{left,right}.cameramodel \
+  $D/narrow-{left,right}.jpg
+
+mv \
+  /tmp/narrow-left-rectified.png \
+  $D/rectified0-narrow.png
+
+mv \
+  /tmp/narrow-right-rectified.png \
+  $D/rectified1-narrow.png
+
+mv \
+  /tmp/narrow-left-disparity.png \
+  $D/disparity-narrow.png
+
+mv \
+  /tmp/narrow-left-range.png \
+  $D/range-narrow.png
+
+for img ( $D/{rectified[01],disparity,range}-narrow.png ) { \
+  convert $img -scale 12% doc/out/external/figures/stereo/${img:r:t}.downsampled.${img:e}
+}
 #+end_src
 
 Here we have slightly non-trivial geometry, so it is instructive to visualize it
@@ -1792,8 +1939,8 @@ compensates.
 
 And we get nice-looking rectified images:
 
-[[file:external/data/figueroa-overpass-looking-S/rectified0-narrow.jpg][file:external/figures/stereo/rectified0-narrow.downsampled.jpg]]
-[[file:external/data/figueroa-overpass-looking-S/rectified1-narrow.jpg][file:external/figures/stereo/rectified1-narrow.downsampled.jpg]]
+[[file:external/data/figueroa-overpass-looking-S/rectified0-narrow.png][file:external/figures/stereo/rectified0-narrow.downsampled.png]]
+[[file:external/data/figueroa-overpass-looking-S/rectified1-narrow.png][file:external/figures/stereo/rectified1-narrow.downsampled.png]]
 
 And disparity and range images:
 
