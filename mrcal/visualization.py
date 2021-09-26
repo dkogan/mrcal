@@ -186,6 +186,9 @@ plot
         if len(extrinsics_Rt_toref) <= 1:
             axis_scale = 1.0
         else:
+            # This is intended to work with the behavior in the mrcal-stereo
+            # tool. That tool sets the fov-indicating hair lengths to
+            # baseline/4. Here I default to a bit more: baseline/3
             Rt01 = mrcal.compose_Rt( mrcal.invert_Rt(extrinsics_Rt_toref[0]),
                                      extrinsics_Rt_toref[1] )
             d = nps.mag(Rt01[3,:])

@@ -439,11 +439,13 @@ if args.show_geometry:
                         *model.intrinsics(),
                         normalize = True)
 
-    # Scale the vectors to a nice-looking length
+    # Scale the vectors to a nice-looking length. This is intended to work with
+    # the defaults to mrcal.show_geometry(). That function sets the right,down
+    # axis lengths to baseline/3. Here I default to a bit less: baseline/4
     baseline = \
         nps.mag(mrcal.compose_Rt( models_rectified[1].extrinsics_Rt_fromref(),
                                   models_rectified[0].extrinsics_Rt_toref())[3,:])
-    v *= baseline
+    v *= baseline/4
 
     # shape (Nloop,3): ref-coord system points
     p = mrcal.transform_point_Rt(model.extrinsics_Rt_toref(), v)
