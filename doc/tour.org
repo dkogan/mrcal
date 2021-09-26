@@ -1924,8 +1924,31 @@ for img ( $D/{rectified[01],disparity,range}-narrow.png ) { \
 }
 #+end_src
 
-Here we have slightly non-trivial geometry, so it is instructive to visualize it
-(the =stereo.py= tool does this):
+Here we have slightly non-trivial geometry, so it is instructive to visualize
+it:
+
+#+begin_src sh
+mrcal-stereo                                    \
+  --az-fov-deg 80                               \
+  --el-fov-deg 80                               \
+  --show-geometry                               \
+  --title ''                                    \
+  pinhole-narrow-yawed-{left,right}.cameramodel \
+  narrow-{left,right}.jpg
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=doc/out/external/data/figueroa-overpass-looking-S/
+
+./mrcal-stereo                                    \
+  --az-fov-deg 80                               \
+  --el-fov-deg 80                               \
+  --show-geometry \
+  --title '' \
+  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
+  --hardcopy doc/out/external/figures/stereo/stereo-geometry-narrow.svg \
+  $D/pinhole-narrow-yawed-{left,right}.cameramodel \
+  $D/narrow-{left,right}.jpg
+#+end_src
 
 [[file:external/figures/stereo/stereo-geometry-narrow.svg]]
 
