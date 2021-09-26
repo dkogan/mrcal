@@ -41,5 +41,10 @@ mapxy = mrcal.image_transformation_map(model, model_pinhole,
 
 image_transformed = mrcal.transform_image(image, mapxy)
 
-cv2.imwrite(f'/tmp/narrow-{what}.jpg', image_transformed)
-model_pinhole.write(f'/tmp/pinhole-narrow-yawed-{what}.cameramodel')
+f = f'/tmp/narrow-{what}.jpg'
+cv2.imwrite(f, image_transformed)
+print(f"Wrote '{f}")
+
+f = f'/tmp/pinhole-narrow-yawed-{what}.cameramodel'
+model_pinhole.write(f)
+print(f"Wrote '{f}")
