@@ -27,7 +27,7 @@ Let $b \equiv \mathrm{baseline}$ and $r \equiv \mathrm{range}$. Two cameras are
 looking at a point in space. Given two camera models and a pair of pixel
 observations we can compute the range to the point. Basic geometry tells us that
 
-\[\frac{r}{\sin \phi} \propto \frac{b}{\sin \theta}\]
+\[\frac{r}{\sin \phi} = \frac{b}{\sin \theta}\]
 
 When looking far away, straight ahead, we have $\theta \approx 0$ and $\phi \approx 90^\circ$, so
 
