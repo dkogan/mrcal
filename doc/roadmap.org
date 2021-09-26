@@ -159,7 +159,7 @@ mrcal.triangulate() ? add test to test-uncertainty-broadcasting.py
 The current implementation of =LENSMODEL_SPLINED_STEREOGRAPHIC_...= is
 functional, but some things could be improved:
 
-- As stated [[#splined-non-monotonicity][previously]], the splined model can behave non-monotonically. This
+- As stated [[file:lensmodels.org::#splined-non-monotonicity][previously]], the splined model can behave non-monotonically. This
   usually happens at the transition between areas with observations and areas
   without. Projection in the no-data areas is controlled by light L2
   regularization: $\Delta \vec u$ is pulled towards 0 /regardless/ of what the
