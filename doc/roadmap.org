@@ -1,5 +1,129 @@
 mrcal-stereo: estimate fov automatically
 
+* release notes
+xxx
+
+* migration to 2.0
+seed_pinhole -> seed_stereographic. should fix hack this introduced: 6d78379
+
+transform_image() supports more of cv2.remap(). Like inplace output. API is now
+different
+
+estimate_monocular_calobject_poses_Rt_tocam() can handle a wider ranges of
+focal-length estimates. There are tests (test-solvepnp.py). And m-c-c uses
+LENSMODEL_STEREOGRAPHIC instead of LENSMODEL_PINHOLE. This doesn't really work
+since cv2.solvePnP requires a reprojection to pinhole anyway, but eventually it
+will work
+
+show_splined_model_surface and the cmdline tool apis: valid-intrinsics-region,
+and flipped the imager-domain default
+
+
+triangulation.cc,h
+
+mrcal-triangulate
+
+test-match-feature.py
+test-triangulation.py
+
+python: triangulate, match-feature
+
+show_residuals_observation{,_worst} -> show_residuals_board_observation{,_worst}
+
+
+show_splined_model_surface(), mrcal-show-splined-model-surface take optional xy'
+because usually you just want to look at the knot layout, which is the same for
+x and y
+
+
+m-c-c --explore: show_distortion_off_pinhole must have mode as a kwarg
+
+show-distortion-off-pinhole cmdline tool: --scale -> --vectorscale
+
+show-distortion-off-pinhole python funcs: split into radial and
+vectorfield/heatmap flavors
+
+Removed show_projection_uncertainty_xydist()
+
+Removed show_residuals_radial()
+
+unproject() can report gradients
+
+Added fitted_gaussian_equation()
+
+(un)project_stereographic() uses npsp, so can write output in-place
+
+new meta lensmodel property: 'has_gradients'. CAHVORE has this at False
+
+CAHVORE: linearity is a config param, NOT a model parameter
+
+cameramodel I/O in C
+
+poseutils work in-place
+
+Python function rename: hypothesis_corner_positions -> hypothesis_board_corner_positions
+
+Python function rename: lensmodel_metadata() -> lensmodel_metadata_and_config()
+
+LENSMODEL_LATLON and LENSMODEL_LONLAT
+
+stereo rework. C and python
+
+added invert_R()
+
+mrcal_transform_point_Rt, mrcal_rotate_point_R can take an "inverted" argument.
+C and Python. This is an API break in C.
+
+added simple (un)project_pinhole() to the C and Python APIs
+
+stereo supports LENSMODEL_PINHOLE
+
+mrcal.match_feature() API rework
+
+synthesize_board_observations() returns Rt_ref_boardref, not Rt_cam0_boardref
+
+API break: simple (un)_project_...() takes fxycxy. Python only.
+
+Added mrcal.num_states()
+
+Added mrcal.triangulation_uncertainty()
+
+Added mrcal.num_intrinsics_optimization_params()
+
+mrcal_state_index_THING() and mrcal_num_states_THING() (and their Python
+flavors) return <0 (or 0; or None) in case the THING isn't actually being optimized
+
+mrcal-show-geometry --scale-axes -> --axis-scale. And made it work
+
+added mrcal-stereo tool
+
+mrcal.apply_color_map() uses BGR, not RGB
+
+mrcal-show-valid-intrinsics-region: --writeimage -> --write-image
+
+image_transformation_map() API extended and broken
+
+mrcal-reproject-image has --distance
+
+projection_diff, show_projection_diff, mrcal-show-projection-diff and
+mrcal-graft-models have more consistent, better arguments. At the expense of the
+API breaking
+
+show_splined_model_surface and mrcal-show-splined-model-surface can display a
+vector field
+
+Improved splined model regularization to reduce curl
+
+mrcal-show-geometry: --hide-boards -> --show-calobjects
+
+observed_pixel_uncertainty: not in the C API. Python takes... something. Docs
+need updating. m-c-c has no --observed-pixel-uncertainty
+
+mrcal.show_residuals_histogram(): swapped argument order
+API break, but these arguments are likely to have been passed in as kwargs, in
+which case existing calls continue to work
+
+
 * future work
 ** uncertainty/noise computations
 *** Noted in uncertainty.org
