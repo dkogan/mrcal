@@ -489,13 +489,23 @@ projection from only a small area in space. So what happens to parameters
 controlling an area where no data was gathered? We have no data to suggest to
 the solver what values these parameters should take: they don't affect the cost
 function at all. Trying to optimize such a problem will result in a singular
-Hessian, and complaints from the solver. Currently we address this issue with
-regularization. mrcal applies light [[https://en.wikipedia.org/wiki/L2_regularization][L2 regularization]] to all the spline
-parameters. Thus $\Delta \vec u$ is always pulled lightly towards 0. The weights
-are chosen to be light-enough to not noticeably affect the optimization where we
-do have data. Where we don't have data, though, the optimizer now /does/ have
-information to act on: pull $\Delta \vec u$ towards 0. This may be handled
-differently in the future.
+Hessian and complaints from the solver. We address this issue with
+regularization, to lightly pull all the $\Delta \vec u$ terms to 0.
+
+Another, related effect, is the interaction of extrinsics and intrinsics.
+Without special handling, splined stereographic solutions often produce a roll
+of the camera (rotation around the optical axis) to be compensated by a curl in
+the $\Delta u$ vector field. This isn't wrong per se, but is an unintended
+effect that's nice to eliminate. It looks really strange when a motion in the
+$x$ direction in the camera coordinate system doesn't result in the projection
+moving in its $x$ direction. We use regularization to handle this effect as
+well. Instead of pulling all the values of $\Delta u$ towards 0 evenly, we pull
+the $\Delta u$ acting tangentially much more than those acting radially. This
+asymmetry serves to eliminate any unnecessary curl if $\Delta u$.
+
+Regardless of direction, these regularization terms are /light/. The weights are
+chosen to be small-enough to not noticeably affect the optimization in its
+fitting of the data. This may be handled differently in the future.
 
 **** Uglyness at the edges
 :PROPERTIES:
