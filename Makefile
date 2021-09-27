@@ -32,7 +32,7 @@ LDLIBS    += -ldogleg
 
 CFLAGS    += --std=gnu99
 CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
-CCXXFLAGS += -ffast-math -mtune=native
+CCXXFLAGS += -march=native
 
 mrcal.o test/test-cahvor.o: minimath/minimath_generated.h
 minimath/minimath_generated.h: minimath/minimath_generate.pl
