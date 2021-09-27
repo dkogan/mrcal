@@ -42,27 +42,41 @@ differencing. And functions are provided to avoid making a pinhole-camera
 assumption where it is not appropriate, such as with wide-angle stereo.
 
 * Documentation index
+** Releases
+The current release is mrcal 2.0. See the [[file:roadmap.org][roadmap]] for the release notes,
+migration guides and planned improvements.
+
+** Overview
 Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
 toolkit.
 
+** Building, installing
 First, the tools should be [[file:install.org][built or installed]].
 
+** Background
 Before using the tools, it is helpful to read about the [[file:conventions.org][terminology and
 conventions]] used in the sources and documentation.
 
 At the core of a calibration routine is an optimization problem. Details about
 its [[file:formulation.org][formulation]] are useful to be able to interpret the results.
 
-A lens can be represented by any of a number of [[file:lensmodels.org][lens models]].
+A lens can be represented by any of a number of [[file:lensmodels.org][lens models]], and a model can be
+written to a [[file:cameramodels.org][file on disk]].
 
+** Applications
 A [[file:how-to-calibrate.org][how-to-calibrate-some-cameras]] page describes details about how to accomplish
 this very common task.
 
-After running a calibration, the camera models are written to [[file:cameramodels.org][files on disk]].
+Given a model, we can compute its [[file:uncertainty.org][projection uncertainties]]. Given more than one
+model, we can [[file:differencing.org][compare their projection behaviors]].
 
-We can then use these files with a number of [[file:commandline-tools.org][command-line tools]]. In particular,
-we can [[file:differencing.org][compare the projection behaviors of different models]]. And we can [[file:uncertainty.org][compute
-the projection uncertainties]] of a model.
+If we have a calibrated pair of cameras, we can generate a depth map with [[file:stereo.org][dense
+stereo processing.]] Or we can compute sparse ranges by calling a [[file:triangulation.org][triangulation
+routine]].
+
+** Interfaces
+Many common tasks can be accomplished by invoking one of a number of
+[[file:commandline-tools.org][command-line tools]].
 
 If we need to do something more than what the pre-made tools can do, there're
 two sets programmatic interfaces available:
@@ -90,15 +104,4 @@ well.
 Dima Kogan =dima@secretsauce.net=
 
 * License and copyright
-Copyright (c) 2017-2021 California Institute of Technology ("Caltech"). U.S.
-Government sponsorship acknowledged. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-There's some included external code in the sources, with their own [[file:copyrights.org][copyrights
-and licenses]].
-
-
+These are listed on [[file:copyrights.org][their own page]].
