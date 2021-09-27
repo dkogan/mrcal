@@ -1,4 +1,4 @@
-#+TITLE: Triangulation uncertainty
+#+TITLE: Triangulation methods and uncertainty
 #+OPTIONS: toc:t
 
 #+LATEX_HEADER: \DeclareMathOperator*{\argmin}{argmin}
