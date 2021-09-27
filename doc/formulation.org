@@ -48,7 +48,8 @@ There are 3 different coordinate systems in the optimization:
   everything together. Each chessboard pose is represented as a transformation
   between the local chessboard frame and the reference frame. And each camera
   pose is represented as the transformation between the local camera frame and
-  the reference frame.
+  the reference frame. Note that this coordinate system doesn't necessarily have
+  any physical meaning.
 - *camera* coordinate system: the local coordinate system of each camera. The
   $x$ and $y$ axes are aligned with pixel coordinates in an image: $x$ is to the
   right and $y$ is down. $z$ is then forward to complete the right-handed
@@ -72,10 +73,10 @@ find, the system will be under-determined, and the optimization routine will
 fail: complaining about a "not positive definite" (singular in this case)
 Hessian.
 
-Example: we have 1 stationary camera observing 10 chessboards poses. We want to
-be able to uniquely represent the transformation between each chessboard and the
-camera, for a total of 10 transformations. If we optimize a separate
-$T_\mathrm{cr}$ for the camera and 10 separate $T_\mathrm{rf}$ for each
+Example: we have 1 stationary camera observing 10 chessboards. We want to be
+able to uniquely represent the transformation between each chessboard and the
+camera, for a total of 10 transformations. If we optimize a camera pose
+$T_\mathrm{cr}$ camera and 10 separate chessboard poses $T_\mathrm{rf}$ for each
 chessboard, we will have 11 transformations in the optimization vector. Since 11
 > 10, we have more variables in the optimization vector than are needed to
 uniquely describe the world. So the system is under-determined, and the
@@ -83,14 +84,14 @@ optimization will fail.
 
 In a vanilla calibration problem such as this, we would address this by fixing
 the reference coordinate system to one of the camera or chessboard frames. The
-mrcal convention is to fix the reference coordinate system to camera 0. In the
-above example, this would reduce the number of transformations being optimized
-from 11 to 10, which resolves the issue.
+mrcal convention is to fix the reference coordinate system to camera 0, setting
+$T_\mathrm{cr}$ to the identity transformation. In the above example, this would
+reduce the number of transformations being optimized from 11 to 10, which
+resolves the issue.
 
 Any other method of making the optimization variables unique is valid also. For
 instance, the chessboard poses might be known. In that case we don't need to
-optimize any $T_\mathrm{rf}$, and solving for /all/ the $T_\mathrm{cr}$ is
-valid.
+optimize any $T_\mathrm{rf}$, and solving for the $T_\mathrm{cr}$ is enough.
 
 ** The physical meaning of the /reference/ coordinate system
 The reference coordinate system is a single coordinate system common to the
@@ -98,9 +99,10 @@ whole optimization problem that all the objects in the world can use to localize
 themselves. It does /not/ have /any/ physical meaning beyond that. In
 particular, the reference coordinate system is /not/ attached to any fixed
 object in the world. Thus noise in the chessboard observations would shift the
-reference coordinate system, just as would shift the camera and chessboard
+reference coordinate system, just as it would shift the camera and chessboard
 coordinate systems. The [[file:uncertainty.org][projection uncertainty]] documentation talks about this in
 depth.
+
 * Calibration object
 :PROPERTIES:
 :CUSTOM_ID: calibration-object
@@ -160,25 +162,29 @@ sources of data. Apriltag centers would work, however.
 The calibration object is assumed to be nominally planar. However, large
 calibration boards used for calibration of wide lenses are never flat:
 temperature and humidity effects deform the board strongly-enough to affect the
-calibration. mrcal models this deformation with two axis-aligned parabolic
-factors. Let the chessboard grid span $[-1,1]$ along the $x$ and $y$ axes, then
-I define the non-planar deformation as $z \equiv k_x (1 - x^2) + k_y (1 - y^2)$
-with $k_x$ and $k_y$ being the two deformation factors being optimized by the
-solver. If the board were flat, $k_x$ and $k_y$ would be 0, and thus we would
-have $z=0$ everywhere. The deflection at the edges is 0, and is strongest at the
-center.
+calibration. mrcal currently supports a simple 2-parameter deformation model.
+This model uses two axis-aligned parabolic factors. Let the chessboard grid span
+$[-1,1]$ along the $x$ and $y$ axes. Then I define the non-planar deformation as
+$z \equiv k_x (1 - x^2) + k_y (1 - y^2)$ with $k_x$ and $k_y$ being the two
+deformation factors being optimized by the solver. If the board were flat, $k_x$
+and $k_y$ would be 0, and thus we would have $z=0$ everywhere. The deflection at
+the edges is 0, and is strongest at the center.
 
 Empirically, this appears to work well: I get better-fitting solves, and less
 systematic error. And the optimal deformation factors $k_x$, $k_y$ are
-consistent between different calibrations. A richer deformation model could work
-even better, and will eventually be the studied.
+consistent between different calibrations.
+
+Clearly, this does not work for especially strong or asymmetric deflections.
+There's a richer 5-parameter deformation model in a not-yet-released branch that
+appears to work even for asymmetric deflections. This needs more testing, and
+has not yet been released. Talk to Dima if you want to play with it.
 
 * Optimization details
 The mrcal solver is an optimization routine based on sparse nonlinear least
 squares. The optimization loop is implemented in [[https://www.github.com/dkogan/libdogleg][=libdogleg=]], which at its core
-uses the [[https://people.engr.tamu.edu/davis/suitesparse.html][CHOLMOD solver]] to compute the [[https://en.wikipedia.org/wiki/Cholesky_decomposition][Cholesky factorization]]. With a Cholesky
-factorization we can efficiently solve the linear system $J^T J \vec a = \vec b$
-where the jacobian matrix $J$ is large and sparse.
+uses the [[https://people.engr.tamu.edu/davis/suitesparse.html][CHOLMOD solver]] to compute the [[https://en.wikipedia.org/wiki/Cholesky_decomposition][Cholesky factorization]], to then
+efficiently solve the linear system $J^T J \vec a = \vec b$ where the jacobian
+matrix $J$ is large and sparse.
 
 The optimization problem is posed without constraints. This is achieved by using
 [[https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Rotation_vector][Rodrigues vectors]] to represent rotations. A different rotation representation,
@@ -196,7 +202,7 @@ estimate of the solution) to the optimization routines. The
 
    - [[file:mrcal-python-api-reference.html#-estimate_monocular_calobject_poses_Rt_tocam][=mrcal.estimate_monocular_calobject_poses_Rt_tocam()=]]: Estimate camera-referenced poses of the calibration object from monocular views
    - [[file:mrcal-python-api-reference.html#-estimate_joint_frame_poses][=mrcal.estimate_joint_frame_poses()=]]: Estimate world-referenced poses of the calibration object
-   - [[file:mrcal-python-api-reference.html#-seed_pinhole][=mrcal.seed_pinhole()=]]: Compute an optimization seed for a camera calibration
+   - [[file:mrcal-python-api-reference.html#-seed_stereographic][=mrcal.seed_stereographic()=]]: Compute an optimization seed for a camera calibration
 
 2. Refining that estimate with a sequences of optimization problems that allow
    more and more of the parameters to vary. The final problem is the /full/
@@ -393,17 +399,15 @@ zero-mean, independent and normally-distributed. In particular, I treat the 2
 values in each observation ($x$ and $y$) as two independent measurements. I have
 no prior proof that the noise truly meets all those criteria, but empirical
 evidence suggests that these are all reasonable assumptions. And they simplify
-lots of analyses that we want to do. For any $i$ -th observed point, what is
+lots of analyses that we want to do. In order to propagate the input noise, we
+need to quantify it: for the $i$ -th observed point, what is
 $\mathrm{Var}\left(\vec q_{\mathrm{ref}_i}\right)$?
 
-The chessboard corner detection routine tells us how confident it was in each
-observation, and we use that confidence to estimate the noise level. Chessboard
-corner detectors often make it easy to infer the /relative/ accuracy levels
-between the different corners, as opposed to an /absolute/ noise level
+Chessboard corner detectors often make it easy to infer the /relative/ accuracy
+levels between the different corners, as opposed to an /absolute/ noise level
 for each one. Thus the implementation splits the observed noise into two parts:
 
-- The baseline standard deviation of the noise $\sigma$ (referred to as the
-  =observed_pixel_uncertainty= in the implementation). This is one value that
+- The baseline standard deviation of the noise $\sigma$. This is one value that
   applies to /all/ the observations
 - The scale $s_i$ applied to that baseline. These are different for each corner
 
@@ -422,10 +426,10 @@ and the variance for all the pixel observations
 
 \[\mathrm{Var}\left(\vec q_\mathrm{ref}\right) = \mathrm{diag}\left(s_i^2\right) \sigma^2 \]
 
-How do we get $\sigma$? The noise $\sigma$ is hard to measure (there's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]]
-in mrgingham), but easy to loosely estimate. The current best practice is to get
-a conservative eyeball estimate to produce conservative estimates of projection
-uncertainty.
+The remaining piece is to compute $\sigma$, but this is hard to measure. There's
+an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in mrgingham, but it doesn't obviously work well. Thus the current
+method is to estimate $\sigma$ from the solve residuals: the measurement vector
+$\vec x$ at the optimal solution.
 
 ** Noise in the measurement vector $\vec x$
 :PROPERTIES:
@@ -448,15 +452,17 @@ Let's construct a diagonal matrix of all these weights: $W \equiv
 \[ \vec x_\mathrm{observations} \equiv W q_\mathrm{err} = W \left( \vec
 q_\mathrm{predicted}\left( \vec p \right) - \vec q_\mathrm{ref} \right) \]
 
-and 
+If we assume that the model fits the data and that we have enough data to not
+overfit (both reasonable assumptions), then 
 
 \[\mathrm{Var}\left( \vec x_\mathrm{observations} \right) =
   W \mathrm{Var}\left( \vec q_\mathrm{ref} \right) W^T =
   \sigma^2 I
 \]
 
-Thus $\vec x_\mathrm{observations}$ is homoscedastic: each element as the same
-variance. I make two more assumptions:
+where $\sigma$ is the input noise we're propagating. Furthermore, $\vec
+x_\mathrm{observations}$ is homoscedastic: each element as the same variance. I
+make two more assumptions:
 
 - The rest of the measurement vector $\vec x$ ([[#Regularization][regularization]]) is insignificant
 - I consider the linear problem at the local linearization of my nonlinear system
@@ -465,27 +471,29 @@ And then I can make a larger statement: the optimal parameter vector we compute
 from the least-squares optimization is the maximum-likelihood estimate of the
 true solution.
 
+These assumptions are all mostly reasonable. If we have too little data, we're
+going to be overfitting, and the $\sigma$ computed using the above method will
+be too low. The current thought is that this will be hard to do with chessboards
+and even a half-hearted calibration, so mrcal currently doesn't try to catch
+this case. This might be added in the future.
+
 * Outlier rejection
 :PROPERTIES:
 :CUSTOM_ID: outlier-rejection
 :END:
 
-Some of the input data may not fit the model due to errors in the input data
+Some of the input may not fit the model due to errors in the input data
 (chessboard corner mis-detections or motion blur for instance) or due to the
 model not being able to represent reality (insufficiently-flexible lens model or
 [[#board-deformation][board deformation model]] for instance). Either of these would violate the [[#noise-model][noise
-model]], which could bias the resulting estimate.
+model]], which could bias the resulting estimate. Finding and detecting such
+points would eliminate such a bias.
 
-Currently mrcal employs a very simple outlier-rejection scheme. Pseudo-code:
+Currently mrcal employs a very simple outlier-rejection scheme. More or less,
+all measurements that have $x_i$ beyond some $k$ standard deviations above 0 are
+thrown out as outliers. See [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.c][=markOutliers()=]] for details.
 
-1. do
-   - optimize
-   - if any $x_i > 3 \, \mathrm{max}\left(\sigma, \mathrm{RMS}\left( \vec x \right)\right)$
-     - throw out those measurements $x_i$ as outliers. These are excluded from
-       future reoptimization
-2. until no new outliers were found
-
-This is effective in handling small numbers of obvious outliers. Any subtle
-outliers will get through, and will poison the solve. So it is imperative that
-the input data is as clean as possible. More sophisticated methods are under
-development.
+This scheme is effective in handling small numbers of obvious outliers. Any
+subtle outliers will get through, and will poison the solve. So it is imperative
+that the input data is as clean as possible. More sophisticated methods are
+under development.
