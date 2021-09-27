@@ -8,8 +8,8 @@ projection behaviors are described here.
 :CUSTOM_ID: representation
 :END:
 
-A =mrcal= lens model represents a lens independent of its pose in space. A lens
-model is fully specified by
+A =mrcal= /lens/ model represents a lens independent of its pose in space. A
+lens model is fully specified by
 
 - A model /family/ (or /type/). This is something like =LENSMODEL_PINHOLE= or
   =LENSMODEL_SPLINED_STEREOGRAPHIC=
@@ -17,7 +17,7 @@ model is fully specified by
   required only by some model families. These values are /not/ subject to
   optimization, and may affect how many optimization parameters are needed.
 - Optimization parameters. These are the parameters that the optimization
-  routine sets during its operation
+  routine controls during its operation
 
 Each model family also has some /metadata/ key/value pairs associated with it.
 These are inherent properties of a model family, and are not settable. At the
@@ -34,8 +34,9 @@ In Python, the models are identified with a string =LENSMODEL_XXX= where the
 =XXX= selects the specific model family and the configuration, if needed. A
 sample model string with a configuration:
 =LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=170=. The
-configuration is the pairs =order=3=, =Nx=30= and so on. Model families that
-accept a configuration /require/ it to be specified fully. Calling Python
+configuration is the pairs =order=3=, =Nx=30= and so on. At this time, model
+families that accept a configuration /require/ it to be specified fully,
+although optional configuration keys will be added soon. Today, calling Python
 functions with =LENSMODEL_SPLINED_STEREOGRAPHIC= or
 =LENSMODEL_SPLINED_STEREOGRAPHIC_order=3= will fail due to an incomplete
 configuration. The [[file:mrcal-python-api-reference.html#-lensmodel_metadata_and_config][=mrcal.lensmodel_metadata_and_config()=]] function returns a
@@ -57,7 +58,7 @@ Given a [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmod
 function:
 
 #+begin_src c
-mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* lensmodel )
+mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* lensmodel );
 #+end_src
 
 * Intrinsics core
@@ -75,6 +76,11 @@ start of the parameter vector:
 At this time all models contain a core.
 
 * Models
+Currently all models represent a /central/ projection: all observation rays
+intersect at a single point (the camera origin). So $k \vec v$ projects to the
+same $\vec q$ for all $k$. Non-central projections will be implemented at some
+point.
+
 ** =LENSMODEL_PINHOLE=
 :PROPERTIES:
 :CUSTOM_ID: lensmodel-pinhole
@@ -87,9 +93,10 @@ point $\vec p$ is defined as
 This model is defined only in front of the camera, and projects to infinity as
 we approach 90 degrees off the optical axis ($p_z \rightarrow 0$). Straight
 lines in space remain straight under this projection, and observations of the
-same plane by two pinhole cameras define a [[https://en.wikipedia.org/wiki/Homography][homography]]. Longer lenses tend to
-have roughly pinhole behavior, but no real-world lens follows this projection,
-so this exists for data processing only.
+same plane by two pinhole cameras define a [[https://en.wikipedia.org/wiki/Homography][homography]]. This model can be used
+for [[file:stereo.org][stereo rectification]], although it only works well with long lenses. Longer
+lenses tend to have roughly pinhole behavior, but no real-world lens follows
+this projection, so this exists for data processing only.
 
 ** =LENSMODEL_STEREOGRAPHIC=
 :PROPERTIES:
@@ -169,8 +176,8 @@ The special case of $f_x = f_y = 1$ and $c_x = c_y = 0$ (the default values in
 \end{aligned} \right]
 \]
 
-This projection has a singularity at the poles, approached as $y \rightarrow \pm
-\infty$
+This projection has a singularity at the poles, approached as $x \rightarrow 0$
+and $z \rightarrow 0$.
 
 ** =LENSMODEL_LATLON=
 :PROPERTIES:
@@ -184,7 +191,7 @@ North-South axis. The projected $x$ coordinate corresponds to the latitude, and
 the projected $y$ coordinate corresponds to the longitude.
 
 As with [[#lensmodel-lonlat][=LENSMODEL_LONLAT=]], lenses do not follow this model. It is useful as the
-core of a rectified view used in stereo processing. The full projection
+core of a [[file:stereo.org][rectified view used in stereo processing]]. The full projection
 expression to map a camera-coordinate point $\vec p$ to an image pixel $\vec q$:
 
 \[
@@ -215,8 +222,8 @@ projection:
 \end{aligned} \right]
 \]
 
-This projection has a singularity at the poles, approached as $x \rightarrow \pm
-\infty$
+This projection has a singularity at the poles, approached as $y \rightarrow 0$
+and $z \rightarrow 0$.
 
 ** =LENSMODEL_OPENCV4=, =LENSMODEL_OPENCV5=, =LENSMODEL_OPENCV8=, =LENSMODEL_OPENCV12=
 :PROPERTIES:
@@ -259,11 +266,11 @@ come across them.
 :PROPERTIES:
 :CUSTOM_ID: cahvor lens model
 :END:
-mrcal supports =LENSMODEL_CAHVOR=, a lens model used in a number of tools used
-at JPL. The =LENSMODEL_CAHVOR= model has 5 "distortion" parameters in addition
-to the 4 core parameters. This support exists only for compatibility, and
-there's no reason to use it otherwise. If you need this, you already know what
-it does.
+mrcal supports =LENSMODEL_CAHVOR=, a lens model used in a number of tools at
+JPL. The =LENSMODEL_CAHVOR= model has 5 "distortion" parameters in addition to
+the 4 core parameters. This support exists only for compatibility, and there's
+no reason to use it otherwise. If you don't know what this is, you don't need
+it.
 
 ** =LENSMODEL_CAHVORE=
 :PROPERTIES:
@@ -288,7 +295,7 @@ This is a stereographic model with correction factors. This is one of many
 possible ways to define a rich projection function based on splined surfaces.
 Improved representations will be evaluated and implemented in the future.
 
-Note that the idea of using a very rich representation to describe lens behavior
+Note that the idea of using a very rich representation to model lens behavior
 has been described in literature (for instance [[https://ieeexplore.ieee.org/abstract/document/8500466][here]] and [[https://arxiv.org/abs/1912.02908][here]]). However, every
 paper I've seen models unprojection (mapping pixels to observation vectors)
 instead of projection (observation vectors to pixels). Projection is the usual
@@ -337,10 +344,10 @@ projection function.
 *** B-spline details
 We're using B-splines primarily for their local support properties: moving a
 knot only affects the surface in the immediate neighborhood of that knot. This
-is critical for rapid convergence of our optimization problem. Conversely, at
-any $\vec u$, the sampled value of the spline depends /only/ on the knots in the
-immediate neighborhood of $\vec u$. A [[https://www.github.com/dkogan/mrcal/blob/master/analyses/splines/bsplines.py][script used in the development of the
-splined model]] shows this effect:
+makes our jacobian sparse, which is critical for rapid convergence of the
+optimization problem. Conversely, at any $\vec u$, the sampled value of the
+spline depends /only/ on the knots in the immediate neighborhood of $\vec u$. A
+[[https://www.github.com/dkogan/mrcal/blob/master/analyses/splines/bsplines.py][script used in the development of the splined model]] shows this effect:
 
 [[file:external/figures/splined-models/cubic-spline-perturbations.svg]]
 
@@ -370,28 +377,23 @@ several significant effects.
 
 These models are much more capable of representing the behavior of real-world
 lenses than the lean models: at a certain level of precision the parametric
-models are always wrong. The tour of mrcal shows [[file:tour.org::#opencv8-model-solving][a real-world fit using
-=LENSMODEL_OPENCV8=]] and a [[file:tour.org::#splined-model-solving][a real-world fit using a splined model]].
+models are always wrong. The tour of mrcal shows
+[[file:tour.org::#opencv8-model-solving][a real-world fit using
+=LENSMODEL_OPENCV8=]] and a [[file:tour.org::#splined-model-solving][a real-world fit using a splined model]], where we can
+clearly see that the splined model fits the data better.
 
-As expected, the flip side of this flexibility is [[https://en.wikipedia.org/wiki/Overfitting][overfitting]]. "Overfitting"
-means that the solution is influenced too much by random noise, and not enough
-by the input data. mrcal explicitly quantifies the effects of input noise in its
-[[file:uncertainty.org][uncertainty estimates]], so it reports exactly how much overfitting is happening,
-and the user can decide whether that is acceptable or not. More than that, mrcal
-reports the covariance matrix of any projection operations, so the uncertainty
-can be propagated to whatever is using the model. This is much better than
-simply deciding whether a given calibration is good-enough.
-
-More parameters do imply more overfitting, so these rich models /do/ have higher
-reported uncertainties (see the [[file:tour.org::#splined-model-uncertainties][tour of mrcal]] for examples). This is a good
-thing, however: the lean models report uncertainty estimates that are low, but
-do not match reality. The higher uncertainty estimates from the splined models
-are truthful, however. This is because the [[file:uncertainty.org][uncertainty estimate algorithm]]
-constrains the lenses to the space that's representable by a given lens model,
-which is a constraint that only exists on paper.
+The higher parameter counts do result in higher reported uncertainties (see the
+[[file:tour.org::#splined-model-uncertainties][tour of mrcal]] for examples). This is a good thing, however: the lean models
+report uncertainty estimates that are low, but do not match reality. The higher
+uncertainty estimates from the splined models are truthful, however. This is
+because the [[file:uncertainty.org][uncertainty estimate algorithm]] constrains the lenses to the space
+that's representable by a given lens model, which is a constraint that only
+exists on paper. Since mrcal reports the covariance matrix of any projection
+operation, the uncertainty can be used to pass/fail a calibration /or/ the
+covariance can be propagated to whatever is using the model.
 
 It is thus recommended to use splined models even for long lenses, which do fit
-the pinhole model more or less
+the pinhole model more or less.
 
 *** Splined model configuration
 :PROPERTIES:
@@ -436,21 +438,21 @@ the local 4x4 grid of knots (16 knots total). With quadratic splines, each
 spline is defined by a 3x3 grid.
 
 Since the knots are defined on a fixed grid, it is possible to try to sample the
-spline beyond the region where the knots lie. In this case we use the nearest
-spline patch, which could sit far away from $\vec u$. So here we still use a 4x4
-grid of knots to define the spline patch, but $\vec u$ no longer sits in the
-middle of these knots; because we're past the edge, and the preferred knots
-aren't available.
+spline beyond the region where the knots are defined (beyond our declared field
+of view). In this case we use the nearest spline patch, which could sit far away
+from $\vec u$. So here we still use a 4x4 grid of knots to define the spline
+patch, but $\vec u$ no longer sits in the middle of these knots: because we're
+past the edge, and the preferred knots aren't available.
 
 This produces continuous projections everywhere, at the cost of reduced function
-flexibility at the edges: the edge patches could be much larger that the
-internal patches. We can control this by selecting a wide-enough =fov_x_deg= to
-cover the full field-of-view of the camera. We then wouldn't be querying the
+flexibility at the edges: the effective edge patches could be much larger that
+the internal patches. We can control this by selecting a wide-enough =fov_x_deg=
+to cover the full field-of-view of the camera. We then wouldn't be querying the
 spline beyond the knots, since those regions in space are out-of-view of the
 lens. =fov_x_deg= should be large enough to cover the field of view, but not so
 wide to waste knots representing invisible space. It is recommended to estimate
 this from the datasheet of the lens, and then to run a calibration. The
-[[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface= tool]] can then be used to compare the
+[[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface=]] tool can then be used to compare the
 valid-intrinsics region (area with sufficient calibration data) against the
 bounds of the spline-in-bounds region.
 
