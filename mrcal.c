@@ -4736,49 +4736,50 @@ void optimizer_callback(// input state
                                 double scale = scale_regularization_distortion;
 
                                 int ivar = 2*( iy*Nx + ix );
-                                const double deltaux = intrinsics_all[icam_intrinsics][Ncore + ivar + 0];
-                                const double deltauy = intrinsics_all[icam_intrinsics][Ncore + ivar + 1];
+                                const double deltauxy[] =
+                                    { intrinsics_all[icam_intrinsics][Ncore + ivar + 0],
+                                      intrinsics_all[icam_intrinsics][Ncore + ivar + 1] };
 
-#warning "Precompute ux,uy. This is lots of unnecessary computation in the inner loop"
-                                double ux = (double)(2*ix - Nx + 1);
-                                double uy = (double)(2*iy - Ny + 1);
+#warning "Precompute uxy. This is lots of unnecessary computation in the inner loop"
+                                double uxy[] = { (double)(2*ix - Nx + 1),
+                                                 (double)(2*iy - Ny + 1) };
                                 bool anisotropic = true;
                                 if(2*ix == Nx - 1 &&
                                    2*iy == Ny - 1 )
                                 {
-                                    ux = 1.0;
+                                    uxy[0] = 1.0;
                                     anisotropic = false;
                                 }
                                 else
                                 {
-                                    double mag_recip = 1. / hypot(ux,uy);
-                                    ux *= mag_recip;
-                                    uy *= mag_recip;
+                                    uxy[0] /= hypot(uxy[0],uxy[1]);
+                                    uxy[1] /= hypot(uxy[0],uxy[1]);
                                 }
 
                                 double err;
 
                                 // I penalize radial corrections
                                 if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                                err              = scale*(deltaux*ux + deltauy*uy);
+                                err              = scale*(deltauxy[0]*uxy[0] +
+                                                          deltauxy[1]*uxy[1]);
                                 x[iMeasurement]  = err;
                                 norm2_error     += err*err;
                                 STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 0,
-                                                scale * ux * SCALE_DISTORTION );
+                                                scale * uxy[0] * SCALE_DISTORTION );
                                 STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 1,
-                                                scale * uy * SCALE_DISTORTION );
+                                                scale * uxy[1] * SCALE_DISTORTION );
                                 iMeasurement++;
 
                                 // I REALLY penalize tangential corrections
                                 if(anisotropic) scale *= 10.;
                                 if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                                err              = scale*(deltaux*uy - deltauy*ux);
+                                err              = scale*(deltauxy[0]*uxy[1] - deltauxy[1]*uxy[0]);
                                 x[iMeasurement]  = err;
                                 norm2_error     += err*err;
                                 STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 0,
-                                                scale * uy * SCALE_DISTORTION );
+                                                scale * uxy[1] * SCALE_DISTORTION );
                                 STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 1,
-                                                -scale * ux * SCALE_DISTORTION );
+                                                -scale * uxy[0] * SCALE_DISTORTION );
                                 iMeasurement++;
                             }
                     }
