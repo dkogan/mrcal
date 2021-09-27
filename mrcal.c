@@ -4752,8 +4752,9 @@ void optimizer_callback(// input state
                                 }
                                 else
                                 {
-                                    uxy[0] /= hypot(uxy[0],uxy[1]);
-                                    uxy[1] /= hypot(uxy[0],uxy[1]);
+                                    double h = hypot(uxy[0],uxy[1]);
+                                    uxy[0] /= h;
+                                    uxy[1] /= h;
                                 }
 
                                 double err;
