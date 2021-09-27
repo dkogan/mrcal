@@ -4325,8 +4325,26 @@ void optimizer_callback(// input state
             point_ref = ctx->points[i_point];
 
 
+        int Ngradients = 0;
+        bool has_core                   = modelHasCore_fxfycxcy(&ctx->lensmodel);
+        bool has_dense_intrinsics_grad  = (ctx->lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+        bool has_sparse_intrinsics_grad = (ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+        int runlen = (ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+            (ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
+            0;
+        if(has_core)
+            // qx(fx) and qy(fy)
+            Ngradients += 2;
+        if(has_dense_intrinsics_grad)
+            // each of (qx,qy) depends on all the non-core intrinsics
+            Ngradients += 2 * (ctx->Nintrinsics-4);
+        if(has_sparse_intrinsics_grad)
+            Ngradients += 2*runlen;
+
         // WARNING: "compute size(dq_dintrinsics_pool_double) correctly and maybe bounds-check"
-        double dq_dintrinsics_pool_double[2*(1+ctx->Nintrinsics)];
+        double dq_dintrinsics_pool_double[Ngradients];
+        // used for LENSMODEL_SPLINED_STEREOGRAPHIC only, but getting rid of
+        // this in other cases isn't worth the trouble
         int    dq_dintrinsics_pool_int   [1];
         double* dq_dfxy                             = NULL;
         double* dq_dintrinsics_nocore               = NULL;
