@@ -327,7 +327,10 @@ static int LENSMODEL_SPLINED_STEREOGRAPHIC__lensmodel_num_params(const mrcal_LEN
         (int)config->Nx * (int)config->Ny * 2 +
 
         // and I have a core
-        4;
+        4 +
+
+        // And I have some non-central projection parameters
+        1;
 }
 int mrcal_lensmodel_num_params(const mrcal_lensmodel_t* lensmodel)
 {
@@ -525,6 +528,10 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
         Nintrinsics_per_measurement =
             (problem_selections.do_optimize_intrinsics_core        ? 4                 : 0)  +
             (problem_selections.do_optimize_intrinsics_distortions ? (run_len*run_len) : 0);
+
+        // non-central projection
+        if(problem_selections.do_optimize_intrinsics_distortions)
+            Nintrinsics_per_measurement += 1;
     }
     else
         Nintrinsics_per_measurement =
@@ -577,8 +584,13 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
         N +=
             Ncameras_intrinsics *
             2 *
-            num_regularization_terms_percamera(problem_selections,
-                                               lensmodel);
+            (// spline parameters
+             num_regularization_terms_percamera(problem_selections,
+                                                lensmodel) - 1);
+
+        // non-central
+        N += Ncameras_intrinsics * 1;
+
         // I multiplied by 2, so I double-counted the center pixel
         // contributions. Subtract those off
         if(problem_selections.do_optimize_intrinsics_core)
@@ -792,6 +804,8 @@ void _project_point_parametric( // outputs
                                bool camera_at_identity,
                                const mrcal_lensmodel_t* lensmodel)
 {
+    #warning "support the non-central projection here too"
+
     // u = distort(p, distortions)
     // q = uxy/uz * fxy + cxy
     if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE ||
@@ -1579,6 +1593,9 @@ void _project_point_splined( // outputs
                             double* grad_ABCDx_ABCDy,
                             int* ivar0,
 
+                            // N slices, each is dq/dnoncentral[i]
+                            mrcal_point2_t* dq_dknoncentral,
+
                             // Gradient outputs. May be NULL
                             mrcal_point3_t* restrict dq_drcamera,
                             mrcal_point3_t* restrict dq_dtcamera,
@@ -1630,16 +1647,187 @@ void _project_point_splined( // outputs
     //
     // If the spline surface is at 0 (deltau == 0) then this is a pure
     // stereographic projection
+
+
+    // non-central projection logic
+
+#define XX_OVER_ZZ 0
+#define TAN_TH_2   0
+#define COS_TH     1
+#define PVD        0
+
+
+    double zadj = p->z;
+    double mag_p = 0.0;
+
+
+    double k_noncentral =
+        intrinsics[ 4 + // core
+                    2*Nx*Ny ];
+
+#if defined XX_OVER_ZZ && XX_OVER_ZZ
+    double norm2_xy = p->x*p->x + p->y*p->y;
+    double zrecip = 1. / p->z;
+    double zsqrecip = zrecip*zrecip;
+    double tansq = norm2_xy * zsqrecip;
+    double k2 = -6e-4;
+    zadj = p->z + k2*tansq;
+    double dzadj_dp[] =
+        { 2.*p->x*k2*zsqrecip,
+          2.*p->y*k2*zsqrecip,
+          1. - 2.*k2*norm2_xy*zsqrecip*zrecip };
+#endif
+#if defined TAN_TH_2 && TAN_TH_2
+
+    // tan(th/2) = mag_pxy/mag_p / (1 + z/mag_p) =
+    //           = mag_pxy / (mag_p + z)
+    //           = sqrt(x^2 + y^2) / (sqrt(x^2 + y^2 + z^2) + z)
+    //           = sqrt((x^2 + y^2)/z^2) / (sqrt((x^2 + y^2)/z^2 + 1) + 1)
+    // Let a = (x^2 + y^2)/z^2;
+    // tan(th/2) = sqrt(a) / (sqrt(a + 1) + 1)
+    //           = sqrt(a) (sqrt(a + 1) - 1) / a
+    //           = (sqrt(a + 1) - 1) / sqrt(a)
+    //           = (sqrt(a + 1) - sqrt(a)/sqrt(a)) / sqrt(a)
+    //           = sqrt(a + 1)/sqrt(a) - sqrt(1/a)
+    //           = sqrt((a + 1)/a) - sqrt(1/a)
+    //           = sqrt(1 + 1/a) - sqrt(1/a)
+
+
+    // tan^2 = (1 + 1/a) + (1/a) - 2 sqrt(1/a + 1/a^2)
+
+    sqrt(1/b+1)/sqrt(1/b);
+
+
+
+    //
+    // 1/tan     = (sqrt(x^2 + y^2 + z^2) + z)/sqrt(x^2 + y^2) =
+    //           = sqrt(x^2 + y^2 + z^2)/sqrt(x^2 + y^2) + z/sqrt(x^2 + y^2) =
+    //           = sqrt(1 + z^2 / (x^2 + y^2)) + sqrt(z^2 / (x^2 + y^2)) =
+    //
+
+
+    a = zz/(xx+yy);
+    1/ (sqrt(1 + a) + sqrt(a)) = sqrt(1 + a) - sqrt(a);
+
+
+
+    // tan^2(th/2) = (x^2 + y^2) / (sqrt(x^2 + y^2 + z^2) + z)^2
+
+
+
+
+    double norm2_xy = p->x*p->x + p->y*p->y;
+    double mag_pxy  = sqrt(norm2_xy);
+
     double mag_p = sqrt( p->x*p->x +
                          p->y*p->y +
                          p->z*p->z );
-    double scale = 2.0 / (mag_p + p->z);
+
+    double tan_th_2 = mag_pxy / (mag_p + p->z);
+#endif
+#if defined COS_TH && COS_TH
+    // cos(th) = z/mag_p;
+    double zsq = p->z*p->z;
+    double norm2_xyz_recip =
+        1.0 / ( p->x*p->x +
+                p->y*p->y +
+                zsq );
+    double cossq_signed = copysign(zsq * norm2_xyz_recip, p->z);
+    // double k = -6e-3;
+    zadj = p->z + k_noncentral*(1. - cossq_signed);
+
+    double dzadj_dp[] =
+        { copysign(k_noncentral*zsq*norm2_xyz_recip*norm2_xyz_recip*2.*p->x, p->z),
+          copysign(k_noncentral*zsq*norm2_xyz_recip*norm2_xyz_recip*2.*p->y, p->z),
+
+          1.0 +
+          -k_noncentral * copysign( 2.0*p->z*norm2_xyz_recip* (1. - zsq*norm2_xyz_recip),
+                         p->z ) };
+
+    double dzadj_dk = 1. - cossq_signed;
+#endif
+#if defined PVD && PVD
+
+
+    // sin(th)   = mag_pxy/mag_p
+    // cos(th)   = z/mag_p
+    // tan(th/2) = sin(th) / (1 + cos(th))
+
+    // tan(th/2) = mag_pxy/mag_p / (1 + z/mag_p) =
+    //           = mag_pxy / (mag_p + z)
+    // u = xy_unit * tan(th/2) * 2 =
+    //   = xy/mag_pxy * mag_pxy/(mag_p + z) * 2 =
+    //   = xy / (mag_p + z) * 2
+
+
+    // norm2(u) = norm2xy * 4 / (norm2xyz + z^2 + 2 magxyz z)
+    // 4/norm2(u) = (norm2xyz + z^2 + 2 magxyz z) / norm2xy
+    //            = 1 + 2z ( z + magxyz) / norm2xy
+
+
+    // p-> u -> v -> need to make sure that p+kv maps to the same u
+
+    // p -> th -> th' -> v -> d
+
+
+    // I only need delta. But I must prove that there exists some v so that p+kv
+    // maps to delta for all k
+    mag_p = sqrt( p->x*p->x +
+                  p->y*p->y +
+                  p->z*p->z );
+    double mag_pxy = sqrt( p->x*p->x +
+                           p->y*p->y );
+
+    double tan_th_2 = mag_pxy / (mag_p + p->z);
+    double k = 1e-4;
+    tan_th_2 *= 1. + k;
+
+    // kv + p = [0, delta]
+    // -> k = -pxy/vxy
+    // -> delta = pz - pxy*vz/vxy
+    // -> pz-delta = pxy*vz/vxy
+    //             = pxy/tan(th)
+    //             = pxy/( 2 tan(th/2) / (1 - tan^2(th/2)) )
+    //             = pxy (1 - tan^2(th/2)) / ( 2 tan(th/2) )
+    //             = pxy/2 * (1/tan(th/2) - tan(th/2))
+
+    ////// THIS DOESN'T WORK. Singularity at the center of the imager where
+    ////// th=0. Because delta is undefined there. But it also doesn't have an
+    ////// effect there
+
+
+    zadj = mag_pxy * (1. - tan_th_2*tan_th_2) / ( 2*tan_th_2 );
+
+    // cos(th) = z/mag_p;
+    double zsq = p->z*p->z;
+    double norm2_xyz_recip =
+        1.0 / ( p->x*p->x +
+                p->y*p->y +
+                zsq );
+    double cossq_signed = copysign(zsq * norm2_xyz_recip, p->z);
+    double k = -6e-3;
+    zadj = p->z + k*(1. - cossq_signed);
+
+    double dzadj_dp[] =
+        { copysign(k*zsq*norm2_xyz_recip*norm2_xyz_recip*2.*p->x, p->z),
+          copysign(k*zsq*norm2_xyz_recip*norm2_xyz_recip*2.*p->y, p->z),
+
+          1.0 +
+          -k * copysign( 2.0*p->z*norm2_xyz_recip* (1. - zsq*norm2_xyz_recip),
+                         p->z ) };
+#endif
+
+
+    mag_p = sqrt( p->x*p->x +
+                  p->y*p->y +
+                  zadj*zadj );
+    double scale = 2.0 / (mag_p + zadj);
 
     mrcal_point2_t u = {.x = p->x * scale,
                         .y = p->y * scale};
     // du/dp = d/dp ( xy * scale )
     //       = pxy dscale/dp + [I; 0] scale
-    // dscale/dp = d (2.0 / (mag_p + p->z))/dp =
+    // dscale/dp = d (2.0 / (mag_p + zadj))/dp =
     //           = -2/()^2 ( [0,0,1] + dmag/dp)
     //           = -2/()^2 ( [0,0,1] + 2pt/2mag)
     //           = -2 scale^2/4 ( [0,0,1] + pt/mag)
@@ -1649,10 +1837,24 @@ void _project_point_splined( // outputs
     double B = A / mag_p;
     double du_dp[2][3] = { { p->x * (B * p->x)      + scale,
                              p->x * (B * p->y),
-                             p->x * (B * p->z + A) },
+                             p->x * (B * zadj + A) },
                            { p->y * (B * p->x),
                              p->y * (B * p->y)      + scale,
-                             p->y * (B * p->z + A) } };
+                             p->y * (B * zadj + A) } };
+
+#if (defined XX_OVER_ZZ && XX_OVER_ZZ) || (defined COS_TH && COS_TH)
+    // I have du_dpadj. I want du_dp = du_dpadj dpadj_dp
+    // dxadj_dp = [1 0 0]
+    // dyadj_dp = [0 1 0]
+    // dzadj_dp = ...
+    // [a b c] [.;.;x y z] = [a+cx  b+cy cz]
+    for(int i=0; i<2; i++)
+    {
+        for(int j=0; j<2; j++)
+            du_dp[i][j] += du_dp[i][2]*dzadj_dp[j];
+        du_dp[i][2] *= dzadj_dp[2];
+    }
+#endif
 
     double ix = u.x*segments_per_u + (double)(Nx-1)/2.;
     double iy = u.y*segments_per_u + (double)(Ny-1)/2.;
@@ -1744,6 +1946,13 @@ void _project_point_splined( // outputs
     q->x = (u.x + deltau.x) * fx + cx;
     q->y = (u.y + deltau.y) * fy + cy;
 
+    // convert ddeltau_dixy to ddeltau_duxy
+    for(int i=0; i<2; i++)
+    {
+        ddeltau_dux[i] *= segments_per_u;
+        ddeltau_duy[i] *= segments_per_u;
+    }
+
     if( dq_dfxy )
     {
         // I have the projection, and I now need to propagate the gradients
@@ -1752,15 +1961,16 @@ void _project_point_splined( // outputs
         dq_dfxy->y = u.y + deltau.y;
     }
 
+    if( dq_dknoncentral )
+    {
+        dq_dknoncentral[0].x =
+            fx * (du_dp[0][2] * dzadj_dk * (1. + ddeltau_dux[0]));
+        dq_dknoncentral[0].y =
+            fy * (du_dp[1][2] * dzadj_dk * (1. + ddeltau_dux[1]));
+    }
+
     if(!need_any_dq_drt) return;
 
-
-    // convert ddeltau_dixy to ddeltau_duxy
-    for(int i=0; i<2; i++)
-    {
-        ddeltau_dux[i] *= segments_per_u;
-        ddeltau_duy[i] *= segments_per_u;
-    }
 
     void propagate_extrinsics( mrcal_point3_t* dq_deee,
                                const mrcal_point3_t* dp_deee)
@@ -1845,6 +2055,8 @@ void project( // out
              double** restrict dq_dfxy,
              double** restrict dq_dintrinsics_nocore,
              gradient_sparse_meta_t* gradient_sparse_meta,
+             mrcal_point2_t** restrict dq_dknoncentral,
+
              mrcal_point3_t* restrict dq_drcamera,
              mrcal_point3_t* restrict dq_dtcamera,
              mrcal_point3_t* restrict dq_drframe,
@@ -1960,11 +2172,16 @@ void project( // out
 
     mrcal_R_from_r(Rj, d_Rj_rj, joint_rt);
 
-    mrcal_point2_t* p_dq_dfxy                  = NULL;
+    mrcal_point2_t* p_dq_dfxy            = NULL;
     double*   p_dq_dintrinsics_nocore    = NULL;
+    mrcal_point2_t* p_dq_dknoncentral    = NULL;
+
     bool      has_core                   = modelHasCore_fxfycxcy(lensmodel);
     bool      has_dense_intrinsics_grad  = (lensmodel->type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
     bool      has_sparse_intrinsics_grad = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    int runlen = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        (lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
+        0;
 
     if(dq_dintrinsics_pool_double != NULL)
     {
@@ -2005,6 +2222,10 @@ void project( // out
                     .ivar_stridey    = 2*config->Nx,
                     .pool            = &dq_dintrinsics_pool_double[ivar_pool]
                 };
+            ivar_pool += Npoints*2 * runlen;
+
+            *dq_dknoncentral = (mrcal_point2_t*)&dq_dintrinsics_pool_double[ivar_pool];
+            p_dq_dknoncentral = *dq_dknoncentral;
         }
     }
 
@@ -2118,6 +2339,8 @@ void project( // out
                        double* p_dq_dintrinsics_nocore,
                        double* gradient_sparse_meta_pool,
                        int runlen,
+                       // N slices, each is dq/dnoncentral[i]
+                       mrcal_point2_t* dq_dknoncentral,
                        mrcal_point3_t* restrict dq_drcamera,
                        mrcal_point3_t* restrict dq_dtcamera,
                        mrcal_point3_t* restrict dq_drframe,
@@ -2143,6 +2366,7 @@ void project( // out
                                    q, p_dq_dfxy,
                                    grad_ABCDx_ABCDy,
                                    &ivar0,
+                                   dq_dknoncentral,
 
                                    dq_drcamera,dq_dtcamera,dq_drframe,dq_dtframe,
                                    // inputs
@@ -2211,9 +2435,6 @@ void project( // out
 
 
 
-    int runlen = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
-        (lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
-        0;
     if( calibration_object_width_n == 0 )
     { // projecting discrete points
         mrcal_point3_t p =
@@ -2224,6 +2445,7 @@ void project( // out
                         p_dq_dfxy, p_dq_dintrinsics_nocore,
                         gradient_sparse_meta ? gradient_sparse_meta->pool : NULL,
                         runlen,
+                        p_dq_dknoncentral,
                         dq_drcamera, dq_dtcamera, dq_drframe, dq_dtframe, NULL,
 
                         &p,
@@ -2290,6 +2512,7 @@ void project( // out
                               p_dq_dintrinsics_nocore ? &p_dq_dintrinsics_nocore[2*(Nintrinsics-4)*i_pt] : NULL,
                               gradient_sparse_meta ? &gradient_sparse_meta->pool[i_pt*runlen*2] : NULL,
                               runlen,
+                              p_dq_dknoncentral ? &p_dq_dknoncentral[i_pt] : NULL,
                               dq_drcamera_here, dq_dtcamera_here, dq_drframe_here, dq_dtframe_here, dq_dcalobject_warp_here,
                               &p,
                               intrinsics, lensmodel,
@@ -2516,7 +2739,7 @@ bool _mrcal_project_internal( // out
             // simple non-intrinsics-gradient path. dp_dp is handled entirely in
             // project()
             project( &q[i],
-                     NULL, NULL, NULL, NULL, NULL,
+                     NULL, NULL, NULL, NULL, NULL, NULL,
                      NULL, NULL, NULL, dq_dp, NULL,
 
                      // in
@@ -2531,6 +2754,27 @@ bool _mrcal_project_internal( // out
     // So I init everything to 0
     memset(dq_dintrinsics, 0, N*2*Nintrinsics*sizeof(double));
 
+    int Ngradients = 0;
+    bool has_core                   = modelHasCore_fxfycxcy(lensmodel);
+    bool has_dense_intrinsics_grad  = (lensmodel->type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    bool has_sparse_intrinsics_grad = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    int runlen = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        (lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
+        0;
+    if(has_core)
+        // qx(fx) and qy(fy)
+        Ngradients += 2;
+    if(has_dense_intrinsics_grad)
+        // each of (qx,qy) depends on all the non-core intrinsics
+        Ngradients += 2 * (Nintrinsics-4);
+    if(has_sparse_intrinsics_grad)
+    {
+        // spline coefficients
+        Ngradients += 2*runlen;
+        // non-central projection
+        Ngradients += 2;
+    }
+
     for(int i=0; i<N; i++)
     {
         mrcal_pose_t frame = {.r = {},
@@ -2538,17 +2782,19 @@ bool _mrcal_project_internal( // out
 
         // simple non-intrinsics-gradient path. dp_dp is handled entirely in
         // project()
-        double dq_dintrinsics_pool_double[2*(1+Nintrinsics-4)];
+        double dq_dintrinsics_pool_double[Ngradients];
         int    dq_dintrinsics_pool_int   [1];
         double* dq_dfxy               = NULL;
         double* dq_dintrinsics_nocore = NULL;
         gradient_sparse_meta_t gradient_sparse_meta = {}; // init to pacify compiler warning
+        mrcal_point2_t* dq_dknoncentral = NULL;
 
         project( &q[i],
 
                  dq_dintrinsics_pool_double,
                  dq_dintrinsics_pool_int,
                  &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
+                 &dq_dknoncentral,
 
                  NULL, NULL, NULL, dq_dp, NULL,
 
@@ -2607,6 +2853,12 @@ bool _mrcal_project_internal( // out
                         dq_dintrinsics[ivar + i_xy*Nintrinsics] =
                             ABCDx[ix]*ABCDy[iy]*fxy[i_xy];
                     }
+        }
+
+        if(dq_dknoncentral != NULL)
+        {
+            dq_dintrinsics[0*Nintrinsics + Nintrinsics-1] = dq_dknoncentral->x;
+            dq_dintrinsics[1*Nintrinsics + Nintrinsics-1] = dq_dknoncentral->y;
         }
 
         // advance
@@ -2794,7 +3046,7 @@ bool _mrcal_unproject_internal( // out
             mrcal_point3_t dq_dtframe[2];
             mrcal_point2_t q_hypothesis;
             project( &q_hypothesis,
-                     NULL,NULL,NULL,NULL,NULL,
+                     NULL,NULL,NULL,NULL,NULL,NULL,
                      NULL, NULL, NULL, dq_dtframe,
                      NULL,
 
@@ -3948,11 +4200,33 @@ void optimizer_callback(// input state
         // cy. So x depends on fx and NOT on fy, and similarly for y. Similar
         // for cx,cy, except we know the gradient value beforehand. I support
         // this case explicitly here. I store dx/dfx and dy/dfy; no cross terms
-        double dq_dintrinsics_pool_double[ctx->calibration_object_width_n*ctx->calibration_object_height_n*2*(1+ctx->Nintrinsics)];
+        int Ngradients = 0;
+        bool has_core                   = modelHasCore_fxfycxcy(&ctx->lensmodel);
+        bool has_dense_intrinsics_grad  = (ctx->lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+        bool has_sparse_intrinsics_grad = (ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+        int runlen = (ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+            (ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
+            0;
+        if(has_core)
+            // qx(fx) and qy(fy)
+            Ngradients += 2;
+        if(has_dense_intrinsics_grad)
+            // each of (qx,qy) depends on all the non-core intrinsics
+            Ngradients += 2 * (ctx->Nintrinsics-4);
+        if(has_sparse_intrinsics_grad)
+        {
+            // spline coefficients
+            Ngradients += 2*runlen;
+            // non-central projection
+            Ngradients += 2;
+        }
+
+        double dq_dintrinsics_pool_double[ctx->calibration_object_width_n*ctx->calibration_object_height_n*Ngradients];
         int    dq_dintrinsics_pool_int   [ctx->calibration_object_width_n*ctx->calibration_object_height_n];
         double* dq_dfxy = NULL;
         double* dq_dintrinsics_nocore = NULL;
         gradient_sparse_meta_t gradient_sparse_meta = {};
+        mrcal_point2_t* dq_dknoncentral = NULL;
 
         int splined_intrinsics_grad_irun = 0;
 
@@ -3963,6 +4237,7 @@ void optimizer_callback(// input state
                 ctx->problem_selections.do_optimize_intrinsics_core || ctx->problem_selections.do_optimize_intrinsics_distortions ?
                   dq_dintrinsics_pool_int : NULL,
                 &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
+                &dq_dknoncentral,
 
                 ctx->problem_selections.do_optimize_extrinsics ?
                 (mrcal_point3_t*)dq_drcamera : NULL,
@@ -4059,6 +4334,14 @@ void optimizer_callback(// input state
                                                                        i_xy*(ctx->Nintrinsics-Ncore) +
                                                                        i] *
                                                 weight * SCALE_DISTORTION );
+                        }
+
+                        if(dq_dknoncentral != NULL)
+                        {
+                            const double SCALE = 1.0;
+                            STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-1,
+                                            dq_dknoncentral[i_pt].xy[i_xy]*
+                                            weight * SCALE );
                         }
                     }
 
@@ -4161,6 +4444,13 @@ void optimizer_callback(// input state
                         {
                             for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
                                 STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i, 0.0 );
+                        }
+
+                        if(dq_dknoncentral != NULL)
+                        {
+                            const double SCALE = 1.0;
+                            STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-1,
+                                            0.0 );
                         }
                     }
 
@@ -4339,7 +4629,13 @@ void optimizer_callback(// input state
             // each of (qx,qy) depends on all the non-core intrinsics
             Ngradients += 2 * (ctx->Nintrinsics-4);
         if(has_sparse_intrinsics_grad)
+        {
+            // spline coefficients
             Ngradients += 2*runlen;
+
+            // non-central projection
+            Ngradients += 2;
+        }
 
         // WARNING: "compute size(dq_dintrinsics_pool_double) correctly and maybe bounds-check"
         double dq_dintrinsics_pool_double[Ngradients];
@@ -4349,6 +4645,7 @@ void optimizer_callback(// input state
         double* dq_dfxy                             = NULL;
         double* dq_dintrinsics_nocore               = NULL;
         gradient_sparse_meta_t gradient_sparse_meta = {};
+        mrcal_point2_t* dq_dknoncentral = NULL;
 
         mrcal_point3_t dq_drcamera[2];
         mrcal_point3_t dq_dtcamera[2];
@@ -4366,6 +4663,7 @@ void optimizer_callback(// input state
                 ctx->problem_selections.do_optimize_intrinsics_core || ctx->problem_selections.do_optimize_intrinsics_distortions ?
                 dq_dintrinsics_pool_int : NULL,
                 &dq_dfxy, &dq_dintrinsics_nocore, &gradient_sparse_meta,
+                &dq_dknoncentral,
 
                 ctx->problem_selections.do_optimize_extrinsics ?
                 dq_drcamera : NULL,
@@ -4448,6 +4746,14 @@ void optimizer_callback(// input state
                                         dq_dintrinsics_nocore[i_xy*(ctx->Nintrinsics-Ncore) +
                                                                i] *
                                         weight * SCALE_DISTORTION );
+                }
+
+                if(dq_dknoncentral != NULL)
+                {
+                    const double SCALE = 1.0;
+                    STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-1,
+                                    dq_dknoncentral[0].xy[i_xy]*
+                                    weight * SCALE );
                 }
             }
 
@@ -4801,6 +5107,22 @@ void optimizer_callback(// input state
                                                 -scale * uxy[0] * SCALE_DISTORTION );
                                 iMeasurement++;
                             }
+
+                        // non-central
+                        {
+
+                            // I penalize radial corrections
+                            double scale = 1e-6;
+                            double SCALE = 1.0;
+                            if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                            double err = scale * intrinsics_all[icam_intrinsics][Ncore + Nx*Ny*2];
+                            x[iMeasurement]  = err;
+                            norm2_error     += err*err;
+                            STORE_JACOBIAN( i_var_intrinsics + Ncore_state + Nx*Ny*2,
+                                            scale * SCALE );
+                            iMeasurement++;
+
+                        }
                     }
                     else
                     {
