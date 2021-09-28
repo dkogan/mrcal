@@ -623,8 +623,8 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
 // focal-length scales
 static
 void sample_bspline_surface_cubic(double* out,
-                                  double* dout_dx, // may be NULL
-                                  double* dout_dy, // may be NULL
+                                  double* dout_dx,
+                                  double* dout_dy,
                                   double* ABCDx_ABCDy,
 
                                   double x, double y,
@@ -697,15 +697,13 @@ void sample_bspline_surface_cubic(double* out,
     // and y. By returning ABCD[xy] and not the cartesian products, I make
     // smaller temporary data arrays
     interp(out,     ABCDx,     ABCDy);
-    if(dout_dx)
-        interp(dout_dx, ABCDgradx, ABCDy);
-    if(dout_dy)
-        interp(dout_dy, ABCDx,     ABCDgrady);
+    interp(dout_dx, ABCDgradx, ABCDy);
+    interp(dout_dy, ABCDx,     ABCDgrady);
 }
 static
 void sample_bspline_surface_quadratic(double* out,
-                                      double* dout_dx, // may be NULL
-                                      double* dout_dy, // may be NULL
+                                      double* dout_dx,
+                                      double* dout_dy,
                                       double* ABCx_ABCy,
 
                                       double x, double y,
@@ -772,10 +770,8 @@ void sample_bspline_surface_quadratic(double* out,
     // and y. By returning ABC[xy] and not the cartesian products, I make
     // smaller temporary data arrays
     interp(out,     ABCx,     ABCy);
-    if(dout_dx)
-        interp(dout_dx, ABCgradx, ABCy);
-    if(dout_dy)
-        interp(dout_dy, ABCx,     ABCgrady);
+    interp(dout_dx, ABCgradx, ABCy);
+    interp(dout_dy, ABCx,     ABCgrady);
 }
 
 typedef struct
@@ -1892,12 +1888,6 @@ void _project_point_splined( // outputs
     const double cx = intrinsics[2];
     const double cy = intrinsics[3];
 
-    bool need_any_dq_drt =
-        !( dq_drcamera == NULL &&
-           dq_dtcamera == NULL &&
-           dq_drframe  == NULL &&
-           dq_dtframe  == NULL );
-
     if( spline_order == 3 )
     {
         int ix0 = (int)ix;
@@ -1917,8 +1907,7 @@ void _project_point_splined( // outputs
                 (ix0-1) );
 
         sample_bspline_surface_cubic(deltau.xy,
-                                     need_any_dq_drt ? ddeltau_dux : NULL,
-                                     need_any_dq_drt ? ddeltau_duy : NULL,
+                                     ddeltau_dux, ddeltau_duy,
                                      grad_ABCDx_ABCDy,
                                      ix - ix0, iy - iy0,
 
@@ -1945,8 +1934,7 @@ void _project_point_splined( // outputs
                 (ix0-1) );
 
         sample_bspline_surface_quadratic(deltau.xy,
-                                         need_any_dq_drt ? ddeltau_dux : NULL,
-                                         need_any_dq_drt ? ddeltau_duy : NULL,
+                                         ddeltau_dux, ddeltau_duy,
                                          grad_ABCDx_ABCDy,
                                          ix - ix0, iy - iy0,
 
@@ -1994,9 +1982,6 @@ void _project_point_splined( // outputs
         dq_dknoncentral[1].x = fx * (du_dp[0][2] * dzadj_dk[1] * (1. + ddeltau_dux[0]));
         dq_dknoncentral[1].y = fy * (du_dp[1][2] * dzadj_dk[1] * (1. + ddeltau_dux[1]));
     }
-
-    if(!need_any_dq_drt) return;
-
 
     void propagate_extrinsics( mrcal_point3_t* dq_deee,
                                const mrcal_point3_t* dp_deee)
