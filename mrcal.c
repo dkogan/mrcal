@@ -4278,8 +4278,8 @@ void optimizer_callback(// input state
                         // control points at the start because why not
                         const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
                             &ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
-                        int len = config->order+1;
-                        for(int i=0; i<len*len; i++)
+                        int runlen = config->order+1;
+                        for(int i=0; i<runlen*runlen; i++)
                             STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i, 0);
                     }
                     else
