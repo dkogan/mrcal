@@ -1754,7 +1754,10 @@ void _project_point_splined( // outputs
     double dcossq_dxy =
         -zsq * norm2_xyz_recip*norm2_xyz_recip * 2.0;
 
-    zadj = p->z + k1_noncentral*(1. - cossq*sgn) + k2_noncentral*(1. - cossq*sgn)*(1. - cossq*sgn);
+
+    zadj = p->z +
+        k1_noncentral*(1. - cossq*sgn) +
+        k2_noncentral*(1. - cossq*sgn)*(1. - cossq*sgn);
 
     double dzadj_dp[] =
         { -sgn*dcossq_dxy*p->x* (k1_noncentral + k2_noncentral*2.*(1. - cossq*sgn)),
@@ -1976,11 +1979,11 @@ void _project_point_splined( // outputs
 
     if( dq_dknoncentral )
     {
-        dq_dknoncentral[0].x = fx * (du_dp[0][2] * dzadj_dk[0] * (1. + ddeltau_dux[0]));
-        dq_dknoncentral[0].y = fy * (du_dp[1][2] * dzadj_dk[0] * (1. + ddeltau_dux[1]));
-
-        dq_dknoncentral[1].x = fx * (du_dp[0][2] * dzadj_dk[1] * (1. + ddeltau_dux[0]));
-        dq_dknoncentral[1].y = fy * (du_dp[1][2] * dzadj_dk[1] * (1. + ddeltau_dux[1]));
+        for(int i=0; i<N_NONCENTRAL; i++)
+        {
+            dq_dknoncentral[i].x = fx * (du_dp[0][2] * dzadj_dk[i] * (1. + ddeltau_dux[0]));
+            dq_dknoncentral[i].y = fy * (du_dp[1][2] * dzadj_dk[i] * (1. + ddeltau_dux[1]));
+        }
     }
 
     void propagate_extrinsics( mrcal_point3_t* dq_deee,
@@ -2869,12 +2872,8 @@ bool _mrcal_project_internal( // out
         }
 
         if(dq_dknoncentral != NULL)
-        {
-            dq_dintrinsics[0*Nintrinsics + Nintrinsics-2] = dq_dknoncentral[0].x;
-            dq_dintrinsics[0*Nintrinsics + Nintrinsics-1] = dq_dknoncentral[1].x;
-            dq_dintrinsics[1*Nintrinsics + Nintrinsics-2] = dq_dknoncentral[0].y;
-            dq_dintrinsics[1*Nintrinsics + Nintrinsics-1] = dq_dknoncentral[1].y;
-        }
+            for(int i=0; i<N_NONCENTRAL; i++)
+                dq_dintrinsics[i*Nintrinsics + Nintrinsics-N_NONCENTRAL+i] = dq_dknoncentral[0].x;
 
         // advance
         dq_dintrinsics = &dq_dintrinsics[2*Nintrinsics];
@@ -4354,12 +4353,10 @@ void optimizer_callback(// input state
                         if(dq_dknoncentral != NULL)
                         {
                             const double SCALE = 1.0;
-                            STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-2,
-                                            dq_dknoncentral[i_pt*N_NONCENTRAL + 0].xy[i_xy]*
-                                            weight * SCALE );
-                            STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-1,
-                                            dq_dknoncentral[i_pt*N_NONCENTRAL + 1].xy[i_xy]*
-                                            weight * SCALE );
+                            for(int i=0; i<N_NONCENTRAL; i++)
+                                STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-N_NONCENTRAL+i,
+                                                dq_dknoncentral[i_pt*N_NONCENTRAL + i].xy[i_xy]*
+                                                weight * SCALE );
                         }
                     }
 
@@ -4465,13 +4462,9 @@ void optimizer_callback(// input state
                         }
 
                         if(dq_dknoncentral != NULL)
-                        {
-                            const double SCALE = 1.0;
-                            STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-2,
-                                            0.0 );
-                            STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-1,
-                                            0.0 );
-                        }
+                            for(int i=0; i<N_NONCENTRAL; i++)
+                                STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-N_NONCENTRAL+i,
+                                                0.0 );
                     }
 
                     if( ctx->problem_selections.do_optimize_extrinsics )
@@ -4578,11 +4571,9 @@ void optimizer_callback(// input state
                             STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i, 0);
 
                         // noncentral
-                        const double SCALE = 1.0;
-                        STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-2,
-                                        0.0 );
-                        STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-1,
-                                        0.0 );
+                        for(int i=0; i<N_NONCENTRAL; i++)
+                            STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-N_NONCENTRAL+i,
+                                            0.0 );
                     }
                     else
                         for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
@@ -4778,12 +4769,10 @@ void optimizer_callback(// input state
                 if(dq_dknoncentral != NULL)
                 {
                     const double SCALE = 1.0;
-                    STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-2,
-                                    dq_dknoncentral[0].xy[i_xy]*
-                                    weight * SCALE );
-                    STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-1,
-                                    dq_dknoncentral[1].xy[i_xy]*
-                                    weight * SCALE );
+                    for(int i=0; i<N_NONCENTRAL; i++)
+                        STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-N_NONCENTRAL+i,
+                                        dq_dknoncentral[i].xy[i_xy]*
+                                        weight * SCALE );
                 }
             }
 
