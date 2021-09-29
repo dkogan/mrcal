@@ -571,18 +571,21 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
 
     if(lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
-        // Each regularization term depends on
-        // - two values for distortions
-        // - one value for the center pixel
-        N +=
-            Ncameras_intrinsics *
-            2 *
-            num_regularization_terms_percamera(problem_selections,
-                                               lensmodel);
-        // I multiplied by 2, so I double-counted the center pixel
-        // contributions. Subtract those off
-        if(problem_selections.do_optimize_intrinsics_core)
-            N -= Ncameras_intrinsics*2;
+        if(problem_selections.do_apply_regularization)
+        {
+            // Each regularization term depends on
+            // - two values for distortions
+            // - one value for the center pixel
+            N +=
+                Ncameras_intrinsics *
+                2 *
+                num_regularization_terms_percamera(problem_selections,
+                                                   lensmodel);
+            // I multiplied by 2, so I double-counted the center pixel
+            // contributions. Subtract those off
+            if(problem_selections.do_optimize_intrinsics_core)
+                N -= Ncameras_intrinsics*2;
+        }
     }
     else
         N +=
