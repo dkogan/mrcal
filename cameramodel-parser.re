@@ -271,8 +271,8 @@ static bool read_list_values_generic( // output stored here. If NULL, we try to
           IGNORE [\])] { break; }
           *
           {
-            MSG("Didn't see the closing )/] for the %s at position %ld. Giving up.",
-                what, YYCURSOR - start_file);
+            MSG("Didn't see the closing )/] for the %s at position %ld. Expected %d values, but the given list has more. Giving up.",
+                what, YYCURSOR - start_file, Nvalues);
             return false;
           }
         */
