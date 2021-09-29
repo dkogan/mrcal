@@ -1567,6 +1567,31 @@ bool mrcal_knots_for_splined_models( // buffers must hold at least
     return true;
 }
 
+static int get_Ngradients(const mrcal_lensmodel_t* lensmodel,
+                          int Nintrinsics)
+{
+    int N = 0;
+    bool has_core                   = modelHasCore_fxfycxcy(lensmodel);
+    bool has_dense_intrinsics_grad  = (lensmodel->type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    bool has_sparse_intrinsics_grad = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    int runlen = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        (lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
+        0;
+    if(has_core)
+        // qx(fx) and qy(fy)
+        N += 2;
+    if(has_dense_intrinsics_grad)
+        // each of (qx,qy) depends on all the non-core intrinsics
+        N += 2 * (Nintrinsics-4);
+    if(has_sparse_intrinsics_grad)
+    {
+        // spline coefficients
+        N += 2*runlen;
+    }
+
+    return N;
+}
+
 static
 void _project_point_splined( // outputs
                             mrcal_point2_t* q,
@@ -1739,9 +1764,6 @@ void _project_point_splined( // outputs
         dq_dfxy->x = u.x + deltau.x;
         dq_dfxy->y = u.y + deltau.y;
     }
-
-    if(!need_any_dq_drt) return;
-
 
     // convert ddeltau_dixy to ddeltau_duxy
     for(int i=0; i<2; i++)
@@ -1953,6 +1975,9 @@ void project( // out
     bool      has_core                   = modelHasCore_fxfycxcy(lensmodel);
     bool      has_dense_intrinsics_grad  = (lensmodel->type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
     bool      has_sparse_intrinsics_grad = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    int runlen = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        (lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
+        0;
 
     if(dq_dintrinsics_pool_double != NULL)
     {
@@ -1993,6 +2018,7 @@ void project( // out
                     .ivar_stridey    = 2*config->Nx,
                     .pool            = &dq_dintrinsics_pool_double[ivar_pool]
                 };
+            ivar_pool += Npoints*2 * runlen;
         }
     }
 
@@ -2199,9 +2225,6 @@ void project( // out
 
 
 
-    int runlen = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
-        (lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
-        0;
     if( calibration_object_width_n == 0 )
     { // projecting discrete points
         mrcal_point3_t p =
@@ -2519,6 +2542,8 @@ bool _mrcal_project_internal( // out
     // So I init everything to 0
     memset(dq_dintrinsics, 0, N*2*Nintrinsics*sizeof(double));
 
+    int Ngradients = get_Ngradients(lensmodel, Nintrinsics);
+
     for(int i=0; i<N; i++)
     {
         mrcal_pose_t frame = {.r = {},
@@ -2526,7 +2551,7 @@ bool _mrcal_project_internal( // out
 
         // simple non-intrinsics-gradient path. dp_dp is handled entirely in
         // project()
-        double dq_dintrinsics_pool_double[2*(1+Nintrinsics-4)];
+        double dq_dintrinsics_pool_double[Ngradients];
         int    dq_dintrinsics_pool_int   [1];
         double* dq_dfxy               = NULL;
         double* dq_dintrinsics_nocore = NULL;
@@ -3936,7 +3961,9 @@ void optimizer_callback(// input state
         // cy. So x depends on fx and NOT on fy, and similarly for y. Similar
         // for cx,cy, except we know the gradient value beforehand. I support
         // this case explicitly here. I store dx/dfx and dy/dfy; no cross terms
-        double dq_dintrinsics_pool_double[ctx->calibration_object_width_n*ctx->calibration_object_height_n*2*(1+ctx->Nintrinsics)];
+        int Ngradients = get_Ngradients(&ctx->lensmodel, ctx->Nintrinsics);
+
+        double dq_dintrinsics_pool_double[ctx->calibration_object_width_n*ctx->calibration_object_height_n*Ngradients];
         int    dq_dintrinsics_pool_int   [ctx->calibration_object_width_n*ctx->calibration_object_height_n];
         double* dq_dfxy = NULL;
         double* dq_dintrinsics_nocore = NULL;
@@ -4312,22 +4339,7 @@ void optimizer_callback(// input state
         else
             point_ref = ctx->points[i_point];
 
-
-        int Ngradients = 0;
-        bool has_core                   = modelHasCore_fxfycxcy(&ctx->lensmodel);
-        bool has_dense_intrinsics_grad  = (ctx->lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
-        bool has_sparse_intrinsics_grad = (ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
-        int runlen = (ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
-            (ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
-            0;
-        if(has_core)
-            // qx(fx) and qy(fy)
-            Ngradients += 2;
-        if(has_dense_intrinsics_grad)
-            // each of (qx,qy) depends on all the non-core intrinsics
-            Ngradients += 2 * (ctx->Nintrinsics-4);
-        if(has_sparse_intrinsics_grad)
-            Ngradients += 2*runlen;
+        int Ngradients = get_Ngradients(&ctx->lensmodel, ctx->Nintrinsics);
 
         // WARNING: "compute size(dq_dintrinsics_pool_double) correctly and maybe bounds-check"
         double dq_dintrinsics_pool_double[Ngradients];
