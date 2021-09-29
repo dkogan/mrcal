@@ -15,7 +15,7 @@
 
 
 
-#define N_NONCENTRAL 2
+#define N_NONCENTRAL 3
 
 
 
@@ -1673,6 +1673,9 @@ void _project_point_splined( // outputs
     const double k2_noncentral =
         intrinsics[ 4 + // core
                     2*Nx*Ny + 1 ];
+    const double k3_noncentral =
+        intrinsics[ 4 + // core
+                    2*Nx*Ny + 2 ];
 
 #if defined XX_OVER_ZZ && XX_OVER_ZZ
 
@@ -1757,17 +1760,21 @@ void _project_point_splined( // outputs
 
     zadj = p->z +
         k1_noncentral*(1. - cossq*sgn) +
-        k2_noncentral*(1. - cossq*sgn)*(1. - cossq*sgn);
+        k2_noncentral*(1. - cossq*sgn)*(1. - cossq*sgn) +
+        k3_noncentral*(1. - cossq*sgn)*(1. - cossq*sgn)*(1. - cossq*sgn);
 
     double dzadj_dp[] =
-        { -sgn*dcossq_dxy*p->x* (k1_noncentral + k2_noncentral*2.*(1. - cossq*sgn)),
-          -sgn*dcossq_dxy*p->y* (k1_noncentral + k2_noncentral*2.*(1. - cossq*sgn)),
+        { -sgn*dcossq_dxy*p->x* (k1_noncentral + k2_noncentral*2.*(1. - cossq*sgn) + k3_noncentral*3.*(1. - cossq*sgn)*(1. - cossq*sgn)),
+          -sgn*dcossq_dxy*p->y* (k1_noncentral + k2_noncentral*2.*(1. - cossq*sgn) + k3_noncentral*3.*(1. - cossq*sgn)*(1. - cossq*sgn)),
           1.0 +
           -sgn*(dcossq_dxy * p->z + norm2_xyz_recip*2.0*p->z) *
-          (k1_noncentral + k2_noncentral*2.*(1. - cossq*sgn)) };
+          (k1_noncentral +
+           k2_noncentral*2.*(1. - cossq*sgn) +
+           k3_noncentral*3.*(1. - cossq*sgn)*(1. - cossq*sgn)) };
 
     double dzadj_dk[] = { 1. - cossq*sgn,
-                          (1. - cossq*sgn)*(1. - cossq*sgn) };
+                          (1. - cossq*sgn)*(1. - cossq*sgn),
+                          (1. - cossq*sgn)*(1. - cossq*sgn)*(1. - cossq*sgn) };
 #endif
 #if defined PVD && PVD
 
