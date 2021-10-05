@@ -440,7 +440,7 @@ or less correlation in our pixel observations? Running the same command with
 ## Uncertainty propagation: observation-time noise suggests worst confidence of sigma=0.26m along [-0.11  -0.153  0.982]
   #+end_example
 
-I.e. correlations in the pixel measurements increase our range uncertainty. To
+I.e. correlations in the pixel measurements decrease our range uncertainty. To
 the point where perfectly-correlated observations produce almost perfect
 ranging. We'll still have range errors, but they would come from other sources
 than slightly mismatched feature observations.
