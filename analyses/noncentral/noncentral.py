@@ -362,3 +362,32 @@ dz_adj_perfect = \
 dz_adjusted_approximation = subs_into(zadj, vars0) - vars0['z']
 print(f"relative error in dz_adjusted: {(dz_adj_perfect - dz_adjusted_approximation)/ ((np.abs(dz_adj_perfect)+np.abs(dz_adjusted_approximation))/2):.2g}")
 
+
+
+
+# All done. Output the expressions
+from sympy.printing import ccode
+from sympy.codegen.rewriting import create_expand_pow_optimization
+
+print('')
+
+print(f"        const double magxy    = {ccode(create_expand_pow_optimization(2)(sqrt(x*x + y*y)))};")
+print(f"        const double magxyz   = {ccode(create_expand_pow_optimization(2)(sqrt(x*x + y*y + z*z)))};")
+print(f"        const double u        = {ccode(create_expand_pow_optimization(2)(u_expr))};")
+print(f"        const double d        = {ccode(create_expand_pow_optimization(2)(d_expr))};")
+print(f"        const double zadj     = {ccode(create_expand_pow_optimization(2)(zadj))};")
+
+print(f"        const double du_dx    = {ccode(create_expand_pow_optimization(2)(du_dx_expr))};")
+print(f"        const double du_dy    = {ccode(create_expand_pow_optimization(2)(du_dy_expr))};")
+print(f"        const double du_dz    = {ccode(create_expand_pow_optimization(2)(du_dz_expr))};")
+
+print(f"        const double dd_dx    = {ccode(create_expand_pow_optimization(2)(dd_dx_expr))};")
+print(f"        const double dd_dy    = {ccode(create_expand_pow_optimization(2)(dd_dy_expr))};")
+print(f"        const double dd_dz    = {ccode(create_expand_pow_optimization(2)(dd_dz_expr))};")
+
+print(f"        const double dzadj_dx = {ccode(create_expand_pow_optimization(2)(dzadj_dx))};")
+print(f"        const double dzadj_dy = {ccode(create_expand_pow_optimization(2)(dzadj_dy))};")
+print(f"        const double dzadj_dz = {ccode(create_expand_pow_optimization(2)(dzadj_dz))};")
+
+print(f"        const double dzadj_dk0 = {ccode(create_expand_pow_optimization(2)(dzadj_dk0))};")
+print(f"        const double dzadj_dk1 = {ccode(create_expand_pow_optimization(2)(dzadj_dk1))};")
