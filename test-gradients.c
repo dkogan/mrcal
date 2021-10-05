@@ -218,7 +218,7 @@ int main(int argc, char* argv[] )
                 intrinsics[Nintrinsics * i + 4 + j] = 0.1 + 0.05 * (double)(i + Ncameras_intrinsics*j);
     else
     {
-        const double intrinsics_cam0[] =
+        const double distortions_cam0[] =
             { 2.017284705,1.242204557,2.053514381,1.214368063,2.0379067,1.212609628,
               2.033278227,1.183689487,2.040018023,1.188554431,2.069146825,1.196304649,
               2.085708658,1.186478238,2.065787617,1.163377825,2.086372192,1.138856716,
@@ -248,8 +248,11 @@ int main(int argc, char* argv[] )
               2.051238803,1.201855728,2.043256406,1.216674722,2.035286046,1.178380907,
               2.08028318,1.178783085,2.051214271,1.173560417,2.059298121,1.182414688,
               2.094607679,1.177960959,2.086998287,1.147371259,2.12029442,1.138197348,
-              2.138994213, 1.114846113};
-        const double intrinsics_cam1[] =
+              2.138994213, 1.114846113,
+              // noncentral
+              0.1, 0.21, 0.35
+            };
+        const double distortions_cam1[] =
             { 1.06737740498, 1.6278468389,  1.04927724765, 1.51277313216, 1.140998713,
               1.64403651896, 1.13541712362, 1.58101290967, 1.01718000045, 1.64287620869,
               1.11361588299, 1.58562781834, 1.1249749456,  1.51358613443, 1.14154450187,
@@ -285,9 +288,19 @@ int main(int argc, char* argv[] )
               1.13733800215, 1.63824382463, 1.07916158505, 1.57074686246, 1.14380502334,
               1.51865523259, 1.06073374227, 1.55309119673, 1.04795568165, 1.60213038148,
               1.032439757,   1.50002407206, 1.00882762874, 1.58048933908, 1.15745735978,
-              1.60724228971};
-        memcpy(&intrinsics[Nintrinsics*0+4], intrinsics_cam0, sizeof(intrinsics_cam0));
-        memcpy(&intrinsics[Nintrinsics*1+4], intrinsics_cam1, sizeof(intrinsics_cam1));
+              1.60724228971,
+              // noncentral
+              0.5, 0.11, 0.25
+            };
+        memcpy(&intrinsics[Nintrinsics*0+4],
+               distortions_cam0,
+               sizeof(distortions_cam0));
+        memcpy(&intrinsics[Nintrinsics*1+4],
+               distortions_cam1,
+               sizeof(distortions_cam1));
+
+        assert(sizeof(distortions_cam0)/sizeof(double) == Ndistortion);
+        assert(sizeof(distortions_cam1)/sizeof(double) == Ndistortion);
     }
 
 
