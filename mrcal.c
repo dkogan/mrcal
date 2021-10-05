@@ -4359,11 +4359,11 @@ void optimizer_callback(// input state
 
                         if(dq_dknoncentral != NULL)
                         {
-                            const double SCALE = 1.0;
                             for(int i=0; i<N_NONCENTRAL; i++)
                                 STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-N_NONCENTRAL+i,
                                                 dq_dknoncentral[i_pt*N_NONCENTRAL + i].xy[i_xy]*
-                                                weight * SCALE );
+                                                weight * SCALE_DISTORTION );
+                            }
                         }
                     }
 
@@ -4775,11 +4775,10 @@ void optimizer_callback(// input state
 
                 if(dq_dknoncentral != NULL)
                 {
-                    const double SCALE = 1.0;
                     for(int i=0; i<N_NONCENTRAL; i++)
                         STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-N_NONCENTRAL+i,
                                         dq_dknoncentral[i].xy[i_xy]*
-                                        weight * SCALE );
+                                        weight * SCALE_DISTORTION );
                 }
             }
 
