@@ -1657,25 +1657,28 @@ void _project_point_splined( // outputs
 
     // non-central projection logic
 
-#define XX_OVER_ZZ 0
-#define TAN_TH_2   0
-#define COS_TH     1
-#define PVD        0
+#define XX_OVER_ZZ   0
+#define TAN_TH_2     0
+#define COS_TH       0
+#define U_PZ_ONESTEP 1
 
 
     double zadj = p->z;
     double mag_p = 0.0;
 
-
-    const double k1_noncentral =
+    const double k0_noncentral =
         intrinsics[ 4 + // core
                     2*Nx*Ny + 0 ];
-    const double k2_noncentral =
+    const double k1_noncentral =
         intrinsics[ 4 + // core
                     2*Nx*Ny + 1 ];
-    const double k3_noncentral =
+    const double k2_noncentral =
         intrinsics[ 4 + // core
                     2*Nx*Ny + 2 ];
+
+    double dzadj_dk[N_NONCENTRAL] = {};
+    double dzadj_dp[3]            = {};
+
 
 #if defined XX_OVER_ZZ && XX_OVER_ZZ
 
@@ -1688,10 +1691,9 @@ void _project_point_splined( // outputs
     double tansq = norm2_xy * zsqrecip;
     double k2 = -6e-4;
     zadj = p->z + k2*tansq;
-    double dzadj_dp[] =
-        { 2.*p->x*k2*zsqrecip,
-          2.*p->y*k2*zsqrecip,
-          1. - 2.*k2*norm2_xy*zsqrecip*zrecip };
+    dzadj_dp[0] = 2.*p->x*k2*zsqrecip;
+    dzadj_dp[1] = 2.*p->y*k2*zsqrecip;
+    dzadj_dp[2] = 1. - 2.*k2*norm2_xy*zsqrecip*zrecip;
 #endif
 #if defined TAN_TH_2 && TAN_TH_2
 
@@ -1746,6 +1748,7 @@ void _project_point_splined( // outputs
     double tan_th_2 = mag_pxy / (mag_p + p->z);
 #endif
 #if defined COS_TH && COS_TH
+
     // cos(th) = z/mag_p;
     double zsq = p->z*p->z;
     double norm2_xyz_recip =
@@ -1759,93 +1762,55 @@ void _project_point_splined( // outputs
 
 
     zadj = p->z +
-        k1_noncentral*(1. - cossq*sgn) +
-        k2_noncentral*(1. - cossq*sgn)*(1. - cossq*sgn) +
-        k3_noncentral*(1. - cossq*sgn)*(1. - cossq*sgn)*(1. - cossq*sgn);
+        k0_noncentral*(1. - cossq*sgn) +
+        k1_noncentral*(1. - cossq*sgn)*(1. - cossq*sgn) +
+        k2_noncentral*(1. - cossq*sgn)*(1. - cossq*sgn)*(1. - cossq*sgn);
 
-    double dzadj_dp[] =
-        { -sgn*dcossq_dxy*p->x* (k1_noncentral + k2_noncentral*2.*(1. - cossq*sgn) + k3_noncentral*3.*(1. - cossq*sgn)*(1. - cossq*sgn)),
-          -sgn*dcossq_dxy*p->y* (k1_noncentral + k2_noncentral*2.*(1. - cossq*sgn) + k3_noncentral*3.*(1. - cossq*sgn)*(1. - cossq*sgn)),
-          1.0 +
-          -sgn*(dcossq_dxy * p->z + norm2_xyz_recip*2.0*p->z) *
-          (k1_noncentral +
-           k2_noncentral*2.*(1. - cossq*sgn) +
-           k3_noncentral*3.*(1. - cossq*sgn)*(1. - cossq*sgn)) };
+    dzadj_dp[0] = -sgn*dcossq_dxy*p->x* (k0_noncentral + k1_noncentral*2.*(1. - cossq*sgn) + k2_noncentral*3.*(1. - cossq*sgn)*(1. - cossq*sgn));
+    dzadj_dp[1] = -sgn*dcossq_dxy*p->y* (k0_noncentral + k1_noncentral*2.*(1. - cossq*sgn) + k2_noncentral*3.*(1. - cossq*sgn)*(1. - cossq*sgn));
+    dzadj_dp[2] =
+        1.0 +
+        -sgn*(dcossq_dxy * p->z + norm2_xyz_recip*2.0*p->z) *
+        (k0_noncentral +
+         k1_noncentral*2.*(1. - cossq*sgn) +
+         k2_noncentral*3.*(1. - cossq*sgn)*(1. - cossq*sgn));
 
-    double dzadj_dk[] = { 1. - cossq*sgn,
-                          (1. - cossq*sgn)*(1. - cossq*sgn),
-                          (1. - cossq*sgn)*(1. - cossq*sgn)*(1. - cossq*sgn) };
+    dzadj_dk[0] = 1. - cossq*sgn;
+    dzadj_dk[1] = (1. - cossq*sgn)*(1. - cossq*sgn);
+    dzadj_dk[2] = (1. - cossq*sgn)*(1. - cossq*sgn)*(1. - cossq*sgn);
 #endif
-#if defined PVD && PVD
+#if defined U_PZ_ONESTEP && U_PZ_ONESTEP
+    {
+        const double k0 = k0_noncentral;
+        const double k1 = k1_noncentral;
+        const double x  = p->x;
+        const double y  = p->y;
+        const double z  = p->z;
 
-    #error "this path is unfinished"
+        const double magxy    = sqrt(x*x + y*y);
+        const double magxyz   = sqrt(x*x + y*y + z*z);
+        const double u        = 2*1.0/(z + sqrt(x*x + y*y + z*z))*sqrt(x*x + y*y);
+        const double d        = u*(k0 + 2*k1*u)*1.0/magxyz + 1;
+        zadj = u*(k0 + k1*u)*1.0/d + z;
+        const double du_dx    = u*x*1.0/magxy*(-1.0/2.0*u*1.0/magxyz + 1.0/magxy);
+        const double du_dy    = u*y*1.0/magxy*(-1.0/2.0*u*1.0/magxyz + 1.0/magxy);
+        const double du_dz    = -u*1.0/magxyz;
+        const double dd_dx    = du_dx*(k0 + 4*k1*u)*1.0/magxyz - x*(d - 1)*1.0/(magxyz*magxyz);
+        const double dd_dy    = du_dy*(k0 + 4*k1*u)*1.0/magxyz - y*(d - 1)*1.0/(magxyz*magxyz);
+        const double dd_dz    = -(u*(k0 + 4*k1*u) + z*(d - 1))*1.0/(magxyz*magxyz);
+        const double dzadj_dx = -dd_dx*u*(k0 + k1*u)*1.0/(d*d) + du_dx*(k0 + 2*k1*u)*1.0/d;
+        const double dzadj_dy = -dd_dy*u*(k0 + k1*u)*1.0/(d*d) + du_dy*(k0 + 2*k1*u)*1.0/d;
+        const double dzadj_dz = -dd_dz*u*(k0 + k1*u)*1.0/(d*d) + du_dz*(k0 + 2*k1*u)*1.0/d + 1;
+        const double dzadj_dk0 = u*1.0/d*(-u*(k0 + k1*u)*1.0/d*1.0/magxyz + 1);
+        const double dzadj_dk1 = 1.0/d*(u*u)*(-2*u*(k0 + k1*u)*1.0/d*1.0/magxyz + 1);
 
-    // sin(th)   = mag_pxy/mag_p
-    // cos(th)   = z/mag_p
-    // tan(th/2) = sin(th) / (1 + cos(th))
+        dzadj_dp[0] = dzadj_dx;
+        dzadj_dp[1] = dzadj_dy;
+        dzadj_dp[2] = dzadj_dz;
+        dzadj_dk[0] = dzadj_dk0;
+        dzadj_dk[1] = dzadj_dk1;
+    }
 
-    // tan(th/2) = mag_pxy/mag_p / (1 + z/mag_p) =
-    //           = mag_pxy / (mag_p + z)
-    // u = xy_unit * tan(th/2) * 2 =
-    //   = xy/mag_pxy * mag_pxy/(mag_p + z) * 2 =
-    //   = xy / (mag_p + z) * 2
-
-
-    // norm2(u) = norm2xy * 4 / (norm2xyz + z^2 + 2 magxyz z)
-    // 4/norm2(u) = (norm2xyz + z^2 + 2 magxyz z) / norm2xy
-    //            = 1 + 2z ( z + magxyz) / norm2xy
-
-
-    // p-> u -> v -> need to make sure that p+kv maps to the same u
-
-    // p -> th -> th' -> v -> d
-
-
-    // I only need delta. But I must prove that there exists some v so that p+kv
-    // maps to delta for all k
-    mag_p = sqrt( p->x*p->x +
-                  p->y*p->y +
-                  p->z*p->z );
-    double mag_pxy = sqrt( p->x*p->x +
-                           p->y*p->y );
-
-    double tan_th_2 = mag_pxy / (mag_p + p->z);
-    double k = 1e-4;
-    tan_th_2 *= 1. + k;
-
-    // kv + p = [0, delta]
-    // -> k = -pxy/vxy
-    // -> delta = pz - pxy*vz/vxy
-    // -> pz-delta = pxy*vz/vxy
-    //             = pxy/tan(th)
-    //             = pxy/( 2 tan(th/2) / (1 - tan^2(th/2)) )
-    //             = pxy (1 - tan^2(th/2)) / ( 2 tan(th/2) )
-    //             = pxy/2 * (1/tan(th/2) - tan(th/2))
-
-    ////// THIS DOESN'T WORK. Singularity at the center of the imager where
-    ////// th=0. Because delta is undefined there. But it also doesn't have an
-    ////// effect there
-
-
-    zadj = mag_pxy * (1. - tan_th_2*tan_th_2) / ( 2*tan_th_2 );
-
-    // cos(th) = z/mag_p;
-    double zsq = p->z*p->z;
-    double norm2_xyz_recip =
-        1.0 / ( p->x*p->x +
-                p->y*p->y +
-                zsq );
-    double cossq_signed = copysign(zsq * norm2_xyz_recip, p->z);
-    double k = -6e-3;
-    zadj = p->z + k*(1. - cossq_signed);
-
-    double dzadj_dp[] =
-        { copysign(k*zsq*norm2_xyz_recip*norm2_xyz_recip*2.*p->x, p->z),
-          copysign(k*zsq*norm2_xyz_recip*norm2_xyz_recip*2.*p->y, p->z),
-
-          1.0 +
-          -k * copysign( 2.0*p->z*norm2_xyz_recip* (1. - zsq*norm2_xyz_recip),
-                         p->z ) };
 #endif
 
 
@@ -1873,12 +1838,13 @@ void _project_point_splined( // outputs
                              p->y * (B * p->y)      + scale,
                              p->y * (B * zadj + A) } };
 
-#if (defined XX_OVER_ZZ && XX_OVER_ZZ) || (defined COS_TH && COS_TH)
+#if (defined XX_OVER_ZZ && XX_OVER_ZZ) || (defined COS_TH && COS_TH) || (defined U_PZ_ONESTEP && U_PZ_ONESTEP)
     // I have du_dpadj. I want du_dp = du_dpadj dpadj_dp
-    // dxadj_dp = [1 0 0]
-    // dyadj_dp = [0 1 0]
-    // dzadj_dp = ...
-    // [a b c] [.;.;x y z] = [a+cx  b+cy cz]
+    // dxadj_dp = [   1        0        0    ]
+    // dyadj_dp = [   0        1        0    ]
+    // dzadj_dp = [dzadj_dx dzadj_dy dzadj_dz]
+    //
+    // [a b c] dxyzadj_dp = [a+c*dzadj_dx  b+c*dzadj_dy  c*dzadj_dz]
     for(int i=0; i<2; i++)
     {
         for(int j=0; j<2; j++)
@@ -1988,8 +1954,18 @@ void _project_point_splined( // outputs
     {
         for(int i=0; i<N_NONCENTRAL; i++)
         {
-            dq_dknoncentral[i].x = fx * (du_dp[0][2] * dzadj_dk[i] * (1. + ddeltau_dux[0]));
-            dq_dknoncentral[i].y = fy * (du_dp[1][2] * dzadj_dk[i] * (1. + ddeltau_dux[1]));
+            const double dux_dzadj = du_dp[0][2] / dzadj_dp[2];
+            const double duy_dzadj = du_dp[1][2] / dzadj_dp[2];
+
+            dq_dknoncentral[i].x =
+                fx * dzadj_dk[i] *
+                ( dux_dzadj * (1. + ddeltau_dux[0]) +
+                  duy_dzadj * ddeltau_duy[0]
+                );
+            dq_dknoncentral[i].y =
+                fy * dzadj_dk[i] *
+                ( duy_dzadj * (1. + ddeltau_duy[1]) +
+                  dux_dzadj * ddeltau_dux[1] );
         }
     }
 
@@ -4360,6 +4336,7 @@ void optimizer_callback(// input state
                         if(dq_dknoncentral != NULL)
                         {
                             for(int i=0; i<N_NONCENTRAL; i++)
+                            {
                                 STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-N_NONCENTRAL+i,
                                                 dq_dknoncentral[i_pt*N_NONCENTRAL + i].xy[i_xy]*
                                                 weight * SCALE_DISTORTION );
