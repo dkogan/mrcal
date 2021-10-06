@@ -1783,15 +1783,19 @@ void _project_point_splined( // outputs
     {
         const double k0 = k0_noncentral;
         const double k1 = k1_noncentral;
+        const double k2 = k2_noncentral;
         const double x  = p->x;
         const double y  = p->y;
         const double z  = p->z;
 
+        // generated code from analyses/noncentral/noncentral.py
+#if 0
+        // quadratic
         const double magxy    = sqrt(x*x + y*y);
         const double magxyz   = sqrt(x*x + y*y + z*z);
         const double u        = 2*1.0/(z + sqrt(x*x + y*y + z*z))*sqrt(x*x + y*y);
         const double d        = u*(k0 + 2*k1*u)*1.0/magxyz + 1;
-        zadj = u*(k0 + k1*u)*1.0/d + z;
+        zadj                  = u*(k0 + k1*u)*1.0/d + z;
         const double du_dx    = u*x*1.0/magxy*(-1.0/2.0*u*1.0/magxyz + 1.0/magxy);
         const double du_dy    = u*y*1.0/magxy*(-1.0/2.0*u*1.0/magxyz + 1.0/magxy);
         const double du_dz    = -u*1.0/magxyz;
@@ -1804,11 +1808,34 @@ void _project_point_splined( // outputs
         const double dzadj_dk0 = u*1.0/d*(-u*(k0 + k1*u)*1.0/d*1.0/magxyz + 1);
         const double dzadj_dk1 = 1.0/d*(u*u)*(-2*u*(k0 + k1*u)*1.0/d*1.0/magxyz + 1);
 
+        const double dzadj_dk2 = 0.0;
+#else
+        // cubic
+        const double magxy    = sqrt(x*x + y*y);
+        const double magxyz   = sqrt(x*x + y*y + z*z);
+        const double u        = 2*1.0/(z + sqrt(x*x + y*y + z*z))*sqrt(x*x + y*y);
+        const double d        = u*(k0 + u*(2*k1 + 3*k2*u))*1.0/magxyz + 1;
+        zadj                  = u*(k0 + u*(k1 + k2*u))*1.0/d + z;
+        const double du_dx    = u*x*1.0/magxy*(-1.0/2.0*u*1.0/magxyz + 1.0/magxy);
+        const double du_dy    = u*y*1.0/magxy*(-1.0/2.0*u*1.0/magxyz + 1.0/magxy);
+        const double du_dz    = -u*1.0/magxyz;
+        const double dd_dx    = du_dx*(k0 + u*(4*k1 + 9*k2*u))*1.0/magxyz - x*(d - 1)*1.0/(magxyz*magxyz);
+        const double dd_dy    = du_dy*(k0 + u*(4*k1 + 9*k2*u))*1.0/magxyz - y*(d - 1)*1.0/(magxyz*magxyz);
+        const double dd_dz    = -(u*(k0 + u*(4*k1 + 9*k2*u)) + z*(d - 1))*1.0/(magxyz*magxyz);
+        const double dzadj_dx = -dd_dx*u*(k0 + u*(k1 + k2*u))*1.0/(d*d) + du_dx*(k0 + u*(2*k1 + 3*k2*u))*1.0/d;
+        const double dzadj_dy = -dd_dy*u*(k0 + u*(k1 + k2*u))*1.0/(d*d) + du_dy*(k0 + u*(2*k1 + 3*k2*u))*1.0/d;
+        const double dzadj_dz = -dd_dz*u*(k0 + u*(k1 + k2*u))*1.0/(d*d) + du_dz*(k0 + u*(2*k1 + 3*k2*u))*1.0/d + 1;
+        const double dzadj_dk0 = u*1.0/d*(-u*(k0 + u*(k1 + k2*u))*1.0/d*1.0/magxyz + 1);
+        const double dzadj_dk1 = 1.0/d*(u*u)*(-2*u*(k0 + u*(k1 + k2*u))*1.0/d*1.0/magxyz + 1);
+        const double dzadj_dk2 = 1.0/d*(u*u*u)*(-3*u*(k0 + u*(k1 + k2*u))*1.0/d*1.0/magxyz + 1);
+#endif
+
         dzadj_dp[0] = dzadj_dx;
         dzadj_dp[1] = dzadj_dy;
         dzadj_dp[2] = dzadj_dz;
         dzadj_dk[0] = dzadj_dk0;
         dzadj_dk[1] = dzadj_dk1;
+        dzadj_dk[2] = dzadj_dk2;
     }
 
 #endif
