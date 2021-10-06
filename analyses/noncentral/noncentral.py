@@ -458,7 +458,7 @@ print(f"        const double magxy    = {ccode(create_expand_pow_optimization(3)
 print(f"        const double magxyz   = {ccode(create_expand_pow_optimization(3)(sqrt(x*x + y*y + z*z)))};")
 print(f"        const double u        = {ccode(create_expand_pow_optimization(3)(u_expr))};")
 print(f"        const double d        = {ccode(create_expand_pow_optimization(3)(d_expr))};")
-print(f"        const double zadj     = {ccode(create_expand_pow_optimization(3)(zadj))};")
+print(f"        zadj                  = {ccode(create_expand_pow_optimization(3)(zadj))};")
 
 print(f"        const double du_dx    = {ccode(create_expand_pow_optimization(3)(du_dx_expr))};")
 print(f"        const double du_dy    = {ccode(create_expand_pow_optimization(3)(du_dy_expr))};")
