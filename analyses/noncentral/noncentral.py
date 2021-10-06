@@ -46,7 +46,8 @@ def err(z_adjusted, # hypothesis
     if not get_gradients:
         return e
 
-    de_dzadj = 1 - du_dzadj*(k[0] + 2*k[1])
+    de_dzadj = 1 - du_dzadj*(k[0] + 2*u*k[1])
+
     return e, de_dzadj
 
 
