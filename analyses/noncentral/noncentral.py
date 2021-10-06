@@ -8,6 +8,12 @@ import sympy
 import sympy.abc
 from sympy import Derivative,Function
 
+
+
+order = 3
+
+
+
 def sqrt(x):
     try:    return np.sqrt(x)
     except: return sympy.sqrt(x)
@@ -39,19 +45,26 @@ def err(z_adjusted, # hypothesis
 
     u,du_dzadj = uscalar_func(x,z_adjusted)
 
-    e = \
-        (z_adjusted-z) - \
-        u*(k[0] + u*k[1])
+    if order == 2:
+        dz_approx  = u*(k[0] + u*k[1])
+        ddz_approx = k[0] + 2*u*k[1]
+    elif order == 3:
+        dz_approx  = u*(k[0] + u*(k[1] + u*k[2]))
+        ddz_approx = k[0] + u*(2*k[1] + u*3*k[2])
+    else:
+        raise
+
+    e = (z_adjusted-z) - dz_approx
 
     if not get_gradients:
         return e
 
-    de_dzadj = 1 - du_dzadj*(k[0] + 2*u*k[1])
+    de_dzadj = 1 - du_dzadj*ddz_approx
 
     return e, de_dzadj
 
 
-k = (1e-2, 1e-1)
+k = (1e-2, 1e-1, -2e-2)
 x = 10.
 z = 1.
 
@@ -69,7 +82,6 @@ zadj_onestep = z - e/de_dzadj
 
 print(f"relative error in z_adjusted: {(z_adjusted - zadj_onestep)/ ((np.abs(z_adjusted)+np.abs(zadj_onestep))/2):.2g}")
 
-
 ####################
 
 
@@ -80,7 +92,8 @@ def zadj_func(x,y,z, k):
 
       (z_adjusted-z) = u*(k[0] + u*k[1])
 
-    Where u is u(x,y,z_adjusted)
+    Where u is u(x,y,z_adjusted). This assumes an order-2 approximation. A cubic
+    k[2] term can be added trivially
 
     This is nonlinear, and I approximate the solution with a single Newton step,
     starting at z0 = z:
@@ -107,14 +120,20 @@ def zadj_func(x,y,z, k):
     magxyz = sqrt(x*x + y*y + z*z)
 
     u,du_dz = uscalar_func(magxy, z)
-    return z + (u*(k[0] + u*k[1])) / (1 - du_dz*(k[0] + 2*k[1]*u) )
+    if order == 2:
+        return z + (u*(k[0] + u*(k[1]         ))) / (1 - du_dz*(k[0] + u*(2*k[1]           )))
+    elif order == 3:
+        return z + (u*(k[0] + u*(k[1] + u*k[2]))) / (1 - du_dz*(k[0] + u*(2*k[1] + u*3*k[2])))
+    else:
+        raise
+
 
 def disp(x):
     sympy.preview(x, output='pdf', viewer='mupdf')
 
 
-k     = sympy.symbols('k:2',   real = True)
-k0,k1 = k
+k = sympy.symbols('k:3',   real = True)
+k0,k1,k2 = k
 x,y,z = sympy.symbols('x,y,z', real = True, positive = True)
 
 u      = sympy.symbols('u',      real = True, positive = True)
@@ -129,7 +148,12 @@ du_dz  = sympy.symbols('du_dz',  real = True, positive = True)
 dd_dz  = sympy.symbols('dd_dz',  real = True, positive = True)
 
 
-d_expr = 1 + u*(k0 + 2*k1*u)/magxyz
+if order == 2:
+    d_expr = 1 + u*(k0 + u*(2*k1         ))/magxyz
+elif order == 3:
+    d_expr = 1 + u*(k0 + u*(2*k1 + u*3*k2))/magxyz
+else:
+    raise
 
 
 zadj = zadj_func(x,y,z,k)                                         \
@@ -181,7 +205,12 @@ dd_dx_expr = d_expr.subs(u,      Function('u')     (x,y,z))                  \
                    .subs(Function('magxyz')(x,y,z),                magxyz)   \
                    .subs(Function('u')     (x,y,z),                u)
 # manual factor
-_dd_dx_expr = du_dx*(k0 + 4*k1*u)/magxyz - x*(d-1)/magxyz**2
+if order == 2:
+    _dd_dx_expr = du_dx*(k0 + 4*k1*u)/magxyz - x*(d-1)/magxyz**2
+elif order == 3:
+    _dd_dx_expr = du_dx*(k0 + u*(4*k1 + 9*k2*u))/magxyz - x*(d-1)/magxyz**2
+else:
+    raise
 if (_dd_dx_expr.subs(d,d_expr) - dd_dx_expr).expand() != 0:
     raise Exception("manual factor is wrong. Fix _dd_dx_expr")
 dd_dx_expr = _dd_dx_expr
@@ -194,7 +223,12 @@ dd_dz_expr = d_expr.subs(u,      Function('u')     (x,y,z))                  \
                    .subs(Function('magxyz')(x,y,z),                magxyz)   \
                    .subs(Function('u')     (x,y,z),                u)
 # manual factor
-_dd_dz_expr = -1/magxyz**2*( u*(k0 + 4*k1*u) + z*(d-1))
+if order == 2:
+    _dd_dz_expr = -1/magxyz**2*( u*(k0 + 4*k1*u) + z*(d-1))
+elif order == 3:
+    _dd_dz_expr = -1/magxyz**2*( u*(k0 + u*(4*k1 + 9*k2*u)) + z*(d-1))
+else:
+    raise
 if (_dd_dz_expr.subs(d,d_expr) - dd_dz_expr.subs(du_dz,du_dz_expr)).expand() != 0:
     raise Exception("manual factor is wrong. Fix _dd_dz_expr")
 dd_dz_expr = _dd_dz_expr
@@ -212,7 +246,12 @@ dzadj_dx = zadj \
     .subs(Function('d')     (x,y,z),                d) \
     .subs(magxy,                                    u*(z+magxyz)/2)
 # manual factor
-_dzadj_dx = du_dx*(k0 + 2*k1*u)/d - dd_dx*u*(k0 + k1*u)/d**2
+if order == 2:
+    _dzadj_dx = du_dx*(k0 + 2*k1*u)/d - dd_dx*u*(k0 + k1*u)/d**2
+elif order == 3:
+    _dzadj_dx = du_dx*(k0 + u*(2*k1 + u*3*k2))/d - dd_dx*u*(k0 + u*(k1 + u*k2))/d**2
+else:
+    raise
 if (_dzadj_dx - dzadj_dx).subs(d,d_expr).expand() != 0:
     raise Exception("manual factor is wrong. Fix _dzadj_dx")
 dzadj_dx = _dzadj_dx
@@ -230,32 +269,59 @@ dzadj_dz = zadj \
     .subs(Function('d')     (x,y,z),                d) \
     .subs(magxy,                                    u*(z+magxyz)/2)
 # manual factor
-_dzadj_dz = 1 + du_dz*(k0 + 2*k1*u)/d - dd_dz*u*(k0 + k1*u)/d**2
+if order == 2:
+    _dzadj_dz = 1 + du_dz*(k0 + 2*k1*u)/d - dd_dz*u*(k0 + k1*u)/d**2
+elif order == 3:
+    _dzadj_dz = 1 + du_dz*(k0 + u*(2*k1 + u*3*k2))/d - dd_dz*u*(k0 + u*(k1 + u*k2))/d**2
+else:
+    raise
 if (_dzadj_dz - dzadj_dz).subs(d,d_expr).expand() != 0:
     raise Exception("manual factor is wrong. Fix _dzadj_dz")
 dzadj_dz = _dzadj_dz
 
 dzadj_dk0 = zadj                                                 \
-    .subs(d,         Function('d')(k0,k1))                       \
+    .subs(d,         Function('d')(k0,k1,k2))                       \
     .diff(k0)                                                    \
-    .subs(Derivative(Function('d')(k0,k1), k0), d_expr.diff(k0)) \
-    .subs(Function('d')(k0,k1),                 d)
+    .subs(Derivative(Function('d')(k0,k1,k2), k0), d_expr.diff(k0)) \
+    .subs(Function('d')(k0,k1,k2),                 d)
 # manual factor
-_dzadj_dk0 = u/d*(  1 - u*(k0 + k1*u)/(d*magxyz) )
+if order == 2:
+    _dzadj_dk0 = u/d*(  1 - u*(k0 + u*(k1       ))/(d*magxyz) )
+elif order == 3:
+    _dzadj_dk0 = u/d*(  1 - u*(k0 + u*(k1 + u*k2))/(d*magxyz) )
+else:
+    raise
 if (_dzadj_dk0 - dzadj_dk0).subs(d,d_expr).expand() != 0:
     raise Exception("manual factor is wrong. Fix _dzadj_dk0")
 dzadj_dk0 = _dzadj_dk0
 
 dzadj_dk1 = zadj                                                 \
-    .subs(d,         Function('d')(k0,k1))                       \
+    .subs(d,         Function('d')(k0,k1,k2))                       \
     .diff(k1)                                                    \
-    .subs(Derivative(Function('d')(k0,k1), k1), d_expr.diff(k1)) \
-    .subs(Function('d')(k0,k1),                 d)
+    .subs(Derivative(Function('d')(k0,k1,k2), k1), d_expr.diff(k1)) \
+    .subs(Function('d')(k0,k1,k2),                 d)
 # manual factor
-_dzadj_dk1 = u**2/d*(  1 - 2*u*(k0 + k1*u)/(d*magxyz))
+if order == 2:
+    _dzadj_dk1 = u**2/d*(  1 - 2*u*(k0 + k1*u         )/(d*magxyz))
+elif order == 3:
+    _dzadj_dk1 = u**2/d*(  1 - 2*u*(k0 + u*(k1 + u*k2))/(d*magxyz))
+else:
+    raise
 if (_dzadj_dk1 - dzadj_dk1).subs(d,d_expr).expand() != 0:
     raise Exception("manual factor is wrong. Fix _dzadj_dk1")
 dzadj_dk1 = _dzadj_dk1
+
+if order == 3:
+    dzadj_dk2 = zadj                                                 \
+        .subs(d,         Function('d')(k0,k1,k2))                       \
+        .diff(k2)                                                    \
+        .subs(Derivative(Function('d')(k0,k1,k2), k2), d_expr.diff(k2)) \
+        .subs(Function('d')(k0,k1,k2),                 d)
+    # manual factor
+    _dzadj_dk2 = u**3/d*(  1 - 3*u*(k0 + u*(k1 + u*k2))/(d*magxyz))
+    if (_dzadj_dk2 - dzadj_dk2).subs(d,d_expr).expand() != 0:
+        raise Exception("manual factor is wrong. Fix _dzadj_dk2")
+    dzadj_dk2 = _dzadj_dk2
 
 # All the gradients are done, except dzadj/dy. This works just like dzadj/dx, so
 # I do this via a substitution
@@ -278,7 +344,8 @@ def subs_into(f,
               dy  = 0,
               dz  = 0,
               dk0 = 0,
-              dk1 = 0):
+              dk1 = 0,
+              dk2 = 0):
 
     v = dict(vars0)
     v['x']  += dx
@@ -286,6 +353,7 @@ def subs_into(f,
     v['z']  += dz
     v['k0'] += dk0
     v['k1'] += dk1
+    v['k2'] += dk2
 
     def make_symbol_table(v):
         r'''Rebuilt table from string keys to sympy object keys'''
@@ -314,7 +382,8 @@ vars0 = dict( x =  1.1,
               y =  2.3,
               z =  4.2,
               k0 = 0.1,
-              k1 = 0.3 )
+              k1 = 0.3,
+              k2 = 0.5 )
 
 
 zadj0 = subs_into(zadj, vars0, dx = -delta)
@@ -347,15 +416,28 @@ dzadj_dk1_observed = (zadj1 - zadj0) / (2 * delta)
 dzadj_dk1_expected = subs_into(dzadj_dk1, vars0)
 print(f"dzadj/dk1 relative error: {(dzadj_dk1_observed-dzadj_dk1_expected)/((np.abs(dzadj_dk1_observed)+np.abs(dzadj_dk1_expected))/2.):.2g}")
 
+if order >= 3:
+    zadj0 = subs_into(zadj, vars0, dk2 = -delta)
+    zadj1 = subs_into(zadj, vars0, dk2 =  delta)
+    dzadj_dk2_observed = (zadj1 - zadj0) / (2 * delta)
+    dzadj_dk2_expected = subs_into(dzadj_dk2, vars0)
+    print(f"dzadj/dk2 relative error: {(dzadj_dk2_observed-dzadj_dk2_expected)/((np.abs(dzadj_dk2_observed)+np.abs(dzadj_dk2_expected))/2.):.2g}")
+
 
 #################################
 # And finally, I use the final expressions to once again confirm that they work
 # as an approximation to the solution of the nonlinear equation above
 
+if order == 2:
+    vars0k = (vars0['k0'],vars0['k1'])
+elif order == 3:
+    vars0k = (vars0['k0'],vars0['k1'],vars0['k2'])
+else:
+    raise
 dz_adj_perfect = \
     scipy.optimize.newton(err,
                           x0   = vars0['z'],
-                          args = ((vars0['k0'],vars0['k1']),
+                          args = (vars0k,
                                   np.sqrt(vars0['x']*vars0['x'] +
                                           vars0['y']*vars0['y']),
                                   vars0['z'])) - vars0['z']
@@ -372,23 +454,25 @@ from sympy.codegen.rewriting import create_expand_pow_optimization
 
 print('')
 
-print(f"        const double magxy    = {ccode(create_expand_pow_optimization(2)(sqrt(x*x + y*y)))};")
-print(f"        const double magxyz   = {ccode(create_expand_pow_optimization(2)(sqrt(x*x + y*y + z*z)))};")
-print(f"        const double u        = {ccode(create_expand_pow_optimization(2)(u_expr))};")
-print(f"        const double d        = {ccode(create_expand_pow_optimization(2)(d_expr))};")
-print(f"        const double zadj     = {ccode(create_expand_pow_optimization(2)(zadj))};")
+print(f"        const double magxy    = {ccode(create_expand_pow_optimization(3)(sqrt(x*x + y*y)))};")
+print(f"        const double magxyz   = {ccode(create_expand_pow_optimization(3)(sqrt(x*x + y*y + z*z)))};")
+print(f"        const double u        = {ccode(create_expand_pow_optimization(3)(u_expr))};")
+print(f"        const double d        = {ccode(create_expand_pow_optimization(3)(d_expr))};")
+print(f"        const double zadj     = {ccode(create_expand_pow_optimization(3)(zadj))};")
 
-print(f"        const double du_dx    = {ccode(create_expand_pow_optimization(2)(du_dx_expr))};")
-print(f"        const double du_dy    = {ccode(create_expand_pow_optimization(2)(du_dy_expr))};")
-print(f"        const double du_dz    = {ccode(create_expand_pow_optimization(2)(du_dz_expr))};")
+print(f"        const double du_dx    = {ccode(create_expand_pow_optimization(3)(du_dx_expr))};")
+print(f"        const double du_dy    = {ccode(create_expand_pow_optimization(3)(du_dy_expr))};")
+print(f"        const double du_dz    = {ccode(create_expand_pow_optimization(3)(du_dz_expr))};")
 
-print(f"        const double dd_dx    = {ccode(create_expand_pow_optimization(2)(dd_dx_expr))};")
-print(f"        const double dd_dy    = {ccode(create_expand_pow_optimization(2)(dd_dy_expr))};")
-print(f"        const double dd_dz    = {ccode(create_expand_pow_optimization(2)(dd_dz_expr))};")
+print(f"        const double dd_dx    = {ccode(create_expand_pow_optimization(3)(dd_dx_expr))};")
+print(f"        const double dd_dy    = {ccode(create_expand_pow_optimization(3)(dd_dy_expr))};")
+print(f"        const double dd_dz    = {ccode(create_expand_pow_optimization(3)(dd_dz_expr))};")
 
-print(f"        const double dzadj_dx = {ccode(create_expand_pow_optimization(2)(dzadj_dx))};")
-print(f"        const double dzadj_dy = {ccode(create_expand_pow_optimization(2)(dzadj_dy))};")
-print(f"        const double dzadj_dz = {ccode(create_expand_pow_optimization(2)(dzadj_dz))};")
+print(f"        const double dzadj_dx = {ccode(create_expand_pow_optimization(3)(dzadj_dx))};")
+print(f"        const double dzadj_dy = {ccode(create_expand_pow_optimization(3)(dzadj_dy))};")
+print(f"        const double dzadj_dz = {ccode(create_expand_pow_optimization(3)(dzadj_dz))};")
 
-print(f"        const double dzadj_dk0 = {ccode(create_expand_pow_optimization(2)(dzadj_dk0))};")
-print(f"        const double dzadj_dk1 = {ccode(create_expand_pow_optimization(2)(dzadj_dk1))};")
+print(f"        const double dzadj_dk0 = {ccode(create_expand_pow_optimization(3)(dzadj_dk0))};")
+print(f"        const double dzadj_dk1 = {ccode(create_expand_pow_optimization(3)(dzadj_dk1))};")
+if order >= 3:
+    print(f"        const double dzadj_dk2 = {ccode(create_expand_pow_optimization(3)(dzadj_dk2))};")
