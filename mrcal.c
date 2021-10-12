@@ -1657,8 +1657,6 @@ void _project_point_splined( // outputs
 
     // non-central projection logic
 
-#define XX_OVER_ZZ   0
-#define TAN_TH_2     0
 #define COS_TH       0
 #define U_PZ_ONESTEP 1
 
@@ -1680,73 +1678,6 @@ void _project_point_splined( // outputs
     double dzadj_dp[3]            = {};
 
 
-#if defined XX_OVER_ZZ && XX_OVER_ZZ
-
-#if N_NONCENTRAL != 1
-    #error "This path assumes that N_NONCENTRAL == 1"
-#endif
-    double norm2_xy = p->x*p->x + p->y*p->y;
-    double zrecip = 1. / p->z;
-    double zsqrecip = zrecip*zrecip;
-    double tansq = norm2_xy * zsqrecip;
-    double k2 = -6e-4;
-    zadj = p->z + k2*tansq;
-    dzadj_dp[0] = 2.*p->x*k2*zsqrecip;
-    dzadj_dp[1] = 2.*p->y*k2*zsqrecip;
-    dzadj_dp[2] = 1. - 2.*k2*norm2_xy*zsqrecip*zrecip;
-#endif
-#if defined TAN_TH_2 && TAN_TH_2
-
-#if N_NONCENTRAL != 1
-    #error "This path assumes that N_NONCENTRAL == 1"
-#endif
-
-    // tan(th/2) = mag_pxy/mag_p / (1 + z/mag_p) =
-    //           = mag_pxy / (mag_p + z)
-    //           = sqrt(x^2 + y^2) / (sqrt(x^2 + y^2 + z^2) + z)
-    //           = sqrt((x^2 + y^2)/z^2) / (sqrt((x^2 + y^2)/z^2 + 1) + 1)
-    // Let a = (x^2 + y^2)/z^2;
-    // tan(th/2) = sqrt(a) / (sqrt(a + 1) + 1)
-    //           = sqrt(a) (sqrt(a + 1) - 1) / a
-    //           = (sqrt(a + 1) - 1) / sqrt(a)
-    //           = (sqrt(a + 1) - sqrt(a)/sqrt(a)) / sqrt(a)
-    //           = sqrt(a + 1)/sqrt(a) - sqrt(1/a)
-    //           = sqrt((a + 1)/a) - sqrt(1/a)
-    //           = sqrt(1 + 1/a) - sqrt(1/a)
-
-
-    // tan^2 = (1 + 1/a) + (1/a) - 2 sqrt(1/a + 1/a^2)
-
-    sqrt(1/b+1)/sqrt(1/b);
-
-
-
-    //
-    // 1/tan     = (sqrt(x^2 + y^2 + z^2) + z)/sqrt(x^2 + y^2) =
-    //           = sqrt(x^2 + y^2 + z^2)/sqrt(x^2 + y^2) + z/sqrt(x^2 + y^2) =
-    //           = sqrt(1 + z^2 / (x^2 + y^2)) + sqrt(z^2 / (x^2 + y^2)) =
-    //
-
-
-    a = zz/(xx+yy);
-    1/ (sqrt(1 + a) + sqrt(a)) = sqrt(1 + a) - sqrt(a);
-
-
-
-    // tan^2(th/2) = (x^2 + y^2) / (sqrt(x^2 + y^2 + z^2) + z)^2
-
-
-
-
-    double norm2_xy = p->x*p->x + p->y*p->y;
-    double mag_pxy  = sqrt(norm2_xy);
-
-    double mag_p = sqrt( p->x*p->x +
-                         p->y*p->y +
-                         p->z*p->z );
-
-    double tan_th_2 = mag_pxy / (mag_p + p->z);
-#endif
 #if defined COS_TH && COS_TH
 
     // cos(th) = z/mag_p;
@@ -1865,7 +1796,7 @@ void _project_point_splined( // outputs
                              p->y * (B * p->y)      + scale,
                              p->y * (B * zadj + A) } };
 
-#if (defined XX_OVER_ZZ && XX_OVER_ZZ) || (defined COS_TH && COS_TH) || (defined U_PZ_ONESTEP && U_PZ_ONESTEP)
+#if (defined COS_TH && COS_TH) || (defined U_PZ_ONESTEP && U_PZ_ONESTEP)
     // I have du_dpadj. I want du_dp = du_dpadj dpadj_dp
     // dxadj_dp = [   1        0        0    ]
     // dyadj_dp = [   0        1        0    ]
