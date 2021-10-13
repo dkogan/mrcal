@@ -156,8 +156,8 @@ if args.unset is not None:
 
 try:
     model = mrcal.cameramodel(args.model)
-except:
-    print(f"Couldn't load camera model '{args.model}'", file=sys.stderr)
+except Exception as e:
+    print(f"Couldn't load camera model '{args.model}': {e}", file=sys.stderr)
     sys.exit(1)
 
 optimization_inputs = model.optimization_inputs()

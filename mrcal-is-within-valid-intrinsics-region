@@ -70,7 +70,12 @@ import subprocess
 import mrcal
 import io
 
-model = mrcal.cameramodel(args.model)
+try:
+    model = mrcal.cameramodel(args.model)
+except Exception as e:
+    print(f"Couldn't load camera model '{args.model}': {e}", file=sys.stderr)
+    sys.exit(1)
+
 if model.valid_intrinsics_region() is None:
     print("The given model has no valid-intrinsics region defined!",
           file=sys.stderr)

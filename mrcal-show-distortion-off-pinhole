@@ -108,7 +108,11 @@ import mrcal
 
 
 
-model = mrcal.cameramodel(args.model)
+try:
+    model = mrcal.cameramodel(args.model)
+except Exception as e:
+    print(f"Couldn't load camera model '{args.model}': {e}", file=sys.stderr)
+    sys.exit(1)
 
 if args.radial and args.vectorfield:
     sys.stderr.write("Usage error: at most one of --radial and --vectorfield can be given\n")

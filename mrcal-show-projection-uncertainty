@@ -157,7 +157,12 @@ if args.set is not None:
 if args.unset is not None:
     plotkwargs_extra['unset'] = args.unset
 
-model = mrcal.cameramodel(args.model)
+try:
+    model = mrcal.cameramodel(args.model)
+except Exception as e:
+    print(f"Couldn't load camera model '{args.model}': {e}", file=sys.stderr)
+    sys.exit(1)
+
 if model.optimization_inputs() is None:
     print("ERROR: optimization_inputs are unavailable in this model. Uncertainty cannot be computed",
           file = sys.stderr)
