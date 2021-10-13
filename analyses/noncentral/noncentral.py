@@ -39,6 +39,14 @@ def dz_nonlinearity(k,u):
         dz     = u*(k[0] + u*(k[1] + u*k[2]))
         ddz_du = k[0] + u*(2*k[1] + u*3*k[2])
         ddz_dk = sympy.Array((u, u*u, u*u*u))
+    elif order == 4:
+        dz     = u*(k[0] + u*(k[1] + u*(k[2] + u*k[3])))
+        ddz_du = k[0] + u*(2*k[1] + u*(3*k[2] + u*4*k[3]))
+        ddz_dk = sympy.Array((u, u*u, u*u*u, u*u*u*u))
+    elif order == 5:
+        dz     = u*(k[0] + u*(k[1] + u*(k[2] + u*(k[3] + u*k[4]))))
+        ddz_du = k[0] + u*(2*k[1] + u*(3*k[2] + u*(4*k[3] + u*5*k[4])))
+        ddz_dk = sympy.Array((u, u*u, u*u*u, u*u*u*u, u*u*u*u*u))
     else:
         raise
     return dz, ddz_du, ddz_dk
@@ -74,8 +82,8 @@ def err(z_adjusted, # hypothesis
     return e, de_dzadj
 
 
-order = 3
-k = (1e-2, 1e-1, -2e-2)
+order = 5
+k = (1e-2, 1e-1, -2e-2, 1e-2, 1e-3)
 x = 10.
 z = 1.
 
@@ -294,7 +302,9 @@ def subs_into(f,
               dz  = 0,
               dk0 = 0,
               dk1 = 0,
-              dk2 = 0):
+              dk2 = 0,
+              dk3 = 0,
+              dk4 = 0):
 
     v = dict(vars0)
     v['x']  += dx
@@ -303,6 +313,8 @@ def subs_into(f,
     v['k0'] += dk0
     v['k1'] += dk1
     v['k2'] += dk2
+    v['k3'] += dk3
+    v['k4'] += dk4
 
     def make_symbol_table(v):
         r'''Rebuilt table from string keys to sympy object keys'''
@@ -340,7 +352,9 @@ vars0 = dict( x =  1.1,
               z =  4.2,
               k0 = 0.1,
               k1 = 0.3,
-              k2 = 0.5 )
+              k2 = 0.5,
+              k3 = 0.03,
+              k4 = 0.01 )
 
 
 zadj0 = subs_into(zadj, vars0, dx = -delta)
@@ -377,6 +391,10 @@ if order == 2:
     vars0k = (vars0['k0'],vars0['k1'])
 elif order == 3:
     vars0k = (vars0['k0'],vars0['k1'],vars0['k2'])
+elif order == 4:
+    vars0k = (vars0['k0'],vars0['k1'],vars0['k2'],vars0['k3'])
+elif order == 5:
+    vars0k = (vars0['k0'],vars0['k1'],vars0['k2'],vars0['k3'],vars0['k4'])
 else:
     raise
 dz_adj_perfect = \
@@ -399,28 +417,26 @@ from sympy.codegen.rewriting import create_expand_pow_optimization
 
 print('')
 
-print(f"        const double magxy    = {ccode(create_expand_pow_optimization(3)(sqrt(x*x + y*y)))};")
-print(f"        const double magxyz   = {ccode(create_expand_pow_optimization(3)(sqrt(x*x + y*y + z*z)))};")
-print(f"        const double u        = {ccode(create_expand_pow_optimization(3)(u_expr))};")
-print(f"        const double d        = {ccode(create_expand_pow_optimization(3)(d_expr))};")
-print(f"        const double f        = {ccode(create_expand_pow_optimization(3)(f_expr))};")
-print(f"        const double dz       = {ccode(create_expand_pow_optimization(3)(dz_expr))};")
-print(f"        zadj                  = {ccode(create_expand_pow_optimization(3)(zadj))};")
+print(f"        const double magxy    = {ccode(create_expand_pow_optimization(5)(sqrt(x*x + y*y)))};")
+print(f"        const double magxyz   = {ccode(create_expand_pow_optimization(5)(sqrt(x*x + y*y + z*z)))};")
+print(f"        const double u        = {ccode(create_expand_pow_optimization(5)(u_expr))};")
+print(f"        const double d        = {ccode(create_expand_pow_optimization(5)(d_expr))};")
+print(f"        const double f        = {ccode(create_expand_pow_optimization(5)(f_expr))};")
+print(f"        const double dz       = {ccode(create_expand_pow_optimization(5)(dz_expr))};")
+print(f"        zadj                  = {ccode(create_expand_pow_optimization(5)(zadj))};")
 
-print(f"        const double ddz_du   = {ccode(create_expand_pow_optimization(3)(ddz_du_expr))};")
-print(f"        const double du_dx    = {ccode(create_expand_pow_optimization(3)(du_dx_expr))};")
-print(f"        const double du_dy    = {ccode(create_expand_pow_optimization(3)(du_dy_expr))};")
-print(f"        const double du_dz    = {ccode(create_expand_pow_optimization(3)(du_dz_expr))};")
+print(f"        const double ddz_du   = {ccode(create_expand_pow_optimization(5)(ddz_du_expr))};")
+print(f"        const double du_dx    = {ccode(create_expand_pow_optimization(5)(du_dx_expr))};")
+print(f"        const double du_dy    = {ccode(create_expand_pow_optimization(5)(du_dy_expr))};")
+print(f"        const double du_dz    = {ccode(create_expand_pow_optimization(5)(du_dz_expr))};")
 
-print(f"        const double dd_dx    = {ccode(create_expand_pow_optimization(3)(dd_dx_expr))};")
-print(f"        const double dd_dy    = {ccode(create_expand_pow_optimization(3)(dd_dy_expr))};")
-print(f"        const double dd_dz    = {ccode(create_expand_pow_optimization(3)(dd_dz_expr))};")
+print(f"        const double dd_dx    = {ccode(create_expand_pow_optimization(5)(dd_dx_expr))};")
+print(f"        const double dd_dy    = {ccode(create_expand_pow_optimization(5)(dd_dy_expr))};")
+print(f"        const double dd_dz    = {ccode(create_expand_pow_optimization(5)(dd_dz_expr))};")
 
-print(f"        const double dzadj_dx = {ccode(create_expand_pow_optimization(3)(dzadj_dx))};")
-print(f"        const double dzadj_dy = {ccode(create_expand_pow_optimization(3)(dzadj_dy))};")
-print(f"        const double dzadj_dz = {ccode(create_expand_pow_optimization(3)(dzadj_dz))};")
+print(f"        const double dzadj_dx = {ccode(create_expand_pow_optimization(5)(dzadj_dx))};")
+print(f"        const double dzadj_dy = {ccode(create_expand_pow_optimization(5)(dzadj_dy))};")
+print(f"        const double dzadj_dz = {ccode(create_expand_pow_optimization(5)(dzadj_dz))};")
 
-print(f"        const double dzadj_dk0 = {ccode(create_expand_pow_optimization(3)(dzadj_dk[0]))};")
-print(f"        const double dzadj_dk1 = {ccode(create_expand_pow_optimization(3)(dzadj_dk[1]))};")
-if order >= 3:
-    print(f"        const double dzadj_dk2 = {ccode(create_expand_pow_optimization(3)(dzadj_dk[2]))};")
+for i in range(order):
+    print(f"        const double dzadj_dk{i} = {ccode(create_expand_pow_optimization(5)(dzadj_dk[i]))};")
