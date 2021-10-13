@@ -79,15 +79,16 @@ def parse_args():
                         (normalized stereographic coordinates). Sometimes it's
                         more informative to look at the imager domain instead,
                         by passing this option. Exclusive with --vectorfield''')
-    parser.add_argument('--imager-bounds',
+    parser.add_argument('--show-imager-bounds',
                         action='store_true',
-                        help='''By default we communicate the usable projection region to the user by
-                        displaying the valid-intrinsics region. This isn't
-                        available in all models. To fall back on the boundary of
-                        the full imager, pass --imager-bounds. In the usual case
-                        of incomplete calibration-time coverage at the edges,
-                        this results in a very unrealistic representation of
-                        reality. Leaving this at the default is recommended''')
+                        help='''By default we communicate the usable projection
+                        region to the user by displaying the valid-intrinsics
+                        region. This isn't available in all models. To fall back
+                        on the boundary of the full imager, pass
+                        --show-imager-bounds. In the usual case of incomplete
+                        calibration-time coverage at the edges, this results in
+                        a very unrealistic representation of reality. Leaving
+                        this at the default is recommended''')
     parser.add_argument('--observations',
                         action='store_true',
                         default=False,
@@ -135,9 +136,9 @@ if not re.match('LENSMODEL_SPLINED', lensmodel):
           file = sys.stderr)
     sys.exit(1)
 
-if not args.imager_bounds and \
+if not args.show_imager_bounds and \
    model.valid_intrinsics_region() is None:
-    print("The given model has no valid-intrinsics region. Pass --imager-bounds",
+    print("The given model has no valid-intrinsics region. Pass --show-imager-bounds",
           file = sys.stderr)
     sys.exit(1)
 
@@ -151,7 +152,7 @@ plot = mrcal.show_splined_model_surface(model, args.xy,
                                         imager_domain           = args.imager_domain,
                                         vectorfield             = args.vectorfield,
                                         vectorscale             = args.vectorscale,
-                                        valid_intrinsics_region = not args.imager_bounds,
+                                        valid_intrinsics_region = not args.show_imager_bounds,
                                         observations            = args.observations,
                                         extratitle              = args.extratitle,
                                         hardcopy                = args.hardcopy,
