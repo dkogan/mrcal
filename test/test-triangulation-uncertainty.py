@@ -73,14 +73,14 @@ def parse_args():
     parser.add_argument('--q-calibration-stdev',
                         type    = float,
                         default = 0.0,
-                        help='''The observed pixel uncertainty of the chessboard
+                        help='''The observed_pixel_uncertainty of the chessboard
                         observations at calibration time. Defaults to 0.0. At
                         least one of --q-calibration-stdev and
                         --q-observation-stdev MUST be given as > 0''')
     parser.add_argument('--q-observation-stdev',
                         type    = float,
                         default = 0.0,
-                        help='''The observed pixel uncertainty of the point
+                        help='''The observed_pixel_uncertainty of the point
                         observations at triangulation time. Defaults to 0.0. At
                         least one of --q-calibration-stdev and
                         --q-observation-stdev MUST be given as > 0''')
@@ -123,12 +123,13 @@ def parse_args():
                         the same scenario repeatedly''')
     parser.add_argument('--make-documentation-plots',
                         type=str,
-                        help='''If given, we produce plots for the documentation. Takes one argument: a
-                        string describing this test. This will be used in the
-                        filenames and titles of the resulting plots. Whitespace
-                        and funny characters are allowed: will be replaced with
-                        _ in the filenames. To make interactive plots, pass
-                        ""''')
+                        help='''If given, we produce plots for the
+                        documentation. Takes one argument: a string describing
+                        this test. This will be used in the filenames and titles
+                        of the resulting plots. Leading directories will be
+                        used; whitespace and funny characters in the filename
+                        are allowed: will be replaced with _. To make
+                        interactive plots, pass ""''')
     parser.add_argument('--ellipse-plot-radius',
                         type=float,
                         help='''By default, the ellipse plot autoscale to show the data and the ellipses
@@ -193,10 +194,11 @@ def shorter_terminal(t):
 
 if args.make_documentation_plots:
 
-    args.make_documentation_plots_extratitle = args.make_documentation_plots
-    args.make_documentation_plots_filename   = re.sub(r"[^0-9a-zA-Z_\.\-]", "_", args.make_documentation_plots)
+    d,f = os.path.split(args.make_documentation_plots)
+    args.make_documentation_plots_extratitle = f
+    args.make_documentation_plots_path = os.path.join(d, re.sub(r"[^0-9a-zA-Z_\.\-]", "_", f))
 
-    print(f"Will write documentation plots to {args.make_documentation_plots_filename}-xxxx.pdf and .png and .svg")
+    print(f"Will write documentation plots to {args.make_documentation_plots_path}-xxxx.pdf and .png and .svg")
 
     if terminal['svg'] is None: terminal['svg'] = 'svg size 800,600       noenhanced solid dynamic    font ",14"'
     if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color      font ",12"'
@@ -829,15 +831,15 @@ if args.make_documentation_plots is not None:
         ellipse_plot_radius = max_sigma*3
 
     title_triangulation = 'Triangulation uncertainty'
-    title_covariance    = 'Covariance of the [p0,p1] vector (m^2)'
+    title_covariance    = 'Abs(Covariance) of the [p0,p1] vector (m^2)'
     title_range0        = 'Range to the left triangulated point'
     title_distance      = 'Distance between the two triangulated points'
 
     if args.make_documentation_plots_extratitle is not None:
-        title_triangulation += f'. {args.make_documentation_plots_extratitle}'
-        title_covariance    += f'. {args.make_documentation_plots_extratitle}'
-        title_range0        += f'. {args.make_documentation_plots_extratitle}'
-        title_distance      += f'. {args.make_documentation_plots_extratitle}'
+        title_triangulation += f': {args.make_documentation_plots_extratitle}'
+        title_covariance    += f': {args.make_documentation_plots_extratitle}'
+        title_range0        += f': {args.make_documentation_plots_extratitle}'
+        title_distance      += f': {args.make_documentation_plots_extratitle}'
 
 
     subplots = [ [p for p in (empirical_distributions_xz[ipt][1], # points; plot first to not obscure the ellipses
@@ -867,15 +869,32 @@ if args.make_documentation_plots is not None:
     def makeplots(dohardcopy, processoptions_base):
 
         processoptions = copy.deepcopy(processoptions_base)
-        if dohardcopy:
-            processoptions['hardcopy'] = \
-                f'{args.make_documentation_plots_filename}--ellipses.{extension}'
-            processoptions['terminal'] = shorter_terminal(processoptions['terminal'])
+        gp.add_plot_option(processoptions,
+                           'set',
+                           ('xtics 0.01',
+                            'ytics 0.01'))
+
+        # The key should use smaller text than the rest of the plot, if possible
+        if 'terminal' in processoptions:
+            m = re.search('font ",([0-9]+)"', processoptions['terminal'])
+            if m is not None:
+                s = int(m.group(1))
+
+                gp.add_plot_option(processoptions,
+                                   'set',
+                                   ('xtics 0.01',
+                                    'ytics 0.01',
+                                    f'key font ",{int(s*0.8)}"'))
 
         if dohardcopy:
-            # no multiplot if making hardcopies
+            processoptions['hardcopy'] = \
+                f'{args.make_documentation_plots_path}--ellipses.{extension}'
+            processoptions['terminal'] = shorter_terminal(processoptions['terminal'])
+
+            # Hardcopies do things a little differently, to be nicer for docs
             gp.plot( *subplots,
-                     multiplot = f'title "{title_triangulation}" layout 1,2',
+                     multiplot = f'layout 1,2',
+                     unset = 'grid',
                      **processoptions )
         else:
             # Interactive plotting, so no multiplots. Interactive plots
@@ -885,7 +904,7 @@ if args.make_documentation_plots is not None:
         processoptions = copy.deepcopy(processoptions_base)
         if dohardcopy:
             processoptions['hardcopy'] = \
-                f'{args.make_documentation_plots_filename}--p0-p1-magnitude-covariance.{extension}'
+                f'{args.make_documentation_plots_path}--p0-p1-magnitude-covariance.{extension}'
         processoptions['title'] = title_covariance
         gp.plotimage( np.abs(Var_p_joint.reshape(Npoints*3,Npoints*3)),
                       square = True,
@@ -920,7 +939,7 @@ if args.make_documentation_plots is not None:
                                            legend   = "Predicted-observations")
         if dohardcopy:
             processoptions['hardcopy'] = \
-                f'{args.make_documentation_plots_filename}--range-to-p0.{extension}'
+                f'{args.make_documentation_plots_path}--range-to-p0.{extension}'
         processoptions['title'] = title_range0
         gp.add_plot_option(processoptions, 'set', 'samples 1000')
         gp.plot(ranges_sampled[0],
@@ -948,7 +967,7 @@ if args.make_documentation_plots is not None:
                                            legend   = "Predicted")
         if dohardcopy:
             processoptions['hardcopy'] = \
-                f'{args.make_documentation_plots_filename}--distance-p1-p0.{extension}'
+                f'{args.make_documentation_plots_path}--distance-p1-p0.{extension}'
         processoptions['title'] = title_distance
         gp.add_plot_option(processoptions, 'set', 'samples 1000')
         gp.plot(distance_sampled,

@@ -309,9 +309,3 @@ and the diff like this:
 ~/jpl/mrcal/mrcal-show-projection-diff splined{,-rad1500}.cameramodel --distance 1 --unset key \
   --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-weighted-splined-splined-rad1500.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
-* Planned improvements
-Various details about the fitting of the implied transformations don't work
-well, as shown above. Finding better ways to do this would be nice. Potentially
-we should compute the implied transformation at many ranges at the same time.
-This needs study.
-

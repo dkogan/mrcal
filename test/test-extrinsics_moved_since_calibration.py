@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-r'''Checks mrcal._extrinsics_unmoved_since_calibration()
+r'''Checks mrcal._extrinsics_moved_since_calibration()
 '''
 
 import sys
@@ -58,7 +58,7 @@ Nframes =                                         \
                          testdir)
 
 for i in range(len(models_baseline)):
-    testutils.confirm(models_baseline[i]._extrinsics_unmoved_since_calibration(),
+    testutils.confirm(not models_baseline[i]._extrinsics_moved_since_calibration(),
                       msg = f"Camera {i} unmoved")
 
 extrinsics_rt_fromref = extrinsics_rt_fromref_true.copy()
@@ -68,7 +68,7 @@ for i in range(len(models_baseline)):
     models_baseline[i].extrinsics_rt_fromref(extrinsics_rt_fromref[i])
 
 for i in range(len(models_baseline)):
-    testutils.confirm(not models_baseline[i]._extrinsics_unmoved_since_calibration(),
+    testutils.confirm(models_baseline[i]._extrinsics_moved_since_calibration(),
                       msg = f"Camera {i} moved")
 
 testutils.finish()

@@ -592,7 +592,7 @@ else:
 
     print(f"## Triangulated point at {p0}; direction: {v0}")
     print("## Range: {:.2f} m (error: {:.2f} m)".format(range0, range_err_have))
-    print(f"## Reprojection error between triangulated point and q0: {mrcal.project(p0, *models[0].intrinsics()) - q0}pixels")
+    print(f"## q0 - q0_triangulation = {q0 - mrcal.project(p0, *models[0].intrinsics())}")
 
 
     for what,var in ( ("calibration-time", Var_p_calibration),

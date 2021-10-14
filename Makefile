@@ -14,7 +14,13 @@ _VERSION = $(shell test -d .git && \
 # cached result during subsequent calls
 VERSION = $(if $(_VERSION_EXPANDED),,$(eval _VERSION_EXPANDED:=$$(_VERSION)))$(_VERSION_EXPANDED)
 
-LIB_SOURCES += mrcal.c poseutils.c poseutils-uses-autodiff.cc triangulation.cc
+LIB_SOURCES +=			\
+  mrcal.c			\
+  mrcal-opencv.c		\
+  poseutils.c			\
+  poseutils-opencv.c		\
+  poseutils-uses-autodiff.cc	\
+  triangulation.cc
 
 BIN_SOURCES +=					\
   test-gradients.c				\
@@ -26,7 +32,7 @@ LDLIBS    += -ldogleg
 
 CFLAGS    += --std=gnu99
 CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
-CCXXFLAGS += -ffast-math -mtune=native
+CCXXFLAGS += -march=native
 
 mrcal.o test/test-cahvor.o: minimath/minimath_generated.h
 minimath/minimath_generated.h: minimath/minimath_generate.pl

@@ -32,7 +32,7 @@ explicitly define them here
   refers to this as $\vec x$, and it primarily contains differences between
   observed and predicted pixel observations
 
-- *projection*: a mapping of a point in space in the camera coorddinate system
+- *projection*: a mapping of a point in space in the camera coordinate system
   to a pixel coordinate where that point would be observed by a given camera
 
 - *pose*: a 6 degree-of-freedom vector describing a position and an orientation
@@ -157,7 +157,7 @@ rotation would be implemented equivalently: $\vec b^T = \vec a^T R^T$. The
 handle this transparently.
 
 A similar issue is that numpy follows the linear algebra convention of indexing
-arrays with =(index_column, index_row)= and representing array sizes with
+arrays with =(index_row, index_column)= and representing array sizes with
 =(height, width)=. This runs against the /other/ convention of referring to
 pixel coordinates as =(x,y)= and image dimensions as =(width, height)=. Whenever
 possible, mrcal places the =x= coordinate first (as in the latter), but when

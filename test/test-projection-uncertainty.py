@@ -87,10 +87,10 @@ def parse_args():
                         help='''If given, we write the resulting models to disk for further analysis''')
     parser.add_argument('--make-documentation-plots',
                         type=str,
-                        help='''If given, we produce plots for the documentation. Takes one argument: a
-                        string describing this test. This will be used in the
-                        filenames of the resulting plots. To make interactive
-                        plots, pass ""''')
+                        help='''If given, we produce plots for the
+                        documentation. Takes one argument: a string describing
+                        this test. This will be used in the filenames of the
+                        resulting plots. To make interactive plots, pass ""''')
     parser.add_argument('--terminal-pdf',
                         type=str,
                         help='''The gnuplotlib terminal for --make-documentation-plots .PDFs. Omit this

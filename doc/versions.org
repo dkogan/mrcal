@@ -1,0 +1,12 @@
+#+TITLE: mrcal releases
+#+OPTIONS: toc:nil
+
+* Releases
+The documentation and code is available for each release
+
+- Bleeding-edge: [[http://mrcal.secretsauce.net/docs-HEAD][documentation]] and [[https://github.com/dkogan/mrcal/][code]]
+- mrcal 1.0.1 (2021/02/23): [[http://mrcal.secretsauce.net/docs-1.0][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v1.0.1][code]]
+
+* Roadmap
+See the [[file:roadmap.org][roadmap]] for the release notes, migration guides and planned
+improvements.

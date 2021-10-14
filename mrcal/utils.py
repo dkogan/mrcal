@@ -1185,7 +1185,7 @@ def _plot_args_points_and_covariance_ellipse(q, what):
     q_mean0 = q - q_mean
     Var     = np.mean( nps.outer(q_mean0,q_mean0), axis=0 )
     return ( _plot_arg_covariance_ellipse(q_mean,Var, what),
-             ( q, dict(_with = 'points pt 6 ps 0.5',
+             ( q, dict(_with = 'dots',
                          tuplesize = -2)) )
 
 

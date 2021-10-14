@@ -44,9 +44,11 @@ def parse_args():
                         always right, so most people don't need this
                         option''')
 
-    parser.add_argument('--show-boards',
+    parser.add_argument('--show-calobjects',
                         action='store_true',
-                        help='''If given, draw the calibration object observations''')
+                        help='''If given, draw the calibration object
+                        observations from the FIRST given camera model that
+                        contains the optimization_inputs''')
 
     parser.add_argument('--transforms',
                         type=str,
@@ -121,7 +123,7 @@ if args.unset is not None:
 plot = mrcal.show_geometry(models,
                            cameranames         = args.models,
                            cameras_Rt_plot_ref = cameras_Rt_plot_ref,
-                           show_calobjects     = args.show_boards,
+                           show_calobjects     = args.show_calobjects,
                            axis_scale          = args.axis_scale,
                            **plotkwargs)
 

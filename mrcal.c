@@ -575,18 +575,21 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
 
     if(lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
-        // Each regularization term depends on
-        // - two values for distortions
-        // - one value for the center pixel
-        N +=
-            Ncameras_intrinsics *
-            2 *
-            num_regularization_terms_percamera(problem_selections,
-                                               lensmodel);
-        // I multiplied by 2, so I double-counted the center pixel
-        // contributions. Subtract those off
-        if(problem_selections.do_optimize_intrinsics_core)
-            N -= Ncameras_intrinsics*2;
+        if(problem_selections.do_apply_regularization)
+        {
+            // Each regularization term depends on
+            // - two values for distortions
+            // - one value for the center pixel
+            N +=
+                Ncameras_intrinsics *
+                2 *
+                num_regularization_terms_percamera(problem_selections,
+                                                   lensmodel);
+            // I multiplied by 2, so I double-counted the center pixel
+            // contributions. Subtract those off
+            if(problem_selections.do_optimize_intrinsics_core)
+                N -= Ncameras_intrinsics*2;
+        }
     }
     else
         N +=
@@ -609,8 +612,8 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
 // focal-length scales
 static
 void sample_bspline_surface_cubic(double* out,
-                                  double* dout_dx, // may be NULL
-                                  double* dout_dy, // may be NULL
+                                  double* dout_dx,
+                                  double* dout_dy,
                                   double* ABCDx_ABCDy,
 
                                   double x, double y,
@@ -683,15 +686,13 @@ void sample_bspline_surface_cubic(double* out,
     // and y. By returning ABCD[xy] and not the cartesian products, I make
     // smaller temporary data arrays
     interp(out,     ABCDx,     ABCDy);
-    if(dout_dx)
-        interp(dout_dx, ABCDgradx, ABCDy);
-    if(dout_dy)
-        interp(dout_dy, ABCDx,     ABCDgrady);
+    interp(dout_dx, ABCDgradx, ABCDy);
+    interp(dout_dy, ABCDx,     ABCDgrady);
 }
 static
 void sample_bspline_surface_quadratic(double* out,
-                                      double* dout_dx, // may be NULL
-                                      double* dout_dy, // may be NULL
+                                      double* dout_dx,
+                                      double* dout_dy,
                                       double* ABCx_ABCy,
 
                                       double x, double y,
@@ -758,10 +759,8 @@ void sample_bspline_surface_quadratic(double* out,
     // and y. By returning ABC[xy] and not the cartesian products, I make
     // smaller temporary data arrays
     interp(out,     ABCx,     ABCy);
-    if(dout_dx)
-        interp(dout_dx, ABCgradx, ABCy);
-    if(dout_dy)
-        interp(dout_dy, ABCx,     ABCgrady);
+    interp(dout_dx, ABCgradx, ABCy);
+    interp(dout_dy, ABCx,     ABCgrady);
 }
 
 typedef struct
@@ -777,148 +776,6 @@ typedef struct
     // _d_rj_tc is always 0
 
 } geometric_gradients_t;
-
-// The implementation of _mrcal_project_internal_opencv is based on opencv. The
-// sources have been heavily modified, but the opencv logic remains. This
-// function is a cut-down cvProjectPoints2Internal() to keep only the
-// functionality I want and to use my interfaces. Putting this here allows me to
-// drop the C dependency on opencv. Which is a good thing, since opencv dropped
-// their C API
-//
-// from opencv-4.2.0+dfsg/modules/calib3d/src/calibration.cpp
-//
-// Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
-// Copyright (C) 2009, Willow Garage Inc., all rights reserved.
-// Third party copyrights are property of their respective owners.
-//
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-//
-//   * Redistribution's of source code must retain the above copyright notice,
-//     this list of conditions and the following disclaimer.
-//
-//   * Redistribution's in binary form must reproduce the above copyright notice,
-//     this list of conditions and the following disclaimer in the documentation
-//     and/or other materials provided with the distribution.
-//
-//   * The name of the copyright holders may not be used to endorse or promote products
-//     derived from this software without specific prior written permission.
-//
-// This software is provided by the copyright holders and contributors "as is" and
-// any express or implied warranties, including, but not limited to, the implied
-// warranties of merchantability and fitness for a particular purpose are disclaimed.
-// In no event shall the Intel Corporation or contributors be liable for any direct,
-// indirect, incidental, special, exemplary, or consequential damages
-// (including, but not limited to, procurement of substitute goods or services;
-// loss of use, data, or profits; or business interruption) however caused
-// and on any theory of liability, whether in contract, strict liability,
-// or tort (including negligence or otherwise) arising in any way out of
-
-// NOT A PART OF THE EXTERNAL API. This is exported for the mrcal python wrapper
-// only
-void _mrcal_project_internal_opencv( // outputs
-                                    mrcal_point2_t* q,
-                                    mrcal_point3_t* dq_dp,         // may be NULL
-                                    double* dq_dintrinsics_nocore, // may be NULL
-
-                                    // inputs
-                                    const mrcal_point3_t* p,
-                                    int N,
-                                    const double* intrinsics,
-                                    int Nintrinsics)
-{
-    const double fx = intrinsics[0];
-    const double fy = intrinsics[1];
-    const double cx = intrinsics[2];
-    const double cy = intrinsics[3];
-
-    double k[12] = {};
-    for(int i=0; i<Nintrinsics-4; i++)
-        k[i] = intrinsics[i+4];
-
-    for( int i = 0; i < N; i++ )
-    {
-        double z_recip = 1./p[i].z;
-        double x = p[i].x * z_recip;
-        double y = p[i].y * z_recip;
-
-        double r2      = x*x + y*y;
-        double r4      = r2*r2;
-        double r6      = r4*r2;
-        double a1      = 2*x*y;
-        double a2      = r2 + 2*x*x;
-        double a3      = r2 + 2*y*y;
-        double cdist   = 1 + k[0]*r2 + k[1]*r4 + k[4]*r6;
-        double icdist2 = 1./(1 + k[5]*r2 + k[6]*r4 + k[7]*r6);
-        double xd      = x*cdist*icdist2 + k[2]*a1 + k[3]*a2 + k[8]*r2+k[9]*r4;
-        double yd      = y*cdist*icdist2 + k[2]*a3 + k[3]*a1 + k[10]*r2+k[11]*r4;
-
-        q[i].x = xd*fx + cx;
-        q[i].y = yd*fy + cy;
-
-
-        if( dq_dp )
-        {
-            double dx_dp[] = { z_recip, 0,       -x*z_recip };
-            double dy_dp[] = { 0,       z_recip, -y*z_recip };
-            for( int j = 0; j < 3; j++ )
-            {
-                double dr2_dp = 2*x*dx_dp[j] + 2*y*dy_dp[j];
-                double dcdist_dp = k[0]*dr2_dp + 2*k[1]*r2*dr2_dp + 3*k[4]*r4*dr2_dp;
-                double dicdist2_dp = -icdist2*icdist2*(k[5]*dr2_dp + 2*k[6]*r2*dr2_dp + 3*k[7]*r4*dr2_dp);
-                double da1_dp = 2*(x*dy_dp[j] + y*dx_dp[j]);
-                double dmx_dp = (dx_dp[j]*cdist*icdist2 + x*dcdist_dp*icdist2 + x*cdist*dicdist2_dp +
-                                k[2]*da1_dp + k[3]*(dr2_dp + 4*x*dx_dp[j]) + k[8]*dr2_dp + 2*r2*k[9]*dr2_dp);
-                double dmy_dp = (dy_dp[j]*cdist*icdist2 + y*dcdist_dp*icdist2 + y*cdist*dicdist2_dp +
-                                k[2]*(dr2_dp + 4*y*dy_dp[j]) + k[3]*da1_dp + k[10]*dr2_dp + 2*r2*k[11]*dr2_dp);
-                dq_dp[i*2 + 0].xyz[j] = fx*dmx_dp;
-                dq_dp[i*2 + 1].xyz[j] = fy*dmy_dp;
-            }
-        }
-        if( dq_dintrinsics_nocore )
-        {
-            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 0] = fx*x*icdist2*r2;
-            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 0] = fy*(y*icdist2*r2);
-
-            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 1] = fx*x*icdist2*r4;
-            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 1] = fy*y*icdist2*r4;
-
-            if( Nintrinsics-4 > 2 )
-            {
-                dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 2] = fx*a1;
-                dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 2] = fy*a3;
-                dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 3] = fx*a2;
-                dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 3] = fy*a1;
-                if( Nintrinsics-4 > 4 )
-                {
-                    dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 4] = fx*x*icdist2*r6;
-                    dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 4] = fy*y*icdist2*r6;
-
-                    if( Nintrinsics-4 > 5 )
-                    {
-                        dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 5] = fx*x*cdist*(-icdist2)*icdist2*r2;
-                        dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 5] = fy*y*cdist*(-icdist2)*icdist2*r2;
-                        dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 6] = fx*x*cdist*(-icdist2)*icdist2*r4;
-                        dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 6] = fy*y*cdist*(-icdist2)*icdist2*r4;
-                        dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 7] = fx*x*cdist*(-icdist2)*icdist2*r6;
-                        dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 7] = fy*y*cdist*(-icdist2)*icdist2*r6;
-                        if( Nintrinsics-4 > 8 )
-                        {
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 8]  = fx*r2; //s1
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 8]  = fy*0;  //s1
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 9]  = fx*r4; //s2
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 9]  = fy*0;  //s2
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 10] = fx*0;  //s3
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 10] = fy*r2; //s3
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 11] = fx*0;  //s4
-                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 11] = fy*r4; //s4
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 // These are all internals for project(). It was getting unwieldy otherwise
 static
@@ -1720,6 +1577,31 @@ bool mrcal_knots_for_splined_models( // buffers must hold at least
     return true;
 }
 
+static int get_Ngradients(const mrcal_lensmodel_t* lensmodel,
+                          int Nintrinsics)
+{
+    int N = 0;
+    bool has_core                   = modelHasCore_fxfycxcy(lensmodel);
+    bool has_dense_intrinsics_grad  = (lensmodel->type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    bool has_sparse_intrinsics_grad = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    int runlen = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        (lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
+        0;
+    if(has_core)
+        // qx(fx) and qy(fy)
+        N += 2;
+    if(has_dense_intrinsics_grad)
+        // each of (qx,qy) depends on all the non-core intrinsics
+        N += 2 * (Nintrinsics-4);
+    if(has_sparse_intrinsics_grad)
+    {
+        // spline coefficients
+        N += 2*runlen;
+    }
+
+    return N;
+}
+
 static
 void _project_point_splined( // outputs
                             mrcal_point2_t* q,
@@ -1814,12 +1696,6 @@ void _project_point_splined( // outputs
     const double cx = intrinsics[2];
     const double cy = intrinsics[3];
 
-    bool need_any_dq_drt =
-        !( dq_drcamera == NULL &&
-           dq_dtcamera == NULL &&
-           dq_drframe  == NULL &&
-           dq_dtframe  == NULL );
-
     if( spline_order == 3 )
     {
         int ix0 = (int)ix;
@@ -1839,8 +1715,7 @@ void _project_point_splined( // outputs
                 (ix0-1) );
 
         sample_bspline_surface_cubic(deltau.xy,
-                                     need_any_dq_drt ? ddeltau_dux : NULL,
-                                     need_any_dq_drt ? ddeltau_duy : NULL,
+                                     ddeltau_dux, ddeltau_duy,
                                      grad_ABCDx_ABCDy,
                                      ix - ix0, iy - iy0,
 
@@ -1867,8 +1742,7 @@ void _project_point_splined( // outputs
                 (ix0-1) );
 
         sample_bspline_surface_quadratic(deltau.xy,
-                                         need_any_dq_drt ? ddeltau_dux : NULL,
-                                         need_any_dq_drt ? ddeltau_duy : NULL,
+                                         ddeltau_dux, ddeltau_duy,
                                          grad_ABCDx_ABCDy,
                                          ix - ix0, iy - iy0,
 
@@ -1900,9 +1774,6 @@ void _project_point_splined( // outputs
         dq_dfxy->x = u.x + deltau.x;
         dq_dfxy->y = u.y + deltau.y;
     }
-
-    if(!need_any_dq_drt) return;
-
 
     // convert ddeltau_dixy to ddeltau_duxy
     for(int i=0; i<2; i++)
@@ -2114,6 +1985,9 @@ void project( // out
     bool      has_core                   = modelHasCore_fxfycxcy(lensmodel);
     bool      has_dense_intrinsics_grad  = (lensmodel->type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
     bool      has_sparse_intrinsics_grad = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    int runlen = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        (lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
+        0;
 
     if(dq_dintrinsics_pool_double != NULL)
     {
@@ -2154,6 +2028,7 @@ void project( // out
                     .ivar_stridey    = 2*config->Nx,
                     .pool            = &dq_dintrinsics_pool_double[ivar_pool]
                 };
+            ivar_pool += Npoints*2 * runlen;
         }
     }
 
@@ -2360,9 +2235,6 @@ void project( // out
 
 
 
-    int runlen = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
-        (lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
-        0;
     if( calibration_object_width_n == 0 )
     { // projecting discrete points
         mrcal_point3_t p =
@@ -2712,6 +2584,8 @@ bool _mrcal_project_internal( // out
     // So I init everything to 0
     memset(dq_dintrinsics, 0, N*2*Nintrinsics*sizeof(double));
 
+    int Ngradients = get_Ngradients(lensmodel, Nintrinsics);
+
     for(int i=0; i<N; i++)
     {
         mrcal_pose_t frame = {.r = {},
@@ -2719,7 +2593,7 @@ bool _mrcal_project_internal( // out
 
         // simple non-intrinsics-gradient path. dp_dp is handled entirely in
         // project()
-        double dq_dintrinsics_pool_double[2*(1+Nintrinsics-4)];
+        double dq_dintrinsics_pool_double[Ngradients];
         int    dq_dintrinsics_pool_int   [1];
         double* dq_dfxy               = NULL;
         double* dq_dintrinsics_nocore = NULL;
@@ -4138,7 +4012,9 @@ void optimizer_callback(// input state
         // cy. So x depends on fx and NOT on fy, and similarly for y. Similar
         // for cx,cy, except we know the gradient value beforehand. I support
         // this case explicitly here. I store dx/dfx and dy/dfy; no cross terms
-        double dq_dintrinsics_pool_double[ctx->calibration_object_width_n*ctx->calibration_object_height_n*2*(1+ctx->Nintrinsics)];
+        int Ngradients = get_Ngradients(&ctx->lensmodel, ctx->Nintrinsics);
+
+        double dq_dintrinsics_pool_double[ctx->calibration_object_width_n*ctx->calibration_object_height_n*Ngradients];
         int    dq_dintrinsics_pool_int   [ctx->calibration_object_width_n*ctx->calibration_object_height_n];
         double* dq_dfxy = NULL;
         double* dq_dintrinsics_nocore = NULL;
@@ -4461,8 +4337,8 @@ void optimizer_callback(// input state
                         // control points at the start because why not
                         const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
                             &ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config;
-                        int len = config->order+1;
-                        for(int i=0; i<len*len; i++)
+                        int runlen = config->order+1;
+                        for(int i=0; i<runlen*runlen; i++)
                             STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i, 0);
                     }
                     else
@@ -4522,9 +4398,12 @@ void optimizer_callback(// input state
         else
             point_ref = ctx->points[i_point];
 
+        int Ngradients = get_Ngradients(&ctx->lensmodel, ctx->Nintrinsics);
 
         // WARNING: "compute size(dq_dintrinsics_pool_double) correctly and maybe bounds-check"
-        double dq_dintrinsics_pool_double[2*(1+ctx->Nintrinsics)];
+        double dq_dintrinsics_pool_double[Ngradients];
+        // used for LENSMODEL_SPLINED_STEREOGRAPHIC only, but getting rid of
+        // this in other cases isn't worth the trouble
         int    dq_dintrinsics_pool_int   [1];
         double* dq_dfxy                             = NULL;
         double* dq_dintrinsics_nocore               = NULL;
@@ -4963,49 +4842,51 @@ void optimizer_callback(// input state
                                 double scale = scale_regularization_distortion;
 
                                 int ivar = 2*( iy*Nx + ix );
-                                const double deltaux = intrinsics_all[icam_intrinsics][Ncore + ivar + 0];
-                                const double deltauy = intrinsics_all[icam_intrinsics][Ncore + ivar + 1];
+                                const double deltauxy[] =
+                                    { intrinsics_all[icam_intrinsics][Ncore + ivar + 0],
+                                      intrinsics_all[icam_intrinsics][Ncore + ivar + 1] };
 
-#warning "Precompute ux,uy. This is lots of unnecessary computation in the inner loop"
-                                double ux = (double)(2*ix - Nx + 1);
-                                double uy = (double)(2*iy - Ny + 1);
+#warning "Precompute uxy. This is lots of unnecessary computation in the inner loop"
+                                double uxy[] = { (double)(2*ix - Nx + 1),
+                                                 (double)(2*iy - Ny + 1) };
                                 bool anisotropic = true;
                                 if(2*ix == Nx - 1 &&
                                    2*iy == Ny - 1 )
                                 {
-                                    ux = 1.0;
+                                    uxy[0] = 1.0;
                                     anisotropic = false;
                                 }
                                 else
                                 {
-                                    double mag_recip = 1. / hypot(ux,uy);
-                                    ux *= mag_recip;
-                                    uy *= mag_recip;
+                                    double h = hypot(uxy[0],uxy[1]);
+                                    uxy[0] /= h;
+                                    uxy[1] /= h;
                                 }
 
                                 double err;
 
                                 // I penalize radial corrections
                                 if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                                err              = scale*(deltaux*ux + deltauy*uy);
+                                err              = scale*(deltauxy[0]*uxy[0] +
+                                                          deltauxy[1]*uxy[1]);
                                 x[iMeasurement]  = err;
                                 norm2_error     += err*err;
                                 STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 0,
-                                                scale * ux * SCALE_DISTORTION );
+                                                scale * uxy[0] * SCALE_DISTORTION );
                                 STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 1,
-                                                scale * uy * SCALE_DISTORTION );
+                                                scale * uxy[1] * SCALE_DISTORTION );
                                 iMeasurement++;
 
                                 // I REALLY penalize tangential corrections
                                 if(anisotropic) scale *= 10.;
                                 if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                                err              = scale*(deltaux*uy - deltauy*ux);
+                                err              = scale*(deltauxy[0]*uxy[1] - deltauxy[1]*uxy[0]);
                                 x[iMeasurement]  = err;
                                 norm2_error     += err*err;
                                 STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 0,
-                                                scale * uy * SCALE_DISTORTION );
+                                                scale * uxy[1] * SCALE_DISTORTION );
                                 STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 1,
-                                                -scale * ux * SCALE_DISTORTION );
+                                                -scale * uxy[0] * SCALE_DISTORTION );
                                 iMeasurement++;
                             }
                     }
@@ -5661,11 +5542,11 @@ mrcal_optimize( // out
             regularization_ratio_centerpixel = norm2_err_regularization_centerpixel     / norm2_error;
             regularization_ratio_calobject_warp = norm2_err_regularization_calobject_warp / norm2_error;
             if(regularization_ratio_distortion > 0.01)
-                MSG("WARNING: regularization ratio for lens distortion exceeds 1%%. Is the scale factor too high? Ratio = %.3f",
-                    regularization_ratio_distortion);
+                MSG("WARNING: regularization ratio for lens distortion exceeds 1%%. Is the scale factor too high? Ratio = %.3f/%.3f = %.3f",
+                    norm2_err_regularization_distortion,  norm2_error, regularization_ratio_distortion);
             if(regularization_ratio_centerpixel > 0.01)
-                MSG("WARNING: regularization ratio for the projection centerpixel exceeds 1%%. Is the scale factor too high? Ratio = %.3f",
-                    regularization_ratio_centerpixel);
+                MSG("WARNING: regularization ratio for the projection centerpixel exceeds 1%%. Is the scale factor too high? Ratio = %.3f/%.3f = %.3f",
+                    norm2_err_regularization_centerpixel, norm2_error, regularization_ratio_centerpixel);
             if(regularization_ratio_calobject_warp > 0.01)
                 MSG("WARNING: regularization ratio for calobject_warp exceeds 1%%. Is the scale factor too high? Ratio = %.3f",
                     regularization_ratio_calobject_warp);

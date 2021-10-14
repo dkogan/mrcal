@@ -34,6 +34,13 @@ mrcal functions are used to construct the rectified system. Currently only the
 OpenCV SGBM routine is available to perform stereo matching, but more options
 will be made available with time.
 
+The commandline arguments to configure the SGBM matcher (--sgbm-...) map to the
+corresponding OpenCV APIs. Omitting an --sgbm-... argument will result in the
+defaults being used in the cv2.StereoSGBM_create() call. Usually the
+cv2.StereoSGBM_create() defaults are terrible, and produce a disparity map that
+isn't great. The --sgbm-... arguments in the synopsis above are a good start to
+get usable stereo.
+
 The rectified system is constructed with the axes
 
 - x: from the origin of the first camera to the origin of the second camera (the
@@ -163,7 +170,16 @@ def parse_args():
                         action='store_true',
                         help='''If given, apply CLAHE equalization to the images
                         prior to the stereo matching. If --already-rectified, we
-                        DO apply this equalization''')
+                        still apply this equalization, if requested. Requires
+                        --force-grayscale''')
+
+    parser.add_argument('--force-grayscale',
+                        action='store_true',
+                        help='''If given, convert the images to grayscale prior
+                        to doing anything else with them. By default, read the
+                        images in their default format, and pass those
+                        posibly-color images to all the processing steps.
+                        Required if --clahe''')
 
     ######## --show-geometry
     parser.add_argument('--show-geometry',
@@ -227,7 +243,7 @@ def parse_args():
                         pixels. Two integers are expected: MIN_DISPARITY
                         MAX_DISPARITY. Completely arbitrarily, we default to
                         MIN_DISPARITY=0 and MAX_DISPARITY=100''')
-    parser.add_argument('--show-valid-intrinsics-region',
+    parser.add_argument('--valid-intrinsics-region',
                         action='store_true',
                         help='''If given, annotate the image with its
                         valid-intrinsics region. This will end up in the
@@ -327,6 +343,11 @@ def parse_args():
               file=sys.stderr)
         sys.exit(1)
 
+    if args.clahe and not args.force_grayscale:
+        print("--clahe requires --force-grayscale",
+              file=sys.stderr)
+        sys.exit(1)
+
     return args
 
 args = parse_args()
@@ -418,11 +439,13 @@ if args.show_geometry:
                         *model.intrinsics(),
                         normalize = True)
 
-    # Scale the vectors to a nice-looking length
+    # Scale the vectors to a nice-looking length. This is intended to work with
+    # the defaults to mrcal.show_geometry(). That function sets the right,down
+    # axis lengths to baseline/3. Here I default to a bit less: baseline/4
     baseline = \
         nps.mag(mrcal.compose_Rt( models_rectified[1].extrinsics_Rt_fromref(),
                                   models_rectified[0].extrinsics_Rt_toref())[3,:])
-    v *= baseline
+    v *= baseline/4
 
     # shape (Nloop,3): ref-coord system points
     p = mrcal.transform_point_Rt(model.extrinsics_Rt_toref(), v)
@@ -487,7 +510,11 @@ for i in range(Nimages):
 
     image_filenames = (image_filenames_all[0][i],
                        image_filenames_all[1][i])
-    images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in image_filenames]
+
+    flags = ()
+    if args.force_grayscale:
+        flags = (cv2.IMREAD_GRAYSCALE,)
+    images = [cv2.imread(f, *flags) for f in image_filenames]
 
     # This doesn't really matter: I don't use the input imagersize. But a
     # mismatch suggests the user probably messed up, and it would save them time
@@ -504,7 +531,7 @@ for i in range(Nimages):
     if args.clahe:
         images = [ clahe.apply(image) for image in images ]
 
-    if args.show_valid_intrinsics_region:
+    if args.valid_intrinsics_region:
         for i in range(2):
             mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
 

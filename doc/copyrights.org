@@ -1,6 +1,6 @@
 #+TITLE: Copyrights and licenses
 
-Copyright (c) 2017-2020 California Institute of Technology ("Caltech"). U.S.
+Copyright (c) 2017-2021 California Institute of Technology ("Caltech"). U.S.
 Government sponsorship acknowledged. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,18 +24,18 @@ provisions. Copyright 2011 Oblong Industries. This library is distributed under
 the terms of the GNU LGPL
 
 * opencv projection
-The [[https://www.github.com/dkogan/mrcal/blob/bface334218c0e49cca6fe9bf5517fea2233a92e/mrcal.c#L747][opencv projection function]] is a cut-down implementation from the OpenCV
+The [[https://www.github.com/dkogan/mrcal/blob/master/mrcal-opencv.c][opencv projection function]] is a cut-down implementation from the OpenCV
 project. Distributed under an BSD-style license. Copyright (C) 2000-2008, Intel
 Corporation, all rights reserved. Copyright (C) 2009, Willow Garage Inc., all
 rights reserved.
 
 * =mrcal_r_from_R()=
-The [[https://www.github.com/dkogan/mrcal/blob/1c05b0ea20660e493e942488e11a4c265c500a8d/poseutils.c#L324][=mrcal_r_from_R()= sources]] originated in the OpenCV project. Distributed
+The [[https://www.github.com/dkogan/mrcal/blob/master/poseutils-opencv.c][=mrcal_r_from_R()= sources]] originated in the OpenCV project. Distributed
 under an BSD-style license. Copyright (C) 2000-2008, Intel Corporation, all
 rights reserved. Copyright (C) 2009, Willow Garage Inc., all rights reserved.
 
 * [[file:mrcal-python-api-reference.html#-quat_from_R][=mrcal.quat_from_R()=]]
-The [[https://www.github.com/dkogan/mrcal/blob/bface334218c0e49cca6fe9bf5517fea2233a92e/mrcal/poseutils.py#L1042][=mrcal.quat_from_R()= sources]] came from scipy. Distributed under an
+The [[https://www.github.com/dkogan/mrcal/blob/master/mrcal/_poseutils_scipy.py][=mrcal.quat_from_R()= sources]] came from scipy. Distributed under an
 BSD-style license. Copyright (c) 2001-2002 Enthought, Inc. 2003-2019, SciPy
 Developers.
 

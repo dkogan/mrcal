@@ -21,7 +21,7 @@ def show_geometry(models_or_extrinsics_rt_fromref,
                   frames_rt_toref             = None,
                   points                      = None,
 
-                  show_calobjects    = True,
+                  show_calobjects    = False,
                   axis_scale         = None,
                   object_width_n     = None,
                   object_height_n    = None,
@@ -128,7 +128,7 @@ ARGUMENTS
   labelled in this way. If omitted, none of the points will be labelled
   specially. This is used only if points is not None
 
-- show_calobjects: optional boolean defaults to True. if show_calobjects: we
+- show_calobjects: optional boolean defaults to False. if show_calobjects: we
   render the observed calibration objects (if they are available in
   model.optimization_inputs()['frames_rt_toref']; we look at the FIRST model
   that provides this data)
@@ -186,6 +186,9 @@ plot
         if len(extrinsics_Rt_toref) <= 1:
             axis_scale = 1.0
         else:
+            # This is intended to work with the behavior in the mrcal-stereo
+            # tool. That tool sets the fov-indicating hair lengths to
+            # baseline/4. Here I default to a bit more: baseline/3
             Rt01 = mrcal.compose_Rt( mrcal.invert_Rt(extrinsics_Rt_toref[0]),
                                      extrinsics_Rt_toref[1] )
             d = nps.mag(Rt01[3,:])
@@ -197,8 +200,8 @@ plot
         # No frames were given. I grab them from the first .cameramodel that has
         # them. If none of the models have this data, I don't plot any frames at
         # all
-        for i_model in range(len(extrinsics_Rt_toref)):
-            m = models_or_extrinsics_rt_fromref[i_model]
+        for i_model_frames in range(len(extrinsics_Rt_toref)):
+            m = models_or_extrinsics_rt_fromref[i_model_frames]
 
             _frames_rt_toref = None
             _object_spacing  = None
@@ -223,12 +226,12 @@ plot
                                                         **optimization_inputs)
                 if icam_extrinsics >= 0:
                     _frames_rt_toref = \
-                        mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model]),
+                        mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model_frames]),
                                           optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics],
                                           _frames_rt_toref )
                 else:
                     _frames_rt_toref = \
-                        mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model]),
+                        mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model_frames]),
                                           _frames_rt_toref )
 
             except:
@@ -311,7 +314,7 @@ plot
                                    (np.array(('x', 'y', 'z')),
                                     dict(_with     = 'labels',
                                          tuplesize = 4,
-                                         legend    = 'labels'),)
+                                         legend    = None),)
 
 
 
@@ -336,7 +339,7 @@ plot
             try:
                 return cameranames[i]
             except:
-                return 'cam{}'.format(i)
+                return f'cam{i}'
 
         cam_axes  = \
             [gen_plot_axes( ( camera_Rt_toplotcoords(i), ),
@@ -385,14 +388,21 @@ plot
         calobject_ref = mrcal.ref_calibration_object(object_width_n, object_height_n,
                                                      object_spacing, calobject_warp)
 
-        # object in the cam0 coord system.
+        # object in the ref coord system.
         # shape (Nframes, object_height_n, object_width_n, 3)
-        calobject_cam0 = mrcal.transform_point_rt(nps.mv(frames_rt_toref, -2, -4),
-                                                  calobject_ref)
+        calobject_ref = mrcal.transform_point_rt(nps.mv(frames_rt_toref, -2, -4),
+                                                 calobject_ref)
+
+        try:
+            Rt_plot_ref = cameras_Rt_plot_ref[i_model_frames]
+            calobject_ref = mrcal.transform_point_Rt(Rt_plot_ref, calobject_ref)
+        except:
+            pass
+
 
         # if icam_highlight is not None:
         #     # shape=(Nobservations, object_height_n, object_width_n, 2)
-        #     calobject_cam = nps.transform_point_Rt( models[icam_highlight].extrinsics_Rt_fromref(), calobject_cam0 )
+        #     calobject_cam = nps.transform_point_Rt( models[icam_highlight].extrinsics_Rt_fromref(), calobject_ref )
 
         #     print("double-check this. I don't broadcast over the intrinsics anymore")
         #     err = observations[i_observations, ...] - mrcal.project(calobject_cam, *models[icam_highlight].intrinsics())
@@ -402,21 +412,21 @@ plot
         #     # ibad  = rms >= 0.4
         #     # rms[igood] = 0
         #     # rms[ibad] = 1
-        #     calobject_cam0 = nps.glue( calobject_cam0,
-        #                             nps.dummy( nps.mv(rms, -1, -3) * np.ones((object_height_n,object_width_n)),
-        #                                        -1 ),
-        #                             axis = -1)
+        #     calobject_ref = nps.glue( calobject_ref,
+        #                               nps.dummy( nps.mv(rms, -1, -3) * np.ones((object_height_n,object_width_n)),
+        #                                          -1 ),
+        #                               axis = -1)
 
-        # calobject_cam0 shape: (3, Nframes, object_height_n*object_width_n).
+        # calobject_ref shape: (3, Nframes, object_height_n*object_width_n).
         # This will broadcast nicely
-        calobject_cam0 = nps.clump( nps.mv(calobject_cam0, -1, -4), n=-2)
+        calobject_ref = nps.clump( nps.mv(calobject_ref, -1, -4), n=-2)
 
         # if icam_highlight is not None:
         #     calobject_curveopts = {'with':'lines palette', 'tuplesize': 4}
         # else:
         calobject_curveopts = {'with':'lines', 'tuplesize': 3}
 
-        return [tuple(list(calobject_cam0) + [calobject_curveopts,])]
+        return [tuple(list(calobject_ref) + [calobject_curveopts,])]
 
 
     def gen_curves_points():
@@ -2440,7 +2450,7 @@ Given a calibration solve, visualizes the fit for a single observation. Plots
 the chessboard image overlaid with its residuals. Each residual is plotted as a
 circle and a vector. The circles are color-coded by the residual error. The size
 of the circle indicates the weight. Bigger means higher weight. The vector shows
-the weighted residual. Outliers are omitted.
+the weighted residual from the observation to the prediction.
 
 ARGUMENTS
 

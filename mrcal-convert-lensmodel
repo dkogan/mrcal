@@ -101,23 +101,26 @@ def parse_args():
                         a 30x20 grid''')
     parser.add_argument('--distance',
                         type=float,
-                        help='''Used (and required) if --sampled and not --intrinsics-only. A sampled solve
-                        fits the intrinsics and extrinsics to match up
-                        reprojections of a grid of observed pixels. The points
-                        being projected are set a particular distance (set by
-                        this argument) from the camera. Set this to the distance
-                        that is expected to be most confident for the given
-                        cameramodel''')
+                        help='''Used (and required) if --sampled and not
+                        --intrinsics-only. A sampled solve fits the intrinsics
+                        and extrinsics to match up reprojections of a grid of
+                        observed pixels. The points being projected are set a
+                        particular distance (set by this argument) from the
+                        camera. Set this to the distance that is expected to be
+                        most confident for the given cameramodel. Points at
+                        infinity aren't explicity supported: specify a high
+                        distance instead''')
     parser.add_argument('--intrinsics-only',
                         action='store_true',
-                        help='''Used if --sampled. By default I optimize the intrinsics and extrinsics to
-                        find the closest reprojection. If for whatever reason we
-                        know that the camera coordinate system was already
-                        right, or we need to keep the original extrinsics, pass
-                        --intrinsics-only. The resulting extrinsics will be the
-                        same, but the fit will not be as good. In many cases,
-                        optimizing extrinsics is required to get a usable fit,
-                        so --intrinsics-only may not be an option if accurate
+                        help='''Used if --sampled. By default I optimize the
+                        intrinsics and extrinsics to find the closest
+                        reprojection. If for whatever reason we know that the
+                        camera coordinate system was already right, or we need
+                        to keep the original extrinsics, pass --intrinsics-only.
+                        The resulting extrinsics will be the same, but the fit
+                        will not be as good. In many cases, optimizing
+                        extrinsics is required to get a usable fit, so
+                        --intrinsics-only may not be an option if accurate
                         results are required.''')
 
     parser.add_argument('--where',

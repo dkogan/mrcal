@@ -271,8 +271,8 @@ static bool read_list_values_generic( // output stored here. If NULL, we try to
           IGNORE [\])] { break; }
           *
           {
-            MSG("Didn't see the closing )/] for the %s at position %ld. Giving up.",
-                what, YYCURSOR - start_file);
+            MSG("Didn't see the closing )/] for the %s at position %ld. Expected %d values, but the given list has more. Giving up.",
+                what, YYCURSOR - start_file, Nvalues);
             return false;
           }
         */
@@ -446,7 +446,7 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
 
             if(cameramodel_core.lensmodel.type < 0)
             {
-                MSG("The 'lensmodel' MUST appear in the file before the 'intrinsics'. Please reorder your model file");
+                MSG("Saw 'intrinsics' key, before a 'lensmodel' key. Make sure that a 'lensmodel' key exists, and that it appears in the file before the 'intrinsics'");
                 goto done;
             }
 

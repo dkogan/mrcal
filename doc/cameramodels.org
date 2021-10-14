@@ -31,9 +31,9 @@ formats:
 - =.cameramodel=: the mrcal-native format. This is a plain text representation
   of a Python =dict= describing all the fields. This is the preferred format.
 
-- =.cahvor=: the legacy format available for compatibility with existing tools.
-  If you don't need to interoperate with tools that require this format, there's
-  little reason to use it. This format cannot store [[file:lensmodels.org::#splined-stereographic-lens-model][splined models]] or
+- =.cahvor=: the legacy format available for compatibility with existing JPL
+  tools. If you don't need to interoperate with tools that require this format,
+  there's little reason to use it. This format cannot store [[file:lensmodels.org::#splined-stereographic-lens-model][splined models]] or
   =optimization_inputs=, so it cannot be used for the [[file:uncertainty.org][uncertainty computations]].
 
 Note that both file formats can describe lenses using the [[file:lensmodels.org::#cahvor lens model][=LENSMODEL_CAHVOR=]]
@@ -96,5 +96,15 @@ give us an nice way to observe the effects of those changes. We can add input
 noise or change the lens model or [[file:formulation.org::#Regularization][regularization terms]] or anything else.
 
 * C interface
-The [[file:c-api.org::#cameramodel-io-in-c][C API]] has a simple interface for reading/writing =.cameramodel= data. The
-=.cahvor= file format is not supported.
+The [[file:c-api.org::#cameramodel-io-in-c][C API]] has a simple interface for reading/writing =.cameramodel= data:
+
+#+begin_src c
+mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char* string, int len);
+mrcal_cameramodel_t* mrcal_read_cameramodel_file  (const char* filename);
+void                 mrcal_free_cameramodel(mrcal_cameramodel_t** cameramodel);
+
+bool mrcal_write_cameramodel_file(const char* filename,
+                                  const mrcal_cameramodel_t* cameramodel);
+#+end_src
+
+The =.cahvor= file format is not supported in C.
