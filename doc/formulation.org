@@ -2,8 +2,7 @@
 #+OPTIONS: toc:t
 
 * Overview
-
-mrcal contains a solver used to compute the lens models and/or geometry. This is
+mrcal contains a solver used to compute the [[file:lensmodels.org][lens models]] and/or geometry. This is
 accessible via either
 
 - =mrcal_optimize()= routine in the [[file:c-api.org][C API]]
@@ -178,6 +177,17 @@ Clearly, this does not work for especially strong or asymmetric deflections.
 There's a richer 5-parameter deformation model in a not-yet-released branch that
 appears to work even for asymmetric deflections. This needs more testing, and
 has not yet been released. Talk to Dima if you want to play with it.
+
+* Lens behavior
+The fundamental operation to map a point in the camera coordinate system to a
+pixel where that point would be observed by the camera is called /projection/.
+mrcal supports [[file:lensmodels.org][multiple methods]] to model the behavior of different lenses. Of
+particular note is that at this time, mrcal assumes that all projections are
+/central/. This means that all rays of light are assumed to intersect at a
+single point: the origin of the camera coordinate system. So $k \vec v$ projects
+to the same $\vec q$ for any $k$. This is very convenient, but not completely
+realistic. Support for /non-central/ lenses is coming in a future release of
+mrcal.
 
 * Optimization details
 The mrcal solver is an optimization routine based on sparse nonlinear least

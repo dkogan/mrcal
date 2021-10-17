@@ -78,8 +78,8 @@ At this time all models contain a core.
 * Models
 Currently all models represent a /central/ projection: all observation rays
 intersect at a single point (the camera origin). So $k \vec v$ projects to the
-same $\vec q$ for all $k$. Non-central projections will be implemented at some
-point.
+same $\vec q$ for all $k$. Non-central projections will be supported in a future
+release of mrcal.
 
 ** =LENSMODEL_PINHOLE=
 :PROPERTIES:
