@@ -2964,6 +2964,10 @@ bool _mrcal_unproject_internal( // out
     // unconstrained optimization here
     for(int i=0; i<N; i++)
     {
+
+        // temporary hack for noncentral projections
+#define UNPROJECT_SCALE 1000.0
+
         void cb(const double*   u,
                 double*         x,
                 double*         J,
@@ -2977,6 +2981,13 @@ bool _mrcal_unproject_internal( // out
             mrcal_unproject_stereographic( &frame.t, dv_du,
                                            (mrcal_point2_t*)u, 1,
                                            intrinsics );
+
+            for(int j=0; j<3; j++)
+            {
+                frame.t.xyz[j] *= UNPROJECT_SCALE;
+                dv_du[j].x     *= UNPROJECT_SCALE;
+                dv_du[j].y     *= UNPROJECT_SCALE;
+            }
 
             mrcal_point3_t dq_dtframe[2];
             mrcal_point2_t q_hypothesis;
@@ -3074,6 +3085,7 @@ bool _mrcal_unproject_internal( // out
             mrcal_unproject_stereographic((mrcal_point3_t*)out, NULL,
                                           (mrcal_point2_t*)out, 1,
                                           intrinsics);
+            for(int j=0; j<3; j++) out->xyz[j] *= UNPROJECT_SCALE;
             if(!model_supports_projection_behind_camera(lensmodel) && out->xyz[2] < 0.0)
             {
                 out->xyz[0] *= -1.0;
