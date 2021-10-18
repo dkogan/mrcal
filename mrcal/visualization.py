@@ -1187,10 +1187,13 @@ plot
     lensmodel, intrinsics_data = model.intrinsics()
 
     q    = mrcal.sample_imager( gridn_width, gridn_height, *model.imagersize() )
-    pcam = mrcal.unproject(q, *model.intrinsics(),
-                           normalize = True)
+    pcam = mrcal.unproject(q, *model.intrinsics())
 
-    err = mrcal.projection_uncertainty(pcam * (distance if distance is not None else 1.0),
+    # pcam_mag business is a temporary hack for the non-central projection logic
+    pcam_mag = nps.mag(pcam)
+    pcam /= nps.dummy(pcam_mag, -1)
+    err = mrcal.projection_uncertainty(pcam * (distance if distance is not None
+                                               else np.mean(pcam_mag)),
                                        model           = model,
                                        atinfinity      = distance is None,
                                        what            = 'rms-stdev' if isotropic else 'worstdirection-stdev')
