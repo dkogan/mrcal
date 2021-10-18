@@ -3007,7 +3007,7 @@ bool _mrcal_unproject_internal( // out
     {
 
         // temporary hack for noncentral projections
-#define UNPROJECT_SCALE 1000.0
+#define UNPROJECT_SCALE 10000.0
 
         void cb(const double*   u,
                 double*         x,
