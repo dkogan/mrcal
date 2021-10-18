@@ -1673,6 +1673,14 @@ void _project_point_splined( // outputs
     const double k2_noncentral =
         intrinsics[ 4 + // core
                     2*Nx*Ny + 2 ];
+#if N_NONCENTRAL == 5
+    const double k3_noncentral =
+        intrinsics[ 4 + // core
+                    2*Nx*Ny + 3 ];
+    const double k4_noncentral =
+        intrinsics[ 4 + // core
+                    2*Nx*Ny + 4 ];
+#endif
 
     double dzadj_dk[N_NONCENTRAL] = {};
     double dzadj_dp[3]            = {};
@@ -1715,11 +1723,40 @@ void _project_point_splined( // outputs
         const double k0 = k0_noncentral;
         const double k1 = k1_noncentral;
         const double k2 = k2_noncentral;
+#if N_NONCENTRAL == 5
+        const double k3 = k3_noncentral;
+        const double k4 = k4_noncentral;
+#endif
         const double x  = p->x;
         const double y  = p->y;
         const double z  = p->z;
 
+
         // generated code from analyses/noncentral/noncentral.py
+#if N_NONCENTRAL == 5
+        const double magxy    = sqrt(x*x + y*y);
+        const double magxyz   = sqrt(x*x + y*y + z*z);
+        const double u        = 2*1.0/(z + sqrt(x*x + y*y + z*z))*sqrt(x*x + y*y);
+        const double d        = u*(k0 + u*(2*k1 + u*(3*k2 + u*(4*k3 + 5*k4*u))))*1.0/magxyz + 1;
+        const double f        = k0 + u*(4*k1 + u*(9*k2 + u*(16*k3 + 25*k4*u)));
+        const double dz       = u*(k0 + u*(k1 + u*(k2 + u*(k3 + k4*u))));
+        zadj                  = dz*1.0/d + z;
+        const double ddz_du   = k0 + u*(2*k1 + u*(3*k2 + u*(4*k3 + 5*k4*u)));
+        const double du_dx    = u*x*1.0/magxy*(-1.0/2.0*u*1.0/magxyz + 1.0/magxy);
+        const double du_dy    = u*y*1.0/magxy*(-1.0/2.0*u*1.0/magxyz + 1.0/magxy);
+        const double du_dz    = -u*1.0/magxyz;
+        const double dd_dx    = du_dx*f*1.0/magxyz - x*(d - 1)*1.0/(magxyz*magxyz);
+        const double dd_dy    = du_dy*f*1.0/magxyz - y*(d - 1)*1.0/(magxyz*magxyz);
+        const double dd_dz    = -(f*u + z*(d - 1))*1.0/(magxyz*magxyz);
+        const double dzadj_dx = (d*ddz_du*du_dx - dd_dx*dz)*1.0/(d*d);
+        const double dzadj_dy = (d*ddz_du*du_dy - dd_dy*dz)*1.0/(d*d);
+        const double dzadj_dz = 1.0/(d*d)*(d*ddz_du*du_dz - dd_dz*dz + d*d);
+        const double dzadj_dk0 = -dz*u*1.0/(d*d)*1.0/magxyz + u*1.0/d;
+        const double dzadj_dk1 = -2*dz*1.0/(d*d)*1.0/magxyz*u*u + 1.0/d*(u*u);
+        const double dzadj_dk2 = -3*dz*1.0/(d*d)*1.0/magxyz*u*u*u + 1.0/d*(u*u*u);
+        const double dzadj_dk3 = -4*dz*1.0/(d*d)*1.0/magxyz*u*u*u*u + 1.0/d*(u*u*u*u);
+        const double dzadj_dk4 = -5*dz*1.0/(d*d)*1.0/magxyz*u*u*u*u*u + 1.0/d*(u*u*u*u*u);
+#else
         const double magxy    = sqrt(x*x + y*y);
         const double magxyz   = sqrt(x*x + y*y + z*z);
         const double u        = 2*1.0/(z + sqrt(x*x + y*y + z*z))*sqrt(x*x + y*y);
@@ -1740,13 +1777,17 @@ void _project_point_splined( // outputs
         const double dzadj_dk0 = -dz*u*1.0/(d*d)*1.0/magxyz + u*1.0/d;
         const double dzadj_dk1 = -2*dz*1.0/(d*d)*1.0/magxyz*u*u + 1.0/d*(u*u);
         const double dzadj_dk2 = -3*dz*1.0/(d*d)*1.0/magxyz*u*u*u + 1.0/d*(u*u*u);
-
+#endif
         dzadj_dp[0] = dzadj_dx;
         dzadj_dp[1] = dzadj_dy;
         dzadj_dp[2] = dzadj_dz;
         dzadj_dk[0] = dzadj_dk0;
         dzadj_dk[1] = dzadj_dk1;
         dzadj_dk[2] = dzadj_dk2;
+#if N_NONCENTRAL == 5
+        dzadj_dk[3] = dzadj_dk3;
+        dzadj_dk[4] = dzadj_dk4;
+#endif
     }
 
 #endif
