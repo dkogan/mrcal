@@ -647,17 +647,15 @@ contains corresponding pixel coordinates in the input image
 
     # shape (Nel,Naz,3)
     if models_rectified[0].intrinsics()[0] == 'LENSMODEL_LATLON':
-        v = mrcal.unproject_latlon( np.ascontiguousarray( \
-               nps.mv( nps.cat( *np.meshgrid(np.arange(Naz,dtype=float),
-                                             np.arange(Nel,dtype=float))),
-                       0, -1)),
-                                     fxycxy)
+        unproject = mrcal.unproject_latlon
     else:
-        v = mrcal.unproject_pinhole( np.ascontiguousarray( \
-               nps.mv( nps.cat( *np.meshgrid(np.arange(Naz,dtype=float),
-                                             np.arange(Nel,dtype=float))),
-                       0, -1)),
-                                     fxycxy)
+        unproject = mrcal.unproject_pinhole
+
+    v = unproject( np.ascontiguousarray( \
+           nps.mv( nps.cat( *np.meshgrid(np.arange(Naz,dtype=float),
+                                         np.arange(Nel,dtype=float))),
+                   0, -1)),
+                   fxycxy)
 
     v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
     v1 = mrcal.rotate_point_R(R_cam_rect[1], v)
