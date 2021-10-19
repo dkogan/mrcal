@@ -1207,9 +1207,9 @@ SYNOPSIS
     ... A plot pops up showing the empirical distribution of chessboard fit
     ... errors in this solve. For ALL the cameras
 
-Given a calibration solve, returns the residuals visualizes of chessboard
-observations, throwing out outliers and, optionally, selecting the residuals
-from a specific camera.
+Given a calibration solve, returns the residuals of chessboard observations,
+throwing out outliers and, optionally, selecting the residuals from a specific
+camera.
 
 ARGUMENTS
 
@@ -1228,7 +1228,8 @@ ARGUMENTS
 RETURNED VALUES
 
 Numpy array of shape (N,2) of all the residuals. N is the number of pixel
-observations remaining after outliers and and other cameras are thrown out
+observations remaining after outliers and other cameras are thrown out
+
     '''
 
     if residuals is None:
