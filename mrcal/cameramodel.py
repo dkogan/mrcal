@@ -29,7 +29,6 @@ import ast
 import re
 import warnings
 import io
-import copy
 import base64
 
 import mrcal
@@ -702,12 +701,25 @@ ARGUMENTS
                 raise Exception("'file_or_model' specified, so none of the other inputs should be")
 
             if isinstance(file_or_model, cameramodel):
-                self._imagersize                 = copy.deepcopy(file_or_model._imagersize)
-                self._extrinsics                 = copy.deepcopy(file_or_model._extrinsics)
-                self._intrinsics                 = copy.deepcopy(file_or_model._intrinsics)
-                self._valid_intrinsics_region    = copy.deepcopy(mrcal.close_contour(file_or_model._valid_intrinsics_region))
-                self._optimization_inputs_string = copy.deepcopy(file_or_model._optimization_inputs_string)
-                self._icam_intrinsics            = copy.deepcopy(file_or_model._icam_intrinsics)
+                self._imagersize = np.array(file_or_model._imagersize, dtype=int)
+                self._extrinsics = np.array(file_or_model._extrinsics, dtype=float)
+                self._intrinsics = (str(file_or_model._intrinsics[0]),
+                                    np.array(file_or_model._intrinsics[1], dtype=float))
+                if file_or_model._valid_intrinsics_region is not None:
+                    self._valid_intrinsics_region = np.array(mrcal.close_contour(file_or_model._valid_intrinsics_region),
+                                                             dtype=float)
+                else:
+                    self._valid_intrinsics_region = None
+
+                if file_or_model._optimization_inputs_string is not None:
+                    self._optimization_inputs_string = str(file_or_model._optimization_inputs_string)
+                else:
+                    self._optimization_inputs_string = None
+
+                if file_or_model._icam_intrinsics is not None:
+                    self._icam_intrinsics = int(file_or_model._icam_intrinsics)
+                else:
+                    self._icam_intrinsics = None
                 return
 
             if type(file_or_model) is str:
@@ -973,7 +985,8 @@ tuple where
            intrinsics          is None and \
            optimization_inputs is None and \
            icam_intrinsics     is None:
-            return copy.deepcopy(self._intrinsics)
+            return (str(self._intrinsics[0]),
+                    np.array(self._intrinsics[1], dtype=float))
 
 
         # This is a setter. The rest of this function does all that work
@@ -983,8 +996,9 @@ tuple where
                             optimization_inputs,
                             icam_intrinsics)
 
-        self._imagersize = copy.deepcopy(imagersize)
-        self._intrinsics = copy.deepcopy(intrinsics)
+        self._imagersize = np.array(imagersize, dtype=int)
+        self._intrinsics = (str(intrinsics[0]),
+                            np.array(intrinsics[1], dtype=float))
 
         if optimization_inputs is not None:
             self._optimization_inputs_string = \
@@ -1024,16 +1038,16 @@ direction
         if rt is None:
             # getter
             if not toref:
-                return copy.deepcopy(self._extrinsics)
+                return np.array(self._extrinsics)
             return mrcal.invert_rt(self._extrinsics)
 
 
         # setter
         if not toref:
-            self._extrinsics = copy.deepcopy(rt)
+            self._extrinsics = np.array(rt, dtype=float)
             return True
 
-        self._extrinsics = mrcal.invert_rt(rt)
+        self._extrinsics = mrcal.invert_rt(rt.astype(float))
         return True
 
 
@@ -1140,11 +1154,11 @@ The rt transformation FROM the reference coordinate system.
 
         # setter
         if toref:
-            Rt_fromref = mrcal.invert_Rt(Rt)
+            Rt_fromref = mrcal.invert_Rt(Rt.astype(float))
             self._extrinsics = mrcal.rt_from_Rt(Rt_fromref)
             return True
 
-        self._extrinsics = mrcal.rt_from_Rt(Rt)
+        self._extrinsics = mrcal.rt_from_Rt(Rt.astype(float))
         return True
 
 
@@ -1239,7 +1253,7 @@ A length-2 tuple (width,height)
         if len(args) or len(kwargs):
             raise Exception("imagersize() is NOT a setter. Please use intrinsics() to set them all together")
 
-        return copy.deepcopy(self._imagersize)
+        return np.array(self._imagersize, dtype=int)
 
 
     def valid_intrinsics_region(self, valid_intrinsics_region=None):
@@ -1276,14 +1290,20 @@ If this is a getter (no arguments given), returns a numpy array of shape
         '''
         if valid_intrinsics_region is None:
             # getter
-            return copy.deepcopy(self._valid_intrinsics_region)
+            if self._valid_intrinsics_region is None:
+                return None
+            return np.array(self._valid_intrinsics_region, dtype=float)
 
         # setter
+        if valid_intrinsics_region is None:
+            self._valid_intrinsics_region = None
+            return True
+
         valid_intrinsics_region = mrcal.close_contour(valid_intrinsics_region)
 
         # raises exception on error
         _validateValidIntrinsicsRegion(valid_intrinsics_region)
-        self._valid_intrinsics_region = copy.deepcopy(valid_intrinsics_region)
+        self._valid_intrinsics_region = np.array(valid_intrinsics_region, dtype=float)
         return True
 
 
