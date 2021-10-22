@@ -53,7 +53,7 @@ Given a model, we can compute its [[file:uncertainty.org][projection uncertainti
 model, we can [[file:differencing.org][compare their projection behaviors]].
 
 If we have a calibrated pair of cameras, we can generate a depth map with [[file:stereo.org][dense
-stereo processing.]] Or we can compute sparse ranges by calling a [[file:triangulation.org][triangulation
+stereo processing]]. Or we can compute sparse ranges by calling a [[file:triangulation.org][triangulation
 routine]].
 
 ** Interfaces

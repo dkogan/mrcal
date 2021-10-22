@@ -13,10 +13,12 @@
 
 A very common thing to want to do with a calibrated camera system is to convert
 a pair of pixel observations to a point in space that produced these
-observations, a process known as [[https://en.wikipedia.org/wiki/Triangulation_(computer_vision)][triangulation]] (or [[file:stereo.org][stereo vision]], which is an
-efficient formulation of the same). This can be sensitive to noise, creating a
-strong need for proper error modeling and propagation. This describes the logic
-behind the [[file:mrcal-triangulate.html][=mrcal-triangulate=]] tool and the [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]] Python routine.
+observations, a process known as [[https://en.wikipedia.org/wiki/Triangulation_(computer_vision)][triangulation]]. mrcal supports both sparse
+triangulation (processing a small number of discrete pixel observations) and
+dense triangulation (processing every pixel in a pair of images; [[file:stereo.org][stereo vision]]).
+This can be sensitive to noise, creating a strong need for proper error modeling
+and propagation. This describes the logic behind the [[file:mrcal-triangulate.html][=mrcal-triangulate=]] tool
+and the [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]] Python routine.
 
 * Overview
 Let's say we have an idealized geometry:
@@ -31,7 +33,7 @@ observations we can compute the range to the point. Basic geometry tells us that
 
 When looking far away, straight ahead, we have $\theta \approx 0$ and $\phi \approx 90^\circ$, so
 
-\[ r \propto \frac{b}{\theta}\]
+\[ r \approx \frac{b}{\theta}\]
 
 Differentiating, we get
 

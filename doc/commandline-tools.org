@@ -6,7 +6,7 @@ to write any code. The available tools, with links to their manpages:
 * Calibration
 - [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]]: Calibrate N cameras. This is the main tool to solve
   "calibration" problems, and a [[file:how-to-calibrate.org][how-to page]] describes this specific use case.
-- [[file:mrcal-cull-corners.html][=mrcal-cull-corners=]]: Filters a corners.vnl on stdin to cut out some points.
+- [[file:mrcal-cull-corners.html][=mrcal-cull-corners=]]: Filters a =corners.vnl= on stdin to cut out some points.
   Used primarily for testing
 
 * Visualization
@@ -28,17 +28,17 @@ to write any code. The available tools, with links to their manpages:
 - [[file:mrcal-show-residuals.html][=mrcal-show-residuals=]]: visualize calibration residuals in an imager
 
 * Camera model manipulation
+- [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]: Fits the behavior of one lens model to another
+- [[file:mrcal-graft-models.html][=mrcal-graft-models=]]: Combines the intrinsics of one cameramodel with the
+  extrinsics of another
 - [[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]]: Converts a model stored in the native =.cameramodel= file
   format to the =.cahvor= format. This exists for compatibility only, and does
   not touch the data: any lens model may be used
 - [[file:mrcal-to-cameramodel.html][=mrcal-to-cameramodel=]]: Converts a model stored in the =.cahvor= file format
   to the =.cameramodel= format. This exists for compatibility only, and does not
   touch the data: any lens model may be used
-- [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]: Fits the behavior of one lens model to another
-- [[file:mrcal-graft-models.html][=mrcal-graft-models=]]: Combines the intrinsics of one cameramodel with the
-  extrinsics of another
 
-* Image and point reprojection
+* Reprojection
 - [[file:mrcal-reproject-image.html][=mrcal-reproject-image=]]: Given image(s) and lens model(s), produces a new set
   of images that observe the same scene with a different model. Several flavors
   of functionality are included here, such as undistortion-to-pinhole,
@@ -52,10 +52,10 @@ to write any code. The available tools, with links to their manpages:
   the valid-intrinsics region
 
 * Stereo and triangulation
-- [[file:mrcal-stereo.html][=mrcal-stereo=]]: Given pairs of images captured by a given pair of camera
-  models, runs stereo matching to produce disparity and range images.
-- [[file:mrcal-triangulate.html][=mrcal-triangulate=]]: Given a pair of images captured by a given pair of camera
-  models, reports the range to a queried feature and its sensitivities to all
-  the inputs. Very useful in diagnosing accuracy issues in the intrinsics and
-  extrinsics.
-
+- [[file:mrcal-stereo.html][=mrcal-stereo=]]: Dense stereo processing. Given pairs of images captured by a
+  given pair of camera models, runs stereo matching to produce disparity and
+  range images.
+- [[file:mrcal-triangulate.html][=mrcal-triangulate=]]: Sparse stereo processing. Given a pair of images captured
+  by a given pair of camera models, reports the range to a queried feature and
+  its sensitivities to all the inputs. Very useful in diagnosing accuracy issues
+  in the intrinsics and extrinsics.
