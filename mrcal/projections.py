@@ -336,23 +336,24 @@ if get_gradients: we return a tuple:
             return v
 
         # We need to report gradients
-        v = mrcal._mrcal_npsp._unproject(q, intrinsics_data, lensmodel=lensmodel)
+        vs = mrcal._mrcal_npsp._unproject(q, intrinsics_data, lensmodel=lensmodel)
 
         # I have no gradients available for unproject(), and I need to invert a
         # non-square matrix to use the gradients from project(). I deal with this
         # with a stereographic mapping
         #
         # With a simple unprojection I have    q -> v
-        # Instead I now do                     q -> v -> u -> v
+        # Instead I now do                     q -> vs -> u -> v
 
-        # I reproject v, to produce a scaled one that is described by the
-        # du/dv and dv/du gradients
-        u = mrcal.project_stereographic(v)
-        dv_du = np.zeros( v.shape + (2,), dtype=float)
+        # I reproject vs, to produce a scaled v = k*vs. I'm assuming all
+        # projections are central, so vs represents q just as well as v does. u
+        # is a 2-vector, so dq_du is (2x2), and I can invert it
+        u = mrcal.project_stereographic(vs)
+        dv_du = np.zeros( vs.shape + (2,), dtype=float)
         v, dv_du = \
             mrcal.unproject_stereographic(u,
                                           get_gradients = True,
-                                          out = (v if out is None else out[0],
+                                          out = (vs if out is None else out[0],
                                                  dv_du))
 
         _,dq_dv,dq_di = mrcal.project(v,
@@ -365,7 +366,8 @@ if get_gradients: we return a tuple:
         # dv/dq = dv/du du/dq =
         #       = dv/du inv(dq/du)
         #       = transpose(inv(transpose(dq/du)) transpose(dv/du))
-        dv_dq = nps.transpose(np.linalg.solve( nps.transpose(dq_du), nps.transpose(dv_du) ))
+        dv_dq = nps.transpose(np.linalg.solve( nps.transpose(dq_du),
+                                               nps.transpose(dv_du) ))
         if out is not None:
             out[1] *= 0.
             out[1] += dv_dq
