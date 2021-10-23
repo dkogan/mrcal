@@ -1924,17 +1924,17 @@ A tuple:
 
 
 def show_splined_model_correction(model,
-                                   vectorfield             = False,
-                                   xy                      = None,
-                                   imager_domain           = False,
-                                   vectorscale             = 1.0,
-                                   valid_intrinsics_region = True,
-                                   observations            = False,
-                                   gridn_width             = 60,
-                                   gridn_height            = None,
-                                   extratitle              = None,
-                                   return_plot_args        = False,
-                                   **kwargs):
+                                  vectorfield             = False,
+                                  xy                      = None,
+                                  imager_domain           = False,
+                                  vectorscale             = 1.0,
+                                  valid_intrinsics_region = True,
+                                  observations            = False,
+                                  gridn_width             = 60,
+                                  gridn_height            = None,
+                                  extratitle              = None,
+                                  return_plot_args        = False,
+                                  **kwargs):
 
     r'''Visualize the projection corrections defined by a splined model
 
