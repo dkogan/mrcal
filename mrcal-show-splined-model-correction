@@ -5,25 +5,75 @@ r'''Visualizes the surface represented in a splined lens model
 SYNOPSIS
 
   $ mrcal-show-splined-model-correction cam.cameramodel
-  ... a plot pops up showing the surface
+  ... a plot pops up showing the correction magnitude heatmap
 
-Splined models are described at
+Splined models are parametrized by flexible surfaces that define the projection
+corrections (off some baseline model), and visualizing these corrections is
+useful for understanding the projection behavior. Details of these models are
+described in the documentation:
 
   http://mrcal.secretsauce.net/lensmodels.html#splined-stereographic-lens-model
 
-Splined models are built with a splined surface that we index to compute the
-projection. The meaning of what indexes the surface and the values of the
-surface varies by model, but in all cases, visualizing the surface is useful.
+At this time LENSMODEL_SPLINED_STEREOGRAPHIC is the only splined model mrcal
+has, so the baseline model is always LENSMODEL_STEREOGRAPHIC.
 
-This tool can produce a plot in the imager domain or in the spline index domain
-(normalized stereographic coordinates, usually). Both are useful. We plot in the
-spline index domain by default; pass --imager-domain to make the other choice.
+This tool produces a plot in the domain either of the input or the output of the
+spline functions.
 
-One use for this tool is to check that the field-of-view we're using for this
-model is reasonable. We'd like the field of view to be wide-enough to cover the
-whole imager, but not much wider, since representing invisible areas isn't
-useful. Ideally the surface domain boundary (that this tool displays) is just
-wider than the imager edges (which this tool also displays).
+By default:
+    The plot is presented based on the spline index. With
+    LENSMODEL_SPLINED_STEREOGRAPHIC, this is the stereographic projection u.
+    This is the "forward" direction, what the projection operation actually
+    computes. In this view the knots form a regular grid, and the edge of the
+    imager forms a (possibly very irregular) curve
+
+if --imager-domain:
+    The plot is presented based on the pixels in the imager. This is the
+    backward direction: the domain is the OUTPUT of the splined functions. In
+    this view the knot layout is (possibly highly) irregular. The edge of the
+    imager is a perfect rectangle.
+
+Separate from the domain, the data can be presented in 3 different ways:
+
+- Magnitude heatmap. This is the default. We plot mag(deltauxy). This displays
+  the deviation from the baseline model as a heat map.
+
+- Individual heatmap. Selected by passing an "xy" argument. We plot deltaux or
+  deltauy, depending on the value of xy. This displays the value of one of the
+  two splined surfaces individually, as a heat map.
+
+- Vector field. Selected by --vectorfield. Displays the correction (deltaux,
+  deltauy) as a vector field.
+
+The splined surfaces are defined by control points we call "knots". These knots
+are arranged in a fixed grid (defined by the model configuration) with the value
+at each knot set in the intrinsics vector.
+
+The configuration selects the control point density and the expected field of
+view of the lens. If the fov_x_deg configuration value is too big, many of the
+knots will lie well outside the visible area, and will not be used. This is
+wasteful. If fov_x_deg is too small, then some parts of the imager will lie
+outside of the spline-in-bounds region, resulting in less-flexible projection
+behavior at the edges of the imager. So the field of view should roughly match
+the actual lens+camera we're using, and we can evaluate that with this tool.
+This tool displays the spline-in-bounds region together with the usable
+projection region (either the valid-intrinsics region or the imager bounds).
+Ideally, the spline-in-bounds region is slightly bigger than the usable
+projection region.
+
+The usable projection region visualized by this tool is controlled by
+--show-imager-bounds. If omitted, we display the valid-intrinsics region. This
+is recommended, but keep in mind that this region is smaller than the full
+imager, so a fov_x_deg that aligns well for one calibration may be too small in
+a subsequent calibration of the same lens. If the subsequent calibration has
+better coverage, and thus a bigger valid-intrinsics region. If
+--show-imager-bounds: we use the imager bounds instead. The issue here is that
+the projection near the edges of the imager is usually poorly-defined because
+usually there isn't a lot of calibration data there. This makes the projection
+behavior at the imager edges unknowable. Consequently, plotting the projection
+at the imager edges is usually too alarming or not alarming enough. Passing
+--show-imager-bounds is thus recommended only if we have very good calibration
+coverage at the edge of the imager.
 
 '''
 
