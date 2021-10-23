@@ -2158,8 +2158,7 @@ plot
     plot_options = dict(kwargs,
                         square  = True,
                         yinv    = True,
-                        ascii   = True,
-                        zlabel   = f"Deltau{xy} (unitless)")
+                        ascii   = True)
 
     if imager_domain:
         plot_options['xlabel'] = 'X pixel coord'
@@ -2169,6 +2168,9 @@ plot
         plot_options['ylabel'] = 'Stereographic uy'
 
     if not vectorfield:
+        gp.add_plot_option(plot_options,
+                           _set =  'cblabel "u correction (unitless)"')
+
         surface_curveoptions = dict( _with     = 'image',
                                      tuplesize = 3 )
         if imager_domain:
