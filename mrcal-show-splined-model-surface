@@ -39,13 +39,17 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
+    parser.add_argument('--gridn',
+                        type=int,
+                        default = (60,40),
+                        nargs = 2,
+                        help='''The density of the plotted grid. By default we
+                        use a 60x40 grid''')
+
     parser.add_argument('--vectorfield',
                         action = 'store_true',
-                        default = False,
-                        help='''Display the spline correction as a vector field
-                        instead of as a heat map of the deltaux or deltauy
-                        components. if --vectorfield: the 'xy' argument is
-                        ignored, and --imager-domain is not allowed''')
+                        help='''Display the spline correction as a vector field.
+                        if --vectorfield: the 'xy' argument MUST be omitted''')
 
     parser.add_argument('--vectorscale',
                         type = float,
@@ -78,7 +82,7 @@ def parse_args():
                         help='''By default, this produces a visualization in the domain of the spline-index
                         (normalized stereographic coordinates). Sometimes it's
                         more informative to look at the imager domain instead,
-                        by passing this option. Exclusive with --vectorfield''')
+                        by passing this option''')
     parser.add_argument('--show-imager-bounds',
                         action='store_true',
                         help='''By default we communicate the usable projection
@@ -100,16 +104,13 @@ def parse_args():
 
     parser.add_argument('xy',
                         choices = ('x','y'),
-                        default = 'x',
                         nargs   = '?',
                         help='''Optional 'x' or 'y': which surface we're looking
-                        at. Ignored if --vectorfield''')
+                        at. MUST be omitted if --vectorfield. If omitted and not
+                        --vectorfield: we plot the magnitude of the
+                        (deltaux,deltauy) corretion vector''')
 
     args = parser.parse_args()
-
-    if args.vectorfield and args.imager_domain:
-        print("--vectorfield and --imager-domain are mutually exclusive", file=sys.stderr)
-        sys.exit(1)
 
     return args
 
@@ -152,16 +153,23 @@ if args.set is not None:
 if args.unset is not None:
     plotkwargs['unset'] = args.unset
 
-plot = mrcal.show_splined_model_surface(model, args.xy,
-                                        imager_domain           = args.imager_domain,
-                                        vectorfield             = args.vectorfield,
-                                        vectorscale             = args.vectorscale,
-                                        valid_intrinsics_region = not args.show_imager_bounds,
-                                        observations            = args.observations,
-                                        extratitle              = args.extratitle,
-                                        hardcopy                = args.hardcopy,
-                                        terminal                = args.terminal,
-                                        **plotkwargs)
+try:
+    plot = mrcal.show_splined_model_surface(model,
+                                            vectorfield             = args.vectorfield,
+                                            xy                      = args.xy,
+                                            imager_domain           = args.imager_domain,
+                                            gridn_width             = args.gridn[0],
+                                            gridn_height            = args.gridn[1],
+                                            vectorscale             = args.vectorscale,
+                                            valid_intrinsics_region = not args.show_imager_bounds,
+                                            observations            = args.observations,
+                                            extratitle              = args.extratitle,
+                                            hardcopy                = args.hardcopy,
+                                            terminal                = args.terminal,
+                                            **plotkwargs)
+except Exception as e:
+    print(f"Error: {e}", file=sys.stderr)
+    sys.exit(1)
 
 if args.hardcopy is None:
     plot.wait()
