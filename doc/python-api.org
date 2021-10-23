@@ -19,6 +19,7 @@ Functions to manipulate [[file:conventions.org::#pose-representation][rotations 
 - [[file:mrcal-python-api-reference.html#-R_from_r][=mrcal.R_from_r()=]]: Compute a rotation matrix from a Rodrigues vector
 - [[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]]: Compute an rt transformation from a Rt transformation
 - [[file:mrcal-python-api-reference.html#-Rt_from_rt][=mrcal.Rt_from_rt()=]]: Compute an Rt transformation from a rt transformation
+- [[file:mrcal-python-api-reference.html#-invert_R][=mrcal.invert_R()=]]: Invert an (3,3) matrix rotation. This is a transpose
 - [[file:mrcal-python-api-reference.html#-invert_Rt][=mrcal.invert_Rt()=]]: Invert an Rt transformation
 - [[file:mrcal-python-api-reference.html#-invert_rt][=mrcal.invert_rt()=]]: Invert an rt transformation
 - [[file:mrcal-python-api-reference.html#-compose_Rt][=mrcal.compose_Rt()=]]: Compose Rt transformations
@@ -111,9 +112,13 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 - [[file:mrcal-python-api-reference.html#-is_within_valid_intrinsics_region][=mrcal.is_within_valid_intrinsics_region()=]]: Which of the pixel coordinates fall within the valid-intrinsics region?
 
 * Stereo, triangulation, feature-matching
-- [[file:mrcal-python-api-reference.html#-stereo_rectify_prepare][=mrcal.stereo_rectify_prepare()=]]: Precompute everything needed for stereo rectification and matching
-- [[file:mrcal-python-api-reference.html#-stereo_unproject][=mrcal.stereo_unproject()=]]: Unprojection in the rectified stereo system
+- [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]]: Generate rectified stereo models, which we can use
+  to rectify images for stereo matching
+- [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]]: Construct pixel mappings to transform captured
+  images into rectified images
 - [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]]: Compute ranges from observed disparities
+- [[file:mrcal-python-api-reference.html#-match_feature][=mrcal.match_feature()=]]: Find a pixel correspondence in a pair of images
+- [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]]: Triangulate N points with uncertainty propagation
 - [[file:mrcal-python-api-reference.html#-triangulate_geometric][=mrcal.triangulate_geometric()=]]: Simple geometric triangulation
 - [[file:mrcal-python-api-reference.html#-triangulate_lindstrom][=mrcal.triangulate_lindstrom()=]]: Triangulation minimizing the 2-norm of pinhole reprojection errors
 - [[file:mrcal-python-api-reference.html#-triangulate_leecivera_l1][=mrcal.triangulate_leecivera_l1()=]]: Triangulation minimizing the L1-norm of angle differences
@@ -124,7 +129,6 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
   inverse-depth-weighted alternative midpoint method. Recommended in favor of
   [[file:mrcal-python-api-reference.html#-triangulate_leecivera_mid2][=mrcal.triangulate_leecivera_mid2()=]] if we're looking at objects very close to
   either camera.
-- [[file:mrcal-python-api-reference.html#-match_feature][=mrcal.match_feature()=]]: Find a pixel correspondence in a pair of images
 
 * Synthetic data
 - [[file:mrcal-python-api-reference.html#-ref_calibration_object][=mrcal.ref_calibration_object()=]]: Return the geometry of the calibration object
