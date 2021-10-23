@@ -704,7 +704,7 @@ Potential things to look at:
     show_residuals_regional(       icam)
     show_distortion_off_pinhole(   icam, vectorfield=False)
     show_distortion_off_pinhole_radial(icam)
-    show_splined_model_correction(icam, xy)
+    show_splined_model_correction(icam)
     stats
     i_observations_sorted_from_worst
     rms_residual_perobservation
