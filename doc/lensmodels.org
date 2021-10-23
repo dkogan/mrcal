@@ -452,7 +452,7 @@ spline beyond the knots, since those regions in space are out-of-view of the
 lens. =fov_x_deg= should be large enough to cover the field of view, but not so
 wide to waste knots representing invisible space. It is recommended to estimate
 this from the datasheet of the lens, and then to run a calibration. The
-[[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface=]] tool can then be used to compare the
+[[file:mrcal-show-splined-model-correction.html][=mrcal-show-splined-model-correction=]] tool can then be used to compare the
 valid-intrinsics region (area with sufficient calibration data) against the
 bounds of the spline-in-bounds region.
 
@@ -530,7 +530,7 @@ the edges quite often no data is available, so the behavior is driven by
 This produces very alarming-looking spline surfaces, but it's not /really/ a
 problem: we get aphysical behavior in areas where we don't have data, so we have
 no expectations of reliable projections there. The
-[[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface= tool]] visualizes either the bounds of the
+[[file:mrcal-show-splined-model-correction.html][=mrcal-show-splined-model-correction= tool]] visualizes either the bounds of the
 valid-intrinsics region or the bounds of the imager. In many cases we have no
 calibration data near the imager edges, so the spline is determined by
 [[#splined-model-regularization][regularization]] in that area, and we get odd-looking knot layouts and imager

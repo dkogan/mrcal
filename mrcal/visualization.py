@@ -1923,18 +1923,18 @@ A tuple:
     return (data_tuples, plot_options)
 
 
-def show_splined_model_surface(model,
-                               vectorfield             = False,
-                               xy                      = None,
-                               imager_domain           = False,
-                               vectorscale             = 1.0,
-                               valid_intrinsics_region = True,
-                               observations            = False,
-                               gridn_width             = 60,
-                               gridn_height            = None,
-                               extratitle              = None,
-                               return_plot_args        = False,
-                               **kwargs):
+def show_splined_model_correction(model,
+                                   vectorfield             = False,
+                                   xy                      = None,
+                                   imager_domain           = False,
+                                   vectorscale             = 1.0,
+                                   valid_intrinsics_region = True,
+                                   observations            = False,
+                                   gridn_width             = 60,
+                                   gridn_height            = None,
+                                   extratitle              = None,
+                                   return_plot_args        = False,
+                                   **kwargs):
 
     r'''Visualize the projection corrections defined by a splined model
 
@@ -1942,7 +1942,7 @@ SYNOPSIS
 
     model = mrcal.cameramodel(model_filename)
 
-    mrcal.show_splined_model_surface(model)
+    mrcal.show_splined_model_correction(model)
 
     # A plot pops up displaying the spline knots, the magnitude of the
     # corrections defined by the spline surfaces, the spline-in-bounds

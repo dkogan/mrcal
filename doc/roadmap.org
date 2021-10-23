@@ -15,8 +15,9 @@ LENSMODEL_STEREOGRAPHIC instead of LENSMODEL_PINHOLE. This doesn't really work
 since cv2.solvePnP requires a reprojection to pinhole anyway, but eventually it
 will work
 
-show_splined_model_surface and the cmdline tool apis: valid-intrinsics-region,
-and flipped the imager-domain default
+show_splined_model_correction and the cmdline tool apis:
+valid-intrinsics-region, and flipped the imager-domain default. can plot xy
+magnitude (xy optional). renamed tool, function
 
 
 triangulation.cc,h
@@ -31,7 +32,7 @@ python: triangulate, match-feature
 show_residuals_observation{,_worst} -> show_residuals_board_observation{,_worst}
 
 
-show_splined_model_surface(), mrcal-show-splined-model-surface take optional xy'
+show_splined_model_correction(), mrcal-show-splined-model-correction take optional xy'
 because usually you just want to look at the knot layout, which is the same for
 x and y
 
@@ -109,7 +110,7 @@ projection_diff, show_projection_diff, mrcal-show-projection-diff and
 mrcal-graft-models have more consistent, better arguments. At the expense of the
 API breaking
 
-show_splined_model_surface and mrcal-show-splined-model-surface can display a
+show_splined_model_correction and mrcal-show-splined-model-correction can display a
 vector field
 
 Improved splined model regularization to reduce curl

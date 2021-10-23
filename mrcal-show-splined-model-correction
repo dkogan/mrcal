@@ -4,7 +4,7 @@ r'''Visualizes the surface represented in a splined lens model
 
 SYNOPSIS
 
-  $ mrcal-show-splined-model-surface cam.cameramodel
+  $ mrcal-show-splined-model-correction cam.cameramodel
   ... a plot pops up showing the surface
 
 Splined models are described at
@@ -154,19 +154,19 @@ if args.unset is not None:
     plotkwargs['unset'] = args.unset
 
 try:
-    plot = mrcal.show_splined_model_surface(model,
-                                            vectorfield             = args.vectorfield,
-                                            xy                      = args.xy,
-                                            imager_domain           = args.imager_domain,
-                                            gridn_width             = args.gridn[0],
-                                            gridn_height            = args.gridn[1],
-                                            vectorscale             = args.vectorscale,
-                                            valid_intrinsics_region = not args.show_imager_bounds,
-                                            observations            = args.observations,
-                                            extratitle              = args.extratitle,
-                                            hardcopy                = args.hardcopy,
-                                            terminal                = args.terminal,
-                                            **plotkwargs)
+    plot = mrcal.show_splined_model_correction(model,
+                                                vectorfield             = args.vectorfield,
+                                                xy                      = args.xy,
+                                                imager_domain           = args.imager_domain,
+                                                gridn_width             = args.gridn[0],
+                                                gridn_height            = args.gridn[1],
+                                                vectorscale             = args.vectorscale,
+                                                valid_intrinsics_region = not args.show_imager_bounds,
+                                                observations            = args.observations,
+                                                extratitle              = args.extratitle,
+                                                hardcopy                = args.hardcopy,
+                                                terminal                = args.terminal,
+                                                **plotkwargs)
 except Exception as e:
     print(f"Error: {e}", file=sys.stderr)
     sys.exit(1)

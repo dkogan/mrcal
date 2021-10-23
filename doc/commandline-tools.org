@@ -21,8 +21,8 @@ to write any code. The available tools, with links to their manpages:
   observations used to compute that geometry
 - [[file:mrcal-show-distortion-off-pinhole.html][=mrcal-show-distortion-off-pinhole=]]: visualize the deviation of a specific
   lens model from a pinhole model
-- [[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface=]]: visualize the surface and knots used in
-  the specification of splined models
+- [[file:mrcal-show-splined-model-correction.html][=mrcal-show-splined-model-correction=]]: visualize the projection corrections
+  defined by a splined model
 - [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]]: visualize calibration residuals for
   one or more observations of a board
 - [[file:mrcal-show-residuals.html][=mrcal-show-residuals=]]: visualize calibration residuals in an imager
