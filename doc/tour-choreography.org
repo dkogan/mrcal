@@ -1,0 +1,202 @@
+* Optimal choreography
+:PROPERTIES:
+:CUSTOM_ID: choreography
+:END:
+
+Now that we know how to measure calibration quality and what to look for, we can
+run some studies to figure out what makes a good chessboard dance. These are all
+computed by the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/dancing/dance-study.py][=analyses/dancing/dance-study.py=]] tool. It generates synthetic
+data, scans a parameter, and produces the uncertainty-vs-range curves at the
+imager center to visualize the effect of that parameter.
+
+I run all of these studies using the =LENSMODEL_OPENCV8= model computed above. It computes
+faster than the splined model, and qualitatively produces the similar results.
+
+How many chessboard observations should we get?
+
+#+begin_src sh
+dance-study.py --scan Nframes --Ncameras 1 --Nframes 20,200 --range 0.5 \
+               --observed-pixel-uncertainty 2 --ymax 1 \
+               opencv8.cameramodel
+#+end_src
+
+[[file:external/figures/dance-study/dance-study-scan-Nframes.svg]]
+
+Here I'm running a monocular solve that looks at chessboards ~ 0.5m away,
+scanning the frame count from 20 to 200.
+
+The horizontal dashed line is the uncertainty of the input noise observations.
+Looks like we can usually do much better than that. The vertical dashed line is
+the mean distance where we observed the chessboards. Looks like the sweet spot
+is a bit past that.
+
+And it looks like more observations is always better, but we reach the point of
+diminishing returns at ~ 100 frames.
+
+OK. How close should the chessboards be?
+
+#+begin_src sh
+dance-study.py --scan range --Ncameras 1 --Nframes 100 --range 0.4,10 \
+               --observed-pixel-uncertainty 2 \
+               opencv8.cameramodel
+#+end_src
+
+[[file:external/figures/dance-study/dance-study-scan-range.svg]]
+
+This effect is /dramatic/: we want closeups. Anything else is a waste of time.
+Here we have two vertical dashed lines, indicating the minimum and maximum
+ranges I'm scanning. And we can see, the the sweet spot for each trial moves
+further back as we move the chessboards back.
+
+Alrighty. Should the chessboards be shown head-on, or should they be tilted?
+
+#+begin_src sh
+dance-study.py --scan tilt_radius --tilt-radius 0,80 --Ncameras 1 --Nframes 100 \
+               --range 0.5 \
+               --observed-pixel-uncertainty 2 --ymax 2 --uncertainty-at-range-sampled-max 5 \
+               opencv8.cameramodel
+#+end_src
+
+[[file:external/figures/dance-study/dance-study-scan-tilt_radius.svg]]
+
+The head-on views (tilt = 0) produce quite poor results. And we get more and
+more confidence with more board tilt, with diminishing returns at about 45
+degrees.
+
+We now know that we want closeups and we want tilted views. This makes intuitive
+sense: a tilted close-up view is the best-possible view to tell the solver
+whether the size of the observed chessboard is caused by the focal length of the
+lens or by the distance of the observation to the camera. The worst-possible
+observations for this are head-on far-away views. Given such observations,
+moving the board forward/backward and changing the focal length have a very
+similar effect on the observed pixels.
+
+Also this clearly tells us that /chessboards/ are the way to go, and a
+calibration object that contains a grid of circles will work badly. Circle grids
+work either by finding the centroid of each circle "blob" or by fitting a curve
+to the circle edge to infer the location of the center. A circle viewed from a
+tilted closeup will appear lopsided, so we have a choice of suffering a bias
+from imprecise circle detections or getting poor uncertainties from insufficient
+tilt. Extra effort can be expended to improve this situation, or chessboards can
+be used.
+
+And let's do one more. Often we want to calibrate multiple cameras, and we are
+free to do one N-way calibration or N separate monocular calibrations or
+anything in-between. The former has more constraints, so presumably that would
+produce less uncertainty. How much?
+
+I'm processing the same calibration geometry, varying the number of cameras from
+1 to 8. The cameras are all in the same physical location, so they're all seeing
+the same thing (modulo the noise), but the solves have different numbers of
+parameters and constraints.
+
+#+begin_src sh
+dance-study.py --scan Ncameras --Ncameras 1,8 --camera-spacing 0 --Nframes 100 \
+               --range 0.5 --ymax 0.4 --uncertainty-at-range-sampled-max 10 \
+               --observed-pixel-uncertainty 2 \
+               opencv8.cameramodel
+#+end_src
+
+[[file:external/figures/dance-study/dance-study-scan-Ncameras.svg]]
+
+So clearly there's a benefit to more cameras. After about 4, we hit diminishing
+returns.
+
+That's great. We now know how to dance given a particular chessboard. But what
+kind of chessboard do we want? We can study that too.
+
+mrcal assumes a chessboard being a planar grid. But how many points do we want
+in this grid? And what should the grid spacing be?
+
+First, the point counts. We expect that adding more points to a chessboard of
+the same size would produce better results, since we would have strictly more
+data to work with. This expectation is correct:
+
+#+begin_src sh
+dance-study.py --scan object_width_n --range 2 --Ncameras 1 --Nframes 100 \
+               --object-width-n 5,30 \
+               --uncertainty-at-range-sampled-max 30 \
+               --observed-pixel-uncertainty 2 \
+               opencv8.cameramodel
+#+end_src
+
+[[file:external/figures/dance-study/dance-study-scan-object_width_n.svg]]
+
+Here we varied =object-width-n=, but also adjusted =object-spacing= to keep the
+chessboard size the same.
+
+What if we leave the point counts alone, but vary the spacing? As we increase
+the point spacing, the board grows in size, spanning more and more of the
+imager. We expect that this would improve the things:
+
+#+begin_src sh
+dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 \
+               --object-spacing 0.04,0.20 \
+               --observed-pixel-uncertainty 2 \
+               opencv8.cameramodel
+#+end_src
+
+[[file:external/figures/dance-study/dance-study-scan-object_spacing.svg]]
+
+And they do. At the same range, a bigger chessboard is better.
+
+Finally, what if we increase the spacing (and thus the board size), but also
+move the board back to compensate, so the apparent size of the chessboard stays
+the same? I.e. do we want a giant board faraway, or a tiny board really close
+in?
+
+#+begin_src sh
+dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 \
+               --object-spacing 0.04,0.20 \
+               --observed-pixel-uncertainty 2 --scan-object-spacing-compensate-range \
+               --ymax 20 --uncertainty-at-range-sampled-max 200 \
+               opencv8.cameramodel
+#+end_src
+
+[[file:external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.svg]]
+
+Looks like the optimal uncertainty is the same in all cases, but tracks the
+moving range. The uncertainty at infinity is better for smaller boards closer to
+the camera. This is expected: tilted closeups span a bigger set of /relative/
+ranges to the camera.
+
+Conclusions:
+
+- More frames are good
+- Closeups are /extremely/ important
+- Tilted views are good
+- A smaller number of bigger calibration problems is good
+- More chessboard corners is good, as long as the detector can find them
+  reliably
+- Tiny chessboards near the camera are better than giant far-off chessboards. As
+  long as the camera can keep the chessboards /and/ the working objects in focus
+
+[[file:figures/observation-usefulness.svg]]
+
+None of these are surprising, but it's good to see the effects directly from the
+data. And we now know /exactly/ how much value we get out of each additional
+observation or an extra little bit of board tilt or some extra chessboard
+corners.
+
+Before moving on, I should say that these are very conclusive results
+/qualitatively/. But specific recommendations about how to dance and what kind
+of board to use vary, depending on the specific kind of lens and geometry. Rerun
+these studies for your use cases, if conclusive results are needed.
+
+#+begin_src sh :exports none :eval no-export
+# how did I make all these? full commands:
+
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan Nframes        --Ncameras 1 --Nframes 20,200 --range 0.5 data/board/opencv8.cameramodel \
+               --observed-pixel-uncertainty 2 --ymax 1 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-Nframes.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan range          --Ncameras 1 --Nframes 100 --range 0.4,10 data/board/opencv8.cameramodel \
+               --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-range.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan tilt_radius    --tilt-radius 0,80 --Ncameras 1 --Nframes 100 --range 0.5 data/board/opencv8.cameramodel \
+               --observed-pixel-uncertainty 2 --ymax 2 --uncertainty-at-range-sampled-max 5 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-tilt_radius.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan Ncameras       --Ncameras 1,8 --camera-spacing 0 --Nframes 100 --range 0.5 data/board/opencv8.cameramodel \
+               --ymax 0.4 --uncertainty-at-range-sampled-max 10 --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-Ncameras.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_width_n --range 2 --Ncameras 1 --Nframes 100 --object-width-n 5,30 data/board/opencv8.cameramodel --uncertainty-at-range-sampled-max 30 --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-object_width_n.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 data/board/opencv8.cameramodel --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-object_spacing.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_spacing --scan-object-spacing-compensate-range --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 --ymax 20 --uncertainty-at-range-sampled-max 200 data/board/opencv8.cameramodel --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+#+end_src
+
+

@@ -1,0 +1,107 @@
+* The effect of range in differencing and uncertainty computations
+:PROPERTIES:
+:CUSTOM_ID: effect-of-range
+:END:
+
+Earlier I talked about model [[#differencing][differencing]] and estimation of [[#uncertainty][projection
+uncertainty]]. In both cases I glossed over one important detail that I would like
+to revisit now. A refresher:
+
+- To compute a diff, I unproject $\vec q_0$ to a point in space $\vec p$ (in
+  camera coordinates), transform it, and project that back to the other camera
+  to get $\vec q_1$
+
+- To compute an uncertainty, I unproject $\vec q_0$ to (eventually) a point in
+  space $\vec p_\mathrm{fixed}$ (in some fixed coordinate system), then project
+  it back, propagating all the uncertanties of all the quantities used to
+  compute the transformations and projection.
+
+The significant part is the specifics of "unproject $\vec q_0$". Unlike a
+projection operation, an /unprojection/ is ambiguous: given some
+camera-coordinate-system point $\vec p$ that projects to a pixel $\vec q$, we
+have $\vec q = \mathrm{project}\left(k \vec v\right)$ /for all/ $k$. So an
+unprojection gives you a direction, but no range. What that means in this case,
+is that we must choose a range of interest when computing diffs or
+uncertainties. It only makes sense to talk about a "diff when looking at points
+$r$ meters away" or "the projection uncertainty when looking out to $r$ meters".
+
+A surprising consequence of this is that while /projection/ is invariant to
+scaling ($k \vec v$ projects to the same $\vec q$ for any $k$), the uncertainty
+of this projection is /not/:
+
+[[file:figures/projection-scale-invariance.svg]]
+
+Let's look at the projection uncertainty at the center of the imager at
+different ranges for the =LENSMODEL_OPENCV8= model we computed earlier:
+
+#+begin_src sh
+mrcal-show-projection-uncertainty --vs-distance-at center \
+                                  opencv8.cameramodel --set 'yrange [0:0.3]'
+#+end_src
+#+begin_src sh :exports none :eval no-export
+~/jpl/mrcal/mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]' --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-vs-distance-at-center.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
+~/jpl/mrcal/mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.3]' --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-vs-distance-at-center.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+#+end_src
+
+[[file:external/figures/uncertainty/uncertainty-vs-distance-at-center.svg]]
+
+So the uncertainty grows without bound as we approach the camera. As we move
+away, there's a sweet spot where we have maximum confidence. And as we move
+further out still, we approach some uncertainty asymptote at infinity.
+Qualitatively this is the figure I see 100% of the time, with the position of
+the minimum and of the asymptote varying.
+
+Why is the uncertainty unbounded as we approach the camera? Because we're
+looking at the projection of a fixed point into a camera whose position is
+uncertain. As we get closer to the origin of the camera, the noise in the camera
+position dominates the projection, and the uncertainty shoots to infinity.
+
+What controls the range where we see the lowest uncertainty? The range where we
+observed the chessboards. I will prove this conclusively in the next section. It
+makes sense: the lowest uncertainty corresponds to the region where we have the
+most information.
+
+What controls the uncertainty at infinity? I don't have an intuitive answer, but
+we'll get a good sense from experiments in the next section.
+
+This is a very important effect to characterize. In many applications the range
+of observations at calibration time will vary significantly from the working
+range post-calibration. For instance, any application involving wide lenses will
+use closeup calibration images, but working images from further out. We don't
+want to compute a calibration where the calibration-time uncertainty is
+wonderful, but the working-range uncertainty is poor.
+
+I should emphasize that while unintuitive, this uncertainty-depends-on-range
+effect is very real. It isn't just something that you get out of some opaque
+equations, but it's observable in the field. Here're two real-world diffs of two
+calibrations computed from different observations made by the same camera a few
+minutes apart. Everything is the same, so I should be getting identical
+calibrations. A diff at infinity:
+
+#+begin_src sh
+mrcal-show-projection-diff --unset key camera[01].cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+~/jpl/mrcal/mrcal-show-projection-diff --unset key ~/jpl/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-l2-dance68-joint1-camera11-infinity.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+#+end_src
+
+[[file:external/figures/diff/diff-l2-dance68-joint1-camera11-infinity.png]]
+
+And again at 0.5m (close to the range to the chessboards)
+
+#+begin_src sh
+mrcal-show-projection-diff --distance 0.5 --unset key camera[01].cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+~/jpl/mrcal/mrcal-show-projection-diff --distance 0.5 --unset key ~/jpl/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-l2-dance68-joint1-camera11-0.5m.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+#+end_src
+
+[[file:external/figures/diff/diff-l2-dance68-joint1-camera11-0.5m.png]]
+
+Clearly the prediction that uncertainties are lowest at the chessboard range,
+and rise at infinity is borne out here by just looking at diffs, /without/
+computing the uncertainty curves. I didn't have to look very hard to find
+calibrations that showed this. Any calibration from suboptimal chessboard images
+(see next section) shows this effect. I didn't use the calibrations from /this/
+document because they're too good to see this clearly.
+

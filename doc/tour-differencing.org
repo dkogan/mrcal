@@ -1,0 +1,148 @@
+#+title: A tour of mrcal: differencing
+#+OPTIONS: toc:t
+
+* Differencing
+:PROPERTIES:
+:CUSTOM_ID: differencing
+:END:
+
+An overview follows; see the [[file:differencing.org][differencing page]] for details.
+
+We just used the same chessboard observations to compute the intrinsics of a
+lens in two different ways:
+
+- Using a lean =LENSMODEL_OPENCV8= lens model
+- Using a rich splined-stereographic lens model
+
+And we saw evidence that the splined model does a better job of representing
+reality. Can we quantify that? How different are the two models we computed?
+
+Let's compute the difference. Given a pixel $\vec q_0$ we can
+
+1. Unproject $\vec q_0$ to a fixed point $\vec p$ using lens 0
+2. Project $\vec p$ back to pixel coords $\vec q_1$ using lens 1
+3. Report the reprojection difference $\vec q_1 - \vec q_0$
+
+[[file:figures/diff-notransform.svg]]
+
+This is a very common thing to want to do, so mrcal provides a [[file:mrcal-show-projection-diff.html][tool]] to do it.
+Let's compare the two models:
+
+#+begin_src sh
+mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key \
+                           opencv8.cameramodel splined.cameramodel
+#+end_src
+
+#+begin_src sh :exports none :eval no-export
+mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel \
+  --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-radius0-heatmap-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+#+end_src
+
+[[file:external/figures/diff/diff-radius0-heatmap-splined-opencv8.png]]
+
+Well that's strange. The reported differences really do have units of /pixels/.
+Are the two models /that/ different? And is the best-aligned area really where
+this plot indicates? If we ask for the vector field of differences instead of a
+heat map, we get a hint about what's going on:
+
+#+begin_src sh
+mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key \
+                           --vectorfield --vectorscale 5 --gridn 30 20 \
+                           opencv8.cameramodel splined.cameramodel
+#+end_src
+
+#+begin_src sh :exports none :eval no-export
+mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel \
+  --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
+
+mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key --vectorfield --vectorscale 5 --gridn 30 20 data/board/opencv8.cameramodel data/board/splined.cameramodel \
+  --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-radius0-vectorfield-splined-opencv8.pdf  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+#+end_src
+
+[[file:external/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg]]
+
+This is a /very/ regular pattern. What does it mean?
+
+The issue is that each calibration produces noisy estimates of all the
+intrinsics and all the coordinate transformations:
+
+[[file:figures/uncertainty.svg]]
+
+The above plots projected the same $\vec p$ in the camera coordinate system, but
+that coordinate system has shifted between the two models we're comparing. So in
+the /fixed/ coordinate system attached to the camera housing, we weren't in fact
+projecting the same point.
+
+There exists some transformation between the camera coordinate system from the
+solution and the coordinate system defined by the physical camera housing. It is
+important to note that *this implied transformation is built-in to the
+intrinsics*. Even if we're not explicitly optimizing the camera pose, this
+implied transformation is still something that exists and moves around in
+response to noise. Rich models like the [[file:lensmodels.org::#splined-stereographic-lens-model][splined stereographic models]] are able to
+encode a wide range of implied transformations, but even the simplest models
+have some transform that must be compensated for.
+
+The above vector field suggests that we need to move one of the cameras up and
+to the left, and then we need to rotate that camera. We can automate this by
+adding a critical missing step to the procedure above between steps 1 and 2:
+
+- Transform $\vec p$ from the coordinate system of one camera to the coordinate
+  system of the other camera
+
+[[file:figures/diff-yestransform.svg]]
+
+But we don't know anything about the physical coordinate system of either
+camera. How can we compute this transformation? We do a fit. The "right"
+transformation will transform $\vec p$ in such a way that the reported
+mismatches in $\vec q$ will be minimized. Lots of [[file:differencing.org][details]] are glossed-over here.
+Previously we passed =--intrinsics-only= to bypass the fit. Let's leave out that
+option to get the usable diff:
+
+#+begin_src sh
+mrcal-show-projection-diff --unset key \
+                           opencv8.cameramodel splined.cameramodel
+#+end_src
+
+#+begin_src sh :exports none :eval no-export
+mrcal-show-projection-diff --unset key data/board/opencv8.cameramodel data/board/splined.cameramodel \
+  --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-splined-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+#+end_src
+
+[[file:external/figures/diff/diff-splined-opencv8.png]]
+
+/Much/ better. As expected, the two models agree relatively well in the center,
+and the error grows as we move towards the edges. If we used a leaner model,
+such as =LENSMODEL_OPENCV4=, this effect would be far more pronounced:
+
+#+begin_src sh
+mrcal-show-projection-diff --no-uncertainties \
+  --distance 1 --radius 200 \
+  --unset key --extratitle "radius 200" opencv[48].cameramodel
+#+end_src
+
+[[file:external/figures/diff/diff-radius200-opencv4-opencv8.png]]
+
+Please see the [[file:differencing.org][differencing page]] for details.
+
+This differencing method is very powerful, and has numerous applications. For
+instance:
+
+- evaluating the manufacturing variation of different lenses
+- quantifying intrinsics drift due to mechanical or thermal stresses
+- testing different solution methods
+- underlying a cross-validation scheme
+
+Many of these analyses immediately raise a question: how much of a difference do
+I expect to get from random noise, and how much is attributable to whatever I'm
+measuring?
+
+Furthermore, how do we decide which data to use for the fit of the implied
+transformation? Here I was careful to get chessboard images everywhere in the
+imager, but what if there was occlusion in the space, so I was only able to get
+images in one area? In this case we would want to use only the data in that area
+for the fit of the implied transformation (because we won't expect the data in
+other areas to fit). But what to do if we don't know where that area is?
+
+These questions can be answered conclusively by quantifying the projection
+uncertainty, so let's talk about that now.
+
