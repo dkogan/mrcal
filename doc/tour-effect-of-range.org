@@ -3,7 +3,7 @@
 :CUSTOM_ID: effect-of-range
 :END:
 
-Earlier I talked about model [[#differencing][differencing]] and estimation of [[#uncertainty][projection
+Earlier I talked about model [[file:tour-differencing.org][differencing]] and estimation of [[file:tour-uncertainty.org][projection
 uncertainty]]. In both cases I glossed over one important detail that I would like
 to revisit now. A refresher:
 

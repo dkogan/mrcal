@@ -300,7 +300,7 @@ have calibration-time noise, so the errors are correlated:
 As before, the exact pattern varies greatly depending on the lenses and the
 calibration and the geometry, but calibration-time noise always creates these
 correlations. To reduce these correlations and the biases they cause: lower the
-uncertainty of your calibrations by [[file:tour.org::#choreography][dancing better]]
+uncertainty of your calibrations by [[file:tour-choreography.org][dancing better]]
 
 * Applying these techniques
 ** Object tracking
@@ -317,7 +317,7 @@ The existing tools can be used to compute a single triangulation operation, with
 lots of diagnostics. This is very useful on its own, or to debug a bigger
 ranging system.
 
-Let's use the Downtown Los Angeles images in the [[file:tour.org::#stereo][the tour of mrcal]]. Before we
+Let's use the Downtown Los Angeles images in the [[file:tour-stereo.org][the tour of mrcal]]. Before we
 start, one important caveat: there's only one camera, which was calibrated
 monocularly. I moved this camera to capture the two images used to triangulate.
 The extrinsics were computed with a not-yet-in-mrcal tool, and mrcal cannot yet
@@ -378,7 +378,7 @@ D=../mrcal-doc-external/data/figueroa-overpass-looking-S
     2874 1231 
 #+end_src
 
-We used the splined model computed in [[file:tour.org::#stereo][the tour of mrcal]]. We gave it the range
+We used the splined model computed in [[file:tour-stereo.org][the tour of mrcal]]. We gave it the range
 estimate. And we gave it the expected observation noise level: 0.2 pixels. We
 declared the left-camera/right-camera pixel observations to be correlated with a
 factor of 0.5 on the stdev, so the relevant cross terms of the covariance are

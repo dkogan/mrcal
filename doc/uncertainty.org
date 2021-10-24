@@ -279,6 +279,6 @@ What controls the range where we see the uncertainty optimum? The range where we
 observed the chessboards. The uncertainty we asymptotically approach at infinity
 is set by the specifics of the chessboard dance.
 
-See the [[file:tour.org::#uncertainty][tour of mrcal]] for a simulation validating the approach and for some
+See the [[file:tour-uncertainty.org][tour of mrcal]] for a simulation validating the approach and for some
 empirical results.
 

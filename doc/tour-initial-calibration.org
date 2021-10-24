@@ -13,7 +13,7 @@ and humidity, so mrcal estimates the [[file:formulation.org::#board-deformation]
 solve.
 
 An important consideration when gathering calibration images is keeping them in
-focus. As we shall see [[#choreography][later]], we want to gather close-up images as much as
+focus. As we shall see [[file:tour-choreography.org][later]], we want to gather close-up images as much as
 possible, so depth-of-field is the limiting factor. Moving the focus ring or the
 aperture ring on the lens /may/ affect the intrinsics, so ideally a single lens
 setting can cover both the calibration-time closeups and the working distance
@@ -180,7 +180,7 @@ some of the residual visualizations are only available inside the REPL at this
 time.
 
 The =--observed-pixel-uncertainty= is a rough estimate of the input pixel noise,
-used primarily for the [[#uncertainty][projection uncertainty]] reporting.
+used primarily for the [[file:uncertainty.org][projection uncertainty]] reporting.
 
 Let's sanity-check the results. We want to flag down any issues with the data
 that would violate the [[file:formulation.org::#noise-model][assumptions made by the solver]].
@@ -214,7 +214,7 @@ would look more interesting with more cameras. In front of the camera (along the
 $z$ axis) we can see the solved chessboard poses. There are a whole lot of them,
 and they're all sitting right in front of the camera with some heavy tilt. This
 matches with how this chessboard dance was performed (it was performed following
-the guidelines set by the [[file:tour.org::#choreography][dance study]]).
+the guidelines set by the [[file:tour-choreography.org][dance study]]).
 
 Next, let's examine the residuals more closely. We have an overall RMS
 reprojection-error value from above, but let's look at the full distribution of

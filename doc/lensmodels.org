@@ -382,12 +382,12 @@ several significant effects.
 These models are much more capable of representing the behavior of real-world
 lenses than the lean models: at a certain level of precision the parametric
 models are always wrong. The tour of mrcal shows
-[[file:tour.org::#opencv8-model-solving][a real-world fit using
-=LENSMODEL_OPENCV8=]] and a [[file:tour.org::#splined-model-solving][a real-world fit using a splined model]], where we can
+[[file:tour-initial-calibration.org::#opencv8-model-solving][a real-world fit using
+=LENSMODEL_OPENCV8=]] and [[file:tour-initial-calibration.org::#splined-model-solving][a real-world fit using a splined model]], where we can
 clearly see that the splined model fits the data better.
 
 The higher parameter counts do result in higher reported uncertainties (see the
-[[file:tour.org::#splined-model-uncertainties][tour of mrcal]] for examples). This is a good thing: the lean models report
+[[file:tour-uncertainty.org::#splined-model-uncertainties][tour of mrcal]] for examples). This is a good thing: the lean models report
 uncertainty estimates that are low, but do not match reality. The higher
 uncertainty estimates from the splined models are truthful, however. This is
 because the [[file:uncertainty.org][uncertainty estimate algorithm]] constrains the lenses to the space
@@ -541,5 +541,5 @@ valid-intrinsics region or the bounds of the imager. In many cases we have no
 calibration data near the imager edges, so the spline is determined by
 [[#splined-model-regularization][regularization]] in that area, and we get odd-looking knot layouts and imager
 contours. A better regularization scheme or (better yet) a better representation
-would address this. See [[file:tour.org::#splined-model-solving][a tour of mrcal]] for examples.
+would address this. See [[file:tour-initial-calibration.org::#splined-model-solving][a tour of mrcal]] for examples.
 

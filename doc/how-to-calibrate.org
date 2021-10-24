@@ -37,7 +37,7 @@ such as this is never completely rigid or completely flat, so my board is backed
 with 2cm of foam. This keeps the shape stable long-enough for a chessboard
 dance.
 
-According to the [[file:tour.org::#choreography][dance study]], we want the chessboard to be as small as possible,
+According to the [[file:tour-choreography.org][dance study]], we want the chessboard to be as small as possible,
 to allow close-up views of the board that fill the imager. The limiting factor
 is the camera's depth of field: we want both the calibration-time close-up views
 and the working-range images to be in focus at the same time. If a too-small
@@ -76,7 +76,7 @@ description appear below). These errors clearly show up as distinct patterns in
 those plots.
 
 ** Dancing
-As shown in the [[file:tour.org::#choreography][dance study]], the most useful observations to gather are
+As shown in the [[file:tour-choreography.org][dance study]], the most useful observations to gather are
 
 - close-ups: the chessboard should fill the whole frame as much as possible.
   Small chessboards next to the camera are preferred to larger chessboards
@@ -105,7 +105,7 @@ produce a reliable calibration /at long ranges/, not just at the short ranges
 where the chessboards were. Close-up chessboard views are the primary data
 needed to get good uncertainties at infinity, but quite often these will produce
 images that aren't in focus if the focus ring is set to the working range
-(infinity). See the [[file:tour.org::#choreography][dance study]] for detail. Cameras meant for outdoor stereo
+(infinity). See the [[file:tour-choreography.org][dance study]] for detail. Cameras meant for outdoor stereo
 and/or wide lenses are susceptible to poor uncertainties at range even if the
 uncertainties are good closer in. In such cases, it is /strongly/ recommended to
 re-run the dance study for your particular use case to get a sense of what kind
@@ -428,7 +428,7 @@ would look more interesting with more cameras. In front of the camera (along the
 $z$ axis) we can see the solved chessboard poses. There are a whole lot of them,
 and they're all sitting right in front of the camera with some heavy tilt. This
 matches with how this chessboard dance was performed (it was performed following
-the guidelines set by the [[file:tour.org::#choreography][dance study]]).
+the guidelines set by the [[file:tour-choreography.org][dance study]]).
 
 Next, let's examine the residuals more closely. We have an overall RMS
 reprojection-error value from above, but let's look at the full distribution of
@@ -527,7 +527,7 @@ show_residuals_board_observation_worst(2, vectorscale = 100, circlescale=0.5,
 [[file:external/figures/calibration/worst-incorner-opencv8.png]]
 
 /This/ is clearly a problem that should be addressed. Using a [[file:lensmodels.org::#splined-stereographic-lens-model][splined lens model]]
-instead of =LENSMODEL_OPENCV8= makes this work, as seen in the [[file:tour.org::#splined-stereographic-fit][tour of mrcal]].
+instead of =LENSMODEL_OPENCV8= makes this work, as seen in the [[file:tour-initial-calibration.org::#splined-stereographic-fit][tour of mrcal]].
 
 Another way to visualize the systematic errors in this solve is to examine the
 residuals over all observations, color-coded by their direction, ignoring the
@@ -546,7 +546,7 @@ can clearly see lots of green in the top-right and top and left, lots of blue
 and magenta in the center, yellow at the bottom, and so on. This is not random
 noise, and is a /very/ clear indication that this lens model is not able to fit
 this data. To see what happens when a [[file:lensmodels.org::#splined-stereographic-lens-model][splined lens model]] is used for this data
-instead of =LENSMODEL_OPENCV8=, see the [[file:tour.org::#splined-stereographic-fit][tour of mrcal]].
+instead of =LENSMODEL_OPENCV8=, see the [[file:tour-initial-calibration.org::#splined-stereographic-fit][tour of mrcal]].
 
 It would be very nice to have a quantitative measure of these systematic
 patterns. At this time mrcal doesn't provide an automated way to do that.
@@ -583,7 +583,7 @@ This applies when using lean models in general: the uncertainty reports assume
 the true lens is representable with the current lens model, so the stiffness of
 the lean lens models themselves will serve to decrease the reported uncertainty.
 For instance, the same uncertainty computed off the same data, but using a
-splined model (from the [[file:tour.org::#splined-stereographic-fit][tour of mrcal]]):
+splined model (from the [[file:tour-initial-calibration.org::#splined-stereographic-fit][tour of mrcal]]):
 
 [[file:external/figures/uncertainty/uncertainty-splined.png]]
 
