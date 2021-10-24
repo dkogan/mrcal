@@ -1,11 +1,12 @@
 #+title: A tour of mrcal
 #+OPTIONS: toc:nil
 
-mrcal is a general-purpose toolkit that can solve a number of problems. The best
-way to convey a sense of the capabilities is to demonstrate some real-world
-usage scenarios. So let's go through a full calibration sequence starting with
-chessboard images, and eventually finishing with stereo processing. This page is
-a high-level overview; for more details, please see [[file:index.org][the main documentation]].
+mrcal is a general-purpose toolkit that is useful in solving a variety of
+problems. The best way to convey a sense of the capabilities is to demonstrate
+some real-world usage scenarios. So let's go through a full calibration sequence
+starting with chessboard images, and eventually finishing with stereo
+processing. This page is a high-level overview; for more details, please see [[file:index.org][the
+main documentation]].
 
 All images have been gathered with a Nikon D750 SLR. I want to stress-test the
 system, so I'm using the widest lens I can find: a Samyang 12mm F2.8 fisheye
@@ -16,16 +17,11 @@ In these demos I'm using only one camera, so I'm going to run a /monocular/
 calibration to compute the intrinsics (the lens parameters). mrcal is fully able
 to calibrate any N cameras at a time, I'm just using the one camera /here/.
 
-[[file:tour-initial-calibration.org][initial calibration page]]
+The tour is split over a number of pages:
 
-* Differencing
-[[file:tour-differencing.org][page]]
-
-* Projection uncertainty
-[[file:tour-uncertainty.org][page]]
-
-* The effect of range in differencing and uncertainty computations
-[[file:tour-effect-of-range.org][page]]
-
-* Optimal choreography
-[[file:tour-choreography.org][page]]
+1. [[file:tour-initial-calibration.org][We gather calibration images, and perform some initial calibrations]]
+2. [[file:tour-differencing.org][We compare the resulting models]]
+3. [[file:tour-uncertainty.org][We compute the projection uncertainties of the models]]
+4. [[file:tour-effect-of-range.org][We discuss the effect of range in differencing and uncertainty computations]]
+5. [[file:tour-choreography.org][We find the best chessboard-dancing technique]]
+6. [[file:tour-stereo.org][We use the models for stereo processing]]
