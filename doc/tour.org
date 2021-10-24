@@ -1,5 +1,5 @@
 #+title: A tour of mrcal
-#+OPTIONS: toc:t
+#+OPTIONS: toc:nil
 
 mrcal is a general-purpose toolkit that can solve a number of problems. The best
 way to convey a sense of the capabilities is to demonstrate some real-world
