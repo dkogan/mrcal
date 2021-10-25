@@ -1,3 +1,9 @@
+#+title: A tour of mrcal: stereo processing
+#+OPTIONS: toc:t
+
+* Previous
+We just [[file:tour-choreography.org][found the best chessboard-dancing technique]]
+
 * Stereo
 :PROPERTIES:
 :CUSTOM_ID: stereo
@@ -188,7 +194,7 @@ extremes. Stereo matching works primarily by correlating the rows independently,
 so this is a good trade-off. Some other implementations use un-even azimuth
 spacing, which can't be good for matching performance.
 
-*** ranged pixels ground-truth                                     :noexport:
+* ranged pixels ground-truth                                       :noexport:
 **** Buildings
 top of Paul Hastings building. 530m away horizontally, 200m vertically: 566m away
 https://en.wikipedia.org/wiki/City_National_Plaza
@@ -308,7 +314,7 @@ model1.extrinsics_Rt_toref( Rt01 )
 model1.write('/tmp/1.cameramodel')
 #+end_src
 
-** Stereo rectification outside of mrcal
+* Stereo rectification outside of mrcal
 :PROPERTIES:
 :CUSTOM_ID: stereo-without-mrcal
 :END:
@@ -453,7 +459,7 @@ for img ( doc/out/external/figures/stereo/{rectified[01],disparity,range}-spline
 
 Looks reasonable.
 
-** Splitting a wide view into multiple narrow views
+* Splitting a wide view into multiple narrow views
 :PROPERTIES:
 :CUSTOM_ID: stereo-narrow
 :END:
@@ -609,7 +615,7 @@ And disparity and range images:
 
 And this is despite running pinhole-reprojected stereo from a very wide lens.
 
-** Range accuracy                                                  :noexport:
+* Range accuracy                                                   :noexport:
 :PROPERTIES:
 :CUSTOM_ID: stereo-range-accuracy
 :END:

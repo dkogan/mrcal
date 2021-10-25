@@ -1,3 +1,9 @@
+#+title: A tour of mrcal: range dependence
+#+OPTIONS: toc:nil
+
+* Previous
+We just [[file:tour-uncertainty.org][computed the projection uncertainties of the calibrated models]]
+
 * The effect of range in differencing and uncertainty computations
 :PROPERTIES:
 :CUSTOM_ID: effect-of-range
@@ -105,3 +111,5 @@ calibrations that showed this. Any calibration from suboptimal chessboard images
 (see next section) shows this effect. I didn't use the calibrations from /this/
 document because they're too good to see this clearly.
 
+* Next
+We're now ready to [[file:tour-choreography.org][find the best chessboard-dancing technique]].

@@ -1,10 +1,10 @@
 #+title: A tour of mrcal: differencing
-#+OPTIONS: toc:t
+#+OPTIONS: toc:nil
+
+* Previous
+We just [[file:tour-initial-calibration.org][gathered calibration images and perform some initial calibrations]].
 
 * Differencing
-:PROPERTIES:
-:CUSTOM_ID: differencing
-:END:
 
 An overview follows; see the [[file:differencing.org][differencing page]] for details.
 
@@ -146,3 +146,7 @@ other areas to fit). But what to do if we don't know where that area is?
 These questions can be answered conclusively by quantifying the projection
 uncertainty, so let's talk about that now.
 
+
+
+* Next
+Now [[file:tour-uncertainty.org][we compute the projection uncertainties of the models]]

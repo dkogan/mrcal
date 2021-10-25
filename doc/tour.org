@@ -20,7 +20,7 @@ to calibrate any N cameras at a time, I'm just using the one camera /here/.
 The tour is split over a number of pages:
 
 1. [[file:tour-initial-calibration.org][We gather calibration images, and perform some initial calibrations]]
-2. [[file:tour-differencing.org][We compare the resulting models]]
+2. [[file:tour-differencing.org][We compare the calibrated models]]
 3. [[file:tour-uncertainty.org][We compute the projection uncertainties of the models]]
 4. [[file:tour-effect-of-range.org][We discuss the effect of range in differencing and uncertainty computations]]
 5. [[file:tour-choreography.org][We find the best chessboard-dancing technique]]

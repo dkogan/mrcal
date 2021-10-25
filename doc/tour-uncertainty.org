@@ -1,7 +1,10 @@
+#+title: A tour of mrcal: quantifying uncertainty
+#+OPTIONS: toc:t
+
+* Previous
+We just [[file:tour-differencing.org][compared the calibrated models]].
+
 * Projection uncertainty
-:PROPERTIES:
-:CUSTOM_ID: uncertainty
-:END:
 
 An overview follows; see the [[file:formulation.org::#noise-model][noise model]] and [[file:uncertainty.org][projection uncertainty]] pages for
 details.
@@ -245,3 +248,5 @@ mrcal-show-projection-uncertainty splined.cameramodel --unset key
 As expected, the splined model doesn't have the stiffness of =LENSMODEL_OPENCV8=, so we get
 the less optimistic (but more realistic) uncertainty reports.
 
+* Next
+Now [[file:tour-effect-of-range.org][we discuss the effect of range in differencing and uncertainty computations]].

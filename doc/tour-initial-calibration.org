@@ -1,3 +1,8 @@
+#+title: A tour of mrcal: calibration
+#+OPTIONS: toc:t
+
+The is the first stage in the [[file:tour.org][tour of mrcal]].
+
 * Gathering chessboard corners
 :PROPERTIES:
 :CUSTOM_ID: gathering-corners
@@ -643,3 +648,7 @@ This scary-looking behavior is a [[file:lensmodels.org::#splined-non-monotonicit
 it is benign: the questionable projections lie in regions where we have no
 expectation of a reliable projection.
 
+
+
+* Next
+[[file:tour-differencing.org][We then compare the calibrated models]].
