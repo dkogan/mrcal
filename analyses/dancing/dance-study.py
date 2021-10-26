@@ -303,6 +303,11 @@ def parse_args():
     parser.add_argument('--terminal',
                         help=f'''gnuplot terminal to use for the plots. This is passed directly to
                         gnuplotlib. Omit this unless you know what you're doing''')
+    parser.add_argument('--extratitle',
+                        help=f'''Extra title string to add to a plot''')
+    parser.add_argument('--title',
+                        help=f'''Full title string to use in a plot. Overrides
+                        the default and --extratitle''')
 
     parser.add_argument('model',
                         type = str,
@@ -311,7 +316,12 @@ def parse_args():
                         be too crazy, so this should probably by a parametric
                         (not splined) model''')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.title is not None and args.extratitle is not None:
+        print("--title and --extratitle are mutually exclusive", file=sys.stderr)
+        sys.exit(1)
+
+    return args
 
 args = parse_args()
 
@@ -1117,38 +1127,50 @@ else:
     guides = [ f"arrow nohead dashtype 3 from {r},graph 0 to {r},graph 1" for r in controllable_args['range']['value'] ]
 guides.append(f"arrow nohead dashtype 3 from graph 0,first {args.observed_pixel_uncertainty} to graph 1,first {args.observed_pixel_uncertainty}")
 
+title = args.title
 
 if   args.scan == "num_far_constant_Nframes_near":
-    title = f"Scanning 'far' observations added to a set of 'near' observations. Have {controllable_args['Ncameras']['value']} cameras, {args.Nframes_near} 'near' observations, at ranges {controllable_args['range']['value']}."
+    if title is None:
+        title = f"Scanning 'far' observations added to a set of 'near' observations. Have {controllable_args['Ncameras']['value']} cameras, {args.Nframes_near} 'near' observations, at ranges {controllable_args['range']['value']}."
     legend_what = 'Nframes_far'
 elif args.scan == "num_far_constant_Nframes_all":
-    title = f"Scanning 'far' observations replacing 'near' observations. Have {controllable_args['Ncameras']['value']} cameras, {args.Nframes_all} total observations, at ranges {controllable_args['range']['value']}."
+    if title is None:
+        title = f"Scanning 'far' observations replacing 'near' observations. Have {controllable_args['Ncameras']['value']} cameras, {args.Nframes_all} total observations, at ranges {controllable_args['range']['value']}."
     legend_what = 'Nframes_far'
 elif args.scan == "Nframes":
-    title = f"Scanning Nframes. Have {controllable_args['Ncameras']['value']} cameras looking out at {controllable_args['range']['value']:.2f}m."
+    if title is None:
+        title = f"Scanning Nframes. Have {controllable_args['Ncameras']['value']} cameras looking out at {controllable_args['range']['value']:.2f}m."
     legend_what = 'Nframes'
 elif args.scan == "Ncameras":
-    title = f"Scanning Ncameras. Observing {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m."
+    if title is None:
+        title = f"Scanning Ncameras. Observing {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m."
     legend_what = 'Ncameras'
 elif args.scan == "range":
-    title = f"Scanning the distance to observations. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards."
+    if title is None:
+        title = f"Scanning the distance to observations. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards."
     legend_what = 'Range-to-chessboards'
 elif args.scan == "tilt_radius":
-    title = f"Scanning the board tilt. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
+    if title is None:
+        title = f"Scanning the board tilt. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
     legend_what = 'Random chessboard tilt radius'
 elif args.scan == "object_width_n":
-    title = f"Scanning the calibration object density, keeping the board size constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
+    if title is None:
+        title = f"Scanning the calibration object density, keeping the board size constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
     legend_what = 'Number of chessboard points per side'
 elif args.scan == "object_spacing":
-    if args.scan_object_spacing_compensate_range:
-        title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range grows with spacing. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
-    else:
-        title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range is constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
+    if title is None:
+        if args.scan_object_spacing_compensate_range:
+            title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range grows with spacing. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
+        else:
+            title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range is constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
     legend_what = 'Distance between adjacent chessboard corners'
 else:
     # no --scan. We just want one sample
-    title = f"Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m with tilt radius {controllable_args['tilt_radius']['value']}"
+    if title is None:
+        title = f"Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m with tilt radius {controllable_args['tilt_radius']['value']}"
 
+if args.extratitle is not None:
+    title = f"{title}: {args.extratitle}"
 
 if samples is None:
     legend = None
