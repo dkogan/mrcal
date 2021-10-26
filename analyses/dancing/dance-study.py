@@ -1184,20 +1184,21 @@ np.savetxt(sys.stdout,
            fmt   = output_table_fmt,
            header= output_table_legend)
 
-kwargs = dict( yrange   = (0, args.ymax),
-               _with    = 'lines',
-               _set     = guides,
-               unset    = 'grid',
-               title    = title,
-               xlabel   = 'Range (m)',
-               ylabel   = 'Expected worst-direction uncertainty (pixels)',
-               hardcopy = args.hardcopy,
-               terminal = args.terminal,
-               wait     = not args.explore and args.hardcopy is None)
-if legend is not None: kwargs['legend'] = legend
+plotoptions = \
+    dict( yrange   = (0, args.ymax),
+          _with    = 'lines',
+          _set     = guides,
+          unset    = 'grid',
+          title    = title,
+          xlabel   = 'Range (m)',
+          ylabel   = 'Expected worst-direction uncertainty (pixels)',
+          hardcopy = args.hardcopy,
+          terminal = args.terminal,
+          wait     = not args.explore and args.hardcopy is None)
+if legend is not None: plotoptions['legend'] = legend
 gp.plot(uncertainty_at_range_samples,
         output_table[:,:, output_table_icol__uncertainty],
-        **kwargs)
+        **plotoptions)
 
 if args.explore:
     import IPython
