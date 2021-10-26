@@ -375,7 +375,7 @@ SYNOPSIS
     optimization_inputs = model.optimization_inputs()
 
     # shape (Nobservations, Nheight, Nwidth, 3)
-    pcam = mrcal.hypothesis_board_corner_positions(**optimization_inputs)
+    pcam = mrcal.hypothesis_board_corner_positions(**optimization_inputs)[0]
 
     i_intrinsics = \
       optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,1]
@@ -412,21 +412,11 @@ The hypothetical points are constructed from
   observation in
   optimization_inputs['indices_frame_camintrinsics_camextrinsics']
 
-This function knows to return 3 types of output:
-
-- ALL the points observed by ALL cameras together (returned always)
-- The points observed by only a specific camera, inliers only (returned if
-  icam_intrinsics is not None)
-- The points observed by only a specific camera, outliers only (returned if
-  icam_intrinsics is not None)
-
 ARGUMENTS
 
 - icam_intrinsics: optional integer specifying which intrinsic camera in the
-  optimization_inputs we're looking at. If omitted (or None), I return a single
-  numpy array containing the points for all the cameras. Otherwise I return a
-  3-tuple with this array in the first element, and the camera-specific arrays
-  in the last two elements
+  optimization_inputs we're looking at. If omitted (or None), we report
+  camera-coordinate points forU all the cameras
 
 - idx_inliers: optional numpy array of booleans of shape
   (Nobservations,object_height,object_width) to select the outliers manually. If
@@ -440,23 +430,24 @@ ARGUMENTS
 
 RETURNED VALUE
 
-if icam_intrinsics is None: returns only the array containing ALL the points
-observed by ALL cameras. Otherwise returns a tuple, with that array as the first
-element:
-
 - An array of shape (Nobservations, Nheight, Nwidth, 3) containing the
   coordinates (in the coordinate system of each camera) of the chessboard
-  corners. These correspond to the observations in
+  corners, for ALL the cameras. These correspond to the observations in
   optimization_inputs['observations_board'], which also have shape
   (Nobservations, Nheight, Nwidth, 3)
 
-- an (N,3) array containing camera-frame 3D points observed at calibration time,
-  and accepted by the solver as inliers. Returned only if icam_intrinsics is not
-  None
+- An array of shape (Nobservations_thiscamera, Nheight, Nwidth, 3) containing
+  the coordinates (in the camera coordinate system) of the chessboard corners,
+  for the particular camera requested in icam_intrinsics. If icam_intrinsics is
+  None: this is the same array as the previous returned value
 
 - an (N,3) array containing camera-frame 3D points observed at calibration time,
-  but rejected by the solver as outliers. Returned only if icam_intrinsics is
-  not None
+  and accepted by the solver as inliers. This is a subset of the 2nd returned
+  array.
+
+- an (N,3) array containing camera-frame 3D points observed at calibration time,
+  but rejected by the solver as outliers. This is a subset of the 2nd returned
+  array.
 
     '''
 
@@ -491,24 +482,32 @@ element:
     p_cam_calobjects = \
         mrcal.transform_point_Rt(nps.mv(Rt_cam_frame,-3,-5), full_object)
 
-    if icam_intrinsics is None:
-        return p_cam_calobjects
-
-    # shape (Nobservations,)
-    idx_observations = indices_frame_camintrinsics_camextrinsics[:,1]==icam_intrinsics
     # shape (Nobservations,Nheight,Nwidth)
     if idx_inliers is None:
         idx_inliers = observations_board[...,2] > 0
-
     idx_outliers = ~idx_inliers
+
+    if icam_intrinsics is None:
+        return                                       \
+            p_cam_calobjects,                        \
+            p_cam_calobjects,                        \
+            p_cam_calobjects[idx_inliers,      ...], \
+            p_cam_calobjects[idx_outliers,     ...]
+
+
+    # The user asked for a specific camera. Separate out its data
+
+    # shape (Nobservations,)
+    idx_observations = indices_frame_camintrinsics_camextrinsics[:,1]==icam_intrinsics
 
     idx_inliers [~idx_observations] = False
     idx_outliers[~idx_observations] = False
 
-    return \
-        p_cam_calobjects, \
-        p_cam_calobjects[idx_inliers,  ...], \
-        p_cam_calobjects[idx_outliers, ...]
+    return                                       \
+        p_cam_calobjects,                        \
+        p_cam_calobjects[idx_observations, ...], \
+        p_cam_calobjects[idx_inliers,      ...], \
+        p_cam_calobjects[idx_outliers,     ...]
 
 
 def _splined_stereographic_domain(lensmodel):

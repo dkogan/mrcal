@@ -254,11 +254,11 @@ if not args.sampled:
     calobject0 = \
         mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
                                                 **optimization_inputs_before,
-                                                idx_inliers = idx_inliers1 )[1]
+                                                idx_inliers = idx_inliers1 )[-2]
     calobject1 = \
         mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
                                                 **optimization_inputs,
-                                                idx_inliers = idx_inliers1 )[1]
+                                                idx_inliers = idx_inliers1 )[-2]
 
     implied_Rt10 = mrcal.align_procrustes_points_Rt01(calobject1, calobject0)
 
