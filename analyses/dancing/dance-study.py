@@ -308,6 +308,14 @@ def parse_args():
     parser.add_argument('--title',
                         help=f'''Full title string to use in a plot. Overrides
                         the default and --extratitle''')
+    parser.add_argument('--set',
+                        type=str,
+                        action='append',
+                        help='''Extra 'set' directives to gnuplotlib. Can be given multiple times''')
+    parser.add_argument('--unset',
+                        type=str,
+                        action='append',
+                        help='''Extra 'unset' directives to gnuplotlib. Can be given multiple times''')
 
     parser.add_argument('model',
                         type = str,
@@ -1196,6 +1204,14 @@ plotoptions = \
           terminal = args.terminal,
           wait     = not args.explore and args.hardcopy is None)
 if legend is not None: plotoptions['legend'] = legend
+
+if args.set:
+    gp.add_plot_option(plotoptions,
+                       _set = args.set)
+if args.unset:
+    gp.add_plot_option(plotoptions,
+                       _unset = args.unset)
+
 gp.plot(uncertainty_at_range_samples,
         output_table[:,:, output_table_icol__uncertainty],
         **plotoptions)
