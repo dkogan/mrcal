@@ -1016,13 +1016,30 @@ A tuple:
 
             m = models[i]
 
-            p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
+            p_cam_calobjects, \
+            p_cam_calobjects_inliers, \
+            p_cam_calobjects_outliers = \
                 mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
-                                                        **m.optimization_inputs())[-2:]
+                                                        **m.optimization_inputs())[-3:]
+            q_cam_calobjects = \
+                mrcal.project( p_cam_calobjects,          *m.intrinsics() )
             q_cam_calobjects_inliers = \
-                mrcal.project( p_cam_calobjects_inliers, *m.intrinsics() )
+                mrcal.project( p_cam_calobjects_inliers,  *m.intrinsics() )
             q_cam_calobjects_outliers = \
                 mrcal.project( p_cam_calobjects_outliers, *m.intrinsics() )
+
+            # Disabled for now. I see a legend entry for each broadcasted slice,
+            # which isn't what I want
+            #
+            # if len(q_cam_calobjects):
+            #     plot_data_args.append( ( nps.clump(q_cam_calobjects[...,0], n=-2),
+            #                              nps.clump(q_cam_calobjects[...,1], n=-2) ) +
+            #                            ( () if _2d else
+            #                              (np.zeros((q_cam_calobjects.shape[-2]*
+            #                                         q_cam_calobjects.shape[-3],)),)) +
+            #                            ( dict( tuplesize = 2 if _2d else 3,
+            #                                    _with     = f'lines lc "black"' + ("" if _2d else ' nocontour'),
+            #                                    legend    = f"Camera {i} board sequences"),))
 
             if len(q_cam_calobjects_inliers):
                 plot_data_args.append( ( q_cam_calobjects_inliers[...,0],
@@ -1234,13 +1251,29 @@ plot
                                      legend = "Valid-intrinsics region")) )
 
     if observations:
-        p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
+        p_cam_calobjects, \
+        p_cam_calobjects_inliers, \
+        p_cam_calobjects_outliers = \
             mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
-                                                    **model.optimization_inputs())[-2:]
+                                                    **model.optimization_inputs())[-3:]
+        q_cam_calobjects = \
+            mrcal.project( p_cam_calobjects,          *model.intrinsics() )
         q_cam_calobjects_inliers = \
-            mrcal.project( p_cam_calobjects_inliers, *model.intrinsics() )
+            mrcal.project( p_cam_calobjects_inliers,  *model.intrinsics() )
         q_cam_calobjects_outliers = \
             mrcal.project( p_cam_calobjects_outliers, *model.intrinsics() )
+
+        # Disabled for now. I see a legend entry for each broadcasted slice,
+        # which isn't what I want
+        #
+        # if len(q_cam_calobjects):
+        #     plot_data_args.append( ( nps.clump(q_cam_calobjects[...,0], n=-2),
+        #                              nps.clump(q_cam_calobjects[...,1], n=-2),
+        #                              np.zeros((q_cam_calobjects.shape[-2]*
+        #                                        q_cam_calobjects.shape[-3],)),
+        #                              dict( tuplesize = 3,
+        #                                    _with  = 'lines lc "black" nocontour',
+        #                                    legend = "board sequences")))
 
         if len(q_cam_calobjects_inliers):
             plot_data_args.append( ( q_cam_calobjects_inliers[...,0],
@@ -2262,19 +2295,37 @@ plot
     plot_data_tuples_outliers = ()
 
     if observations:
-        p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
+        p_cam_calobjects,           \
+        p_cam_calobjects_inliers,   \
+        p_cam_calobjects_outliers = \
             mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
-                                                    **model.optimization_inputs())[-2:]
+                                                    **model.optimization_inputs())[-3:]
         if imager_domain:
+            q_cam_calobjects = \
+                mrcal.project( p_cam_calobjects,          *model.intrinsics() )
             q_cam_calobjects_inliers = \
-                mrcal.project( p_cam_calobjects_inliers, *model.intrinsics() )
+                mrcal.project( p_cam_calobjects_inliers,  *model.intrinsics() )
             q_cam_calobjects_outliers = \
                 mrcal.project( p_cam_calobjects_outliers, *model.intrinsics() )
         else:
+            q_cam_calobjects = \
+                mrcal.project_stereographic( p_cam_calobjects )
             q_cam_calobjects_inliers = \
                 mrcal.project_stereographic( p_cam_calobjects_inliers )
             q_cam_calobjects_outliers = \
                 mrcal.project_stereographic( p_cam_calobjects_outliers )
+
+        # Disabled for now. I see a legend entry for each broadcasted slice,
+        # which isn't what I want
+        #
+        # if len(q_cam_calobjects):
+        #     plot_data_tuples_zigzag = \
+        #         ( ( nps.clump(q_cam_calobjects[..., 0], n=-2),
+        #             nps.clump(q_cam_calobjects[..., 1], n=-2),
+        #             dict( tuplesize = 2,
+        #                   _with  = 'lines lc "black"',
+        #                   legend = "board sequences"),),)
+        plot_data_tuples_zigzag = ()
 
         if len(q_cam_calobjects_inliers):
             plot_data_tuples_inliers = \
@@ -2322,6 +2373,7 @@ plot
         plot_data_tuples_surface         + \
         plot_data_tuples_boundaries      + \
         plot_data_tuples_invalid_regions + \
+        plot_data_tuples_zigzag          + \
         plot_data_tuples_inliers         + \
         plot_data_tuples_outliers        + \
         plot_data_tuples_knots
