@@ -264,6 +264,7 @@ if args.make_documentation_plots is not None:
                                          hardcopy = f'{args.make_documentation_plots}--simulated-geometry.{extension}')
             gp.add_plot_option(processoptions_output, 'set', 'xyplane relative 0')
             mrcal.show_geometry(models_baseline,
+                                show_calobjects = True,
                                 unset='key',
                                 **processoptions_output)
     else:
@@ -271,6 +272,7 @@ if args.make_documentation_plots is not None:
 
         gp.add_plot_option(processoptions_output, 'set', 'xyplane relative 0')
         mrcal.show_geometry(models_baseline,
+                            show_calobjects = True,
                             unset='key',
                             **processoptions_output)
 
