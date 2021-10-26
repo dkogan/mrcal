@@ -128,7 +128,7 @@ def synthesize_board_observations(models,
                                   rt_ref_boardcenter__noiseradius,
                                   Nframes,
 
-                                  which = 'all_cameras_must_see_full_board'):
+                                  which = 'all-cameras-must-see-full-board'):
     r'''Produce synthetic chessboard observations
 
 SYNOPSIS
@@ -152,7 +152,7 @@ SYNOPSIS
           # How many frames we want
           100,
 
-          which = 'some_cameras_must_see_half_board')
+          which = 'some-cameras-must-see-half-board')
 
     # q now contains the synthetic pixel observations, but some of them will be
     # out of view. I construct an (x,y,weight) observations array, as expected
@@ -222,19 +222,19 @@ ARGUMENTS
 
 - Nframes: how many frames of observations to return
 
-- which: a string, defaulting to 'all_cameras_must_see_full_board'. Controls the
+- which: a string, defaulting to 'all-cameras-must-see-full-board'. Controls the
   requirements on the visibility of the returned points. Valid values:
 
-  - 'all_cameras_must_see_full_board': We return only those chessboard poses
+  - 'all-cameras-must-see-full-board': We return only those chessboard poses
     that produce observations that are FULLY visible by ALL the cameras.
 
-  - 'some_cameras_must_see_full_board': We return only those chessboard poses
+  - 'some-cameras-must-see-full-board': We return only those chessboard poses
     that produce observations that are FULLY visible by AT LEAST ONE camera.
 
-  - 'all_cameras_must_see_half_board': We return only those chessboard poses
+  - 'all-cameras-must-see-half-board': We return only those chessboard poses
     that produce observations that are AT LEAST HALF visible by ALL the cameras.
 
-  - 'some_cameras_must_see_half_board': We return only those chessboard poses
+  - 'some-cameras-must-see-half-board': We return only those chessboard poses
     that produce observations that are AT LEAST HALF visible by AT LEAST ONE
     camera.
 
@@ -274,10 +274,10 @@ We return a tuple:
                          wait = 1 )
     '''
 
-    which_valid = ( 'all_cameras_must_see_full_board',
-                    'some_cameras_must_see_full_board',
-                    'all_cameras_must_see_half_board',
-                    'some_cameras_must_see_half_board', )
+    which_valid = ( 'all-cameras-must-see-full-board',
+                    'some-cameras-must-see-full-board',
+                    'all-cameras-must-see-half-board',
+                    'some-cameras-must-see-half-board', )
 
     if not which in which_valid:
         raise Exception(f"'which' argument must be one of {which_valid}")
@@ -361,13 +361,13 @@ We return a tuple:
         Nvisible = np.count_nonzero(mask_visible, axis=(-1,-2) )
 
         Nh,Nw = q.shape[2:4]
-        if   which == 'all_cameras_must_see_full_board':
+        if   which == 'all-cameras-must-see-full-board':
             iframe = np.all(Nvisible == Nh*Nw, axis=-1)
-        elif which == 'some_cameras_must_see_full_board':
+        elif which == 'some-cameras-must-see-full-board':
             iframe = np.any(Nvisible == Nh*Nw, axis=-1)
-        elif which == 'all_cameras_must_see_half_board':
+        elif which == 'all-cameras-must-see-half-board':
             iframe = np.all(Nvisible > Nh*Nw//2, axis=-1)
-        elif which == 'some_cameras_must_see_half_board':
+        elif which == 'some-cameras-must-see-half-board':
             iframe = np.any(Nvisible > Nh*Nw//2, axis=-1)
         else:
             raise Exception("Unknown 'which' argument. This is a bug. I checked for the valid options at the top of this function")
