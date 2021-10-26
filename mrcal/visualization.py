@@ -1017,7 +1017,7 @@ A tuple:
             m = models[i]
 
             p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
-                mrcal.utils.hypothesis_board_corner_positions(m.icam_intrinsics(),
+                mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
                                                         **m.optimization_inputs())[1:]
             q_cam_calobjects_inliers = \
                 mrcal.project( p_cam_calobjects_inliers, *m.intrinsics() )
@@ -1235,7 +1235,7 @@ plot
 
     if observations:
         p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
-            mrcal.utils.hypothesis_board_corner_positions(model.icam_intrinsics(),
+            mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
                                                     **model.optimization_inputs())[1:]
         q_cam_calobjects_inliers = \
             mrcal.project( p_cam_calobjects_inliers, *model.intrinsics() )
@@ -1365,7 +1365,7 @@ plot
     import gnuplotlib as gp
 
     p_cam_observed_at_calibration_time = \
-        mrcal.utils.hypothesis_board_corner_positions(model.icam_intrinsics(),
+        mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
                                                 **model.optimization_inputs())[1]
 
     if isinstance(where, str):
@@ -2263,7 +2263,7 @@ plot
 
     if observations:
         p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
-            mrcal.utils.hypothesis_board_corner_positions(model.icam_intrinsics(),
+            mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
                                                     **model.optimization_inputs())[1:]
         if imager_domain:
             q_cam_calobjects_inliers = \
