@@ -219,22 +219,23 @@ def parse_args():
     parser.add_argument('--tilt-radius',
                         default='30.',
                         type=str,
-                        help='''The radius of the uniform distribution used to sample the pitch and yaw of
-                        the chessboard observations, in degrees. The default is
-                        30, meaning that the chessboard pitch and yaw are
-                        sampled from [-30deg,30deg]. if --scan tilt_radius: this is
+                        help='''The radius of the uniform distribution used to
+                        sample the pitch and yaw of the chessboard
+                        observations, in degrees. The default is 30, meaning
+                        that the chessboard pitch and yaw are sampled from
+                        [-30deg,30deg]. if --scan tilt_radius: this is
                         TILT-MIN,TILT-MAX specifying the bounds of the two
                         tilt-radius values to evaluate. Otherwise: this is the
                         one value we use''')
-    parser.add_argument('--yaw-radius',
+    parser.add_argument('--roll-radius',
                         type=float,
                         default=20.,
                         help='''The synthetic chessboard orientation is sampled
                         from a uniform distribution: [-RADIUS,RADIUS]. The
-                        pitch,roll radius is specified by the --tilt-radius. The
-                        yaw radius is selected here. "Yaw" is the rotation along
-                        the axis normal to the chessboard plane. Default is
-                        20deg''')
+                        pitch,yaw radius is specified by the --tilt-radius. The
+                        roll radius is selected here. "Roll" is the rotation
+                        around the axis normal to the chessboard plane. Default
+                        is 20deg''')
     parser.add_argument('--x-radius',
                         type=float,
                         default=None,
@@ -674,7 +675,7 @@ def eval_one_rangenear_tilt(models_true,
                                             np.array((0.,  0., 0., radius_cameras, 0,  range_near,)),
                                             np.array((np.pi/180. * tilt_radius,
                                                       np.pi/180. * tilt_radius,
-                                                      np.pi/180. * args.yaw_radius,
+                                                      np.pi/180. * args.roll_radius,
                                                       x_radius, y_radius, z_radius)),
                                             np.max(Nframes_near_samples),
                                             which = args.which)
@@ -686,7 +687,7 @@ def eval_one_rangenear_tilt(models_true,
                                                 np.array((0.,  0., 0., radius_cameras, 0,  range_far,)),
                                                 np.array((np.pi/180. * tilt_radius,
                                                           np.pi/180. * tilt_radius,
-                                                          np.pi/180. * args.yaw_radius,
+                                                          np.pi/180. * args.roll_radius,
                                                           range_far*2. + radius_cameras,
                                                           range_far*2.,
                                                           range_far/10.)),
