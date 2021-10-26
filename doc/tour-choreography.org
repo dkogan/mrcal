@@ -152,7 +152,8 @@ in?
 #+begin_src sh
 dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 \
                --object-spacing 0.04,0.20 \
-               --observed-pixel-uncertainty 2 --scan-object-spacing-compensate-range \
+               --observed-pixel-uncertainty 2 \
+               --scan-object-spacing-compensate-range-from 0.04 \
                --ymax 20 --uncertainty-at-range-sampled-max 200 \
                opencv8.cameramodel
 #+end_src
@@ -200,7 +201,7 @@ PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --sc
                --ymax 0.4 --uncertainty-at-range-sampled-max 10 --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-Ncameras.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
 PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_width_n --range 2 --Ncameras 1 --Nframes 100 --object-width-n 5,30 data/board/opencv8.cameramodel --uncertainty-at-range-sampled-max 30 --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-object_width_n.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
 PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_spacing --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 data/board/opencv8.cameramodel --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-object_spacing.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
-PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_spacing --scan-object-spacing-compensate-range --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 --ymax 20 --uncertainty-at-range-sampled-max 200 data/board/opencv8.cameramodel --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+PYTHONPATH=/home/dima/jpl/mrcal ~/jpl/mrcal/analyses/dancing/dance-study.py --scan object_spacing --scan-object-spacing-compensate-range-from 0.04 --range 2 --Ncameras 1 --Nframes 100 --object-spacing 0.04,0.20 --ymax 20 --uncertainty-at-range-sampled-max 200 data/board/opencv8.cameramodel --observed-pixel-uncertainty 2 --hardcopy ~/jpl/mrcal/doc/external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
 #+end_src
 
 * Next

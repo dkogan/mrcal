@@ -198,15 +198,15 @@ def parse_args():
                         'object_width_n', 'object_spacing', 'num_far_constant_Nframes_near',
                         'num_far_constant_Nframes_all'). Scanning object-width-n
                         keeps the board size constant''')
-    parser.add_argument('--scan-object-spacing-compensate-range',
-                        action='store_true',
-                        help=f'''Only applies if --scan object-spacing. By default we vary the object spacings
-                        without touching anything else: the chessboard grows in
-                        size as we increase the spacing. If
-                        --scan-object-spacing-compensate-range then we try to
-                        keep the apparent size constant: as the object spacing
-                        grows, we increase the range. The nominal range given in
-                        --range applies to the MINIMUM object spacing''')
+    parser.add_argument('--scan-object-spacing-compensate-range-from',
+                        type=float,
+                        help=f'''Only applies if --scan object-spacing. By
+                        default we vary the object spacings without touching
+                        anything else: the chessboard grows in size as we
+                        increase the spacing. If given, we try to keep the
+                        apparent size constant: as the object spacing grows, we
+                        increase the range. The nominal range given in this
+                        argument''')
 
     parser.add_argument('--range',
                         default = '0.5,4.0',
@@ -1056,8 +1056,8 @@ elif args.scan == "object_spacing":
     for i_sample in range(Nsamples):
 
         r = controllable_args['range']['value']
-        if args.scan_object_spacing_compensate_range:
-            r *= samples[i_sample]/samples[0]
+        if args.scan_object_spacing_compensate_range_from:
+            r *= samples[i_sample]/args.scan_object_spacing_compensate_range_from
 
         output_table[i_sample,:, output_table_icol__uncertainty] = \
             eval_one_rangenear_tilt(models_true,
@@ -1078,7 +1078,7 @@ elif args.scan == "object_spacing":
     output_table[:,:, output_table_icol__object_width_n ] = controllable_args['object_width_n']['value']
     output_table[:,:, output_table_icol__object_spacing ]+= nps.transpose(samples)
 
-    if args.scan_object_spacing_compensate_range:
+    if args.scan_object_spacing_compensate_range_from:
         output_table[:,:, output_table_icol__range_near] += controllable_args['range']['value'] * nps.transpose(samples/samples[0])
     else:
         output_table[:,:, output_table_icol__range_near] = controllable_args['range']['value']
@@ -1159,7 +1159,7 @@ elif args.scan == "object_width_n":
     legend_what = 'Number of chessboard points per side'
 elif args.scan == "object_spacing":
     if title is None:
-        if args.scan_object_spacing_compensate_range:
+        if args.scan_object_spacing_compensate_range_from:
             title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range grows with spacing. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
         else:
             title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range is constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
