@@ -364,8 +364,8 @@ We return a tuple:
 
 
 def hypothesis_board_corner_positions(icam_intrinsics = None,
-                                idx_inliers     = None,
-                                **optimization_inputs):
+                                      idx_inliers     = None,
+                                      **optimization_inputs):
     r'''Reports the 3D chessboard points observed by a camera at calibration time
 
 SYNOPSIS

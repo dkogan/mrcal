@@ -278,8 +278,8 @@ if args.same_dance:
 
         calobjects = \
             [ mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
-                                                **model.optimization_inputs(),
-                                                idx_inliers = idx_inliers[0]*idx_inliers[1] )[1] \
+                                                      **model.optimization_inputs(),
+                                                      idx_inliers = idx_inliers[0]*idx_inliers[1] )[1] \
               for model in models ]
 
         Rt10 = mrcal.align_procrustes_points_Rt01(calobjects[1], calobjects[0])
