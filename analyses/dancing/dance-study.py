@@ -149,11 +149,16 @@ def parse_args():
                         action = 'store_true',
                         help='''If given, write the solved models to disk after the first solve, and exit.
                         Used for debugging. Useful to check fov_x_deg when solving for a splined model''')
-    parser.add_argument('--full-observations-only',
-                        action = 'store_true',
-                        help='''If given, every chessboard observation must be complete for all cameras.
-                        Otherwise (by default), at least half the chessboard
-                        must be observed by every camera''')
+
+    parser.add_argument('--which',
+                        choices=('all-cameras-must-see-full-board',
+                                 'some-cameras-must-see-full-board',
+                                 'all-cameras-must-see-half-board',
+                                 'some-cameras-must-see-half-board'),
+                        default='all-cameras-must-see-half-board',
+                        help='''What kind of random poses are accepted. Default
+                        is all-cameras-must-see-half-board''')
+
     parser.add_argument('--fixed-frames',
                         action='store_true',
                         help='''Optimize the geometry keeping the chessboard frames fixed. This reduces the
@@ -656,12 +661,6 @@ def eval_one_rangenear_tilt(models_true,
 
     radius_cameras = (args.camera_spacing * (Ncameras-1)) / 2.
 
-    if args.full_observations_only:
-        which = 'all_cameras_must_see_full_board'
-    else:
-        which = 'all_cameras_must_see_half_board'
-
-
     x_radius = args.x_radius if args.x_radius is not None else range_near*2. + radius_cameras
     y_radius = args.y_radius if args.y_radius is not None else range_near*2.
     z_radius = args.z_radius if args.z_radius is not None else range_near/10.
@@ -678,7 +677,7 @@ def eval_one_rangenear_tilt(models_true,
                                                       np.pi/180. * args.yaw_radius,
                                                       x_radius, y_radius, z_radius)),
                                             np.max(Nframes_near_samples),
-                                            which = which)
+                                            which = args.which)
     if range_far is not None:
         q_true_far, Rt_ref_board_true_far  = \
             mrcal.synthesize_board_observations(models_true,
@@ -692,7 +691,7 @@ def eval_one_rangenear_tilt(models_true,
                                                           range_far*2.,
                                                           range_far/10.)),
                                                 np.max(Nframes_far_samples),
-                                                which = which)
+                                                which = args.which)
     else:
         q_true_far            = None
         Rt_ref_board_true_far = None
