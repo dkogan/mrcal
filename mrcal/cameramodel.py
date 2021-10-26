@@ -701,7 +701,7 @@ ARGUMENTS
                 raise Exception("'file_or_model' specified, so none of the other inputs should be")
 
             if isinstance(file_or_model, cameramodel):
-                self._imagersize = np.array(file_or_model._imagersize, dtype=int)
+                self._imagersize = np.array(file_or_model._imagersize, dtype=np.int32)
                 self._extrinsics = np.array(file_or_model._extrinsics, dtype=float)
                 self._intrinsics = (str(file_or_model._intrinsics[0]),
                                     np.array(file_or_model._intrinsics[1], dtype=float))
@@ -996,7 +996,7 @@ tuple where
                             optimization_inputs,
                             icam_intrinsics)
 
-        self._imagersize = np.array(imagersize, dtype=int)
+        self._imagersize = np.array(imagersize, dtype=np.int32)
         self._intrinsics = (str(intrinsics[0]),
                             np.array(intrinsics[1], dtype=float))
 
@@ -1253,7 +1253,7 @@ A length-2 tuple (width,height)
         if len(args) or len(kwargs):
             raise Exception("imagersize() is NOT a setter. Please use intrinsics() to set them all together")
 
-        return np.array(self._imagersize, dtype=int)
+        return np.array(self._imagersize, dtype=np.int32)
 
 
     def valid_intrinsics_region(self, valid_intrinsics_region=None):
