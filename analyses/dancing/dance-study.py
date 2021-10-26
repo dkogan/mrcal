@@ -716,7 +716,9 @@ def eval_one_rangenear_tilt(models_true,
         model = models_out[args.icam_uncertainty]
 
         if args.show_geometry_first_solve:
-            mrcal.show_geometry(models_out, wait = True)
+            mrcal.show_geometry(models_out,
+                                show_calobjects = True,
+                                wait = True)
             sys.exit()
         if args.show_uncertainty_first_solve:
             mrcal.show_projection_uncertainty(model,
