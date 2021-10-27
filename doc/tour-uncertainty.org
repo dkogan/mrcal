@@ -33,20 +33,18 @@ And if we can quantify that uncertainty, we can decide if we have too much.
 ** Derivation summary
 It is a reasonable assumption that each $x$ and $y$ measurement in every
 detected chessboard corner contains independent, gaussian noise. This noise is
-hard to measure (there's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in mrgingham), but easy to loosely estimate.
-The current best practice is to get a conservative eyeball estimate to produce
-conservative estimates of projection uncertainty. So we have the diagonal matrix
-representing the variance our input noise: $\mathrm{Var}\left( \vec
-q_\mathrm{ref} \right)$.
+hard to measure directly (there's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in mrgingham), so we estimate it
+from the solve residuals. We then have the diagonal matrix representing the
+variance our input noise: $\mathrm{Var}\left( \vec q_\mathrm{ref} \right)$.
 
-We then propagate this input noise through the optimization, to find out how
-this noise would affect the calibration solution. Given some perturbation of the
+We propagate this input noise through the optimization, to find out how this
+noise would affect the calibration solution. Given some perturbation of the
 inputs, we can derive the resulting perturbation in the optimization state:
 $\Delta \vec p = M \Delta \vec q_\mathrm{ref}$ for some matrix $M$ we can
-compute. The [[file:formulation.org::#state-vector][state vector $\vec p$]] contains /everything/: the intrinsics
-of all the lenses, the geometry of all the cameras and chessboards, the
-chessboard shape, etc. We have the variance of the input noise, so we can
-compute the variance of the state vector:
+compute. The [[file:formulation.org::#state-vector][state vector $\vec p$]] contains /everything/: the intrinsics of all
+the lenses, the geometry of all the cameras and chessboards, the chessboard
+shape, etc. We have the variance of the input noise, so we can compute the
+variance of the state vector:
 
 \[ \mathrm{Var}(\vec p) = M \mathrm{Var}\left(\vec q_\mathrm{ref}\right) M^T \]
 
@@ -56,7 +54,7 @@ projection. Let's say we have a point $\vec p_\mathrm{fixed}$ defined in some
 
 \[ \vec q = \mathrm{project}\left( \mathrm{transform}\left( \vec p_\mathrm{fixed} \right)\right) \]
 
-So $\vec q$ is a function of the intrinsics, and the transformation. Both of
+So $\vec q$ is a function of the intrinsics and the transformation. Both of
 these are functions of the optimization state, so we can propagate our noise in
 the optimization state $\vec p$:
 

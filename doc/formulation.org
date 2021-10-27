@@ -10,10 +10,10 @@ accessible via either
 
 These are the main call in the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool (to calibrate
 cameras) and [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool (to fit a different lens model into
-an existing model). The optimization routines themselves are more general than
-this, and can solve other problems, such as structure-from-motion. Note that the
-APIs for handling discrete points are still unstable, so the SFM functionality
-remains lightly-documented for now.
+an existing model). The optimization routines are more general than what these
+tools provide, and can solve other problems, such as structure-from-motion. Note
+that the APIs for handling discrete points are still unstable, so the SFM
+functionality remains lightly-documented for now.
 
 The solver moves around the /state/ vector $\vec p$, which contains all the
 geometry and all the lens models. For any hypothesis $\vec p$, the solver can
@@ -183,11 +183,10 @@ The fundamental operation to map a point in the camera coordinate system to a
 pixel where that point would be observed by the camera is called /projection/.
 mrcal supports [[file:lensmodels.org][multiple methods]] to model the behavior of different lenses. Of
 particular note is that at this time, mrcal assumes that all projections are
-/central/. This means that all rays of light are assumed to intersect at a
-single point: the origin of the camera coordinate system. So $k \vec v$ projects
-to the same $\vec q$ for any $k$. This is very convenient, but not completely
-realistic. Support for /non-central/ lenses is coming in a future release of
-mrcal.
+/central/: all rays of light are assumed to intersect at a single point (the
+origin of the camera coordinate system). So $k \vec v$ projects to the same
+$\vec q$ for any $k$. This is very convenient, but not completely realistic.
+Support for /non-central/ lenses is coming in a future release of mrcal.
 
 * Optimization details
 The mrcal solver is an optimization routine based on sparse nonlinear least
@@ -297,8 +296,8 @@ helpful to annotate the plot to make it clear which variables correspond to each
 block of state (or measurements). mrcal provides helper functions to help with
 this:
 
-- [[file:mrcal-python-api-reference.html#-plotoptions_state_boundaries][=mrcal.plotoptions_state_boundaries()=]]: Return the 'set' plot options for gnuplotlib to show the state boundaries
-- [[file:mrcal-python-api-reference.html#-plotoptions_measurement_boundaries][=mrcal.plotoptions_measurement_boundaries()=]]: Return the 'set' plot options for gnuplotlib to show the measurement boundaries
+- [[file:mrcal-python-api-reference.html#-plotoptions_state_boundaries][=mrcal.plotoptions_state_boundaries()=]]: Return the =set= plot options for gnuplotlib to show the state boundaries
+- [[file:mrcal-python-api-reference.html#-plotoptions_measurement_boundaries][=mrcal.plotoptions_measurement_boundaries()=]]: Return the =set= plot options for gnuplotlib to show the measurement boundaries
 
 ** State vector scaling
 :PROPERTIES:
@@ -419,7 +418,8 @@ for each one. Thus the implementation splits the observed noise into two parts:
 
 - The baseline standard deviation of the noise $\sigma$. This is one value that
   applies to /all/ the observations
-- The scale $s_i$ applied to that baseline. These are different for each corner
+- The scale $s_i$ applied to that baseline. These are different for each
+  observed corner
 
 The [[https://github.com/dkogan/mrgingham/][=mrgingham=]] corner detector, in particular, reports the resolution used in
 detecting each corner as a decimation level: level-0 is "full-resolution",
@@ -436,10 +436,20 @@ and the variance for all the pixel observations
 
 \[\mathrm{Var}\left(\vec q_\mathrm{ref}\right) = \mathrm{diag}\left(s_i^2\right) \sigma^2 \]
 
-The remaining piece is to compute $\sigma$, but this is hard to measure. There's
-an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in mrgingham, but it doesn't obviously work well. Thus the current
-method is to estimate $\sigma$ from the solve residuals: the measurement vector
-$\vec x$ at the optimal solution.
+The remaining piece is to compute $\sigma$, but this is hard to measure
+directly. There's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in mrgingham, but it doesn't obviously work well.
+Thus the current method is to estimate $\sigma$ from the solve residuals:
+
+\[\sigma = \sqrt{\mathrm{Var}\left( \vec x^*_\mathrm{observations} \right)}\]
+
+where $\vec x^*$ is the measurement vector at the optimum. If all the
+assumptions are satisfied and we have enough data, then the input noise is the
+only source of error, and the only thing at affects the optimal $\vec x$, and
+this way of evaluating $\sigma$ is reasonable. If we have too little data, we're
+going to be overfitting, and the $\sigma$ computed using the above method will
+be too low. The current thought is that this will be hard to do with chessboards
+and even a half-hearted calibration (we'll always have enough data), so mrcal
+currently doesn't try to catch this case. This might be added in the future.
 
 ** Noise in the measurement vector $\vec x$
 :PROPERTIES:
@@ -472,7 +482,7 @@ overfit (both reasonable assumptions), then
 
 where $\sigma$ is the input noise we're propagating. Furthermore, $\vec
 x_\mathrm{observations}$ is homoscedastic: each element as the same variance. I
-make two more assumptions:
+make two more (reasonable) assumptions:
 
 - The rest of the measurement vector $\vec x$ ([[#Regularization][regularization]]) is insignificant
 - I consider the linear problem at the local linearization of my nonlinear system
@@ -480,12 +490,6 @@ make two more assumptions:
 And then I can make a larger statement: the optimal parameter vector we compute
 from the least-squares optimization is the maximum-likelihood estimate of the
 true solution.
-
-These assumptions are all mostly reasonable. If we have too little data, we're
-going to be overfitting, and the $\sigma$ computed using the above method will
-be too low. The current thought is that this will be hard to do with chessboards
-and even a half-hearted calibration, so mrcal currently doesn't try to catch
-this case. This might be added in the future.
 
 * Outlier rejection
 :PROPERTIES:

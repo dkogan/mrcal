@@ -558,8 +558,7 @@ the axes of the stereo system. Now that we have rotated each camera to look to
 the left, the baseline is no longer perpendicular to the central axis of each
 camera. The stereo system is still attached to the baseline, however. That means
 that $\theta = 0$ no longer corresponds to the center of the view. We don't need
-to care, however: [[file:mrcal-python-api-reference.html#-stereo_rectify_prepare][=mrcal.stereo_rectify_prepare()=]] figures that out, and
-compensates.
+to care, however: [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] figures that out and compensates.
 
 And we get nice-looking rectified images:
 

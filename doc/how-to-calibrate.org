@@ -222,9 +222,9 @@ $ < corners.vnl head -n5
 
 ## generated with mrgingham -j3 *.JPG
 # filename x y level
-DSC_7374.JPG 1049.606126 1032.249784 1
-DSC_7374.JPG 1322.477977 1155.491028 1
-DSC_7374.JPG 1589.571471 1276.563664 1
+DSC_7305.JPG 3752.349000 168.802000 2
+DSC_7305.JPG 3844.411234 150.264910 0
+DSC_7305.JPG 3950.404000 132.480000 2
 #+end_example
 
 How well did we cover the imager? Did we get the edges and corners?
@@ -311,12 +311,13 @@ $ mrcal-calibrate-cameras        \
   well for wide lenses. See the [[file:lensmodels.org][lens-model page]] for a description of the
   available models. The current recommendation is to use an [[file:lensmodels.org::#lensmodel-opencv][opencv model]]
   (=LENSMODEL_OPENCV5= for long lenses, =LENSMODEL_OPENCV8= for wide lenses)
-  initially. And once that works well, to move to the [[file:lensmodels.org::#splined-stereographic-lens-model][splined-stereographic
-  model]] to get better accuracy and reliable uncertainty reporting. This will
-  eventually be the model of choice for all cases, but it's still relatively
-  new, and not yet thoroughly tested in the field. For /very/ wide fisheye
-  lenses, this is the only model that will work at all, so start there if you
-  have an ultra-fisheye lens.
+  initially. And once that works well, to move to
+  [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get better accuracy and reliable
+  uncertainty reporting. This is the model of choice for all cases, but it's
+  still relatively new, so starting out with something like =LENSMODEL_OPENCV8=,
+  is still a good sanity check. For /very/ wide fisheye lenses,
+  [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] is the only model that will work at all, so
+  start there if you have an ultra-fisheye lens.
 
 - =--focal 1700= provides the initial estimate for the camera focal lengths, in
   pixels. This doesn't need to be precise, but do try to get this roughly
