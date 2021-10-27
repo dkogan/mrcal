@@ -180,7 +180,7 @@ test/test-projection-uncertainty.py --fixed cam0 --model splined \
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
-test/test-projection-uncertainty.py --fixed cam0 --model splined --make-documentation-plots ~/jpl/mrcal/doc/external/figures/uncertainty/simulated-uncertainty-splined
+test/test-projection-uncertainty.py --fixed cam0 --model splined --make-documentation-plots ~/projects/mrcal-doc-external/figures/uncertainty/simulated-uncertainty-splined
 #+end_src
 
 [[file:external/figures/uncertainty/simulated-uncertainty-splined--uncertainty-wholeimage-noobservations.svg]]
@@ -225,9 +225,9 @@ First, the =LENSMODEL_OPENCV8= solve:
 mrcal-show-projection-uncertainty opencv8.cameramodel --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-opencv8.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-opencv8.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+~/projects/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
+~/projects/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+~/projects/mrcal/mrcal-show-projection-uncertainty data/board/opencv8.cameramodel --unset key --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 [[file:external/figures/uncertainty/uncertainty-opencv8.png]]
@@ -238,9 +238,9 @@ And the splined solve:
 mrcal-show-projection-uncertainty splined.cameramodel --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-splined.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-splined.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
-~/jpl/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-splined.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+~/projects/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.svg --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
+~/projects/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.pdf --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+~/projects/mrcal/mrcal-show-projection-uncertainty data/board/splined.cameramodel --unset key --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 [[file:external/figures/uncertainty/uncertainty-splined.png]]

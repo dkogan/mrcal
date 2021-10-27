@@ -202,15 +202,15 @@ range bias and reprojection bias. Recommend lee-civera-linf instead of mid2
 - Measure effect of focus, aperture
 
 ** warnings in mrcal.c
-[[file:~/jpl/mrcal/mrcal.c::// WARNING: if I could assume that dq_dintrinsics_pool_double!=NULL then I wouldnt need to copy the context][something about being efficient and not copying stuff]]
+[[file:/home/dima/projects/mrcal/mrcal.c::// WARNING: if I could assume that dq_dintrinsics_pool_double!=NULL then I wouldnt need to copy the context][something about being efficient and not copying stuff]]
 
-[[file:~/jpl/mrcal/mrcal.c::// WARNING: This should go away. For some reason it makes unproject() converge better, and it makes the tests pass. But it's not even right!][=mrcal_unproject_internal()=]] is seeding the optimization in a 100% wrong way
+[[file:~/projects/mrcal/mrcal.c::// WARNING: This should go away. For some reason, the 0.7 path makes unproject() converge better, and it makes the tests pass. But it's not even right!][=mrcal_unproject_internal()=]] is seeding the optimization in a 100% wrong way
 that, for some reason, works better than if I fix the bug. Fixing the bug makes
 the tests fail
 
-[[file:~/jpl/mrcal/mrcal.c::// WARNING: sparsify this. This is potentially a BIG thing on the stack][not putting the full optimization state on the stack]]
+[[file:/home/dima/projects/mrcal/mrcal.c::// WARNING: sparsify this. This is potentially a BIG thing on the stack][not putting the full optimization state on the stack]]
 
-[[file:~/jpl/mrcal/mrcal.c::// WARNING: "compute size(dq_dintrinsics_pool_double) correctly and maybe bounds-check"][Again: don't put the full intrinsics on the stack]]
+[[file:/home/dima/projects/mrcal/mrcal.c::// WARNING: "compute size(dq_dintrinsics_pool_double) correctly and maybe bounds-check"][Again: don't put the full intrinsics on the stack]]
 
 mrcal_optimize(): merge =packed_state= and =p_packed_final=. And =packed_state=
 is a big stack thing, which is scary

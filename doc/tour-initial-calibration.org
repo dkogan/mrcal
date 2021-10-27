@@ -159,7 +159,7 @@ calobject_warp = [-0.00104306  0.00051718]
 Wrote ./camera-0.cameramodel
 #+end_example
 #+begin_src sh :exports none :eval no-export
-mrcal-calibrate-cameras        \
+~/projects/mrcal/mrcal-calibrate-cameras        \
   --corners-cache corners.vnl    \
   --lensmodel LENSMODEL_OPENCV8  \
   --focal 1700                   \

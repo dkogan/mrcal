@@ -193,7 +193,7 @@ for r (200 1000 2000 2500) {
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
-for r (200 1000 2000 2500) { ~/jpl/mrcal/mrcal-show-projection-diff --no-uncertainties opencv[48].cameramodel --distance 1 --radius $r --unset key --extratitle "radius $r" --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-radius$r-opencv4-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
+for r (200 1000 2000 2500) { ~/projects/mrcal/mrcal-show-projection-diff --no-uncertainties opencv[48].cameramodel --distance 1 --radius $r --unset key --extratitle "radius $r" --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-radius$r-opencv4-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
 #+end_src
 
 [[file:external/figures/diff/diff-radius200-opencv4-opencv8.png]]
@@ -237,7 +237,7 @@ mrcal-show-projection-uncertainty opencv4.cameramodel --distance 1 --unset key
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-uncertainty opencv4.cameramodel --distance 1 --unset key  --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-opencv4-1m.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+~/projects/mrcal/mrcal-show-projection-uncertainty opencv4.cameramodel --distance 1 --unset key  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv4-1m.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 [[file:external/figures/uncertainty/uncertainty-opencv4-1m.png]]
@@ -252,8 +252,8 @@ mrcal-show-projection-diff  \
 #+end_src
 
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-diff opencv[48].cameramodel --distance 1 --unset key \
-  --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-weighted-opencv4-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+~/projects/mrcal/mrcal-show-projection-diff opencv[48].cameramodel --distance 1 --unset key \
+  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-weighted-opencv4-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 [[file:external/figures/diff/diff-weighted-opencv4-opencv8.png]]
@@ -302,10 +302,10 @@ and the diff like this:
 [[file:external/figures/diff/diff-weighted-splined-splined-rad1500.png]]
 
 #+begin_src sh :exports none :eval no-export
-~/jpl/mrcal/mrcal-show-projection-uncertainty splined-rad1500.cameramodel --distance 1 \
-  --unset key --hardcopy ~/jpl/mrcal/doc/external/figures/uncertainty/uncertainty-splined-rad1500-1m.png \
+~/projects/mrcal/mrcal-show-projection-uncertainty splined-rad1500.cameramodel --distance 1 \
+  --unset key --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined-rad1500-1m.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 
-~/jpl/mrcal/mrcal-show-projection-diff splined{,-rad1500}.cameramodel --distance 1 --unset key \
-  --hardcopy ~/jpl/mrcal/doc/external/figures/diff/diff-weighted-splined-splined-rad1500.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+~/projects/mrcal/mrcal-show-projection-diff splined{,-rad1500}.cameramodel --distance 1 --unset key \
+  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-weighted-splined-splined-rad1500.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
