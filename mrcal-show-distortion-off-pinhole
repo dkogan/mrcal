@@ -62,10 +62,16 @@ def parse_args():
                         default=10,
                         help='''Maximum range of the colorbar''')
 
+    parser.add_argument('--title',
+                        type=str,
+                        default = None,
+                        help='''Title string for the plot. Overrides the default
+                        title. Exclusive with --extratitle''')
     parser.add_argument('--extratitle',
                         type=str,
                         default = None,
-                        help='''Extra title string for the plot''')
+                        help='''Additional string for the plot to append to the
+                        default title. Exclusive with --title''')
 
     parser.add_argument('--hardcopy',
                         type=str,
@@ -92,6 +98,11 @@ def parse_args():
     return parser.parse_args()
 
 args = parse_args()
+
+if args.title      is not None and \
+   args.extratitle is not None:
+    print("--title and --extratitle are exclusive", file=sys.stderr)
+    sys.exit(1)
 
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
@@ -124,12 +135,15 @@ if args.set is not None:
 if args.unset is not None:
     plotkwargs['unset'] = args.unset
 
+if args.title is not None:
+    plotkwargs['title'] = args.title
+if args.extratitle is not None:
+    plotkwargs['extratitle'] = args.extratitle
 
 if   args.radial:
     plot = mrcal.show_distortion_off_pinhole_radial(model,
 
                                                     show_fisheye_projections = args.show_fisheye_projections,
-                                                    extratitle   = args.extratitle,
                                                     hardcopy     = args.hardcopy,
                                                     terminal     = args.terminal,
                                                     **plotkwargs)
@@ -141,7 +155,6 @@ else:
                                              gridn_width  = args.gridn[0],
                                              gridn_height = args.gridn[1],
 
-                                             extratitle   = args.extratitle,
                                              hardcopy     = args.hardcopy,
                                              terminal     = args.terminal,
                                              **plotkwargs)

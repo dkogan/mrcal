@@ -32,10 +32,16 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
+    parser.add_argument('--title',
+                        type=str,
+                        default = None,
+                        help='''Title string for the plot. Overrides the default
+                        title. Exclusive with --extratitle''')
     parser.add_argument('--extratitle',
                         type=str,
                         default = None,
-                        help='''Extra title string for the plot''')
+                        help='''Additional string for the plot to append to the
+                        default title. Exclusive with --title''')
 
     parser.add_argument('--vectorscale',
                         type = float,
@@ -141,6 +147,12 @@ def parse_args():
             print(f"--hardcopy given, so exactly one observation should have been given. Instead got these observations: {args.observations}",
                   file=sys.stderr)
             sys.exit(1)
+
+    if args.title      is not None and \
+       args.extratitle is not None:
+        print("--title and --extratitle are exclusive", file=sys.stderr)
+        sys.exit(1)
+
     return args
 
 args = parse_args()
@@ -160,6 +172,11 @@ if args.set is not None:
     plotkwargs_extra['set'] = args.set
 if args.unset is not None:
     plotkwargs_extra['unset'] = args.unset
+
+if args.title is not None:
+    plotkwargs_extra['title'] = args.title
+if args.extratitle is not None:
+    plotkwargs_extra['extratitle'] = args.extratitle
 
 try:
     model = mrcal.cameramodel(args.model)
@@ -212,7 +229,6 @@ def show(i_observation):
                                            image_directory                  = args.image_directory,
                                            circlescale                      = args.circlescale,
                                            vectorscale                      = args.vectorscale,
-                                           extratitle                       = args.extratitle,
                                            hardcopy                         = args.hardcopy,
                                            terminal                         = args.terminal,
                                            **plotkwargs_extra)
@@ -251,7 +267,6 @@ mrcal.show_residuals_board_observation(optimization_inputs,
                                        paths                            = paths,
                                        circlescale                      = args.circlescale,
                                        vectorscale                      = args.vectorscale,
-                                       extratitle                       = args.extratitle,
                                        hardcopy                         = args.hardcopy,
                                        terminal                         = args.terminal,
                                        **{pprint.pformat(plotkwargs_extra)})

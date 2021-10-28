@@ -108,10 +108,17 @@ def parse_args():
                         vectors by this factor. Useful to improve legibility if
                         the vectors are too small to see''')
 
+    parser.add_argument('--title',
+                        type=str,
+                        default = None,
+                        help='''Title string for the plot. Overrides the default
+                        title. Exclusive with --extratitle''')
     parser.add_argument('--extratitle',
                         type=str,
                         default = None,
-                        help='''Extra title string for the plot''')
+                        help='''Additional string for the plot to append to the
+                        default title. Exclusive with --title''')
+
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''Write the output to disk, instead of making an interactive plot''')
@@ -162,6 +169,11 @@ def parse_args():
 
     args = parser.parse_args()
 
+    if args.title      is not None and \
+       args.extratitle is not None:
+        print("--title and --extratitle are exclusive", file=sys.stderr)
+        sys.exit(1)
+
     return args
 
 args = parse_args()
@@ -203,6 +215,11 @@ if args.set is not None:
 if args.unset is not None:
     plotkwargs['unset'] = args.unset
 
+if args.title is not None:
+    plotkwargs['title'] = args.title
+if args.extratitle is not None:
+    plotkwargs['extratitle'] = args.extratitle
+
 try:
     plot = mrcal.show_splined_model_correction(model,
                                                 vectorfield             = args.vectorfield,
@@ -213,7 +230,6 @@ try:
                                                 vectorscale             = args.vectorscale,
                                                 valid_intrinsics_region = not args.show_imager_bounds,
                                                 observations            = args.observations,
-                                                extratitle              = args.extratitle,
                                                 hardcopy                = args.hardcopy,
                                                 terminal                = args.terminal,
                                                 **plotkwargs)
