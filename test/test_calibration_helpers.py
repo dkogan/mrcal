@@ -169,7 +169,7 @@ ARGUMENTS
 
     frames_true = mrcal.rt_from_Rt(Rt_ref_board_true)
 
-    ############# I have perfect observations in q_true. I corrupt them by noise
+    ############# I have perfect observations in q_true.
     # weight has shape (Nframes, Ncameras, Nh, Nw),
     weight01 = (np.random.rand(*q_true.shape[:-1]) + 1.) / 2. # in [0,1]
     weight0 = 0.2
@@ -212,9 +212,6 @@ ARGUMENTS
         indices_frame_camintrinsics_camextrinsics[:,2] -= 1
 
     ###########################################################################
-    # Now I apply pixel noise, and look at the effects on the resulting calibration.
-
-
     # p = mrcal.show_geometry(models_true,
     #                         frames          = frames_true,
     #                         object_width_n  = object_width_n,
