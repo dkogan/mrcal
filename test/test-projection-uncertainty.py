@@ -889,7 +889,7 @@ if args.make_documentation_plots is not None:
     data_tuples_plot_options = \
         [ mrcal.show_projection_uncertainty( models_baseline[icam],
                                              observed_pixel_uncertainty = pixel_uncertainty_stdev,
-                                             observations          = True,
+                                             observations          = 'dots',
                                              distance              = args.distances[0],
                                              contour_increment     = -0.4,
                                              contour_labels_styles = '',
