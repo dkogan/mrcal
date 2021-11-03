@@ -1069,16 +1069,18 @@ def show_projection_uncertainty(model,
                                 gridn_width             = 60,
                                 gridn_height            = None,
 
-                                observations            = False,
-                                valid_intrinsics_region = False,
-                                distance                = None,
-                                isotropic               = False,
-                                cbmax                   = 3,
-                                contour_increment       = None,
-                                contour_labels_styles   = 'boxed',
-                                contour_labels_font     = None,
-                                extratitle              = None,
-                                return_plot_args        = False,
+                                observed_pixel_uncertainty = None,
+
+                                observations               = False,
+                                valid_intrinsics_region    = False,
+                                distance                   = None,
+                                isotropic                  = False,
+                                cbmax                      = 3,
+                                contour_increment          = None,
+                                contour_labels_styles      = 'boxed',
+                                contour_labels_font        = None,
+                                extratitle                 = None,
+                                return_plot_args           = False,
                                 **kwargs):
     r'''Visualize the uncertainty in camera projection
 
@@ -1134,6 +1136,11 @@ ARGUMENTS
 - gridn_height: how many points along the vertical gridding dimension. If None,
   we compute an integer gridn_height to maintain a square-ish grid:
   gridn_height/gridn_width ~ imager_height/imager_width
+
+- observed_pixel_uncertainty: optional value, defaulting to None. The
+  uncertainty of the observed chessboard corners being propagated through the
+  solve and projection. If omitted or None, this input uncertainty is inferred
+  from the residuals at the optimum. Most people should omit this
 
 - observations: optional boolean, defaulting to False. If True, we overlay
   calibration-time observations on top of the uncertainty plot. We should then
@@ -1210,7 +1217,8 @@ plot
     err = mrcal.projection_uncertainty(pcam * (distance if distance is not None else 1.0),
                                        model           = model,
                                        atinfinity      = distance is None,
-                                       what            = 'rms-stdev' if isotropic else 'worstdirection-stdev')
+                                       what            = 'rms-stdev' if isotropic else 'worstdirection-stdev',
+                                       observed_pixel_uncertainty = observed_pixel_uncertainty)
     if 'title' not in kwargs:
         if distance is None:
             distance_description = ". Looking out to infinity"

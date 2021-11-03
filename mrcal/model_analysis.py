@@ -743,7 +743,8 @@ def projection_uncertainty( p_cam, model,
                             atinfinity = False,
 
                             # what we're reporting
-                            what = 'covariance'):
+                            what = 'covariance',
+                            observed_pixel_uncertainty = None):
     r'''Compute the projection uncertainty of a camera-referenced point
 
 This is the interface to the uncertainty computations described in
@@ -817,6 +818,11 @@ behavior. This function broadcasts on p_cam only. We accept
 
   - 'rms-stdev':            return the RMS of the worst and best direction
                             standard deviations
+
+- observed_pixel_uncertainty: optional value, defaulting to None. The
+  uncertainty of the observed chessboard corners being propagated through the
+  solve and projection. If omitted or None, this input uncertainty is inferred
+  from the residuals at the optimum. Most people should omit this
 
 RETURN VALUE
 
@@ -959,9 +965,10 @@ else:                    we return an array of shape (...)
         # Note the special-case where I'm using all the observations
         Nmeasurements_observations = None
 
-    observed_pixel_uncertainty = \
-        np.std(mrcal.residuals_chessboard(optimization_inputs,
-                                          residuals = x).ravel())
+    if observed_pixel_uncertainty is None:
+        observed_pixel_uncertainty = \
+            np.std(mrcal.residuals_chessboard(optimization_inputs,
+                                              residuals = x).ravel())
 
     # Two distinct paths here that are very similar, but different-enough to not
     # share any code. If atinfinity, I ignore all translations
