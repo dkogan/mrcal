@@ -299,5 +299,20 @@ D=~/projects/mrcal-doc-external
 As expected, the splined model produces less optimistic (but more realistic)
 uncertainty reports.
 
+Recall that in [[file:tour-differencing.org][the last section]] we compared our two calibrated models. The
+difference looked like this:
+
+[[file:external/figures/diff/diff-splined-opencv8.png]]
+
+Clearly the errors predicted by the projection uncertainty plots don't account
+for the large differences we see here. The reason for this is model error,
+/especially/ in the =LENSMODEL_OPENCV8= solve. The uncertainty quantification
+method we just described /only/ models the effect of observation error at
+calibration time. Any model errors (such as an ill-fitting lens model, a
+badly-shaped calibration board, motion blur, etc) will produce high differences
+and low uncertainties. This is a /very/ common effect, and is the main thing we
+battle as we try to faithfully model the behavior of a lens.
+
+
 * Next
 Now [[file:tour-effect-of-range.org][we discuss the effect of range in differencing and uncertainty computations]].
