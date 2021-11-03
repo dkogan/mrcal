@@ -769,9 +769,10 @@ ARGUMENTS
   we compute an integer gridn_height to maintain a square-ish grid:
   gridn_height/gridn_width ~ imager_height/imager_width
 
-- observations: optional boolean, defaulting to False. If True, we overlay
+- observations: optional value, defaulting to False. If observations: we overlay
   calibration-time observations on top of the difference plot. We should then
-  see that more data produces more consistent results.
+  see that more data produces more consistent results. If a special value of
+  'dots' is passed, the observations are plotted as dots instead of points
 
 - valid_intrinsics_region: optional boolean, defaulting to False. If True, we
   overlay the valid-intrinsics regions onto the plot. If the valid-intrinsics
@@ -1042,18 +1043,30 @@ A tuple:
             #                                    legend    = f"Camera {i} board sequences"),))
 
             if len(q_cam_calobjects_inliers):
+                if observations == 'dots':
+                    _with = f'dots lc "black"'
+                else:
+                    _with = f'points lc "black" pt {1+i}'
+                if not _2d:
+                    _with += ' nocontour'
                 plot_data_args.append( ( q_cam_calobjects_inliers[...,0],
                                          q_cam_calobjects_inliers[...,1] ) +
                                        ( () if _2d else ( np.zeros(q_cam_calobjects_inliers.shape[:-1]), )) +
                                        ( dict( tuplesize = 2 if _2d else 3,
-                                               _with     = f'points lc "black" pt {1+i}' + ("" if _2d else ' nocontour'),
+                                               _with     = _with,
                                                legend    = f'Camera {i} inliers'), ))
             if len(q_cam_calobjects_outliers):
+                if observations == 'dots':
+                    _with = f'dots lc "red"'
+                else:
+                    _with = f'points lc "red" pt {1+i}'
+                if not _2d:
+                    _with += ' nocontour'
                 plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
                                          q_cam_calobjects_outliers[...,1] ) +
                                        ( () if _2d else ( np.zeros(q_cam_calobjects_outliers.shape[:-1]), )) +
                                        ( dict( tuplesize = 2 if _2d else 3,
-                                               _with     = f'points lc "red" pt {1+i}' + ("" if _2d else ' nocontour'),
+                                               _with     = _with,
                                                legend    = f'Camera {i} outliers'), ))
 
     data_tuples = plot_data_args
@@ -1142,9 +1155,11 @@ ARGUMENTS
   solve and projection. If omitted or None, this input uncertainty is inferred
   from the residuals at the optimum. Most people should omit this
 
-- observations: optional boolean, defaulting to False. If True, we overlay
-  calibration-time observations on top of the uncertainty plot. We should then
-  see that more data produces more confident results.
+- observations: optional value, defaulting to False. If observatoins:, we
+  overlay calibration-time observations on top of the uncertainty plot. We
+  should then see that more data produces more confident results. If a special
+  value of 'dots' is passed, the observations are plotted as dots instead of
+  points
 
 - valid_intrinsics_region: optional boolean, defaulting to False. If True, we
   overlay the valid-intrinsics region onto the plot. If the valid-intrinsics
@@ -1284,18 +1299,28 @@ plot
         #                                    legend = "board sequences")))
 
         if len(q_cam_calobjects_inliers):
+            if observations == 'dots':
+                _with = 'dots lc "black" nocontour'
+            else:
+                _with = 'points lc "black" pt 1 nocontour'
+
             plot_data_args.append( ( q_cam_calobjects_inliers[...,0],
                                      q_cam_calobjects_inliers[...,1],
                                      np.zeros(q_cam_calobjects_inliers.shape[:-1]),
                                      dict( tuplesize = 3,
-                                           _with  = 'points lc "black" pt 1 nocontour',
+                                           _with  = _with,
                                            legend = 'inliers')) )
         if len(q_cam_calobjects_outliers):
+            if observations == 'dots':
+                _with = 'dots lc "red" nocontour'
+            else:
+                _with = 'points lc "red" pt 1 nocontour'
+
             plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
                                      q_cam_calobjects_outliers[...,1],
                                      np.zeros(q_cam_calobjects_outliers.shape[:-1]),
                                      dict( tuplesize = 3,
-                                           _with  = 'points lc "red" pt 1 nocontour',
+                                           _with  = _with,
                                            legend = 'outliers')) )
 
     plot_options = kwargs
@@ -2094,10 +2119,11 @@ ARGUMENTS
   unrealistic representation of reality. Passing True here is strongly
   recommended
 
-- observations: optional boolean defaults to False. If True: we plot the
-  calibration-time point observations on top of the surface and the knots. These
-  make it more clear if the unprojectable regions in the model really are a
-  problem
+- observations: optional value, defaulting to False. If observations: we plot
+  the calibration-time point observations on top of the surface and the knots.
+  These make it more clear if the unprojectable regions in the model really are
+  a problem. If a special value of 'dots' is passed, the observations are
+  plotted as dots instead of points
 
 - gridn_width: optional value, defaulting to 60. How many points along the
   horizontal gridding dimension
@@ -2336,16 +2362,24 @@ plot
         plot_data_tuples_zigzag = ()
 
         if len(q_cam_calobjects_inliers):
+            if observations == 'dots':
+                _with = 'dots lc "black"'
+            else:
+                _with = 'points lc "black" pt 1'
             plot_data_tuples_inliers = \
                 ( ( q_cam_calobjects_inliers,
                     dict( tuplesize = -2,
-                          _with  = 'points lc "black" pt 1',
+                          _with  = _with,
                           legend = 'inliers')), )
         if len(q_cam_calobjects_outliers):
+            if observations == 'dots':
+                _with = 'dots lc "black"'
+            else:
+                _with = 'points lc "red" pt 1'
             plot_data_tuples_outliers = \
                 ( ( q_cam_calobjects_outliers,
                     dict( tuplesize = -2,
-                          _with  = 'points lc "red" pt 1',
+                          _with  = _with,
                           legend = 'outliers')), )
 
     # Anything outside the valid region contour but inside the imager is an
