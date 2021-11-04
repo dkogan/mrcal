@@ -30,9 +30,23 @@ expect a low difference. However, the above algorithm produces a difference that
 is very high. As a heat map:
 
 #+begin_src sh
-mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key \
-                           data/board/opencv8.cameramodel            \
-                           data/board/splined.cameramodel
+mrcal-show-projection-diff \
+  --intrinsics-only        \
+  --cbmax 200              \
+  --unset key              \
+  opencv8.cameramodel      \
+  splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
+~/projects/mrcal/mrcal-show-projection-diff                           \
+  --intrinsics-only                                                   \
+  --cbmax 200                                                         \
+  --unset key                                                         \
+  $D/data/board/opencv8.cameramodel                                   \
+  $D/data/board/splined.cameramodel                                   \
+  --hardcopy $D/figures/diff/diff-radius0-heatmap-splined-opencv8.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
 
 [[file:external/figures/diff/diff-radius0-heatmap-splined-opencv8.png]]
@@ -40,10 +54,29 @@ mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key \
 And as a vector field:
 
 #+begin_src sh
-mrcal-show-projection-diff --intrinsics-only --cbmax 200 --unset key   \
-                           --vectorfield --vectorscale 5 --gridn 30 20 \
-                           data/board/opencv8.cameramodel
-                           data/board/splined.cameramodel
+mrcal-show-projection-diff \
+  --intrinsics-only \
+  --cbmax 200 \
+  --unset key   \
+  --vectorfield \
+  --vectorscale 5 \
+  --gridn 30 20 \
+  data/board/opencv8.cameramodel
+  data/board/splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
+~/projects/mrcal/mrcal-show-projection-diff                               \
+  --intrinsics-only                                                       \
+  --cbmax 200                                                             \
+  --unset key                                                             \
+  --vectorfield                                                           \
+  --vectorscale 5                                                         \
+  --gridn 30 20                                                           \
+  $D/data/board/opencv8.cameramodel                                       \
+  $D/data/board/splined.cameramodel                                       \
+  --hardcopy $D/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg \
+  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
 #+end_src
 
 [[file:external/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg]]
@@ -88,9 +121,19 @@ Once we compute that transformation, and use it to recompute the above diff, we
 get what we expect:
 
 #+begin_src sh
-mrcal-show-projection-diff --unset key                    \
-                           data/board/opencv8.cameramodel \
-                           data/board/splined.cameramodel
+mrcal-show-projection-diff \
+  --unset key              \
+  opencv8.cameramodel      \
+  splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
+~/projects/mrcal/mrcal-show-projection-diff           \
+  --unset key                                         \
+  $D/data/board/opencv8.cameramodel                   \
+  $D/data/board/splined.cameramodel                   \
+  --hardcopy $D/figures/diff/diff-splined-opencv8.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
 
 [[file:external/figures/diff/diff-splined-opencv8.png]]
@@ -146,7 +189,6 @@ $ mrcal-calibrate-cameras        \
   --focal 1700                   \
   --object-spacing 0.077         \
   --object-width-n 10            \
-  --observed-pixel-uncertainty 2 \
   --explore                      \
   '*.JPG'
 
@@ -186,14 +228,28 @@ center.
 #+begin_src sh
 # This is a zsh loop
 for r (200 1000 2000 2500) {
-  mrcal-show-projection-diff --no-uncertainties \
-    --distance 1 --radius $r \
-    --unset key --extratitle "radius $r" opencv[48].cameramodel
+  mrcal-show-projection-diff \
+    --no-uncertainties       \
+    --distance 1             \
+    --radius $r              \
+    --unset key              \
+    --extratitle "radius $r" \
+    opencv[48].cameramodel
 }
 #+end_src
-
 #+begin_src sh :exports none :eval no-export
-for r (200 1000 2000 2500) { ~/projects/mrcal/mrcal-show-projection-diff --no-uncertainties opencv[48].cameramodel --distance 1 --radius $r --unset key --extratitle "radius $r" --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-radius$r-opencv4-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' }
+D=~/projects/mrcal-doc-external
+for r (200 1000 2000 2500) {
+  ~/projects/mrcal/mrcal-show-projection-diff                    \
+    --no-uncertainties                                           \
+    --distance 1                                                 \
+    --radius $r                                                  \
+    --unset key                                                  \
+    --extratitle "radius $r"                                     \
+    $D/data/board/opencv[48].cameramodel                         \
+    --hardcopy $D/figures/diff/diff-radius$r-opencv4-opencv8.png \
+    --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+}
 #+end_src
 
 [[file:external/figures/diff/diff-radius200-opencv4-opencv8.png]]
@@ -233,11 +289,19 @@ uncertainty at 1m out (near the sweet spot, where the chessboards were) looks
 /far/ better than that:
 
 #+begin_src sh
-mrcal-show-projection-uncertainty opencv4.cameramodel --distance 1 --unset key
+mrcal-show-projection-uncertainty \
+    --distance 1                  \
+    --unset key                   \
+    opencv4.cameramodel
 #+end_src
-
 #+begin_src sh :exports none :eval no-export
-~/projects/mrcal/mrcal-show-projection-uncertainty opencv4.cameramodel --distance 1 --unset key  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv4-1m.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+D=~/projects/mrcal-doc-external
+~/projects/mrcal/mrcal-show-projection-uncertainty               \
+    --distance 1                                                 \
+    --unset key                                                  \
+    $D/data/board/opencv4.cameramodel                            \
+    --hardcopy $D/figures/uncertainty/uncertainty-opencv4-1m.png \
+    --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
 
 [[file:external/figures/uncertainty/uncertainty-opencv4-1m.png]]
@@ -246,14 +310,19 @@ And the diff using that uncertainty as a weight /without/ specifying a radius
 looks poor:
 
 #+begin_src sh
-mrcal-show-projection-diff  \
-  --distance 1
-  --unset key opencv[48].cameramodel
+mrcal-show-projection-diff \
+  --distance 1             \
+  --unset key              \
+  opencv[48].cameramodel
 #+end_src
-
 #+begin_src sh :exports none :eval no-export
-~/projects/mrcal/mrcal-show-projection-diff opencv[48].cameramodel --distance 1 --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-weighted-opencv4-opencv8.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+D=~/projects/mrcal-doc-external
+~/projects/mrcal/mrcal-show-projection-diff                    \
+    --distance 1                                               \
+    --unset key                                                \
+    $D/data/board/opencv[48].cameramodel                       \
+  --hardcopy $D/figures/diff/diff-weighted-opencv4-opencv8.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
 
 [[file:external/figures/diff/diff-weighted-opencv4-opencv8.png]]
@@ -280,16 +349,34 @@ mrcal-calibrate-cameras               \
   --focal 1700                        \
   --object-spacing 0.077              \
   --object-width-n 10                 \
-  --observed-pixel-uncertainty 2      \
   --explore                           \
   '*.JPG'
 
-mrcal-show-projection-uncertainty splined-rad1500.cameramodel \
-  --distance 1 --unset key
+mrcal-show-projection-uncertainty \
+  --distance 1                    \
+  --unset key                     \
+  splined-rad1500.cameramodel
 
-mrcal-show-projection-diff  \
-  --distance 1
-  --unset key splined{,-rad1500}.cameramodel
+mrcal-show-projection-diff \
+  --distance 1             \
+  --unset key              \
+  splined{,-rad1500}.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
+~/projects/mrcal/mrcal-show-projection-uncertainty                     \
+  --distance 1                                                         \
+  --unset key                                                          \
+  $D/data/board/splined-rad1500.cameramodel                            \
+  --hardcopy $D/figures/uncertainty/uncertainty-splined-rad1500-1m.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+
+~/projects/mrcal/mrcal-show-projection-diff                              \
+    --distance 1                                                         \
+    --unset key                                                          \
+    $D/data/board/splined{,-rad1500}.cameramodel                         \
+    --hardcopy $D/figures/diff/diff-weighted-splined-splined-rad1500.png \
+    --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
 
 The cut-down corners are [[file:external/data/board/corners-rad1500.vnl][here]] and the resulting model is [[file:external/data/board/splined-rad1500.cameramodel][here]]. The uncertainty
@@ -301,11 +388,3 @@ and the diff like this:
 
 [[file:external/figures/diff/diff-weighted-splined-splined-rad1500.png]]
 
-#+begin_src sh :exports none :eval no-export
-~/projects/mrcal/mrcal-show-projection-uncertainty splined-rad1500.cameramodel --distance 1 \
-  --unset key --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined-rad1500-1m.png \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
-
-~/projects/mrcal/mrcal-show-projection-diff splined{,-rad1500}.cameramodel --distance 1 --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-weighted-splined-splined-rad1500.png --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
-#+end_src
