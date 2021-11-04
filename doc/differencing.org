@@ -12,7 +12,7 @@ applications. For instance:
 - underlying a cross-validation scheme
 
 * What is being computed?
-What is meant by a "difference" here? Primarily we want to compare different
+What is meant by a "difference" here? Here we want to compare different
 representations of the same lens, so we're /not/ interested in extrinsics. At a
 very high level, to evaluate the projection difference at a pixel coordinate
 $\vec q_0$ in camera 0 we need to:
@@ -38,13 +38,13 @@ mrcal-show-projection-diff \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
+# THIS IS ALREADY GENERATED IN tour-differencing.org
 D=~/projects/mrcal-doc-external
 ~/projects/mrcal/mrcal-show-projection-diff                           \
   --intrinsics-only                                                   \
   --cbmax 200                                                         \
   --unset key                                                         \
-  $D/data/board/opencv8.cameramodel                                   \
-  $D/data/board/splined.cameramodel                                   \
+  $D/data/board/{opencv8,splined}.cameramodel                         \
   --hardcopy $D/figures/diff/diff-radius0-heatmap-splined-opencv8.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
@@ -55,26 +55,26 @@ And as a vector field:
 
 #+begin_src sh
 mrcal-show-projection-diff \
-  --intrinsics-only \
-  --cbmax 200 \
-  --unset key   \
-  --vectorfield \
-  --vectorscale 5 \
-  --gridn 30 20 \
-  data/board/opencv8.cameramodel
-  data/board/splined.cameramodel
+  --intrinsics-only        \
+  --vectorfield            \
+  --vectorscale 5          \
+  --gridn 30 20            \
+  --cbmax 200              \
+  --unset key              \
+  opencv8.cameramodel      \
+  splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
+# THIS IS ALREADY GENERATED IN tour-differencing.org
 D=~/projects/mrcal-doc-external
 ~/projects/mrcal/mrcal-show-projection-diff                               \
   --intrinsics-only                                                       \
-  --cbmax 200                                                             \
-  --unset key                                                             \
   --vectorfield                                                           \
   --vectorscale 5                                                         \
   --gridn 30 20                                                           \
-  $D/data/board/opencv8.cameramodel                                       \
-  $D/data/board/splined.cameramodel                                       \
+  --cbmax 200                                                             \
+  --unset key                                                             \
+  $D/data/board/{opencv8,splined}.cameramodel                             \
   --hardcopy $D/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
 #+end_src
@@ -99,13 +99,11 @@ solution and the coordinate system defined by the physical camera housing. It is
 important to note that *this implied transformation is built-in to the
 intrinsics*. Even if we're not explicitly optimizing the camera pose, this
 implied transformation is still something that exists and moves around in
-response to noise. Rich models like the [[file:lensmodels.org::#splined-stereographic-lens-model][splined stereographic models]] are able to
-encode a wide range of implied transformations, but even the simplest models
-have some transform that must be compensated for.
+response to noise.
 
-The above vector field suggests that we need to move one of the cameras up and
-to the left, and then we need to rotate that camera. We can automate this by
-adding a critical missing step to the procedure above between steps 1 and 2:
+The above vector field suggests that we need to pitch one of the cameras. We can
+automate this by adding a critical missing step to the procedure above between
+steps 1 and 2:
 
 - Transform $\vec p$ from the coordinate system of one camera to the coordinate
   system of the other camera
@@ -115,10 +113,8 @@ adding a critical missing step to the procedure above between steps 1 and 2:
 We don't know anything about the physical coordinate system of either camera, so
 we do the best we can: we compute a fit. The "right" transformation will
 transform $\vec p$ in such a way that the reported mismatches in $\vec q$ will
-be small.
-
-Once we compute that transformation, and use it to recompute the above diff, we
-get what we expect:
+be small. Previously we passed =--intrinsics-only= to bypass this fit. Let's
+omit that option to get the the diff that we expect:
 
 #+begin_src sh
 mrcal-show-projection-diff \
@@ -130,8 +126,7 @@ mrcal-show-projection-diff \
 D=~/projects/mrcal-doc-external
 ~/projects/mrcal/mrcal-show-projection-diff           \
   --unset key                                         \
-  $D/data/board/opencv8.cameramodel                   \
-  $D/data/board/splined.cameramodel                   \
+  $D/data/board/{opencv8,splined}.cameramodel         \
   --hardcopy $D/figures/diff/diff-splined-opencv8.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
@@ -143,13 +138,13 @@ As with [[file:uncertainty.org::#effect-of-range][projection uncertainty]], the 
 range. So we always compute "the projection difference when looking out to $r$
 meters" for some possibly-infinite $r$. The procedure we implement is:
 
-1. Regularly sample the imager, and unproject using lens 0 to get a set of unit
-   direction vectors $\left\{\vec v_{0_i}\right\}$ in the camera-0 coordinate system. The
-   [[file:mrcal-python-api-reference.html#-sample_imager_unproject][=mrcal.sample_imager_unproject()=]] function does this exactly
-2. Scale the direction vectors by the range (given with =--distance=)we care
-   about: $\left\{\vec p_{0_i}\right\} = \left\{r \vec v_{0_i}\right\}$. These
-   are now a set of points in the camera-0 coordinate system
-3. Compute corresponding unit direction vectors $\left\{\vec v_{1_i}\right\}$ in the camera-1 coordinate
+1. Regularly sample the two imagers, to get two corresponding sets of pixel
+   coordinates $\left\{\vec q_{0_i}\right\}$ and $\left\{\vec q_{1_i}\right\}$
+
+2. Unproject the camera-0 pixel coordinates to a set of points $\left\{\vec
+   p_{0_i}\right\}$ in the camera-0 coordinate system. The range is given with
+   =--distance=. [[file:mrcal-python-api-reference.html#-sample_imager_unproject][=mrcal.sample_imager_unproject()=]] function does this exactly
+3. Compute corresponding unit observation vectors $\left\{\vec v_{1_i}\right\}$ in the camera-1 coordinate
    system
 4. Compute the implied transformation $\left(R,t\right)$ as the one to maximize
    \[ \sum_i w_i \vec v_{1_i}^T \frac{R \vec p_{0_i} + t}{\left|R \vec p_{0_i} +
@@ -167,15 +162,16 @@ This is the logic behind [[file:mrcal-python-api-reference.html#-implied_Rt10__f
 ** Selection of fitting data
 The idea of using a fit to compute the implied transformation only works when
 the differences we're seeking are relatively small: once the $\left(R,t\right)$
-are found, all the fit residuals are low. In many cases this is not a valid
-assumption. Example: we're comparing two models that both represent a wide lens,
-except one of the lens models doesn't support wide lenses, so it only fits near
-the center. In this case, fitting observations everywhere in the imager will
-include poisoned data off center, so the optimal $\left(R,t\right)$ will fit
-badly. And the reported diff will be thus be high everywhere. However, if the
-dataset used for the fit is cut down to contain /only/ those observations near
-the center of the imager, then we will see the effect we expect: the two models
-would agree in the middle, and diverge at the edges.
+are found, the projection differences should be small, and all the fit residuals
+should be low. In many cases this is not a valid assumption. Example: we're
+comparing two calibrations of a wide lens, but one of the lens models is
+intended for a long lens, so it doesn't fit wide lenses well, and the
+projections agree only near the center. In this case, fitting observations
+everywhere in the imager will include poisoned data off center, and the optimal
+$\left(R,t\right)$ will fit badly. And as a result, the reported diff will be
+high everywhere. However, if the dataset used for the fit is cut down to contain
+/only/ observations near the center of the imager, then we will see the effect
+we expect: the two models would agree in the middle, and diverge at the edges.
 
 Let's demonstrate this. I re-ran the calibration from the [[file:tour.org][tour of mrcal]] using
 [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV4=]]. This model is not expected to work with wide lenses such as
@@ -214,10 +210,10 @@ calobject_warp = [-0.00115528  0.00043701]
 Wrote ./camera-0.cameramodel
 #+end_example
 
-The resulting model is available [[file:external/data/board/opencv4.cameramodel][here]]. This will illustrate the differencing
-logic, but it isn't a good way to run calibrations, in general: the outlier
-rejection will throw away the clearly-ill-fitting measurements, but the marginal
-measurements will make it through, which will produce marginal results.
+The resulting model is available [[file:external/data/board/opencv4.cameramodel][here]]. This illustrates the differencing logic,
+but it isn't a good way to run calibrations in general: the outlier rejection
+will throw away the clearly-ill-fitting measurements, but marginal measurements
+will make it through, which will slightly poison the output.
 
 Let's compute the diff between the narrow-only =LENSMODEL_OPENCV4= lens model
 and the mostly-good-everywhere =LENSMODEL_OPENCV8= model, using an expanding
@@ -227,7 +223,7 @@ center.
 
 #+begin_src sh
 # This is a zsh loop
-for r (200 1000 2000 2500) {
+for r (200 400 600 800 1000) {
   mrcal-show-projection-diff \
     --no-uncertainties       \
     --distance 1             \
@@ -239,7 +235,7 @@ for r (200 1000 2000 2500) {
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-for r (200 1000 2000 2500) {
+for r (200 400 600 800 1000) {
   ~/projects/mrcal/mrcal-show-projection-diff                    \
     --no-uncertainties                                           \
     --distance 1                                                 \
@@ -254,11 +250,13 @@ for r (200 1000 2000 2500) {
 
 [[file:external/figures/diff/diff-radius200-opencv4-opencv8.png]]
 
+[[file:external/figures/diff/diff-radius400-opencv4-opencv8.png]]
+
+[[file:external/figures/diff/diff-radius600-opencv4-opencv8.png]]
+
+[[file:external/figures/diff/diff-radius800-opencv4-opencv8.png]]
+
 [[file:external/figures/diff/diff-radius1000-opencv4-opencv8.png]]
-
-[[file:external/figures/diff/diff-radius2000-opencv4-opencv8.png]]
-
-[[file:external/figures/diff/diff-radius2500-opencv4-opencv8.png]]
 
 ** Fit weighting
 :PROPERTIES:
@@ -270,13 +268,12 @@ solve well, but /only/ in the center of the imager. The issue from a tooling
 standpoint is that in order for the tool to tell us that, *we* needed to tell
 the tool to only look at the center. That is not very useful.
 
-This is a work in progress, and mrcal currently has only a partial solution. The
-problem we observed is that some regions of the imager have unreliable behavior,
-and poison the fit. But we know where the fit is reliable: in the areas where
-the [[file:uncertainty.org][projection uncertainty]] is low. So we can weigh the fit by the inverse of the
-projection uncertainty, and we will then automatically use the "good" regions
-while ignoring the "bad" regions. Without requiring the user to specify the
-good-projection region.
+The issue we observed is that some regions of the imager have unreliable
+behavior, and poison the fit. But we know where the fit is reliable: in the
+areas where the [[file:uncertainty.org][projection uncertainty]] is low. So we can weigh the fit by the
+inverse of the projection uncertainty, and we will then automatically favor the
+"good" regions. Without requiring the user to specify the good-projection
+region.
 
 This works, but with a big caveat. As described on the [[file:uncertainty.org][projection uncertainty]]
 page, lean models report overly-optimistic uncertainties. Thus when used as
@@ -328,9 +325,11 @@ D=~/projects/mrcal-doc-external
 [[file:external/figures/diff/diff-weighted-opencv4-opencv8.png]]
 
 Where this technique /does/ work well is when using [[file:lensmodels.org::#splined-stereographic-lens-model][splined models]], which
-produce realistic uncertainty estimates. To demonstrate, let's cut down the [[file:tour.org][tour
-of mrcal]] calibration data to throw out all points outside of a circle at the
-center, calibrate off /that/ data, and run a diff on /those/ results:
+produce realistic uncertainty estimates. To demonstrate, let's produce a
+splined-model calibration that is only reliable in a particular region of the
+imager. We do this by culling the [[file:tour.org][tour of mrcal]] calibration data to throw out
+all points outside of a circle at the center, calibrate off /that/ data, and run
+a diff on /those/ results:
 
 #+begin_src sh
 < corners.vnl \
@@ -375,7 +374,7 @@ D=~/projects/mrcal-doc-external
     --distance 1                                                         \
     --unset key                                                          \
     $D/data/board/splined{,-rad1500}.cameramodel                         \
-    --hardcopy $D/figures/diff/diff-weighted-splined-splined-rad1500.png \
+    --hardcopy $D/figures/diff/diff-weighted-splined-rad1500.png \
     --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
 
@@ -386,5 +385,7 @@ of this model looks like this:
 
 and the diff like this:
 
-[[file:external/figures/diff/diff-weighted-splined-splined-rad1500.png]]
+[[file:external/figures/diff/diff-weighted-splined-rad1500.png]]
 
+This is yet another reason to use only splined models for real-world lens
+modeling.
