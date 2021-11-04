@@ -33,17 +33,18 @@ mrcal-show-projection-diff \
   --intrinsics-only        \
   --cbmax 200              \
   --unset key              \
-  opencv8.cameramodel splined.cameramodel
+  opencv8.cameramodel      \
+  splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-projection-diff \
-  --intrinsics-only \
-  --cbmax 200 \
-  --unset key \
-  $D/data/board/{opencv8,splined}.cameramodel \
+~/projects/mrcal/mrcal-show-projection-diff                           \
+  --intrinsics-only                                                   \
+  --cbmax 200                                                         \
+  --unset key                                                         \
+  $D/data/board/{opencv8,splined}.cameramodel                         \
   --hardcopy $D/figures/diff/diff-radius0-heatmap-splined-opencv8.png \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
 
 [[file:external/figures/diff/diff-radius0-heatmap-splined-opencv8.png]]
@@ -61,29 +62,30 @@ mrcal-show-projection-diff \
   --gridn 30 20            \
   --cbmax 200              \
   --unset key              \
-  opencv8.cameramodel splined.cameramodel
+  opencv8.cameramodel      \
+  splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-projection-diff \
-  --intrinsics-only \
-  --vectorfield            \
-  --vectorscale 5          \
-  --gridn 30 20            \
-  --cbmax 200 \
-  --unset key \
-  $D/data/board/{opencv8,splined}.cameramodel \
+~/projects/mrcal/mrcal-show-projection-diff                               \
+  --intrinsics-only                                                       \
+  --vectorfield                                                           \
+  --vectorscale 5                                                         \
+  --gridn 30 20                                                           \
+  --cbmax 200                                                             \
+  --unset key                                                             \
+  $D/data/board/{opencv8,splined}.cameramodel                             \
   --hardcopy $D/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
-~/projects/mrcal/mrcal-show-projection-diff \
-  --intrinsics-only \
-  --vectorfield            \
-  --vectorscale 5          \
-  --gridn 30 20            \
-  --cbmax 200 \
-  --unset key \
-  $D/data/board/{opencv8,splined}.cameramodel \
-  --hardcopy $D/figures/diff/diff-radius0-vectorfield-splined-opencv8.pdf  \
+~/projects/mrcal/mrcal-show-projection-diff                               \
+  --intrinsics-only                                                       \
+  --vectorfield                                                           \
+  --vectorscale 5                                                         \
+  --gridn 30 20                                                           \
+  --cbmax 200                                                             \
+  --unset key                                                             \
+  $D/data/board/{opencv8,splined}.cameramodel                             \
+  --hardcopy $D/figures/diff/diff-radius0-vectorfield-splined-opencv8.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
 #+end_src
 
@@ -119,25 +121,26 @@ steps 1 and 2:
 
 [[file:figures/diff-yestransform.svg]]
 
-But we don't know anything about the physical coordinate system of either
-camera. How can we compute this transformation? We do a fit. The "right"
-transformation will transform $\vec p$ in such a way that the reported
-mismatches in $\vec q$ will be minimized. Lots of [[file:differencing.org][details]] are glossed-over here.
-Previously we passed =--intrinsics-only= to bypass the fit. Let's leave out that
-option to get the usable diff:
+We don't know anything about the physical coordinate system of either camera, so
+we do the best we can: we compute a fit. The "right" transformation will
+transform $\vec p$ in such a way that the reported mismatches in $\vec q$ will
+be small. Lots of [[file:differencing.org][details]] are glossed-over here. Previously we passed
+=--intrinsics-only= to bypass this fit. Let's omit that option to get the the
+diff that we expect:
 
 #+begin_src sh
 mrcal-show-projection-diff \
   --unset key              \
-  opencv8.cameramodel splined.cameramodel
+  opencv8.cameramodel      \
+  splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-projection-diff \
-  --unset key \
-  $D/data/board/{opencv8,splined}.cameramodel \
+~/projects/mrcal/mrcal-show-projection-diff           \
+  --unset key                                         \
+  $D/data/board/{opencv8,splined}.cameramodel         \
   --hardcopy $D/figures/diff/diff-splined-opencv8.png \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
 
 [[file:external/figures/diff/diff-splined-opencv8.png]]
