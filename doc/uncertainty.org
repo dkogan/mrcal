@@ -18,38 +18,37 @@ uncertainties through their data pipeline).
 To estimate the projection uncertainty we:
 
 1. Estimate the [[file:formulation.org::#noise-model-inputs][noise in the chessboard observations]]
-2. Propagate that noise to the optimal parameters $\vec p$ reported by the
+2. Propagate that noise to the optimal parameters $\vec p^*$ reported by the
    calibration routine
-3. Propagate the uncertainty in calibration parameters $\vec p$ through the
+3. Propagate the uncertainty in calibration parameters $\vec p^*$ through the
    projection function to get uncertainty in the resulting pixel coordinate $\vec
    q$
 
 This overall approach is sound, but it implies some limitations:
 
-- Only the response to chessboard observation noise is taken into account. Any
-  other issues are /not/ included in the reported uncertainty. Issues such as:
-  motion blur, out-of-synchronization images, unexpected chessboard shape. It is
-  thus imperative that we try to minimize these issues, and mrcal provides [[file:how-to-calibrate.org::#interpreting-results][tools]]
-  to detect some of these problems.
+- Only the response to chessboard observation noise is taken into account. Other
+  sources of error are /not/ included in the reported uncertainty. Issues such
+  as motion blur, out-of-synchronization images, unexpected chessboard shape as
+  not included. It is thus imperative that we try to minimize these errors, and
+  mrcal provides [[file:how-to-calibrate.org::#interpreting-results][tools]] to detect these.
 
-- A consequence of the above is that the choice of lens model affects the
-  reported uncertainties. Lean models (those with few parameters) are less
-  flexible than rich models, and don't fit general lenses as well as rich models
-  do. However, this stiffness also serves to limit the model's response to noise
-  in their parameters. So the above method will report less uncertainty for
-  leaner models than rich models. So, unless we're /sure/ that a given lens
-  follows some particular lens model perfectly, a [[file:lensmodels.org::#splined-stereographic-lens-model][splined lens model]] (i.e. a
-  very rich model) is recommended for truthful uncertainty reporting. Otherwise
-  the reported confidence comes from the model itself, rather than the
-  calibration data.
+- The choice of lens model affects the reported uncertainties. Lean models
+  (those with few parameters) are less flexible than rich models, and don't fit
+  general lenses as well as rich models do. This stiffness also serves to limit
+  the model's response to noise in their parameters. Thus the above method will
+  report less uncertainty for leaner models than rich models. So, unless we're
+  /sure/ that a given lens follows some particular lens model perfectly, a
+  [[file:lensmodels.org::#splined-stereographic-lens-model][splined lens model]] (i.e. a very rich model) is recommended for truthful
+  uncertainty reporting. Otherwise the reported confidence comes from the model
+  itself, rather than the calibration data.
 
 - Currently the uncertainty estimates can be computed only from a vanilla
   calibration problem: a set of stationary cameras observing a moving
   calibration object. Other formulations can be used to compute the lens
   parameters as well (structure-from-motion while also computing the lens models
   for instance), but at this time the uncertainty computations cannot handle
-  those cases. It can be done, but the sequence presented below would have to be
-  expanded to do so.
+  those cases. It can be done, but the current method needs to be extended to do
+  so.
 
 * Estimating the input noise
 We're measuring the sensitivity to the noise in the calibration-time
@@ -59,10 +58,10 @@ formulation]].
 
 * Propagating input noise to the state vector
 We solved the [[file:formulation.org][least squares problem]], so we have the optimal state vector $\vec
-p^*$. Let's find the uncertainty.
+p^*$.
 
 We apply a perturbation to the observations $\vec q_\mathrm{ref}$, reoptimize
-this slightly-perturbed least-squares problem (assuming everything is linear)
+this slightly-perturbed least-squares problem, assuming everything is linear,
 and look at what happens to the optimal state vector $\vec p^*$.
 
 We have
@@ -85,7 +84,7 @@ And we reoptimize:
 \[ \frac{\mathrm{d}E}{\mathrm{d}\Delta \vec p} \approx 
 2 \left( \vec x + J \Delta \vec p + \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} {\Delta \vec q_\mathrm{ref}} \right)^T J = 0\]
 
-Let's assume we're already optimized, so $\vec x = \vec x^*$ and $J^T \vec x^* = 0$, and thus
+We started at an optimum, so $\vec x = \vec x^*$ and $J^T \vec x^* = 0$, and thus
 
 \[ J^T J \Delta \vec p = -J^T \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} {\Delta \vec q_\mathrm{ref}} \]
 
@@ -93,7 +92,8 @@ As defined on the [[file:formulation.org::#noise-model][input noise page]], we h
 
 \[ \vec x_\mathrm{observations} = W (\vec q - \vec q_\mathrm{ref}) \]
 
-where $W$ is a diagonal matrix of weights. Let's assume the non-observation
+where $W$ is a diagonal matrix of weights. These are the only elements of $\vec
+x$ that depend on $\vec q_\mathrm{ref}$. Let's assume the non-observation
 elements of $\vec x$ are at the end, so
 
 \[ \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} =
@@ -105,7 +105,7 @@ and thus
 
 So if we perturb the input observation vector $q_\mathrm{ref}$ by $\Delta
 q_\mathrm{ref}$, the resulting effect on the optimal parameters is $\Delta \vec
-p = M \Delta \vec q_\mathrm{ref}$. Where
+p = M \Delta \vec q_\mathrm{ref}$ where
 
 \[ M = \left( J^T J \right)^{-1} J_\mathrm{observations}^T W \]
 
@@ -126,15 +126,16 @@ so
 &= \sigma^2 \left( J^T J \right)^{-1} J_\mathrm{observations}^T J_\mathrm{observations}  \left( J^T J \right)^{-1}
 \end{aligned}
 
-If we have no regularization, then we can simplify this even further. All
-measurements are then pixel errors and $J_\mathrm{observations} = J$ so
+If we have no regularization, then $J_\mathrm{observations} = J$ and we can
+simplify even further:
 
 \[\mathrm{Var}\left(\vec p\right) = \sigma^2 \left( J^T J \right)^{-1} \]
 
-Note that this does not explicitly depend on $W$. However, the weights are a
-part of $J$. So if an observation $i$ were to become less precise, $w_i$ and
-$x_i$ and $J_i$ would all decrease. And as a result, $\mathrm{Var}\left(\vec
-p\right)$ would increase, as expected.
+Note that these expressions do not explicitly depend on $W$, but the weights
+still have an effect, since they are a part of $J$. So if an
+observation $i$ were to become less precise, $w_i$ and $x_i$ and $J_i$ would all
+decrease. And as a result, $\mathrm{Var}\left(\vec p\right)$ would increase, as
+expected.
 
 * Propagating the state vector noise through projection
 :PROPERTIES:
@@ -153,15 +154,15 @@ origin of the mathematical camera moves around inside this housing:
 
 [[file:figures/uncertainty.svg]]
 
-So how do we operate on points in a fixed coordinate system when all the
-coordinate systems we have are floating random variables? We use the most
-fixed thing we have: chessboards. As with the camera housing, the chessboards
-themselves are fixed in space. We have noisy camera observations of the
-chessboards that implicitly produce estimates of the fixed transformation
-$T_{\mathrm{cf}_i}$ for each chessboard $i$. The explicit transformations that
-we /actually/ have in $\vec p$ all relate to a floating reference coordinate
-system: $T_\mathrm{cr}$ and $T_\mathrm{rf}$. /That/ coordinate system doesn't
-have any physical meaning, and it's useless in producing our fixed point.
+How do we operate on points in a fixed coordinate system when all the coordinate
+systems we have are floating random variables? We use the most fixed thing we
+have: chessboards. As with the camera housing, the chessboards themselves are
+fixed in space. We have noisy camera observations of the chessboards that
+implicitly produce estimates of the fixed transformation $T_{\mathrm{cf}_i}$ for
+each chessboard $i$. The explicit transformations that we /actually/ have in
+$\vec p$ all relate to a floating reference coordinate system: $T_\mathrm{cr}$
+and $T_\mathrm{rf}$. /That/ coordinate system doesn't have any physical meaning,
+and it's useless in producing our fixed point.
 
 Thus if we project points from a chessboard frame, we would be unaffected by the
 untethered reference coordinate system. So points in a chessboard frame are
@@ -189,12 +190,12 @@ quantities marked with a $+$ superscript.
    \vec q
 \]
 
-This works, but it depends on $\vec p_{\mathrm{frame}_0}$ being "fixed". Can we
-do better? Yes. We're observing more than one chessboard, and /in aggregate/ all
-the chessboard frames can represent an even-more "fixed" frame. Currently we
-take a very simple approach towards combinining the frames: we compute the mean
-of all the $\vec p^+_\mathrm{reference}$ estimates from each frame. The full
-data flow then looks like this:
+This works, but it depends on $\vec p_{\mathrm{frame}_0}$ being "fixed". We can
+do better. We're observing more than one chessboard, and /in aggregate/ all the
+chessboard frames can represent an even-more "fixed" frame. Currently we take a
+very simple approach towards combinining the frames: we compute the mean of all
+the $\vec p^+_\mathrm{reference}$ estimates from each frame. The full data flow
+then looks like this:
 
 \begin{aligned}
    & \swarrow                   & \vec p^+_{\mathrm{reference}_0}  & \xleftarrow{T^+_{\mathrm{rf}_0}} & \vec p_{\mathrm{frame}_0} & \nwarrow & \\
@@ -225,7 +226,7 @@ So to summarize, to compute the projection uncertainty at a pixel $\vec q$ we
 1. Unproject $\vec q$ and transform to /each/ chessboard coordinate system to
    obtain $\vec p_{\mathrm{frame}_i}$
 
-2. Transform and project back to $\vec q^+$, taking the mean of $\vec
+2. Transform and project back to $\vec q^+$, useing the mean of all the $\vec
    p_{\mathrm{reference}_i}$ and taking into account uncertainties
 
 We have $\vec q^+\left(\vec p\right) = \mathrm{project}\left( T_\mathrm{cr} \,
@@ -245,6 +246,38 @@ visualization functions:
 - [[file:mrcal-python-api-reference.html#-show_projection_uncertainty_vs_distance][=mrcal.show_projection_uncertainty_vs_distance()=]]: Visualize the uncertainty in camera projection along one observation ray
 
 or use the [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool.
+
+A sample uncertainty map of the splined model calibration from the [[file:tour-uncertainty.org][tour of mrcal]]
+looking out to infinity:
+
+#+begin_src sh
+mrcal-show-projection-uncertainty splined.cameramodel --cbmax 1 --unset key
+#+end_src
+#+begin_src sh :exports none :eval no-export
+# THIS IS ALREADY GENERATED IN tour-effect-of-range.org
+D=~/projects/mrcal-doc-external
+
+~/projects/mrcal/mrcal-show-projection-uncertainty \
+  $D/data/board/splined.cameramodel \
+  --cbmax 1 \
+  --unset key \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.svg \
+  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
+~/projects/mrcal/mrcal-show-projection-uncertainty \
+  $D/data/board/splined.cameramodel \
+  --cbmax 1 \
+  --unset key \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+~/projects/mrcal/mrcal-show-projection-uncertainty \
+  $D/data/board/splined.cameramodel \
+  --cbmax 1 \
+  --unset key \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+#+end_src
+
+[[file:external/figures/uncertainty/uncertainty-splined.png]]
 
 * The effect of range
 :PROPERTIES:
@@ -268,7 +301,26 @@ Let's look at the projection uncertainty at the center of the imager at
 different ranges for an arbitrary model:
 
 #+begin_src sh
-mrcal-show-projection-uncertainty --vs-distance-at center data/board/opencv8.cameramodel --set 'yrange [0:0.4]'
+mrcal-show-projection-uncertainty \
+  --vs-distance-at center         \
+  --set 'yrange [0:0.1]'          \
+  opencv8.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+# THIS IS ALREADY GENERATED IN tour-effect-of-range.org
+D=~/projects/mrcal-doc-external
+~/projects/mrcal/mrcal-show-projection-uncertainty                        \
+  --vs-distance-at center                                                 \
+  --set 'yrange [0:0.1]'                                                  \
+  $D/data/board/opencv8.cameramodel                                       \
+  --hardcopy $D/figures/uncertainty/uncertainty-vs-distance-at-center.svg \
+  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
+~/projects/mrcal/mrcal-show-projection-uncertainty \
+  --vs-distance-at center \
+  --set 'yrange [0:0.1]' \
+  $D/data/board/opencv8.cameramodel \
+  --hardcopy $D/figures/uncertainty/uncertainty-vs-distance-at-center.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
 #+end_src
 
 [[file:external/figures/uncertainty/uncertainty-vs-distance-at-center.svg]]
@@ -279,15 +331,16 @@ further out still, we approach some uncertainty asymptote at infinity.
 Qualitatively this is the figure I see 100% of the time, with the position of
 the minimum and of the asymptote varying.
 
-Why is the uncertainty unbounded as we approach the camera? Because we're
-looking at the projection of a fixed point into a camera whose position is
-uncertain. As we get closer to the origin of the camera, the noise in the camera
-position dominates the projection, and the uncertainty shoots to infinity.
+As we approach the camera, the uncertainty is unbounded because we're looking at
+the projection of a fixed point into a camera whose position is uncertain. As we
+get closer to the origin, the noise in the camera position dominates the
+projection, and the uncertainty shoots to infinity.
 
-What controls the range where we see the uncertainty optimum? The range where we
-observed the chessboards. The uncertainty we asymptotically approach at infinity
-is set by the specifics of the chessboard dance.
+The "sweet spot" where the uncertainty is lowest sits at the range where we
+observed the chessboards.
 
-See the [[file:tour-uncertainty.org][tour of mrcal]] for a simulation validating the approach and for some
-empirical results.
+The uncertainty we asymptotically approach at infinity is set by the [[file:tour-choreography.org][specifics
+of the chessboard dance]].
 
+See the [[file:tour-uncertainty.org][tour of mrcal]] for a simulation validating this approach of quantifying
+uncertainty and for some empirical results.
