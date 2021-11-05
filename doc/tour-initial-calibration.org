@@ -43,7 +43,8 @@ $ < corners.vnl       \
   feedgnuplot --domain --square --set 'xrange [0:6016]' --set 'yrange [4016:0]'
 #+end_example
 #+begin_src sh :exports none :eval no-export
-< ~/projects/mrcal-doc-external/data/board/corners.vnl \
+D=~/projects/mrcal-doc-external
+< $D/data/board/corners.vnl \
   vnl-filter -p x,y | \
   feedgnuplot --domain --square --set 'xrange [0:6016]' --set 'yrange [4016:0]' \
     --hardcopy ~/projects/mrcal-doc-external/figures/calibration/mrgingham-coverage.png

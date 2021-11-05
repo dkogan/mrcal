@@ -45,7 +45,8 @@ models:
 
 # I reprojected the images to a pinhole model
 
-for s (0.6 0.35) { for what (splined opencv8) { ~/projects/mrcal/mrcal-reproject-image -f --to-pinhole --scale-focal $s data/board/$what.cameramodel data/figueroa-overpass-looking-S/[01].jpg | ~/projects/mrcal/mrcal-to-cahvor > data/figueroa-overpass-looking-S/$what.pinhole.scale$s.cahvor; for c (0 1) { mv data/figueroa-overpass-looking-S/{$c-reprojected.jpg,$c.$what.pinhole.scale$s.jpg} } } }
+D=~/projects/mrcal-doc-external
+for s (0.6 0.35) { for what (splined opencv8) { ~/projects/mrcal/mrcal-reproject-image -f --to-pinhole --scale-focal $s $D/data/board/$what.cameramodel data/figueroa-overpass-looking-S/[01].jpg | ~/projects/mrcal/mrcal-to-cahvor > data/figueroa-overpass-looking-S/$what.pinhole.scale$s.cahvor; for c (0 1) { mv data/figueroa-overpass-looking-S/{$c-reprojected.jpg,$c.$what.pinhole.scale$s.jpg} } } }
 
 
 
@@ -59,8 +60,8 @@ for s (0.6 0.35) { for what (splined opencv8) { ~/projects/mrcal/mrcal-reproject
 
 # Then I transformed those features back to the input image coords
 paste \
-  <( < data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl vnl-filter -p Feat1x,Feat1y | ~/projects/mrcal/mrcal-reproject-points --intrinsics-only data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor data/board/opencv8.cameramodel) \
-  <( < data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl vnl-filter -p Feat2x,Feat2y | ~/projects/mrcal/mrcal-reproject-points --intrinsics-only data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor data/board/opencv8.cameramodel) > \
+  <( < data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl vnl-filter -p Feat1x,Feat1y | ~/projects/mrcal/mrcal-reproject-points --intrinsics-only data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor $D/data/board/opencv8.cameramodel) \
+  <( < data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl vnl-filter -p Feat2x,Feat2y | ~/projects/mrcal/mrcal-reproject-points --intrinsics-only data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor $D/data/board/opencv8.cameramodel) > \
   data/figueroa-overpass-looking-S/features.imgany.inputimage.vnl
 
 # And THEN I could use deltapose to compute extrinsics
@@ -70,7 +71,7 @@ D=data/figueroa-overpass-looking-S;
 rm -f $D/{splined,opencv8}-{0,1}.cameramodel;
 
 for what (splined opencv8) { PYTHONPATH=/home/dima/projects/mrcal:/home/dima/jpl/img_any LD_LIBRARY_PATH=/home/dima/projects/mrcal ~/jpl/deltapose-lite/calibrate-extrinsics --skip-outlier-rejection \
---correspondences <( < data/figueroa-overpass-looking-S/features.imgany.inputimage.vnl vnl-filter 'y1<3200 && y2<3200') --regularization t --seedrt01 0 0 0 $((7.*12*2.54/100)) 0 0 --cam0pose identity --observed-pixel-uncertainty 1 data/board/$what.cameramodel{,} && zmv -W 'camera-*.cameramodel' $D/$what-\*.cameramodel }
+--correspondences <( < data/figueroa-overpass-looking-S/features.imgany.inputimage.vnl vnl-filter 'y1<3200 && y2<3200') --regularization t --seedrt01 0 0 0 $((7.*12*2.54/100)) 0 0 --cam0pose identity --observed-pixel-uncertainty 1 $D/data/board/$what.cameramodel{,} && zmv -W 'camera-*.cameramodel' $D/$what-\*.cameramodel }
 #+end_src
 
 I then use the mrcal APIs to compute rectification maps, rectify the images,

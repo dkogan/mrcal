@@ -39,20 +39,22 @@ different ranges for the =LENSMODEL_OPENCV8= model we computed earlier:
 #+begin_src sh
 mrcal-show-projection-uncertainty \
   --vs-distance-at center         \
-  opencv8.cameramodel             \
-  --set 'yrange [0:0.1]'
+  --set 'yrange [0:0.1]'          \
+  opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
+~/projects/mrcal/mrcal-show-projection-uncertainty                        \
+  --vs-distance-at center                                                 \
+  --set 'yrange [0:0.1]'                                                  \
+  $D/data/board/opencv8.cameramodel                                       \
+  --hardcopy $D/figures/uncertainty/uncertainty-vs-distance-at-center.svg \
+  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
 ~/projects/mrcal/mrcal-show-projection-uncertainty \
-  --vs-distance-at center $D/data/board/opencv8.cameramodel \
+  --vs-distance-at center \
   --set 'yrange [0:0.1]' \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-vs-distance-at-center.svg \
-  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  --vs-distance-at center $D/data/board/opencv8.cameramodel \
-  --set 'yrange [0:0.1]' \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-vs-distance-at-center.pdf \
+  $D/data/board/opencv8.cameramodel \
+  --hardcopy $D/figures/uncertainty/uncertainty-vs-distance-at-center.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
 #+end_src
 
@@ -95,10 +97,11 @@ calibrations. A diff at infinity:
 mrcal-show-projection-diff --unset key camera[01].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
 ~/projects/mrcal/mrcal-show-projection-diff \
   --unset key \
   ~/projects/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel \
-  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-l2-dance68-joint1-camera11-infinity.png \
+  --hardcopy $D/figures/diff/diff-l2-dance68-joint1-camera11-infinity.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
@@ -110,11 +113,12 @@ And again at 0.5m (close to the range to the chessboards)
 mrcal-show-projection-diff --distance 0.5 --unset key camera[01].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
 ~/projects/mrcal/mrcal-show-projection-diff \
   --distance 0.5 \
   --unset key \
   ~/projects/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel \
-  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-l2-dance68-joint1-camera11-0.5m.png \
+  --hardcopy $D/figures/diff/diff-l2-dance68-joint1-camera11-0.5m.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
