@@ -5,19 +5,21 @@
 We just [[file:tour-choreography.org][found the best chessboard-dancing technique]]
 
 * Stereo
-We computed intrinsics from chessboards observations earlier, so let's use these
-for stereo processing. I only use the splined model here.
-
-I took several images off [[https://www.openstreetmap.org/#map=19/34.05565/-118.25333][a catwalk over Figueroa St in downtown Los Angeles]].
-This is the view S along Figueroa St. There're tall buildings ahead and on
-either side, making for an interesting stereo scene.
-
 #+begin_src sh :exports none :eval no-export
 # all the images downsampled for view on the page like this
-for img ( data/figueroa-overpass-looking-S/{[01].jpg,[01]-reprojected-scale*.jpg,jplv-stereo-rect-*-scale*.png,rectified[01]-*.jpg~*narrow*,{range,disparity}-*.png~*narrow*} ) { convert $img -scale 12% ${img:t:r}.downsampled.${img:e} }
-
-for img ( data/figueroa-overpass-looking-S/{rectified[01]-narrow.jpg,narrow-{left,right}.jpg,{range,disparity}-narrow.png} ) { convert $img -scale 25% ${img:t:r}.downsampled.${img:e} }
+D=~/projects/mrcal-doc-external
+D1=$D/data/figueroa-overpass-looking-S
+for img ( $D1/{[01].jpg,[01]-reprojected-scale*.jpg,jplv-stereo-*-scale*.png,{rectified[01],disparity,range}-*.png} ) { \
+  convert $img -scale 12% ${img:r}.downsampled.${img:e}
+}
 #+end_src
+
+We computed intrinsics from chessboards observations earlier, so let's use these
+for stereo processing.
+
+I took several images off [[https://www.openstreetmap.org/#map=19/34.05565/-118.25333][a catwalk over Figueroa Street in downtown Los
+Angeles]]. This is the view South along Figueroa Street. There're tall buildings
+ahead and on either side, which makes an interesting stereo scene.
 
 The two images out of the camera look like this:
 
@@ -27,26 +29,51 @@ The two images out of the camera look like this:
 All the full-size images are available by clicking on an image.
 
 The cameras are 7ft (2.1m) apart. In order to compute stereo images we need an
-accurate estimate of the geometry of the cameras. Usually we get this as an
-output of the calibration, but here I only had one camera to calibrate, so I
-don't have this geometry estimate. I used a separate tool to compute the
-geometry from corresponding feature detections. The details aren't important;
-for the purposes of this document we can assume that we did calibrate a stereo
-pair, and that's where the geometry came from. The resulting with-geometry
-models:
+accurate estimate of the relative geometry of the cameras, which we usually get
+as an output of the calibration process. /Here/ I only had one physical camera,
+so I did something different:
+
+- I calibrated the one camera monocularly, to get its intrinsics. This is what
+  we computed so far
+- I used this camera to take a pair of images from slightly different locations.
+  This is the "stereo pair"
+- I used a separate tool to estimate the extrinsics from corresponding feature
+  detections in the two images. This tool isn't a part of mrcal today, but will
+  be made available in the future
+
+Generating a stereo pair in this way works well to demo the stereo processing
+tools. It does break the [[file:triangulation.org][triangulation uncertainty reporting]], since we lose the
+uncertainty information in the extrinsics, however. Preserving this uncertainty,
+and propagating it through the recomputed extrinsics to triangulation is on the
+[[file:roadmap.org][mrcal roadmap]]. The resulting models we use for stereo processing:
 
 - [[file:external/data/figueroa-overpass-looking-S/splined-0.cameramodel][camera 0]]
 - [[file:external/data/figueroa-overpass-looking-S/splined-1.cameramodel][camera 1]]
 
 #+begin_src sh :exports none :eval no-export
 
-# How did I make these? Like this!
-
+#### How I made these models
 
 # I reprojected the images to a pinhole model
 
 D=~/projects/mrcal-doc-external
-for s (0.6 0.35) { for what (splined opencv8) { ~/projects/mrcal/mrcal-reproject-image -f --to-pinhole --scale-focal $s $D/data/board/$what.cameramodel data/figueroa-overpass-looking-S/[01].jpg | ~/projects/mrcal/mrcal-to-cahvor > data/figueroa-overpass-looking-S/$what.pinhole.scale$s.cahvor; for c (0 1) { mv data/figueroa-overpass-looking-S/{$c-reprojected.jpg,$c.$what.pinhole.scale$s.jpg} } } }
+D1=$D/data/figueroa-overpass-looking-S;
+for s (0.6 0.35) { \
+  for what (splined opencv8) { \
+    ~/projects/mrcal/mrcal-reproject-image \
+      -f \
+      --to-pinhole \
+      --scale-focal $s \
+      $D/data/board/$what.cameramodel \
+      $D/data/figueroa-overpass-looking-S/[01].jpg | \
+    ~/projects/mrcal/mrcal-to-cahvor > \
+    $D/data/figueroa-overpass-looking-S/$what.pinhole.scale$s.cahvor;
+
+    for c (0 1) { \
+      mv $D/data/figueroa-overpass-looking-S/{$c-reprojected.jpg,$c.$what.pinhole.scale$s.jpg}
+    }
+  }
+}
 
 
 
@@ -55,28 +82,53 @@ for s (0.6 0.35) { for what (splined opencv8) { ~/projects/mrcal/mrcal-reproject
 # Then I constructed a homography from those features using
 # cv2.findHomography(), and fed that to img-any to find lots of features on the
 # pavement:
-
-~/jpl/img_any/binsrc/feature_track -L0 -T2200 -C6000 -R1800 -M 2000 -H data/figueroa-overpass-looking-S/homography.initial.scale0.6.txt data/figueroa-overpass-looking-S/[01].opencv8.pinhole.scale0.6.jpg | vnl-filter 'Corner1>500' 'Feat1x>1000' 'Feat2x>1000' > data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl
+~/img_any/binsrc/feature_track \
+  -L0 -T2200 -C6000 -R1800 -M 2000 \
+  -H $D/data/figueroa-overpass-looking-S/homography.initial.scale0.6.txt \
+  $D/data/figueroa-overpass-looking-S/[01].opencv8.pinhole.scale0.6.jpg | \
+vnl-filter 'Corner1>500' 'Feat1x>1000' 'Feat2x>1000' > \
+$D/data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl
 
 # Then I transformed those features back to the input image coords
 paste \
-  <( < data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl vnl-filter -p Feat1x,Feat1y | ~/projects/mrcal/mrcal-reproject-points --intrinsics-only data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor $D/data/board/opencv8.cameramodel) \
-  <( < data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl vnl-filter -p Feat2x,Feat2y | ~/projects/mrcal/mrcal-reproject-points --intrinsics-only data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor $D/data/board/opencv8.cameramodel) > \
+  <( < $D/data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl \
+       vnl-filter -p Feat1x,Feat1y | \
+       ~/projects/mrcal/mrcal-reproject-points \
+         --intrinsics-only \
+         $D/data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor \
+         $D/data/board/opencv8.cameramodel) \
+  <( < $D/data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl \
+       vnl-filter -p Feat2x,Feat2y | \
+       ~/projects/mrcal/mrcal-reproject-points \
+         --intrinsics-only \
+         $D/data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor \
+         $D/data/board/opencv8.cameramodel) > \
   data/figueroa-overpass-looking-S/features.imgany.inputimage.vnl
 
 # And THEN I could use deltapose to compute extrinsics
+rm -f $D1/{splined,opencv8}-{0,1}.cameramodel;
 
-D=data/figueroa-overpass-looking-S;
-
-rm -f $D/{splined,opencv8}-{0,1}.cameramodel;
-
-for what (splined opencv8) { PYTHONPATH=/home/dima/projects/mrcal:/home/dima/jpl/img_any LD_LIBRARY_PATH=/home/dima/projects/mrcal ~/jpl/deltapose-lite/calibrate-extrinsics --skip-outlier-rejection \
---correspondences <( < data/figueroa-overpass-looking-S/features.imgany.inputimage.vnl vnl-filter 'y1<3200 && y2<3200') --regularization t --seedrt01 0 0 0 $((7.*12*2.54/100)) 0 0 --cam0pose identity --observed-pixel-uncertainty 1 $D/data/board/$what.cameramodel{,} && zmv -W 'camera-*.cameramodel' $D/$what-\*.cameramodel }
+for what (splined opencv8) {
+  PYTHONPATH=~/projects/mrcal:~/img_any \
+  LD_LIBRARY_PATH=~/projects/mrcal \
+  ~/deltapose-lite/calibrate-extrinsics \
+    --skip-outlier-rejection \
+    --correspondences <( < $D/data/figueroa-overpass-looking-S/features.imgany.inputimage.vnl \
+                           vnl-filter 'y1<3200 && y2<3200') \
+    --regularization t \
+    --seedrt01 0 0 0 $((7.*12*2.54/100)) 0 0 \
+    --cam0pose identity \
+    --observed-pixel-uncertainty 1 \
+    $D1/data/board/$what.cameramodel{,} && \
+  zmv -W \
+    'camera-*.cameramodel' \
+    $D1/$what-\*.cameramodel
+}
 #+end_src
 
 I then use the mrcal APIs to compute rectification maps, rectify the images,
-compute disparities and convert them to ranges. This is done with the
-[[file:mrcal-stereo.html][=mrcal-stereo=]] tool. We run it like this:
+compute disparities and convert them to ranges. This is all done with the
+[[file:mrcal-stereo.html][=mrcal-stereo=]] tool:
 
 #+begin_src sh
 mrcal-stereo                     \
@@ -95,9 +147,10 @@ mrcal-stereo                     \
   [01].jpg
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=doc/out/external/data/figueroa-overpass-looking-S/
+D=~/projects/mrcal-doc-external
+D1=$D/data/figueroa-overpass-looking-S/
 
-mrcal-stereo                     \
+~/projects/mrcal/mrcal-stereo    \
   --az-fov-deg 145               \
   --el-fov-deg 135               \
   --el0-deg    5                 \
@@ -110,22 +163,23 @@ mrcal-stereo                     \
   --sgbm-speckle-range 2         \
   --valid-intrinsics-region      \
   --outdir /tmp                  \
-  $D/splined-[01].cameramodel    \
-  $D/[01].jpg
+  -f                             \
+  $D1/splined-[01].cameramodel   \
+  $D1/[01].jpg
 
 zmv -f -W \
   '/tmp/[01]-rectified.png' \
-  'doc/out/external/figures/stereo/rectified[01]-splined.png'
+  "$D/figures/stereo/rectified[01]-splined.png"
 
 mv \
   /tmp/0-disparity.png \
-  doc/out/external/figures/stereo/disparity-splined.png
+  $D/figures/stereo/disparity-splined.png
 
 mv \
   /tmp/0-range.png \
-  doc/out/external/figures/stereo/range-splined.png
+  $D/figures/stereo/range-splined.png
 
-for img ( doc/out/external/figures/stereo/{rectified[01],disparity,range}-splined.png ) { \
+for img ( $D/figures/stereo/{rectified[01],disparity,range}-splined.png ) { \
   convert $img -scale 12% ${img:r}.downsampled.${img:e}
 }
 #+end_src
@@ -138,20 +192,21 @@ The rectified images look like this:
 [[file:external/figures/stereo/rectified0-splined.png][file:external/figures/stereo/rectified0-splined.downsampled.png]]
 [[file:external/figures/stereo/rectified1-splined.png][file:external/figures/stereo/rectified1-splined.downsampled.png]]
 
-And the disparity and range images looks like this:
+And the disparity and range images look like this:
 
 [[file:external/figures/stereo/disparity-splined.png][file:external/figures/stereo/disparity-splined.downsampled.png]]
 [[file:external/figures/stereo/range-splined.png][file:external/figures/stereo/range-splined.downsampled.png]]
 
-This appears to be working well.
+On a basic level, this is clearly working well.
 
 If you've used other stereo libraries previously, these rectified images may
-look odd. In mrcal I produce images that sample the azimuth and elevation angles
-evenly, which should minimize visual distortion inside each image row. A
+look odd. This is due to using a transverse equirectangular projection for
+rectification instead of the more common pinhole projection (see the [[file:stereo.org][detailed
+stereo-processing documentation]]). This samples the azimuth and elevation angles
+evenly, which minimizes the visual distortion inside each image row. A
 side-effect is the the vertical expansion in the rectified image at the azimuth
-extremes. Stereo matching works primarily by correlating the rows independently,
-so this is a good trade-off. Some other implementations use un-even azimuth
-spacing, which can't be good for matching performance.
+extremesm but since stereo matching works by correlating the rows independently,
+this is a good trade-off.
 
 * ranged pixels ground-truth                                       :noexport:
 **** Buildings
@@ -204,8 +259,8 @@ import numpy as np
 import numpysane as nps
 
 sys.path[:0] = '/home/dima/projects/mrcal',
-sys.path[:0] = '/home/dima/jpl/deltapose-lite',
-sys.path[:0] = '/home/dima/jpl/img_any',
+sys.path[:0] = '/home/dima/deltapose-lite',
+sys.path[:0] = '/home/dima/img_any',
 import mrcal
 
 model_intrinsics = mrcal.cameramodel('data/board/splined.cameramodel')
@@ -274,9 +329,9 @@ model1.write('/tmp/1.cameramodel')
 #+end_src
 
 * Stereo rectification outside of mrcal
-:PROPERTIES:
-:CUSTOM_ID: stereo-without-mrcal
-:END:
+As a toolkit, mrcal is fairly flexible, so I want to show how one could perform
+stereo processing using other tools a part of the pipeline, rather than letting
+[[file:mrcal-stereo.html][=mrcal-stereo=]] do all the work.
 
 What if we want to do our stereo processing with some other tool, and what if
 that tool doesn't support the splined model we want to use? We can use mrcal to
@@ -286,18 +341,18 @@ image and new models to that tool. Let's demonstrate with a pinhole model.
 We can use the [[file:mrcal-reproject-image.html][=mrcal-reproject-image=]] tool to reproject the images. Mapping
 fisheye images to a pinhole model introduces an unwinnable trade-off: the
 angular resolution changes dramatically as you move towards the edges of the
-image. At the edges the angular resolution becomes tiny, and you need far more
-pixels to represent the same arc in space as you do in the center. So you
-usually need to throw out pixels in the center, and gain low-information pixels
-at the edges (the original image doesn't have more resolutions at the edges, so
-we must interpolate). Cutting off the edges (i.e. using a narrower lens) helps
-bring this back into balance.
+image. At the edges the angular resolution becomes extreme, and you need far
+more pixels to represent the same arc in space as you do in the center. So you
+usually need to throw out high-information pixels in the center, and gain
+low-information pixels at the edges. The original image doesn't have more
+resolution at the edges, so we interpolate. Cutting off the edges (i.e. using a
+narrower lens) helps bring this back into balance.
 
-So let's do this using two different focal lengths:
+So let's do this using two different focal lengths to illustrate the trade-off:
 
 - =--scale-focal 0.35=: fairly wide. Looks extreme in a pinhole projection
 - =--scale-focal 0.6=: not as wide. Looks more reasonable in a pinhole
-  projection, but we cut off big chunks of the image at the edges
+  projection, but cuts off big chunks of the image at the edges
 
 #+begin_src sh
 for scale in 0.35 0.6; do
@@ -316,10 +371,6 @@ for scale in 0.35 0.6; do
 done
 #+end_src
 
-We will use jplv (a stereo library used at NASA/JPL) to process these pinhole
-images into a stereo map, so I converted the models to the [[file:cameramodels.org::#cameramodel-file-formats][=.cahvor= file
-format]], as that tool expects.
-
 The wider pinhole resampling of the two images:
 
 [[file:external/data/figueroa-overpass-looking-S/0-reprojected-scale0.35.jpg][file:external/figures/stereo/0-reprojected-scale0.35.downsampled.jpg]]
@@ -330,7 +381,9 @@ The narrower resampling of the two images:
 [[file:external/data/figueroa-overpass-looking-S/0-reprojected-scale0.6.jpg][file:external/figures/stereo/0-reprojected-scale0.6.downsampled.jpg]]
 [[file:external/data/figueroa-overpass-looking-S/1-reprojected-scale0.6.jpg][file:external/figures/stereo/1-reprojected-scale0.6.downsampled.jpg]]
 
-And the camera models:
+We will use jplv (a stereo library used at NASA/JPL) to process these pinhole
+images into a disparity map, so I converted the models to the [[file:cameramodels.org::#cameramodel-file-formats][=.cahvor= file
+format]], as that tool expects. The models:
 
 - [[file:external/data/figueroa-overpass-looking-S/splined-0.scale0.35.cahvor][camera 0, wider scaling]]
 - [[file:external/data/figueroa-overpass-looking-S/splined-1.scale0.35.cahvor][camera 1, wider scaling]]
@@ -341,246 +394,146 @@ Both clearly show the uneven resolution described above, with the wider image
 being far more extreme. I can now use these images to compute stereo with jplv:
 
 #+begin_src sh
-for scale in 0.35 0.6; do \
-  stereo --no-ran --no-disp --no-pre --corr-width 5 --corr-height 5 \
-         --blob-area 10 --disp-min 0 --disp-max 400                 \
-         splined-[01].scale$scale.cahvor                            \
-         [01]-reprojected-scale$scale.jpg;
+for scale in 0.35 0.6; do           \
+  stereo                            \
+    --no-ran                        \
+    --no-disp                       \
+    --no-pre                        \
+    --corr-width 17                 \
+    --corr-height 5                 \
+    --blob-area 10                  \
+    --disp-min 0                    \
+    --disp-max 400                  \
+    splined-[01].scale$scale.cahvor \
+    [01]-reprojected-scale$scale.jpg;
 
   for f in rect-left rect-right diag-left; do \
     mv 00-$f.png jplv-stereo-$f-scale$scale.png;
   done
 done
 #+end_src
-
-The rectified images look like this.
-
-For the wider mapping:
-
-[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.35.png][file:external/figures/stereo/jplv-stereo-rect-left-scale0.35.downsampled.png]]
-[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.35.png][file:external/figures/stereo/jplv-stereo-rect-right-scale0.35.downsampled.png]]
-
-For the narrow mapping:
-
-[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.png][file:external/figures/stereo/jplv-stereo-rect-left-scale0.6.downsampled.png]]
-[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.png][file:external/figures/stereo/jplv-stereo-rect-right-scale0.6.downsampled.png]]
-
-Here we see that jplv's rectification function uses a pinhole model, so the
-scale within each row is dramatically uneven.
-
-The above command gave me jplv's computed disparities, but to compare
-apples-to-apples, let's re-compute them using the same OpenCV SGBM routine from
-above:
-
-#+begin_src sh
-python3 stereo.py - - jplv-stereo-rect-{left,right}-scale0.35.png jplv-scale0.35
-python3 stereo.py - - jplv-stereo-rect-{left,right}-scale0.6.png  jplv-scale0.6
-#+end_src
-
-*REDO OR THROW OUT THIS SECTION. SHOW JPLV DISPARITIES?*
-
-#+begin_src sh
-mrcal-stereo                     \
-  --az-fov-deg 145               \
-  --el-fov-deg 135               \
-  --el0-deg    5                 \
-  --disparity-range 0 400        \
-  --sgbm-p1 600                  \
-  --sgbm-p2 2400                 \
-  --sgbm-uniqueness-ratio 5      \
-  --sgbm-disp12-max-diff 1       \
-  --sgbm-speckle-window-size 200 \
-  --sgbm-speckle-range 2         \
-  --valid-intrinsics-region      \
-  splined-[01].scale0.35.cahvor  \
-  jplv-stereo-rect-{left,right}-scale0.35.png
-#+end_src
 #+begin_src sh :exports none :eval no-export
-zmv -f -W \
-  '/tmp/[01]-rectified.png' \
-  'doc/out/external/figures/stereo/rectified[01]-splined.png'
-
-mv \
-  /tmp/0-disparity.png \
-  doc/out/external/figures/stereo/disparity-splined.png
-
-mv \
-  /tmp/0-range.png \
-  doc/out/external/figures/stereo/range-splined.png
-
-for img ( doc/out/external/figures/stereo/{rectified[01],disparity,range}-splined.png ) { \
+# all the images downsampled for view on the page like this
+D=~/projects/mrcal-doc-external
+D1=$D/data/figueroa-overpass-looking-S
+for img ( $D1/jplv-stereo-*-scale*.png ) { \
   convert $img -scale 12% ${img:r}.downsampled.${img:e}
 }
 #+end_src
 
-[[file:external/data/figueroa-overpass-looking-S/disparity-jplv-scale0.35.png][file:external/figures/stereo/disparity-jplv-scale0.35.downsampled.png]]
-[[file:external/data/figueroa-overpass-looking-S/disparity-jplv-scale0.6.png][file:external/figures/stereo/disparity-jplv-scale0.6.downsampled.png]]
+The wide rectified images:
 
-Looks reasonable.
+[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.35.png][file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.35.downsampled.png]]
+[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.35.png][file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.35.downsampled.png]]
+
+The narrow rectified images:
+
+[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.png][file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.downsampled.png]]
+[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.png][file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.downsampled.png]]
+
+As most non-mrcal tools, jplv uses a pinhole model for rectification. So even if
+we gave it wide-angle images and a wide-angle-friendly camera model, we would
+/still/ experience the issues raised above: the rectified images would have
+these problems.
+
+The disparities computed by jplv look like this for wide images:
+
+[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-diag-left-scale0.35.png][file:external/data/figueroa-overpass-looking-S/jplv-stereo-diag-left-scale0.35.downsampled.png]]
+
+and for narrow images:
+
+[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-diag-left-scale0.6.png][file:external/data/figueroa-overpass-looking-S/jplv-stereo-diag-left-scale0.6.downsampled.png]]
+
+On a basic level, this is clearly working well also.
+
+If jplv output its rectified pinhole models, we could do an apples-to-apples
+comparison using the SGBM correlator, as before. We would ask [[file:mrcal-stereo.html][=mrcal-stereo=]] to
+accept jplv's rectification by passing =mrcal-stereo --already-rectified=.
 
 * Splitting a wide view into multiple narrow views
 :PROPERTIES:
 :CUSTOM_ID: stereo-narrow
 :END:
 
-So we can use jplv to handle mrcal lenses in this way, but at the cost of
-degraded feature-matching accuracy due to unevenly-scaled rectified images. A
-way to resolve the geometric challenges of wide-angle lenses would be to
-subdivide the wide field of view into multiple narrower virtual lenses. Then
-we'd have several narrow-angle stereo pairs instead of a single wide stereo
-pair.
-
-mrcal makes necessary transformations simple, so let's do it. For
-each image we need to construct
-
-- The narrow pinhole model we want that looks at the area we want to (45 degrees
-  to the left in this example)
-- The image of the scene that such a model would have observed
-
-This requires writing a little bit of code: [[https://www.github.com/dkogan/mrcal/blob/master/doc/narrow-section.py][=narrow-section.py=]]. Let's run that
-for each of my images:
+We just showed one way to use jplv to handle mrcal lenses, but we had to pay a
+price of degraded feature-matching accuracy due to unevenly-scaled rectified
+images. A way to do pinhole-rectified stereo while handling the geometric
+challenges of wide-angle lenses is to subdivide the wide field of view into
+multiple narrower virtual views. Then we'd have several narrow-angle stereo
+pairs instead of a single wide stereo pair, and each narrow pair can be
+processed with pinhole rectification. [[file:mrcal-stereo.html][=mrcal-stereo=]] can do all the work. Let's
+look 45 degrees to the left:
 
 #+begin_src sh
-python3 narrow-section.py splined-0.cameramodel 0.jpg -45 left
-python3 narrow-section.py splined-1.cameramodel 1.jpg -45 right
+mrcal-stereo                        \
+  --rectification LENSMODEL_PINHOLE \
+  --az-fov-deg 80                   \
+  --el-fov-deg 80                   \
+  --az0-deg    -45                  \
+  --disparity-range 0 200           \
+  --sgbm-p1 600                     \
+  --sgbm-p2 2400                    \
+  --sgbm-uniqueness-ratio 5         \
+  --sgbm-disp12-max-diff 1          \
+  --sgbm-speckle-window-size 200    \
+  --sgbm-speckle-range 2            \
+  --valid-intrinsics-region         \
+  splined-[01].cameramodel          \
+  [01].jpg
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=doc/out/external/data/figueroa-overpass-looking-S/
-PYTHONPATH=/home/dima/projects/mrcal python3 doc/narrow-section.py $D/splined-0.cameramodel $D/0.jpg -45 left
-PYTHONPATH=/home/dima/projects/mrcal python3 doc/narrow-section.py $D/splined-1.cameramodel $D/1.jpg -45 right
+D=~/projects/mrcal-doc-external
+D1=$D/data/figueroa-overpass-looking-S/
 
-mv                                                     \
-    /tmp/narrow-{left,right}.jpg                       \
-    /tmp/pinhole-narrow-yawed-{left,right}.cameramodel \
-    $D
+~/projects/mrcal/mrcal-stereo       \
+  --rectification LENSMODEL_PINHOLE \
+  --az-fov-deg 80                   \
+  --el-fov-deg 80                   \
+  --az0-deg    -45                  \
+  --disparity-range 0 200           \
+  --sgbm-p1 600                     \
+  --sgbm-p2 2400                    \
+  --sgbm-uniqueness-ratio 5         \
+  --sgbm-disp12-max-diff 1          \
+  --sgbm-speckle-window-size 200    \
+  --sgbm-speckle-range 2            \
+  --valid-intrinsics-region         \
+  --outdir /tmp                     \
+  -f                                \
+  $D1/splined-[01].cameramodel      \
+  $D1/[01].jpg
 
-for img ( $D/narrow-{left,right}.jpg ) { \
-  convert $img -scale 12% doc/out/external/figures/stereo/${img:r:t}.downsampled.${img:e}
+zmv -f -W \
+  '/tmp/[01]-rectified.png' \
+  "$D/figures/stereo/rectified[01]-narrow-splined.png"
+
+mv \
+  /tmp/0-disparity.png \
+  $D/figures/stereo/disparity-narrow-splined.png
+
+mv \
+  /tmp/0-range.png \
+  $D/figures/stereo/range-narrow-splined.png
+
+for img ( $D/figures/stereo/{rectified[01],disparity,range}-narrow-splined.png ) { \
+  convert $img -scale 12% ${img:r}.downsampled.${img:e}
 }
 #+end_src
 
-The images look like this:
+The pinhole rectified images:
 
-[[file:external/data/figueroa-overpass-looking-S/narrow-left.jpg][file:external/figures/stereo/narrow-left.downsampled.jpg]]
-[[file:external/data/figueroa-overpass-looking-S/narrow-right.jpg][file:external/figures/stereo/narrow-right.downsampled.jpg]]
+[[file:external/figures/stereo/rectified0-narrow-splined.png][file:external/figures/stereo/rectified0-narrow-splined.downsampled.png]]
+[[file:external/figures/stereo/rectified1-narrow-splined.png][file:external/figures/stereo/rectified1-narrow-splined.downsampled.png]]
 
-Note that these are pinhole images, but the field of view is much more narrow,
-so they don't look distorted like before. The corresponding pinhole models:
+And the disparity:
 
-- [[file:external/data/figueroa-overpass-looking-S/pinhole-narrow-yawed-left.cameramodel][left]]
-- [[file:external/data/figueroa-overpass-looking-S/pinhole-narrow-yawed-right.cameramodel][right]]
+[[file:external/figures/stereo/disparity-narrow-splined.png][file:external/figures/stereo/disparity-narrow-splined.downsampled.png]]
 
-We can feed these to the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool as before:
+This looks much better than the pinhole-rectified stereo from the full image.
+The rectified pinhole models and images could be passed to a different tool to
+complete the processing, if desired.
 
-#+begin_src sh
-mrcal-stereo                                    \
-  --az-fov-deg 80                               \
-  --el-fov-deg 80                               \
-  --pixels-per-deg -0.5                         \
-  --disparity-range 0 200                       \
-  --sgbm-p1 600                                 \
-  --sgbm-p2 2400                                \
-  --sgbm-uniqueness-ratio 5                     \
-  --sgbm-disp12-max-diff 1                      \
-  --sgbm-speckle-window-size 200                \
-  --sgbm-speckle-range 2                        \
-  pinhole-narrow-yawed-{left,right}.cameramodel \
-  narrow-{left,right}.jpg
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=doc/out/external/data/figueroa-overpass-looking-S/
-
-./mrcal-stereo                                    \
-  --az-fov-deg 80                               \
-  --el-fov-deg 80                               \
-  --pixels-per-deg -0.5                         \
-  --disparity-range 0 200                       \
-  --sgbm-p1 600                                 \
-  --sgbm-p2 2400                                \
-  --sgbm-uniqueness-ratio 5                     \
-  --sgbm-disp12-max-diff 1                      \
-  --sgbm-speckle-window-size 200                \
-  --sgbm-speckle-range 2                        \
-  --outdir /tmp                                 \
-  $D/pinhole-narrow-yawed-{left,right}.cameramodel \
-  $D/narrow-{left,right}.jpg
-
-mv \
-  /tmp/narrow-left-rectified.png \
-  $D/rectified0-narrow.png
-
-mv \
-  /tmp/narrow-right-rectified.png \
-  $D/rectified1-narrow.png
-
-mv \
-  /tmp/narrow-left-disparity.png \
-  $D/disparity-narrow.png
-
-mv \
-  /tmp/narrow-left-range.png \
-  $D/range-narrow.png
-
-for img ( $D/{rectified[01],disparity,range}-narrow.png ) { \
-  convert $img -scale 12% doc/out/external/figures/stereo/${img:r:t}.downsampled.${img:e}
-}
-#+end_src
-
-Here we have slightly non-trivial geometry, so it is instructive to visualize
-it:
-
-#+begin_src sh
-mrcal-stereo                                    \
-  --az-fov-deg 80                               \
-  --el-fov-deg 80                               \
-  --show-geometry                               \
-  --title ''                                    \
-  pinhole-narrow-yawed-{left,right}.cameramodel \
-  narrow-{left,right}.jpg
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=doc/out/external/data/figueroa-overpass-looking-S/
-
-./mrcal-stereo                                    \
-  --az-fov-deg 80                               \
-  --el-fov-deg 80                               \
-  --show-geometry \
-  --title '' \
-  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  --hardcopy doc/out/external/figures/stereo/stereo-geometry-narrow.svg \
-  $D/pinhole-narrow-yawed-{left,right}.cameramodel \
-  $D/narrow-{left,right}.jpg
-#+end_src
-
-[[file:external/figures/stereo/stereo-geometry-narrow.svg]]
-
-Here we're looking at the left and right cameras in the stereo pair, /and/ at
-the axes of the stereo system. Now that we have rotated each camera to look to
-the left, the baseline is no longer perpendicular to the central axis of each
-camera. The stereo system is still attached to the baseline, however. That means
-that $\theta = 0$ no longer corresponds to the center of the view. We don't need
-to care, however: [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] figures that out and compensates.
-
-And we get nice-looking rectified images:
-
-[[file:external/data/figueroa-overpass-looking-S/rectified0-narrow.png][file:external/figures/stereo/rectified0-narrow.downsampled.png]]
-[[file:external/data/figueroa-overpass-looking-S/rectified1-narrow.png][file:external/figures/stereo/rectified1-narrow.downsampled.png]]
-
-And disparity and range images:
-
-[[file:external/data/figueroa-overpass-looking-S/disparity-narrow.png][file:external/figures/stereo/disparity-narrow.downsampled.png]]
-[[file:external/data/figueroa-overpass-looking-S/range-narrow.png][file:external/figures/stereo/range-narrow.downsampled.png]]
-
-And this is despite running pinhole-reprojected stereo from a very wide lens.
-
-* Range accuracy                                                   :noexport:
-:PROPERTIES:
-:CUSTOM_ID: stereo-range-accuracy
-:END:
-A good punchline to all this would be to show that we can now get great ranges,
-and the splined model does better than the =LENSMODEL_OPENCV8= model. I'm not
-reporting this because the full propagation of uncertainty from the calibration
-to the extrinsics estimation to ranging isn't implemented yet. And until that is
-done, the results are only easily interpretable if the splined model does 1000
-times better, which it does not. I will write that eventually.
-
+* Range accuracy
+So far we have looked at the results qualitatively by having a human eyeball the
+disparity maps to verify that they looked reasonable. But the goal here is to
+get ranges. We look closer at this when we discuss the [[file:triangulation.org][triangulation]] routines.
