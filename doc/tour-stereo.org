@@ -168,6 +168,10 @@ D1=$D/data/figueroa-overpass-looking-S/
   $D1/[01].jpg
 
 zmv -f -W \
+  '/tmp/rectified[01].cameramodel' \
+  "$D/data/figueroa-overpass-looking-S/rectified-[01].cameramodel"
+
+zmv -f -W \
   '/tmp/[01]-rectified.png' \
   "$D/figures/stereo/rectified[01]-splined.png"
 
@@ -207,6 +211,49 @@ evenly, which minimizes the visual distortion inside each image row. A
 side-effect is the the vertical expansion in the rectified image at the azimuth
 extremesm but since stereo matching works by correlating the rows independently,
 this is a good trade-off.
+
+The generated rectified models are [[file:external/data/figueroa-overpass-looking-S/rectified-0.cameramodel][here]] and [[file:external/data/figueroa-overpass-looking-S/rectified-1.cameramodel][here]]. These define a rectified
+system with axes
+
+- $x$: the baseline; from the origin of the left camera to the origin of the
+  right camera
+- $y$: down
+- $z$: forward
+
+[[file:mrcal-stereo.html][=mrcal-stereo=]] selects the $y$ and $z$ axes to line up as much as possible with
+the geometry of the input models. Since the geometry of the actual cameras may
+not match the idealized rectified geometry (the "forward" view direction may not
+be orthogonal to the baseline), the usual expectations that $c_x \approx
+\frac{\mathrm{imagerwidth}}{2}$ and $c_y \approx
+\frac{\mathrm{imagerheight}}{2}$ are not necessarily true in the rectified
+system. Thus [[file:mrcal-stereo.html][=mrcal-stereo=]] can visualize the models /and/ the rectified field
+of view, for verification:
+
+#+begin_src sh
+mrcal-stereo        \
+  --az-fov-deg 145  \
+  --el-fov-deg 135  \
+  --el0-deg    5    \
+  --set 'view 70,5' \
+  --show-geometry   \
+  splined-[01].cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+~/projects/mrcal/mrcal-stereo                                       \
+  --az-fov-deg 145                                                  \
+  --el-fov-deg 135                                                  \
+  --el0-deg    5                                                    \
+  --set 'view 70,5'                                                 \
+  --show-geometry                                                   \
+  --hardcopy $D/figures/stereo/stereo-rectified-system.svg          \
+  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
+  $D1/splined-[01].cameramodel
+#+end_src
+
+[[file:external/figures/stereo/stereo-rectified-system.svg]]
+
+Here, the geometry /is/ mostly nominal and the rectified view (indicated by the
+purple lines) /does/ mostly lie along the $z$ axis.
 
 * ranged pixels ground-truth                                       :noexport:
 **** Buildings
@@ -532,6 +579,34 @@ And the disparity:
 This looks much better than the pinhole-rectified stereo from the full image.
 The rectified pinhole models and images could be passed to a different tool to
 complete the processing, if desired.
+
+And we can see the rotated field of view when we visualize the rectified system:
+
+#+begin_src sh
+mrcal-stereo                        \
+  --rectification LENSMODEL_PINHOLE \
+  --az-fov-deg 80                   \
+  --el-fov-deg 80                   \
+  --az0-deg    -45                  \
+  --set 'view 70,5'                 \
+  --show-geometry                   \
+  splined-[01].cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+~/projects/mrcal/mrcal-stereo                                       \
+  --rectification LENSMODEL_PINHOLE                                 \
+  --az-fov-deg 80                                                   \
+  --el-fov-deg 80                                                   \
+  --az0-deg    -45                                                  \
+  --set 'view 70,5'                                                 \
+  --show-geometry                                                   \
+  --hardcopy $D/figures/stereo/stereo-rectified-system-narrow.svg   \
+  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
+  $D1/splined-[01].cameramodel
+#+end_src
+
+[[file:external/figures/stereo/stereo-rectified-system-narrow.svg]]
+
 
 * Range accuracy
 So far we have looked at the results qualitatively by having a human eyeball the
