@@ -253,6 +253,10 @@ data for the camera in question. For instance, if we're looking at the left
 camera with images in files =left-XXXXX.jpg=, you can replace the above
 =vnl-filter= command with =vnl-filter 'filename ~ "left"' -p x,y=.
 
+Insufficient coverage will be clearly picked up by the [[file:uncertainty.org][uncertainty reporting]], so
+it's not strictly necessary to explicitly look at it, but doing so is good
+hygiene.
+
 We can visualize individual detections like this:
 
 #+begin_example
@@ -360,7 +364,7 @@ D=~/projects/mrcal-doc-external
   (=LENSMODEL_OPENCV5= for long lenses, =LENSMODEL_OPENCV8= for wide lenses)
   initially, as a sanity check. And once that looks OK, to move to
   [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get better accuracy and reliable
-  uncertainty reporting. For /very/ wide fisheye lenses,
+  [[file:uncertainty.org][uncertainty reporting]]. For /very/ wide fisheye lenses,
   [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] is the only model that will work at all, so
   start directly there if you have an ultra-fisheye lens.
 
