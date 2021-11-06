@@ -167,8 +167,21 @@ D=~/projects/mrcal-doc-external
   '*.JPG'
 #+end_src
 
-It reports some high-level diagnostics, writes the output model(s) to disk, and
-exits:
+I'm specifying the initial very rough estimate of the focal length (in pixels),
+the geometry of my chessboard (10x10 board with 0.077m spacing between corners),
+the lens model I want to use, chessboard corners we just detected, the estimated
+uncertainty of the corner detections (more on this later) and the image globs. I
+have just one camera, so I have one glob: =*.JPG=. With more cameras you'd have
+something like ='*-camera0.jpg' '*-camera1.jpg' '*-camera2.jpg'=.
+
+We could pass =--explore= to drop into a REPL after the computation is done, so
+that we can look around. The most common diagnostic images can be made by
+running the [[file:commandline-tools.org][=mrcal-show-...= commandline tools]] on the generated
+=xxx.cameramodel= files, but =--explore= can be useful to get more sophisticated
+feedback.
+
+The [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool reports some high-level diagnostics, writes
+the output model(s) to disk, and exits:
 
 #+begin_example
 ## initial solve: geometry only
@@ -191,39 +204,7 @@ Wrote ./camera-0.cameramodel
 
 The resulting model is renamed to =opencv8.cameramodel=, and is available [[file:external/data/board/opencv8.cameramodel][here]].
 This is a [[file:cameramodels.org][mrcal-native =.cameramodel= file]] containing at least the lens
-parameters and the geometry. For [[file:uncertainty.org][uncertainty quantification]] and for
-after-the-fact analysis, the /full/ optimization inputs are included in this
-file. Reading and re-optimizing those inputs is trivial:
-
-#+begin_src python
-import mrcal
-
-m = mrcal.cameramodel('camera-0.cameramodel')
-optimization_inputs = m.optimization_inputs()
-mrcal.optimize(**optimization_inputs)
-model_reoptimized = \
-  mrcal.cameramodel( optimization_inputs = m.optimization_inputs(), 
-                     icam_intrinsics     = m.icam_intrinsics() )
-model_reoptimized.write('camera0-reoptimized.cameramodel')
-#+end_src
-
-Here we didn't make any changes to the inputs, and we should already have an
-optimal solution, so the re-optimized model is the same as the initial one. But
-we could add input noise or change the lens model or [[file:formulation.org::#Regularization][regularization terms]] or
-anything else, and we would then observe the effects of those changes.
-
-I'm specifying the initial very rough estimate of the focal length (in pixels),
-the geometry of my chessboard (10x10 board with 0.077m spacing between corners),
-the lens model I want to use, chessboard corners we just detected, the estimated
-uncertainty of the corner detections (more on this later) and the image globs. I
-have just one camera, so I have one glob: =*.JPG=. With more cameras you'd have
-something like ='*-camera0.jpg' '*-camera1.jpg' '*-camera2.jpg'=.
-
-We could pass =--explore= to drop into a REPL after the computation is done, so
-that we can look around. The most common diagnostic images can be made by
-running the [[file:commandline-tools.org][=mrcal-show-...= commandline tools]] on the generated
-=xxx.cameramodel= files, but =--explore= can be useful to get more sophisticated
-feedback.
+parameters and the geometry.
 
 Let's sanity-check the results. We want to flag down any issues with the data
 that would violate the [[file:formulation.org::#noise-model][assumptions made by the solver]].
@@ -338,19 +319,8 @@ represents the weight given to that point. The weight is reduced for points that
 were detected at a lower resolution by the chessboard detector. Points thrown
 out as outliers are not shown at all.
 
-This is the worst-fitting image, so any data-gathering issues will show up in
-this plot.
-
-We look for any errors that look unreasonably large. And we look for patterns.
-In a perfect world, the model fits the observations, and the residuals display
-purely random noise. Any patterns in the errors indicate that the noise isn't
-random, and thus the model does /not/ fit. This would violate the [[file:formulation.org::#noise-model][noise model]],
-and would result in a bias when we ultimately use this calibration for
-projection. This bias is an unmodeled source of error, so we /really/ want to
-push this down as far as we can. Getting rid of all such errors completely is
-impossible, but we should do our best.
-
-Common sources of unmodeled errors:
+Residual plots such as this one are a good way to identify common data-gathering
+issues such as:
 
 - out-of focus images
 - images with motion blur
@@ -367,10 +337,10 @@ errors are mostly radial (point to/from the center). This could cause biases
 later on. Let's keep going, keeping this in mind as something we should address
 later.
 
-One issue with lean models such as =LENSMODEL_OPENCV8= is that the radial
-distortion is never quite right, especially as we move further and further away
-form the optical axis: this is the last point in the common-errors list above.
-We can clearly see this here in the 3rd-worst image:
+One issue with lean models such as =LENSMODEL_OPENCV8=, which is used here, is
+that the radial distortion is never quite right, especially as we move further
+and further away form the optical axis: this is the last point in the
+common-errors list above. We can clearly see this here in the 3rd-worst image:
 
 #+begin_src sh
 mrcal-show-residuals-board-observation \
@@ -440,7 +410,7 @@ this data.
 
 It would be good to have a quantitative measure of these systematic patterns. At
 this time mrcal doesn't provide an automated way to do that. This will be added
-later.
+in the future.
 
 Clearly there're unmodeled errors in this solve. As we have seen, the errors
 here are all fairly small, but they become very important when doing precision
