@@ -261,7 +261,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
   --set 'xrange [-4:4]' \
   --unset key           \
   --binwidth 0.1 \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-opencv8.svg' \
+  --hardcopy "$D/figures/calibration/residuals-histogram-opencv8.svg" \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
   $D/data/board/opencv8.cameramodel
 
@@ -271,7 +271,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
   --set 'xrange [-4:4]' \
   --unset key           \
   --binwidth 0.1 \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-opencv8.pdf' \
+  --hardcopy "$D/figures/calibration/residuals-histogram-opencv8.pdf" \
   --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
   $D/data/board/opencv8.cameramodel
 #+end_src
@@ -304,7 +304,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board
   --vectorscale 100 \
   --circlescale 0.5 \
   --set 'cbrange [0:3]' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/worst-opencv8.png' \
+  --hardcopy "$D/figures/calibration/worst-opencv8.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/data/board/opencv8.cameramodel \
   0
@@ -358,7 +358,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board
   --vectorscale 100 \
   --circlescale 0.5 \
   --set 'cbrange [0:3]' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/worst-incorner-opencv8.png' \
+  --hardcopy "$D/figures/calibration/worst-incorner-opencv8.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/data/board/opencv8.cameramodel \
   2
@@ -385,7 +385,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
   --directions \
   --unset key           \
   --set 'pointsize 0.5' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/directions-opencv8.svg' \
+  --hardcopy "$D/figures/calibration/directions-opencv8.svg" \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
   $D/data/board/opencv8.cameramodel
 
@@ -394,7 +394,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
   --directions \
   --unset key           \
   --set 'pointsize 0.25' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/directions-opencv8.pdf' \
+  --hardcopy "$D/figures/calibration/directions-opencv8.pdf" \
   --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
   $D/data/board/opencv8.cameramodel
 #+end_src
@@ -564,7 +564,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
   --set 'xrange [-4:4]' \
   --unset key           \
   --binwidth 0.1 \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-splined.svg' \
+  --hardcopy "$D/figures/calibration/residuals-histogram-splined.svg" \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
   $D/data/board/splined.cameramodel
 
@@ -574,7 +574,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
   --set 'xrange [-4:4]' \
   --unset key           \
   --binwidth 0.1 \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-splined.pdf' \
+  --hardcopy "$D/figures/calibration/residuals-histogram-splined.pdf" \
   --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
   $D/data/board/splined.cameramodel
 #+end_src
@@ -602,7 +602,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board
   --vectorscale 100 \
   --circlescale 0.5 \
   --set 'cbrange [0:3]' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/worst-splined.png' \
+  --hardcopy "$D/figures/calibration/worst-splined.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/data/board/splined.cameramodel \
   0
@@ -634,7 +634,7 @@ PYTHONPATH=/home/dima/projects/mrcal-noncentral ~/projects/mrcal-noncentral/mrca
   --vectorscale 100 \
   --circlescale 0.5 \
   --set 'cbrange [0:3]' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/worst-splined-noncentral.png' \
+  --hardcopy "$D/figures/calibration/worst-splined-noncentral.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   /tmp/camera-0.cameramodel \
   54
@@ -663,7 +663,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board
   --vectorscale 100 \
   --circlescale 0.5 \
   --set 'cbrange [0:3]' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/worst-incorner-splined.png' \
+  --hardcopy "$D/figures/calibration/worst-incorner-splined.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/data/board/splined.cameramodel \
   79
@@ -685,7 +685,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
   --directions \
   --unset key           \
   --set 'pointsize 0.5' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/directions-splined.svg' \
+  --hardcopy "$D/figures/calibration/directions-splined.svg" \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
   $D/data/board/splined.cameramodel
 
@@ -694,7 +694,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
   --directions \
   --unset key           \
   --set 'pointsize 0.25' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/directions-splined.pdf' \
+  --hardcopy "$D/figures/calibration/directions-splined.pdf" \
   --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
   $D/data/board/splined.cameramodel
 #+end_src
@@ -714,10 +714,11 @@ mrcal-show-splined-model-correction \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
 ~/projects/mrcal/mrcal-show-splined-model-correction \
   --set 'cbrange [0:0.1]' \
   --unset grid                      \
-  --hardcopy '~/projects/mrcal-doc-external/figures/splined-models/splined-magnitude.png' \
+  --hardcopy "$D/figures/splined-models/splined-magnitude.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/data/board/splined.cameramodel
 #+end_src
@@ -755,13 +756,14 @@ mrcal-show-splined-model-correction \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
 ~/projects/mrcal/mrcal-show-splined-model-correction \
   --set 'cbrange [0:0.1]' \
   --imager-domain          \
   --set 'xrange [-300:6300]'        \
   --set 'yrange [4300:-300]'        \
   --unset grid                      \
-  --hardcopy '~/projects/mrcal-doc-external/figures/splined-models/splined-magnitude-imager-domain.png' \
+  --hardcopy "$D/figures/splined-models/splined-magnitude-imager-domain.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"' \
   $D/data/board/splined.cameramodel
 #+end_src
