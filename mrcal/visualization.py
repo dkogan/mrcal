@@ -2478,7 +2478,7 @@ None. The input image array is modified
         cv2.circle( image, tuple((model.imagersize() - 1)//2), 10, color, -1)
         print("WARNING: annotate_image__valid_intrinsics_region(): valid-intrinsics region is empty. Drawing a circle")
     else:
-        cv2.polylines(image, [valid_intrinsics_region], True, color, 3)
+        cv2.polylines(image, [valid_intrinsics_region.astype(np.int32)], True, color, 3)
 
 
 def imagergrid_using(imagersize, gridn_width, gridn_height = None):
