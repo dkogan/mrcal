@@ -2327,6 +2327,7 @@ plot
 
     plot_data_tuples_inliers  = ()
     plot_data_tuples_outliers = ()
+    plot_data_tuples_zigzag   = ()
 
     if observations:
         p_cam_calobjects,           \
@@ -2359,7 +2360,6 @@ plot
         #             dict( tuplesize = 2,
         #                   _with  = 'lines lc "black"',
         #                   legend = "board sequences"),),)
-        plot_data_tuples_zigzag = ()
 
         if len(q_cam_calobjects_inliers):
             if observations == 'dots':
