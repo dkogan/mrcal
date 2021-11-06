@@ -67,17 +67,32 @@ DSC_7305.JPG 3950.404000 132.480000 2
 
 $ f=DSC_7305.JPG
 
-$ < corners.vnl \
-    vnl-filter "filename eq \"$f\"" --perl -p x,y,size='2**(1-level)' | \
-  feedgnuplot --image $f --domain --square --tuplesizeall 3 \
-              --with 'points pt 7 ps variable'
+$ < corners.vnl                  \
+  vnl-filter                     \
+    --perl                       \
+    "filename eq \"$f\""         \
+    -p x,y,size='2**(1-level)' | \
+  feedgnuplot                    \
+    --image $f                   \
+    --domain                     \
+    --square                     \
+    --tuplesizeall 3             \
+    --with 'points pt 7 ps variable'
 #+end_example
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
 f=$D/data/board/DSC_7305.JPG
-< $D/data/board/corners.vnl \
-  vnl-filter "filename eq \"${f:t}\"" --perl -p x,y,size='2**(1-level)' | \
-  feedgnuplot --image $f --domain --square --tuplesizeall 3 --with 'points pt 7 ps variable' \
+< $D/data/board/corners.vnl      \
+  vnl-filter                     \
+    --perl                       \
+    "filename eq \"${f:t}\""     \
+    -p x,y,size='2**(1-level)' | \
+  feedgnuplot                    \
+    --image $f                   \
+    --domain                     \
+    --square                     \
+    --tuplesizeall 3             \
+    --with 'points pt 7 ps variable' \
     --hardcopy $D/figures/calibration/mrgingham-results.png \
     --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
@@ -85,9 +100,10 @@ f=$D/data/board/DSC_7305.JPG
 [[file:external/figures/calibration/mrgingham-results.png]]
 
 So in this image many of the corners were detected at full-resolution (level-0),
-but some required downsampling for the detector to find them: shown as smaller
-circles. The downsampled points have less precision, so they are [[file:formulation.org::#noise-in-measurement-vector][weighed less
-in the optimization]]. How many images produced successful corner detections?
+but some required downsampling for the detector to find them. This is indicated
+by smaller circles. The downsampled points have less precision, so they are
+[[file:formulation.org::#noise-in-measurement-vector][weighed less in the optimization]]. How many images produced successful corner
+detections?
 
 #+begin_example
 $ < corners.vnl vnl-filter --has x -p filename | uniq | grep -v '#' | wc -l
@@ -233,17 +249,16 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-geometry $D/dat
 
 [[file:external/figures/calibration/calibration-chessboards-geometry.svg]]
 
-All plots are interactive. Here we see the [[file:formulation.org::#world-geometry][axes of our camera]] (purple) situated
-at the [[file:formulation.org::#world-geometry][reference coordinate system]]. In this solve, the camera coordinate system
-/is/ the reference coordinate system; this would look more interesting with more
-cameras. In front of the camera (along the $z$ axis) we can see the solved
-chessboard poses. There are a whole lot of them, and they're all sitting right
-in front of the camera with some heavy tilt. This matches with how this
-chessboard dance was performed (by following the guidelines set by the [[file:tour-choreography.org][dance
-study]]).
+Here we see the [[file:formulation.org::#world-geometry][axes of our camera]] (purple) situated at the [[file:formulation.org::#world-geometry][reference coordinate
+system]]. In this solve, the camera coordinate system /is/ the reference
+coordinate system; this would look more interesting with more cameras. In front
+of the camera (along the $z$ axis) we can see the solved chessboard poses. There
+are a whole lot of them, and they're all sitting right in front of the camera
+with some heavy tilt. This matches with how this chessboard dance was performed
+(by following the guidelines set by the [[file:tour-choreography.org][dance study]]).
 
 Next, let's examine the residuals more closely. We have an overall RMS
-reprojection-error value from above, but let's look at the full distribution of
+reprojection error value from above, but let's look at the full distribution of
 errors for /all/ the cameras:
 
 #+begin_src sh
@@ -345,7 +360,8 @@ Back to /this/ image. In absolute terms, even this worst-fitting image fits
 /really/ well. The RMS error of the errors in this image is 1.20 pixels. The
 residuals in this image look mostly reasonable. There is a pattern, however: the
 errors are mostly radial (point to/from the center). This could cause biases
-later on. Let's keep going, keeping this in mind as something we should address.
+later on. Let's keep going, keeping this in mind as something we should address
+later.
 
 One issue with lean models such as =LENSMODEL_OPENCV8= is that the radial
 distortion is never quite right, especially as we move further and further away
