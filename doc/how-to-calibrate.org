@@ -633,8 +633,8 @@ This will be included in a future release of mrcal.
 
 One issue with lean models such as =LENSMODEL_OPENCV8=, which is used here, is
 that the radial distortion is never quite right, especially as we move further
-and further away form the optical axis: this is the last point in the
-common-errors list above. We can clearly see this here in the 3rd-worst image:
+and further away form the optical axis. We can clearly see this here in the
+3rd-worst image:
 
 #+begin_src sh
 mrcal-show-residuals-board-observation \
