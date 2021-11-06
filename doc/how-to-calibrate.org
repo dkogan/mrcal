@@ -407,7 +407,7 @@ escaped to prevent the shell from expanding them: hence ='*.JPG'= and not
 
 We could pass =--explore= to drop into a REPL after the computation is done, so
 that we can look around. The most common diagnostic images can be made by
-running the [[file:commandline-tools.org][=mrcal-show-...= commandline tools]] on the generated
+running the [[file:commandline-tools.org::#commandline-tools-visualization][=mrcal-show-...= commandline tools]] on the generated
 =xxx.cameramodel= files, but =--explore= can be useful to get more sophisticated
 feedback.
 
