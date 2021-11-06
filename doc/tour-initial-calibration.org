@@ -145,19 +145,32 @@ r &\equiv \left|\vec P\right|            \\
 Where $\vec q$ is the resulting projected pixel, $\vec f_{xy}$
 is the focal lengths and $\vec c_{xy}$ is the center pixel of the imager.
 
-Let's compute the calibration: the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool is the main
-frontend for that purpose.
+Let's compute the calibration using the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool:
+
+#+begin_src sh
+mrcal-calibrate-cameras         \
+  --corners-cache corners.vnl   \
+  --lensmodel LENSMODEL_OPENCV8 \
+  --focal 1700                  \
+  --object-spacing 0.077        \
+  --object-width-n 10           \
+  '*.JPG'
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
+~/projects/mrcal/mrcal-calibrate-cameras    \
+  --corners-cache $D/data/board/corners.vnl \
+  --lensmodel LENSMODEL_OPENCV8             \
+  --focal 1700                              \
+  --object-spacing 0.077                    \
+  --object-width-n 10                       \
+  '*.JPG'
+#+end_src
+
+It reports some high-level diagnostics, writes the output model(s) to disk, and
+exits:
 
 #+begin_example
-$ mrcal-calibrate-cameras        \
-  --corners-cache corners.vnl    \
-  --lensmodel LENSMODEL_OPENCV8  \
-  --focal 1700                   \
-  --object-spacing 0.077         \
-  --object-width-n 10            \
-  '*.JPG'
-
-
 ## initial solve: geometry only
 ## RMS error: 31.606057232034026
 
@@ -175,15 +188,6 @@ calobject_warp = [-0.00104306  0.00051718]
 
 Wrote ./camera-0.cameramodel
 #+end_example
-#+begin_src sh :exports none :eval no-export
-~/projects/mrcal/mrcal-calibrate-cameras        \
-  --corners-cache corners.vnl    \
-  --lensmodel LENSMODEL_OPENCV8  \
-  --focal 1700                   \
-  --object-spacing 0.077         \
-  --object-width-n 10            \
-  '*.JPG'
-#+end_src
 
 The resulting model is renamed to =opencv8.cameramodel=, and is available [[file:external/data/board/opencv8.cameramodel][here]].
 This is a [[file:cameramodels.org][mrcal-native =.cameramodel= file]] containing at least the lens
@@ -512,16 +516,30 @@ $c_x$ and $c_y$, the usual focal-length-in-pixels and imager-center values.
 Let's run the same exact calibration as before, but using the richer model to
 specify the lens:
 
-#+begin_example
-$ mrcal-calibrate-cameras                                                       \
+#+begin_src sh
+mrcal-calibrate-cameras                                                         \
   --corners-cache corners.vnl                                                   \
   --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=150 \
   --focal 1700                                                                  \
   --object-spacing 0.077                                                        \
   --object-width-n 10                                                           \
   '*.JPG'
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
+~/projects/mrcal/mrcal-calibrate-cameras                                        \
+  --corners-cache $D/data/board/corners.vnl                                     \
+  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=150 \
+  --focal 1700                                                                  \
+  --object-spacing 0.077                                                        \
+  --object-width-n 10                                                           \
+  --explore                                                                     \
+  '*.JPG'
+#+end_src
 
+Reported diagnostics:
 
+#+begin_example
 ## initial solve: geometry only
 ## RMS error: 31.606057232034026
 
@@ -539,16 +557,6 @@ Worst residual (by measurement): 3.3 pixels
 Noutliers: 219 out of 16100 total points: 1.4% of the data
 calobject_warp = [-0.00095958  0.00051596]
 #+end_example
-#+begin_src sh :exports none :eval no-export
-~/projects/mrcal/mrcal-calibrate-cameras                                                       \
-  --corners-cache corners.vnl                                                   \
-  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=150 \
-  --focal 1700                                                                  \
-  --object-spacing 0.077                                                        \
-  --object-width-n 10                                                           \
-  --explore                                                                     \
-  '*.JPG'
-#+end_src
 
 The resulting model is renamed to =splined.cameramodel=, and is available [[file:external/data/board/splined.cameramodel][here]].
 
@@ -642,8 +650,9 @@ not-entirely-complete [[https://github.com/dkogan/mrcal/commit/26db52c48eab3d027
 works /much/ better. The same frame, fitted with a noncentral projection:
 
 #+begin_src sh :exports none :eval no-export
-~/projects/mrcal-noncentral/mrcal-calibrate-cameras                                                       \
-  --corners-cache corners.vnl                                                   \
+D=~/projects/mrcal-doc-external
+~/projects/mrcal-noncentral/mrcal-calibrate-cameras                             \
+  --corners-cache $D/data/board/corners.vnl                                     \
   --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=150 \
   --focal 1700                                                                  \
   --object-spacing 0.077                                                        \
