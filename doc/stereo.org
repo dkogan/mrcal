@@ -26,7 +26,7 @@ technique:
    by the rectified system
 
 The epipolar constraint (all pixels in the same row in both rectified images
-represent the same plane in space) allows for one-dimensional stereo-matching,
+represent the same plane in space) allows for one-dimensional stereo matching,
 which is a massive computational win over the two-dimensional matching that
 would be required with another formulation.
 
@@ -34,7 +34,7 @@ The rectified coordinate system looks like this:
 
 [[file:figures/rectification.svg]]
 
-We have two angles:
+We will refer to two angles:
 
 - $\theta$ the "azimuth"; the lateral angle inside the epipolar plane. Related
   directly to the $x$ pixel coordinate in the rectified images
@@ -43,13 +43,14 @@ We have two angles:
 
 * Rectification models
 A rectified system satisfies the epipolar constraint (see above). mrcal supports
-two models that can have this property, with the model being selected in the
-=rectification_model= argument to [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]].
+two models that can have this property, selected with the =rectification_model=
+argument to [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] or with the =--rectification= commandline
+argument to [[file:mrcal-stereo.html][=mrcal-stereo=]].
 
 - [[file:lensmodels.org::#lensmodel-pinhole][=LENSMODEL_PINHOLE=]]: this is the traditional rectification model, used in most
   existing tools. As usual, this works decently well for small fields of view
   (as with a long lens), but fails with large fields of view (as with a wide
-  lens). As expected, the issues stem from the uneven angular resolution across
+  lens). The issues stem from the uneven angular resolution across
   the image, which shoots out to $\infty \frac{\mathrm{pixels}}{\mathrm{deg}}$
   as $\theta \rightarrow \pm 90^\circ$. This produces highly distorted rectified
   images, which affects stereo matching adversely, since areas of disparate
@@ -63,8 +64,7 @@ two models that can have this property, with the model being selected in the
   rectified images, $x_0$ and $y_0$ are the centers of projection of the
   rectified system and $k_x$ and $k_y$ are the angular resolution in the two
   directions. This is the recommended rectification model, and is the default in
-  [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]
-
+  mrcal
 
 * Interfaces
 Currently stereo processing is available via the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool. This tool
@@ -73,18 +73,19 @@ implements the usual stereo processing for a single frame.
 More complex usages are available via Python APIs. A sequence of images captured
 with a stereo pair can be processed like this:
 
-1. [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]]: construct the rectified system defined by the
+1. [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] to construct the rectified system defined by the
    stereo pair
-2. [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]]: construct the pixel mappings needed to
+2. [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]] to construct the pixel mappings needed to
    transform captured images into rectified images. This is relatively slow, but
    it depends on the relative stereo geometry only, so this can be computed
-   once, and applied to /all/ the images captured by the stereo pair
+   once, and applied to /all/ the subsequent images captured by the stereo pair
 3. For each pair of captured images
-   - [[file:mrcal-python-api-reference.html#-transform_image][=mrcal.transform_image()=]]: generate rectified images
+   - [[file:mrcal-python-api-reference.html#-transform_image][=mrcal.transform_image()=]] to generate rectified images
    - stereo matching to compute disparities. mrcal does not provide its own
      method, and the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool uses the [[https://docs.opencv.org/4.5.3/d2/d85/classcv_1_1StereoSGBM.html][OpenCV SGBM stereo matcher]].
      Any stereo matcher can be used. The result is a /disparity/ image, where
      each pixel in the first rectified image is mapped to a corresponding pixel
      offset from the same feature in the second rectified image
-   - [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]]: converts the disparities to ranges, which can then
+   - [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]] to convert the disparities to ranges, which can then
      be used to produce a point cloud
+
