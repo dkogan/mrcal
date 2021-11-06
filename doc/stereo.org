@@ -11,8 +11,8 @@ On a high level, mrcal stereo processing is the usual [[https://en.wikipedia.org
 technique:
 
 1. Ingest
-   - Two camera models, each containing the intrinsics /and/ the relative
-     pose between the two cameras
+   - Two camera models, each containing the intrinsics /and/ extrinsics (the
+     relative pose between the two cameras)
    - A pair of images captured by these two cameras
 2. Compute a "rectified" system: a pair of models where each corresponding row
    of pixels in the two cameras all represent observation rays that lie in the
@@ -34,7 +34,7 @@ The rectified coordinate system looks like this:
 
 [[file:figures/rectification.svg]]
 
-We will refer to two angles:
+We code and documentation refers to two angles:
 
 - $\theta$ the "azimuth"; the lateral angle inside the epipolar plane. Related
   directly to the $x$ pixel coordinate in the rectified images
@@ -48,15 +48,14 @@ argument to [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rec
 argument to [[file:mrcal-stereo.html][=mrcal-stereo=]].
 
 - [[file:lensmodels.org::#lensmodel-pinhole][=LENSMODEL_PINHOLE=]]: this is the traditional rectification model, used in most
-  existing tools. As usual, this works decently well for small fields of view
-  (as with a long lens), but fails with large fields of view (as with a wide
-  lens). The issues stem from the uneven angular resolution across
-  the image, which shoots out to $\infty \frac{\mathrm{pixels}}{\mathrm{deg}}$
-  as $\theta \rightarrow \pm 90^\circ$. This produces highly distorted rectified
-  images, which affects stereo matching adversely, since areas of disparate
-  resolution are being compared. This is supported by mrcal purely for
-  compatibility with other tools; there's little reason to use this
-  representation otherwise
+  existing tools. This works decently well for small fields of view (as with a
+  long lens), but fails with large fields of view (as with a wide lens). The
+  issues stem from the uneven angular resolution across the image, which shoots
+  out to $\infty \frac{\mathrm{pixels}}{\mathrm{deg}}$ as $\theta \rightarrow
+  \pm 90^\circ$. This produces highly distorted rectified images, which affects
+  stereo matching adversely, since areas of disparate resolution are being
+  compared. This is supported by mrcal purely for compatibility with other
+  tools; there's little reason to use this representation otherwise
 
 - [[file:lensmodels.org::#lensmodel-latlon][=LENSMODEL_LATLON=]]: this is a "transverse equirectangular projection". It is
   defined with even angle spacing in both directions, so $x - x_0 = k_x \theta$
@@ -89,3 +88,4 @@ with a stereo pair can be processed like this:
    - [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]] to convert the disparities to ranges, which can then
      be used to produce a point cloud
 
+A demo of the process if shown in the [[file:tour-stereo.org][tour of mrcal]].
