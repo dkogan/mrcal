@@ -774,5 +774,37 @@ Now the valid-intrinsics region is a nice rectangle, but the spline-in-bounds
 region is complex curve. Projection at the edges is poorly-defined, so the
 boundary of the spline-in-bounds region appears irregular in this view.
 
+I can /also/ look at the correction vector field:
+#+begin_src sh
+mrcal-show-splined-model-correction \
+  --vectorfield \
+  --imager-domain \
+  --unset grid                      \
+  --set 'xrange [-300:6300]'        \
+  --set 'yrange [4300:-300]'        \
+  --gridn 40 30 \
+  splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+### needed manual tweak in show_splined_model_correction(): "ps 2" -> "ps 1"
+### gnuplot makes svg points too big
+D=~/projects/mrcal-doc-external
+~/projects/mrcal/mrcal-show-splined-model-correction \
+  --vectorfield \
+  --imager-domain \
+  --unset grid                      \
+  --set 'xrange [-300:6300]'        \
+  --set 'yrange [4300:-300]'        \
+  --gridn 40 30 \
+  --hardcopy "$D/figures/splined-models/splined-vectorfield-imager-domain.svg" \
+  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
+  $D/data/board/splined.cameramodel
+#+end_src
+
+[[file:external/figures/splined-models/splined-vectorfield-imager-domain.svg]]
+
+This doesn't show anything noteworthy in this solve, but seeing this is often
+informative with other lenses.
+
 * Next
 [[file:tour-differencing.org][We then compare the calibrated models]].
