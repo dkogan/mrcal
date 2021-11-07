@@ -1,13 +1,13 @@
 #+title: A tour of mrcal: quantifying uncertainty
 #+OPTIONS: toc:t
 
+An overview follows; see the [[file:formulation.org::#noise-model][noise model]] and [[file:uncertainty.org][projection uncertainty]] pages for
+details.
+
 * Previous
 We just [[file:tour-differencing.org][compared the calibrated models]].
 
 * Projection uncertainty
-
-An overview follows; see the [[file:formulation.org::#noise-model][noise model]] and [[file:uncertainty.org][projection uncertainty]] pages for
-details.
 
 It would be /really/ nice to be able to compute an /uncertainty/ along with
 every projection operation: given a camera-coordinate point $\vec p$ we would
@@ -312,7 +312,6 @@ calibration time. Any model errors (such as an ill-fitting lens model, a
 badly-shaped calibration board, motion blur, etc) will produce high differences
 and low uncertainties. This is a /very/ common effect, and is the main thing we
 battle as we try to faithfully model the behavior of a lens.
-
 
 * Next
 Now [[file:tour-effect-of-range.org][we discuss the effect of range in differencing and uncertainty computations]].

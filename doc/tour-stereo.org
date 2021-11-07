@@ -1,6 +1,8 @@
 #+title: A tour of mrcal: stereo processing
 #+OPTIONS: toc:t
 
+This is an overview of a more detailed discussion about [[file:stereo.org][dense stereo]].
+
 * Previous
 We just [[file:tour-choreography.org][found the best chessboard-dancing technique]]
 
@@ -606,7 +608,6 @@ mrcal-stereo                        \
 #+end_src
 
 [[file:external/figures/stereo/stereo-rectified-system-narrow.svg]]
-
 
 * Range accuracy
 So far we have looked at the results qualitatively by having a human eyeball the

@@ -119,7 +119,8 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
   images into rectified images
 - [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]]: Compute ranges from observed disparities
 - [[file:mrcal-python-api-reference.html#-match_feature][=mrcal.match_feature()=]]: Find a pixel correspondence in a pair of images
-- [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]]: Triangulate N points with uncertainty propagation
+- [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]]: Triangulate N points with uncertainty propagation. This
+  is a higher-level function than the other =mrcal.triangulate_...()= routines
 - [[file:mrcal-python-api-reference.html#-triangulate_geometric][=mrcal.triangulate_geometric()=]]: Simple geometric triangulation
 - [[file:mrcal-python-api-reference.html#-triangulate_lindstrom][=mrcal.triangulate_lindstrom()=]]: Triangulation minimizing the 2-norm of pinhole reprojection errors
 - [[file:mrcal-python-api-reference.html#-triangulate_leecivera_l1][=mrcal.triangulate_leecivera_l1()=]]: Triangulation minimizing the L1-norm of angle differences
