@@ -217,7 +217,8 @@ testutils.confirm_equal(dv_dq_reported,
                         dv_dq_observed,
                         msg = f"unproject_{name}() dv/dq",
                         worstcase = True,
-                        relative  = True)
+                        relative  = True,
+                        eps       = 2e-6)
 
 
 for normalize in (False, True):
