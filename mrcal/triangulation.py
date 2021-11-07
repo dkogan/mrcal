@@ -1648,25 +1648,25 @@ calibration-time uncertainty.
 
 Complete logic:
 
-    if Var_p_calibration is None and
-       Var_p_observation is None:
+    if q_calibration_stdev is None and
+       q_observation_stdev is None:
         # p.shape = (...,3)
         return p
 
-    if Var_p_calibration is not None and
-       Var_p_observation is None:
+    if q_calibration_stdev is not None and
+       q_observation_stdev is None:
         # p.shape = (...,3)
         # Var_p_calibration.shape = (...,3,...,3)
         return p, Var_p_calibration
 
-    if Var_p_calibration is None and
-       Var_p_observation is not None:
+    if q_calibration_stdev is None and
+       q_observation_stdev is not None:
         # p.shape = (...,3)
         # Var_p_observation.shape = (...,3,3)
         return p, Var_p_observation
 
-    if Var_p_calibration is not None and
-       Var_p_observation is not None:
+    if q_calibration_stdev is not None and
+       q_observation_stdev is not None:
         # p.shape = (...,3)
         # Var_p_calibration.shape = (...,3,...,3)
         # Var_p_observation.shape = (...,3,    3)
