@@ -416,7 +416,7 @@ ARGUMENTS
 
 - icam_intrinsics: optional integer specifying which intrinsic camera in the
   optimization_inputs we're looking at. If omitted (or None), we report
-  camera-coordinate points forU all the cameras
+  camera-coordinate points for all the cameras
 
 - idx_inliers: optional numpy array of booleans of shape
   (Nobservations,object_height,object_width) to select the outliers manually. If
