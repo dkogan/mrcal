@@ -33,3 +33,4 @@ test/test-parser-cameramodel
 *.fig.bak
 ltximg/
 doc/out
+doc/external
