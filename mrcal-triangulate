@@ -106,7 +106,9 @@ def parse_args():
                         type    = float,
                         help='''The uncertainty of the point observations at
                         calibration time. If given, we report the
-                        analytically-computed effects of this noise.''')
+                        analytically-computed effects of this noise. If a value
+                        <0 is passed-in, we infer the calibration-time noise
+                        from the optimal calibration-time residuals''')
     parser.add_argument('--q-observation-stdev',
                         type    = float,
                         help='''The uncertainty of the point observations at
@@ -127,7 +129,7 @@ def parse_args():
     parser.add_argument('--stabilize-coords',
                         action = 'store_true',
                         help='''If propagating calibration-time noise
-                        (--q-calibration-stdev > 0), we report the uncertainty
+                        (--q-calibration-stdev != 0), we report the uncertainty
                         ellipse in a stabilized coordinate system, compensating
                         for the camera-0 coord system motion''')
     parser.add_argument('--method',
