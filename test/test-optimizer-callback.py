@@ -2,10 +2,23 @@
 
 r'''Tests the mrcal optimization callback function
 
-There's some hairy logic involving locking down some subset of the variables,
-and that needs testing
+This is a regression test. It simply checks that the stored values are what's
+output. If anything changes, this test barfs. Any changes in the internals of
+the C code will trigger a failure here. If we see a failure without significant
+changes though, that's a bug that should be tracked down.
+
+To accept the current code as "right", set store_current_output_as_reference to
+True, and run this script. That updates the golden reference data so that
+subsequent runs of the test pass
 
 '''
+
+
+# Set this to True to store the current values as the "true" values. Leave as
+# False to run the test. Leave as False in the repo
+store_current_output_as_reference = False
+
+
 
 import sys
 import numpy as np
@@ -165,8 +178,7 @@ for kwargs in all_test_kwargs:
     # test
     mrcal.pack_state(J, **optimization_inputs)
 
-    # Set this to True to store the current values as the "true" values
-    if False:
+    if store_current_output_as_reference:
         np.save(f"{testdir}/data/test-optimizer-callback-ref-x-{itest}.npy", x)
         np.save(f"{testdir}/data/test-optimizer-callback-ref-J-{itest}.npy", J)
     else:
