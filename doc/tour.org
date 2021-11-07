@@ -25,3 +25,4 @@ The tour is split over a number of pages:
 4. [[file:tour-effect-of-range.org][We discuss the effect of range in differencing and uncertainty computations]]
 5. [[file:tour-choreography.org][We find the best chessboard-dancing technique]]
 6. [[file:tour-stereo.org][We use the models for stereo processing]]
+7. [[file:tour-triangulation.org][We use the models for triangulation]]

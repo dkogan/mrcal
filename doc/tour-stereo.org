@@ -612,4 +612,7 @@ mrcal-stereo                        \
 * Range accuracy
 So far we have looked at the results qualitatively by having a human eyeball the
 disparity maps to verify that they looked reasonable. But the goal here is to
-get ranges. We look closer at this when we discuss the [[file:triangulation.org][triangulation]] routines.
+get ranges. So let's talk about [[file:tour-triangulation.org][triangulation routines]].
+
+* Next
+We're ready to talk about [[file:tour-triangulation.org][triangulation routines]]
