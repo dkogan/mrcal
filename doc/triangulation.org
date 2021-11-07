@@ -184,8 +184,8 @@ and it is thus essential to make and use low-uncertainty calibrations to
 minimize this effect.
 
 ** Sample uncertainties
-The [[https://github.com/dkogan/mrcal/blob/master/test/test-triangulation-uncertainty.py][=test-triangulation-uncertainty.py=]] test generates models and triangulation
-scenarios. It can be used to produce an illustrative diagram:
+The [[https://github.com/dkogan/mrcal/blob/master/test/test-triangulation-uncertainty.py][=test-triangulation-uncertainty.py=]] test generates synthetic models and
+triangulation scenarios. It can be used to produce an illustrative diagram:
 
 #+begin_src sh
 test/test-triangulation-uncertainty.py  \
@@ -201,6 +201,7 @@ test/test-triangulation-uncertainty.py  \
   --make-documentation-plots ''
 #+end_src
 #+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
 test/test-triangulation-uncertainty.py  \
   --do-sample                           \
   --cache write                         \
@@ -211,7 +212,7 @@ test/test-triangulation-uncertainty.py  \
   --q-observation-stdev-correlation 0.5 \
   --q-calibration-stdev 0.2             \
   --q-observation-stdev 0.2             \
-  --make-documentation-plots ~/projects/mrcal-doc-external/figures/triangulation/sample
+  --make-documentation-plots $D/figures/triangulation/sample
 #+end_src
 
 [[file:external/figures/triangulation/sample--ellipses.svg]]
@@ -261,9 +262,10 @@ test/test-triangulation-uncertainty.py  \
   --q-calibration-stdev 0.2             \
   --q-observation-stdev 0.2             \
   --stabilize                           \
-  --make-documentation-plots
+  --make-documentation-plots ''
 #+end_src
 #+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
 test/test-triangulation-uncertainty.py  \
   --do-sample                           \
   --cache write                         \
@@ -275,7 +277,7 @@ test/test-triangulation-uncertainty.py  \
   --q-calibration-stdev 0.2             \
   --q-observation-stdev 0.2             \
   --stabilize                           \
-  --make-documentation-plots ~/projects/mrcal-doc-external/figures/triangulation/sample-stabilized
+  --make-documentation-plots $D/figures/triangulation/sample-stabilized
 #+end_src
 
 [[file:external/figures/triangulation/sample-stabilized--ellipses.svg]]
@@ -302,6 +304,84 @@ As before, the exact pattern varies greatly depending on the lenses and the
 calibration and the geometry, but calibration-time noise always creates these
 correlations. To reduce these correlations and the biases they cause: lower the
 uncertainty of your calibrations by [[file:tour-choreography.org][dancing better]]
+
+** Assumptions break down at infinity
+When propagating noise, mrcal makes the very common assumption that everything
+is locally linear. This makes things simple, and is right most of the time.
+However, when running the triangulation routines with near-parallel rays, his
+assumptions can break down.
+
+Let's run another simulation, but observing a more distant point, with more
+noise and gathering more samples:
+
+#+begin_src sh
+test/test-triangulation-uncertainty.py  \
+  --do-sample                           \
+  --cache write                         \
+  --observed-point -200 0 2000          \
+  --fixed cam0                          \
+  --Nsamples 2000                       \
+  --Ncameras 2                          \
+  --q-observation-stdev-correlation 0.5 \
+  --q-calibration-stdev 0.2             \
+  --q-observation-stdev 0.4             \
+  --stabilize                           \
+  --make-documentation-plots ''
+#+end_src
+#+begin_src sh :exports none :eval no-export
+# applied this patch to make the plots look nicer
+
+# --- a/test/test-triangulation-uncertainty.py
+# +++ b/test/test-triangulation-uncertainty.py
+# @@ -954,7 +954,7 @@ if args.make_documentation_plots is not None:
+#                  **processoptions)
+# 
+#          processoptions = copy.deepcopy(processoptions_base)
+# -        binwidth = np.sqrt(Var_distance) / 4.
+# +        binwidth = np.sqrt(Var_distance) / 1.
+#          equation_distance_observed_gaussian = \
+#              mrcal.fitted_gaussian_equation(x        = distance_sampled,
+#                                             binwidth = binwidth,
+
+D=~/projects/mrcal-doc-external
+test/test-triangulation-uncertainty.py  \
+  --do-sample                           \
+  --cache write                         \
+  --observed-point -200 0 2000          \
+  --fixed cam0                          \
+  --Nsamples 2000                       \
+  --Ncameras 2                          \
+  --q-observation-stdev-correlation 0.5 \
+  --q-calibration-stdev 0.2             \
+  --q-observation-stdev 0.4             \
+  --stabilize                           \
+  --make-documentation-plots $D/figures/triangulation/sample-stabilized-near-parallel
+#+end_src
+
+The range to the observed point:
+
+[[file:external/figures/triangulation/sample-stabilized-near-parallel--range-to-p0.svg]]
+
+The two points in the synthetic world are at $(\pm 200, 0, 2000)m$ so the true
+range is ~ $2010m$. We see that the calibration-time noise has little effect
+here. More importantly, we also see that the predicted distribution of the range
+to the point is gaussian (as we assume), but the empirical distribution is /not/
+gaussian: there's a much more significant tail on the long end. This makes
+sense. If the observation rays are near-parallel, small errors that make the
+rays /more/ parallel push the range to infinity; while small errors that bring
+the rays together have a more modest, finite effect.
+
+Similarly, when we look at the distance between our two points we get this
+distribution:
+
+[[file:external/figures/triangulation/sample-stabilized-near-parallel--distance-p1-p0.svg]]
+
+We see the same asymmetric non-gaussian distribution. Empirically I observe this
+distance-between-points distribution become more non-gaussian, faster than the
+range-to-point distribution.
+
+At this time I do not know how much this matters or what to do about it, but
+these limitations are good to keep in mind.
 
 * Object tracking
 Visual tracking of an object over time is one application that would benefit
