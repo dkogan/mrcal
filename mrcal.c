@@ -4773,8 +4773,9 @@ void optimizer_callback(// input state
                                 }
                                 else
                                 {
-                                    uxy[0] /= sqrt(uxy[0]*uxy[0] + uxy[1]*uxy[1]);
-                                    uxy[1] /= sqrt(uxy[0]*uxy[0] + uxy[1]*uxy[1]);
+                                    double mag = sqrt(uxy[0]*uxy[0] + uxy[1]*uxy[1]);
+                                    uxy[0] /= mag;
+                                    uxy[1] /= mag;
                                 }
 
                                 double err;
