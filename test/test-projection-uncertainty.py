@@ -617,11 +617,12 @@ for distance in args.distances:
                             frames_true,
                             calobject_warp_true)
 
-    # I check the bias for cameras 0,1,2. Camera 3 has q0 outside of the
-    # observed region, so regularization affects projections there dramatically
-    # (it's the only contributor to the projection behavior in that area)
+    # I check the bias for cameras 0,1. Cameras 2,3 have q0 outside of the
+    # chessboard region, or right on its edge, so regularization DOES affect
+    # projections there: it's the only contributor to the projection behavior in
+    # that area
     for icam in range(args.Ncameras):
-        if icam == 3:
+        if icam == 2 or icam == 3:
             continue
         testutils.confirm_equal(q0_true[distance][icam],
                                 q0_baseline,
