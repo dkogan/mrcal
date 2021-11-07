@@ -1838,6 +1838,11 @@ Complete logic:
         Var_p_calibration = \
             Var_p_calibration_flat.reshape(broadcasted_shape + (3,) +
                                            broadcasted_shape + (3,))
+    elif  q_calibration_stdev is not None and \
+          q_calibration_stdev == 0:
+        Var_p_calibration = \
+            np.zeros(broadcasted_shape + (3,) +
+                     broadcasted_shape + (3,))
     else:
         Var_p_calibration = None
     if Var_p_observation_flat is not None:
