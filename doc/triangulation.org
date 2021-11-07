@@ -312,7 +312,7 @@ However, when running the triangulation routines with near-parallel rays, his
 assumptions can break down.
 
 Let's run another simulation, but observing a more distant point, with more
-noise and gathering more samples:
+observation-time noise, no calibration-time noise, and gathering more samples:
 
 #+begin_src sh
 test/test-triangulation-uncertainty.py  \
@@ -323,7 +323,6 @@ test/test-triangulation-uncertainty.py  \
   --Nsamples 2000                       \
   --Ncameras 2                          \
   --q-observation-stdev-correlation 0.5 \
-  --q-calibration-stdev 0.2             \
   --q-observation-stdev 0.4             \
   --stabilize                           \
   --make-documentation-plots ''
@@ -352,7 +351,6 @@ test/test-triangulation-uncertainty.py  \
   --Nsamples 2000                       \
   --Ncameras 2                          \
   --q-observation-stdev-correlation 0.5 \
-  --q-calibration-stdev 0.2             \
   --q-observation-stdev 0.4             \
   --stabilize                           \
   --make-documentation-plots $D/figures/triangulation/sample-stabilized-near-parallel
