@@ -1577,8 +1577,8 @@ ARGUMENTS
   describes a pixel observation from each of the two cameras
 
 - models: iterable of shape (..., 2). Complex shapes may be represented in a
-  numpy array of dtype=np.object. Each slice is a mrcal.cameramodel describing
-  the left and right cameras
+  numpy array of dtype=np.object. Each row is two mrcal.cameramodel objects
+  describing the left and right cameras
 
 - q_calibration_stdev: optional value describing the calibration-time noise. If
   omitted or None, we do not compute or return the uncertainty resulting from
