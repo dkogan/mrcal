@@ -19,20 +19,20 @@ We just looked at [[file:tour-stereo.org][dense stereo processing]]
 
 * Overview
 We just looked at [[file:tour-stereo.org][dense stereo processing]], where we generated a range map: an
-image where each pixel encodes a range along the corresponding observation
+image where each pixel encodes a range along each corresponding observation
 vector. This is computed relatively efficiently, but computing a range value for
-/every/ pixel in the rectified image is still slow, and for many applications
-this isn't necessary. The mrcal triangulation routines take the opposite
-approach: given a discrete set of observed features, compute the position of
-just those features. In addition to being far faster, the triangulation routines
-propagate uncertainties and provide lots and lots of diagnostics to help find
-the cause of incorrectly-reported ranges.
+/every/ pixel in the rectified image is still slow, and for many applications it
+isn't necessary. The mrcal triangulation routines take the opposite approach:
+given a discrete set of observed features, compute the position of just those
+features. In addition to being far faster, the triangulation routines propagate
+uncertainties and provide lots and lots of diagnostics to help debug
+incorrectly-reported ranges.
 
 mrcal's sparse triangulation capabilities are provided by the
 [[file:mrcal-triangulate.html][=mrcal-triangulate=]] tool and the [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]] Python routine. Each of
 these ingests
 
-- Some number of pairs of pixel observations $\left{\vec q_0_i, \vec q_1_i\right}$
+- Some number of pairs of pixel observations $\left\{ \vec q_{0_i}, \vec q_{1_i} \right\}$
 - The corresponding camera models
 - The corresponding images
 
@@ -43,9 +43,6 @@ To produce
 - A covariance matrix, reporting the uncertainty of each reported point $\Var \vec p_i$ and the covariances $\Var \left( \vec p_i, \vec p_j \right)$
 
 * Triangulation
-The [[file:mrcal-triangulate.html][=mrcal-triangulate=]] tool can be used to compute a single triangulation
-operation, with lots of diagnostics.
-
 Let's use our Downtown Los Angeles images. Before we start, one important
 caveat: there's only one camera, which was calibrated monocularly. The one
 camera was moved to capture the two images used to triangulate. The extrinsics
@@ -93,8 +90,8 @@ D=~/projects/mrcal-doc-external
     2874 1231 
 #+end_src
 
-Here we used the splined models computed in [[file:tour-stereo.org][the tour of mrcal]]. We gave it the
-true range (566m) to use as a reference. And we gave it the expected observation
+Here we used the splined models computed [[file:tour-initial-calibration.org::#splined-model-solving][earlier]]. We gave the tool the true
+range (566m) to use as a reference. And we gave it the expected observation
 noise level: 0.3 pixels (a loose estimate that should be roughly correct). We
 declared the left-camera/right-camera pixel observations to be correlated with a
 factor of 0.1 on the stdev, so the relevant cross terms of the covariance matrix
@@ -149,7 +146,7 @@ We see that
     perfect, since we're not propagating calibration-time noise
 
   - the intrinsics are a bit off: we saw patterns when computing the intrinsics
-    in the [[file:tour-initial-calibration.org::#splined-model-solving][tour of mrcal]], which would cause a bias
+    in the [[file:tour-initial-calibration.org::#splined-model-solving][earlier]], which would cause a bias
 
   - the values of =--q-observation-stdev= and
     =--q-observation-stdev-correlation= weren't selected in a principled way,
@@ -194,3 +191,7 @@ I.e. correlations in the pixel measurements decrease our range uncertainty. To
 the point where perfectly-correlated observations produce almost perfect
 ranging. We'll still have range errors, but they would come from other sources
 than slightly mismatched feature observations.
+
+A future update to mrcal will include a method to propagate uncertainty through
+to re-solved extrinsics and /then/ to triangulation. That will fill-in the
+biggest missing piece in the error modeling here.
