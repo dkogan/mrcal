@@ -90,7 +90,20 @@ If stuff doesn't work, feel free to bug me. But you /really/ should be using the
 packages, if at all possible
 
 * code                                                             :noexport:
-dependency building
+Build, upload each package like this:
 
-distro=bionic; sbuild --lintian-opt='--suppress-tags=bad-distribution-in-changes-file' --anything-failed-commands '%s' --nolog -s --no-apt-update --no-apt-upgrade -A -d $distro --extra-repository="deb [trusted=yes] file:///var/www/debian/$distro/public/ $distro main" -j 18
-distro=bionic; sbuild --nolog --no-apt-{update,upgrade} -d $distro -A --no-source -c $distro-amd64 --anything-failed-commands '%s' --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main" -j 18
+#+begin_src sh
+
+distro=bionic;
+
+perl -p -i -e 'if($. == 1) { s/[a-z]+;/'"$distro;/; }" debian/changelog && \
+sbuild \
+  --nolog \
+  --no-apt-{update,upgrade} -d $distro -A \
+  --no-source -c $distro-amd64 \
+  --anything-failed-commands '%s' \
+  --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main" -j 3 && \
+debsign -k 751C135DC2CE0143380854F3ED63B6125A1D1561 ../*.changes(om[1]) && \
+dput digitalocean_mrcal_$distro ../*.changes(om[1])
+#+end_src
+
