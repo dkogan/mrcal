@@ -18,7 +18,7 @@ Homepage: https://www.github.com/dkogan/mrcal/
 Vcs-Git: git@github.com:dkogan/mrcal.git
 Vcs-Browser: https://www.github.com/dkogan/mrcal/
 
-Package: libmrcal1
+Package: libmrcal2
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -32,7 +32,7 @@ Description: Calibration and SFM library
 
 Package: mrcal
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal1 (= ${binary:Version}),
+Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal2 (= ${binary:Version}),
          python3-mrcal (= ${binary:Version}),
          python3-gnuplotlib (>= 0.38-1), python3-numpysane (>= 0.35),
          python3-scipy (>= 0.18),  python3-ipython,
@@ -49,7 +49,7 @@ Package: libmrcal-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends}, libmrcal1 (= ${binary:Version})
+Depends: ${misc:Depends}, libmrcal2 (= ${binary:Version})
 Description: Calibration and SFM library
  This is a generic library for feature-based optimization. Common supported use
  cases are camera calibration and structure-from-motion problems. CAHVOR and
@@ -61,7 +61,7 @@ Package: python3-mrcal
 Section: python
 Architecture: any
 Multi-Arch: same
-Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal1 (= ${binary:Version}),
+Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal2 (= ${binary:Version}),
          ${python3:Depends},
          python3-gnuplotlib (>= 0.38-1), python3-numpysane (>= 0.35),
          python3-opencv, python3-numpy, python3-scipy (>= 0.18),
