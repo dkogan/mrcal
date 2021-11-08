@@ -219,6 +219,12 @@ This tool should be able to fit a rotation only /without/ a translation.
 Otherwise I can get huge axial motions when trying to fit models from long
 lenses.
 
+*** [[file:mrcal-python-api-reference.html#-estimate_monocular_calobject_poses_Rt_tocam][=mrcal.estimate_monocular_calobject_poses_Rt_tocam()=]]
+An early stage of a calibration run generates a rough estimate of the chessboard
+geometry. Internally this is currently assuming a pinhole model, which is wrong,
+and currently requires an [[https://github.com/dkogan/mrcal/commit/6d78379][ugly hack]]. This does appear to work fairly well, but
+it should be fixed
+
 ** Software
 *** Stereo
 - The [[file:mrcal-stereo.html][=mrcal-stereo=]] tool should be able to estimate the field of view
@@ -244,3 +250,16 @@ nps.dummy(mrcal.stereo_range(), axis=-1)
   [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] does not. It would be nice if it did and if
   its API resembled that of [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]]
 
+*** [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool
+The [[file:mrcal-stereo.html][=mrcal-stereo=]] tool produces a field-of-view visualization. This should be
+made available in the Python API and in the [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool
+
+*** [[https://github.com/dkogan/mrcal/blob/master/analyses/dancing/dance-study.py][=dance-study.py=]]
+If asked for chessboards that are too close, the tool goes into an infinite loop
+as it searches for chessboard poses that are fully visible by the camera.
+Something smarter than an infinite loop should happen
+
+*** Warnings in [[https://github.com/dkogan/mrcal/blob/master/mrcal.c][=mrcal.c=]]
+There are a number of warnings in [[https://github.com/dkogan/mrcal/blob/master/mrcal.c][=mrcal.c=]] tagged with =// WARNING= that should
+eventually be addressed. This has never been urgent-enough to deal with. But
+someday
