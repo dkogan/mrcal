@@ -1,5 +1,8 @@
 #!/usr/bin/python3
 
+r'''Study the precision and accuracy of the various triangulation routines'''
+
+
 import sys
 import numpy as np
 import numpysane as nps
