@@ -1,0 +1,197 @@
+#+title: A tour of mrcal: triangulation
+#+OPTIONS: toc:t
+
+#+LATEX_HEADER: \DeclareMathOperator*{\argmin}{argmin}
+#+LATEX_HEADER: \DeclareMathOperator*{\Var}{Var}
+
+#+BEGIN_HTML
+\(
+\DeclareMathOperator*{\argmin}{argmin}
+\DeclareMathOperator*{\Var}{Var}
+\)
+#+END_HTML
+
+This is an overview of a more detailed discussion about [[file:triangulation.org][triangulation methods
+and uncertainty]].
+
+* Previous
+We just looked at [[file:tour-stereo.org][dense stereo processing]]
+
+* Overview
+We just looked at [[file:tour-stereo.org][dense stereo processing]], where we generated a range map: an
+image where each pixel encodes a range along each corresponding observation
+vector. This is computed relatively efficiently, but computing a range value for
+/every/ pixel in the rectified image is still slow, and for many applications it
+isn't necessary. The mrcal triangulation routines take the opposite approach:
+given a discrete set of observed features, compute the position of just those
+features. In addition to being far faster, the triangulation routines propagate
+uncertainties and provide lots and lots of diagnostics to help debug
+incorrectly-reported ranges.
+
+mrcal's sparse triangulation capabilities are provided by the
+[[file:mrcal-triangulate.html][=mrcal-triangulate=]] tool and the [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]] Python routine. Each of
+these ingests
+
+- Some number of pairs of pixel observations $\left\{ \vec q_{0_i}, \vec q_{1_i} \right\}$
+- The corresponding camera models
+- The corresponding images
+
+To produce
+
+- The position of the point in space $\vec p_i$ that produced these observations
+  for each pair
+- A covariance matrix, reporting the uncertainty of each reported point $\Var \vec p_i$ and the covariances $\Var \left( \vec p_i, \vec p_j \right)$
+
+* Triangulation
+Let's use our Downtown Los Angeles images. Before we start, one important
+caveat: there's only one camera, which was calibrated monocularly. The one
+camera was moved to capture the two images used to triangulate. The extrinsics
+were computed with a not-yet-in-mrcal tool, and mrcal cannot yet propagate the
+calibration noise in this scenario. Thus in this example we only propagate the
+observation-time noise.
+
+Image from the left camera:
+
+[[file:external/data/figueroa-overpass-looking-S/0.jpg][file:external/figures/stereo/0.downsampled.jpg]]
+
+Let's compute the range to the top of the [[https://en.wikipedia.org/wiki/City_National_Plaza]["Paul Hastings" tower]], near the center
+of the image. I'm looking at the "Paul Hastings" logo, roughly 566m (according
+to the map) from the camera. I have a pixel coordinate on the logo: $\vec q =
+(2874, 1231)$, the two images and the two models. This is enough information to
+triangulate:
+
+#+begin_src sh
+$ mrcal-triangulate                       \
+    --range-estimate 566                  \
+    --q-observation-stdev 0.3             \
+    --q-observation-stdev-correlation 0.1 \
+    --stabilize-coords                    \
+    --template-size 31 17                 \
+    --search-radius 10                    \
+    --viz uncertainty                     \
+    splined-[01].cameramodel              \
+    [01].jpg                              \
+    2874 1231 
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
+~/projects/mrcal/mrcal-triangulate        \
+    --range-estimate 566                  \
+    --q-observation-stdev 0.3             \
+    --q-observation-stdev-correlation 0.1 \
+    --stabilize-coords                    \
+    --template-size 31 17                 \
+    --search-radius 10                    \
+    --viz uncertainty                     \
+    --hardcopy ../mrcal-doc-external/figures/triangulation/figueroa-ellipse.svg \
+    --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'     \
+    $D/data/figueroa-overpass-looking-S/splined-[01].cameramodel          \
+    $D/data/figueroa-overpass-looking-S/[01].jpg                           \
+    2874 1231 
+#+end_src
+
+Here we used the splined models computed [[file:tour-initial-calibration.org::#splined-model-solving][earlier]]. We gave the tool the true
+range (566m) to use as a reference. And we gave it the expected observation
+noise level: 0.3 pixels (a loose estimate that should be roughly correct). We
+declared the left-camera/right-camera pixel observations to be correlated with a
+factor of 0.1 on the stdev, so the relevant cross terms of the covariance matrix
+are $(0.3*0.1 \mathrm{pixels})^2$. It's not yet clear how to get the true value
+of this correlation, but we can use this tool to gauge its effects.
+
+The [[file:mrcal-triangulate.html][=mrcal-triangulate=]] tool finds the corresponding feature in the second image
+using a template-match technique in [[file:mrcal-python-api-reference.html#-match_feature][=mrcal.match_feature()=]]. This operation
+could fail, so a diagnostic visualization can be requested by passing =--viz
+match=. This pops up an interactive window with the matched template overlaid in
+its best-fitting position so that a human can validate the match. The match was
+found correctly here. We could also pass =--viz uncertainty=, which shows the
+uncertainty ellipse. Unless we're looking very close in, this ellipse is almost
+always extremely long and extremely skinny. Here we have:
+
+[[file:external/figures/triangulation/figueroa-ellipse.svg]]
+
+So looking at the ellipse usually isn't very useful, and the value printed in
+the statistics presents the same information in a more useful way. The
+[[file:mrcal-triangulate.html][=mrcal-triangulate=]] tool produces /lots/ of reported statistics:
+
+#+begin_example
+## Feature [2874. 1231.] in the left image corresponds to [2832.473 1234.974] at 566.0m
+## Feature match found at [2831.603 1233.882]
+## q1 - q1_perfect_at_range = [-0.87  -1.092]
+## Triangulated point at [ -41.438 -166.48   476.58 ]; direction: [-0.082 -0.328  0.941]
+## Range: 506.52 m (error: -59.48 m)
+## q0 - q0_triangulation = [-0.022  0.548]
+## Uncertainty propagation: observation-time noise suggests worst confidence of sigma=23.94m along [ 0.084  0.329 -0.941]
+## Observed-pixel sensitivity: 56.72m/pixel (q1). Worst direction: [0.99  0.139]. Linearized correction: 1.05 pixels
+## Calibration yaw (rotation in epipolar plane) sensitivity: -2095.34m/deg. Linearized correction: -0.028 degrees of yaw
+## Calibration yaw (cam0 y axis)                sensitivity: -1975.17m/deg. Linearized correction: -0.030 degrees of yaw
+## Calibration pitch (tilt of epipolar plane) sensitivity: 260.09m/deg.
+## Calibration translation sensitivity: 238.47m/m. Worst direction: [0.986 0.    0.165]. Linearized correction: 0.25 meters of translation
+## Optimized yaw   (rotation in epipolar plane) correction = -0.023 degrees
+## Optimized pitch (tilt of epipolar plane)     correction = 0.030 degrees
+## Optimized relative yaw (1 <- 0): -1.364 degrees
+#+end_example
+
+We see that
+
+- The range we compute here is 506.52m, not 566m as desired
+- There's a vertical shift 0.548 pixels between the triangulated point and the
+  observation in the left camera: the epipolar lines aren't quite aligned, which
+  means the calibration is a bit off. Either in the intrinsics or the extrinsics
+- With the given observation noise, the 1-sigma uncertainty in the range is
+  23.94m, almost exactly in the observation direction. This is smaller than the
+  actual error of 59.48m, which could be explained by any of
+
+  - the extrinsics were computed using the intrinsics, without taking into
+    account the noise in the intrinsics; the extrinsics were then assumed
+    perfect, since we're not propagating calibration-time noise
+
+  - the intrinsics are a bit off: we saw patterns when computing the intrinsics
+    in the [[file:tour-initial-calibration.org::#splined-model-solving][earlier]], which would cause a bias
+
+  - the values of =--q-observation-stdev= and
+    =--q-observation-stdev-correlation= weren't selected in a principled way,
+    and could be off
+
+- Moving the matched feature coordinate in the right image affects the range at
+  worst at a rate of 56.72 m/pixel. Unsurprisingly, the most sensitive direction
+  of motion is left/right. At this rate, it would take 1.05 pixels of motion to
+  "fix" our range measurement
+- Similarly, we compute and report the range sensitivity of extrinsic yaw
+  (defined as the rotation in the epipolar plane or around the y axis of the
+  left camera). In either case, an extrinsics yaw shift of 0.03 degrees would
+  "fix" the range measurement.
+- We also compute sensitivities for pitch and translation, but we don't expect
+  those to affect the range very much, and we see that
+- Finally, we reoptimize the extrinsics, and compute a better yaw correction to
+  "fix" the range: 0.023 degrees. This is different from the previous value of
+  0.03 degrees because that computation used a linearized yaw-vs-range
+  dependence
+
+This is all quite useful, and suggests that a small extrinsics error is likely
+the biggest problem.
+
+What about =--q-observation-stdev-correlation=? What would be the effect of more
+or less correlation in our pixel observations? Running the same command with
+
+- =--q-observation-stdev-correlation 0= (the left and right pixel observations
+  are independent) produces
+
+  #+begin_example
+## Uncertainty propagation: observation-time noise suggests worst confidence of sigma=24.06m along [ 0.084  0.329 -0.941]
+  #+end_example
+
+- =--q-observation-stdev-correlation 1= (the left and right pixel observations
+  are perfectly coupled) produces
+
+  #+begin_example
+## Uncertainty propagation: observation-time noise suggests worst confidence of sigma=0.40m along [ 0.11   0.155 -0.982]
+  #+end_example
+
+I.e. correlations in the pixel measurements decrease our range uncertainty. To
+the point where perfectly-correlated observations produce almost perfect
+ranging. We'll still have range errors, but they would come from other sources
+than slightly mismatched feature observations.
+
+A future update to mrcal will include a method to propagate uncertainty through
+to re-solved extrinsics and /then/ to triangulation. That will fill-in the
+biggest missing piece in the error modeling here.

@@ -769,9 +769,10 @@ ARGUMENTS
   we compute an integer gridn_height to maintain a square-ish grid:
   gridn_height/gridn_width ~ imager_height/imager_width
 
-- observations: optional boolean, defaulting to False. If True, we overlay
+- observations: optional value, defaulting to False. If observations: we overlay
   calibration-time observations on top of the difference plot. We should then
-  see that more data produces more consistent results.
+  see that more data produces more consistent results. If a special value of
+  'dots' is passed, the observations are plotted as dots instead of points
 
 - valid_intrinsics_region: optional boolean, defaulting to False. If True, we
   overlay the valid-intrinsics regions onto the plot. If the valid-intrinsics
@@ -1016,27 +1017,56 @@ A tuple:
 
             m = models[i]
 
-            p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
-                mrcal.utils.hypothesis_board_corner_positions(m.icam_intrinsics(),
-                                                        **m.optimization_inputs())[1:]
+            p_cam_calobjects, \
+            p_cam_calobjects_inliers, \
+            p_cam_calobjects_outliers = \
+                mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
+                                                        **m.optimization_inputs())[-3:]
+            q_cam_calobjects = \
+                mrcal.project( p_cam_calobjects,          *m.intrinsics() )
             q_cam_calobjects_inliers = \
-                mrcal.project( p_cam_calobjects_inliers, *m.intrinsics() )
+                mrcal.project( p_cam_calobjects_inliers,  *m.intrinsics() )
             q_cam_calobjects_outliers = \
                 mrcal.project( p_cam_calobjects_outliers, *m.intrinsics() )
 
+            # Disabled for now. I see a legend entry for each broadcasted slice,
+            # which isn't what I want
+            #
+            # if len(q_cam_calobjects):
+            #     plot_data_args.append( ( nps.clump(q_cam_calobjects[...,0], n=-2),
+            #                              nps.clump(q_cam_calobjects[...,1], n=-2) ) +
+            #                            ( () if _2d else
+            #                              (np.zeros((q_cam_calobjects.shape[-2]*
+            #                                         q_cam_calobjects.shape[-3],)),)) +
+            #                            ( dict( tuplesize = 2 if _2d else 3,
+            #                                    _with     = f'lines lc "black"' + ("" if _2d else ' nocontour'),
+            #                                    legend    = f"Camera {i} board sequences"),))
+
             if len(q_cam_calobjects_inliers):
+                if observations == 'dots':
+                    _with = f'dots lc "black"'
+                else:
+                    _with = f'points lc "black" pt {1+i}'
+                if not _2d:
+                    _with += ' nocontour'
                 plot_data_args.append( ( q_cam_calobjects_inliers[...,0],
                                          q_cam_calobjects_inliers[...,1] ) +
                                        ( () if _2d else ( np.zeros(q_cam_calobjects_inliers.shape[:-1]), )) +
                                        ( dict( tuplesize = 2 if _2d else 3,
-                                               _with     = f'points lc "black" pt {1+i}' + ("" if _2d else ' nocontour'),
+                                               _with     = _with,
                                                legend    = f'Camera {i} inliers'), ))
             if len(q_cam_calobjects_outliers):
+                if observations == 'dots':
+                    _with = f'dots lc "red"'
+                else:
+                    _with = f'points lc "red" pt {1+i}'
+                if not _2d:
+                    _with += ' nocontour'
                 plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
                                          q_cam_calobjects_outliers[...,1] ) +
                                        ( () if _2d else ( np.zeros(q_cam_calobjects_outliers.shape[:-1]), )) +
                                        ( dict( tuplesize = 2 if _2d else 3,
-                                               _with     = f'points lc "red" pt {1+i}' + ("" if _2d else ' nocontour'),
+                                               _with     = _with,
                                                legend    = f'Camera {i} outliers'), ))
 
     data_tuples = plot_data_args
@@ -1052,16 +1082,18 @@ def show_projection_uncertainty(model,
                                 gridn_width             = 60,
                                 gridn_height            = None,
 
-                                observations            = False,
-                                valid_intrinsics_region = False,
-                                distance                = None,
-                                isotropic               = False,
-                                cbmax                   = 3,
-                                contour_increment       = None,
-                                contour_labels_styles   = 'boxed',
-                                contour_labels_font     = None,
-                                extratitle              = None,
-                                return_plot_args        = False,
+                                observed_pixel_uncertainty = None,
+
+                                observations               = False,
+                                valid_intrinsics_region    = False,
+                                distance                   = None,
+                                isotropic                  = False,
+                                cbmax                      = 3,
+                                contour_increment          = None,
+                                contour_labels_styles      = 'boxed',
+                                contour_labels_font        = None,
+                                extratitle                 = None,
+                                return_plot_args           = False,
                                 **kwargs):
     r'''Visualize the uncertainty in camera projection
 
@@ -1118,9 +1150,16 @@ ARGUMENTS
   we compute an integer gridn_height to maintain a square-ish grid:
   gridn_height/gridn_width ~ imager_height/imager_width
 
-- observations: optional boolean, defaulting to False. If True, we overlay
-  calibration-time observations on top of the uncertainty plot. We should then
-  see that more data produces more confident results.
+- observed_pixel_uncertainty: optional value, defaulting to None. The
+  uncertainty of the observed chessboard corners being propagated through the
+  solve and projection. If omitted or None, this input uncertainty is inferred
+  from the residuals at the optimum. Most people should omit this
+
+- observations: optional value, defaulting to False. If observatoins:, we
+  overlay calibration-time observations on top of the uncertainty plot. We
+  should then see that more data produces more confident results. If a special
+  value of 'dots' is passed, the observations are plotted as dots instead of
+  points
 
 - valid_intrinsics_region: optional boolean, defaulting to False. If True, we
   overlay the valid-intrinsics region onto the plot. If the valid-intrinsics
@@ -1196,7 +1235,8 @@ plot
                                                else np.mean(pcam_mag)),
                                        model           = model,
                                        atinfinity      = distance is None,
-                                       what            = 'rms-stdev' if isotropic else 'worstdirection-stdev')
+                                       what            = 'rms-stdev' if isotropic else 'worstdirection-stdev',
+                                       observed_pixel_uncertainty = observed_pixel_uncertainty)
     if 'title' not in kwargs:
         if distance is None:
             distance_description = ". Looking out to infinity"
@@ -1237,27 +1277,53 @@ plot
                                      legend = "Valid-intrinsics region")) )
 
     if observations:
-        p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
-            mrcal.utils.hypothesis_board_corner_positions(model.icam_intrinsics(),
-                                                    **model.optimization_inputs())[1:]
+        p_cam_calobjects, \
+        p_cam_calobjects_inliers, \
+        p_cam_calobjects_outliers = \
+            mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
+                                                    **model.optimization_inputs())[-3:]
+        q_cam_calobjects = \
+            mrcal.project( p_cam_calobjects,          *model.intrinsics() )
         q_cam_calobjects_inliers = \
-            mrcal.project( p_cam_calobjects_inliers, *model.intrinsics() )
+            mrcal.project( p_cam_calobjects_inliers,  *model.intrinsics() )
         q_cam_calobjects_outliers = \
             mrcal.project( p_cam_calobjects_outliers, *model.intrinsics() )
 
+        # Disabled for now. I see a legend entry for each broadcasted slice,
+        # which isn't what I want
+        #
+        # if len(q_cam_calobjects):
+        #     plot_data_args.append( ( nps.clump(q_cam_calobjects[...,0], n=-2),
+        #                              nps.clump(q_cam_calobjects[...,1], n=-2),
+        #                              np.zeros((q_cam_calobjects.shape[-2]*
+        #                                        q_cam_calobjects.shape[-3],)),
+        #                              dict( tuplesize = 3,
+        #                                    _with  = 'lines lc "black" nocontour',
+        #                                    legend = "board sequences")))
+
         if len(q_cam_calobjects_inliers):
+            if observations == 'dots':
+                _with = 'dots lc "black" nocontour'
+            else:
+                _with = 'points lc "black" pt 1 nocontour'
+
             plot_data_args.append( ( q_cam_calobjects_inliers[...,0],
                                      q_cam_calobjects_inliers[...,1],
                                      np.zeros(q_cam_calobjects_inliers.shape[:-1]),
                                      dict( tuplesize = 3,
-                                           _with  = 'points lc "black" pt 1 nocontour',
+                                           _with  = _with,
                                            legend = 'inliers')) )
         if len(q_cam_calobjects_outliers):
+            if observations == 'dots':
+                _with = 'dots lc "red" nocontour'
+            else:
+                _with = 'points lc "red" pt 1 nocontour'
+
             plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
                                      q_cam_calobjects_outliers[...,1],
                                      np.zeros(q_cam_calobjects_outliers.shape[:-1]),
                                      dict( tuplesize = 3,
-                                           _with  = 'points lc "red" pt 1 nocontour',
+                                           _with  = _with,
                                            legend = 'outliers')) )
 
     plot_options = kwargs
@@ -1368,8 +1434,8 @@ plot
     import gnuplotlib as gp
 
     p_cam_observed_at_calibration_time = \
-        mrcal.utils.hypothesis_board_corner_positions(model.icam_intrinsics(),
-                                                **model.optimization_inputs())[1]
+        mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
+                                                **model.optimization_inputs())[-2]
 
     if isinstance(where, str):
         if   where == 'center':
@@ -1926,51 +1992,86 @@ A tuple:
     return (data_tuples, plot_options)
 
 
-def show_splined_model_surface(model,
-                               xy                      = 'x',
-                               imager_domain           = False,
-                               vectorfield             = False,
-                               vectorscale             = 1.0,
-                               valid_intrinsics_region = True,
-                               observations            = False,
-                               extratitle              = None,
-                               return_plot_args        = False,
-                               **kwargs):
+def show_splined_model_correction(model,
+                                  vectorfield             = False,
+                                  xy                      = None,
+                                  imager_domain           = False,
+                                  vectorscale             = 1.0,
+                                  valid_intrinsics_region = True,
+                                  observations            = False,
+                                  gridn_width             = 60,
+                                  gridn_height            = None,
+                                  extratitle              = None,
+                                  return_plot_args        = False,
+                                  **kwargs):
 
-    r'''Visualize the surface represented by a splined model
+    r'''Visualize the projection corrections defined by a splined model
 
 SYNOPSIS
 
     model = mrcal.cameramodel(model_filename)
 
-    mrcal.show_splined_model_surface(model)
+    mrcal.show_splined_model_correction(model)
 
-    ... A plot pops up displaying the spline knots, the spline surface (for the
-    ... default "x" coordinate), the spline-in-bounds regions and the
-    ... valid-intrinsics region
+    # A plot pops up displaying the spline knots, the magnitude of the
+    # corrections defined by the spline surfaces, the spline-in-bounds
+    # regions and the valid-intrinsics region
 
-Splined models are parametrized by flexible surfaces that define the projection,
-and visualizing these surfaces is useful for understanding projection behavior
-of a given lens. Details of these models are described in the documentation:
+Splined models are parametrized by flexible surfaces that define the projection
+corrections (off some baseline model), and visualizing these corrections is
+useful for understanding the projection behavior. Details of these models are
+described in the documentation:
 
   http://mrcal.secretsauce.net/lensmodels.html#splined-stereographic-lens-model
 
-The surfaces are defined by control points we call "knots". These knots are
-arranged in a fixed grid (defined by the model configuration) with the value at
-each knot set in the intrinsics vector. The configuration selects the control
-point density and the expected field of view of the lens. This field of view
-should roughly match the actual lens+camera we're using, and this alignment can
-be visualized with this function. This function displays the spline-in-bounds
-region together with the usable projection region (either the valid-intrinsics
-region or the imager bounds). Ideally, the spline-in-bounds region is slightly
-bigger than the usable projection region.
+At this time LENSMODEL_SPLINED_STEREOGRAPHIC is the only splined model mrcal
+has, so the baseline model is always LENSMODEL_STEREOGRAPHIC. In spots, the
+below documentation assumes a stereographic baseline model.
 
-If the fov_x_deg configuration value is too big, many of the knots will lie well
-outside the visible area, and will not be used. This is wasteful. If fov_x_deg
-is too small, then some parts of the imager will lie outside of the
-spline-in-bounds region, resulting in less-flexible projection behavior at the
-edges of the imager. This function detects this scenario, displays the offending
-regions, and throws a warning.
+This function can produce a plot in the domain either of the input or the output
+of the spline functions.
+
+if not imager_domain:
+    The default. The plot is presented based on the spline index. With
+    LENSMODEL_SPLINED_STEREOGRAPHIC, this is the stereographic projection u.
+    This is the "forward" direction, what the projection operation actually
+    computes. In this view the knots form a regular grid, and the edge of the
+    imager forms a (possibly very irregular) curve
+
+if imager_domain:
+    The plot is presented based on the pixels in the imager. This is the
+    backward direction: the domain is the OUTPUT of the splined functions. In
+    this view the knot layout is (possibly highly) irregular. The edge of the
+    imager is a perfect rectangle.
+
+Separate from the domain, the data can be presented in 3 different ways:
+
+- Magnitude heatmap. This is the default. Selected by "not vectorfield and xy is
+  None". We plot mag(deltauxy). This displays the deviation from the baseline
+  model as a heat map.
+
+- Individual heatmap. Selected by "not vectorfield and xy is not None". We plot
+  deltaux or deltauy, depending on the value of xy. This displays the value of
+  one of the two splined surfaces individually, as a heat map.
+
+- Vector field. Selected by "bool(vectorfield) is True". Displays the correction
+  (deltaux, deltauy) as a vector field.
+
+The splined surfaces are defined by control points we call "knots". These knots
+are arranged in a fixed grid (defined by the model configuration) with the value
+at each knot set in the intrinsics vector.
+
+The configuration selects the control point density and the expected field of
+view of the lens. If the fov_x_deg configuration value is too big, many of the
+knots will lie well outside the visible area, and will not be used. This is
+wasteful. If fov_x_deg is too small, then some parts of the imager will lie
+outside of the spline-in-bounds region, resulting in less-flexible projection
+behavior at the edges of the imager. So the field of view should roughly match
+the actual lens+camera we're using, and we can evaluate that with this function.
+This function displays the spline-in-bounds region together with the usable
+projection region (either the valid-intrinsics region or the imager bounds).
+Ideally, the spline-in-bounds region is slightly bigger than the usable
+projection region.
 
 The usable projection region visualized by this function is controlled by the
 valid_intrinsics_region argument. If True (the default), we display the
@@ -1987,28 +2088,20 @@ too alarming or not alarming enough. Passing valid_intrinsics_region=False is
 thus recommended only if we have very good calibration coverage at the edge of
 the imager.
 
-Another method of visualizing the usable projection region is to look at the
-individual chessboard corners by passing observations=True. The valid-intrinsics
-region largely corresponds to the area where the observations were available.
-
-This function can produce a plot in the imager domain or in the spline index
-domain, controlled by the imager_domain argument. By default, the deltaux or
-deltauy surfaces are shown as a heatmap. If vectorfield: we plot the correction
-vector deltau instead. The spline is defined in the stereographic projection
-domain, so in the imager domain the knot grid and the domain boundary become
-skewed. Note: if calibration data coverage is missing at the edges (a very
-common case), the edges of the spline-in-bounds region will have poorly-defined
-projection, and will look very strange if imager_domain. Thus the default of
-imager_domain==False is recommended.
-
 ARGUMENTS
 
 - model: the mrcal.cameramodel object being evaluated
 
-- xy: optional string, defaulting to 'x'. Selects the surface we're looking at;
-  may be 'x' or 'y'. We have a separate surface for the x and y coordinates,
-  with the two sharing the knot positions. if vectorfield: this argument is
-  ignored
+- vectorfield: optional boolean defaults to False. if vectorfield: we plot the
+  stereographic correction deltau as vectors. if not vectorfield (the default):
+  we plot either deltaux or deltauy or mag(deltauxy) as a heat map. if
+  vectorfield: xy must be None
+
+- xy: optional string. Must be either 'x' or 'y' or None. Selects the surface
+  we're looking at. We have a separate surface for the x and y coordinates, with
+  the two sharing the knot positions. We can display one of the surfaces
+  individually, or if xy is None: we display the magnitude of the (deltaux,
+  deltauy) vector. if xy is not None: vectorfield MUST be false
 
 - imager_domain: optional boolean defaults to False. If False: we plot
   everything against normalized stereographic coordinates; in this
@@ -2016,12 +2109,6 @@ ARGUMENTS
   rectangle, but the imager boundary is curved. If True: we plot everything
   against the rendered pixel coordinates; the imager boundary is a rectangle,
   while the knots and domain become curved
-
-- vectorfield: optional boolean defaults to False. if vectorfield: we plot the
-  stereographic correction deltau as vectors, one at each knot. if not
-  vectorfield (the default): we plot either deltaux or deltauy as a heat map.
-  vectorfield plotting is not compatible with imager_domain. And if vectorfield:
-  we ignore the 'xy' argument.
 
 - vectorscale: optional value defaulting to 1.0. if vectorfield: this is a scale
   factor on the length of the vectors. If we have small deltau, longer vectors
@@ -2035,10 +2122,18 @@ ARGUMENTS
   unrealistic representation of reality. Passing True here is strongly
   recommended
 
-- observations: optional boolean defaults to False. If True: we plot the
-  calibration-time point observations on top of the surface and the knots. These
-  make it more clear if the unprojectable regions in the model really are a
-  problem
+- observations: optional value, defaulting to False. If observations: we plot
+  the calibration-time point observations on top of the surface and the knots.
+  These make it more clear if the unprojectable regions in the model really are
+  a problem. If a special value of 'dots' is passed, the observations are
+  plotted as dots instead of points
+
+- gridn_width: optional value, defaulting to 60. How many points along the
+  horizontal gridding dimension
+
+- gridn_height: how many points along the vertical gridding dimension. If None,
+  we compute an integer gridn_height to maintain a square-ish grid:
+  gridn_height/gridn_width ~ imager_height/imager_width
 
 - extratitle: optional string to include in the title of the resulting plot.
   Used to extend the default title string. If kwargs['title'] is given, it is
@@ -2065,19 +2160,12 @@ making the plot. The plot can then be made with gp.plot(*data_tuples,
 plot
 
     '''
+    if xy is not None:
+        if vectorfield:
+            raise Exception("Plotting a vectorfield, so xy should be None")
 
-
-    if vectorfield:
-        if imager_domain:
-            raise Exception('A vector field can only be plotted in the spline domain, NOT the imager domain')
-
-        xy = ''
-
-    else:
-        if   xy == 'x': ixy = 0
-        elif xy == 'y': ixy = 1
-        else:
-            raise Exception("xy should be either 'x' or 'y'")
+        if not (xy == 'x' or xy == 'y'):
+            raise Exception("If given, xy should be either 'x' or 'y'")
 
     lensmodel,intrinsics_data = model.intrinsics()
     W,H                       = model.imagersize()
@@ -2085,41 +2173,31 @@ plot
     if not re.match('LENSMODEL_SPLINED_STEREOGRAPHIC', lensmodel):
         raise Exception(f"This only makes sense with splined models. Input uses {lensmodel}")
 
+    if gridn_height is None:
+        gridn_height = int(round(H/W*gridn_width))
+
 
     import gnuplotlib as gp
 
     if 'title' not in kwargs:
-
-        title = f"Surface for {lensmodel}. Looking at deltau{xy}"
+        title = f"Correction for {lensmodel}"
+        if xy is not None:
+            title += ". Looking at deltau{xy}"
         if extratitle is not None:
             title += ": " + extratitle
         kwargs['title'] = title
 
     ux_knots,uy_knots = mrcal.knots_for_splined_models(lensmodel)
-    meta = mrcal.lensmodel_metadata_and_config(lensmodel)
-    Nx = meta['Nx']
-    Ny = meta['Ny']
 
     if imager_domain:
         # Shape (Ny,Nx,2); contains (x,y) rows
         q = \
-            nps.mv( nps.cat(*np.meshgrid( np.linspace(0, W-1, 60),
-                                          np.linspace(0, H-1, 40) )),
+            nps.mv( nps.cat(*np.meshgrid( np.linspace(0, W-1, gridn_width),
+                                          np.linspace(0, H-1, gridn_height) )),
                     0,-1)
         v = mrcal.unproject(np.ascontiguousarray(q), lensmodel, intrinsics_data)
         u = mrcal.project_stereographic(v)
     else:
-
-        # In the splined_stereographic models, the spline is indexed by u. So u is
-        # linear with the knots. I can thus get u at the edges, and linearly
-        # interpolate between
-        if vectorfield:
-            gridn_height = Ny*2
-            gridn_width  = Nx*2
-        else:
-            gridn_height = Ny*5
-            gridn_width  = Nx*5
-
         # Shape (gridn_height,gridn_width,2); contains (x,y) rows
         u = \
             nps.mv( nps.cat(*np.meshgrid( np.linspace(ux_knots[0], ux_knots[-1],gridn_width),
@@ -2161,8 +2239,7 @@ plot
     plot_options = dict(kwargs,
                         square  = True,
                         yinv    = True,
-                        ascii   = True,
-                        zlabel   = f"Deltau{xy} (unitless)")
+                        ascii   = True)
 
     if imager_domain:
         plot_options['xlabel'] = 'X pixel coord'
@@ -2172,6 +2249,9 @@ plot
         plot_options['ylabel'] = 'Stereographic uy'
 
     if not vectorfield:
+        gp.add_plot_option(plot_options,
+                           _set =  'cblabel "u correction (unitless)"')
+
         surface_curveoptions = dict( _with     = 'image',
                                      tuplesize = 3 )
         if imager_domain:
@@ -2181,21 +2261,39 @@ plot
                 '3'
         else:
             surface_curveoptions['using'] = \
-                f'({ux_knots[0]}+$1/({deltau.shape[1]-1})*({ux_knots[-1]-ux_knots[0]})):' + \
-                f'({uy_knots[0]}+$2/({deltau.shape[0]-1})*({uy_knots[-1]-uy_knots[0]})):' + \
+                f'({(ux_knots[0])}+$1/({deltau.shape[1]-1})*({(ux_knots[-1])-(ux_knots[0])})):' + \
+                f'({(uy_knots[0])}+$2/({deltau.shape[0]-1})*({(uy_knots[-1])-(uy_knots[0])})):' + \
                 '3'
 
-        plot_data_tuples_surface = ( ( deltau[..., ixy], surface_curveoptions ), )
+        if xy is not None:
+            plot_data_tuples_surface = \
+                ( ( deltau[..., 0 if xy == 'x' else 1],
+                    surface_curveoptions ), )
+        else:
+            plot_data_tuples_surface = \
+                ( ( nps.mag(deltau),
+                    surface_curveoptions ), )
 
     else:
         if imager_domain:
-            raise Exception("This path isn't supported. The if statements above should have blocked this. This is a bug")
-        plot_data_tuples_surface = ( ( *(x.ravel() for x in (u[...,0],
-                                                             u[...,1],
-                                                             vectorscale * deltau[..., 0],
-                                                             vectorscale * deltau[..., 1])),
-                                       dict( _with     = 'vectors filled',
-                                             tuplesize = 4) ), )
+
+            # Vector field in the imager domain. I have q = f (u+du) + cx. So I
+            # render the vectors dq = f du
+            plot_data_tuples_surface = \
+                ( ( *(x.ravel() for x in (q[...,0],
+                                          q[...,1],
+                                          vectorscale * fxy[0] * deltau[..., 0],
+                                          vectorscale * fxy[1] * deltau[..., 1])),
+                    dict( _with     = 'vectors filled',
+                          tuplesize = 4) ), )
+        else:
+            plot_data_tuples_surface = \
+                ( ( *(x.ravel() for x in (u[...,0],
+                                          u[...,1],
+                                          vectorscale * deltau[..., 0],
+                                          vectorscale * deltau[..., 1])),
+                    dict( _with     = 'vectors filled',
+                          tuplesize = 4) ), )
 
     domain_contour_u = mrcal.utils._splined_stereographic_domain(lensmodel)
     knots_u = nps.clump(nps.mv(nps.cat(*np.meshgrid(ux_knots,uy_knots)),
@@ -2232,33 +2330,59 @@ plot
 
     plot_data_tuples_inliers  = ()
     plot_data_tuples_outliers = ()
+    plot_data_tuples_zigzag   = ()
 
     if observations:
-        p_cam_calobjects_inliers, p_cam_calobjects_outliers = \
-            mrcal.utils.hypothesis_board_corner_positions(model.icam_intrinsics(),
-                                                    **model.optimization_inputs())[1:]
+        p_cam_calobjects,           \
+        p_cam_calobjects_inliers,   \
+        p_cam_calobjects_outliers = \
+            mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
+                                                    **model.optimization_inputs())[-3:]
         if imager_domain:
+            q_cam_calobjects = \
+                mrcal.project( p_cam_calobjects,          *model.intrinsics() )
             q_cam_calobjects_inliers = \
-                mrcal.project( p_cam_calobjects_inliers, *model.intrinsics() )
+                mrcal.project( p_cam_calobjects_inliers,  *model.intrinsics() )
             q_cam_calobjects_outliers = \
                 mrcal.project( p_cam_calobjects_outliers, *model.intrinsics() )
         else:
+            q_cam_calobjects = \
+                mrcal.project_stereographic( p_cam_calobjects )
             q_cam_calobjects_inliers = \
                 mrcal.project_stereographic( p_cam_calobjects_inliers )
             q_cam_calobjects_outliers = \
                 mrcal.project_stereographic( p_cam_calobjects_outliers )
 
+        # Disabled for now. I see a legend entry for each broadcasted slice,
+        # which isn't what I want
+        #
+        # if len(q_cam_calobjects):
+        #     plot_data_tuples_zigzag = \
+        #         ( ( nps.clump(q_cam_calobjects[..., 0], n=-2),
+        #             nps.clump(q_cam_calobjects[..., 1], n=-2),
+        #             dict( tuplesize = 2,
+        #                   _with  = 'lines lc "black"',
+        #                   legend = "board sequences"),),)
+
         if len(q_cam_calobjects_inliers):
+            if observations == 'dots':
+                _with = 'dots lc "black"'
+            else:
+                _with = 'points lc "black" pt 1'
             plot_data_tuples_inliers = \
                 ( ( q_cam_calobjects_inliers,
                     dict( tuplesize = -2,
-                          _with  = 'points lc "black" pt 1',
+                          _with  = _with,
                           legend = 'inliers')), )
         if len(q_cam_calobjects_outliers):
+            if observations == 'dots':
+                _with = 'dots lc "black"'
+            else:
+                _with = 'points lc "red" pt 1'
             plot_data_tuples_outliers = \
                 ( ( q_cam_calobjects_outliers,
                     dict( tuplesize = -2,
-                          _with  = 'points lc "red" pt 1',
+                          _with  = _with,
                           legend = 'outliers')), )
 
     # Anything outside the valid region contour but inside the imager is an
@@ -2294,6 +2418,7 @@ plot
         plot_data_tuples_surface         + \
         plot_data_tuples_boundaries      + \
         plot_data_tuples_invalid_regions + \
+        plot_data_tuples_zigzag          + \
         plot_data_tuples_inliers         + \
         plot_data_tuples_outliers        + \
         plot_data_tuples_knots
@@ -2356,7 +2481,7 @@ None. The input image array is modified
         cv2.circle( image, tuple((model.imagersize() - 1)//2), 10, color, -1)
         print("WARNING: annotate_image__valid_intrinsics_region(): valid-intrinsics region is empty. Drawing a circle")
     else:
-        cv2.polylines(image, [valid_intrinsics_region], True, color, 3)
+        cv2.polylines(image, [valid_intrinsics_region.astype(np.int32)], True, color, 3)
 
 
 def imagergrid_using(imagersize, gridn_width, gridn_height = None):

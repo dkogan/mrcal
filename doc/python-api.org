@@ -19,6 +19,7 @@ Functions to manipulate [[file:conventions.org::#pose-representation][rotations 
 - [[file:mrcal-python-api-reference.html#-R_from_r][=mrcal.R_from_r()=]]: Compute a rotation matrix from a Rodrigues vector
 - [[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]]: Compute an rt transformation from a Rt transformation
 - [[file:mrcal-python-api-reference.html#-Rt_from_rt][=mrcal.Rt_from_rt()=]]: Compute an Rt transformation from a rt transformation
+- [[file:mrcal-python-api-reference.html#-invert_R][=mrcal.invert_R()=]]: Invert an (3,3) matrix rotation. This is a transpose
 - [[file:mrcal-python-api-reference.html#-invert_Rt][=mrcal.invert_Rt()=]]: Invert an Rt transformation
 - [[file:mrcal-python-api-reference.html#-invert_rt][=mrcal.invert_rt()=]]: Invert an rt transformation
 - [[file:mrcal-python-api-reference.html#-compose_Rt][=mrcal.compose_Rt()=]]: Compose Rt transformations
@@ -70,7 +71,8 @@ These are all backends for the corresponding [[file:commandline-tools.org][comma
 - [[file:mrcal-python-api-reference.html#-show_distortion_off_pinhole][=mrcal.show_distortion_off_pinhole()=]]: Visualize a lens's deviation from a pinhole projection: examine the difference across the imager
 - [[file:mrcal-python-api-reference.html#-show_distortion_off_pinhole_radial][=mrcal.show_distortion_off_pinhole_radial()=]]: Visualize a lens's deviation from a pinhole projection: examine the radial distortion curve
 - [[file:mrcal-python-api-reference.html#-show_valid_intrinsics_region][=mrcal.show_valid_intrinsics_region()=]]: Visualize a model's valid-intrinsics region
-- [[file:mrcal-python-api-reference.html#-show_splined_model_surface][=mrcal.show_splined_model_surface()=]]: Visualize the surface represented by a splined model
+- [[file:mrcal-python-api-reference.html#-show_splined_model_correction][=mrcal.show_splined_model_correction()=]]: Visualize the projections
+  corrections represented by a splined model
 - [[file:mrcal-python-api-reference.html#-show_residuals_board_observation][=mrcal.show_residuals_board_observation()=]]: Visualize calibration residuals for a single observation
 - [[file:mrcal-python-api-reference.html#-show_residuals_histogram][=mrcal.show_residuals_histogram()=]]: Visualize the distribution of the optimized residuals
 - [[file:mrcal-python-api-reference.html#-show_residuals_vectorfield][=mrcal.show_residuals_vectorfield()=]]: Visualize the optimized residuals as a vector field
@@ -95,7 +97,7 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 - [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]]: Compute the chessboard observations and returns them in a usable form
 - [[file:mrcal-python-api-reference.html#-estimate_monocular_calobject_poses_Rt_tocam][=mrcal.estimate_monocular_calobject_poses_Rt_tocam()=]]: Estimate camera-referenced poses of the calibration object from monocular views
 - [[file:mrcal-python-api-reference.html#-estimate_joint_frame_poses][=mrcal.estimate_joint_frame_poses()=]]: Estimate world-referenced poses of the calibration object
-- [[file:mrcal-python-api-reference.html#-seed_pinhole][=mrcal.seed_pinhole()=]]: Compute an optimization seed for a camera calibration
+- [[file:mrcal-python-api-reference.html#-seed_stereographic][=mrcal.seed_stereographic()=]]: Compute an optimization seed for a camera calibration
 
 * Image transforms
 - [[file:mrcal-python-api-reference.html#-scale_focal__best_pinhole_fit][=mrcal.scale_focal__best_pinhole_fit()=]]: Compute the optimal focal-length scale for reprojection to a pinhole lens
@@ -111,9 +113,14 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 - [[file:mrcal-python-api-reference.html#-is_within_valid_intrinsics_region][=mrcal.is_within_valid_intrinsics_region()=]]: Which of the pixel coordinates fall within the valid-intrinsics region?
 
 * Stereo, triangulation, feature-matching
-- [[file:mrcal-python-api-reference.html#-stereo_rectify_prepare][=mrcal.stereo_rectify_prepare()=]]: Precompute everything needed for stereo rectification and matching
-- [[file:mrcal-python-api-reference.html#-stereo_unproject][=mrcal.stereo_unproject()=]]: Unprojection in the rectified stereo system
+- [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]]: Generate rectified stereo models, which we can use
+  to rectify images for stereo matching
+- [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]]: Construct pixel mappings to transform captured
+  images into rectified images
 - [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]]: Compute ranges from observed disparities
+- [[file:mrcal-python-api-reference.html#-match_feature][=mrcal.match_feature()=]]: Find a pixel correspondence in a pair of images
+- [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]]: Triangulate N points with uncertainty propagation. This
+  is a higher-level function than the other =mrcal.triangulate_...()= routines
 - [[file:mrcal-python-api-reference.html#-triangulate_geometric][=mrcal.triangulate_geometric()=]]: Simple geometric triangulation
 - [[file:mrcal-python-api-reference.html#-triangulate_lindstrom][=mrcal.triangulate_lindstrom()=]]: Triangulation minimizing the 2-norm of pinhole reprojection errors
 - [[file:mrcal-python-api-reference.html#-triangulate_leecivera_l1][=mrcal.triangulate_leecivera_l1()=]]: Triangulation minimizing the L1-norm of angle differences
@@ -124,7 +131,6 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
   inverse-depth-weighted alternative midpoint method. Recommended in favor of
   [[file:mrcal-python-api-reference.html#-triangulate_leecivera_mid2][=mrcal.triangulate_leecivera_mid2()=]] if we're looking at objects very close to
   either camera.
-- [[file:mrcal-python-api-reference.html#-match_feature][=mrcal.match_feature()=]]: Find a pixel correspondence in a pair of images
 
 * Synthetic data
 - [[file:mrcal-python-api-reference.html#-ref_calibration_object][=mrcal.ref_calibration_object()=]]: Return the geometry of the calibration object

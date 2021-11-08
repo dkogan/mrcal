@@ -797,7 +797,13 @@ for ipt in range(2):
                                         # samples. Non-major axes have more
                                         # relative error
                                         eps_eigenvalues      = (0.11, 0.2, 0.3),
-                                        eps_eigenvectors_deg = 5)
+                                        eps_eigenvectors_deg = 6)
+
+
+# It would be great to test the distribution of the difference between two
+# points, but I'm not doing that: it doesn't look very gaussian while the
+# analytical uncertainty IS gaussian. This needs investigation
+
 
 if not (args.explore or \
         args.make_documentation_plots is not None):

@@ -65,7 +65,7 @@ int main(int argc, char* argv[] )
             lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order = 3;
         else
         {
-            fprintf(stderr, "A splined stereographic model must be specified as exactly one of \"LENSMODEL_SPLINED_STEREOGRAPHIC_2\" or \"LENSMODEL_SPLINED_STEREOGRAPHIC_3\". Givin gup\n");
+            fprintf(stderr, "A splined stereographic model must be specified as exactly one of \"LENSMODEL_SPLINED_STEREOGRAPHIC_2\" or \"LENSMODEL_SPLINED_STEREOGRAPHIC_3\". Giving up\n");
             return 1;
         }
     }

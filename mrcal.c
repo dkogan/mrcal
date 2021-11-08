@@ -592,13 +592,12 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
             N +=
                 Ncameras_intrinsics *
                 2 *
-                num_regularization_terms_percamera(problem_selections, lensmodel);
-
+                num_regularization_terms_percamera(problem_selections,
+                                                   lensmodel);
             // non-central
             if(problem_selections.do_optimize_intrinsics_distortions)
                 // We double-counted the noncentral contributions. Take the away
                 N -= Ncameras_intrinsics * N_NONCENTRAL;
-
             // I multiplied by 2, so I double-counted the center pixel
             // contributions. Subtract those off
             if(problem_selections.do_optimize_intrinsics_core)
@@ -1588,6 +1587,33 @@ bool mrcal_knots_for_splined_models( // buffers must hold at least
             ((double)i - (double)(config->Ny-1)/2.) /
             precomputed->segments_per_u;
     return true;
+}
+
+static int get_Ngradients(const mrcal_lensmodel_t* lensmodel,
+                          int Nintrinsics)
+{
+    int N = 0;
+    bool has_core                   = modelHasCore_fxfycxcy(lensmodel);
+    bool has_dense_intrinsics_grad  = (lensmodel->type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    bool has_sparse_intrinsics_grad = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
+    int runlen = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        (lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
+        0;
+    if(has_core)
+        // qx(fx) and qy(fy)
+        N += 2;
+    if(has_dense_intrinsics_grad)
+        // each of (qx,qy) depends on all the non-core intrinsics
+        N += 2 * (Nintrinsics-4);
+    if(has_sparse_intrinsics_grad)
+    {
+        // spline coefficients
+        N += 2*runlen;
+        // non-central projection
+        N += 2*N_NONCENTRAL;
+    }
+
+    return N;
 }
 
 static
@@ -2732,26 +2758,7 @@ bool _mrcal_project_internal( // out
     // So I init everything to 0
     memset(dq_dintrinsics, 0, N*2*Nintrinsics*sizeof(double));
 
-    int Ngradients = 0;
-    bool has_core                   = modelHasCore_fxfycxcy(lensmodel);
-    bool has_dense_intrinsics_grad  = (lensmodel->type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
-    bool has_sparse_intrinsics_grad = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
-    int runlen = (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
-        (lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
-        0;
-    if(has_core)
-        // qx(fx) and qy(fy)
-        Ngradients += 2;
-    if(has_dense_intrinsics_grad)
-        // each of (qx,qy) depends on all the non-core intrinsics
-        Ngradients += 2 * (Nintrinsics-4);
-    if(has_sparse_intrinsics_grad)
-    {
-        // spline coefficients
-        Ngradients += 2*runlen;
-        // non-central projection
-        Ngradients += 2*N_NONCENTRAL;
-    }
+    int Ngradients = get_Ngradients(lensmodel, Nintrinsics);
 
     for(int i=0; i<N; i++)
     {
@@ -3734,13 +3741,19 @@ int mrcal_num_states_calobject_warp(mrcal_problem_selections_t problem_selection
     return 0;
 }
 
-// Reports the icam_extrinsics corresponding to a given icam_intrinsics. On
-// success, the result is written to *icam_extrinsics, and we return true. If
+// Reports the icam_extrinsics corresponding to a given icam_intrinsics.
+//
+// If we're solving a vanilla calibration problem (stationary cameras observing
+// a moving calibration object), each camera has a unique intrinsics index and a
+// unique extrinsics index. This function reports the latter, given the former.
+//
+// On success, the result is written to *icam_extrinsics, and we return true. If
 // the given camera is at the reference coordinate system, it has no extrinsics,
-// and we report -1. This query only makes sense for a calibration problem:
-// we're observing a moving object with stationary cameras. If we have moving
-// cameras, there won't be a single icam_extrinsics for a given icam_intrinsics,
-// and we report an error by returning false
+// and we report -1.
+//
+// If we have moving cameras (NOT a vanilla calibration problem), there isn't a
+// single icam_extrinsics for a given icam_intrinsics, and we report an error by
+// returning false
 bool mrcal_corresponding_icam_extrinsics(// out
                                          int* icam_extrinsics,
 
@@ -4188,26 +4201,7 @@ void optimizer_callback(// input state
         // cy. So x depends on fx and NOT on fy, and similarly for y. Similar
         // for cx,cy, except we know the gradient value beforehand. I support
         // this case explicitly here. I store dx/dfx and dy/dfy; no cross terms
-        int Ngradients = 0;
-        bool has_core                   = modelHasCore_fxfycxcy(&ctx->lensmodel);
-        bool has_dense_intrinsics_grad  = (ctx->lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
-        bool has_sparse_intrinsics_grad = (ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
-        int runlen = (ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
-            (ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
-            0;
-        if(has_core)
-            // qx(fx) and qy(fy)
-            Ngradients += 2;
-        if(has_dense_intrinsics_grad)
-            // each of (qx,qy) depends on all the non-core intrinsics
-            Ngradients += 2 * (ctx->Nintrinsics-4);
-        if(has_sparse_intrinsics_grad)
-        {
-            // spline coefficients
-            Ngradients += 2*runlen;
-            // non-central projection
-            Ngradients += 2*N_NONCENTRAL;
-        }
+        int Ngradients = get_Ngradients(&ctx->lensmodel, ctx->Nintrinsics);
 
         double dq_dintrinsics_pool_double[ctx->calibration_object_width_n*ctx->calibration_object_height_n*Ngradients];
         int    dq_dintrinsics_pool_int   [ctx->calibration_object_width_n*ctx->calibration_object_height_n];
@@ -4607,28 +4601,7 @@ void optimizer_callback(// input state
         else
             point_ref = ctx->points[i_point];
 
-
-        int Ngradients = 0;
-        bool has_core                   = modelHasCore_fxfycxcy(&ctx->lensmodel);
-        bool has_dense_intrinsics_grad  = (ctx->lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
-        bool has_sparse_intrinsics_grad = (ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC);
-        int runlen = (ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
-            (ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.order + 1) :
-            0;
-        if(has_core)
-            // qx(fx) and qy(fy)
-            Ngradients += 2;
-        if(has_dense_intrinsics_grad)
-            // each of (qx,qy) depends on all the non-core intrinsics
-            Ngradients += 2 * (ctx->Nintrinsics-4);
-        if(has_sparse_intrinsics_grad)
-        {
-            // spline coefficients
-            Ngradients += 2*runlen;
-
-            // non-central projection
-            Ngradients += 2*N_NONCENTRAL;
-        }
+        int Ngradients = get_Ngradients(&ctx->lensmodel, ctx->Nintrinsics);
 
         // WARNING: "compute size(dq_dintrinsics_pool_double) correctly and maybe bounds-check"
         double dq_dintrinsics_pool_double[Ngradients];
@@ -5069,9 +5042,9 @@ void optimizer_callback(// input state
                                 }
                                 else
                                 {
-                                    double h = hypot(uxy[0],uxy[1]);
-                                    uxy[0] /= h;
-                                    uxy[1] /= h;
+                                    double mag = sqrt(uxy[0]*uxy[0] + uxy[1]*uxy[1]);
+                                    uxy[0] /= mag;
+                                    uxy[1] /= mag;
                                 }
 
                                 double err;

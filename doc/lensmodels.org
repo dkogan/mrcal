@@ -1,7 +1,9 @@
 #+TITLE: mrcal lens models
 #+OPTIONS: toc:t
-mrcal supports a wide range of lens models. The representation details and
-projection behaviors are described here.
+mrcal supports a wide range of projection models. Some are intended to represent
+physical lenses, while others are idealized, useful for processing. /All/ are
+referred to as /lens/ models in the code and in the documentation. The
+representation details and projection behaviors are described here.
 
 * Representation
 :PROPERTIES:
@@ -17,7 +19,7 @@ lens model is fully specified by
   required only by some model families. These values are /not/ subject to
   optimization, and may affect how many optimization parameters are needed.
 - Optimization parameters. These are the parameters that the optimization
-  routine controls during its operation
+  routine controls as it runs
 
 Each model family also has some /metadata/ key/value pairs associated with it.
 These are inherent properties of a model family, and are not settable. At the
@@ -78,8 +80,8 @@ At this time all models contain a core.
 * Models
 Currently all models represent a /central/ projection: all observation rays
 intersect at a single point (the camera origin). So $k \vec v$ projects to the
-same $\vec q$ for all $k$. Non-central projections will be implemented at some
-point.
+same $\vec q$ for all $k$. This isn't strictly true for real-world lenses, so
+non-central projections will be supported in a future release of mrcal.
 
 ** =LENSMODEL_PINHOLE=
 :PROPERTIES:
@@ -291,9 +293,11 @@ core parameters. CAHVORE is only partially supported:
 :CUSTOM_ID: splined-stereographic-lens-model
 :END:
 
-This is a stereographic model with correction factors. This is one of many
-possible ways to define a rich projection function based on splined surfaces.
-Improved representations will be evaluated and implemented in the future.
+This is a stereographic model with correction factors. It is mrcal's attempt to
+model real-world lens behavior with more fidelity than the usual parametric
+models make possible. The current approach is one of many possible ways to
+define a rich projection function based on splined surfaces. Improved
+representations could potentially be implemented in the future.
 
 Note that the idea of using a very rich representation to model lens behavior
 has been described in literature (for instance [[https://ieeexplore.ieee.org/abstract/document/8500466][here]] and [[https://arxiv.org/abs/1912.02908][here]]). However, every
@@ -378,13 +382,13 @@ several significant effects.
 These models are much more capable of representing the behavior of real-world
 lenses than the lean models: at a certain level of precision the parametric
 models are always wrong. The tour of mrcal shows
-[[file:tour.org::#opencv8-model-solving][a real-world fit using
-=LENSMODEL_OPENCV8=]] and a [[file:tour.org::#splined-model-solving][a real-world fit using a splined model]], where we can
+[[file:tour-initial-calibration.org::#opencv8-model-solving][a real-world fit using
+=LENSMODEL_OPENCV8=]] and [[file:tour-initial-calibration.org::#splined-model-solving][a real-world fit using a splined model]], where we can
 clearly see that the splined model fits the data better.
 
 The higher parameter counts do result in higher reported uncertainties (see the
-[[file:tour.org::#splined-model-uncertainties][tour of mrcal]] for examples). This is a good thing, however: the lean models
-report uncertainty estimates that are low, but do not match reality. The higher
+[[file:tour-uncertainty.org::#splined-model-uncertainties][tour of mrcal]] for examples). This is a good thing: the lean models report
+uncertainty estimates that are low, but do not match reality. The higher
 uncertainty estimates from the splined models are truthful, however. This is
 because the [[file:uncertainty.org][uncertainty estimate algorithm]] constrains the lenses to the space
 that's representable by a given lens model, which is a constraint that only
@@ -452,7 +456,7 @@ spline beyond the knots, since those regions in space are out-of-view of the
 lens. =fov_x_deg= should be large enough to cover the field of view, but not so
 wide to waste knots representing invisible space. It is recommended to estimate
 this from the datasheet of the lens, and then to run a calibration. The
-[[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface=]] tool can then be used to compare the
+[[file:mrcal-show-splined-model-correction.html][=mrcal-show-splined-model-correction=]] tool can then be used to compare the
 valid-intrinsics region (area with sufficient calibration data) against the
 bounds of the spline-in-bounds region.
 
@@ -476,8 +480,9 @@ this, the recommended sequence for optimizing splined stereographic models is:
    core values. This can be done by setting the =do_optimize_intrinsics_core=
    bit to 0 in the [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal_problem_selections_t=]] structure passed to
    [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal_optimize()=]] in C (or passing =do_optimize_intrinsics_core=False= to
-   [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] in Python). This is what the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]]
-   tool does.
+   [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] in Python).
+
+This is what the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool does.
 
 **** Regularization
 :PROPERTIES:
@@ -495,13 +500,14 @@ regularization, to lightly pull all the $\Delta \vec u$ terms to 0.
 Another, related effect, is the interaction of extrinsics and intrinsics.
 Without special handling, splined stereographic solutions often produce a roll
 of the camera (rotation around the optical axis) to be compensated by a curl in
-the $\Delta u$ vector field. This isn't wrong per se, but is an unintended
+the $\Delta \vec u$ vector field. This isn't wrong per se, but is an unintended
 effect that's nice to eliminate. It looks really strange when a motion in the
 $x$ direction in the camera coordinate system doesn't result in the projection
 moving in its $x$ direction. We use regularization to handle this effect as
-well. Instead of pulling all the values of $\Delta u$ towards 0 evenly, we pull
-the $\Delta u$ acting tangentially much more than those acting radially. This
-asymmetry serves to eliminate any unnecessary curl if $\Delta u$.
+well. Instead of pulling all the values of $\Delta \vec u$ towards 0 evenly, we
+pull the $\Delta \vec u$ acting tangentially much more than those acting
+radially. This asymmetry serves to eliminate any unnecessary curl in $\Delta
+\vec u$.
 
 Regardless of direction, these regularization terms are /light/. The weights are
 chosen to be small-enough to not noticeably affect the optimization in its
@@ -530,10 +536,10 @@ the edges quite often no data is available, so the behavior is driven by
 This produces very alarming-looking spline surfaces, but it's not /really/ a
 problem: we get aphysical behavior in areas where we don't have data, so we have
 no expectations of reliable projections there. The
-[[file:mrcal-show-splined-model-surface.html][=mrcal-show-splined-model-surface= tool]] visualizes either the bounds of the
+[[file:mrcal-show-splined-model-correction.html][=mrcal-show-splined-model-correction= tool]] visualizes either the bounds of the
 valid-intrinsics region or the bounds of the imager. In many cases we have no
 calibration data near the imager edges, so the spline is determined by
 [[#splined-model-regularization][regularization]] in that area, and we get odd-looking knot layouts and imager
 contours. A better regularization scheme or (better yet) a better representation
-would address this. See [[file:tour.org::#splined-model-solving][a tour of mrcal]] for examples.
+would address this. See [[file:tour-initial-calibration.org::#splined-model-solving][a tour of mrcal]] for examples.
 

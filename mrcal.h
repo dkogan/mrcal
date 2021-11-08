@@ -658,15 +658,17 @@ void mrcal_unpack_solver_state_vector( // out, in
 
 // Reports the icam_extrinsics corresponding to a given icam_intrinsics.
 //
-// If we're solving a calibration problem (stationary cameras observing a moving
-// calibration object), each camera has a unique intrinsics vector and a unique
-// extrinsics vector. And this function reports the latter, given the former. On
-// success, the result is written to *icam_extrinsics, and we return true. If
+// If we're solving a vanilla calibration problem (stationary cameras observing
+// a moving calibration object), each camera has a unique intrinsics index and a
+// unique extrinsics index. This function reports the latter, given the former.
+//
+// On success, the result is written to *icam_extrinsics, and we return true. If
 // the given camera is at the reference coordinate system, it has no extrinsics,
 // and we report -1.
 //
-// If we have moving cameras, there won't be a single icam_extrinsics for a
-// given icam_intrinsics, and we report an error by returning false
+// If we have moving cameras (NOT a vanilla calibration problem), there isn't a
+// single icam_extrinsics for a given icam_intrinsics, and we report an error by
+// returning false
 bool mrcal_corresponding_icam_extrinsics(// out
                                          int* icam_extrinsics,
 

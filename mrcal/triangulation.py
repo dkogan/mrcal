@@ -1577,8 +1577,8 @@ ARGUMENTS
   describes a pixel observation from each of the two cameras
 
 - models: iterable of shape (..., 2). Complex shapes may be represented in a
-  numpy array of dtype=np.object. Each slice is a mrcal.cameramodel describing
-  the left and right cameras
+  numpy array of dtype=np.object. Each row is two mrcal.cameramodel objects
+  describing the left and right cameras
 
 - q_calibration_stdev: optional value describing the calibration-time noise. If
   omitted or None, we do not compute or return the uncertainty resulting from
@@ -1648,25 +1648,25 @@ calibration-time uncertainty.
 
 Complete logic:
 
-    if Var_p_calibration is None and
-       Var_p_observation is None:
+    if q_calibration_stdev is None and
+       q_observation_stdev is None:
         # p.shape = (...,3)
         return p
 
-    if Var_p_calibration is not None and
-       Var_p_observation is None:
+    if q_calibration_stdev is not None and
+       q_observation_stdev is None:
         # p.shape = (...,3)
         # Var_p_calibration.shape = (...,3,...,3)
         return p, Var_p_calibration
 
-    if Var_p_calibration is None and
-       Var_p_observation is not None:
+    if q_calibration_stdev is None and
+       q_observation_stdev is not None:
         # p.shape = (...,3)
         # Var_p_observation.shape = (...,3,3)
         return p, Var_p_observation
 
-    if Var_p_calibration is not None and
-       Var_p_observation is not None:
+    if q_calibration_stdev is not None and
+       q_observation_stdev is not None:
         # p.shape = (...,3)
         # Var_p_calibration.shape = (...,3,...,3)
         # Var_p_observation.shape = (...,3,    3)
@@ -1838,6 +1838,11 @@ Complete logic:
         Var_p_calibration = \
             Var_p_calibration_flat.reshape(broadcasted_shape + (3,) +
                                            broadcasted_shape + (3,))
+    elif  q_calibration_stdev is not None and \
+          q_calibration_stdev == 0:
+        Var_p_calibration = \
+            np.zeros(broadcasted_shape + (3,) +
+                     broadcasted_shape + (3,))
     else:
         Var_p_calibration = None
     if Var_p_observation_flat is not None:

@@ -49,7 +49,7 @@ DIST_BIN :=					\
 	mrcal-calibrate-cameras			\
 	mrcal-convert-lensmodel			\
 	mrcal-show-distortion-off-pinhole	\
-	mrcal-show-splined-model-surface	\
+	mrcal-show-splined-model-correction	\
 	mrcal-show-projection-uncertainty	\
 	mrcal-show-projection-diff		\
 	mrcal-reproject-points			\

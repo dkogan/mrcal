@@ -149,11 +149,16 @@ def parse_args():
                         action = 'store_true',
                         help='''If given, write the solved models to disk after the first solve, and exit.
                         Used for debugging. Useful to check fov_x_deg when solving for a splined model''')
-    parser.add_argument('--full-observations-only',
-                        action = 'store_true',
-                        help='''If given, every chessboard observation must be complete for all cameras.
-                        Otherwise (by default), at least half the chessboard
-                        must be observed by every camera''')
+
+    parser.add_argument('--which',
+                        choices=('all-cameras-must-see-full-board',
+                                 'some-cameras-must-see-full-board',
+                                 'all-cameras-must-see-half-board',
+                                 'some-cameras-must-see-half-board'),
+                        default='all-cameras-must-see-half-board',
+                        help='''What kind of random poses are accepted. Default
+                        is all-cameras-must-see-half-board''')
+
     parser.add_argument('--fixed-frames',
                         action='store_true',
                         help='''Optimize the geometry keeping the chessboard frames fixed. This reduces the
@@ -193,15 +198,15 @@ def parse_args():
                         'object_width_n', 'object_spacing', 'num_far_constant_Nframes_near',
                         'num_far_constant_Nframes_all'). Scanning object-width-n
                         keeps the board size constant''')
-    parser.add_argument('--scan-object-spacing-compensate-range',
-                        action='store_true',
-                        help=f'''Only applies if --scan object-spacing. By default we vary the object spacings
-                        without touching anything else: the chessboard grows in
-                        size as we increase the spacing. If
-                        --scan-object-spacing-compensate-range then we try to
-                        keep the apparent size constant: as the object spacing
-                        grows, we increase the range. The nominal range given in
-                        --range applies to the MINIMUM object spacing''')
+    parser.add_argument('--scan-object-spacing-compensate-range-from',
+                        type=float,
+                        help=f'''Only applies if --scan object-spacing. By
+                        default we vary the object spacings without touching
+                        anything else: the chessboard grows in size as we
+                        increase the spacing. If given, we try to keep the
+                        apparent size constant: as the object spacing grows, we
+                        increase the range. The nominal range given in this
+                        argument''')
 
     parser.add_argument('--range',
                         default = '0.5,4.0',
@@ -214,22 +219,23 @@ def parse_args():
     parser.add_argument('--tilt-radius',
                         default='30.',
                         type=str,
-                        help='''The radius of the uniform distribution used to sample the pitch and yaw of
-                        the chessboard observations, in degrees. The default is
-                        30, meaning that the chessboard pitch and yaw are
-                        sampled from [-30deg,30deg]. if --scan tilt_radius: this is
+                        help='''The radius of the uniform distribution used to
+                        sample the pitch and yaw of the chessboard
+                        observations, in degrees. The default is 30, meaning
+                        that the chessboard pitch and yaw are sampled from
+                        [-30deg,30deg]. if --scan tilt_radius: this is
                         TILT-MIN,TILT-MAX specifying the bounds of the two
                         tilt-radius values to evaluate. Otherwise: this is the
                         one value we use''')
-    parser.add_argument('--yaw-radius',
+    parser.add_argument('--roll-radius',
                         type=float,
                         default=20.,
                         help='''The synthetic chessboard orientation is sampled
                         from a uniform distribution: [-RADIUS,RADIUS]. The
-                        pitch,roll radius is specified by the --tilt-radius. The
-                        yaw radius is selected here. "Yaw" is the rotation along
-                        the axis normal to the chessboard plane. Default is
-                        20deg''')
+                        pitch,yaw radius is specified by the --tilt-radius. The
+                        roll radius is selected here. "Roll" is the rotation
+                        around the axis normal to the chessboard plane. Default
+                        is 20deg''')
     parser.add_argument('--x-radius',
                         type=float,
                         default=None,
@@ -297,6 +303,19 @@ def parse_args():
     parser.add_argument('--terminal',
                         help=f'''gnuplot terminal to use for the plots. This is passed directly to
                         gnuplotlib. Omit this unless you know what you're doing''')
+    parser.add_argument('--extratitle',
+                        help=f'''Extra title string to add to a plot''')
+    parser.add_argument('--title',
+                        help=f'''Full title string to use in a plot. Overrides
+                        the default and --extratitle''')
+    parser.add_argument('--set',
+                        type=str,
+                        action='append',
+                        help='''Extra 'set' directives to gnuplotlib. Can be given multiple times''')
+    parser.add_argument('--unset',
+                        type=str,
+                        action='append',
+                        help='''Extra 'unset' directives to gnuplotlib. Can be given multiple times''')
 
     parser.add_argument('model',
                         type = str,
@@ -305,7 +324,12 @@ def parse_args():
                         be too crazy, so this should probably by a parametric
                         (not splined) model''')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.title is not None and args.extratitle is not None:
+        print("--title and --extratitle are mutually exclusive", file=sys.stderr)
+        sys.exit(1)
+
+    return args
 
 args = parse_args()
 
@@ -656,12 +680,6 @@ def eval_one_rangenear_tilt(models_true,
 
     radius_cameras = (args.camera_spacing * (Ncameras-1)) / 2.
 
-    if args.full_observations_only:
-        which = 'all_cameras_must_see_full_board'
-    else:
-        which = 'all_cameras_must_see_half_board'
-
-
     x_radius = args.x_radius if args.x_radius is not None else range_near*2. + radius_cameras
     y_radius = args.y_radius if args.y_radius is not None else range_near*2.
     z_radius = args.z_radius if args.z_radius is not None else range_near/10.
@@ -675,10 +693,10 @@ def eval_one_rangenear_tilt(models_true,
                                             np.array((0.,  0., 0., radius_cameras, 0,  range_near,)),
                                             np.array((np.pi/180. * tilt_radius,
                                                       np.pi/180. * tilt_radius,
-                                                      np.pi/180. * args.yaw_radius,
+                                                      np.pi/180. * args.roll_radius,
                                                       x_radius, y_radius, z_radius)),
                                             np.max(Nframes_near_samples),
-                                            which = which)
+                                            which = args.which)
     if range_far is not None:
         q_true_far, Rt_ref_board_true_far  = \
             mrcal.synthesize_board_observations(models_true,
@@ -687,12 +705,12 @@ def eval_one_rangenear_tilt(models_true,
                                                 np.array((0.,  0., 0., radius_cameras, 0,  range_far,)),
                                                 np.array((np.pi/180. * tilt_radius,
                                                           np.pi/180. * tilt_radius,
-                                                          np.pi/180. * args.yaw_radius,
+                                                          np.pi/180. * args.roll_radius,
                                                           range_far*2. + radius_cameras,
                                                           range_far*2.,
                                                           range_far/10.)),
                                                 np.max(Nframes_far_samples),
-                                                which = which)
+                                                which = args.which)
     else:
         q_true_far            = None
         Rt_ref_board_true_far = None
@@ -717,7 +735,9 @@ def eval_one_rangenear_tilt(models_true,
         model = models_out[args.icam_uncertainty]
 
         if args.show_geometry_first_solve:
-            mrcal.show_geometry(models_out, wait = True)
+            mrcal.show_geometry(models_out,
+                                show_calobjects = True,
+                                wait = True)
             sys.exit()
         if args.show_uncertainty_first_solve:
             mrcal.show_projection_uncertainty(model,
@@ -1044,8 +1064,8 @@ elif args.scan == "object_spacing":
     for i_sample in range(Nsamples):
 
         r = controllable_args['range']['value']
-        if args.scan_object_spacing_compensate_range:
-            r *= samples[i_sample]/samples[0]
+        if args.scan_object_spacing_compensate_range_from:
+            r *= samples[i_sample]/args.scan_object_spacing_compensate_range_from
 
         output_table[i_sample,:, output_table_icol__uncertainty] = \
             eval_one_rangenear_tilt(models_true,
@@ -1066,7 +1086,7 @@ elif args.scan == "object_spacing":
     output_table[:,:, output_table_icol__object_width_n ] = controllable_args['object_width_n']['value']
     output_table[:,:, output_table_icol__object_spacing ]+= nps.transpose(samples)
 
-    if args.scan_object_spacing_compensate_range:
+    if args.scan_object_spacing_compensate_range_from:
         output_table[:,:, output_table_icol__range_near] += controllable_args['range']['value'] * nps.transpose(samples/samples[0])
     else:
         output_table[:,:, output_table_icol__range_near] = controllable_args['range']['value']
@@ -1115,38 +1135,50 @@ else:
     guides = [ f"arrow nohead dashtype 3 from {r},graph 0 to {r},graph 1" for r in controllable_args['range']['value'] ]
 guides.append(f"arrow nohead dashtype 3 from graph 0,first {args.observed_pixel_uncertainty} to graph 1,first {args.observed_pixel_uncertainty}")
 
+title = args.title
 
 if   args.scan == "num_far_constant_Nframes_near":
-    title = f"Scanning 'far' observations added to a set of 'near' observations. Have {controllable_args['Ncameras']['value']} cameras, {args.Nframes_near} 'near' observations, at ranges {controllable_args['range']['value']}."
+    if title is None:
+        title = f"Scanning 'far' observations added to a set of 'near' observations. Have {controllable_args['Ncameras']['value']} cameras, {args.Nframes_near} 'near' observations, at ranges {controllable_args['range']['value']}."
     legend_what = 'Nframes_far'
 elif args.scan == "num_far_constant_Nframes_all":
-    title = f"Scanning 'far' observations replacing 'near' observations. Have {controllable_args['Ncameras']['value']} cameras, {args.Nframes_all} total observations, at ranges {controllable_args['range']['value']}."
+    if title is None:
+        title = f"Scanning 'far' observations replacing 'near' observations. Have {controllable_args['Ncameras']['value']} cameras, {args.Nframes_all} total observations, at ranges {controllable_args['range']['value']}."
     legend_what = 'Nframes_far'
 elif args.scan == "Nframes":
-    title = f"Scanning Nframes. Have {controllable_args['Ncameras']['value']} cameras looking out at {controllable_args['range']['value']:.2f}m."
+    if title is None:
+        title = f"Scanning Nframes. Have {controllable_args['Ncameras']['value']} cameras looking out at {controllable_args['range']['value']:.2f}m."
     legend_what = 'Nframes'
 elif args.scan == "Ncameras":
-    title = f"Scanning Ncameras. Observing {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m."
+    if title is None:
+        title = f"Scanning Ncameras. Observing {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m."
     legend_what = 'Ncameras'
 elif args.scan == "range":
-    title = f"Scanning the distance to observations. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards."
+    if title is None:
+        title = f"Scanning the distance to observations. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards."
     legend_what = 'Range-to-chessboards'
 elif args.scan == "tilt_radius":
-    title = f"Scanning the board tilt. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
+    if title is None:
+        title = f"Scanning the board tilt. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
     legend_what = 'Random chessboard tilt radius'
 elif args.scan == "object_width_n":
-    title = f"Scanning the calibration object density, keeping the board size constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
+    if title is None:
+        title = f"Scanning the calibration object density, keeping the board size constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
     legend_what = 'Number of chessboard points per side'
 elif args.scan == "object_spacing":
-    if args.scan_object_spacing_compensate_range:
-        title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range grows with spacing. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
-    else:
-        title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range is constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
+    if title is None:
+        if args.scan_object_spacing_compensate_range_from:
+            title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range grows with spacing. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
+        else:
+            title = f"Scanning the calibration object spacing, keeping the point count constant, and letting the board grow. Range is constant. Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m"
     legend_what = 'Distance between adjacent chessboard corners'
 else:
     # no --scan. We just want one sample
-    title = f"Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m with tilt radius {controllable_args['tilt_radius']['value']}"
+    if title is None:
+        title = f"Have {controllable_args['Ncameras']['value']} cameras looking at {controllable_args['Nframes']['value']} boards at {controllable_args['range']['value']:.2f}m with tilt radius {controllable_args['tilt_radius']['value']}"
 
+if args.extratitle is not None:
+    title = f"{title}: {args.extratitle}"
 
 if samples is None:
     legend = None
@@ -1160,20 +1192,29 @@ np.savetxt(sys.stdout,
            fmt   = output_table_fmt,
            header= output_table_legend)
 
-kwargs = dict( yrange   = (0, args.ymax),
-               _with    = 'lines',
-               _set     = guides,
-               unset    = 'grid',
-               title    = title,
-               xlabel   = 'Range (m)',
-               ylabel   = 'Expected worst-direction uncertainty (pixels)',
-               hardcopy = args.hardcopy,
-               terminal = args.terminal,
-               wait     = not args.explore and args.hardcopy is None)
-if legend is not None: kwargs['legend'] = legend
+plotoptions = \
+    dict( yrange   = (0, args.ymax),
+          _with    = 'lines',
+          _set     = guides,
+          unset    = 'grid',
+          title    = title,
+          xlabel   = 'Range (m)',
+          ylabel   = 'Expected worst-direction uncertainty (pixels)',
+          hardcopy = args.hardcopy,
+          terminal = args.terminal,
+          wait     = not args.explore and args.hardcopy is None)
+if legend is not None: plotoptions['legend'] = legend
+
+if args.set:
+    gp.add_plot_option(plotoptions,
+                       _set = args.set)
+if args.unset:
+    gp.add_plot_option(plotoptions,
+                       _unset = args.unset)
+
 gp.plot(uncertainty_at_range_samples,
         output_table[:,:, output_table_icol__uncertainty],
-        **kwargs)
+        **plotoptions)
 
 if args.explore:
     import IPython

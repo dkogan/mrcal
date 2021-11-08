@@ -15,8 +15,9 @@ LENSMODEL_STEREOGRAPHIC instead of LENSMODEL_PINHOLE. This doesn't really work
 since cv2.solvePnP requires a reprojection to pinhole anyway, but eventually it
 will work
 
-show_splined_model_surface and the cmdline tool apis: valid-intrinsics-region,
-and flipped the imager-domain default
+show_splined_model_correction and the cmdline tool apis:
+valid-intrinsics-region, and flipped the imager-domain default. can plot xy
+magnitude (xy optional). renamed tool, function
 
 
 triangulation.cc,h
@@ -31,7 +32,7 @@ python: triangulate, match-feature
 show_residuals_observation{,_worst} -> show_residuals_board_observation{,_worst}
 
 
-show_splined_model_surface(), mrcal-show-splined-model-surface take optional xy'
+show_splined_model_correction(), mrcal-show-splined-model-correction take optional xy'
 because usually you just want to look at the knot layout, which is the same for
 x and y
 
@@ -109,7 +110,7 @@ projection_diff, show_projection_diff, mrcal-show-projection-diff and
 mrcal-graft-models have more consistent, better arguments. At the expense of the
 API breaking
 
-show_splined_model_surface and mrcal-show-splined-model-surface can display a
+show_splined_model_correction and mrcal-show-splined-model-correction can display a
 vector field
 
 Improved splined model regularization to reduce curl
@@ -181,6 +182,14 @@ could have trouble
 - projection_diff(): weighting should be better. Should I do outlier rejection?
   Should I use the hoaky valid-intrinsics region to cut down the fit set? Should
   I optimize actual reprojection error?
+** triangulation
+Should I intead be propagating the uncertainty to
+project_stereographic(unproject()) ? I can then do monocular tracking with
+uncertainties
+
+Talk about the synthetic tests in analyses/triangulation/study.py. Talk about
+range bias and reprojection bias. Recommend lee-civera-linf instead of mid2
+
 ** stuff to add
 - better sfm support
 - integrate deltapose-lite (lindstrom-optimized points) into mrcal
@@ -193,15 +202,15 @@ could have trouble
 - Measure effect of focus, aperture
 
 ** warnings in mrcal.c
-[[file:~/jpl/mrcal/mrcal.c::// WARNING: if I could assume that dq_dintrinsics_pool_double!=NULL then I wouldnt need to copy the context][something about being efficient and not copying stuff]]
+[[file:/home/dima/projects/mrcal/mrcal.c::// WARNING: if I could assume that dq_dintrinsics_pool_double!=NULL then I wouldnt need to copy the context][something about being efficient and not copying stuff]]
 
-[[file:~/jpl/mrcal/mrcal.c::// WARNING: This should go away. For some reason it makes unproject() converge better, and it makes the tests pass. But it's not even right!][=mrcal_unproject_internal()=]] is seeding the optimization in a 100% wrong way
+[[file:~/projects/mrcal/mrcal.c::// WARNING: This should go away. For some reason, the 0.7 path makes unproject() converge better, and it makes the tests pass. But it's not even right!][=mrcal_unproject_internal()=]] is seeding the optimization in a 100% wrong way
 that, for some reason, works better than if I fix the bug. Fixing the bug makes
 the tests fail
 
-[[file:~/jpl/mrcal/mrcal.c::// WARNING: sparsify this. This is potentially a BIG thing on the stack][not putting the full optimization state on the stack]]
+[[file:/home/dima/projects/mrcal/mrcal.c::// WARNING: sparsify this. This is potentially a BIG thing on the stack][not putting the full optimization state on the stack]]
 
-[[file:~/jpl/mrcal/mrcal.c::// WARNING: "compute size(dq_dintrinsics_pool_double) correctly and maybe bounds-check"][Again: don't put the full intrinsics on the stack]]
+[[file:/home/dima/projects/mrcal/mrcal.c::// WARNING: "compute size(dq_dintrinsics_pool_double) correctly and maybe bounds-check"][Again: don't put the full intrinsics on the stack]]
 
 mrcal_optimize(): merge =packed_state= and =p_packed_final=. And =packed_state=
 is a big stack thing, which is scary

@@ -95,8 +95,7 @@ mrcal assumes that
 
 - The model (lens parameters, geometry, ...) accurately represents reality
 - All errors (differences between the observations of the chessboard and what
-  the model predicts) come from observation noise, declared in
-  =--observed-pixel-uncertainty=
+  the model predicts) come from observation noise
 - The errors are independent, gaussian and have the same variance everywhere
 
 If all those assumptions are true, then the results of the least-squares

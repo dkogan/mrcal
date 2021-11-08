@@ -92,10 +92,17 @@ def parse_args():
                         type=float,
                         default=3,
                         help='''Maximum range of the colorbar''')
+
+    parser.add_argument('--title',
+                        type=str,
+                        default = None,
+                        help='''Title string for the plot. Overrides the default
+                        title. Exclusive with --extratitle''')
     parser.add_argument('--extratitle',
                         type=str,
                         default = None,
-                        help='''Extra title string for the plot''')
+                        help='''Additional string for the plot to append to the
+                        default title. Exclusive with --title''')
 
     parser.add_argument('--hardcopy',
                         type=str,
@@ -120,6 +127,11 @@ def parse_args():
     return parser.parse_args()
 
 args  = parse_args()
+
+if args.title      is not None and \
+   args.extratitle is not None:
+    print("--title and --extratitle are exclusive", file=sys.stderr)
+    sys.exit(1)
 
 
 
@@ -157,7 +169,17 @@ if args.set is not None:
 if args.unset is not None:
     plotkwargs_extra['unset'] = args.unset
 
-model = mrcal.cameramodel(args.model)
+if args.title is not None:
+    plotkwargs_extra['title'] = args.title
+if args.extratitle is not None:
+    plotkwargs_extra['extratitle'] = args.extratitle
+
+try:
+    model = mrcal.cameramodel(args.model)
+except Exception as e:
+    print(f"Couldn't load camera model '{args.model}': {e}", file=sys.stderr)
+    sys.exit(1)
+
 if model.optimization_inputs() is None:
     print("ERROR: optimization_inputs are unavailable in this model. Uncertainty cannot be computed",
           file = sys.stderr)
@@ -169,7 +191,6 @@ if args.vs_distance_at is not None:
                                                          isotropic    = args.isotropic,
                                                          hardcopy     = args.hardcopy,
                                                          terminal     = args.terminal,
-                                                         extratitle   = args.extratitle,
                                                          **plotkwargs_extra)
 else:
     plot = mrcal.show_projection_uncertainty(model,
@@ -181,7 +202,6 @@ else:
                                              hardcopy                = args.hardcopy,
                                              terminal                = args.terminal,
                                              cbmax                   = args.cbmax,
-                                             extratitle              = args.extratitle,
                                              **plotkwargs_extra)
 
 if args.hardcopy is None:

@@ -703,8 +703,8 @@ Potential things to look at:
     show_residuals_histogram(      icam)
     show_residuals_regional(       icam)
     show_distortion_off_pinhole(   icam, vectorfield=False)
-    show_distortion_off_pinhole_radial(icam')
-    show_splined_model_surface(    icam, xy)
+    show_distortion_off_pinhole_radial(icam)
+    show_splined_model_correction(icam)
     stats
     i_observations_sorted_from_worst
     rms_residual_perobservation
@@ -733,7 +733,7 @@ def show_generic(f, *args, **kwargs):
     global plots
     plots[f.__name__] = f(*args, **kwargs)
 
-def show_splined_model_surface         (icam = None, **kwargs): show_generic_per_cam(mrcal.show_splined_model_surface,         icam, **kwargs)
+def show_splined_model_correction     (icam = None, **kwargs): show_generic_per_cam(mrcal.show_splined_model_correction,     icam, **kwargs)
 def show_projection_uncertainty        (icam = None, **kwargs): show_generic_per_cam(mrcal.show_projection_uncertainty,        icam, **kwargs)
 def show_valid_intrinsics_region       (icam = None, **kwargs): show_generic_per_cam(mrcal.show_valid_intrinsics_region,       icam, **kwargs)
 

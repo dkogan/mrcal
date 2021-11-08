@@ -143,10 +143,16 @@ def parse_args():
                         default=4,
                         help='''Maximum range of the colorbar''')
 
+    parser.add_argument('--title',
+                        type=str,
+                        default = None,
+                        help='''Title string for the plot. Overrides the default
+                        title. Exclusive with --extratitle''')
     parser.add_argument('--extratitle',
                         type=str,
                         default = None,
-                        help='''Extra title string for the plot''')
+                        help='''Additional string for the plot to append to the
+                        default title. Exclusive with --title''')
 
     parser.add_argument('--vectorfield',
                         action = 'store_true',
@@ -201,7 +207,13 @@ def parse_args():
     args = parser.parse_args()
 
     if len(args.models) < 2:
-        raise Exception(f"I need at least two models to diff. Instead got '{args.models}'")
+        print(f"I need at least two models to diff. Instead got '{args.models}'", file=sys.stderr)
+        sys.exit(1)
+
+    if args.title      is not None and \
+       args.extratitle is not None:
+        print("--title and --extratitle are exclusive", file=sys.stderr)
+        sys.exit(1)
 
     return args
 
@@ -248,6 +260,11 @@ if args.set is not None:
 if args.unset is not None:
     plotkwargs_extra['unset'] = args.unset
 
+if args.title is not None:
+    plotkwargs_extra['title'] = args.title
+if args.extratitle is not None:
+    plotkwargs_extra['extratitle'] = args.extratitle
+
 models = [mrcal.cameramodel(modelfilename) for modelfilename in args.models]
 
 
@@ -278,8 +295,8 @@ if args.same_dance:
 
         calobjects = \
             [ mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
-                                                **model.optimization_inputs(),
-                                                idx_inliers = idx_inliers[0]*idx_inliers[1] )[1] \
+                                                      **model.optimization_inputs(),
+                                                      idx_inliers = idx_inliers[0]*idx_inliers[1] )[-2] \
               for model in models ]
 
         Rt10 = mrcal.align_procrustes_points_Rt01(calobjects[1], calobjects[0])
@@ -437,7 +454,6 @@ plot,Rt10 = mrcal.show_projection_diff(models,
                                        hardcopy                = args.hardcopy,
                                        terminal                = args.terminal,
                                        cbmax                   = args.cbmax,
-                                       extratitle              = args.extratitle,
                                        **plotkwargs_extra)
 
 if not args.intrinsics_only and args.radius != 0 and \

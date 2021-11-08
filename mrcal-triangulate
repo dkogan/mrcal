@@ -106,7 +106,9 @@ def parse_args():
                         type    = float,
                         help='''The uncertainty of the point observations at
                         calibration time. If given, we report the
-                        analytically-computed effects of this noise.''')
+                        analytically-computed effects of this noise. If a value
+                        <0 is passed-in, we infer the calibration-time noise
+                        from the optimal calibration-time residuals''')
     parser.add_argument('--q-observation-stdev',
                         type    = float,
                         help='''The uncertainty of the point observations at
@@ -127,7 +129,7 @@ def parse_args():
     parser.add_argument('--stabilize-coords',
                         action = 'store_true',
                         help='''If propagating calibration-time noise
-                        (--q-calibration-stdev > 0), we report the uncertainty
+                        (--q-calibration-stdev != 0), we report the uncertainty
                         ellipse in a stabilized coordinate system, compensating
                         for the camera-0 coord system motion''')
     parser.add_argument('--method',
@@ -161,10 +163,16 @@ def parse_args():
                         legend in the top-right of the plot. It's generally most
                         useful to show/hide the template to visually verify the
                         resulting alignment.''')
+    parser.add_argument('--title',
+                        type=str,
+                        default = None,
+                        help='''Title string for the --viz plot. Overrides the
+                        default title. Exclusive with --extratitle''')
     parser.add_argument('--extratitle',
                         type=str,
                         default = None,
-                        help='''Extra title string for the --viz plot''')
+                        help='''Additional string for the --viz plot to append
+                        to the default title. Exclusive with --title''')
 
     parser.add_argument('--hardcopy',
                         type=str,
@@ -199,6 +207,11 @@ def parse_args():
 
     if args.viz is None:
         args.viz = ''
+
+    if args.title      is not None and \
+       args.extratitle is not None:
+        print("--title and --extratitle are exclusive", file=sys.stderr)
+        sys.exit(1)
 
     return args
 
@@ -440,6 +453,12 @@ else:
     q1_perfect = mrcal.apply_homography(H10, q0)
     print(f"## Feature {q0} in the left image corresponds to {q1_perfect} at {args.range_estimate}m")
 
+    plotkwargs_extra = dict()
+    if args.title is not None:
+        plotkwargs_extra['title'] = args.title
+    if args.extratitle is not None:
+        plotkwargs_extra['extratitle'] = args.extratitle
+
     match_feature_out = \
         mrcal.match_feature(*images,
                             q0               = q0,
@@ -449,11 +468,11 @@ else:
 
                             visualize        = args.viz == 'match',
                             return_plot_args = True,
-                            extratitle       = args.extratitle,
                             _set             = args.set,
                             unset            = args.unset,
                             hardcopy         = args.hardcopy,
-                            terminal         = args.terminal)
+                            terminal         = args.terminal,
+                            **plotkwargs_extra)
 
     q1, match_feature_diagnostics = match_feature_out[:2]
 
@@ -816,7 +835,9 @@ if args.viz:
                                 title  = "Uncertainty propagation",
                                 wait   = args.hardcopy is None)
 
-            if args.extratitle:
+            if args.title is not None:
+                plot_options['title'] = args.title
+            if args.extratitle is not None:
                 plot_options['title'] += f": {args.extratitle}"
 
             gp.add_plot_option(plot_options,

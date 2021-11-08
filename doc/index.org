@@ -46,14 +46,13 @@ A lens can be represented by any of a number of [[file:lensmodels.org][lens mode
 written to a [[file:cameramodels.org][file on disk]].
 
 ** Applications
-A [[file:how-to-calibrate.org][how-to-calibrate-some-cameras]] page describes details about how to accomplish
-this very common task.
+A [[file:how-to-calibrate.org][how-to-calibrate]] page describes this very common task.
 
 Given a model, we can compute its [[file:uncertainty.org][projection uncertainties]]. Given more than one
-model, we can [[file:differencing.org][compare their projection behaviors]].
+model, we can [[file:differencing.org][compare their intrinsics (projection behaviors)]].
 
 If we have a calibrated pair of cameras, we can generate a depth map with [[file:stereo.org][dense
-stereo processing.]] Or we can compute sparse ranges by calling a [[file:triangulation.org][triangulation
+stereo processing]]. Or we can compute sparse ranges by calling a [[file:triangulation.org][triangulation
 routine]].
 
 ** Interfaces

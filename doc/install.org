@@ -31,21 +31,6 @@ in the commandline tools and, indirectly, the python libraries. The
 uses mrcal. The chessboard corner finder, while not strictly required, is needed
 if you're doing chessboard-based calibrations. =apt install mrgingham=
 
-** RPM-based                                                       :noexport:
-There are packages deployed on the maritime robotics CentOS-7 YUM servers. Some
-dependencies are more recent than the usual packages, so you need to enable the
-/backports/ repo. You can generate the definition from a search/replace of the
-"main" definition:
-
-#+begin_src sh
-< /etc/yum.repos.d/mrbuild-main.repo \
-  perl -p -e 's/main/backports/g' \
-> /etc/yum.repos.d/mrbuild-backports.repo
-#+end_src
-
-Then, as with Debian, you get the =mrcal= and =mrcal-devel= and =mrgingham=
-packages.
-
 * Building from source
 If you cannot use the packages for whatever reason, you must build from source.
 This isn't /difficult/, but requires you to obtain all the dependencies. They're
@@ -60,13 +45,12 @@ are available in most distros. Things that may not be:
   the sources and pointing the =PATH= there is sufficient.
 
 - =python3-numpysane=: The make-numpy-reasonable library from [[https://github.com/dkogan/numpysane/][here]]. You
-  absolutely need at least version 0.27. If possible, get 0.29 or later.
-  Available in the usual places Python libraries live. This is a python-only
-  library. Simply downloading the sources and pointing the =PYTHONPATH= there is
-  sufficient.
+  absolutely need at least version 0.35. Available in the usual places Python
+  libraries live. This is a python-only library. Simply downloading the sources
+  and pointing the =PYTHONPATH= there is sufficient.
 
 - =python3-gnuplotlib=: The plotting library from [[https://github.com/dkogan/gnuplotlib/][here]]. You need at least
-  version 0.36. Available in the usual places Python libraries live. This is a
+  version 0.38. Available in the usual places Python libraries live. This is a
   python-only library. Simply downloading the sources and pointing the
   =PYTHONPATH= there is sufficient.
 
@@ -74,9 +58,12 @@ are available in most distros. Things that may not be:
   any corner finder can be used. If you want to use this one (and you can't use
   the packages), you need to build it. Sources live [[https://github.com/dkogan/mrgingham/][here]].
 
-Once these are all downloaded, =libdogleg= built and the =PATH= and =PYTHONPATH=
-set, we can build mrcal. The child processes need access to the =PATH= and
-=PYTHONPATH=, so
+- =re2c=: parser-generator for the C code to parse =.cameramodel= files. At
+  least version 2 is required.
+
+Once these are all downloaded, =libdogleg= and =re2c= built and the =PATH= and
+=PYTHONPATH= set, we can build mrcal. The child processes need access to the
+=PATH= and =PYTHONPATH=, so
 
 #+begin_src sh
 export PATH
@@ -99,6 +86,7 @@ make test
 
 If stuff doesn't work, feel free to bug me. But you /really/ should be using the
 packages, if at all possible
+
 * code                                                             :noexport:
 dependency building
 

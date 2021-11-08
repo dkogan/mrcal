@@ -98,10 +98,16 @@ def parse_args():
                         default = 1.0,
                         help='''Scale all the vectors by this factor. Useful to improve legibility if the
                         vectors are too small to see. Applies only if --vectorfield''')
+    parser.add_argument('--title',
+                        type=str,
+                        default = None,
+                        help='''Title string for the plot. Overrides the default
+                        title. Exclusive with --extratitle''')
     parser.add_argument('--extratitle',
                         type=str,
                         default = None,
-                        help='''Extra title string for the plot''')
+                        help='''Additional string for the plot to append to the
+                        default title. Exclusive with --title''')
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''Write the output to disk, instead of making an
@@ -135,6 +141,11 @@ def parse_args():
     if args.histogram_this_camera:
         args.histogram = True
 
+    if args.title      is not None and \
+       args.extratitle is not None:
+        print("--title and --extratitle are exclusive", file=sys.stderr)
+        sys.exit(1)
+
     return args
 
 args = parse_args()
@@ -154,10 +165,15 @@ if args.set is not None:
 if args.unset is not None:
     plotkwargs_extra['unset'] = args.unset
 
+if args.title is not None:
+    plotkwargs_extra['title'] = args.title
+if args.extratitle is not None:
+    plotkwargs_extra['extratitle'] = args.extratitle
+
 try:
     model = mrcal.cameramodel(args.model)
-except:
-    print(f"Couldn't load camera model '{args.model}'", file=sys.stderr)
+except Exception as e:
+    print(f"Couldn't load camera model '{args.model}': {e}", file=sys.stderr)
     sys.exit(1)
 
 optimization_inputs = model.optimization_inputs()
@@ -172,7 +188,6 @@ if not args.hardcopy:
 
 
 kwargs = dict(residuals   = residuals,
-              extratitle  = args.extratitle,
               hardcopy    = args.hardcopy,
               terminal    = args.terminal,
               **plotkwargs_extra)

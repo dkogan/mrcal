@@ -22,7 +22,7 @@ TESTS :=										\
   test/test-basic-sfm.py								\
   test/test-basic-calibration.py							\
   test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample	\
-  test/test-projection-uncertainty.py__--fixed__frames__--model__opencv4__--do-sample	\
+  test/test-projection-uncertainty.py__--fixed__frames__--model__opencv4__--do-sample__--Nsamples__200	\
   test/test-projection-uncertainty.py__--fixed__cam0__--model__splined			\
   test/test-linearizations.py								\
   test/test-lensmodel-string-manipulation						\
@@ -75,7 +75,7 @@ endef
 # "test-nosampling" excludes the very time-consuming tests
 TESTS_ALL_TARGETS := test-all test-nosampling test-triangulation-uncertainty
 $(TESTS_ALL_TARGETS): all
-	@FAILED=""; $(foreach t,$(call test_set,$@),echo "========== RUNNING: $(subst __, ,$t)"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED!"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
+	@FAILED=""; $(foreach t,$(call test_set,$@),echo "========== RUNNING: $(subst __, ,$t)"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED !"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
 .PHONY: $(TESTS_ALL_TARGETS)
 
 test:

@@ -1,0 +1,317 @@
+#+title: A tour of mrcal: quantifying uncertainty
+#+OPTIONS: toc:t
+
+An overview follows; see the [[file:formulation.org::#noise-model][noise model]] and [[file:uncertainty.org][projection uncertainty]] pages for
+details.
+
+* Previous
+We just [[file:tour-differencing.org][compared the calibrated models]].
+
+* Projection uncertainty
+
+It would be /really/ nice to be able to compute an /uncertainty/ along with
+every projection operation: given a camera-coordinate point $\vec p$ we would
+compute the projected pixel coordinate $\vec q$, along with the covariance
+$\mathrm{Var} \left(\vec q\right)$ to represent the uncertainty. If this were
+available we could
+
+- Propagate this uncertainty downstream to whatever uses the projection
+  operation, for example to get the uncertainty of ranges from a triangulation
+- Evaluate how trustworthy a given calibration is, and to run studies about how
+  to do better
+- Quantify overfitting effects
+- Quantify the baseline noise level for informed interpretation of model
+  differences
+- Intelligently select the region used to compute the implied transformation
+  when computing differences
+
+These are quite important. Since splined models can have 1000s of parameters, we
+/will/ overfit when using those models. This isn't a problem in itself, however.
+"Overfitting" simply means the uncertainty is higher than it otherwise would be.
+And if we can quantify that uncertainty, we can decide if we have too much.
+
+** Derivation summary
+It is a reasonable assumption that each $x$ and $y$ measurement in every
+detected chessboard corner contains independent, gaussian noise. This noise is
+hard to measure directly (there's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in mrgingham), so we estimate it
+from the solve residuals. We then have the diagonal matrix representing the
+variance our input noise: $\mathrm{Var}\left( \vec q_\mathrm{ref} \right)$.
+
+We propagate this input noise through the optimization, to find out how this
+noise would affect the calibration solution. Given some perturbation of the
+inputs, we can derive the resulting perturbation in the optimization state:
+$\Delta \vec p = M \Delta \vec q_\mathrm{ref}$ for some matrix $M$ we can
+compute. The [[file:formulation.org::#state-vector][state vector $\vec p$]] contains /everything/: the intrinsics of all
+the lenses, the geometry of all the cameras and chessboards, the chessboard
+shape, etc. We have the variance of the input noise, so we can compute the
+variance of the state vector:
+
+\[ \mathrm{Var}(\vec p) = M \mathrm{Var}\left(\vec q_\mathrm{ref}\right) M^T \]
+
+Now we need to propagate this uncertainty in the optimization state through a
+projection. Let's say we have a point $\vec p_\mathrm{fixed}$ defined in some
+/fixed/ coordinate system. We need to transform it to the camera coordinate system before we can project it:
+
+\[ \vec q = \mathrm{project}\left( \mathrm{transform}\left( \vec p_\mathrm{fixed} \right)\right) \]
+
+So $\vec q$ is a function of the intrinsics and the transformation. Both of
+these are functions of the optimization state, so we can propagate our noise in
+the optimization state $\vec p$:
+
+\[ \mathrm{Var}\left( \vec q \right) =
+\frac{\partial \vec q}{\partial \vec p}
+\mathrm{Var}\left( \vec p \right)
+\frac{\partial \vec q}{\partial \vec p}^T
+\]
+
+There lots and lots of details here, so please read the [[file:uncertainty.org][documentation]] if
+interested.
+
+** Simulation
+Let's run some synthetic-data analysis to validate this approach. This all comes
+directly from the mrcal test suite:
+
+Let's place 4 cameras using an =LENSMODEL_OPENCV4= lens model side by side, and
+let's have them look at 50 chessboards, with randomized positions and
+orientations.
+
+#+begin_src sh
+test/test-projection-uncertainty.py \
+  --fixed cam0                      \
+  --model opencv4                   \
+  --do-sample                       \
+  --make-documentation-plots ''
+#+end_src
+#+begin_src sh :exports none :eval no-export
+test/test-projection-uncertainty.py \
+  --fixed cam0 \
+  --model opencv4 \
+  --do-sample \
+  --make-documentation-plots \
+  ~/projects/mrcal-doc-external/figures/uncertainty/simulated-uncertainty-opencv4
+#+end_src
+
+The synthetic geometry looks like this:
+
+[[file:external/figures/uncertainty/simulated-uncertainty-opencv4--simulated-geometry.svg]]
+
+The coordinate system of each camera is shown. Each observed chessboard is shown
+as a zigzag connecting all the corners in order. Each camera sees:
+
+[[file:external/figures/uncertainty/simulated-uncertainty-opencv4--simulated-observations.svg]]
+
+All the chessboards are roughly at the center of the scene, so the left camera
+sees objects on the right, and the right camera sees objects on the left.
+
+We want to evaluate the uncertainty of a calibration made with these
+observations. So we run 100 randomized trials, where each time we
+
+- add a bit of noise to the observations
+- compute the calibration
+- look at what happens to the projection of an arbitrary point $\vec q$ on the
+  imager: the marked $\color{red}{\ast}$ in the plots above
+
+A very confident calibration would have low $\mathrm{Var}\left(\vec q\right)$, and
+projections would be insensitive to observation noise: the $\color{red}{\ast}$
+wouldn't move very much as we add input noise. By contrast, a poor calibration
+would have high uncertainty, and the $\color{red}{\ast}$ would move significantly
+due to random observation noise.
+
+The above command runs the trials, following the reprojection of
+$\color{red}{\ast}$. We plot the empirical 1-sigma ellipse computed from these
+samples, and also the 1-sigma ellipse predicted by the
+[[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] routine. This is the routine that implements
+the scheme described above, but does so analytically, without any sampling. It
+is thus much faster than sampling would be.
+
+[[file:external/figures/uncertainty/simulated-uncertainty-opencv4--distribution-onepoint.svg]]
+
+Clearly the two ellipses (blue and green) line up very well, so there's very
+good agreement between the observed and predicted uncertainties. So from now on
+we will use the predictions only.
+
+We see that the reprojection uncertainties of this point are very different for
+each camera. This happens because the distribution of chessboard observations is
+different in each camera. We're looking at a point in the top-left quadrant of
+the imager. And as we saw before, this point was surrounded by chessboard
+observations only in the first camera. In the second and third cameras, this
+point was on the edge of region of chessboard observations. And in the last
+camera, the observations were all quite far away from this query point. In
+/that/ camera, we have no data about the lens behavior in this area, and we're
+extrapolating. We should expect to have the best uncertainty in the first
+camera, worse uncertainties in the next two cameras, and very poor uncertainty
+in the last camera. And this is exactly what we observe.
+
+Now that we validated the relatively quick-to-compute
+[[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] estimates, let's use them to compute
+uncertainty maps across the whole imager, not just at a single point:
+
+[[file:external/figures/uncertainty/simulated-uncertainty-opencv4--uncertainty-wholeimage-noobservations.svg]]
+
+As expected, we see that the sweet spot is different for each camera, and it
+tracks the location of the chessboard observations. And we can see that the
+$\color{red}{\ast}$ is in the sweet spot only in the first camera.
+
+Let's focus on the last camera. Here the chessboard observations were nowhere
+near the focus point, and we reported an expected reprojection error of ~0.8
+pixels. This is significantly worse than the other cameras, but it's not
+terrible in absolute terms. If an error of 0.8 pixels is acceptable for our
+application, could we use that calibration result to project points around the
+$\color{red}{\ast}$?
+
+No, we cannot. We didn't observe any chessboards there, so we don't know how the
+lens behaves in that area. The optimistic result reported by the uncertainty
+algorithm isn't wrong, but in this case it's not answering the question we
+really want answered. We're computing how observation noise affects the whole
+optimizer state, including the lens parameters (=LENSMODEL_OPENCV4= in this
+case). And then we compute how the noise in those lens parameters and geometry
+affects projection. The =LENSMODEL_OPENCV4= model is very lean (has very few
+parameters). This give it stiffness, which prevents the projection $\vec q$ from
+moving very far in response to noise, which we then interpret as a
+relatively-low uncertainty of 0.8 pixels. If we used a model with more
+parameters, the extra flexibility would allow the projection to move much
+further in response to noise, and we'd see a higher uncertainty. So here our
+choice of lens model itself is giving us low uncertainties. If we knew for a
+fact that the true lens is 100% representable by an =LENSMODEL_OPENCV4= model,
+then this would be be correct, but that never happens in reality. So *lean
+models always produce overly-optimistic uncertainty estimates*.
+
+This is yet another big advantage of splined models: they're very flexible, so
+the model itself has very little effect on the reported uncertainty. And we get
+the behavior we want: reported uncertainty is driven /only/ by the data we have
+gathered.
+
+Let's re-run this analysis using a splined model, and let's look at the same
+uncertainty plots as above (note: this is /slow/):
+
+#+begin_src sh
+test/test-projection-uncertainty.py \
+  --fixed cam0                      \
+  --model splined                   \
+  --do-sample                       \
+  --make-documentation-plots ''
+#+end_src
+#+begin_src sh :exports none :eval no-export
+test/test-projection-uncertainty.py \
+  --fixed cam0 \
+  --model splined \
+  --do-sample \
+  --make-documentation-plots \
+  ~/projects/mrcal-doc-external/figures/uncertainty/simulated-uncertainty-splined
+#+end_src
+
+[[file:external/figures/uncertainty/simulated-uncertainty-splined--uncertainty-wholeimage-noobservations.svg]]
+
+As expected, the reported uncertainties are now far worse. In fact, we can see
+that only the first camera's projection is truly reliable at the
+$\color{red}{\ast}$. This is representative of reality.
+
+To further clarify where the uncertainty region comes from, let's overlay the
+chessboard observations onto it:
+
+[[file:external/figures/uncertainty/simulated-uncertainty-splined--uncertainty-wholeimage-observations.svg]]
+
+The connection between the usable-projection region and the observed-chessboards
+region is undisputable. This plot also sheds some light on the effects of spline
+density. If we had a denser spline, some of the gaps in-between the chessboard
+observations would show up as poor-uncertainty regions. This hasn't yet been
+studied on real-world data.
+
+Given all this I will claim that we want to use splined models in most
+situations, even for long lenses which roughly follow the pinhole model. The
+basis of mrcal's splined models is the stereographic projection, which is
+identical to a pinhole projection when representing a long lens, so the splined
+models will also fit long lenses well. The only downside to using a splined
+model in general is the extra required computational cost. It isn't terrible
+today, and will get better with time. And for that low price we get the extra
+precision (no lens follows the lean models when you look closely enough) and we
+get truthful uncertainty reporting.
+
+** Revisiting uncertainties from the earlier calibrations
+:PROPERTIES:
+:CUSTOM_ID: splined-model-uncertainties
+:END:
+
+We started this by calibrating a camera using an =LENSMODEL_OPENCV8= model, and then again
+with a splined model. Let's look at the uncertainty of those solves using the
+handy [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool.
+
+First, the =LENSMODEL_OPENCV8= solve:
+
+#+begin_src sh
+mrcal-show-projection-uncertainty opencv8.cameramodel --cbmax 1 --unset key
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
+
+~/projects/mrcal/mrcal-show-projection-uncertainty \
+  $D/data/board/opencv8.cameramodel \
+  --cbmax 1 \
+  --unset key \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.svg \
+  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
+~/projects/mrcal/mrcal-show-projection-uncertainty \
+  $D/data/board/opencv8.cameramodel \
+  --cbmax 1 \
+  --unset key \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+~/projects/mrcal/mrcal-show-projection-uncertainty \
+  $D/data/board/opencv8.cameramodel \
+  --cbmax 1 \
+  --unset key \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+#+end_src
+
+[[file:external/figures/uncertainty/uncertainty-opencv8.png]]
+
+And the splined solve:
+
+#+begin_src sh
+mrcal-show-projection-uncertainty splined.cameramodel --cbmax 1 --unset key
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
+
+~/projects/mrcal/mrcal-show-projection-uncertainty \
+  $D/data/board/splined.cameramodel \
+  --cbmax 1 \
+  --unset key \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.svg \
+  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
+~/projects/mrcal/mrcal-show-projection-uncertainty \
+  $D/data/board/splined.cameramodel \
+  --cbmax 1 \
+  --unset key \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+~/projects/mrcal/mrcal-show-projection-uncertainty \
+  $D/data/board/splined.cameramodel \
+  --cbmax 1 \
+  --unset key \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+#+end_src
+
+[[file:external/figures/uncertainty/uncertainty-splined.png]]
+
+As expected, the splined model produces less optimistic (but more realistic)
+uncertainty reports.
+
+Recall that in [[file:tour-differencing.org][the last section]] we compared our two calibrated models. The
+difference looked like this:
+
+[[file:external/figures/diff/diff-splined-opencv8.png]]
+
+Clearly the errors predicted by the projection uncertainty plots don't account
+for the large differences we see here. The reason for this is model error,
+/especially/ in the =LENSMODEL_OPENCV8= solve. The uncertainty quantification
+method we just described /only/ models the effect of observation error at
+calibration time. Any model errors (such as an ill-fitting lens model, a
+badly-shaped calibration board, motion blur, etc) will produce high differences
+and low uncertainties. This is a /very/ common effect, and is the main thing we
+battle as we try to faithfully model the behavior of a lens.
+
+* Next
+Now [[file:tour-effect-of-range.org][we discuss the effect of range in differencing and uncertainty computations]].
