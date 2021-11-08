@@ -14,8 +14,8 @@ Build-Depends: debhelper (>= 10), dh-python,
  re2c
 Maintainer: Dima Kogan <dima@secretsauce.net>
 Standards-Version: 3.9.8
-Homepage: https://www.github.com/dkogan/mrcal/
-Vcs-Git: git@github.com:dkogan/mrcal.git
+Homepage: http://mrcal.secretsauce.net
+Vcs-Git: https://www.github.com/dkogan/mrcal/
 Vcs-Browser: https://www.github.com/dkogan/mrcal/
 
 Package: libmrcal2
