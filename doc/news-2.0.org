@@ -1,0 +1,206 @@
+#+TITLE: mrcal 2.0 release notes
+#+OPTIONS: toc:nil
+
+#+begin_src emacs-lisp :exports none :eval no-export
+(progn
+  (defun insert-function (f)
+    (interactive (list (read-string "Function: ")))
+    (insert (format "[[file:mrcal-python-api-reference.html#-%1$s][=mrcal.%1$s()=]]"
+                    f)))
+
+  (defun insert-tool (f)
+    (interactive (list (read-string "Tool: ")))
+    (insert (format "[[file:%1$s.html][=%1$s=]]"
+                    f)))
+
+  (local-set-key (kbd "<f1>") 'insert-function)
+  (local-set-key (kbd "<f2>") 'insert-tool))
+#+end_src
+
+* New in mrcal 2.0
+Lots and lots of under-the-hood improvements and bug fixes. Most notable ones
+listed here
+
+** High level significant improvements
+- Reworked the [[file:stereo.org][dense stereo processing]]. This is now documented, with nice APIs.
+  Rectified models can be represented in a [[file:cameramodels.org][=.cameramodel=]] file, and saved to
+  disk.
+
+- Added [[file:triangulation.org][sparse triangulation routines]]. Uncertainty can be propagated through
+  these routines to gauge the effects of calibration-time and observation-time
+  noise.
+
+- [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] models have been thoroughly tested, and are
+  ready for prime time. Solver now applies anisotropic regularization to reduce
+  curl in the correction vector field, so the solved models now act mostly
+  radially. The [[file:mrcal-show-splined-model-correction.html][=mrcal-show-splined-model-correction=]] tool extended, and
+  produces clearer plots. These models work well. Use them,.
+
+- The =observed_pixel_uncertainty= is now estimated from the optimized residuals
+  instead of being specified explicitly. The reported uncertainties should now
+  be correct in absolute, not just relative terms
+
+- [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] can report gradients
+
+- Calibration residuals can be visualized from the stored cameramodel, not just
+  from [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras --explore=]]. Added new tools
+
+  - [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]]
+  - [[file:mrcal-show-residuals.html][=mrcal-show-residuals=]]
+
+  and new Python API functions
+
+  - [[file:mrcal-python-api-reference.html#-show_residuals_board_observation][=mrcal.show_residuals_board_observation()=]]
+  - [[file:mrcal-python-api-reference.html#-show_residuals_histogram][=mrcal.show_residuals_histogram()=]]
+  - [[file:mrcal-python-api-reference.html#-show_residuals_vectorfield][=mrcal.show_residuals_vectorfield()=]]
+  - [[file:mrcal-python-api-reference.html#-show_residuals_magnitudes][=mrcal.show_residuals_magnitudes()=]]
+  - [[file:mrcal-python-api-reference.html#-show_residuals_directions][=mrcal.show_residuals_directions()=]]
+  - [[file:mrcal-python-api-reference.html#-show_residuals_regional][=mrcal.show_residuals_regional()=]]
+
+- [[file:cameramodels.org][=.cameramodel=]] files can be read/written from C
+
+- Added simple projection/unprojection functions to the Python and C APIs:
+
+  - [[file:mrcal-python-api-reference.html#-project_pinhole][=mrcal.project_pinhole()=]]
+  - [[file:mrcal-python-api-reference.html#-unproject_pinhole][=mrcal.unproject_pinhole()=]]
+  - [[file:mrcal-python-api-reference.html#-project_latlon][=mrcal.project_latlon()=]]
+  - [[file:mrcal-python-api-reference.html#-unproject_latlon][=mrcal.unproject_latlon()=]]
+  - [[file:mrcal-python-api-reference.html#-project_lonlat][=mrcal.project_lonlat()=]]
+  - [[file:mrcal-python-api-reference.html#-unproject_lonlat][=mrcal.unproject_lonlat()=]]
+
+  This is added to the existing functions
+
+  - [[file:mrcal-python-api-reference.html#-project_stereographic][=mrcal.project_stereographic()=]]
+  - [[file:mrcal-python-api-reference.html#-unproject_stereographic][=mrcal.unproject_stereographic()=]]
+
+- Added [[file:lensmodels.org::#lensmodel-latlon][=LENSMODEL_LATLON=]] and [[file:lensmodels.org::#lensmodel-lonlat][=LENSMODEL_LONLAT=]] models to represent
+  epipolar-aligned and panoramic images respectively
+
+** Lower-level improvements for user convenience and/or internal machinery
+- All Python =poseutils= functions can now work in-place
+
+- Added [[file:mrcal-python-api-reference.html#-invert_R][=mrcal.invert_R()=]] function
+
+- [[file:mrcal-python-api-reference.html#-transform_point_Rt][=mrcal.transform_point_Rt()=]] and [[file:mrcal-python-api-reference.html#-rotate_point_R][=mrcal.rotate_point_R()=]] can take an
+  =inverted= argument
+
+- [[file:mrcal-python-api-reference.html#-project_stereographic][=mrcal.project_stereographic()=]] and [[file:mrcal-python-api-reference.html#-unproject_stereographic][=mrcal.unproject_stereographic()=]] and the
+  others now use [[https://github.com/dkogan/numpysane/blob/master/README-pywrap.org][=numpysane_pywrap=]], so full broadcasting and in-place output
+  are available
+
+- Added [[file:mrcal-python-api-reference.html#-num_states][=mrcal.num_states()=]], [[file:mrcal-python-api-reference.html#-num_intrinsics_optimization_params][=mrcal.num_intrinsics_optimization_params()=]]
+
+- New [[file:lensmodels.org::#representation][lensmodel metadata property]]: =has_gradients=. Currently only CAHVORE has
+  this at =False=
+
+- [[file:mrcal-python-api-reference.html#-transform_image][=mrcal.transform_image()=]] supports more of the opencv api, like inplace output
+
+- [[file:mrcal-reproject-image.html][=mrcal-reproject-image=]] tool has new =--distance= argument
+
+- =mrcal-show-....= visualization tools (and =mrcal.show_...()= functions) have
+  new =--title= (and =title=) argument. These replace the default title instead
+  of extending the default, which =--extratitle= does
+
+- [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function can take
+  =observed_pixel_uncertainty= argument, to override the value inferred from the
+  residuals at the optimum
+
+- The visualization functions can plot observations with dots instead of points:
+  - [[file:mrcal-python-api-reference.html#-show_projection_diff][=mrcal.show_projection_diff()=]]
+  - [[file:mrcal-python-api-reference.html#-show_projection_uncertainty][=mrcal.show_projection_uncertainty()=]]
+  - [[file:mrcal-python-api-reference.html#-show_splined_model_correction][=mrcal.show_splined_model_correction()=]]
+
+- Added [[file:mrcal-python-api-reference.html#-fitted_gaussian_equation][=mrcal.fitted_gaussian_equation()=]]
+* Migration notes 1.0 -> 2.0
+mrcal is being actively developed, and some improvements change the interfaces
+in incompatible ways, requiring small amounts of work to port older code. I try
+to avoid breaking changes, but sometimes doing this is necessary. The C API is
+mostly unstable. If you use the mrcal C library, read this section carefully.
+The Python API and the commandline tools are mostly stable, but some things did
+change, so please still read this section.
+
+- The =observed_pixel_uncertainty= is now estimated from the optimized residuals
+  instead of being specified explicitly. =mrcal_optimize()= and
+  =mrcal_optimizer_callback()= in the C API don't have this argument anymore.
+  The Python analogues [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] and [[file:mrcal-python-api-reference.html#-optimizer_callback][=mrcal.optimizer_callback()=]] still
+  accept the argument (to keep old [[file:cameramodels.org][=.cameramodel=]] files working), but this
+  argument is now ignored
+
+- =seed_pinhole()= function reworked and renamed to [[file:mrcal-python-api-reference.html#-seed_stereographic][=mrcal.seed_stereographic()=]]
+
+- [[file:mrcal-python-api-reference.html#-transform_image][=mrcal.transform_image()=]] API extended. Calls are backwards-compatible, but
+  the defaults have changed
+
+- =show_splined_model_surface()= function renamed to
+  [[file:mrcal-python-api-reference.html#-show_splined_model_correction][=mrcal.show_splined_model_correction()=]]. Similarly, The
+  =mrcal-show-splined-model-surface= tool renamed to
+  [[file:mrcal-show-splined-model-correction.html][=mrcal-show-splined-model-correction=]]. New function and tool can display the
+  data in new ways (the correction vector field and correction magnitude), and
+  the defaults have changed
+
+- [[file:mrcal-show-distortion-off-pinhole.html][=mrcal-show-distortion-off-pinhole=]] cmdline tool: =--scale= argument renamed
+  to =--vectorscale= for consistency
+
+- [[file:mrcal-python-api-reference.html#-show_distortion_off_pinhole][=mrcal.show_distortion_off_pinhole()=]]: radial functionality split into
+  [[file:mrcal-python-api-reference.html#-show_distortion_off_pinhole_radial][=mrcal.show_distortion_off_pinhole_radial()=]]
+
+- =mrcal.show_projection_uncertainty_xydist()= was removed. It wasn't useful
+
+- CAHVORE lens models: =linearity= is a configuration parameter, /not/ an
+  optimization parameter. All existing [[file:cameramodels.org][=.cameramodel=]] files containing CAHVORE
+  models must be ported. I doubt there's a single one of those out there.
+
+- =mrcal.hypothesis_corner_positions()= renamed to
+  [[file:mrcal-python-api-reference.html#-hypothesis_board_corner_positions][=mrcal.hypothesis_board_corner_positions()=]] and the API was updated in a
+  breaking way
+
+- =mrcal.lensmodel_metadata()= renamed to
+  [[file:mrcal-python-api-reference.html#-lensmodel_metadata_and_config][=mrcal.lensmodel_metadata_and_config()=]]
+
+- All the existing stereo processing functions were redone. Calls to
+
+  - =mrcal.stereo_rectify_prepare()=
+  - =mrcal.stereo_unproject()=
+  - =mrcal.stereo_range()=
+  - =mrcal.stereo_range()=
+
+  must be ported. See the [[file:python-api.org::#python-api-stereo][documentation]] for the new functions.
+
+- - =mrcal_transform_point_Rt()= and =mrcal_rotate_point_R()= C functions now
+  take an =inverted= argument. This is an API, ABI break
+
+- [[file:mrcal-python-api-reference.html#-synthesize_board_observations][=mrcal.synthesize_board_observations()=]] returns =Rt_ref_boardref=, not
+  =Rt_cam0_boardref=. The API didn't change, but the meaning of the output did
+
+- =mrcal_project_...()= and =mrcal_unproject_...()= functions now take =const
+  double* fxycxy= instead of 4 discrete =double= values
+
+- Similarly, the =mrcal.project_...()= and =mrcal.unproject_...()= functions now
+  take an =fxycxy= array instead of 4 discrete values
+
+- =mrcal_state_index_THING()= and =mrcal_num_states_THING()= (and their Python
+  flavors) return <0 and 0 respectively in C (and None and 0 respectively in
+  Python) in case the THING isn't actually being optimized
+
+- [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool: =--scale-axes= argument renamed to =--axis-scale=
+
+- [[file:mrcal-show-valid-intrinsics-region.html][=mrcal-show-valid-intrinsics-region=]] tool: =--writeimage= renamed to
+  =--write-image=
+
+- [[file:mrcal-python-api-reference.html#-apply_color_map][=mrcal.apply_color_map()=]] uses BGR, not RGB
+
+- [[file:mrcal-python-api-reference.html#-image_transformation_map][=mrcal.image_transformation_map()=]]: API extended in non-backwards-compatible
+  way
+
+- Some tools, functions have more consistent, better arguments at the expense of
+  breaking the API:
+  - [[file:mrcal-python-api-reference.html#-show_projection_diff][=mrcal.show_projection_diff()=]]
+  - [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]]
+  - [[file:mrcal-python-api-reference.html#-projection_diff][=mrcal.projection_diff()=]]
+  - [[file:mrcal-graft-models.html][=mrcal-graft-models=]] 
+
+- [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool: default is flipped, so =--hide-boards= option was
+  removed and a =--show-calobjects= option added
+
+- [[file:mrcal-python-api-reference.html#-synthesize_board_observations][=mrcal.synthesize_board_observations()=]] uses different strings for the =which=
+  argument: =_= -> =-=

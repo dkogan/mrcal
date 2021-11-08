@@ -25,8 +25,7 @@ pinhole model, and so on.
 
 * Documentation index
 ** Releases
-The current release is mrcal 2.0. See the [[file:roadmap.org][roadmap]] for the release notes,
-migration guides and planned improvements.
+The current release is [[file:news-2.0.org][mrcal 2.0]].
 
 ** Overview
 Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
