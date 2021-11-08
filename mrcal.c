@@ -4767,7 +4767,7 @@ void optimizer_callback(// input state
                                     { intrinsics_all[icam_intrinsics][Ncore + ivar + 0],
                                       intrinsics_all[icam_intrinsics][Ncore + ivar + 1] };
 
-#warning "Precompute uxy. This is lots of unnecessary computation in the inner loop"
+                                // WARNING: "Precompute uxy. This is lots of unnecessary computation in the inner loop"
                                 double uxy[] = { (double)(2*ix - Nx + 1),
                                                  (double)(2*iy - Ny + 1) };
                                 bool anisotropic = true;
