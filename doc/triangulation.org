@@ -381,7 +381,7 @@ range-to-point distribution.
 At this time I do not know how much this matters or what to do about it, but
 these limitations are good to keep in mind.
 
-* Object tracking
+* Applications
 Visual tracking of an object over time is one application that would benefit
 from a more complete error model of its input. Repeated noisy observations of a
 moving object $\vec q_{01}(t)$ can be triangulated into a noisy estimate of the
