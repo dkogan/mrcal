@@ -308,7 +308,7 @@ uncertainty of your calibrations by [[file:tour-choreography.org][dancing better
 ** Assumptions break down at infinity
 When propagating noise, mrcal makes the very common assumption that everything
 is locally linear. This makes things simple, and is right most of the time.
-However, when running the triangulation routines with near-parallel rays, his
+However, when running the triangulation routines with near-parallel rays, this
 assumptions can break down.
 
 Let's run another simulation, but observing a more distant point, with more
