@@ -47,3 +47,200 @@
   what the residuals tell us? If not, which is right? If a better method is
   found, the =observed_pixel_uncertainty= should come back as something the user
   passes in.
+
+- Can I quantify heteroscedasticity to detect model errors? In the [[file:tour-initial-calibration.org][tour of mrcal]]
+  the human observer can clear see patterns in the residuals. Can these patterns
+  be detected automatically to flag these issues, especially when they're small
+  and not entirely obvious? Do I want a [[https://en.wikipedia.org/wiki/White_test]["white test"]]?
+
+- The current projection uncertainty method works badly if given chessboards at
+  multiple different ranges from the camera. This is due to the aphysical
+  transform $T_{\mathrm{r}^+\mathrm{r}}$ computed as part of the [[file:uncertainty.org::#propagating-through-projection][uncertainty
+  computation]]. We can clear see this in the dance study:
+
+  #+begin_src sh
+  dance-study.py                          \
+    --scan num_far_constant_Nframes_near  \
+    --range 2,10                          \
+    --Ncameras 1                          \
+    --Nframes-near 100                    \
+    --observed-pixel-uncertainty 2        \
+    --ymax 2.5                            \
+    --uncertainty-at-range-sampled-max 35 \
+    opencv8.cameramodel
+  #+end_src
+
+  This tells us that adding /any/ observations at 10m to the bulk set at 2m
+  makes the projection uncertainty /worse/. One could expect no improvement from
+  the far-off observations, but they shouldn't break anything. The issue is the
+  averaging in 3D point space. Observation noise causes the far-off geometry to
+  move much more than the nearby chessboards, and that far-off motion then
+  dominates the average. Some experimental fixes are implemented in
+  [[https://www.github.com/dkogan/mrcal/blob/master/test/test-projection-uncertainty.py][=test/test-projection-uncertainty.py=]]. For instance:
+
+  #+begin_src sh
+  test/test-projection-uncertainty.py \
+    --fixed cam0                      \
+    --model opencv4                   \
+    --show-distribution               \
+    --explore                         \
+    --reproject-perturbed             \
+    mean-frames-using-meanq-penalize-big-shifts
+  #+end_src
+
+  It is important to solve this to be able to clearly say if non-closeup
+  observations are useful at all or not.
+
+  Potential solution: weigh the mean using the state covariance of each frame
+  pose. This would still end up with an aphysical uncertainty, but could be a
+  simple solution to the one-far-observation-breaks-uncertainty problem.
+
+  Another potential solution: solve for $T_{\mathrm{r}^+\mathrm{r}}$ directly.
+  We have a solve that minimizes the reprojection error $\left\Vert\vec q -
+  \mathrm{project}\left(T_\mathrm{cr} T_\mathrm{rf} \vec
+  p_{\mathrm{frame}}\right)\right\Vert^2$ and another one that looks at
+  perturbed quantities $\left\Vert\vec q^+ -
+  \mathrm{project}^+\left(T_{\mathrm{c}^+\mathrm{r}^+}
+  T_{\mathrm{r}^+\mathrm{f}^+} \vec p_{\mathrm{frame}}\right)\right\Vert^2$. Can
+  I cross these to find the $T_{\mathrm{r}^+\mathrm{r}}$ that minimizes
+  $\left\Vert\vec q^+ - \mathrm{project}^+\left(T_{\mathrm{c}^+\mathrm{r}^+}
+  T_{\mathrm{r}^+\mathrm{r}} T_\mathrm{rf} \vec
+  p_{\mathrm{frame}}\right)\right\Vert^2$
+
+- Currently I have a routine to compute projection uncertainty. And a separate
+  routine to compute triangulation uncertainty. It would be nice to have a
+  generic monocular uncertainty routine that is applicable to those and more
+  cases. Should I be computing the uncertainty of a stabilized, normalized
+  stereographic projection of $\mathrm{unproject}\left(\vec q\right)$? Then I
+  could do monocular tracking with uncertainties. Can I derive the existing
+  uncertainty methods from that one?
+
+- As noted on the [[file:triangulation.org::#triangulation-problems-as-infinity][triangulation page]], some distributions become non-gaussian
+  when looking at infinity. Is this a problem? When is it a problem? Should it
+  be fixed? How?
+
+- When asked to compute the uncertainty of many pixels at once (such as what
+  [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool does), mrcal currently computes a
+  separate $T_{\mathrm{r}^+\mathrm{r}}$ for each pixel. But there exists only
+  one $T_{\mathrm{r}^+\mathrm{r}}$, and this should be computed once for all
+  pixels, and applied to all of them.
+
+- As desired, we currently report high uncertainties in imager regions with no
+  chessboards. When using a splined model, the projection in those regions is
+  controlled entirely by the regularization terms, so we report high
+  uncertainties there only because of the moving extrinsics. This isn't a great
+  thing to rely on, and could break if I have some kind of surveyed calibration
+  (known chessboard and/or camera poses).
+
+- Currently we are able to compute projection uncertainties only when given a
+  vanilla calibration problem: stationary cameras are observing a moving
+  chessboard. We should support more cases, for instance structure-from-motion
+  coupled with intrinsics optimization
+
+*** Differencing
+Fitting of the implied transformation is key to computing a diff, and various
+details about how this is done could be improved. Currently mrcal computes this
+form a fit. The default behavior of [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] is to use the
+whole imager, using the uncertainties as weights. This has two problems:
+
+- If using a splined model, this is slow
+- If using a lean model, the overly-optimistic uncertainties you get from lean
+  models tend to poison the fit, as seen in the [[file:differencing.org::#fit-weighting][documentation]].
+
+*** [[file:lensmodels.org::#splined-stereographic-lens-model][Splined models]]
+- It's currently not clear how to choose the spline order (the =order=
+  configuration parameter) and the spline density (the =Nx= and =Ny=
+  parameters). There's some trade-off here: a quadratic spline needs denser
+  knots. In the [[file:tour-uncertainty.org::#splined-model-uncertainties][tour of mrcal]] we saw that uncertainty is highest at the knots.
+  Can this be used to select the best spline configuration?
+
+- In the [[file:tour-uncertainty.org::#splined-model-uncertainties][tour of mrcal]] we saw that uncertainty oscillates, with peaks at the
+  knots. The causes and implications of this need to be understood better
+
+- The current regularization scheme is iffy. More or less mrcal is using simple
+  L2 regularization. /Something/ is required to tell the solver what to do in
+  regions of no data. The transition between "data" and "no-data" regions is
+  currently aphysical, as described in the [[file:lensmodels.org::#splined-non-monotonicity][documentation]]. Changing the
+  regularization scheme to pull towards the mean, and not towards 0 /could/
+  possibly fix this. An [[https://github.com/dkogan/mrcal/commit/c8f9918023142d7ee463821661dc5bcc8f770b51][earlier attempt]] to do thatwas reverted because any
+  planar splined surface would have "perfect" regularization, and that was
+  breaking things (crazy focal lengths would be picked). But now that I'm
+  locking down the intrinsics core when optimizing splined models, this isn't a
+  problem anymore, so maybe that approach should be revisited.
+
+*** Outlier rejection
+- The current outlier-rejection scheme is simplistic. A smarter approach is
+  available in [[https://github.com/dkogan/libdogleg/][=libdogleg=]] (Cook's D and Dima's variations on that). Bringing
+  those in could be good
+
+- Outlier rejection is currently only enabled for chessboard observations.
+  It shoudl be enabled for discrete points as well
+
+*** Stereo
+- A pre-filter should be added to the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool to enhance the edges
+  prior to stereo matching. A patch to add an early, untested prototype:
+
+  #+begin_src diff
+diff --git a/mrcal/stereo.py b/mrcal/stereo.py
+index 6ba3549..7a6eabc 100644
+--- a/mrcal/stereo.py
++++ b/mrcal/stereo.py
+@@ -1276,5 +1276,22 @@ data_tuples, plot_options. The plot can then be made with gp.plot(*data_tuples,
+                q0[ 0,-1],
+                q0[-1,-1] )
+ 
++    image1 = image1.astype(np.float32)
++    image1 -= \
++        cv2.boxFilter(image1,
++                      ddepth     = -1,
++                      ksize      = tuple(template_size1),
++                      normalize  = True,
++                      borderType = cv2.BORDER_REPLICATE)
++    template_size0 = (round(np.max(q0[...,1]) - np.min(q0[...,1])),
++                      round(np.max(q0[...,0]) - np.min(q0[...,0])))
++    # I don't need to mean-0 the entire image0. Just the template will do
++    image0 = image0.astype(np.float32)
++    image0 -= \
++        cv2.boxFilter(image0,
++                      ddepth     = -1,
++                      ksize      = template_size0,
++                      normalize  = True,
++                      borderType = cv2.BORDER_REPLICATE)
+     image0_template = mrcal.transform_image(image0, q0)
+ 
+  #+end_src
+
+- Currently a stereo pair arranged axially (one camera in front of the other)
+  cause mrcal to fail. But it could work: the rectified images are similar to a
+  polar transform of the input.
+
+*** [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool
+This tool should be able to fit a rotation only /without/ a translation.
+Otherwise I can get huge axial motions when trying to fit models from long
+lenses.
+
+** Software
+*** Stereo
+- The [[file:mrcal-stereo.html][=mrcal-stereo=]] tool should be able to estimate the field of view
+  automatically: the user should not be required to pass =--az-fov-deg= and
+  =--el-fov-deg=
+- The [[file:mrcal-stereo.html][=mrcal-stereo=]] tool should have a graphical, interactive mode to visualize
+  epipolar line alignment, ranges and triangulation sensitivity
+- Some sort of stereo "unproject" function should still exist to generate point
+  clouds from stereo results. Today this would be implemented like
+
+  #+begin_src python
+mrcal.unproject(meshgrid(), normalized=True) *
+nps.dummy(mrcal.stereo_range(), axis=-1)
+  #+end_src
+
+  but this is ugly and slow. A dedicated function could do better.
+
+- Some internal routines could be implemented in C. Compatible implementations
+  are available, but they need to be merged
+
+*** Uncertainty
+- Currently [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]] broadcasts nicely, while
+  [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] does not. It would be nice if it did and if
+  its API resembled that of [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]]
+
