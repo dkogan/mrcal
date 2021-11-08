@@ -90,8 +90,8 @@ listed here
 
 - Added [[file:mrcal-python-api-reference.html#-num_states][=mrcal.num_states()=]], [[file:mrcal-python-api-reference.html#-num_intrinsics_optimization_params][=mrcal.num_intrinsics_optimization_params()=]]
 
-- New [[file:lensmodels.org::#representation][lensmodel metadata property]]: =has_gradients=. Currently only CAHVORE has
-  this at =False=
+- New [[file:lensmodels.org::#representation][lensmodel metadata property]]: =has_gradients=. Currently only
+  [[file:lensmodels.org::#lensmodel-cahvore][=LENSMODEL_CAHVORE=]] has this at =False=
 
 - [[file:mrcal-python-api-reference.html#-transform_image][=mrcal.transform_image()=]] supports more of the opencv api, like inplace output
 
@@ -146,9 +146,10 @@ change, so please still read this section.
 
 - =mrcal.show_projection_uncertainty_xydist()= was removed. It wasn't useful
 
-- CAHVORE lens models: =linearity= is a configuration parameter, /not/ an
-  optimization parameter. All existing [[file:cameramodels.org][=.cameramodel=]] files containing CAHVORE
-  models must be ported. I doubt there's a single one of those out there.
+- [[file:lensmodels.org::#lensmodel-cahvore][=LENSMODEL_CAHVORE=]] lens models: =linearity= is a configuration parameter,
+  /not/ an optimization parameter. All existing [[file:cameramodels.org][=.cameramodel=]] files containing
+  [[file:lensmodels.org::#lensmodel-cahvore][=LENSMODEL_CAHVORE=]] models must be ported. I doubt there's a single one of
+  those out there.
 
 - =mrcal.hypothesis_corner_positions()= renamed to
   [[file:mrcal-python-api-reference.html#-hypothesis_board_corner_positions][=mrcal.hypothesis_board_corner_positions()=]] and the API was updated in a
