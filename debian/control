@@ -1,7 +1,7 @@
 Source: mrcal
 Priority: optional
 Section: devel
-Build-Depends: debhelper (>= 9), dh-python,
+Build-Depends: debhelper (>= 10), dh-python,
  libdogleg-dev (>= 0.15.4),
  libsuitesparse-dev (>= 1:4.5.2),
  pkg-config,
