@@ -24,9 +24,6 @@ assumed to follow simple parametric models, rectified stereo isn't done with a
 pinhole model, and so on.
 
 * Documentation index
-** Releases
-The current release is [[file:news-2.0.org][mrcal 2.0]].
-
 ** Overview
 Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
 toolkit.
@@ -63,6 +60,10 @@ two sets programmatic interfaces available:
 
 - [[file:c-api.org][The C API to provide a set of core functionality]]
 - [[file:python-api.org][The Python API to do that and a whole lot more]]
+
+** Releases
+A version history, release notes, and the planned roadmap are available on the
+[[file:versions.org][releases]] page.
 
 * Citing
 To cite this work in a publication, use this bibtex stanza:
