@@ -9,6 +9,7 @@ I currently distribute packages for
 
 - Debian/sid
 - Debian/buster
+- Debian/bullseye
 - Ubuntu/focal (20.04 LTS)
 - Ubuntu/bionic (18.04 LTS)
 
@@ -22,6 +23,7 @@ where =DISTRO= is one of
 
 - =sid=
 - =buster=
+- =bulleye=
 - =focal=
 - =bionic=
 
@@ -81,7 +83,7 @@ CFLAGS=-I$LIBDOGLEGDIR LDFLAGS="-L$LIBDOGLEGDIR -Wl,-rpath=$LIBDOGLEGDIR"  make
 If that works, the test suite should all pass:
 
 #+begin_src sh
-make test
+make test-nosampling
 #+end_src
 
 If stuff doesn't work, feel free to bug me. But you /really/ should be using the
