@@ -616,7 +616,7 @@ The previous radial pattern is much less pronounced, but it still there.
 
 A sneak peek: this is caused by an assumption of a central projection (assuming
 that all rays intersect at a single point). An experimental and
-not-entirely-complete [[https://github.com/dkogan/mrcal/commit/26db52c48eab3d027316a28b210385775601d0cf][support for noncentral projection in mrcal exists]], and
+not-entirely-complete [[https://github.com/dkogan/mrcal/tree/noncentral][support for noncentral projection in mrcal exists]], and
 works /much/ better. The same frame, fitted with a noncentral projection:
 
 #+begin_src sh :exports none :eval no-export

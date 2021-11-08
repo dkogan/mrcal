@@ -306,6 +306,9 @@ correlations. To reduce these correlations and the biases they cause: lower the
 uncertainty of your calibrations by [[file:tour-choreography.org][dancing better]]
 
 ** Assumptions break down at infinity
+:PROPERTIES:
+:CUSTOM_ID: triangulation-problems-as-infinity
+:END:
 When propagating noise, mrcal makes the very common assumption that everything
 is locally linear. This makes things simple, and is right most of the time.
 However, when running the triangulation routines with near-parallel rays, this

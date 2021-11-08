@@ -49,14 +49,14 @@
   passes in.
 
 - Can I quantify heteroscedasticity to detect model errors? In the [[file:tour-initial-calibration.org][tour of mrcal]]
-  the human observer can clear see patterns in the residuals. Can these patterns
-  be detected automatically to flag these issues, especially when they're small
-  and not entirely obvious? Do I want a [[https://en.wikipedia.org/wiki/White_test]["white test"]]?
+  the human observer can clearly see patterns in the residuals. Can these
+  patterns be detected automatically to flag these issues, especially when
+  they're small and not entirely obvious? Do I want a [[https://en.wikipedia.org/wiki/White_test]["white test"]]?
 
 - The current projection uncertainty method works badly if given chessboards at
   multiple different ranges from the camera. This is due to the aphysical
   transform $T_{\mathrm{r}^+\mathrm{r}}$ computed as part of the [[file:uncertainty.org::#propagating-through-projection][uncertainty
-  computation]]. We can clear see this in the dance study:
+  computation]]. We can clearly see this in the dance study:
 
   #+begin_src sh
   dance-study.py                          \
