@@ -104,7 +104,6 @@
         _P1(vout,vout_stride0,1) = outcopy[1];                          \
         _P1(vout,vout_stride0,2) = outcopy[2];                          \
     } while(0)
-#warning the above didnt fix any tests
 
 // row vectors: vout = scale*matmult(v,M)
 #define mul_vec3_gen33_vaccum_scaled_full(vout, vout_stride0,           \
@@ -130,7 +129,6 @@
         _P1(vout,vout_stride0,1) = outcopy[1];                          \
         _P1(vout,vout_stride0,2) = outcopy[2];                          \
     } while(0)
-#warning did nt fix
 
 // multiply two (3,3) matrices
 static inline
