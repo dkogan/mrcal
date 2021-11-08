@@ -60,7 +60,6 @@ Description: Calibration and SFM library
 Package: python3-mrcal
 Section: python
 Architecture: any
-Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmrcal2 (= ${binary:Version}),
          ${python3:Depends},
          python3-gnuplotlib (>= 0.38-1), python3-numpysane (>= 0.35),
