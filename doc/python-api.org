@@ -113,6 +113,10 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 - [[file:mrcal-python-api-reference.html#-is_within_valid_intrinsics_region][=mrcal.is_within_valid_intrinsics_region()=]]: Which of the pixel coordinates fall within the valid-intrinsics region?
 
 * Stereo, triangulation, feature-matching
+:PROPERTIES:
+:CUSTOM_ID: python-api-stereo
+:END:
+
 - [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]]: Generate rectified stereo models, which we can use
   to rectify images for stereo matching
 - [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]]: Construct pixel mappings to transform captured
