@@ -75,7 +75,7 @@ The output is returned in a tuple:
     J_numpy      = J_sparse.toarray()
     mrcal.pack_state(J_numpy, **optimization_inputs)
 
-  Note that we're calling pack_state() intead of unpack_state() because the
+  Note that we're calling pack_state() instead of unpack_state() because the
   packed variables are in the denominator
 
 - factorization: a Cholesky factorization of JtJ in a

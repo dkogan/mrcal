@@ -139,7 +139,7 @@ def parse_args():
                         help='''The resolution of the rectified images. This is
                         either a whitespace-less, comma-separated list of two
                         values (az,el) or a single value to be applied to both
-                        axes. If a resultion of >0 is requested, the value is
+                        axes. If a resolution of >0 is requested, the value is
                         used as is. If a resolution of <0 is requested, we use
                         this as a scale factor on the resolution of the input
                         image. For instance, to downsample by a factor of 2,

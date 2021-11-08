@@ -108,7 +108,7 @@ def parse_args():
                         particular distance (set by this argument) from the
                         camera. Set this to the distance that is expected to be
                         most confident for the given cameramodel. Points at
-                        infinity aren't explicity supported: specify a high
+                        infinity aren't explicitly supported: specify a high
                         distance instead''')
     parser.add_argument('--intrinsics-only',
                         action='store_true',

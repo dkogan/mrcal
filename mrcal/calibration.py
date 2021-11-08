@@ -535,7 +535,7 @@ camera coordinate system FROM the calibration object coordinate system.
     # length than the stereographic one the user passed. This really shouldn't
     # be hard-coded, and I should only adjust if observations would be thrown
     # away. And REALLY I should be using a flavor of solvePnP that uses
-    # observation vectors intead of pinhole pixel observations
+    # observation vectors instead of pinhole pixel observations
 
 
     # I'm given models. I remove the distortion so that I can pass the data
