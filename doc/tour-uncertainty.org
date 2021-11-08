@@ -301,8 +301,8 @@ uncertainty reports.
 
 Note that in addition to being higher, the uncertainties from the splined model
 don't look smooth. Let's make the same uncertainty plot as above, but let's scan
-across the imager at y = height/2. To do this we need to write a bit of Python
-code:
+across the imager at $y = \frac{\mathrm{height}}{2}$. To do this we need to
+write a bit of Python code:
 
 #+begin_src python
 #!/usr/bin/python3
