@@ -1,3 +1,9 @@
+mrcal (2.0) buster; urgency=medium
+
+  * New release
+
+ -- Dima Kogan <dima@secretsauce.net>  Mon, 08 Nov 2021 02:01:34 -0800
+
 mrcal (1.0.1) unstable; urgency=medium
 
   * Public release!
