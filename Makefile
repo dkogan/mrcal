@@ -8,7 +8,7 @@ TAIL_VERSION := 0
 
 # Custom version from git (or from debian/changelog if no git repo available)
 _VERSION = $(shell test -d .git && \
-  git describe --tags | sed 's/^.*\///' || \
+  git describe --tags | sed 's/^.*\///' | sed 's/^v//g' || \
   < debian/changelog sed -n 's/.*(\([0-9\.]*[0-9]\).*).*/\1/; p; q;')
 # Memoize. $(VERSION) will evaluate the result the first time, and use the
 # cached result during subsequent calls
