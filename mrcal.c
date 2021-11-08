@@ -5291,6 +5291,8 @@ mrcal_optimize( // out
             ctx.Nmeasurements, Nstate);
     }
 
+    // WARNING: is it reasonable to put this on the stack? Can I use
+    // p_packed_final for this?
     double packed_state[Nstate];
     pack_solver_state(packed_state,
                       lensmodel, intrinsics,
@@ -5319,6 +5321,7 @@ mrcal_optimize( // out
 
         if(verbose)
         {
+            // WARNING: I will never hook these up. Get rid of reportFitMsg?
             ctx.reportFitMsg = "Before";
             //        optimizer_callback(packed_state, NULL, NULL, &ctx);
         }
