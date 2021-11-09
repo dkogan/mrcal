@@ -37,7 +37,7 @@
   model will make mrcal less sensitive to imperfect chessboards, and will reduce
   that source of bias
 
-* Things that should be fixed, but that I'm not actively thinking about
+* Things that should be fixed, but that I'm not actively thinking about today
 ** Algorithmic
 *** Uncertainty quantification
 - The input noise should be characterized better. Currently we use the
@@ -107,18 +107,6 @@
   T_{\mathrm{r}^+\mathrm{r}} T_\mathrm{rf} \vec
   p_{\mathrm{frame}}\right)\right\Vert^2$
 
-- Currently I have a routine to compute projection uncertainty. And a separate
-  routine to compute triangulation uncertainty. It would be nice to have a
-  generic monocular uncertainty routine that is applicable to those and more
-  cases. Should I be computing the uncertainty of a stabilized, normalized
-  stereographic projection of $\mathrm{unproject}\left(\vec q\right)$? Then I
-  could do monocular tracking with uncertainties. Can I derive the existing
-  uncertainty methods from that one?
-
-- As noted on the [[file:triangulation.org::#triangulation-problems-as-infinity][triangulation page]], some distributions become non-gaussian
-  when looking at infinity. Is this a problem? When is it a problem? Should it
-  be fixed? How?
-
 - When asked to compute the uncertainty of many pixels at once (such as what
   [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool does), mrcal currently computes a
   separate $T_{\mathrm{r}^+\mathrm{r}}$ for each pixel. But there exists only
@@ -146,6 +134,19 @@ whole imager, using the uncertainties as weights. This has two problems:
 - If using a splined model, this is slow
 - If using a lean model, the overly-optimistic uncertainties you get from lean
   models tend to poison the fit, as seen in the [[file:differencing.org::#fit-weighting][documentation]].
+
+*** Triangulation
+- Currently I have a routine to compute projection uncertainty. And a separate
+  routine to compute triangulation uncertainty. It would be nice to have a
+  generic monocular uncertainty routine that is applicable to those and more
+  cases. Should I be computing the uncertainty of a stabilized, normalized
+  stereographic projection of $\mathrm{unproject}\left(\vec q\right)$? Then I
+  could do monocular tracking with uncertainties. Can I derive the existing
+  uncertainty methods from that one?
+
+- As noted on the [[file:triangulation.org::#triangulation-problems-as-infinity][triangulation page]], some distributions become non-gaussian
+  when looking at infinity. Is this a problem? When is it a problem? Should it
+  be fixed? How?
 
 *** [[file:lensmodels.org::#splined-stereographic-lens-model][Splined models]]
 - It's currently not clear how to choose the spline order (the =order=
