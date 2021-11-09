@@ -34,7 +34,7 @@ listed here
   ready for prime time. Solver now applies anisotropic regularization to reduce
   curl in the correction vector field, so the solved models now act mostly
   radially. The [[file:mrcal-show-splined-model-correction.html][=mrcal-show-splined-model-correction=]] tool extended, and
-  produces clearer plots. These models work well. Use them,.
+  produces clearer plots. These models work well. Use them.
 
 - The =observed_pixel_uncertainty= is now estimated from the optimized residuals
   instead of being specified explicitly. The reported uncertainties should now
