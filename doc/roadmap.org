@@ -140,7 +140,7 @@
 *** Differencing
 Fitting of the implied transformation is key to computing a diff, and various
 details about how this is done could be improved. Currently mrcal computes this
-form a fit. The default behavior of [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] is to use the
+from a fit. The default behavior of [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] is to use the
 whole imager, using the uncertainties as weights. This has two problems:
 
 - If using a splined model, this is slow
