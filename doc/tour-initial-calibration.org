@@ -53,6 +53,10 @@ D=~/projects/mrcal-doc-external
 [[file:external/figures/calibration/mrgingham-coverage.png]]
 
 Looks like we did OK. It's a bit thin along the bottom edge, but not terrible.
+Visualizing the observations in this way is useful, but not completely
+necessary, since thing observations will clearly result in poor projection
+uncertainty; [[file:tour-uncertainty.org][much more on that later]].
+
 For an arbitrary image we can visualize at the corner detections:
 
 #+begin_example
