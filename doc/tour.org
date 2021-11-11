@@ -1,7 +1,7 @@
 #+title: A tour of mrcal
 #+OPTIONS: toc:nil
 
-mrcal is a photogrammery toolkit that provides improved methods for making and
+mrcal is a photogrammetry toolkit that provides improved methods for making and
 using camera models (calibration, tracking, mapping, etc). Currently the focus
 is on calibration and uncertainty propagation, but more methods will be added
 with time.
