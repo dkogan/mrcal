@@ -13,8 +13,8 @@ data, scans a parameter, and produces the uncertainty-vs-range curves at the
 imager center to visualize the effect of that parameter.
 
 I run all of these studies using the =LENSMODEL_OPENCV8= model computed above.
-It computes faster than the splined model, and qualitatively produces the
-similar results.
+It computes faster than the splined model, and qualitatively produces similar
+results.
 
 How many chessboard observations should we get?
 
