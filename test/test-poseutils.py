@@ -98,4 +98,23 @@ testutils.confirm_equal( mrcal.R_from_quat( mrcal.quat_from_R(R) ),
                          R,
                          msg = 'quaternion stuff')
 
+for th in (1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6):
+    c,s = np.cos(th), np.sin(th)
+    rtiny = np.array((0, th, 0))
+    Rtiny = np.array((( c, 0, s),
+                      ( 0, 1, 0),
+                      (-s, 0, c)))
+
+    testutils.confirm_equal( mrcal.R_from_r(rtiny),
+                             Rtiny,
+                             worstcase = True,
+                             eps = 1e-13,
+                             msg = f'R_from_r() for tiny rotations: th = {th}')
+    testutils.confirm_equal( mrcal.r_from_R(Rtiny),
+                             rtiny,
+                             worstcase = True,
+                             eps = 1e-13,
+                             msg = f'r_from_R() for tiny rotations: th = {th}')
+
+
 testutils.finish()
