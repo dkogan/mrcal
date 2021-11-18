@@ -11,7 +11,6 @@ import numpy as np
 import numpysane as nps
 import sys
 import re
-import cv2
 import os
 import mrcal
 
@@ -2473,6 +2472,8 @@ None. The input image array is modified
 
     if valid_intrinsics_region is None:
         raise Exception("The given model has no valid-intrinsics region defined")
+
+    import cv2
 
     if valid_intrinsics_region.size == 0:
         cv2.circle( image, tuple((model.imagersize() - 1)//2), 10, color, -1)

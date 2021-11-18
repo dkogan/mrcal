@@ -11,7 +11,6 @@ import numpy as np
 import numpysane as nps
 import sys
 import re
-import cv2
 import mrcal
 
 def compute_chessboard_corners(Nw, Nh,
@@ -521,6 +520,8 @@ An array of shape (Nobservations,4,3). Each slice is an Rt transformation TO the
 camera coordinate system FROM the calibration object coordinate system.
 
     """
+
+    import cv2
 
     # None: don't store failures. Throw exception. This is the usual path
     # string: store failing cases to use in the test suite
@@ -1403,6 +1404,8 @@ method of modeling projection reliability, which can be used even if projection
 uncertainty cannot be computed.
 
     '''
+
+    import cv2
 
     W,H = model.imagersize()
     if gridn_height is None:
