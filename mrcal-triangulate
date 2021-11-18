@@ -253,7 +253,6 @@ else:
 
 
 import numpysane as nps
-import cv2
 
 import mrcal
 import mrcal.utils
@@ -387,6 +386,7 @@ np.set_printoptions(precision = 3,
 
 
 if images is not None:
+    import cv2
     images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in images]
 
 models = [mrcal.cameramodel(m) for m in args.models]

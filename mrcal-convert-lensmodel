@@ -171,7 +171,6 @@ args = parse_args()
 
 import numpy as np
 import numpysane as nps
-import cv2
 import time
 import copy
 
