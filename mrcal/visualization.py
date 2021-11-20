@@ -972,12 +972,12 @@ A tuple:
             if vectorfield:
                 # 2d plot
                 plot_data_args.append( (valid_region0[:,0], valid_region0[:,1],
-                                        dict(_with = 'lines lw 3',
+                                        dict(_with = 'lines lw 4 lc "green"',
                                              legend = "valid region of 1st camera")) )
             else:
                 # 3d plot
                 plot_data_args.append( (valid_region0[:,0], valid_region0[:,1], valid_region0[:,0]*0,
-                                        dict(_with = 'lines lw 3 nocontour',
+                                        dict(_with = 'lines lw 4 lc "green" nocontour',
                                              legend = "valid region of 1st camera")) )
 
         valid_region1 = models[1].valid_intrinsics_region()
@@ -1000,12 +1000,12 @@ A tuple:
         if vectorfield:
             # 2d plot
             plot_data_args.append( (valid_region1[:,0], valid_region1[:,1],
-                                    dict(_with = 'lines lw 3',
+                                    dict(_with = 'lines lw 3 lc "gray80"',
                                          legend = "valid region of 2nd camera")) )
         else:
             # 3d plot
             plot_data_args.append( (valid_region1[:,0], valid_region1[:,1], valid_region1[:,0]*0,
-                                    dict(_with = 'lines lw 3 nocontour',
+                                    dict(_with = 'lines lw 3 lc "gray80" nocontour',
                                          legend = "valid region of 2nd camera")) )
 
     if observations:
@@ -1269,7 +1269,7 @@ plot
         plot_data_args.append( (valid_intrinsics_region[:,0],
                                 valid_intrinsics_region[:,1],
                                 np.zeros(valid_intrinsics_region.shape[-2]),
-                                dict(_with  = 'lines lw 3 nocontour',
+                                dict(_with  = 'lines lw 4 lc "green" nocontour',
                                      legend = "Valid-intrinsics region")) )
 
     if observations:
@@ -1960,7 +1960,7 @@ A tuple:
             kwargs['rgbimage'] = image
 
     plot_data_args.extend( (r[:,0], r[:,1],
-                            dict(_with = 'lines lw 3',
+                            dict(_with = 'lines lw 4 lc "green"',
                                  legend = cameranames[i])) \
                            for i,r in enumerate(valid_regions) )
 
@@ -2310,7 +2310,7 @@ plot
 
     plot_data_tuples_boundaries = \
         ( ( imager_boundary,
-            dict(_with     = 'lines lw 2',
+            dict(_with     = 'lines lw 2 lc "green"',
                  tuplesize = -2,
                  legend    = 'Valid-intrinsics region' if valid_intrinsics_region else 'Imager boundary')),
           ( domain_contour,
@@ -2946,12 +2946,12 @@ def _get_show_residuals_data_onecam(model,
             (valid_region[:,0],
              valid_region[:,1],
              np.zeros(valid_region.shape[-2]),
-             dict(_with  = 'lines lw 3',
+             dict(_with  = 'lines lw 4 lc "green"',
                   legend = legend))
         valid_intrinsics_region_plotarg_2d = \
             (valid_region[:,0],
              valid_region[:,1],
-             dict(_with  = 'lines lw 3',
+             dict(_with  = 'lines lw 4 lc "green"',
                   legend = legend))
     else:
         valid_intrinsics_region_plotarg_2d = None
