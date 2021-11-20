@@ -2426,7 +2426,7 @@ plot
     return (data_tuples, plot_options)
 
 
-def annotate_image__valid_intrinsics_region(image, model, color=(0,0,255)):
+def annotate_image__valid_intrinsics_region(image, model, color=(0,255,0)):
     r'''Annotate an image with a model's valid-intrinsics region
 
 SYNOPSIS
@@ -2461,7 +2461,7 @@ ARGUMENTS
   input and an output
 
 - color: optional tuple of length 3 indicating the BGR color of the annotation.
-  Red by default
+  Green by default
 
 RETURNED VALUES
 
