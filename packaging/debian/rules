@@ -1,13 +1,5 @@
 #!/usr/bin/make -f
 
-# Needed for cross-building:
-#
-#   https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=853881
-#
-# According to the report, debhelper 10 supports this already, but I'd like to
-# be compatible with older distros for now, so I still set this manually
-export PKG_CONFIG := $(DEB_HOST_GNU_TYPE)-pkg-config
-
 %:
 	dh $@ --with python3
 
