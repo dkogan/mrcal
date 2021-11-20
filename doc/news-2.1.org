@@ -1,0 +1,37 @@
+#+TITLE: mrcal 2.1 release notes
+#+OPTIONS: toc:nil
+
+#+begin_src emacs-lisp :exports none :eval no-export
+(progn
+  (defun insert-function (f)
+    (interactive (list (read-string "Function: ")))
+    (insert (format "[[file:mrcal-python-api-reference.html#-%1$s][=mrcal.%1$s()=]]"
+                    f)))
+
+  (defun insert-tool (f)
+    (interactive (list (read-string "Tool: ")))
+    (insert (format "[[file:%1$s.html][=%1$s=]]"
+                    f)))
+
+  (local-set-key (kbd "<f1>") 'insert-function)
+  (local-set-key (kbd "<f2>") 'insert-tool))
+#+end_src
+
+* New in mrcal 2.1
+This is a /very/ minor release, made primarily to facilitate the push to Debian.
+Updates:
+
+- Lots of minor documentation improvements. These appear on [[http://mrcal.secretsauce.net][the website]]
+- Visualization functions use more legible colors to display the
+  valid-intrinsics region
+- Python library imports =cv2= only where necessary, which dramatically speeds
+  up all the tools where =cv2= isn't used
+- [[file:mrcal-python-api-reference.html#-r_from_R][=mrcal.r_from_R()=]] works better with small rotations. Near-identity rotations
+  now report correspondingly-small =r=, rather than 0
+
+* Migration notes 2.0 -> 2.1
+This is a /very/ minor release, and is 99.9% compatible. The only incompatible
+update:
+
+- [[file:mrcal-python-api-reference.html#-annotate_image__valid_intrinsics_region][=mrcal.annotate_image__valid_intrinsics_region()=]] draws in green by default
+  for consistency with other functions
