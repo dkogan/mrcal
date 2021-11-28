@@ -123,8 +123,8 @@
 - Currently we are able to compute projection uncertainties only when given a
   vanilla calibration problem: stationary cameras are observing a moving
   chessboard. We should support more cases, for instance structure-from-motion
-  coupled with intrinsics optimization
-
+  coupled with intrinsics optimization. And computing uncertainty from a
+  points-only chessboard-less solve should be possible
 *** Differencing
 Fitting of the implied transformation is key to computing a diff, and various
 details about how this is done could be improved. Currently mrcal computes this
