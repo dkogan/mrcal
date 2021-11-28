@@ -82,7 +82,7 @@ SYNOPSIS
         mrcal.unproject_latlon(q, models_rectified[0].intrinsics()[1]) * \
         nps.dummy(ranges, axis=-1)
 
-    Rt_cam0_rect0 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+    Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
                                       models_rectified[0].extrinsics_Rt_toref() )
 
     # Point cloud in camera-0 coordinates
