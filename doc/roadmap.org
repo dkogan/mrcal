@@ -152,8 +152,8 @@ whole imager, using the uncertainties as weights. This has two problems:
 - It's currently not clear how to choose the spline order (the =order=
   configuration parameter) and the spline density (the =Nx= and =Ny=
   parameters). There's some trade-off here: a quadratic spline needs denser
-  knots. In the [[file:tour-uncertainty.org::#tour-uncertainty-splined-model-uncertainties][tour of mrcal]] we saw that uncertainty is highest at the knots.
-  Can this be used to select the best spline configuration?
+  knots. An initial study of the effects of spline spacings appears [[file:splined-models.org::#splined-models-uncertainty-wiggles][here]]. Can
+  this be used to select the best spline configuration? p
 
 - In the [[file:tour-uncertainty.org::#tour-uncertainty-splined-model-uncertainties][tour of mrcal]] we saw that uncertainty oscillates, with peaks at the
   knots. The causes and implications of this need to be understood better
