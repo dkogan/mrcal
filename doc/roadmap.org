@@ -148,20 +148,20 @@ whole imager, using the uncertainties as weights. This has two problems:
   when looking at infinity. Is this a problem? When is it a problem? Should it
   be fixed? How?
 
-*** [[file:lensmodels.org::#splined-stereographic-lens-model][Splined models]]
+*** [[file:splined-models.org][Splined models]]
 - It's currently not clear how to choose the spline order (the =order=
   configuration parameter) and the spline density (the =Nx= and =Ny=
   parameters). There's some trade-off here: a quadratic spline needs denser
-  knots. In the [[file:tour-uncertainty.org::#splined-model-uncertainties][tour of mrcal]] we saw that uncertainty is highest at the knots.
+  knots. In the [[file:tour-uncertainty.org::#tour-uncertainty-splined-model-uncertainties][tour of mrcal]] we saw that uncertainty is highest at the knots.
   Can this be used to select the best spline configuration?
 
-- In the [[file:tour-uncertainty.org::#splined-model-uncertainties][tour of mrcal]] we saw that uncertainty oscillates, with peaks at the
+- In the [[file:tour-uncertainty.org::#tour-uncertainty-splined-model-uncertainties][tour of mrcal]] we saw that uncertainty oscillates, with peaks at the
   knots. The causes and implications of this need to be understood better
 
 - The current regularization scheme is iffy. More or less mrcal is using simple
   L2 regularization. /Something/ is required to tell the solver what to do in
   regions of no data. The transition between "data" and "no-data" regions is
-  currently aphysical, as described in the [[file:lensmodels.org::#splined-non-monotonicity][documentation]]. Changing the
+  currently aphysical, as described in the [[file:splined-models.org::#splined-non-monotonicity][documentation]]. Changing the
   regularization scheme to pull towards the mean, and not towards 0 /could/
   possibly fix this. An [[https://github.com/dkogan/mrcal/commit/c8f9918023142d7ee463821661dc5bcc8f770b51][earlier attempt]] to do thatwas reverted because any
   planar splined surface would have "perfect" regularization, and that was

@@ -229,7 +229,7 @@ get truthful uncertainty reporting.
 
 ** Revisiting uncertainties from the earlier calibrations
 :PROPERTIES:
-:CUSTOM_ID: splined-model-uncertainties
+:CUSTOM_ID: tour-uncertainty-splined-model-uncertainties
 :END:
 
 We started this by calibrating a camera using an =LENSMODEL_OPENCV8= model, and then again

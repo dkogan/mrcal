@@ -324,7 +324,7 @@ D=~/projects/mrcal-doc-external
 
 [[file:external/figures/diff/diff-weighted-opencv4-opencv8.png]]
 
-Where this technique /does/ work well is when using [[file:lensmodels.org::#splined-stereographic-lens-model][splined models]], which
+Where this technique /does/ work well is when using [[file:splined-models.org][splined models]], which
 produce realistic uncertainty estimates. To demonstrate, let's produce a
 splined-model calibration that is only reliable in a particular region of the
 imager. We do this by culling the [[file:tour.org][tour of mrcal]] calibration data to throw out
