@@ -587,10 +587,11 @@ for i in range(Nimages):
                               blockSize         = args.sgbm_block_size,
                               **kwargs)
     disparity = stereo.compute(*images_rectified)
+    disparity_colored = mrcal.apply_color_map(disparity,
+                                              0, disp_max*disparity_scale)
     write_output(lambda filename: \
                  cv2.imwrite(filename,
-                             mrcal.apply_color_map(disparity,
-                                                   0, disp_max*disparity_scale)),
+                             disparity_colored),
                  image_filenames_base[0] + '-disparity.png')
 
     _range = mrcal.stereo_range( disparity.astype(np.float32) / disparity_scale,
