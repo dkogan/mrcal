@@ -40,6 +40,8 @@ its [[file:formulation.org][formulation]] are useful to be able to interpret the
 A lens can be represented by any of a number of [[file:lensmodels.org][lens models]], and a model can be
 written to a [[file:cameramodels.org][file on disk]].
 
+A separate page describes various details about [[file:splined-models.org][splined models]].
+
 ** Applications
 A [[file:how-to-calibrate.org][how-to-calibrate]] page describes this very common task.
 
