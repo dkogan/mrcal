@@ -84,28 +84,61 @@
     --model opencv4                   \
     --show-distribution               \
     --explore                         \
-    --reproject-perturbed             \
-    mean-frames-using-meanq-penalize-big-shifts
+    --reproject-perturbed mean-frames-using-meanq-penalize-big-shifts
   #+end_src
 
   It is important to solve this to be able to clearly say if non-closeup
-  observations are useful at all or not.
+  observations are useful at all or not. There was quick a bit of thought and
+  experimentation in this area, but no conclusive solutions yet.
 
-  Potential solution: weigh the mean using the state covariance of each frame
-  pose. This would still end up with an aphysical uncertainty, but could be a
-  simple solution to the one-far-observation-breaks-uncertainty problem.
+  - Potential solution: weigh the mean using the state covariance of each frame
+    pose. This would still end up with an aphysical
+    $T_{\mathrm{r}^+\mathrm{r}}$, but could be a simple solution to the
+    one-far-observation-breaks-uncertainty problem.
 
-  Another potential solution: solve for $T_{\mathrm{r}^+\mathrm{r}}$ directly.
-  We have a solve that minimizes the reprojection error $\left\Vert\vec q -
-  \mathrm{project}\left(T_\mathrm{cr} T_\mathrm{rf} \vec
-  p_{\mathrm{frame}}\right)\right\Vert^2$ and another one that looks at
-  perturbed quantities $\left\Vert\vec q^+ -
-  \mathrm{project}^+\left(T_{\mathrm{c}^+\mathrm{r}^+}
-  T_{\mathrm{r}^+\mathrm{f}^+} \vec p_{\mathrm{frame}}\right)\right\Vert^2$. Can
-  I cross these to find the $T_{\mathrm{r}^+\mathrm{r}}$ that minimizes
-  $\left\Vert\vec q^+ - \mathrm{project}^+\left(T_{\mathrm{c}^+\mathrm{r}^+}
-  T_{\mathrm{r}^+\mathrm{r}} T_\mathrm{rf} \vec
-  p_{\mathrm{frame}}\right)\right\Vert^2$
+  - Another potential solution: solve for $T_{\mathrm{r}^+\mathrm{r}}$ directly.
+    We have a solve that minimizes the reprojection error $\left\Vert\vec q -
+    \mathrm{project}\left(T_\mathrm{cr} T_\mathrm{rf} \vec
+    p_{\mathrm{frame}}\right)\right\Vert^2$ and another one that looks at
+    perturbed quantities $\left\Vert\vec q^+ -
+    \mathrm{project}^+\left(T_{\mathrm{c}^+\mathrm{r}^+}
+    T_{\mathrm{r}^+\mathrm{f}^+} \vec p_{\mathrm{frame}}\right)\right\Vert^2$.
+    Can I cross these to find the $T_{\mathrm{r}^+\mathrm{r}}$ that minimizes
+    $\left\Vert\vec q^+ - \mathrm{project}^+\left(T_{\mathrm{c}^+\mathrm{r}^+}
+    T_{\mathrm{r}^+\mathrm{r}} T_\mathrm{rf} \vec
+    p_{\mathrm{frame}}\right)\right\Vert^2$. A diagram:
+
+    #+begin_example
+    ORIGINAL SOLVE                   PERTURBED SOLVE
+
+    point in                         point in
+    chessboard                       chessboard
+    frame                            frame
+
+      |                                |
+      | Trf                            | Tr+f+
+      v                                v
+
+    point in                         point in
+    ref frame                        ref frame
+
+      |                                |
+      | Tcr       <-- Tr+r -->         | Tc+r+
+      v                                v
+
+    point in                         point in
+    cam frame                        cam frame
+
+      |                                |
+      | project                        | project
+      v                                v
+
+    pixel                            pixel
+    #+end_example
+
+    Some experiments along those lines are implemented in
+    =mrcal-show-projection-diff --same-dance= and in
+    =test/test-projection-uncertainty.py --reproject-perturbed ...=
 
 - When asked to compute the uncertainty of many pixels at once (such as what
   [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool does), mrcal currently computes a
