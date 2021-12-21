@@ -1,5 +1,3 @@
-PYTHON_VERSION_FOR_EXTENSIONS := 3
-
 include mrbuild/Makefile.common.header
 
 PROJECT_NAME := mrcal
