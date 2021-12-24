@@ -97,7 +97,7 @@ ALL_PY_EXTENSION_MODULES   := _mrcal $(patsubst %,_%_npsp,$(ALL_NPSP_EXTENSION_M
 %-npsp-pywrap-GENERATED.c: %-genpywrap.py
 	python3 $< > $@.tmp && mv $@.tmp $@
 mrcal/_%_npsp$(PY_EXT_SUFFIX): %-npsp-pywrap-GENERATED.o libmrcal.so
-	$(PY_MRBUILD_LINKER) $(LDFLAGS) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
+	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
 
 ALL_NPSP_C  := $(patsubst %,%-npsp-pywrap-GENERATED.c,$(ALL_NPSP_EXTENSION_MODULES))
 ALL_NPSP_O  := $(patsubst %,%-npsp-pywrap-GENERATED.o,$(ALL_NPSP_EXTENSION_MODULES))
@@ -110,7 +110,7 @@ $(ALL_NPSP_O): CFLAGS += -Wno-array-bounds
 
 mrcal-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.so
-	$(PY_MRBUILD_LINKER) $(LDFLAGS) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
+	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
 
 PYTHON_OBJECTS := mrcal-pywrap.o $(ALL_NPSP_O)
 
