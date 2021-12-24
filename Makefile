@@ -4,26 +4,7 @@ PROJECT_NAME := mrcal
 ABI_VERSION  := 2
 TAIL_VERSION := 0
 
-# "git describe --tags" says things like "v2.0-17-gcef328f". This converts it to "v2.0"
-_VERSION_STRIP_POST_TAG_ANNOTATIONS := s/-\d+-g[0-9a-f]{7}$$//
-# I might have a tag such as "debian/2.0-1". This converts it to "2.0-1"
-_VERSION_STRIP_LEADING_PATH         := s/^.*\///
-# I might have a tag such as "v2.0". This converts it to "2.0"
-_VERSION_STRIP_LEADING_V            := s/^v//g
-
-# Custom version from git (or from debian/changelog if no git repo available)
-
-# If user says "VERSION_USE_LATEST_TAG=1 make" I'll use the latest tag for the
-# version, without annotations about the subsequent commits
-_VERSION = $(shell test -d .git && \
-  git describe --tags | \
-    perl -pe '$(if $(VERSION_USE_LATEST_TAG),$(_VERSION_STRIP_POST_TAG_ANNOTATIONS)); \
-              $(_VERSION_STRIP_LEADING_PATH);         \
-              $(_VERSION_STRIP_LEADING_V);' || \
-  < debian/changelog sed -n 's/.*(\([0-9\.]*[0-9]\).*).*/\1/; p; q;')
-# Memoize. $(VERSION) will evaluate the result the first time, and use the
-# cached result during subsequent calls
-VERSION = $(if $(_VERSION_EXPANDED),,$(eval _VERSION_EXPANDED:=$$(_VERSION)))$(_VERSION_EXPANDED)
+VERSION := $(VERSION_FROM_PROJECT)
 
 LIB_SOURCES +=			\
   mrcal.c			\
