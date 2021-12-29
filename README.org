@@ -14,10 +14,10 @@ And now we have a calibration!
 
 * SUMMARY
 
-=mrcal= is a generic toolkit to solve calibration and SFM-like problems
-originating at NASA/JPL. Functionality related to these problems is exposed as a
-set of C and Python libraries and some commandline tools. Documentation is
-available at http://mrcal.secretsauce.net/
+=mrcal= is a generic toolkit built to solve the calibration and SFM-like
+problems we encounter at NASA/JPL. Functionality related to these problems is
+exposed as a set of C and Python libraries and some commandline tools.
+Documentation is available at http://mrcal.secretsauce.net/
 
 * REPOSITORY
 
