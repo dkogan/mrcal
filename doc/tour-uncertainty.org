@@ -229,7 +229,7 @@ get truthful uncertainty reporting.
 
 ** Revisiting uncertainties from the earlier calibrations
 :PROPERTIES:
-:CUSTOM_ID: splined-model-uncertainties
+:CUSTOM_ID: tour-uncertainty-splined-model-uncertainties
 :END:
 
 We started this by calibrating a camera using an =LENSMODEL_OPENCV8= model, and then again
@@ -299,8 +299,8 @@ D=~/projects/mrcal-doc-external
 As expected, the splined model produces less optimistic (but more realistic)
 uncertainty reports.
 
-Recall that in [[file:tour-differencing.org][the last section]] we compared our two calibrated models. The
-difference looked like this:
+In [[file:tour-differencing.org][the last section]] we compared our two calibrated models, and the difference
+looked like this:
 
 [[file:external/figures/diff/diff-splined-opencv8.png]]
 

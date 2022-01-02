@@ -53,6 +53,10 @@ D=~/projects/mrcal-doc-external
 [[file:external/figures/calibration/mrgingham-coverage.png]]
 
 Looks like we did OK. It's a bit thin along the bottom edge, but not terrible.
+Visualizing the observations in this way is useful, but not completely
+necessary, since thing observations will clearly result in poor projection
+uncertainty; [[file:tour-uncertainty.org][much more on that later]].
+
 For an arbitrary image we can visualize at the corner detections:
 
 #+begin_example
@@ -426,7 +430,7 @@ Let's fix it.
 Usable [[file:uncertainty.org][uncertainty quantification]] and accurate projections are major goals of
 mrcal. To achive these, mrcal supports /splined/ models. At this time there's
 only one representation supported: a /splined stereographic/ model, described in
-detail [[file:lensmodels.org::#splined-stereographic-lens-model][here]].
+detail [[file:splined-models.org][here]].
 
 ** Splined stereographic model definition
 :PROPERTIES:
@@ -616,7 +620,7 @@ The previous radial pattern is much less pronounced, but it still there.
 
 A sneak peek: this is caused by an assumption of a central projection (assuming
 that all rays intersect at a single point). An experimental and
-not-entirely-complete [[https://github.com/dkogan/mrcal/commit/26db52c48eab3d027316a28b210385775601d0cf][support for noncentral projection in mrcal exists]], and
+not-entirely-complete [[https://github.com/dkogan/mrcal/tree/noncentral][support for noncentral projection in mrcal exists]], and
 works /much/ better. The same frame, fitted with a noncentral projection:
 
 #+begin_src sh :exports none :eval no-export
@@ -704,7 +708,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
 /Much/ better than before. Maybe there's still a pattern, but it's not clearly
 discernible.
 
-We can also visualize the [[file:lensmodels.org::#splined-stereographic-lens-model][magnitude of the vector field defined by the splined
+We can also visualize the [[file:splined-models.org][magnitude of the vector field defined by the splined
 surfaces]] $\left| \Delta \vec u \right|$:
 
 #+begin_src sh
@@ -740,7 +744,7 @@ We want the valid-intrinsics region to lie entirely within the spline-in-bounds
 region, and that happens here everywhere, except for a tiny sliver at the
 bottom-right. If some observations lie outside the spline-in-bounds regions, the
 projection behavior there will be less flexible than the rest of the model,
-resulting in less realistic uncertainties. See [[file:lensmodels.org::#splined models field of view selection][the lensmodel documentation]] for
+resulting in less realistic uncertainties. See [[file:splined-models.org::#splined models field of view selection][the lensmodel documentation]] for
 more detail.
 
 Alternately, I can look at the spline surface as a function of the pixel

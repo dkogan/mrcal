@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-r'''Visualize the expected projection error due to uncertainty in the calibration-time input
+r'''Visualize the expected projection error due to noise in calibration-time input
 
 SYNOPSIS
 

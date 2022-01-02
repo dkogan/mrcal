@@ -457,7 +457,7 @@ these:
   unsynchronized cameras, rolling shutter, motion blur, focus issues, etc. Keep
   reading for ways to get more insight
 - A badly-fitting lens model. For instance =LENSMODEL_OPENCV4= will not fit wide
-  lenses. And only [[file:lensmodels.org::#splined-stereographic-lens-model][splined lens models]] will fit fisheye lenses all the way in
+  lenses. And only [[file:splined-models.org][splined lens models]] will fit fisheye lenses all the way in
   the corners
 
 Outlier rejection resolves these up to a point, but if at all possible, it is
@@ -660,7 +660,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board
 
 [[file:external/figures/calibration/worst-incorner-opencv8.png]]
 
-/This/ is clearly a problem that should be addressed. Using a [[file:lensmodels.org::#splined-stereographic-lens-model][splined lens model]]
+/This/ is clearly a problem that should be addressed. Using a [[file:splined-models.org][splined lens model]]
 instead of =LENSMODEL_OPENCV8= makes this work, as seen in the [[file:tour-initial-calibration.org::#splined-stereographic-fit][tour of mrcal]]:
 
 #+begin_src sh :exports none :eval no-export
@@ -716,7 +716,7 @@ magenta in the center, yellow at the bottom, and so on. This is not random
 noise, and is a /very/ clear indication that this lens model is not able to fit
 this data.
 
-Once again, a [[file:lensmodels.org::#splined-stereographic-lens-model][splined lens model]] resolves these biases, as seen in the [[file:tour-initial-calibration.org::#splined-stereographic-fit][tour of
+Once again, a [[file:splined-models.org][splined lens model]] resolves these biases, as seen in the [[file:tour-initial-calibration.org::#splined-stereographic-fit][tour of
 mrcal]]:
 
 #+begin_src sh :exports none :eval no-export

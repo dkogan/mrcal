@@ -14,7 +14,6 @@ mrcal.projections.fff() or mrcal.fff(). The latter is preferred.
 import numpy as np
 import numpysane as nps
 import sys
-import scipy.optimize
 
 import mrcal
 
@@ -408,6 +407,8 @@ if get_gradients: we return a tuple:
     cxy = intrinsics_data[..., 2:4]
 
     # undistort the q, by running an optimizer
+
+    import scipy.optimize
 
     # I optimize each point separately because the internal optimization
     # algorithm doesn't know that each point is independent, so if I optimized

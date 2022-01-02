@@ -5030,7 +5030,7 @@ void optimizer_callback(// input state
                                     { intrinsics_all[icam_intrinsics][Ncore + ivar + 0],
                                       intrinsics_all[icam_intrinsics][Ncore + ivar + 1] };
 
-#warning "Precompute uxy. This is lots of unnecessary computation in the inner loop"
+                                // WARNING: "Precompute uxy. This is lots of unnecessary computation in the inner loop"
                                 double uxy[] = { (double)(2*ix - Nx + 1),
                                                  (double)(2*iy - Ny + 1) };
                                 bool anisotropic = true;
@@ -5571,6 +5571,8 @@ mrcal_optimize( // out
             ctx.Nmeasurements, Nstate);
     }
 
+    // WARNING: is it reasonable to put this on the stack? Can I use
+    // p_packed_final for this?
     double packed_state[Nstate];
     pack_solver_state(packed_state,
                       lensmodel, intrinsics,
@@ -5599,6 +5601,7 @@ mrcal_optimize( // out
 
         if(verbose)
         {
+            // WARNING: I will never hook these up. Get rid of reportFitMsg?
             ctx.reportFitMsg = "Before";
             //        optimizer_callback(packed_state, NULL, NULL, &ctx);
         }

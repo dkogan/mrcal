@@ -11,7 +11,6 @@ import numpy as np
 import numpysane as nps
 import sys
 import re
-import cv2
 import mrcal
 
 def scale_focal__best_pinhole_fit(model, fit):
@@ -426,6 +425,8 @@ This array can be passed to mrcal.transform_image()
         #
         # The mask_valid_intrinsics_region_from isn't implemented in this path.
         # It COULD be, then this faster path could be used
+        import cv2
+
         fxy_from = intrinsics_data_from[0:2]
         cxy_from = intrinsics_data_from[2:4]
         cameraMatrix_from = np.array(((fxy_from[0],          0, cxy_from[0]),
@@ -503,9 +504,9 @@ This array can be passed to mrcal.transform_image()
 
 def transform_image(image, mapxy,
                     out = None,
-                    borderMode    = cv2.BORDER_CONSTANT,
+                    borderMode    = None,
                     borderValue   = 0,
-                    interpolation = cv2.INTER_LINEAR):
+                    interpolation = None):
 
     r'''Transforms a given image using a given map
 
@@ -567,6 +568,11 @@ RGB. Contains the transformed image.
     if not isinstance(image, np.ndarray): raise Exception("'image' must be a numpy array")
     if not isinstance(mapxy, np.ndarray): raise Exception("'mapxy' must be a numpy array")
 
+    import cv2
+    if borderMode is None:
+        borderMode = cv2.BORDER_CONSTANT
+    if interpolation is None:
+        interpolation = cv2.INTER_LINEAR
     return cv2.remap(image, mapxy, None,
                      borderMode    = borderMode,
                      interpolation = interpolation,

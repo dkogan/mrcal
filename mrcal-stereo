@@ -139,7 +139,7 @@ def parse_args():
                         help='''The resolution of the rectified images. This is
                         either a whitespace-less, comma-separated list of two
                         values (az,el) or a single value to be applied to both
-                        axes. If a resultion of >0 is requested, the value is
+                        axes. If a resolution of >0 is requested, the value is
                         used as is. If a resolution of <0 is requested, we use
                         this as a scale factor on the resolution of the input
                         image. For instance, to downsample by a factor of 2,
@@ -587,11 +587,209 @@ for i in range(Nimages):
                               blockSize         = args.sgbm_block_size,
                               **kwargs)
     disparity = stereo.compute(*images_rectified)
+    disparity_colored = mrcal.apply_color_map(disparity,
+                                              0, disp_max*disparity_scale)
     write_output(lambda filename: \
                  cv2.imwrite(filename,
-                             mrcal.apply_color_map(disparity,
-                                                   0, disp_max*disparity_scale)),
+                             disparity_colored),
                  image_filenames_base[0] + '-disparity.png')
+
+    if hasattr(args, 'viz') and \
+       args.viz is not None and \
+       args.viz == 'stereo':
+
+        UI_usage_message = r'''Usage:
+
+Left mouse button click/drag: pan
+Mouse wheel up/down/left/right: pan
+Ctrl-mouse wheel up/down: zoom
+'u': reset view: zoom out, pan to the center
+
+Right mouse button click: examine stereo at pixel
+TAB: transpose windows
+'''
+
+        from fltk               import *
+        from Fl_Gl_Image_Widget import *
+
+        class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
+
+            def set_panzoom(self,
+                            x_centerpixel, y_centerpixel,
+                            visible_width_pixels):
+                r'''Pan/zoom the image
+
+                This is an override of the function to do this: any request to
+                pan/zoom the widget will come here first. I dispatch any
+                pan/zoom commands to all the widgets, so that they all work in
+                unison. visible_width_pixels < 0 means: this is the redirected
+                call. Just call the base class
+
+                '''
+                if visible_width_pixels < 0:
+                    return super().set_panzoom(x_centerpixel, y_centerpixel,
+                                               -visible_width_pixels)
+
+                # All the widgets should pan/zoom together
+                return \
+                    all( w.set_panzoom(x_centerpixel, y_centerpixel,
+                                       -visible_width_pixels) \
+                         for w in (widget_image0, widget_image1, widget_disparity) )
+
+            def set_cross_at(self, q):
+                if q is None:
+                    return \
+                        self.set_lines( () )
+
+                x,y = q
+                return \
+                    self.set_lines( (dict(points =
+                                          np.array( (((x - 50, y),
+                                                      (x + 50, y)),
+                                                     ((x,      -0.5),
+                                                      (x,      models_rectified[0].imagersize()[1]-0.5))),
+                                                    dtype=np.float32),
+                                          color_rgb = np.array((1,0,0), dtype=np.float32) ),))
+
+            def handle(self, event):
+                if event == FL_PUSH:
+
+                    if Fl.event_button() != FL_RIGHT_MOUSE:
+                        return super().handle(event)
+
+                    if self is widget_image1:
+                        widget_status.value(UI_usage_message + "\n" + \
+                                            "Please click in the left or disparity windows")
+                        widget_image0   .set_cross_at(None)
+                        widget_image1   .set_cross_at(None)
+                        widget_disparity.set_cross_at(None)
+                        return super().handle(event)
+
+                    try:
+                        q0_rectified = \
+                            np.array( self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ),
+                                      dtype=float )
+                    except:
+                        widget_status.value(UI_usage_message + "\n" + \
+                                            "Error converting pixel coordinates")
+                        widget_image0   .set_cross_at(None)
+                        widget_image1   .set_cross_at(None)
+                        widget_disparity.set_cross_at(None)
+                        return super().handle(event)
+
+                    if not (q0_rectified[0] >= -0.5 and q0_rectified[0] <= images_rectified[0].shape[1]-0.5 and \
+                            q0_rectified[1] >= -0.5 and q0_rectified[1] <= images_rectified[0].shape[0]-0.5):
+                        widget_status.value(UI_usage_message + "\n" + \
+                                            "Out of bounds")
+                        widget_image0   .set_cross_at(None)
+                        widget_image1   .set_cross_at(None)
+                        widget_disparity.set_cross_at(None)
+                        return super().handle(event)
+
+                    d = disparity[round(q0_rectified[-1]),
+                                  round(q0_rectified[-2])]
+                    if d < 0:
+                        widget_status.value(UI_usage_message + "\n" + \
+                                            "No valid disparity at the clicked location")
+                        widget_image0   .set_cross_at(q0_rectified)
+                        widget_image1   .set_cross_at(None)
+                        widget_disparity.set_cross_at(q0_rectified)
+                        return super().handle(event)
+                    if d == 0:
+                        widget_status.value(UI_usage_message + "\n" + \
+                                        "Disparity: 0pixels\n" +
+                                        "range: infinity\n")
+                        widget_image0   .set_cross_at(q0_rectified)
+                        widget_image1   .set_cross_at(q0_rectified)
+                        widget_disparity.set_cross_at(q0_rectified)
+                        return super().handle(event)
+
+                    widget_image0   .set_cross_at(q0_rectified)
+                    widget_image1   .set_cross_at(q0_rectified -
+                                                  np.array((d/disparity_scale, 0)))
+                    widget_disparity.set_cross_at(q0_rectified)
+
+                    delta = 1e-3
+                    _range   = mrcal.stereo_range( d,
+                                                   models_rectified,
+                                                   disparity_scale = disparity_scale,
+                                                   qrect0          = q0_rectified)
+                    _range_d = mrcal.stereo_range( d + delta*disparity_scale,
+                                                   models_rectified,
+                                                   disparity_scale = disparity_scale,
+                                                   qrect0          = q0_rectified)
+                    drange_ddisparity = np.abs(_range_d - _range) / delta
+
+
+                    # mrcal-triangulate tool: guts into a function. Call those
+                    # guts here, and display them in the window
+                    widget_status.value(UI_usage_message + "\n" + \
+                                        f"Disparity: {d/disparity_scale:.2f}pixels\n" +
+                                        f"range: {_range:.2f}m\n" +
+                                        f"drange/ddisparity: {drange_ddisparity:.1f}m/pixel")
+
+                    if 0:
+                        p0_rectified = \
+                            mrcal.unproject(q0_rectified,
+                                            *models_rectified[0].intrinsics(),
+                                            normalize = True) * _range
+                        p0 = mrcal.transform_point_Rt( mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
+                                                                         models_rectified[0].extrinsics_Rt_toref()),
+                                                       p0_rectified )
+                        p1 = mrcal.transform_point_Rt( mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
+                                                                         models[0].extrinsics_Rt_toref()),
+                                                       p0 )
+
+                        q0  = mrcal.project(p0, *models[0].intrinsics())
+
+                        pt = \
+                            mrcal.triangulate( nps.cat(q0, q1),
+                                               models,
+                                               stabilize_coords = True )
+                        print(f"range = {_range:.2f}, {nps.mag(pt):.2f}")
+
+                    return 0
+
+                if event == FL_KEYUP:
+                    if Fl.event_key() == fltk.FL_Tab:
+
+                        x_image1    = widget_image1   .x()
+                        y_image1    = widget_image1   .y()
+                        x_disparity = widget_disparity.x()
+                        y_disparity = widget_disparity.y()
+
+                        widget_image1   .position(x_disparity, y_disparity)
+                        widget_disparity.position(x_image1,    y_image1)
+                        return 1
+
+                return super().handle(event)
+
+        window           = Fl_Window(800, 600, "mrcal-stereo")
+        widget_image0    = Fl_Gl_Image_Widget_Derived(0,    0, 400,300)
+        widget_image1    = Fl_Gl_Image_Widget_Derived(0,  300, 400,300)
+        widget_disparity = Fl_Gl_Image_Widget_Derived(400,  0, 400,300)
+        widget_status    = Fl_Multiline_Output(       400,300, 400,300)
+
+        widget_status.value(UI_usage_message)
+
+        window.resizable(window)
+        window.end()
+        window.show()
+
+        import numpy as np
+        widget_image0. \
+          update_image(decimation_level = 0,
+                       image_data       = images_rectified[0])
+        widget_image1. \
+          update_image(decimation_level = 0,
+                       image_data       = images_rectified[1])
+        widget_disparity. \
+          update_image(decimation_level = 0,
+                       image_data       = disparity_colored)
+        Fl.run()
+
+        sys.exit(0)
+
 
     _range = mrcal.stereo_range( disparity.astype(np.float32) / disparity_scale,
                                  models_rectified )

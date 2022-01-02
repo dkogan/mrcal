@@ -1,3 +1,3 @@
 This is the build system. It's a copy of https://github.com/dkogan/mrbuild at
-dec6d61 (2021/04). Some day this might become a package, but until that point I
+bee5e72 (2021/12). Some day this might become a package, but until that point I
 don't want to introduce a dependency

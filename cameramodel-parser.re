@@ -82,7 +82,7 @@ static bool read_string( // output stored here. If NULL, we try to read off
     }
     if(out != NULL)
         MSG("Didn't see the %s string at position %ld. Giving up.",
-            what, *pYYCURSOR - start_file);
+            what, (long int)(*pYYCURSOR - start_file));
     return false;
 }
 
@@ -142,7 +142,7 @@ static bool ingest_double_consume_ignorable(void* out0, int i,
       *
       {
         MSG("Error parsing double-precision value for %s at %ld",
-            what, *pYYCURSOR-start_file);
+            what, (long int)(*pYYCURSOR-start_file));
         return false;
       }
       */
@@ -160,7 +160,7 @@ static bool ingest_double_consume_ignorable(void* out0, int i,
             !isfinite(((double*)out0)[i]))
         {
             MSG("Error parsing double-precision value for %s at %ld. String: '%s'",
-                what, *pYYCURSOR-start_file, tok);
+                what, (long int)(*pYYCURSOR-start_file), tok);
             return false;
         }
     }
@@ -190,7 +190,7 @@ static bool ingest_uint_consume_ignorable(void* out0, int i,
       *
       {
         MSG("Error parsing unsigned integer for %s at %ld",
-            what, *pYYCURSOR-start_file);
+            what, (long int)(*pYYCURSOR-start_file));
         return false;
       }
       */
@@ -206,7 +206,7 @@ static bool ingest_uint_consume_ignorable(void* out0, int i,
         if( N == 0 || si < 0 )
         {
             MSG("Error parsing unsigned int for %s at %ld. String: '%s'",
-                what, *pYYCURSOR-start_file, tok);
+                what, (long int)(*pYYCURSOR-start_file), tok);
             return false;
         }
         ((unsigned int*)out0)[i] = (unsigned int)si;
@@ -236,7 +236,7 @@ static bool read_list_values_generic( // output stored here. If NULL, we try to
           *
           {
             MSG("Didn't see the opening [/( for the %s at position %ld. Giving up.",
-                what, YYCURSOR - start_file);
+                what, (long int)(YYCURSOR - start_file));
             return false;
           }
         */
@@ -252,7 +252,7 @@ static bool read_list_values_generic( // output stored here. If NULL, we try to
         else
         {
             MSG("Didn't see expected ',' at %ld while parsing %s",
-                YYCURSOR-start_file, what);
+                (long int)(YYCURSOR-start_file), what);
             return false;
         }
     }
@@ -272,7 +272,7 @@ static bool read_list_values_generic( // output stored here. If NULL, we try to
           *
           {
             MSG("Didn't see the closing )/] for the %s at position %ld. Expected %d values, but the given list has more. Giving up.",
-                what, YYCURSOR - start_file, Nvalues);
+                what, (long int)(YYCURSOR - start_file), Nvalues);
             return false;
           }
         */
@@ -302,7 +302,7 @@ static bool read_balanced_list( const char** pYYCURSOR, const char* start_file )
             if(level < 0)
             {
               MSG("Error reading a balanced list at %ld (list not balanced)",
-                  YYCURSOR-start_file);
+                  (long int)(YYCURSOR-start_file));
               return false;
             }
             if(level==0)
@@ -327,7 +327,7 @@ static bool read_balanced_list( const char** pYYCURSOR, const char* start_file )
           *
           {
             MSG("Error reading a balanced list at %ld (unexpected value)",
-                YYCURSOR-start_file);
+                (long int)(YYCURSOR-start_file));
             return false;
           }
         */
@@ -402,7 +402,7 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
               *
               {
                 MSG("Didn't see expected ':' at %ld. Giving up.",
-                    YYCURSOR-start_file);
+                    (long int)(YYCURSOR-start_file));
                 goto done;
               }
             */
@@ -498,7 +498,7 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
             {
                 MSG("Error parsing value for key '%.*s' at %ld",
                     key.len, key.s,
-                    YYCURSOR-start_file);
+                    (long int)(YYCURSOR-start_file));
                 goto done;
             }
         }
@@ -520,7 +520,7 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
             *
             {
                 MSG("Didn't see trailing , at %ld",
-                    YYCURSOR-start_file);
+                    (long int)(YYCURSOR-start_file));
                 goto done;
             }
             */
@@ -538,7 +538,7 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
               *
               {
                   MSG("Garbage after trailing } at %ld. Giving up",
-                      f-1 - start_file);
+                      (long int)(f-1 - start_file));
                   goto done;
               }
               */

@@ -15,8 +15,8 @@ mrcal is a research project, so the capabilities and focus are still evolving.
 Thus, the interfaces, especially those in the C API are not yet stable. I do try
 to maintain stability, but this is not fully impossible, especially in the
 higher-level APIs (=mrcal_optimize()= for instance). For now, assume that each
-major release breaks both the API and the ABI. The breakage and migration notes
-will be described in the [[file:roadmap.org][roadmap page]].
+major release breaks both the API and the ABI. The migration notes for each
+release are described in the [[file:versions.org][relevant release notes]].
 
 The best documentation for the C interfaces is the comments in the headers. I
 don't want to write up anything complete and detailed until I'm sure the

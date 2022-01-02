@@ -33,10 +33,10 @@ formats:
 
 - =.cahvor=: the legacy format available for compatibility with existing JPL
   tools. If you don't need to interoperate with tools that require this format,
-  there's little reason to use it. This format cannot store [[file:lensmodels.org::#splined-stereographic-lens-model][splined models]] or
+  there's little reason to use it. This format cannot store [[file:splined-models.org][splined models]] or
   =optimization_inputs=, so it cannot be used for the [[file:uncertainty.org][uncertainty computations]].
 
-Note that both file formats can describe lenses using the [[file:lensmodels.org::#cahvor lens model][=LENSMODEL_CAHVOR=]]
+Note that both file formats can describe lenses using the [[file:lensmodels.org::#cahvor-lens-model][=LENSMODEL_CAHVOR=]]
 model.
 
 The [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format

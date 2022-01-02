@@ -82,7 +82,7 @@ SYNOPSIS
         mrcal.unproject_latlon(q, models_rectified[0].intrinsics()[1]) * \
         nps.dummy(ranges, axis=-1)
 
-    Rt_cam0_rect0 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+    Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
                                       models_rectified[0].extrinsics_Rt_toref() )
 
     # Point cloud in camera-0 coordinates
@@ -889,6 +889,19 @@ RETURNED VALUES
 
     _validate_models_rectified(models_rectified)
 
+    # I want to support scalar disparities. If one is given, I convert it into
+    # an array of shape (1,), and then pull it out at the end
+    is_scalar = False
+    try:
+        s = disparity.shape
+    except:
+        is_scalar = True
+    if not is_scalar:
+        if len(s) == 0:
+            is_scalar = True
+    if is_scalar:
+        disparity = np.array((disparity,),)
+
     W,H = models_rectified[0].imagersize()
     if qrect0 is None and disparity.shape != (H,W):
         raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
@@ -946,6 +959,8 @@ RETURNED VALUES
 
     r[mask_invalid] = 0
 
+    if is_scalar:
+        r = r[0]
     return r
 
 

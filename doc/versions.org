@@ -1,12 +1,13 @@
 #+TITLE: mrcal releases
 #+OPTIONS: toc:nil
 
+Latest release is mrcal 2.1 (2021/11/19): [[http://mrcal.secretsauce.net/docs-2.1][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.1][code]] and [[file:news-2.1.org][release and
+migration notes]]
+
 * Releases
-The documentation and code is available for each release
-
-- Bleeding-edge: [[http://mrcal.secretsauce.net/docs-HEAD][documentation]] and [[https://github.com/dkogan/mrcal/][code]]
 - mrcal 1.0.1 (2021/02/23): [[http://mrcal.secretsauce.net/docs-1.0][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v1.0.1][code]]
+- mrcal 2.0 (2021/11/07): [[http://mrcal.secretsauce.net/docs-2.0][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.0][code]] and [[file:news-2.0.org][release and migration notes]]
+- mrcal 2.1 (2021/11/19): [[http://mrcal.secretsauce.net/docs-2.1][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.1][code]] and [[file:news-2.1.org][release and migration notes]]
 
-* Roadmap
-See the [[file:roadmap.org][roadmap]] for the release notes, migration guides and planned
-improvements.
+* Future
+See the [[file:roadmap.org][roadmap]] for thoughts about future directions

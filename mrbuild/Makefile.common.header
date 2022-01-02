@@ -75,12 +75,42 @@ PYTHON_VERSION_FOR_EXTENSIONS ?= 3 # 2 or 3
 # Variables to ask Python about
 _PYVARS_LIST := CC CFLAGS CCSHARED INCLUDEPY BLDSHARED BLDLIBRARY LDFLAGS EXT_SUFFIX MULTIARCH
 
+ifneq ($(DEB_HOST_MULTIARCH),)
+  # We have a debian multiarch. We're almost certainly cross-building with
+  # Debian. Try to get the variables directly, using any-architecture python
+  define _PYVARS_GET_CONFIG :=
+import ast
+import sys
+
+for d in sys.path:
+    try:
+        f = open(d + "/_sysconfigdata__$(DEB_HOST_MULTIARCH).py")
+    except:
+        continue
+
+    s = f.read()
+    s = re.sub("^#.*",                "", s, flags=re.M)
+    s = re.sub("^[0-9a-zA-Z_]+ *= *", "", s, flags=re.M)
+    conf = ast.literal_eval(s)
+    break
+else:
+    raise Exception("Could not find \"_sysconfigdata__$(DEB_HOST_MULTIARCH).py\" in any sys.path directories")
+endef
+
+else
+  _PYVARS_GET_CONFIG := conf = sysconfig.get_config_vars()
+endif
+
+
 # Python script to query those variables
 define _PYVARS_SCRIPT
 from __future__ import print_function
 import sysconfig
 import re
-conf = sysconfig.get_config_vars()
+
+# get "conf" dict
+$(_PYVARS_GET_CONFIG)
+
 for v in ($(foreach v,$(_PYVARS_LIST),"$v",)):
     if v in conf:
         print(re.sub("[\t ]+", "__whitespace__", "_PY_{}:={}".format(v, conf[v])))
@@ -138,3 +168,35 @@ CFLAGS   += -I$1
 CXXFLAGS += -I$1
 LDFLAGS += -L$1 -Wl,-rpath=$1
 endef
+
+
+
+
+#### VERSION_FROM_PROJECT variable: parse git tags or, if those aren't
+#### available, the debian/changelog. To use this, add to your Makefile:
+####
+####   VERSION := $(VERSION_FROM_PROJECT)
+####
+#### Otherwise, we'll use $(ABI_VERSION).$(TAIL_VERSION). VERSION_FROM_PROJECT
+#### is useful in mature-ish projects that are actually being distributed to
+#### others
+# "git describe --tags" says things like "v2.0-17-gcef328f". This converts it to "v2.0"
+_VERSION_STRIP_POST_TAG_ANNOTATIONS := s/-\d+-g[0-9a-f]{7}$$//
+# I might have a tag such as "debian/2.0-1". This converts it to "2.0-1"
+_VERSION_STRIP_LEADING_PATH         := s/^.*\///
+# I might have a tag such as "v2.0". This converts it to "2.0"
+_VERSION_STRIP_LEADING_V            := s/^v//g
+
+# Custom version from git (or from debian/changelog if no git repo available)
+
+# If user says "VERSION_USE_LATEST_TAG=1 make" I'll use the latest tag for the
+# version, without annotations about the subsequent commits
+_VERSION = $(shell test -d .git && \
+  git describe --tags | \
+    perl -pe '$(if $(VERSION_USE_LATEST_TAG),$(_VERSION_STRIP_POST_TAG_ANNOTATIONS)); \
+              $(_VERSION_STRIP_LEADING_PATH);         \
+              $(_VERSION_STRIP_LEADING_V);' || \
+  < debian/changelog sed -n 's/.*(\([0-9\.]*[0-9]\).*).*/\1/; p; q;')
+# Memoize. $(VERSION) will evaluate the result the first time, and use the
+# cached result during subsequent calls
+VERSION_FROM_PROJECT = $(if $(_VERSION_EXPANDED),,$(eval _VERSION_EXPANDED:=$$(_VERSION)))$(_VERSION_EXPANDED)

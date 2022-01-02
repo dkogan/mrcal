@@ -107,7 +107,7 @@ solution and the coordinate system defined by the physical camera housing. It is
 important to note that *this implied transformation is built-in to the
 intrinsics*. Even if we're not explicitly optimizing the camera pose, this
 implied transformation is still something that exists and moves around in
-response to noise. Rich models like the [[file:lensmodels.org::#splined-stereographic-lens-model][splined stereographic models]] are able to
+response to noise. Rich models like the [[file:splined-models.org][splined stereographic models]] are able to
 encode a wide range of implied transformations, but even the simplest models
 have some transform that must be compensated for.
 

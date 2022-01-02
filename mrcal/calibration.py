@@ -11,7 +11,6 @@ import numpy as np
 import numpysane as nps
 import sys
 import re
-import cv2
 import mrcal
 
 def compute_chessboard_corners(Nw, Nh,
@@ -522,6 +521,8 @@ camera coordinate system FROM the calibration object coordinate system.
 
     """
 
+    import cv2
+
     # None: don't store failures. Throw exception. This is the usual path
     # string: store failing cases to use in the test suite
     # True: ipython REPL when failures are gathered
@@ -535,7 +536,7 @@ camera coordinate system FROM the calibration object coordinate system.
     # length than the stereographic one the user passed. This really shouldn't
     # be hard-coded, and I should only adjust if observations would be thrown
     # away. And REALLY I should be using a flavor of solvePnP that uses
-    # observation vectors intead of pinhole pixel observations
+    # observation vectors instead of pinhole pixel observations
 
 
     # I'm given models. I remove the distortion so that I can pass the data
@@ -1403,6 +1404,8 @@ method of modeling projection reliability, which can be used even if projection
 uncertainty cannot be computed.
 
     '''
+
+    import cv2
 
     W,H = model.imagersize()
     if gridn_height is None:

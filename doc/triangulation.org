@@ -96,9 +96,10 @@ listed in chronological order:
 - "Triangulation: Why Optimize?", Seong Hun Lee and Javier Civera
   https://arxiv.org/abs/1907.11917
 
-The last paper compares the available methods from /all/ the papers. Currently
-=leecivera_mid2= is recommended for most usages. The triangulation methods
-available in mrcal:
+The last paper compares the available methods from /all/ the papers. A
+[[https://github.com/dkogan/mrcal/blob/master/analyses/triangulation/study.py][triangulation study]] is available to evaluate the precision and accuracy of the
+existing methods. Currently =leecivera_mid2= is recommended for most usages. The
+triangulation methods available in mrcal:
 
 ** =geometric=
 This is the basic [[https://en.wikipedia.org/wiki/Triangulation_(computer_vision)#Mid-point_method][midpoint method]]: it computes the point in space that minimizes
@@ -306,9 +307,12 @@ correlations. To reduce these correlations and the biases they cause: lower the
 uncertainty of your calibrations by [[file:tour-choreography.org][dancing better]]
 
 ** Assumptions break down at infinity
+:PROPERTIES:
+:CUSTOM_ID: triangulation-problems-as-infinity
+:END:
 When propagating noise, mrcal makes the very common assumption that everything
 is locally linear. This makes things simple, and is right most of the time.
-However, when running the triangulation routines with near-parallel rays, his
+However, when running the triangulation routines with near-parallel rays, this
 assumptions can break down.
 
 Let's run another simulation, but observing a more distant point, with more
@@ -381,7 +385,7 @@ range-to-point distribution.
 At this time I do not know how much this matters or what to do about it, but
 these limitations are good to keep in mind.
 
-* Object tracking
+* Applications
 Visual tracking of an object over time is one application that would benefit
 from a more complete error model of its input. Repeated noisy observations of a
 moving object $\vec q_{01}(t)$ can be triangulated into a noisy estimate of the

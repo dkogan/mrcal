@@ -136,7 +136,7 @@ existing files unless --force is given.
 
 It is often desired to apply transformations to lots of images in bulk. To make
 this go faster, this tool supports the -j JOBS option. This works just like in
-Make: the work will be parallelized amoung JOBS simultaneous processes. Unlike
+Make: the work will be parallelized among JOBS simultaneous processes. Unlike
 make, the JOBS value must be specified.
 
 '''
