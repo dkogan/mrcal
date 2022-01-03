@@ -1729,7 +1729,7 @@ void _project_point_splined( // outputs
 
                             // The slice in [ik + N_NONCENTRAL*ipt] is
                             // dq_ipt/dknoncentral_ik
-                            mrcal_point2_t* dq_dknoncentral,
+                            mrcal_point2_t* restrict dq_dknoncentral,
 
                             // Gradient outputs. May be NULL
                             mrcal_point3_t* restrict dq_drcamera,
