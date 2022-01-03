@@ -15,10 +15,6 @@
 
 
 
-#define N_NONCENTRAL 3
-
-
-
 // These are parameter variable scales. They have the units of the parameters
 // themselves, so the optimizer sees x/SCALE_X for each parameter. I.e. as far
 // as the optimizer is concerned, the scale of each variable is 1. This doesn't
@@ -897,6 +893,10 @@ void _project_point_parametric( // outputs
                                mrcal_point2_t* dq_dfxy,
                                double* dq_dintrinsics_nocore,
 
+                               // The slice in [ik + N_NONCENTRAL*ipt] is
+                               // dq_ipt/dknoncentral_ik
+                               mrcal_point2_t* restrict dq_dknoncentral,
+
                                mrcal_point3_t* restrict dq_drcamera,
                                mrcal_point3_t* restrict dq_dtcamera,
                                mrcal_point3_t* restrict dq_drframe,
@@ -913,8 +913,6 @@ void _project_point_parametric( // outputs
                                bool camera_at_identity,
                                const mrcal_lensmodel_t* lensmodel)
 {
-    #warning "support the non-central projection here too"
-
     // u = distort(p, distortions)
     // q = uxy/uz * fxy + cxy
     if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE ||
@@ -923,25 +921,63 @@ void _project_point_parametric( // outputs
         lensmodel->type == MRCAL_LENSMODEL_LATLON ||
         MRCAL_LENSMODEL_IS_OPENCV(lensmodel->type) )
     {
+        double dzadj_dk[N_NONCENTRAL] = {};
+        double dzadj_dp[3]            = {};
+
+
+
+
+
+
+        bool do_noncentral = MRCAL_LENSMODEL_IS_OPENCV(lensmodel->type);
+
+        if(do_noncentral && dq_dknoncentral != NULL)
+        {
+            MSG("Not non-central, but was asked for dq_dknoncentral");
+            assert(0);
+        }
+
+
+
+
+
+        int num_params = mrcal_lensmodel_num_params(lensmodel);
+        mrcal_point3_t padj =
+            { .x = p->x,
+              .y = p->y,
+              .z = do_noncentral ?
+                     apply_noncentral(dzadj_dk, dzadj_dp,
+                                      &intrinsics[ num_params-N_NONCENTRAL],
+                                      p) :
+                     (p->z)
+            };
+
         mrcal_point3_t dq_dp[2];
         if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE )
             mrcal_project_pinhole(q, dq_dp,
-                                  p, 1, intrinsics);
+                                  &padj, 1, intrinsics);
         else if(lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC)
             mrcal_project_stereographic(q, dq_dp,
-                                        p, 1, intrinsics);
+                                        &padj, 1, intrinsics);
         else if(lensmodel->type == MRCAL_LENSMODEL_LONLAT)
             mrcal_project_lonlat(q, dq_dp,
-                                 p, 1, intrinsics);
+                                 &padj, 1, intrinsics);
         else if(lensmodel->type == MRCAL_LENSMODEL_LATLON)
             mrcal_project_latlon(q, dq_dp,
-                                 p, 1, intrinsics);
+                                 &padj, 1, intrinsics);
         else
         {
             int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
             _mrcal_project_internal_opencv( q, dq_dp,
                                             dq_dintrinsics_nocore,
-                                            p, 1, intrinsics, Nintrinsics);
+                                            &padj, 1, intrinsics, Nintrinsics);
+        }
+
+        if(do_noncentral)
+        {
+            // dq_dp is now dq_dpadj
+            apply_noncentral_grad(dq_dp, dzadj_dp);
+            // dq_dp is now dq_dp
         }
 
         // dq/deee = dq/dp dp/deee
@@ -973,9 +1009,27 @@ void _project_point_parametric( // outputs
             dq_dfxy->x = (q->x - cx)/fx; // dqx/dfx
             dq_dfxy->y = (q->y - cy)/fy; // dqy/dfy
         }
+
+        if( dq_dknoncentral )
+        {
+            for(int i=0; i<N_NONCENTRAL; i++)
+            {
+                // dq/dk = dq/dzadj dzadj/dk;
+
+                const double dqx_dzadj = dq_dp[0].xyz[2] / dzadj_dp[2];
+                const double dqy_dzadj = dq_dp[1].xyz[2] / dzadj_dp[2];
+
+                dq_dknoncentral[i].x = dqx_dzadj * dzadj_dk[i];
+                dq_dknoncentral[i].y = dqy_dzadj * dzadj_dk[i];
+            }
+        }
     }
     else if( lensmodel->type == MRCAL_LENSMODEL_CAHVOR )
     {
+
+        MSG("CAHVOR with a noncentral projection not yet implemented");
+        assert(0);
+
         int NdistortionParams = mrcal_lensmodel_num_params(lensmodel) - 4;
 
         // I perturb p, and then apply the focal length, center pixel stuff
@@ -2138,6 +2192,8 @@ void project( // out
 
     mrcal_point2_t* p_dq_dfxy            = NULL;
     double*   p_dq_dintrinsics_nocore    = NULL;
+
+    #error trace this. And make sure the opencv _dk gradients end up in the gradient vector
     mrcal_point2_t* p_dq_dknoncentral    = NULL;
 
     bool      has_core                   = modelHasCore_fxfycxcy(lensmodel);
@@ -2358,6 +2414,7 @@ void project( // out
             _project_point_parametric( // outputs
                                       q,p_dq_dfxy,
                                       p_dq_dintrinsics_nocore,
+                                      dq_dknoncentral,
                                       dq_drcamera,dq_dtcamera,dq_drframe,dq_dtframe,
                                       // inputs
                                       p,
@@ -2736,6 +2793,7 @@ bool _mrcal_project_internal( // out
         gradient_sparse_meta_t gradient_sparse_meta = {}; // init to pacify compiler warning
         mrcal_point2_t* dq_dknoncentral = NULL;
 
+#error 1
         project( &q[i],
 
                  dq_dintrinsics_pool_double,
@@ -4174,6 +4232,7 @@ void optimizer_callback(// input state
 
         int splined_intrinsics_grad_irun = 0;
 
+#error 2
         project(q_hypothesis,
 
                 ctx->problem_selections.do_optimize_intrinsics_core || ctx->problem_selections.do_optimize_intrinsics_distortions ?
@@ -4584,6 +4643,7 @@ void optimizer_callback(// input state
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
         mrcal_point2_t q_hypothesis;
+#error 3
         project(&q_hypothesis,
 
                 ctx->problem_selections.do_optimize_intrinsics_core || ctx->problem_selections.do_optimize_intrinsics_distortions ?

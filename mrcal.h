@@ -8,6 +8,9 @@
 #include "triangulation.h"
 
 
+#define N_NONCENTRAL 3
+
+
 ////////////////////////////////////////////////////////////////////////////////
 //////////////////// Lens models
 ////////////////////////////////////////////////////////////////////////////////
@@ -23,10 +26,10 @@
     _(LENSMODEL_STEREOGRAPHIC,         4)  /* Simple stereographic-only model */ \
     _(LENSMODEL_LONLAT,                4)                                        \
     _(LENSMODEL_LATLON,                4)                                        \
-    _(LENSMODEL_OPENCV4,               8)                                        \
-    _(LENSMODEL_OPENCV5,               9)                                        \
-    _(LENSMODEL_OPENCV8,               12)                                       \
-    _(LENSMODEL_OPENCV12,              16) /* available in OpenCV >= 3.0.0) */   \
+    _(LENSMODEL_OPENCV4,               (8 + N_NONCENTRAL))                         \
+    _(LENSMODEL_OPENCV5,               (9 + N_NONCENTRAL))                         \
+    _(LENSMODEL_OPENCV8,               (12 + N_NONCENTRAL))                             \
+    _(LENSMODEL_OPENCV12,              (16 + N_NONCENTRAL)) /* available in OpenCV >= 3.0.0) */ \
     _(LENSMODEL_CAHVOR,                9)
 #define MRCAL_LENSMODEL_WITHCONFIG_LIST(_)                                       \
     _(LENSMODEL_CAHVORE,               0)                                        \
