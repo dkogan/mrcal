@@ -1683,7 +1683,6 @@ void _project_point_splined( // outputs
 
     // non-central projection logic
 
-#define COS_TH       0
 #define U_PZ_ONESTEP 1
 
 
@@ -1711,39 +1710,6 @@ void _project_point_splined( // outputs
     double dzadj_dk[N_NONCENTRAL] = {};
     double dzadj_dp[3]            = {};
 
-
-#if defined COS_TH && COS_TH
-
-    // cos(th) = z/mag_p;
-    double zsq = p->z*p->z;
-    double norm2_xyz_recip =
-        1.0 / ( p->x*p->x +
-                p->y*p->y +
-                zsq );
-    double sgn = copysign(1.0, p->z);
-    double cossq = zsq * norm2_xyz_recip;
-    double dcossq_dxy =
-        -zsq * norm2_xyz_recip*norm2_xyz_recip * 2.0;
-
-
-    zadj = p->z +
-        k0_noncentral*(1. - cossq*sgn) +
-        k1_noncentral*(1. - cossq*sgn)*(1. - cossq*sgn) +
-        k2_noncentral*(1. - cossq*sgn)*(1. - cossq*sgn)*(1. - cossq*sgn);
-
-    dzadj_dp[0] = -sgn*dcossq_dxy*p->x* (k0_noncentral + k1_noncentral*2.*(1. - cossq*sgn) + k2_noncentral*3.*(1. - cossq*sgn)*(1. - cossq*sgn));
-    dzadj_dp[1] = -sgn*dcossq_dxy*p->y* (k0_noncentral + k1_noncentral*2.*(1. - cossq*sgn) + k2_noncentral*3.*(1. - cossq*sgn)*(1. - cossq*sgn));
-    dzadj_dp[2] =
-        1.0 +
-        -sgn*(dcossq_dxy * p->z + norm2_xyz_recip*2.0*p->z) *
-        (k0_noncentral +
-         k1_noncentral*2.*(1. - cossq*sgn) +
-         k2_noncentral*3.*(1. - cossq*sgn)*(1. - cossq*sgn));
-
-    dzadj_dk[0] = 1. - cossq*sgn;
-    dzadj_dk[1] = (1. - cossq*sgn)*(1. - cossq*sgn);
-    dzadj_dk[2] = (1. - cossq*sgn)*(1. - cossq*sgn)*(1. - cossq*sgn);
-#endif
 #if defined U_PZ_ONESTEP && U_PZ_ONESTEP
     {
         const double k0 = k0_noncentral;
@@ -1843,7 +1809,7 @@ void _project_point_splined( // outputs
                              p->y * (B * p->y)      + scale,
                              p->y * (B * zadj + A) } };
 
-#if (defined COS_TH && COS_TH) || (defined U_PZ_ONESTEP && U_PZ_ONESTEP)
+#if (defined U_PZ_ONESTEP && U_PZ_ONESTEP)
     // I have du_dpadj. I want du_dp = du_dpadj dpadj_dp
     // dxadj_dp = [   1        0        0    ]
     // dyadj_dp = [   0        1        0    ]
