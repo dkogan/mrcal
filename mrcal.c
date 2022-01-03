@@ -894,7 +894,9 @@ static void apply_noncentral_grad( // input, output
 static
 void _project_point_parametric( // outputs
                                mrcal_point2_t* q,
-                               mrcal_point2_t* dq_dfxy, double* dq_dintrinsics_nocore,
+                               mrcal_point2_t* dq_dfxy,
+                               double* dq_dintrinsics_nocore,
+
                                mrcal_point3_t* restrict dq_drcamera,
                                mrcal_point3_t* restrict dq_dtcamera,
                                mrcal_point3_t* restrict dq_drframe,
