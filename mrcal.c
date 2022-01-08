@@ -4276,6 +4276,7 @@ void optimizer_callback(// input state
                         }
                         else
                         {
+#warning "this loop assumes no noncentral parameters exist. The upper bound of the loop should exclude those"
                             for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
                                 STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i,
                                                 dq_dintrinsics_nocore[i_pt*2*(ctx->Nintrinsics-Ncore) +
@@ -4673,6 +4674,7 @@ void optimizer_callback(// input state
                 }
                 else
                 {
+#warning "this loop assumes no noncentral parameters exist. The upper bound of the loop should exclude those"
                     for(int i=0; i<ctx->Nintrinsics-Ncore; i++)
                         STORE_JACOBIAN( i_var_intrinsics+Ncore_state + i,
                                         dq_dintrinsics_nocore[i_xy*(ctx->Nintrinsics-Ncore) +
