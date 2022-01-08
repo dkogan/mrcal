@@ -2808,7 +2808,10 @@ bool _mrcal_project_internal( // out
 
         if(dq_dknoncentral != NULL)
             for(int i=0; i<N_NONCENTRAL; i++)
-                dq_dintrinsics[i*Nintrinsics + Nintrinsics-N_NONCENTRAL+i] = dq_dknoncentral[0].x;
+                for(int i_xy=0; i_xy<2; i_xy++)
+                    dq_dintrinsics[i_xy*Nintrinsics +
+                                   Nintrinsics - N_NONCENTRAL + i] =
+                        dq_dknoncentral[i].xy[i_xy];
 
         // advance
         dq_dintrinsics = &dq_dintrinsics[2*Nintrinsics];
