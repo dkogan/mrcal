@@ -1729,8 +1729,10 @@ void _project_point_splined( // outputs
                             double* grad_ABCDx_ABCDy,
                             int* ivar0,
 
-                            // The slice in [ik + N_NONCENTRAL*ipt] is
-                            // dq_ipt/dknoncentral_ik
+                            // Each mrcal_point2_t slice is (dqx/dk[i],
+                            // dqy,dk[i]). This is different from the expected
+                            // convention where the fast-changing index would
+                            // traverse k[] instead of qxy[]
                             mrcal_point2_t* restrict dq_dknoncentral,
 
                             // Gradient outputs. May be NULL
@@ -2304,8 +2306,10 @@ void project( // out
                        double* p_dq_dintrinsics_nocore,
                        double* gradient_sparse_meta_pool,
                        int runlen,
-                       // The slice in [ik + N_NONCENTRAL*ipt] is
-                       // dq_ipt/dknoncentral_ik
+                       // Each mrcal_point2_t slice is (dqx/dk[i], dqy,dk[i]).
+                       // This is different from the expected convention where
+                       // the fast-changing index would traverse k[] instead of
+                       // qxy[]
                        mrcal_point2_t* dq_dknoncentral,
                        mrcal_point3_t* restrict dq_drcamera,
                        mrcal_point3_t* restrict dq_dtcamera,
