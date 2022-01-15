@@ -5,7 +5,7 @@ import numpy as np
 import numpysane as nps
 
 
-def quat_from_R(R):
+def quat_from_R(R, out=None):
     r"""Convert a rotation defined as a rotation matrix to a unit quaternion
 
 SYNOPSIS
@@ -35,6 +35,12 @@ This function supports broadcasting fully.
 ARGUMENTS
 
 - R: array of shape (3,3,). The rotation matrix that defines the rotation.
+
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If 'out'
+  is given, we return the 'out' that was passed in. This is the standard
+  behavior provided by numpysane_pywrap.
 
 RETURNED VALUE
 
@@ -100,7 +106,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     decision_matrix[:, -1] = decision_matrix[:, :3].sum(axis=1)
     choices = decision_matrix.argmax(axis=1)
 
-    quat = np.empty((num_rotations, 4))
+    s = (num_rotations, 4)
+    if out is not None:
+        quat = out.reshape(s)
+
+        def base(x):
+            r'''Base function, that returns the self array if it's not a view'''
+            return x if x.base is None else x.base
+        if base(quat) is not base(out):
+            raise Exception("quat_from_R() in-place output isn't yet complete. Please fix")
+    else:
+        quat = np.empty(s)
 
     ind = np.nonzero(choices != 3)[0]
     i = choices[ind]

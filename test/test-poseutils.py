@@ -94,12 +94,15 @@ testutils.confirm_equal( mrcal.transform_point_rt( mrcal.invert_rt(mrcal.rt_from
                          p,
                          msg = 'transform_point_rt inverse')
 
+######### quaternion business
 testutils.confirm_equal( mrcal.R_from_quat( mrcal.quat_from_R(R) ),
                          R,
                          msg = 'R <-> quaternion transforms are inverses of one another')
 
 # shape (2,3,3)
 RR = nps.cat( R, nps.matmult(R,R) )
+# shape (2,4,3)
+RtRt = nps.cat( Rt, mrcal.compose_Rt(Rt,Rt) )
 testutils.confirm_equal( mrcal.R_from_quat( mrcal.quat_from_R(RR) ),
                          RR,
                          msg = 'R <-> quaternion transforms are inverses of one another. Broadcasted')
@@ -115,6 +118,55 @@ testutils.confirm_equal( mrcal.quat_from_R(R).shape,
                          (4,),
                          msg = 'quat_from_R() shape')
 
+# in-place output
+R2  = np.zeros(R. shape, dtype=float)
+RR2 = np.zeros(RR.shape, dtype=float)
+r2  = np.zeros(R. shape[:-2] + (3,), dtype=float)
+rr2 = np.zeros(RR.shape[:-2] + (3,), dtype=float)
+q2  = np.zeros(R. shape[:-2] + (4,), dtype=float)
+qq2 = np.zeros(RR.shape[:-2] + (4,), dtype=float)
+q  = mrcal.quat_from_R(R)
+qq = mrcal.quat_from_R(RR)
+mrcal.quat_from_R(R, out=q2)
+testutils.confirm_equal( q2, q,
+                         msg = 'quat_from_R() in-place')
+mrcal.quat_from_R(RR, out=qq2)
+testutils.confirm_equal( qq2, qq,
+                         msg = 'quat_from_R() in-place')
+mrcal.R_from_quat(q, out=R2)
+testutils.confirm_equal( R2,
+                         mrcal.R_from_quat(q),
+                         msg = 'R_from_quat() in-place')
+mrcal.R_from_quat(qq, out=RR2)
+testutils.confirm_equal( RR2,
+                         mrcal.R_from_quat(qq),
+                         msg = 'R_from_quat() in-place')
+
+Rt2   = np.zeros(Rt.  shape, dtype=float)
+RtRt2 = np.zeros(RtRt.shape, dtype=float)
+rt2   = np.zeros(Rt.  shape[:-2] + (6,), dtype=float)
+rtrt2 = np.zeros(RtRt.shape[:-2] + (6,), dtype=float)
+qt2   = np.zeros(Rt.  shape[:-2] + (7,), dtype=float)
+qtqt2 = np.zeros(RtRt.shape[:-2] + (7,), dtype=float)
+qt    = mrcal.qt_from_Rt(Rt)
+qtqt  = mrcal.qt_from_Rt(RtRt)
+mrcal.qt_from_Rt(Rt, out=qt2)
+testutils.confirm_equal( qt2, qt,
+                         msg = 'qt_from_Rt() in-place')
+mrcal.qt_from_Rt(RtRt, out=qtqt2)
+testutils.confirm_equal( qtqt2, qtqt,
+                         msg = 'qt_from_Rt() in-place')
+mrcal.Rt_from_qt(qt, out=Rt2)
+testutils.confirm_equal( Rt2,
+                         mrcal.Rt_from_qt(qt),
+                         msg = 'Rt_from_qt() in-place')
+mrcal.Rt_from_qt(qtqt, out=RtRt2)
+testutils.confirm_equal( RtRt2,
+                         mrcal.Rt_from_qt(qtqt),
+                         msg = 'Rt_from_qt() in-place')
+
+
+####### small-angle R_from_r()
 for th in (1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6):
     c,s = np.cos(th), np.sin(th)
     rtiny = np.array((0, th, 0))

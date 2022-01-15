@@ -18,6 +18,7 @@ import numpysane as nps
 from functools import reduce
 
 from . import _poseutils_npsp
+from . import _poseutils_scipy
 
 def r_from_R(R, get_gradients=False, out=None):
     r"""Compute a Rodrigues vector from a rotation matrix
@@ -1095,3 +1096,129 @@ gradients (u=Rt(x),du/dRt,du/dx):
 
 from . import _poseutils_scipy
 quat_from_R = _poseutils_scipy.quat_from_R
+
+def qt_from_Rt(Rt, out=None):
+    r"""Compute a qt transformation from a Rt transformation
+
+SYNOPSIS
+
+    Rt = nps.glue(rotation_matrix,translation, axis=-2)
+
+    print(Rt.shape)
+    ===>
+    (4,3)
+
+    qt = mrcal.qt_from_Rt(Rt)
+
+    print(qt.shape)
+    ===>
+    (7,)
+
+    quat        = qt[:4]
+    translation = qt[4:]
+
+Converts an Rt transformation to a qt transformation. Both specify a rotation
+and translation. An Rt transformation is a (4,3) array formed by nps.glue(R,t,
+axis=-2) where R is a (3,3) rotation matrix and t is a (3,) translation vector.
+A qt transformation is a (7,) array formed by nps.glue(q,t, axis=-1) where q is
+a (4,) unit quaternion and t is a (3,) translation vector.
+
+Applied to a point x the transformed result is rotate(x)+t. Given a matrix R,
+the rotation is defined by a matrix multiplication. x and t are stored as a row
+vector (that's how numpy stores 1-dimensional arrays), but the multiplication
+works as if x was a column vector (to match linear algebra conventions). See the
+docs for mrcal._transform_point_Rt() for more detail.
+
+This function supports broadcasting fully.
+
+Note: mrcal does not use unit quaternions anywhere to represent rotations. This
+function is provided for convenience, but isn't thoroughly tested.
+
+ARGUMENTS
+
+- Rt: array of shape (4,3). This matrix defines the transformation. Rt[:3,:] is
+  a rotation matrix; Rt[3,:] is a translation. It is assumed that the rotation
+  matrix is a valid rotation (matmult(R,transpose(R)) = I, det(R) = 1), but that
+  is not checked
+
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg.
+
+RETURNED VALUE
+
+We return the qt transformation. Each broadcasted slice has shape (7,). qt[:4]
+is a rotation defined as a unit quaternion; qt[4:] is a translation.
+
+    """
+    if out is not None:
+        qt = out
+    else:
+        qt = np.zeros(Rt.shape[:-2] + (7,), dtype=float)
+
+    _poseutils_scipy.quat_from_R(Rt[..., :3, :], out=qt[..., :4])
+    qt[..., 4:] = Rt[..., 3, :]
+    return qt
+
+
+def Rt_from_qt(qt, out=None):
+    r"""Compute an Rt transformation from a qt transformation
+
+SYNOPSIS
+
+    qt = nps.glue(q,t, axis=-1)
+
+    print(qt.shape)
+    ===>
+    (7,)
+
+    Rt = mrcal.Rt_from_qt(qt)
+
+    print(Rt.shape)
+    ===>
+    (4,3)
+
+    translation     = Rt[3,:]
+    rotation_matrix = Rt[:3,:]
+
+Converts a qt transformation to an Rt transformation. Both specify a rotation
+and translation. An Rt transformation is a (4,3) array formed by nps.glue(R,t,
+axis=-2) where R is a (3,3) rotation matrix and t is a (3,) translation vector.
+A qt transformation is a (7,) array formed by nps.glue(q,t, axis=-1) where q is
+a (4,) unit quaternion and t is a (3,) translation vector.
+
+Applied to a point x the transformed result is rotate(x)+t. Given a matrix R,
+the rotation is defined by a matrix multiplication. x and t are stored as a row
+vector (that's how numpy stores 1-dimensional arrays), but the multiplication
+works as if x was a column vector (to match linear algebra conventions). See the
+docs for mrcal._transform_point_Rt() for more detail.
+
+This function supports broadcasting fully.
+
+Note: mrcal does not use unit quaternions anywhere to represent rotations. This
+function is provided for convenience, but isn't thoroughly tested.
+
+ARGUMENTS
+
+- qt: array of shape (7,). This vector defines the input transformation. qt[:4]
+  is a rotation defined as a unit quaternion; qt[4:] is a translation.
+
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg.
+
+RETURNED VALUE
+
+We return the Rt transformation. Each broadcasted slice has shape (4,3).
+Rt[:3,:] is a rotation matrix; Rt[3,:] is a translation. The matrix R is a valid
+rotation: matmult(R,transpose(R)) = I and det(R) = 1
+
+    """
+    if out is not None:
+        Rt = out
+    else:
+        Rt = np.zeros(qt.shape[:-1] + (4,3), dtype=float)
+
+    _poseutils_npsp.R_from_quat(qt[..., :4], out=Rt[..., :3, :])
+    Rt[..., 3, :] = qt[..., 4:]
+    return Rt

@@ -127,6 +127,14 @@ has functions to convert between them. Available representations are:
   constraints: /any/ (6,) numpy array is a valid =rt= transformation. Thus this
   is the form used inside the [[file:formulation.org][mrcal optimization routine]].
 
+- =qt=: a (7,) numpy array with a (4,) vector representing a unit quaternion
+  concatenated with another (3,) vector, representing a translation:
+
+  \[ \left[ \vec q^T \quad \vec t^T \right] \]
+
+  mrcal doesn't use quaternions anywhere, and this exists only for
+  interoperability with other tools.
+
 Each of these represents a transformation =rotate(x) + t=.
 
 Since a pose represents a transformation between two coordinate systems, the
@@ -139,10 +147,6 @@ around an axis in the direction =r=. Converting between =R= and =r= is done via
 the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rotation formula]]: using the [[file:mrcal-python-api-reference.html#-r_from_R][=mrcal.r_from_R()=]] and
 [[file:mrcal-python-api-reference.html#-R_from_r][=mrcal.R_from_r()=]] functions. For translating /poses/, not just rotations, use
 [[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]] and [[file:mrcal-python-api-reference.html#-Rt_from_rt][=mrcal.Rt_from_rt()=]].
-
-There're [[file:mrcal-python-api-reference.html#-R_from_quat][several]] [[file:mrcal-python-api-reference.html#-quat_from_R][functions]] to work with unit quaternions as a rotation
-representation, but they're lightly used, and exist only for compatibility with
-other tools. mrcal does not use quaternions.
 
 * Linear algebra
 mrcal follows the usual linear algebra convention of /column/ vectors. So
