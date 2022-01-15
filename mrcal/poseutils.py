@@ -1092,49 +1092,6 @@ gradients (u=Rt(x),du/dRt,du/dx):
         return _poseutils_npsp._transform_point_Rt(Rt,x, out=out, inverted=inverted)
     return _poseutils_npsp._transform_point_Rt_withgrad(Rt,x, out=out, inverted=inverted)
 
-@nps.broadcast_define( ((4,),),
-                       (3,3) )
-def R_from_quat(q):
-    r"""Convert a rotation defined as a unit quaternion rotation to a rotation matrix
-
-SYNOPSIS
-
-    s    = np.sin(rotation_magnitude/2.)
-    c    = np.cos(rotation_magnitude/2.)
-    quat = nps.glue( c, s*rotation_axis, axis = -1)
-
-    print(quat.shape)
-    ===>
-    (4,)
-
-    R = mrcal.R_from_quat(quat)
-
-    print(R.shape)
-    ===>
-    (3,3)
-
-This is mostly for compatibility with some old stuff. mrcal doesn't use
-quaternions anywhere. Test this thoroughly before using.
-
-    """
-
-    # From the expression in wikipedia
-    r,i,j,k = q[:]
-
-    ii = i*i
-    ij = i*j
-    ik = i*k
-    ir = i*r
-    jj = j*j
-    jk = j*k
-    jr = j*r
-    kk = k*k
-    kr = k*r
-
-    return np.array((( 1-2*(jj+kk),   2*(ij-kr),   2*(ik+jr)),
-                     (   2*(ij+kr), 1-2*(ii+kk),   2*(jk-ir)),
-                     (   2*(ik-jr),   2*(jk+ir), 1-2*(ii+jj))))
-
 
 from . import _poseutils_scipy
 quat_from_R = _poseutils_scipy.quat_from_R

@@ -805,4 +805,66 @@ THIS function combines these into the full drtout_drt0,drtout_drt1 arrays
 '''},
 )
 
+m.function( "R_from_quat",
+            r"""Convert a rotation defined as a unit quaternion rotation to a rotation matrix
+
+SYNOPSIS
+
+    s    = np.sin(rotation_magnitude/2.)
+    c    = np.cos(rotation_magnitude/2.)
+    quat = nps.glue( c, s*rotation_axis, axis = -1)
+
+    print(quat.shape)
+    ===>
+    (4,)
+
+    R = mrcal.R_from_quat(quat)
+
+    print(R.shape)
+    ===>
+    (3,3)
+
+This is mostly for compatibility with some old stuff. mrcal doesn't use
+quaternions anywhere. Test this thoroughly before using.
+
+    """,
+            args_input       = ('q',),
+            prototype_input  = ((4,),),
+            prototype_output = (3,3),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    // From the expression in wikipedia
+    const double r = item__q(0);
+    const double i = item__q(1);
+    const double j = item__q(2);
+    const double k = item__q(3);
+
+    const double ii = i*i;
+    const double ij = i*j;
+    const double ik = i*k;
+    const double ir = i*r;
+    const double jj = j*j;
+    const double jk = j*k;
+    const double jr = j*r;
+    const double kk = k*k;
+    const double kr = k*r;
+
+    item__output(0,0) = 1. - 2.*(jj+kk);
+    item__output(0,1) =      2.*(ij-kr);
+    item__output(0,2) =      2.*(ik+jr);
+
+    item__output(1,0) =      2.*(ij+kr);
+    item__output(1,1) = 1. - 2.*(ii+kk);
+    item__output(1,2) =      2.*(jk-ir);
+
+    item__output(2,0) =      2.*(ik-jr);
+    item__output(2,1) =      2.*(jk+ir);
+    item__output(2,2) = 1. - 2.*(ii+jj);
+
+    return true;
+'''}
+)
+
 m.write()

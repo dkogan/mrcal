@@ -96,7 +96,7 @@ testutils.confirm_equal( mrcal.transform_point_rt( mrcal.invert_rt(mrcal.rt_from
 
 testutils.confirm_equal( mrcal.R_from_quat( mrcal.quat_from_R(R) ),
                          R,
-                         msg = 'quaternion stuff')
+                         msg = 'R <-> quaternion transforms are inverses of one another')
 
 for th in (1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6):
     c,s = np.cos(th), np.sin(th)
