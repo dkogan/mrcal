@@ -294,42 +294,6 @@ def write(f, m, note=None):
 
     return _write(f, m)
 
-def Rt_from_pq(pq):
-    r'''Converts a pq transformation to an Rt transformation
-
-    pq is a 7-long array: a 3-long translation followed by a 4-long unit
-    quaternion.
-
-    Rt is a (4,3) array: a (3,3) rotation matrix with a 3-long translation in
-    the last row
-
-    Broadcasting is supported
-
-    '''
-
-    p = pq[..., :3]
-    q = pq[..., 3:]
-    R = mrcal.R_from_quat(q)
-    return nps.glue(R,
-                    nps.dummy(p,-2),
-                    axis=-2)
-
-def pq_from_Rt(Rt):
-    r'''Converts an Rt transformation to an pq transformation
-
-    pq is a 7-long array: a 3-long translation followed by a 4-long unit
-    quaternion.
-
-    Rt is a (4,3) array: a (3,3) rotation matrix with a 3-long translation in
-    the last row
-
-    '''
-
-    R = Rt[:3,:]
-    t = Rt[ 3,:]
-    q = mrcal.quat_from_R(R)
-    return nps.glue(t,q, axis=-1)
-
 def read_transforms(f):
     r'''Reads a file (a filename string, or a file-like object: an iterable
     containing lines of text) into a transforms dict, and returns the dict
@@ -365,8 +329,9 @@ def read_transforms(f):
             if x['veh_from_ins'] is not None:
                 raise("'{}' is corrupt: more than one 'ins2veh'".format(f.name))
 
-            x['veh_from_ins'] = Rt_from_pq( np.array((float(m.group(1)),float(m.group(2)),float(m.group(3)),
-                                                      float(m.group(4)),float(m.group(5)),float(m.group(6)),float(m.group(7)))))
+            x['veh_from_ins'] = mrcal.Rt_from_qt( np.array((float(m.group(4)),float(m.group(5)),float(m.group(6)),float(m.group(7)),
+                                                            float(m.group(1)),float(m.group(2)),float(m.group(3)),
+                                                            )))
             continue
 
         m = re.match('\s*cam2ins\s*\[({u})\]\s*=\s*{p}\s*{q}\s*\n?$'.
@@ -377,8 +342,9 @@ def read_transforms(f):
             if x['ins_from_camera'].get(i) is not None:
                 raise("'{}' is corrupt: more than one 'cam2ins'[{}]".format(f.name, i))
 
-            x['ins_from_camera'][i] = Rt_from_pq( np.array((float(m.group(2)),float(m.group(3)),float(m.group(4)),
-                                                            float(m.group(5)),float(m.group(6)),float(m.group(7)),float(m.group(8)))))
+            x['ins_from_camera'][i] = mrcal.Rt_from_qt( np.array((float(m.group(5)),float(m.group(6)),float(m.group(7)),float(m.group(8)),
+                                                                  float(m.group(2)),float(m.group(3)),float(m.group(4)),
+                                                                  )))
             continue
 
         raise Exception("'transforms.txt': I only know about 'ins2veh' and 'cam2ins' lines. Got '{}'".
