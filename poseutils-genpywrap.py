@@ -827,6 +827,23 @@ SYNOPSIS
 This is mostly for compatibility with some old stuff. mrcal doesn't use
 quaternions anywhere. Test this thoroughly before using.
 
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- quat: array of shape (4,). The unit quaternion that defines the rotation. The
+  values in the array are (u,i,j,k)
+
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If 'out'
+  is given, we return the 'out' that was passed in. This is the standard
+  behavior provided by numpysane_pywrap.
+
+RETURNED VALUE
+
+We return an array of rotation matrices. Each broadcasted slice has shape (3,3)
+
     """,
             args_input       = ('q',),
             prototype_input  = ((4,),),

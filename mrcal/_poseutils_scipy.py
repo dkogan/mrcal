@@ -30,6 +30,19 @@ SYNOPSIS
 This is mostly for compatibility with some old stuff. mrcal doesn't use
 quaternions anywhere. Test this thoroughly before using.
 
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- R: array of shape (3,3,). The rotation matrix that defines the rotation.
+
+RETURNED VALUE
+
+We return an array of unit quaternions. Each broadcasted slice has shape (4,).
+The values in the array are (u,i,j,k)
+
+LICENSE AND COPYRIGHT
+
 The implementation comes directly from the scipy project, the from_dcm()
 function in
 
