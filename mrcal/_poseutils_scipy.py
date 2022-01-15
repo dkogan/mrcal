@@ -72,7 +72,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
     """
 
-    R = nps.dummy(R, 0)
+    # extra broadcasted shape
+    extra_dims = R.shape[:-2]
+    # R.shape = (..., 3,3) with some non-empty ...
+    R = nps.atleast_dims(R, -3)
+
+    # R.shape = (N,3,3)
+    R = nps.clump(R, n=R.ndim-2)
+
     num_rotations = R.shape[0]
 
     decision_matrix = np.empty((num_rotations, 4))
@@ -99,4 +106,5 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     quat[ind, 0] = 1 + decision_matrix[ind, -1]
 
     quat /= np.linalg.norm(quat, axis=1)[:, None]
-    return quat[0]
+
+    return quat.reshape(extra_dims + (4,))

@@ -98,6 +98,23 @@ testutils.confirm_equal( mrcal.R_from_quat( mrcal.quat_from_R(R) ),
                          R,
                          msg = 'R <-> quaternion transforms are inverses of one another')
 
+# shape (2,3,3)
+RR = nps.cat( R, nps.matmult(R,R) )
+testutils.confirm_equal( mrcal.R_from_quat( mrcal.quat_from_R(RR) ),
+                         RR,
+                         msg = 'R <-> quaternion transforms are inverses of one another. Broadcasted')
+
+# I'm concerned about quat_from_R() broadcasting properly. I check
+testutils.confirm_equal( mrcal.quat_from_R(RR.reshape(2,1,3,3)).shape,
+                         (2,1,4),
+                         msg = 'quat_from_R() shape')
+testutils.confirm_equal( mrcal.quat_from_R(RR.reshape(2,3,3)).shape,
+                         (2,4),
+                         msg = 'quat_from_R() shape')
+testutils.confirm_equal( mrcal.quat_from_R(R).shape,
+                         (4,),
+                         msg = 'quat_from_R() shape')
+
 for th in (1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6):
     c,s = np.cos(th), np.sin(th)
     rtiny = np.array((0, th, 0))
