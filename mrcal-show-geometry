@@ -52,9 +52,9 @@ def parse_args():
 
     parser.add_argument('--transforms',
                         type=str,
-                        help='''Optional transforms.txt. This is a legacy file representing an extra
-                        transformation for each camera. Most usages will omit
-                        this''')
+                        help='''Optional transforms.txt. This is a legacy file
+                        representing an extra transformation for each camera. If
+                        you need this, you know what it is''')
 
     parser.add_argument('--set',
                         type=str,
