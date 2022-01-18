@@ -26,8 +26,8 @@ given. Exactly one is required:
     work
 
 --cull-left-of X and --cull-rad-off-center throw out individual points. This is
-  done by keeping the point in the output data strem, but setting its decimation
-  level to '-'. The downstream tools then know to ignore those points
+  done by keeping the point in the output data stream, but setting its
+  decimation level to '-'. The downstream tools then know to ignore those points
 
 --cull-random-observations-ratio throws out whole object observations, not just
   individual points. These removed observations do not appear in the output data
