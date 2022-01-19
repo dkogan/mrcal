@@ -437,6 +437,10 @@ model_valid_intrinsics_region = None
 mapxy                         = None
 def _transform_this(inout):
     image = cv2.imread(inout[0])
+    if image is None:
+        print(f"Couldn't read image '{image}'", file=sys.stderr)
+        return
+
     if model_valid_intrinsics_region is not None:
         mrcal.annotate_image__valid_intrinsics_region(image, model_valid_intrinsics_region)
     image_transformed = mrcal.transform_image(image, mapxy)

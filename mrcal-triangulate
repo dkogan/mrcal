@@ -387,7 +387,13 @@ np.set_printoptions(precision = 3,
 
 if images is not None:
     import cv2
-    images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in images]
+    def imread(filename):
+        image = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
+        if image is None:
+            print(f"Couldn't read image '{filename}'", file=sys.stderr)
+            sys.exit(1)
+        return image
+    images = [imread(f) for f in images]
 
 models = [mrcal.cameramodel(m) for m in args.models]
 
