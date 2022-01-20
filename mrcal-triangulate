@@ -362,9 +362,6 @@ def compute_H10_planes(models, q0, v0, plane_n, plane_d):
 
     # For the same (u,v,n) coord system we have p1 = R10 R_cam0_uvn * p_uvn +
     # t10 -> dp1/dp_uvn = R10 R_cam0_uvn, dp1/dp_uv = R10 R_cam0_uv
-
-    Rt10 = mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
-                             models[0].extrinsics_Rt_toref() )
     p1 = mrcal.transform_point_Rt(Rt10, p0)
     q1,dq1_dp1,_ = mrcal.project(p1, *models[1].intrinsics(),
                                  get_gradients=True)
