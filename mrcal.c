@@ -1425,8 +1425,10 @@ void mrcal_project_latlon( // output
             dq_dv[2*i + 1] = (mrcal_point3_t){.y =  fy*norm2_yz_recip * v[i].z,
                                               .z = -fy*norm2_yz_recip * v[i].y };
         }
-        q[i] = (mrcal_point2_t){.x = asin( v[i].x * mag_xyz_recip ) * fx + cx,
-                                .y = atan2(v[i].y, v[i].z)          * fy + cy};
+        q[i] = (mrcal_point2_t){.x = atan2(v[i].x, v[i].z) * fx + cx,
+                                .y = atan2(v[i].y, v[i].z) * fy + cy};
+        // q[i] = (mrcal_point2_t){.x = asin( v[i].x * mag_xyz_recip ) * fx + cx,
+        //                         .y = atan2(v[i].y, v[i].z)          * fy + cy};
     }
 }
 
@@ -1466,9 +1468,20 @@ void mrcal_unproject_latlon( // output
             dv_dq[3*i + 2] = (mrcal_point2_t){.x = -fx_recip * slat * clon,
                                               .y = -fy_recip * clat * slon };
         }
-        v[i] = (mrcal_point3_t){.x = slat,
-                                .y = clat * slon,
-                                .z = clat * clon};
+
+        // assuming z == 1
+        v[i] = (mrcal_point3_t){.x = tan(lat),
+                                .y = tan(lon),
+                                .z = 1.};
+        const double mag = sqrt(v[i].x*v[i].x +
+                                v[i].y*v[i].y +
+                                v[i].z*v[i].z);
+        v[i].x /= mag;
+        v[i].y /= mag;
+        v[i].z /= mag;
+        // v[i] = (mrcal_point3_t){.x = clon * slat,
+        //                         .y = clat * slon,
+        //                         .z = clat * clon};
     }
 }
 
