@@ -3652,7 +3652,7 @@ bool markOutliers(// output, input
     }}
 
 
-    double sum_weight = 0.0;
+    int Ninliers = 0;
     double var = 0.0;
     LOOP_FEATURE_BEGIN()
     {
@@ -3664,12 +3664,11 @@ bool markOutliers(// output, input
 
         double dx = x_measurements[2*i_feature + 0];
         double dy = x_measurements[2*i_feature + 1];
-        double w2 = (*weight)*(*weight);
-        var += w2 * (dx*dx + dy*dy);
-        sum_weight += w2;
+        var += dx*dx + dy*dy;
+        Ninliers++;
     }
     LOOP_FEATURE_END();
-    var /= (2.*sum_weight);
+    var /= (double)(2*Ninliers);
 
     bool markedAny = false;
     LOOP_FEATURE_BEGIN()
@@ -3679,19 +3678,18 @@ bool markOutliers(// output, input
 
         double dx = x_measurements[2*i_feature + 0];
         double dy = x_measurements[2*i_feature + 1];
-        // I have sigma = sqrt(var). Outliers have w*abs(x) > k*sigma
-        // -> w^2 x^2 > k^2 var
-        double w2 = (*weight)*(*weight);
-        if(w2*dx*dx > k1*k1*var ||
-           w2*dy*dy > k1*k1*var )
+        // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
+        // -> x^2 > k^2 var
+        if(dx*dx > k1*k1*var ||
+           dy*dy > k1*k1*var )
         {
             *weight   = -1.0;
             markedAny = true;
             (*Noutliers)++;
             // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean (assumed 0). Observed stdev: %f, limit: %f",
             //     i_feature,
-            //     (*weight)*dx/sqrt(var),
-            //     (*weight)*dy/sqrt(var),
+            //     dx/sqrt(var),
+            //     dy/sqrt(var),
             //     sqrt(var),
             //     k1);
         }
@@ -3711,11 +3709,10 @@ bool markOutliers(// output, input
 
         double dx = x_measurements[2*i_feature + 0];
         double dy = x_measurements[2*i_feature + 1];
-        // I have sigma = sqrt(var). Outliers have w*abs(x) > k*sigma
-        // -> w^2 x^2 > k^2 var
-        double w2 = (*weight)*(*weight);
-        if(w2*dx*dx > k0*k0*var ||
-           w2*dy*dy > k0*k0*var )
+        // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
+        // -> x^2 > k^2 var
+        if(dx*dx > k0*k0*var ||
+           dy*dy > k0*k0*var )
         {
             *weight *= -1.0;
             (*Noutliers)++;
