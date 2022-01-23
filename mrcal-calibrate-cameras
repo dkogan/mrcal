@@ -376,6 +376,10 @@ def solve_initial(args, seedmodels, imagersizes,
             nps.cat( *[ mrcal.compose_Rt( m.extrinsics_Rt_fromref(),Rt_r0)
                         for m in seedmodels[1:]])
 
+        if extrinsics_Rt_fromref.size == 0:
+            # No extrinsics. Represent as 0 Rt transforms
+            extrinsics_Rt_fromref = np.zeros((0,4,3), dtype=float)
+
         # I have a GOOD extrinsics estimate, so I could compute a GOOD frame
         # pose estimate by triangulating:
         #
@@ -513,7 +517,7 @@ if args.seed:
 
     if args.imagersize is not None:
         for m in seedmodels:
-            if args.imagersize != m.imagersize():
+            if args.imagersize != list(m.imagersize()):
                 raise Exception("Both --seed and --imagersize were given, so they must match exactly. But I had --imagersize {} and one model has imagersize() = {}". \
                                 format(args.imagersize, m.imagersize()))
     lensmodel = seedmodels[0].intrinsics()[0]

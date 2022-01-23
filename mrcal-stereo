@@ -515,6 +515,13 @@ for i in range(Nimages):
     if args.force_grayscale:
         flags = (cv2.IMREAD_GRAYSCALE,)
     images = [cv2.imread(f, *flags) for f in image_filenames]
+    if images[0] is None:
+        print(f"Couldn't read image '{images[0]}'", file=sys.stderr)
+        sys.exit(1)
+    if images[1] is None:
+        print(f"Couldn't read image '{images[1]}'", file=sys.stderr)
+        sys.exit(1)
+
 
     # This doesn't really matter: I don't use the input imagersize. But a
     # mismatch suggests the user probably messed up, and it would save them time

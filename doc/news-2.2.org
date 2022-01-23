@@ -1,0 +1,40 @@
+#+TITLE: mrcal 2.2 release notes
+#+OPTIONS: toc:nil
+
+#+begin_src emacs-lisp :exports none :eval no-export
+(progn
+  (defun insert-function (f)
+    (interactive (list (read-string "Function: ")))
+    (insert (format "[[file:mrcal-python-api-reference.html#-%1$s][=mrcal.%1$s()=]]"
+                    f)))
+
+  (defun insert-tool (f)
+    (interactive (list (read-string "Tool: ")))
+    (insert (format "[[file:%1$s.html][=%1$s=]]"
+                    f)))
+
+  (local-set-key (kbd "<f1>") 'insert-function)
+  (local-set-key (kbd "<f2>") 'insert-tool))
+#+end_src
+
+* New in mrcal 2.2
+mrcal-stereo --viz
+
+build update: I can cross-compile
+
+quaternion support improved:
+
+quat_from_R() improved
+R_from_quat() improved
+qt_from_Rt() new
+Rt_from_qt() new
+pq_from_Rt() removed
+Rt_from_pq() removed
+
+
+* Migration notes 2.1 -> 2.2
+This is a /very/ minor release, and is 99.9% compatible. The only incompatible
+update:
+
+- Replace pq_from_Rt(),Rt_from_pq() with qt_from_Rt(),Rt_from_qt()
+

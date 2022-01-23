@@ -189,6 +189,10 @@ def parse_args():
                         type=str,
                         action='append',
                         help='''Extra 'unset' directives to gnuplotlib --viz. Can be given multiple times''')
+    parser.add_argument('--clahe',
+                        action='store_true',
+                        help='''If given, apply CLAHE equalization to the images
+                        prior to the matching''')
     parser.add_argument('models',
                         type=str,
                         nargs = 2,
@@ -362,9 +366,6 @@ def compute_H10_planes(models, q0, v0, plane_n, plane_d):
 
     # For the same (u,v,n) coord system we have p1 = R10 R_cam0_uvn * p_uvn +
     # t10 -> dp1/dp_uvn = R10 R_cam0_uvn, dp1/dp_uv = R10 R_cam0_uv
-
-    Rt10 = mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
-                             models[0].extrinsics_Rt_toref() )
     p1 = mrcal.transform_point_Rt(Rt10, p0)
     q1,dq1_dp1,_ = mrcal.project(p1, *models[1].intrinsics(),
                                  get_gradients=True)
@@ -387,7 +388,18 @@ np.set_printoptions(precision = 3,
 
 if images is not None:
     import cv2
-    images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in images]
+    if args.clahe:
+        clahe = cv2.createCLAHE()
+        clahe.setClipLimit(8)
+    def imread(filename):
+        image = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
+        if image is None:
+            print(f"Couldn't read image '{filename}'", file=sys.stderr)
+            sys.exit(1)
+        if args.clahe:
+            image = clahe.apply(image)
+        return image
+    images = [imread(f) for f in images]
 
 models = [mrcal.cameramodel(m) for m in args.models]
 
