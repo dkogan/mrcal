@@ -1,22 +1,6 @@
 #+TITLE: mrcal 2.2 release notes
 #+OPTIONS: toc:nil
 
-#+begin_src emacs-lisp :exports none :eval no-export
-(progn
-  (defun insert-function (f)
-    (interactive (list (read-string "Function: ")))
-    (insert (format "[[file:mrcal-python-api-reference.html#-%1$s][=mrcal.%1$s()=]]"
-                    f)))
-
-  (defun insert-tool (f)
-    (interactive (list (read-string "Tool: ")))
-    (insert (format "[[file:%1$s.html][=%1$s=]]"
-                    f)))
-
-  (local-set-key (kbd "<f1>") 'insert-function)
-  (local-set-key (kbd "<f2>") 'insert-tool))
-#+end_src
-
 * New in mrcal 2.2
 mrcal-stereo --viz
 
