@@ -757,7 +757,7 @@ TAB: transpose windows
 
                     return 0
 
-                if event == FL_KEYUP:
+                if event == FL_KEYDOWN:
                     if Fl.event_key() == fltk.FL_Tab:
 
                         x_image1    = widget_image1   .x()
