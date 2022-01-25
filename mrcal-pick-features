@@ -357,14 +357,14 @@ from fltk               import *
 from Fl_Gl_Image_Widget import *
 
 highlighted_point_radius = \
-    dict(q01_rectified_hypothesis = 10,
-         q01_rectified_match      = 8)
+    dict(q01_hypothesis = 8,
+         q01_stored     = 10)
 highlighted_point_color = \
-    dict(q01_rectified_hypothesis = np.array((1,0,0), dtype=np.float32),
-         q01_rectified_match      = np.array((0,1,0), dtype=np.float32))
-# shape (2,2): cat(q0,q1)
-points_to_highlight = dict( q01_rectified_hypothesis = None,
-                            q01_rectified_match      = None)
+    dict(q01_hypothesis = np.array((1,0,0), dtype=np.float32),
+         q01_stored     = np.array((0,1,0), dtype=np.float32))
+# Each is an array of shape (...,Nimages=2,xy=2)
+points_state = dict( q01_hypothesis = None,
+                     q01_stored     = np.zeros((0,2,2), dtype=float))
 
 
 
@@ -396,38 +396,39 @@ def set_all_overlay_lines():
         if q01 is not None and q01.size != 0:
             q = q01[..., idx,:]
 
-            # q now has shape (..., 2)
-            rx = np.array((radius,0), dtype=np.float32)
-            ry = np.array((0,radius), dtype=np.float32)
+            for r in (radius, 0.5):
+                # q now has shape (..., 2)
+                rx = np.array((r,0), dtype=np.float32)
+                ry = np.array((0,r), dtype=np.float32)
 
-            # shape (..., Nsegments_in_square=4, Npoints_in_line_segment=2, xy=2)
-            p = np.zeros(q.shape[:-1] + (4,2,2), dtype=np.float32)
-            p[..., 0,0,:] = q-rx-ry
-            p[..., 0,1,:] = q-rx+ry
-            p[..., 1,0,:] = q+rx-ry
-            p[..., 1,1,:] = q+rx+ry
-            p[..., 2,0,:] = q-rx-ry
-            p[..., 2,1,:] = q+rx-ry
-            p[..., 3,0,:] = q-rx+ry
-            p[..., 3,1,:] = q+rx+ry
-            # p has shape (4*..., 2,2)
-            p = nps.clump(p, n=p.ndim-2)
+                # shape (..., Nsegments_in_square=4, Npoints_in_line_segment=2, xy=2)
+                p = np.zeros(q.shape[:-1] + (4,2,2), dtype=np.float32)
+                p[..., 0,0,:] = q-rx-ry
+                p[..., 0,1,:] = q-rx+ry
+                p[..., 1,0,:] = q+rx-ry
+                p[..., 1,1,:] = q+rx+ry
+                p[..., 2,0,:] = q-rx-ry
+                p[..., 2,1,:] = q+rx-ry
+                p[..., 3,0,:] = q-rx+ry
+                p[..., 3,1,:] = q+rx+ry
+                # p has shape (4*..., 2,2)
+                p = nps.clump(p, n=p.ndim-2)
 
-            lines.append(dict(points = p,
-                              color_rgb = color ))
+                lines.append(dict(points = p,
+                                  color_rgb = color ))
 
     lines = [[], []]
 
-    for what in points_to_highlight.keys():
+    for what in points_state.keys():
         set_overlay_lines_widget(lines[0],
                                  widget_image0,
-                                 points_to_highlight[what],
+                                 points_state[what],
                                  0,
                                  highlighted_point_radius[what],
                                  highlighted_point_color [what])
         set_overlay_lines_widget(lines[1],
                                  widget_image1,
-                                 points_to_highlight[what],
+                                 points_state[what],
                                  1,
                                  highlighted_point_radius[what],
                                  highlighted_point_color [what])
@@ -444,7 +445,7 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
         This is an override of the function to do this: any request to
         pan/zoom the widget will come here first. I dispatch any
-        pan/zoom commands to all the widgets, so that they all work in
+        pan/zoom commands to all the widgets, so that they all zoom in
         unison. visible_width_pixels < 0 means: this is the redirected
         call. Just call the base class
 
@@ -453,14 +454,17 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             return super().set_panzoom(x_centerpixel, y_centerpixel,
                                        -visible_width_pixels)
 
-        # All the widgets should pan/zoom together
+        # All the widgets should zoom together. I perform the requested
+        # operation, and then ask all the widgets to zoom-only to this setting
+        super().set_panzoom(x_centerpixel, y_centerpixel,
+                            visible_width_pixels)
         return \
-            all( w.set_panzoom(x_centerpixel, y_centerpixel,
+            all( w.set_panzoom(np.nan, np.nan,
                                -visible_width_pixels) \
                  for w in (widget_image0, widget_image1) )
 
     def handle(self, event):
-        global points_to_highlight
+        global points_state
 
         if event == FL_ENTER:
             return 1
@@ -492,7 +496,7 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             except:
                 widget_info.value(UI_usage_message + "\n" + \
                                     "Error converting pixel coordinates")
-                points_to_highlight['q01_rectified_hypothesis'] = None
+                points_state['q01_hypothesis'] = None
                 set_all_overlay_lines()
                 return super().handle(event)
 
@@ -504,18 +508,19 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                     q_rectified[1] >= -0.5 and q_rectified[1] <= H-0.5):
                 widget_info.value(UI_usage_message + "\n" + \
                                     "Out of bounds")
-                points_to_highlight['q01_rectified_hypothesis'] = None
+                points_state['q01_hypothesis'] = None
                 set_all_overlay_lines()
                 return super().handle(event)
 
+            q01 = None
             if self is widget_image0:
                 # shape (2,2): (leftright, qxy)
-                points_to_highlight['q01_rectified_hypothesis'] = get_q01_nominal(q_rectified, True)
+                points_state['q01_hypothesis'] = get_q01_nominal(q_rectified, True)
 
                 match_feature_out = \
                     mrcal.match_feature(images_rectified[0], images_rectified[1],
-                                        q0               = points_to_highlight['q01_rectified_hypothesis'][0],
-                                        q1_estimate      = points_to_highlight['q01_rectified_hypothesis'][1],
+                                        q0               = points_state['q01_hypothesis'][0],
+                                        q1_estimate      = points_state['q01_hypothesis'][1],
                                         search_radius1   = args.search_radius,
                                         template_size1   = args.template_size)
 
@@ -523,19 +528,16 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
                 # report match_feature_diagnostics['matchoutput_optimum_subpixel']
                 if q1 is not None:
-                    points_to_highlight['q01_rectified_match'] = \
-                        nps.cat(points_to_highlight['q01_rectified_hypothesis'][0],
-                                q1)
-                else:
-                    points_to_highlight['q01_rectified_match'] = None
+                    q01 = nps.cat(points_state['q01_hypothesis'][0],
+                                  q1)
 
             else:
-                points_to_highlight['q01_rectified_hypothesis'] = get_q01_nominal(q_rectified, False)
+                points_state['q01_hypothesis'] = get_q01_nominal(q_rectified, False)
 
                 match_feature_out = \
                     mrcal.match_feature(images_rectified[1], images_rectified[0],
-                                        q0               = points_to_highlight['q01_rectified_hypothesis'][1],
-                                        q1_estimate      = points_to_highlight['q01_rectified_hypothesis'][0],
+                                        q0               = points_state['q01_hypothesis'][1],
+                                        q1_estimate      = points_state['q01_hypothesis'][0],
                                         search_radius1   = args.search_radius,
                                         template_size1   = args.template_size)
 
@@ -543,11 +545,18 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
                 # report match_feature_diagnostics['matchoutput_optimum_subpixel']
                 if q1 is not None:
-                    points_to_highlight['q01_rectified_match'] = \
-                        nps.cat(q1,
-                                points_to_highlight['q01_rectified_hypothesis'][1])
-                else:
-                    points_to_highlight['q01_rectified_match'] = None
+                    q01 = nps.cat(q1,
+                                  points_state['q01_hypothesis'][1])
+
+            if q01 is not None:
+                # adding a new row
+                points_state['q01_stored'] = \
+                    nps.glue( points_state['q01_stored'],
+                              q01,
+                              axis=-3)
+                Nrows = points_state['q01_stored'].shape[0]
+                widget_table.rows( Nrows )
+                widget_table.select_row(Nrows-1)
 
             set_all_overlay_lines()
 
@@ -574,6 +583,7 @@ class Fl_Table_Derived(Fl_Table_Row):
               "Correlation",
               "Fit error" ]
 
+        self.type(fltk.Fl_Table_Row.SELECT_SINGLE)
         self.rows(0)
         self.cols(len(self.col_labels))
         self.col_header(1)
@@ -598,7 +608,12 @@ class Fl_Table_Derived(Fl_Table_Row):
             return
 
         if context == self.CONTEXT_CELL:
-            text = f"{row},{col}"
+            if col < 4:
+                iimage = col // 2
+                ixy    = col %  2
+                text = f"{points_state['q01_stored'][row,iimage,ixy]:.2f}"
+            else:
+                text = '-'
 
             fl_push_clip(x, y, w, h)
             # background color
