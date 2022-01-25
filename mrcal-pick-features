@@ -462,6 +462,20 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
     def handle(self, event):
         global points_to_highlight
 
+        if event == FL_ENTER:
+            return 1
+        if event == FL_LEAVE:
+            widget_status.value("")
+            return 1
+        if event == FL_MOVE:
+            try:
+                q = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
+                this = "Image 0" if self is widget_image0 else "Image 1"
+                widget_status.value(f"{this}: {q[0]:.2f},{q[1]:.2f}")
+            except:
+                widget_status.value("")
+            return 0
+
         if event == FL_PUSH:
 
             if Fl.event_button() != FL_RIGHT_MOUSE:
@@ -476,7 +490,7 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                     np.array( self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ),
                               dtype=float )
             except:
-                widget_status.value(UI_usage_message + "\n" + \
+                widget_info.value(UI_usage_message + "\n" + \
                                     "Error converting pixel coordinates")
                 points_to_highlight['q01_rectified_hypothesis'] = None
                 set_all_overlay_lines()
@@ -488,7 +502,7 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
             if not (q_rectified[0] >= -0.5 and q_rectified[0] <= W-0.5 and \
                     q_rectified[1] >= -0.5 and q_rectified[1] <= H-0.5):
-                widget_status.value(UI_usage_message + "\n" + \
+                widget_info.value(UI_usage_message + "\n" + \
                                     "Out of bounds")
                 points_to_highlight['q01_rectified_hypothesis'] = None
                 set_all_overlay_lines()
@@ -545,24 +559,94 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             pass
         return super().handle(event)
 
-window           = Fl_Window(800, 600, "mrcal feature picker")
-widget_image0    = Fl_Gl_Image_Widget_Derived(0,    0, 400,300)
-widget_image1    = Fl_Gl_Image_Widget_Derived(400,  0, 400,300)
-widget_status    = Fl_Multiline_Output(       400,300, 400,300)
 
-widget_status.value(UI_usage_message)
+class Fl_Table_Derived(Fl_Table_Row):
 
-window.resizable(window)
+    def __init__(self, x, y, w, h, *args):
+        Fl_Table_Row.__init__(self, x, y, w, h, *args)
+
+        self.col_labels = \
+            [ "x0",
+              "y0",
+              "x1",
+              "y1",
+              "Nominal range",
+              "Correlation",
+              "Fit error" ]
+
+        self.rows(0)
+        self.cols(len(self.col_labels))
+        self.col_header(1)
+        self.col_resize(1)
+
+        self.end()
+
+    def draw_cell(self, context, row, col, x, y, w, h):
+
+        if context == self.CONTEXT_STARTPAGE:
+            fl_font(FL_HELVETICA, 12)
+            return
+
+        if context == self.CONTEXT_COL_HEADER:
+            text = self.col_labels[col]
+
+            fl_push_clip(x, y, w, h)
+            fl_draw_box(FL_THIN_UP_BOX, x, y, w, h, self.row_header_color())
+            fl_color(FL_BLACK)
+            fl_draw(text, x, y, w, h, FL_ALIGN_CENTER)
+            fl_pop_clip()
+            return
+
+        if context == self.CONTEXT_CELL:
+            text = f"{row},{col}"
+
+            fl_push_clip(x, y, w, h)
+            # background color
+            fl_color(self.selection_color() if self.row_selected(row) else FL_WHITE)
+            fl_rectf(x, y, w, h)
+
+            # text
+            fl_color(FL_BLACK)
+            fl_draw(text, x, y, w, h, FL_ALIGN_CENTER)
+
+            # border
+            fl_color(FL_LIGHT2)
+            fl_rect(x, y, w, h)
+            fl_pop_clip()
+
+            return
+
+        return
+
+
+
+
+
+
+window = Fl_Window(800, 620, "mrcal feature picker")
+body   = Fl_Group(0,0,800,600)
+
+widget_image0 = Fl_Gl_Image_Widget_Derived(0,    0, 400,300)
+widget_image1 = Fl_Gl_Image_Widget_Derived(400,  0, 400,300)
+widget_table  = Fl_Table_Derived(          0,  300, 400,300)
+widget_info   = Fl_Multiline_Output(       400,300, 400,300)
+body.end()
+
+widget_status = Fl_Output(0,600,800,20)
+
+widget_info.value(UI_usage_message)
+
+window.resizable(body)
 window.end()
 window.show()
 
-import numpy as np
 widget_image0. \
   update_image(decimation_level = 0,
                image_data       = images_rectified[0])
 widget_image1. \
   update_image(decimation_level = 0,
                image_data       = images_rectified[1])
+
 Fl.run()
 
 sys.exit(0)
@@ -583,6 +667,6 @@ click one image
   - accept match
   - reject match
   - click to init search from another guess
-  - 
+  -
 
 '''
