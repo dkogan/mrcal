@@ -358,13 +358,16 @@ from Fl_Gl_Image_Widget import *
 
 highlighted_point_radius = \
     dict(q01_hypothesis = 8,
-         q01_stored     = 10)
+         q01_stored     = 10,
+         q01_selected   = 11)
 highlighted_point_color = \
     dict(q01_hypothesis = np.array((1,0,0), dtype=np.float32),
-         q01_stored     = np.array((0,1,0), dtype=np.float32))
+         q01_stored     = np.array((0,1,0), dtype=np.float32),
+         q01_selected   = np.array((0,1,0), dtype=np.float32))
 # Each is an array of shape (...,Nimages=2,xy=2)
 points_state = dict( q01_hypothesis = None,
-                     q01_stored     = np.zeros((0,2,2), dtype=float))
+                     q01_stored     = np.zeros((0,2,2), dtype=float),
+                     q01_selected   = None)
 
 
 
@@ -432,6 +435,7 @@ def set_all_overlay_lines():
                                  1,
                                  highlighted_point_radius[what],
                                  highlighted_point_color [what])
+
     widget_image0.set_lines(lines[0])
     widget_image1.set_lines(lines[1])
 
@@ -453,6 +457,9 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
         if visible_width_pixels < 0:
             return super().set_panzoom(x_centerpixel, y_centerpixel,
                                        -visible_width_pixels)
+        if visible_width_pixels is np.nan:
+            return super().set_panzoom(x_centerpixel, y_centerpixel,
+                                       visible_width_pixels)
 
         # All the widgets should zoom together. I perform the requested
         # operation, and then ask all the widgets to zoom-only to this setting
@@ -556,16 +563,38 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                               axis=-3)
                 Nrows = points_state['q01_stored'].shape[0]
                 widget_table.rows( Nrows )
-                widget_table.select_row(Nrows-1)
+                widget_table.select_row(Nrows-1,
+                                        event_from_widget_image0 = self is widget_image0)
+                self.redraw()
 
             set_all_overlay_lines()
 
             return 0
 
         if event == FL_KEYDOWN:
-            if Fl.event_key() == fltk.FL_Tab:
-                pass
-            pass
+            if Fl.event_key() == fltk.FL_Delete:
+                # delete selected feature
+                Nrows = points_state['q01_stored'].shape[0]
+                def selected_row():
+                    # This is crazy. Is this really right?
+                    for i in range(Nrows):
+                        if widget_table.row_selected(i):
+                            return i
+                    return None
+                iselected = selected_row()
+                if iselected is not None:
+                    widget_table.select_row(iselected,
+                                            flag = 0)
+                    points_state['q01_stored'] = \
+                        nps.glue( points_state['q01_stored'][:iselected],
+                                  points_state['q01_stored'][iselected+1:],
+                                  axis = -3 )
+                    widget_table.rows( Nrows-1 )
+                    set_all_overlay_lines()
+                    self.redraw()
+
+                return 1
+
         return super().handle(event)
 
 
@@ -633,6 +662,21 @@ class Fl_Table_Derived(Fl_Table_Row):
 
         return
 
+    def select_row(self, row, flag=1, event_from_widget_image0 = None):
+        ret = super().select_row(row,flag)
+
+        if self.row_selected(row):
+            points_state['q01_selected'] = points_state['q01_stored'][-1,...]
+
+            # I pan to show the match. Don't pan the window I just clicked on
+            if event_from_widget_image0 is False:
+                widget_image0.set_panzoom(*points_state['q01_selected'][0,...], np.nan)
+            if event_from_widget_image0 is True:
+                widget_image1.set_panzoom(*points_state['q01_selected'][1,...], np.nan)
+        else:
+            points_state['q01_selected'] = None
+
+        return ret
 
 
 
