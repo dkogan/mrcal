@@ -58,9 +58,10 @@ def parse_args():
                         help='''Extra 'unset' directives to pass to gnuplotlib. May be given multiple
                         times''')
 
-    parser.add_argument('model',
+    parser.add_argument('models',
                         type=str,
-                        help='''Input camera model. If "-' is given, we read standard input''')
+                        nargs='+',
+                        help='''Input camera model(s). If "-' is given, we read standard input''')
 
     return parser.parse_args()
 
@@ -87,17 +88,6 @@ import mrcal
 
 
 
-try:
-    model = mrcal.cameramodel(args.model)
-except Exception as e:
-    print(f"Couldn't load camera model '{args.model}': {e}", file=sys.stderr)
-    sys.exit(1)
-
-lensmodel = model.intrinsics()[0]
-if not re.match("LENSMODEL_SPLINED_STEREOGRAPHIC_", lensmodel):
-    print(f"Only splined stereographic models have noncentral terms. This is not such a model", file=sys.stderr)
-    sys.exit(1)
-
 plotkwargs = {}
 if args.set is not None:
     plotkwargs['set'] = args.set
@@ -109,24 +99,45 @@ if args.title is not None:
 if args.extratitle is not None:
     plotkwargs['extratitle'] = args.extratitle
 
-k = model.intrinsics()[1][-3:]
+def make_plottuple_one_model(filename):
 
-meta = mrcal.lensmodel_metadata_and_config(lensmodel)
-fov_x_deg = meta['fov_x_deg']
+    try:
+        model = mrcal.cameramodel(filename)
+    except Exception as e:
+        print(f"Couldn't load camera model '{filename}': {e}", file=sys.stderr)
+        sys.exit(1)
 
-th = np.linspace(0, fov_x_deg/2., 500)
-u  = 2 * np.tan(th * np.pi/180. /2.)
-dz = u*(k[0] + u*(k[1] + u*k[2]))
+    lensmodel = model.intrinsics()[0]
+    if not re.match("LENSMODEL_SPLINED_STEREOGRAPHIC_", lensmodel):
+        print(f"Only splined stereographic models have noncentral terms. This is not such a model", file=sys.stderr)
+        sys.exit(1)
 
-plot = gp.gnuplotlib(hardcopy     = args.hardcopy,
-                     terminal     = args.terminal,
+
+
+    k = model.intrinsics()[1][-3:]
+
+    meta = mrcal.lensmodel_metadata_and_config(lensmodel)
+    fov_x_deg = meta['fov_x_deg']
+
+    th = np.linspace(0, fov_x_deg/2., 500)
+    u  = 2 * np.tan(th * np.pi/180. /2.)
+    dz = u*(k[0] + u*(k[1] + u*k[2]))
+
+    return ( th, dz,
+             dict(_with  = 'lines',
+                  legend = filename) )
+
+plottuples = [make_plottuple_one_model(m) for m in args.models]
+
+
+plot = gp.gnuplotlib(hardcopy = args.hardcopy,
+                     terminal = args.terminal,
+                     xlabel   = "Angle off optical axis (deg)",
+                     ylabel   = "Noncentral deviation in z",
+                     title    = "Noncentral behavior",
                      **plotkwargs)
 
-plot.plot(th, dz,
-          _with  = 'lines',
-          xlabel = "Angle off optical axis (deg)",
-          ylabel = "Noncentral deviation in z",
-          title  = "Noncentral behavior")
+plot.plot(*plottuples)
 
 if args.hardcopy is None:
     plot.wait()
