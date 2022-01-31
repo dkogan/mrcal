@@ -389,7 +389,12 @@ if get_gradients: we return a tuple:
 
 
 
-    # No gradients. We get them numerically. This is a reimplementation of the C
+    # No projection gradients implemented in C. We should get here approximately
+    # never. At this time, the only projection function that has no gradients
+    # implemented is LENSMODEL_CAHVORE, which nobody is really expected to be
+    # using. If these see use, real gradients should be implemented
+    #
+    # We compute the gradients numerically. This is a reimplementation of the C
     # code. It's barely maintained, and here for legacy compatibility only
 
     if get_gradients:
