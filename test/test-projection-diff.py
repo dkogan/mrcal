@@ -69,7 +69,7 @@ testutils.confirm_equal( 0, np.arccos((np.trace(implied_Rt10[:3,:]) - 1) / 2.) *
 
 testutils.confirm_equal( 0, nps.mag(implied_Rt10[3,:]),
                          eps = 0.01,
-                         msg = "diff(model,model) at 3m should produce a rotation of 0 m")
+                         msg = "diff(model,model) at 3m should produce a translation of 0 m")
 
 
 ########## Check outlier handling when computing diffs without uncertainties.
