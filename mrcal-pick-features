@@ -371,6 +371,24 @@ points_state = dict( q01_hypothesis = None,
 
 
 
+r'''
+state should be managed together for consistency:
+- q01_stored
+- q01_selected
+- table Nrows
+- table selected row
+'''
+
+
+
+
+
+
+
+
+
+
+
 def get_q01_nominal(q_rectified, is_from_image0):
     if is_from_image0:
         q0_rectified = q_rectified
@@ -716,16 +734,15 @@ sys.exit(0)
 
 r'''
 
-show two images
+'u' should pan to the center
+selection logic if clicking on row
 
-click one image
 
-- draw corresponding pixel in the other image
-- search, draw matched pixel
-- User can
-  - accept match
-  - reject match
-  - click to init search from another guess
-  -
+del to delete selected
+del key should respond in other windows
+
+del is deleting the correct feature in the left window only
+
+ctrl-drag should lock panning
 
 '''
