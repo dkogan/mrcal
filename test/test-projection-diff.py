@@ -97,4 +97,30 @@ testutils.confirm_equal( 0, difflen[icenter[0],icenter[1]],
                          eps = 0.1,
                          msg = "Low-enough diff with low focus_radius")
 
+########## Check that the solver is willing to move the origin around freely to
+########## compute a very tight fit. I'm seeing that the 'trf' solver doesn't
+########## like doing that and that it finds a highly suboptimal implied
+########## transformation
+
+# I generate a model with a focal length shifted anisotropically. This sounds
+# weird, but is representative of the variation I see in real-life solves
+model_opencv8_shiftedz = mrcal.cameramodel(model_opencv8)
+lensmodel,intrinsics = model_opencv8_shiftedz.intrinsics()
+intrinsics[0] *= 1.0001
+intrinsics[1] *= 1.0002
+model_opencv8_shiftedz.intrinsics(intrinsics = (lensmodel,intrinsics))
+difflen, diff, q0, implied_Rt10 = \
+    mrcal.projection_diff( (model_opencv8,model_opencv8_shiftedz),
+                           gridn_width       = gridn_width,
+                           distance          = 50000,
+                           use_uncertainties = False,
+                           focus_radius      = 1000)
+
+testutils.confirm_equal( 0, difflen[icenter[0],icenter[1]],
+                         eps = 5e-3,
+                         msg = "implied_Rt10 solver moves translation sufficiently. Looking at difflen at center")
+testutils.confirm_equal( 0, np.mean(difflen),
+                         eps = .12,
+                         msg = "implied_Rt10 solver moves translation sufficiently. Looking at mean(difflen)")
+
 testutils.finish()

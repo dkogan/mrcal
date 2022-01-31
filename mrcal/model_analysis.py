@@ -318,7 +318,7 @@ report a full Rt transformation with the t component set to 0
         res = scipy.optimize.least_squares(residual,
                                            r,
                                            jac=jacobian,
-                                           method='trf',
+                                           method='dogbox',
 
                                            loss=loss,
                                            f_scale = (f_scale_deg * np.pi/180.)**2.,
@@ -350,7 +350,7 @@ report a full Rt transformation with the t component set to 0
         res = scipy.optimize.least_squares(residual,
                                            rt,
                                            jac=jacobian,
-                                           method='trf',
+                                           method='dogbox',
 
                                            loss=loss,
                                            f_scale = (f_scale_deg * np.pi/180.)**2.,
