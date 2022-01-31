@@ -1,22 +1,6 @@
 #+TITLE: mrcal roadmap
 #+OPTIONS: toc:nil
 
-#+begin_src emacs-lisp :exports none :eval no-export
-(progn
-  (defun insert-function (f)
-    (interactive (list (read-string "Function: ")))
-    (insert (format "[[file:mrcal-python-api-reference.html#-%1$s][=mrcal.%1$s()=]]"
-                    f)))
-
-  (defun insert-tool (f)
-    (interactive (list (read-string "Tool: ")))
-    (insert (format "[[file:%1$s.html][=%1$s=]]"
-                    f)))
-
-  (local-set-key (kbd "<f1>") 'insert-function)
-  (local-set-key (kbd "<f2>") 'insert-tool))
-#+end_src
-
 * New, big features being considered for the next release
 - Triangulation in the optimization loop. This will allow efficient SFM since
   the coordinates of each observed 3D point don't need to be explicitly

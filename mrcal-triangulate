@@ -328,8 +328,13 @@ def compute_H10_planes(models, q0, v0, plane_n, plane_d):
     # I now compute the "projection matrix" for the two cameras at p. Such a
     # matrix can only fully describe a pinhole lens, but I can compute the local
     # estimate from the gradient. For an observation vector v = (vx vy 1) I want
-    # q = (K*v)[:2]/(K*v)[2]. Let the bottom row of K be (0 0 1). The right col
-    # is a translation. So q = K00 vxy + K02. K00 = dq/dvxy
+    # q = (K*v)[:2]/(K*v)[2]. Let
+    #
+    #   K = [ K00 K02 ]
+    #     = [ 0 0  1  ]
+    #
+    # Where K00 is a (2,2) matrix and K02 is a (2,1) matrix. So q = K00 vxy
+    # + K02. K00 = dq/dvxy
     K0 = np.eye(3, dtype=float)
     _, dq0_dvxy0,_ = mrcal.project(p0/p0[2], *models[0].intrinsics(),
                                    get_gradients=True)
