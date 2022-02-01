@@ -1135,11 +1135,11 @@ void mrcal_project_stereographic( // output
             double A = -scale*scale / 2.;
             double B = A / mag_xyz;
             dq_dv[2*i + 0] = (mrcal_point3_t){.x = fx * (v[i].x * (B*v[i].x) + scale),
-                                        .y = fx * (v[i].x * (B*v[i].y)),
-                                        .z = fx * (v[i].x * (B*v[i].z + A))};
+                                              .y = fx * (v[i].x * (B*v[i].y)),
+                                              .z = fx * (v[i].x * (B*v[i].z + A))};
             dq_dv[2*i + 1] = (mrcal_point3_t){.x = fy * (v[i].y * (B*v[i].x)),
-                                        .y = fy * (v[i].y * (B*v[i].y) + scale),
-                                        .z = fy * (v[i].y * (B*v[i].z + A))};
+                                              .y = fy * (v[i].y * (B*v[i].y) + scale),
+                                              .z = fy * (v[i].y * (B*v[i].z + A))};
         }
         q[i] = (mrcal_point2_t){.x = v[i].x * scale * fx + cx,
                                 .y = v[i].y * scale * fy + cy};
