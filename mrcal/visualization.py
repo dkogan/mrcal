@@ -787,7 +787,9 @@ ARGUMENTS
   argument. If None (the default) we look out to infinity. We can compute the
   implied-by-the-intrinsics transformation off multiple distances if they're
   given here as an iterable. This is especially useful if we have uncertainties,
-  since then we'll emphasize the best-fitting distances.
+  since then we'll emphasize the best-fitting distances. If multiple distances
+  are given, the generated plot displays the difference using the FIRST distance
+  in the list
 
 - use_uncertainties: optional boolean, defaulting to True. Used only if not
   intrinsics_only and focus_radius!=0. If True we use the whole imager to fit
@@ -900,8 +902,13 @@ A tuple:
         if len(models) > 2:
             raise Exception("I can only plot a vectorfield when looking at exactly 2 models. Instead I have {}". \
                             format(len(models)))
+
+        distance_is_iterable = True
+        try:    len(distance)
+        except: distance_is_iterable = False
+
         if not (distance is None or \
-                isinstance(distance,float) or \
+                not distance_is_iterable or \
                 len(distance) == 1):
             raise Exception("I don't know how to plot multiple-distance diff with vectorfields")
     if directions and len(models) > 2:
@@ -916,8 +923,54 @@ A tuple:
                                                  use_uncertainties = use_uncertainties,
                                                  focus_center      = focus_center,
                                                  focus_radius      = focus_radius)
+    # difflen,diff have shape (len(distance), ...) if multiple distances are
+    # given. In this case I display the difference using the FIRST distance in
+    # the list
+    # shape (Nheight, Nwidth)
+    if difflen is not None and difflen.ndim > 2:
+        difflen = nps.clump(difflen, n=difflen.ndim-2)[0]
+    # shape (Nheight, Nwidth,2)
+    if diff is not None and diff.ndim > 3:
+        diff = nps.clump(diff, n=diff.ndim-3)[0]
 
-    if not vectorfield:
+
+
+    plot_options = kwargs
+
+    if vectorfield:
+        # Not plotting a matrix image. I collapse (Nheight, Nwidth, ...) to (Nheight*Nwidth, ...)
+        if q0      is not None: q0      = nps.clump(q0,      n=2)
+        if difflen is not None: difflen = nps.clump(difflen, n=2)
+        if diff    is not None: diff    = nps.clump(diff,    n=2)
+
+    if directions:
+        gp.add_plot_option(plot_options,
+                           cbrange = [-180.,180.],
+                           _set = 'palette defined ( 0 "#00ffff", 0.5 "#80ffff", 1 "#ffffff") model HSV')
+        color = 180./np.pi * np.arctan2(diff[...,1], diff[...,0])
+    else:
+        gp.add_plot_option(plot_options,
+                           cbrange = [0,cbmax])
+        color = difflen
+
+    if vectorfield:
+        # The mrcal.projection_diff() call made sure they're the same for all
+        # the models
+        W,H=models[0].imagersize()
+
+        gp.add_plot_option(plot_options,
+                           square   = 1,
+                            _xrange = [0,W],
+                            _yrange = [H,0])
+
+        curve_options = dict(_with='vectors filled palette',
+                             tuplesize=5)
+        plot_data_args = \
+            [ (q0  [:,0], q0  [:,1],
+               diff[:,0] * vectorscale, diff[:,1] * vectorscale,
+               color,
+               curve_options) ]
+    else:
         curve_options = \
             _options_heatmap_with_contours(
                 # update these plot options
@@ -927,44 +980,8 @@ A tuple:
                 models[0].imagersize(),
                 gridn_width, gridn_height,
                 contours = not directions)
-        plot_options = kwargs
 
-    else:
-        q0      = nps.clump(q0,      n=len(q0     .shape)-1)
-        diff    = nps.clump(diff,    n=len(diff   .shape)-1)
-        difflen = nps.clump(difflen, n=len(difflen.shape)  )
-
-        # The mrcal.projection_diff() call made sure they're the same for all
-        # the models
-        W,H=models[0].imagersize()
-
-        plot_options = dict(square=1,
-                            _xrange=[0,W],
-                            _yrange=[H,0],
-                            **kwargs)
-
-        curve_options = dict(_with='vectors filled palette',
-                             tuplesize=5)
-
-    if not directions:
-        plot_options['cbrange'] = [0,cbmax]
-        color                   = difflen
-    else:
-        plot_options['cbrange'] = [-180.,180.]
-        color                   = 180./np.pi * np.arctan2(diff[...,1], diff[...,0])
-
-        gp.add_plot_option(plot_options,
-                           'set',
-                           'palette defined ( 0 "#00ffff", 0.5 "#80ffff", 1 "#ffffff") model HSV')
-
-    if not vectorfield:
         plot_data_args = [ (color, curve_options) ]
-    else:
-        plot_data_args = \
-            [ (q0  [:,0], q0  [:,1],
-               diff[:,0] * vectorscale, diff[:,1] * vectorscale,
-               color,
-               curve_options) ]
 
     if valid_intrinsics_region:
         valid_region0 = models[0].valid_intrinsics_region()

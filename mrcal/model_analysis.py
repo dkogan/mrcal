@@ -161,9 +161,22 @@ report a full Rt transformation with the t component set to 0
 
     import scipy.optimize
 
+    ### flatten all the input arrays
+    # shape (N,2)
+    q0 = nps.clump(q0, n=q0.ndim-1)
+    # shape (M,N,3)
+    p0 = nps.transpose(nps.clump(nps.mv( nps.atleast_dims(p0, -3),
+                                         -1,-3),
+                                 n=-2))
+    # shape (N,3)
+    v1 = nps.clump(v1, n=v1.ndim-1)
+
     if weights is None:
         weights = np.ones(p0.shape[:-1], dtype=float)
     else:
+        # shape (M,N,)
+        weights = nps.clump(weights, n=weights.ndim-1)
+
         # Any inf/nan weight or vector are set to 0
         weights = weights.copy()
         weights[ ~np.isfinite(weights) ] = 0.0
@@ -171,10 +184,8 @@ report a full Rt transformation with the t component set to 0
     p0 = p0.copy()
     v1 = v1.copy()
 
-    # p0 had shape (..., Nh,Nw,3). Collapse all the leading dimensions into one
+    # p0 had shape (N,3). Collapse all the leading dimensions into one
     # And do the same for weights
-    p0      = nps.clump(p0,      n = len(p0.shape)     -3)
-    weights = nps.clump(weights, n = len(weights.shape)-2)
 
     i_nan_p0 = ~np.isfinite(p0)
     p0[i_nan_p0] = 0.
@@ -194,68 +205,69 @@ report a full Rt transformation with the t component set to 0
     if np.count_nonzero(i)<3:
         raise Exception("Focus region contained too few points")
 
-    p0_cut  = p0     [...,i, :]
-    v1_cut  = v1     [    i, :]
-    weights = weights[...,i   ]
+    p0_cut  = p0     [..., i, :]
+    v1_cut  = v1     [     i, :]
+    weights = weights[..., i   ]
 
     def residual_jacobian_rt(rt):
 
-        # rtp0 has shape (...,N,3)
+        # rtp0      has shape (M,N,3)
+        # drtp0_drt has shape (M,N,3,6)
         rtp0, drtp0_drt, _ = \
             mrcal.transform_point_rt(rt, p0_cut,
                                      get_gradients = True)
 
         # inner(a,b)/(mag(a)*mag(b)) = cos(x) ~ 1 - x^2/2
-        # Each of these has shape (...,N)
+        # Each of these has shape (M,N,)
         mag_rtp0 = nps.mag(rtp0)
         inner    = nps.inner(rtp0, v1_cut)
         th2      = 2.* (1.0 - inner / mag_rtp0)
         x        = th2 * weights
 
-        # shape (...,N,6)
-        dmag_rtp0_drt = nps.matmult( nps.dummy(rtp0, -2),   # shape (...,N,1,3)
-                                     drtp0_drt              # shape (...,N,3,6)
-                                     # matmult has shape (...,N,1,6)
+        # shape (M,N,6)
+        dmag_rtp0_drt = nps.matmult( nps.dummy(rtp0, -2),   # shape (M,N,1,3)
+                                     drtp0_drt              # shape (M,N,3,6)
+                                     # matmult has shape (M,N,1,6)
                                    )[...,0,:] / \
-                                   nps.dummy(mag_rtp0, -1)  # shape (...,N,1)
-        # shape (..., N,6)
-        dinner_drt    = nps.matmult( nps.dummy(v1_cut, -2), # shape (    N,1,3)
-                                     drtp0_drt              # shape (...,N,3,6)
-                                     # matmult has shape (...,N,1,6)
+                                   nps.dummy(mag_rtp0, -1)  # shape (M,N,1)
+        # shape (M,N,6)
+        dinner_drt    = nps.matmult( nps.dummy(v1_cut, -2), # shape (M,N,1,3)
+                                     drtp0_drt              # shape (M,N,3,6)
+                                     # matmult has shape (M,N,1,6)
                                    )[...,0,:]
 
         # dth2 = 2 (inner dmag_rtp0 - dinner mag_rtp0)/ mag_rtp0^2
-        # shape (...,N,6)
+        # shape (M,N,6)
         J = 2. * \
             (nps.dummy(inner,    -1) * dmag_rtp0_drt - \
              nps.dummy(mag_rtp0, -1) * dinner_drt) / \
              nps.dummy(mag_rtp0*mag_rtp0, -1) * \
              nps.dummy(weights,-1)
-        return x.ravel(), nps.clump(J, n=len(J.shape)-1)
+        return x.ravel(), nps.clump(J, n=J.ndim-1)
 
 
     def residual_jacobian_r(r):
 
-        # rp0     has shape (N,3)
-        # drp0_dr has shape (N,3,3)
+        # rp0     has shape (M,N,3)
+        # drp0_dr has shape (M,N,3,3)
         rp0, drp0_dr, _ = \
             mrcal.rotate_point_r(r, p0_cut,
                                  get_gradients = True)
 
         # inner(a,b)/(mag(a)*mag(b)) ~ cos(x) ~ 1 - x^2/2
-        # Each of these has shape (N)
+        # Each of these has shape (M,N)
         inner = nps.inner(rp0, v1_cut)
         th2   = 2.* (1.0 - inner)
         x     = th2 * weights
 
-        # shape (N,3)
-        dinner_dr = nps.matmult( nps.dummy(v1_cut, -2), # shape (N,1,3)
-                                 drp0_dr                # shape (N,3,3)
-                                 # matmult has shape (N,1,3)
-                               )[:,0,:]
+        # shape (M,N,3)
+        dinner_dr = nps.matmult( nps.dummy(v1_cut, -2), # shape (M,N,1,3)
+                                 drp0_dr                # shape (M,N,3,3)
+                                 # matmult has shape (M,N,1,3)
+                               )[...,0,:]
 
         J = -2. * dinner_dr * nps.dummy(weights,-1)
-        return x, J
+        return x.ravel(), nps.clump(J, n=J.ndim-1)
 
 
     cache = {'rt': None}
@@ -312,7 +324,6 @@ report a full Rt transformation with the t component set to 0
 
         # This is similar to a basic procrustes fit, but here we're using an L1
         # cost function
-
         r = np.random.random(3) * 1e-3
 
         res = scipy.optimize.least_squares(residual,
@@ -1118,7 +1129,7 @@ is specified by the "distance" argument. By default (distance = None) we look
 out to infinity. If we care about the projection difference at some other
 distance, pass that here. Multiple distances can be passed in an iterable. We'll
 then fit the implied-by-the-intrinsics transformation using all the distances,
-and we'll display the best-fitting difference for each pixel. Generally the most
+and we'll return the differences for each given distance. Generally the most
 confident distance will be where the chessboards were observed at calibration
 time.
 
@@ -1174,17 +1185,19 @@ RETURNED VALUE
 
 A tuple
 
-- difflen: a numpy array of shape (gridn_height,gridn_width) containing the
+- difflen: a numpy array of shape (...,gridn_height,gridn_width) containing the
   magnitude of differences at each cell, or the standard deviation of the
   differences between models 1..N and model0 if len(models)>2. if
-  len(models)==2: this is nps.mag(diff)
+  len(models)==2: this is nps.mag(diff). If the given 'distance' argument was an
+  iterable, the shape is (len(distance),...). Otherwise the shape is (...)
 
-- diff: a numpy array of shape (gridn_height,gridn_width,2) containing the
+- diff: a numpy array of shape (...,gridn_height,gridn_width,2) containing the
   vector of differences at each cell. If len(models)>2 this isn't defined, so
-  None is returned
+  None is returned. If the given 'distance' argument was an iterable, the shape
+  is (len(distance),...). Otherwise the shape is (...)
 
-- q0: a numpy array of shape (gridn_height,gridn_width,2) containing the pixel
-  coordinates of each grid cell
+- q0: a numpy array of shape (gridn_height,gridn_width,2) containing the
+  pixel coordinates of each grid cell
 
 - Rt10: the geometric Rt transformation in an array of shape (...,4,3). This is
   the relative transformation we ended up using, which is computed using the
@@ -1197,13 +1210,21 @@ A tuple
     if len(models) < 2:
         raise Exception("At least 2 models are required to compute the diff")
 
+    # If the distance is iterable, the shape of the output is (len(distance),
+    # ...). Otherwise it is just (...). In the intermediate computations, the
+    # quantities ALWAYS have shape (len(distance), ...). I select the desired
+    # shape at the end
+    distance_is_iterable = True
+    try:    len(distance)
+    except: distance_is_iterable = False
+
     if distance is None:
         atinfinity = True
-        distance   = 1.0
+        distance   = np.ones((1,), dtype=float)
     else:
         atinfinity = False
         distance   = nps.atleast_dims(np.array(distance), -1)
-        distance   = nps.mv(distance.ravel(), -1,-4)
+    distance   = nps.mv(distance.ravel(), -1,-4)
 
     imagersizes = np.array([model.imagersize() for model in models])
     if np.linalg.norm(np.std(imagersizes, axis=-2)) != 0:
@@ -1227,7 +1248,8 @@ A tuple
         try:
             # len(uncertainties) = Ncameras. Each has shape (len(distance),Nh,Nw)
             uncertainties = \
-                [ mrcal.projection_uncertainty(v[i] * distance,
+                [ mrcal.projection_uncertainty(# shape (len(distance),Nheight,Nwidth,3)
+                                               v[i] * distance,
                                                models[i],
                                                atinfinity = atinfinity,
                                                what       = 'worstdirection-stdev') \
@@ -1272,6 +1294,7 @@ A tuple
                 # unprojections)
                 Rt10 = \
                     implied_Rt10__from_unprojections(q0,
+                                                     # shape (len(distance),Nheight,Nwidth,3)
                                                      v[0,...] * distance,
                                                      v[1,...],
                                                      weights,
@@ -1279,6 +1302,7 @@ A tuple
                                                      focus_center, focus_radius)
 
         q1 = mrcal.project( mrcal.transform_point_Rt(Rt10,
+                                                     # shape (len(distance),Nheight,Nwidth,3)
                                                      v[0,...] * distance),
                             lensmodels[1], intrinsics_data[1])
         # shape (len(distance),Nheight,Nwidth,2)
@@ -1286,7 +1310,7 @@ A tuple
 
         diff    = q1 - q0
         difflen = nps.mag(diff)
-        difflen = np.min( difflen, axis=-3)
+
     else:
 
         # Many models. Look at the stdev
@@ -1316,27 +1340,45 @@ A tuple
             v1 = v[i1,...]
 
             return \
-                implied_Rt10__from_unprojections(q0, v0*distance, v1,
+                implied_Rt10__from_unprojections(q0,
+                                                 # shape (len(distance),Nheight,Nwidth,3)
+                                                 v0*distance,
+                                                 v1,
                                                  weights, atinfinity,
                                                  focus_center, focus_radius)
         def get_reprojections(q0, Rt10,
                               lensmodel, intrinsics_data):
-            q1 = mrcal.project(mrcal.transform_point_Rt(Rt10, v[0,...]*distance),
+            q1 = mrcal.project(mrcal.transform_point_Rt(Rt10,
+                                                        # shape (len(distance),Nheight,Nwidth,3)
+                                                        v[0,...]*distance),
                                lensmodel, intrinsics_data)
             # returning shape (len(distance),Nheight,Nwidth,2)
             return nps.atleast_dims(q1, -4)
 
-        Rt10 = nps.cat(*[ get_Rt10(0,i) for i in range(1,len(v))])
+        Ncameras = len(v)
+        # shape (Ncameras-1, 4,3)
+        Rt10 = nps.cat(*[ get_Rt10(0,i) for i in range(1,Ncameras)])
 
         # shape (Ncameras-1,len(distance),Nheight,Nwidth,2)
         grids = nps.cat(*[get_reprojections(q0, Rt10[i-1],
                                             lensmodels[i], intrinsics_data[i]) \
-                          for i in range(1,len(v))])
+                          for i in range(1,Ncameras)])
 
         diff    = None
-        difflen = np.sqrt(np.mean( np.min(nps.norm2(grids-q0),
-                                          axis=-3),
-                                   axis=0))
+        # shape (len(distance),Nheight,Nwidth)
+        difflen = np.sqrt(np.mean(nps.norm2(grids-q0),axis=0))
+
+    # difflen, diff, q0 currently all have shape (len(distance), ...). If the
+    # given distance was NOT an iterable, I strip out that leading dimension
+    if not distance_is_iterable:
+        if difflen.shape[0] != 1:
+            raise Exception(f"distance_is_iterable is False, but leading shape of difflen is not 1 (difflen.shape = {difflen.shape}). This is a bug. Giving up")
+        difflen = difflen[0,...]
+
+        if diff is not None:
+            if diff.shape[0] != 1:
+                raise Exception(f"distance_is_iterable is False, but leading shape of diff is not 1 (diff.shape = {diff.shape}). This is a bug. Giving up")
+            diff = diff[0,...]
 
     return difflen, diff, q0, Rt10
 
