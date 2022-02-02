@@ -1219,7 +1219,7 @@ ARGUMENTS
   we're visualizing
 
 - i_cam: optional integer to select the camera whose residuals we're visualizing
-  If omitted or None, we display the residuals for ALL the cameras together.
+  If omitted or None, we report the residuals for ALL the cameras together.
 
 - residuals: optional numpy array of shape (Nmeasurements,) containing the
   optimization residuals. If omitted or None, this will be recomputed. To use a
