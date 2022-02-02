@@ -3,23 +3,78 @@
 r'''Loads a model, generates perfect chessboard observations, corrupts them with
 nominal noise, and re-solves'''
 
+
 import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--model-intrinsics',
+                        help='''By default, all the nominal data comes from the
+                        MODEL given in the positional argument. If
+                        --model-intrinsics is given, the intrinsics only come
+                        from this other model. These are applied only to the ONE
+                        model in icam_intrinsics''')
+
+    parser.add_argument('model',
+                        type=str,
+                        help='''The camera model we read to make the perfect
+                        observations. We get the frame poses and extrinsics from
+                        this model. If --model-intrinsics isn't given, we get
+                        the intrinsics from this model as well''')
+
+    args = parser.parse_args()
+
+    return args
+
+args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+
+
+
 import mrcal
 import numpy as np
 import numpysane as nps
 
 
 
-######### Load a model, generate perfect observations
-model = mrcal.cameramodel(sys.argv[1])
-
+######### Load a model
+model = mrcal.cameramodel(args.model)
 optimization_inputs = model.optimization_inputs()
+
+observed_pixel_uncertainty = \
+    np.std(mrcal.residuals_chessboard(optimization_inputs).ravel())
 
 if not (optimization_inputs.get('indices_point_camintrinsics_camextrinsics') is None or \
         optimization_inputs['indices_point_camintrinsics_camextrinsics'].size == 0):
     print("Point observations not supported", file=sys.stderr)
     sys.exit()
 
+
+if args.model_intrinsics is not None:
+
+    model_intrinsics = mrcal.cameramodel(args.model_intrinsics)
+
+    if model_intrinsics.intrinsics()[0] != model.intrinsics()[0]:
+        print("At this time, --model-intrinsics MUST use the same lens model as the reference model",
+              file=sys.stderr)
+        sys.exit(1)
+
+    optimization_inputs['intrinsics'][model.icam_intrinsics()] = \
+        model_intrinsics.intrinsics()[1]
+
+
+######### Generate perfect observations
 
 # shape (Nobservations, Nheight, Nwidth, 3)
 pcam = mrcal.hypothesis_board_corner_positions(**optimization_inputs)[0]
@@ -34,9 +89,6 @@ observations_board_perfect = \
     mrcal.project( pcam,
                    optimization_inputs['lensmodel'],
                    intrinsics )
-
-observed_pixel_uncertainty = \
-    np.std(mrcal.residuals_chessboard(optimization_inputs).ravel())
 
 optimization_inputs['observations_board'][...,:2] = observations_board_perfect
 
