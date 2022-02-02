@@ -1259,11 +1259,11 @@ void mrcal_project_stereographic( // output
             double A = -scale*scale / 2.;
             double B = A / mag_xyz;
             dq_dv[2*i + 0] = (mrcal_point3_t){.x = fx * (v[i].x * (B*v[i].x) + scale),
-                                        .y = fx * (v[i].x * (B*v[i].y)),
-                                        .z = fx * (v[i].x * (B*v[i].z + A))};
+                                              .y = fx * (v[i].x * (B*v[i].y)),
+                                              .z = fx * (v[i].x * (B*v[i].z + A))};
             dq_dv[2*i + 1] = (mrcal_point3_t){.x = fy * (v[i].y * (B*v[i].x)),
-                                        .y = fy * (v[i].y * (B*v[i].y) + scale),
-                                        .z = fy * (v[i].y * (B*v[i].z + A))};
+                                              .y = fy * (v[i].y * (B*v[i].y) + scale),
+                                              .z = fy * (v[i].y * (B*v[i].z + A))};
         }
         q[i] = (mrcal_point2_t){.x = v[i].x * scale * fx + cx,
                                 .y = v[i].y * scale * fy + cy};
@@ -3047,26 +3047,16 @@ bool _mrcal_unproject_internal( // out
         const double cx = intrinsics[2];
         const double cy = intrinsics[3];
 
-        // WARNING: This should go away. For some reason, the 0.7 path makes unproject() converge better, and it makes the tests pass. But it's not even right!
-#if 0
-        out->xyz[0] = (q[i].x-cx)/fx;
-        out->xyz[1] = (q[i].y-cy)/fy;
-#else
-        // Seed from a perfect stereographic projection, pushed towards the
-        // center a bit. Normally I'd set out[] to q[i], but for some models
-        // (OPENCV8 for instance) this pushes us into a place where stuff
-        // doesn't converge anymore. This produces a more stable solution, and
-        // my tests pass
-        out->xyz[0] = (q[i].x-cx)*0.7 + cx;
-        out->xyz[1] = (q[i].y-cy)*0.7 + cy;
+        // MSG("init. q=(%g,%g)", q[i].x, q[i].y);
 
-        // something like this makes more sense, but it doesn't work! The tests still fail
-        // out->xyz[0] = (q[i].x-cx)/fx * 0.7;
-        // out->xyz[1] = (q[i].y-cy)/fy * 0.7;
-#endif
-
-
-
+        // initial estimate: pinhole projection
+        mrcal_project_stereographic( (mrcal_point2_t*)out->xyz, NULL,
+                                     &(mrcal_point3_t){.x = (q[i].x-cx)/fx,
+                                                       .y = (q[i].y-cy)/fy,
+                                                       .z = 1.},
+                                     1,
+                                     intrinsics );
+        // MSG("init. out->xyz[]=(%g,%g)", out->x, out->y);
 
 
         dogleg_parameters2_t dogleg_parameters;
@@ -3080,6 +3070,7 @@ bool _mrcal_unproject_internal( // out
         //very often
 
         static bool already_complained = false;
+        // MSG("norm2x = %g", norm2x);
         if(norm2x/2.0 > 1e-4)
         {
             if(!already_complained)

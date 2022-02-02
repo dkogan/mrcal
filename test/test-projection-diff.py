@@ -38,7 +38,7 @@ icenter = np.array(difflen.shape) // 2
 
 
 testutils.confirm_equal( difflen*0, difflen,
-                         eps = 0.05,
+                         eps = 0.08,
                          worstcase = True,
                          relative  = False,
                          msg = "diff(model,model) at infinity should be 0")
@@ -49,7 +49,7 @@ testutils.confirm_equal( 0, np.arccos((np.trace(implied_Rt10[:3,:]) - 1) / 2.) *
 
 testutils.confirm_equal( 0, nps.mag(implied_Rt10[3,:]),
                          eps = 0.01,
-                         msg = "diff(model,model) at infinity should produce a rotation of 0 m")
+                         msg = "diff(model,model) at infinity should produce a translation of 0 m")
 
 difflen, diff, q0, implied_Rt10 = \
     mrcal.projection_diff( (model_splined,model_splined),
@@ -58,7 +58,7 @@ difflen, diff, q0, implied_Rt10 = \
                            use_uncertainties = False )
 
 testutils.confirm_equal( difflen*0, difflen,
-                         eps = 0.05,
+                         eps = 0.08,
                          worstcase = True,
                          relative  = False,
                          msg = "diff(model,model) at 3m should be 0")
