@@ -38,7 +38,7 @@ icenter = np.array(difflen.shape) // 2
 
 
 testutils.confirm_equal( difflen*0, difflen,
-                         eps = 0.05,
+                         eps = 0.08,
                          worstcase = True,
                          relative  = False,
                          msg = "diff(model,model) at infinity should be 0")
@@ -58,7 +58,7 @@ difflen, diff, q0, implied_Rt10 = \
                            use_uncertainties = False )
 
 testutils.confirm_equal( difflen*0, difflen,
-                         eps = 0.05,
+                         eps = 0.08,
                          worstcase = True,
                          relative  = False,
                          msg = "diff(model,model) at 3m should be 0")
