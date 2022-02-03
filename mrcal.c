@@ -5096,9 +5096,7 @@ void optimizer_callback(// input state
 
                         // non-central
                         {
-
-                            double scale = 1e-6;
-                            double SCALE = 1.0;
+                            double scale = scale_regularization_distortion;
                             for(int inoncentral=0; inoncentral<N_NONCENTRAL; inoncentral++)
                             {
                                 if(Jt) Jrowptr[iMeasurement] = iJacobian;
