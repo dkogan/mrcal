@@ -199,8 +199,15 @@ du_dx_expr = u_expr                                                        \
                  .subs(Function('magxyz')(x,y,z),                magxyz)   \
                  .subs(z + magxyz, 2*magxy/u)
 # manual factor
-_du_dx_expr = u*x/magxy*( -u/(2*magxyz) + 1/magxy )
-if (_du_dx_expr - du_dx_expr).expand() != 0:
+_du_dx_expr = 2*z/magxyz/(magxyz + z) * x/magxy
+# Have to do this numerically. sympy is too dumb to figure it out otherwise
+if np.abs( (_du_dx_expr - du_dx_expr). \
+           subs(u,2*magxy/(magxyz+z)). \
+           subs(magxy,  sqrt(x*x + y*y)). \
+           subs(magxyz, sqrt(x*x + y*y + z*z)). \
+           subs(x,1.2). \
+           subs(y,1.3). \
+           subs(z,1.7) ) > 1e-16:
     raise Exception("manual factor is wrong. Fix _du_dx_expr")
 du_dx_expr = _du_dx_expr
 
