@@ -811,6 +811,22 @@ static double apply_noncentral( // output
 
 
     // generated code from analyses/noncentral/noncentral.py
+    /*
+    I take care to avoid division by 0. Above I divide by magxyz (not a problem;
+    this happens at the origin of the camera) and I divide by magxy (this IS a
+    problem: happens at the optical axis). So I must take care with du_dx and
+    du_dy. I move the expression around:
+
+    du_dx = 2*x*z*1.0/magxy*1.0/magxyz/(magxyz + z) =
+          = x/magxy * 2*z/magxyz/(magxyz + z) =
+
+    When magxy -> 0 I necessarily have x -> 0 and y -> 0 as well. Let y = kx so
+    x/magxy = x / sqrt(x*x + y*y) = 1/sqrt(1 + k*k). If x == 0 then k = infinity
+    and x/magxy -> 0 and du_dx -> 0
+
+    -> lim magxy -> 0 (du_dx) = 2*z/magxyz/(magxyz + z)/sqrt(1 + y/x)
+
+    */
 #if N_NONCENTRAL == 5
     const double magxy    = sqrt(x*x + y*y);
     const double magxyz   = sqrt(x*x + y*y + z*z);
@@ -820,8 +836,10 @@ static double apply_noncentral( // output
     const double dz       = u*(k0 + u*(k1 + u*(k2 + u*(k3 + k4*u))));
     zadj                  = dz*1.0/d + z;
     const double ddz_du   = k0 + u*(2*k1 + u*(3*k2 + u*(4*k3 + 5*k4*u)));
-    const double du_dx    = u*x*1.0/magxy*(-1.0/2.0*u*1.0/magxyz + 1.0/magxy);
-    const double du_dy    = u*y*1.0/magxy*(-1.0/2.0*u*1.0/magxyz + 1.0/magxy);
+    const double du_dx    = (2*z*1.0*1.0/magxyz/(magxyz + z)) *
+        (magxy > 1e-6 ? (x/magxy) : (fabs(x) > 1e-8 ? ({double k = y/x; 1./sqrt(1.+k*k);}) : 0.0));
+    const double du_dy    = (2*z*1.0*1.0/magxyz/(magxyz + z)) *
+        (magxy > 1e-6 ? (y/magxy) : (fabs(y) > 1e-8 ? ({double k = x/y; 1./sqrt(1.+k*k);}) : 0.0));
     const double du_dz    = -u*1.0/magxyz;
     const double dd_dx    = du_dx*f*1.0/magxyz - x*(d - 1)*1.0/(magxyz*magxyz);
     const double dd_dy    = du_dy*f*1.0/magxyz - y*(d - 1)*1.0/(magxyz*magxyz);
@@ -843,8 +861,10 @@ static double apply_noncentral( // output
     const double dz       = u*(k0 + u*(k1 + k2*u));
     zadj                  = dz*1.0/d + z;
     const double ddz_du   = k0 + u*(2*k1 + 3*k2*u);
-    const double du_dx    = u*x*1.0/magxy*(-1.0/2.0*u*1.0/magxyz + 1.0/magxy);
-    const double du_dy    = u*y*1.0/magxy*(-1.0/2.0*u*1.0/magxyz + 1.0/magxy);
+    const double du_dx    = (2*z*1.0*1.0/magxyz/(magxyz + z)) *
+        (magxy > 1e-6 ? (x/magxy) : (fabs(x) > 1e-8 ? ({double k = y/x; 1./sqrt(1.+k*k);}) : 0.0));
+    const double du_dy    = (2*z*1.0*1.0/magxyz/(magxyz + z)) *
+        (magxy > 1e-6 ? (y/magxy) : (fabs(y) > 1e-8 ? ({double k = x/y; 1./sqrt(1.+k*k);}) : 0.0));
     const double du_dz    = -u*1.0/magxyz;
     const double dd_dx    = du_dx*f*1.0/magxyz - x*(d - 1)*1.0/(magxyz*magxyz);
     const double dd_dy    = du_dy*f*1.0/magxyz - y*(d - 1)*1.0/(magxyz*magxyz);
