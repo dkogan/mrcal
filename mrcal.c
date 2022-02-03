@@ -60,6 +60,7 @@
 #define SCALE_POSITION_POINT          SCALE_TRANSLATION_FRAME
 #define SCALE_CALOBJECT_WARP          0.01
 #define SCALE_DISTORTION              1.0
+#define SCALE_DISTORTION_NONCENTRAL   0.1
 
 #define MSG_IF_VERBOSE(...) do { if(verbose) MSG( __VA_ARGS__ ); } while(0)
 
@@ -3162,6 +3163,10 @@ static int pack_solver_state_intrinsics( // out
     const int Ncore        = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
     const int Ndistortions = Nintrinsics - Ncore;
 
+    int Nparams_noncentral =
+        (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        N_NONCENTRAL : 0;
+
     for(int icam_intrinsics=0; icam_intrinsics < Ncameras_intrinsics; icam_intrinsics++)
     {
         if( problem_selections.do_optimize_intrinsics_core && Ncore )
@@ -3174,9 +3179,13 @@ static int pack_solver_state_intrinsics( // out
         }
 
         if( problem_selections.do_optimize_intrinsics_distortions )
-
-            for(int i = 0; i<Ndistortions; i++)
+        {
+            int i=0;
+            for(; i<Ndistortions-Nparams_noncentral; i++)
                 p[i_state++] = intrinsics[Ncore + i] / SCALE_DISTORTION;
+            for(; i<Ndistortions; i++)
+                p[i_state++] = intrinsics[Ncore + i] / SCALE_DISTORTION_NONCENTRAL;
+        }
 
         intrinsics = &intrinsics[Nintrinsics];
     }
@@ -3202,6 +3211,10 @@ static int pack_solver_state_intrinsics_subset_to_subset( // out,in
     const int Ncore        = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
     const int Ndistortions = Nintrinsics - Ncore;
 
+    int Nparams_noncentral =
+        (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        N_NONCENTRAL : 0;
+
     for(int icam_intrinsics=0; icam_intrinsics < Ncameras_intrinsics; icam_intrinsics++)
     {
         if( problem_selections.do_optimize_intrinsics_core && Ncore )
@@ -3213,8 +3226,13 @@ static int pack_solver_state_intrinsics_subset_to_subset( // out,in
         }
 
         if( problem_selections.do_optimize_intrinsics_distortions )
-            for(int i = 0; i<Ndistortions; i++)
+        {
+            int i=0;
+            for(; i<Ndistortions-Nparams_noncentral; i++)
                 p[i_state++] /= SCALE_DISTORTION;
+            for(; i<Ndistortions; i++)
+                p[i_state++] /= SCALE_DISTORTION_NONCENTRAL;
+        }
     }
     return i_state;
 }
@@ -3370,6 +3388,10 @@ static int unpack_solver_state_intrinsics( // out
     const int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
     const int Ncore       = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
 
+    int Nparams_noncentral =
+        (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        N_NONCENTRAL : 0;
+
     int i_state = 0;
     for(int icam_intrinsics=0; icam_intrinsics < Ncameras_intrinsics; icam_intrinsics++)
     {
@@ -3383,8 +3405,11 @@ static int unpack_solver_state_intrinsics( // out
 
         if( problem_selections.do_optimize_intrinsics_distortions )
         {
-            for(int i = 0; i<Nintrinsics-Ncore; i++)
+            int i=0;
+            for(; i<Nintrinsics-Ncore-Nparams_noncentral; i++)
                 intrinsics[icam_intrinsics*intrinsics_stride + Ncore + i] = p[i_state++] * SCALE_DISTORTION;
+            for(; i<Nintrinsics-Ncore; i++)
+                intrinsics[icam_intrinsics*intrinsics_stride + Ncore + i] = p[i_state++] * SCALE_DISTORTION_NONCENTRAL;
         }
     }
     return i_state;
@@ -3410,6 +3435,10 @@ static int unpack_solver_state_intrinsics_subset_to_subset( // in,out
     const int Ncore        = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
     const int Ndistortions = Nintrinsics - Ncore;
 
+    int Nparams_noncentral =
+        (lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        N_NONCENTRAL : 0;
+
     for(int icam_intrinsics=0; icam_intrinsics < Ncameras_intrinsics; icam_intrinsics++)
     {
         if( problem_selections.do_optimize_intrinsics_core && Ncore )
@@ -3421,8 +3450,13 @@ static int unpack_solver_state_intrinsics_subset_to_subset( // in,out
         }
 
         if( problem_selections.do_optimize_intrinsics_distortions )
-            for(int i = 0; i<Ndistortions; i++)
+        {
+            int i=0;
+            for(; i<Ndistortions-Nparams_noncentral; i++)
                 p[i_state++] *= SCALE_DISTORTION;
+            for(; i<Ndistortions; i++)
+                p[i_state++] *= SCALE_DISTORTION_NONCENTRAL;
+        }
     }
     return i_state;
 }
@@ -4064,6 +4098,10 @@ void optimizer_callback(// input state
     else if(ctx->calobject_warp != NULL)
         calobject_warp_local = *ctx->calobject_warp;
 
+    int Nparams_noncentral =
+        (ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC) ?
+        N_NONCENTRAL : 0;
+
     for(int icam_intrinsics=0;
         icam_intrinsics<ctx->Ncameras_intrinsics;
         icam_intrinsics++)
@@ -4095,8 +4133,11 @@ void optimizer_callback(// input state
         }
         if( ctx->problem_selections.do_optimize_intrinsics_distortions )
         {
-            for(int i = 0; i<ctx->Nintrinsics-Ncore; i++)
+            int i=0;
+            for(; i<ctx->Nintrinsics-Ncore-Nparams_noncentral; i++)
                 distortions_here[i] = packed_state[i_var_intrinsics++] * SCALE_DISTORTION;
+            for(; i<ctx->Nintrinsics-Ncore; i++)
+                distortions_here[i] = packed_state[i_var_intrinsics++] * SCALE_DISTORTION_NONCENTRAL;
         }
         else
             memcpy( distortions_here,
@@ -4302,7 +4343,7 @@ void optimizer_callback(// input state
                             {
                                 STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-N_NONCENTRAL+i,
                                                 dq_dknoncentral[i_pt*N_NONCENTRAL + i].xy[i_xy]*
-                                                weight * SCALE_DISTORTION );
+                                                weight * SCALE_DISTORTION_NONCENTRAL );
                             }
                         }
                     }
@@ -4698,7 +4739,7 @@ void optimizer_callback(// input state
                     for(int i=0; i<N_NONCENTRAL; i++)
                         STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ctx->Nintrinsics-Ncore-N_NONCENTRAL+i,
                                         dq_dknoncentral[i].xy[i_xy]*
-                                        weight * SCALE_DISTORTION );
+                                        weight * SCALE_DISTORTION_NONCENTRAL );
                 }
             }
 
@@ -5065,7 +5106,7 @@ void optimizer_callback(// input state
                                 x[iMeasurement]  = err;
                                 norm2_error     += err*err;
                                 STORE_JACOBIAN( i_var_intrinsics + Ncore_state + Nx*Ny*2 + inoncentral,
-                                                scale * SCALE );
+                                                scale * SCALE_DISTORTION_NONCENTRAL );
                                 iMeasurement++;
                             }
                         }
