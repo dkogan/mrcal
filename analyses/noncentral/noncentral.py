@@ -25,6 +25,15 @@ def uscalar_func(x,z):
     denom = z + sqrt(x*x + z*z)
     u = 2 * x / denom
     du_dz = -2 * x / (denom*denom) * (1 + z/sqrt(x*x + z*z))
+
+    # Equivalently, I can do this. Looks nice, and possibly IS nicer. However,
+    # for small x, this has u -> 0/0, so perhaps the above expressions ARE
+    # better
+
+    # magxz = sqrt(x*x + z*z)
+    # u = 2 * (magxz - z) / x
+    # du_dz = -u/magxz
+
     return u,du_dz
 
 def dz_nonlinearity(k,u):
