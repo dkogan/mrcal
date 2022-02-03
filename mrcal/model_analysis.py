@@ -174,8 +174,9 @@ report a full Rt transformation with the t component set to 0
     if weights is None:
         weights = np.ones(p0.shape[:-1], dtype=float)
     else:
-        # shape (M,N,)
-        weights = nps.clump(weights, n=weights.ndim-1)
+        # shape (..., Nh,Nw) -> (M,N,) where N = Nh*Nw
+        weights = nps.clump( nps.clump(weights, n=-2),
+                             n = weights.ndim-2)
 
         # Any inf/nan weight or vector are set to 0
         weights = weights.copy()
