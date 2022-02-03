@@ -324,7 +324,12 @@ def subs_into(f,
             m = re.match("k([0-9]+)$", k)
             if m:
                 ik = int(m.group(1))
-                vv[g['k'][ik]] = v[k]
+                try:
+                    vv[g['k'][ik]] = v[k]
+                except:
+                    # I don't have this k. Probably this is is past the order
+                    # I'm using
+                    pass
             else:
                 vv[g[k]] = v[k]
         return vv
