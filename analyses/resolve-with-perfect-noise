@@ -1,7 +1,12 @@
 #!/usr/bin/python3
 
 r'''Loads a model, generates perfect chessboard observations, corrupts them with
-nominal noise, and re-solves'''
+nominal noise, and re-solves
+
+This is useful to validate the idea that differences observed with
+mrcal-show-projection-diff should be predictive by the uncertainties reported by
+mrcal-show-projection-uncertainty IF the dominant source of error is
+calibration-time sampling error'''
 
 
 import sys
