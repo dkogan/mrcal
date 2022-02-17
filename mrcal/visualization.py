@@ -1009,11 +1009,20 @@ A tuple:
         # first camera to make sense. The transformation is complex, and
         # straight lines will not remain straight. I thus resample the polyline
         # more densely.
-        v1 = mrcal.unproject(mrcal.utils._densify_polyline(valid_region1, spacing = 50),
-                             *models[1].intrinsics())
-        valid_region1 = mrcal.project( mrcal.transform_point_Rt( mrcal.invert_Rt(Rt10),
-                                                                 v1 ),
-                                       *models[0].intrinsics() )
+        if not intrinsics_only:
+
+            v1 = mrcal.unproject(mrcal.utils._densify_polyline(valid_region1, spacing = 50),
+                                 *models[1].intrinsics(),
+                                 normalize = True)
+
+            if distance is not None:
+                try:    v1 *= distance
+                except: v1 *= distance[0]
+
+            valid_region1 = mrcal.project( mrcal.transform_point_Rt( mrcal.invert_Rt(Rt10),
+                                                                     v1 ),
+                                           *models[0].intrinsics() )
+
         if vectorfield:
             # 2d plot
             plot_data_args.append( (valid_region1[:,0], valid_region1[:,1],

@@ -13,10 +13,41 @@ bool modelHasCore_fxfycxcy( const mrcal_lensmodel_t* lensmodel )
     return meta.has_core;
 }
 
+
+
+#define COMPARE_CONFIG_ELEMENT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
+    if(config_a->name != config_b->name) return false;
+
+static bool LENSMODEL_CAHVORE__compare_config( const mrcal_LENSMODEL_CAHVORE__config_t* config_a,
+                                               const mrcal_LENSMODEL_CAHVORE__config_t* config_b)
+{
+    MRCAL_LENSMODEL_CAHVORE_CONFIG_LIST(COMPARE_CONFIG_ELEMENT, );
+    return true;
+}
+static bool LENSMODEL_SPLINED_STEREOGRAPHIC__compare_config( const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config_a,
+                                                             const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config_b)
+{
+    MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(COMPARE_CONFIG_ELEMENT, );
+    return true;
+}
+
 static bool eq_lensmodel(const mrcal_lensmodel_t* a, const mrcal_lensmodel_t* b)
 {
-    // for now this is a binary comparison
-    return 0 == memcmp(a, b, sizeof(*a));
+    if(a->type != b->type) return false;
+
+#define COMPARE_CONFIG_RETURN_FALSE_IF_NEQ(s,n)                         \
+    if( a->type == MRCAL_##s )                                          \
+    {                                                                   \
+        const mrcal_##s##__config_t* config_a = &a->s##__config;        \
+        const mrcal_##s##__config_t* config_b = &b->s##__config;        \
+                                                                        \
+        if(!s##__compare_config(config_a, config_b))                    \
+            return false;                                               \
+    }
+
+    MRCAL_LENSMODEL_WITHCONFIG_LIST( COMPARE_CONFIG_RETURN_FALSE_IF_NEQ );
+
+    return true;
 }
 
 static void _confirm_lensmodel(bool result, mrcal_lensmodel_t* x, mrcal_lensmodel_t xref,
