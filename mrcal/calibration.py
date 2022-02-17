@@ -1420,7 +1420,8 @@ uncertainty cannot be computed.
     q    = mrcal.sample_imager( gridn_width, gridn_height, *model.imagersize() )
     vcam = mrcal.unproject(q, *model.intrinsics(),
                            normalize = True)
-
+    # temporary hack for noncentral projections. Matches UNPROJECT_SCALE in mrcal.c
+    distance=10000
     if distance <= 0:
         atinfinity = True
         pcam       = vcam
