@@ -5,9 +5,22 @@ instead of building from source. Contributions on this front are welcome.
 
 * Installing from packages
 ** Debian-based
-I currently distribute packages for
+As of today (2022-02-27), mrcal is included in the bleeding-edge versions of
+Debian and Ubuntu. So if you're running at least Debian/testing or the
+not-yet-published Debian 12 (bookworm) or Ubuntu 22.04 (jammy), you can
+simply
 
-- Debian/sid
+#+begin_src sh
+apt install mrcal libmrcal-dev
+#+end_src
+
+to install (for instance) the commandline tools and the C development library
+respectively.
+
+For older distros I currently distribute packages for
+
+- Debian/sid (this will be removed soon since mrcal is now in the main Debian
+  archives)
 - Debian/buster
 - Debian/bullseye
 - Ubuntu/focal (20.04 LTS)
