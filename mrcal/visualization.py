@@ -1038,6 +1038,10 @@ A tuple:
 
         _2d = bool(vectorfield)
 
+        optimization_inputs = [ m.optimization_inputs() for m in models ]
+        if any( oi is None for oi in optimization_inputs ):
+            raise Exception("mrcal.show_projection_diff(observations=True) requires optimization_inputs to be available for all models, but this is missing for some models")
+
         for i in range(len(models)):
 
             m = models[i]
@@ -1046,7 +1050,7 @@ A tuple:
             p_cam_calobjects_inliers, \
             p_cam_calobjects_outliers = \
                 mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
-                                                        **m.optimization_inputs())[-3:]
+                                                        **optimization_inputs[i])[-3:]
             q_cam_calobjects = \
                 mrcal.project( p_cam_calobjects,          *m.intrinsics() )
             q_cam_calobjects_inliers = \
