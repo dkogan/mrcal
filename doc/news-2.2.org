@@ -2,6 +2,8 @@
 #+OPTIONS: toc:nil
 
 * New in mrcal 2.2
+fixed outlier weighing
+
 mrcal-stereo --viz
 
 build update: I can cross-compile
@@ -15,10 +17,25 @@ Rt_from_qt() new
 pq_from_Rt() removed
 Rt_from_pq() removed
 
+- diff functions. If the distance is iterable, the shape of the output of the
+  internal functions is (len(distance), ...). Otherwise it is just (...). This
+  is what the caller would expect
+
+- diff functions. If multiple distances are given, we computed the implied
+  transformation using ALL of them, but we display the diff from the FIRST given
+  distance.
+
+** mrcal-show-projection-diff --valid-intrinsics-region handles camera-1
+
+Prior to this patch the region for the second camera was not being computed or
+displayed properly
+
+
 
 * Migration notes 2.1 -> 2.2
 This is a /very/ minor release, and is 99.9% compatible. The only incompatible
 update:
 
 - Replace pq_from_Rt(),Rt_from_pq() with qt_from_Rt(),Rt_from_qt()
+
 
