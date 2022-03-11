@@ -76,8 +76,8 @@ At the optimum $E$ is minimized, so
 We perturb the problem:
 
 \[ E( \vec p + \Delta \vec p, \vec q_\mathrm{ref} + \Delta \vec q_\mathrm{ref})) \approx
-\left \Vert \vec x + \frac{\partial \vec x}{\partial \vec p} \Delta \vec p + \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} {\Delta \vec q_\mathrm{ref}} \right \Vert ^2 =
-\left \Vert \vec x + J \Delta \vec p + \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} {\Delta \vec q_\mathrm{ref}} \right \Vert ^2 \]
+\left \Vert \vec x + \frac{\partial \vec x}{\partial \vec p} \Delta \vec p + \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} \Delta \vec q_\mathrm{ref} \right \Vert ^2 =
+\left \Vert \vec x + J \Delta \vec p + \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} \Delta \vec q_\mathrm{ref} \right \Vert ^2 \]
 
 And we reoptimize:
 
