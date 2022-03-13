@@ -268,16 +268,17 @@ nps.dummy(mrcal.stereo_range(), axis=-1)
   [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] does not. It would be nice if it did and if
   its API resembled that of [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]]
 
-*** [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool
-The [[file:mrcal-stereo.html][=mrcal-stereo=]] tool produces a field-of-view visualization. This should be
-made available in the Python API and in the [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool
+*** Misc
+- [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool: the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool produces a field-of-view
+  visualization. This should be made available in the Python API and in the
+  [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool
 
-*** [[https://github.com/dkogan/mrcal/blob/master/analyses/dancing/dance-study.py][=dance-study.py=]]
-If asked for chessboards that are too close, the tool goes into an infinite loop
-as it searches for chessboard poses that are fully visible by the camera.
-Something smarter than an infinite loop should happen
+- [[https://github.com/dkogan/mrcal/blob/master/analyses/dancing/dance-study.py][=dance-study.py=]]: if asked for chessboards that are too close, the tool goes
+  into an infinite loop as it searches for chessboard poses that are fully
+  visible by the camera. Something smarter than an infinite loop should happen
 
-*** Warnings in [[https://github.com/dkogan/mrcal/blob/master/mrcal.c][=mrcal.c=]]
-There are a number of warnings in [[https://github.com/dkogan/mrcal/blob/master/mrcal.c][=mrcal.c=]] tagged with =// WARNING= that should
-eventually be addressed. This has never been urgent-enough to deal with. But
-someday
+- Warnings in [[https://github.com/dkogan/mrcal/blob/master/mrcal.c][=mrcal.c=]]: there are a number of warnings in [[https://github.com/dkogan/mrcal/blob/master/mrcal.c][=mrcal.c=]] tagged with
+  =// WARNING= that should eventually be addressed. This has never been
+  urgent-enough to deal with. But someday
+
+- viz tools should accept =--vectorfield= /and/ =--vector-field=
