@@ -587,12 +587,9 @@ def reproject_perturbed__diff(q, distance,
 # Which implementation we're using. Use the method that matches the uncertainty
 # computation. Thus the sampled ellipsoids should match the ellipsoids reported
 # by the uncertianty method
-if   re.match('mean-frames', args.reproject_perturbed):
-    reproject_perturbed = reproject_perturbed__mean_frames
-elif args.reproject_perturbed == 'fit-boards-ref':
-    reproject_perturbed = reproject_perturbed__fit_boards_ref
-elif args.reproject_perturbed == 'diff':
-    reproject_perturbed = reproject_perturbed__diff
+if   re.match('mean-frames', args.reproject_perturbed): reproject_perturbed = reproject_perturbed__mean_frames
+elif args.reproject_perturbed == 'fit-boards-ref':      reproject_perturbed = reproject_perturbed__fit_boards_ref
+elif args.reproject_perturbed == 'diff':                reproject_perturbed = reproject_perturbed__diff
 else:
     raise Exception("getting here is a bug")
 
