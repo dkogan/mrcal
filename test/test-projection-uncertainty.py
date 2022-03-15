@@ -109,6 +109,10 @@ def parse_args():
     parser.add_argument('--extra-observation-at',
                         type=float,
                         help='''Adds one extra observation at the given distance''')
+    parser.add_argument('--range-to-boards',
+                        type=float,
+                        default=4.0,
+                        help='''Nominal range to the simulated chessboards''')
     parser.add_argument('--reproject-perturbed',
                         choices=('mean-frames', 'mean-frames-using-meanq', 'mean-frames-using-meanq-penalize-big-shifts', 'fit-boards-ref', 'diff'),
                         default = 'mean-frames',
@@ -241,7 +245,8 @@ args.Nframes =                                         \
                          extrinsics_rt_fromref_true,
                          calobject_warp_true,
                          fixedframes,
-                         testdir)
+                         testdir,
+                         range_to_boards = args.range_to_boards)
 
 # I evaluate the projection uncertainty of this vector. In each camera. I'd like
 # it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
@@ -851,7 +856,7 @@ if args.show_distribution:
         data_tuples, plot_options = make_plot(icam)
 
         if args.extra_observation_at is not None:
-            plot_options['title'] += f': extra at {args.extra_observation_at}'
+            plot_options['title'] += f': boards at {args.range_to_boards}m, extra one at {args.extra_observation_at}m'
 
         plot_distribution[icam] = gp.gnuplotlib(**plot_options)
         plot_distribution[icam].plot(*data_tuples)
