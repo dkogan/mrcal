@@ -148,23 +148,19 @@ ARGUMENTS
                                             Nframes)
 
 
-    if extra_observation_at:
-        c = mrcal.ref_calibration_object(object_width_n,
-                                         object_height_n,
-                                         object_spacing,
-                                         calobject_warp_true)
-        Rt_cam0_board_true_far = \
-            nps.glue( np.eye(3),
-                      np.array((0,0,extra_observation_at)),
-                      axis=-2)
-        Rt_ref_board_true_far = mrcal.compose_Rt(models_true[0].extrinsics_Rt_toref(),
-                                                 Rt_cam0_board_true_far)
-        q_true_far = \
-            mrcal.project(mrcal.transform_point_Rt(Rt_cam0_board_true_far, c),
-                          *models_true[0].intrinsics())
+    if extra_observation_at is not None:
+        q_true_extra,Rt_ref_board_true_extra = \
+            mrcal.synthesize_board_observations(models_true,
+                                                object_width_n, object_height_n, object_spacing,
+                                                calobject_warp_true,
+                                                np.array((0.,             0.,             0.,             x_center, 0,   extra_observation_at)),
+                                                np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5,      2.5, extra_observation_at/10.0)),
+                                                Nframes = 1)
 
-        q_true            = nps.glue( q_true_far, q_true, axis=-5)
-        Rt_ref_board_true = nps.glue( Rt_ref_board_true_far, Rt_ref_board_true, axis=-3)
+        q_true            = nps.glue( q_true, q_true_extra,
+                                      axis=-5)
+        Rt_ref_board_true = nps.glue( Rt_ref_board_true, Rt_ref_board_true_extra,
+                                      axis=-3)
 
         Nframes += 1
 
