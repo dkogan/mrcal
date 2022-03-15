@@ -73,7 +73,8 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          fixedframes,
                          testdir,
                          cull_left_of_center = False,
-                         allow_nonidentity_cam0_transform = False):
+                         allow_nonidentity_cam0_transform = False,
+                         range_to_boards = 4.0):
     r'''Compute a calibration baseline as a starting point for experiments
 
 This is a perfect, noiseless solve. Regularization IS enabled, and the returned
@@ -142,8 +143,8 @@ ARGUMENTS
         mrcal.synthesize_board_observations(models_true,
                                             object_width_n, object_height_n, object_spacing,
                                             calobject_warp_true,
-                                            np.array((0.,             0.,             0.,             x_center, 0,   4.0)),
-                                            np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5,      2.5, 2.0)),
+                                            np.array((0.,             0.,             0.,             x_center, 0,   range_to_boards)),
+                                            np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5,      2.5, range_to_boards/2.0)),
                                             Nframes)
 
 
