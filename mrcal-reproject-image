@@ -96,6 +96,13 @@ by a command like this:
     --plane-d 4.4
     model0.cameramodel model1.cameramodel 'image*-cam0.jpg' 'image*-cam1.jpg'
 
+If the models were already pinhole-projected, this does the same thing as
+
+  mrcal-reproject-image
+    --plane-n 1.1 2.2 3.3
+    --plane-d 4.4
+    model0.cameramodel model1.cameramodel 'image*-cam0.jpg'
+
 This maps observations of a given plane in camera0 coordinates to where this
 plane would be observed in camera1 coordinates. This requires both models to be
 passed-in. And ALL the intrinsics, extrinsics and the plane representation are
