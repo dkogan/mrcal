@@ -1037,8 +1037,7 @@ def _triangulation_uncertainty_internal(slices,
                                         q_observation_stdev,
                                         q_observation_stdev_correlation,
                                         method = triangulate_leecivera_mid2,
-                                        do_propagate_noise_calibration   = True,
-                                        stabilize_coords                 = True):
+                                        stabilize_coords = True):
     r'''Compute most of the triangulation uncertainty logic
 
 This is an internal piece of mrcal.triangulate(). It's available separately to
