@@ -630,7 +630,7 @@ TAB: transpose windows
                 pan/zoom the widget will come here first. I dispatch any
                 pan/zoom commands to all the widgets, so that they all work in
                 unison. visible_width_pixels < 0 means: this is the redirected
-                call. Just call the base class
+                call; just call the base class
 
                 '''
                 if visible_width_pixels < 0:
