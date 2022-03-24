@@ -646,17 +646,17 @@ TAB: transpose windows
             def set_cross_at(self, q):
                 if q is None:
                     return \
-                        self.set_lines( () )
+                        self.set_lines()
 
                 x,y = q
                 return \
-                    self.set_lines( (dict(points =
-                                          np.array( (((x - 50, y),
-                                                      (x + 50, y)),
-                                                     ((x,      -0.5),
-                                                      (x,      models_rectified[0].imagersize()[1]-0.5))),
-                                                    dtype=np.float32),
-                                          color_rgb = np.array((1,0,0), dtype=np.float32) ),))
+                    self.set_lines( dict(points =
+                                         np.array( (((x - 50, y),
+                                                     (x + 50, y)),
+                                                    ((x,      -0.5),
+                                                     (x,      models_rectified[0].imagersize()[1]-0.5))),
+                                                   dtype=np.float32),
+                                         color_rgb = np.array((1,0,0), dtype=np.float32) ))
 
             def handle(self, event):
                 if event == FL_PUSH:
