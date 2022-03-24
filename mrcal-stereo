@@ -695,12 +695,13 @@ TAB: transpose windows
                     self.set_lines()
 
             x,y = q
+            W,H = models_rectified[0].imagersize()
             return \
                 self.set_lines( dict(points =
-                                     np.array( (((x - 50, y),
-                                                 (x + 50, y)),
-                                                ((x,      -0.5),
-                                                 (x,      models_rectified[0].imagersize()[1]-0.5))),
+                                     np.array( ((( -0.5, y),
+                                                 (W-0.5, y)),
+                                                ((x,       -0.5),
+                                                 (x,      H-0.5))),
                                                dtype=np.float32),
                                      color_rgb = np.array((1,0,0), dtype=np.float32) ))
 
