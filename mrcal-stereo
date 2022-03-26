@@ -524,17 +524,23 @@ if not args.already_rectified:
 
 
 
+image_filenames_all = [sorted(glob.glob(os.path.expanduser(g))) for g in args.images]
+
+if len(image_filenames_all[0]) != len(image_filenames_all[1]):
+    print(f"First glob matches {len(image_filenames_all[0])} files, but the second glob matches {len(image_filenames_all[1])} files. These must be identical",
+          file=sys.stderr)
+    sys.exit(1)
+
+Nimages = len(image_filenames_all[0])
+if Nimages == 0:
+    print("Given globs matched 0 images. Nothing to do",
+          file=sys.stderr)
+    sys.exit(1)
+
 if args.clahe:
     clahe = cv2.createCLAHE()
     clahe.setClipLimit(8)
 
-
-image_filenames_all = [sorted(glob.glob(os.path.expanduser(g))) for g in args.images]
-
-if len(image_filenames_all[0]) != len(image_filenames_all[1]):
-    raise Exception(f"First glob matches {len(image_filenames_all[0])} files, but the second glob matches {len(image_filenames_all[1])} files. These must be identical")
-
-Nimages = len(image_filenames_all[0])
 
 for i in range(Nimages):
 
