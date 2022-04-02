@@ -351,6 +351,8 @@ def reproject_perturbed__mean_frames(q, distance,
                                      baseline_rt_ref_frame,
                                      # shape (2)
                                      baseline_calobject_warp,
+                                     # dict
+                                     baseline_optimization_inputs,
 
                                      # shape (..., Ncameras, Nintrinsics)
                                      query_intrinsics,
@@ -359,7 +361,9 @@ def reproject_perturbed__mean_frames(q, distance,
                                      # shape (..., Nframes, 6)
                                      query_rt_ref_frame,
                                      # shape (..., 2)
-                                     query_calobject_warp):
+                                     query_calobject_warp,
+                                     # list of dicts of length ...
+                                     query_optimization_inputs):
     r'''Reproject by computing the mean in the space of frames
 
 This is what the uncertainty computation does (as of 2020/10/26). The implied
@@ -445,6 +449,8 @@ def reproject_perturbed__fit_boards_ref(q, distance,
                                         baseline_rt_ref_frame,
                                         # shape (2)
                                         baseline_calobject_warp,
+                                        # dict
+                                        baseline_optimization_inputs,
 
                                         # shape (..., Ncameras, Nintrinsics)
                                         query_intrinsics,
@@ -453,26 +459,29 @@ def reproject_perturbed__fit_boards_ref(q, distance,
                                         # shape (..., Nframes, 6)
                                         query_rt_ref_frame,
                                         # shape (..., 2)
-                                        query_calobject_warp):
+                                        query_calobject_warp,
+                                        # list of dicts of length ...
+                                        query_optimization_inputs):
+
     r'''Reproject by explicitly computing a procrustes fit to align the reference
     coordinate systems of the two solves. We match up the two sets of chessboard
     points
 
     '''
 
-    calobject_height,calobject_width = optimization_inputs_baseline['observations_board'].shape[1:3]
+    calobject_height,calobject_width = baseline_optimization_inputs['observations_board'].shape[1:3]
 
     # shape (Nsamples, Nh, Nw, 3)
     if query_calobject_warp.ndim > 1:
         calibration_object_query = \
             nps.cat(*[ mrcal.ref_calibration_object(calobject_width, calobject_height,
-                                                    optimization_inputs_baseline['calibration_object_spacing'],
+                                                    baseline_optimization_inputs['calibration_object_spacing'],
                                                     calobject_warp=calobject_warp) \
                        for calobject_warp in query_calobject_warp] )
     else:
         calibration_object_query = \
             mrcal.ref_calibration_object(calobject_width, calobject_height,
-                                         optimization_inputs_baseline['calibration_object_spacing'],
+                                         baseline_optimization_inputs['calibration_object_spacing'],
                                          calobject_warp=query_calobject_warp)
 
     # shape (Nsamples, Nframes, Nh, Nw, 3)
@@ -484,7 +493,7 @@ def reproject_perturbed__fit_boards_ref(q, distance,
     # shape (Nh, Nw, 3)
     calibration_object_baseline = \
         mrcal.ref_calibration_object(calobject_width, calobject_height,
-                                     optimization_inputs_baseline['calibration_object_spacing'],
+                                     baseline_optimization_inputs['calibration_object_spacing'],
                                      calobject_warp=baseline_calobject_warp)
     # frames_ref.shape is (Nframes, 6)
 
@@ -532,14 +541,19 @@ def reproject_perturbed__fit_boards_ref(q, distance,
 # The others broadcast implicitly, while THIS main function really cannot handle
 # outer dimensions, and needs an explicit broadcasting loop
 @nps.broadcast_define(((2,), (),
+
                        ('Ncameras', 'Nintrinsics'),
                        ('Ncameras', 6),
                        ('Nframes', 6),
                        (2,),
+                       (),
+
                        ('Ncameras', 'Nintrinsics'),
                        ('Ncameras', 6),
                        ('Nframes', 6),
-                       (2,),),
+                       (2,),
+                       ()),
+
                       ('Ncameras',2))
 def reproject_perturbed__diff(q, distance,
                               # shape (Ncameras, Nintrinsics)
@@ -550,6 +564,8 @@ def reproject_perturbed__diff(q, distance,
                               baseline_rt_ref_frame,
                               # shape (2)
                               baseline_calobject_warp,
+                              # dict
+                              baseline_optimization_inputs,
 
                               # shape (Ncameras, Nintrinsics)
                               query_intrinsics,
@@ -558,7 +574,10 @@ def reproject_perturbed__diff(q, distance,
                               # shape (Nframes, 6)
                               query_rt_ref_frame,
                               # shape (2)
-                              query_calobject_warp):
+                              query_calobject_warp,
+                              # dict
+                              query_optimization_inputs):
+
     r'''Reproject by using the "diff" method to compute a rotation
 
     '''
@@ -617,11 +636,16 @@ for distance in args.distances:
                             extrinsics_baseline_mounted,
                             frames_baseline,
                             calobject_warp_baseline,
+                            optimization_inputs_baseline,
 
                             intrinsics_true,
                             extrinsics_true_mounted,
                             frames_true,
-                            calobject_warp_true)
+                            calobject_warp_true,
+                            # optimization_inputs_sampled not available here:
+                            # the "true" values aren't the result of an
+                            # optimization
+                            None)
 
     # I check the bias for cameras 0,1. Cameras 2,3 have q0 outside of the
     # chessboard region, or right on its edge, so regularization DOES affect
@@ -747,11 +771,13 @@ def check_uncertainties_at(q0_baseline, idistance):
                             extrinsics_baseline_mounted,
                             frames_baseline,
                             calobject_warp_baseline,
+                            optimization_inputs_baseline,
 
                             intrinsics_sampled,
                             extrinsics_sampled_mounted,
                             frames_sampled,
-                            calobject_warp_sampled)
+                            calobject_warp_sampled,
+                            optimization_inputs_sampled)
 
     # shape (Ncameras, 2)
     q_sampled_mean = np.mean(q_sampled, axis=-3)
