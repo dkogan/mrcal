@@ -114,7 +114,11 @@ def parse_args():
                         default=4.0,
                         help='''Nominal range to the simulated chessboards''')
     parser.add_argument('--reproject-perturbed',
-                        choices=('mean-frames', 'mean-frames-using-meanq', 'mean-frames-using-meanq-penalize-big-shifts', 'fit-boards-ref', 'diff'),
+                        choices=('mean-frames',
+                                 'mean-frames-using-meanq',
+                                 'mean-frames-using-meanq-penalize-big-shifts',
+                                 'fit-boards-ref',
+                                 'diff'),
                         default = 'mean-frames',
                         help='''Which reproject-after-perturbation method to use. This is for experiments.
                         Some of these methods will be probably wrong.''')
