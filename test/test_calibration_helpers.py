@@ -283,12 +283,14 @@ def calibration_sample(Nsamples, Ncameras, Nframes,
     extrinsics_sampled_mounted = np.zeros((Nsamples,Ncameras,6),           dtype=float)
     frames_sampled             = np.zeros((Nsamples,Nframes, 6),           dtype=float)
     calobject_warp_sampled     = np.zeros((Nsamples,2),                    dtype=float)
+    optimization_inputs_sampled = [None] * Nsamples
 
     for isample in range(Nsamples):
         if (isample+1) % 20 == 0:
             print(f"Sampling {isample+1}/{Nsamples}")
 
-        optimization_inputs = copy.deepcopy(optimization_inputs_baseline)
+        optimization_inputs_sampled[isample] = copy.deepcopy(optimization_inputs_baseline)
+        optimization_inputs = optimization_inputs_sampled[isample]
         optimization_inputs['observations_board'] = \
             sample_dqref(observations_true, pixel_uncertainty_stdev)[1]
         mrcal.optimize(**optimization_inputs)
@@ -306,4 +308,5 @@ def calibration_sample(Nsamples, Ncameras, Nframes,
         ( intrinsics_sampled,         \
           extrinsics_sampled_mounted, \
           frames_sampled,             \
-          calobject_warp_sampled )
+          calobject_warp_sampled,
+          optimization_inputs_sampled)
