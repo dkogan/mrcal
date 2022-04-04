@@ -815,9 +815,9 @@ dx/drt_ref_refperturbed. Then rt_ref_refperturbed = -inv(JtJ)Jt x0
 
         E_perturbed_solvedref = nps.norm2(x)
 
-        print(f"E_baseline            = {E_baseline}")
-        print(f"E_perturbed           = {E_perturbed}")
-        print(f"E_perturbed_solvedref = {E_perturbed_solvedref}")
+        print(f"RMS error baseline            = {np.sqrt(E_baseline            / (x.shape[-1]/2))} pixels")
+        print(f"RMS error perturbed           = {np.sqrt(E_perturbed           / (x.shape[-1]/2))} pixels")
+        print(f"RMS error perturbed_solvedref = {np.sqrt(E_perturbed_solvedref / (x.shape[-1]/2))} pixels")
 
 
     # shape (Ncameras, 3)
