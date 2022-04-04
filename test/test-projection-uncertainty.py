@@ -118,7 +118,8 @@ def parse_args():
                                  'mean-frames-using-meanq',
                                  'mean-frames-using-meanq-penalize-big-shifts',
                                  'fit-boards-ref',
-                                 'diff'),
+                                 'diff',
+                                 'optimize-cross-reprojection-error'),
                         default = 'mean-frames',
                         help='''Which reproject-after-perturbation method to use. This is for experiments.
                         Some of these methods will be probably wrong.''')
@@ -612,12 +613,251 @@ def reproject_perturbed__diff(q, distance,
                        lensmodel, query_intrinsics)
 
 
+def reproject_perturbed__optimize_cross_reprojection_error(q, distance,
+
+                                                           # shape (Ncameras, Nintrinsics)
+                                                           baseline_intrinsics,
+                                                           # shape (Ncameras, 6)
+                                                           baseline_rt_cam_ref,
+                                                           # shape (Nframes, 6)
+                                                           baseline_rt_ref_frame,
+                                                           # shape (2)
+                                                           baseline_calobject_warp,
+                                                           # dict
+                                                           baseline_optimization_inputs,
+
+                                                           # shape (..., Ncameras, Nintrinsics)
+                                                           query_intrinsics,
+                                                           # shape (..., Ncameras, 6)
+                                                           query_rt_cam_ref,
+                                                           # shape (..., Nframes, 6)
+                                                           query_rt_ref_frame,
+                                                           # shape (..., 2)
+                                                           query_calobject_warp,
+                                                           # list of dicts of length ...
+                                                           query_optimization_inputs):
+
+    r'''Reproject by explicitly computing a ref-refperturbed transformation
+
+This is done by optimizing the reprojection error looking at the perturbed
+frames,points and the unperturbed camera intrinsics, extrinsics
+
+In my least squares solve each chessboard point produces two elements of the
+measurements x:
+
+    x_point = qref - project(intrinsics, T_cam_ref T_ref_frame p)
+
+I use the perturbed quantity on one side, and insert ref transformation:
+
+    x_point = qref - project(intrinsics, T_cam_ref T_ref_refperturbed T_refperturbed_frameperturbed p)
+
+And I reoptimize norm2(x) by varying T_ref_refperturbed. I take a single step: I
+assume everything is locally linear, and I use linear least squares. At the
+T_ref_refperturbed=identity operating point I compute J =
+dx/drt_ref_refperturbed. Then rt_ref_refperturbed = -inv(JtJ)Jt x0
+    '''
+
+    if fixedframes:
+        raise Exception("reproject_perturbed__optimize_cross_reprojection_error(fixedframes = True) is not yet implemented")
+
+    def compose_rt3_withgrad_drt1(rt0, rt1, rt2):
+        rt01,drt01_drt0,drt01_drt1 = \
+            mrcal.compose_rt(rt0, rt1, get_gradients = True)
+        rt012,drt012_drt01,drt012_drt2 = \
+            mrcal.compose_rt(rt01, rt2, get_gradients = True)
+        drt012_drt1 = nps.matmult(drt012_drt01, drt01_drt1)
+        return rt012,drt012_drt1
+
+    def transform_point_rt3_withgrad_drt1(rt0, rt1, rt2, p):
+        rt012,drt012_drt1 = compose_rt3_withgrad_drt1(rt0,rt1,rt2)
+        pp, dpp_drt012, dpp_dp = mrcal.transform_point_rt(rt012, p, get_gradients = True)
+        dpp_drt1 = nps.matmult(dpp_drt012, drt012_drt1)
+        return pp, dpp_drt1
+
+
+
+
+
+
+
+    observations_board = \
+        baseline_optimization_inputs.get('observations_board')
+    indices_frame_camintrinsics_camextrinsics = \
+        baseline_optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+
+    object_width_n      = observations_board.shape[-2]
+    object_height_n     = observations_board.shape[-3]
+    object_spacing      = baseline_optimization_inputs['calibration_object_spacing']
+    # shape (Nh,Nw,3)
+    calibration_object_baseline = \
+        mrcal.ref_calibration_object(object_width_n,
+                                     object_height_n,
+                                     object_spacing,
+                                     baseline_calobject_warp)
+
+    # need to define the broadcasted function myself
+    @nps.broadcast_define( ((2,),) )
+    def ref_calibration_object(calobject_warp):
+        return \
+            mrcal.ref_calibration_object(object_width_n,
+                                         object_height_n,
+                                         object_spacing,
+                                         calobject_warp)
+    calibration_object_query = \
+        ref_calibration_object(query_calobject_warp)
+
+    weight = observations_board[...,2]
+
+    # shape (Nobservations, 6)
+    rt_ref_frame_all = \
+        baseline_rt_ref_frame[ ..., indices_frame_camintrinsics_camextrinsics[:,0], :]
+    # shape (..., Nobservations, 6)
+    rt_refperturbed_frameperturbed_all = \
+        query_rt_ref_frame[ ..., indices_frame_camintrinsics_camextrinsics[:,0], :]
+    # shape (Nobservations, Nintrinsics)
+    intrinsics_all = \
+        baseline_intrinsics[ indices_frame_camintrinsics_camextrinsics[:,1], :]
+    # shape (Nobservations, 6)
+    if nps.norm2(baseline_rt_cam_ref[0]) > 1e-12:
+        raise Exception("I'm assuming a vanilla calibration problem reference at cam0")
+    rt_cam_ref_all = \
+        baseline_rt_cam_ref[ indices_frame_camintrinsics_camextrinsics[:,2]+1, :]
+
+    # I look at the un-perturbed data first, to double-check that I'm doing the
+    # right thing. This is purely a self-checking step. I don't need to do it
+    if 1:
+        # shape (..., Nobservations,Nh,Nw,3),
+        pcam, _ = \
+            transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
+                                              mrcal.identity_rt(),
+                                              nps.dummy(rt_ref_frame_all, -2,-2),
+                                              calibration_object_baseline)
+        # shape (..., Nobservations,Nh,Nw,2)
+        qq = \
+            mrcal.project(pcam,
+                          baseline_optimization_inputs['lensmodel'],
+                          nps.dummy(intrinsics_all, -2,-2))
+        x = (qq - observations_board[...,:2])*nps.dummy(weight,-1)
+        x[...,weight<=0,:] = 0 # outliers
+        x = x.ravel()
+        if len(x) != mrcal.num_measurements_boards(**baseline_optimization_inputs):
+            raise Exception("Unexpected len(x). This is a bug")
+        x_baseline = mrcal.optimizer_callback(**baseline_optimization_inputs)[1]
+        if nps.norm2(x - x_baseline[:len(x)]) > 1e-12:
+            raise Exception("Unexpected x. This is a bug")
+
+        E_baseline = nps.norm2(x)
+
+    # Alright. I'm mimicking the optimization function well-enough. Let's look
+    # at the crossed quantities
+
+    # shape (..., Nobservations,Nh,Nw,3),
+    #       (..., Nobservations,Nh,Nw,3,6)
+    pcam, dpcam_drt_ref_refperturbed = \
+        transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
+                                          mrcal.identity_rt(),
+                                          nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
+                                          nps.mv(calibration_object_query,-4,-5))
+
+    # shape (..., Nobservations,Nh,Nw,2)
+    #       (..., Nobservations,Nh,Nw,2,3)
+    qq,dq_dpcam,_ = \
+        mrcal.project(pcam,
+                      baseline_optimization_inputs['lensmodel'],
+                      nps.dummy(intrinsics_all, -2,-2),
+                      get_gradients = True)
+    x = (qq - observations_board[...,:2])*nps.dummy(weight,-1)
+    x[...,weight<=0,:] = 0 # outliers
+    # shape (..., Nobservations*Nh*Nw*2)
+    x = nps.clump(x, n=-4)
+
+    E_perturbed = nps.norm2(x)
+
+    dx_dpcam = dq_dpcam*nps.dummy(weight,-1,-1)
+    dx_dpcam[...,weight<=0,:,:] = 0 # outliers
+    dx_drt_ref_refperturbed = nps.matmult(dx_dpcam, dpcam_drt_ref_refperturbed)
+    # shape (...,Nobservations,Nh,Nw,2,6) ->
+    #       (...,Nobservations*Nh*Nw*2,6) ->
+    dx_drt_ref_refperturbed = \
+        nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
+                         n = -4),
+               -2, -1)
+    J = dx_drt_ref_refperturbed
+
+    # need to define the broadcasted function myself
+    @nps.broadcast_define((('N',6),('N',)),
+                          (6,))
+    def lstsq(J,x):
+        # -inv(JtJ)Jt x0
+        return np.linalg.lstsq(J, x, rcond = None)[0]
+    rt_ref_refperturbed = -lstsq(J, x)
+
+    # I have a 1-step solve. Let's look at the error to confirm that it's
+    # smaller
+    if 1:
+        # shape (..., Nobservations,Nh,Nw,3)
+        pcam,_ = \
+            transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
+                                              nps.mv(rt_ref_refperturbed, -2,-5),
+                                              nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
+                                              nps.mv(calibration_object_query,-4,-5))
+
+        # shape (..., Nobservations,Nh,Nw,2)
+        qq = \
+            mrcal.project(pcam,
+                          baseline_optimization_inputs['lensmodel'],
+                          nps.dummy(intrinsics_all, -2,-2),
+                          get_gradients = False)
+        x = (qq - observations_board[...,:2])*nps.dummy(weight,-1)
+        x[...,weight<=0,:] = 0 # outliers
+        # shape (..., Nobservations*Nh*Nw*2)
+        x = nps.clump(x, n=-4)
+
+        E_perturbed_solvedref = nps.norm2(x)
+
+        print(f"E_baseline            = {E_baseline}")
+        print(f"E_perturbed           = {E_perturbed}")
+        print(f"E_perturbed_solvedref = {E_perturbed_solvedref}")
+
+
+    # shape (Ncameras, 3)
+    p_cam_baseline = mrcal.unproject(q, lensmodel, baseline_intrinsics,
+                                     normalize = True) * distance
+    # shape (Ncameras, 3)
+    p_ref_baseline = \
+        mrcal.transform_point_rt( mrcal.invert_rt(baseline_rt_cam_ref),
+                                  p_cam_baseline )
+    # shape (...,Ncameras, 3)
+    p_ref_query = \
+        mrcal.transform_point_rt( nps.dummy(rt_ref_refperturbed, -2),
+                                  p_ref_baseline,
+                                  inverted = True )
+
+    # shape (..., Ncameras, 3)
+    p_cam_query = \
+        mrcal.transform_point_rt(query_rt_cam_ref, p_ref_query)
+
+    # shape (..., Ncameras, 2)
+    #
+    # If ... was (), the current code sets it to (1,). So I force the right
+    # shape
+    return mrcal.project(p_cam_query, lensmodel, query_intrinsics). \
+        reshape( *query_intrinsics.shape[:-1],
+                 2)
+
+
+
 # Which implementation we're using. Use the method that matches the uncertainty
 # computation. Thus the sampled ellipsoids should match the ellipsoids reported
 # by the uncertianty method
-if   re.match('mean-frames', args.reproject_perturbed): reproject_perturbed = reproject_perturbed__mean_frames
-elif args.reproject_perturbed == 'fit-boards-ref':      reproject_perturbed = reproject_perturbed__fit_boards_ref
-elif args.reproject_perturbed == 'diff':                reproject_perturbed = reproject_perturbed__diff
+if   re.match('mean-frames', args.reproject_perturbed):
+    reproject_perturbed = reproject_perturbed__mean_frames
+elif args.reproject_perturbed == 'fit-boards-ref':
+    reproject_perturbed = reproject_perturbed__fit_boards_ref
+elif args.reproject_perturbed == 'diff':
+    reproject_perturbed = reproject_perturbed__diff
+elif args.reproject_perturbed == 'optimize-cross-reprojection-error':
+    reproject_perturbed = reproject_perturbed__optimize_cross_reprojection_error
 else:
     raise Exception("getting here is a bug")
 
