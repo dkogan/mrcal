@@ -674,6 +674,72 @@ dx/drt_ref_refperturbed. Then rt_ref_refperturbed = -inv(JtJ)Jt x0
         dpp_drt1 = nps.matmult(dpp_drt012, drt012_drt1)
         return pp, dpp_drt1
 
+    def transform_point_identity_gradient(p):
+        r'''Computes dprot/drt where prot = transform(rt,p) and rt = identity
+
+prot = rotate(p) + t, so clearly dprot/dt = I
+
+Now let's look at the rotation
+
+mrcal_transform_point_rt_full() from rotate_point_r_core() defines
+prot = rotate(rt, p) at rt=identity:
+
+  const val_withgrad_t<N> cross[3] =
+      {
+          (rg[1]*x_ing[2] - rg[2]*x_ing[1]),
+          (rg[2]*x_ing[0] - rg[0]*x_ing[2]),
+          (rg[0]*x_ing[1] - rg[1]*x_ing[0])
+      };
+  const val_withgrad_t<N> inner =
+      rg[0]*x_ing[0] +
+      rg[1]*x_ing[1] +
+      rg[2]*x_ing[2];
+
+  // Small rotation. I don't want to divide by 0, so I take the limit
+  //   lim(th->0, xrot) =
+  //     = x + cross(r, x) + r rt x lim(th->0, (1 - cos(th)) / (th*th))
+  //     = x + cross(r, x) + r rt x lim(th->0, sin(th) / (2*th))
+  //     = x + cross(r, x) + r rt x/2
+  for(int i=0; i<3; i++)
+      x_outg[i] =
+          x_ing[i] +
+          cross[i] +
+          rg[i]*inner / 2.;
+
+So dprot/dr = dcross/dr + d(r*inner / 2)/dr =
+              [  0  p2 -p1]
+            = [-p2   0  p0] + (inner I + outer(r,p))/2
+              [ p1 -p0   0]
+
+At r=identity I have r = 0, so
+
+              [  0  p2 -p1]
+  dprot/dr  = [-p2   0  p0]
+              [ p1 -p0   0]
+'''
+
+        # strange-looking implementation to make broadcasting work
+        dprot_drt = np.zeros(p.shape[:-1] + (3,6), dtype=float)
+
+        dprot_drt[...,0,1] =  p[...,2]
+        dprot_drt[...,0,2] = -p[...,1]
+        dprot_drt[...,1,0] = -p[...,2]
+        dprot_drt[...,1,2] =  p[...,0]
+        dprot_drt[...,2,0] =  p[...,1]
+        dprot_drt[...,2,1] = -p[...,0]
+
+        dprot_drt[...,0,0+3] = 1.
+        dprot_drt[...,1,1+3] = 1.
+        dprot_drt[...,2,2+3] = 1.
+
+        _,dprot_drt_reference,_ = \
+            mrcal.transform_point_rt(mrcal.identity_rt(), p,
+                                     get_gradients=True)
+        if nps.norm2((dprot_drt-dprot_drt_reference).ravel()) > 1e-10:
+            raise Exception("transform_point_identity_gradient() is computing the wrong thing. This is a bug")
+
+        return dprot_drt
+
 
 
 
@@ -717,21 +783,31 @@ dx/drt_ref_refperturbed. Then rt_ref_refperturbed = -inv(JtJ)Jt x0
     # shape (Nobservations, Nintrinsics)
     intrinsics_all = \
         baseline_intrinsics[ indices_frame_camintrinsics_camextrinsics[:,1], :]
-    # shape (Nobservations, 6)
     if nps.norm2(baseline_rt_cam_ref[0]) > 1e-12:
         raise Exception("I'm assuming a vanilla calibration problem reference at cam0")
+    # shape (Nobservations, 6)
     rt_cam_ref_all = \
         baseline_rt_cam_ref[ indices_frame_camintrinsics_camextrinsics[:,2]+1, :]
 
     # I look at the un-perturbed data first, to double-check that I'm doing the
     # right thing. This is purely a self-checking step. I don't need to do it
     if 1:
-        # shape (..., Nobservations,Nh,Nw,3),
-        pcam, _ = \
-            transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
-                                              mrcal.identity_rt(),
-                                              nps.dummy(rt_ref_frame_all, -2,-2),
-                                              calibration_object_baseline)
+
+        if 1:
+            # shape (Nobservations,Nh,Nw,3),
+            pref = mrcal.transform_point_rt(nps.dummy(rt_ref_frame_all, -2,-2),
+                                            calibration_object_baseline)
+            pcam = mrcal.transform_point_rt(nps.dummy(rt_cam_ref_all, -2,-2),
+                                            pref)
+        else:
+            # More complex form, using custom function.
+
+            # shape (..., Nobservations,Nh,Nw,3),
+            pcam, _ = \
+                transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
+                                                  mrcal.identity_rt(),
+                                                  p_ref)
+
         # shape (..., Nobservations,Nh,Nw,2)
         qq = \
             mrcal.project(pcam,
@@ -751,13 +827,30 @@ dx/drt_ref_refperturbed. Then rt_ref_refperturbed = -inv(JtJ)Jt x0
     # Alright. I'm mimicking the optimization function well-enough. Let's look
     # at the crossed quantities
 
-    # shape (..., Nobservations,Nh,Nw,3),
-    #       (..., Nobservations,Nh,Nw,3,6)
-    pcam, dpcam_drt_ref_refperturbed = \
-        transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
-                                          mrcal.identity_rt(),
-                                          nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
-                                          nps.mv(calibration_object_query,-4,-5))
+    if 1:
+
+        # shape (..., Nobservations,Nh,Nw,3),
+        pref = mrcal.transform_point_rt( nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
+                                         nps.mv(calibration_object_query,-4,-5))
+        dpref_drt_ref_refperturbed = transform_point_identity_gradient(pref)
+        # shape (..., Nobservations,Nh,Nw,3),
+        #       (..., Nobservations,Nh,Nw,3,6)
+        pcam, _, dpcam_dpref = \
+            mrcal.transform_point_rt(nps.dummy(rt_cam_ref_all, -2,-2),
+                                     pref,
+                                     get_gradients = True)
+        dpcam_drt_ref_refperturbed = nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
+
+    else:
+        # More complex form, using custom function.
+
+        # shape (..., Nobservations,Nh,Nw,3),
+        #       (..., Nobservations,Nh,Nw,3,6)
+        pcam, dpcam_drt_ref_refperturbed = \
+            transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
+                                              mrcal.identity_rt(),
+                                              nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
+                                              nps.mv(calibration_object_query,-4,-5))
 
     # shape (..., Nobservations,Nh,Nw,2)
     #       (..., Nobservations,Nh,Nw,2,3)
@@ -796,11 +889,11 @@ dx/drt_ref_refperturbed. Then rt_ref_refperturbed = -inv(JtJ)Jt x0
     # smaller
     if 1:
         # shape (..., Nobservations,Nh,Nw,3)
-        pcam,_ = \
-            transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
-                                              nps.mv(rt_ref_refperturbed, -2,-5),
-                                              nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
-                                              nps.mv(calibration_object_query,-4,-5))
+        pcam = \
+            mrcal.transform_point_rt( mrcal.compose_rt(nps.dummy(rt_cam_ref_all, -2,-2),
+                                                       nps.mv(rt_ref_refperturbed, -2,-5),
+                                                       nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2)),
+                                      nps.mv(calibration_object_query,-4,-5))
 
         # shape (..., Nobservations,Nh,Nw,2)
         qq = \
