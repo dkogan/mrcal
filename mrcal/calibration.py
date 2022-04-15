@@ -1256,7 +1256,7 @@ and supports moving cameras, hence it uses a more general
 indices_frame_camintrinsics_camextrinsics array instead of the
 indices_frame_camera array used here.
 
-See test/test-calibration-basic.py and mrcal-calibrate-cameras for usage
+See test/test-basic-calibration.py and mrcal-calibrate-cameras for usage
 examples.
 
 ARGUMENTS
