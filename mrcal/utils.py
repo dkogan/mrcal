@@ -1436,10 +1436,14 @@ And I differentiate:
 
 
     B = nps.mag(r1)/2
-    r01 = r1 + \
-        B/np.tan(B) * r0 + \
-        np.cross(r0,r1) / 2 - \
-        ( nps.inner(r0,r1) / (4*B) * (1/np.tan(B) - 1/B))* r1
+
+    if nps.norm2(r0) != 0:
+        r01 = r1 + \
+            B/np.tan(B) * r0 + \
+            np.cross(r0,r1) / 2 - \
+            ( nps.inner(r0,r1) / (4*B) * (1/np.tan(B) - 1/B))* r1
+    else:
+        r01 = r1
 
     if not get_gradients:
         return r01
