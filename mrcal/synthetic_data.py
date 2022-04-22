@@ -89,25 +89,44 @@ ARGUMENTS
 - H: how many points we have in the vertical direction
 
 - object_spacing: the distance between adjacent points in the calibration
-  object. A square object is assumed, so the vertical and horizontal distances
-  are assumed to be identical.
+  object. If a scalar is given, a square object is assumed, and the vertical and
+  horizontal distances are assumed to be identical. An array of shape (..., 2)
+  can be given: the last dimension is (spacing_h, spacing_w), and the preceding
+  dimensions are used for broadcasting
 
 - calobject_warp: optional array of shape (2,) defaults to None. Describes the
   warping of the calibration object. If None, the object is flat. If an array is
   given, the values describe the maximum additive deflection along the x and y
-  axes
+  axes. Extended array can be given for broadcasting
+
+This function supports broadcasting across object_spacing and calobject_warp
 
 RETURNED VALUES
 
-The calibration object geometry in a (H,W,3) array
+The calibration object geometry in a (..., H,W,3) array, with the leading
+dimensions set by the broadcasting rules
 
     '''
 
-    xx,yy       = np.meshgrid( np.arange(W,dtype=float), np.arange(H,dtype=float))
+    # shape (H,W)
+    xx,yy = np.meshgrid( np.arange(W,dtype=float), np.arange(H,dtype=float))
+
+    # shape (H,W,3)
     full_object = nps.glue(nps.mv( nps.cat(xx,yy), 0, -1),
                            np.zeros((H,W,1)),
-                           axis=-1) # shape (H,W,3)
-    full_object *= object_spacing
+                           axis=-1)
+
+    # object_spacing has shape (..., 2)
+    object_spacing = np.array(object_spacing)
+    if object_spacing.ndim == 0:
+        object_spacing = np.array((1,1))*object_spacing
+    object_spacing = nps.dummy(object_spacing, -2,-2)
+    # object_spacing now has shape (..., 1,1,2)
+
+    if object_spacing.ndim > 3:
+        # extend full_object to the output shape I want
+        full_object = full_object * np.ones( object_spacing.shape[:-3] + (1,1,1) )
+    full_object[..., :2] *= object_spacing
 
     if calobject_warp is not None:
         xr = xx / (W-1)
@@ -115,8 +134,14 @@ The calibration object geometry in a (H,W,3) array
         dx = 4. * xr * (1. - xr)
         dy = 4. * yr * (1. - yr)
 
-        full_object[..., 2] += calobject_warp[0] * dx
-        full_object[..., 2] += calobject_warp[1] * dy
+        # To allow broadcasting over calobject_warp
+        if calobject_warp.ndim > 1:
+            # shape (..., 1,1,2)
+            calobject_warp = nps.dummy(calobject_warp, -2,-2)
+            # extend full_object to the output shape I want
+            full_object = full_object * np.ones( calobject_warp.shape[:-3] + (1,1,1) )
+        full_object[..., 2] += calobject_warp[...,0] * dx
+        full_object[..., 2] += calobject_warp[...,1] * dy
 
     return full_object
 
