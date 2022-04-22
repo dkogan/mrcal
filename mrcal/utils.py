@@ -1273,3 +1273,179 @@ Let M = _skew_symmetric(a). Then cross(a,b) = M b
     return np.array(((   0,  -v[2],  v[1]),
                      ( v[2],    0,  -v[0]),
                      (-v[1],  v[0],    0)))
+
+def _compose_r(r0, r1,
+              assume_r0_tiny = False,
+              get_gradients  = False):
+    r'''Axis/angle rotation composition
+
+THIS IS TEMPORARY. WILL BE REDONE IN C, WITH DOCS AND TESTS
+
+Described here:
+
+    Altmann, Simon L. "Hamilton, Rodrigues, and the Quaternion Scandal."
+    Mathematics Magazine, vol. 62, no. 5, 1989, pp. 291–308
+
+Available here:
+
+    https://www.jstor.org/stable/2689481
+
+
+I use Equations (19) and (20) on page 302 of this paper. These equations say
+that
+
+  R(angle=gamma, axis=n) =
+  compose( R(angle=alpha, axis=l), R(angle=beta, axis=m) )
+
+I need to compute gamma*n, and these are given as solutions to:
+
+  cos(gamma/2) =
+    cos(alpha/2)*cos(beta/2) -
+    sin(alpha/2)*sin(beta/2) * inner(l,m)
+  sin(gamma/2) n =
+    sin(alpha/2)*cos(beta/2)*l +
+    cos(alpha/2)*sin(beta/2)*m +
+    sin(alpha/2)*sin(beta/2) * cross(l,m)
+
+For nicer notation, I define
+
+  A = alpha/2
+  B = beta /2
+  C = gamma/2
+
+  l = r0 /(2A)
+  m = r1 /(2B)
+  n = r01/(2C)
+
+I rewrite:
+
+  cos(C) =
+    cos(A)*cos(B) -
+    sin(A)*sin(B) * inner(r0,r1) / 4AB
+  sin(C) r01 / 2C =
+    sin(A)*cos(B)*r0 / 2A +
+    cos(A)*sin(B)*r1 / 2B +
+    sin(A)*sin(B) * cross(r0,r1) / 4AB
+
+If alpha ~ 0, I have A ~ 0, and I can simplify:
+
+  cos(C) ~
+    cos(B) -
+    A*sin(B) * inner(r0,r1) / 4AB
+  sin(C) r01 / 2C ~
+    A*cos(B)* r0 / 2A +
+    sin(B)  * r1 / 2B +
+    A*sin(B) * cross(r0,r1) / 4AB
+
+I have C = B + dB where dB ~ 0, so
+
+  cos(C) ~ cos(B + dB) ~ cos(B) - dB sin(B)
+  -> dB = A * inner(r0,r1) / 4AB = inner(r0,r1) / 4B
+  -> C = B + inner(r0,r1) / 4B
+
+Now let's look at the axis expression. Assuming A ~ 0
+
+  sin(C) r01 / 2C ~
+
+  A*cos(B) r0 / 2A +
+  sin(B)   r1 / 2B +
+  A*sin(B) * cross(r0,r1) / 4AB
+
+->
+  sin(C)/C * r01 ~
+
+  cos(B) r0 +
+  sin(B) r1 / B +
+  sin(B) * cross(r0,r1) / 2B
+
+I linearize the left-hand side:
+
+  sin(C)/C = sin(B+dB)/(B+dB) ~
+  ~ sin(B)/B + d( sin(B)/B )/de dB =
+  = sin(B)/B + dB  (B cos(B) - sin(B)) / B^2
+
+So
+
+  (sin(B)/B + dB  (B cos(B) - sin(B)) / B^2) r01 ~
+
+  cos(B) r0 +
+  sin(B) r1 / B +
+  sin(B) * cross(r0,r1) / 2B
+
+->
+
+  (sin(B) + dB  (B cos(B) - sin(B)) / B) r01 ~
+
+  sin(B) r1 +
+  cos(B)*B r0 +
+  sin(B) * cross(r0,r1) / 2
+
+I want to find the perturbation to give me r01 ~ r1 + deltar ->
+
+  ( dB (B cos(B) - sin(B)) / B) r1 + (sin(B) + dB  (B cos(B) - sin(B)) / B) deltar ~
+
+  cos(B)*B r0 +
+  sin(B) * cross(r0,r1) / 2
+
+All terms here are linear or quadratic in r0. For tiny r0, I can ignore the
+quadratic terms:
+
+  ( dB (B cos(B) - sin(B)) / B) r1 + sin(B) deltar ~
+
+  cos(B)*B r0 +
+  sin(B) * cross(r0,r1) / 2
+
+I solve for deltar:
+
+  deltar ~
+  cos(B)/sin(B)*B r0 +
+  cross(r0,r1) / 2 -
+  ( dB (B cos(B)/sin(B) - 1) / B) r1
+
+I substitute in the dB from above, and I simplify:
+
+  deltar ~
+
+  B/tan(B) r0 +
+  cross(r0,r1) / 2 -
+  ( inner(r0,r1) / 4B * (1/tan(B) - 1/B)) r1
+
+And I differentiate:
+
+  dr01/dr0 = ddeltar/dr0 =
+
+  B/tan(B) I +
+  -skew_symmetric(r1) / 2 -
+  outer(r1,r1) / 4B * (1/tan(B) - 1/B)
+
+    '''
+
+    if not assume_r0_tiny:
+        if get_gradients:
+            raise Exception("Not implemented")
+        A = nps.mag(r0)/2
+        B = nps.mag(r1)/2
+
+        cos_C = np.cos(A)*np.cos(B) - np.sin(A)*np.sin(B)*nps.inner(r0,r1)/(4*A*B)
+        sin_C = np.sqrt(1. - cos_C*cos_C)
+        th01 = np.arctan2(sin_C,cos_C) * 2.
+
+        sin_C__a01 = np.sin(A)*np.cos(B)*r0/(2*A) + np.cos(A)*np.sin(B)*r1/(2*B) + np.sin(A)*np.sin(B)*np.cross(r0,r1)/(4*A*B)
+        a01 = sin_C__a01 / sin_C
+        return a01 * th01
+
+
+    B = nps.mag(r1)/2
+    r01 = r1 + \
+        B/np.tan(B) * r0 + \
+        np.cross(r0,r1) / 2 - \
+        ( nps.inner(r0,r1) / (4*B) * (1/np.tan(B) - 1/B))* r1
+
+    if not get_gradients:
+        return r01
+
+    dr01_dr0 = \
+        B/np.tan(B) * np.eye(3) + \
+        -mrcal.utils._skew_symmetric(r1) / 2 - \
+        nps.outer(r1,r1) / (4*B) * (1/np.tan(B) - 1/B)
+    return r01, dr01_dr0
