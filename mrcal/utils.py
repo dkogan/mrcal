@@ -1263,3 +1263,13 @@ observations remaining after outliers and other cameras are thrown out
 
     # shape (N,2)
     return residuals[idx, ...]
+
+
+def _skew_symmetric(v):
+    r'''Return the skew-symmetric matrix used in a cross product
+
+Let M = _skew_symmetric(a). Then cross(a,b) = M b
+'''
+    return np.array(((   0,  -v[2],  v[1]),
+                     ( v[2],    0,  -v[0]),
+                     (-v[1],  v[0],    0)))
