@@ -1447,18 +1447,24 @@ And I differentiate:
     B = nps.mag(r1)/2
 
     if nps.norm2(r0) != 0:
+        # for broadcasting
+        if isinstance(B,np.ndarray): Bs = nps.dummy(B,-1)
+        else:                        Bs = B
         r01 = r1 + \
-            B/np.tan(B) * r0 + \
+            Bs/np.tan(Bs) * r0 + \
             np.cross(r0,r1) / 2 - \
-            ( nps.inner(r0,r1) / (4*B) * (1/np.tan(B) - 1/B))* r1
+            ( nps.inner(r0,r1) / (4*Bs) * (1/np.tan(Bs) - 1/Bs))* r1
     else:
         r01 = r1
 
     if not get_gradients:
         return r01
 
+    # for broadcasting
+    if isinstance(B,np.ndarray): Bs = nps.dummy(B,-1,-1)
+    else:                        Bs = B
     dr01_dr0 = \
-        B/np.tan(B) * np.eye(3) + \
+        Bs/np.tan(Bs) * np.eye(3) + \
         -mrcal.utils._skew_symmetric(r1) / 2 - \
-        nps.outer(r1,r1) / (4*B) * (1/np.tan(B) - 1/B)
+        nps.outer(r1,r1) / (4*Bs) * (1/np.tan(Bs) - 1/Bs)
     return r01, dr01_dr0
