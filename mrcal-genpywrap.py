@@ -565,6 +565,86 @@ scipy.sparse.csr_matrix respectively.
 '''},
 )
 
+m.function( "_Jt_x",
+            """Computes matrix-vector multiplication Jt*xt
+
+SYNOPSIS
+
+    Jt_x = np.zeros( (J.shape[-1],), dtype=float)
+    mrcal._mrcal_npsp._Jt_x(J.indptr,
+                            J.indices,
+                            J.data,
+                            x,
+                            out = Jt_x)
+
+Jt is the transpose of a (possibly very large) sparse array and x is a dense
+column vector. We pass in
+
+- J: the sparse array
+- xt: the row vector transpose of x
+
+The output is a dense row vector, the transpose of the multiplication
+
+J is sparse, stored by row. This is the scipy.sparse.csr_matrix representation,
+and is also how CHOLMOD stores Jt (CHOLMOD stores by column, so the same data
+looks like Jt to CHOLMOD). The sparse J is given here as the p,i,x arrays from
+CHOLMOD, equivalent to the indptr,indices,data members of
+scipy.sparse.csr_matrix respectively.
+
+Note: The output array MUST be passed-in because there's no way to know its
+shape beforehand. For the same reason, we cannot verify that its shape is
+correct, and the caller MUST do that, or else the program can crash.
+
+""",
+
+            args_input       = ('Jp', 'Ji', 'Jx', 'xt'),
+            prototype_input  = (('Np',), ('Nix',), ('Nix',), ('Nrows',)),
+            prototype_output = ('Ny',),
+
+            Ccode_validate = r'''
+            int32_t Np    = dims_slice__Jp[0];
+            int32_t Nrows = dims_slice__xt[0];
+            if( Nrows != Np-1 )
+            {
+                PyErr_Format(PyExc_RuntimeError,
+                             "len(xt) must match the number of rows in J");
+                return false;
+            }
+            return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = \
+                { (np.int32, np.int32, np.float64, np.float64, np.float64, ):
+                 r'''
+
+                 int32_t Np        = dims_slice__Jp[0];
+                 const int32_t* Jp = (const int32_t*)data_slice__Jp;
+                 const int32_t* Ji = (const int32_t*)data_slice__Ji;
+                 const double*  Jx = (const double* )data_slice__Jx;
+
+                 const double* x   = (const double* )data_slice__xt;
+
+
+                 int32_t Ny = dims_slice__output[0];
+                 double* y  = (double*)data_slice__output;
+
+                 const int32_t Nrows = Np-1;
+                 for(int i=0; i<Ny; i++)
+                     y[i] = 0.0;
+
+                 for(int irow=0; irow<Nrows; irow++)
+                 {
+                     for(int32_t i = Jp[irow]; i < Jp[irow+1]; i++)
+                     {
+                         int32_t icol = Ji[i];
+                         double j     = Jx[i];
+
+                         y[icol] += j*x[irow];
+                     }
+                 }
+                 return true;
+'''},
+)
+
 
 apply_homography_body = \
 r'''
