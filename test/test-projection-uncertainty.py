@@ -714,7 +714,7 @@ the optimal measurements x and their gradient J. The x_cross_point expression
 can be simplified:
 
   x_cross_point =
-    x_cross_point0 +
+    x0 +
     J_intrinsics     dintrinsics +
     J_extrinsics     drt_cam_ref +
     J_frame          drt_ref_frame +
@@ -757,95 +757,9 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
     if fixedframes:
         raise Exception("reproject_perturbed__optimize_cross_reprojection_error(fixedframes = True) is not yet implemented")
 
-    def compose_rt3_withgrad_drt1(rt0, rt1, rt2):
-        rt01,drt01_drt0,drt01_drt1 = \
-            mrcal.compose_rt(rt0, rt1, get_gradients = True)
-        rt012,drt012_drt01,drt012_drt2 = \
-            mrcal.compose_rt(rt01, rt2, get_gradients = True)
-        drt012_drt1 = nps.matmult(drt012_drt01, drt01_drt1)
-        return rt012,drt012_drt1
 
-    def transform_point_rt3_withgrad_drt1(rt0, rt1, rt2, p):
-        rt012,drt012_drt1 = compose_rt3_withgrad_drt1(rt0,rt1,rt2)
-        pp, dpp_drt012, dpp_dp = mrcal.transform_point_rt(rt012, p, get_gradients = True)
-        dpp_drt1 = nps.matmult(dpp_drt012, drt012_drt1)
-        return pp, dpp_drt1
-
-    def transform_point_identity_gradient(p):
-        r'''Computes dprot/drt where prot = transform(rt,p) and rt = identity
-
-prot = rotate(p) + t, so clearly dprot/dt = I
-
-Now let's look at the rotation
-
-mrcal_transform_point_rt_full() from rotate_point_r_core() defines
-prot = rotate(rt, p) at rt=identity:
-
-  const val_withgrad_t<N> cross[3] =
-      {
-          (rg[1]*x_ing[2] - rg[2]*x_ing[1]),
-          (rg[2]*x_ing[0] - rg[0]*x_ing[2]),
-          (rg[0]*x_ing[1] - rg[1]*x_ing[0])
-      };
-  const val_withgrad_t<N> inner =
-      rg[0]*x_ing[0] +
-      rg[1]*x_ing[1] +
-      rg[2]*x_ing[2];
-
-  // Small rotation. I don't want to divide by 0, so I take the limit
-  //   lim(th->0, xrot) =
-  //     = x + cross(r, x) + r rt x lim(th->0, (1 - cos(th)) / (th*th))
-  //     = x + cross(r, x) + r rt x lim(th->0, sin(th) / (2*th))
-  //     = x + cross(r, x) + r rt x/2
-  for(int i=0; i<3; i++)
-      x_outg[i] =
-          x_ing[i] +
-          cross[i] +
-          rg[i]*inner / 2.;
-
-So dprot/dr = dcross/dr + d(r*inner / 2)/dr =
-              [  0  p2 -p1]
-            = [-p2   0  p0] + (inner I + outer(r,p))/2
-              [ p1 -p0   0]
-
-At r=identity I have r = 0, so
-
-              [  0  p2 -p1]
-  dprot/dr  = [-p2   0  p0]
-              [ p1 -p0   0]
-
-This is the usual skew-symmetric matrix that appears in the matrix form of the
-cross product
-
-        '''
-
-        # strange-looking implementation to make broadcasting work
-        dprot_drt = np.zeros(p.shape[:-1] + (3,6), dtype=float)
-
-        dprot_drt[...,0,1] =  p[...,2]
-        dprot_drt[...,0,2] = -p[...,1]
-        dprot_drt[...,1,0] = -p[...,2]
-        dprot_drt[...,1,2] =  p[...,0]
-        dprot_drt[...,2,0] =  p[...,1]
-        dprot_drt[...,2,1] = -p[...,0]
-
-        dprot_drt[...,0,0+3] = 1.
-        dprot_drt[...,1,1+3] = 1.
-        dprot_drt[...,2,2+3] = 1.
-
-        _,dprot_drt_reference,_ = \
-            mrcal.transform_point_rt(mrcal.identity_rt(), p,
-                                     get_gradients=True)
-        if nps.norm2((dprot_drt-dprot_drt_reference).ravel()) > 1e-10:
-            raise Exception("transform_point_identity_gradient() is computing the wrong thing. This is a bug")
-
-        return dprot_drt
-
-
-
-
-
-
+    b_packed_baseline, x_baseline, J_packed_baseline, factorization = \
+        mrcal.optimizer_callback(**baseline_optimization_inputs)
 
     observations_board = \
         baseline_optimization_inputs.get('observations_board')
@@ -886,128 +800,421 @@ cross product
     rt_cam_ref_all = \
         baseline_rt_cam_ref[ indices_frame_camintrinsics_camextrinsics[:,2]+1, :]
 
-    # I look at the un-perturbed data first, to double-check that I'm doing the
-    # right thing. This is purely a self-checking step. I don't need to do it
-    if 1:
 
+    def get_rt_ref_refperturbed():
+
+        def compose_rt3_withgrad_drt1(rt0, rt1, rt2):
+            rt01,drt01_drt0,drt01_drt1 = \
+                mrcal.compose_rt(rt0, rt1, get_gradients = True)
+            rt012,drt012_drt01,drt012_drt2 = \
+                mrcal.compose_rt(rt01, rt2, get_gradients = True)
+            drt012_drt1 = nps.matmult(drt012_drt01, drt01_drt1)
+            return rt012,drt012_drt1
+
+        def transform_point_rt3_withgrad_drt1(rt0, rt1, rt2, p):
+            rt012,drt012_drt1 = compose_rt3_withgrad_drt1(rt0,rt1,rt2)
+            pp, dpp_drt012, dpp_dp = mrcal.transform_point_rt(rt012, p, get_gradients = True)
+            dpp_drt1 = nps.matmult(dpp_drt012, drt012_drt1)
+            return pp, dpp_drt1
+
+        def transform_point_identity_gradient(p):
+            r'''Computes dprot/drt where prot = transform(rt,p) and rt = identity
+
+    prot = rotate(p) + t, so clearly dprot/dt = I
+
+    Now let's look at the rotation
+
+    mrcal_transform_point_rt_full() from rotate_point_r_core() defines
+    prot = rotate(rt, p) at rt=identity:
+
+      const val_withgrad_t<N> cross[3] =
+          {
+              (rg[1]*x_ing[2] - rg[2]*x_ing[1]),
+              (rg[2]*x_ing[0] - rg[0]*x_ing[2]),
+              (rg[0]*x_ing[1] - rg[1]*x_ing[0])
+          };
+      const val_withgrad_t<N> inner =
+          rg[0]*x_ing[0] +
+          rg[1]*x_ing[1] +
+          rg[2]*x_ing[2];
+
+      // Small rotation. I don't want to divide by 0, so I take the limit
+      //   lim(th->0, xrot) =
+      //     = x + cross(r, x) + r rt x lim(th->0, (1 - cos(th)) / (th*th))
+      //     = x + cross(r, x) + r rt x lim(th->0, sin(th) / (2*th))
+      //     = x + cross(r, x) + r rt x/2
+      for(int i=0; i<3; i++)
+          x_outg[i] =
+              x_ing[i] +
+              cross[i] +
+              rg[i]*inner / 2.;
+
+    So dprot/dr = dcross/dr + d(r*inner / 2)/dr =
+                  [  0  p2 -p1]
+                = [-p2   0  p0] + (inner I + outer(r,p))/2
+                  [ p1 -p0   0]
+
+    At r=identity I have r = 0, so
+
+                  [  0  p2 -p1]
+      dprot/dr  = [-p2   0  p0]
+                  [ p1 -p0   0]
+
+    This is the usual skew-symmetric matrix that appears in the matrix form of the
+    cross product
+
+            '''
+
+            # strange-looking implementation to make broadcasting work
+            dprot_drt = np.zeros(p.shape[:-1] + (3,6), dtype=float)
+
+            mrcal.utils._skew_symmetric(p, out = dprot_drt[..., :3])
+            dprot_drt *= -1.
+
+            dprot_drt[...,0,0+3] = 1.
+            dprot_drt[...,1,1+3] = 1.
+            dprot_drt[...,2,2+3] = 1.
+
+            _,dprot_drt_reference,_ = \
+                mrcal.transform_point_rt(mrcal.identity_rt(), p,
+                                         get_gradients=True)
+            if nps.norm2((dprot_drt-dprot_drt_reference).ravel()) > 1e-10:
+                raise Exception("transform_point_identity_gradient() is computing the wrong thing. This is a bug")
+
+            return dprot_drt
+
+        def compose_rt_tinyr0_gradr0(rt1):
+            '''
+            R0 (R1 p + t1) + t0 = R0 R1 p + (R0 t1 + t0)
+            -> R01 = R0 R1
+            -> t01 = R0 t1 + t0
+
+            At rt0 = identity we have
+
+               drt01/drt0 = [ dr01/dr0  dr01/dt0  ] = [ dr01/dr0              0 ]
+                            [ dt01/dr0  dt01/dt0  ] = [ -skew_symmetric(t1)   I ]
+
+            I call a function to get dr01_dr0
+            '''
+            _, dr01_dr0 = \
+                mrcal.utils._compose_r(np.zeros((3,)), rt1[..., :3],
+                                       assume_r0_tiny = True,
+                                       get_gradients  = True)
+
+            drt01_drt0 = np.zeros(rt1.shape + (6,), dtype=float)
+
+            # strange-looking implementation to make broadcasting work
+            mrcal.utils._skew_symmetric(rt1[..., 3:],
+                                        out = drt01_drt0[..., 3:, :3])
+            drt01_drt0 *= -1
+
+            drt01_drt0[..., 0+3, 0+3] = 1.
+            drt01_drt0[..., 1+3, 1+3] = 1.
+            drt01_drt0[..., 2+3, 2+3] = 1.
+
+            drt01_drt0[..., :3, :3] = dr01_dr0
+
+            return drt01_drt0
+
+        # need to define the broadcasted function myself
+        @nps.broadcast_define((('N',6),('N',)),
+                              (6,))
+        def lstsq(J,x):
+            # -inv(JtJ)Jt x0
+            return np.linalg.lstsq(J, x, rcond = None)[0]
+
+
+
+        # I look at the un-perturbed data first, to double-check that I'm doing the
+        # right thing. This is purely a self-checking step. I don't need to do it
         if 1:
-            # shape (Nobservations,Nh,Nw,3),
-            pref = mrcal.transform_point_rt(nps.dummy(rt_ref_frame_all, -2,-2),
-                                            calibration_object_baseline)
-            pcam = mrcal.transform_point_rt(nps.dummy(rt_cam_ref_all, -2,-2),
-                                            pref)
-        else:
-            # More complex form, using custom function.
 
+            if 1:
+                # shape (Nobservations,Nh,Nw,3),
+                pref = mrcal.transform_point_rt(nps.dummy(rt_ref_frame_all, -2,-2),
+                                                calibration_object_baseline)
+                pcam = mrcal.transform_point_rt(nps.dummy(rt_cam_ref_all, -2,-2),
+                                                pref)
+            else:
+                # More complex form, using custom function.
+
+                # shape (..., Nobservations,Nh,Nw,3),
+                pcam, _ = \
+                    transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
+                                                      mrcal.identity_rt(),
+                                                      p_ref)
+
+            # shape (..., Nobservations,Nh,Nw,2)
+            qq = \
+                mrcal.project(pcam,
+                              baseline_optimization_inputs['lensmodel'],
+                              nps.dummy(intrinsics_all, -2,-2))
+            x = (qq - observations_board[...,:2])*nps.dummy(weight,-1)
+            x[...,weight<=0,:] = 0 # outliers
+            x = x.ravel()
+            if len(x) != mrcal.num_measurements_boards(**baseline_optimization_inputs):
+                raise Exception("Unexpected len(x). This is a bug")
+            if nps.norm2(x - x_baseline[:len(x)]) > 1e-12:
+                raise Exception("Unexpected x. This is a bug")
+
+            E_baseline = nps.norm2(x)
+
+        # Alright. I'm mimicking the optimization function well-enough. Let's look
+        # at the crossed quantities
+        def get_cross_operating_point__compose_grad():
             # shape (..., Nobservations,Nh,Nw,3),
-            pcam, _ = \
+            #       (..., Nobservations,Nh,Nw,3,6)
+            pcam, dpcam_drt_ref_refperturbed = \
                 transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
                                                   mrcal.identity_rt(),
-                                                  p_ref)
+                                                  nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
+                                                  nps.mv(calibration_object_query,-4,-5))
 
-        # shape (..., Nobservations,Nh,Nw,2)
-        qq = \
-            mrcal.project(pcam,
-                          baseline_optimization_inputs['lensmodel'],
-                          nps.dummy(intrinsics_all, -2,-2))
-        x = (qq - observations_board[...,:2])*nps.dummy(weight,-1)
-        x[...,weight<=0,:] = 0 # outliers
-        x = x.ravel()
-        if len(x) != mrcal.num_measurements_boards(**baseline_optimization_inputs):
-            raise Exception("Unexpected len(x). This is a bug")
-        x_baseline = mrcal.optimizer_callback(**baseline_optimization_inputs)[1]
-        if nps.norm2(x - x_baseline[:len(x)]) > 1e-12:
-            raise Exception("Unexpected x. This is a bug")
+            ############# common
 
-        E_baseline = nps.norm2(x)
+            # shape (..., Nobservations,Nh,Nw,2)
+            #       (..., Nobservations,Nh,Nw,2,3)
+            q_cross,dq_dpcam,_ = \
+                mrcal.project(pcam,
+                              baseline_optimization_inputs['lensmodel'],
+                              nps.dummy(intrinsics_all, -2,-2),
+                              get_gradients = True)
+            x_cross = (q_cross - observations_board[...,:2])*nps.dummy(weight,-1)
+            x_cross[...,weight<=0,:] = 0 # outliers
+            # shape (..., Nobservations*Nh*Nw*2)
+            x_cross = nps.clump(x_cross, n=-4)
 
-    # Alright. I'm mimicking the optimization function well-enough. Let's look
-    # at the crossed quantities
 
-    if 1:
+            dx_dpcam = dq_dpcam*nps.dummy(weight,-1,-1)
+            dx_dpcam[...,weight<=0,:,:] = 0 # outliers
+            dx_drt_ref_refperturbed = nps.matmult(dx_dpcam, dpcam_drt_ref_refperturbed)
+            # shape (...,Nobservations,Nh,Nw,2,6) ->
+            #       (...,Nobservations*Nh*Nw*2,6) ->
+            dx_drt_ref_refperturbed = \
+                nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
+                                 n = -4),
+                       -2, -1)
+            J_cross = dx_drt_ref_refperturbed
+            return x_cross, J_cross
 
-        # shape (..., Nobservations,Nh,Nw,3),
-        pref = mrcal.transform_point_rt( nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
-                                         nps.mv(calibration_object_query,-4,-5))
-        dpref_drt_ref_refperturbed = transform_point_identity_gradient(pref)
-        # shape (..., Nobservations,Nh,Nw,3),
-        #       (..., Nobservations,Nh,Nw,3,6)
-        pcam, _, dpcam_dpref = \
-            mrcal.transform_point_rt(nps.dummy(rt_cam_ref_all, -2,-2),
-                                     pref,
-                                     get_gradients = True)
-        dpcam_drt_ref_refperturbed = nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
+        def get_cross_operating_point__transform_grad():
+            # shape (..., Nobservations,Nh,Nw,3),
+            pref = mrcal.transform_point_rt( nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
+                                             nps.mv(calibration_object_query,-4,-5))
+            dpref_drt_ref_refperturbed = transform_point_identity_gradient(pref)
+            # shape (..., Nobservations,Nh,Nw,3),
+            #       (..., Nobservations,Nh,Nw,3,6)
+            pcam, _, dpcam_dpref = \
+                mrcal.transform_point_rt(nps.dummy(rt_cam_ref_all, -2,-2),
+                                         pref,
+                                         get_gradients = True)
+            dpcam_drt_ref_refperturbed = \
+                nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
 
-    else:
-        # More complex form, using custom function.
+            ############# common
 
-        # shape (..., Nobservations,Nh,Nw,3),
-        #       (..., Nobservations,Nh,Nw,3,6)
-        pcam, dpcam_drt_ref_refperturbed = \
-            transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
-                                              mrcal.identity_rt(),
-                                              nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
-                                              nps.mv(calibration_object_query,-4,-5))
+            # shape (..., Nobservations,Nh,Nw,2)
+            #       (..., Nobservations,Nh,Nw,2,3)
+            q_cross,dq_dpcam,_ = \
+                mrcal.project(pcam,
+                              baseline_optimization_inputs['lensmodel'],
+                              nps.dummy(intrinsics_all, -2,-2),
+                              get_gradients = True)
+            x_cross = (q_cross - observations_board[...,:2])*nps.dummy(weight,-1)
+            x_cross[...,weight<=0,:] = 0 # outliers
+            # shape (..., Nobservations*Nh*Nw*2)
+            x_cross = nps.clump(x_cross, n=-4)
 
-    # shape (..., Nobservations,Nh,Nw,2)
-    #       (..., Nobservations,Nh,Nw,2,3)
-    qq,dq_dpcam,_ = \
-        mrcal.project(pcam,
-                      baseline_optimization_inputs['lensmodel'],
-                      nps.dummy(intrinsics_all, -2,-2),
-                      get_gradients = True)
-    x = (qq - observations_board[...,:2])*nps.dummy(weight,-1)
-    x[...,weight<=0,:] = 0 # outliers
-    # shape (..., Nobservations*Nh*Nw*2)
-    x = nps.clump(x, n=-4)
 
-    E_perturbed = nps.norm2(x)
+            dx_dpcam = dq_dpcam*nps.dummy(weight,-1,-1)
+            dx_dpcam[...,weight<=0,:,:] = 0 # outliers
+            dx_drt_ref_refperturbed = nps.matmult(dx_dpcam, dpcam_drt_ref_refperturbed)
+            # shape (...,Nobservations,Nh,Nw,2,6) ->
+            #       (...,Nobservations*Nh*Nw*2,6) ->
+            dx_drt_ref_refperturbed = \
+                nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
+                                 n = -4),
+                       -2, -1)
+            J_cross = dx_drt_ref_refperturbed
+            return x_cross, J_cross
 
-    dx_dpcam = dq_dpcam*nps.dummy(weight,-1,-1)
-    dx_dpcam[...,weight<=0,:,:] = 0 # outliers
-    dx_drt_ref_refperturbed = nps.matmult(dx_dpcam, dpcam_drt_ref_refperturbed)
-    # shape (...,Nobservations,Nh,Nw,2,6) ->
-    #       (...,Nobservations*Nh*Nw*2,6) ->
-    dx_drt_ref_refperturbed = \
-        nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
-                         n = -4),
-               -2, -1)
-    J = dx_drt_ref_refperturbed
+        def get_cross_operating_point__internal_compose_and_linearization():
+            r'''The big docstring above says
 
-    # need to define the broadcasted function myself
-    @nps.broadcast_define((('N',6),('N',)),
-                          (6,))
-    def lstsq(J,x):
-        # -inv(JtJ)Jt x0
-        return np.linalg.lstsq(J, x, rcond = None)[0]
-    rt_ref_refperturbed = -lstsq(J, x)
+x_cross_point =
+            x0 +
+            J_frame          M[frame]          delta_qref +
+            J_calobject_warp M[calobject_warp] delta_qref
 
-    # I have a 1-step solve. Let's look at the error to confirm that it's
-    # smaller
-    if 1:
-        # shape (..., Nobservations,Nh,Nw,3)
-        pcam = \
-            mrcal.transform_point_rt( mrcal.compose_rt(nps.dummy(rt_cam_ref_all, -2,-2),
-                                                       nps.mv(rt_ref_refperturbed, -2,-5),
-                                                       nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2)),
-                                      nps.mv(calibration_object_query,-4,-5))
+J_cross =   J_frame drt_ref_frame/drt_ref_refperturbed
 
-        # shape (..., Nobservations,Nh,Nw,2)
-        qq = \
-            mrcal.project(pcam,
-                          baseline_optimization_inputs['lensmodel'],
-                          nps.dummy(intrinsics_all, -2,-2),
-                          get_gradients = False)
-        x = (qq - observations_board[...,:2])*nps.dummy(weight,-1)
-        x[...,weight<=0,:] = 0 # outliers
-        # shape (..., Nobservations*Nh*Nw*2)
-        x = nps.clump(x, n=-4)
 
-        E_perturbed_solvedref = nps.norm2(x)
+The uncertainty computation in
+http://mrcal.secretsauce.net/uncertainty.html concludes that
 
-        print(f"RMS error baseline            = {np.sqrt(E_baseline            / (x.shape[-1]/2))} pixels")
-        print(f"RMS error perturbed           = {np.sqrt(E_perturbed           / (x.shape[-1]/2))} pixels")
-        print(f"RMS error perturbed_solvedref = {np.sqrt(E_perturbed_solvedref / (x.shape[-1]/2))} pixels")
+  M = inv(JtJ) J[observations]t W
+
+What I actually have is b* and J*: the UNITLESS state and the jacobian
+respectively, where
+
+  b = D b*
+  J = J* inv(D)
+
+So
+
+  M = D inv(J*tJ*) J*[observations]t W
+
+M[frame] delta_qref
+
+            '''
+
+            isample = 0
+            query_optimization_input = query_optimization_inputs[isample]
+
+            Nmeas_observations = mrcal.num_measurements_boards(**optimization_inputs_baseline)
+            J_packed_baseline_observations = J_packed_baseline[:Nmeas_observations, :]
+
+            query_qref    = query_optimization_input    ['observations_board'][...,:2].ravel()
+            baseline_qref = baseline_optimization_inputs['observations_board'][...,:2].ravel()
+            delta_qref = query_qref - baseline_qref
+            if len(delta_qref) != Nmeas_observations:
+                raise Exception("Mismatched observation counts. This is a bug")
+            if mrcal.num_measurements_points(**optimization_inputs_baseline) != 0:
+                raise Exception("Uncertainty propagation with points not implemented yet")
+
+            # mask out outliers
+            weight = baseline_optimization_inputs['observations_board'][...,2].ravel()
+            delta_qref_xy = delta_qref.reshape(len(delta_qref)//2, 2)
+            if delta_qref_xy.base is not delta_qref:
+                raise Exception("reshape() made new array. This is a bug")
+            delta_qref_xy[weight <= 0, :] = 0
+
+            # delta_qref <- W delta_qref
+            delta_qref_xy *= nps.transpose(weight)
+
+
+            Jt_W_qref = np.zeros( (J_packed_baseline_observations.shape[-1],), dtype=float)
+            mrcal._mrcal_npsp._Jt_x(J_packed_baseline_observations.indptr,
+                                    J_packed_baseline_observations.indices,
+                                    J_packed_baseline_observations.data,
+                                    delta_qref,
+                                    out = Jt_W_qref)
+
+            db_predicted = factorization.solve_xt_JtJ_bt( Jt_W_qref )
+            mrcal.unpack_state(db_predicted, **baseline_optimization_inputs)
+
+            b_packed_query, x_query, J_packed_query, _ = \
+                mrcal.optimizer_callback(**query_optimization_input,
+                                         no_factorization = True)
+            db_observed = b_packed_query - b_packed_baseline
+            mrcal.unpack_state(db_observed, **baseline_optimization_inputs)
+
+            ############### compare db_observed, db_predicted
+            # gp.plot( nps.cat(db_predicted, db_observed) )
+
+            x_cross = np.array(x_baseline[:Nmeas_observations])
+            x_cross_point = x_cross.reshape(len(x_cross)//2, 2)
+            if x_cross_point.base is not x_cross:
+                raise Exception("reshape() made new array. This is a bug")
+            Ny,Nx = baseline_optimization_inputs['observations_board'].shape[1:3]
+            if len(x_cross_point) != len(baseline_optimization_inputs['indices_frame_camintrinsics_camextrinsics'])*Nx*Ny:
+                raise Exception("mismatched lengths. This is a bug")
+
+            #### Look only at the effects of frames and calobject_warp when
+            #### computing the initial x_cross value
+            db_cross = np.array(db_predicted)
+            mrcal.pack_state(db_cross, **baseline_optimization_inputs)
+
+            state_mask = np.ones( db_predicted.shape, dtype=bool )
+
+            istate_frame0 = mrcal.state_index_frames(0, **baseline_optimization_inputs)
+            Nstates_frame = mrcal.num_states_frames(**baseline_optimization_inputs)
+            state_mask[istate_frame0 : istate_frame0+Nstates_frame] = 0
+
+            istate_calobject_warp0 = mrcal.state_index_calobject_warp(**baseline_optimization_inputs)
+            Nstates_calobject_warp = mrcal.num_states_calobject_warp(**baseline_optimization_inputs)
+            state_mask[istate_calobject_warp0 : istate_calobject_warp0+Nstates_calobject_warp] = 0
+
+            db_cross[state_mask] = 0
+            x_cross += J_packed_baseline_observations.dot(db_cross)
+
+
+            #### Now J_cross = J_frame drt_ref_frame/drt_ref_refperturbed
+            b_baseline = np.array(b_packed_baseline)
+            mrcal.unpack_state(b_baseline, **baseline_optimization_inputs)
+
+            Nframes = Nstates_frame//6
+            rt_ref_frame = b_baseline[istate_frame0 : istate_frame0+Nstates_frame].reshape(Nframes,6)
+            drt_ref_frame__drt_ref_refperturbed = compose_rt_tinyr0_gradr0(rt_ref_frame)
+
+            ##### I MANULLY PACK. GOOD-ENOUGH ONLY AS A TEST. HARD-CODES THESE FROM mrcal.c:
+            #define SCALE_ROTATION_FRAME          (15.0 * M_PI/180.0)
+            #define SCALE_TRANSLATION_FRAME       1.0
+            drt_ref_frame__drt_ref_refperturbed[:, :3, :] /= (15.0 * np.pi/180.0)
+            drt_ref_frame__drt_ref_refperturbed[:, 3:, :] /= (1.0)
+
+            ##### I ASSUME ONE FRAME POSE PER SET OF OBSERVATIONS. WORKS WITH ONE CAMERA ONLY
+            drt_ref_frame__drt_ref_refperturbed = nps.clump(drt_ref_frame__drt_ref_refperturbed, n=2)
+
+            J_cross = J_packed_baseline_observations[:, istate_frame0:istate_frame0+Nstates_frame].dot(drt_ref_frame__drt_ref_refperturbed)
+            return x_cross, J_cross
+
+
+        # Can selecte the other get_cross_operating_point__...() implementations
+        # here
+        x_cross0, J_cross0 = get_cross_operating_point__compose_grad()
+        x_cross1, J_cross1 = get_cross_operating_point__transform_grad()
+        x_cross2, J_cross2 = get_cross_operating_point__internal_compose_and_linearization()
+
+        # These should all match. Tests should confirm, but I'm moving on.
+
+        import IPython
+        IPython.embed()
+        sys.exit()
+
+
+        E_cross_ref0 = nps.norm2(x_cross)
+        rt_ref_refperturbed = -lstsq(J_cross, x_cross)
+
+
+        # I have a 1-step solve. Let's look at the error to confirm that it's
+        # smaller. This is an optional validation step
+        if 1:
+            # shape (..., Nobservations,Nh,Nw,3)
+            pcam = \
+                mrcal.transform_point_rt( mrcal.compose_rt(nps.dummy(rt_cam_ref_all, -2,-2),
+                                                           nps.mv(rt_ref_refperturbed, -2,-5),
+                                                           nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2)),
+                                          nps.mv(calibration_object_query,-4,-5))
+
+            # shape (..., Nobservations,Nh,Nw,2)
+            q_cross = \
+                mrcal.project(pcam,
+                              baseline_optimization_inputs['lensmodel'],
+                              nps.dummy(intrinsics_all, -2,-2),
+                              get_gradients = False)
+            x_cross = (q_cross - observations_board[...,:2])*nps.dummy(weight,-1)
+            x_cross[...,weight<=0,:] = 0 # outliers
+            # shape (..., Nobservations*Nh*Nw*2)
+            x_cross = nps.clump(x_cross, n=-4)
+
+            E_cross_solvedref = nps.norm2(x_cross)
+
+            print(f"RMS error baseline            = {np.sqrt(E_baseline        / (x_cross.shape[-1]/2))} pixels")
+            print(f"RMS error perturbed           = {np.sqrt(E_cross_ref0      / (x_cross.shape[-1]/2))} pixels")
+            print(f"RMS error perturbed_solvedref = {np.sqrt(E_cross_solvedref / (x_cross.shape[-1]/2))} pixels")
+
+
+        return rt_ref_refperturbed
+
+
+
+
+
+
+    rt_ref_refperturbed = get_rt_ref_refperturbed()
+
+
 
 
     # shape (Ncameras, 3)
