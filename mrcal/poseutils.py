@@ -542,20 +542,19 @@ SYNOPSIS
     ===>
     (3,)
 
-    print( mrcal.transform_point_Rt(Rt30, x0) -
-           mrcal.transform_point_Rt(Rt32,
-             mrcal.transform_point_Rt(Rt21,
-               mrcal.transform_point_Rt(Rt10, x0))) )
+    print( nps.norm2( mrcal.transform_point_Rt(Rt30, x0) -
+                      mrcal.transform_point_Rt(Rt32,
+                        mrcal.transform_point_Rt(Rt21,
+                          mrcal.transform_point_Rt(Rt10, x0)))))
     ===>
     0
 
-Given some number (2 or more, presumably) of Rt transformations, returns
-their composition. An Rt transformation is a (4,3) array formed by
-nps.glue(R,t, axis=-2) where R is a (3,3) rotation matrix and t is a (3,)
-translation vector. This transformation is defined by a matrix multiplication
-and an addition. x and t are stored as a row vector (that's how numpy stores
-1-dimensional arrays), but the multiplication works as if x was a column vector
-(to match linear algebra conventions):
+Given 2 or more Rt transformations, returns their composition. An Rt
+transformation is a (4,3) array formed by nps.glue(R,t, axis=-2) where R is a
+(3,3) rotation matrix and t is a (3,) translation vector. This transformation is
+defined by a matrix multiplication and an addition. x and t are stored as a row
+vector (that's how numpy stores 1-dimensional arrays), but the multiplication
+works as if x was a column vector (to match linear algebra conventions):
 
     transform_point_Rt(Rt, x) = transpose( matmult(Rt[:3,:], transpose(x)) +
                                            transpose(Rt[3,:]) ) =
@@ -597,6 +596,10 @@ SYNOPSIS
     r21 = rotation_axis21 * rotation_magnitude21
     r32 = rotation_axis32 * rotation_magnitude32
 
+    rt10 = nps.glue(r10,t10, axis=-1)
+    rt21 = nps.glue(r21,t21, axis=-1)
+    rt32 = nps.glue(r32,t32, axis=-1)
+
     print(rt10.shape)
     ===>
     (6,)
@@ -607,10 +610,10 @@ SYNOPSIS
     ===>
     (3,)
 
-    print( mrcal.transform_point_rt(rt30, x0) -
-           mrcal.transform_point_rt(rt32,
-             mrcal.transform_point_rt(rt21,
-               mrcal.transform_point_rt(rt10, x0))) )
+    print( nps.norm2( mrcal.transform_point_rt(rt30, x0) -
+                      mrcal.transform_point_rt(rt32,
+                        mrcal.transform_point_rt(rt21,
+                          mrcal.transform_point_rt(rt10, x0)))))
     ===>
     0
 
@@ -619,25 +622,24 @@ SYNOPSIS
     ===>
     [(6,), (6,6), (6,6)]
 
-Given some number (2 or more, presumably) of rt transformations, returns their
-composition. An rt transformation is a (6,) array formed by nps.glue(r,t,
-axis=-1) where r is a (3,) Rodrigues vector and t is a (3,) translation vector.
-This transformation is defined by a matrix multiplication and an addition. x and
-t are stored as a row vector (that's how numpy stores 1-dimensional arrays), but
-the multiplication works as if x was a column vector (to match linear algebra
-conventions):
+Given 2 or more rt transformations, returns their composition. An rt
+transformation is a (6,) array formed by nps.glue(r,t, axis=-1) where r is a
+(3,) Rodrigues vector and t is a (3,) translation vector. This transformation is
+defined by a matrix multiplication and an addition. x and t are stored as a row
+vector (that's how numpy stores 1-dimensional arrays), but the multiplication
+works as if x was a column vector (to match linear algebra conventions):
 
     transform_point_rt(rt, x) = transpose( matmult(R_from_r(rt[:3]), transpose(x)) +
                                            transpose(rt[3,:]) ) =
                               = matmult(x, transpose(R_from_r(rt[:3]))) +
                                 rt[3:]
 
-By default this function returns the composed transformations only. If we also
+By default this function returns the composed transformation only. If we also
 want gradients, pass get_gradients=True. This is supported ONLY if we have
 EXACTLY 2 transformations to compose. Logic:
 
     if not get_gradients: return rt=compose(rt0,rt1)
-    else:                 return (rt=compose(rt0,rt1), dr/drt0,dr/drt1)
+    else:                 return (rt=compose(rt0,rt1), dr/drt0, dr/drt1)
 
 Note that the poseutils C API returns only
 
@@ -684,7 +686,7 @@ ARGUMENTS
 RETURNED VALUE
 
 If not get_gradients: we return an array of composed rt transformations. Each
-broadcasted slice has shape (4,3)
+broadcasted slice has shape (6,)
 
 If get_gradients: we return a tuple of arrays containing the composed
 transformations and the gradients (rt=compose(rt0,rt1),
