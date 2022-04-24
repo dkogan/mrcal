@@ -561,19 +561,30 @@ compose_r_core(// output
     const val_withgrad_t<N>& sinB = sincosB.v[0];
     const val_withgrad_t<N>& cosB = sincosB.v[1];
 
+    const val_withgrad_t<N>& sinA_over_A = A.sinx_over_x(sinA);
+    const val_withgrad_t<N>& sinB_over_B = B.sinx_over_x(sinB);
+
     const val_withgrad_t<N> inner = r0->dot(*r1);
 
-    const val_withgrad_t<N> cosC = cosA*cosB - sinA*sinB*inner/(A*B*4.);
+    val_withgrad_t<N> cosC =
+        cosA*cosB -
+        sinA_over_A*sinB_over_B*inner/4.;
+
+    // To handle numerical fuzz
+    if     (cosC.x >  1.0) cosC.x =  1.0;
+    else if(cosC.x < -1.0) cosC.x = -1.0;
     const val_withgrad_t<N> C    = cosC.acos();
-    const val_withgrad_t<N> C2_sinC = (C*2.) / C.sin();
+    const val_withgrad_t<N> sinC = (val_withgrad_t<N>(1.) - cosC*cosC).sqrt();
+    const val_withgrad_t<N> sinC_over_C_recip = val_withgrad_t<N>(1.) / C.sinx_over_x(sinC);
 
     const vec_withgrad_t<N, 3> cross = r0->cross(*r1);
 
     for(int i=0; i<3; i++)
         (*r)[i] =
-            ( sinA*cosB*(*r0)[i]/(A*2.) +
-              cosA*sinB*(*r1)[i]/(B*2.) +
-              sinA*sinB*cross[i]/(A*B*4.) ) * C2_sinC;
+            ( sinA_over_A*cosB*(*r0)[i] +
+              sinB_over_B*cosA*(*r1)[i] +
+              sinA_over_A*sinB_over_B*cross[i]/2. ) *
+            sinC_over_C_recip;
 }
 
 extern "C"

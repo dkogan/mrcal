@@ -152,6 +152,30 @@ struct val_withgrad_t
             th.j[i] = dacos_dx * j[i];
         return th;
     }
+
+    val_withgrad_t<NGRAD> sinx_over_x(// To avoid recomputing it
+                                      const val_withgrad_t<NGRAD>& sinx) const
+    {
+        // For small x I need special-case logic. In the limit as x->0 I have
+        // sin(x)/x -> 1. But I'm propagating gradients, so I need to capture
+        // that. I have
+        //
+        //   d(sin(x)/x)/dx =
+        //     (x cos(x) - sin(x))/x^2
+        //
+        // As x -> 0 this is
+        //
+        //     (cos(x) - x sin(x) - cos(x)) / (2x) =
+        //     (- x sin(x)) / (2x) =
+        //     -sin(x) / 2 =
+        //     0
+        //
+        // So for small x the gradient is 0
+        if(fabs(x) < 1e-8)
+            return val_withgrad_t<NGRAD>(1.0);
+
+        return sinx / (*this);
+    }
 };
 
 
