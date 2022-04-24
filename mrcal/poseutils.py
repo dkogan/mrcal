@@ -584,7 +584,7 @@ RETURNED VALUE
 An array of composed Rt transformations. Each broadcasted slice has shape (4,3)
 
     """
-    Rt1onwards = reduce( _poseutils_npsp._compose_Rt, Rt[1:], _poseutils_npsp.identity_Rt() )
+    Rt1onwards = reduce( _poseutils_npsp._compose_Rt, Rt[1:] )
     return _poseutils_npsp._compose_Rt(Rt[0], Rt1onwards, out=out)
 
 def compose_r(*r, get_gradients=False, out=None):
@@ -675,7 +675,7 @@ and the gradients (r=compose(r0,r1), dr/dr0, dr/dr1):
             raise Exception("compose_r(..., get_gradients=True) is supported only if exactly 2 inputs are given")
         return _poseutils_npsp._compose_r_withgrad(*r, out=out)
 
-    r1onwards = reduce( _poseutils_npsp._compose_r, r[1:], _poseutils_npsp.identity_r() )
+    r1onwards = reduce( _poseutils_npsp._compose_r, r[1:] )
     return _poseutils_npsp._compose_r(r[0], r1onwards, out=out)
 
 def compose_rt(*rt, get_gradients=False, out=None):
