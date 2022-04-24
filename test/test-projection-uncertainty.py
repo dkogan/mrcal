@@ -1038,7 +1038,11 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
             J_cross = dx_drt_ref_refperturbed
             return x_cross, J_cross
 
-        def get_cross_operating_point__internal_compose_and_linearization():
+        # I broadcast over each sample
+        @nps.broadcast_define( ((),),
+                               (2,),
+                               out_kwarg='out')
+        def get_cross_operating_point__internal_compose_and_linearization(query_optimization_input, out):
             r'''The big docstring above says
 
 x_cross_point =
@@ -1067,9 +1071,6 @@ So
 M[frame] delta_qref
 
             '''
-
-            isample = 0
-            query_optimization_input = query_optimization_inputs[isample]
 
             Nmeas_observations = mrcal.num_measurements_boards(**optimization_inputs_baseline)
             J_packed_baseline_observations = J_packed_baseline[:Nmeas_observations, :]
@@ -1157,21 +1158,30 @@ M[frame] delta_qref
             drt_ref_frame__drt_ref_refperturbed = nps.clump(drt_ref_frame__drt_ref_refperturbed, n=2)
 
             J_cross = J_packed_baseline_observations[:, istate_frame0:istate_frame0+Nstates_frame].dot(drt_ref_frame__drt_ref_refperturbed)
-            return x_cross, J_cross
+
+            # Workaround for a numpy bug:
+            # https://github.com/numpy/numpy/issues/19470
+            out[:] = (x_cross, J_cross)
+            return out
 
 
         # Can selecte the other get_cross_operating_point__...() implementations
         # here
         x_cross0, J_cross0 = get_cross_operating_point__compose_grad()
         x_cross1, J_cross1 = get_cross_operating_point__transform_grad()
-        x_cross2, J_cross2 = get_cross_operating_point__internal_compose_and_linearization()
+        out2 = np.empty( (len(query_optimization_inputs),2), dtype=object)
+        get_cross_operating_point__internal_compose_and_linearization( np.array(query_optimization_inputs,
+                                                                                dtype=object),
+                                                                       out = out2)
+        x_cross2 = np.array(tuple(out2[:,0]))
+        J_cross2 = np.array(tuple(out2[:,1]))
 
-        # These should all match. Tests should confirm, but I'm moving on.
+        # These should all match. They do (manual testing), but that should be
+        # automated. I'm moving on.
 
-        import IPython
-        IPython.embed()
-        sys.exit()
 
+        x_cross = x_cross2
+        J_cross = J_cross2
 
         E_cross_ref0 = nps.norm2(x_cross)
         rt_ref_refperturbed = -lstsq(J_cross, x_cross)
