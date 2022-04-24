@@ -422,7 +422,7 @@ compose_r_core(// output
     const val_withgrad_t<N>    inner = r0->dot(*r1);
     const vec_withgrad_t<N, 3> cross = r0->cross(*r1);
 
-    if(fabs(A.x) < 1e-8)
+    if(A.x < 1e-8)
     {
         // A ~ 0. I simplify
         //
@@ -510,7 +510,7 @@ compose_r_core(// output
         //     - inner(r0,r1) (B/tanB - 1) / 4B^2 r1
         //     + B/tanB r0
         //     + cross(r0,r1) / 2
-        if(fabs(B.x) < 1e-8)
+        if(B.x < 1e-8)
         {
             // what if B is ALSO near 0? I simplify further
             //
@@ -544,7 +544,7 @@ compose_r_core(// output
                 + cross[i] / 2.;
         return;
     }
-    else if(fabs(B.x) < 1e-8)
+    else if(B.x < 1e-8)
     {
         // B ~ 0. I simplify
         //
@@ -634,7 +634,7 @@ compose_r_core(// output
         //     + A/tanA r1
         //     + cross(r0,r1) / 2
 
-        // I don't have an if(fabs(A.x) < 1e-8){} case here; this is handled in
+        // I don't have an if(A.x < 1e-8){} case here; this is handled in
         // the above if() branch
 
         const val_withgrad_t<N>& A_over_tanA = A / A.tan();
