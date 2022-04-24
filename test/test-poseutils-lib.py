@@ -985,8 +985,6 @@ r01        = base[:3,6,0,0]
 dr01_dr0   = base[3:6,:3,0,0]
 dr01_dr1   = base[3:6,3:6,0,0]
 
-base   = np.zeros((7,11,13,5), dtype=float)
-
 r0big[:] = np.array(( 1.0,  3.0, 1.1)) * 1e-1
 r1big[:] = np.array((-2.0, -1.2, 0.3)) * 1e-1
 
