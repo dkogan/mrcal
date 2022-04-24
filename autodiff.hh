@@ -143,6 +143,17 @@ struct val_withgrad_t
         return sc;
     }
 
+    val_withgrad_t<NGRAD> tan(void) const
+    {
+        double s, c;
+        ::sincos(x, &s, &c);
+        val_withgrad_t<NGRAD> y;
+        y.x = s/c;
+        for(int i=0; i<NGRAD; i++)
+            y.j[i] = j[i] / (c*c);
+        return y;
+    }
+
     val_withgrad_t<NGRAD> acos(void) const
     {
         val_withgrad_t<NGRAD> th;

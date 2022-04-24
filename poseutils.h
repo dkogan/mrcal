@@ -496,3 +496,28 @@ void mrcal_compose_r_full( // output
                            const double* r_1,   // (3,) array
                            int r_1_stride0      // in bytes. <= 0 means "contiguous"
                            );
+
+// Special-case rotation composition for the uncertainty computation
+//
+// Same as mrcal_compose_r() except
+//
+// - r0 is assumed to be 0, so we don't ingest it, and we don't report the
+//   composition result
+// - we ONLY report the dr01/dr0 gradient
+//
+// In python this function is equivalent to
+//
+//   _,dr01_dr0,_ = compose_r(np.zeros((3,),),
+//                            r1,
+//                            get_gradients=True)
+#define mrcal_compose_r_tinyr0_gradientr0(dr_dr0,r_0) \
+    mrcal_compose_r_tinyr0_gradientr0_full(dr_dr0,0,0,r_1,0)
+void mrcal_compose_r_tinyr0_gradientr0_full( // output
+                           double* dr_dr0,      // (3,3) array; may be NULL
+                           int dr_dr0_stride0,  // in bytes. <= 0 means "contiguous"
+                           int dr_dr0_stride1,  // in bytes. <= 0 means "contiguous"
+
+                           // input
+                           const double* r_1,   // (3,) array
+                           int r_1_stride0      // in bytes. <= 0 means "contiguous"
+                           );
