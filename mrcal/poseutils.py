@@ -587,6 +587,97 @@ An array of composed Rt transformations. Each broadcasted slice has shape (4,3)
     Rt1onwards = reduce( _poseutils_npsp._compose_Rt, Rt[1:], _poseutils_npsp.identity_Rt() )
     return _poseutils_npsp._compose_Rt(Rt[0], Rt1onwards, out=out)
 
+def compose_r(*r, get_gradients=False, out=None):
+    r"""Compose angle-axis rotations
+
+SYNOPSIS
+
+    r10 = rotation_axis10 * rotation_magnitude10
+    r21 = rotation_axis21 * rotation_magnitude21
+    r32 = rotation_axis32 * rotation_magnitude32
+
+    print(r10.shape)
+    ===>
+    (3,)
+
+    r30 = mrcal.compose_r( r32, r21, r10 )
+
+    print(x0.shape)
+    ===>
+    (3,)
+
+    print( nps.norm2( mrcal.rotate_point_r(r30, x0) -
+                      mrcal.rotate_point_r(r32,
+                        mrcal.rotate_point_r(r21,
+                          mrcal.rotate_point_r(r10, x0)))))
+    ===>
+    0
+
+    print( [arr.shape for arr in mrcal.compose_r(r21,r10,
+                                                 get_gradients = True)] )
+    ===>
+    [(3,), (3,3), (3,3)]
+
+Given 2 or more axis-angle rotations, returns their composition. By default this
+function returns the composed rotation only. If we also want gradients, pass
+get_gradients=True. This is supported ONLY if we have EXACTLY 2 rotations to
+compose. Logic:
+
+    if not get_gradients: return r=compose(r0,r1)
+    else:                 return (r=compose(r0,r1), dr/dr0, dr/dr1)
+
+This function supports broadcasting fully, so we can compose lots of
+rotations at the same time.
+
+In-place operation is supported; the output array may be the same as either of
+the input arrays to overwrite the input.
+
+ARGUMENTS
+
+- *r: a list of rotations to compose. Usually we'll be composing two rotations,
+  but any number could be given here. Each broadcasted slice has shape (3,)
+
+- get_gradients: optional boolean. By default (get_gradients=False) we return an
+  array of composed rotations. Otherwise we return a tuple of arrays of composed
+  rotations and their gradients. Gradient reporting is only supported when
+  exactly two rotations are given
+
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If not
+  get_gradients: 'out' is the one numpy array we will write into. Else: 'out' is
+  a tuple of all the output numpy arrays. If 'out' is given, we return the 'out'
+  that was passed in. This is the standard behavior provided by
+  numpysane_pywrap.
+
+RETURNED VALUE
+
+If not get_gradients: we return an array of composed rotations. Each broadcasted
+slice has shape (3,)
+
+If get_gradients: we return a tuple of arrays containing the composed rotations
+and the gradients (r=compose(r0,r1), dr/dr0, dr/dr1):
+
+1. The composed rotation. Each broadcasted slice has shape (3,)
+
+2. The gradient dr/dr0. Each broadcasted slice has shape (3,3). The first
+   dimension selects the element of r, and the last dimension selects the
+   element of r0
+
+3. The gradient dr/dr1. Each broadcasted slice has shape (3,3). The first
+   dimension selects the element of r, and the last dimension selects the
+   element of r1
+
+    """
+
+    if get_gradients:
+        if len(r) != 2:
+            raise Exception("compose_r(..., get_gradients=True) is supported only if exactly 2 inputs are given")
+        return _poseutils_npsp._compose_r_withgrad(*r, out=out)
+
+    r1onwards = reduce( _poseutils_npsp._compose_r, r[1:], _poseutils_npsp.identity_r() )
+    return _poseutils_npsp._compose_r(r[0], r1onwards, out=out)
+
 def compose_rt(*rt, get_gradients=False, out=None):
     r"""Compose rt transformations
 

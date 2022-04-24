@@ -360,3 +360,340 @@ void mrcal_r_from_R_full( // output
         rg.extract_grad(&P3(J,0,2,0), 6,3, 0,J_stride0,J_stride2,3);
     }
 }
+
+template<int N>
+static void
+compose_r_core(// output
+               vec_withgrad_t<N, 3>* r,
+
+               // inputs
+               const vec_withgrad_t<N, 3>* r0,
+               const vec_withgrad_t<N, 3>* r1)
+{
+    // Described here:
+    //
+    //     Altmann, Simon L. "Hamilton, Rodrigues, and the Quaternion Scandal."
+    //     Mathematics Magazine, vol. 62, no. 5, 1989, pp. 291–308
+    //
+    // Available here:
+    //
+    //     https://www.jstor.org/stable/2689481
+    //
+    // I use Equations (19) and (20) on page 302 of this paper. These equations say
+    // that
+    //
+    //   R(angle=gamma, axis=n) =
+    //   compose( R(angle=alpha, axis=l), R(angle=beta, axis=m) )
+    //
+    // I need to compute gamma*n, and these are given as solutions to:
+    //
+    //   cos(gamma/2) =
+    //     cos(alpha/2)*cos(beta/2) -
+    //     sin(alpha/2)*sin(beta/2) * inner(l,m)
+    //   sin(gamma/2) n =
+    //     sin(alpha/2)*cos(beta/2)*l +
+    //     cos(alpha/2)*sin(beta/2)*m +
+    //     sin(alpha/2)*sin(beta/2) * cross(l,m)
+    //
+    // For nicer notation, I define
+    //
+    //   A = alpha/2
+    //   B = beta /2
+    //   C = gamma/2
+    //
+    //   l = r0 /(2A)
+    //   m = r1 /(2B)
+    //   n = r01/(2C)
+    //
+    // I rewrite:
+    //
+    //   cos(C) =
+    //     cos(A)*cos(B) -
+    //     sin(A)*sin(B) * inner(r0,r1) / 4AB
+    //   sin(C) r01 / 2C =
+    //     sin(A)*cos(B)*r0 / 2A +
+    //     cos(A)*sin(B)*r1 / 2B +
+    //     sin(A)*sin(B) * cross(r0,r1) / 4AB
+
+#if 0
+
+    // A = mag(r0)/2;
+    // B = mag(r1)/2;
+    double A     = 0.0;
+    double B     = 0.0;
+    double inner = 0.0;
+    for(int i=0; i<3; i++)
+    {
+        A     += P1(r_0,i)*P1(r_0,i);
+        B     += P1(r_1,i)*P1(r_1,i);
+        inner += P1(r_0,i)*P1(r_1,i);
+    }
+
+    if(A == 0)
+    {
+        for(int i=0; i<3; i++)
+            P1(r_out,i) = P1(r_1,i);
+        #error gradients
+    }
+    else if(B == 0)
+    {
+        for(int i=0; i<3; i++)
+            P1(r_out,i) = P1(r_0,i);
+        #error gradients
+    }
+    else if( A < 1e-16 )
+    {
+        if( B < 1e-16)
+        {
+            #error
+        }
+
+        // A ~ 0. I simplify
+        //
+        //   cosC ~
+        //     + cosB
+        //     - A*sinB * inner(r0,r1) / 4AB
+        //   sinC r01 / 2C ~
+        //     + A*cosB* r0 / 2A
+        //     + sinB  * r1 / 2B
+        //     + A*sinB * cross(r0,r1) / 4AB
+        //
+        // I have C = B + dB where dB ~ 0, so
+        //
+        //   cosC ~ cos(B + dB) ~ cosB - dB sinB
+        //   -> dB = A * inner(r0,r1) / 4AB = inner(r0,r1) / 4B
+        //   -> C = B + inner(r0,r1) / 4B
+        //
+        // Now let's look at the axis expression. Assuming A ~ 0
+        //
+        //   sinC r01 / 2C ~
+        //     + A*cosB r0 / 2A
+        //     + sinB   r1 / 2B
+        //     + A*sinB * cross(r0,r1) / 4AB
+        // ->
+        //   sinC/C * r01 ~
+        //     + cosB r0
+        //     + sinB r1 / B
+        //     + sinB * cross(r0,r1) / 2B
+        //
+        // I linearize the left-hand side:
+        //
+        //   sinC/C = sin(B+dB)/(B+dB) ~
+        //     sinB/B + d( sinB/B )/dB dB =
+        //     sinB/B + dB  (B cosB - sinB) / B^2
+        //
+        // So
+        //
+        //   (sinB/B + dB  (B cosB - sinB) / B^2) r01 ~
+        //     + cosB r0
+        //     + sinB r1 / B
+        //     + sinB * cross(r0,r1) / 2B
+        //
+        // ->
+        //   (sinB + dB  (B cosB - sinB) / B) r01 ~
+        //     + sinB r1
+        //     + cosB*B r0
+        //     + sinB * cross(r0,r1) / 2
+        //
+        // I want to find the perturbation to give me r01 ~ r1 + deltar ->
+        //
+        //   ( dB (B cosB - sinB) / B) r1 + (sinB + dB  (B cosB - sinB) / B) deltar ~
+        //     cosB*B r0 + sinB * cross(r0,r1) / 2
+        //
+        // All terms here are linear or quadratic in r0. For tiny r0, I can
+        // ignore the quadratic terms:
+        //
+        //   ( dB (B cosB - sinB) / B) r1 + sinB deltar ~
+        //     + cosB*B r0
+        //     + sinB * cross(r0,r1) / 2
+        //
+        // I solve for deltar:
+        //
+        //   deltar ~
+        //     + cosB/sinB*B r0
+        //     + cross(r0,r1) / 2
+        //     - ( dB (B cosB/sinB - 1) / B) r1
+        //
+        // I substitute in the dB from above, and I simplify:
+        //
+        //   deltar ~
+        //     + B/tanB r0
+        //     + cross(r0,r1) / 2
+        //     - ( inner(r0,r1) / 4B * (1/tanB - 1/B)) r1
+        //
+        // And I differentiate:
+        //
+        //   dr01/dr0 = ddeltar/dr0 =
+        //     + B/tanB I
+        //     - skew_symmetric(r1) / 2
+        //     - outer(r1,r1) / 4B * (1/tanB - 1/B)
+        //
+        //   dB/dr1 = d( norm2(r1)/2)/dr1 = r1t
+        //
+        //   dr01/dr1 = I + ddeltar/dr1 =
+        //     + I
+        //     + (1/tanB - B/sin^2(B)) r0
+        //     + skew_symmetric(r0) / 2
+        //     - I ( inner(r0,r1) / 4B * (1/tanB - 1/B)) -
+        //     - r1 d( inner(r0,r1)/(4B tanB) )
+        //     + r1 d( inner(r0,r1)/(4B^2))
+        //   =
+        //     + I
+        //     + (1/tanB - B/sin^2(B)) r0
+        //     + skew_symmetric(r0) / 2
+        //     - I ( inner(r0,r1) / 4B * (1/tanB - 1/B)) -
+        //     - r1 (r0t - inner(r0,r1) (1/B + 1/(sinBcosB)) r1t ) / (4B tanB)
+        //     + r1 (r0t B - 2 inner r1t)/(4 B^3)
+
+    }
+
+#endif
+
+
+    const val_withgrad_t<N> A = r0->mag() / 2.;
+    const val_withgrad_t<N> B = r1->mag() / 2.;
+
+    const vec_withgrad_t<N, 2> sincosA = A.sincos();
+    const vec_withgrad_t<N, 2> sincosB = B.sincos();
+
+    const val_withgrad_t<N>& sinA = sincosA.v[0];
+    const val_withgrad_t<N>& cosA = sincosA.v[1];
+    const val_withgrad_t<N>& sinB = sincosB.v[0];
+    const val_withgrad_t<N>& cosB = sincosB.v[1];
+
+    const val_withgrad_t<N> inner = r0->dot(*r1);
+
+    const val_withgrad_t<N> cosC = cosA*cosB - sinA*sinB*inner/(A*B*4.);
+    const val_withgrad_t<N> C    = cosC.acos();
+    const val_withgrad_t<N> C2_sinC = (C*2.) / C.sin();
+
+    const vec_withgrad_t<N, 3> cross = r0->cross(*r1);
+
+    for(int i=0; i<3; i++)
+        (*r)[i] =
+            ( sinA*cosB*(*r0)[i]/(A*2.) +
+              cosA*sinB*(*r1)[i]/(B*2.) +
+              sinA*sinB*cross[i]/(A*B*4.) ) * C2_sinC;
+}
+
+extern "C"
+void mrcal_compose_r_full( // output
+                           double* r_out,       // (3,) array
+                           int r_out_stride0,   // in bytes. <= 0 means "contiguous"
+                           double* dr_dr0,      // (3,3) array; may be NULL
+                           int dr_dr0_stride0,  // in bytes. <= 0 means "contiguous"
+                           int dr_dr0_stride1,  // in bytes. <= 0 means "contiguous"
+                           double* dr_dr1,      // (3,3) array; may be NULL
+                           int dr_dr1_stride0,  // in bytes. <= 0 means "contiguous"
+                           int dr_dr1_stride1,  // in bytes. <= 0 means "contiguous"
+
+                           // input
+                           const double* r_0,   // (3,) array
+                           int r_0_stride0,     // in bytes. <= 0 means "contiguous"
+                           const double* r_1,   // (3,) array
+                           int r_1_stride0      // in bytes. <= 0 means "contiguous"
+                           )
+{
+    init_stride_1D(r_out,  3);
+    init_stride_2D(dr_dr0, 3,3);
+    init_stride_2D(dr_dr1, 3,3);
+    init_stride_1D(r_0,    3);
+    init_stride_1D(r_1,    3);
+
+    if(dr_dr0 == NULL && dr_dr1 == NULL)
+    {
+        // no gradients
+        vec_withgrad_t<0, 3> r0g, r1g;
+
+        r0g.init_vars(r_0,
+                      0, 3, -1,
+                      r_0_stride0);
+        r1g.init_vars(r_1,
+                      0, 3, -1,
+                      r_1_stride0);
+
+        vec_withgrad_t<0, 3> r01g;
+        compose_r_core<0>( &r01g,
+                           &r0g, &r1g );
+
+        r01g.extract_value(r_out, r_out_stride0,
+                           0, 3);
+    }
+    else if(dr_dr0 != NULL && dr_dr1 == NULL)
+    {
+        // r0 gradient only
+        vec_withgrad_t<3, 3> r0g, r1g;
+
+        r0g.init_vars(r_0,
+                      0, 3, 0,
+                      r_0_stride0);
+        r1g.init_vars(r_1,
+                      0, 3, -1,
+                      r_1_stride0);
+
+        vec_withgrad_t<3, 3> r01g;
+        compose_r_core<3>( &r01g,
+                           &r0g, &r1g );
+
+        r01g.extract_value(r_out, r_out_stride0,
+                           0, 3);
+        r01g.extract_grad(dr_dr0,
+                          0,3,
+                          0,
+                          dr_dr0_stride0, dr_dr0_stride1,
+                          3);
+    }
+    else if(dr_dr0 == NULL && dr_dr1 != NULL)
+    {
+        // r1 gradient only
+        vec_withgrad_t<3, 3> r0g, r1g;
+
+        r0g.init_vars(r_0,
+                      0, 3, -1,
+                      r_0_stride0);
+        r1g.init_vars(r_1,
+                      0, 3, 0,
+                      r_1_stride0);
+
+        vec_withgrad_t<3, 3> r01g;
+        compose_r_core<3>( &r01g,
+                           &r0g, &r1g );
+
+        r01g.extract_value(r_out, r_out_stride0,
+                           0, 3);
+        r01g.extract_grad(dr_dr1,
+                          0,3,
+                          0,
+                          dr_dr1_stride0, dr_dr1_stride1,
+                          3);
+    }
+    else
+    {
+        // r0 AND r1 gradients
+        vec_withgrad_t<6, 3> r0g, r1g;
+
+        r0g.init_vars(r_0,
+                      0, 3, 0,
+                      r_0_stride0);
+        r1g.init_vars(r_1,
+                      0, 3, 3,
+                      r_1_stride0);
+
+        vec_withgrad_t<6, 3> r01g;
+        compose_r_core<6>( &r01g,
+                           &r0g, &r1g );
+
+        r01g.extract_value(r_out, r_out_stride0,
+                           0, 3);
+        r01g.extract_grad(dr_dr0,
+                          0,3,
+                          0,
+                          dr_dr0_stride0, dr_dr0_stride1,
+                          3);
+        r01g.extract_grad(dr_dr1,
+                          3,3,
+                          0,
+                          dr_dr1_stride0, dr_dr1_stride1,
+                          3);
+    }
+}

@@ -691,6 +691,75 @@ for that function for details. This internal function differs from compose_Rt():
 '''},
 )
 
+m.function( "_compose_r",
+            """Compose two angle-axis rotations
+
+This is an internal function. You probably want mrcal.compose_r(). See the docs
+for that function for details. This internal function differs from compose_r():
+
+- It supports exactly two arguments, while compose_r() can compose N rotations
+
+- It never reports gradients
+""",
+
+            args_input       = ('r0', 'r1'),
+            prototype_input  = ((3,), (3,)),
+            prototype_output = (3,),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_compose_r_full( (double*)data_slice__output,
+                           strides_slice__output[0],
+                           NULL,0,0,
+                           NULL,0,0,
+                           (const double*)data_slice__r0,
+                           strides_slice__r0[0],
+                           (const double*)data_slice__r1,
+                           strides_slice__r1[0] );
+    return true;
+'''},
+)
+
+m.function( "_compose_r_withgrad",
+            """Compose two angle-axis rotations; return (r,dr/dr0,dr/dr1)
+
+This is an internal function. You probably want mrcal.compose_r(). See the docs
+for that function for details. This internal function differs from compose_r():
+
+- It supports exactly two arguments, while compose_r() can compose N rotations
+
+- It always reports gradients
+
+""",
+
+            args_input       = ('r0', 'r1'),
+            prototype_input  = ((3,), (3,)),
+            prototype_output = ((3,), (3,3),(3,3)),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_compose_r_full( (double*)data_slice__output0,
+                           strides_slice__output0[0],
+
+                           // dr/dr0
+                           &item__output1(0,0),
+                           strides_slice__output1[0], strides_slice__output1[1],
+
+                           // dr/dr1
+                           &item__output2(0,0),
+                           strides_slice__output2[0], strides_slice__output2[1],
+
+                           (const double*)data_slice__r0,
+                           strides_slice__r0[0],
+                           (const double*)data_slice__r1,
+                           strides_slice__r1[0] );
+
+    return true;
+'''},
+)
+
 m.function( "_compose_rt",
             """Compose two rt transformations
 

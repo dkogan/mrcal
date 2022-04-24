@@ -192,6 +192,11 @@ struct vec_withgrad_t
         return v[i];
     }
 
+    const val_withgrad_t<NGRAD>& operator[](int i) const
+    {
+        return v[i];
+    }
+
     void operator+=( const vec_withgrad_t<NGRAD,NVEC>& x )
     {
         (*this) = (*this) + x;
@@ -345,6 +350,15 @@ struct vec_withgrad_t
             d += e;
         }
         return d;
+    }
+
+    vec_withgrad_t<NGRAD,NVEC> cross( const vec_withgrad_t<NGRAD,NVEC>& x) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> c;
+        c[0] = v[1]*x.v[2] - v[2]*x.v[1];
+        c[1] = v[2]*x.v[0] - v[0]*x.v[2];
+        c[2] = v[0]*x.v[1] - v[1]*x.v[0];
+        return c;
     }
 
     val_withgrad_t<NGRAD> norm2(void) const
