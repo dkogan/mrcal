@@ -34,6 +34,7 @@ displayed properly
 - ref_calibration_object() accepts uneven horizontal, vertical spacings. And it
   can broadcast over object_spacing and calobject_warp
 
+- Added compose_r()
 
 * Migration notes 2.1 -> 2.2
 This is a /very/ minor release, and is 99.9% compatible. Incompatible updates:
