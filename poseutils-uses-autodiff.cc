@@ -415,39 +415,15 @@ compose_r_core(// output
     //     cos(A)*sin(B)*r1 / 2B +
     //     sin(A)*sin(B) * cross(r0,r1) / 4AB
 
-#if 0
 
-    // A = mag(r0)/2;
-    // B = mag(r1)/2;
-    double A     = 0.0;
-    double B     = 0.0;
-    double inner = 0.0;
-    for(int i=0; i<3; i++)
-    {
-        A     += P1(r_0,i)*P1(r_0,i);
-        B     += P1(r_1,i)*P1(r_1,i);
-        inner += P1(r_0,i)*P1(r_1,i);
-    }
+    const val_withgrad_t<N> A = r0->mag() / 2.;
+    const val_withgrad_t<N> B = r1->mag() / 2.;
 
-    if(A == 0)
-    {
-        for(int i=0; i<3; i++)
-            P1(r_out,i) = P1(r_1,i);
-        #error gradients
-    }
-    else if(B == 0)
-    {
-        for(int i=0; i<3; i++)
-            P1(r_out,i) = P1(r_0,i);
-        #error gradients
-    }
-    else if( A < 1e-16 )
-    {
-        if( B < 1e-16)
-        {
-            #error
-        }
+    const val_withgrad_t<N>    inner = r0->dot(*r1);
+    const vec_withgrad_t<N, 3> cross = r0->cross(*r1);
 
+    if(fabs(A.x) < 1e-8)
+    {
         // A ~ 0. I simplify
         //
         //   cosC ~
@@ -461,7 +437,8 @@ compose_r_core(// output
         // I have C = B + dB where dB ~ 0, so
         //
         //   cosC ~ cos(B + dB) ~ cosB - dB sinB
-        //   -> dB = A * inner(r0,r1) / 4AB = inner(r0,r1) / 4B
+        //   -> dB = A * inner(r0,r1) / 4AB =
+        //           inner(r0,r1) / 4B
         //   -> C = B + inner(r0,r1) / 4B
         //
         // Now let's look at the axis expression. Assuming A ~ 0
@@ -488,70 +465,187 @@ compose_r_core(// output
         //     + cosB r0
         //     + sinB r1 / B
         //     + sinB * cross(r0,r1) / 2B
-        //
         // ->
         //   (sinB + dB  (B cosB - sinB) / B) r01 ~
+        //     + cosB*B r0
         //     + sinB r1
+        //     + sinB * cross(r0,r1) / 2
+        // ->
+        //   sinB (r01 - r1) + dB (B cosB - sinB) / B r01 ~
         //     + cosB*B r0
         //     + sinB * cross(r0,r1) / 2
         //
         // I want to find the perturbation to give me r01 ~ r1 + deltar ->
         //
-        //   ( dB (B cosB - sinB) / B) r1 + (sinB + dB  (B cosB - sinB) / B) deltar ~
-        //     cosB*B r0 + sinB * cross(r0,r1) / 2
+        //   sinB deltar + dB (B cosB - sinB) / B (r1 + deltar) ~
+        //     + cosB*B r0
+        //     + sinB * cross(r0,r1) / 2
         //
         // All terms here are linear or quadratic in r0. For tiny r0, I can
         // ignore the quadratic terms:
         //
-        //   ( dB (B cosB - sinB) / B) r1 + sinB deltar ~
+        //   sinB deltar + dB (B cosB - sinB) / B r1 ~
         //     + cosB*B r0
         //     + sinB * cross(r0,r1) / 2
-        //
-        // I solve for deltar:
-        //
+        // ->
         //   deltar ~
-        //     + cosB/sinB*B r0
+        //     - dB (B/tanB - 1) / B r1
+        //     + B/tanB r0
         //     + cross(r0,r1) / 2
-        //     - ( dB (B cosB/sinB - 1) / B) r1
         //
         // I substitute in the dB from above, and I simplify:
         //
         //   deltar ~
+        //     - inner(r0,r1) / 4B (B/tanB - 1) / B r1
         //     + B/tanB r0
         //     + cross(r0,r1) / 2
-        //     - ( inner(r0,r1) / 4B * (1/tanB - 1/B)) r1
-        //
-        // And I differentiate:
-        //
-        //   dr01/dr0 = ddeltar/dr0 =
-        //     + B/tanB I
-        //     - skew_symmetric(r1) / 2
-        //     - outer(r1,r1) / 4B * (1/tanB - 1/B)
-        //
-        //   dB/dr1 = d( norm2(r1)/2)/dr1 = r1t
-        //
-        //   dr01/dr1 = I + ddeltar/dr1 =
-        //     + I
-        //     + (1/tanB - B/sin^2(B)) r0
-        //     + skew_symmetric(r0) / 2
-        //     - I ( inner(r0,r1) / 4B * (1/tanB - 1/B)) -
-        //     - r1 d( inner(r0,r1)/(4B tanB) )
-        //     + r1 d( inner(r0,r1)/(4B^2))
         //   =
-        //     + I
-        //     + (1/tanB - B/sin^2(B)) r0
-        //     + skew_symmetric(r0) / 2
-        //     - I ( inner(r0,r1) / 4B * (1/tanB - 1/B)) -
-        //     - r1 (r0t - inner(r0,r1) (1/B + 1/(sinBcosB)) r1t ) / (4B tanB)
-        //     + r1 (r0t B - 2 inner r1t)/(4 B^3)
+        //     - inner(r0,r1) (B/tanB - 1) / 4B^2 r1
+        //     + B/tanB r0
+        //     + cross(r0,r1) / 2
+        //
+        // So
+        //
+        // r01 = r1
+        //     - inner(r0,r1) (B/tanB - 1) / 4B^2 r1
+        //     + B/tanB r0
+        //     + cross(r0,r1) / 2
+        if(fabs(B.x) < 1e-8)
+        {
+            // what if B is ALSO near 0? I simplify further
+            //
+            // lim(B->0) (B/tanB) = lim( 1 / sec^2 B) = 1.
+            // lim(B->0) d(B/tanB)/dB = 0
+            //
+            // (B/tanB - 1) / 4B^2 =
+            // (B - tanB) / (4 B^2 tanB)
+            // lim(B->0) = 0
+            // lim(B->0) d/dB = 0
+            //
+            // So
+            // r01 = r1
+            //     + r0
+            //     + cross(r0,r1) / 2
+            //
+            // Here I have linear and quadratic terms. With my tiny numbers, the
+            // quadratic terms can be ignored, so simply
+            //
+            //   r01 = r0 + r1
+            *r = *r0 + *r1;
+            return;
+        }
 
+        const val_withgrad_t<N>& B_over_tanB = B / B.tan();
+        for(int i=0; i<3; i++)
+            (*r)[i] =
+                (*r1)[i] * (val_withgrad_t<N>(1.0)
+                            - inner * (B_over_tanB - 1.) / (B*B*4.))
+                + (*r0)[i] * B_over_tanB
+                + cross[i] / 2.;
+        return;
     }
+    else if(fabs(B.x) < 1e-8)
+    {
+        // B ~ 0. I simplify
+        //
+        //   cosC =
+        //     cosA -
+        //     sinA*B * inner(r0,r1) / 4AB
+        //   sinC r01 / 2C =
+        //     sinA*r0 / 2A +
+        //     cosA*B*r1 / 2B +
+        //     sinA*B * cross(r0,r1) / 4AB
+        //
+        // I have C = A + dA where dA ~ 0, so
+        //
+        //   cosC ~ cos(A + dA) ~ cosA - dA sinA
+        //   -> dA = B * inner(r0,r1) / 4AB =
+        //         = inner(r0,r1) / 4A
+        //   -> C = A + inner(r0,r1) / 4A
+        //
+        // Now let's look at the axis expression. Assuming B ~ 0
+        //
+        //   sinC r01 / 2C =
+        //     + sinA*r0 / 2A
+        //     + cosA*B*r1 / 2B
+        //     + sinA*B * cross(r0,r1) / 4AB
+        // ->
+        //   sinC/C r01 =
+        //     + sinA*r0 / A
+        //     + cosA*r1
+        //     + sinA * cross(r0,r1) / 2A
+        //
+        // I linearize the left-hand side:
+        //
+        //   sinC/C = sin(A+dA)/(A+dA) ~
+        //     sinA/A + d( sinA/A )/dA dA =
+        //     sinA/A + dA  (A cosA - sinA) / A^2
+        //
+        // So
+        //
+        //   (sinA/A + dA  (A cosA - sinA) / A^2) r01 ~
+        //     + sinA*r0 / A
+        //     + cosA*r1
+        //     + sinA * cross(r0,r1) / 2A
+        // ->
+        //   (sinA + dA  (A cosA - sinA) / A) r01 ~
+        //     + sinA*r0
+        //     + cosA*r1*A
+        //     + sinA * cross(r0,r1) / 2
+        // ->
+        //   sinA (r01 - r0) + dA (A cosA - sinA) / A r01 ~
+        //     + cosA*A r1
+        //     + sinA * cross(r0,r1) / 2
+        //
+        //
+        // I want to find the perturbation to give me r01 ~ r0 + deltar ->
+        //
+        //   sinA deltar + dA (A cosA - sinA) / A (r0 + deltar) ~
+        //     + cosA*A r1
+        //     + sinA * cross(r0,r1) / 2
+        //
+        // All terms here are linear or quadratic in r1. For tiny r1, I can
+        // ignore the quadratic terms:
+        //
+        //   sinA deltar + dA (A cosA - sinA) / A r0 ~
+        //     + cosA*A r1
+        //     + sinA * cross(r0,r1) / 2
+        // ->
+        //   deltar ~
+        //     - dA (A/tanA - 1) / A r0
+        //     + A/tanA r1
+        //     + cross(r0,r1) / 2
+        //
+        // I substitute in the dA from above, and I simplify:
+        //
+        //   deltar ~
+        //     - inner(r0,r1) / 4A (A/tanA - 1) / A r0
+        //     + A/tanA r1
+        //     + cross(r0,r1) / 2
+        //   =
+        //     - inner(r0,r1) (A/tanA - 1) / 4A^2 r0
+        //     + A/tanA r1
+        //     + cross(r0,r1) / 2
+        //
+        // So
+        //
+        // r01 = r0
+        //     - inner(r0,r1) (A/tanA - 1) / 4A^2 r0
+        //     + A/tanA r1
+        //     + cross(r0,r1) / 2
 
-#endif
+        // I don't have an if(fabs(A.x) < 1e-8){} case here; this is handled in
+        // the above if() branch
 
-
-    const val_withgrad_t<N> A = r0->mag() / 2.;
-    const val_withgrad_t<N> B = r1->mag() / 2.;
+        const val_withgrad_t<N>& A_over_tanA = A / A.tan();
+        for(int i=0; i<3; i++)
+            (*r)[i] =
+                (*r0)[i] * (val_withgrad_t<N>(1.0)
+                            - inner * (A_over_tanA - 1.) / (A*A*4.))
+                + (*r1)[i] * A_over_tanA
+                + cross[i] / 2.;
+        return;
+    }
 
     const vec_withgrad_t<N, 2> sincosA = A.sincos();
     const vec_withgrad_t<N, 2> sincosB = B.sincos();
@@ -564,8 +658,6 @@ compose_r_core(// output
     const val_withgrad_t<N>& sinA_over_A = A.sinx_over_x(sinA);
     const val_withgrad_t<N>& sinB_over_B = B.sinx_over_x(sinB);
 
-    const val_withgrad_t<N> inner = r0->dot(*r1);
-
     val_withgrad_t<N> cosC =
         cosA*cosB -
         sinA_over_A*sinB_over_B*inner/4.;
@@ -576,8 +668,6 @@ compose_r_core(// output
     const val_withgrad_t<N> C    = cosC.acos();
     const val_withgrad_t<N> sinC = (val_withgrad_t<N>(1.) - cosC*cosC).sqrt();
     const val_withgrad_t<N> sinC_over_C_recip = val_withgrad_t<N>(1.) / C.sinx_over_x(sinC);
-
-    const vec_withgrad_t<N, 3> cross = r0->cross(*r1);
 
     for(int i=0; i<3; i++)
         (*r)[i] =
