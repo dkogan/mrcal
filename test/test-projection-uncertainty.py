@@ -896,11 +896,6 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
 
             I call a function to get dr01_dr0
             '''
-            _, dr01_dr0 = \
-                mrcal.utils._compose_r(np.zeros((3,)), rt1[..., :3],
-                                       assume_r0_tiny = True,
-                                       get_gradients  = True)
-
             drt01_drt0 = np.zeros(rt1.shape + (6,), dtype=float)
 
             # strange-looking implementation to make broadcasting work
@@ -912,7 +907,8 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
             drt01_drt0[..., 1+3, 1+3] = 1.
             drt01_drt0[..., 2+3, 2+3] = 1.
 
-            drt01_drt0[..., :3, :3] = dr01_dr0
+            mrcal.compose_r_tinyr0_gradientr0(rt1[..., :3],
+                                              out = drt01_drt0[..., :3, :3])
 
             return drt01_drt0
 
