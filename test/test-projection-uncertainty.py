@@ -862,16 +862,12 @@ cross product
                                      object_spacing,
                                      baseline_calobject_warp)
 
-    # need to define the broadcasted function myself
-    @nps.broadcast_define( ((2,),) )
-    def ref_calibration_object(calobject_warp):
-        return \
-            mrcal.ref_calibration_object(object_width_n,
-                                         object_height_n,
-                                         object_spacing,
-                                         calobject_warp)
+    # shape (...,Nh, Nw,3)
     calibration_object_query = \
-        ref_calibration_object(query_calobject_warp)
+        mrcal.ref_calibration_object(object_width_n,
+                                     object_height_n,
+                                     object_spacing,
+                                     query_calobject_warp)
 
     weight = observations_board[...,2]
 
