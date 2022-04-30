@@ -510,7 +510,7 @@ void mrcal_compose_r_full( // output
 //   _,dr01_dr0,_ = compose_r(np.zeros((3,),),
 //                            r1,
 //                            get_gradients=True)
-#define mrcal_compose_r_tinyr0_gradientr0(dr_dr0,r_0) \
+#define mrcal_compose_r_tinyr0_gradientr0(dr_dr0,r_1) \
     mrcal_compose_r_tinyr0_gradientr0_full(dr_dr0,0,0,r_1,0)
 void mrcal_compose_r_tinyr0_gradientr0_full( // output
                            double* dr_dr0,      // (3,3) array; may be NULL
