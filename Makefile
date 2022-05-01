@@ -9,6 +9,7 @@ VERSION := $(VERSION_FROM_PROJECT)
 LIB_SOURCES +=			\
   mrcal.c			\
   mrcal-opencv.c		\
+  mrcal-uncertainty.c		\
   poseutils.c			\
   poseutils-opencv.c		\
   poseutils-uses-autodiff.cc	\
