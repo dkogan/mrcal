@@ -660,16 +660,33 @@ for i in range(Nimages):
 
     # Done with all the processing. Invoke the visualizer!
 
-    UI_usage_message = r'''Usage:
+    UI_usage_message = r'''  Usage:
 
-Left mouse button click/drag: pan
-Mouse wheel up/down/left/right: pan
-Ctrl-mouse wheel up/down: zoom
-'u': reset view: zoom out, pan to the center
+    Left mouse button click/drag: pan
+    Mouse wheel up/down/left/right: pan
+    Ctrl-mouse wheel up/down: zoom
+    'u': reset view: zoom out, pan to the center
 
-Right mouse button click: examine stereo at pixel
-TAB: transpose windows
+    Right mouse button click: examine stereo at pixel
+    TAB: transpose windows
 '''
+
+    def set_status(string, q = None):
+        # None means "use previous"
+        if string is not None:
+            set_status.string = string
+        else:
+            if not hasattr(set_status, 'string'):
+                set_status.string = ''
+
+        if q is not None:
+            set_status.qstring = f"q = {q[0]:.1f},{q[1]:.1f}\n\n"
+        else:
+            if not hasattr(set_status, 'qstring'):
+                set_status.qstring = 'No current pixel\n\n'
+
+        widget_status.value(UI_usage_message + "\n" + set_status.qstring + set_status.string)
+
 
     class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
@@ -732,16 +749,14 @@ TAB: transpose windows
                         np.array( self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ),
                                   dtype=float )
                 except:
-                    widget_status.value(UI_usage_message + "\n" + \
-                                        "Error converting pixel coordinates")
+                    set_status("Error converting pixel coordinates")
                     widget_image0   .set_cross_at(None)
                     widget_image1   .set_cross_at(None)
                     widget_disparity.set_cross_at(None)
                     return super().handle(event)
 
                 if self is widget_image1:
-                    widget_status.value(UI_usage_message + "\n" + \
-                                        "Please click in the left or disparity windows")
+                    set_status("Please click in the left or disparity windows")
                     widget_image0   .set_cross_at(q0_rectified, no_vertical = True)
                     widget_image1   .set_cross_at(q0_rectified, no_vertical = True)
                     widget_disparity.set_cross_at(q0_rectified, no_vertical = True)
@@ -749,8 +764,7 @@ TAB: transpose windows
 
                 if not (q0_rectified[0] >= -0.5 and q0_rectified[0] <= images_rectified[0].shape[1]-0.5 and \
                         q0_rectified[1] >= -0.5 and q0_rectified[1] <= images_rectified[0].shape[0]-0.5):
-                    widget_status.value(UI_usage_message + "\n" + \
-                                        "Out of bounds")
+                    set_status("Out of bounds")
                     widget_image0   .set_cross_at(q0_rectified, no_vertical = True)
                     widget_image1   .set_cross_at(q0_rectified, no_vertical = True)
                     widget_disparity.set_cross_at(q0_rectified, no_vertical = True)
@@ -759,16 +773,14 @@ TAB: transpose windows
                 d = disparity[round(q0_rectified[-1]),
                               round(q0_rectified[-2])]
                 if d < 0:
-                    widget_status.value(UI_usage_message + "\n" + \
-                                        "No valid disparity at the clicked location")
+                    set_status("No valid disparity at the clicked location")
                     widget_image0   .set_cross_at(q0_rectified)
                     widget_image1   .set_cross_at(q0_rectified, no_vertical = True)
                     widget_disparity.set_cross_at(q0_rectified)
                     return super().handle(event)
                 if d == 0:
-                    widget_status.value(UI_usage_message + "\n" + \
-                                    "Disparity: 0pixels\n" +
-                                    "range: infinity\n")
+                    set_status("Disparity: 0pixels\n" +
+                               "range: infinity\n")
                     widget_image0   .set_cross_at(q0_rectified)
                     widget_image1   .set_cross_at(q0_rectified)
                     widget_disparity.set_cross_at(q0_rectified)
@@ -793,10 +805,9 @@ TAB: transpose windows
 
                 # mrcal-triangulate tool: guts into a function. Call those
                 # guts here, and display them in the window
-                widget_status.value(UI_usage_message + "\n" + \
-                                    f"Disparity: {d/disparity_scale:.2f}pixels\n" +
-                                    f"range: {_range:.2f}m\n" +
-                                    f"drange/ddisparity: {drange_ddisparity:.1f}m/pixel")
+                set_status(f"Disparity: {d/disparity_scale:.2f}pixels\n" +
+                           f"range: {_range:.2f}m\n" +
+                           f"drange/ddisparity: {drange_ddisparity:.1f}m/pixel")
 
                 if 0:
                     p0_rectified = \
@@ -832,6 +843,15 @@ TAB: transpose windows
                     widget_disparity.position(x_image1,    y_image1)
                     return 1
 
+            if event == FL_MOVE:
+                try:
+                    q = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
+                except:
+                    q = None
+                set_status(string = None, # keep old string
+                           q      = q)
+                # fall through to let parent handlers run
+
             return super().handle(event)
 
     window           = Fl_Window(800, 600, "mrcal-stereo")
@@ -840,7 +860,7 @@ TAB: transpose windows
     widget_disparity = Fl_Gl_Image_Widget_Derived(400,  0, 400,300)
     widget_status    = Fl_Multiline_Output(       400,300, 400,300)
 
-    widget_status.value(UI_usage_message)
+    set_status('')
 
     window.resizable(window)
     window.end()
