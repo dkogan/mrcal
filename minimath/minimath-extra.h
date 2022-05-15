@@ -25,40 +25,35 @@ int index_sym66_assume_upper(int i, int j)
     return (N*2-i-1)*i/2 + j;
 }
 static
-void mul_gen33t_gen33insym66(// output
-                             double* P, int P_stride_elems,
-                             // input
-                             const double* At, int At_stride_elems,
-                             const double* Bsym66, int B_i0, int B_j0,
-                             const double scale)
+void mul_gen33_gen33insym66(// output
+                            double* restrict P, int P_strideelems0, int P_strideelems1,
+                            // input
+                            const double* A, int A_strideelems0, int A_strideelems1,
+                            const double* Bsym66, int B_i0, int B_j0,
+                            const double scale)
 {
-    if(At_stride_elems <= 0) At_stride_elems = 3;
-    if(P_stride_elems  <= 0) P_stride_elems  = 3;
-
     for(int iout=0; iout<3; iout++)
         for(int jout=0; jout<3; jout++)
         {
-            P[iout*P_stride_elems + jout] = 0;
+            P[iout*P_strideelems0 + jout*P_strideelems1] = 0;
             for(int k=0; k<3; k++)
             {
-                P[iout*P_stride_elems + jout] +=
-                    At[iout + k*At_stride_elems] * Bsym66[index_sym66(k+B_i0, jout+B_j0)];
+                P[iout*P_strideelems0 + jout*p_strideelems1] +=
+                    A[iout*A_strideelems0 + k*A_strideelems1] *
+                    Bsym66[index_sym66(k+B_i0, jout+B_j0)];
             }
-            P[iout*P_stride_elems + jout] *= scale;
+            P[iout*P_strideelems0 + jout*p_strideelems1] *= scale;
         }
 }
 // Assumes the output is symmetric, and only computes the upper triangle
 static
 void mul_gen33_gen33_into33insym66_accum(// output
-                                         double* Psym66, int P_i0, int P_j0,
+                                         double* restrict Psym66, int P_i0, int P_j0,
                                          // input
-                                         const double* A, int A_stride_elems,
-                                         const double* B, int B_stride_elems,
+                                         const double* A, int A_strideelems0, int A_strideelems1,
+                                         const double* B, int B_strideelems0, int B_strideelems1,
                                          const double scale)
 {
-    if(A_stride_elems <= 0) A_stride_elems = 3;
-    if(B_stride_elems <= 0) B_stride_elems = 3;
-
     for(int iout=0; iout<3; iout++)
         for(int jout=0; jout<3; jout++)
         {
@@ -73,36 +68,32 @@ void mul_gen33_gen33_into33insym66_accum(// output
             for(int k=0; k<3; k++)
             {
                 Psym66[index_sym66_assume_upper(iout+P_i0, jout+P_j0)] +=
-                    A[iout*A_stride_elems + k] *
-                    B[k   *B_stride_elems + jout];
+                    A[iout*A_strideelems0 + k   *A_strideelems1] *
+                    B[k   *B_strideelems0 + jout*B_strideelems1];
             }
             Psym66[index_sym66_assume_upper(iout+P_i0, jout+P_j0)] *= scale;
         }
 }
 static
 void set_gen33_from_gen33insym66(// output
-                                 double* P, int P_stride_elems,
+                                 double* restrict P, int P_strideelems0, int P_strideelems1,
                                  // input
                                  const double* Msym66, int M_i0, int M_j0,
                                  const double scale)
 {
-    if(P_stride_elems <= 0) P_stride_elems = 3;
-
     for(int iout=0; iout<3; iout++)
         for(int jout=0; jout<3; jout++)
-            P[iout*P_stride_elems + jout] =
+            P[iout*P_strideelems0 + jout*P_strideelems1] =
                 Msym66[index_sym66(iout+M_i0, jout+M_j0)] * scale;
 }
 // Assumes the output is symmetric, and only computes the upper triangle
 static
 void set_33insym66_from_gen33_accum(// output
-                                    double* Psym66, int P_i0, int P_j0,
+                                    double* restrict Psym66, int P_i0, int P_j0,
                                     // input
-                                    const double* M, int M_stride_elems,
+                                    const double* M, int M_strideelems0, int M_strideelems1,
                                     const double scale)
 {
-    if(M_stride_elems <= 0) M_stride_elems = 3;
-
     for(int iout=0; iout<3; iout++)
         for(int jout=0; jout<3; jout++)
         {
@@ -115,7 +106,7 @@ void set_33insym66_from_gen33_accum(// output
             }
 
             Psym66[index_sym66_assume_upper(iout+P_i0, jout+P_j0)] +=
-                A[iout*M_stride_elems + jout] * scale;
+                M[iout*M_strideelems0 + jout*M_strideelems1] * scale;
         }
 }
 
@@ -1887,4 +1878,45 @@ Test program:
     c[20] = m[ 2]*(m[ 8]*(m[13]*(m[ 3]*m[ 9]-m[ 4]*m[ 8])+m[ 2]*(m[18]*m[ 8]-m[16]*m[ 9])-(m[18]*m[ 3]-m[16]*m[ 4])*m[ 7])-m[ 9]*(m[12]*(m[ 3]*m[ 9]-m[ 4]*m[ 8])+m[ 2]*(m[16]*m[ 8]-m[15]*m[ 9])-(m[16]*m[ 3]-m[15]*m[ 4])*m[ 7])+m[ 1]*((-m[12]*(m[18]*m[ 8]-m[16]*m[ 9]))+m[13]*(m[16]*m[ 8]-m[15]*m[ 9])+(m[15]*m[18]-m[16]*m[16])*m[ 7])-((-m[12]*(m[18]*m[ 3]-m[16]*m[ 4]))+m[13]*(m[16]*m[ 3]-m[15]*m[ 4])+(m[15]*m[18]-m[16]*m[16])*m[ 2])*m[ 6])-m[ 3]*(m[ 7]*(m[13]*(m[ 3]*m[ 9]-m[ 4]*m[ 8])+m[ 2]*(m[18]*m[ 8]-m[16]*m[ 9])-(m[18]*m[ 3]-m[16]*m[ 4])*m[ 7])-m[ 9]*(m[11]*(m[ 3]*m[ 9]-m[ 4]*m[ 8])+m[ 2]*(m[13]*m[ 8]-m[12]*m[ 9])-(m[13]*m[ 3]-m[12]*m[ 4])*m[ 7])+m[ 1]*((-m[11]*(m[18]*m[ 8]-m[16]*m[ 9]))+m[13]*(m[13]*m[ 8]-m[12]*m[ 9])+(m[12]*m[18]-m[13]*m[16])*m[ 7])-((-m[11]*(m[18]*m[ 3]-m[16]*m[ 4]))+m[13]*(m[13]*m[ 3]-m[12]*m[ 4])+(m[12]*m[18]-m[13]*m[16])*m[ 2])*m[ 6])+m[ 4]*(m[ 7]*(m[12]*(m[ 3]*m[ 9]-m[ 4]*m[ 8])+m[ 2]*(m[16]*m[ 8]-m[15]*m[ 9])-(m[16]*m[ 3]-m[15]*m[ 4])*m[ 7])-m[ 8]*(m[11]*(m[ 3]*m[ 9]-m[ 4]*m[ 8])+m[ 2]*(m[13]*m[ 8]-m[12]*m[ 9])-(m[13]*m[ 3]-m[12]*m[ 4])*m[ 7])+m[ 1]*((-m[11]*(m[16]*m[ 8]-m[15]*m[ 9]))+m[12]*(m[13]*m[ 8]-m[12]*m[ 9])+(m[12]*m[16]-m[13]*m[15])*m[ 7])-((-m[11]*(m[16]*m[ 3]-m[15]*m[ 4]))+m[12]*(m[13]*m[ 3]-m[12]*m[ 4])+(m[12]*m[16]-m[13]*m[15])*m[ 2])*m[ 6])+m[ 0]*((-m[ 7]*((-m[12]*(m[18]*m[ 8]-m[16]*m[ 9]))+m[13]*(m[16]*m[ 8]-m[15]*m[ 9])+(m[15]*m[18]-m[16]*m[16])*m[ 7]))+m[ 8]*((-m[11]*(m[18]*m[ 8]-m[16]*m[ 9]))+m[13]*(m[13]*m[ 8]-m[12]*m[ 9])+(m[12]*m[18]-m[13]*m[16])*m[ 7])-m[ 9]*((-m[11]*(m[16]*m[ 8]-m[15]*m[ 9]))+m[12]*(m[13]*m[ 8]-m[12]*m[ 9])+(m[12]*m[16]-m[13]*m[15])*m[ 7])+(m[11]*(m[15]*m[18]-m[16]*m[16])-m[12]*(m[12]*m[18]-m[13]*m[16])+m[13]*(m[12]*m[16]-m[13]*m[15]))*m[ 6])-m[ 1]*((-((-m[11]*(m[16]*m[ 3]-m[15]*m[ 4]))+m[12]*(m[13]*m[ 3]-m[12]*m[ 4])+(m[12]*m[16]-m[13]*m[15])*m[ 2])*m[ 9])+((-m[11]*(m[18]*m[ 3]-m[16]*m[ 4]))+m[13]*(m[13]*m[ 3]-m[12]*m[ 4])+(m[12]*m[18]-m[13]*m[16])*m[ 2])*m[ 8]-((-m[12]*(m[18]*m[ 3]-m[16]*m[ 4]))+m[13]*(m[16]*m[ 3]-m[15]*m[ 4])+(m[15]*m[18]-m[16]*m[16])*m[ 2])*m[ 7]+m[ 1]*(m[11]*(m[15]*m[18]-m[16]*m[16])-m[12]*(m[12]*m[18]-m[13]*m[16])+m[13]*(m[12]*m[16]-m[13]*m[15])));
 
     return m[0]*c[0]+m[1]*c[1]+m[2]*c[2]+m[3]*c[3]+m[4]*c[4]+m[5]*c[5];
+}
+
+static
+void mul_gen23_gen33_accum(// output
+                           double* restrict P, int P_strideelems0, int P_strideelems1,
+                           // input
+                           const double* A, int A_strideelems0, int A_strideelems1,
+                           const double* B, int B_strideelems0, int B_strideelems1,
+                           const double scale)
+{
+    for(int iout=0; iout<2; iout++)
+        for(int jout=0; jout<3; jout++)
+            for(int k=0; k<3; k++)
+                P[iout*P_strideelems0 + jout*p_strideelems1] +=
+                    A[iout*A_strideelems0 + k   *A_strideelems1] *
+                    B[k   *B_strideelems0 + jout*B_strideelems1] *
+                    scale;
+}
+
+static inline void mul_vec6_sym66_scaled_strided(double* restrict v, int v_strideelems,
+                                                 const double* restrict s,
+                                                 const double scale)
+{
+  double t[5] = {v[0*v_strideelems], v[1*v_strideelems], v[2*v_strideelems], v[3*v_strideelems], v[4*v_strideelems]};
+  v[0*v_strideelems] = (s[0]*t[0] + s[1]*t[1] + s[2]*t[2] + s[3]*t[3] + s[4]*t[4] + s[5]*v[5*v_strideelems]) * scale;
+  v[1*v_strideelems] = (s[1]*t[0] + s[6]*t[1] + s[7]*t[2] + s[8]*t[3] + s[9]*t[4] + s[10]*v[5*v_strideelems]) * scale;
+  v[2*v_strideelems] = (s[2]*t[0] + s[7]*t[1] + s[11]*t[2] + s[12]*t[3] + s[13]*t[4] + s[14]*v[5*v_strideelems]) * scale;
+  v[3*v_strideelems] = (s[3]*t[0] + s[8]*t[1] + s[12]*t[2] + s[15]*t[3] + s[16]*t[4] + s[17]*v[5*v_strideelems]) * scale;
+  v[4*v_strideelems] = (s[4]*t[0] + s[9]*t[1] + s[13]*t[2] + s[16]*t[3] + s[18]*t[4] + s[19]*v[5*v_strideelems]) * scale;
+  v[5*v_strideelems] = (s[5]*t[0] + s[10]*t[1] + s[14]*t[2] + s[17]*t[3] + s[19]*t[4] + s[20]*v[5*v_strideelems]) * scale;
+}
+
+static inline void mul_genN6_sym66_scaled_strided(int n,
+                                                  double* restrict v, int v_strideelems0, int v_strideelems1,
+                                                  const double* restrict s,
+                                                  const double scale)
+{
+  for(int i=0; i<n; i++)
+      mul_vec6_sym66_strided(v + v_strideelems0*i, v_strideelems1,
+                             s,
+                             scale);
 }

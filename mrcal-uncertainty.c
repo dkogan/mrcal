@@ -153,23 +153,28 @@ In any case...
       Var(rt_ref_refperturbed) = s^2 K Kt
 
 
+    I need to compute Jcross_t J_fcw* (shape (6,Nstate)). Its transpose, for convenience;
 
-      Jcross_t J_fcw* =
-
-      [      x         x         x         x         x         x      ]
-      [drr0t x   drr0t x   drr0t x   drr1t x   drr1t x   drr1t x .... ] J_fcw* =
-      [      x         x         x         x         x         x      ]
-
-      [ 0 | 0 | drt0t sum(outer(xxx,xxx)) | drt1t sum(outer(xxx,xxx)) ... | sum(drtit, outer(xxx_i,xxx_calobject_warp)) ]
-
+      J_fcw_t* Jcross (shape (Nstate,6)) =
+        [ 0                                                                                     ] <- intrinsics
+        [ 0                                                                                     ] <- extrinsics
+        [ sum_measi(outer(j_frame0*, j_frame0*)) Dinv drr_frame0                                ]
+        [ sum_measi(outer(j_frame1*, j_frame1*)) Dinv drr_frame1                                ] <- frames
+        [                         ...                                                           ]
+        [ sum_framei(sum_measi(outer(j_calobject_warp_measi*, j_frame_measi*) Dinv drr_framei)) ] <- calobject_warp
 
       Jcross_t Jcross = sum(outer(jcross, jcross))
-                        = sum_j( drr[j]t sum_i(outer(xxx[i], xxx[i])) drr[j] )
+                      = sum_framei( drr_framei_t Dinv sum_measi(outer(j_frame_measi*, j_frame_measi*)) Dinv drr_framei )
 
-      I need sum(outer(...)) for both Jcross_t J_fcw* and Jcross_t Jcross, I
-      use this computed sum(outer(...)) in finish_Jcross_computations()
+    For each frame, both of these expressions need
+
+      sum_measi(outer(j_frame_measi*, j_frame_measi*)) Dinv drr_framei
+
+    I compute this in a loop, and accumulate in finish_Jcross_computations()
 
     */
+
+
 
 
     if(have points)
@@ -177,48 +182,87 @@ In any case...
         barf;
     }
 
-    int state_index_frame0 =
+    const int state_index_frame0 =
         mrcal_state_index_frames(0,
                                  Ncameras_intrinsics, Ncameras_extrinsics,
                                  Nframes,
                                  Npoints, Npoints_fixed, Nobservations_board,
                                  problem_selections,
                                  lensmodel);
-    int num_states_frames =
+    if(state_index_frame0 < 0)
+    {
+        MSG("Uncertainty computation is currently implemented only if frames are being optimized");
+        return false;
+    }
+    const int state_index_calobject_warp0 =
+        mrcal_state_index_calobject_warp(Ncameras_intrinsics, Ncameras_extrinsics,
+                                         Nframes,
+                                         Npoints, Npoints_fixed, Nobservations_board,
+                                         problem_selections,
+                                         lensmodel);
+    if(state_index_calobject_warp0 < 0)
+    {
+        MSG("Uncertainty computation is currently implemented only if calobject-warp is being optimized");
+        return false;
+    }
+    const int num_states_frames =
         mrcal_num_states_frames(Nframes,
                                 problem_selections);
 
-    const int*    Jrowptr = (int*)   Jt->p;
-    const int*    Jcolidx = (int*)   Jt->i;
-    const double* Jval    = (double*)Jt->x;
+    const int num_states_intrinsics =
+        mrcal_num_states_intrinsics(Ncameras_intrinsics,
+                                    problem_selections,
+                                    lensmodel);
+    const int num_states_extrinsics =
+        mrcal_num_states_extrinsics(Ncameras_extrinsics,
+                                    problem_selections);
+    const int num_states_calobject_warp =
+        mrcal_num_states_calobject_warp(problem_selections,
+                                        Nobservations_board);
+    if(state_index_frame0 + num_states_frames != state_index_calobject_warp0)
+    {
+        MSG("I'm assuming that the calobject-warp state directly follows the frames, but here it does not. Giving up");
+        return false;
+    }
 
-    double Jcross_t__Jcross[(6+1)*3] = {};
+    if(state_index_calobject_warp0 + num_states_calobject_warp != Nstate)
+    {
+        MSG("I'm assuming calobject_warp is the last set of states, but here it is not. Giving up");
+        return false;
+    }
+
+    const int Nstate_i_e = num_states_intrinsics + num_states_extrinsics;
+    const int Nstate_noi_noe = Nstate - Nstate_i_e;
+    if( state_index_frame0 != Nstate_i_e)
+    {
+        MSG("Unexpected state vector layout. Giving up");
+        return false;
+    }
+
+
+
+    double Jcross_t__Jcross[(6+1)*6/2] = {};
 
     // Jcross_t J_fcw* has shape (6,Nstate), but the columns corresponding to
-    // the camera intrinsics, extrinsics are 0
-#error "do I need to store the 0 columns: intrinsics, extrinsics"
-    double Jcross_t__J_fcw[6*Nstate] = {};
+    // the camera intrinsics, extrinsics are 0. I don't store those 0 columns,
+    // so my array that I store (Jcross_t__J_fcw_noi_noe) has shape (6,
+    // Nstate_noi_noe)
+    double Jcross_t__J_fcw_noi_noe[6*Nstate_noi_noe] = {};
 
-#error "I should reuse some other memory for this. Chunks of Jcross_t__J_fcw ?"
+#error "I should reuse some other memory for this. Chunks of Jcross_t__J_fcw_noi_noe ?"
     // sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) for this frame. I sum over
     // all the observations. Uses PACKED gradients. Only the upper triangle is
     // stored, in the usual row-major order
-    double sum_outer_jf_jf_packed[(6+1)*3] = {};
+    double sum_outer_jf_jf_packed[(6+1)*6/2] = {};
 
-    // I will need composition gradients assuming tiny rt0. I have
-    //   compose(rt0, rt1) = compose(r0,r1), rotate(r0,t1)+t0
-    // I need to get gradient drt_ref_frameperturbed/drt_ref_refperturbed. Let's
-    // look at the r,t separately. I have:
-    //   dr/dr0: This is complex. I compute it and store it into this matrix
-    //   dr/dt0 = 0
-    //   dt/dr0 = -skew_symmetric(t1)
-    //   dt/dt0 = I
-    double dr_ref_frameperturbed__dr_ref_refperturbed[3*3];
+    // sum(outer(j_frame_measi*, j_calobject_warp_measi*)) for this frame. Uses
+    // PACKED gradients. Stored densely, since it isn't symmetric. Shape (6,2)
+    double sum_outer_jf_jcw_packed[6*2] = {};
+
     int state_index_frame_current = -1;
 
     void finish_Jcross_computations(const int state_index_frame_current,
-                                    const double* drr,
-                                    const double* t1_packed)
+                                    const double* rt1_packed)
     {
         // I accumulated sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) into
         // sum_outer_jf_jf_packed. This is needed to compute both Jcross_t
@@ -238,9 +282,10 @@ In any case...
         // Jcross has full state, but J_fcw* has packed state, so I need
         // different number of SCALE factors.
         //
-        // I have Xp = sum_outer_jf_jf_packed ~ jp jpt
-        // Jcross_t__J_fcw ~ drr_t j jpt = drr_t Dinv jp jpt = drr_t Dinv Xp
+        // Jcross_t__J_fcw ~ drr_t j jpt = drr_t Dinv jp jpt
         // Jcross_t Jcross ~ drr_t j jt drr ~ Jcross_t__J_fcw Dinv drr
+        //
+        // In the code I have sum_outer_jf_jf_packed ~ jp jpt
         //
         // &Jcross_t__J_fcw[state_index_frame_current] is the first element of
         // the output for this frame
@@ -251,17 +296,55 @@ In any case...
         //   drr = [dr/dr      0]
         //         [ -skew(t1) I]
         //
-        //   drr_t X = [dr/dr_t skew_t1] [ S00 S01 ] = [ dr/dr_t S00 + skew_t1 S10    dr/dr_t S01 + skew_t1 S11]
+        //   drr_t S = [dr/dr_t skew_t1] [ S00 S01 ] = [ dr/dr_t S00 + skew_t1 S10    dr/dr_t S01 + skew_t1 S11]
         //             [ 0      I      ] [ S10 S11 ]   [ S10                          S11                      ]
         //
-        // Jcross_t__J_fcw output goes into [A B]
-        //                                  [C D]
-        double* A = &Jcross_t__J_fcw[0*Nstate + state_index_frame_current + 0];
-        double* B = &Jcross_t__J_fcw[0*Nstate + state_index_frame_current + 3];
-        double* C = &Jcross_t__J_fcw[3*Nstate + state_index_frame_current + 0];
-        double* D = &Jcross_t__J_fcw[3*Nstate + state_index_frame_current + 3];
+        // In the case of the frames, each Sxx block has shape (3,3). For
+        // calobject_warp, S has shape (6,2) so I only have S00 and S10, each
+        // with shape (3,2)
 
-        // From above:
+        // I will need composition gradients assuming tiny rt0. I have
+        //   compose(rt0, rt1) = compose(r0,r1), rotate(r0,t1)+t0
+        // I need to get gradient drt_ref_frameperturbed/drt_ref_refperturbed. Let's
+        // look at the r,t separately. I have:
+        //   dr/dr0: This is complex. I compute it and store it into this matrix
+        //   dr/dt0 = 0
+        //   dt/dr0 = -skew(t1)
+        //   dt/dt0 = I
+        //
+        // where
+        //             [  0 -t2  t1]
+        //   skew(t) = [ t2   0 -t0]
+        //             [-t1  t0   0]
+
+        double dr_ref_frameperturbed__dr_ref_refperturbed[3*3];
+
+#error UNJUSTIFIED ASSUMPTION
+        // UNJUSTIFIED ASSUMPTION HERE. This should use
+        // r_refperturbed_frameperturbed = r_ref_frame + M[] dqref, but that makes
+        // my life much more complex, so I just use the unperturbed
+        // r_ref_frame. I'll try to show empirically that this is just
+        // as good
+        const double r_ref_frame[3] =
+            { rt1_packed[0] * SCALE_ROTATION_FRAME,
+              rt1_packed[1] * SCALE_ROTATION_FRAME,
+              rt1_packed[2] * SCALE_ROTATION_FRAME };
+        mrcal_compose_r_tinyr0_gradientr0(dr_ref_frameperturbed__dr_ref_refperturbed,
+                                          r_ref_frame)
+
+        // Jcross_t__J_fcw_noi_noe output goes into [A B]
+        //                                          [C D]
+        double* A = &Jcross_t__J_fcw_noi_noe[0*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 0];
+        double* B = &Jcross_t__J_fcw_noi_noe[0*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 3];
+        double* C = &Jcross_t__J_fcw_noi_noe[3*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 0];
+        double* D = &Jcross_t__J_fcw_noi_noe[3*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 3];
+
+        // for calobject_warp
+        double* Acw = &Jcross_t__J_fcw_noi_noe[0*Nstate_noi_noe + state_index_calobject_warp0-state_index_frame0];
+        double* Ccw = &Jcross_t__J_fcw_noi_noe[3*Nstate_noi_noe + state_index_calobject_warp0-state_index_frame0];
+
+        // I can compute Jcross_t Jcross from the blocks comprising Jcross_t
+        // J_fcw. From above:
         //
         // Jcross_t Jcross ~
         //   ~ Jcross_t__J_fcw Dinv drr
@@ -276,28 +359,35 @@ In any case...
         //     [...                                     D/SCALE_T]
         //
         // Jcross_t__Jcross is symmetric, so I just compute the upper triangle,
-        // and I don't care about the ...
-        //
-        //           [  0 -t2  t1]
-        // skew(t) = [ t2   0 -t0]
-        //           [-t1  t0   0]
-        const double t0 = t1_packed[0] * SCALE_TRANSLATION_FRAME;
-        const double t1 = t1_packed[1] * SCALE_TRANSLATION_FRAME;
-        const double t2 = t1_packed[2] * SCALE_TRANSLATION_FRAME;
+        // and I don't care about the ... block
+        const double t0 = rt1_packed[3+0] * SCALE_TRANSLATION_FRAME;
+        const double t1 = rt1_packed[3+1] * SCALE_TRANSLATION_FRAME;
+        const double t2 = rt1_packed[3+2] * SCALE_TRANSLATION_FRAME;
 
         // A <- dr/dr_t sum_outer[:3,:3] + skew_t1 sum_outer[3:,:3]
         {
-            mul_gen33t_gen33insym66(A, Nstate,
-                                    drr, -1,
-                                    sum_outer_jf_jf_packed, 0, 0,
-                                    1./SCALE_ROTATION_FRAME);
+            mul_gen33_gen33insym66(A, Nstate_noi_noe, 1,
+                                   // transposed, so 1,3 and not 3,1
+                                   dr_ref_frameperturbed__dr_ref_refperturbed, 1,3,
+                                   sum_outer_jf_jf_packed, 0, 0,
+                                   1./SCALE_ROTATION_FRAME);
+
+            // and similar for calobject_warp
+            // Acw = drr_t Dinv S; ~
+            // -> Acwt = St Dinv drr;
+            mul_gen23_gen33_accum(// transposed
+                                  Acw, 1, Nstate_noi_noe,
+                                  // transposed
+                                  &sum_outer_jf_jcw_packed[0*2 + 0], 1,2,
+                                  dr_ref_frameperturbed__dr_ref_refperturbed, 3,1,
+                                  1./SCALE_ROTATION_FRAME);
 
             for(int j=0; j<3; j++)
             {
                 int i;
 
                 i = 0;
-                A[i*Nstate + j] +=
+                A[i*Nstate_noi_noe + j] +=
                     (
                     /*skew[i*3 + 0]   + (  0)*sum_outer_jf_jf_packed[index_sym66(0+3,j)] */
                     /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jf_jf_packed[index_sym66(1+3,j)]
@@ -305,7 +395,7 @@ In any case...
                     ) / SCALE_TRANSLATION_FRAME;
 
                 i = 1;
-                A[i*Nstate + j] +=
+                A[i*Nstate_noi_noe + j] +=
                     (
                     /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jf_jf_packed[index_sym66(0+3,j)]
                     /*skew[i*3 + 1]   + (  0)*sum_outer_jf_jf_packed[index_sym66(1+3,j)] */
@@ -313,28 +403,57 @@ In any case...
                     ) / SCALE_TRANSLATION_FRAME;
 
                 i = 2;
-                A[i*Nstate + j] +=
+                A[i*Nstate_noi_noe + j] +=
                     (
                     /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jf_jf_packed[index_sym66(0+3,j)]
                     /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jf_jf_packed[index_sym66(1+3,j)]
                     /*skew[i*3 + 2]   + (  0)*sum_outer_jf_jf_packed[index_sym66(2+3,j)] */
                     ) / SCALE_TRANSLATION_FRAME;
+
+                // and similar for calobject_warp
+                if(j<2)
+                {
+                    i = 0;
+                    Acw[i*Nstate_noi_noe + j] +=
+                        (
+                         /*skew[i*3 + 0]   + (  0)*sum_outer_jf_jcw_packed[(0+3)*2 + j] */
+                         /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jf_jcw_packed[(1+3)*2 + j]
+                         /*skew[i*3 + 2]*/ + ( t1)*sum_outer_jf_jcw_packed[(2+3)*2 + j]
+                         ) / SCALE_TRANSLATION_FRAME;
+
+                    i = 1;
+                    Acw[i*Nstate_noi_noe + j] +=
+                        (
+                         /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jf_jcw_packed[(0+3)*2 + j]
+                         /*skew[i*3 + 1]   + (  0)*sum_outer_jf_jcw_packed[(1+3)*2 + j] */
+                         /*skew[i*3 + 2]*/ + (-t0)*sum_outer_jf_jcw_packed[(2+3)*2 + j]
+                         ) / SCALE_TRANSLATION_FRAME;
+
+                    i = 2;
+                    Acw[i*Nstate_noi_noe + j] +=
+                        (
+                         /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jf_jcw_packed[(0+3)*2 + j]
+                         /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jf_jcw_packed[(1+3)*2 + j]
+                         /*skew[i*3 + 2]   + (  0)*sum_outer_jf_jcw_packed[(2+3)*2 + j] */
+                         ) / SCALE_TRANSLATION_FRAME;
+                }
             }
         }
 
         // B <- dr/dr_t sum_outer[:3,3:] + skew_t1 sum_outer[3:,3:]
         {
-            mul_gen33t_gen33insym66(B, Nstate,
-                                    drr, -1,
-                                    sum_outer_jf_jf_packed, 0, 3,
-                                    1./SCALE_ROTATION_FRAME);
+            mul_gen33_gen33insym66(B, Nstate_noi_noe, 1,
+                                   // transposed, so 1,3 and not 3,1
+                                   dr_ref_frameperturbed__dr_ref_refperturbed, 1,3,
+                                   sum_outer_jf_jf_packed, 0, 3,
+                                   1./SCALE_ROTATION_FRAME);
 
             for(int j=0; j<3; j++)
             {
                 int i;
 
                 i = 0;
-                A[i*Nstate + j] +=
+                A[i*Nstate_noi_noe + j] +=
                     (
                     /*skew[i*3 + 0]   + (  0)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)] */
                     /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)]
@@ -342,7 +461,7 @@ In any case...
                     ) / SCALE_TRANSLATION_FRAME;
 
                 i = 1;
-                A[i*Nstate + j] +=
+                A[i*Nstate_noi_noe + j] +=
                     (
                     /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)]
                     /*skew[i*3 + 1]   + (  0)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)] */
@@ -350,7 +469,7 @@ In any case...
                     ) / SCALE_TRANSLATION_FRAME;
 
                 i = 2;
-                A[i*Nstate + j] +=
+                A[i*Nstate_noi_noe + j] +=
                     (
                     /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)]
                     /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)]
@@ -361,24 +480,30 @@ In any case...
 
         // C <- sum_outer[3:,:3]
         {
-            set_gen33_from_gen33insym66(C, Nstate,
+            set_gen33_from_gen33insym66(C, Nstate_noi_noe, 1,
                                         sum_outer_jf_jf_packed, 3, 0,
                                         1./SCALE_TRANSLATION_FRAME);
+
+            // and similar for calobject_warp
+            for(int i=0; i<3; i++)
+                for(int j=0; j<2; j++)
+                    Ccw[i*Nstate_noi_noe + j] +=
+                        sum_outer_jf_jcw_packed[(3+i)*2 + j]/SCALE_TRANSLATION_FRAME;
+
         }
 
         // D <- sum_outer[3:,3:]
         {
-            set_gen33_from_gen33insym66(D, Nstate,
+            set_gen33_from_gen33insym66(D, Nstate_noi_noe, 1,
                                         sum_outer_jf_jf_packed, 3, 3,
                                         1./SCALE_TRANSLATION_FRAME);
         }
 
-
         // Jcross_t__Jcross[rr] <- A/SCALE_R dr/dr - B/SCALE_T skew(t1)
         {
             mul_gen33_gen33_into33insym66_accum(Jcross_t__Jcross, 0, 0,
-                                                A, Nstate,
-                                                drr, -1,
+                                                A, Nstate_noi_noe, 1,
+                                                dr_ref_frameperturbed__dr_ref_refperturbed, 3,1,
                                                 1./SCALE_ROTATION_FRAME);
 
             int ivalue = 0;
@@ -389,25 +514,25 @@ In any case...
                     if(j == 0)
                         Jcross_t__Jcross[ivalue] -=
                             (
-                             /*skew[j + 0*3]   + B[i*Nstate+0]*(  0) */
-                             /*skew[j + 1*3]*/ + B[i*Nstate+1]*( t2)
-                             /*skew[j + 2*3]*/ + B[i*Nstate+2]*(-t1)
+                             /*skew[j + 0*3]   + B[i*Nstate_noi_noe+0]*(  0) */
+                             /*skew[j + 1*3]*/ + B[i*Nstate_noi_noe+1]*( t2)
+                             /*skew[j + 2*3]*/ + B[i*Nstate_noi_noe+2]*(-t1)
                              ) / SCALE_TRANSLATION_FRAME;
 
                     if(j == 1)
                         Jcross_t__Jcross[ivalue] -=
                             (
-                             /*skew[j + 0*3]*/ + B[i*Nstate+0]*(-t2)
-                             /*skew[j + 1*3]   + B[i*Nstate+1]*(  0) */
-                             /*skew[j + 2*3]*/ + B[i*Nstate+2]*( t0)
+                             /*skew[j + 0*3]*/ + B[i*Nstate_noi_noe+0]*(-t2)
+                             /*skew[j + 1*3]   + B[i*Nstate_noi_noe+1]*(  0) */
+                             /*skew[j + 2*3]*/ + B[i*Nstate_noi_noe+2]*( t0)
                              ) / SCALE_TRANSLATION_FRAME;
 
                     if(j == 2)
                         Jcross_t__Jcross[ivalue] -=
                             (
-                             /*skew[j + 0*3]*/ + B[i*Nstate+0]*( t1)
-                             /*skew[j + 1*3]*/ + B[i*Nstate+1]*(-t0)
-                             /*skew[j + 2*3]   + B[i*Nstate+2]*(  0) */
+                             /*skew[j + 0*3]*/ + B[i*Nstate_noi_noe+0]*( t1)
+                             /*skew[j + 1*3]*/ + B[i*Nstate_noi_noe+1]*(-t0)
+                             /*skew[j + 2*3]   + B[i*Nstate_noi_noe+2]*(  0) */
                              ) / SCALE_TRANSLATION_FRAME;
                 }
                 ivalue += 3;
@@ -417,7 +542,7 @@ In any case...
         // Jcross_t__Jcross[rt] <- B/SCALE_T
         {
             set_33insym66_from_gen33_accum(Jcross_t__Jcross, 0, 3,
-                                           B, Nstate,
+                                           B, Nstate_noi_noe, 1,
                                            1./SCALE_TRANSLATION_FRAME);
         }
 
@@ -434,14 +559,22 @@ In any case...
                     (SCALE_TRANSLATION_FRAME*SCALE_TRANSLATION_FRAME);
         }
 
-        memset(sum_outer_jf_jf_packed, 0, sizeof(sum_outer_jf_jf_packed));
+        memset(sum_outer_jf_jf_packed,  0, sizeof(sum_outer_jf_jf_packed));
+        memset(sum_outer_jf_jcw_packed, 0, sizeof(sum_outer_jf_jcw_packed));
     }
 
 
 
 
+    const int*    Jrowptr = (int*)   Jt->p;
+    const int*    Jcolidx = (int*)   Jt->i;
+    const double* Jval    = (double*)Jt->x;
+#warning "Is this right? Go until Nmeas_obs? Not all Nmeasurements?"
     for(int imeas=0; imeas<Nmeas_obs; imeas++)
     {
+        // I have dx/drt_ref_frame for this frame. This is 6 numbers
+        const double* dx_drt_ref_frame_packed = NULL;
+
         for(int32_t ival = Jrowptr[imeas]; ival < Jrowptr[imeas+1]; ival++)
         {
             int32_t icol = Jcolidx[ival];
@@ -460,126 +593,183 @@ In any case...
             }
             else if(icol == state_index_frame_current)
             {
-                // I already have dr_ref_frameperturbed__dr_ref_refperturbed[] computed
+                MSG("We hit a bug parsing the jacobian. Should never get here. Giving up");
+                return false;
+            }
+            else if( state_index_frame0 <= icol &&
+                     icol < state_index_calobject_warp0 )
+            {
+                // Looking at a new frame. Finish the previous frame
+                if(state_index_frame_current >= 0)
+                    finish_Jcross_computations(state_index_frame_current,
+                                               &bpacked[state_index_frame_current]);
+                state_index_frame_current = icol;
+
+
+                // I have dx/drt_ref_frame for this frame. This is 6 numbers
+                dx_drt_ref_frame_packed = &Jval[ival];
+
+                // sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) into sum_outer_jf_jf_packed
+                {
+                    // This is used to compute Jcross_t J_fcw* and Jcross_t
+                    // Jcross. This result is used in finish_Jcross_computations()
+                    //
+                    // Uses PACKED gradients. Only the upper triangle is stored, in
+                    // the usual row-major order
+                    int ivalue = 0;
+                    for(int i=0; i<6; i++)
+                        for(int j=i; j<6; j++, ivalue++)
+                            sum_outer_jf_jf_packed[ivalue] +=
+                                dx_drt_ref_frame_packed[i]*dx_drt_ref_frame_packed[j];
+                }
+
+                // fast-forward past the frame gradients
+                ival += 6-1;
             }
             else
             {
-                // Looking at a new frame. Need to
-                //   1. Apply old dr_ref_frameperturbed__dr_ref_refperturbed
-                //   2. Compute new dr_ref_frameperturbed__dr_ref_refperturbed
-                if(state_index_frame_current >= 0)
-                    finish_Jcross_computations(state_index_frame_current,
-                                                dr_ref_frameperturbed__dr_ref_refperturbed,
-                                                &bpacked[state_index_frame_current + 3]);
-                state_index_frame_current = icol;
+                // if() statements above guarantee that this is calobject_warp.
+                const double* dx_dcalobject_warp_packed = &Jval[ival];
 
-#error UNJUSTIFIED ASSUMPTION
-                // UNJUSTIFIED ASSUMPTION HERE. This should use
-                // r_refperturbed_frameperturbed = r_ref_frame + M[] dqref, but that makes
-                // my life much more complex, so I just use the unperturbed
-                // r_ref_frame. I'll try to show empirically that this is just
-                // as good
-                const double r_ref_frame[3] =
-                    { bpacked[state_index_frame_current + 0] * SCALE_ROTATION_FRAME,
-                      bpacked[state_index_frame_current + 1] * SCALE_ROTATION_FRAME,
-                      bpacked[state_index_frame_current + 2] * SCALE_ROTATION_FRAME };
-                mrcal_compose_r_tinyr0_gradientr0(dr_ref_frameperturbed__dr_ref_refperturbed,
-                                                  r_ref_frame)
-            }
-
-            // Got dr_ref_frameperturbed__dr_ref_refperturbed
-            // I have dx/drt_ref_frame for this frame. This is 6 numbers
-            const double* dx_drt_ref_frame_packed = &Jval[ival];
-
-            // sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) into sum_outer_jf_jf_packed
-            {
-                // This is used to compute Jcross_t J_fcw* and Jcross_t
-                // Jcross. This result is used in finish_Jcross_computations()
-                //
-                // Uses PACKED gradients. Only the upper triangle is stored, in
-                // the usual row-major order
+                // Similar to the above, but this isn't symmetric, so I store it
+                // densely
                 int ivalue = 0;
                 for(int i=0; i<6; i++)
-                    for(int j=i; j<6; j++, ivalue++)
-                        sum_outer_jf_jf_packed[ivalue] +=
-                            dx_drt_ref_frame_packed[i]*dx_drt_ref_frame_packed[j];
-            }
+                    for(int j=0; j<2; j++, ivalue++)
+                        sum_outer_jf_jcw_packed[ivalue] +=
+                            dx_drt_ref_frame_packed[i]*
+                            dx_dcalobject_warp_packed[j];
 
-            // Accumulate Jcrosst Jcross = sum(outer(jcross, jcross))
-            Jcross_t__Jcross
-            for(int i=0; i<6; i++)
-                Jcrosst_x[i] += x[imeas]
+                ival += num_states_calobject_warp-1;
+            }
         }
     }
 
-#error finish_Jcross_computations() here too.
-#error barf if I see a point gradient
-#error handle calobject_warp gradient properly
+    if(state_index_frame_current >= 0)
+        finish_Jcross_computations(state_index_frame_current,
+                                   &bpacked[state_index_frame_current]);
 
+    // I now have filled Jcross_t__Jcross and Jcross_t__J_fcw_noi_noe. I can
+    // compute
+    //
+    //   inv(Jcross_t Jcross) Jcross_t J_fcw
+    double inv_JcrosstJcross_det[(6+1)*6/2];
+    double det = cofactors_sym6(Jcross_t__Jcross,
+                                inv_JcrosstJcross_det);
 
+    mul_genN6_sym66_scaled_strided(6,
+                                   Jcross_t__J_fcw_noi_noe, 1, Nstate_noi_noe,
+                                   inv_JcrosstJcross_det,
+                                   1. / det);
 
+    // I now have a matrix V = inv(Jcross_t Jcross) Jcross_t J_fcw* and I can
+    // compute
+    //
+    //   U = V inv(J*tJ*)
 
+    // I don't want to dynamically allocate memory, and I don't want to waste
+    // space to store the 0 entries for the intrinsics and extrinsics, but I
+    // don't see API options in CHOLMOD to allow me to not do that. I just
+    // implement it in the obvious, and inefficient way for now
+    double* pool = aligned_alloc(16, 6*Nstate*2); // input and output
+    if(pool == NULL)
+    {
+        MSG("Error allocating memory. Giving up");
+        return false;
+    }
 
-
-
-
-
-    cholmod_dense b = {
-        .nrow  = Jt->nrow,
-        .ncol  = Nobservations,
-        .nzmax = Nobservations * Jt->nrow,
-        .d     = Jt->nrow,
-        .x     = PyArray_DATA((PyArrayObject*)Py_bt),
-        .xtype = CHOLMOD_REAL,
-        .dtype = CHOLMOD_DOUBLE };
-
-    Py_out = PyArray_SimpleNew(ndim,
-                               PyArray_DIMS((PyArrayObject*)Py_bt),
-                               NPY_DOUBLE);
-    if(Py_out == NULL)
+    {
+        for(int i=0; i<6; i++)
         {
-            BARF("Couldn't allocate Py_out");
-            goto done;
+            double* row_out = &pool[Nstate*i];
+            double* row_in  = &Jcross_t__J_fcw_noi_noe[Nstate_noi_noe*i];
+            memset(row_out, 0, Nstate_i_e*sizeof(double));
+            memcpy(&row_out[Nstate_i_e], row_in, Nstate_noi_noe*sizeof(double));
         }
 
-    cholmod_dense out = {
-        .nrow  = Jt->nrow,
-        .ncol  = Nobservations,
-        .nzmax = Nobservations * Jt->nrow,
-        .d     = Jt->nrow,
-        .x     = PyArray_DATA((PyArrayObject*)Py_out),
-        .xtype = CHOLMOD_REAL,
-        .dtype = CHOLMOD_DOUBLE };
+        cholmod_dense b = {
+            .nrow  = Nstate,
+            .ncol  = 6,
+            .nzmax = Nstate*6,
+            .d     = Nstate,
+            .x     = &pool[0*Nstate],
+            .xtype = CHOLMOD_REAL,
+            .dtype = CHOLMOD_DOUBLE };
 
-    cholmod_dense* M = &out;
-    cholmod_dense* Y = NULL;
-    cholmod_dense* E = NULL;
+        cholmod_dense out = {
+            .nrow  = Nstate,
+            .ncol  = 6,
+            .nzmax = Nstate*6,
+            .d     = Nstate,
+            .x     = &pool[6*Nstate],
+            .xtype = CHOLMOD_REAL,
+            .dtype = CHOLMOD_DOUBLE };
 
-    if(!cholmod_solve2( CHOLMOD_A, self->factorization,
-                        &b, NULL,
-                        &M, NULL, &Y, &E,
-                        &self->common))
+
+        cholmod_dense* M = &out;
+        cholmod_dense* Y = NULL;
+        cholmod_dense* E = NULL;
+
+        if(!cholmod_solve2( CHOLMOD_A, factorization,
+                            &b, NULL,
+                            &M, NULL, &Y, &E,
+                            &cholmod_common))
         {
             BARF("cholmod_solve2() failed");
-            goto done;
+            free(pool);
+            return false;
         }
-    if( M != &out )
+        if( M != &out )
         {
             BARF("cholmod_solve2() reallocated out! We leaked memory");
-            goto done;
+            free(pool);
+            return false;
         }
-    cholmod_free_dense (&E, &self->common);
-    cholmod_free_dense (&Y, &self->common);
+        cholmod_free_dense (&E, &cholmod_common);
+        cholmod_free_dense (&Y, &cholmod_common);
+    }
 
-    // cholmod_sparse Jt = {
-    //     .nrow   = Nstate,
-    //     .ncol   = Nmeasurements,
-    //     .nzmax  = N_j_nonzero,
-    //     .stype  = 0,
-    //     .itype  = CHOLMOD_INT,
-    //     .xtype  = CHOLMOD_REAL,
-    //     .dtype  = CHOLMOD_DOUBLE,
-    //     .sorted = 1,
-    //     .packed = 1 };
+    const double* U = &pool[6*Nstate];
+    // I can now compute
+    //
+    //   K = inv(Jcross_t Jcross) Jcross_t J_fcw* inv(J*tJ*) Jobservations*t
+    //     = U Jobservations*t
+    //
+    // I ultimately want
+    //
+    //   Var(rt_ref_refperturbed) = s^2 K Kt =
+    //                            = s^2 sum(outer(row_i(U Jobservations*t),
+    //                                            row_i(U Jobservations*t)))
+    //
+    // So for a given row J I accumulate outer(U J, U J)
 
+    double Var_rt_ref_refperturbed[(6+1)*6/2] = {};
+
+    for(int imeas=0; imeas<Nmeas_obs; imeas++)
+    {
+        double uj[6] = {};
+
+        for(int32_t ival = Jrowptr[imeas]; ival < Jrowptr[imeas+1]; ival++)
+        {
+            int32_t      icol = Jcolidx[ival];
+            const double x    = Jval   [ival];
+
+            for(int i=0; i<6; i++)
+                uj[i] += x*U[Nstate*i + icol];
+        }
+
+        int ivalue = 0;
+        for(int i=0; i<6; i++)
+            for(int j=i; j<6; j++, ivalue++)
+                Var_rt_ref_refperturbed[ivalue] += uj[i] * uj[j];
+    }
+
+    int ivalue = 0;
+    for(int i=0; i<6; i++)
+        for(int j=i; j<6; j++, ivalue++)
+            Var_rt_ref_refperturbed[ivalue] *= s*s;
+
+    free(pool);
+
+    return true;
 }
