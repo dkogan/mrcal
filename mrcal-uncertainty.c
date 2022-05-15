@@ -131,15 +131,15 @@ In any case...
 
     And
 
-                [ xxx drr0 ]
-                [ xxx drr0 ]
-                [ xxx drr0 ]
-                [ xxx drr1 ]
+               [ xxx drr0 ]
+               [ xxx drr0 ]
+               [ xxx drr0 ]
+               [ xxx drr1 ]
       Jcross = [ xxx drr1 ]
-                [ xxx drr1 ]
-                [ xxx drr2 ]
-                [ xxx drr2 ]
-                [ xxx drr2 ]
+               [ xxx drr1 ]
+               [ xxx drr2 ]
+               [ xxx drr2 ]
+               [ xxx drr2 ]
 
     Where the xxx terms are the flattened "frame" terms from J_fcw that use the
     unpacked state. And drr are the drt_ref_frameperturbed__drt_ref_refperturbed
@@ -147,8 +147,8 @@ In any case...
 
     Putting everything together, we have
 
-      K = inv(Jcross_t Jcross) Jcross_t       J_fcw*              inv(J*tJ*)       Jobservations*t
-                  (6,6)          (6, Nmeas_obs)  (Nmeas_obs,Nstate)  (Nstate,Nstate)  (Nstate, Nmeas_obs)
+      K = inv(Jcross_t Jcross)    Jcross_t          J_fcw*            inv(J*tJ*)      Jobservations*t
+                  (6,6)        (6, Nmeas_obs)  (Nmeas_obs,Nstate)  (Nstate,Nstate)  (Nstate, Nmeas_obs)
 
       Var(rt_ref_refperturbed) = s^2 K Kt
 
