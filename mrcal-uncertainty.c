@@ -1,7 +1,13 @@
 #include <suitesparse/cholmod.h>
+
+#if (CHOLMOD_VERSION > (CHOLMOD_VER_CODE(2,2)))
+#include <suitesparse/cholmod_function.h>
+#endif
+
 #include <string.h>
 #include <math.h>
 #include <malloc.h>
+#include <stdarg.h>
 
 #include "mrcal.h"
 #include "minimath/minimath-extra.h"
@@ -23,6 +29,17 @@
 
 
 
+
+// stolen from libdogleg
+static int cholmod_error_callback(const char* s, ...)
+{
+  va_list ap;
+  va_start(ap, s);
+  int ret = vfprintf(stderr, s, ap);
+  va_end(ap);
+  fprintf(stderr, "\n");
+  return ret;
+}
 
 static
 void finish_Jcross_computations(// output
@@ -349,11 +366,13 @@ bool mrcal_rt_ref_refperturbed(// output
                                const double* bpacked,
                                const double* x,
 
-                               const cholmod_sparse* Jt,
+                               // cholmod_analyze() and cholmod_factorize() require non-const
+                               /* const */ cholmod_sparse* Jt,
+
                                // if NULL, I recompute
                                cholmod_factor* factorization,
                                // if NULL, I reuse
-                               cholmod_common*       cholmod_common,
+                               cholmod_common* cholmod_common,
 
                                // meta-parameters
                                int Nstate,
@@ -524,7 +543,10 @@ In any case...
 
     */
 
-    bool result = false;
+    bool result                             = false;
+    bool need_to_free_cholmod_common        = false;
+    bool need_to_free_cholmod_factorization = false;
+
     // contains both input and output
     double* pool = NULL;
 
@@ -604,6 +626,58 @@ In any case...
         MSG("Unexpected state vector layout. Giving up");
         goto done;
     }
+
+    if( cholmod_common == NULL )
+    {
+        if( !cholmod_start(cholmod_common) )
+        {
+            MSG("Error calling cholmod_start()");
+            goto done;
+        }
+
+        // stolen from libdogleg
+
+        // I want to use LGPL parts of CHOLMOD only, so I turn off the supernodal routines. This gave me a
+        // 25% performance hit in the solver for a particular set of optical calibration data.
+        cholmod_common->supernodal = 0;
+
+        // I want all output to go to STDERR, not STDOUT
+#if (CHOLMOD_VERSION <= (CHOLMOD_VER_CODE(2,2)))
+        cholmod_common->print_function = cholmod_error_callback;
+#else
+        CHOLMOD_FUNCTION_DEFAULTS ;
+        CHOLMOD_FUNCTION_PRINTF(cholmod_common) = cholmod_error_callback;
+#endif
+
+        need_to_free_cholmod_common = true;
+    }
+
+    if( factorization == NULL )
+    {
+        factorization = cholmod_analyze(Jt, cholmod_common);
+
+        if(factorization == NULL)
+        {
+            MSG("cholmod_analyze() failed");
+            goto done;
+        }
+        if( !cholmod_factorize(Jt, factorization, cholmod_common) )
+        {
+            MSG("cholmod_factorize() failed");
+            goto done;
+        }
+        if(factorization->minor != factorization->n)
+        {
+            MSG("Got singular JtJ!");
+            goto done;
+        }
+
+        need_to_free_cholmod_factorization = true;
+    }
+
+
+
+
 
 
 
@@ -841,6 +915,12 @@ In any case...
  done:
     if(pool != NULL)
         free(pool);
+
+    if(factorization != NULL && need_to_free_cholmod_factorization)
+        cholmod_free_factor(&factorization, cholmod_common);
+
+    if(cholmod_common != NULL && need_to_free_cholmod_common)
+        cholmod_finish(cholmod_common);
 
     return result;
 }
