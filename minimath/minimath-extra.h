@@ -38,11 +38,11 @@ void mul_gen33_gen33insym66(// output
             P[iout*P_strideelems0 + jout*P_strideelems1] = 0;
             for(int k=0; k<3; k++)
             {
-                P[iout*P_strideelems0 + jout*p_strideelems1] +=
+                P[iout*P_strideelems0 + jout*P_strideelems1] +=
                     A[iout*A_strideelems0 + k*A_strideelems1] *
                     Bsym66[index_sym66(k+B_i0, jout+B_j0)];
             }
-            P[iout*P_strideelems0 + jout*p_strideelems1] *= scale;
+            P[iout*P_strideelems0 + jout*P_strideelems1] *= scale;
         }
 }
 // Assumes the output is symmetric, and only computes the upper triangle
@@ -1891,7 +1891,7 @@ void mul_gen23_gen33_accum(// output
     for(int iout=0; iout<2; iout++)
         for(int jout=0; jout<3; jout++)
             for(int k=0; k<3; k++)
-                P[iout*P_strideelems0 + jout*p_strideelems1] +=
+                P[iout*P_strideelems0 + jout*P_strideelems1] +=
                     A[iout*A_strideelems0 + k   *A_strideelems1] *
                     B[k   *B_strideelems0 + jout*B_strideelems1] *
                     scale;
@@ -1916,7 +1916,7 @@ static inline void mul_genN6_sym66_scaled_strided(int n,
                                                   const double scale)
 {
   for(int i=0; i<n; i++)
-      mul_vec6_sym66_strided(v + v_strideelems0*i, v_strideelems1,
-                             s,
-                             scale);
+      mul_vec6_sym66_scaled_strided(v + v_strideelems0*i, v_strideelems1,
+                                    s,
+                                    scale);
 }
