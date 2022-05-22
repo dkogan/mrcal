@@ -356,42 +356,42 @@ void finish_Jcross_computations(// output
     memset(sum_outer_jf_jcw_packed, 0, 6*2      *sizeof(double));
 }
 
-bool mrcal_rt_ref_refperturbed(// output
-                               // Symmetric 6x6, stored densely. Not scaled with
-                               // observed_pixel_uncertainty
-                               double* Var_rt_ref_refperturbed,
+bool mrcal_var_rt_ref_refperturbed(// output
+                                   // Symmetric 6x6, stored densely. Not scaled with
+                                   // observed_pixel_uncertainty
+                                   double* Var_rt_ref_refperturbed,
 
-                               // inputs
-                               // stuff that describes this solve
-                               const double* b_packed,
-                               // used only to confirm that the user passed-in the buffer they
-                               // should have passed-in. The size must match exactly
-                               int buffer_size_b_packed,
+                                   // inputs
+                                   // stuff that describes this solve
+                                   const double* b_packed,
+                                   // used only to confirm that the user passed-in the buffer they
+                                   // should have passed-in. The size must match exactly
+                                   int buffer_size_b_packed,
 #warning "use buffer_size_b_packed"
 
-                               // The unitless Jacobian, used by the internal
-                               // optimization routines
-                               // cholmod_analyze() and cholmod_factorize()
-                               // require non-const
-                               /* const */
-                               cholmod_sparse* Jt,
+                                   // The unitless Jacobian, used by the internal
+                                   // optimization routines
+                                   // cholmod_analyze() and cholmod_factorize()
+                                   // require non-const
+                                   /* const */
+                                   cholmod_sparse* Jt,
 
-                               // if NULL, I recompute
-                               cholmod_factor* factorization,
-                               // if NULL, I reuse
-                               cholmod_common* cholmod_common,
+                                   // if NULL, I recompute
+                                   cholmod_factor* factorization,
+                                   // if NULL, I reuse
+                                   cholmod_common* cholmod_common,
 
-                               // meta-parameters
-                               int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
-                               int Npoints, int Npoints_fixed, // at the end of points[]
-                               int Nobservations_board,
-                               int Nobservations_point,
+                                   // meta-parameters
+                                   int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
+                                   int Npoints, int Npoints_fixed, // at the end of points[]
+                                   int Nobservations_board,
+                                   int Nobservations_point,
 
-                               const mrcal_lensmodel_t* lensmodel,
-                               mrcal_problem_selections_t problem_selections,
+                                   const mrcal_lensmodel_t* lensmodel,
+                                   mrcal_problem_selections_t problem_selections,
 
-                               int calibration_object_width_n,
-                               int calibration_object_height_n)
+                                   int calibration_object_width_n,
+                                   int calibration_object_height_n)
 {
     /*
     docs in docstring of

@@ -771,10 +771,12 @@ mrcal_optimize( // out
                 bool check_gradient);
 
 
-// This is cholmod_sparse. I don't want to include the full header that defines
-// it in mrcal.h, and I don't need to: mrcal.h just needs to know that it's a
-// structure
+// These are cholmod_sparse, cholmod_factor, cholmod_common. I don't want to
+// include the full header that defines these in mrcal.h, and I don't need to:
+// mrcal.h just needs to know that these are a structure
 struct cholmod_sparse_struct;
+struct cholmod_factor_struct;
+struct cholmod_common_struct;
 
 // Evaluate the value of the callback function at the given operating point
 //
@@ -849,6 +851,43 @@ bool mrcal_optimizer_callback(// out
                              int calibration_object_width_n,
                              int calibration_object_height_n,
                              bool verbose);
+
+bool mrcal_var_rt_ref_refperturbed(// output
+                                   // Symmetric 6x6, stored densely. Not scaled with
+                                   // observed_pixel_uncertainty
+                                   double* Var_rt_ref_refperturbed,
+
+                                   // inputs
+                                   // stuff that describes this solve
+                                   const double* b_packed,
+                                   // used only to confirm that the user passed-in the buffer they
+                                   // should have passed-in. The size must match exactly
+                                   int buffer_size_b_packed,
+#warning "use buffer_size_b_packed"
+
+                                   // The unitless Jacobian, used by the internal
+                                   // optimization routines
+                                   // cholmod_analyze() and cholmod_factorize()
+                                   // require non-const
+                                   /* const */
+                                   struct cholmod_sparse_struct* Jt,
+
+                                   // if NULL, I recompute
+                                   struct cholmod_factor_struct* factorization,
+                                   // if NULL, I reuse
+                                   struct cholmod_common_struct* cholmod_common,
+
+                                   // meta-parameters
+                                   int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
+                                   int Npoints, int Npoints_fixed, // at the end of points[]
+                                   int Nobservations_board,
+                                   int Nobservations_point,
+
+                                   const mrcal_lensmodel_t* lensmodel,
+                                   mrcal_problem_selections_t problem_selections,
+
+                                   int calibration_object_width_n,
+                                   int calibration_object_height_n);
 
 
 ////////////////////////////////////////////////////////////////////////////////
