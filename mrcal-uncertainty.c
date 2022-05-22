@@ -364,10 +364,17 @@ bool mrcal_rt_ref_refperturbed(// output
                                // inputs
                                // stuff that describes this solve
                                const double* b_packed,
-                               const double* x,
+                               // used only to confirm that the user passed-in the buffer they
+                               // should have passed-in. The size must match exactly
+                               int buffer_size_b_packed,
+#warning "use buffer_size_b_packed"
 
-                               // cholmod_analyze() and cholmod_factorize() require non-const
-                               /* const */ cholmod_sparse* Jt,
+                               // The unitless Jacobian, used by the internal
+                               // optimization routines
+                               // cholmod_analyze() and cholmod_factorize()
+                               // require non-const
+                               /* const */
+                               cholmod_sparse* Jt,
 
                                // if NULL, I recompute
                                cholmod_factor* factorization,
@@ -375,13 +382,16 @@ bool mrcal_rt_ref_refperturbed(// output
                                cholmod_common* cholmod_common,
 
                                // meta-parameters
-                               int Nstate,
-                               int Nmeas_obs,
-                               int Ncameras_intrinsics, int Ncameras_extrinsics,
-                               int Nframes,
-                               int Npoints, int Npoints_fixed, int Nobservations_board,
+                               int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
+                               int Npoints, int Npoints_fixed, // at the end of points[]
+                               int Nobservations_board,
+                               int Nobservations_point,
+
+                               const mrcal_lensmodel_t* lensmodel,
                                mrcal_problem_selections_t problem_selections,
-                               const mrcal_lensmodel_t* lensmodel)
+
+                               int calibration_object_width_n,
+                               int calibration_object_height_n)
 {
     /*
     docs in docstring of
@@ -550,13 +560,16 @@ In any case...
     // contains both input and output
     double* pool = NULL;
 
-#warning add real logic
-#if 0
-    if(have points)
-    {
-        barf;
-    }
-#endif
+    int Nmeas_boards =
+        mrcal_num_measurements_boards(Nobservations_board,
+                                      calibration_object_width_n,
+                                      calibration_object_height_n);
+    int Nmeas_points =
+        mrcal_num_measurements_points(Nobservations_point);
+
+    const int Nmeas_obs = Nmeas_boards + Nmeas_points;
+
+#warning should support multiple cameras
 
     const int state_index_frame0 =
         mrcal_state_index_frames(0,
@@ -571,6 +584,13 @@ In any case...
                                          Npoints, Npoints_fixed, Nobservations_board,
                                          problem_selections,
                                          lensmodel);
+    const int Nstate =
+        mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
+                         Nframes,
+                         Npoints, Npoints_fixed, Nobservations_board,
+                         problem_selections,
+                         lensmodel);
+
     const int num_states_frames =
         mrcal_num_states_frames(Nframes,
                                 problem_selections);
@@ -601,6 +621,17 @@ In any case...
 
 
 
+    if(Nmeas_points != 0)
+    {
+        MSG("ERROR: %s() currently is not implemented for point observations", __func__);
+        goto done;
+    }
+    if(Nstate != (int)Jt->nrow)
+    {
+        MSG("Inconsistent inputs. I have Nstate=%d, but Jt->nrow=%d. Giving up",
+            Nstate, (int)Jt->nrow);
+        goto done;
+    }
     if(state_index_frame0 < 0)
     {
         MSG("Uncertainty computation is currently implemented only if frames are being optimized");
