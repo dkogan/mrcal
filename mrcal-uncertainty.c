@@ -363,7 +363,7 @@ bool mrcal_rt_ref_refperturbed(// output
 
                                // inputs
                                // stuff that describes this solve
-                               const double* bpacked,
+                               const double* b_packed,
                                const double* x,
 
                                // cholmod_analyze() and cholmod_factorize() require non-const
@@ -735,7 +735,7 @@ In any case...
                                                 Jcross_t__Jcross,
                                                 sum_outer_jf_jf_packed,
                                                 sum_outer_jf_jcw_packed,
-                                                &bpacked[state_index_frame_current],
+                                                &b_packed[state_index_frame_current],
                                                 state_index_frame_current,
                                                 state_index_frame0,
                                                 state_index_calobject_warp0,
@@ -787,7 +787,7 @@ In any case...
                                     Jcross_t__Jcross,
                                     sum_outer_jf_jf_packed,
                                     sum_outer_jf_jcw_packed,
-                                    &bpacked[state_index_frame_current],
+                                    &b_packed[state_index_frame_current],
                                     state_index_frame_current,
                                     state_index_frame0,
                                     state_index_calobject_warp0,
