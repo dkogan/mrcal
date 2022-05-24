@@ -379,7 +379,7 @@ bool mrcal_var_rt_ref_refperturbed(// output
                                    // if NULL, I recompute
                                    cholmod_factor* factorization,
                                    // if NULL, I reuse
-                                   cholmod_common* cholmod_common,
+                                   cholmod_common* common,
 
                                    // meta-parameters
                                    int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
@@ -557,6 +557,8 @@ In any case...
     bool need_to_free_cholmod_common        = false;
     bool need_to_free_cholmod_factorization = false;
 
+    cholmod_common cholmod_common_local;
+
     // contains both input and output
     double* pool = NULL;
 
@@ -658,26 +660,27 @@ In any case...
         goto done;
     }
 
-    if( cholmod_common == NULL )
+    if( common == NULL )
     {
-        if( !cholmod_start(cholmod_common) )
+        if( !cholmod_start(&cholmod_common_local) )
         {
             MSG("Error calling cholmod_start()");
             goto done;
         }
+        common = &cholmod_common_local;
 
         // stolen from libdogleg
 
         // I want to use LGPL parts of CHOLMOD only, so I turn off the supernodal routines. This gave me a
         // 25% performance hit in the solver for a particular set of optical calibration data.
-        cholmod_common->supernodal = 0;
+        common->supernodal = 0;
 
         // I want all output to go to STDERR, not STDOUT
 #if (CHOLMOD_VERSION <= (CHOLMOD_VER_CODE(2,2)))
-        cholmod_common->print_function = cholmod_error_callback;
+        common->print_function = cholmod_error_callback;
 #else
         CHOLMOD_FUNCTION_DEFAULTS ;
-        CHOLMOD_FUNCTION_PRINTF(cholmod_common) = cholmod_error_callback;
+        CHOLMOD_FUNCTION_PRINTF(common) = cholmod_error_callback;
 #endif
 
         need_to_free_cholmod_common = true;
@@ -685,14 +688,14 @@ In any case...
 
     if( factorization == NULL )
     {
-        factorization = cholmod_analyze(Jt, cholmod_common);
+        factorization = cholmod_analyze(Jt, common);
 
         if(factorization == NULL)
         {
             MSG("cholmod_analyze() failed");
             goto done;
         }
-        if( !cholmod_factorize(Jt, factorization, cholmod_common) )
+        if( !cholmod_factorize(Jt, factorization, common) )
         {
             MSG("cholmod_factorize() failed");
             goto done;
@@ -889,7 +892,7 @@ In any case...
         if(!cholmod_solve2( CHOLMOD_A, factorization,
                             &b, NULL,
                             &M, NULL, &Y, &E,
-                            cholmod_common))
+                            common))
         {
             MSG("cholmod_solve2() failed");
             goto done;
@@ -899,8 +902,8 @@ In any case...
             MSG("cholmod_solve2() reallocated out! We leaked memory");
             goto done;
         }
-        cholmod_free_dense (&E, cholmod_common);
-        cholmod_free_dense (&Y, cholmod_common);
+        cholmod_free_dense (&E, common);
+        cholmod_free_dense (&Y, common);
     }
 
     const double* U = &pool[6*Nstate];
@@ -948,10 +951,10 @@ In any case...
         free(pool);
 
     if(factorization != NULL && need_to_free_cholmod_factorization)
-        cholmod_free_factor(&factorization, cholmod_common);
+        cholmod_free_factor(&factorization, common);
 
-    if(cholmod_common != NULL && need_to_free_cholmod_common)
-        cholmod_finish(cholmod_common);
+    if(common != NULL && need_to_free_cholmod_common)
+        cholmod_finish(common);
 
     return result;
 }
