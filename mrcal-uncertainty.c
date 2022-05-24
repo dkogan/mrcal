@@ -560,7 +560,7 @@ In any case...
     cholmod_common cholmod_common_local;
 
     // contains both input and output
-    double* pool = NULL;
+    double* pool __attribute__ ((aligned (16))) = NULL;
 
     int Nmeas_boards =
         mrcal_num_measurements_boards(Nobservations_board,
