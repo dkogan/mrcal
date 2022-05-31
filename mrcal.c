@@ -452,6 +452,33 @@ int mrcal_num_measurements_points(int Nobservations_point)
     return Nobservations_point * 3;
 }
 
+#error find references
+int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have any of these
+                                               const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                                               int Nobservations_point_triangulated)
+{
+    if(observations_point_triangulated == NULL ||
+       Nobservations_point_triangulated <= 0)
+        return 0;
+
+    int Nmeas = 0;
+
+    for(int i=0; i<Nobservations_point_triangulated; i++)
+    {
+        int Nset = 1;
+        while(!observations_point_triangulated[i].last_in_set)
+        {
+            Nset++;
+            i++;
+        }
+
+        // This set has Nset points. Each pair produces a measurement
+        Nmeas += Nset*(Nset-1) / 2;
+    }
+
+    return Nmeas;
+}
+
 int mrcal_measurement_index_regularization(int Nobservations_board,
                                            int Nobservations_point,
                                            int calibration_object_width_n,
@@ -475,8 +502,14 @@ int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_
         num_regularization_terms_percamera(problem_selections, lensmodel);
 }
 
+#error find references
 int mrcal_num_measurements(int Nobservations_board,
                            int Nobservations_point,
+
+                           // May be NULL if we don't have any of these
+                           const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                           int Nobservations_point_triangulated,
+
                            int calibration_object_width_n,
                            int calibration_object_height_n,
                            int Ncameras_intrinsics, int Ncameras_extrinsics,
@@ -490,6 +523,8 @@ int mrcal_num_measurements(int Nobservations_board,
                                        calibration_object_width_n,
                                        calibration_object_height_n) +
         mrcal_num_measurements_points(Nobservations_point) +
+        mrcal_num_measurements_points_triangulated(observations_point_triangulated,
+                                                   Nobservations_point_triangulated) +
         mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
                                               Nframes,
                                               Npoints, Npoints_fixed, Nobservations_board,
@@ -497,8 +532,14 @@ int mrcal_num_measurements(int Nobservations_board,
                                               lensmodel);
 }
 
+#error find references
 int _mrcal_num_j_nonzero(int Nobservations_board,
                          int Nobservations_point,
+
+                         // May be NULL if we don't have any of these
+                         const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                         int Nobservations_point_triangulated,
+
                          int calibration_object_width_n,
                          int calibration_object_height_n,
                          int Ncameras_intrinsics, int Ncameras_extrinsics,
@@ -568,6 +609,35 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
             observations_point[i].icam.extrinsics >= 0 )
             N += 6;
     }
+
+    // And the triangulated point observations
+    if(observations_point_triangulated != NULL &&
+       Nobservations_point_triangulated > 0)
+        for(int i0=0; i0<Nobservations_point_triangulated; i0++)
+        {
+            if(observations_point_triangulated[i0].last_in_set)
+                continue;
+
+            int Nvars0 = Nintrinsics_per_measurement;
+            if( problem_selections.do_optimize_extrinsics &&
+                observations_point_triangulated[i0].icam.extrinsics >= 0 )
+                Nvars0 += 6;
+
+            int i1 = i0;
+
+            do
+            {
+                i1++;
+
+                int Nvars1 = Nintrinsics_per_measurement;
+                if( problem_selections.do_optimize_extrinsics &&
+                    observations_point_triangulated[i1].icam.extrinsics >= 0 )
+                    Nvars1 += 6;
+
+                N += Nvars0 + Nvars1;
+
+            } while(!observations_point_triangulated[i1].last_in_set);
+        }
 
     if(lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
@@ -3736,6 +3806,9 @@ typedef struct
     const mrcal_observation_point_t* observations_point;
     int Nobservations_point;
 
+    const mrcal_observation_triangulated_point_t* observations_point_triangulated;
+    int Nobservations_point_triangulated;
+
     bool verbose;
 
     mrcal_lensmodel_t lensmodel;
@@ -4620,6 +4693,199 @@ void optimizer_callback(// input state
         }
     }
 
+    // Handle all the triangulated point observations. This is VERY similar to
+    // the board-observation loop above. Please consolidate
+    if( ctx->observations_point_triangulated != NULL &&
+        ctx->Nobservations_point_triangulated )
+    {
+        if( ! (!ctx->problem_selections.do_optimize_intrinsics_core &&
+               !ctx->problem_selections.do_optimize_intrinsics_distortions &&
+               ctx->problem_selections.do_optimize_extrinsics ) )
+        {
+            // Shouldn't get here. Have a check with an error message in
+            // mrcal_optimize() and mrcal_optimizer_callback()
+            assert(0);
+        }
+
+        for(int i0 = 0;
+            i0 < ctx->Nobservations_point_triangulated;
+            i0++)
+        {
+            const mrcal_observation_triangulated_point_t* pt0 =
+                &ctx->observations_point_triangulated[i0];
+            if(pt0->last_in_set)
+                continue;
+
+            mrcal_point3_t t01;
+
+            // I transform the camera-local observation vectors to the
+            // reference coordinate system, and triangulate there
+            const mrcal_point3_t* v0 = pt0->v;
+            const mrcal_point3_t* v0ref;
+            mrcal_point3_t _v0ref;
+            mrcal_point3_t dv0ref_dr_0ref[3];
+
+            mrcal_point3_t dt01_dr_0ref[3];
+            mrcal_point3_t dt01_dt_0ref[3];
+
+            const int icam_extrinsics0 = pt0->icam.extrinsics;
+            bool camera_at_identity0 = icam_extrinsics0 < 0;
+            if(!camera_at_identity0)
+            {
+                const mrcal_pose_t* rt_0ref = &camera_rt[icam_extrinsics0];
+                v0ref = &_v0ref;
+                mrcal_rotate_point_r_full(v0_ref.xyz, 0,
+                                          dv0ref_dr_0ref[0].xyz, 0,0,
+                                          NULL,0,0,
+
+                                          rt_0ref->r.xyz,0,
+                                          v0->xyz,0,
+                                          true);
+
+                // t_01 = t_ref1 - t_ref0
+                // Here I store -t_ref0 = R_ref0*t_0ref
+                mrcal_rotate_point_r_full(t01.xyz, 0,
+                                          dt01_dr_0ref[0].xyz, 0,0,
+                                          dt01_dt_0ref[0].xyz, 0,0,
+
+                                          rt_0ref->r.xyz,0,
+                                          rt_0ref->t.xyz,0,
+                                          true);
+            }
+            else
+            {
+                v0_ref = v0;
+
+                // t_01 = t_ref1 - t_ref0
+                // Here I store -t_ref0 = R_ref0*t_0ref = t_0ref
+                t01 = rt_0ref->t;
+            }
+
+
+
+            int i1 = i0+1;
+
+            while(true)
+            {
+                const mrcal_observation_triangulated_point_t* pt1 =
+                    &ctx->observations_point_triangulated[i1];
+
+                // I transform the camera-local observation vectors to the
+                // reference coordinate system, and triangulate there
+                const mrcal_point3_t* v1 = pt1->v;
+                const mrcal_point3_t* v1ref;
+                mrcal_point3_t _v1ref;
+                mrcal_point3_t dv1ref_dr_1ref[3];
+
+                mrcal_point3_t dnegt01_dr_1ref[3];
+                mrcal_point3_t dnegt01_dt_1ref[3];
+
+                const int icam_extrinsics1 = pt1->icam.extrinsics;
+                bool camera_at_identity1 = icam_extrinsics1 < 0;
+                if(!camera_at_identity1)
+                {
+                    const mrcal_pose_t* rt_1ref = &camera_rt[icam_extrinsics1];
+                    v1ref = &_v1ref;
+                    mrcal_rotate_point_r_full(v1_ref.xyz, 0,
+                                              dv1ref_dr_1ref[1].xyz, 0,0,
+                                              NULL,0,0,
+
+                                              rt_1ref->r.xyz,0,
+                                              v1->xyz,0,
+                                              true);
+
+                    // t_01 = t_ref1 - t_ref0
+                    // Here I add t_ref1 to the -t_ref0 that's already there
+                    // t_ref1 = -R_ref1*t_1ref
+                    mrcal_point3_t negt_ref1;
+                    mrcal_rotate_point_r_full(negt_ref1.xyz, 0,
+                                              dnegt01_dr_1ref[0].xyz, 0,0,
+                                              dnegt01_dt_1ref[0].xyz, 0,0,
+
+                                              rt_1ref->r.xyz,0,
+                                              rt_1ref->t.xyz,0,
+                                              true);
+                    for(int i=0; i<3; i++)
+                        t01.xyz[i] -= negt_ref1.xyz[i];
+                }
+                else
+                {
+                    v1_ref = v1;
+
+                    // t_01 = t_ref1 - t_ref0
+                    // Here I add t_ref1 to the -t_ref0 that's already there
+                    // t_ref1 = -R_ref1*t_1ref = -t_1ref
+                    for(int i=0; i<3; i++)
+                        t01.xyz[i] -= rt_1ref->t.xyz[i];
+                }
+
+
+
+                mrcal_point3_t derr_dv0ref;
+                mrcal_point3_t derr_dv1ref;
+                mrcal_point3_t derr_dt01;
+
+                double err =
+                    _mrcal_triangulated_error(&derr_dv0ref, &derr_dv1ref, &derr_dt01,
+                                              &v0_ref, &v1_ref, &t01)
+
+
+                if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                x[iMeasurement] = err;
+                norm2_error += err*err;
+
+
+                // derr/dr_0ref = derr/dt01 dt01/dr_0ref + derr/dv0ref dv0ref/dr_0ref
+                // derr/dt_0ref = derr/dt01 dt01/dt_0ref
+                if( icam_extrinsics0 >= 0 )
+                {
+                    const int i_var_camera_rt0  =
+                        mrcal_state_index_extrinsics(icam_extrinsics0,
+                                                     ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                     ctx->Nframes,
+                                                     ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                     ctx->problem_selections, ctx->lensmodel);
+                    STORE_JACOBIAN3( i_var_camera_rt0 + 0,
+                                     ( derr_dt01  .x * dt01_dr_0ref  [0].x + derr_dt01  .y * dt01_dr_0ref  [1].x + derr_dt01  .z * dt01_dr_0ref  [2].x +
+                                       derr_dv0ref.x * dv0ref_dr_0ref[0].x + derr_dv0ref.y * dv0ref_dr_0ref[1].x + derr_dv0ref.z * dv0ref_dr_0ref[2].x ) * SCALE_ROTATION_CAMERA,
+                                     ( derr_dt01  .x * dt01_dr_0ref  [0].y + derr_dt01  .y * dt01_dr_0ref  [1].y + derr_dt01  .z * dt01_dr_0ref  [2].y +
+                                       derr_dv0ref.x * dv0ref_dr_0ref[0].y + derr_dv0ref.y * dv0ref_dr_0ref[1].y + derr_dv0ref.z * dv0ref_dr_0ref[2].y ) * SCALE_ROTATION_CAMERA,
+                                     ( derr_dt01  .x * dt01_dr_0ref  [0].z + derr_dt01  .y * dt01_dr_0ref  [1].z + derr_dt01  .z * dt01_dr_0ref  [2].z +
+                                       derr_dv0ref.x * dv0ref_dr_0ref[0].z + derr_dv0ref.y * dv0ref_dr_0ref[1].z + derr_dv0ref.z * dv0ref_dr_0ref[2].z ) * SCALE_ROTATION_CAMERA );
+                    STORE_JACOBIAN3( i_var_camera_rt0 + 3,
+                                     ( derr_dt01  .x * dt01_dt_0ref  [0].x + derr_dt01  .y * dt01_dt_0ref  [1].x + derr_dt01  .z * dt01_dt_0ref  [2].x + * SCALE_TRANSLATION_CAMERA ),
+                                     ( derr_dt01  .x * dt01_dt_0ref  [0].y + derr_dt01  .y * dt01_dt_0ref  [1].y + derr_dt01  .z * dt01_dt_0ref  [2].y + * SCALE_TRANSLATION_CAMERA ),
+                                     ( derr_dt01  .x * dt01_dt_0ref  [0].z + derr_dt01  .y * dt01_dt_0ref  [1].z + derr_dt01  .z * dt01_dt_0ref  [2].z + * SCALE_TRANSLATION_CAMERA ) );
+                }
+                if( icam_extrinsics1 >= 0 )
+                {
+                    const int i_var_camera_rt1  =
+                        mrcal_state_index_extrinsics(icam_extrinsics1,
+                                                     ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                     ctx->Nframes,
+                                                     ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                     ctx->problem_selections, ctx->lensmodel);
+                    STORE_JACOBIAN3( i_var_camera_rt1 + 0,
+                                     (-derr_dt01  .x * dnegt01_dr_1ref[0].x - derr_dt01  .y * dnegt01_dr_1ref[1].x - derr_dt01  .z * dnegt01_dr_1ref[2].x +
+                                       derr_dv1ref.x * dv1ref_dr_1ref [0].x + derr_dv1ref.y * dv1ref_dr_1ref [1].x + derr_dv1ref.z * dv1ref_dr_1ref[2 ].x ) * SCALE_ROTATION_CAMERA,
+                                     (-derr_dt01  .x * dnegt01_dr_1ref[0].y - derr_dt01  .y * dnegt01_dr_1ref[1].y - derr_dt01  .z * dnegt01_dr_1ref[2].y +
+                                       derr_dv1ref.x * dv1ref_dr_1ref [0].y + derr_dv1ref.y * dv1ref_dr_1ref [1].y + derr_dv1ref.z * dv1ref_dr_1ref[2 ].y ) * SCALE_ROTATION_CAMERA,
+                                     (-derr_dt01  .x * dnegt01_dr_1ref[0].z - derr_dt01  .y * dnegt01_dr_1ref[1].z - derr_dt01  .z * dnegt01_dr_1ref[2].z +
+                                       derr_dv1ref.x * dv1ref_dr_1ref [0].z + derr_dv1ref.y * dv1ref_dr_1ref [1].z + derr_dv1ref.z * dv1ref_dr_1ref[2 ].z ) * SCALE_ROTATION_CAMERA );
+                    STORE_JACOBIAN3( i_var_camera_rt1 + 3,
+                                     -( derr_dt01  .x * dnegt01_dt_1ref[0].x + derr_dt01  .y * dnegt01_dt_1ref[1].x + derr_dt01  .z * dnegt01_dt_1ref[2].x + * SCALE_TRANSLATION_CAMERA ),
+                                     -( derr_dt01  .x * dnegt01_dt_1ref[0].y + derr_dt01  .y * dnegt01_dt_1ref[1].y + derr_dt01  .z * dnegt01_dt_1ref[2].y + * SCALE_TRANSLATION_CAMERA ),
+                                     -( derr_dt01  .x * dnegt01_dt_1ref[0].z + derr_dt01  .y * dnegt01_dt_1ref[1].z + derr_dt01  .z * dnegt01_dt_1ref[2].z + * SCALE_TRANSLATION_CAMERA ) );
+                }
+
+                iMeasurement++;
+
+                if(pt1->last_in_set)
+                    break;
+                i1++;
+            }
+        }
+    }
 
     ///////////////// Regularization
     if(ctx->problem_selections.do_apply_regularization &&
@@ -4959,6 +5225,9 @@ bool mrcal_optimizer_callback(// out
                              int Nobservations_board,
                              int Nobservations_point,
 
+                             const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                             int Nobservations_point_triangulated,
+
                              // All the board pixel observations, in order. .x,
                              // .y are the pixel observations .z is the weight
                              // of the observation. Most of the weights are
@@ -5000,6 +5269,16 @@ bool mrcal_optimizer_callback(// out
         goto done;
     }
 
+    if( ( observations_point_triangulated != NULL &&
+          Nobservations_point_triangulated ) &&
+        ! (!problem_selections.do_optimize_intrinsics_core &&
+           !problem_selections.do_optimize_intrinsics_distortions &&
+           problem_selections.do_optimize_extrinsics ) )
+    {
+        MSG("ERROR: We have triangulated points. At this time this is only allowed if we're NOT optimizing intrinsics AND if we ARE optimizing extrinsics.");
+        goto done;
+    }
+
 
     const int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
                                         Nframes,
@@ -5015,6 +5294,8 @@ bool mrcal_optimizer_callback(// out
 
     int Nmeasurements = mrcal_num_measurements(Nobservations_board,
                                                Nobservations_point,
+                                               observations_point_triangulated,
+                                               Nobservations_point_triangulated,
                                                calibration_object_width_n,
                                                calibration_object_height_n,
                                                Ncameras_intrinsics, Ncameras_extrinsics,
@@ -5025,6 +5306,8 @@ bool mrcal_optimizer_callback(// out
     int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
     int N_j_nonzero = _mrcal_num_j_nonzero(Nobservations_board,
                                            Nobservations_point,
+                                           observations_point_triangulated,
+                                           Nobservations_point_triangulated,
                                            calibration_object_width_n,
                                            calibration_object_height_n,
                                            Ncameras_intrinsics, Ncameras_extrinsics,
@@ -5062,6 +5345,8 @@ bool mrcal_optimizer_callback(// out
         .Nobservations_board        = Nobservations_board,
         .observations_point         = observations_point,
         .Nobservations_point        = Nobservations_point,
+        .observations_point_triangulated  = observations_point_triangulated,
+        .Nobservations_point_triangulated = Nobservations_point_triangulated,
         .verbose                    = verbose,
         .lensmodel                  = *lensmodel,
         .imagersizes                = imagersizes,
@@ -5132,6 +5417,9 @@ mrcal_optimize( // out
                 int Nobservations_board,
                 int Nobservations_point,
 
+                const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                int Nobservations_point_triangulated,
+
                 // All the board pixel observations, in order.
                 // .x, .y are the pixel observations
                 // .z is the weight of the observation. Most of the weights are
@@ -5167,6 +5455,20 @@ mrcal_optimize( // out
     }
     else
         problem_selections.do_optimize_calobject_warp = false;
+
+    if( ( observations_point_triangulated != NULL &&
+          Nobservations_point_triangulated ) &&
+        ! (!problem_selections.do_optimize_intrinsics_core &&
+           !problem_selections.do_optimize_intrinsics_distortions &&
+           problem_selections.do_optimize_extrinsics ) )
+    {
+        MSG("ERROR: We have triangulated points. At this time this is only allowed if we're NOT optimizing intrinsics AND if we ARE optimizing extrinsics.");
+        // Because the input to the triangulation routines is unprojected
+        // vectors, and I don't want to unproject as part of the optimization
+        // callback. And because I must optimize SOMETHING, so if I have fixed
+        // intrinsics then the extrinsics cannot be fixed
+        return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+    }
 
     if(!modelHasCore_fxfycxcy(lensmodel))
         problem_selections.do_optimize_intrinsics_core = false;
@@ -5216,6 +5518,8 @@ mrcal_optimize( // out
         .Nobservations_board        = Nobservations_board,
         .observations_point         = observations_point,
         .Nobservations_point        = Nobservations_point,
+        .observations_point_triangulated  = observations_point_triangulated,
+        .Nobservations_point_triangulated = Nobservations_point_triangulated,
         .verbose                    = verbose,
         .lensmodel                  = *lensmodel,
         .imagersizes                = imagersizes,
@@ -5226,6 +5530,8 @@ mrcal_optimize( // out
         .calibration_object_height_n= calibration_object_height_n > 0 ? calibration_object_height_n : 0,
         .Nmeasurements              = mrcal_num_measurements(Nobservations_board,
                                                              Nobservations_point,
+                                                             observations_point_triangulated,
+                                                             Nobservations_point_triangulated,
                                                              calibration_object_width_n,
                                                              calibration_object_height_n,
                                                              Ncameras_intrinsics, Ncameras_extrinsics,
@@ -5235,6 +5541,8 @@ mrcal_optimize( // out
                                                              lensmodel),
         .N_j_nonzero                = _mrcal_num_j_nonzero(Nobservations_board,
                                                            Nobservations_point,
+                                                           observations_point_triangulated,
+                                                           Nobservations_point_triangulated,
                                                            calibration_object_width_n,
                                                            calibration_object_height_n,
                                                            Ncameras_intrinsics, Ncameras_extrinsics,
@@ -5453,6 +5761,8 @@ mrcal_optimize( // out
                                 (dogleg_callback_t*)&optimizer_callback, &ctx);
 
     stats.rms_reproj_error__pixels =
+#error not correct for triangulated points either: 1 measurement, not 2
+        // THIS IS NOT CORRECT FOR POINTS. I have 3 measurements for points currently
         // /2 because I have separate x and y measurements
         sqrt(norm2_error / ((double)ctx.Nmeasurements / 2.0));
 

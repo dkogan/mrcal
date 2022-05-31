@@ -549,6 +549,28 @@ typedef struct
     mrcal_point3_t px;
 } mrcal_observation_point_t;
 
+// An observation of a discrete point where the point itself is NOT a part of
+// the optimization, but computed implicitly via triangulation. This structure
+// is very similar to mrcal_observation_point_t, except instead of i_point
+// identifying the point being observed we have
+#error FINISH DOC
+typedef struct
+{
+    // which camera is making this observation
+    mrcal_camera_index_t icam;
+
+#error DOCUMENT. CAN THIS BIT FIELD BE PACKED NICELY?
+    bool                 last_in_set : 1;
+
+    // Observed pixel coordinates. This works just like elements of
+    // observations_board_pool and mrcal_observation_point_t
+    mrcal_point3_t px;
+} mrcal_observation_triangulated_point_t;
+
+
+#error need a function to identify a vanilla calibration problem. It needs to not include any triangulated points. The noise propagation is different
+
+
 
 // Bits indicating which parts of the optimization problem being solved. We can
 // ask mrcal to solve for ALL the lens parameters and ALL the geometry and
@@ -743,6 +765,9 @@ mrcal_optimize( // out
                 int Nobservations_board,
                 int Nobservations_point,
 
+                const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                int Nobservations_point_triangulated,
+
                 // All the board pixel observations, in an array of shape
                 //
                 // ( Nobservations_board,
@@ -933,6 +958,9 @@ int mrcal_measurement_index_points(int i_observation_point,
                                    int calibration_object_width_n,
                                    int calibration_object_height_n);
 int mrcal_num_measurements_points(int Nobservations_point);
+int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have any of these
+                                               const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                                               int Nobservations_point_triangulated);
 int mrcal_measurement_index_regularization(int Nobservations_board,
                                            int Nobservations_point,
                                            int calibration_object_width_n,
@@ -945,6 +973,11 @@ int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_
 
 int mrcal_num_measurements(int Nobservations_board,
                            int Nobservations_point,
+
+                           // May be NULL if we don't have any of these
+                           const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                           int Nobservations_point_triangulated,
+
                            int calibration_object_width_n,
                            int calibration_object_height_n,
                            int Ncameras_intrinsics, int Ncameras_extrinsics,

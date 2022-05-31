@@ -647,6 +647,188 @@ mrcal_triangulate_leecivera_mid2(// outputs
 
     return _m;
 }
+
+// Internal function used in the optimization
+extern "C"
+double
+_mrcal_triangulated_error(// outputs
+                          mrcal_point3_t* _derr_dv0,
+                          mrcal_point3_t* _derr_dv1,
+                          mrcal_point3_t* _derr_dt01,
+
+                          // inputs
+
+                          // not-necessarily normalized vectors in the camera-0
+                          // coord system
+                          const mrcal_point3_t* _v0,
+                          const mrcal_point3_t* _v1,
+                          const mrcal_point3_t* _t01)
+{
+
+    ////////////////// mrcal_triangulate_leecivera_mid2
+
+
+    // The paper has m0, m1 as the cam1-frame observation vectors. I do
+    // everything in cam0-frame
+    vec_withgrad_t<9,3> v0 (_v0 ->xyz, 0);
+    vec_withgrad_t<9,3> v1 (_v1 ->xyz, 3);
+    vec_withgrad_t<9,3> t01(_t01->xyz, 6);
+
+    val_withgrad_t<9> p_norm2_recip = val_withgrad_t<9>(1.0) / cross_norm2<9>(v0, v1);
+
+    val_withgrad_t<9> l0 = (cross_norm2<9>(v1, t01) * p_norm2_recip).sqrt();
+    val_withgrad_t<9> l1 = (cross_norm2<9>(v0, t01) * p_norm2_recip).sqrt();
+
+    if(!chirality(l0, v0, l1, v1, t01))
+        return (mrcal_point3_t){};
+
+    vec_withgrad_t<9,3> m = (v0*l0 + t01+v1*l1) / 2.0;
+
+    mrcal_point3_t _m;
+    m.extract_value(_m.xyz);
+
+    if(_dm_dv0 != NULL)
+        m.extract_grad (_dm_dv0->xyz,  0,3, 0,
+                        3*sizeof(double), sizeof(double),
+                        3);
+    if(_dm_dv1 != NULL)
+        m.extract_grad (_dm_dv1->xyz,  3,3, 0,
+                        3*sizeof(double), sizeof(double),
+                        3);
+    if(_dm_dt01 != NULL)
+        m.extract_grad (_dm_dt01->xyz, 6,3,0,
+                        3*sizeof(double), sizeof(double),
+                        3);
+
+
+
+
+
+
+    mrcal_point3_t dp_dv0[3];
+    mrcal_point3_t dp_dv1[3];
+    mrcal_point3_t dp_dt01[3];
+
+    mrcal_point3_t p =
+        mrcal_triangulate_leecivera_mid2(dp_dv0, dp_dv1, dp_dt01,
+                                         &v0_ref, &v1_ref, &t01);
+
+    if(p.x == 0.0 && p.y == 0.0 && p.z == 0.0)
+    {
+        // divergent
+    }
+    else
+    {
+
+    }
+
+    // dp/drt0 = dp/dv0 dv0/drt0 + dp/dt01 dt01/drt0
+
+
+    // main chunk from deltapose-lite
+
+#if 0
+
+    p0 = triangulate(v0,v1,t01);
+
+    reproj_error = observation_angle_error(p0);
+
+    // Alrighty. I have computed a reprojection error from one of
+    // the rays to the intersection point. If the rays are
+    // converging, then I double the error (to measure from ray to
+    // ray), and I'm done. Otherwise, I do a few more things
+    reproj_error = scale_withgrad(reproj_error, 2.0);
+
+    if( p0 == (0,0,0) )
+    {
+        // The rays diverge. This is aphysical, but an incorrect
+        // (i.e. not-yet-converged) geometry can cause this. Even if
+        // the optimization has converged, this can still happen if
+        // pixel noise or an incorrect feature association bumped
+        // converging rays to diverge. Previously, in this case I
+        // would set the cost function to the distance to the
+        // vanishing point. This makes logical sense, but creates a
+        // yaw bias: barely convergent rays have no effect on yaw,
+        // but barely divergent rays have a strong effect on yaw
+        //
+        // Goals:
+        //
+        // - There should be no qualitative change in the cost
+        //   function as rays cross over from convergent to
+        //   divergent. Low-error, parallel-ish rays look out to
+        //   infinity, which means that these define yaw very
+        //   poorly, and would affect the pitch, roll only. Yaw is
+        //   what controls divergence, so if random noise makes rays
+        //   diverge, we should use the error as before, to set our
+        //   pitch, roll
+        //
+        // - Very divergent (low range) rays like are bogus, and I
+        //   do apply a penalty factor based on the divergence. This
+        //   penalty factor begins to kick in only past a certain
+        //   point, so there's no effect right around the transition
+        //   point. This transition point should be connected to the
+        //   outlier rejection threshold. MAYBE. THINK ABOUT THIS,
+        //   AND RECORD THE THOUGHTS
+        //
+        // - Large-error divergent rays are likely bogus as well.
+        //   The optimization and the outlier rejection will push
+        //   the error down, and the divergence penalty will kick in
+        //   as well, if needed
+
+        // I have an observed ray in 3d: k*v + p. The
+        // vanishing point is at k -> infinity.
+        // proj(infinity*v+p) = proj(v)
+        mul_Tt_x_withgrad(p0, R10, v1local);
+        val_withgrad_t reproj_error_to_vanishing_point =
+            observation_angle_error(p0);
+
+        // If we're divergent, but less that
+        // THRESHOLD_DIVERGENT_LOWER pixels, I chalk it up to noise,
+        // and simply report the reprojection error as before,
+        // ignoring the divergence.
+        //
+        // If it's higher, then I add a vanishing point
+        // contribution. The size of this contribution varies
+        // linearly from 0 at THRESHOLD_DIVERGENT_LOWER to 1.0 at
+        // THRESHOLD_DIVERGENT_UPPER. This is MUCH larger than the
+        // normal cost function, and quickly dominates the solve. I
+        // set THRESHOLD_DIVERGENT_LOWER relatively high: such poor
+        // measurements will be thrown out by the outlier rejection
+        // anyway
+#define THRESHOLD_DIVERGENT_LOWER 3.0
+#define THRESHOLD_DIVERGENT_UPPER 6.0
+
+        if(reproj_error_to_vanishing_point.x > THRESHOLD_DIVERGENT_LOWER)
+        {
+            // we're VERY divergent. Add another cost term:
+            // the distance to the vanishing point
+            if(reproj_error_to_vanishing_point.x > THRESHOLD_DIVERGENT_UPPER)
+            {
+                reproj_error += reproj_error_to_vanishing_point;
+            }
+            else
+            {
+                // linearly interpolate. As
+                // reproj_error_to_vanishing_point lower->upper we
+                // produce k 0->1
+                val_withgrad_t k = scale_withgrad(reproj_error_to_vanishing_point,
+                                                  1. / (THRESHOLD_DIVERGENT_UPPER-THRESHOLD_DIVERGENT_LOWER));
+                k.x -= THRESHOLD_DIVERGENT_LOWER/(THRESHOLD_DIVERGENT_UPPER-THRESHOLD_DIVERGENT_LOWER);
+
+                reproj_error += k*reproj_error_to_vanishing_point;
+            }
+        }
+
+        if(reportFitMsg)
+            MSG_IF_VERBOSE("## Feature %d is divergent by %f pixels. Reported reprojection error: %f",
+                           i_feature,
+                           reproj_error_to_vanishing_point.x,
+                           reproj_error.x);
+    }
+
+#endif
+
+}
 // The "wMid2" method in "Triangulation: Why Optimize?", Seong Hun Lee and
 // Javier Civera. https://arxiv.org/abs/1907.11917
 extern "C"
