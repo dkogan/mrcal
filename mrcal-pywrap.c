@@ -908,12 +908,18 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     _(no_factorization,                   int,               0,    "p",  ,                                  NULL,           -1,         {})
 
 
+typedef enum {
+    OPTIMIZEMODE_OPTIMIZE,
+    OPTIMIZEMODE_CALLBACK,
+    OPTIMIZEMODE_VAR_RT_RR
+} optimizemode_t;
+
 // Using this for both optimize() and optimizer_callback()
 static bool optimize_validate_args( // out
                                     mrcal_lensmodel_t* mrcal_lensmodel,
 
                                     // in
-                                    bool is_optimize, // or optimizer_callback
+                                    optimizemode_t optimizemode,
                                     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
                                     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
                                     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_DEFINE)
@@ -1142,7 +1148,7 @@ static void fill_c_observations_point(// out
 }
 
 static
-PyObject* _optimize(bool is_optimize, // or optimizer_callback
+PyObject* _optimize(optimizemode_t optimizemode,
                     PyObject* args,
                     PyObject* kwargs)
 {
@@ -1167,7 +1173,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
     int calibration_object_height_n = -1;
     int calibration_object_width_n  = -1;
 
-    if(is_optimize)
+    if(optimizemode == OPTIMIZEMODE_OPTIMIZE ||
+       optimizemode == OPTIMIZEMODE_VAR_RT_RR)
     {
         char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
                              OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
@@ -1182,9 +1189,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                          OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
             goto done;
     }
-    else
+    else if(optimizemode == OPTIMIZEMODE_CALLBACK)
     {
-        // optimizer_callback
         char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
                              OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
                              OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(NAMELIST)
@@ -1200,6 +1206,12 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                          OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG)
                                          OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(PARSEARG) NULL))
             goto done;
+    }
+    else
+    {
+        BARF("ERROR: Unknown optimizemode=%d. Giving up",
+             (int)optimizemode);
+        goto done;
     }
 
     // Some of my input arguments can be empty (None). The code all assumes that
@@ -1239,7 +1251,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
     // Check the arguments for optimize(). If optimizer_callback, then the other
     // stuff is defined, but it all has valid, default values
     if( !optimize_validate_args(&mrcal_lensmodel,
-                                is_optimize,
+                                optimizemode,
                                 OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
                                 OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
                                 OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_CALL)
@@ -1329,7 +1341,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         x_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements}), NPY_DOUBLE);
         double* c_x_final = PyArray_DATA(x_final);
 
-        if( is_optimize )
+        if(optimizemode == OPTIMIZEMODE_OPTIMIZE)
         {
             // we're wrapping mrcal_optimize()
             const int Npoints_fromBoards =
@@ -1415,10 +1427,9 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
             result = pystats;
             Py_INCREF(result);
         }
-        else
+        else if(optimizemode == OPTIMIZEMODE_CALLBACK ||
+                optimizemode == OPTIMIZEMODE_VAR_RT_RR)
         {
-            // we're wrapping mrcal_optimizer_callback()
-
             int N_j_nonzero = _mrcal_num_j_nonzero(Nobservations_board,
                                                    Nobservations_point,
                                                    calibration_object_width_n,
@@ -1489,47 +1500,88 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                 goto done;
             }
 
-            if(no_factorization)
+            if(optimizemode == OPTIMIZEMODE_CALLBACK)
             {
-                factorization = Py_None;
-                Py_INCREF(factorization);
-            }
-            else
-            {
-                // above I made sure that no_jacobian was false if !no_factorization
-                factorization = CHOLMOD_factorization_from_cholmod_sparse(&Jt);
-                if(factorization == NULL)
+                if(no_factorization)
                 {
-                    // Couldn't compute factorization. I don't barf, but set the
-                    // factorization to None
                     factorization = Py_None;
                     Py_INCREF(factorization);
-                    PyErr_Clear();
                 }
-            }
+                else
+                {
+                    // above I made sure that no_jacobian was false if !no_factorization
+                    factorization = CHOLMOD_factorization_from_cholmod_sparse(&Jt);
+                    if(factorization == NULL)
+                    {
+                        // Couldn't compute factorization. I don't barf, but set the
+                        // factorization to None
+                        factorization = Py_None;
+                        Py_INCREF(factorization);
+                        PyErr_Clear();
+                    }
+                }
 
-            if(no_jacobian)
-            {
-                jacobian = Py_None;
-                Py_INCREF(jacobian);
+                if(no_jacobian)
+                {
+                    jacobian = Py_None;
+                    Py_INCREF(jacobian);
+                }
+                else
+                {
+                    jacobian = csr_from_cholmod_sparse((PyObject*)P,
+                                                       (PyObject*)I,
+                                                       (PyObject*)X);
+                    if(jacobian == NULL)
+                    {
+                        // reuse the existing error
+                        goto done;
+                    }
+                }
+
+                result = PyTuple_Pack(4,
+                                      (PyObject*)p_packed_final,
+                                      (PyObject*)x_final,
+                                      jacobian,
+                                      factorization);
             }
             else
             {
-                jacobian = csr_from_cholmod_sparse((PyObject*)P,
-                                                   (PyObject*)I,
-                                                   (PyObject*)X);
-                if(jacobian == NULL)
+                // optimizemode == OPTIMIZEMODE_VAR_RT_RR
+
+                PyObject* Var_rt_ref_refperturbed =
+                    PyArray_SimpleNew(2, ((npy_intp[]){6,6}), NPY_DOUBLE);
+
+                if(!mrcal_var_rt_ref_refperturbed(PyArray_DATA((PyArrayObject*)Var_rt_ref_refperturbed),
+
+                                                  c_p_packed_final, Nstate*sizeof(double),
+                                                  &Jt,
+
+                                                  NULL, NULL,
+
+                                                  Ncameras_intrinsics, Ncameras_extrinsics, Nframes,
+                                                  Npoints, Npoints_fixed,
+                                                  Nobservations_board,
+                                                  Nobservations_point,
+
+                                                  &mrcal_lensmodel,
+                                                  problem_selections,
+
+                                                  calibration_object_width_n,
+                                                  calibration_object_height_n))
                 {
-                    // reuse the existing error
+                    BARF("Error in mrcal_var_rt_ref_refperturbed()");
+                    Py_DECREF(Var_rt_ref_refperturbed);
                     goto done;
                 }
-            }
 
-            result = PyTuple_Pack(4,
-                                  (PyObject*)p_packed_final,
-                                  (PyObject*)x_final,
-                                  jacobian,
-                                  factorization);
+                result = Var_rt_ref_refperturbed;
+            }
+        }
+        else
+        {
+            BARF("ERROR: Unknown optimizemode=%d. Giving up",
+                 (int)optimizemode);
+            goto done;
         }
     }
 
@@ -1558,13 +1610,20 @@ static PyObject* optimizer_callback(PyObject* NPY_UNUSED(self),
                                    PyObject* args,
                                    PyObject* kwargs)
 {
-    return _optimize(false, args, kwargs);
+    return _optimize(OPTIMIZEMODE_CALLBACK, args, kwargs);
 }
 static PyObject* optimize(PyObject* NPY_UNUSED(self),
                           PyObject* args,
                           PyObject* kwargs)
 {
-    return _optimize(true, args, kwargs);
+    return _optimize(OPTIMIZEMODE_OPTIMIZE,
+                     args, kwargs);
+}
+static PyObject* var_rt_ref_refperturbed(PyObject* NPY_UNUSED(self),
+                                         PyObject* args,
+                                         PyObject* kwargs)
+{
+    return _optimize(OPTIMIZEMODE_VAR_RT_RR, args, kwargs);
 }
 
 
@@ -2610,6 +2669,9 @@ static const char optimize_docstring[] =
 static const char optimizer_callback_docstring[] =
 #include "optimizer_callback.docstring.h"
     ;
+static const char var_rt_ref_refperturbed_docstring[] =
+#include "var_rt_ref_refperturbed.docstring.h"
+    ;
 static const char lensmodel_metadata_and_config_docstring[] =
 #include "lensmodel_metadata_and_config.docstring.h"
     ;
@@ -2625,6 +2687,7 @@ static const char knots_for_splined_models_docstring[] =
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizer_callback,               METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,var_rt_ref_refperturbed,          METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(, state_index_intrinsics,          METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, state_index_extrinsics,          METH_VARARGS | METH_KEYWORDS),
