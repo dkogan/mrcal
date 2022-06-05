@@ -790,7 +790,7 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
         baseline_rt_ref_frame[ ..., indices_frame_camintrinsics_camextrinsics[:,0], :]
     # shape (..., Nobservations, 6)
     rt_refperturbed_frameperturbed_all = \
-        query_rt_ref_frame[ ..., indices_frame_camintrinsics_camextrinsics[:,0], :]
+        query_rt_ref_frame   [ ..., indices_frame_camintrinsics_camextrinsics[:,0], :]
     # shape (Nobservations, Nintrinsics)
     intrinsics_all = \
         baseline_intrinsics[ indices_frame_camintrinsics_camextrinsics[:,1], :]
@@ -803,15 +803,17 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
 
     def get_rt_ref_refperturbed():
 
-        def compose_rt3_withgrad_drt1(rt0, rt1, rt2):
-            rt01,drt01_drt0,drt01_drt1 = \
-                mrcal.compose_rt(rt0, rt1, get_gradients = True)
-            rt012,drt012_drt01,drt012_drt2 = \
-                mrcal.compose_rt(rt01, rt2, get_gradients = True)
-            drt012_drt1 = nps.matmult(drt012_drt01, drt01_drt1)
-            return rt012,drt012_drt1
-
         def transform_point_rt3_withgrad_drt1(rt0, rt1, rt2, p):
+
+            def compose_rt3_withgrad_drt1(rt0, rt1, rt2):
+                rt01,drt01_drt0,drt01_drt1 = \
+                    mrcal.compose_rt(rt0, rt1, get_gradients = True)
+                rt012,drt012_drt01,drt012_drt2 = \
+                    mrcal.compose_rt(rt01, rt2, get_gradients = True)
+                drt012_drt1 = nps.matmult(drt012_drt01, drt01_drt1)
+                return rt012,drt012_drt1
+
+
             rt012,drt012_drt1 = compose_rt3_withgrad_drt1(rt0,rt1,rt2)
             pp, dpp_drt012, dpp_dp = mrcal.transform_point_rt(rt012, p, get_gradients = True)
             dpp_drt1 = nps.matmult(dpp_drt012, drt012_drt1)
@@ -911,51 +913,6 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
 
             return drt01_drt0
 
-        # need to define the broadcasted function myself
-        @nps.broadcast_define((('N',6),('N',)),
-                              (6,))
-        def lstsq(J,x):
-            # -inv(JtJ)Jt x0
-            return np.linalg.lstsq(J, x, rcond = None)[0]
-
-
-
-        # I look at the un-perturbed data first, to double-check that I'm doing the
-        # right thing. This is purely a self-checking step. I don't need to do it
-        if 1:
-
-            if 1:
-                # shape (Nobservations,Nh,Nw,3),
-                pref = mrcal.transform_point_rt(nps.dummy(rt_ref_frame_all, -2,-2),
-                                                calibration_object_baseline)
-                pcam = mrcal.transform_point_rt(nps.dummy(rt_cam_ref_all, -2,-2),
-                                                pref)
-            else:
-                # More complex form, using custom function.
-
-                # shape (..., Nobservations,Nh,Nw,3),
-                pcam, _ = \
-                    transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
-                                                      mrcal.identity_rt(),
-                                                      p_ref)
-
-            # shape (..., Nobservations,Nh,Nw,2)
-            qq = \
-                mrcal.project(pcam,
-                              baseline_optimization_inputs['lensmodel'],
-                              nps.dummy(intrinsics_all, -2,-2))
-            x = (qq - observations_board[...,:2])*nps.dummy(weight,-1)
-            x[...,weight<=0,:] = 0 # outliers
-            x = x.ravel()
-            if len(x) != mrcal.num_measurements_boards(**baseline_optimization_inputs):
-                raise Exception("Unexpected len(x). This is a bug")
-            if nps.norm2(x - x_baseline[:len(x)]) > 1e-12:
-                raise Exception("Unexpected x. This is a bug")
-
-            E_baseline = nps.norm2(x)
-
-        # Alright. I'm mimicking the optimization function well-enough. Let's look
-        # at the crossed quantities
         def get_cross_operating_point__compose_grad():
             # shape (..., Nobservations,Nh,Nw,3),
             #       (..., Nobservations,Nh,Nw,3,6)
@@ -1161,24 +1118,57 @@ M[frame] delta_qref
             return out
 
 
-        # Can selecte the other get_cross_operating_point__...() implementations
+
+
+        # I look at the un-perturbed data first, to double-check that I'm doing the
+        # right thing. This is purely a self-checking step. I don't need to do it
+        if 1:
+
+            # shape (Nobservations,Nh,Nw,3),
+            pref = mrcal.transform_point_rt(nps.dummy(rt_ref_frame_all, -2,-2),
+                                            calibration_object_baseline)
+            pcam = mrcal.transform_point_rt(nps.dummy(rt_cam_ref_all, -2,-2),
+                                            pref)
+
+            # shape (..., Nobservations,Nh,Nw,2)
+            qq = \
+                mrcal.project(pcam,
+                              baseline_optimization_inputs['lensmodel'],
+                              nps.dummy(intrinsics_all, -2,-2))
+            x = (qq - observations_board[...,:2])*nps.dummy(weight,-1)
+            x[...,weight<=0,:] = 0 # outliers
+            x = x.ravel()
+            if len(x) != mrcal.num_measurements_boards(**baseline_optimization_inputs):
+                raise Exception("Unexpected len(x). This is a bug")
+            if nps.norm2(x - x_baseline[:len(x)]) > 1e-12:
+                raise Exception("Unexpected x. This is a bug")
+
+            E_baseline = nps.norm2(x)
+
+        # Can select the other get_cross_operating_point__...() implementations
         # here
-        x_cross0, J_cross0 = get_cross_operating_point__compose_grad()
-        x_cross1, J_cross1 = get_cross_operating_point__transform_grad()
-        out2 = np.empty( (len(query_optimization_inputs),2), dtype=object)
-        get_cross_operating_point__internal_compose_and_linearization( np.array(query_optimization_inputs,
-                                                                                dtype=object),
-                                                                       out = out2)
-        x_cross2 = np.array(tuple(out2[:,0]))
-        J_cross2 = np.array(tuple(out2[:,1]))
+        if 0:
+            x_cross, J_cross = get_cross_operating_point__compose_grad()
+        elif 0:
+            x_cross, J_cross = get_cross_operating_point__transform_grad()
+        else:
+            xJ_cross = np.empty( (len(query_optimization_inputs),2), dtype=object)
+            get_cross_operating_point__internal_compose_and_linearization( np.array(query_optimization_inputs,
+                                                                                    dtype=object),
+                                                                           out = xJ_cross)
+            x_cross = np.array(tuple(xJ_cross[:,0]))
+            J_cross = np.array(tuple(xJ_cross[:,1]))
 
-        # These should all match. They do (manual testing), but that should be
-        # automated. I'm moving on.
+            # These should all match. They do (manual testing), but that should be
+            # automated. I'm moving on.
 
 
-        x_cross = x_cross2
-        J_cross = J_cross2
-
+        # need to define the broadcasted function myself
+        @nps.broadcast_define((('N',6),('N',)),
+                              (6,))
+        def lstsq(J,x):
+            # -inv(JtJ)Jt x0
+            return np.linalg.lstsq(J, x, rcond = None)[0]
         E_cross_ref0 = nps.norm2(x_cross)
         rt_ref_refperturbed = -lstsq(J_cross, x_cross)
 
