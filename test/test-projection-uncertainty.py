@@ -1100,14 +1100,15 @@ M[frame] delta_qref
             db_predicted = factorization.solve_xt_JtJ_bt( Jt_W_qref )
             mrcal.unpack_state(db_predicted, **baseline_optimization_inputs)
 
-            b_packed_query, x_query, J_packed_query, _ = \
-                mrcal.optimizer_callback(**query_optimization_input,
-                                         no_factorization = True)
-            db_observed = b_packed_query - b_packed_baseline
-            mrcal.unpack_state(db_observed, **baseline_optimization_inputs)
+            if 0:
+                ############### compare db_observed, db_predicted
+                b_packed_query, x_query, J_packed_query, _ = \
+                    mrcal.optimizer_callback(**query_optimization_input,
+                                             no_factorization = True)
+                db_observed = b_packed_query - b_packed_baseline
+                mrcal.unpack_state(db_observed, **baseline_optimization_inputs)
 
-            ############### compare db_observed, db_predicted
-            # gp.plot( nps.cat(db_predicted, db_observed) )
+                gp.plot( nps.cat(db_predicted, db_observed) )
 
             x_cross = np.array(x_baseline[:Nmeas_observations])
             x_cross_point = x_cross.reshape(len(x_cross)//2, 2)
