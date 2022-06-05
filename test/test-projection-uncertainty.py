@@ -1167,7 +1167,7 @@ M[frame] delta_qref
         @nps.broadcast_define((('N',6),('N',)),
                               (6,))
         def lstsq(J,x):
-            # -inv(JtJ)Jt x0
+            # inv(JtJ)Jt x0
             return np.linalg.lstsq(J, x, rcond = None)[0]
         E_cross_ref0 = nps.norm2(x_cross)
         rt_ref_refperturbed = -lstsq(J_cross, x_cross)
