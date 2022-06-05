@@ -431,7 +431,7 @@ SYNOPSIS
 
     print( observations.shape )
     ===>
-    (123, 3)
+    (123, 10,9, 3)
 
     models = [mrcal.cameramodel(f) for f in ("cam0.cameramodel",
                                              "cam1.cameramodel")]
@@ -452,8 +452,8 @@ SYNOPSIS
 
     # The calibration object in its reference coordinate system
     calobject = mrcal.ref_calibration_object(object_width_n,
-                                                 object_height_n,
-                                                 object_spacing)
+                                             object_height_n,
+                                             object_spacing)
 
     # The estimated calibration object points in the observing camera coordinate
     # system
