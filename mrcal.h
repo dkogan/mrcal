@@ -875,7 +875,7 @@ bool mrcal_var_rt_ref_refperturbed(// output
                                    // if NULL, I recompute
                                    struct cholmod_factor_struct* factorization,
                                    // if NULL, I reuse
-                                   struct cholmod_common_struct* cholmod_common,
+                                   struct cholmod_common_struct* common,
 
                                    // meta-parameters
                                    int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,

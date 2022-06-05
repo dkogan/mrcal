@@ -246,7 +246,7 @@ void finish_Jcross_computations(// output
             int i;
 
             i = 0;
-            A[i*Nstate_noi_noe + j] +=
+            B[i*Nstate_noi_noe + j] +=
                 (
                  /*skew[i*3 + 0]   + (  0)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)] */
                  /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)]
@@ -254,7 +254,7 @@ void finish_Jcross_computations(// output
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 1;
-            A[i*Nstate_noi_noe + j] +=
+            B[i*Nstate_noi_noe + j] +=
                 (
                  /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)]
                  /*skew[i*3 + 1]   + (  0)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)] */
@@ -262,7 +262,7 @@ void finish_Jcross_computations(// output
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 2;
-            A[i*Nstate_noi_noe + j] +=
+            B[i*Nstate_noi_noe + j] +=
                 (
                  /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)]
                  /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)]
@@ -347,7 +347,7 @@ void finish_Jcross_computations(// output
         const int N = (6+1)*6/2;
         const int i0 = index_sym66_assume_upper(3,3);
         for(int i=i0; i<N; i++)
-            Jcross_t__Jcross[i] =
+            Jcross_t__Jcross[i] +=
                 sum_outer_jf_jf_packed[i] /
                 (SCALE_TRANSLATION_FRAME*SCALE_TRANSLATION_FRAME);
     }
@@ -755,27 +755,26 @@ In any case...
                 MSG("Unexpected jacobian structure. I'm assuming non-decreasing frame references");
                 goto done;
             }
-            else if(icol == state_index_frame_current)
-            {
-                MSG("We hit a bug parsing the jacobian. Should never get here. Giving up");
-                goto done;
-            }
             else if( state_index_frame0 <= icol &&
                      icol < state_index_calobject_warp0 )
             {
                 // Looking at a new frame. Finish the previous frame
-                if(state_index_frame_current >= 0)
-                    finish_Jcross_computations( Jcross_t__J_fcw_noi_noe,
-                                                Jcross_t__Jcross,
-                                                sum_outer_jf_jf_packed,
-                                                sum_outer_jf_jcw_packed,
-                                                &b_packed[state_index_frame_current],
-                                                state_index_frame_current,
-                                                state_index_frame0,
-                                                state_index_calobject_warp0,
-                                                Nstate_noi_noe);
-                state_index_frame_current = icol;
-
+                if(icol != state_index_frame_current)
+                {
+                    if(state_index_frame_current >= 0)
+                    {
+                        finish_Jcross_computations( Jcross_t__J_fcw_noi_noe,
+                                                    Jcross_t__Jcross,
+                                                    sum_outer_jf_jf_packed,
+                                                    sum_outer_jf_jcw_packed,
+                                                    &b_packed[state_index_frame_current],
+                                                    state_index_frame_current,
+                                                    state_index_frame0,
+                                                    state_index_calobject_warp0,
+                                                    Nstate_noi_noe);
+                    }
+                    state_index_frame_current = icol;
+                }
 
                 // I have dx/drt_ref_frame for this frame. This is 6 numbers
                 dx_drt_ref_frame_packed = &Jval[ival];
@@ -832,11 +831,17 @@ In any case...
     // compute
     //
     //   inv(Jcross_t Jcross) Jcross_t J_fcw
+    //
+    // I actually compute the transpose:
+    //
+    //   (Jcross_t J_fcw)t inv(Jcross_t Jcross)
+    //
+    // in-place: input and output both use the Jcross_t__J_fcw_noi_noe array
     double inv_JcrosstJcross_det[(6+1)*6/2];
     double det = cofactors_sym6(Jcross_t__Jcross,
                                 inv_JcrosstJcross_det);
 
-    mul_genN6_sym66_scaled_strided(6,
+    mul_genN6_sym66_scaled_strided(Nstate_noi_noe,
                                    Jcross_t__J_fcw_noi_noe, 1, Nstate_noi_noe,
                                    inv_JcrosstJcross_det,
                                    1. / det);
@@ -850,7 +855,7 @@ In any case...
     // space to store the 0 entries for the intrinsics and extrinsics, but I
     // don't see API options in CHOLMOD to allow me to not do that. I just
     // implement it in the obvious, and inefficient way for now
-    if(posix_memalign((void**)&pool, 16, 6*Nstate*2))
+    if(posix_memalign((void**)&pool, 16, 6*Nstate*2*sizeof(double)))
     {
         MSG("Error allocating memory. Giving up");
         pool = NULL;

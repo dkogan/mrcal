@@ -69,9 +69,8 @@ void mul_gen33_gen33_into33insym66_accum(// output
             {
                 Psym66[index_sym66_assume_upper(iout+P_i0, jout+P_j0)] +=
                     A[iout*A_strideelems0 + k   *A_strideelems1] *
-                    B[k   *B_strideelems0 + jout*B_strideelems1];
+                    B[k   *B_strideelems0 + jout*B_strideelems1] * scale;
             }
-            Psym66[index_sym66_assume_upper(iout+P_i0, jout+P_j0)] *= scale;
         }
 }
 static
