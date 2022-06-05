@@ -766,6 +766,9 @@ void mrcal_compose_r_tinyr0_gradientr0_full( // output
                            int r_1_stride0      // in bytes. <= 0 means "contiguous"
                            )
 {
+    init_stride_2D(dr_dr0, 3, 3);
+    init_stride_1D(r_1, 3);
+
     // All the comments and logic appear in compose_r_core() in
     // poseutils-uses-autodiff.cc. This is a special-case function with
     // manually-computed gradients (because I want to make sure they're fast)
