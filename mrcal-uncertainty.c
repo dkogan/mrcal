@@ -367,7 +367,6 @@ bool mrcal_var_rt_ref_refperturbed(// output
                                    // used only to confirm that the user passed-in the buffer they
                                    // should have passed-in. The size must match exactly
                                    int buffer_size_b_packed,
-#warning "use buffer_size_b_packed"
 
                                    // The unitless Jacobian, used by the internal
                                    // optimization routines
@@ -622,6 +621,13 @@ In any case...
 
 
 
+
+    if( buffer_size_b_packed != Nstate*(int)sizeof(double) )
+    {
+        MSG("The buffer b_packed has the wrong size. Needed exactly %d bytes, but got %d bytes",
+            Nstate*(int)sizeof(double),buffer_size_b_packed);
+        goto done;
+    }
 
     if(Nmeas_points != 0)
     {
