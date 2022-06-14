@@ -12,11 +12,14 @@ headers. This is a C (not C++) library, so [[https://en.wikipedia.org/wiki/X_Mac
 for templating. 
 
 mrcal is a research project, so the capabilities and focus are still evolving.
-Thus, the interfaces, especially those in the C API are not yet stable. I do try
-to maintain stability, but this is not fully impossible, especially in the
-higher-level APIs (=mrcal_optimize()= for instance). For now, assume that each
-major release breaks both the API and the ABI. The migration notes for each
-release are described in the [[file:versions.org][relevant release notes]].
+Thus, the interfaces, /especially/ those in the C API are not yet stable. I do
+try to maintain stability, but this is not fully impossible, especially in the
+higher-level APIs (=mrcal_optimize()= and =mrcal_optimizer_callback()=). For
+now, assume that each major release breaks both the API and the ABI. The
+migration notes for each release are described in the [[file:versions.org][relevant release notes]].
+
+If you use the C APIs, shoot me an email to let me know, and I'll keep you in
+mind when making API updates.
 
 The best documentation for the C interfaces is the comments in the headers. I
 don't want to write up anything complete and detailed until I'm sure the
@@ -196,7 +199,9 @@ void mrcal_unpack_solver_state_vector(...);
 
 * Optimization
 The mrcal [[file:formulation.org][optimization routines]] are defined in [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal.h=]]. There are two primary
-functions, each accessing a /lot/ of functionality, and taking /many/ arguments:
+functions, each accessing a /lot/ of functionality, and taking /many/ arguments.
+At this time, the prototypes will likely change in each release of mrcal, so try
+not to rely on these being stable.
 
 - =mrcal_optimize()= is the entry point to the optimization routine. This
   function ingests the state, runs the optimization, and returns the optimal
@@ -208,6 +213,8 @@ functions, each accessing a /lot/ of functionality, and taking /many/ arguments:
   function standalone, /without/ being wrapped into the optimization loop
 
 ** Helper structures
+This is correct as of mrcal 2.1. It may change in future releases.
+
 We define some structures to organize the input to these functions. Each
 observation has a =mrcal_camera_index_t= to identify the observing camera:
 
