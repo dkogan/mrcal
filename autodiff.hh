@@ -378,7 +378,7 @@ struct vec_withgrad_t
 };
 
 template<int NGRAD>
-__attribute__((visibility("hidden")))
+static
 vec_withgrad_t<NGRAD, 3>
 cross( const vec_withgrad_t<NGRAD, 3>& a,
        const vec_withgrad_t<NGRAD, 3>& b )
@@ -391,7 +391,7 @@ cross( const vec_withgrad_t<NGRAD, 3>& a,
 }
 
 template<int NGRAD>
-__attribute__((visibility("hidden")))
+static
 val_withgrad_t<NGRAD>
 cross_norm2( const vec_withgrad_t<NGRAD, 3>& a,
              const vec_withgrad_t<NGRAD, 3>& b )
@@ -401,7 +401,7 @@ cross_norm2( const vec_withgrad_t<NGRAD, 3>& a,
 }
 
 template<int NGRAD>
-__attribute__((visibility("hidden")))
+static
 val_withgrad_t<NGRAD>
 cross_mag( const vec_withgrad_t<NGRAD, 3>& a,
            const vec_withgrad_t<NGRAD, 3>& b )
