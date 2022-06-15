@@ -710,6 +710,10 @@ mrcal_triangulate_leecivera_wmid2(// outputs
 // Internal function used in the optimization. This uses
 // mrcal_triangulate_leecivera_mid2(), but contains logic in the divergent-ray
 // case more appropriate for the optimization loop
+//
+// This will be called from a different .c file in the same shared object, and I
+// don't want the symbol to be visible from outside of this shared object
+__attribute__((visibility("hidden")))
 extern "C"
 double
 _mrcal_triangulated_error(// outputs
