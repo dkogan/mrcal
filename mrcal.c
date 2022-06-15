@@ -639,6 +639,7 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
             } while(!observations_point_triangulated[i1].last_in_set);
         }
 
+    // Regularization
     if(lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
         if(problem_selections.do_apply_regularization)
