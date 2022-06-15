@@ -648,6 +648,64 @@ mrcal_triangulate_leecivera_mid2(// outputs
     return _m;
 }
 
+// The "wMid2" method in "Triangulation: Why Optimize?", Seong Hun Lee and
+// Javier Civera. https://arxiv.org/abs/1907.11917
+extern "C"
+mrcal_point3_t
+mrcal_triangulate_leecivera_wmid2(// outputs
+                                  // These all may be NULL
+                                  mrcal_point3_t* _dm_dv0,
+                                  mrcal_point3_t* _dm_dv1,
+                                  mrcal_point3_t* _dm_dt01,
+
+                                  // inputs
+
+                                  // not-necessarily normalized vectors in the camera-0
+                                  // coord system
+                                  const mrcal_point3_t* _v0,
+                                  const mrcal_point3_t* _v1,
+                                  const mrcal_point3_t* _t01)
+{
+    // The paper has m0, m1 as the cam1-frame observation vectors. I do
+    // everything in cam0-frame
+    vec_withgrad_t<9,3> v0 (_v0 ->xyz, 0);
+    vec_withgrad_t<9,3> v1 (_v1 ->xyz, 3);
+    vec_withgrad_t<9,3> t01(_t01->xyz, 6);
+
+    // Unlike Mid2 I need to normalize these here to make the math work. l0 and
+    // l1 now have units of m, and I weigh by 1/l0 and 1/l1
+    v0 /= v0.mag();
+    v1 /= v1.mag();
+
+    val_withgrad_t<9> p_mag_recip = val_withgrad_t<9>(1.0) / cross_mag<9>(v0, v1);
+
+    val_withgrad_t<9> l0 = cross_mag<9>(v1, t01) * p_mag_recip;
+    val_withgrad_t<9> l1 = cross_mag<9>(v0, t01) * p_mag_recip;
+
+    if(!chirality(l0, v0, l1, v1, t01))
+        return (mrcal_point3_t){0};
+
+    vec_withgrad_t<9,3> m = (v0*l0*l1 + t01*l0 + v1*l0*l1) / (l0 + l1);
+
+    mrcal_point3_t _m;
+    m.extract_value(_m.xyz);
+
+    if(_dm_dv0 != NULL)
+        m.extract_grad (_dm_dv0->xyz,  0,3, 0,
+                        3*sizeof(double), sizeof(double),
+                        3);
+    if(_dm_dv1 != NULL)
+        m.extract_grad (_dm_dv1->xyz,  3,3, 0,
+                        3*sizeof(double), sizeof(double),
+                        3);
+    if(_dm_dt01 != NULL)
+        m.extract_grad (_dm_dt01->xyz, 6,3,0,
+                        3*sizeof(double), sizeof(double),
+                        3);
+
+    return _m;
+}
+
 // Internal function used in the optimization
 extern "C"
 double
@@ -828,61 +886,4 @@ _mrcal_triangulated_error(// outputs
 
 #endif
 
-}
-// The "wMid2" method in "Triangulation: Why Optimize?", Seong Hun Lee and
-// Javier Civera. https://arxiv.org/abs/1907.11917
-extern "C"
-mrcal_point3_t
-mrcal_triangulate_leecivera_wmid2(// outputs
-                                  // These all may be NULL
-                                  mrcal_point3_t* _dm_dv0,
-                                  mrcal_point3_t* _dm_dv1,
-                                  mrcal_point3_t* _dm_dt01,
-
-                                  // inputs
-
-                                  // not-necessarily normalized vectors in the camera-0
-                                  // coord system
-                                  const mrcal_point3_t* _v0,
-                                  const mrcal_point3_t* _v1,
-                                  const mrcal_point3_t* _t01)
-{
-    // The paper has m0, m1 as the cam1-frame observation vectors. I do
-    // everything in cam0-frame
-    vec_withgrad_t<9,3> v0 (_v0 ->xyz, 0);
-    vec_withgrad_t<9,3> v1 (_v1 ->xyz, 3);
-    vec_withgrad_t<9,3> t01(_t01->xyz, 6);
-
-    // Unlike Mid2 I need to normalize these here to make the math work. l0 and
-    // l1 now have units of m, and I weigh by 1/l0 and 1/l1
-    v0 /= v0.mag();
-    v1 /= v1.mag();
-
-    val_withgrad_t<9> p_mag_recip = val_withgrad_t<9>(1.0) / cross_mag<9>(v0, v1);
-
-    val_withgrad_t<9> l0 = cross_mag<9>(v1, t01) * p_mag_recip;
-    val_withgrad_t<9> l1 = cross_mag<9>(v0, t01) * p_mag_recip;
-
-    if(!chirality(l0, v0, l1, v1, t01))
-        return (mrcal_point3_t){0};
-
-    vec_withgrad_t<9,3> m = (v0*l0*l1 + t01*l0 + v1*l0*l1) / (l0 + l1);
-
-    mrcal_point3_t _m;
-    m.extract_value(_m.xyz);
-
-    if(_dm_dv0 != NULL)
-        m.extract_grad (_dm_dv0->xyz,  0,3, 0,
-                        3*sizeof(double), sizeof(double),
-                        3);
-    if(_dm_dv1 != NULL)
-        m.extract_grad (_dm_dv1->xyz,  3,3, 0,
-                        3*sizeof(double), sizeof(double),
-                        3);
-    if(_dm_dt01 != NULL)
-        m.extract_grad (_dm_dt01->xyz, 6,3,0,
-                        3*sizeof(double), sizeof(double),
-                        3);
-
-    return _m;
 }
