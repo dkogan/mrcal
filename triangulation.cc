@@ -553,6 +553,7 @@ mrcal_triangulate_leecivera_linf(// outputs
     return _m;
 }
 
+// This is called "cheirality" in Lee and Civera's papers
 static bool chirality(const val_withgrad_t<9  >& l0,
                       const vec_withgrad_t<9,3>& v0,
                       const val_withgrad_t<9  >& l1,
@@ -706,7 +707,9 @@ mrcal_triangulate_leecivera_wmid2(// outputs
     return _m;
 }
 
-// Internal function used in the optimization
+// Internal function used in the optimization. This uses
+// mrcal_triangulate_leecivera_mid2(), but contains logic in the divergent-ray
+// case more appropriate for the optimization loop
 extern "C"
 double
 _mrcal_triangulated_error(// outputs
