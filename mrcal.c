@@ -4782,9 +4782,7 @@ void optimizer_callback(// input state
             double                dv0_ref__dr_0r[3][3];
 
             const int icam_extrinsics0 = pt0->icam.extrinsics;
-            bool camera_at_identity0 = icam_extrinsics0 < 0;
-
-            if(!camera_at_identity0)
+            if( icam_extrinsics0 >= 0 )
             {
                 const mrcal_pose_t* rt_0r = &camera_rt[icam_extrinsics0];
                 const double* r_0r = &rt_0r->r.xyz[0];
@@ -4834,13 +4832,11 @@ void optimizer_callback(// input state
                 double dv0_cam1__dv0_ref[3][3];
 
                 const int icam_extrinsics1 = pt1->icam.extrinsics;
-                bool camera_at_identity1 = icam_extrinsics1 < 0;
-
-                if(!camera_at_identity1)
+                if( icam_extrinsics1 >= 0 )
                 {
                     const mrcal_pose_t* rt_1r = &camera_rt[icam_extrinsics1];
 
-                    if(t_r0 != NULL)
+                    if( icam_extrinsics0 >= 0 )
                     {
                         t_10 = &_t_10;
                         mrcal_transform_point_rt( &_t_10.xyz[0],
@@ -4855,7 +4851,7 @@ void optimizer_callback(// input state
                         // t_10 = R_1r*t_r0 + t_1r =
                         //      = R_1r*0    + t_1r =
                         //      = t_1r
-                        t_10 = &rt_1r->r;
+                        t_10 = &rt_1r->t;
                     }
 
                     mrcal_rotate_point_r( &_v0_cam1.xyz[0],
@@ -4880,7 +4876,7 @@ void optimizer_callback(// input state
                 mrcal_point3_t derr__dt_10;
 
                 double err =
-                    _mrcal_triangulated_error(NULL, &derr__dv0_cam1, &derr__dt_10,
+                    _mrcal_triangulated_error(&derr__dv0_cam1, &derr__dt_10,
                                               v1, v0_cam1, t_10)
 
 
@@ -4928,23 +4924,43 @@ void optimizer_callback(// input state
                                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
                                                          ctx->problem_selections, ctx->lensmodel);
 
-                        double derr__dt_r0[3];
-                        mul_vec3t_gen33(derr__dt_r0, derr__dt_10, dt_10__dt_r0, 1, );
+                        double* out;
 
-                        double temp[3];
-                        double* out = &Jval[iJacobian];
+                        out = &Jval[iJacobian];
+                        double* derr__dt_r0;
+                        double _derr__dt_r0[3];
 
-                        mul_vec3t_gen33(temp, derr__dv0_cam1.xyz, dv0_cam1__dv0_ref, 1, );
-                        mul_vec3t_gen33(out,  temp,               dv0_ref__dr_0r,    1, );
+                        if( icam_extrinsics1 >= 0 )
+                        {
+                            derr__dt_r0 = _derr__dt_r0;
+                            mul_vec3t_gen33(derr__dt_r0, derr__dt_10.xyz, dt_10__dt_r0, 1, );
 
-                        mul_vec3t_gen33(out,  derr__dt_r0,        dnegt_r0__dr_0r,  -1, _accum);
+                            double temp[3];
+                            mul_vec3t_gen33(temp, derr__dv0_cam1.xyz, dv0_cam1__dv0_ref, 1, );
+                            mul_vec3t_gen33(out,  temp,               dv0_ref__dr_0r,    1, );
+                        }
+                        else
+                        {
+                            // camera1 is at the reference, so I don't have
+                            // dt_10__dt_r0 and dv0_cam1__dv0_ref explicitly
+                            // stored.
+                            //
+                            // t_10    = t_r0   --> dt_10__dt_r0      = I
+                            // v0_cam1 = v0_ref --> dv0_cam1__dv0_ref = I
+                            derr__dt_r0 = derr__dt_10.xyz;
+                            mul_vec3t_gen33(out,  derr__dv0_cam1.xyz, dv0_ref__dr_0r,    1, );
+                        }
+
+
+                        mul_vec3t_gen33(out, derr__dt_r0, dnegt_r0__dr_0r,  -1, _accum);
 
                         SCALE_JACOBIAN_N( i_var_camera_rt0 + 0,
                                           SCALE_ROTATION_CAMERA,
                                           3 );
 
 
-                        mul_vec3t_gen33(out, derr__dt_r0,        dnegt_r0__dt_0r,  -1);
+                        out = &Jval[iJacobian];
+                        mul_vec3t_gen33(out, derr__dt_r0, dnegt_r0__dt_0r,  -1);
 
                         SCALE_JACOBIAN_N( i_var_camera_rt0 + 3,
                                           SCALE_TRANSLATION_CAMERA,
@@ -4959,7 +4975,9 @@ void optimizer_callback(// input state
                                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
                                                          ctx->problem_selections, ctx->lensmodel);
 
-                        double* out = &Jval[iJacobian];
+                        double* out;
+
+                        out = &Jval[iJacobian];
 
                         //   derr/dr_1r =
                         //     derr/dv0_cam1 dv0_cam1/dr_1r +
@@ -4972,26 +4990,54 @@ void optimizer_callback(// input state
                                        dv0_cam1__dr_1r,
                                        1,
                                        );
-                        mul_genNM_genML_accum(out, 3,1,
-                                              1,3,3,
-                                              derr__dt_10, 3,1,
-                                              dt_10__drt_1r, 6, 1,
-                                              1);
 
-                        SCALE_JACOBIAN3( i_var_camera_rt1 + 0,
-                                         SCALE_ROTATION_CAMERA,
-                                         3 );
+                        if( icam_extrinsics0 >= 0 )
+                        {
+                            mul_genNM_genML_accum(out, 3,1,
+                                                  1,3,3,
+                                                  derr__dt_10.xyz, 3,1,
+                                                  dt_10__drt_1r, 6, 1,
+                                                  1);
+                            SCALE_JACOBIAN3( i_var_camera_rt1 + 0,
+                                             SCALE_ROTATION_CAMERA,
+                                             3 );
 
+                            out = &Jval[iJacobian];
+                            mul_genNM_genML(out, 3,1,
+                                            1,3,3,
+                                            derr__dt_10.xyz, 3,1,
+                                            &dt_10__drt_1r[0][3], 6, 1,
+                                            1);
 
-                        mul_genNM_genML(out, 3,1,
-                                        1,3,3,
-                                        derr__dt_10, 3,1,
-                                        &dt_10__drt_1r[0][3], 6, 1,
-                                        1);
+                            SCALE_JACOBIAN3( i_var_camera_rt1 + 3,
+                                             SCALE_TRANSLATION_CAMERA,
+                                             3 );
+                        }
+                        else
+                        {
+                            // camera0 is at the reference. dt_10__drt_1r is not
+                            // given explicitly
+                            //
+                            // t_10 = t_1r ->
+                            //   dt_10__dr_1r = 0
+                            //   dt_10__dt_1r = I
+                            // So
+                            //
+                            //   derr/dr_1r = derr/dv0_cam1 dv0_cam1/dr_1r
+                            //   derr/dt_1r = derr/dt_10
+                            SCALE_JACOBIAN3( i_var_camera_rt1 + 0,
+                                             SCALE_ROTATION_CAMERA,
+                                             3 );
 
-                        SCALE_JACOBIAN3( i_var_camera_rt1 + 3,
-                                         SCALE_TRANSLATION_CAMERA,
-                                         3 );
+                            out = &Jval[iJacobian];
+
+                            for(int i=0; i<3; i++)
+                                out[i] = derr__dt_10.xyz[i];
+
+                            SCALE_JACOBIAN3( i_var_camera_rt1 + 3,
+                                             SCALE_TRANSLATION_CAMERA,
+                                             3 );
+                        }
                     }
                 }
 
