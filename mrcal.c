@@ -454,7 +454,7 @@ int mrcal_num_measurements_points(int Nobservations_point)
 }
 
 int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have any of these
-                                               const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                                               const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                                                int Nobservations_point_triangulated)
 {
     if(observations_point_triangulated == NULL ||
@@ -506,7 +506,7 @@ int mrcal_num_measurements(int Nobservations_board,
                            int Nobservations_point,
 
                            // May be NULL if we don't have any of these
-                           const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                           const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                            int Nobservations_point_triangulated,
 
                            int calibration_object_width_n,
@@ -535,7 +535,7 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
                          int Nobservations_point,
 
                          // May be NULL if we don't have any of these
-                         const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                         const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                          int Nobservations_point_triangulated,
 
                          int calibration_object_width_n,
@@ -3805,7 +3805,7 @@ typedef struct
     const mrcal_observation_point_t* observations_point;
     int Nobservations_point;
 
-    const mrcal_observation_triangulated_point_t* observations_point_triangulated;
+    const mrcal_observation_point_triangulated_t* observations_point_triangulated;
     int Nobservations_point_triangulated;
 
     bool verbose;
@@ -4728,7 +4728,7 @@ void optimizer_callback(// input state
             i0 < ctx->Nobservations_point_triangulated;
             i0++)
         {
-            const mrcal_observation_triangulated_point_t* pt0 =
+            const mrcal_observation_point_triangulated_t* pt0 =
                 &ctx->observations_point_triangulated[i0];
             if(pt0->last_in_set)
                 continue;
@@ -4814,7 +4814,7 @@ void optimizer_callback(// input state
 
             while(true)
             {
-                const mrcal_observation_triangulated_point_t* pt1 =
+                const mrcal_observation_point_triangulated_t* pt1 =
                     &ctx->observations_point_triangulated[i1];
 
                 const mrcal_point3_t* v1 = &pt1->px;
@@ -5389,7 +5389,7 @@ bool mrcal_optimizer_callback(// out
                              int Nobservations_board,
                              int Nobservations_point,
 
-                             const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                             const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                              int Nobservations_point_triangulated,
 
                              // All the board pixel observations, in order. .x,
@@ -5581,7 +5581,7 @@ mrcal_optimize( // out
                 int Nobservations_board,
                 int Nobservations_point,
 
-                const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                 int Nobservations_point_triangulated,
 
                 // All the board pixel observations, in order.

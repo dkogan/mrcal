@@ -570,9 +570,9 @@ typedef struct
 
     // Observed pixel coordinates. This works just like elements of
     // observations_board_pool and mrcal_observation_point_t
-#warning "triangulated-solve: same as above. These should all be stored contiguously in observation_triangulated_point_pool"
+#warning "triangulated-solve: same as above. These should all be stored contiguously in observation_point_triangulated_pool"
     mrcal_point3_t px;
-} mrcal_observation_triangulated_point_t;
+} mrcal_observation_point_triangulated_t;
 
 
 #warning "triangulated-solve: need a function to identify a vanilla calibration problem. It needs to not include any triangulated points. The noise propagation is different"
@@ -772,7 +772,7 @@ mrcal_optimize( // out
                 int Nobservations_board,
                 int Nobservations_point,
 
-                const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                 int Nobservations_point_triangulated,
 
                 // All the board pixel observations, in an array of shape
@@ -859,7 +859,7 @@ bool mrcal_optimizer_callback(// out
                              int Nobservations_board,
                              int Nobservations_point,
 
-                             const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                             const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                              int Nobservations_point_triangulated,
 
                              // All the board pixel observations, in an array of shape
@@ -969,7 +969,7 @@ int mrcal_measurement_index_points(int i_observation_point,
                                    int calibration_object_height_n);
 int mrcal_num_measurements_points(int Nobservations_point);
 int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have any of these
-                                               const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                                               const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                                                int Nobservations_point_triangulated);
 int mrcal_measurement_index_regularization(int Nobservations_board,
                                            int Nobservations_point,
@@ -985,7 +985,7 @@ int mrcal_num_measurements(int Nobservations_board,
                            int Nobservations_point,
 
                            // May be NULL if we don't have any of these
-                           const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                           const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                            int Nobservations_point_triangulated,
 
                            int calibration_object_width_n,
