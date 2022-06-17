@@ -27,6 +27,10 @@ m = mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel")
 imagersize = m.imagersize()
 lensmodel,intrinsics_data = m.intrinsics()
 
+# This many points are not optimized, and we know exactly where they are. We
+# need this to set the scale of the problem. Otherwise the wolve is ambiguous
+Npoints_fixed = 3
+
 pref_true = np.array((( 10.,  20., 100.),
                       ( 25.,  30.,  90.),
                       (  5.,  10.,  94.),
@@ -90,6 +94,10 @@ def make_noisy_inputs():
                              [-0.05530528,  0.03942736, -0.02755858],
                              [-0.16252387,  0.07792151, -0.12200266],
                              [-0.02611094, -0.13695699,  0.06799326]])
+
+    # The fixed points are perfect
+    points_noise[-Npoints_fixed:, :] = 0
+
     pref_noisy = pref_true * (1. + points_noise)
 
     Ncamposes,Npoints = pcam_true.shape[:2]
@@ -144,10 +152,6 @@ def make_noisy_inputs():
 ############### Do everything in the ref coord system, with a few fixed-position
 ############### points to set the scale
 rt_cam_ref_noisy, pref_noisy, observations = make_noisy_inputs()
-
-# De-noise the fixed points. We know where they are exactly. And correctly
-Npoints_fixed = 3
-pref_noisy[-Npoints_fixed:, ...] = pref_true[-Npoints_fixed:, ...]
 
 stats = mrcal.optimize( nps.atleast_dims(intrinsics_data, -2),
                         rt_cam_ref_noisy,
