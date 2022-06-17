@@ -927,8 +927,6 @@ static bool optimize_validate_args( // out
 
                                     void* dummy __attribute__((unused)))
 {
-#warning "triangulated-solve: add validation to points_triangulated"
-
     static_assert( sizeof(mrcal_pose_t)/sizeof(double) == 6, "mrcal_pose_t is assumed to contain 6 elements");
 
 #pragma GCC diagnostic push
@@ -979,6 +977,15 @@ static bool optimize_validate_args( // out
         BARF("Inconsistent Nobservations_point: 'observations_point...' says %ld, 'indices_point_camintrinsics_camextrinsics' says %ld",
                      Nobservations_point,
                      PyArray_DIMS(indices_point_camintrinsics_camextrinsics)[0]);
+        return false;
+    }
+
+    int Nobservations_point_triangulated = PyArray_DIMS(observations_point_triangulated)[0];
+    if( PyArray_DIMS(indices_point_triangulated_camintrinsics_camextrinsics)[0] != Nobservations_point_triangulated )
+    {
+        BARF("Inconsistent Nobservations_point_triangulated: 'observations_point_triangulated...' says %ld, 'indices_triangulated_point_camintrinsics_camextrinsics' says %ld",
+                     Nobservations_point_triangulated,
+                     PyArray_DIMS(indices_point_triangulated_camintrinsics_camextrinsics)[0]);
         return false;
     }
 
@@ -1106,6 +1113,28 @@ static bool optimize_validate_args( // out
         }
     }
 
+    for(int i_observation=0; i_observation<Nobservations_point_triangulated; i_observation++)
+    {
+        int32_t i_point         = ((int32_t*)PyArray_DATA(indices_point_triangulated_camintrinsics_camextrinsics))[i_observation*3 + 0];
+        int32_t icam_intrinsics = ((int32_t*)PyArray_DATA(indices_point_triangulated_camintrinsics_camextrinsics))[i_observation*3 + 1];
+        int32_t icam_extrinsics = ((int32_t*)PyArray_DATA(indices_point_triangulated_camintrinsics_camextrinsics))[i_observation*3 + 2];
+
+        if(icam_intrinsics < 0 || icam_intrinsics >= Ncameras_intrinsics)
+        {
+            BARF("icam_intrinsics MUST be in [0,%d], instead got %d in row %d of indices_point_triangulated_camintrinsics_camextrinsics",
+                         Ncameras_intrinsics-1, icam_intrinsics, i_observation);
+            return false;
+        }
+        if(icam_extrinsics < -1 || icam_extrinsics >= Ncameras_extrinsics)
+        {
+            BARF("icam_extrinsics MUST be in [-1,%d], instead got %d in row %d of indices_point_triangulated_camintrinsics_camextrinsics",
+                         Ncameras_extrinsics-1, icam_extrinsics, i_observation);
+            return false;
+        }
+    }
+    // There are more checks for triangulated points, but I run them later, in
+    // fill_c_observations_point_triangulated()
+
     return true;
 }
 
@@ -1150,446 +1179,9 @@ static void fill_c_observations_point(// out
     }
 }
 
-static
-PyObject* _optimize(bool is_optimize, // or optimizer_callback
-                    PyObject* args,
-                    PyObject* kwargs)
-{
-    PyObject* result = NULL;
-
-    PyArrayObject* p_packed_final = NULL;
-    PyArrayObject* x_final        = NULL;
-    PyObject*      pystats        = NULL;
-
-    PyArrayObject* P             = NULL;
-    PyArrayObject* I             = NULL;
-    PyArrayObject* X             = NULL;
-    PyObject*      factorization = NULL;
-    PyObject*      jacobian      = NULL;
-
-    SET_SIGINT();
-
-    OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
-    OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
-    OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_DEFINE);
-
-    int calibration_object_height_n = -1;
-    int calibration_object_width_n  = -1;
-
-    if(is_optimize)
-    {
-        char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
-                             OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
-                             NULL};
-        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
-                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
-
-                                         keywords,
-
-                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
-                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
-            goto done;
-    }
-    else
-    {
-        // optimizer_callback
-        char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
-                             OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
-                             OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(NAMELIST)
-                             NULL};
-        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
-                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
-                                         OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(PARSECODE),
-
-                                         keywords,
-
-                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
-                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG)
-                                         OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(PARSEARG) NULL))
-            goto done;
-    }
-
-    // Some of my input arguments can be empty (None). The code all assumes that
-    // everything is a properly-dimensioned numpy array, with "empty" meaning
-    // some dimension is 0. Here I make this conversion. The user can pass None,
-    // and we still do the right thing.
-    //
-    // There's a silly implementation detail here: if you have a preprocessor
-    // macro M(x), and you pass it M({1,2,3}), the preprocessor see 3 separate
-    // args, not 1. That's why I have a __VA_ARGS__ here and why I instantiate a
-    // separate dims[] (PyArray_SimpleNew is a macro too)
-#define SET_SIZE0_IF_NONE(x, type, ...)                                 \
-    ({                                                                  \
-        if( IS_NULL(x) )                                                \
-        {                                                               \
-            if( x != NULL ) Py_DECREF(x);                               \
-            npy_intp dims[] = {__VA_ARGS__};                            \
-            x = (PyArrayObject*)PyArray_SimpleNew(sizeof(dims)/sizeof(dims[0]), \
-                                                  dims, type);          \
-        }                                                               \
-    })
-
-    SET_SIZE0_IF_NONE(extrinsics_rt_fromref,      NPY_DOUBLE, 0,6);
-
-    SET_SIZE0_IF_NONE(frames_rt_toref,            NPY_DOUBLE, 0,6);
-    SET_SIZE0_IF_NONE(observations_board,         NPY_DOUBLE, 0,179,171,3); // arbitrary numbers; shouldn't matter
-    SET_SIZE0_IF_NONE(indices_frame_camintrinsics_camextrinsics, NPY_INT32,    0,3);
-
-    SET_SIZE0_IF_NONE(points,                     NPY_DOUBLE, 0,3);
-    SET_SIZE0_IF_NONE(observations_point,         NPY_DOUBLE, 0,3);
-    SET_SIZE0_IF_NONE(indices_point_camintrinsics_camextrinsics,NPY_INT32, 0,3);
-    SET_SIZE0_IF_NONE(imagersizes,                NPY_INT32,    0,2);
-#undef SET_NULL_IF_NONE
-
-
-    mrcal_lensmodel_t mrcal_lensmodel;
-    // Check the arguments for optimize(). If optimizer_callback, then the other
-    // stuff is defined, but it all has valid, default values
-    if( !optimize_validate_args(&mrcal_lensmodel,
-                                is_optimize,
-                                OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
-                                OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
-                                OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_CALL)
-                                NULL))
-        goto done;
-
-    // Can't compute a factorization without a jacobian. That's what we're factoring
-    if(!no_factorization) no_jacobian = false;
-
-    {
-        int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
-        int Ncameras_extrinsics = PyArray_DIMS(extrinsics_rt_fromref)[0];
-        int Nframes             = PyArray_DIMS(frames_rt_toref)[0];
-        int Npoints             = PyArray_DIMS(points)[0];
-        int Nobservations_board = PyArray_DIMS(observations_board)[0];
-
-        if( Nobservations_board > 0 )
-        {
-            calibration_object_height_n = PyArray_DIMS(observations_board)[1];
-            calibration_object_width_n  = PyArray_DIMS(observations_board)[2];
-        }
-
-        // The checks in optimize_validate_args() make sure these casts are kosher
-        double*             c_intrinsics     = (double*)  PyArray_DATA(intrinsics);
-        mrcal_pose_t*       c_extrinsics     = (mrcal_pose_t*)  PyArray_DATA(extrinsics_rt_fromref);
-        mrcal_pose_t*       c_frames         = (mrcal_pose_t*)  PyArray_DATA(frames_rt_toref);
-        mrcal_point3_t*     c_points         = (mrcal_point3_t*)PyArray_DATA(points);
-        mrcal_calobject_warp_t*     c_calobject_warp =
-            IS_NULL(calobject_warp) ?
-            NULL : (mrcal_calobject_warp_t*)PyArray_DATA(calobject_warp);
-
-
-        mrcal_point3_t* c_observations_board_pool = (mrcal_point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
-        mrcal_observation_board_t c_observations_board[Nobservations_board];
-        fill_c_observations_board(c_observations_board,
-                                  Nobservations_board,
-                                  indices_frame_camintrinsics_camextrinsics);
-
-        int Nobservations_point = PyArray_DIMS(observations_point)[0];
-        mrcal_observation_point_t c_observations_point[Nobservations_point];
-        fill_c_observations_point(c_observations_point,
-                                  Nobservations_point,
-                                  indices_point_camintrinsics_camextrinsics,
-                                  (mrcal_point3_t*)PyArray_DATA(observations_point));
-
-
-
-
-
-        mrcal_problem_selections_t problem_selections =
-            { .do_optimize_intrinsics_core       = do_optimize_intrinsics_core,
-              .do_optimize_intrinsics_distortions= do_optimize_intrinsics_distortions,
-              .do_optimize_extrinsics            = do_optimize_extrinsics,
-              .do_optimize_frames                = do_optimize_frames,
-              .do_optimize_calobject_warp        = do_optimize_calobject_warp,
-              .do_apply_regularization           = do_apply_regularization,
-              .do_apply_outlier_rejection        = do_apply_outlier_rejection
-            };
-
-        mrcal_problem_constants_t problem_constants =
-            {.point_min_range = point_min_range,
-             .point_max_range = point_max_range};
-
-        int Nmeasurements = mrcal_num_measurements(Nobservations_board,
-                                                   Nobservations_point,
-#warning "triangulated-solve: finish this"
-                                                   NULL, 0,
-                                                   calibration_object_width_n,
-                                                   calibration_object_height_n,
-                                                   Ncameras_intrinsics, Ncameras_extrinsics,
-                                                   Nframes,
-                                                   Npoints, Npoints_fixed,
-                                                   problem_selections,
-                                                   &mrcal_lensmodel);
-
-        int Nintrinsics_state = mrcal_num_intrinsics_optimization_params(problem_selections, &mrcal_lensmodel);
-
-        // input
-        int* c_imagersizes = PyArray_DATA(imagersizes);
-
-        int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
-                                      Nframes, Npoints, Npoints_fixed, Nobservations_board,
-                                      problem_selections, &mrcal_lensmodel);
-
-        // both optimize() and optimizer_callback() use this
-        p_packed_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nstate}), NPY_DOUBLE);
-        double* c_p_packed_final = PyArray_DATA(p_packed_final);
-
-        x_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements}), NPY_DOUBLE);
-        double* c_x_final = PyArray_DATA(x_final);
-
-        if( is_optimize )
-        {
-            // we're wrapping mrcal_optimize()
-            const int Npoints_fromBoards =
-                Nobservations_board *
-                calibration_object_width_n*calibration_object_height_n;
-
-            mrcal_stats_t stats =
-                mrcal_optimize( c_p_packed_final,
-                                Nstate*sizeof(double),
-                                c_x_final,
-                                Nmeasurements*sizeof(double),
-                                c_intrinsics,
-                                c_extrinsics,
-                                c_frames,
-                                c_points,
-                                c_calobject_warp,
-
-                                Ncameras_intrinsics, Ncameras_extrinsics,
-                                Nframes, Npoints, Npoints_fixed,
-
-                                c_observations_board,
-                                c_observations_point,
-                                Nobservations_board,
-                                Nobservations_point,
-
-#warning "triangulated-solve: finish this"
-                                NULL, 0,
-
-                                c_observations_board_pool,
-
-                                &mrcal_lensmodel,
-                                c_imagersizes,
-                                problem_selections, &problem_constants,
-
-                                calibration_object_spacing,
-                                calibration_object_width_n,
-                                calibration_object_height_n,
-                                verbose,
-
-                                false);
-
-            if(stats.rms_reproj_error__pixels < 0.0)
-            {
-                // Error! I throw an exception
-                BARF("mrcal.optimize() failed!");
-                goto done;
-            }
-
-            pystats = PyDict_New();
-            if(pystats == NULL)
-            {
-                BARF("PyDict_New() failed!");
-                goto done;
-            }
-#define MRCAL_STATS_ITEM_POPULATE_DICT(type, name, pyconverter)         \
-            {                                                           \
-                PyObject* obj = pyconverter( (type)stats.name);         \
-                if( obj == NULL)                                        \
-                {                                                       \
-                    BARF("Couldn't make PyObject for '" #name "'"); \
-                    goto done;                                          \
-                }                                                       \
-                                                                        \
-                if( 0 != PyDict_SetItemString(pystats, #name, obj) )    \
-                {                                                       \
-                    BARF("Couldn't add to stats dict '" #name "'"); \
-                    Py_DECREF(obj);                                     \
-                    goto done;                                          \
-                }                                                       \
-            }
-            MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_POPULATE_DICT);
-
-            if( 0 != PyDict_SetItemString(pystats, "p_packed",
-                                          (PyObject*)p_packed_final) )
-            {
-                BARF("Couldn't add to stats dict 'p_packed'");
-                goto done;
-            }
-            if( 0 != PyDict_SetItemString(pystats, "x",
-                                          (PyObject*)x_final) )
-            {
-                BARF("Couldn't add to stats dict 'x'");
-                goto done;
-            }
-
-            result = pystats;
-            Py_INCREF(result);
-        }
-        else
-        {
-            // we're wrapping mrcal_optimizer_callback()
-
-            int N_j_nonzero = _mrcal_num_j_nonzero(Nobservations_board,
-                                                   Nobservations_point,
-#warning "triangulated-solve: finish this"
-                                                   NULL, 0,
-                                                   calibration_object_width_n,
-                                                   calibration_object_height_n,
-                                                   Ncameras_intrinsics, Ncameras_extrinsics,
-                                                   Nframes,
-                                                   Npoints, Npoints_fixed,
-                                                   c_observations_board,
-                                                   c_observations_point,
-                                                   problem_selections,
-                                                   &mrcal_lensmodel);
-            cholmod_sparse Jt = {
-                .nrow   = Nstate,
-                .ncol   = Nmeasurements,
-                .nzmax  = N_j_nonzero,
-                .stype  = 0,
-                .itype  = CHOLMOD_INT,
-                .xtype  = CHOLMOD_REAL,
-                .dtype  = CHOLMOD_DOUBLE,
-                .sorted = 1,
-                .packed = 1 };
-
-            if(!no_jacobian)
-            {
-                // above I made sure that no_jacobian was false if !no_factorization
-                P = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements + 1}), NPY_INT32);
-                I = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_INT32);
-                X = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_DOUBLE);
-                Jt.p = PyArray_DATA(P);
-                Jt.i = PyArray_DATA(I);
-                Jt.x = PyArray_DATA(X);
-            }
-
-            if(!mrcal_optimizer_callback( // out
-                                         c_p_packed_final,
-                                         Nstate*sizeof(double),
-                                         c_x_final,
-                                         Nmeasurements*sizeof(double),
-                                         no_jacobian ? NULL : &Jt,
-
-                                         // in
-                                         c_intrinsics,
-                                         c_extrinsics,
-                                         c_frames,
-                                         c_points,
-                                         c_calobject_warp,
-
-                                         Ncameras_intrinsics, Ncameras_extrinsics,
-                                         Nframes, Npoints, Npoints_fixed,
-
-                                         c_observations_board,
-                                         c_observations_point,
-                                         Nobservations_board,
-                                         Nobservations_point,
-
-#warning "triangulated-solve: finish this"
-                                         NULL, 0,
-
-                                         c_observations_board_pool,
-
-                                         &mrcal_lensmodel,
-                                         c_imagersizes,
-                                         problem_selections, &problem_constants,
-
-                                         calibration_object_spacing,
-                                         calibration_object_width_n,
-                                         calibration_object_height_n,
-                                         verbose) )
-            {
-                BARF("mrcal_optimizer_callback() failed!'");
-                goto done;
-            }
-
-            if(no_factorization)
-            {
-                factorization = Py_None;
-                Py_INCREF(factorization);
-            }
-            else
-            {
-                // above I made sure that no_jacobian was false if !no_factorization
-                factorization = CHOLMOD_factorization_from_cholmod_sparse(&Jt);
-                if(factorization == NULL)
-                {
-                    // Couldn't compute factorization. I don't barf, but set the
-                    // factorization to None
-                    factorization = Py_None;
-                    Py_INCREF(factorization);
-                    PyErr_Clear();
-                }
-            }
-
-            if(no_jacobian)
-            {
-                jacobian = Py_None;
-                Py_INCREF(jacobian);
-            }
-            else
-            {
-                jacobian = csr_from_cholmod_sparse((PyObject*)P,
-                                                   (PyObject*)I,
-                                                   (PyObject*)X);
-                if(jacobian == NULL)
-                {
-                    // reuse the existing error
-                    goto done;
-                }
-            }
-
-            result = PyTuple_Pack(4,
-                                  (PyObject*)p_packed_final,
-                                  (PyObject*)x_final,
-                                  jacobian,
-                                  factorization);
-        }
-    }
-
- done:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY);
-    OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY);
-    OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(FREE_PYARRAY);
-#pragma GCC diagnostic pop
-
-    Py_XDECREF(p_packed_final);
-    Py_XDECREF(x_final);
-    Py_XDECREF(pystats);
-    Py_XDECREF(P);
-    Py_XDECREF(I);
-    Py_XDECREF(X);
-    Py_XDECREF(factorization);
-    Py_XDECREF(jacobian);
-
-    RESET_SIGINT();
-    return result;
-}
-
-static PyObject* optimizer_callback(PyObject* NPY_UNUSED(self),
-                                   PyObject* args,
-                                   PyObject* kwargs)
-{
-    return _optimize(false, args, kwargs);
-}
-static PyObject* optimize(PyObject* NPY_UNUSED(self),
-                          PyObject* args,
-                          PyObject* kwargs)
-{
-    return _optimize(true, args, kwargs);
-}
-
-
 // return the number of points, or <0 on error
 static
-int unpack_observations_point_triangulated(// output. I fill in the given arrays
+int fill_c_observations_point_triangulated(// output. I fill in the given arrays
                                            mrcal_observation_point_triangulated_t* c_observations_point_triangulated,
 
                                            // input
@@ -1699,7 +1291,450 @@ int unpack_observations_point_triangulated(// output. I fill in the given arrays
     return N;
 }
 
+static
+PyObject* _optimize(bool is_optimize, // or optimizer_callback
+                    PyObject* args,
+                    PyObject* kwargs)
+{
+    PyObject* result = NULL;
 
+    PyArrayObject* p_packed_final = NULL;
+    PyArrayObject* x_final        = NULL;
+    PyObject*      pystats        = NULL;
+
+    PyArrayObject* P             = NULL;
+    PyArrayObject* I             = NULL;
+    PyArrayObject* X             = NULL;
+    PyObject*      factorization = NULL;
+    PyObject*      jacobian      = NULL;
+
+    SET_SIGINT();
+
+    OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
+    OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
+    OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_DEFINE);
+
+    int calibration_object_height_n = -1;
+    int calibration_object_width_n  = -1;
+
+    if(is_optimize)
+    {
+        char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
+                             OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
+                             NULL};
+        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
+
+                                         keywords,
+
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+            goto done;
+    }
+    else
+    {
+        // optimizer_callback
+        char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
+                             OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
+                             OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(NAMELIST)
+                             NULL};
+        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
+                                         OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(PARSECODE),
+
+                                         keywords,
+
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG)
+                                         OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(PARSEARG) NULL))
+            goto done;
+    }
+
+    // Some of my input arguments can be empty (None). The code all assumes that
+    // everything is a properly-dimensioned numpy array, with "empty" meaning
+    // some dimension is 0. Here I make this conversion. The user can pass None,
+    // and we still do the right thing.
+    //
+    // There's a silly implementation detail here: if you have a preprocessor
+    // macro M(x), and you pass it M({1,2,3}), the preprocessor see 3 separate
+    // args, not 1. That's why I have a __VA_ARGS__ here and why I instantiate a
+    // separate dims[] (PyArray_SimpleNew is a macro too)
+#define SET_SIZE0_IF_NONE(x, type, ...)                                 \
+    ({                                                                  \
+        if( IS_NULL(x) )                                                \
+        {                                                               \
+            if( x != NULL ) Py_DECREF(x);                               \
+            npy_intp dims[] = {__VA_ARGS__};                            \
+            x = (PyArrayObject*)PyArray_SimpleNew(sizeof(dims)/sizeof(dims[0]), \
+                                                  dims, type);          \
+        }                                                               \
+    })
+
+    SET_SIZE0_IF_NONE(extrinsics_rt_fromref,      NPY_DOUBLE, 0,6);
+
+    SET_SIZE0_IF_NONE(frames_rt_toref,            NPY_DOUBLE, 0,6);
+    SET_SIZE0_IF_NONE(observations_board,         NPY_DOUBLE, 0,179,171,3); // arbitrary numbers; shouldn't matter
+    SET_SIZE0_IF_NONE(indices_frame_camintrinsics_camextrinsics, NPY_INT32,    0,3);
+
+    SET_SIZE0_IF_NONE(points,                     NPY_DOUBLE, 0,3);
+    SET_SIZE0_IF_NONE(observations_point,         NPY_DOUBLE, 0,3);
+    SET_SIZE0_IF_NONE(indices_point_camintrinsics_camextrinsics,NPY_INT32, 0,3);
+    SET_SIZE0_IF_NONE(imagersizes,                NPY_INT32,    0,2);
+    SET_SIZE0_IF_NONE(observations_point_triangulated,                        NPY_DOUBLE, 0, 3);
+    SET_SIZE0_IF_NONE(indices_point_triangulated_camintrinsics_camextrinsics, NPY_INT32,  0, 3);
+#undef SET_NULL_IF_NONE
+
+
+    mrcal_lensmodel_t mrcal_lensmodel;
+    // Check the arguments for optimize(). If optimizer_callback, then the other
+    // stuff is defined, but it all has valid, default values
+    if( !optimize_validate_args(&mrcal_lensmodel,
+                                is_optimize,
+                                OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
+                                OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
+                                OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_CALL)
+                                NULL))
+        goto done;
+
+    // Can't compute a factorization without a jacobian. That's what we're factoring
+    if(!no_factorization) no_jacobian = false;
+
+    {
+        int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
+        int Ncameras_extrinsics = PyArray_DIMS(extrinsics_rt_fromref)[0];
+        int Nframes             = PyArray_DIMS(frames_rt_toref)[0];
+        int Npoints             = PyArray_DIMS(points)[0];
+        int Nobservations_board = PyArray_DIMS(observations_board)[0];
+
+        if( Nobservations_board > 0 )
+        {
+            calibration_object_height_n = PyArray_DIMS(observations_board)[1];
+            calibration_object_width_n  = PyArray_DIMS(observations_board)[2];
+        }
+
+        // The checks in optimize_validate_args() make sure these casts are kosher
+        double*             c_intrinsics     = (double*)  PyArray_DATA(intrinsics);
+        mrcal_pose_t*       c_extrinsics     = (mrcal_pose_t*)  PyArray_DATA(extrinsics_rt_fromref);
+        mrcal_pose_t*       c_frames         = (mrcal_pose_t*)  PyArray_DATA(frames_rt_toref);
+        mrcal_point3_t*     c_points         = (mrcal_point3_t*)PyArray_DATA(points);
+        mrcal_calobject_warp_t*     c_calobject_warp =
+            IS_NULL(calobject_warp) ?
+            NULL : (mrcal_calobject_warp_t*)PyArray_DATA(calobject_warp);
+
+
+        mrcal_point3_t* c_observations_board_pool = (mrcal_point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
+        mrcal_observation_board_t c_observations_board[Nobservations_board];
+        fill_c_observations_board(c_observations_board,
+                                  Nobservations_board,
+                                  indices_frame_camintrinsics_camextrinsics);
+
+        int Nobservations_point = PyArray_DIMS(observations_point)[0];
+        mrcal_observation_point_t c_observations_point[Nobservations_point];
+        fill_c_observations_point(c_observations_point,
+                                  Nobservations_point,
+                                  indices_point_camintrinsics_camextrinsics,
+                                  (mrcal_point3_t*)PyArray_DATA(observations_point));
+
+        int Nobservations_point_triangulated = PyArray_DIMS(observations_point_triangulated)[0];
+        mrcal_observation_point_triangulated_t c_observations_point_triangulated[Nobservations_point_triangulated];
+        if( fill_c_observations_point_triangulated(c_observations_point_triangulated,
+                                                   observations_point_triangulated,
+                                                   indices_point_triangulated_camintrinsics_camextrinsics)
+            < 0 )
+        {
+            goto done;
+        }
+
+
+        mrcal_problem_selections_t problem_selections =
+            { .do_optimize_intrinsics_core       = do_optimize_intrinsics_core,
+              .do_optimize_intrinsics_distortions= do_optimize_intrinsics_distortions,
+              .do_optimize_extrinsics            = do_optimize_extrinsics,
+              .do_optimize_frames                = do_optimize_frames,
+              .do_optimize_calobject_warp        = do_optimize_calobject_warp,
+              .do_apply_regularization           = do_apply_regularization,
+              .do_apply_outlier_rejection        = do_apply_outlier_rejection
+            };
+
+        mrcal_problem_constants_t problem_constants =
+            {.point_min_range = point_min_range,
+             .point_max_range = point_max_range};
+
+        int Nmeasurements = mrcal_num_measurements(Nobservations_board,
+                                                   Nobservations_point,
+                                                   c_observations_point_triangulated,
+                                                   Nobservations_point_triangulated,
+                                                   calibration_object_width_n,
+                                                   calibration_object_height_n,
+                                                   Ncameras_intrinsics, Ncameras_extrinsics,
+                                                   Nframes,
+                                                   Npoints, Npoints_fixed,
+                                                   problem_selections,
+                                                   &mrcal_lensmodel);
+
+        int Nintrinsics_state = mrcal_num_intrinsics_optimization_params(problem_selections, &mrcal_lensmodel);
+
+        // input
+        int* c_imagersizes = PyArray_DATA(imagersizes);
+
+        int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
+                                      Nframes, Npoints, Npoints_fixed, Nobservations_board,
+                                      problem_selections, &mrcal_lensmodel);
+
+        // both optimize() and optimizer_callback() use this
+        p_packed_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nstate}), NPY_DOUBLE);
+        double* c_p_packed_final = PyArray_DATA(p_packed_final);
+
+        x_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements}), NPY_DOUBLE);
+        double* c_x_final = PyArray_DATA(x_final);
+
+        if( is_optimize )
+        {
+            // we're wrapping mrcal_optimize()
+            const int Npoints_fromBoards =
+                Nobservations_board *
+                calibration_object_width_n*calibration_object_height_n;
+
+            mrcal_stats_t stats =
+                mrcal_optimize( c_p_packed_final,
+                                Nstate*sizeof(double),
+                                c_x_final,
+                                Nmeasurements*sizeof(double),
+                                c_intrinsics,
+                                c_extrinsics,
+                                c_frames,
+                                c_points,
+                                c_calobject_warp,
+
+                                Ncameras_intrinsics, Ncameras_extrinsics,
+                                Nframes, Npoints, Npoints_fixed,
+
+                                c_observations_board,
+                                c_observations_point,
+                                Nobservations_board,
+                                Nobservations_point,
+
+                                c_observations_point_triangulated,
+                                Nobservations_point_triangulated,
+
+                                c_observations_board_pool,
+
+                                &mrcal_lensmodel,
+                                c_imagersizes,
+                                problem_selections, &problem_constants,
+
+                                calibration_object_spacing,
+                                calibration_object_width_n,
+                                calibration_object_height_n,
+                                verbose,
+
+                                false);
+
+            if(stats.rms_reproj_error__pixels < 0.0)
+            {
+                // Error! I throw an exception
+                BARF("mrcal.optimize() failed!");
+                goto done;
+            }
+
+            pystats = PyDict_New();
+            if(pystats == NULL)
+            {
+                BARF("PyDict_New() failed!");
+                goto done;
+            }
+#define MRCAL_STATS_ITEM_POPULATE_DICT(type, name, pyconverter)         \
+            {                                                           \
+                PyObject* obj = pyconverter( (type)stats.name);         \
+                if( obj == NULL)                                        \
+                {                                                       \
+                    BARF("Couldn't make PyObject for '" #name "'"); \
+                    goto done;                                          \
+                }                                                       \
+                                                                        \
+                if( 0 != PyDict_SetItemString(pystats, #name, obj) )    \
+                {                                                       \
+                    BARF("Couldn't add to stats dict '" #name "'"); \
+                    Py_DECREF(obj);                                     \
+                    goto done;                                          \
+                }                                                       \
+            }
+            MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_POPULATE_DICT);
+
+            if( 0 != PyDict_SetItemString(pystats, "p_packed",
+                                          (PyObject*)p_packed_final) )
+            {
+                BARF("Couldn't add to stats dict 'p_packed'");
+                goto done;
+            }
+            if( 0 != PyDict_SetItemString(pystats, "x",
+                                          (PyObject*)x_final) )
+            {
+                BARF("Couldn't add to stats dict 'x'");
+                goto done;
+            }
+
+            result = pystats;
+            Py_INCREF(result);
+        }
+        else
+        {
+            // we're wrapping mrcal_optimizer_callback()
+
+            int N_j_nonzero = _mrcal_num_j_nonzero(Nobservations_board,
+                                                   Nobservations_point,
+                                                   c_observations_point_triangulated,
+                                                   Nobservations_point_triangulated,
+                                                   calibration_object_width_n,
+                                                   calibration_object_height_n,
+                                                   Ncameras_intrinsics, Ncameras_extrinsics,
+                                                   Nframes,
+                                                   Npoints, Npoints_fixed,
+                                                   c_observations_board,
+                                                   c_observations_point,
+                                                   problem_selections,
+                                                   &mrcal_lensmodel);
+            cholmod_sparse Jt = {
+                .nrow   = Nstate,
+                .ncol   = Nmeasurements,
+                .nzmax  = N_j_nonzero,
+                .stype  = 0,
+                .itype  = CHOLMOD_INT,
+                .xtype  = CHOLMOD_REAL,
+                .dtype  = CHOLMOD_DOUBLE,
+                .sorted = 1,
+                .packed = 1 };
+
+            if(!no_jacobian)
+            {
+                // above I made sure that no_jacobian was false if !no_factorization
+                P = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements + 1}), NPY_INT32);
+                I = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_INT32);
+                X = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){N_j_nonzero      }), NPY_DOUBLE);
+                Jt.p = PyArray_DATA(P);
+                Jt.i = PyArray_DATA(I);
+                Jt.x = PyArray_DATA(X);
+            }
+
+            if(!mrcal_optimizer_callback( // out
+                                         c_p_packed_final,
+                                         Nstate*sizeof(double),
+                                         c_x_final,
+                                         Nmeasurements*sizeof(double),
+                                         no_jacobian ? NULL : &Jt,
+
+                                         // in
+                                         c_intrinsics,
+                                         c_extrinsics,
+                                         c_frames,
+                                         c_points,
+                                         c_calobject_warp,
+
+                                         Ncameras_intrinsics, Ncameras_extrinsics,
+                                         Nframes, Npoints, Npoints_fixed,
+
+                                         c_observations_board,
+                                         c_observations_point,
+                                         Nobservations_board,
+                                         Nobservations_point,
+
+                                         c_observations_point_triangulated,
+                                         Nobservations_point_triangulated,
+
+                                         c_observations_board_pool,
+
+                                         &mrcal_lensmodel,
+                                         c_imagersizes,
+                                         problem_selections, &problem_constants,
+
+                                         calibration_object_spacing,
+                                         calibration_object_width_n,
+                                         calibration_object_height_n,
+                                         verbose) )
+            {
+                BARF("mrcal_optimizer_callback() failed!'");
+                goto done;
+            }
+
+            if(no_factorization)
+            {
+                factorization = Py_None;
+                Py_INCREF(factorization);
+            }
+            else
+            {
+                // above I made sure that no_jacobian was false if !no_factorization
+                factorization = CHOLMOD_factorization_from_cholmod_sparse(&Jt);
+                if(factorization == NULL)
+                {
+                    // Couldn't compute factorization. I don't barf, but set the
+                    // factorization to None
+                    factorization = Py_None;
+                    Py_INCREF(factorization);
+                    PyErr_Clear();
+                }
+            }
+
+            if(no_jacobian)
+            {
+                jacobian = Py_None;
+                Py_INCREF(jacobian);
+            }
+            else
+            {
+                jacobian = csr_from_cholmod_sparse((PyObject*)P,
+                                                   (PyObject*)I,
+                                                   (PyObject*)X);
+                if(jacobian == NULL)
+                {
+                    // reuse the existing error
+                    goto done;
+                }
+            }
+
+            result = PyTuple_Pack(4,
+                                  (PyObject*)p_packed_final,
+                                  (PyObject*)x_final,
+                                  jacobian,
+                                  factorization);
+        }
+    }
+
+ done:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY);
+    OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY);
+    OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(FREE_PYARRAY);
+#pragma GCC diagnostic pop
+
+    Py_XDECREF(p_packed_final);
+    Py_XDECREF(x_final);
+    Py_XDECREF(pystats);
+    Py_XDECREF(P);
+    Py_XDECREF(I);
+    Py_XDECREF(X);
+    Py_XDECREF(factorization);
+    Py_XDECREF(jacobian);
+
+    RESET_SIGINT();
+    return result;
+}
+
+static PyObject* optimizer_callback(PyObject* NPY_UNUSED(self),
+                                   PyObject* args,
+                                   PyObject* kwargs)
+{
+    return _optimize(false, args, kwargs);
+}
+static PyObject* optimize(PyObject* NPY_UNUSED(self),
+                          PyObject* args,
+                          PyObject* kwargs)
+{
+    return _optimize(true, args, kwargs);
+}
 
 
 // The state_index_... python functions don't need the full data but many of
@@ -2364,7 +2399,7 @@ static int callback_num_measurements_points_triangulated(int i,
     mrcal_observation_point_triangulated_t c_observations_point_triangulated[N];
 
     int Nobservations_point_triangulated =
-        unpack_observations_point_triangulated(c_observations_point_triangulated,
+        fill_c_observations_point_triangulated(c_observations_point_triangulated,
                                                NULL,
                                                indices_point_triangulated_camintrinsics_camextrinsics);
     if(Nobservations_point_triangulated < 0)
@@ -2462,7 +2497,7 @@ static int callback_num_measurements_all(int i,
     mrcal_observation_point_triangulated_t c_observations_point_triangulated[N];
 
     int Nobservations_point_triangulated =
-        unpack_observations_point_triangulated(c_observations_point_triangulated,
+        fill_c_observations_point_triangulated(c_observations_point_triangulated,
                                                NULL,
                                                indices_point_triangulated_camintrinsics_camextrinsics);
     if(Nobservations_point_triangulated < 0)
