@@ -1378,12 +1378,12 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
     SET_SIZE0_IF_NONE(observations_board,         NPY_DOUBLE, 0,179,171,3); // arbitrary numbers; shouldn't matter
     SET_SIZE0_IF_NONE(indices_frame_camintrinsics_camextrinsics, NPY_INT32,    0,3);
 
-    SET_SIZE0_IF_NONE(points,                     NPY_DOUBLE, 0,3);
-    SET_SIZE0_IF_NONE(observations_point,         NPY_DOUBLE, 0,3);
-    SET_SIZE0_IF_NONE(indices_point_camintrinsics_camextrinsics,NPY_INT32, 0,3);
-    SET_SIZE0_IF_NONE(imagersizes,                NPY_INT32,    0,2);
+    SET_SIZE0_IF_NONE(points,                                                 NPY_DOUBLE, 0, 3);
+    SET_SIZE0_IF_NONE(observations_point,                                     NPY_DOUBLE, 0, 3);
+    SET_SIZE0_IF_NONE(indices_point_camintrinsics_camextrinsics,              NPY_INT32,  0, 3);
     SET_SIZE0_IF_NONE(observations_point_triangulated,                        NPY_DOUBLE, 0, 3);
     SET_SIZE0_IF_NONE(indices_point_triangulated_camintrinsics_camextrinsics, NPY_INT32,  0, 3);
+    SET_SIZE0_IF_NONE(imagersizes,                                            NPY_INT32,  0, 2);
 #undef SET_NULL_IF_NONE
 
 
