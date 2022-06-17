@@ -502,7 +502,7 @@ void mrcal_unproject_latlon( // output
 // is used to identify a specific camera, while the "extrinsics" index is used
 // to locate a camera in space. If I have a camera that is moving over time, the
 // intrinsics index will remain the same, while the extrinsics index will change
-#error "there should be a pool of these, and I should be indexing that pool"
+#warning "triangulated-solve: there should be a pool of these, and I should be indexing that pool"
 typedef struct
 {
     // indexes the intrinsics array
@@ -535,7 +535,7 @@ typedef struct
     // observed
     int                  i_point;
 
-    #error "can I get rid of 'px', and store all these in an observations_points_pool?"
+#warning "triangulated-solve: can I get rid of 'px', and store all these in an observations_points_pool?"
     // Observed pixel coordinates. This works just like elements of
     // observations_board_pool:
     //
@@ -555,27 +555,27 @@ typedef struct
 // the optimization, but computed implicitly via triangulation. This structure
 // is very similar to mrcal_observation_point_t, except instead of i_point
 // identifying the point being observed we have
-#error FINISH DOC
+#warning "triangulated-solve: FINISH DOC"
 typedef struct
 {
     // which camera is making this observation
     mrcal_camera_index_t icam;
 
-#error "DOCUMENT. CAN THIS BIT FIELD BE PACKED NICELY?"
+#warning "triangulated-solve: DOCUMENT. CAN THIS BIT FIELD BE PACKED NICELY?"
     // Set if this is the last camera observing this point. Any set of N>=2
     // cameras can observe any point. All observations of a given point are
     // stored consecutively, the last one being noted by this bit
-#error "do I really need this? I cannot look at the next observation to determine when this one is done?"
+#warning "triangulated-solve: do I really need this? I cannot look at the next observation to determine when this one is done?"
     bool                 last_in_set : 1;
 
     // Observed pixel coordinates. This works just like elements of
     // observations_board_pool and mrcal_observation_point_t
-#error "same as above. These should all be stored contiguously in observation_triangulated_point_pool"
+#warning "triangulated-solve: same as above. These should all be stored contiguously in observation_triangulated_point_pool"
     mrcal_point3_t px;
 } mrcal_observation_triangulated_point_t;
 
 
-#error need a function to identify a vanilla calibration problem. It needs to not include any triangulated points. The noise propagation is different
+#warning "triangulated-solve: need a function to identify a vanilla calibration problem. It needs to not include any triangulated points. The noise propagation is different"
 
 
 
@@ -858,6 +858,9 @@ bool mrcal_optimizer_callback(// out
                              const mrcal_observation_point_t* observations_point,
                              int Nobservations_board,
                              int Nobservations_point,
+
+                             const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                             int Nobservations_point_triangulated,
 
                              // All the board pixel observations, in an array of shape
                              //

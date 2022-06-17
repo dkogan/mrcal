@@ -1305,6 +1305,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
         int Nmeasurements = mrcal_num_measurements(Nobservations_board,
                                                    Nobservations_point,
+#warning "triangulated-solve: finish this"
+                                                   NULL, 0,
                                                    calibration_object_width_n,
                                                    calibration_object_height_n,
                                                    Ncameras_intrinsics, Ncameras_extrinsics,
@@ -1354,6 +1356,9 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                 c_observations_point,
                                 Nobservations_board,
                                 Nobservations_point,
+
+#warning "triangulated-solve: finish this"
+                                NULL, 0,
 
                                 c_observations_board_pool,
 
@@ -1421,6 +1426,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
             int N_j_nonzero = _mrcal_num_j_nonzero(Nobservations_board,
                                                    Nobservations_point,
+#warning "triangulated-solve: finish this"
+                                                   NULL, 0,
                                                    calibration_object_width_n,
                                                    calibration_object_height_n,
                                                    Ncameras_intrinsics, Ncameras_extrinsics,
@@ -1473,6 +1480,9 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                          c_observations_point,
                                          Nobservations_board,
                                          Nobservations_point,
+
+#warning "triangulated-solve: finish this"
+                                         NULL, 0,
 
                                          c_observations_board_pool,
 
@@ -2228,6 +2238,8 @@ static int callback_num_measurements_all(int i,
     return
         mrcal_num_measurements(Nobservations_board,
                                Nobservations_point,
+#warning "triangulated-solve: finish this"
+                               NULL, 0,
                                calibration_object_width_n,
                                calibration_object_height_n,
                                Ncameras_intrinsics, Ncameras_extrinsics,

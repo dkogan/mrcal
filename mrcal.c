@@ -453,7 +453,6 @@ int mrcal_num_measurements_points(int Nobservations_point)
     return Nobservations_point * 3;
 }
 
-#error find references
 int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have any of these
                                                const mrcal_observation_triangulated_point_t* observations_point_triangulated,
                                                int Nobservations_point_triangulated)
@@ -503,7 +502,6 @@ int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_
         num_regularization_terms_percamera(problem_selections, lensmodel);
 }
 
-#error find references
 int mrcal_num_measurements(int Nobservations_board,
                            int Nobservations_point,
 
@@ -533,7 +531,6 @@ int mrcal_num_measurements(int Nobservations_board,
                                               lensmodel);
 }
 
-#error find references
 int _mrcal_num_j_nonzero(int Nobservations_board,
                          int Nobservations_point,
 
@@ -4736,12 +4733,13 @@ void optimizer_callback(// input state
             if(pt0->last_in_set)
                 continue;
 
+#warning "triangulated-solve: make weights work somehow"
             // const mrcal_point3_t* qx_qy_w__observed0 = &pt0->px;
             // double weight0 = qx_qy_w__observed0->z;
             // if(weight0 <= 0.0)
             // {
             //     // Outlier
-            //     #error do stuff
+            //    do stuff
             // }
 
 
@@ -4770,7 +4768,7 @@ void optimizer_callback(// input state
             // inversion. y = R x + t -> x = Rinv y - Rinv t -> tinv = -Rinv t
             // t_r0 = -R_r0 t_0r
 
-            const mrcal_point3_t* v0 = pt0->px;
+            const mrcal_point3_t* v0 = &pt0->px;
 
             const mrcal_point3_t* t_r0;
             mrcal_point3_t        _t_r0;
@@ -4791,7 +4789,7 @@ void optimizer_callback(// input state
                 t_r0   = &_t_r0;
                 v0_ref = &_v0_ref;
 
-                mrcal_rotate_point_r_inverted(&_t_r0,
+                mrcal_rotate_point_r_inverted(_t_r0.xyz,
                                               &dnegt_r0__dr_0r[0][0],
                                               &dnegt_r0__dt_0r[0][0],
 
@@ -4799,11 +4797,11 @@ void optimizer_callback(// input state
                 for(int i=0; i<3; i++)
                     _t_r0.xyz[i] *= -1.;
 
-                mrcal_rotate_point_r(&_v0_ref,
+                mrcal_rotate_point_r(_v0_ref.xyz,
                                      &dv0_ref__dr_0r[0][0],
                                      NULL,
 
-                                     r_0r, v0);
+                                     r_0r, v0->xyz);
             }
             else
             {
@@ -4819,7 +4817,7 @@ void optimizer_callback(// input state
                 const mrcal_observation_triangulated_point_t* pt1 =
                     &ctx->observations_point_triangulated[i1];
 
-                const mrcal_point3_t* v1 = pt1->px;
+                const mrcal_point3_t* v1 = &pt1->px;
 
                 const mrcal_point3_t* t_10;
                 mrcal_point3_t       _t_10;
@@ -4835,6 +4833,9 @@ void optimizer_callback(// input state
                 if( icam_extrinsics1 >= 0 )
                 {
                     const mrcal_pose_t* rt_1r = &camera_rt[icam_extrinsics1];
+
+                    v0_cam1 = &_v0_cam1;
+
 
                     if( icam_extrinsics0 >= 0 )
                     {
@@ -4877,7 +4878,7 @@ void optimizer_callback(// input state
 
                 double err =
                     _mrcal_triangulated_error(&derr__dv0_cam1, &derr__dt_10,
-                                              v1, v0_cam1, t_10)
+                                              v1, v0_cam1, t_10);
 
 
                 x[iMeasurement] = err;
@@ -4922,7 +4923,7 @@ void optimizer_callback(// input state
                                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                                          ctx->Nframes,
                                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                                         ctx->problem_selections, ctx->lensmodel);
+                                                         ctx->problem_selections, &ctx->lensmodel);
 
                         double* out;
 
@@ -4933,11 +4934,11 @@ void optimizer_callback(// input state
                         if( icam_extrinsics1 >= 0 )
                         {
                             derr__dt_r0 = _derr__dt_r0;
-                            mul_vec3t_gen33(derr__dt_r0, derr__dt_10.xyz, dt_10__dt_r0, 1, );
+                            mul_vec3t_gen33(derr__dt_r0, derr__dt_10.xyz, &dt_10__dt_r0[0][0], 1, );
 
                             double temp[3];
-                            mul_vec3t_gen33(temp, derr__dv0_cam1.xyz, dv0_cam1__dv0_ref, 1, );
-                            mul_vec3t_gen33(out,  temp,               dv0_ref__dr_0r,    1, );
+                            mul_vec3t_gen33(temp, derr__dv0_cam1.xyz, &dv0_cam1__dv0_ref[0][0], 1, );
+                            mul_vec3t_gen33(out,  temp,               &dv0_ref__dr_0r[0][0],    1, );
                         }
                         else
                         {
@@ -4948,11 +4949,11 @@ void optimizer_callback(// input state
                             // t_10    = t_r0   --> dt_10__dt_r0      = I
                             // v0_cam1 = v0_ref --> dv0_cam1__dv0_ref = I
                             derr__dt_r0 = derr__dt_10.xyz;
-                            mul_vec3t_gen33(out,  derr__dv0_cam1.xyz, dv0_ref__dr_0r,    1, );
+                            mul_vec3t_gen33(out,  derr__dv0_cam1.xyz, &dv0_ref__dr_0r[0][0],    1, );
                         }
 
 
-                        mul_vec3t_gen33(out, derr__dt_r0, dnegt_r0__dr_0r,  -1, _accum);
+                        mul_vec3t_gen33(out, derr__dt_r0, &dnegt_r0__dr_0r[0][0],  -1, _accum);
 
                         SCALE_JACOBIAN_N( i_var_camera_rt0 + 0,
                                           SCALE_ROTATION_CAMERA,
@@ -4960,7 +4961,7 @@ void optimizer_callback(// input state
 
 
                         out = &Jval[iJacobian];
-                        mul_vec3t_gen33(out, derr__dt_r0, dnegt_r0__dt_0r,  -1);
+                        mul_vec3t_gen33(out, derr__dt_r0, &dnegt_r0__dt_0r[0][0], -1, );
 
                         SCALE_JACOBIAN_N( i_var_camera_rt0 + 3,
                                           SCALE_TRANSLATION_CAMERA,
@@ -4973,7 +4974,7 @@ void optimizer_callback(// input state
                                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
                                                          ctx->Nframes,
                                                          ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                                         ctx->problem_selections, ctx->lensmodel);
+                                                         ctx->problem_selections, &ctx->lensmodel);
 
                         double* out;
 
@@ -4986,21 +4987,21 @@ void optimizer_callback(// input state
                         //   derr/dt_1r =
                         //     derr/dt_10    dt_10/dt_1r
                         mul_vec3t_gen33(out,
-                                       derr__dv0_cam1.xyz,
-                                       dv0_cam1__dr_1r,
-                                       1,
-                                       );
+                                        derr__dv0_cam1.xyz,
+                                        &dv0_cam1__dr_1r[0][0],
+                                        1,
+                                        );
 
                         if( icam_extrinsics0 >= 0 )
                         {
                             mul_genNM_genML_accum(out, 3,1,
                                                   1,3,3,
                                                   derr__dt_10.xyz, 3,1,
-                                                  dt_10__drt_1r, 6, 1,
+                                                  &dt_10__drt_1r[0][0], 6, 1,
                                                   1);
-                            SCALE_JACOBIAN3( i_var_camera_rt1 + 0,
-                                             SCALE_ROTATION_CAMERA,
-                                             3 );
+                            SCALE_JACOBIAN_N( i_var_camera_rt1 + 0,
+                                              SCALE_ROTATION_CAMERA,
+                                              3 );
 
                             out = &Jval[iJacobian];
                             mul_genNM_genML(out, 3,1,
@@ -5009,9 +5010,9 @@ void optimizer_callback(// input state
                                             &dt_10__drt_1r[0][3], 6, 1,
                                             1);
 
-                            SCALE_JACOBIAN3( i_var_camera_rt1 + 3,
-                                             SCALE_TRANSLATION_CAMERA,
-                                             3 );
+                            SCALE_JACOBIAN_N( i_var_camera_rt1 + 3,
+                                              SCALE_TRANSLATION_CAMERA,
+                                              3 );
                         }
                         else
                         {
@@ -5025,18 +5026,18 @@ void optimizer_callback(// input state
                             //
                             //   derr/dr_1r = derr/dv0_cam1 dv0_cam1/dr_1r
                             //   derr/dt_1r = derr/dt_10
-                            SCALE_JACOBIAN3( i_var_camera_rt1 + 0,
-                                             SCALE_ROTATION_CAMERA,
-                                             3 );
+                            SCALE_JACOBIAN_N( i_var_camera_rt1 + 0,
+                                              SCALE_ROTATION_CAMERA,
+                                              3 );
 
                             out = &Jval[iJacobian];
 
                             for(int i=0; i<3; i++)
                                 out[i] = derr__dt_10.xyz[i];
 
-                            SCALE_JACOBIAN3( i_var_camera_rt1 + 3,
-                                             SCALE_TRANSLATION_CAMERA,
-                                             3 );
+                            SCALE_JACOBIAN_N( i_var_camera_rt1 + 3,
+                                              SCALE_TRANSLATION_CAMERA,
+                                              3 );
                         }
                     }
                 }
@@ -5924,7 +5925,7 @@ mrcal_optimize( // out
                                 (dogleg_callback_t*)&optimizer_callback, &ctx);
 
     stats.rms_reproj_error__pixels =
-#error not correct for triangulated points either: 1 measurement, not 2
+#warning "triangulated-solve: not correct for triangulated points either: 1 measurement, not 2"
         // THIS IS NOT CORRECT FOR POINTS. I have 3 measurements for points currently
         // /2 because I have separate x and y measurements
         sqrt(norm2_error / ((double)ctx.Nmeasurements / 2.0));

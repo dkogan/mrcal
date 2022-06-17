@@ -370,6 +370,9 @@ int main(int argc, char* argv[] )
                     Nobservations_board,
                     Nobservations_point,
 
+#warning "triangulated-solve: finish this"
+                    NULL, 0,
+
                     (mrcal_point3_t*)observations_px,
 
                     &lensmodel,

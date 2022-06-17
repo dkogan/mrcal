@@ -121,3 +121,16 @@ mrcal_triangulate_leecivera_wmid2(// outputs
 // I don't implement triangulate_leecivera_l2() yet because it requires
 // computing an SVD, which is far slower than what the rest of these functions
 // do
+
+double
+_mrcal_triangulated_error(// outputs
+                          mrcal_point3_t* _derr_dv1,
+                          mrcal_point3_t* _derr_dt01,
+
+                          // inputs
+
+                          // not-necessarily normalized vectors in the camera-0
+                          // coord system
+                          const mrcal_point3_t* _v0,
+                          const mrcal_point3_t* _v1,
+                          const mrcal_point3_t* _t01);

@@ -95,6 +95,11 @@ bool _mrcal_unproject_internal( // out
 // Report the number of non-zero entries in the optimization jacobian
 int _mrcal_num_j_nonzero(int Nobservations_board,
                          int Nobservations_point,
+
+                         // May be NULL if we don't have any of these
+                         const mrcal_observation_triangulated_point_t* observations_point_triangulated,
+                         int Nobservations_point_triangulated,
+
                          int calibration_object_width_n,
                          int calibration_object_height_n,
                          int Ncameras_intrinsics, int Ncameras_extrinsics,
