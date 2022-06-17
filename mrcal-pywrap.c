@@ -1010,9 +1010,9 @@ static bool optimize_validate_args( // out
     for(int i_observation=0; i_observation<Nobservations_board; i_observation++)
     {
         // check for monotonicity and in-rangeness
-        int iframe          = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
-        int icam_intrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
-        int icam_extrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 2];
+        int32_t iframe          = ((int32_t*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
+        int32_t icam_intrinsics = ((int32_t*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
+        int32_t icam_extrinsics = ((int32_t*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
         // First I make sure everything is in-range
         if(iframe < 0 || iframe >= Nframes)
@@ -1088,9 +1088,9 @@ static bool optimize_validate_args( // out
 
     for(int i_observation=0; i_observation<Nobservations_point; i_observation++)
     {
-        int i_point          = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
-        int icam_intrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
-        int icam_extrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
+        int32_t i_point         = ((int32_t*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
+        int32_t icam_intrinsics = ((int32_t*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
+        int32_t icam_extrinsics = ((int32_t*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
         // First I make sure everything is in-range
         if(i_point < 0 || i_point >= Npoints)
@@ -1147,9 +1147,9 @@ static void fill_c_observations_board(// out
 {
     for(int i_observation=0; i_observation<Nobservations_board; i_observation++)
     {
-        int iframe          = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
-        int icam_intrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
-        int icam_extrinsics = ((int*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 2];
+        int32_t iframe          = ((int32_t*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 0];
+        int32_t icam_intrinsics = ((int32_t*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 1];
+        int32_t icam_extrinsics = ((int32_t*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
         c_observations_board[i_observation].icam.intrinsics = icam_intrinsics;
         c_observations_board[i_observation].icam.extrinsics = icam_extrinsics;
@@ -1167,9 +1167,9 @@ static void fill_c_observations_point(// out
 {
     for(int i_observation=0; i_observation<Nobservations_point; i_observation++)
     {
-        int i_point         = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
-        int icam_intrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
-        int icam_extrinsics = ((int*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
+        int32_t i_point         = ((int32_t*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
+        int32_t icam_intrinsics = ((int32_t*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
+        int32_t icam_extrinsics = ((int32_t*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
         c_observations_point[i_observation].icam.intrinsics = icam_intrinsics;
         c_observations_point[i_observation].icam.extrinsics = icam_extrinsics;
