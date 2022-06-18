@@ -176,14 +176,28 @@ int main(int argc, char* argv[] )
           {.icam = { .intrinsics = 1, .extrinsics =  0 }, .i_point = 1, .px = observations_point_px[3]} };
 
     // Observations of triangulated points
-#define Nobservations_point_triangulated 4
-    mrcal_observation_point_triangulated_t observations_point_triangulated[Nobservations_point_triangulated] =
+    int Nobservations_point_triangulated;
+    mrcal_observation_point_triangulated_t* observations_point_triangulated;
+    mrcal_observation_point_triangulated_t _observations_point_triangulated[] =
         { // convergent
           {.icam = { .intrinsics = 0, .extrinsics = -1 }, .last_in_set = false, .px = {.xyz = {  0., 0., 1.}} },
           {.icam = { .intrinsics = 1, .extrinsics =  0 }, .last_in_set = true,  .px = {.xyz = {-0.1, 0., 1.}} },
           // divergent
           {.icam = { .intrinsics = 1, .extrinsics =  0 }, .last_in_set = false, .px = {.xyz = {0.2, 0., 1.}} },
           {.icam = { .intrinsics = 0, .extrinsics = -1 }, .last_in_set = true,  .px = {.xyz = {0.,  0., 1.}} } };
+
+    if(!(problem_selections.do_optimize_intrinsics_core ||
+         problem_selections.do_optimize_intrinsics_distortions) &&
+       problem_selections.do_optimize_extrinsics)
+    {
+        Nobservations_point_triangulated = 4;
+        observations_point_triangulated = _observations_point_triangulated;
+    }
+    else
+    {
+        Nobservations_point_triangulated = 0;
+        observations_point_triangulated = NULL;
+    }
 
     // simple camera calibration case
     int Ncameras_extrinsics = sizeof(extrinsics)/sizeof(extrinsics[0]);
