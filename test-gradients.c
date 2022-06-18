@@ -116,7 +116,7 @@ int main(int argc, char* argv[] )
 
 
     mrcal_pose_t extrinsics[] =
-        { { .r = { .xyz = {  .01,   .1,    .02}},  .t = { .xyz = { 2.3, 0.2, 0.1}}}};
+        { { .r = { .xyz = {  .01,   .1,    .02}},  .t = { .xyz = { -2.3, 0.2, 0.1}}}};
 
     mrcal_pose_t frames[] =
         { { .r = { .xyz = { -.1,    .52,  -.13}},  .t = { .xyz = { 1.3, 0.1, 10.2}}},
@@ -163,17 +163,27 @@ int main(int argc, char* argv[] )
     }
 
     // The observations of chessboards and of discrete points
-    mrcal_observation_board_t observations_board[] =
+    mrcal_observation_board_t observations_board[Nobservations_board] =
         { {.icam = { .intrinsics = 0, .extrinsics = -1 }, .iframe = 0},
           {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 0},
           {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 1},
           {.icam = { .intrinsics = 0, .extrinsics = -1 }, .iframe = 2},
           {.icam = { .intrinsics = 0, .extrinsics = -1 }, .iframe = 3},
           {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 3} };
-    mrcal_observation_point_t observations_point[] =
+    mrcal_observation_point_t observations_point[Nobservations_point] =
         { {.icam = { .intrinsics = 0, .extrinsics = -1 }, .i_point = 0, .px = observations_point_px[0]},
           {.icam = { .intrinsics = 1, .extrinsics =  0 }, .i_point = 0, .px = observations_point_px[1]},
           {.icam = { .intrinsics = 1, .extrinsics =  0 }, .i_point = 1, .px = observations_point_px[3]} };
+
+    // Observations of triangulated points
+#define Nobservations_point_triangulated 4
+    mrcal_observation_point_triangulated_t observations_point_triangulated[Nobservations_point_triangulated] =
+        { // convergent
+          {.icam = { .intrinsics = 0, .extrinsics = -1 }, .last_in_set = false, .px = {.xyz = {  0., 0., 1.}} },
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .last_in_set = true,  .px = {.xyz = {-0.1, 0., 1.}} },
+          // divergent
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .last_in_set = false, .px = {.xyz = {0.2, 0., 1.}} },
+          {.icam = { .intrinsics = 0, .extrinsics = -1 }, .last_in_set = true,  .px = {.xyz = {0.,  0., 1.}} } };
 
     // simple camera calibration case
     int Ncameras_extrinsics = sizeof(extrinsics)/sizeof(extrinsics[0]);
@@ -336,21 +346,34 @@ int main(int argc, char* argv[] )
                                             Npoints, Npoints_fixed, Nobservations_board,
                                             problem_selections,
                                             &lensmodel));
-    int Nmeasurements_boards         = mrcal_num_measurements_boards(Nobservations_board,
-                                                                     calibration_object_width_n,
-                                                                     calibration_object_height_n);
-    int Nmeasurements_points         = mrcal_num_measurements_points(Nobservations_point);
-    int Nmeasurements_regularization = mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
+    int Nmeasurements_boards              = mrcal_num_measurements_boards(Nobservations_board,
+                                                                          calibration_object_width_n,
+                                                                          calibration_object_height_n);
+    int Nmeasurements_points              = mrcal_num_measurements_points(Nobservations_point);
+    int Nmeasurements_points_triangulated = mrcal_num_measurements_points_triangulated(observations_point_triangulated,
+                                                                                       Nobservations_point_triangulated);
+    int Nmeasurements_regularization      = mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
                                                                              Nframes,
                                                                              Npoints, Npoints_fixed, Nobservations_board,
                                                                              problem_selections,
                                                                              &lensmodel);
+
+    int imeasurement = 0;
     printf("## Measurement calobjects: %d measurements. Starts at measurement %d\n",
-           Nmeasurements_boards, 0);
+           Nmeasurements_boards, imeasurement);
+    imeasurement += Nmeasurements_boards;
+
     printf("## Measurement points: %d measurements. Starts at measurement %d\n",
-           Nmeasurements_points, Nmeasurements_boards);
+           Nmeasurements_points, imeasurement);
+    imeasurement += Nmeasurements_points;
+
+    printf("## Measurement points-triangulated: %d measurements. Starts at measurement %d\n",
+           Nmeasurements_points_triangulated, imeasurement);
+    imeasurement += Nmeasurements_points_triangulated;
+
     printf("## Measurement regularization: %d measurements. Starts at measurement %d\n",
-           Nmeasurements_regularization, Nmeasurements_boards+Nmeasurements_points);
+           Nmeasurements_regularization, imeasurement);
+    imeasurement += Nmeasurements_regularization;
 
     mrcal_problem_constants_t problem_constants =
         { .point_min_range =  30.0,
@@ -369,10 +392,8 @@ int main(int argc, char* argv[] )
                     observations_point,
                     Nobservations_board,
                     Nobservations_point,
-
-#warning "triangulated-solve: finish this"
-                    NULL, 0,
-
+                    observations_point_triangulated,
+                    Nobservations_point_triangulated,
                     (mrcal_point3_t*)observations_px,
 
                     &lensmodel,
