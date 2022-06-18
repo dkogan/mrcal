@@ -5632,6 +5632,7 @@ mrcal_optimize( // out
         // callback. And because I must optimize SOMETHING, so if I have fixed
         // intrinsics then the extrinsics cannot be fixed
         return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+#warning "triangulated-solve: can I loosen this?"
     }
 
     if(!modelHasCore_fxfycxcy(lensmodel))
