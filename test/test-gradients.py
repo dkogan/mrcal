@@ -149,7 +149,8 @@ def get_measurement_map(s):
 
     0 boards
     1 points
-    2 regularization'''
+    2 points_triangulated
+    3 regularization'''
 
 
     m = re.search("^## Measurement calobjects: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
@@ -160,21 +161,27 @@ def get_measurement_map(s):
     Nmeas_points  = m.group(1)
     imeas0_points = m.group(2)
 
+    m = re.search("^## Measurement points-triangulated: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
+    Nmeas_points_triangulated  = m.group(1)
+    imeas0_points_triangulated = m.group(2)
+
     m = re.search("^## Measurement regularization: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
     Nmeas_regularization  = m.group(1)
     imeas0_regularization = m.group(2)
 
-    boards         = f"imeasurement >= {imeas0_boards}         && imeas < {imeas0_boards}         + {Nmeas_boards}"
-    points         = f"imeasurement >= {imeas0_points}         && imeas < {imeas0_points}         + {Nmeas_points}"
-    regularization = f"imeasurement >= {imeas0_regularization} && imeas < {imeas0_regularization} + {Nmeas_regularization}"
+    boards              = f"imeasurement >= {imeas0_boards}              && imeas < {imeas0_boards}              + {Nmeas_boards}"
+    points              = f"imeasurement >= {imeas0_points}              && imeas < {imeas0_points}              + {Nmeas_points}"
+    points_triangulated = f"imeasurement >= {imeas0_points_triangulated} && imeas < {imeas0_points_triangulated} + {Nmeas_points_triangulated}"
+    regularization      = f"imeasurement >= {imeas0_regularization}      && imeas < {imeas0_regularization}      + {Nmeas_regularization}"
 
     err = 'die("Could not classify measurement imeasurement. Giving up")'
-    return f"({regularization}) ? 2 : (({points}) ? 1 : (({boards})? 0 : {err}))"
+    return f"({regularization}) ? 3 : (({points_triangulated}) ? 2 : (({points}) ? 1 : (({boards})? 0 : {err})))"
 
 def meastype_name(i):
     d = { 0: "boards",
           1: "points",
-          2: "regularization" }
+          2: "points-triangulated",
+          3: "regularization" }
     return d[i]
 
 
