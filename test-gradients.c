@@ -379,34 +379,37 @@ int main(int argc, char* argv[] )
         { .point_min_range =  30.0,
           .point_max_range = 180.0};
 
-    mrcal_optimize( NULL,0, NULL,0,
-                    intrinsics,
-                    extrinsics,
-                    frames,
-                    points,
-                    &calobject_warp,
+    mrcal_stats_t stats =
+        mrcal_optimize( NULL,0, NULL,0,
+                        intrinsics,
+                        extrinsics,
+                        frames,
+                        points,
+                        &calobject_warp,
 
-                    Ncameras_intrinsics,Ncameras_extrinsics,
-                    Nframes, Npoints, Npoints_fixed,
-                    observations_board,
-                    observations_point,
-                    Nobservations_board,
-                    Nobservations_point,
-                    observations_point_triangulated,
-                    Nobservations_point_triangulated,
-                    (mrcal_point3_t*)observations_px,
+                        Ncameras_intrinsics,Ncameras_extrinsics,
+                        Nframes, Npoints, Npoints_fixed,
+                        observations_board,
+                        observations_point,
+                        Nobservations_board,
+                        Nobservations_point,
+                        observations_point_triangulated,
+                        Nobservations_point_triangulated,
+                        (mrcal_point3_t*)observations_px,
 
-                    &lensmodel,
-                    imagersizes,
-                    problem_selections,
-                    &problem_constants,
+                        &lensmodel,
+                        imagersizes,
+                        problem_selections,
+                        &problem_constants,
 
-                    1.2,
-                    calibration_object_width_n,
-                    calibration_object_height_n,
+                        1.2,
+                        calibration_object_width_n,
+                        calibration_object_height_n,
 
-                    false,
-                    true);
+                        false,
+                        true);
 
+    if(stats.rms_reproj_error__pixels < 0)
+        return 1;
     return 0;
 }
