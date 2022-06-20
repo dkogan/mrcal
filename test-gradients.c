@@ -116,7 +116,8 @@ int main(int argc, char* argv[] )
 
 
     mrcal_pose_t extrinsics[] =
-        { { .r = { .xyz = {  .01,   .1,    .02}},  .t = { .xyz = { 2.3, 0.2, 0.1}}}};
+        { { .r = { .xyz = {  .01,   .1,    .02}},  .t = { .xyz = { -2.3, 0.2, 0.1}}},
+          { .r = { .xyz = { -.02,  .03,   .002}},  .t = { .xyz = { -4.0, 0.1,-0.3}}}};
 
     mrcal_pose_t frames[] =
         { { .r = { .xyz = { -.1,    .52,  -.13}},  .t = { .xyz = { 1.3, 0.1, 10.2}}},
@@ -148,7 +149,8 @@ int main(int argc, char* argv[] )
     mrcal_observation_point_t observations_point[] =
         { {.icam = { .intrinsics = 0, .extrinsics = -1 }, .i_point = 0},
           {.icam = { .intrinsics = 1, .extrinsics =  0 }, .i_point = 0},
-          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .i_point = 1} };
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .i_point = 1},
+          {.icam = { .intrinsics = 2, .extrinsics =  1 }, .i_point = 1} };
 
 #define Nobservations_board ((int)(sizeof(observations_board)/sizeof(observations_board[0])))
 #define Nobservations_point ((int)(sizeof(observations_point)/sizeof(observations_point[0])))
