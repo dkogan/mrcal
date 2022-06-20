@@ -136,12 +136,28 @@ int main(int argc, char* argv[] )
 #define calibration_object_width_n  10
 #define calibration_object_height_n 9
 
-    mrcal_point3_t observations_px      [6][calibration_object_width_n*calibration_object_height_n] = {};
-    mrcal_point3_t observations_point_px[4] = {};
-    // How many of the observations we want to actually use. Can be fewer than
-    // defined in the above arrays if we're testing something
-#define Nobservations_board 6
-#define Nobservations_point 3
+    // The observations of chessboards and of discrete points
+    mrcal_observation_board_t observations_board[] =
+        { {.icam = { .intrinsics = 0, .extrinsics = -1 }, .iframe = 0},
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 0},
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 1},
+          {.icam = { .intrinsics = 0, .extrinsics = -1 }, .iframe = 2},
+          {.icam = { .intrinsics = 0, .extrinsics = -1 }, .iframe = 3},
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 3},
+          {.icam = { .intrinsics = 2, .extrinsics =  1 }, .iframe = 3} };
+    mrcal_observation_point_t observations_point[] =
+        { {.icam = { .intrinsics = 0, .extrinsics = -1 }, .i_point = 0},
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .i_point = 0},
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .i_point = 1} };
+
+#define Nobservations_board ((int)(sizeof(observations_board)/sizeof(observations_board[0])))
+#define Nobservations_point ((int)(sizeof(observations_point)/sizeof(observations_point[0])))
+
+    mrcal_point3_t observations_px      [Nobservations_board][calibration_object_width_n*calibration_object_height_n] = {};
+    mrcal_point3_t observations_point_px[Nobservations_point] = {};
+
+    for(int i=0; i<Nobservations_point; i++)
+        observations_point[i].px = observations_point_px[i];
 
     // fill observations with arbitrary data
     for(int i=0; i<Nobservations_board; i++)
@@ -161,19 +177,6 @@ int main(int argc, char* argv[] )
         observations_point_px[i].y = 800.0  - (double)i*12.0;
         observations_point_px[i].z = 1. / (double)(1 << (i % 3));
     }
-
-    // The observations of chessboards and of discrete points
-    mrcal_observation_board_t observations_board[Nobservations_board] =
-        { {.icam = { .intrinsics = 0, .extrinsics = -1 }, .iframe = 0},
-          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 0},
-          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 1},
-          {.icam = { .intrinsics = 0, .extrinsics = -1 }, .iframe = 2},
-          {.icam = { .intrinsics = 0, .extrinsics = -1 }, .iframe = 3},
-          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 3} };
-    mrcal_observation_point_t observations_point[Nobservations_point] =
-        { {.icam = { .intrinsics = 0, .extrinsics = -1 }, .i_point = 0, .px = observations_point_px[0]},
-          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .i_point = 0, .px = observations_point_px[1]},
-          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .i_point = 1, .px = observations_point_px[3]} };
 
     // Observations of triangulated points
     int Nobservations_point_triangulated;
