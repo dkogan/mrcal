@@ -303,7 +303,8 @@ CHOLMOD_factorization_init(CHOLMOD_factorization* self, PyObject* args, PyObject
     PyObject* Py_w = NULL;
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|O", keywords, &Py_J))
+                                     "|O:CHOLMOD_factorization.__init__",
+                                     keywords, &Py_J))
         goto done;
 
     if( Py_J == NULL )
@@ -499,7 +500,8 @@ CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* arg
     }
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "O", keywords, &Py_bt))
+                                     "O:CHOLMOD_factorization.solve_xt_JtJ_bt",
+                                     keywords, &Py_bt))
         goto done;
 
     if( Py_bt == NULL || !PyArray_Check((PyArrayObject*)Py_bt) )
@@ -1328,7 +1330,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                              NULL};
         if(!PyArg_ParseTupleAndKeywords( args, kwargs,
                                          OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
-                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
+                                         ":mrcal.optimize",
 
                                          keywords,
 
@@ -1346,7 +1349,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         if(!PyArg_ParseTupleAndKeywords( args, kwargs,
                                          OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
                                          OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
-                                         OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(PARSECODE),
+                                         OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(PARSECODE)
+                                         ":mrcal.optimizer_callback",
 
                                          keywords,
 
@@ -1764,10 +1768,13 @@ typedef int (callback_state_index_t)(int i,
                                      const PyArrayObject* indices_point_triangulated_camintrinsics_camextrinsics,
                                      const mrcal_lensmodel_t* lensmodel,
                                      mrcal_problem_selections_t problem_selections);
-
-static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* kwargs,
-                                     const char* argname,
-                                     callback_state_index_t cb)
+#define STATE_INDEX_GENERIC(f, ...) state_index_generic(callback_ ## f, \
+                                                        #f,             \
+                                                        __VA_ARGS__ )
+static PyObject* state_index_generic(callback_state_index_t cb,
+                                     const char* called_function,
+                                     PyObject* self, PyObject* args, PyObject* kwargs,
+                                     const char* argname)
 {
     // This is VERY similar to _pack_unpack_state(). Please consolidate
     // Also somewhat similar to _optimize()
@@ -1799,17 +1806,30 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
                          NULL};
     char** keywords_noargname = &keywords[1];
 
+    // needs to be big-enough to store the largest-possible called_function
+#define CALLED_FUNCTION_BUFFER "123456789012345678901234567890123456789012345678901234567890"
+
     if(argname != NULL)
     {
-        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                         "i"
-                                         "|" // everything is optional. I apply
-                                             // logic down the line to get what
-                                             // I need
-                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
-                                         "iiiiii"
-                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
+        char arg_string[] =
+            "i"
+            "|" // everything is optional. I apply
+                // logic down the line to get what
+                // I need
+            OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
+            "iiiiii"
+            OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
+            ":mrcal." CALLED_FUNCTION_BUFFER;
+        if(strlen(CALLED_FUNCTION_BUFFER) < strlen(called_function))
+        {
+            BARF("CALLED_FUNCTION_BUFFER too small for '%s'. This is a a bug", called_function);
+            goto done;
+        }
+        arg_string[strlen(arg_string) - strlen(CALLED_FUNCTION_BUFFER)] = '\0';
+        strcat(arg_string, called_function);
 
+        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                         arg_string,
                                          keywords,
 
                                          &i,
@@ -1825,10 +1845,21 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
     }
     else
     {
+        char arg_string[] =
+            OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
+            "iiiiii"
+            OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
+            ":mrcal." CALLED_FUNCTION_BUFFER;
+        if(strlen(CALLED_FUNCTION_BUFFER) < strlen(called_function))
+        {
+            BARF("CALLED_FUNCTION_BUFFER too small for '%s'. This is a a bug", called_function);
+            goto done;
+        }
+        arg_string[strlen(arg_string) - strlen(CALLED_FUNCTION_BUFFER)] = '\0';
+        strcat(arg_string, called_function);
+
         if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
-                                         "iiiiii"
-                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
+                                         arg_string,
 
                                          keywords_noargname,
 
@@ -1842,6 +1873,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
                                          OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
             goto done;
     }
+#undef CALLED_FUNCTION_BUFFER
+
 
     if(lensmodel == NULL)
     {
@@ -1953,9 +1986,9 @@ static int callback_state_index_intrinsics(int i,
 }
 static PyObject* state_index_intrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               "icam_intrinsics",
-                               callback_state_index_intrinsics);
+    return STATE_INDEX_GENERIC(state_index_intrinsics,
+                               self, args, kwargs,
+                               "icam_intrinsics");
 }
 
 static int callback_num_states_intrinsics(int i,
@@ -1977,9 +2010,9 @@ static int callback_num_states_intrinsics(int i,
 }
 static PyObject* num_states_intrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_num_states_intrinsics);
+    return STATE_INDEX_GENERIC(num_states_intrinsics,
+                               self, args, kwargs,
+                               NULL);
 }
 
 static int callback_state_index_extrinsics(int i,
@@ -2006,9 +2039,9 @@ static int callback_state_index_extrinsics(int i,
 }
 static PyObject* state_index_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               "icam_extrinsics",
-                               callback_state_index_extrinsics);
+    return STATE_INDEX_GENERIC(state_index_extrinsics,
+                               self, args, kwargs,
+                               "icam_extrinsics");
 }
 
 static int callback_num_states_extrinsics(int i,
@@ -2030,9 +2063,9 @@ static int callback_num_states_extrinsics(int i,
 }
 static PyObject* num_states_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_num_states_extrinsics);
+    return STATE_INDEX_GENERIC(num_states_extrinsics,
+                               self, args, kwargs,
+                               NULL);
 }
 
 static int callback_state_index_frames(int i,
@@ -2059,9 +2092,9 @@ static int callback_state_index_frames(int i,
 }
 static PyObject* state_index_frames(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               "iframe",
-                               callback_state_index_frames);
+    return STATE_INDEX_GENERIC(state_index_frames,
+                               self, args, kwargs,
+                               "iframe");
 }
 
 static int callback_num_states_frames(int i,
@@ -2083,9 +2116,9 @@ static int callback_num_states_frames(int i,
 }
 static PyObject* num_states_frames(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_num_states_frames);
+    return STATE_INDEX_GENERIC(num_states_frames,
+                               self, args, kwargs,
+                               NULL);
 }
 
 static int callback_state_index_points(int i,
@@ -2112,9 +2145,9 @@ static int callback_state_index_points(int i,
 }
 static PyObject* state_index_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               "i_point",
-                               callback_state_index_points);
+    return STATE_INDEX_GENERIC(state_index_points,
+                               self, args, kwargs,
+                               "i_point");
 }
 
 static int callback_num_states_points(int i,
@@ -2136,9 +2169,9 @@ static int callback_num_states_points(int i,
 }
 static PyObject* num_states_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_num_states_points);
+    return STATE_INDEX_GENERIC(num_states_points,
+                               self, args, kwargs,
+                               NULL);
 }
 
 static int callback_state_index_calobject_warp(int i,
@@ -2164,9 +2197,9 @@ static int callback_state_index_calobject_warp(int i,
 }
 static PyObject* state_index_calobject_warp(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_state_index_calobject_warp);
+    return STATE_INDEX_GENERIC(state_index_calobject_warp,
+                               self, args, kwargs,
+                               NULL);
 }
 
 static int callback_num_states_calobject_warp(int i,
@@ -2188,9 +2221,9 @@ static int callback_num_states_calobject_warp(int i,
 }
 static PyObject* num_states_calobject_warp(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_num_states_calobject_warp);
+    return STATE_INDEX_GENERIC(num_states_calobject_warp,
+                               self, args, kwargs,
+                               NULL);
 }
 
 static int callback_num_states(int i,
@@ -2215,9 +2248,9 @@ static int callback_num_states(int i,
 }
 static PyObject* num_states(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_num_states);
+    return STATE_INDEX_GENERIC(num_states,
+                               self, args, kwargs,
+                               NULL);
 }
 
 static int callback_num_intrinsics_optimization_params(int i,
@@ -2240,9 +2273,9 @@ static int callback_num_intrinsics_optimization_params(int i,
 }
 static PyObject* num_intrinsics_optimization_params(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_num_intrinsics_optimization_params);
+    return STATE_INDEX_GENERIC(num_intrinsics_optimization_params,
+                               self, args, kwargs,
+                               NULL);
 }
 
 static int callback_measurement_index_boards(int i,
@@ -2268,9 +2301,9 @@ static int callback_measurement_index_boards(int i,
 }
 static PyObject* measurement_index_boards(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               "i_observation_board",
-                               callback_measurement_index_boards);
+    return STATE_INDEX_GENERIC(measurement_index_boards,
+                               self, args, kwargs,
+                               "i_observation_board");
 }
 
 static int callback_num_measurements_boards(int i,
@@ -2294,9 +2327,9 @@ static int callback_num_measurements_boards(int i,
 }
 static PyObject* num_measurements_boards(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_num_measurements_boards);
+    return STATE_INDEX_GENERIC(num_measurements_boards,
+                               self, args, kwargs,
+                               NULL);
 }
 
 static int callback_measurement_index_points(int i,
@@ -2322,9 +2355,9 @@ static int callback_measurement_index_points(int i,
 }
 static PyObject* measurement_index_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               "i_observation_point",
-                               callback_measurement_index_points);
+    return STATE_INDEX_GENERIC(measurement_index_points,
+                               self, args, kwargs,
+                               "i_observation_point");
 }
 
 static int callback_measurement_index_points_triangulated(int i,
@@ -2351,9 +2384,9 @@ static int callback_measurement_index_points_triangulated(int i,
 }
 static PyObject* measurement_index_points_triangulated(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               "i_observation_point",
-                               callback_measurement_index_points_triangulated);
+    return STATE_INDEX_GENERIC(measurement_index_points_triangulated,
+                               self, args, kwargs,
+                               "i_observation_point");
 }
 
 static int callback_num_measurements_points(int i,
@@ -2375,9 +2408,9 @@ static int callback_num_measurements_points(int i,
 }
 static PyObject* num_measurements_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_num_measurements_points);
+    return STATE_INDEX_GENERIC(num_measurements_points,
+                               self, args, kwargs,
+                               NULL);
 }
 
 static int callback_num_measurements_points_triangulated(int i,
@@ -2415,9 +2448,9 @@ static int callback_num_measurements_points_triangulated(int i,
 }
 static PyObject* num_measurements_points_triangulated(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_num_measurements_points_triangulated);
+    return STATE_INDEX_GENERIC(num_measurements_points_triangulated,
+                               self, args, kwargs,
+                               NULL);
 }
 
 static int callback_measurement_index_regularization(int i,
@@ -2442,9 +2475,9 @@ static int callback_measurement_index_regularization(int i,
 }
 static PyObject* measurement_index_regularization(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_measurement_index_regularization);
+    return STATE_INDEX_GENERIC(measurement_index_regularization,
+                               self, args, kwargs,
+                               NULL);
 }
 
 static int callback_num_measurements_regularization(int i,
@@ -2470,25 +2503,25 @@ static int callback_num_measurements_regularization(int i,
 }
 static PyObject* num_measurements_regularization(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_num_measurements_regularization);
+    return STATE_INDEX_GENERIC(num_measurements_regularization,
+                               self, args, kwargs,
+                               NULL);
 }
 
 
-static int callback_num_measurements_all(int i,
-                                         int Ncameras_intrinsics,
-                                         int Ncameras_extrinsics,
-                                         int Nframes,
-                                         int Npoints,
-                                         int Npoints_fixed,
-                                         int Nobservations_board,
-                                         int Nobservations_point,
-                                         int calibration_object_width_n,
-                                         int calibration_object_height_n,
-                                         const PyArrayObject* indices_point_triangulated_camintrinsics_camextrinsics,
-                                         const mrcal_lensmodel_t* lensmodel,
-                                         mrcal_problem_selections_t problem_selections)
+static int callback_num_measurements(int i,
+                                     int Ncameras_intrinsics,
+                                     int Ncameras_extrinsics,
+                                     int Nframes,
+                                     int Npoints,
+                                     int Npoints_fixed,
+                                     int Nobservations_board,
+                                     int Nobservations_point,
+                                     int calibration_object_width_n,
+                                     int calibration_object_height_n,
+                                     const PyArrayObject* indices_point_triangulated_camintrinsics_camextrinsics,
+                                     const mrcal_lensmodel_t* lensmodel,
+                                     mrcal_problem_selections_t problem_selections)
 {
 #warning "triangulated-solve: add tests to the num_measurements_..., state_index_... ..."
 
@@ -2522,9 +2555,9 @@ static int callback_num_measurements_all(int i,
 }
 static PyObject* num_measurements(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    return state_index_generic(self, args, kwargs,
-                               NULL,
-                               callback_num_measurements_all);
+    return STATE_INDEX_GENERIC(num_measurements,
+                               self, args, kwargs,
+                               NULL);
 }
 
 
@@ -2532,7 +2565,7 @@ static PyObject* num_measurements(PyObject* self, PyObject* args, PyObject* kwar
 static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kwargs,
                                     bool pack)
 {
-    // This is VERY similar to state_index_generic(). Please consolidate
+    // This is VERY similar to INDEX_GENERIC(). Please consolidate
     PyObject*      result = NULL;
     PyArrayObject* p      = NULL;
 
@@ -2558,14 +2591,25 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
                          OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
                          NULL};
 
+#define UNPACK_STATE "unpack_state"
+    char arg_string[] =
+        "O&"
+        "|" // everything is optional. I apply
+            // logic down the line to get what
+            // I need
+        OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
+        "iiiiii"
+        OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
+        ":mrcal." UNPACK_STATE;
+    if(pack)
+    {
+        arg_string[strlen(arg_string) - strlen(UNPACK_STATE)] = '\0';
+        strcat(arg_string, "pack_state");
+    }
+#undef UNPACK_STATE
+
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "O&"
-                                     "|" // everything is optional. I apply
-                                     // logic down the line to get what
-                                     // I need
-                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
-                                     "iiiiii"
-                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
+                                     arg_string,
 
                                      keywords,
 
@@ -2701,7 +2745,7 @@ static PyObject* unpack_state(PyObject* self, PyObject* args, PyObject* kwargs)
 
 static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    // This is VERY similar to state_index_generic(). Please consolidate
+    // This is VERY similar to INDEX_GENERIC(). Please consolidate
     PyObject* result          = NULL;
     int       icam_intrinsics = -1;
 
@@ -2730,7 +2774,8 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
                                      // I need
                                      OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
                                      "iiii"
-                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE),
+                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
+                                     ":mrcal.corresponding_icam_extrinsics",
 
                                      keywords,
 
