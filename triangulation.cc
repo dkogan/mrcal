@@ -778,7 +778,7 @@ _mrcal_triangulated_error(// outputs
     // case a cos() error is the least of our issues
     val_withgrad_t<6> err = angle_error__assume_small( v0, m ) * 2.;
 
-#warning "triangulated-solve: what happens when the rays are exactly parallel? Make sure the numerics remain happy"
+#warning "triangulated-solve: what happens when the rays are exactly parallel? Make sure the numerics remain happy. They don't: I divide by cross(v0,v1) ~ 0"
     if(!chirality(l0, v0, l1, v1, t01))
     {
         // The rays diverge. This is aphysical, but an incorrect (i.e.
