@@ -5429,7 +5429,7 @@ bool mrcal_optimizer_callback(// out
 
     if( calobject_warp == NULL && problem_selections.do_optimize_calobject_warp )
     {
-        MSG("ERROR: We're using the calibration object warp, so a value MUST be passed in.");
+        MSG("ERROR: We're optimizing the calibration object warp, so an array MUST be given to return the result");
         goto done;
     }
 
