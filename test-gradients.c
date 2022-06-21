@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-
 #include "mrcal.h"
 
 static
@@ -188,14 +187,21 @@ int main(int argc, char* argv[] )
           {.icam = { .intrinsics = 0, .extrinsics = -1 }, .last_in_set = false, .px = {.xyz = {  0., 0., 1.}} },
           {.icam = { .intrinsics = 1, .extrinsics =  0 }, .last_in_set = true,  .px = {.xyz = {-0.1, 0., 1.}} },
           // divergent
-          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .last_in_set = false, .px = {.xyz = {0.2, 0., 1.}} },
-          {.icam = { .intrinsics = 0, .extrinsics = -1 }, .last_in_set = true,  .px = {.xyz = {0.,  0., 1.}} } };
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .last_in_set = false, .px = {.xyz = { 0.2, 0., 1.}} },
+          {.icam = { .intrinsics = 0, .extrinsics = -1 }, .last_in_set = true,  .px = {.xyz = { 0.,  0., 1.}} },
+
+          // convergent
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .last_in_set = false, .px = {.xyz = {  0., -0.02, 1.}} },
+          {.icam = { .intrinsics = 2, .extrinsics =  1 }, .last_in_set = true,  .px = {.xyz = {-0.1,  0.01, 1.}} },
+          // divergent
+          {.icam = { .intrinsics = 2, .extrinsics =  1 }, .last_in_set = false, .px = {.xyz = { 0.21,  0.01, 1.}} },
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .last_in_set = true,  .px = {.xyz = { -0.1,  0.03, 1.}} } };
 
     if(!(problem_selections.do_optimize_intrinsics_core ||
          problem_selections.do_optimize_intrinsics_distortions) &&
        problem_selections.do_optimize_extrinsics)
     {
-        Nobservations_point_triangulated = 4;
+        Nobservations_point_triangulated = (int)(sizeof(_observations_point_triangulated)/sizeof(_observations_point_triangulated[0]));
         observations_point_triangulated = _observations_point_triangulated;
     }
     else
@@ -227,26 +233,41 @@ int main(int argc, char* argv[] )
     int Ndistortion = Nintrinsics;
     if(modelHasCore_fxfycxcy(&lensmodel))
         Ndistortion -= 4;
-    double intrinsics[Ncameras_intrinsics * Nintrinsics];
+    double intrinsics[Ncameras_intrinsics][Nintrinsics];
 
-    mrcal_intrinsics_core_t* intrinsics_core = (mrcal_intrinsics_core_t*)intrinsics;
-    intrinsics_core->focal_xy [0] = 2000.3;
-    intrinsics_core->focal_xy [1] = 1900.5;
-    intrinsics_core->center_xy[0] = 1800.3;
-    intrinsics_core->center_xy[1] = 1790.2;
+    mrcal_intrinsics_core_t* intrinsics_core;
 
-    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[Nintrinsics]);
-    intrinsics_core->focal_xy [0] = 2100.2;
-    intrinsics_core->focal_xy [1] = 2130.4;
-    intrinsics_core->center_xy[0] = 1830.3;
-    intrinsics_core->center_xy[1] = 1810.2;
+    assert(Ncameras_intrinsics == 3);
+    {
+        intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[0][0]);
+        intrinsics_core->focal_xy [0] = 2000.3;
+        intrinsics_core->focal_xy [1] = 1900.5;
+        intrinsics_core->center_xy[0] = 1800.3;
+        intrinsics_core->center_xy[1] = 1790.2;
+
+        intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[1][0]);
+        intrinsics_core->focal_xy [0] = 2100.2;
+        intrinsics_core->focal_xy [1] = 2130.4;
+        intrinsics_core->center_xy[0] = 1830.3;
+        intrinsics_core->center_xy[1] = 1810.2;
+
+        intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[2][0]);
+        intrinsics_core->focal_xy [0] = 2201.0;
+        intrinsics_core->focal_xy [1] = 1975.4;
+        intrinsics_core->center_xy[0] = 1934.3;
+        intrinsics_core->center_xy[1] = 1712.2;
+    }
 
     if(lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC )
         for(int i=0; i<Ncameras_intrinsics; i++)
             for(int j=0; j<Ndistortion; j++)
-                intrinsics[Nintrinsics * i + 4 + j] = 0.1 + 0.05 * (double)(i + Ncameras_intrinsics*j);
+                intrinsics[i][4 + j] = 0.1 + 0.05 * (double)(i + Ncameras_intrinsics*j);
     else
     {
+        // Ncameras_intrinsics has the right number of elements. In this block
+        // the code is assuming exactly this many
+        assert(Ncameras_intrinsics == 3);
+
         const double intrinsics_cam0[] =
             { 2.017284705,1.242204557,2.053514381,1.214368063,2.0379067,1.212609628,
               2.033278227,1.183689487,2.040018023,1.188554431,2.069146825,1.196304649,
@@ -315,8 +336,51 @@ int main(int argc, char* argv[] )
               1.51865523259, 1.06073374227, 1.55309119673, 1.04795568165, 1.60213038148,
               1.032439757,   1.50002407206, 1.00882762874, 1.58048933908, 1.15745735978,
               1.60724228971};
-        memcpy(&intrinsics[Nintrinsics*0+4], intrinsics_cam0, sizeof(intrinsics_cam0));
-        memcpy(&intrinsics[Nintrinsics*1+4], intrinsics_cam1, sizeof(intrinsics_cam1));
+        const double intrinsics_cam2[] =
+            { 2.32568438, 2.64184055, 1.37080082, 2.68623031, 2.44766719,
+              2.51760487, 2.44910511, 3.00923472, 1.80406907, 2.62115991,
+              2.13597553, 2.71119886, 2.45941677, 2.24231906, 1.54846933,
+              2.50781539, 2.01420513, 2.29083754, 1.88604843, 2.38431597,
+              1.99624765, 2.38749281, 2.12753286, 2.82406081, 1.99560245,
+              2.07535859, 2.23232894, 2.73764711, 2.18317539, 2.00279558,
+              1.88930637, 2.77202184, 1.85226642, 2.34297281, 1.67623218,
+              2.14204021, 2.23041761, 2.12928388, 1.54996353, 2.07504287,
+              1.87598653, 2.72978901, 2.37374922, 2.67927552, 1.59849586,
+              2.33848998, 1.52087169, 2.20059876, 1.99956937, 2.99780577,
+              1.88370125, 2.41449638, 2.10090388, 2.26624618, 2.35707667,
+              2.81812161, 1.53341114, 2.70245732, 2.10215696, 2.17451734,
+              1.82836183, 2.79213943, 1.44848853, 2.71966537, 2.05163444,
+              3.02456885, 1.41087058, 2.65390596, 1.72423739, 2.51580928,
+              2.12963719, 2.46578376, 1.77319699, 2.9213695 , 1.33719462,
+              2.04319834, 1.45872629, 2.02034464, 2.31436251, 2.42045888,
+              1.58594998, 2.31855954, 2.23419471, 2.66433277, 1.75308507,
+              2.14005008, 1.59184454, 2.57341127, 1.99788441, 2.61451278,
+              1.61490085, 2.24587391, 1.89819417, 2.60569532, 2.2845699 ,
+              3.05790635, 2.08930806, 2.22648911, 1.5618187 , 2.03642643,
+              2.09487434, 2.67121307, 2.17863092, 2.84462711, 1.85728389,
+              2.23563737, 1.42461567, 2.87459545, 2.0494039 , 3.01961097,
+              1.85622496, 2.63355933, 1.94228459, 2.68001375, 1.5599297 ,
+              2.18767602, 1.7599841 , 2.39136687, 2.05440485, 2.46566775,
+              2.0774349 , 2.30056228, 1.78516041, 2.78819373, 1.56484154,
+              2.38873694, 2.30273724, 2.39434382, 1.58681058, 2.94195293,
+              2.28729297, 2.62201545, 2.14836468, 2.5814154 , 1.77987481,
+              2.67279025, 1.6830787 , 2.79415614, 1.82310102, 2.97262209,
+              1.91606085, 2.79153865, 2.32514002, 2.31402682, 1.8803468 ,
+              2.86047521, 2.2712723 , 2.43508069, 1.56183834, 3.08800674,
+              1.59314395, 2.60816817, 2.36107102, 2.16079954, 1.84253412,
+              2.18550861, 1.76246581, 2.62922627, 1.71704698, 2.98151365,
+              1.64248292, 2.89301828, 2.3203759 , 2.38023239, 2.30897973,
+              2.14690808, 1.53659909, 2.06801529, 1.77117   , 2.95213142,
+              2.12480654, 2.16672772, 2.09914878, 2.77200122, 2.31795193,
+              2.16605694};
+
+        assert(sizeof(intrinsics_cam0)/sizeof(intrinsics_cam0[0]) == Nintrinsics-4);
+        assert(sizeof(intrinsics_cam1)/sizeof(intrinsics_cam1[0]) == Nintrinsics-4);
+        assert(sizeof(intrinsics_cam2)/sizeof(intrinsics_cam2[0]) == Nintrinsics-4);
+
+        memcpy(&intrinsics[0][4], intrinsics_cam0, sizeof(intrinsics_cam0));
+        memcpy(&intrinsics[1][4], intrinsics_cam1, sizeof(intrinsics_cam1));
+        memcpy(&intrinsics[2][4], intrinsics_cam2, sizeof(intrinsics_cam2));
     }
 
 
@@ -400,7 +464,7 @@ int main(int argc, char* argv[] )
 
     mrcal_stats_t stats =
         mrcal_optimize( NULL,0, NULL,0,
-                        intrinsics,
+                        (double*)intrinsics,
                         extrinsics,
                         frames,
                         points,
