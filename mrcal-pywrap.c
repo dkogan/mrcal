@@ -1228,6 +1228,10 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
 
     bool finish_set(int ipoint_last_in_set)
     {
+        if(ipoint_last_in_set < 0)
+            // No "last" set exists. Nothing to do.
+            return true;
+
         c_observations_point_triangulated[ipoint_last_in_set].last_in_set = true;
         if(Npoints_in_this_set < 2)
         {
