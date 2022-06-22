@@ -1791,7 +1791,7 @@ static PyObject* state_index_generic(callback_state_index_t cb,
                    problem_selections);
 
     if(index >= 0)
-        result = Py_BuildValue("i", index);
+        result = PyLong_FromLong(index);
     else
     {
         result = Py_None;
