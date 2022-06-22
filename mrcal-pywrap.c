@@ -1771,6 +1771,8 @@ typedef int (callback_state_index_t)(int i,
 #define STATE_INDEX_GENERIC(f, ...) state_index_generic(callback_ ## f, \
                                                         #f,             \
                                                         __VA_ARGS__ )
+
+#warning "triangulated-solve: more kwargs for the triangulated-solve measurements? Look in state_index_generic()"
 static PyObject* state_index_generic(callback_state_index_t cb,
                                      const char* called_function,
                                      PyObject* self, PyObject* args, PyObject* kwargs,
