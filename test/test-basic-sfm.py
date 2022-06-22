@@ -153,24 +153,23 @@ def make_noisy_inputs():
 ############### points to set the scale
 rt_cam_ref_noisy, pref_noisy, observations = make_noisy_inputs()
 
-stats = mrcal.optimize( nps.atleast_dims(intrinsics_data, -2),
-                        rt_cam_ref_noisy,
-                        None, pref_noisy,
-                        None, None,
-                        observations,
-                        indices_point_camintrinsics_camextrinsics,
-                        lensmodel,
-                        imagersizes                       = nps.atleast_dims(imagersize, -2),
-                        Npoints_fixed                     = Npoints_fixed,
-                        point_min_range                   = 1.0,
-                        point_max_range                   = 1000.0,
-                        do_optimize_intrinsics_core       = False,
-                        do_optimize_intrinsics_distortions= False,
-                        do_optimize_extrinsics            = True,
-                        do_optimize_frames                = True,
-                        do_apply_outlier_rejection        = False,
-                        do_apply_regularization           = True,
-                        verbose                           = False)
+stats = mrcal.optimize( intrinsics                                = nps.atleast_dims(intrinsics_data, -2),
+                        extrinsics_rt_fromref                     = rt_cam_ref_noisy,
+                        points                                    = pref_noisy,
+                        observations_point                        = observations,
+                        indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
+                        lensmodel                                 = lensmodel,
+                        imagersizes                               = nps.atleast_dims(imagersize, -2),
+                        Npoints_fixed                             = Npoints_fixed,
+                        point_min_range                           = 1.0,
+                        point_max_range                           = 1000.0,
+                        do_optimize_intrinsics_core               = False,
+                        do_optimize_intrinsics_distortions        = False,
+                        do_optimize_extrinsics                    = True,
+                        do_optimize_frames                        = True,
+                        do_apply_outlier_rejection                = False,
+                        do_apply_regularization                   = True,
+                        verbose                                   = False)
 
 # Got a solution. How well do they fit?
 fit_rms = np.sqrt(np.mean(nps.norm2(pref_noisy - pref_true)))

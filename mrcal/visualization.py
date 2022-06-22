@@ -43,10 +43,10 @@ SYNOPSIS
     # Solve a calibration problem. Visualize the resulting geometry AND the
     # observed calibration objects and points
     ...
-    mrcal.optimize(intrinsics,
-                   extrinsics_rt_fromref,
-                   frames_rt_toref,
-                   points,
+    mrcal.optimize(intrinsics            = intrinsics,
+                   extrinsics_rt_fromref = extrinsics_rt_fromref,
+                   frames_rt_toref       = frames_rt_toref,
+                   points                = points,
                    ...)
     plot2 = \
       mrcal.show_geometry(extrinsics_rt_fromref,
