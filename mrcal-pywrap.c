@@ -1203,8 +1203,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                              OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
                              NULL};
         if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                         "$"
-                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|$"
                                          OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
                                          ":mrcal.optimize",
 
@@ -1222,8 +1221,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                              OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(NAMELIST)
                              NULL};
         if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                         "$"
-                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|$"
                                          OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
                                          OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(PARSECODE)
                                          ":mrcal.optimizer_callback",
