@@ -158,8 +158,8 @@ stats = mrcal.optimize( intrinsics                                = nps.atleast_
                         points                                    = pref_noisy,
                         observations_point                        = observations,
                         indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
-                        lensmodel                                 = lensmodel,
 
+                        lensmodel                         = lensmodel,
                         imagersizes                       = nps.atleast_dims(imagersize, -2),
                         Npoints_fixed                     = Npoints_fixed,
                         point_min_range                   = 1.0,
