@@ -2295,6 +2295,62 @@ static PyObject* num_measurements(PyObject* self, PyObject* args, PyObject* kwar
                                NULL);
 }
 
+static int callback_corresponding_icam_extrinsics(int icam_intrinsics,
+                                                  int Ncameras_intrinsics,
+                                                  int Ncameras_extrinsics,
+                                                  int Nframes,
+                                                  int Npoints,
+                                                  int Npoints_fixed,
+                                                  int Nobservations_board,
+                                                  int Nobservations_point,
+                                                  int calibration_object_width_n,
+                                                  int calibration_object_height_n,
+                                                  const mrcal_lensmodel_t* lensmodel,
+                                                  mrcal_problem_selections_t problem_selections)
+{
+    if( icam_intrinsics < 0 || icam_intrinsics >= Ncameras_intrinsics )
+    {
+        BARF("The given icam_intrinsics=%d is out of bounds. Must be >= 0 and < %d",
+             icam_intrinsics, Ncameras_intrinsics);
+        return -1;
+    }
+
+    int icam_extrinsics;
+
+    mrcal_observation_board_t c_observations_board[Nobservations_board];
+    fill_c_observations_board(c_observations_board,
+                              Nobservations_board,
+                              indices_frame_camintrinsics_camextrinsics);
+
+    mrcal_observation_point_t c_observations_point[Nobservations_point];
+    fill_c_observations_point(c_observations_point,
+                              Nobservations_point,
+                              indices_point_camintrinsics_camextrinsics,
+                              (mrcal_point3_t*)PyArray_DATA(observations_point));
+
+    if(!mrcal_corresponding_icam_extrinsics(&icam_extrinsics,
+
+                                            icam_intrinsics,
+                                            Ncameras_intrinsics,
+                                            Ncameras_extrinsics,
+                                            Nobservations_board,
+                                            c_observations_board,
+                                            Nobservations_point,
+                                            c_observations_point))
+    {
+        BARF("Error calling mrcal_corresponding_icam_extrinsics()");
+        return -1;
+    }
+
+    return icam_extrinsics;
+}
+static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return STATE_INDEX_GENERIC(corresponding_icam_extrinsics,
+                               self, args, kwargs,
+                               "icam_intrinsics");
+}
+
 
 
 static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kwargs,
@@ -2472,116 +2528,6 @@ static PyObject* unpack_state(PyObject* self, PyObject* args, PyObject* kwargs)
     return _pack_unpack_state(self, args, kwargs, false);
 }
 
-static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
-{
-    // This is VERY similar to INDEX_GENERIC(). Please consolidate
-    PyObject* result          = NULL;
-    int       icam_intrinsics = -1;
-
-    OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
-    OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
-
-    int Ncameras_intrinsics = -1;
-    int Ncameras_extrinsics = -1;
-    int Nobservations_board  = -1;
-    int Nobservations_point  = -1;
-
-    char* keywords[] = { "icam_intrinsics",
-                         OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
-
-                         "Ncameras_intrinsics",
-                         "Ncameras_extrinsics",
-                         "Nobservations_board",
-                         "Nobservations_point",
-                         OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
-                         NULL};
-
-    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "i"
-                                     "|" // everything is optional. I apply
-                                     // logic down the line to get what
-                                     // I need
-                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
-                                     "iiii"
-                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
-                                     ":mrcal.corresponding_icam_extrinsics",
-
-                                     keywords,
-
-                                     &icam_intrinsics,
-                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
-                                     &Ncameras_intrinsics,
-                                     &Ncameras_extrinsics,
-                                     &Nobservations_board,
-                                     &Nobservations_point,
-                                     OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
-        goto done;
-
-    // checks dimensionality of array !IS_NULL. So if any array isn't passed-in,
-    // that's OK! After I do this and if !IS_NULL, then I can ask for array
-    // dimensions safely
-    bool check(void)
-    {
-        OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
-        OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
-        return true;
-    }
-    if(!check()) goto done;
-
-    // If explicit dimensions are given, use them. If they're not given, but we
-    // have an array, use those dimensions. If an array isn't given either, use
-    // 0
-    if(Ncameras_intrinsics < 0) Ncameras_intrinsics = IS_NULL(intrinsics)            ? 0 : PyArray_DIMS(intrinsics)            [0];
-    if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(extrinsics_rt_fromref) ? 0 : PyArray_DIMS(extrinsics_rt_fromref) [0];
-    if(Nobservations_board < 0) Nobservations_board = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
-    if(Nobservations_point < 0) Nobservations_point = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
-
-
-    if( icam_intrinsics < 0 || icam_intrinsics >= Ncameras_intrinsics )
-    {
-        BARF("The given icam_intrinsics=%d is out of bounds. Must be >= 0 and < %d",
-             icam_intrinsics, Ncameras_intrinsics);
-        goto done;
-    }
-
-
-
-    int icam_extrinsics;
-    {
-        mrcal_observation_board_t c_observations_board[Nobservations_board];
-        fill_c_observations_board(c_observations_board,
-                                  Nobservations_board,
-                                  indices_frame_camintrinsics_camextrinsics);
-
-        mrcal_observation_point_t c_observations_point[Nobservations_point];
-        fill_c_observations_point(c_observations_point,
-                                  Nobservations_point,
-                                  indices_point_camintrinsics_camextrinsics,
-                                  (mrcal_point3_t*)PyArray_DATA(observations_point));
-
-        if(!mrcal_corresponding_icam_extrinsics(&icam_extrinsics,
-
-                                                icam_intrinsics,
-                                                Ncameras_intrinsics,
-                                                Ncameras_extrinsics,
-                                                Nobservations_board,
-                                                c_observations_board,
-                                                Nobservations_point,
-                                                c_observations_point))
-        {
-            BARF("Error calling mrcal_corresponding_icam_extrinsics()");
-            goto done;
-        }
-    }
-
-    result = PyLong_FromLong(icam_extrinsics);
-
- done:
-    OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
-    OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
-
-    return result;
-}
 
 static
 PyObject* load_image(PyObject* NPY_UNUSED(self),
