@@ -1776,6 +1776,7 @@ typedef int (callback_state_index_t)(int i,
 static PyObject* state_index_generic(callback_state_index_t cb,
                                      const char* called_function,
                                      PyObject* self, PyObject* args, PyObject* kwargs,
+                                     bool need_lensmodel,
                                      const char* argname)
 {
     // This is VERY similar to _pack_unpack_state(). Please consolidate
@@ -1862,12 +1863,6 @@ static PyObject* state_index_generic(callback_state_index_t cb,
     }
 #undef CALLED_FUNCTION_BUFFER
 
-    if(lensmodel == NULL)
-    {
-        BARF("The 'lensmodel' argument is required");
-        goto done;
-    }
-
     const mrcal_problem_selections_t problem_selections =
         { .do_optimize_intrinsics_core       = do_optimize_intrinsics_core,
           .do_optimize_intrinsics_distortions= do_optimize_intrinsics_distortions,
@@ -1877,9 +1872,19 @@ static PyObject* state_index_generic(callback_state_index_t cb,
           .do_apply_regularization           = do_apply_regularization
         };
 
-    mrcal_lensmodel_t mrcal_lensmodel;
-    if(!parse_lensmodel_from_arg(&mrcal_lensmodel, lensmodel))
-        goto done;
+
+    mrcal_lensmodel_t mrcal_lensmodel = {.type = MRCAL_LENSMODEL_INVALID};
+
+    if(need_lensmodel)
+    {
+        if(lensmodel == NULL)
+        {
+            BARF("The 'lensmodel' argument is required");
+            goto done;
+        }
+        if(!parse_lensmodel_from_arg(&mrcal_lensmodel, lensmodel))
+            goto done;
+    }
 
     // checks dimensionality of array !IS_NULL. So if any array isn't passed-in,
     // that's OK! After I do this and if !IS_NULL, then I can ask for array
@@ -1974,6 +1979,7 @@ static PyObject* state_index_intrinsics(PyObject* self, PyObject* args, PyObject
 {
     return STATE_INDEX_GENERIC(state_index_intrinsics,
                                self, args, kwargs,
+                               true,
                                "icam_intrinsics");
 }
 
@@ -1998,6 +2004,7 @@ static PyObject* num_states_intrinsics(PyObject* self, PyObject* args, PyObject*
 {
     return STATE_INDEX_GENERIC(num_states_intrinsics,
                                self, args, kwargs,
+                               true,
                                NULL);
 }
 
@@ -2027,6 +2034,7 @@ static PyObject* state_index_extrinsics(PyObject* self, PyObject* args, PyObject
 {
     return STATE_INDEX_GENERIC(state_index_extrinsics,
                                self, args, kwargs,
+                               true,
                                "icam_extrinsics");
 }
 
@@ -2051,6 +2059,7 @@ static PyObject* num_states_extrinsics(PyObject* self, PyObject* args, PyObject*
 {
     return STATE_INDEX_GENERIC(num_states_extrinsics,
                                self, args, kwargs,
+                               false,
                                NULL);
 }
 
@@ -2080,6 +2089,7 @@ static PyObject* state_index_frames(PyObject* self, PyObject* args, PyObject* kw
 {
     return STATE_INDEX_GENERIC(state_index_frames,
                                self, args, kwargs,
+                               true,
                                "iframe");
 }
 
@@ -2104,6 +2114,7 @@ static PyObject* num_states_frames(PyObject* self, PyObject* args, PyObject* kwa
 {
     return STATE_INDEX_GENERIC(num_states_frames,
                                self, args, kwargs,
+                               false,
                                NULL);
 }
 
@@ -2133,6 +2144,7 @@ static PyObject* state_index_points(PyObject* self, PyObject* args, PyObject* kw
 {
     return STATE_INDEX_GENERIC(state_index_points,
                                self, args, kwargs,
+                               true,
                                "i_point");
 }
 
@@ -2157,6 +2169,7 @@ static PyObject* num_states_points(PyObject* self, PyObject* args, PyObject* kwa
 {
     return STATE_INDEX_GENERIC(num_states_points,
                                self, args, kwargs,
+                               false,
                                NULL);
 }
 
@@ -2185,6 +2198,7 @@ static PyObject* state_index_calobject_warp(PyObject* self, PyObject* args, PyOb
 {
     return STATE_INDEX_GENERIC(state_index_calobject_warp,
                                self, args, kwargs,
+                               true,
                                NULL);
 }
 
@@ -2209,6 +2223,7 @@ static PyObject* num_states_calobject_warp(PyObject* self, PyObject* args, PyObj
 {
     return STATE_INDEX_GENERIC(num_states_calobject_warp,
                                self, args, kwargs,
+                               false,
                                NULL);
 }
 
@@ -2236,6 +2251,7 @@ static PyObject* num_states(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(num_states,
                                self, args, kwargs,
+                               true,
                                NULL);
 }
 
@@ -2261,6 +2277,7 @@ static PyObject* num_intrinsics_optimization_params(PyObject* self, PyObject* ar
 {
     return STATE_INDEX_GENERIC(num_intrinsics_optimization_params,
                                self, args, kwargs,
+                               true,
                                NULL);
 }
 
@@ -2278,6 +2295,9 @@ static int callback_measurement_index_boards(int i,
                                              const mrcal_lensmodel_t* lensmodel,
                                              mrcal_problem_selections_t problem_selections)
 {
+    if(calibration_object_width_n < 0)
+        return -1;
+
     return
         mrcal_measurement_index_boards(i,
                                        Nobservations_board,
@@ -2289,6 +2309,7 @@ static PyObject* measurement_index_boards(PyObject* self, PyObject* args, PyObje
 {
     return STATE_INDEX_GENERIC(measurement_index_boards,
                                self, args, kwargs,
+                               false,
                                "i_observation_board");
 }
 
@@ -2306,6 +2327,9 @@ static int callback_num_measurements_boards(int i,
                                             const mrcal_lensmodel_t* lensmodel,
                                             mrcal_problem_selections_t problem_selections)
 {
+    if(calibration_object_width_n < 0)
+        return 0;
+
     return
         mrcal_num_measurements_boards(Nobservations_board,
                                       calibration_object_width_n,
@@ -2315,6 +2339,7 @@ static PyObject* num_measurements_boards(PyObject* self, PyObject* args, PyObjec
 {
     return STATE_INDEX_GENERIC(num_measurements_boards,
                                self, args, kwargs,
+                               false,
                                NULL);
 }
 
@@ -2343,6 +2368,7 @@ static PyObject* measurement_index_points(PyObject* self, PyObject* args, PyObje
 {
     return STATE_INDEX_GENERIC(measurement_index_points,
                                self, args, kwargs,
+                               false,
                                "i_observation_point");
 }
 
@@ -2372,6 +2398,7 @@ static PyObject* measurement_index_points_triangulated(PyObject* self, PyObject*
 {
     return STATE_INDEX_GENERIC(measurement_index_points_triangulated,
                                self, args, kwargs,
+                               false,
                                "i_observation_point");
 }
 
@@ -2396,6 +2423,7 @@ static PyObject* num_measurements_points(PyObject* self, PyObject* args, PyObjec
 {
     return STATE_INDEX_GENERIC(num_measurements_points,
                                self, args, kwargs,
+                               false,
                                NULL);
 }
 
@@ -2414,10 +2442,10 @@ static int callback_num_measurements_points_triangulated(int i,
                                                          mrcal_problem_selections_t problem_selections)
 {
     if(indices_point_triangulated_camintrinsics_camextrinsics == NULL)
-        return -1;
+        return 0;
     int N = PyArray_DIM(indices_point_triangulated_camintrinsics_camextrinsics, 0);
-    if(N < 0)
-        return -1;
+    if(N == 0)
+        return 0;
 
     mrcal_observation_point_triangulated_t c_observations_point_triangulated[N];
 
@@ -2426,7 +2454,10 @@ static int callback_num_measurements_points_triangulated(int i,
                                                NULL,
                                                indices_point_triangulated_camintrinsics_camextrinsics);
     if(Nobservations_point_triangulated < 0)
+    {
+        BARF("Error parsing triangulated points");
         return -1;
+    }
 
     return
         mrcal_num_measurements_points_triangulated(c_observations_point_triangulated,
@@ -2436,6 +2467,7 @@ static PyObject* num_measurements_points_triangulated(PyObject* self, PyObject* 
 {
     return STATE_INDEX_GENERIC(num_measurements_points_triangulated,
                                self, args, kwargs,
+                               false,
                                NULL);
 }
 
@@ -2463,6 +2495,7 @@ static PyObject* measurement_index_regularization(PyObject* self, PyObject* args
 {
     return STATE_INDEX_GENERIC(measurement_index_regularization,
                                self, args, kwargs,
+                               false,
                                NULL);
 }
 
@@ -2491,6 +2524,7 @@ static PyObject* num_measurements_regularization(PyObject* self, PyObject* args,
 {
     return STATE_INDEX_GENERIC(num_measurements_regularization,
                                self, args, kwargs,
+                               true,
                                NULL);
 }
 
@@ -2511,25 +2545,41 @@ static int callback_num_measurements(int i,
 {
 #warning "triangulated-solve: add tests to the num_measurements_..., state_index_... ..."
 
-    if(indices_point_triangulated_camintrinsics_camextrinsics == NULL)
-        return -1;
-    int N = PyArray_DIM(indices_point_triangulated_camintrinsics_camextrinsics, 0);
-    if(N < 0)
-        return -1;
+
+    mrcal_observation_point_triangulated_t* observations_point_triangulated  = NULL;
+    int                                     Nobservations_point_triangulated = 0;
+
+
+    int N = 0;
+
+    if(indices_point_triangulated_camintrinsics_camextrinsics != NULL)
+        N = PyArray_DIM(indices_point_triangulated_camintrinsics_camextrinsics, 0);
+    else
+    {
+        // No triangulated points. No error. I have N = 0 in this path
+    }
+
 
     mrcal_observation_point_triangulated_t c_observations_point_triangulated[N];
 
-    int Nobservations_point_triangulated =
-        fill_c_observations_point_triangulated(c_observations_point_triangulated,
-                                               NULL,
-                                               indices_point_triangulated_camintrinsics_camextrinsics);
-    if(Nobservations_point_triangulated < 0)
-        return -1;
+    if(N > 0)
+    {
+        Nobservations_point_triangulated =
+            fill_c_observations_point_triangulated(c_observations_point_triangulated,
+                                                   NULL,
+                                                   indices_point_triangulated_camintrinsics_camextrinsics);
+        if(Nobservations_point_triangulated < 0)
+        {
+            BARF("Error parsing triangulated points");
+            return -1;
+        }
+        observations_point_triangulated = c_observations_point_triangulated;
+    }
 
     return
         mrcal_num_measurements(Nobservations_board,
                                Nobservations_point,
-                               c_observations_point_triangulated,
+                               observations_point_triangulated,
                                Nobservations_point_triangulated,
                                calibration_object_width_n,
                                calibration_object_height_n,
@@ -2543,6 +2593,7 @@ static PyObject* num_measurements(PyObject* self, PyObject* args, PyObject* kwar
 {
     return STATE_INDEX_GENERIC(num_measurements,
                                self, args, kwargs,
+                               true,
                                NULL);
 }
 
@@ -2603,6 +2654,7 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
 {
     return STATE_INDEX_GENERIC(corresponding_icam_extrinsics,
                                self, args, kwargs,
+                               false,
                                "icam_intrinsics");
 }
 
