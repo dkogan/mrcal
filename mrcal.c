@@ -481,6 +481,11 @@ int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have a
 
 int mrcal_measurement_index_regularization(int Nobservations_board,
                                            int Nobservations_point,
+
+                                           // May be NULL if we don't have any of these
+                                           const mrcal_observation_point_triangulated_t* observations_point_triangulated,
+                                           int Nobservations_point_triangulated,
+
                                            int calibration_object_width_n,
                                            int calibration_object_height_n)
 {
@@ -488,7 +493,9 @@ int mrcal_measurement_index_regularization(int Nobservations_board,
         mrcal_num_measurements_boards(Nobservations_board,
                                       calibration_object_width_n,
                                       calibration_object_height_n) +
-        mrcal_num_measurements_points(Nobservations_point);
+        mrcal_num_measurements_points(Nobservations_point) +
+        mrcal_num_measurements_points_triangulated(observations_point_triangulated,
+                                                   Nobservations_point_triangulated);
 }
 
 int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_extrinsics,
@@ -5859,6 +5866,8 @@ mrcal_optimize( // out
             int imeas_reg0 =
                 mrcal_measurement_index_regularization(Nobservations_board,
                                                        Nobservations_point,
+                                                       observations_point_triangulated,
+                                                       Nobservations_point_triangulated,
                                                        calibration_object_width_n,
                                                        calibration_object_height_n);
             const double* xreg = &solver_context->beforeStep->x[imeas_reg0];

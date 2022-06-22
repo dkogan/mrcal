@@ -2541,9 +2541,12 @@ static int callback_num_measurements_points_triangulated(int i,
                                                          const mrcal_lensmodel_t* lensmodel,
                                                          mrcal_problem_selections_t problem_selections)
 {
-    if(indices_point_triangulated_camintrinsics_camextrinsics == NULL)
-        return 0;
-    int N = PyArray_DIM(indices_point_triangulated_camintrinsics_camextrinsics, 0);
+    // VERY similar to callback_measurement_index_regularization(). Please
+    // consolidate
+    int N = 0;
+    if(!IS_NULL(indices_point_triangulated_camintrinsics_camextrinsics))
+        N = PyArray_DIM(indices_point_triangulated_camintrinsics_camextrinsics, 0);
+
     if(N == 0)
         return 0;
 
@@ -2588,9 +2591,30 @@ static int callback_measurement_index_regularization(int i,
                                                      const mrcal_lensmodel_t* lensmodel,
                                                      mrcal_problem_selections_t problem_selections)
 {
+    // VERY similar to callback_num_measurements_points_triangulated(). Please
+    // consolidate
+    int N = 0;
+    if(!IS_NULL(indices_point_triangulated_camintrinsics_camextrinsics))
+        N = PyArray_DIM(indices_point_triangulated_camintrinsics_camextrinsics, 0);
+
+    mrcal_observation_point_triangulated_t c_observations_point_triangulated[N];
+
+    int Nobservations_point_triangulated =
+        N <= 0 ? 0 :
+        fill_c_observations_point_triangulated(c_observations_point_triangulated,
+                                               NULL,
+                                               indices_point_triangulated_camintrinsics_camextrinsics);
+    if(Nobservations_point_triangulated < 0)
+    {
+        BARF("Error parsing triangulated points");
+        return -1;
+    }
+
     return
         mrcal_measurement_index_regularization(Nobservations_board,
                                                Nobservations_point,
+                                               c_observations_point_triangulated,
+                                               Nobservations_point_triangulated,
                                                calibration_object_width_n,
                                                calibration_object_height_n);
 }

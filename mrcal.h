@@ -973,6 +973,11 @@ int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have a
                                                int Nobservations_point_triangulated);
 int mrcal_measurement_index_regularization(int Nobservations_board,
                                            int Nobservations_point,
+
+                                           // May be NULL if we don't have any of these
+                                           const mrcal_observation_point_triangulated_t* observations_point_triangulated,
+                                           int Nobservations_point_triangulated,
+
                                            int calibration_object_width_n,
                                            int calibration_object_height_n);
 int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_extrinsics,
