@@ -968,6 +968,11 @@ int mrcal_measurement_index_points(int i_observation_point,
                                    int calibration_object_width_n,
                                    int calibration_object_height_n);
 int mrcal_num_measurements_points(int Nobservations_point);
+int mrcal_measurement_index_points_triangulated(int i_observation_point,
+                                                int Nobservations_board,
+                                                int Nobservations_point,
+                                                int calibration_object_width_n,
+                                                int calibration_object_height_n);
 int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have any of these
                                                const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                                                int Nobservations_point_triangulated);

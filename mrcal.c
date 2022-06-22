@@ -453,6 +453,23 @@ int mrcal_num_measurements_points(int Nobservations_point)
     return Nobservations_point * 3;
 }
 
+#warning "triangulated-solve: Add a test for mrcal_measurement_index_points_triangulated()"
+int mrcal_measurement_index_points_triangulated(int i_observation_point,
+                                                int Nobservations_board,
+                                                int Nobservations_point,
+                                                int calibration_object_width_n,
+                                                int calibration_object_height_n)
+{
+#warning "triangulated-solve: is this right? i_observation_point or i_point?"
+
+    return
+        mrcal_num_measurements_boards(Nobservations_board,
+                                      calibration_object_width_n,
+                                      calibration_object_height_n) +
+        mrcal_num_measurements_points(Nobservations_point) +
+        i_observation_point * 1;
+}
+
 int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have any of these
                                                const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                                                int Nobservations_point_triangulated)
