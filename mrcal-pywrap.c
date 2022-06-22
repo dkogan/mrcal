@@ -1811,8 +1811,8 @@ static PyObject* state_index_generic(callback_state_index_t cb,
 #define CALLED_FUNCTION_BUFFER "123456789012345678901234567890123456789012345678901234567890"
     char arg_string[] =
         "i"
-        "|" // everything is optional. I apply logic down the
-            // line to get what I need
+        "|$" // everything is kwarg-only and optional. I apply logic down the
+             // line to get what I need
         "iiiiii"
         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
@@ -2692,8 +2692,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
 #define UNPACK_STATE "unpack_state"
     char arg_string[] =
         "O&"
-        "|" // everything is optional. I apply logic down the
-            // line to get what I need
+        "|$" // everything is kwarg-only and optional. I apply logic down the
+             // line to get what I need
         "iiiiii"
         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
