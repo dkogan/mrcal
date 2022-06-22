@@ -5414,20 +5414,7 @@ bool mrcal_optimizer_callback(// out
 {
     bool result = false;
 
-    if(!modelHasCore_fxfycxcy(lensmodel))
-        problem_selections.do_optimize_intrinsics_core = false;
-
-    if(!problem_selections.do_optimize_intrinsics_core        &&
-       !problem_selections.do_optimize_intrinsics_distortions &&
-       !problem_selections.do_optimize_extrinsics            &&
-       !problem_selections.do_optimize_frames                &&
-       !problem_selections.do_optimize_calobject_warp)
-    {
-        MSG("Not optimizing any of our variables!");
-        goto done;
-    }
-
-    if( calobject_warp == NULL && problem_selections.do_optimize_calobject_warp )
+    if( problem_selections.do_optimize_calobject_warp && calobject_warp == NULL )
     {
         MSG("ERROR: We're optimizing the calibration object warp, so an array MUST be given to return the result");
         goto done;
@@ -5440,6 +5427,19 @@ bool mrcal_optimizer_callback(// out
            problem_selections.do_optimize_extrinsics ) )
     {
         MSG("ERROR: We have triangulated points. At this time this is only allowed if we're NOT optimizing intrinsics AND if we ARE optimizing extrinsics.");
+        goto done;
+    }
+
+    if(!modelHasCore_fxfycxcy(lensmodel))
+        problem_selections.do_optimize_intrinsics_core = false;
+
+    if(!problem_selections.do_optimize_intrinsics_core        &&
+       !problem_selections.do_optimize_intrinsics_distortions &&
+       !problem_selections.do_optimize_extrinsics             &&
+       !problem_selections.do_optimize_frames                 &&
+       !problem_selections.do_optimize_calobject_warp)
+    {
+        MSG("Not optimizing any of our variables!");
         goto done;
     }
 
