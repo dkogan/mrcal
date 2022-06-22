@@ -1794,87 +1794,71 @@ static PyObject* state_index_generic(callback_state_index_t cb,
     int Nobservations_point = -1;
 
     char* keywords[] = { (char*)argname,
-                         OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
-
                          "Ncameras_intrinsics",
                          "Ncameras_extrinsics",
                          "Nframes",
                          "Npoints",
                          "Nobservations_board",
                          "Nobservations_point",
+                         OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
                          OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
                          NULL};
-    char** keywords_noargname = &keywords[1];
 
     // needs to be big-enough to store the largest-possible called_function
 #define CALLED_FUNCTION_BUFFER "123456789012345678901234567890123456789012345678901234567890"
+    char arg_string[] =
+        "i"
+        "|" // everything is optional. I apply logic down the
+            // line to get what I need
+        "iiiiii"
+        OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
+        OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
+        ":mrcal." CALLED_FUNCTION_BUFFER;
+    if(strlen(CALLED_FUNCTION_BUFFER) < strlen(called_function))
+    {
+        BARF("CALLED_FUNCTION_BUFFER too small for '%s'. This is a a bug", called_function);
+        goto done;
+    }
+    arg_string[strlen(arg_string) - strlen(CALLED_FUNCTION_BUFFER)] = '\0';
+    strcat(arg_string, called_function);
+
 
     if(argname != NULL)
     {
-        char arg_string[] =
-            "i"
-            "|" // everything is optional. I apply
-                // logic down the line to get what
-                // I need
-            OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
-            "iiiiii"
-            OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
-            ":mrcal." CALLED_FUNCTION_BUFFER;
-        if(strlen(CALLED_FUNCTION_BUFFER) < strlen(called_function))
-        {
-            BARF("CALLED_FUNCTION_BUFFER too small for '%s'. This is a a bug", called_function);
-            goto done;
-        }
-        arg_string[strlen(arg_string) - strlen(CALLED_FUNCTION_BUFFER)] = '\0';
-        strcat(arg_string, called_function);
-
         if(!PyArg_ParseTupleAndKeywords( args, kwargs,
                                          arg_string,
                                          keywords,
 
                                          &i,
-                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
                                          &Ncameras_intrinsics,
                                          &Ncameras_extrinsics,
                                          &Nframes,
                                          &Npoints,
                                          &Nobservations_board,
                                          &Nobservations_point,
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
                                          OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
             goto done;
     }
     else
     {
-        char arg_string[] =
-            OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|"
-            "iiiiii"
-            OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
-            ":mrcal." CALLED_FUNCTION_BUFFER;
-        if(strlen(CALLED_FUNCTION_BUFFER) < strlen(called_function))
-        {
-            BARF("CALLED_FUNCTION_BUFFER too small for '%s'. This is a a bug", called_function);
-            goto done;
-        }
-        arg_string[strlen(arg_string) - strlen(CALLED_FUNCTION_BUFFER)] = '\0';
-        strcat(arg_string, called_function);
-
         if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                         arg_string,
 
-                                         keywords_noargname,
+                                         // skip the initial "i". There is no "argname" here
+                                         &arg_string[1],
+                                         &keywords  [1],
 
-                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
                                          &Ncameras_intrinsics,
                                          &Ncameras_extrinsics,
                                          &Nframes,
                                          &Npoints,
                                          &Nobservations_board,
                                          &Nobservations_point,
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
                                          OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
             goto done;
     }
 #undef CALLED_FUNCTION_BUFFER
-
 
     if(lensmodel == NULL)
     {
@@ -2625,40 +2609,39 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
 static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kwargs,
                                     bool pack)
 {
-    // This is VERY similar to INDEX_GENERIC(). Please consolidate
-    PyObject*      result = NULL;
-    PyArrayObject* p      = NULL;
+    // This is VERY similar to state_index_generic(). Please consolidate
+    PyObject* result = NULL;
 
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
+
+    PyArrayObject* p = NULL;
 
     int Ncameras_intrinsics = -1;
     int Ncameras_extrinsics = -1;
     int Nframes             = -1;
     int Npoints             = -1;
-    int Nobservations_board  = -1;
-    int Nobservations_point  = -1;
+    int Nobservations_board = -1;
+    int Nobservations_point = -1;
 
     char* keywords[] = { "p",
-                         OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
-
                          "Ncameras_intrinsics",
                          "Ncameras_extrinsics",
                          "Nframes",
                          "Npoints",
                          "Nobservations_board",
                          "Nobservations_point",
+                         OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
                          OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
                          NULL};
 
 #define UNPACK_STATE "unpack_state"
     char arg_string[] =
         "O&"
-        "|" // everything is optional. I apply
-            // logic down the line to get what
-            // I need
-        OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
+        "|" // everything is optional. I apply logic down the
+            // line to get what I need
         "iiiiii"
+        OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE)
         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
         ":mrcal." UNPACK_STATE;
     if(pack)
@@ -2670,17 +2653,16 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
 
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
                                      arg_string,
-
                                      keywords,
 
                                      PyArray_Converter, &p,
-                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
                                      &Ncameras_intrinsics,
                                      &Ncameras_extrinsics,
                                      &Nframes,
                                      &Npoints,
                                      &Nobservations_board,
                                      &Nobservations_point,
+                                     OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
                                      OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
         goto done;
 
