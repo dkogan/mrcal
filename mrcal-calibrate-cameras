@@ -333,10 +333,14 @@ def solve_initial(args, seedmodels, imagersizes,
 
         sys.stderr.write("## initial solve: geometry only\n")
         lensmodel = 'LENSMODEL_STEREOGRAPHIC'
-        stats = mrcal.optimize(intrinsics_data, extrinsics_rt_fromref, frames_rt_toref, None,
-                               observations, indices_frame_camintrinsics_camextrinsics,
-                               None, None,
-                               lensmodel,
+
+        stats = mrcal.optimize(intrinsics                                = intrinsics_data,
+                               extrinsics_rt_fromref                     = extrinsics_rt_fromref,
+                               frames_rt_toref                           = frames_rt_toref,
+                               observations_board                        = observations,
+                               indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+                               lensmodel                                 = lensmodel,
+
                                imagersizes                       = imagersizes,
                                do_optimize_intrinsics_core       = False,
                                do_optimize_intrinsics_distortions= False,
@@ -348,10 +352,13 @@ def solve_initial(args, seedmodels, imagersizes,
         sys.stderr.write("## RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
 
         sys.stderr.write("## initial solve: geometry and LENSMODEL_STEREOGRAPHIC core only\n")
-        stats = mrcal.optimize(intrinsics_data, extrinsics_rt_fromref, frames_rt_toref, None,
-                               observations, indices_frame_camintrinsics_camextrinsics,
-                               None, None,
-                               lensmodel,
+        stats = mrcal.optimize(intrinsics                                = intrinsics_data,
+                               extrinsics_rt_fromref                     = extrinsics_rt_fromref,
+                               frames_rt_toref                           = frames_rt_toref,
+                               observations_board                        = observations,
+                               indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+                               lensmodel                                 = lensmodel,
+
                                imagersizes                       = imagersizes,
                                do_optimize_intrinsics_core       = True,
                                do_optimize_intrinsics_distortions= False,

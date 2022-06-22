@@ -153,13 +153,13 @@ def make_noisy_inputs():
 ############### points to set the scale
 rt_cam_ref_noisy, pref_noisy, observations = make_noisy_inputs()
 
-stats = mrcal.optimize( nps.atleast_dims(intrinsics_data, -2),
-                        rt_cam_ref_noisy,
-                        None, pref_noisy,
-                        None, None,
-                        observations,
-                        indices_point_camintrinsics_camextrinsics,
-                        lensmodel,
+stats = mrcal.optimize( intrinsics                                = nps.atleast_dims(intrinsics_data, -2),
+                        extrinsics_rt_fromref                     = rt_cam_ref_noisy,
+                        points                                    = pref_noisy,
+                        observations_point                        = observations,
+                        indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
+                        lensmodel                                 = lensmodel,
+
                         imagersizes                       = nps.atleast_dims(imagersize, -2),
                         Npoints_fixed                     = Npoints_fixed,
                         point_min_range                   = 1.0,

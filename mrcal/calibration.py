@@ -1227,8 +1227,10 @@ SYNOPSIS
 
     ....
 
-    mrcal.optimize(intrinsics_data, extrinsics_rt_fromref, frames_rt_toref,
-                   lensmodel = 'LENSMODEL_STEREOGRAPHIC',
+    mrcal.optimize(intrinsics            = intrinsics_data,
+                   extrinsics_rt_fromref = extrinsics_rt_fromref,
+                   frames_rt_toref       = frames_rt_toref,
+                   lensmodel             = 'LENSMODEL_STEREOGRAPHIC',
                    ...)
 
 mrcal solves camera calibration problems by iteratively optimizing a nonlinear
