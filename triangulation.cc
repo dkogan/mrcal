@@ -723,7 +723,13 @@ angle_error__assume_small(const vec_withgrad_t<6,3>& v0,
 
     // The angle is assumed small, so cos(th) ~ 1 - th*th/2.
     // -> th ~ sqrt( 2*(1 - cos(th)) )
-    return (costh*(-2.) + 2.).sqrt();
+    val_withgrad_t<6> th_sq = costh*(-2.) + 2.;
+
+    if(th_sq.x < 0)
+        // To handle roundoff errors
+        th_sq.x = 0;
+
+    return th_sq.sqrt();
 #warning "triangulated-solve: look at numerical issues that will results in sqrt(<0)"
 #warning "triangulated-solve: look at behavior near 0 where dsqrt/dx -> inf"
 }
