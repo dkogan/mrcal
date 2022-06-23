@@ -84,7 +84,7 @@ indices_point_camintrinsics_camextrinsics = \
              dtype = np.int32)
 
 
-def make_noisy_inputs():
+def make_noisy_inputs(rt_cam_ref_true, pref_true, qcam_true):
     r'''Construct incomplete, noisy observations to feed to the solver'''
     # The seed points array is the true array, but corrupted by noise. All the
     # points are observed at some point
@@ -102,12 +102,16 @@ def make_noisy_inputs():
 
     pref_noisy = pref_true * (1. + points_noise)
 
+    # qcam_true has shape (Ncamposes, Npoints, 2)
     Ncamposes,Npoints = pcam_true.shape[:2]
     ipoints   = indices_point_camintrinsics_camextrinsics[:,0]
     icamposes = indices_point_camintrinsics_camextrinsics[:,2]
-    qcam_indexed = nps.clump(qcam_true, n=2)[icamposes*Npoints+ipoints,:]
 
-    #print(repr(np.random.randn(*qcam_indexed.shape) * 1.0))
+    # I pick the observations I care about.
+    # shape (Nobservations,2)
+    qcam_indexed_true = nps.clump(qcam_true, n=2)[icamposes*Npoints+ipoints,:]
+
+    #print(repr(np.random.randn(*qcam_indexed_true.shape) * 1.0))
     qcam_noise = np.array([[-0.40162837, -0.60884836],
                            [-0.65186956, -2.23240529],
                            [ 0.40217293, -0.40160168],
@@ -130,11 +134,15 @@ def make_noisy_inputs():
                            [ 0.29441229, -0.78921128],
                            [-1.33799634, -1.65173241],
                            [-0.24854348, -0.14145806]])
-    qcam_indexed_noisy = qcam_indexed + qcam_noise
+    qcam_indexed_noisy = qcam_indexed_true + qcam_noise
 
-    observations = nps.glue(qcam_indexed_noisy,
-                            nps.transpose(np.ones((qcam_indexed_noisy.shape[0],))),
-                            axis = -1)
+    observations_true = nps.glue(qcam_indexed_true,
+                                 nps.transpose(np.ones((qcam_indexed_true.shape[0],))),
+                                 axis = -1)
+
+    observations_noisy = nps.glue(qcam_indexed_noisy,
+                                  nps.transpose(np.ones((qcam_indexed_noisy.shape[0],))),
+                                  axis = -1)
 
     #print(repr((np.random.random(rt_cam_ref_true.shape)-0.5)/10))
     rt_cam_ref_noise = \
@@ -145,13 +153,13 @@ def make_noisy_inputs():
                   [ 0.03782446, -0.016981  ,  0.03949906, -0.03256744,  0.02496247,  0.02924358]])
     rt_cam_ref_noisy = rt_cam_ref_true * (1.0 + rt_cam_ref_noise)
 
-    return rt_cam_ref_noisy, pref_noisy, observations
+    return rt_cam_ref_noisy, pref_noisy, observations_true, observations_noisy
 
 
 
 ############### Do everything in the ref coord system, with a few fixed-position
 ############### points to set the scale
-rt_cam_ref_noisy, pref_noisy, observations = make_noisy_inputs()
+rt_cam_ref_noisy, pref_noisy, observations_true, observations_noisy = make_noisy_inputs(rt_cam_ref_true, pref_true, qcam_true)
 
 
 # The TRAILING Npoints_fixed points are fixed. The leading ones are triangulatd
@@ -162,16 +170,15 @@ idx_points_fixed = indices_point_camintrinsics_camextrinsics[:,0] >= Npoints-Npo
 indices_point_camintrinsics_camextrinsics_fixed = \
     indices_point_camintrinsics_camextrinsics[idx_points_fixed].copy()
 indices_point_camintrinsics_camextrinsics_fixed[:,0] -= (Npoints-Npoints_fixed)
-observations_fixed = observations[idx_points_fixed].copy()
+observations_fixed = observations_noisy[idx_points_fixed].copy()
 
 pref_noisy = pref_noisy[-Npoints_fixed:]
 
 indices_point_camintrinsics_camextrinsics_triangulated = \
     indices_point_camintrinsics_camextrinsics[~idx_points_fixed].copy()
-observations_triangulated = observations[~idx_points_fixed].copy()
+observations_triangulated = observations_noisy[~idx_points_fixed].copy()
 
 
-######### warning "triangulated-solve: mrcal.optimize() should accept kwargs only"
 
 
 optimization_inputs = \
