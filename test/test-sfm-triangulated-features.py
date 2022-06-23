@@ -162,6 +162,12 @@ def make_noisy_inputs(rt_cam_ref_true, pref_true, qcam_true):
 rt_cam_ref_noisy, pref_noisy, observations_true, observations_noisy = make_noisy_inputs(rt_cam_ref_true, pref_true, qcam_true)
 
 
+
+pref         = pref_noisy
+observations = observations_noisy
+rt_cam_ref   = rt_cam_ref_noisy
+
+
 # The TRAILING Npoints_fixed points are fixed. The leading ones are triangulatd
 
 Npoints = len(pref_true)
@@ -170,21 +176,21 @@ idx_points_fixed = indices_point_camintrinsics_camextrinsics[:,0] >= Npoints-Npo
 indices_point_camintrinsics_camextrinsics_fixed = \
     indices_point_camintrinsics_camextrinsics[idx_points_fixed].copy()
 indices_point_camintrinsics_camextrinsics_fixed[:,0] -= (Npoints-Npoints_fixed)
-observations_fixed = observations_noisy[idx_points_fixed].copy()
+observations_fixed = observations[idx_points_fixed].copy()
 
-pref_noisy = pref_noisy[-Npoints_fixed:]
+pref = pref[-Npoints_fixed:]
 
 indices_point_camintrinsics_camextrinsics_triangulated = \
     indices_point_camintrinsics_camextrinsics[~idx_points_fixed].copy()
-observations_triangulated = observations_noisy[~idx_points_fixed].copy()
+observations_triangulated = observations[~idx_points_fixed].copy()
 
 
 
 
 optimization_inputs = \
     dict( intrinsics            = nps.atleast_dims(intrinsics_data, -2),
-          extrinsics_rt_fromref = rt_cam_ref_noisy,
-          points                = pref_noisy,
+          extrinsics_rt_fromref = rt_cam_ref,
+          points                = pref,
 
           # Explicit points. Fixed only
           observations_point                                     = observations_fixed,
@@ -216,7 +222,7 @@ IPython.embed()
 sys.exit()
 
 # Got a solution. How well do they fit?
-fit_rms = np.sqrt(np.mean(nps.norm2(pref_noisy - pref_true)))
+fit_rms = np.sqrt(np.mean(nps.norm2(pref - pref_true)))
 
 testutils.confirm_equal(fit_rms, 0,
                         msg = f"Solved at ref coords with known-position points",
