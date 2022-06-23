@@ -435,11 +435,11 @@ plot
         if point_labels is not None:
 
             # all the non-fixed point indices
-            ipoint_not = np.ones( (len(points),), dtype=bool)
-            ipoint_not[np.array(list(point_labels.keys()))] = False
+            ipoint_not_labeled = np.ones( (len(points),), dtype=bool)
+            ipoint_not_labeled[np.array(list(point_labels.keys()))] = False
 
             return \
-                [ (points[ipoint_not],
+                [ (points[ipoint_not_labeled],
                    dict(tuplesize = -3,
                         _with = 'points',
                         legend = 'points')) ] + \
