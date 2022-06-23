@@ -13,7 +13,6 @@
 
 #include "mrcal.h"
 
-
 #if PY_MAJOR_VERSION == 3
 #define PyString_FromString PyUnicode_FromString
 #define PyString_FromFormat PyUnicode_FromFormat
@@ -1464,15 +1463,17 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
     SET_SIZE0_IF_NONE(extrinsics_rt_fromref,      NPY_DOUBLE, 0,6);
 
-    SET_SIZE0_IF_NONE(frames_rt_toref,            NPY_DOUBLE, 0,6);
-    SET_SIZE0_IF_NONE(observations_board,         NPY_DOUBLE, 0,179,171,3); // arbitrary numbers; shouldn't matter
-    SET_SIZE0_IF_NONE(indices_frame_camintrinsics_camextrinsics, NPY_INT32,    0,3);
+    SET_SIZE0_IF_NONE(frames_rt_toref,                                        NPY_DOUBLE, 0,6);
+    SET_SIZE0_IF_NONE(observations_board,                                     NPY_DOUBLE, 0,179,171,3); // arbitrary numbers; shouldn't matter
+    SET_SIZE0_IF_NONE(indices_frame_camintrinsics_camextrinsics,              NPY_INT32,    0,3);
 
     SET_SIZE0_IF_NONE(points,                                                 NPY_DOUBLE, 0, 3);
     SET_SIZE0_IF_NONE(observations_point,                                     NPY_DOUBLE, 0, 3);
     SET_SIZE0_IF_NONE(indices_point_camintrinsics_camextrinsics,              NPY_INT32,  0, 3);
+
     SET_SIZE0_IF_NONE(observations_point_triangulated,                        NPY_DOUBLE, 0, 3);
     SET_SIZE0_IF_NONE(indices_point_triangulated_camintrinsics_camextrinsics, NPY_INT32,  0, 3);
+
     SET_SIZE0_IF_NONE(imagersizes,                                            NPY_INT32,  0, 2);
 #undef SET_NULL_IF_NONE
 
@@ -1497,6 +1498,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         int Nframes             = PyArray_DIMS(frames_rt_toref)[0];
         int Npoints             = PyArray_DIMS(points)[0];
         int Nobservations_board = PyArray_DIMS(observations_board)[0];
+        int Nobservations_point = PyArray_DIMS(observations_point)[0];
 
         if( Nobservations_board > 0 )
         {
@@ -1516,13 +1518,16 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 
         mrcal_point3_t* c_observations_board_pool = (mrcal_point3_t*)PyArray_DATA(observations_board); // must be contiguous; made sure above
         mrcal_observation_board_t c_observations_board[Nobservations_board];
-        fill_c_observations_board(c_observations_board,
+        fill_c_observations_board(// output
+                                  c_observations_board,
+                                  // input
                                   Nobservations_board,
                                   indices_frame_camintrinsics_camextrinsics);
 
-        int Nobservations_point = PyArray_DIMS(observations_point)[0];
         mrcal_observation_point_t c_observations_point[Nobservations_point];
-        fill_c_observations_point(c_observations_point,
+        fill_c_observations_point(// output
+                                  c_observations_point,
+                                  // input
                                   Nobservations_point,
                                   indices_point_camintrinsics_camextrinsics,
                                   observations_point);
@@ -2816,7 +2821,9 @@ static int callback_corresponding_icam_extrinsics(int icam_intrinsics,
         return -1;
     }
     mrcal_observation_board_t c_observations_board[Nobservations_board];
-    fill_c_observations_board(c_observations_board,
+    fill_c_observations_board(// output
+                              c_observations_board,
+                              // input
                               Nobservations_board,
                               indices_frame_camintrinsics_camextrinsics);
 
@@ -2834,7 +2841,9 @@ static int callback_corresponding_icam_extrinsics(int icam_intrinsics,
         }
     }
     mrcal_observation_point_t c_observations_point[Nobservations_point];
-    fill_c_observations_point(c_observations_point,
+    fill_c_observations_point(// output
+                              c_observations_point,
+                              // input
                               Nobservations_point,
                               indices_point_camintrinsics_camextrinsics,
                               observations_point);
