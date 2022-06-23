@@ -184,6 +184,8 @@ indices_point_camintrinsics_camextrinsics_triangulated = \
     indices_point_camintrinsics_camextrinsics[~idx_points_fixed].copy()
 observations_triangulated = observations[~idx_points_fixed].copy()
 
+# For now "observations_triangulated" are local observation vectors
+observations_triangulated = mrcal.unproject(observations_triangulated[:,:2], *m.intrinsics())
 
 
 
