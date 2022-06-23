@@ -36,7 +36,7 @@ pref_true = np.array((( 10.,  20., 100.),
                       (  5.,  -0., 110.),
                       (  1.,  50.,  50.)))
 
-# The points are all somewhere at +z. So the Camera poses are all ~ identity
+# The points are all somewhere at +z. So the Camera rotations are all ~ identity
 rt_cam_ref_true = np.array(((-0.1, -0.07, 0.01,  10.0, 4.0, -7.0),
                             (-0.01, 0.05,-0.02,  30.0,-8.0, -8.0),
                             (-0.1,  0.03,-0.03,  10.0,-9.0, 20.0),
