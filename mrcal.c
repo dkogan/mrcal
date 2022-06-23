@@ -4821,11 +4821,11 @@ void optimizer_callback(// input state
                 for(int i=0; i<3; i++)
                     _t_r0.xyz[i] *= -1.;
 
-                mrcal_rotate_point_r(_v0_ref.xyz,
-                                     &dv0_ref__dr_0r[0][0],
-                                     NULL,
+                mrcal_rotate_point_r_inverted(_v0_ref.xyz,
+                                              &dv0_ref__dr_0r[0][0],
+                                              NULL,
 
-                                     r_0r, v0->xyz);
+                                              r_0r, v0->xyz);
             }
             else
             {
@@ -5064,6 +5064,14 @@ void optimizer_callback(// input state
                                               3 );
                         }
                     }
+                }
+                else
+                {
+                    // Don't need the Jacobian. I just move iJacobian as needed
+                    if( icam_extrinsics0 >= 0 )
+                        iJacobian += 6;
+                    if( icam_extrinsics1 >= 0 )
+                        iJacobian += 6;
                 }
 
                 iMeasurement++;
