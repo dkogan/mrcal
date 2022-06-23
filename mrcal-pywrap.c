@@ -1057,11 +1057,29 @@ static bool optimize_validate_args( // out
                          i_observation, iframe, iframe_last);
             return false;
         }
+        else if( iframe-iframe_last != 1 )
+        {
+            BARF("iframe MUST be increasing sequentially in indices_frame_camintrinsics_camextrinsics. Instead row %d of indices_frame_camintrinsics_camextrinsics has iframe=%d after previously seeing iframe=%d",
+                         i_observation, iframe, iframe_last);
+            return false;
+        }
 
         iframe_last          = iframe;
         icam_intrinsics_last = icam_intrinsics;
         icam_extrinsics_last = icam_extrinsics;
     }
+    if(Nobservations_board>0)
+    {
+        int i_observation_lastrow = Nobservations_board-1;
+        int32_t iframe_lastrow = ((int32_t*)PyArray_DATA(indices_frame_camintrinsics_camextrinsics))[i_observation_lastrow*3 + 0];
+        if(iframe_lastrow != Nframes-1)
+        {
+            BARF("iframe in indices_frame_camintrinsics_camextrinsics must cover ALL frames. Instead the last row of indices_frame_camintrinsics_camextrinsics has iframe=%d, but Nframes=%d",
+                 iframe_lastrow, Nframes);
+            return false;
+        }
+    }
+
     int Npoints = PyArray_DIMS(points)[0];
     if( Npoints > 0 )
     {
@@ -1088,6 +1106,9 @@ static bool optimize_validate_args( // out
         }
     }
 
+    // I allow i_point to be non-monotonic, but I do make sure that it covers
+    // all Npoints of my array.
+    int32_t i_point_biggest = -1;
     for(int i_observation=0; i_observation<Nobservations_point; i_observation++)
     {
         int32_t i_point         = ((int32_t*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
@@ -1113,8 +1134,26 @@ static bool optimize_validate_args( // out
                          Ncameras_extrinsics-1, icam_extrinsics, i_observation);
             return false;
         }
+
+        if(i_point > i_point_biggest)
+        {
+            if(i_point > i_point_biggest+1)
+            {
+                BARF("indices_point_camintrinsics_camextrinsics should contain i_point that extend the existing set by one point at a time at most. However row %d has i_point=%d while the biggest-seen-so-far i_point=%d",
+                     i_observation, i_point, i_point_biggest);
+                return false;
+            }
+            i_point_biggest = i_point;
+        }
+    }
+    if(i_point_biggest != Npoints-1)
+    {
+        BARF("indices_point_camintrinsics_camextrinsics should cover all point indices in [0,%d], but there are gaps. The biggest i_point=%d",
+             Npoints-1, i_point_biggest);
+        return false;
     }
 
+    i_point_biggest = -1;
     for(int i_observation=0; i_observation<Nobservations_point_triangulated; i_observation++)
     {
         int32_t i_point         = ((int32_t*)PyArray_DATA(indices_point_triangulated_camintrinsics_camextrinsics))[i_observation*3 + 0];
@@ -1133,7 +1172,19 @@ static bool optimize_validate_args( // out
                          Ncameras_extrinsics-1, icam_extrinsics, i_observation);
             return false;
         }
+
+        if(i_point > i_point_biggest)
+        {
+            if(i_point > i_point_biggest+1)
+            {
+                BARF("indices_point_triangulated_camintrinsics_camextrinsics should contain i_point that extend the existing set by one point at a time at most. However row %d has i_point=%d while the biggest-seen-so-far i_point=%d",
+                     i_observation, i_point, i_point_biggest);
+                return false;
+            }
+            i_point_biggest = i_point;
+        }
     }
+
     // There are more checks for triangulated points, but I run them later, in
     // fill_c_observations_point_triangulated()
 
