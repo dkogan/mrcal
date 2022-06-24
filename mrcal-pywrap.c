@@ -1287,7 +1287,7 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
         c_observations_point_triangulated[ipoint_last_in_set].last_in_set = true;
         if(Npoints_in_this_set < 2)
         {
-            BARF("Error in indices_point_triangulated_camintrinsics_camextrinsics[%d]. Each point must be obseved at least 2 times",
+            BARF("Error in indices_point_triangulated_camintrinsics_camextrinsics[%d]. Each point must be observed at least 2 times",
                 ipoint_last_in_set);
             return false;
         }
