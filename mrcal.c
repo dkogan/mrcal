@@ -4486,8 +4486,7 @@ void optimizer_callback(// input state
         }
 
         // Now the range normalization (make sure the range isn't
-        // aphysically high or aphysically low). This code is copied from
-        // project(). PLEASE consolidate
+        // aphysically high or aphysically low)
         void get_penalty(// out
                          double* penalty, double* dpenalty_ddistsq,
 
