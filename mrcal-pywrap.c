@@ -1278,6 +1278,7 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
     int ipoint_current = -1;
     int Npoints_in_this_set = 0;
 
+#warning "triangulated-solve: document observation order. All the points must be grouped together"
     bool finish_set(int ipoint_last_in_set)
     {
         if(ipoint_last_in_set < 0)
