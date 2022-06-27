@@ -144,9 +144,29 @@ indices_point_camintrinsics_camextrinsics = \
 observations_true = \
     observations_true[ipoint_not_single_mask]
 
+# I just threw away points with a single observation, which created some gaps in
+# the point arrays. I reorder the point array and the array referencing it so
+# that the remaining points are indexed with sequential integers, starting at 0
 
-# POINT INDICES SHOULD BE MADE CONSECUTIVE
+Npoints_old = Npoints
 
+ipoint = indices_point_camintrinsics_camextrinsics[:,0]
+ipoint_unique = np.unique(ipoint)
+new_point_delta = np.zeros((Npoints_old,), dtype=int)
+new_point_delta[ipoint_unique] = 1
+
+# shape (Npoints_old,)
+# For each i=ipoint_old I have ipoint_new = index_ipoint_new[i]
+index_ipoint_new = np.cumsum(new_point_delta) - 1
+# shape (Npoints_new,)
+# For each i=ipoint_new I have ipoint_old = index_ipoint_old[i]
+index_ipoint_old = ipoint_unique
+
+indices_point_camintrinsics_camextrinsics[:,0] = \
+    index_ipoint_new[indices_point_camintrinsics_camextrinsics[:,0]]
+points_true = points_true[index_ipoint_old]
+
+Npoints = len(ipoint_unique)
 
 # To sufficiently constrain the geometry of the problem I lock
 
