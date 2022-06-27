@@ -86,8 +86,9 @@ Npoints = points_true.shape[0]
 x_ref_cam_true  = np.arange(Ncameras) * step
 
 # shape (Ncameras,6)
-rt_ref_cam_true = nps.glue( nps.transpose(x_ref_cam_true),
-                            np.zeros((Ncameras,5)),
+rt_ref_cam_true = nps.glue( np.zeros((Ncameras,3)), # r
+                            nps.transpose(x_ref_cam_true),
+                            np.zeros((Ncameras,2)), # y,z
                             axis = -1 )
 rt_cam_ref_true = mrcal.invert_rt(rt_ref_cam_true)
 
@@ -120,6 +121,31 @@ indices_point_camintrinsics_camextrinsics = \
               axis = -1 ).astype(np.int32)
 
 observations_true = qcam_true[valid_observation_index]
+
+# Any point observed by a single camera is thrown out
+#
+# I have a sequence of observed-point indices. Most point are observed by
+# multiple cameras, so the indices will appear more than once. But some indices
+# will appear just once, and I want to throw those away. How do I find these?
+#
+# 1. I compute the diff: nonzero entries signify transitions between different
+#    points. Single points will have consecutive transitions. So...
+# 2. diff(diff(ipoint)) == 0 AND both sides are a transition signifies single
+#    points
+ipoint = indices_point_camintrinsics_camextrinsics[:,0]
+d = nps.glue(True,
+             np.diff(ipoint).astype(bool),
+             True,
+             axis=-1)
+ipoint_not_single_mask = np.diff(d) + np.logical_not(d[:-1])
+
+indices_point_camintrinsics_camextrinsics = \
+    indices_point_camintrinsics_camextrinsics[ipoint_not_single_mask]
+observations_true = \
+    observations_true[ipoint_not_single_mask]
+
+
+# POINT INDICES SHOULD BE MADE CONSECUTIVE
 
 
 # To sufficiently constrain the geometry of the problem I lock
