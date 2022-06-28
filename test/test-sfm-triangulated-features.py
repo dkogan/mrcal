@@ -185,7 +185,8 @@ Npoints = len(ipoint_unique)
 #
 # - One observed point. I only need to lock the scale of the problem, so this is
 #   overkill, but it's what I have available for now
-Npoints_fixed = 1
+Npoints_fixed                  = 1
+Ncameras_observing_fixed_point = 2
 
 
 r_cam_ref_noise_rad = 0.1e-1
@@ -228,7 +229,9 @@ if nps.norm2(rt_cam_ref[0]) != 0:
     sys.exit()
 
 # The TRAILING Npoints_fixed points are fixed. The leading ones are triangulatd
-idx_points_fixed = indices_point_camintrinsics_camextrinsics[:,0] >= Npoints-Npoints_fixed
+idx_points_fixed = \
+    (indices_point_camintrinsics_camextrinsics[:,0]   >= Npoints-Npoints_fixed) * \
+    (indices_point_camintrinsics_camextrinsics[:,2]+1 < Ncameras_observing_fixed_point)
 
 if np.count_nonzero(idx_points_fixed) == 0:
     print("No fixed point observations. Change the problem definition",
