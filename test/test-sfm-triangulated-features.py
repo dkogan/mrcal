@@ -40,7 +40,14 @@ m = mrcal.cameramodel( intrinsics = ('LENSMODEL_PINHOLE',
 # Camera0 is fixed: it's the reference coordinate system in the solve. The
 # points I'm observing lie on a perfect horizontal plane (y = constant) sitting
 # a bit below the cameras. The points span a forward arc at different ranges
-ranges         = np.array((3, 4, 5, 8, 20, 50, 200, 1000))
+ranges = np.array(( 1000,
+                    200,
+                    50,
+                    20,
+                    8,
+                    5,
+                    4,
+                    3,))
 points_fov_deg = 120.
 
 # The camera starts out at the center, and moves steadily to the right (along
