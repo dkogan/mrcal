@@ -217,9 +217,9 @@ observations_noisy = observations_true + observations_noise
 
 
 
-points       = points_noisy
-observations = observations_noisy
-rt_cam_ref   = rt_cam_ref_noisy
+points       = np.array(points_noisy)
+observations = np.array(observations_noisy)
+rt_cam_ref   = np.array(rt_cam_ref_noisy)
 
 
 if nps.norm2(rt_cam_ref[0]) != 0:
