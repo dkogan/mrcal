@@ -203,6 +203,11 @@ observations = observations_noisy
 rt_cam_ref   = rt_cam_ref_noisy
 
 
+if nps.norm2(rt_cam_ref[0]) != 0:
+    print("First camera is assumed to sit at the origin, but it isn't there",
+          file=sys.stderr)
+    sys.exit()
+
 # The TRAILING Npoints_fixed points are fixed. The leading ones are triangulatd
 idx_points_fixed = indices_point_camintrinsics_camextrinsics[:,0] >= Npoints-Npoints_fixed
 
@@ -232,7 +237,7 @@ observations_triangulated = mrcal.unproject(observations_triangulated[:,:2], *m.
 
 optimization_inputs = \
     dict( intrinsics            = nps.atleast_dims(m.intrinsics()[1], -2),
-          extrinsics_rt_fromref = rt_cam_ref,
+          extrinsics_rt_fromref = rt_cam_ref[1:], # I made sure camera0 is at the origin
           points                = points_fixed,
 
           # Explicit points. Fixed only
@@ -246,7 +251,7 @@ optimization_inputs = \
           imagersizes                       = nps.atleast_dims(m.imagersize(), -2),
           Npoints_fixed                     = Npoints_fixed,
           point_min_range                   = 1.0,
-          point_max_range                   = 1000.0,
+          point_max_range                   = 2000.0,
           do_optimize_intrinsics_core       = False,
           do_optimize_intrinsics_distortions= False,
           do_optimize_extrinsics            = True,
@@ -256,18 +261,15 @@ optimization_inputs = \
           verbose                           = False)
 
 
+if 1:
+    optimization_inputs['verbose'] = True
+    stats = mrcal.optimize(**optimization_inputs)
+p,x,j,f = mrcal.optimizer_callback(**optimization_inputs)
+
+
 import IPython
 IPython.embed()
 sys.exit()
 
-#optimization_inputs['verbose'] = True
-stats = mrcal.optimizer_callback(**optimization_inputs)
-
-# Got a solution. How well do they fit?
-fit_rms = np.sqrt(np.mean(nps.norm2(points_fixed - points_true)))
-
-testutils.confirm_equal(fit_rms, 0,
-                        msg = f"Solved at ref coords with known-position points",
-                        eps = 1.0)
 
 testutils.finish()
