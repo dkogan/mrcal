@@ -188,9 +188,8 @@ Npoints = len(ipoint_unique)
 Npoints_fixed = 1
 
 
-
-r_cam_ref_noise_rad = 0.1
-t_cam_ref_noise_m   = 0.5
+r_cam_ref_noise_rad = 0.1e-1
+t_cam_ref_noise_m   = 0.5e-1
 r_cam_ref_noise = \
     ((np.random.random_sample(rt_cam_ref_true[:,:3].shape) * 2) - 1) * r_cam_ref_noise_rad
 t_cam_ref_noise = \
