@@ -53,9 +53,9 @@ points_fov_deg = 120.
 # The camera starts out at the center, and moves steadily to the right (along
 # the x axis). Orientation is always straight ahead (pointed along the z axis)
 # and there's no front/back of up/down motion
-Ncameras                    = 10
-step                        = 1.0
-camera_height_above_surface = 1.5
+Ncameras = 10
+step     = 1.0
+
 
 
 th = np.linspace(-points_fov_deg/2.*np.pi/180.,
@@ -70,11 +70,15 @@ v = nps.glue( nps.transpose(sth),
               axis = -1)
 
 # In the ref coordinate system (locked to camera0)
+# Baseline is flat, below the cameras. Curved left/right. Rising as we move away
+# from the cameras
 # shape (Npoints, 3)
 points_true = \
     nps.clump( v * nps.mv(ranges,  -1,-3),
                n = 2 ) + \
-    np.array((0, camera_height_above_surface, 0))
+    np.array((0, 1.5, 0))
+points_true[:,1] += (points_true[:,0]/ranges[0]*15.)**2.
+points_true[:,1] -= (points_true[:,2]/ranges[0]*200.)
 
 Npoints = points_true.shape[0]
 
