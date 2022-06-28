@@ -178,10 +178,19 @@ Npoints_fixed = 1
 
 
 
-rt_cam_ref_noise_ratio = 0.2 # 20%
-rt_cam_ref_noise = \
-    ((np.random.random_sample(rt_cam_ref_true.shape) * 2) - 1) * rt_cam_ref_noise_ratio
-rt_cam_ref_noisy = rt_cam_ref_true * (1.0 + rt_cam_ref_noise)
+r_cam_ref_noise_rad = 0.1
+t_cam_ref_noise_m   = 0.5
+r_cam_ref_noise = \
+    ((np.random.random_sample(rt_cam_ref_true[:,:3].shape) * 2) - 1) * r_cam_ref_noise_rad
+t_cam_ref_noise = \
+    ((np.random.random_sample(rt_cam_ref_true[:,3:].shape) * 2) - 1) * t_cam_ref_noise_m
+# first camera is at the origin
+r_cam_ref_noise[0] *= 0
+t_cam_ref_noise[0] *= 0
+
+rt_cam_ref_noisy = rt_cam_ref_true.copy()
+rt_cam_ref_noisy[:,:3] += r_cam_ref_noise
+rt_cam_ref_noisy[:,3:] += t_cam_ref_noise
 
 
 points_noise_ratio = 0.2 # 20%
