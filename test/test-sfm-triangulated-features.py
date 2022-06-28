@@ -229,19 +229,20 @@ if nps.norm2(rt_cam_ref[0]) != 0:
     sys.exit()
 
 # The TRAILING Npoints_fixed points are fixed. The leading ones are triangulatd
-idx_points_fixed = \
+idx_observations_fixed_points = \
     (indices_point_camintrinsics_camextrinsics[:,0]   >= Npoints-Npoints_fixed) * \
     (indices_point_camintrinsics_camextrinsics[:,2]+1 < Ncameras_observing_fixed_point)
 
-if np.count_nonzero(idx_points_fixed) == 0:
+if np.count_nonzero(idx_observations_fixed_points) == 0:
     print("No fixed point observations. Change the problem definition",
           file=sys.stderr)
     sys.exit(1)
 
 indices_point_camintrinsics_camextrinsics_fixed = \
-    indices_point_camintrinsics_camextrinsics[idx_points_fixed].copy()
+    indices_point_camintrinsics_camextrinsics[idx_observations_fixed_points].copy()
 indices_point_camintrinsics_camextrinsics_fixed[:,0] -= (Npoints-Npoints_fixed)
-observations_fixed = observations[idx_points_fixed].copy()
+observations_fixed = observations[idx_observations_fixed_points].copy()
+
 
 # add "weight" column
 observations_fixed = nps.glue(observations_fixed,
@@ -251,8 +252,8 @@ observations_fixed = nps.glue(observations_fixed,
 points_fixed = points[-Npoints_fixed:]
 
 indices_point_camintrinsics_camextrinsics_triangulated = \
-    indices_point_camintrinsics_camextrinsics[~idx_points_fixed].copy()
-observations_triangulated = observations[~idx_points_fixed].copy()
+    indices_point_camintrinsics_camextrinsics[~idx_observations_fixed_points].copy()
+observations_triangulated = observations[~idx_observations_fixed_points].copy()
 
 # For now "observations_triangulated" are local observation vectors
 observations_triangulated = mrcal.unproject(observations_triangulated[:,:2], *m.intrinsics())
