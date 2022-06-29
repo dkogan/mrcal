@@ -11,6 +11,7 @@ import cv2
 import glob
 import mrcal
 import re
+import os
 
 
 def imread(filename, decimation):
@@ -18,8 +19,8 @@ def imread(filename, decimation):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     return image, image[::decimation, ::decimation]
 
-def plot_flow(filename,
-              image, flow, decimation):
+def plot_flow(image, flow, decimation,
+              **kwargs):
     H,W = flow.shape[:2]
 
     # each has shape (H,W)
@@ -45,10 +46,7 @@ def plot_flow(filename,
              square = True,
              _xrange = (0,W),
              _yrange = (H,0),
-             hardcopy = filename)
-
-    print(f"Wrote {filename}")
-
+             **kwargs)
 
 def match_looks_valid(q, match, flow):
 
@@ -56,8 +54,8 @@ def match_looks_valid(q, match, flow):
     flow_err_sq   = nps.norm2(flow_observed - flow)
 
     return \
-        match.distance < 500 and \
-        flow_err_sq    < 10*10
+        match.distance < 30 and \
+        flow_err_sq    < 2*2
 
 
 def seed_pose(intrinsics, q):
@@ -72,16 +70,22 @@ def seed_pose(intrinsics, q):
                               ( 0,  fy, cy),
                               ( 0,   0, 1.)))
 
+    # arbitrary scale
+    p0 = mrcal.unproject(q[:,0,:], *intrinsics)
+
     result,rvec,tvec = \
-        cv2.solvePnP( mrcal.unproject(q[:,0,:], *intrinsics),
+        cv2.solvePnP( p0,
                       np.ascontiguousarray(q[:,1,:]),
                       camera_matrix,
                       distortions,
-                      useExtrinsicGuess = False)
+                      rvec = (0,0,0),
+                      tvec = (0,0,0),
+                      useExtrinsicGuess = True)
     if not result:
         raise Exception("solvePnP failed!")
 
-    return nps.glue(rvec.ravel(), tvec.ravel(), axis=-1)
+    rt10 = nps.glue(rvec.ravel(), tvec.ravel(), axis=-1)
+    return rt10
 
 
 
@@ -97,7 +101,8 @@ model_filename        = "/mnt/fatty/home/dima/xxxxx-sfm/cam.cameramodel"
 model = mrcal.cameramodel(model_filename)
 
 feature_finder = cv2.ORB_create()
-matcher        = cv2.BFMatcher()
+matcher        = cv2.BFMatcher(cv2.NORM_HAMMING,
+                               crossCheck = True)
 
 l = sorted(glob.glob(directory))
 
@@ -105,29 +110,29 @@ l = sorted(glob.glob(directory))
 image0,image0_decimated = imread(l[0], decimation)
 
 i=0
-for f in l[1:Nimages]:
+for f in l[2:Nimages]:
     image1,image1_decimated = imread(f, decimation)
 
     # shape (Hdecimated,Wdecimated,2)
-    flow = -cv2.calcOpticalFlowFarneback(image0_decimated, image1_decimated,
-                                         flow       = None, # for in-place output
-                                         pyr_scale  = 0.5,
-                                         levels     = 3,
-                                         winsize    = 15,
-                                         iterations = 3,
-                                         poly_n     = 5,
-                                         poly_sigma = 1.2,
-                                         flags      = 0# cv2.OPTFLOW_USE_INITIAL_FLOW
-                                         )
+    flow_decimated = \
+        cv2.calcOpticalFlowFarneback(image0_decimated, image1_decimated,
+                                     flow       = None, # for in-place output
+                                     pyr_scale  = 0.5,
+                                     levels     = 3,
+                                     winsize    = 15,
+                                     iterations = 3,
+                                     poly_n     = 5,
+                                     poly_sigma = 1.2,
+                                     flags      = 0# cv2.OPTFLOW_USE_INITIAL_FLOW
+                                     )
 
     if 0:
-        plot_flow(f"{outdir}/flow{i:03d}.png",
-                  image0_decimated, flow,
-                  decimation_extra_plot)
+        plot_flow(image0_decimated, flow_decimated,
+                  decimation_extra_plot,
+                  hardcopy = f"{outdir}/flow{i:03d}.png")
 
     keypoints0, descriptors0 = feature_finder.detectAndCompute(image0_decimated, None)
     keypoints1, descriptors1 = feature_finder.detectAndCompute(image1_decimated, None)
-
     matches = matcher.match(descriptors0, descriptors1)
 
     # shape (Nmatches, Npair=2, Nxy=2)
@@ -135,40 +140,76 @@ for f in l[1:Nimages]:
                                          keypoints1[m.trainIdx].pt)) \
                                for m in matches])
 
+    i_match_valid = \
+        np.array([i for i in range(len(matches)) \
+                  if match_looks_valid(qall_decimated[i],
+                                       matches[i],
+                                       flow_decimated[int(round(qall_decimated[i][0,1])),
+                                                      int(round(qall_decimated[i][0,0]))]
+                                       )])
+
+    if len(i_match_valid) < 10:
+        raise Exception(f"Too few valid features found: N = {len(i_match_valid)}")
     q = \
-        decimation * \
-        qall_decimated[([i for i in range(len(matches)) \
-               if match_looks_valid(qall_decimated[i],
-                                    matches[i],
-                                    flow[int(round(qall_decimated[i][0,1])),
-                                         int(round(qall_decimated[i][0,0]))]
-                                    )])]
+        decimation * qall_decimated[i_match_valid]
 
     if 0:
         gp.plot(nps.xchg(q,0,1), _with='points', tuplesize=-2, square=1)
-    if 0:
-        gp.plot( (nps.glue(image0_decimated,image1_decimated,axis=-1),
-                  dict( _with     = 'image', \
-                        tuplesize = 3 )),
+    if 1:
+        if 0:
+            # one plot, with connected lines
+            gp.plot( (nps.glue(image0_decimated,image1_decimated,
+                               axis=-2),
+                      dict( _with     = 'image', \
+                            tuplesize = 3 )),
 
-                 (q*decimation + np.array(((0,0), (image0_decimated.shape[-1],0)),),
-                  dict( _with     = 'lines',
-                        tuplesize = -2)),
+                     (q/decimation + np.array(((0,0), (0,image0_decimated.shape[-1])),),
+                      dict( _with     = 'lines',
+                            tuplesize = -2)),
 
-                 _set = ('xrange noextend',
-                         'yrange noextend reverse',
-                         'palette gray'),
-                 square=1,
-                 wait = 1)
+                     _set = ('xrange noextend',
+                             'yrange noextend reverse',
+                             'palette gray'),
+                     square=1,
+                     wait = 1)
+        else:
+            # two plots. Discrete points
+            images_decimated = (image0_decimated,
+                                image1_decimated)
+
+            g = [None] * 2
+            pids = set()
+            for i in range(2):
+                g[i] = gp.gnuplotlib(_set = ('xrange noextend',
+                                             'yrange noextend reverse',
+                                             'palette gray'),
+                                     square=1)
+                g[i].plot( (images_decimated[i],
+                            dict( _with     = 'image', \
+                                  tuplesize = 3 )),
+                           (q[:,(i,),:]/decimation,
+                            dict( _with     = 'points',
+                                  tuplesize = -2,
+                                  legend    = i_match_valid)))
+
+                pid = os.fork()
+                if pid == 0:
+                    # child
+                    g[i].wait()
+                    sys.exit(0)
+
+                pids.add(pid)
+
+            # wait until all the children finish
+            while len(pids):
+                pid,status = os.wait()
+                if pid in pids:
+                    pids.remove(pid)
+
+
 
 
     rt10 = seed_pose(model.intrinsics(), q)
-
-    import IPython
-    IPython.embed()
-    sys.exit()
-
-
 
     model0 = model
     model.extrinsics_rt_fromref(np.zeros((6,), dtype=float))
@@ -214,15 +255,32 @@ for f in l[1:Nimages]:
               do_apply_regularization                   = False,
               do_apply_outlier_rejection                = False)
 
-    mrcal.optimize(**optimization_inputs)
+    stats = mrcal.optimize(**optimization_inputs)
 
     p = optimization_inputs['points']
-    # p[ nps.mag(p)>100] *= 0
+    r = nps.mag(p)
+    # p[ r>100] *= 0
     mrcal.show_geometry(optimization_inputs['extrinsics_rt_fromref'],
                         points      = p,
                         cameranames = np.arange(2),
-                        axis_scale  = 1.0,
+                        axis_scale  = 0.1,
                         _set        = 'view 180,90,2.8')
+
+    if 0:
+        gp.plot( (image0_decimated / 255. * np.max(r),
+                  dict( _with     = 'image', \
+                        tuplesize = 3 )),
+                 (q[:,0,0]/decimation,
+                  q[:,0,1]/decimation,
+                  r,
+                  dict( _with     = 'points pt 7 ps 2 palette',
+                        tuplesize = 3)),
+                 _set = ('xrange noextend',
+                         'yrange noextend reverse'),
+                 square=1,
+                 wait = 1)
+
+
 
     import IPython
     IPython.embed()
