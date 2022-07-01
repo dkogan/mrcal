@@ -5100,8 +5100,8 @@ void optimizer_callback(// input state
         //   Nmeasurements_regularization_distortion *normal_regularization_distortion_error_sq  =
         //   Nmeasurements_regularization_centerpixel*normal_regularization_centerpixel_error_sq =
         //
-        //   normal_regularization_distortion_error_sq     = (scale*normal_centerpixel_offset   )^2
-        //   normal_regularization_centerpixel_error_sq    = (scale*normal_distortion_value     )^2
+        //   normal_regularization_distortion_error_sq     = (scale*normal_distortion_offset )^2
+        //   normal_regularization_centerpixel_error_sq    = (scale*normal_centerpixel_value )^2
         //
         // Regularization introduces a bias to the solution. The
         // test-projection-uncertainty test measures it, and barfs if it is too
