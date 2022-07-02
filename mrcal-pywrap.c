@@ -905,6 +905,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(verbose,                            int,            0,       "p",  ,                                  NULL,           -1,         {})  \
     _(do_apply_regularization,            int,            1,       "p",  ,                                  NULL,           -1,         {})  \
+    _(do_apply_regularization_unity_cam01,int,            1,       "p",  ,                                  NULL,           -1,         {})  \
     _(do_apply_outlier_rejection,         int,            1,       "p",  ,                                  NULL,           -1,         {})  \
     _(imagepaths,                         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
 /* imagepaths is in the argument list purely to make the
@@ -1356,6 +1357,7 @@ construct_problem_selections( int do_optimize_intrinsics_core,
                               int do_optimize_frames,
                               int do_optimize_calobject_warp,
                               int do_apply_regularization,
+                              int do_apply_regularization_unity_cam01,
                               int do_apply_outlier_rejection,
 
                               int Ncameras_intrinsics,
@@ -1375,6 +1377,7 @@ construct_problem_selections( int do_optimize_intrinsics_core,
                                           .do_optimize_frames                = do_optimize_frames,
                                           .do_optimize_calobject_warp        = do_optimize_calobject_warp,
                                           .do_apply_regularization           = do_apply_regularization,
+                                          .do_apply_regularization_unity_cam01= do_apply_regularization_unity_cam01,
                                           .do_apply_outlier_rejection        = do_apply_outlier_rejection
     };
 }
@@ -1551,6 +1554,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                           do_optimize_frames,
                                           do_optimize_calobject_warp,
                                           do_apply_regularization,
+                                          do_apply_regularization_unity_cam01,
                                           do_apply_outlier_rejection,
 
                                           Ncameras_intrinsics,
@@ -2012,6 +2016,7 @@ static PyObject* state_index_generic(callback_state_index_t cb,
                                       do_optimize_frames,
                                       do_optimize_calobject_warp,
                                       do_apply_regularization,
+                                      do_apply_regularization_unity_cam01,
                                       do_apply_outlier_rejection,
 
                                       Ncameras_intrinsics,
@@ -2977,6 +2982,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
                                       do_optimize_frames,
                                       do_optimize_calobject_warp,
                                       do_apply_regularization,
+                                      do_apply_regularization_unity_cam01,
                                       do_apply_outlier_rejection,
 
                                       Ncameras_intrinsics,

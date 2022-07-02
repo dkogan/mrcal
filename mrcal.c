@@ -523,7 +523,11 @@ int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_
 {
     return
         Ncameras_intrinsics *
-        num_regularization_terms_percamera(problem_selections, lensmodel);
+        num_regularization_terms_percamera(problem_selections, lensmodel) +
+
+        ((problem_selections.do_apply_regularization_unity_cam01 &&
+          problem_selections.do_optimize_extrinsics &&
+          Ncameras_extrinsics > 0) ? 1 : 0);
 }
 
 int mrcal_num_measurements(int Nobservations_board,
@@ -685,6 +689,14 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
             Ncameras_intrinsics *
             num_regularization_terms_percamera(problem_selections,
                                                lensmodel);
+
+    if(problem_selections.do_apply_regularization_unity_cam01 &&
+       problem_selections.do_optimize_extrinsics &&
+       Ncameras_extrinsics > 0)
+    {
+#warning "triangulated-solve: I assume that camera0 is at the reference"
+        N += 3; // translation only
+    }
 
     return N;
 }
@@ -5083,9 +5095,6 @@ void optimizer_callback(// input state
     }
 
     ///////////////// Regularization
-    if(ctx->problem_selections.do_apply_regularization &&
-       (ctx->problem_selections.do_optimize_intrinsics_distortions ||
-        ctx->problem_selections.do_optimize_intrinsics_core))
     {
         const bool dump_regularizaton_details = false;
 
@@ -5095,33 +5104,43 @@ void optimizer_callback(// input state
         // regularization to account for ~ .5% of the other error
         // contributions:
         //
-        //   Nregularization_types = 2;
         //   Nmeasurements_rest*normal_pixel_error_sq * 0.005/Nregularization_types =
         //   Nmeasurements_regularization_distortion *normal_regularization_distortion_error_sq  =
         //   Nmeasurements_regularization_centerpixel*normal_regularization_centerpixel_error_sq =
+        //   Nmeasurements_regularization_unity_cam01*normal_regularization_unity_cam01_error_sq
         //
         //   normal_regularization_distortion_error_sq     = (scale*normal_distortion_offset )^2
         //   normal_regularization_centerpixel_error_sq    = (scale*normal_centerpixel_value )^2
+        //   normal_regularization_unity_cam01_error_sq    = (scale*normal_unity_cam01_value )^2
         //
         // Regularization introduces a bias to the solution. The
         // test-projection-uncertainty test measures it, and barfs if it is too
         // high. The constants should be adjusted if that test fails.
-        const int Nregularization_types = 2;
-
         int Nmeasurements_regularization_distortion  = 0;
-        if(ctx->problem_selections.do_optimize_intrinsics_distortions)
-            Nmeasurements_regularization_distortion =
-                ctx->Ncameras_intrinsics*(ctx->Nintrinsics-Ncore);
-
         int Nmeasurements_regularization_centerpixel = 0;
-        if(ctx->problem_selections.do_optimize_intrinsics_core)
-            Nmeasurements_regularization_centerpixel =
-                ctx->Ncameras_intrinsics*2;
+        int Nmeasurements_regularization_unity_cam01 = 0;
+
+        if(ctx->problem_selections.do_apply_regularization)
+        {
+            if(ctx->problem_selections.do_optimize_intrinsics_distortions)
+                Nmeasurements_regularization_distortion =
+                    ctx->Ncameras_intrinsics*(ctx->Nintrinsics-Ncore);
+            if(ctx->problem_selections.do_optimize_intrinsics_core)
+                Nmeasurements_regularization_centerpixel =
+                    ctx->Ncameras_intrinsics*2;
+        }
+        if(ctx->problem_selections.do_apply_regularization_unity_cam01 &&
+           ctx->problem_selections.do_optimize_extrinsics &&
+           ctx->Ncameras_extrinsics > 0)
+        {
+            Nmeasurements_regularization_unity_cam01 = 1;
+        }
 
         int Nmeasurements_nonregularization =
             ctx->Nmeasurements -
             (Nmeasurements_regularization_distortion +
-             Nmeasurements_regularization_centerpixel);
+             Nmeasurements_regularization_centerpixel +
+             Nmeasurements_regularization_unity_cam01);
 
         double normal_pixel_error = 1.0;
         double expected_total_pixel_error_sq =
@@ -5131,230 +5150,294 @@ void optimizer_callback(// input state
         if(dump_regularizaton_details)
             MSG("expected_total_pixel_error_sq: %f", expected_total_pixel_error_sq);
 
-        double scale_regularization_distortion     = 0.0;
-        double scale_regularization_centerpixel    = 0.0;
+        const int Nregularization_types = 3;
 
-        // compute scales
+        if(ctx->problem_selections.do_apply_regularization &&
+           (ctx->problem_selections.do_optimize_intrinsics_distortions ||
+            ctx->problem_selections.do_optimize_intrinsics_core))
         {
-            if(ctx->problem_selections.do_optimize_intrinsics_distortions)
+            double scale_regularization_distortion  = 0.0;
+            double scale_regularization_centerpixel = 0.0;
+
+            // compute scales
             {
-                // I need to control this better, but this is sufficient for
-                // now. I need 2.0e-1 for splined models to effectively
-                // eliminate the curl in the splined model vector field. For
-                // other models I use 2.0 because that's what I had for a long
-                // time, and I don't want to change it to not break anything
-                double normal_distortion_value =
-                    ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC ?
-                    2.0e-1 :
-                    2.0;
-
-                double expected_regularization_distortion_error_sq_noscale =
-                    (double)Nmeasurements_regularization_distortion *
-                    normal_distortion_value *
-                    normal_distortion_value;
-
-                double scale_sq =
-                    expected_total_pixel_error_sq * 0.005/(double)Nregularization_types / expected_regularization_distortion_error_sq_noscale;
-
-                if(dump_regularizaton_details)
-                    MSG("expected_regularization_distortion_error_sq: %f", expected_regularization_distortion_error_sq_noscale*scale_sq);
-
-                scale_regularization_distortion = sqrt(scale_sq);
-            }
-
-            if(modelHasCore_fxfycxcy(&ctx->lensmodel) &&
-               ctx->problem_selections.do_optimize_intrinsics_core)
-            {
-                double normal_centerpixel_offset = 500.0;
-
-                double expected_regularization_centerpixel_error_sq_noscale =
-                    (double)Nmeasurements_regularization_centerpixel *
-                    normal_centerpixel_offset *
-                    normal_centerpixel_offset;
-
-                double scale_sq =
-                    expected_total_pixel_error_sq * 0.005/(double)Nregularization_types / expected_regularization_centerpixel_error_sq_noscale;
-
-                if(dump_regularizaton_details)
-                    MSG("expected_regularization_centerpixel_error_sq: %f", expected_regularization_centerpixel_error_sq_noscale*scale_sq);
-
-                scale_regularization_centerpixel = sqrt(scale_sq);
-            }
-        }
-
-        // compute and store regularization terms
-        {
-            if( ctx->problem_selections.do_optimize_intrinsics_distortions )
-                for(int icam_intrinsics=0; icam_intrinsics<ctx->Ncameras_intrinsics; icam_intrinsics++)
+                if(ctx->problem_selections.do_optimize_intrinsics_distortions)
                 {
-                    const int i_var_intrinsics =
-                        mrcal_state_index_intrinsics(icam_intrinsics,
-                                                     ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
-                                                     ctx->Nframes,
-                                                     ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                                     ctx->problem_selections, &ctx->lensmodel);
+                    // I need to control this better, but this is sufficient for
+                    // now. I need 2.0e-1 for splined models to effectively
+                    // eliminate the curl in the splined model vector field. For
+                    // other models I use 2.0 because that's what I had for a long
+                    // time, and I don't want to change it to not break anything
+                    double normal_distortion_value =
+                        ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC ?
+                        2.0e-1 :
+                        2.0;
 
-                    if(ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
+                    double expected_regularization_distortion_error_sq_noscale =
+                        (double)Nmeasurements_regularization_distortion *
+                        normal_distortion_value *
+                        normal_distortion_value;
+
+                    double scale_sq =
+                        expected_total_pixel_error_sq * 0.005/(double)Nregularization_types / expected_regularization_distortion_error_sq_noscale;
+
+                    if(dump_regularizaton_details)
+                        MSG("expected_regularization_distortion_error_sq: %f", expected_regularization_distortion_error_sq_noscale*scale_sq);
+
+                    scale_regularization_distortion = sqrt(scale_sq);
+                }
+
+                if(modelHasCore_fxfycxcy(&ctx->lensmodel) &&
+                   ctx->problem_selections.do_optimize_intrinsics_core)
+                {
+                    double normal_centerpixel_offset = 500.0;
+
+                    double expected_regularization_centerpixel_error_sq_noscale =
+                        (double)Nmeasurements_regularization_centerpixel *
+                        normal_centerpixel_offset *
+                        normal_centerpixel_offset;
+
+                    double scale_sq =
+                        expected_total_pixel_error_sq * 0.005/(double)Nregularization_types / expected_regularization_centerpixel_error_sq_noscale;
+
+                    if(dump_regularizaton_details)
+                        MSG("expected_regularization_centerpixel_error_sq: %f", expected_regularization_centerpixel_error_sq_noscale*scale_sq);
+
+                    scale_regularization_centerpixel = sqrt(scale_sq);
+                }
+            }
+
+            // compute and store regularization terms
+            {
+                if( ctx->problem_selections.do_optimize_intrinsics_distortions )
+                    for(int icam_intrinsics=0; icam_intrinsics<ctx->Ncameras_intrinsics; icam_intrinsics++)
                     {
-                        // Splined model regularization. I do directional L2
-                        // regularization. At each knot I penalize contributions in
-                        // the tangential direction much more than in the radial
-                        // direction. Otherwise noise in the data produces lots of
-                        // curl in the vector field. This isn't wrong, but it's much
-                        // nicer if "right" in the camera coordinate system
-                        // corresponds to "right" in pixel space
-                        const int Nx = ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx;
-                        const int Ny = ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny;
+                        const int i_var_intrinsics =
+                            mrcal_state_index_intrinsics(icam_intrinsics,
+                                                         ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                         ctx->Nframes,
+                                                         ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                         ctx->problem_selections, &ctx->lensmodel);
 
-                        for(int iy=0; iy<Ny; iy++)
-                            for(int ix=0; ix<Nx; ix++)
+                        if(ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
+                        {
+                            // Splined model regularization. I do directional L2
+                            // regularization. At each knot I penalize contributions in
+                            // the tangential direction much more than in the radial
+                            // direction. Otherwise noise in the data produces lots of
+                            // curl in the vector field. This isn't wrong, but it's much
+                            // nicer if "right" in the camera coordinate system
+                            // corresponds to "right" in pixel space
+                            const int Nx = ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx;
+                            const int Ny = ctx->lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny;
+
+                            for(int iy=0; iy<Ny; iy++)
+                                for(int ix=0; ix<Nx; ix++)
+                                {
+                                    double scale = scale_regularization_distortion;
+
+                                    int ivar = 2*( iy*Nx + ix );
+                                    const double deltauxy[] =
+                                        { intrinsics_all[icam_intrinsics][Ncore + ivar + 0],
+                                          intrinsics_all[icam_intrinsics][Ncore + ivar + 1] };
+
+                                    // WARNING: "Precompute uxy. This is lots of unnecessary computation in the inner loop"
+                                    double uxy[] = { (double)(2*ix - Nx + 1),
+                                                     (double)(2*iy - Ny + 1) };
+                                    bool anisotropic = true;
+                                    if(2*ix == Nx - 1 &&
+                                       2*iy == Ny - 1 )
+                                    {
+                                        uxy[0] = 1.0;
+                                        anisotropic = false;
+                                    }
+                                    else
+                                    {
+                                        double mag = sqrt(uxy[0]*uxy[0] + uxy[1]*uxy[1]);
+                                        uxy[0] /= mag;
+                                        uxy[1] /= mag;
+                                    }
+
+                                    double err;
+
+                                    // I penalize radial corrections
+                                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                                    err              = scale*(deltauxy[0]*uxy[0] +
+                                                              deltauxy[1]*uxy[1]);
+                                    x[iMeasurement]  = err;
+                                    norm2_error     += err*err;
+                                    STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 0,
+                                                    scale * uxy[0] * SCALE_DISTORTION );
+                                    STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 1,
+                                                    scale * uxy[1] * SCALE_DISTORTION );
+                                    iMeasurement++;
+
+                                    // I REALLY penalize tangential corrections
+                                    if(anisotropic) scale *= 10.;
+                                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                                    err              = scale*(deltauxy[0]*uxy[1] - deltauxy[1]*uxy[0]);
+                                    x[iMeasurement]  = err;
+                                    norm2_error     += err*err;
+                                    STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 0,
+                                                    scale * uxy[1] * SCALE_DISTORTION );
+                                    STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 1,
+                                                    -scale * uxy[0] * SCALE_DISTORTION );
+                                    iMeasurement++;
+                                }
+                        }
+                        else
+                        {
+                            for(int j=0; j<ctx->Nintrinsics-Ncore; j++)
                             {
+                                // This maybe should live elsewhere, but I put it here
+                                // for now. Various distortion coefficients have
+                                // different meanings, and should be regularized in
+                                // different ways. Specific logic follows
                                 double scale = scale_regularization_distortion;
 
-                                int ivar = 2*( iy*Nx + ix );
-                                const double deltauxy[] =
-                                    { intrinsics_all[icam_intrinsics][Ncore + ivar + 0],
-                                      intrinsics_all[icam_intrinsics][Ncore + ivar + 1] };
-
-                                // WARNING: "Precompute uxy. This is lots of unnecessary computation in the inner loop"
-                                double uxy[] = { (double)(2*ix - Nx + 1),
-                                                 (double)(2*iy - Ny + 1) };
-                                bool anisotropic = true;
-                                if(2*ix == Nx - 1 &&
-                                   2*iy == Ny - 1 )
+                                if( MRCAL_LENSMODEL_IS_OPENCV(ctx->lensmodel.type) &&
+                                    ctx->lensmodel.type >= MRCAL_LENSMODEL_OPENCV8 &&
+                                    5 <= j && j <= 7 )
                                 {
-                                    uxy[0] = 1.0;
-                                    anisotropic = false;
-                                }
-                                else
-                                {
-                                    double mag = sqrt(uxy[0]*uxy[0] + uxy[1]*uxy[1]);
-                                    uxy[0] /= mag;
-                                    uxy[1] /= mag;
+                                    // The radial distortion in opencv is x_distorted =
+                                    // x*scale where r2 = norm2(xy - xyc) and
+                                    //
+                                    // scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
+                                    //
+                                    // Note that k2,k3 are tangential (NOT radial)
+                                    // distortion components. Note that the r6 factor in
+                                    // the numerator is only present for
+                                    // >=MRCAL_LENSMODEL_OPENCV5. Note that the denominator
+                                    // is only present for >= MRCAL_LENSMODEL_OPENCV8. The
+                                    // danger with a rational model is that it's
+                                    // possible to get into a situation where scale ~
+                                    // 0/0 ~ 1. This would have very poorly behaved
+                                    // derivatives. If all the rational coefficients are
+                                    // ~0, then the denominator is always ~1, and this
+                                    // problematic case can't happen. I favor that by
+                                    // regularizing the coefficients in the denominator
+                                    // more strongly
+                                    scale *= 5.;
                                 }
 
-                                double err;
-
-                                // I penalize radial corrections
                                 if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                                err              = scale*(deltauxy[0]*uxy[0] +
-                                                          deltauxy[1]*uxy[1]);
+                                double err       = scale*intrinsics_all[icam_intrinsics][j+Ncore];
                                 x[iMeasurement]  = err;
                                 norm2_error     += err*err;
-                                STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 0,
-                                                scale * uxy[0] * SCALE_DISTORTION );
-                                STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 1,
-                                                scale * uxy[1] * SCALE_DISTORTION );
+
+                                STORE_JACOBIAN( i_var_intrinsics + Ncore_state + j,
+                                                scale * SCALE_DISTORTION );
+
                                 iMeasurement++;
+                                if(dump_regularizaton_details)
+                                    MSG("regularization distortion: %g; norm2: %g", err, err*err);
 
-                                // I REALLY penalize tangential corrections
-                                if(anisotropic) scale *= 10.;
-                                if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                                err              = scale*(deltauxy[0]*uxy[1] - deltauxy[1]*uxy[0]);
-                                x[iMeasurement]  = err;
-                                norm2_error     += err*err;
-                                STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 0,
-                                                scale * uxy[1] * SCALE_DISTORTION );
-                                STORE_JACOBIAN( i_var_intrinsics + Ncore_state + ivar + 1,
-                                                -scale * uxy[0] * SCALE_DISTORTION );
-                                iMeasurement++;
                             }
-                    }
-                    else
-                    {
-                        for(int j=0; j<ctx->Nintrinsics-Ncore; j++)
-                        {
-                            // This maybe should live elsewhere, but I put it here
-                            // for now. Various distortion coefficients have
-                            // different meanings, and should be regularized in
-                            // different ways. Specific logic follows
-                            double scale = scale_regularization_distortion;
-
-                            if( MRCAL_LENSMODEL_IS_OPENCV(ctx->lensmodel.type) &&
-                                ctx->lensmodel.type >= MRCAL_LENSMODEL_OPENCV8 &&
-                                5 <= j && j <= 7 )
-                            {
-                                // The radial distortion in opencv is x_distorted =
-                                // x*scale where r2 = norm2(xy - xyc) and
-                                //
-                                // scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
-                                //
-                                // Note that k2,k3 are tangential (NOT radial)
-                                // distortion components. Note that the r6 factor in
-                                // the numerator is only present for
-                                // >=MRCAL_LENSMODEL_OPENCV5. Note that the denominator
-                                // is only present for >= MRCAL_LENSMODEL_OPENCV8. The
-                                // danger with a rational model is that it's
-                                // possible to get into a situation where scale ~
-                                // 0/0 ~ 1. This would have very poorly behaved
-                                // derivatives. If all the rational coefficients are
-                                // ~0, then the denominator is always ~1, and this
-                                // problematic case can't happen. I favor that by
-                                // regularizing the coefficients in the denominator
-                                // more strongly
-                                scale *= 5.;
-                            }
-
-                            if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                            double err       = scale*intrinsics_all[icam_intrinsics][j+Ncore];
-                            x[iMeasurement]  = err;
-                            norm2_error     += err*err;
-
-                            STORE_JACOBIAN( i_var_intrinsics + Ncore_state + j,
-                                            scale * SCALE_DISTORTION );
-
-                            iMeasurement++;
-                            if(dump_regularizaton_details)
-                                MSG("regularization distortion: %g; norm2: %g", err, err*err);
-
                         }
                     }
-                }
 
-            if( modelHasCore_fxfycxcy(&ctx->lensmodel) &&
-                ctx->problem_selections.do_optimize_intrinsics_core )
-                for(int icam_intrinsics=0; icam_intrinsics<ctx->Ncameras_intrinsics; icam_intrinsics++)
-                {
-                    const int i_var_intrinsics =
-                        mrcal_state_index_intrinsics(icam_intrinsics,
-                                                     ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
-                                                     ctx->Nframes,
-                                                     ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                                     ctx->problem_selections, &ctx->lensmodel);
+                if( modelHasCore_fxfycxcy(&ctx->lensmodel) &&
+                    ctx->problem_selections.do_optimize_intrinsics_core )
+                    for(int icam_intrinsics=0; icam_intrinsics<ctx->Ncameras_intrinsics; icam_intrinsics++)
+                    {
+                        const int i_var_intrinsics =
+                            mrcal_state_index_intrinsics(icam_intrinsics,
+                                                         ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                         ctx->Nframes,
+                                                         ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                         ctx->problem_selections, &ctx->lensmodel);
 
-                    // And another regularization term: optical center should be
-                    // near the middle. This breaks the symmetry between moving the
-                    // center pixel coords and pitching/yawing the camera.
-                    double cx_target = 0.5 * (double)(ctx->imagersizes[icam_intrinsics*2 + 0] - 1);
-                    double cy_target = 0.5 * (double)(ctx->imagersizes[icam_intrinsics*2 + 1] - 1);
+                        // And another regularization term: optical center should be
+                        // near the middle. This breaks the symmetry between moving the
+                        // center pixel coords and pitching/yawing the camera.
+                        double cx_target = 0.5 * (double)(ctx->imagersizes[icam_intrinsics*2 + 0] - 1);
+                        double cy_target = 0.5 * (double)(ctx->imagersizes[icam_intrinsics*2 + 1] - 1);
 
-                    double err;
+                        double err;
 
-                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                    err = scale_regularization_centerpixel *
-                        (intrinsics_all[icam_intrinsics][2] - cx_target);
-                    x[iMeasurement]  = err;
-                    norm2_error     += err*err;
-                    STORE_JACOBIAN( i_var_intrinsics + 2,
-                                    scale_regularization_centerpixel * SCALE_INTRINSICS_CENTER_PIXEL );
-                    iMeasurement++;
-                    if(dump_regularizaton_details)
-                        MSG("regularization center pixel off-center: %g; norm2: %g", err, err*err);
+                        if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                        err = scale_regularization_centerpixel *
+                            (intrinsics_all[icam_intrinsics][2] - cx_target);
+                        x[iMeasurement]  = err;
+                        norm2_error     += err*err;
+                        STORE_JACOBIAN( i_var_intrinsics + 2,
+                                        scale_regularization_centerpixel * SCALE_INTRINSICS_CENTER_PIXEL );
+                        iMeasurement++;
+                        if(dump_regularizaton_details)
+                            MSG("regularization center pixel off-center: %g; norm2: %g", err, err*err);
 
-                    if(Jt) Jrowptr[iMeasurement] = iJacobian;
-                    err = scale_regularization_centerpixel *
-                        (intrinsics_all[icam_intrinsics][3] - cy_target);
-                    x[iMeasurement]  = err;
-                    norm2_error     += err*err;
-                    STORE_JACOBIAN( i_var_intrinsics + 3,
-                                    scale_regularization_centerpixel * SCALE_INTRINSICS_CENTER_PIXEL );
-                    iMeasurement++;
-                    if(dump_regularizaton_details)
-                        MSG("regularization center pixel off-center: %g; norm2: %g", err, err*err);
-                }
+                        if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                        err = scale_regularization_centerpixel *
+                            (intrinsics_all[icam_intrinsics][3] - cy_target);
+                        x[iMeasurement]  = err;
+                        norm2_error     += err*err;
+                        STORE_JACOBIAN( i_var_intrinsics + 3,
+                                        scale_regularization_centerpixel * SCALE_INTRINSICS_CENTER_PIXEL );
+                        iMeasurement++;
+                        if(dump_regularizaton_details)
+                            MSG("regularization center pixel off-center: %g; norm2: %g", err, err*err);
+                    }
+            }
+        }
+
+
+        if(ctx->problem_selections.do_apply_regularization_unity_cam01 &&
+           ctx->problem_selections.do_optimize_extrinsics &&
+           ctx->Ncameras_extrinsics > 0)
+        {
+            double scale_regularization_unity_cam01 = 0.0;
+
+            // compute scales
+            {
+#warning "triangulated-solve: better unity_cam01 scale"
+                double normal_unity_cam01_value = 1.0;
+
+                double expected_regularization_unity_cam01_error_sq_noscale =
+                    (double)Nmeasurements_regularization_unity_cam01 *
+                    normal_unity_cam01_value *
+                    normal_unity_cam01_value;
+
+                double scale_sq =
+                    expected_total_pixel_error_sq * 0.005/(double)Nregularization_types / expected_regularization_unity_cam01_error_sq_noscale;
+
+                if(dump_regularizaton_details)
+                    MSG("expected_regularization_unity_cam01_error_sq: %f", expected_regularization_unity_cam01_error_sq_noscale*scale_sq);
+
+                scale_regularization_unity_cam01 = sqrt(scale_sq);
+            }
+
+            // compute and store regularization terms
+            {
+                // I have the pose for the first camera: rt_0r. The distance
+                // between the origin of this camera and the origin of the
+                // reference is t_0r
+                const mrcal_point3_t* t_0r = &camera_rt[0].t;
+
+                const int i_var_extrinsics =
+                    mrcal_state_index_extrinsics(0,
+                                                 ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                 ctx->Nframes,
+                                                 ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                 ctx->problem_selections, &ctx->lensmodel);
+
+                if(Jt) Jrowptr[iMeasurement] = iJacobian;
+                double err =
+                    scale_regularization_unity_cam01 *
+                    (norm2_vec(3, t_0r->xyz) - 1.);
+                x[iMeasurement]  = err;
+                norm2_error     += err*err;
+
+                for(int i=0; i<3; i++)
+                    STORE_JACOBIAN( i_var_extrinsics+3 + i,
+                                    scale_regularization_unity_cam01 * SCALE_TRANSLATION_CAMERA *
+                                    2.* t_0r->xyz[i]);
+
+                iMeasurement++;
+                if(dump_regularizaton_details)
+                    MSG("regularization unity_cam01: %g; norm2: %g", err, err*err);
+            }
         }
     }
-
 
     // required to indicate the end of the jacobian matrix
     if( !ctx->reportFitMsg )
@@ -5870,6 +5953,14 @@ mrcal_optimize( // out
 
         double regularization_ratio_distortion  = 0.0;
         double regularization_ratio_centerpixel = 0.0;
+        const int imeas_reg0 =
+            mrcal_measurement_index_regularization(Nobservations_board,
+                                                   Nobservations_point,
+                                                   observations_point_triangulated,
+                                                   Nobservations_point_triangulated,
+                                                   calibration_object_width_n,
+                                                   calibration_object_height_n);
+        const double* xreg = &solver_context->beforeStep->x[imeas_reg0];
         if(problem_selections.do_apply_regularization)
         {
             int Ncore = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
@@ -5887,15 +5978,6 @@ mrcal_optimize( // out
             double norm2_err_regularization_distortion     = 0;
             double norm2_err_regularization_centerpixel    = 0;
 
-            int imeas_reg0 =
-                mrcal_measurement_index_regularization(Nobservations_board,
-                                                       Nobservations_point,
-                                                       observations_point_triangulated,
-                                                       Nobservations_point_triangulated,
-                                                       calibration_object_width_n,
-                                                       calibration_object_height_n);
-            const double* xreg = &solver_context->beforeStep->x[imeas_reg0];
-
             for(int i=0; i<Nmeasurements_regularization_distortion; i++)
             {
                 double x = *(xreg++);
@@ -5906,7 +5988,6 @@ mrcal_optimize( // out
                 double x = *(xreg++);
                 norm2_err_regularization_centerpixel += x*x;
             }
-            assert(xreg == &solver_context->beforeStep->x[ctx.Nmeasurements]);
 
             regularization_ratio_distortion  = norm2_err_regularization_distortion      / norm2_error;
             regularization_ratio_centerpixel = norm2_err_regularization_centerpixel     / norm2_error;
@@ -5918,6 +5999,26 @@ mrcal_optimize( // out
                 MSG("WARNING: regularization ratio for the projection centerpixel exceeds 1%%. Is the scale factor too high? Ratio = %.3f/%.3f = %.3f",
                     norm2_err_regularization_centerpixel, norm2_error, regularization_ratio_centerpixel);
         }
+        double regularization_ratio_unity_cam01 = 0.0;
+        if(problem_selections.do_apply_regularization_unity_cam01 &&
+           problem_selections.do_optimize_extrinsics &&
+           Ncameras_extrinsics > 0)
+        {
+            int Nmeasurements_regularization_unity_cam01  = 1;
+            double norm2_err_regularization_unity_cam01   = 0;
+
+            for(int i=0; i<Nmeasurements_regularization_unity_cam01; i++)
+            {
+                double x = *(xreg++);
+                norm2_err_regularization_unity_cam01 += x*x;
+            }
+
+            regularization_ratio_unity_cam01  = norm2_err_regularization_unity_cam01      / norm2_error;
+            if(regularization_ratio_unity_cam01 > 0.01)
+                MSG("WARNING: regularization ratio for unity_cam01 exceeds 1%%. Is the scale factor too high? Ratio = %.3f/%.3f = %.3f",
+                    norm2_err_regularization_unity_cam01,  norm2_error, regularization_ratio_unity_cam01);
+        }
+        assert(xreg == &solver_context->beforeStep->x[ctx.Nmeasurements]);
 
 
         if(verbose)
@@ -5934,21 +6035,33 @@ mrcal_optimize( // out
 
             ctx.reportFitMsg = "After";
             //        optimizer_callback(packed_state, NULL, NULL, &ctx);
-            if(problem_selections.do_apply_regularization)
-            {
-                // Disable this by default. Splined models have LOTS of
-                // parameters, and I don't want to print them. Usually.
-                //
-                // for(int i=0; i<Nmeasurements_regularization; i++)
-                // {
-                //     double x = solver_context->beforeStep->x[ctx.Nmeasurements - Nmeasurements_regularization + i];
-                //     MSG("regularization %d: %f (squared: %f)", i, x, x*x);
-                // }
 
+            if(problem_selections.do_apply_regularization ||
+               problem_selections.do_apply_regularization_unity_cam01)
+            {
                 MSG("Regularization stats:");
-                MSG("reg err ratio (distortion,centerpixel): %.3f %.3f",
-                    regularization_ratio_distortion,
-                    regularization_ratio_centerpixel);
+
+                if(problem_selections.do_apply_regularization)
+                {
+                    // Disable this by default. Splined models have LOTS of
+                    // parameters, and I don't want to print them. Usually.
+                    //
+                    // for(int i=0; i<Nmeasurements_regularization; i++)
+                    // {
+                    //     double x = solver_context->beforeStep->x[ctx.Nmeasurements - Nmeasurements_regularization + i];
+                    //     MSG("regularization %d: %f (squared: %f)", i, x, x*x);
+                    // }
+                    MSG("reg err ratio (distortion,centerpixel): %.3f %.3f",
+                        regularization_ratio_distortion,
+                        regularization_ratio_centerpixel);
+                }
+                if(problem_selections.do_apply_regularization_unity_cam01 &&
+                   problem_selections.do_optimize_extrinsics &&
+                   Ncameras_extrinsics > 0)
+                {
+                    MSG("reg err ratio (unity_cam01): %.3f",
+                        regularization_ratio_unity_cam01);
+                }
             }
         }
     }

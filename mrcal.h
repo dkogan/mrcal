@@ -602,12 +602,17 @@ typedef struct
     // If true, optimize the shape of the calibration object
     bool do_optimize_calobject_warp         : 1;
 
+#warning "triangulated-solve: Need finer-grained regularization flags"
+#warning "triangulated-solve: Regularization flags should reflect do_optimize stuff and Ncameras stuff"
     // If true, apply the regularization terms in the solver
     bool do_apply_regularization            : 1;
 
     // Whether to try to find NEW outliers. The outliers given on
     // input are respected regardless
     bool do_apply_outlier_rejection         : 1;
+
+    // Pull the distance between the first two cameras to 1.0
+    bool do_apply_regularization_unity_cam01 : 1;
 
 } mrcal_problem_selections_t;
 

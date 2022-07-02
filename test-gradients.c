@@ -36,10 +36,6 @@ int main(int argc, char* argv[] )
         return 0;
     }
 
-    mrcal_problem_selections_t problem_selections =
-        {.do_apply_regularization = true};
-
-
     int iarg = 1;
     if( iarg >= argc )
     {
@@ -72,14 +68,24 @@ int main(int argc, char* argv[] )
 
     iarg++;
 
+    mrcal_problem_selections_t problem_selections;
     if(iarg >= argc)
-        problem_selections = ((mrcal_problem_selections_t) { .do_optimize_intrinsics_core       = true,
-                                                       .do_optimize_intrinsics_distortions= true,
-                                                       .do_optimize_extrinsics            = true,
-                                                       .do_optimize_frames                = true,
-                                                       .do_optimize_calobject_warp        = true,
-                                                       .do_apply_regularization           = true});
+    {
+        // Default. Turn on everything
+        problem_selections = ((mrcal_problem_selections_t) { .do_optimize_intrinsics_core         = true,
+                                                             .do_optimize_intrinsics_distortions  = true,
+                                                             .do_optimize_extrinsics              = true,
+                                                             .do_optimize_frames                  = true,
+                                                             .do_optimize_calobject_warp          = true,
+                                                             .do_apply_regularization             = true,
+                                                             .do_apply_regularization_unity_cam01 = true});
+    }
     else
+    {
+        mrcal_problem_selections_t problem_selections =
+            {.do_apply_regularization             = true,
+             .do_apply_regularization_unity_cam01 = true};
+
         for(; iarg < argc; iarg++)
         {
             if( 0 == strcmp(argv[iarg], "intrinsic-core") )
@@ -112,7 +118,7 @@ int main(int argc, char* argv[] )
             fprintf(stderr, usage, argv[0]);
             return 1;
         }
-
+    }
 
     mrcal_pose_t extrinsics[] =
         { { .r = { .xyz = {  .01,   .1,    .02}},  .t = { .xyz = { -2.3, 0.2, 0.1}}},
