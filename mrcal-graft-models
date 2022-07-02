@@ -114,7 +114,7 @@ def parse_args():
                         type=float,
                         nargs=2,
                         help='''Used if we're computing the implied-by-the-intrinsics transformation. Center
-                        of the region of interest used for the transformatoin
+                        of the region of interest used for the transformation
                         fit. It is usually impossible for the models to match
                         everywhere, but focusing on a particular area can work
                         better. The implied transformation will be fit to match
