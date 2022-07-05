@@ -5993,10 +5993,10 @@ mrcal_optimize( // out
             regularization_ratio_centerpixel = norm2_err_regularization_centerpixel     / norm2_error;
 
             if(regularization_ratio_distortion > 0.01)
-                MSG("WARNING: regularization ratio for lens distortion exceeds 1%%. Is the scale factor too high? Ratio = %.3f/%.3f = %.3f",
+                MSG("WARNING: regularization ratio for lens distortion exceeds 1%%. Is the scale factor too high? Ratio = %.3g/%.3g = %.3g",
                     norm2_err_regularization_distortion,  norm2_error, regularization_ratio_distortion);
             if(regularization_ratio_centerpixel > 0.01)
-                MSG("WARNING: regularization ratio for the projection centerpixel exceeds 1%%. Is the scale factor too high? Ratio = %.3f/%.3f = %.3f",
+                MSG("WARNING: regularization ratio for the projection centerpixel exceeds 1%%. Is the scale factor too high? Ratio = %.3g/%.3g = %.3g",
                     norm2_err_regularization_centerpixel, norm2_error, regularization_ratio_centerpixel);
         }
         double regularization_ratio_unity_cam01 = 0.0;
@@ -6015,7 +6015,7 @@ mrcal_optimize( // out
 
             regularization_ratio_unity_cam01  = norm2_err_regularization_unity_cam01      / norm2_error;
             if(regularization_ratio_unity_cam01 > 0.01)
-                MSG("WARNING: regularization ratio for unity_cam01 exceeds 1%%. Is the scale factor too high? Ratio = %.3f/%.3f = %.3f",
+                MSG("WARNING: regularization ratio for unity_cam01 exceeds 1%%. Is the scale factor too high? Ratio = %.3g/%.3g = %.3g",
                     norm2_err_regularization_unity_cam01,  norm2_error, regularization_ratio_unity_cam01);
         }
         assert(xreg == &solver_context->beforeStep->x[ctx.Nmeasurements]);
@@ -6051,7 +6051,7 @@ mrcal_optimize( // out
                     //     double x = solver_context->beforeStep->x[ctx.Nmeasurements - Nmeasurements_regularization + i];
                     //     MSG("regularization %d: %f (squared: %f)", i, x, x*x);
                     // }
-                    MSG("reg err ratio (distortion,centerpixel): %.3f %.3f",
+                    MSG("reg err ratio (distortion,centerpixel): %.3g %.3g",
                         regularization_ratio_distortion,
                         regularization_ratio_centerpixel);
                 }
@@ -6059,7 +6059,7 @@ mrcal_optimize( // out
                    problem_selections.do_optimize_extrinsics &&
                    Ncameras_extrinsics > 0)
                 {
-                    MSG("reg err ratio (unity_cam01): %.3f",
+                    MSG("reg err ratio (unity_cam01): %.3g",
                         regularization_ratio_unity_cam01);
                 }
             }
