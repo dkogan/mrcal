@@ -25,10 +25,11 @@ SYNOPSIS
   Writing '/tmp/right-rectified.png'
   Writing '/tmp/left-disparity.png'
   Writing '/tmp/left-range.png'
+  Writing '/tmp/points-cam0.vnl'
 
 Given a pair of calibrated cameras and pairs of images captured by these
 cameras, this tool runs the whole stereo processing sequence to produce
-disparity and range images.
+disparity and range images and a point cloud array.
 
 mrcal functions are used to construct the rectified system. Currently only the
 OpenCV SGBM routine is available to perform stereo matching, but more options
@@ -690,6 +691,49 @@ for i in range(Nimages):
                      cv2.imwrite(filename, mrcal.apply_color_map(_range,
                                                                  *args.range_image_limits)),
                      image_filenames_base[0] + '-range.png')
+
+
+        # generate and output the point cloud, in the cam0 coord system
+        H,W = _range.shape
+
+        # shape (H,W,2)
+        q_rectified = np.ascontiguousarray( \
+               nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
+                                             np.arange(H,dtype=float))),
+                       0, -1))
+
+        # Point cloud in rectified camera-0 coordinates
+        # shape (H,W,3)
+        p_rect0 = \
+            mrcal.unproject(q_rectified, *models_rectified[0].intrinsics()) * \
+            nps.dummy(_range, axis=-1)
+
+        Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
+                                          models_rectified[0].extrinsics_Rt_toref() )
+
+        # Point cloud in camera-0 coordinates
+        # shape (H,W,3)
+        p_cam0 = mrcal.transform_point_Rt(Rt_cam0_rect0, p_rect0)
+
+        # shape (N,3)
+        p_cam0 = nps.clump(p_cam0, n=2)
+
+        range_clumped = _range.ravel()
+
+        # Throw out invalid points (nan or inf or <=0 range) are at 0
+        p_cam0 = p_cam0[ np.isfinite(range_clumped) * range_clumped > 0 ]
+
+        q_cam0 = mrcal.project(p_cam0, *models[0].intrinsics())
+        qcam0_pcam0 = nps.glue( q_cam0, p_cam0, axis=-1 )
+
+        def write_point_cloud(filename):
+            with open(filename, "w") as f:
+                np.savetxt(f, qcam0_pcam0,
+                           comments='',
+                           fmt='%.2f',
+                           header="## Everything is in camera-0 coordinates\n# qx qy x y z")
+        write_output(write_point_cloud,
+                     'points-cam0.vnl')
 
         sys.exit(0)
 
