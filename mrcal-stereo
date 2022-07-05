@@ -276,6 +276,14 @@ def parse_args():
                         help='''The nearest,furthest range to encode in the range image.
                         Defaults to 1,1000, arbitrarily''')
 
+    parser.add_argument('--stereo-matcher',
+                        choices=( 'SGBM', 'ELAS' ),
+                        default = 'SGBM',
+                        help='''The stereo-matching method. By default we use
+                        the "SGBM" method from OpenCV. libelas isn't always
+                        available, and must be enabled at compile-time by
+                        setting USE_LIBELAS=1 during the build''')
+
     parser.add_argument('--sgbm-block-size',
                         type=int,
                         default = 5,
@@ -385,6 +393,11 @@ import cv2
 import glob
 import mrcal
 
+
+if args.stereo_matcher == 'ELAS':
+    if not hasattr(mrcal, 'stereo_matching_libelas'):
+        print("ERROR: the ELAS stereo matcher isn't available. libelas must be installed, and enabled at compile-time with USE_LIBELAS=1. Pass '--stereo-matcher SGBM' instead", file=sys.stderr)
+        sys.exit(1)
 
 if args.viz == 'stereo':
 
@@ -576,6 +589,12 @@ for i in range(Nimages):
     if args.clahe:
         images = [ clahe.apply(image) for image in images ]
 
+    if len(images[0].shape) == 3:
+        if args.stereo_matcher == 'ELAS':
+            print("The ELAS matcher requires grayscale images. Pass --force-grayscale",
+                  file=sys.stderr)
+            sys.exit(1)
+
     if args.valid_intrinsics_region:
         for i in range(2):
             mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
@@ -594,39 +613,56 @@ for i in range(Nimages):
     # Done with all the preliminaries. Run the stereo matching
     disp_min,disp_max = args.disparity_range
 
-    # This is a hard-coded property of the OpenCV StereoSGBM implementation
-    disparity_scale = 16
 
-    # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
-    # implementation requires this
-    disp_max = disparity_scale*round(disp_max/disparity_scale)
+    if args.stereo_matcher == 'SGBM':
 
-    # I only add non-default args. StereoSGBM_create() doesn't like being given
-    # None args
-    kwargs = dict()
-    if args.sgbm_p1 is not None:
-        kwargs['P1']                = args.sgbm_p1
-    if args.sgbm_p2 is not None:
-        kwargs['P2']                = args.sgbm_p2
-    if args.sgbm_disp12_max_diff is not None:
-        kwargs['disp12MaxDiff']     = args.sgbm_disp12_max_diff
-    if args.sgbm_uniqueness_ratio is not None:
-        kwargs['uniquenessRatio']   = args.sgbm_uniqueness_ratio
-    if args.sgbm_speckle_window_size is not None:
-        kwargs['speckleWindowSize'] = args.sgbm_speckle_window_size
-    if args.sgbm_speckle_range is not None:
-        kwargs['speckleRange']      = args.sgbm_speckle_range
-    if args.sgbm_mode is not None:
-        kwargs['mode']              = args.sgbm_mode
-    stereo = \
-        cv2.StereoSGBM_create(minDisparity      = disp_min,
-                              numDisparities    = disp_max,
-                              # blocksize is required, so I always pass it.
-                              # There's a default set in the argument parser, no
-                              # this is never None
-                              blockSize         = args.sgbm_block_size,
-                              **kwargs)
-    disparity = stereo.compute(*images_rectified)
+        # This is a hard-coded property of the OpenCV StereoSGBM implementation
+        disparity_scale = 16
+
+        # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
+        # implementation requires this
+        disp_max = disparity_scale*round(disp_max/disparity_scale)
+
+        # I only add non-default args. StereoSGBM_create() doesn't like being given
+        # None args
+        kwargs = dict()
+        if args.sgbm_p1 is not None:
+            kwargs['P1']                = args.sgbm_p1
+        if args.sgbm_p2 is not None:
+            kwargs['P2']                = args.sgbm_p2
+        if args.sgbm_disp12_max_diff is not None:
+            kwargs['disp12MaxDiff']     = args.sgbm_disp12_max_diff
+        if args.sgbm_uniqueness_ratio is not None:
+            kwargs['uniquenessRatio']   = args.sgbm_uniqueness_ratio
+        if args.sgbm_speckle_window_size is not None:
+            kwargs['speckleWindowSize'] = args.sgbm_speckle_window_size
+        if args.sgbm_speckle_range is not None:
+            kwargs['speckleRange']      = args.sgbm_speckle_range
+        if args.sgbm_mode is not None:
+            kwargs['mode']              = args.sgbm_mode
+
+        stereo = \
+            cv2.StereoSGBM_create(minDisparity      = disp_min,
+                                  numDisparities    = disp_max,
+                                  # blocksize is required, so I always pass it.
+                                  # There's a default set in the argument parser, no
+                                  # this is never None
+                                  blockSize         = args.sgbm_block_size,
+                                  **kwargs)
+        disparity = stereo.compute(*images_rectified)
+        disparity_colored = mrcal.apply_color_map(disparity,
+                                                  0, disp_max*disparity_scale)
+
+    elif args.stereo_matcher == 'ELAS':
+
+        disparities = mrcal.stereo_matching_libelas(*images_rectified,
+                                                    disp_min = disp_min,
+                                                    disp_max = disp_max)
+
+        disparity       = disparities[0]
+        disparity_scale = 1
+
+
     disparity_colored = mrcal.apply_color_map(disparity,
                                               0, disp_max*disparity_scale)
 

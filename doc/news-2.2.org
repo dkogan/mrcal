@@ -35,6 +35,8 @@ displayed properly
   can broadcast over object_spacing and calobject_warp
 
 
+- libelas available as a stereo matcher in mrcal-stereo
+
 * Migration notes 2.1 -> 2.2
 This is a /very/ minor release, and is 99.9% compatible. Incompatible updates:
 

@@ -1,3 +1,17 @@
+# "0" or undefined means "false"
+# everything else means  "true"
+
+# libelas stereo matcher. Available in Debian/non-free. I don't want to depend
+# on anything in non-free, so I default to not using libelas
+USE_LIBELAS ?= 0
+
+
+# convert all USE_XXX:=0 to an empty string
+$(foreach v,$(filter USE_%,$(.VARIABLES)),$(if $(filter 0,${$v}),$(eval undefine $v)))
+# to print them all: $(foreach v,$(filter USE_%,$(.VARIABLES)),$(warning $v = '${$v}'))
+
+
+
 include mrbuild/Makefile.common.header
 
 PROJECT_NAME := mrcal
@@ -14,13 +28,21 @@ LIB_SOURCES +=			\
   poseutils-uses-autodiff.cc	\
   triangulation.cc
 
+ifneq (${USE_LIBELAS},) # using libelas
+LIB_SOURCES := $(LIB_SOURCES) stereo-matching-libelas.cc
+endif
+
+
 BIN_SOURCES +=					\
   test-gradients.c				\
   test/test-cahvor.c				\
   test/test-lensmodel-string-manipulation.c     \
   test/test-parser-cameramodel.c
 
-LDLIBS    += -ldogleg
+LDLIBS += -ldogleg
+ifneq (${USE_LIBELAS},) # using libelas
+LDLIBS += -lelas
+endif
 
 CFLAGS    += --std=gnu99
 CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
@@ -70,6 +92,9 @@ EXTRA_CLEAN += cameramodel-parser_GENERATED.c
 cameramodel-parser_GENERATED.o: CCXXFLAGS += -fno-fast-math
 
 ALL_NPSP_EXTENSION_MODULES := $(patsubst %-genpywrap.py,%,$(wildcard *-genpywrap.py))
+ifeq (${USE_LIBELAS},) # not using libelas
+ALL_NPSP_EXTENSION_MODULES := $(filter-out elas,$(ALL_NPSP_EXTENSION_MODULES))
+endif
 ALL_PY_EXTENSION_MODULES   := _mrcal $(patsubst %,_%_npsp,$(ALL_NPSP_EXTENSION_MODULES))
 %/:
 	mkdir -p $@
