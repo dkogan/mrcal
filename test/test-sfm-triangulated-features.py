@@ -179,16 +179,6 @@ points_true = points_true[index_ipoint_old]
 
 Npoints = len(ipoint_unique)
 
-# To sufficiently constrain the geometry of the problem I lock
-
-# - The pose of the first camera (using it as the reference coordinate system)
-#
-# - One observed point. I only need to lock the scale of the problem, so this is
-#   overkill, but it's what I have available for now
-Npoints_fixed                  = 1
-Ncameras_observing_fixed_point = 2
-
-
 r_cam_ref_noise_rad = 0.1e-1
 t_cam_ref_noise_m   = 0.5e-1
 r_cam_ref_noise = \
@@ -207,8 +197,6 @@ rt_cam_ref_noisy[:,3:] += t_cam_ref_noise
 points_noise_ratio = 0.2 # 20%
 points_noise = \
     ((np.random.random_sample(points_true.shape) * 2) - 1) * points_noise_ratio
-# The fixed points are perfect
-points_noise[-Npoints_fixed:, :] = 0
 points_noisy = points_true * (1. + points_noise)
 
 observations_noise_pixels = 2
@@ -228,32 +216,9 @@ if nps.norm2(rt_cam_ref[0]) != 0:
           file=sys.stderr)
     sys.exit()
 
-# The TRAILING Npoints_fixed points are fixed. The leading ones are triangulatd
-idx_observations_fixed_points = \
-    (indices_point_camintrinsics_camextrinsics[:,0]   >= Npoints-Npoints_fixed) * \
-    (indices_point_camintrinsics_camextrinsics[:,2]+1 < Ncameras_observing_fixed_point)
-
-if np.count_nonzero(idx_observations_fixed_points) == 0:
-    print("No fixed point observations. Change the problem definition",
-          file=sys.stderr)
-    sys.exit(1)
-
-indices_point_camintrinsics_camextrinsics_fixed = \
-    indices_point_camintrinsics_camextrinsics[idx_observations_fixed_points].copy()
-indices_point_camintrinsics_camextrinsics_fixed[:,0] -= (Npoints-Npoints_fixed)
-observations_fixed = observations[idx_observations_fixed_points].copy()
-
-
-# add "weight" column
-observations_fixed = nps.glue(observations_fixed,
-                              np.ones((len(observations_fixed),1)),
-                              axis = -1)
-
-points_fixed = points[-Npoints_fixed:]
-
 indices_point_camintrinsics_camextrinsics_triangulated = \
-    indices_point_camintrinsics_camextrinsics[~idx_observations_fixed_points].copy()
-observations_triangulated = observations[~idx_observations_fixed_points].copy()
+    indices_point_camintrinsics_camextrinsics
+observations_triangulated = observations
 
 # For now "observations_triangulated" are local observation vectors
 observations_triangulated = mrcal.unproject(observations_triangulated[:,:2], *m.intrinsics())
@@ -261,27 +226,22 @@ observations_triangulated = mrcal.unproject(observations_triangulated[:,:2], *m.
 optimization_inputs = \
     dict( intrinsics            = nps.atleast_dims(m.intrinsics()[1], -2),
           extrinsics_rt_fromref = rt_cam_ref[1:], # I made sure camera0 is at the origin
-          points                = points_fixed,
-
-          # Explicit points. Fixed only
-          observations_point                                     = observations_fixed,
-          indices_point_camintrinsics_camextrinsics              = indices_point_camintrinsics_camextrinsics_fixed,
 
           observations_point_triangulated                        = observations_triangulated,
           indices_point_triangulated_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics_triangulated,
 
-          lensmodel                         = m.intrinsics()[0],
-          imagersizes                       = nps.atleast_dims(m.imagersize(), -2),
-          Npoints_fixed                     = Npoints_fixed,
-          point_min_range                   = 1.0,
-          point_max_range                   = 2000.0,
-          do_optimize_intrinsics_core       = False,
-          do_optimize_intrinsics_distortions= False,
-          do_optimize_extrinsics            = True,
-          do_optimize_frames                = True,
-          do_apply_outlier_rejection        = False,
-          do_apply_regularization           = True,
-          verbose                           = False)
+          lensmodel                           = m.intrinsics()[0],
+          imagersizes                         = nps.atleast_dims(m.imagersize(), -2),
+          point_min_range                     = 1.0,
+          point_max_range                     = 2000.0,
+          do_optimize_intrinsics_core         = False,
+          do_optimize_intrinsics_distortions  = False,
+          do_optimize_extrinsics              = True,
+          do_optimize_frames                  = True,
+          do_apply_outlier_rejection          = False,
+          do_apply_regularization             = True,
+          do_apply_regularization_unity_cam01 = True,
+          verbose                             = False)
 
 
 if 1:
