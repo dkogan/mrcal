@@ -48,7 +48,8 @@ ranges = np.array(( 1000,
                     5,
                     4,
                     3,))
-points_fov_deg = 120.
+points_fov_deg    = 120.
+Npoints_per_range = 150
 
 # The camera starts out at the center, and moves steadily to the right (along
 # the x axis). Orientation is always straight ahead (pointed along the z axis)
@@ -59,7 +60,8 @@ step     = 1.0
 
 
 th = np.linspace(-points_fov_deg/2.*np.pi/180.,
-                  points_fov_deg/2.*np.pi/180.)
+                  points_fov_deg/2.*np.pi/180.,
+                 Npoints_per_range)
 cth = np.cos(th)
 sth = np.sin(th)
 
