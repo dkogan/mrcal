@@ -195,20 +195,12 @@ rt_cam_ref_noisy = rt_cam_ref_true.copy()
 rt_cam_ref_noisy[:,:3] += r_cam_ref_noise
 rt_cam_ref_noisy[:,3:] += t_cam_ref_noise
 
-
-points_noise_ratio = 0.2 # 20%
-points_noise = \
-    ((np.random.random_sample(points_true.shape) * 2) - 1) * points_noise_ratio
-points_noisy = points_true * (1. + points_noise)
-
 observations_noise_pixels = 2
 observations_noise = \
     ((np.random.random_sample(observations_true.shape) * 2) - 1) * observations_noise_pixels
 observations_noisy = observations_true + observations_noise
 
 
-
-points       = np.array(points_noisy)
 observations = np.array(observations_noisy)
 rt_cam_ref   = np.array(rt_cam_ref_noisy)
 
@@ -234,8 +226,6 @@ optimization_inputs = \
 
           lensmodel                           = m.intrinsics()[0],
           imagersizes                         = nps.atleast_dims(m.imagersize(), -2),
-          point_min_range                     = 1.0,
-          point_max_range                     = 2000.0,
           do_optimize_intrinsics_core         = False,
           do_optimize_intrinsics_distortions  = False,
           do_optimize_extrinsics              = True,
