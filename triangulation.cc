@@ -830,6 +830,7 @@ _mrcal_triangulated_error(// outputs
         // - err_to_vanishing_point between THRESHOLD_DIVERGENT_LOWER and _UPPER
         //   I linearly the scale on this divergence term from 0 to 1
 
+#warning "triangulated-solve: set reasonable thresholds"
 #define THRESHOLD_DIVERGENT_LOWER 3.0e-4
 #define THRESHOLD_DIVERGENT_UPPER 6.0e-4
 
