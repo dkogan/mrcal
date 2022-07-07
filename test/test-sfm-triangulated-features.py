@@ -223,7 +223,7 @@ if nps.norm2(rt_cam_ref[0]) != 0:
     sys.exit()
 
 # For now the triangulated observations are local observation vectors
-observations_triangulated = mrcal.unproject(observations[:,:2], *m.intrinsics())
+observations_triangulated = mrcal.unproject(observations, *m.intrinsics())
 
 optimization_inputs = \
     dict( intrinsics            = nps.atleast_dims(m.intrinsics()[1], -2),
