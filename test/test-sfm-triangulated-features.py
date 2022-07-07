@@ -10,7 +10,7 @@ I simulate a horizontal plane with many features on it, with the camera moving
 around just above this horizontal plane (like a car driving around a flat-ish
 area)
 
-#warning "triangulated-solve: comment"
+#warning "triangulated-solve: fix this description comment"
 
 '''
 
@@ -34,26 +34,34 @@ np.random.seed(0)
 ############# observations of everything
 (W,H) = (4000,2200)
 m = mrcal.cameramodel( intrinsics = ('LENSMODEL_PINHOLE',
-                                     np.array((1000., 1000., (W-1)/2, (H-1)/2))),
+                                     np.array((600., 600., (W-1)/2, (H-1)/2))),
                        imagersize = (W,H) )
 
 # Camera0 is fixed: it's the reference coordinate system in the solve. The
 # points I'm observing lie on a perfect horizontal plane (y = constant) sitting
 # a bit below the cameras. The points span a forward arc at different ranges
 ranges = np.array(( 1000,
+                    500,
                     200,
+                    100,
                     50,
+                    30,
                     20,
+                    15,
                     8,
                     5,
                     4,
-                    3,))
-points_fov_deg    = 120.
-Npoints_per_range = 150
+                    3,
+                   ))
 
-# The camera starts out at the center, and moves steadily to the right (along
-# the x axis). Orientation is always straight ahead (pointed along the z axis)
-# and there's no front/back of up/down motion
+points_fov_deg    = 160.
+Npoints_per_range = 50
+
+# The camera starts out at the center, and moves steadily to the right along the
+# x axis, with some smaller nonlinear y motion as well. I want to avoid
+# collinear camera locations (this produces singular solves). Orientation is
+# always straight ahead (pointed along the z axis) and there's no front/back of
+# up/down motion
 Ncameras = 10
 step     = 1.0
 
@@ -97,11 +105,15 @@ Npoints = points_true.shape[0]
 # sys.exit()
 
 x_ref_cam_true  = np.arange(Ncameras) * step
+y_ref_cam_true  = np.zeros((Ncameras,),)
+y_ref_cam_true  = (np.arange(Ncameras) - (Ncameras-1.)/2.) ** 2. / 100.
+y_ref_cam_true -= y_ref_cam_true[0]
 
 # shape (Ncameras,6)
 rt_ref_cam_true = nps.glue( np.zeros((Ncameras,3)), # r
                             nps.transpose(x_ref_cam_true),
-                            np.zeros((Ncameras,2)), # y,z
+                            nps.transpose(y_ref_cam_true),
+                            np.zeros((Ncameras,1)), # z
                             axis = -1 )
 rt_cam_ref_true = mrcal.invert_rt(rt_ref_cam_true)
 
@@ -181,8 +193,8 @@ points_true = points_true[index_ipoint_old]
 
 Npoints = len(ipoint_unique)
 
-r_cam_ref_noise_rad = 0.1e-1
-t_cam_ref_noise_m   = 0.5e-1
+r_cam_ref_noise_rad = 0.1
+t_cam_ref_noise_m   = 0.5
 r_cam_ref_noise = \
     ((np.random.random_sample(rt_cam_ref_true[:,:3].shape) * 2) - 1) * r_cam_ref_noise_rad
 t_cam_ref_noise = \
@@ -210,19 +222,15 @@ if nps.norm2(rt_cam_ref[0]) != 0:
           file=sys.stderr)
     sys.exit()
 
-indices_point_camintrinsics_camextrinsics_triangulated = \
-    indices_point_camintrinsics_camextrinsics
-observations_triangulated = observations
-
-# For now "observations_triangulated" are local observation vectors
-observations_triangulated = mrcal.unproject(observations_triangulated[:,:2], *m.intrinsics())
+# For now the triangulated observations are local observation vectors
+observations_triangulated = mrcal.unproject(observations[:,:2], *m.intrinsics())
 
 optimization_inputs = \
     dict( intrinsics            = nps.atleast_dims(m.intrinsics()[1], -2),
           extrinsics_rt_fromref = rt_cam_ref[1:], # I made sure camera0 is at the origin
 
           observations_point_triangulated                        = observations_triangulated,
-          indices_point_triangulated_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics_triangulated,
+          indices_point_triangulated_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
 
           lensmodel                           = m.intrinsics()[0],
           imagersizes                         = nps.atleast_dims(m.imagersize(), -2),
