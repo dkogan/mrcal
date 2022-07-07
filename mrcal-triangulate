@@ -495,7 +495,7 @@ else:
 
     if q1 is None or \
        match_feature_diagnostics['matchoutput_optimum_subpixel'] < args.corr_floor:
-        print("## Feature-matching failed! Maybe increase the search radius?")
+        print("## Feature-matching failed! Maybe increase the --search-radius or reduce --corr-floor?")
         sys.exit(1)
 
     print(f"## Feature match found at {q1}")
