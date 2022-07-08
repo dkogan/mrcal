@@ -6032,84 +6032,73 @@ mrcal_optimize( // out
                                                    Npoints, Npoints_fixed, Nobservations_board, Nobservations_point,
                                                    problem_selections,
                                                    lensmodel);
-        const double* xreg = &solver_context->beforeStep->x[imeas_reg0];
-        if(problem_selections.do_apply_regularization)
+
+        if(imeas_reg0 >= 0)
         {
-            int Ncore = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
-
-            int Nmeasurements_regularization_distortion  = 0;
-            if(problem_selections.do_optimize_intrinsics_distortions)
-                Nmeasurements_regularization_distortion =
-                    Ncameras_intrinsics*(ctx.Nintrinsics-Ncore);
-
-            int Nmeasurements_regularization_centerpixel = 0;
-            if(problem_selections.do_optimize_intrinsics_core)
-                Nmeasurements_regularization_centerpixel =
-                    Ncameras_intrinsics*2;
-
-            double norm2_err_regularization_distortion     = 0;
-            double norm2_err_regularization_centerpixel    = 0;
-
-            for(int i=0; i<Nmeasurements_regularization_distortion; i++)
+            // we have regularization
+            const double* xreg = &solver_context->beforeStep->x[imeas_reg0];
+            if(problem_selections.do_apply_regularization)
             {
-                double x = *(xreg++);
-                norm2_err_regularization_distortion += x*x;
+                int Ncore = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
+
+                int Nmeasurements_regularization_distortion  = 0;
+                if(problem_selections.do_optimize_intrinsics_distortions)
+                    Nmeasurements_regularization_distortion =
+                        Ncameras_intrinsics*(ctx.Nintrinsics-Ncore);
+
+                int Nmeasurements_regularization_centerpixel = 0;
+                if(problem_selections.do_optimize_intrinsics_core)
+                    Nmeasurements_regularization_centerpixel =
+                        Ncameras_intrinsics*2;
+
+                double norm2_err_regularization_distortion     = 0;
+                double norm2_err_regularization_centerpixel    = 0;
+
+                for(int i=0; i<Nmeasurements_regularization_distortion; i++)
+                {
+                    double x = *(xreg++);
+                    norm2_err_regularization_distortion += x*x;
+                }
+                for(int i=0; i<Nmeasurements_regularization_centerpixel; i++)
+                {
+                    double x = *(xreg++);
+                    norm2_err_regularization_centerpixel += x*x;
+                }
+
+                regularization_ratio_distortion  = norm2_err_regularization_distortion      / norm2_error;
+                regularization_ratio_centerpixel = norm2_err_regularization_centerpixel     / norm2_error;
+
+                if(regularization_ratio_distortion > 0.01)
+                    MSG("WARNING: regularization ratio for lens distortion exceeds 1%%. Is the scale factor too high? Ratio = %.3g/%.3g = %.3g",
+                        norm2_err_regularization_distortion,  norm2_error, regularization_ratio_distortion);
+                if(regularization_ratio_centerpixel > 0.01)
+                    MSG("WARNING: regularization ratio for the projection centerpixel exceeds 1%%. Is the scale factor too high? Ratio = %.3g/%.3g = %.3g",
+                        norm2_err_regularization_centerpixel, norm2_error, regularization_ratio_centerpixel);
             }
-            for(int i=0; i<Nmeasurements_regularization_centerpixel; i++)
+            double regularization_ratio_unity_cam01 = 0.0;
+            if(problem_selections.do_apply_regularization_unity_cam01 &&
+               problem_selections.do_optimize_extrinsics &&
+               Ncameras_extrinsics > 0)
             {
-                double x = *(xreg++);
-                norm2_err_regularization_centerpixel += x*x;
+                int Nmeasurements_regularization_unity_cam01  = 1;
+                double norm2_err_regularization_unity_cam01   = 0;
+
+                for(int i=0; i<Nmeasurements_regularization_unity_cam01; i++)
+                {
+                    double x = *(xreg++);
+                    norm2_err_regularization_unity_cam01 += x*x;
+                }
+
+                regularization_ratio_unity_cam01  = norm2_err_regularization_unity_cam01      / norm2_error;
+                if(regularization_ratio_unity_cam01 > 0.01)
+                    MSG("WARNING: regularization ratio for unity_cam01 exceeds 1%%. Is the scale factor too high? Ratio = %.3g/%.3g = %.3g",
+                        norm2_err_regularization_unity_cam01,  norm2_error, regularization_ratio_unity_cam01);
             }
 
-            regularization_ratio_distortion  = norm2_err_regularization_distortion      / norm2_error;
-            regularization_ratio_centerpixel = norm2_err_regularization_centerpixel     / norm2_error;
-
-            if(regularization_ratio_distortion > 0.01)
-                MSG("WARNING: regularization ratio for lens distortion exceeds 1%%. Is the scale factor too high? Ratio = %.3g/%.3g = %.3g",
-                    norm2_err_regularization_distortion,  norm2_error, regularization_ratio_distortion);
-            if(regularization_ratio_centerpixel > 0.01)
-                MSG("WARNING: regularization ratio for the projection centerpixel exceeds 1%%. Is the scale factor too high? Ratio = %.3g/%.3g = %.3g",
-                    norm2_err_regularization_centerpixel, norm2_error, regularization_ratio_centerpixel);
-        }
-        double regularization_ratio_unity_cam01 = 0.0;
-        if(problem_selections.do_apply_regularization_unity_cam01 &&
-           problem_selections.do_optimize_extrinsics &&
-           Ncameras_extrinsics > 0)
-        {
-            int Nmeasurements_regularization_unity_cam01  = 1;
-            double norm2_err_regularization_unity_cam01   = 0;
-
-            for(int i=0; i<Nmeasurements_regularization_unity_cam01; i++)
-            {
-                double x = *(xreg++);
-                norm2_err_regularization_unity_cam01 += x*x;
-            }
-
-            regularization_ratio_unity_cam01  = norm2_err_regularization_unity_cam01      / norm2_error;
-            if(regularization_ratio_unity_cam01 > 0.01)
-                MSG("WARNING: regularization ratio for unity_cam01 exceeds 1%%. Is the scale factor too high? Ratio = %.3g/%.3g = %.3g",
-                    norm2_err_regularization_unity_cam01,  norm2_error, regularization_ratio_unity_cam01);
-        }
-        assert(xreg == &solver_context->beforeStep->x[ctx.Nmeasurements]);
+            assert(xreg == &solver_context->beforeStep->x[ctx.Nmeasurements]);
 
 
-        if(verbose)
-        {
-            // Not using dogleg_markOutliers() (yet...)
-#if 0
-            // These are for debug reporting
-            dogleg_reportOutliers(getConfidence,
-                                  &outliernessScale,
-                                  2, Npoints_fromBoards,
-                                  stats.Noutliers,
-                                  solver_context->beforeStep, solver_context);
-#endif
-
-            ctx.reportFitMsg = "After";
-            //        optimizer_callback(packed_state, NULL, NULL, &ctx);
-
-            if(problem_selections.do_apply_regularization ||
-               problem_selections.do_apply_regularization_unity_cam01)
+            if(verbose)
             {
                 MSG("Regularization stats:");
 
