@@ -463,6 +463,9 @@ int mrcal_measurement_index_points(int i_observation_point,
         i_observation_point * 3;
 }
 
+#warning "triangulated-solve: need outlier support"
+#warning "triangulated-solve: need known-range points, at-infinity points"
+
 int mrcal_num_measurements_points(int Nobservations_point)
 {
     // 3: x,y measurements, range normalization
@@ -5812,7 +5815,7 @@ mrcal_optimize( // out
         // callback. And because I must optimize SOMETHING, so if I have fixed
         // intrinsics then the extrinsics cannot be fixed
         return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
-#warning "triangulated-solve: can I loosen this?"
+#warning "triangulated-solve: can I loosen this? Optimizing intrinsics and triangulated points together should work"
     }
 
     if(!modelHasCore_fxfycxcy(lensmodel))

@@ -3222,6 +3222,8 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(,knots_for_splined_models,     METH_VARARGS),
       {}
     };
+#warning "triangulated-solve: fill in the new xxxx.docstring"
+
 
 
 static void _init_mrcal_common(PyObject* module)
