@@ -5369,7 +5369,7 @@ mrcal_optimize( // out
                 goto done;
 
 #if 0
-            // Not using dogleg_markOutliers() (for now?)
+            // Not using dogleg_markOutliers() (yet...)
 
             if(outliernessScale < 0.0 && verbose)
                 // These are for debug reporting
@@ -5462,7 +5462,7 @@ mrcal_optimize( // out
 
         if(verbose)
         {
-            // Not using dogleg_markOutliers() (for now?)
+            // Not using dogleg_markOutliers() (yet...)
 #if 0
             // These are for debug reporting
             dogleg_reportOutliers(getConfidence,
