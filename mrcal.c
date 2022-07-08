@@ -491,6 +491,9 @@ int mrcal_num_measurements_points_triangulated_initial_Npoints(// May be NULL if
        Nobservations_point_triangulated <= 0)
         return 0;
 
+    // Similar loop as in _mrcal_num_j_nonzero(). If the data layout changes,
+    // update this and that
+
     int Nmeas        = 0;
     int ipoint       = 0;
     int iobservation = 0;
@@ -668,6 +671,10 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
     // And the triangulated point observations
     if(observations_point_triangulated != NULL &&
        Nobservations_point_triangulated > 0)
+    {
+        // Similar loop as in
+        // mrcal_num_measurements_points_triangulated_initial_Npoints(). If the
+        // data layout changes, update this and that
         for(int i0=0; i0<Nobservations_point_triangulated; i0++)
         {
             if(observations_point_triangulated[i0].last_in_set)
@@ -693,6 +700,7 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
 
             } while(!observations_point_triangulated[i1].last_in_set);
         }
+    }
 
     // Regularization
     if(lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
