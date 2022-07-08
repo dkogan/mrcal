@@ -5405,7 +5405,16 @@ mrcal_optimize( // out
 
         double regularization_ratio_distortion  = 0.0;
         double regularization_ratio_centerpixel = 0.0;
-        if(problem_selections.do_apply_regularization)
+
+        int imeas_reg0 =
+            mrcal_measurement_index_regularization(calibration_object_width_n,
+                                                   calibration_object_height_n,
+                                                   Ncameras_intrinsics, Ncameras_extrinsics,
+                                                   Nframes,
+                                                   Npoints, Npoints_fixed, Nobservations_board, Nobservations_point,
+                                                   problem_selections,
+                                                   lensmodel);
+        if(problem_selections.do_apply_regularization && imeas_reg0 >= 0)
         {
             int Ncore = modelHasCore_fxfycxcy(lensmodel) ? 4 : 0;
 
@@ -5422,14 +5431,6 @@ mrcal_optimize( // out
             double norm2_err_regularization_distortion     = 0;
             double norm2_err_regularization_centerpixel    = 0;
 
-            int imeas_reg0 =
-                mrcal_measurement_index_regularization(calibration_object_width_n,
-                                                       calibration_object_height_n,
-                                                       Ncameras_intrinsics, Ncameras_extrinsics,
-                                                       Nframes,
-                                                       Npoints, Npoints_fixed, Nobservations_board, Nobservations_point,
-                                                       problem_selections,
-                                                       lensmodel);
             const double* xreg = &solver_context->beforeStep->x[imeas_reg0];
 
             for(int i=0; i<Nmeasurements_regularization_distortion; i++)
@@ -5462,18 +5463,6 @@ mrcal_optimize( // out
 
         if(verbose)
         {
-            // Not using dogleg_markOutliers() (yet...)
-#if 0
-            // These are for debug reporting
-            dogleg_reportOutliers(getConfidence,
-                                  &outliernessScale,
-                                  2, Npoints_fromBoards,
-                                  stats.Noutliers,
-                                  solver_context->beforeStep, solver_context);
-#endif
-
-            ctx.reportFitMsg = "After";
-            //        optimizer_callback(packed_state, NULL, NULL, &ctx);
             if(problem_selections.do_apply_regularization)
             {
                 // Disable this by default. Splined models have LOTS of
