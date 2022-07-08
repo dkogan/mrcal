@@ -3581,11 +3581,13 @@ int mrcal_state_index_points(int i_point,
                              mrcal_problem_selections_t problem_selections,
                              const mrcal_lensmodel_t* lensmodel)
 {
-    if(Npoints - Npoints_fixed <= 0)
+    int Npoints_variable = Npoints - Npoints_fixed;
+
+    if(Npoints_variable <= 0)
         return -1;
     if(!problem_selections.do_optimize_frames)
         return -1;
-    if(!(0 <= i_point && i_point < Npoints - Npoints_fixed))
+    if(!(0 <= i_point && i_point < Npoints_variable))
         return -1;
 
     return
