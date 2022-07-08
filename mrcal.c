@@ -3665,7 +3665,7 @@ bool mrcal_corresponding_icam_extrinsics(// out
     if( !(Ncameras_intrinsics == Ncameras_extrinsics ||
           Ncameras_intrinsics == Ncameras_extrinsics+1 ) )
     {
-        MSG("Cannot compute icam_extrinsics. I don't have a pure calibration problem");
+        MSG("Cannot compute icam_extrinsics. I don't have a vanilla calibration problem");
         return false;
     }
 
@@ -3686,7 +3686,7 @@ bool mrcal_corresponding_icam_extrinsics(// out
             icam_map_to_intrinsics[icam_extrinsics+1] = icam_intrinsics;
         else if(icam_map_to_intrinsics[icam_extrinsics+1] != icam_intrinsics)
         {
-            MSG("Cannot compute icam_extrinsics. I don't have a pure calibration problem: %s observation %d has icam_intrinsics,icam_extrinsics %d,%d while I saw %d,%d previously",
+            MSG("Cannot compute icam_extrinsics. I don't have a vanilla calibration problem: %s observation %d has icam_intrinsics,icam_extrinsics %d,%d while I saw %d,%d previously",
                 what, i,
                 icam_map_to_intrinsics[icam_extrinsics+1], icam_extrinsics,
                 icam_intrinsics, icam_extrinsics);
@@ -3697,7 +3697,7 @@ bool mrcal_corresponding_icam_extrinsics(// out
             icam_map_to_extrinsics[icam_intrinsics] = icam_extrinsics;
         else if(icam_map_to_extrinsics[icam_intrinsics] != icam_extrinsics)
         {
-            MSG("Cannot compute icam_extrinsics. I don't have a pure calibration problem: %s observation %d has icam_intrinsics,icam_extrinsics %d,%d while I saw %d,%d previously",
+            MSG("Cannot compute icam_extrinsics. I don't have a vanilla calibration problem: %s observation %d has icam_intrinsics,icam_extrinsics %d,%d while I saw %d,%d previously",
                 what, i,
                 icam_intrinsics, icam_map_to_extrinsics[icam_intrinsics],
                 icam_intrinsics, icam_extrinsics);
