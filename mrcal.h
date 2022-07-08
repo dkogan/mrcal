@@ -992,15 +992,17 @@ int mrcal_num_measurements_points_triangulated_initial_Npoints(// May be NULL if
 
                                                                // Only consider the leading Npoints. If Npoints < 0: take ALL the points
                                                                int Npoints);
-int mrcal_measurement_index_regularization(int Nobservations_board,
-                                           int Nobservations_point,
-
-                                           // May be NULL if we don't have any of these
+int mrcal_measurement_index_regularization(// May be NULL if we don't have any of these
                                            const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                                            int Nobservations_point_triangulated,
 
                                            int calibration_object_width_n,
-                                           int calibration_object_height_n);
+                                           int calibration_object_height_n,
+                                           int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                           int Nframes,
+                                           int Npoints, int Npoints_fixed, int Nobservations_board, int Nobservations_point,
+                                           mrcal_problem_selections_t problem_selections,
+                                           const mrcal_lensmodel_t* lensmodel);
 int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_extrinsics,
                                           int Nframes,
                                           int Npoints, int Npoints_fixed, int Nobservations_board,

@@ -415,18 +415,31 @@ int mrcal_measurement_index_boards(int i_observation_board,
                                    int calibration_object_width_n,
                                    int calibration_object_height_n)
 {
+    if(Nobservations_board <= 0)
+        return -1;
+
     // *2 because I have separate x and y measurements
     return
         0 +
-        i_observation_board *
-        calibration_object_width_n*calibration_object_height_n *
-        2;
+        mrcal_num_measurements_boards(i_observation_board,
+                                      calibration_object_width_n,
+                                      calibration_object_height_n);
 }
 
 int mrcal_num_measurements_boards(int Nobservations_board,
                                   int calibration_object_width_n,
                                   int calibration_object_height_n)
 {
+    if(Nobservations_board <= 0)
+        return 0;
+
+    // *2 because I have separate x and y measurements
+    return
+        Nobservations_board *
+        calibration_object_width_n*calibration_object_height_n *
+        2;
+
+
     return mrcal_measurement_index_boards( Nobservations_board,
                                            0,0,
                                            calibration_object_width_n,
@@ -439,6 +452,9 @@ int mrcal_measurement_index_points(int i_observation_point,
                                    int calibration_object_width_n,
                                    int calibration_object_height_n)
 {
+    if(Nobservations_point <= 0)
+        return -1;
+
     // 3: x,y measurements, range normalization
     return
         mrcal_num_measurements_boards(Nobservations_board,
@@ -527,17 +543,28 @@ int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have a
                                                                     -1 );
 }
 
-int mrcal_measurement_index_regularization(int Nobservations_board,
-                                           int Nobservations_point,
-
+int mrcal_measurement_index_regularization(
 #warning "triangulated-solve: this argument order is weird. Put then triangulated stuff at the end?"
                                            // May be NULL if we don't have any of these
                                            const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                                            int Nobservations_point_triangulated,
 
                                            int calibration_object_width_n,
-                                           int calibration_object_height_n)
+                                           int calibration_object_height_n,
+                                           int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                           int Nframes,
+                                           int Npoints, int Npoints_fixed, int Nobservations_board, int Nobservations_point,
+                                           mrcal_problem_selections_t problem_selections,
+                                           const mrcal_lensmodel_t* lensmodel)
 {
+
+    if(mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
+                                             Nframes,
+                                             Npoints, Npoints_fixed, Nobservations_board,
+                                             problem_selections,
+                                             lensmodel) <= 0)
+        return -1;
+
     return
         mrcal_num_measurements_boards(Nobservations_board,
                                       calibration_object_width_n,
@@ -5993,12 +6020,15 @@ mrcal_optimize( // out
         double regularization_ratio_distortion  = 0.0;
         double regularization_ratio_centerpixel = 0.0;
         const int imeas_reg0 =
-            mrcal_measurement_index_regularization(Nobservations_board,
-                                                   Nobservations_point,
-                                                   observations_point_triangulated,
+            mrcal_measurement_index_regularization(observations_point_triangulated,
                                                    Nobservations_point_triangulated,
                                                    calibration_object_width_n,
-                                                   calibration_object_height_n);
+                                                   calibration_object_height_n,
+                                                   Ncameras_intrinsics, Ncameras_extrinsics,
+                                                   Nframes,
+                                                   Npoints, Npoints_fixed, Nobservations_board, Nobservations_point,
+                                                   problem_selections,
+                                                   lensmodel);
         const double* xreg = &solver_context->beforeStep->x[imeas_reg0];
         if(problem_selections.do_apply_regularization)
         {
