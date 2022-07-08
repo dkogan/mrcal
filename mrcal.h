@@ -1083,7 +1083,7 @@ typedef struct
 } mrcal_cameramodel_t;
 
 // if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
-// the buffer IS indicated by a 0 bytes
+// the buffer IS indicated by a '\0' byte
 mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char* string, int len);
 mrcal_cameramodel_t* mrcal_read_cameramodel_file  (const char* filename);
 void                 mrcal_free_cameramodel(mrcal_cameramodel_t** cameramodel);
