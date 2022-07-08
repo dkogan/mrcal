@@ -414,18 +414,31 @@ int mrcal_measurement_index_boards(int i_observation_board,
                                    int calibration_object_width_n,
                                    int calibration_object_height_n)
 {
+    if(Nobservations_board <= 0)
+        return -1;
+
     // *2 because I have separate x and y measurements
     return
         0 +
-        i_observation_board *
-        calibration_object_width_n*calibration_object_height_n *
-        2;
+        mrcal_num_measurements_boards(i_observation_board,
+                                      calibration_object_width_n,
+                                      calibration_object_height_n);
 }
 
 int mrcal_num_measurements_boards(int Nobservations_board,
                                   int calibration_object_width_n,
                                   int calibration_object_height_n)
 {
+    if(Nobservations_board <= 0)
+        return 0;
+
+    // *2 because I have separate x and y measurements
+    return
+        Nobservations_board *
+        calibration_object_width_n*calibration_object_height_n *
+        2;
+
+
     return mrcal_measurement_index_boards( Nobservations_board,
                                            0,0,
                                            calibration_object_width_n,
@@ -438,6 +451,9 @@ int mrcal_measurement_index_points(int i_observation_point,
                                    int calibration_object_width_n,
                                    int calibration_object_height_n)
 {
+    if(Nobservations_point <= 0)
+        return -1;
+
     // 3: x,y measurements, range normalization
     return
         mrcal_num_measurements_boards(Nobservations_board,
@@ -452,11 +468,22 @@ int mrcal_num_measurements_points(int Nobservations_point)
     return Nobservations_point * 3;
 }
 
-int mrcal_measurement_index_regularization(int Nobservations_board,
-                                           int Nobservations_point,
-                                           int calibration_object_width_n,
-                                           int calibration_object_height_n)
+int mrcal_measurement_index_regularization(int calibration_object_width_n,
+                                           int calibration_object_height_n,
+                                           int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                           int Nframes,
+                                           int Npoints, int Npoints_fixed, int Nobservations_board, int Nobservations_point,
+                                           mrcal_problem_selections_t problem_selections,
+                                           const mrcal_lensmodel_t* lensmodel)
 {
+
+    if(mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
+                                             Nframes,
+                                             Npoints, Npoints_fixed, Nobservations_board,
+                                             problem_selections,
+                                             lensmodel) <= 0)
+        return -1;
+
     return
         mrcal_num_measurements_boards(Nobservations_board,
                                       calibration_object_width_n,
@@ -5396,10 +5423,13 @@ mrcal_optimize( // out
             double norm2_err_regularization_centerpixel    = 0;
 
             int imeas_reg0 =
-                mrcal_measurement_index_regularization(Nobservations_board,
-                                                       Nobservations_point,
-                                                       calibration_object_width_n,
-                                                       calibration_object_height_n);
+                mrcal_measurement_index_regularization(calibration_object_width_n,
+                                                       calibration_object_height_n,
+                                                       Ncameras_intrinsics, Ncameras_extrinsics,
+                                                       Nframes,
+                                                       Npoints, Npoints_fixed, Nobservations_board, Nobservations_point,
+                                                       problem_selections,
+                                                       lensmodel);
             const double* xreg = &solver_context->beforeStep->x[imeas_reg0];
 
             for(int i=0; i<Nmeasurements_regularization_distortion; i++)

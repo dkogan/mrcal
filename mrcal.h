@@ -658,10 +658,13 @@ int mrcal_measurement_index_points(int i_observation_point,
                                    int calibration_object_width_n,
                                    int calibration_object_height_n);
 int mrcal_num_measurements_points(int Nobservations_point);
-int mrcal_measurement_index_regularization(int Nobservations_board,
-                                           int Nobservations_point,
-                                           int calibration_object_width_n,
-                                           int calibration_object_height_n);
+int mrcal_measurement_index_regularization(int calibration_object_width_n,
+                                           int calibration_object_height_n,
+                                           int Ncameras_intrinsics, int Ncameras_extrinsics,
+                                           int Nframes,
+                                           int Npoints, int Npoints_fixed, int Nobservations_board, int Nobservations_point,
+                                           mrcal_problem_selections_t problem_selections,
+                                           const mrcal_lensmodel_t* lensmodel);
 int mrcal_num_measurements_regularization(int Ncameras_intrinsics, int Ncameras_extrinsics,
                                           int Nframes,
                                           int Npoints, int Npoints_fixed, int Nobservations_board,

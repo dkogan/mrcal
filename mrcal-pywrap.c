@@ -2336,16 +2336,19 @@ static int callback_measurement_index_regularization(int i,
                                                      mrcal_problem_selections_t problem_selections)
 {
     return
-        mrcal_measurement_index_regularization(Nobservations_board,
-                                               Nobservations_point,
-                                               calibration_object_width_n,
-                                               calibration_object_height_n);
+        mrcal_measurement_index_regularization(calibration_object_width_n,
+                                               calibration_object_height_n,
+                                               Ncameras_intrinsics, Ncameras_extrinsics,
+                                               Nframes,
+                                               Npoints, Npoints_fixed, Nobservations_board, Nobservations_point,
+                                               problem_selections,
+                                               lensmodel);
 }
 static PyObject* measurement_index_regularization(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(measurement_index_regularization,
                                self, args, kwargs,
-                               false,
+                               true,
                                NULL);
 }
 
