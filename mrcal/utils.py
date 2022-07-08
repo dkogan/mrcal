@@ -1021,7 +1021,7 @@ A list of 'set' directives passable as plot options to gnuplotlib
     except: pass
     try:    imeas0.append(mrcal.measurement_index_points        (0, **optimization_inputs))
     except: pass
-    try:    imeas0.append(mrcal.measurement_index_regularization(0, **optimization_inputs))
+    try:    imeas0.append(mrcal.measurement_index_regularization(**optimization_inputs))
     except: pass
 
     return [f"arrow nohead from {x},graph 0 to {x},graph 1" for x in imeas0]
