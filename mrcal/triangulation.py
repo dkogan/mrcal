@@ -1455,8 +1455,8 @@ if optimization_inputs is None and q_observation_stdev is None:
         istate_i1,                            \
         icam_extrinsics0,                     \
         icam_extrinsics1,                     \
-        istate_e1,                            \
-        istate_e0
+        istate_e0,                            \
+        istate_e1
 
 
 def triangulate( q,
