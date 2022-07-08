@@ -2542,20 +2542,41 @@ static int callback_measurement_index_points_triangulated(int i,
                                                           const mrcal_lensmodel_t* lensmodel,
                                                           mrcal_problem_selections_t problem_selections)
 {
-#warning "triangulated-solve: finish this thing. Add mrcal_measurement_index_points_triangulated() and wrap it here"
-    return -1;
-        // mrcal_measurement_index_points_triangulated(i,
-        //                                Nobservations_board,
-        //                                Nobservations_point,
-        //                                calibration_object_width_n,
-        //                                calibration_object_height_n);
+    // VERY similar to callback_num_measurements_points_triangulated() and
+    // callback_measurement_index_regularization() and maybe others. Please
+    // consolidate
+    int N = 0;
+    if(!IS_NULL(indices_point_triangulated_camintrinsics_camextrinsics))
+        N = PyArray_DIM(indices_point_triangulated_camintrinsics_camextrinsics, 0);
+
+    mrcal_observation_point_triangulated_t c_observations_point_triangulated[N];
+
+    int Nobservations_point_triangulated =
+        N <= 0 ? 0 :
+        fill_c_observations_point_triangulated(c_observations_point_triangulated,
+                                               NULL,
+                                               indices_point_triangulated_camintrinsics_camextrinsics);
+    if(Nobservations_point_triangulated < 0)
+    {
+        BARF("Error parsing triangulated points");
+        return -1;
+    }
+
+    return
+        mrcal_measurement_index_points_triangulated(i,
+                                                    Nobservations_board,
+                                                    Nobservations_point,
+                                                    c_observations_point_triangulated,
+                                                    Nobservations_point_triangulated,
+                                                    calibration_object_width_n,
+                                                    calibration_object_height_n);
 }
 static PyObject* measurement_index_points_triangulated(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(measurement_index_points_triangulated,
                                self, args, kwargs,
                                false,
-                               "i_observation_point");
+                               "i_point_triangulated");
 }
 
 static int callback_num_measurements_points(int i,

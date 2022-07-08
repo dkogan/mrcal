@@ -454,51 +454,80 @@ int mrcal_num_measurements_points(int Nobservations_point)
 }
 
 #warning "triangulated-solve: Add a test for mrcal_measurement_index_points_triangulated()"
-int mrcal_measurement_index_points_triangulated(int i_observation_point,
+int mrcal_measurement_index_points_triangulated(int i_point_triangulated,
                                                 int Nobservations_board,
                                                 int Nobservations_point,
+
+                                                // May be NULL if we don't have any of these
+                                                const mrcal_observation_point_triangulated_t* observations_point_triangulated,
+                                                int Nobservations_point_triangulated,
+
                                                 int calibration_object_width_n,
                                                 int calibration_object_height_n)
 {
-#warning "triangulated-solve: is this right? i_observation_point or i_point?"
+    if(observations_point_triangulated == NULL ||
+       Nobservations_point_triangulated <= 0)
+        return -1;
 
     return
         mrcal_num_measurements_boards(Nobservations_board,
                                       calibration_object_width_n,
                                       calibration_object_height_n) +
         mrcal_num_measurements_points(Nobservations_point) +
-        i_observation_point * 1;
+        mrcal_num_measurements_points_triangulated_initial_Npoints(observations_point_triangulated,
+                                                                   Nobservations_point_triangulated,
+                                                                   i_point_triangulated);
+}
+
+#warning "triangulated-solve: python-wrap this function?"
+int mrcal_num_measurements_points_triangulated_initial_Npoints(// May be NULL if we don't have any of these
+                                                               const mrcal_observation_point_triangulated_t* observations_point_triangulated,
+                                                               int Nobservations_point_triangulated,
+
+                                                               // Only consider the leading Npoints. If Npoints < 0: take ALL the points
+                                                               int Npoints)
+{
+    if(observations_point_triangulated == NULL ||
+       Nobservations_point_triangulated <= 0)
+        return 0;
+
+    int Nmeas        = 0;
+    int ipoint       = 0;
+    int iobservation = 0;
+
+    while( iobservation < Nobservations_point_triangulated &&
+           (Npoints < 0 || ipoint < Npoints))
+    {
+        int Nset = 1;
+        while(!observations_point_triangulated[iobservation].last_in_set)
+        {
+            Nset++;
+            iobservation++;
+        }
+
+        // This set has Nset points. Each pair produces a measurement
+        Nmeas += Nset*(Nset-1) / 2;
+        ipoint++;
+        iobservation++;
+    }
+
+    return Nmeas;
 }
 
 int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have any of these
                                                const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                                                int Nobservations_point_triangulated)
 {
-    if(observations_point_triangulated == NULL ||
-       Nobservations_point_triangulated <= 0)
-        return 0;
-
-    int Nmeas = 0;
-
-    for(int i=0; i<Nobservations_point_triangulated; i++)
-    {
-        int Nset = 1;
-        while(!observations_point_triangulated[i].last_in_set)
-        {
-            Nset++;
-            i++;
-        }
-
-        // This set has Nset points. Each pair produces a measurement
-        Nmeas += Nset*(Nset-1) / 2;
-    }
-
-    return Nmeas;
+    return
+        mrcal_num_measurements_points_triangulated_initial_Npoints( observations_point_triangulated,
+                                                                    Nobservations_point_triangulated,
+                                                                    -1 );
 }
 
 int mrcal_measurement_index_regularization(int Nobservations_board,
                                            int Nobservations_point,
 
+#warning "triangulated-solve: this argument order is weird. Put then triangulated stuff at the end?"
                                            // May be NULL if we don't have any of these
                                            const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                                            int Nobservations_point_triangulated,
