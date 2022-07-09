@@ -39,7 +39,7 @@ pref_true = np.array((( 10.,  20., 100.),
                       (  5.,  -0., 110.),
                       (  1.,  50.,  50.)))
 
-# The points are all somewhere at +z. So the Camera poses are all ~ identity
+# The points are all somewhere at +z. So the camera rotations are all ~ identity
 rt_cam_ref_true = np.array(((-0.1, -0.07, 0.01,  10.0, 4.0, -7.0),
                             (-0.01, 0.05,-0.02,  30.0,-8.0, -8.0),
                             (-0.1,  0.03,-0.03,  10.0,-9.0, 20.0),
@@ -172,10 +172,8 @@ stats = mrcal.optimize( intrinsics                                = nps.atleast_
                         do_apply_regularization           = True,
                         verbose                           = False)
 
-# Got a solution. How well do they fit?
-fit_rms = np.sqrt(np.mean(nps.norm2(pref_noisy - pref_true)))
-
-testutils.confirm_equal(fit_rms, 0,
+testutils.confirm_equal(pref_noisy,
+                        pref_true,
                         msg = f"Solved at ref coords with known-position points",
                         eps = 1.0)
 
