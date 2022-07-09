@@ -28,7 +28,7 @@ imagersize = m.imagersize()
 lensmodel,intrinsics_data = m.intrinsics()
 
 # This many points are not optimized, and we know exactly where they are. We
-# need this to set the scale of the problem. Otherwise the wolve is ambiguous
+# need this to set the scale of the problem. Otherwise the solve is ambiguous
 Npoints_fixed = 3
 
 pref_true = np.array((( 10.,  20., 100.),
