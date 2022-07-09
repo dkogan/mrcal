@@ -6,6 +6,7 @@
 #include <numpy/arrayobject.h>
 #include <signal.h>
 #include <dogleg.h>
+#include <limits.h>
 
 #if (CHOLMOD_VERSION > (CHOLMOD_VER_CODE(2,2)))
 #include <cholmod_function.h>
@@ -1670,6 +1671,7 @@ static PyObject* state_index_generic(callback_state_index_t cb,
                                      const char* called_function,
                                      PyObject* self, PyObject* args, PyObject* kwargs,
                                      bool need_lensmodel,
+                                     bool negative_result_allowed,
                                      const char* argname)
 {
     // This is VERY similar to _pack_unpack_state(). Please consolidate
@@ -1829,8 +1831,16 @@ static PyObject* state_index_generic(callback_state_index_t cb,
                    &mrcal_lensmodel,
                    problem_selections);
 
-    if(index >= 0)
+    if(PyErr_Occurred())
+        goto done;
+
+    // Either <0 or INT_MAX means "error", and I return None from Python.
+    // negative_result_allowed controls which of the two modes we're in
+    if( ( negative_result_allowed && index != INT_MAX) ||
+        (!negative_result_allowed && index >= 0) )
+    {
         result = PyLong_FromLong(index);
+    }
     else
     {
         result = Py_None;
@@ -1872,6 +1882,7 @@ static PyObject* state_index_intrinsics(PyObject* self, PyObject* args, PyObject
     return STATE_INDEX_GENERIC(state_index_intrinsics,
                                self, args, kwargs,
                                true,
+                               false,
                                "icam_intrinsics");
 }
 
@@ -1899,6 +1910,7 @@ static PyObject* num_states_intrinsics(PyObject* self, PyObject* args, PyObject*
     return STATE_INDEX_GENERIC(num_states_intrinsics,
                                self, args, kwargs,
                                true,
+                               false,
                                NULL);
 }
 
@@ -1931,6 +1943,7 @@ static PyObject* state_index_extrinsics(PyObject* self, PyObject* args, PyObject
     return STATE_INDEX_GENERIC(state_index_extrinsics,
                                self, args, kwargs,
                                true,
+                               false,
                                "icam_extrinsics");
 }
 
@@ -1957,6 +1970,7 @@ static PyObject* num_states_extrinsics(PyObject* self, PyObject* args, PyObject*
 {
     return STATE_INDEX_GENERIC(num_states_extrinsics,
                                self, args, kwargs,
+                               false,
                                false,
                                NULL);
 }
@@ -1990,6 +2004,7 @@ static PyObject* state_index_frames(PyObject* self, PyObject* args, PyObject* kw
     return STATE_INDEX_GENERIC(state_index_frames,
                                self, args, kwargs,
                                true,
+                               false,
                                "iframe");
 }
 
@@ -2016,6 +2031,7 @@ static PyObject* num_states_frames(PyObject* self, PyObject* args, PyObject* kwa
 {
     return STATE_INDEX_GENERIC(num_states_frames,
                                self, args, kwargs,
+                               false,
                                false,
                                NULL);
 }
@@ -2049,6 +2065,7 @@ static PyObject* state_index_points(PyObject* self, PyObject* args, PyObject* kw
     return STATE_INDEX_GENERIC(state_index_points,
                                self, args, kwargs,
                                true,
+                               false,
                                "i_point");
 }
 
@@ -2075,6 +2092,7 @@ static PyObject* num_states_points(PyObject* self, PyObject* args, PyObject* kwa
 {
     return STATE_INDEX_GENERIC(num_states_points,
                                self, args, kwargs,
+                               false,
                                false,
                                NULL);
 }
@@ -2107,6 +2125,7 @@ static PyObject* state_index_calobject_warp(PyObject* self, PyObject* args, PyOb
     return STATE_INDEX_GENERIC(state_index_calobject_warp,
                                self, args, kwargs,
                                true,
+                               false,
                                NULL);
 }
 
@@ -2133,6 +2152,7 @@ static PyObject* num_states_calobject_warp(PyObject* self, PyObject* args, PyObj
 {
     return STATE_INDEX_GENERIC(num_states_calobject_warp,
                                self, args, kwargs,
+                               false,
                                false,
                                NULL);
 }
@@ -2164,6 +2184,7 @@ static PyObject* num_states(PyObject* self, PyObject* args, PyObject* kwargs)
     return STATE_INDEX_GENERIC(num_states,
                                self, args, kwargs,
                                true,
+                               false,
                                NULL);
 }
 
@@ -2192,6 +2213,7 @@ static PyObject* num_intrinsics_optimization_params(PyObject* self, PyObject* ar
     return STATE_INDEX_GENERIC(num_intrinsics_optimization_params,
                                self, args, kwargs,
                                true,
+                               false,
                                NULL);
 }
 
@@ -2226,6 +2248,7 @@ static PyObject* measurement_index_boards(PyObject* self, PyObject* args, PyObje
     return STATE_INDEX_GENERIC(measurement_index_boards,
                                self, args, kwargs,
                                false,
+                               false,
                                "i_observation_board");
 }
 
@@ -2258,6 +2281,7 @@ static PyObject* num_measurements_boards(PyObject* self, PyObject* args, PyObjec
     return STATE_INDEX_GENERIC(num_measurements_boards,
                                self, args, kwargs,
                                false,
+                               false,
                                NULL);
 }
 
@@ -2289,6 +2313,7 @@ static PyObject* measurement_index_points(PyObject* self, PyObject* args, PyObje
     return STATE_INDEX_GENERIC(measurement_index_points,
                                self, args, kwargs,
                                false,
+                               false,
                                "i_observation_point");
 }
 
@@ -2315,6 +2340,7 @@ static PyObject* num_measurements_points(PyObject* self, PyObject* args, PyObjec
 {
     return STATE_INDEX_GENERIC(num_measurements_points,
                                self, args, kwargs,
+                               false,
                                false,
                                NULL);
 }
@@ -2349,6 +2375,7 @@ static PyObject* measurement_index_regularization(PyObject* self, PyObject* args
     return STATE_INDEX_GENERIC(measurement_index_regularization,
                                self, args, kwargs,
                                true,
+                               false,
                                NULL);
 }
 
@@ -2380,6 +2407,7 @@ static PyObject* num_measurements_regularization(PyObject* self, PyObject* args,
     return STATE_INDEX_GENERIC(num_measurements_regularization,
                                self, args, kwargs,
                                true,
+                               false,
                                NULL);
 }
 
@@ -2416,6 +2444,7 @@ static PyObject* num_measurements(PyObject* self, PyObject* args, PyObject* kwar
     return STATE_INDEX_GENERIC(num_measurements,
                                self, args, kwargs,
                                true,
+                               false,
                                NULL);
 }
 
@@ -2435,11 +2464,12 @@ static int callback_corresponding_icam_extrinsics(int icam_intrinsics,
                                                   const mrcal_lensmodel_t* lensmodel,
                                                   mrcal_problem_selections_t problem_selections)
 {
+    // Negative results ARE allowed here, so I return INT_MAX on error
     if( icam_intrinsics < 0 || icam_intrinsics >= Ncameras_intrinsics )
     {
         BARF("The given icam_intrinsics=%d is out of bounds. Must be >= 0 and < %d",
              icam_intrinsics, Ncameras_intrinsics);
-        return -1;
+        return INT_MAX;
     }
 
     int icam_extrinsics;
@@ -2447,7 +2477,7 @@ static int callback_corresponding_icam_extrinsics(int icam_intrinsics,
     if(Nobservations_board > 0 && indices_frame_camintrinsics_camextrinsics == NULL)
     {
         BARF("Have Nobservations_board > 0, but indices_frame_camintrinsics_camextrinsics == NULL. Some required arguments missing?");
-        return -1;
+        return INT_MAX;
     }
     mrcal_observation_board_t c_observations_board[Nobservations_board];
     fill_c_observations_board(// output
@@ -2461,12 +2491,12 @@ static int callback_corresponding_icam_extrinsics(int icam_intrinsics,
         if(indices_point_camintrinsics_camextrinsics == NULL)
         {
             BARF("Have Nobservations_point > 0, but indices_point_camintrinsics_camextrinsics == NULL. Some required arguments missing?");
-            return -1;
+            return INT_MAX;
         }
         if(observations_point == NULL)
         {
             BARF("Have Nobservations_point > 0, but observations_point == NULL. Some required arguments missing?");
-            return -1;
+            return INT_MAX;
         }
     }
     mrcal_observation_point_t c_observations_point[Nobservations_point];
@@ -2488,9 +2518,10 @@ static int callback_corresponding_icam_extrinsics(int icam_intrinsics,
                                             c_observations_point))
     {
         BARF("Error calling mrcal_corresponding_icam_extrinsics()");
-        return -1;
+        return INT_MAX;
     }
 
+    // might be <0. This is OK because negative_result_allowed is true here
     return icam_extrinsics;
 }
 static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
@@ -2498,6 +2529,7 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
     return STATE_INDEX_GENERIC(corresponding_icam_extrinsics,
                                self, args, kwargs,
                                false,
+                               true, // negative_result_allowed here
                                "icam_intrinsics");
 }
 
