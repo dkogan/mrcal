@@ -68,7 +68,7 @@ int main(int argc, char* argv[] )
 
     iarg++;
 
-    mrcal_problem_selections_t problem_selections;
+    mrcal_problem_selections_t problem_selections = {};
     if(iarg >= argc)
     {
         // Default. Turn on everything
@@ -82,9 +82,8 @@ int main(int argc, char* argv[] )
     }
     else
     {
-        mrcal_problem_selections_t problem_selections =
-            {.do_apply_regularization             = true,
-             .do_apply_regularization_unity_cam01 = true};
+        problem_selections = ((mrcal_problem_selections_t){.do_apply_regularization             = true,
+                                                           .do_apply_regularization_unity_cam01 = true});
 
         for(; iarg < argc; iarg++)
         {
