@@ -534,21 +534,6 @@ typedef struct
     // indexes the "points" array to select the position of the point being
     // observed
     int                  i_point;
-
-#warning "triangulated-solve: can I get rid of 'px', and store all these in an observations_points_pool?"
-    // Observed pixel coordinates. This works just like elements of
-    // observations_board_pool:
-    //
-    // .x, .y are the pixel observations
-    // .z is the weight of the observation. Most of the weights are expected to
-    // be 1.0. Less precise observations have lower weights.
-    // .z<0 indicates that this is an outlier. This is respected on
-    // input
-    //
-    // Unlike observations_board_pool, outlier rejection is NOT YET IMPLEMENTED
-    // for points, so outlier points will NOT be found and reported on output in
-    // .z<0
-    mrcal_point3_t px;
 } mrcal_observation_point_t;
 
 // An observation of a discrete point where the point itself is NOT a part of
@@ -786,15 +771,19 @@ mrcal_optimize( // out
                 //   calibration_object_height_n,
                 //   calibration_object_width_n )
                 //
-                // .x, .y are the
-                // pixel observations .z is the weight of the observation. Most
-                // of the weights are expected to be 1.0. Less precise
-                // observations have lower weights.
+                // .x, .y are the pixel observations .z is the weight of the
+                // observation. Most of the weights are expected to be 1.0. Less
+                // precise observations have lower weights.
                 //
                 // .z<0 indicates that this is an outlier. This is respected on
                 // input (even if !do_apply_outlier_rejection). New outliers are
                 // marked with .z<0 on output, so this isn't const
                 mrcal_point3_t* observations_board_pool,
+
+                // Same this, but for discrete points. Array of shape
+                //
+                // ( Nobservations_point,)
+                mrcal_point3_t* observations_point_pool,
 
                 const mrcal_lensmodel_t* lensmodel,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
@@ -880,6 +869,11 @@ bool mrcal_optimizer_callback(// out
                              //
                              // .z<0 indicates that this is an outlier
                              const mrcal_point3_t* observations_board_pool,
+
+                             // Same this, but for discrete points. Array of shape
+                             //
+                             // ( Nobservations_point,)
+                             const mrcal_point3_t* observations_point_pool,
 
                              const mrcal_lensmodel_t* lensmodel,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these

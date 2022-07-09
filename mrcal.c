@@ -3905,6 +3905,7 @@ typedef struct
 
     const mrcal_observation_board_t* observations_board;
     const mrcal_point3_t* observations_board_pool;
+    const mrcal_point3_t* observations_point_pool;
     int Nobservations_board;
 
     const mrcal_observation_point_t* observations_point;
@@ -4411,7 +4412,7 @@ void optimizer_callback(// input state
             ctx->problem_selections.do_optimize_frames &&
             i_point < ctx->Npoints - ctx->Npoints_fixed;
 
-        const mrcal_point3_t* qx_qy_w__observed = &observation->px;
+        const mrcal_point3_t* qx_qy_w__observed = &ctx->observations_point_pool[i_observation_point];
         double weight = qx_qy_w__observed->z;
 
         if(weight <= 0.0)
@@ -5584,6 +5585,11 @@ bool mrcal_optimizer_callback(// out
                              // z<0 indicates that this is an outlier
                              const mrcal_point3_t* observations_board_pool,
 
+                             // Same this, but for discrete points. Array of shape
+                             //
+                             // ( Nobservations_point,)
+                             const mrcal_point3_t* observations_point_pool,
+
                              const mrcal_lensmodel_t* lensmodel,
                              const int* imagersizes, // Ncameras_intrinsics*2 of these
 
@@ -5689,6 +5695,7 @@ bool mrcal_optimizer_callback(// out
         .Npoints_fixed              = Npoints_fixed,
         .observations_board         = observations_board,
         .observations_board_pool    = observations_board_pool,
+        .observations_point_pool    = observations_point_pool,
         .Nobservations_board        = Nobservations_board,
         .observations_point         = observations_point,
         .Nobservations_point        = Nobservations_point,
@@ -5780,6 +5787,11 @@ mrcal_optimize( // out
                 // marked with z<0 on output, so this isn't const
                 mrcal_point3_t* observations_board_pool,
 
+                // Same this, but for discrete points. Array of shape
+                //
+                // ( Nobservations_point,)
+                mrcal_point3_t* observations_point_pool,
+
                 const mrcal_lensmodel_t* lensmodel,
                 const int* imagersizes, // Ncameras_intrinsics*2 of these
                 mrcal_problem_selections_t       problem_selections,
@@ -5863,6 +5875,7 @@ mrcal_optimize( // out
         .Npoints_fixed              = Npoints_fixed,
         .observations_board         = observations_board,
         .observations_board_pool    = observations_board_pool,
+        .observations_point_pool    = observations_point_pool,
         .Nobservations_board        = Nobservations_board,
         .observations_point         = observations_point,
         .Nobservations_point        = Nobservations_point,

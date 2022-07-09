@@ -160,29 +160,26 @@ int main(int argc, char* argv[] )
 #define Nobservations_board ((int)(sizeof(observations_board)/sizeof(observations_board[0])))
 #define Nobservations_point ((int)(sizeof(observations_point)/sizeof(observations_point[0])))
 
-    mrcal_point3_t observations_px      [Nobservations_board][calibration_object_width_n*calibration_object_height_n] = {};
-    mrcal_point3_t observations_point_px[Nobservations_point] = {};
-
-    for(int i=0; i<Nobservations_point; i++)
-        observations_point[i].px = observations_point_px[i];
+    mrcal_point3_t observations_board_pool[Nobservations_board][calibration_object_width_n*calibration_object_height_n] = {};
+    mrcal_point3_t observations_point_pool[Nobservations_point] = {};
 
     // fill observations with arbitrary data
     for(int i=0; i<Nobservations_board; i++)
         for(int j=0; j<calibration_object_height_n; j++)
             for(int k=0; k<calibration_object_width_n; k++)
             {
-                observations_px[i][calibration_object_width_n*j + k].x =
+                observations_board_pool[i][calibration_object_width_n*j + k].x =
                     1000.0 + (double)k - 10.0*(double)j + (double)(i*j*k);
-                observations_px[i][calibration_object_width_n*j + k].y =
+                observations_board_pool[i][calibration_object_width_n*j + k].y =
                     1000.0 - (double)k + 30.0*(double)j - (double)(i*j*k);
-                observations_px[i][calibration_object_width_n*j + k].z =
+                observations_board_pool[i][calibration_object_width_n*j + k].z =
                     1. / (double)(1 << ((i+j+k) % 3));
             }
     for(int i=0; i<Nobservations_point; i++)
     {
-        observations_point_px[i].x = 1100.0 + (double)i*20.0;
-        observations_point_px[i].y = 800.0  - (double)i*12.0;
-        observations_point_px[i].z = 1. / (double)(1 << (i % 3));
+        observations_point_pool[i].x = 1100.0 + (double)i*20.0;
+        observations_point_pool[i].y = 800.0  - (double)i*12.0;
+        observations_point_pool[i].z = 1. / (double)(1 << (i % 3));
     }
 
     // Observations of triangulated points
@@ -484,7 +481,8 @@ int main(int argc, char* argv[] )
                         Nobservations_point,
                         observations_point_triangulated,
                         Nobservations_point_triangulated,
-                        (mrcal_point3_t*)observations_px,
+                        (mrcal_point3_t*)observations_board_pool,
+                        (mrcal_point3_t*)observations_point_pool,
 
                         &lensmodel,
                         imagersizes,
