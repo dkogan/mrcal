@@ -1389,9 +1389,14 @@ if optimization_inputs is None and q_observation_stdev is None:
         icam_extrinsics0 = mrcal.corresponding_icam_extrinsics(icam_intrinsics0, **optimization_inputs)
         icam_extrinsics1 = mrcal.corresponding_icam_extrinsics(icam_intrinsics1, **optimization_inputs)
 
-        # set to None if icam_extrinsics<0 (i.e. when looking at the reference camera)
-        istate_e0 = mrcal.state_index_extrinsics(icam_extrinsics0, **optimization_inputs)
-        istate_e1 = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs)
+        if icam_extrinsics0 >= 0:
+            istate_e0 = mrcal.state_index_extrinsics(icam_extrinsics0, **optimization_inputs)
+        else:
+            istate_e0 = None
+        if icam_extrinsics1 >= 0:
+            istate_e1 = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs)
+        else:
+            istate_e1 = None
 
         if istate_e1 is not None:
             # dp_triangulated_dr_0ref = dp_triangulated_dv1  dv1_dr01 dr01_dr_0ref +
