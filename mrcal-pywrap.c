@@ -593,13 +593,12 @@ CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* arg
         goto done;
     }
 
-    cholmod_free_dense (&E, &self->common);
-    cholmod_free_dense (&Y, &self->common);
-
     Py_INCREF(Py_out);
     result = Py_out;
 
  done:
+    if(E != NULL) cholmod_free_dense (&E, &self->common);
+    if(Y != NULL) cholmod_free_dense (&Y, &self->common);
     Py_XDECREF(Py_out);
 
     return result;
