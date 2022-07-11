@@ -26,6 +26,8 @@ import mrcal
 import testutils
 import test_sfm_helpers
 
+add_outlier = False
+
 ############# Set up my world, and compute all the perfect positions, pixel
 ############# observations of everything
 model,                \
@@ -71,6 +73,11 @@ rt_cam_0_noisy[:,3:] /= cam01_distance_true
 p0_noisy             /= cam01_distance_true
 
 
+
+if add_outlier:
+    # Make an outlier point: the first observation x coord is way off
+    observations_noisy[0,0] += 100.
+
 optimization_inputs = \
     dict( intrinsics                                = nps.atleast_dims(intrinsics_data, -2),
           extrinsics_rt_fromref                     = rt_cam_0_noisy[1:],
@@ -95,6 +102,49 @@ stats = mrcal.optimize(**optimization_inputs)
 
 pref_noisy_solved = mrcal.transform_point_rt( rt_ref_0_true,
                                               p0_noisy * cam01_distance_true )
+
+
+# If we have outliers, I need to be able to detect it. If I can detect it,
+# markOutliers() should do that, mark it, and re-optimize without that
+# observation. This code (disabled currently) shows that we can't detect it for
+# discrete points, so markOutliers() ignores discrete points. If you want to
+# figure out how to do this right, start by re-enabling this code
+if add_outlier:
+    p,x,J,f = mrcal.optimizer_callback(**optimization_inputs)
+
+    if 0: # print measurements x
+
+        import gnuplotlib as gp
+        gp.plot(x, _with='points pt 7', wait=1)
+        sys.exit()
+
+    elif 1: # print outlierness. Not 100% sure this code is right
+        J = np.array(J.todense())
+
+        outlierness = np.zeros((len(observations_noisy),), dtype=float)
+        for iobservation in range(len(observations_noisy)):
+
+            Ji = J[iobservation*3:iobservation*3+3, :]
+            xi = x[iobservation*3:iobservation*3+3   ]
+
+            # A = J* inv(JtJ) J*t
+            # B = inv(A - I)
+            # Dima's self+others:        x*t (-B      ) x*
+
+            A = \
+                nps.matmult( f.solve_xt_JtJ_bt(Ji),
+                             nps.transpose(Ji) )
+            B = np.linalg.inv(A - np.eye(3))
+
+            outlierness[iobservation] = -nps.inner(xi, nps.inner(B,xi))
+
+
+        import gnuplotlib as gp
+        gp.plot(outlierness, _with='points pt 7', wait=1)
+        sys.exit()
+
+
+
 
 testutils.confirm_equal(pref_noisy_solved,
                         pref_true,
