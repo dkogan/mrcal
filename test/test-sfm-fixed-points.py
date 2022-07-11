@@ -4,7 +4,10 @@ r'''Basic structure-from-motion test
 
 I observe, with noise, a number of points from various angles with a single
 camera, and I make sure that I can accurately compute the locations of the
-points
+points.
+
+Both the cameras and observed points are free to move, so this test fixes the
+positions of some points in space in order to sufficiently constrain the problem
 
 '''
 
