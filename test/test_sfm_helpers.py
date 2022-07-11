@@ -41,6 +41,45 @@ def generate_world(Npoints_fixed = None):
     # shape (Ncamposes, Npoints, 2)
     qcam_true = mrcal.project(pcam_true, lensmodel, intrinsics_data)
 
+    #print(repr(np.random.randn(*qcam_true.shape) * 1.0))
+    qcam_noise = np.array([[[-0.3008229 , -0.06386847],
+                            [ 0.15690675,  0.35829428],
+                            [-1.15637874, -0.68073402],
+                            [-0.2271372 ,  0.6229026 ],
+                            [ 0.59155325,  0.68842454],
+                            [-2.24109699, -0.25995747],
+                            [-0.70677139,  0.13430803]],
+                           [[-1.07811457, -0.1816532 ],
+                            [-1.08579286, -1.07642887],
+                            [ 0.44522045,  2.37729233],
+                            [ 0.53204839,  0.17330028],
+                            [-1.19966246,  0.95206635],
+                            [ 0.84925049,  1.44290438],
+                            [-0.26285984,  0.62597288]],
+                           [[-0.57862724,  0.73605612],
+                            [-0.23827258, -0.55540618],
+                            [-0.29209469,  0.31539725],
+                            [-0.7524089 ,  1.83662404],
+                            [ 0.49367672,  0.65044992],
+                            [ 1.04093529,  0.61213177],
+                            [-0.61648765,  0.49728066]],
+                           [[-1.06310686,  0.56850477],
+                            [-0.0448958 , -0.26478884],
+                            [-0.85378168, -1.01622018],
+                            [ 0.91716149,  1.35368339],
+                            [-0.73417391,  0.51115139],
+                            [ 0.61964307, -1.17082615],
+                            [-1.32632285,  0.29379208]],
+                           [[ 0.62453505, -1.76356842],
+                            [-0.21081138,  1.05730862],
+                            [-0.63014551, -0.4755803 ],
+                            [-0.38298468,  1.31122154],
+                            [ 0.9190388 , -2.19933583],
+                            [ 2.22796702, -0.83784105],
+                            [ 0.79775114, -1.9516097 ]]])
+
+    qcam_noisy = qcam_true + qcam_noise
+
     # Observations are incomplete. Not all points are observed from everywhere
     indices_point_camera = \
         np.array(((0, 1),
@@ -92,38 +131,18 @@ def generate_world(Npoints_fixed = None):
     Ncamposes,Npoints = pcam_true.shape[:2]
     ipoints   = indices_point_camera[:,0]
     icamposes = indices_point_camera[:,1]
-    qcam_indexed = nps.clump(qcam_true, n=2)[icamposes*Npoints+ipoints,:]
+    qcam_indexed_true  = nps.clump(qcam_true,  n=2)[icamposes*Npoints+ipoints,:]
+    qcam_indexed_noisy = nps.clump(qcam_noisy, n=2)[icamposes*Npoints+ipoints,:]
 
-    #print(repr(np.random.randn(*qcam_indexed.shape) * 1.0))
-    qcam_noise = np.array([[-0.40162837, -0.60884836],
-                           [-0.65186956, -2.23240529],
-                           [ 0.40217293, -0.40160168],
-                           [ 2.05376895, -1.47389235],
-                           [-0.01090807,  0.35468639],
-                           [-0.37916168, -1.06052742],
-                           [-0.08546853, -2.69946391],
-                           [ 0.76133345, -1.38759769],
-                           [-1.05998307, -0.27779779],
-                           [-2.22203688,  1.47809028],
-                           [ 1.68526798,  0.83635394],
-                           [ 1.26203342,  2.58905488],
-                           [ 1.18282463, -0.41362789],
-                           [ 0.41615768,  2.06621809],
-                           [ 0.27271605,  1.19721072],
-                           [-1.48421641,  3.20841776],
-                           [ 1.10563011,  0.38313526],
-                           [ 0.25591618, -0.97987565],
-                           [-0.2431585 , -1.34797656],
-                           [ 1.57805536, -0.26467537],
-                           [ 1.23762306,  0.94616712],
-                           [ 0.29441229, -0.78921128],
-                           [-1.33799634, -1.65173241],
-                           [-0.24854348, -0.14145806]])
-    qcam_indexed_noisy = qcam_indexed + qcam_noise
+    observations_true = \
+        nps.glue(qcam_indexed_true,
+                 nps.transpose(np.ones((qcam_indexed_true.shape[0],))),
+                 axis = -1)
 
-    observations = nps.glue(qcam_indexed_noisy,
-                            nps.transpose(np.ones((qcam_indexed_noisy.shape[0],))),
-                            axis = -1)
+    observations_noisy = \
+        nps.glue(qcam_indexed_noisy,
+                 nps.transpose(np.ones((qcam_indexed_noisy.shape[0],))),
+                 axis = -1)
 
     #print(repr((np.random.random(rt_cam_ref_true.shape)-0.5)/10))
     rt_cam_ref_noise = \
@@ -135,17 +154,20 @@ def generate_world(Npoints_fixed = None):
     rt_cam_ref_noisy = rt_cam_ref_true * (1.0 + rt_cam_ref_noise)
 
 
-    return \
-        model, \
-        imagersize, \
-        lensmodel, \
-        intrinsics_data, \
+    return                    \
+        model,                \
+        imagersize,           \
+        lensmodel,            \
+        intrinsics_data,      \
         indices_point_camera, \
-        \
-        pref_true, \
-        rt_cam_ref_true, \
-        qcam_true, \
-        \
-        pref_noisy, \
-        rt_cam_ref_noisy, \
-        observations
+                              \
+        pref_true,            \
+        rt_cam_ref_true,      \
+        qcam_true,            \
+        observations_true,    \
+                              \
+        pref_noisy,           \
+        rt_cam_ref_noisy,     \
+        qcam_noisy,           \
+        observations_noisy
+

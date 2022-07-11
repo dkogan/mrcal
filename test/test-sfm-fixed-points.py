@@ -41,10 +41,12 @@ indices_point_camera, \
 pref_true,            \
 rt_cam_ref_true,      \
 qcam_true,            \
+observations_true,    \
                       \
 pref_noisy,           \
 rt_cam_ref_noisy,     \
-observations =        \
+qcam_noisy,           \
+observations_noisy =  \
     test_sfm_helpers.generate_world(Npoints_fixed)
 
 indices_point_camintrinsics_camextrinsics = \
@@ -56,13 +58,13 @@ indices_point_camintrinsics_camextrinsics = \
 
 if add_outlier:
     # Make an outlier point: the first observation x coord is way off
-    observations[0,0] += 100.
+    observations_noisy[0,0] += 100.
 
 optimization_inputs = \
     dict( intrinsics                                = nps.atleast_dims(intrinsics_data, -2),
           extrinsics_rt_fromref                     = rt_cam_ref_noisy,
           points                                    = pref_noisy,
-          observations_point                        = observations,
+          observations_point                        = observations_noisy,
           indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
 
           lensmodel                         = lensmodel,
@@ -75,7 +77,6 @@ optimization_inputs = \
           do_optimize_extrinsics            = True,
           do_optimize_frames                = True,
           do_apply_outlier_rejection        = False,
-          do_apply_regularization           = True,
           verbose                           = False)
 
 stats = mrcal.optimize(**optimization_inputs)
@@ -98,8 +99,8 @@ if add_outlier:
     elif 1: # print outlierness. Not 100% sure this code is right
         J = np.array(J.todense())
 
-        outlierness = np.zeros((len(observations),), dtype=float)
-        for iobservation in range(len(observations)):
+        outlierness = np.zeros((len(observations_noisy),), dtype=float)
+        for iobservation in range(len(observations_noisy)):
 
             Ji = J[iobservation*3:iobservation*3+3, :]
             xi = x[iobservation*3:iobservation*3+3   ]
