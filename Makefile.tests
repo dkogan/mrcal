@@ -19,7 +19,8 @@ TESTS :=										\
   test/test-py-gradients.py								\
   test/test-cahvor									\
   test/test-optimizer-callback.py							\
-  test/test-sfm-fixed-points.py							\
+  test/test-sfm-fixed-points.py								\
+  test/test-sfm-regularization-unity-cam01.py						\
   test/test-basic-calibration.py							\
   test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample	\
   test/test-projection-uncertainty.py__--fixed__frames__--model__opencv4__--do-sample__--Nsamples__200	\

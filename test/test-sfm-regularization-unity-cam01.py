@@ -1,0 +1,104 @@
+#!/usr/bin/python3
+
+r'''Basic structure-from-motion test
+
+I observe, with noise, a number of points from various angles with a single
+camera, and I make sure that I can accurately compute the locations of the
+points.
+
+To sufficiently constrain the problem this test
+
+- fixes the pose of the first camera
+- uses the unity_cam01 regularization to set the scale of the problem
+
+'''
+
+import sys
+import numpy as np
+import numpysane as nps
+import os
+
+testdir = os.path.dirname(os.path.realpath(__file__))
+
+# I import the LOCAL mrcal since that's what I'm testing
+sys.path[:0] = f"{testdir}/..",
+import mrcal
+import testutils
+import test_sfm_helpers
+
+############# Set up my world, and compute all the perfect positions, pixel
+############# observations of everything
+model,                \
+imagersize,           \
+lensmodel,            \
+intrinsics_data,      \
+indices_point_camera, \
+                      \
+pref_true,            \
+rt_cam_ref_true,      \
+qcam_true,            \
+observations_true,    \
+                      \
+pref_noisy,           \
+rt_cam_ref_noisy,     \
+qcam_noisy,           \
+observations_noisy =  \
+    test_sfm_helpers.generate_world()
+
+# The reference coordinate system is at the first camera. And all distances are
+# normalized
+indices_point_camintrinsics_camextrinsics = \
+    nps.glue( indices_point_camera[:,(0,)],
+              indices_point_camera[:,(0,)] * 0,
+              indices_point_camera[:,(1,)] - 1,
+              axis = -1 )
+
+rt_ref_0_true = mrcal.invert_rt(rt_cam_ref_true[0])
+
+rt10_true = mrcal.compose_rt( rt_cam_ref_true[1],
+                              rt_ref_0_true )
+cam01_distance_true = nps.mag(rt10_true[3:])
+
+rt_cam_0_noisy = \
+    mrcal.compose_rt( rt_cam_ref_noisy,
+                      rt_ref_0_true )
+
+p0_noisy = mrcal.transform_point_rt( mrcal.invert_rt(rt_ref_0_true),
+                                     pref_noisy )
+
+# normalize distances
+rt_cam_0_noisy[:,3:] /= cam01_distance_true
+p0_noisy             /= cam01_distance_true
+
+
+optimization_inputs = \
+    dict( intrinsics                                = nps.atleast_dims(intrinsics_data, -2),
+          extrinsics_rt_fromref                     = rt_cam_0_noisy[1:],
+          points                                    = p0_noisy,
+          observations_point                        = observations_noisy,
+          indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
+
+          lensmodel                           = lensmodel,
+          imagersizes                         = nps.atleast_dims(imagersize, -2),
+          point_min_range                     = 0.1,
+          point_max_range                     = 1000.0,
+          do_optimize_intrinsics_core         = False,
+          do_optimize_intrinsics_distortions  = False,
+          do_optimize_extrinsics              = True,
+          do_optimize_frames                  = True,
+          do_apply_outlier_rejection          = False,
+          do_apply_regularization_unity_cam01 = True,
+          verbose                             = False)
+
+
+stats = mrcal.optimize(**optimization_inputs)
+
+pref_noisy_solved = mrcal.transform_point_rt( rt_ref_0_true,
+                                              p0_noisy * cam01_distance_true )
+
+testutils.confirm_equal(pref_noisy_solved,
+                        pref_true,
+                        msg = f"Solved at ref coords with known-position points",
+                        eps = 0.2)
+
+testutils.finish()
