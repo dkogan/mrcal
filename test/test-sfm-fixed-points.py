@@ -127,6 +127,6 @@ if add_outlier:
 testutils.confirm_equal(pref_noisy,
                         pref_true,
                         msg = f"Solved at ref coords with known-position points",
-                        eps = 1.0)
+                        eps = 0.1)
 
 testutils.finish()
