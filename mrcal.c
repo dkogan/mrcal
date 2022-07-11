@@ -3759,6 +3759,11 @@ bool mrcal_corresponding_icam_extrinsics(// out
 
 // Doing this myself instead of hooking into the logic in libdogleg for now.
 // Bring back the fancy libdogleg logic once everything stabilizes
+//
+// Note: this does NOT process discrete points because big errors in these
+// observations don't cause clear outliers in the measurement vector, from what
+// I can see in test-sfm-fixed-points. If we can find a way to tie observation
+// errors directly to measurements, please add that here
 static
 bool markOutliers(// output, input
 
