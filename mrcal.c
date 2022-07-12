@@ -523,12 +523,10 @@ int mrcal_num_measurements_points_triangulated_initial_Npoints(// May be NULL if
         int Nset = 1;
         while(!observations_point_triangulated[iobservation].last_in_set)
         {
-            Nset++;
+            Nmeas += Nset++;
             iobservation++;
         }
 
-        // This set has Nset points. Each pair produces a measurement
-        Nmeas += Nset*(Nset-1) / 2;
         ipoint++;
         iobservation++;
     }
