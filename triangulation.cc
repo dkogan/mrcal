@@ -737,11 +737,7 @@ angle_error__assume_small(const vec_withgrad_t<6,3>& v0,
 // Internal function used in the optimization. This uses
 // mrcal_triangulate_leecivera_mid2(), but contains logic in the divergent-ray
 // case more appropriate for the optimization loop
-//
-// This will be called from a different .c file in the same shared object, and I
-// don't want the symbol to be visible from outside of this shared object
 extern "C"
-__attribute__((visibility("hidden")))
 double
 _mrcal_triangulated_error(// outputs
                           mrcal_point3_t* _derr_dv1,
