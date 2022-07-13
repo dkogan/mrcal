@@ -114,6 +114,7 @@ def test_geometry( Rt01, p, whatgeometry,
           (mrcal.triangulate_leecivera_mid2, None,                     v0_noisy,      v1_noisy,      t01),
           (mrcal.triangulate_leecivera_wmid2,None,                     v0_noisy,      v1_noisy,      t01),
           (mrcal.triangulate_lindstrom,      callback_l2_reprojection, v0local_noisy, v1local_noisy, Rt01),
+          (mrcal.triangulated_error,         None,                     v0_noisy,      v1_noisy,      t01),
          )
 
     for scenario in scenarios:
@@ -126,21 +127,11 @@ def test_geometry( Rt01, p, whatgeometry,
 
         what = f"{whatgeometry} {f.__name__}"
 
-        if out_of_bounds:
-            p_optimized = np.zeros(p_reported.shape)
-
-            testutils.confirm_equal( p_reported, p_optimized,
-                                     relative  = False,
-                                     worstcase = True,
-                                     msg = what,
-                                     eps = 1e-3)
-        else:
-            # Check all the gradients
-            if check_gradients:
-                grads = result[1:]
-                for ip in range(Np):
-                    args_cut = (args[0][ip], args[1][ip], args[2])
-                    for ivar in range(len(args)):
+        def do_check_gradient(*grads):
+            for ip in range(Np):
+                args_cut = (args[0][ip], args[1][ip], args[2])
+                for ivar in range(len(args)):
+                    if grads[ivar] is not None:
                         grad_empirical  = \
                             grad( lambda x: f( *args_cut[:ivar],
                                                x,
@@ -152,6 +143,50 @@ def test_geometry( Rt01, p, whatgeometry,
                                                  worstcase = True,
                                                  msg = f"{what}: grad(ip={ip}, ivar = {ivar})",
                                                  eps = 2e-2)
+
+        if f is mrcal.triangulated_error:
+            # triangulated_error() gets lots of special treatment since it's a
+            # scalar, and works just fine with divergent rays and doesn't report
+            # the derr/dv0 gradient
+            if not out_of_bounds:
+                err_reported = p_reported
+                p_mid2       = mrcal.triangulate_leecivera_mid2(*args)
+
+                def angle_error__assume_small(v0,v1):
+                    costh = nps.inner(v0,v1) / np.sqrt(nps.norm2(v0)*nps.norm2(v1))
+                    # The angle is assumed small, so cos(th) ~ 1 - th*th/2.
+                    # -> th ~ sqrt( 2*(1 - cos(th)) )
+                    th_sq = costh*(-2.) + 2.
+                    th_sq[th_sq < 0] *= 0.
+                    return np.sqrt(th_sq)
+
+
+                err_mid2 = 2 * angle_error__assume_small(args[0], p_mid2)
+
+                testutils.confirm_equal( err_reported, err_mid2,
+                                         relative  = True,
+                                         worstcase = True,
+                                         msg = f"{what}: result should be close to triangulate_leecivera_mid2()",
+                                         eps = 1e-8)
+
+            # I do this regardless of if check_gradients. Because I want to
+            # check the divergent cases too
+            do_check_gradient(None, # no derr/dv0 gradient
+                              *result[1:])
+            continue
+
+        if out_of_bounds:
+            p_optimized = np.zeros(p_reported.shape)
+
+            testutils.confirm_equal( p_reported, p_optimized,
+                                     relative  = False,
+                                     worstcase = True,
+                                     msg = what,
+                                     eps = 1e-3)
+        else:
+            # Check all the gradients
+            if check_gradients:
+                do_check_gradient(*result[1:])
 
             if callback is not None:
 
