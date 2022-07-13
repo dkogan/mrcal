@@ -128,6 +128,12 @@ def test_geometry( Rt01, p, whatgeometry,
 
         if out_of_bounds:
             p_optimized = np.zeros(p_reported.shape)
+
+            testutils.confirm_equal( p_reported, p_optimized,
+                                     relative  = False,
+                                     worstcase = True,
+                                     msg = what,
+                                     eps = 1e-3)
         else:
             # Check all the gradients
             if check_gradients:
