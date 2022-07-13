@@ -498,7 +498,7 @@ int mrcal_measurement_index_points_triangulated(int i_point_triangulated,
                                                                    i_point_triangulated);
 }
 
-#warning "triangulated-solve: python-wrap this function?"
+#warning "triangulated-solve: python-wrap this function"
 int mrcal_num_measurements_points_triangulated_initial_Npoints(// May be NULL if we don't have any of these
                                                                const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                                                                int Nobservations_point_triangulated,

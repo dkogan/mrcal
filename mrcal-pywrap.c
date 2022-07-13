@@ -1281,7 +1281,7 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
         if(ipoint_last_in_set < 0)
             // No "last" set exists. Nothing to do.
             return true;
-
+#warning "triangulated-solve: indices_point_triangulated_camintrinsics_camextrinsics are silly: ipoint is used ONLY to figure out where the set ends"
         c_observations_point_triangulated[ipoint_last_in_set].last_in_set = true;
         if(Npoints_in_this_set < 2)
         {
