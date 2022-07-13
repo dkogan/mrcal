@@ -131,9 +131,6 @@ and see the docs for that function. The differences:
 - This is just the no-gradients function. The internal function that reports the
   gradients also is _project_withgrad
 
-- This function is wrapped with numpysane_pywrap, so the points and the
-  intrinsics broadcast as expected
-
 - To make the broadcasting work, the argument order in this function is
   different. numpysane_pywrap broadcasts the leading arguments, so this function
   takes the lensmodel (the one argument that does not broadcast) last
@@ -142,6 +139,9 @@ and see the docs for that function. The differences:
   the _mrcal_project_internal...() functions instead. That allows as much as
   possible of the outer init stuff to be moved outside of the slice computation
   loop
+
+This function is wrapped with numpysane_pywrap, so the points and the intrinsics
+broadcast as expected
 
 The outer logic (outside the loop-over-N-points) is duplicated in
 mrcal_project() and in the python wrapper definition in _project() and
@@ -219,9 +219,6 @@ and see the docs for that function. The differences:
 - This is just the gradients-returning function. The internal function that
   skips those is _project
 
-- This function is wrapped with numpysane_pywrap, so the points and the
-  intrinsics broadcast as expected
-
 - To make the broadcasting work, the argument order in this function is
   different. numpysane_pywrap broadcasts the leading arguments, so this function
   takes the lensmodel (the one argument that does not broadcast) last
@@ -230,6 +227,9 @@ and see the docs for that function. The differences:
   the _mrcal_project_internal...() functions instead. That allows as much as
   possible of the outer init stuff to be moved outside of the slice computation
   loop
+
+This function is wrapped with numpysane_pywrap, so the points and the intrinsics
+broadcast as expected
 
 The outer logic (outside the loop-over-N-points) is duplicated in
 mrcal_project() and in the python wrapper definition in _project() and
@@ -291,9 +291,6 @@ m.function( "_unproject",
 This is the internals for mrcal.unproject(). As a user, please call THAT
 function, and see the docs for that function. The differences:
 
-- This function is wrapped with numpysane_pywrap, so the points and the
-  intrinsics broadcast as expected
-
 - To make the broadcasting work, the argument order in this function is
   different. numpysane_pywrap broadcasts the leading arguments, so this function
   takes the lensmodel (the one argument that does not broadcast) last
@@ -305,6 +302,9 @@ function, and see the docs for that function. The differences:
   uses the _mrcal_unproject_internal...() functions instead. That allows as much
   as possible of the outer init stuff to be moved outside of the slice
   computation loop
+
+This function is wrapped with numpysane_pywrap, so the points and the intrinsics
+broadcast as expected
 
 The outer logic (outside the loop-over-N-points) is duplicated in
 mrcal_unproject() and in the python wrapper definition in _unproject()
@@ -354,8 +354,8 @@ THAT function, and see the docs for that function. The differences:
 - This is just the no-gradients function. The internal function that reports the
   gradients also is _project_{what}_withgrad()
 
-- This function is wrapped with numpysane_pywrap, so the points broadcast as
-  expected
+This function is wrapped with numpysane_pywrap, so the points broadcast as
+expected
 
 """
 
@@ -367,8 +367,8 @@ THAT function, and see the docs for that function. The differences:
 - This is just the gradient-reporting function. The internal function that
   does not report the gradients is _project_{what}()
 
-- This function is wrapped with numpysane_pywrap, so the points broadcast as
-  expected
+This function is wrapped with numpysane_pywrap, so the points broadcast as
+expected
 
 """
 
@@ -380,8 +380,8 @@ call THAT function, and see the docs for that function. The differences:
 - This is just the no-gradients function. The internal function that reports the
   gradients also is _unproject_{what}_withgrad()
 
-- This function is wrapped with numpysane_pywrap, so the points broadcast as
-  expected
+This function is wrapped with numpysane_pywrap, so the points broadcast as
+expected
 
 """
 
@@ -393,8 +393,8 @@ call THAT function, and see the docs for that function. The differences:
 - This is just the gradient-reporting function. The internal function that does
   not report the gradients is _unproject_{what}()
 
-- This function is wrapped with numpysane_pywrap, so the points broadcast as
-  expected
+This function is wrapped with numpysane_pywrap, so the points broadcast as
+expected
 
 """
 
