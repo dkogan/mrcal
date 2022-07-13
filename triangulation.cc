@@ -832,13 +832,13 @@ _mrcal_triangulated_error(// outputs
 
         if(err_to_vanishing_point.x <= THRESHOLD_DIVERGENT_LOWER)
         {
-            // We're barely divergent. Just do the normal thing
+            // We're barely divergent. Just do the normal thing. The
+            // triangulation result should be usable still
         }
         else if(err_to_vanishing_point.x >= THRESHOLD_DIVERGENT_UPPER)
         {
-            // we're VERY divergent. Add another cost term:
-            // the distance to the vanishing point
-            err += err_to_vanishing_point;
+            // we're VERY divergent. I pull the solution to vanishing point
+            err = err_to_vanishing_point;
         }
         else
         {
@@ -849,7 +849,7 @@ _mrcal_triangulated_error(// outputs
                 (err_to_vanishing_point    - THRESHOLD_DIVERGENT_LOWER) /
                 (THRESHOLD_DIVERGENT_UPPER - THRESHOLD_DIVERGENT_LOWER);
 
-            err += k*err_to_vanishing_point;
+            err = k*err_to_vanishing_point + (val_withgrad_t<6>(1.0)-k)*err;
         }
     }
 
