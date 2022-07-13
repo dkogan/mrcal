@@ -544,6 +544,129 @@ int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have a
                                                                     -1 );
 }
 
+#warning "triangulated-solve: python-wrap this function?"
+bool mrcal_decode_observation_indices_points_triangulated(
+    // output
+    int* iobservation0,
+    int* iobservation1,
+    int* iobservation_point0,
+    int* Nobservations_this_point,
+    int* Nmeasurements_this_point,
+    int* ipoint,
+
+    // input
+    const int imeasurement,
+
+    const mrcal_observation_point_triangulated_t* observations_point_triangulated,
+    int Nobservations_point_triangulated)
+{
+    if(observations_point_triangulated == NULL ||
+       Nobservations_point_triangulated <= 0)
+        return false;
+
+    // Similar loop as in
+    // mrcal_num_measurements_points_triangulated_initial_Npoints(). If the data
+    // layout changes, update this and that
+
+    int Nmeas        = 0;
+    int iobservation = 0;
+    *ipoint          = 0;
+
+    while( iobservation < Nobservations_point_triangulated )
+    {
+        int Nset = 1;
+        while(!observations_point_triangulated[iobservation].last_in_set)
+        {
+            Nset++;
+            iobservation++;
+        }
+
+        // This point has Nset observations. Each pair of observations produces
+        // a measurement, so:
+        const int Nmeas_thispoint = Nset*(Nset-1) / 2;
+
+        // Done with this point. It is described by Nmeas_thispoint
+        // measurements, with the first one at Nmeas. The last observation is at
+        // iobservation
+
+        if(imeasurement < Nmeas+Nmeas_thispoint)
+        {
+            // The measurement I care about observes THIS point. I find the
+            // specific observations.
+            //
+            // I simplify the notation: "m" is "imeasurement", "o" is
+            // "iobservation".
+
+            const int No = Nset;
+            const int Nm = Nmeas_thispoint;
+            const int m  = imeasurement - Nmeas;
+
+            // Within this point o is in range(No) and m is in range(Nm). A pair
+            // (o0,o1) describes one measurement. Both o0 and o1 are in
+            // range(No) and o1>o0. A sample table of measurement indices m for
+            // No = 5:
+            //
+            //          o1
+            //       0 1 2 3 4
+            //       ---------
+            //     0|  0 1 2 3
+            // o0  1|    4 5 6
+            //     2|      7 8
+            //     3|        9
+            //     4|
+            //
+            // For a given o0, the maximum m =
+            //
+            //   m_max = (No-1) + (No-2) + (No-3) ... - 1
+            //
+            // for a total of o0+1 (No...) terms so
+            //
+            //   m_max = ((No-1) + (No-o0-1))/2 * (o0+1) - 1
+            //         = (2*No - 2 - o0)/2 * (o0+1) - 1
+            //
+            //   m_min = m_max(o0-1) + 1
+            //         = (2*No - 2 - o0 + 1)/2 * o0
+            //         = (2*No - 1 - o0) * o0 / 2
+            //         = (-o0^2 + (2*No - 1)*o0 ) / 2
+            //
+            // -> (-1/2) o0^2 + (2*No - 1)/2 o0 - m_min = 0
+            // -> o0 = (2*No - 1)/2 +- sqrt( (2*No - 1)^2/4 - 2*m_min)
+            //       = (2*No - 1)/2 - sqrt( (2*No - 1)^2/4 - 2*m_min)
+            //       = (2*No - 1 - sqrt( (2*No - 1)^2 - 8*m_min))/2
+            //
+            // o0(m) = floor(o0(m))
+            //
+            // Now that I have o0 I compute
+            //
+            //   o1 = m - m_min(o0) + o0 + 1
+            //      = m - (-o0^2 + (2*No - 1)*o0 ) / 2 + o0 + 1
+            //      = m + (o0^2 + (3- 2*No)*o0 + 2) / 2
+            //      = m + o0*(o0 + 3 - 2*No)/2 + 1
+            const double x = 2.*(double)No - 1.;
+            *iobservation0 = (int)((x - sqrt( x*x - 8.*(double)m))/2.);
+            *iobservation1 = m + (*iobservation0)*((*iobservation0) + 3 - 2*No)/2 + 1;
+
+            // Reference the observations from the first
+            *iobservation_point0 = iobservation-Nset+1;
+            *iobservation0 += *iobservation_point0;
+            *iobservation1 += *iobservation_point0;
+
+            *Nobservations_this_point = No;
+            *Nmeasurements_this_point = Nm;
+
+            return true;
+        }
+
+        Nmeas += Nmeas_thispoint;
+
+        iobservation++;
+        (*ipoint)++;
+    }
+
+    return false;
+}
+
+
 int mrcal_measurement_index_regularization(
 #warning "triangulated-solve: this argument order is weird. Put then triangulated stuff at the end?"
                                            // May be NULL if we don't have any of these

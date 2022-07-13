@@ -986,6 +986,21 @@ int mrcal_num_measurements_points_triangulated_initial_Npoints(// May be NULL if
 
                                                                // Only consider the leading Npoints. If Npoints < 0: take ALL the points
                                                                int Npoints);
+bool mrcal_decode_observation_indices_points_triangulated(
+    // output
+    int* iobservation0,
+    int* iobservation1,
+    int* iobservation_point0,
+    int* Nobservations_this_point,
+    int* Nmeasurements_this_point,
+    int* ipoint,
+
+    // input
+    const int imeasurement,
+
+    const mrcal_observation_point_triangulated_t* observations_point_triangulated,
+    int Nobservations_point_triangulated);
+
 int mrcal_measurement_index_regularization(// May be NULL if we don't have any of these
                                            const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                                            int Nobservations_point_triangulated,

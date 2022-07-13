@@ -3014,7 +3014,92 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
                                "icam_intrinsics");
 }
 
+static PyObject* callback_decode_observation_indices_points_triangulated(int imeasurement,
+                                     int Ncameras_intrinsics,
+                                     int Ncameras_extrinsics,
+                                     int Nframes,
+                                     int Npoints,
+                                     int Npoints_fixed,
+                                     int Nobservations_board,
+                                     int Nobservations_point,
+                                     int calibration_object_width_n,
+                                     int calibration_object_height_n,
+                                     const PyArrayObject* indices_frame_camintrinsics_camextrinsics,
+                                     const PyArrayObject* indices_point_camintrinsics_camextrinsics,
+                                     const PyArrayObject* indices_point_triangulated_camintrinsics_camextrinsics,
+                                     const PyArrayObject* observations_point,
+                                     const mrcal_lensmodel_t* lensmodel,
+                                     mrcal_problem_selections_t problem_selections)
+{
 
+
+    if(indices_point_triangulated_camintrinsics_camextrinsics == NULL)
+    {
+        BARF("No triangulated points in this solve. Nothing to decode");
+        return NULL;
+    }
+
+    int N = PyArray_DIM(indices_point_triangulated_camintrinsics_camextrinsics, 0);
+    if(N <= 0)
+    {
+        BARF("No triangulated points in this solve. Nothing to decode");
+        return NULL;
+    }
+
+    mrcal_observation_point_triangulated_t c_observations_point_triangulated[N];
+
+    int Nobservations_point_triangulated =
+        fill_c_observations_point_triangulated(c_observations_point_triangulated,
+                                               NULL,
+                                               indices_point_triangulated_camintrinsics_camextrinsics);
+    if(Nobservations_point_triangulated < 0)
+    {
+        BARF("Error parsing triangulated points");
+        return NULL;
+    }
+
+    mrcal_observation_point_triangulated_t* observations_point_triangulated =
+        c_observations_point_triangulated;
+
+    int iobservation0;
+    int iobservation1;
+    int iobservation_point0;
+    int Nobservations_this_point;
+    int Nmeasurements_this_point;
+    int ipoint;
+
+    bool result =
+        mrcal_decode_observation_indices_points_triangulated(&iobservation0,
+                                                             &iobservation1,
+                                                             &iobservation_point0,
+                                                             &Nobservations_this_point,
+                                                             &Nmeasurements_this_point,
+                                                             &ipoint,
+
+                                                             imeasurement,
+                                                             observations_point_triangulated,
+                                                             Nobservations_point_triangulated);
+    if(!result)
+    {
+        BARF("Error decoding indices");
+        return NULL;
+    }
+
+    return Py_BuildValue( "{sisisisisisi}",
+                          "iobservation0",            iobservation0,
+                          "iobservation1",            iobservation1,
+                          "iobservation_point0",      iobservation_point0,
+                          "Nobservations_this_point", Nobservations_this_point,
+                          "Nmeasurements_this_point", Nmeasurements_this_point,
+                          "ipoint",                   ipoint );
+}
+static PyObject* decode_observation_indices_points_triangulated(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return STATE_INDEX_GENERIC(decode_observation_indices_points_triangulated,
+                               self, args, kwargs,
+                               false,
+                               "imeasurement");
+}
 
 static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kwargs,
                                     bool pack)
@@ -3268,6 +3353,9 @@ static const char num_measurements_docstring[] =
 static const char corresponding_icam_extrinsics_docstring[] =
 #include "corresponding_icam_extrinsics.docstring.h"
     ;
+static const char decode_observation_indices_points_triangulated_docstring[] =
+#include "decode_observation_indices_points_triangulated.docstring.h"
+    ;
 
 static const char num_states_docstring[] =
 #include "num_states.docstring.h"
@@ -3327,6 +3415,7 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, num_measurements_regularization, METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, num_measurements,                METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, corresponding_icam_extrinsics,METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, decode_observation_indices_points_triangulated,METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(,lensmodel_metadata_and_config,METH_VARARGS),
       PYMETHODDEF_ENTRY(,lensmodel_num_params,         METH_VARARGS),
