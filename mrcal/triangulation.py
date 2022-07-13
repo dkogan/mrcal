@@ -70,9 +70,6 @@ SYNOPSIS
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
 
-    R01 = Rt01[:3,:]
-    t01 = Rt01[ 3,:]
-
     # pixel observation in camera0
     q0 = np.array((1233, 2433), dtype=np.float32)
 
@@ -87,11 +84,13 @@ SYNOPSIS
                            )
 
     v0 = mrcal.unproject(q0, *models[0].intrinsics())
-    v1 = mrcal.rotate_point_R(R01, mrcal.unproject(q1, *models[1].intrinsics()))
+    v1 = mrcal.unproject(q1, *models[1].intrinsics())
 
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
-    p = mrcal.triangulate_geometric( v0, v1, t01 )
+    p = mrcal.triangulate_geometric( v0, v1,
+                                     Rt01        = Rt01,
+                                     v_are_local = True )
 
 This is the lower-level triangulation routine. For a richer function that can be
 used to propagate uncertainties, see mrcal.triangulate()
@@ -215,9 +214,6 @@ SYNOPSIS
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
 
-    R01 = Rt01[:3,:]
-    t01 = Rt01[ 3,:]
-
     # pixel observation in camera0
     q0 = np.array((1233, 2433), dtype=np.float32)
 
@@ -232,11 +228,13 @@ SYNOPSIS
                            )
 
     v0 = mrcal.unproject(q0, *models[0].intrinsics())
-    v1 = mrcal.rotate_point_R(R01, mrcal.unproject(q1, *models[1].intrinsics()))
+    v1 = mrcal.unproject(q1, *models[1].intrinsics())
 
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
-    p = mrcal.triangulate_leecivera_l1( v0, v1, t01 )
+    p = mrcal.triangulate_leecivera_l1( v0, v1,
+                                        Rt01        = Rt01,
+                                        v_are_local = True )
 
 This is the lower-level triangulation routine. For a richer function that can be
 used to propagate uncertainties, see mrcal.triangulate()
@@ -365,9 +363,6 @@ SYNOPSIS
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
 
-    R01 = Rt01[:3,:]
-    t01 = Rt01[ 3,:]
-
     # pixel observation in camera0
     q0 = np.array((1233, 2433), dtype=np.float32)
 
@@ -382,11 +377,13 @@ SYNOPSIS
                            )
 
     v0 = mrcal.unproject(q0, *models[0].intrinsics())
-    v1 = mrcal.rotate_point_R(R01, mrcal.unproject(q1, *models[1].intrinsics()))
+    v1 = mrcal.unproject(q1, *models[1].intrinsics())
 
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
-    p = mrcal.triangulate_leecivera_linf( v0, v1, t01 )
+    p = mrcal.triangulate_leecivera_linf( v0, v1,
+                                          Rt01        = Rt01,
+                                          v_are_local = True )
 
 This is the lower-level triangulation routine. For a richer function that can be
 used to propagate uncertainties, see mrcal.triangulate()
@@ -516,9 +513,6 @@ SYNOPSIS
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
 
-    R01 = Rt01[:3,:]
-    t01 = Rt01[ 3,:]
-
     # pixel observation in camera0
     q0 = np.array((1233, 2433), dtype=np.float32)
 
@@ -533,11 +527,13 @@ SYNOPSIS
                            )
 
     v0 = mrcal.unproject(q0, *models[0].intrinsics())
-    v1 = mrcal.rotate_point_R(R01, mrcal.unproject(q1, *models[1].intrinsics()))
+    v1 = mrcal.unproject(q1, *models[1].intrinsics())
 
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
-    p = mrcal.triangulate_leecivera_mid2( v0, v1, t01 )
+    p = mrcal.triangulate_leecivera_mid2( v0, v1,
+                                          Rt01        = Rt01,
+                                          v_are_local = True )
 
 This is the lower-level triangulation routine. For a richer function that can be
 used to propagate uncertainties, see mrcal.triangulate()
@@ -662,9 +658,6 @@ SYNOPSIS
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
 
-    R01 = Rt01[:3,:]
-    t01 = Rt01[ 3,:]
-
     # pixel observation in camera0
     q0 = np.array((1233, 2433), dtype=np.float32)
 
@@ -679,11 +672,13 @@ SYNOPSIS
                            )
 
     v0 = mrcal.unproject(q0, *models[0].intrinsics())
-    v1 = mrcal.rotate_point_R(R01, mrcal.unproject(q1, *models[1].intrinsics()))
+    v1 = mrcal.unproject(q1, *models[1].intrinsics())
 
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
-    p = mrcal.triangulate_leecivera_wmid2( v0, v1, t01 )
+    p = mrcal.triangulate_leecivera_wmid2( v0, v1,
+                                           Rt01        = Rt01,
+                                           v_are_local = True )
 
 This is the lower-level triangulation routine. For a richer function that can be
 used to propagate uncertainties, see mrcal.triangulate()
@@ -807,9 +802,6 @@ SYNOPSIS
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
-
-    R01 = Rt01[:3,:]
-    t01 = Rt01[ 3,:]
 
     # pixel observation in camera0
     q0 = np.array((1233, 2433), dtype=np.float32)
