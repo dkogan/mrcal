@@ -719,7 +719,10 @@ angle_error__assume_small(const vec_withgrad_t<6,3>& v0,
     const val_withgrad_t<6> inner11 = v1.norm2();
     const val_withgrad_t<6> inner01 = v0.dot(v1);
 
-    const val_withgrad_t<6>  costh  = inner01 / (inner00*inner11).sqrt();
+    val_withgrad_t<6>  costh  = inner01 / (inner00*inner11).sqrt();
+    if(costh.x < 0.0)
+        // Could happen with barely-divergent rays
+        costh *= val_withgrad_t<6>(-1.0);
 
     // The angle is assumed small, so cos(th) ~ 1 - th*th/2.
     // -> th ~ sqrt( 2*(1 - cos(th)) )
