@@ -566,37 +566,26 @@ static bool chirality(const val_withgrad_t<NGRAD  >& l0,
     double len2_nominal = 0.0;
     double len2;
 
+    double improvement0  = 0.0;
+    double improvement1  = 0.0;
+    double improvement01 = 0.0;
+
     for(int i=0; i<3; i++)
     {
-        double x = ( l1.x*v1.v[i].x + t01.v[i].x) - l0.x*v0.v[i].x;
-        len2_nominal += x*x;
+        double x_nominal = (  l1.x*v1.v[i].x + t01.v[i].x) - l0.x*v0.v[i].x;
+        double x0        = (  l1.x*v1.v[i].x + t01.v[i].x) + l0.x*v0.v[i].x;
+        double x1        = ( -l1.x*v1.v[i].x + t01.v[i].x) - l0.x*v0.v[i].x;
+        double x01       = ( -l1.x*v1.v[i].x + t01.v[i].x) + l0.x*v0.v[i].x;
+
+        improvement0  += x0 *x0  - x_nominal*x_nominal;
+        improvement1  += x1 *x1  - x_nominal*x_nominal;
+        improvement01 += x01*x01 - x_nominal*x_nominal;
     }
 
-    len2 = 0.0;
-    for(int i=0; i<3; i++)
-    {
-        double x = ( l1.x*v1.v[i].x + t01.v[i].x) + l0.x*v0.v[i].x;
-        len2 += x*x;
-    }
-    if( len2 < len2_nominal) return false;
-
-    len2 = 0.0;
-    for(int i=0; i<3; i++)
-    {
-        double x = (-l1.x*v1.v[i].x + t01.v[i].x) + l0.x*v0.v[i].x;
-        len2 += x*x;
-    }
-    if( len2 < len2_nominal) return false;
-
-    len2 = 0.0;
-    for(int i=0; i<3; i++)
-    {
-        double x = (-l1.x*v1.v[i].x + t01.v[i].x) - l0.x*v0.v[i].x;
-        len2 += x*x;
-    }
-    if( len2 < len2_nominal) return false;
-
-    return true;
+    return
+      improvement0  > 0.0 &&
+      improvement1  > 0.0 &&
+      improvement01 > 0.0;
 }
 
 // The "Mid2" method in "Triangulation: Why Optimize?", Seong Hun Lee and Javier
