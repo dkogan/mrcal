@@ -55,6 +55,10 @@ struct val_withgrad_t
         y.x -= b;
         return y;
     }
+    val_withgrad_t<NGRAD> operator-() const
+    {
+        return (*this) * (-1);
+    }
     val_withgrad_t<NGRAD> operator*( const val_withgrad_t<NGRAD>& b ) const
     {
         val_withgrad_t<NGRAD> y;
