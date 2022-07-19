@@ -1235,6 +1235,10 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
 
                                            // input
                                            const PyArrayObject* observations_point_triangulated, // may be NULL
+                                           // used only if observations_point_triangulated != NULL
+                                           const mrcal_lensmodel_t* lensmodel,
+                                           const double* intrinsics,
+
                                            const PyArrayObject* indices_point_triangulated_camintrinsics_camextrinsics)
 {
     if(indices_point_triangulated_camintrinsics_camextrinsics == NULL)
@@ -1292,6 +1296,22 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
         return true;
     }
 
+    // Needed for the unproject() below
+    int                            Nintrinsics_state = 0;
+    mrcal_projection_precomputed_t precomputed;
+    if(lensmodel != NULL)
+    {
+        Nintrinsics_state = mrcal_lensmodel_num_params(lensmodel);
+        mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
+        if(!meta.has_gradients)
+        {
+            BARF("mrcal_unproject(lensmodel='%s') is not yet implemented: we need gradients",
+                 mrcal_lensmodel_name_unconfigured(lensmodel));
+            return -1;
+        }
+        _mrcal_precompute_lensmodel_data(&precomputed, lensmodel);
+    }
+
     for(int i=0; i<N; i++)
     {
         const int32_t* row = &indices_point_triangulated_camintrinsics_camextrinsics__data[3*i];
@@ -1305,8 +1325,21 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
                                                                          .extrinsics = icam_extrinsics};
         if(observations_point_triangulated__data != NULL)
         {
-            mrcal_point3_t* px = (mrcal_point3_t*)(&observations_point_triangulated__data[3*i]);
-            c_observations_point_triangulated[i].px = *px;
+            const mrcal_point2_t* px = (const mrcal_point2_t*)(&observations_point_triangulated__data[3*i]);
+
+            // For now the triangulated observations are local observation vectors
+            if(!_mrcal_unproject_internal( // out
+                                           &c_observations_point_triangulated[i].px,
+
+                                           // in
+                                           px, 1,
+                                           lensmodel,
+                                           &intrinsics[icam_intrinsics*Nintrinsics_state],
+                                           &precomputed))
+            {
+                BARF("mrcal_unproject() failed");
+                return -1;
+            }
         }
         else
             c_observations_point_triangulated[i].px = (mrcal_point3_t){};
@@ -1540,6 +1573,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
         mrcal_observation_point_triangulated_t c_observations_point_triangulated[Nobservations_point_triangulated];
         if( fill_c_observations_point_triangulated(c_observations_point_triangulated,
                                                    observations_point_triangulated,
+                                                   &mrcal_lensmodel, c_intrinsics,
                                                    indices_point_triangulated_camintrinsics_camextrinsics)
             < 0 )
         {
@@ -2644,7 +2678,7 @@ static PyObject* callback_measurement_index_points_triangulated(int i,
     int Nobservations_point_triangulated =
         N <= 0 ? 0 :
         fill_c_observations_point_triangulated(c_observations_point_triangulated,
-                                               NULL,
+                                               NULL, NULL, NULL,
                                                indices_point_triangulated_camintrinsics_camextrinsics);
     if(Nobservations_point_triangulated < 0)
     {
@@ -2737,7 +2771,7 @@ static PyObject* callback_num_measurements_points_triangulated(int i,
 
     int Nobservations_point_triangulated =
         fill_c_observations_point_triangulated(c_observations_point_triangulated,
-                                               NULL,
+                                               NULL, NULL, NULL,
                                                indices_point_triangulated_camintrinsics_camextrinsics);
     if(Nobservations_point_triangulated < 0)
     {
@@ -2789,7 +2823,7 @@ static PyObject* callback_measurement_index_regularization(int i,
     int Nobservations_point_triangulated =
         N <= 0 ? 0 :
         fill_c_observations_point_triangulated(c_observations_point_triangulated,
-                                               NULL,
+                                               NULL, NULL, NULL,
                                                indices_point_triangulated_camintrinsics_camextrinsics);
     if(Nobservations_point_triangulated < 0)
     {
@@ -2899,7 +2933,7 @@ static PyObject* callback_num_measurements(int i,
     {
         Nobservations_point_triangulated =
             fill_c_observations_point_triangulated(c_observations_point_triangulated,
-                                                   NULL,
+                                                   NULL, NULL, NULL,
                                                    indices_point_triangulated_camintrinsics_camextrinsics);
         if(Nobservations_point_triangulated < 0)
         {
@@ -3050,7 +3084,7 @@ static PyObject* callback_decode_observation_indices_points_triangulated(int ime
 
     int Nobservations_point_triangulated =
         fill_c_observations_point_triangulated(c_observations_point_triangulated,
-                                               NULL,
+                                               NULL, NULL, NULL,
                                                indices_point_triangulated_camintrinsics_camextrinsics);
     if(Nobservations_point_triangulated < 0)
     {
