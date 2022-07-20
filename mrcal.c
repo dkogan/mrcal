@@ -463,7 +463,6 @@ int mrcal_measurement_index_points(int i_observation_point,
         i_observation_point * 3;
 }
 
-#warning "triangulated-solve: need outlier support"
 #warning "triangulated-solve: need known-range points, at-infinity points"
 
 int mrcal_num_measurements_points(int Nobservations_point)
@@ -544,7 +543,7 @@ int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have a
                                                                     -1 );
 }
 
-#warning "triangulated-solve: python-wrap this function?"
+#warning "triangulated-solve: python-wrap this function"
 bool mrcal_decode_observation_indices_points_triangulated(
     // output
     int* iobservation0,
@@ -4947,10 +4946,8 @@ void optimizer_callback(// input state
             assert(0);
         }
 
-
-#warning "First cut at triangulated features: mrcal_observation_point_t.px is the observation vector in camera coords. No outliers. No intrinsics"
-
-
+#warning "triangulated-solve: mrcal_observation_point_t.px is the observation vector in camera coords. No outliers. No intrinsics"
+#warning "triangulated-solve: make weights work somehow. This is tied to outliers"
 
         for(int i0 = 0;
             i0 < ctx->Nobservations_point_triangulated;
@@ -6215,6 +6212,7 @@ mrcal_optimize( // out
         for(int i=0; i<Nfeatures; i++)
             if(observations_board_pool[i].z < 0.0)
                 stats.Noutliers++;
+#warning "triangulated-solve: check for point outliers here as well"
 
         double outliernessScale = -1.0;
         do
@@ -6447,3 +6445,7 @@ bool mrcal_write_cameramodel_file(const char* filename,
         fclose(fp);
     return result;
 }
+
+
+#warning "triangulated-solve: fixed points should live in a separate array, instead of at the end of the 'points' array"
+#warning "triangulated-solve: do_apply_regularization should be finer grained"
