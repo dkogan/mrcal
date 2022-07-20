@@ -3895,8 +3895,8 @@ bool markOutliers(// output, input
                   int* Noutliers,
 
                   // input
-                  const mrcal_observation_board_t* observations_board,
                   int Nobservations_board,
+                  int Nobservations_point,
                   int calibration_object_width_n,
                   int calibration_object_height_n,
 
@@ -3908,7 +3908,7 @@ bool markOutliers(// output, input
     // with mean 0. This is reasonable because this function is applied after
     // running the optimization.
     //
-    // The threshold stdev is the stdev of my observed residuals
+    // The threshold is based on the stdev of my observed residuals
     //
     // I have two separate thresholds. If any measurements are worse than the
     // higher threshold, then I will need to reoptimize, so I throw out some
@@ -3919,55 +3919,50 @@ bool markOutliers(// output, input
     const double k1 = 5.0;
     *Noutliers = 0;
 
-    int i_pt,i_feature;
+    const double* x_boards =
+        &x_measurements[ mrcal_measurement_index_boards(0,
+                                                        Nobservations_board,
+                                                        Nobservations_point,
+                                                        calibration_object_width_n,
+                                                        calibration_object_height_n) ];
 
-
-#define LOOP_FEATURE_BEGIN()                                            \
-    i_feature = 0;                                                      \
-    for(int i_observation_board=0;                                      \
-        i_observation_board<Nobservations_board;                         \
-        i_observation_board++)                                          \
-    {                                                                   \
-        const mrcal_observation_board_t* observation = &observations_board[i_observation_board]; \
-        const int icam_intrinsics = observation->icam.intrinsics;     \
-        for(i_pt=0;                                                     \
-            i_pt < calibration_object_width_n*calibration_object_height_n; \
-            i_pt++, i_feature++)                                        \
-        {                                                               \
-            const mrcal_point3_t* pt_observed = &observations_board_pool[i_feature]; \
-            double* weight = &observations_board_pool[i_feature].z;
-
-
-#define LOOP_FEATURE_END() \
-    }}
-
+    const int Npoints_board =
+        Nobservations_board *
+        calibration_object_width_n *
+        calibration_object_height_n;
 
     int Ninliers = 0;
     double var = 0.0;
-    LOOP_FEATURE_BEGIN()
+
+    for(int i_pt_board = 0;
+        i_pt_board < Npoints_board;
+        i_pt_board++)
     {
+        double* weight = &observations_board_pool[i_pt_board].z;
         if(*weight <= 0.0)
         {
             (*Noutliers)++;
             continue;
         }
 
-        double dx = x_measurements[2*i_feature + 0];
-        double dy = x_measurements[2*i_feature + 1];
+        double dx = x_boards[2*i_pt_board + 0];
+        double dy = x_boards[2*i_pt_board + 1];
         var += dx*dx + dy*dy;
         Ninliers++;
     }
-    LOOP_FEATURE_END();
     var /= (double)(2*Ninliers);
 
     bool markedAny = false;
-    LOOP_FEATURE_BEGIN()
+    for(int i_pt_board = 0;
+        i_pt_board < Npoints_board;
+        i_pt_board++)
     {
+        double* weight = &observations_board_pool[i_pt_board].z;
         if(*weight <= 0.0)
           continue;
 
-        double dx = x_measurements[2*i_feature + 0];
-        double dy = x_measurements[2*i_feature + 1];
+        double dx = x_boards[2*i_pt_board + 0];
+        double dy = x_boards[2*i_pt_board + 1];
         // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
         // -> x^2 > k^2 var
         if(dx*dx > k1*k1*var ||
@@ -3977,14 +3972,13 @@ bool markOutliers(// output, input
             markedAny = true;
             (*Noutliers)++;
             // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean (assumed 0). Observed stdev: %f, limit: %f",
-            //     i_feature,
+            //     i_pt_board,
             //     dx/sqrt(var),
             //     dy/sqrt(var),
             //     sqrt(var),
             //     k1);
         }
     }
-    LOOP_FEATURE_END();
 
     if(!markedAny)
         return false;
@@ -3992,13 +3986,16 @@ bool markOutliers(// output, input
     // Some measurements were past the worse threshold, so I throw out a bit
     // extra to leave some margin so that the next re-optimization would be the
     // last. Hopefully
-    LOOP_FEATURE_BEGIN()
+    for(int i_pt_board = 0;
+        i_pt_board < Npoints_board;
+        i_pt_board++)
     {
+        double* weight = &observations_board_pool[i_pt_board].z;
         if(*weight < 0)
           continue;
 
-        double dx = x_measurements[2*i_feature + 0];
-        double dy = x_measurements[2*i_feature + 1];
+        double dx = x_boards[2*i_pt_board + 0];
+        double dy = x_boards[2*i_pt_board + 1];
         // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
         // -> x^2 > k^2 var
         if(dx*dx > k0*k0*var ||
@@ -4008,11 +4005,7 @@ bool markOutliers(// output, input
             (*Noutliers)++;
         }
     }
-    LOOP_FEATURE_END();
     return true;
-
-#undef LOOP_FEATURE_BEGIN
-#undef LOOP_FEATURE_END
 }
 
 typedef struct
@@ -6242,8 +6235,8 @@ mrcal_optimize( // out
         } while( problem_selections.do_apply_outlier_rejection &&
                  markOutliers(observations_board_pool,
                               &stats.Noutliers,
-                              observations_board,
                               Nobservations_board,
+                              Nobservations_point,
                               calibration_object_width_n,
                               calibration_object_height_n,
                               solver_context->beforeStep->x,
