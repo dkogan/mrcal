@@ -4054,7 +4054,6 @@ typedef struct
     int calibration_object_height_n;
 
     const int Nmeasurements, N_j_nonzero, Nintrinsics;
-    const char* reportFitMsg;
 } callback_context_t;
 
 static
@@ -4329,10 +4328,9 @@ void optimizer_callback(// input state
                 {
                     const double err = (q_hypothesis[i_pt].xy[i_xy] - qx_qy_w__observed->xyz[i_xy]) * weight;
 
-                    if( ctx->reportFitMsg )
+                    if(ctx->verbose)
                     {
-                        MSG("%s: obs/frame/cam_i/cam_e/dot: %d %d %d %d %d err: %g",
-                            ctx->reportFitMsg,
+                        MSG("obs/frame/cam_i/cam_e/dot: %d %d %d %d %d err: %g",
                             i_observation_board, iframe, icam_intrinsics, icam_extrinsics, i_pt, err);
                         continue;
                     }
@@ -4455,10 +4453,9 @@ void optimizer_callback(// input state
                 {
                     const double err = 0.0;
 
-                    if( ctx->reportFitMsg )
+                    if(ctx->verbose)
                     {
-                        MSG( "%s: obs/frame/cam_i/cam_e/dot: %d %d %d %d %d err: %g",
-                             ctx->reportFitMsg,
+                        MSG( "obs/frame/cam_i/cam_e/dot: %d %d %d %d %d err: %g",
                              i_observation_board, iframe, icam_intrinsics, icam_extrinsics, i_pt, err);
                         continue;
                     }
@@ -5635,24 +5632,18 @@ void optimizer_callback(// input state
         }
     }
 
-    // required to indicate the end of the jacobian matrix
-    if( !ctx->reportFitMsg )
+    if(Jt) Jrowptr[iMeasurement] = iJacobian;
+    if(iMeasurement != ctx->Nmeasurements)
     {
-        if(Jt) Jrowptr[iMeasurement] = iJacobian;
-        if(iMeasurement != ctx->Nmeasurements)
-        {
-            MSG("Assertion (iMeasurement == ctx->Nmeasurements) failed: (%d != %d)",
-                iMeasurement, ctx->Nmeasurements);
-            assert(0);
-        }
-        if(iJacobian    != ctx->N_j_nonzero  )
-        {
-            MSG("Assertion (iJacobian    == ctx->N_j_nonzero  ) failed: (%d != %d)",
-                iJacobian, ctx->N_j_nonzero);
-            assert(0);
-        }
-
-        // MSG_IF_VERBOSE("RMS: %g", sqrt(norm2_error / ((double)ctx>Nmeasurements / 2.0)));
+        MSG("Assertion (iMeasurement == ctx->Nmeasurements) failed: (%d != %d)",
+            iMeasurement, ctx->Nmeasurements);
+        assert(0);
+    }
+    if(iJacobian    != ctx->N_j_nonzero  )
+    {
+        MSG("Assertion (iJacobian    == ctx->N_j_nonzero  ) failed: (%d != %d)",
+            iJacobian, ctx->N_j_nonzero);
+        assert(0);
     }
 }
 
@@ -6101,15 +6092,6 @@ mrcal_optimize( // out
         for(int i=0; i<Nfeatures; i++)
             if(observations_board_pool[i].z < 0.0)
                 stats.Noutliers++;
-
-        if(verbose)
-        {
-            // WARNING: I will never hook these up. Get rid of reportFitMsg?
-            ctx.reportFitMsg = "Before";
-            //        optimizer_callback(packed_state, NULL, NULL, &ctx);
-        }
-        ctx.reportFitMsg = NULL;
-
 
         double outliernessScale = -1.0;
         do
