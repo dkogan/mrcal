@@ -4038,7 +4038,7 @@ typedef struct
     mrcal_projection_precomputed_t precomputed;
     const int* imagersizes; // Ncameras_intrinsics*2 of these
 
-    mrcal_problem_selections_t          problem_selections;
+    mrcal_problem_selections_t       problem_selections;
     const mrcal_problem_constants_t* problem_constants;
 
     double calibration_object_spacing;
