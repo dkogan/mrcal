@@ -1322,7 +1322,7 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
 
         c_observations_point_triangulated[i].last_in_set = false;
         c_observations_point_triangulated[i].icam = (mrcal_camera_index_t){.intrinsics = icam_intrinsics,
-                                                                         .extrinsics = icam_extrinsics};
+                                                                           .extrinsics = icam_extrinsics};
         if(observations_point_triangulated__data != NULL)
         {
             const mrcal_point2_t* px = (const mrcal_point2_t*)(&observations_point_triangulated__data[3*i]);
