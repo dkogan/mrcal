@@ -4961,328 +4961,451 @@ void optimizer_callback(// input state
             if(pt0->last_in_set)
                 continue;
 
-#warning "triangulated-solve: make weights work somehow"
-            // const mrcal_point3_t* qx_qy_w__observed0 = &pt0->px;
-            // double weight0 = qx_qy_w__observed0->z;
-            // if(weight0 <= 0.0)
-            // {
-            //     // Outlier
-            //    do stuff
-            // }
-
-
-            // For better code efficiency I compute the triangulation in the
-            // camera-1 coord system. This is because this code looks like
-            //
-            // for(point0)
-            // {
-            //   compute_stuff_for_point0;
-            //   for(point1)
-            //   {
-            //     compute_stuff_for_point1;
-            //     compute stuff based on products of point0 and point1;
-            //   }
-            // }
-            //
-            // Doing the triangulation in the frame of point1 allows me to do
-            // more stuff in the outer compute_stuff_for_point0 computation, and
-            // less in the inner compute_stuff_for_point1 computation
-
-            // I need t10. I'm looking at a composition Rt_10 = Rt_1r*Rt_r0 =
-            // (R_1r,t_1r)*(R_r0,t_r0) = (R_10, R_1r*t_r0 + t_1r) -> t_10 =
-            // R_1r*t_r0 + t_1r = transform(Rt_1r, t_r0)
-            //
-            // I don't actually have t_r0: I have t_0r, so I need to compute an
-            // inversion. y = R x + t -> x = Rinv y - Rinv t -> tinv = -Rinv t
-            // t_r0 = -R_r0 t_0r
-
-            const mrcal_point3_t* v0 = &pt0->px;
-
-            const mrcal_point3_t* t_r0;
-            mrcal_point3_t        _t_r0;
-            double                dnegt_r0__dr_0r[3][3];
-            double                dnegt_r0__dt_0r[3][3];
-
-            const mrcal_point3_t* v0_ref;
-            mrcal_point3_t        _v0_ref;
-            double                dv0_ref__dr_0r[3][3];
-
-            const int icam_extrinsics0 = pt0->icam.extrinsics;
-            if( icam_extrinsics0 >= 0 )
+            if(!pt0->outlier)
             {
-                const mrcal_pose_t* rt_0r = &camera_rt[icam_extrinsics0];
-                const double* r_0r = &rt_0r->r.xyz[0];
-                const double* t_0r = &rt_0r->t.xyz[0];
+                // For better code efficiency I compute the triangulation in the
+                // camera-1 coord system. This is because this code looks like
+                //
+                // for(point0)
+                // {
+                //   compute_stuff_for_point0;
+                //   for(point1)
+                //   {
+                //     compute_stuff_for_point1;
+                //     compute stuff based on products of point0 and point1;
+                //   }
+                // }
+                //
+                // Doing the triangulation in the frame of point1 allows me to do
+                // more stuff in the outer compute_stuff_for_point0 computation, and
+                // less in the inner compute_stuff_for_point1 computation
 
-                t_r0   = &_t_r0;
-                v0_ref = &_v0_ref;
+                // I need t10. I'm looking at a composition Rt_10 = Rt_1r*Rt_r0 =
+                // (R_1r,t_1r)*(R_r0,t_r0) = (R_10, R_1r*t_r0 + t_1r) -> t_10 =
+                // R_1r*t_r0 + t_1r = transform(Rt_1r, t_r0)
+                //
+                // I don't actually have t_r0: I have t_0r, so I need to compute an
+                // inversion. y = R x + t -> x = Rinv y - Rinv t -> tinv = -Rinv t
+                // t_r0 = -R_r0 t_0r
 
-                mrcal_rotate_point_r_inverted(_t_r0.xyz,
-                                              &dnegt_r0__dr_0r[0][0],
-                                              &dnegt_r0__dt_0r[0][0],
+                const mrcal_point3_t* v0 = &pt0->px;
 
-                                              r_0r, t_0r);
-                for(int i=0; i<3; i++)
-                    _t_r0.xyz[i] *= -1.;
+                const mrcal_point3_t* t_r0;
+                mrcal_point3_t        _t_r0;
+                double                dnegt_r0__dr_0r[3][3];
+                double                dnegt_r0__dt_0r[3][3];
 
-                mrcal_rotate_point_r_inverted(_v0_ref.xyz,
-                                              &dv0_ref__dr_0r[0][0],
-                                              NULL,
+                const mrcal_point3_t* v0_ref;
+                mrcal_point3_t        _v0_ref;
+                double                dv0_ref__dr_0r[3][3];
 
-                                              r_0r, v0->xyz);
-            }
-            else
-            {
-                t_r0   = NULL;
-                v0_ref = v0;
-            }
-
-
-            int i1 = i0+1;
-
-            while(true)
-            {
-                const mrcal_observation_point_triangulated_t* pt1 =
-                    &ctx->observations_point_triangulated[i1];
-
-                const mrcal_point3_t* v1 = &pt1->px;
-
-                const mrcal_point3_t* t_10;
-                mrcal_point3_t       _t_10;
-                const mrcal_point3_t* v0_cam1;
-                mrcal_point3_t        _v0_cam1;
-
-                double dt_10__drt_1r    [3][6];
-                double dt_10__dt_r0     [3][3];
-                double dv0_cam1__dr_1r  [3][3];
-                double dv0_cam1__dv0_ref[3][3];
-
-                const int icam_extrinsics1 = pt1->icam.extrinsics;
-                if( icam_extrinsics1 >= 0 )
+                const int icam_extrinsics0 = pt0->icam.extrinsics;
+                if( icam_extrinsics0 >= 0 )
                 {
-                    const mrcal_pose_t* rt_1r = &camera_rt[icam_extrinsics1];
+                    const mrcal_pose_t* rt_0r = &camera_rt[icam_extrinsics0];
+                    const double* r_0r = &rt_0r->r.xyz[0];
+                    const double* t_0r = &rt_0r->t.xyz[0];
 
-                    v0_cam1 = &_v0_cam1;
+                    t_r0   = &_t_r0;
+                    v0_ref = &_v0_ref;
+
+                    mrcal_rotate_point_r_inverted(_t_r0.xyz,
+                                                  &dnegt_r0__dr_0r[0][0],
+                                                  &dnegt_r0__dt_0r[0][0],
+
+                                                  r_0r, t_0r);
+                    for(int i=0; i<3; i++)
+                        _t_r0.xyz[i] *= -1.;
+
+                    mrcal_rotate_point_r_inverted(_v0_ref.xyz,
+                                                  &dv0_ref__dr_0r[0][0],
+                                                  NULL,
+
+                                                  r_0r, v0->xyz);
+                }
+                else
+                {
+                    t_r0   = NULL;
+                    v0_ref = v0;
+                }
 
 
-                    if( icam_extrinsics0 >= 0 )
+                int i1 = i0+1;
+
+                while(true)
+                {
+                    const mrcal_observation_point_triangulated_t* pt1 =
+                        &ctx->observations_point_triangulated[i1];
+
+                    if(!pt1->outlier)
                     {
-                        t_10 = &_t_10;
-                        mrcal_transform_point_rt( &_t_10.xyz[0],
-                                                  &dt_10__drt_1r[0][0],
-                                                  &dt_10__dt_r0 [0][0],
-                                                  &rt_1r->r.xyz[0], &t_r0->xyz[0] );
+                        const mrcal_point3_t* v1 = &pt1->px;
+
+                        const mrcal_point3_t* t_10;
+                        mrcal_point3_t       _t_10;
+                        const mrcal_point3_t* v0_cam1;
+                        mrcal_point3_t        _v0_cam1;
+
+                        double dt_10__drt_1r    [3][6];
+                        double dt_10__dt_r0     [3][3];
+                        double dv0_cam1__dr_1r  [3][3];
+                        double dv0_cam1__dv0_ref[3][3];
+
+                        const int icam_extrinsics1 = pt1->icam.extrinsics;
+                        if( icam_extrinsics1 >= 0 )
+                        {
+                            const mrcal_pose_t* rt_1r = &camera_rt[icam_extrinsics1];
+
+                            v0_cam1 = &_v0_cam1;
+
+
+                            if( icam_extrinsics0 >= 0 )
+                            {
+                                t_10 = &_t_10;
+                                mrcal_transform_point_rt( &_t_10.xyz[0],
+                                                          &dt_10__drt_1r[0][0],
+                                                          &dt_10__dt_r0 [0][0],
+                                                          &rt_1r->r.xyz[0], &t_r0->xyz[0] );
+                            }
+                            else
+                            {
+                                // t_r0 = 0 ->
+                                //
+                                // t_10 = R_1r*t_r0 + t_1r =
+                                //      = R_1r*0    + t_1r =
+                                //      = t_1r
+                                t_10 = &rt_1r->t;
+                            }
+
+                            mrcal_rotate_point_r( &_v0_cam1.xyz[0],
+                                                  &dv0_cam1__dr_1r  [0][0],
+                                                  &dv0_cam1__dv0_ref[0][0],
+                                                  &rt_1r->r.xyz[0], &v0_ref->xyz[0] );
+                        }
+                        else
+                        {
+                            // rt_1r = 0 ->
+                            //
+                            // t_10 = R_1r*t_r0 + t_1r =
+                            //      = t_r0
+                            t_10 = t_r0;
+                            // At most one camera can sit at the reference. So if I'm
+                            // here, I know that t_r0 != NULL and thus t_10 != NULL
+
+                            v0_cam1 = v0_ref;
+                        }
+
+                        mrcal_point3_t derr__dv0_cam1;
+                        mrcal_point3_t derr__dt_10;
+
+                        double err =
+                            _mrcal_triangulated_error(&derr__dv0_cam1, &derr__dt_10,
+                                                      v1, v0_cam1, t_10);
+
+
+                        x[iMeasurement] = err;
+                        norm2_error += err*err;
+
+                        if(Jt)
+                        {
+                            Jrowptr[iMeasurement] = iJacobian;
+
+                            // Now I propagate gradients. Dependency graph:
+                            //
+                            //   derr__dv0_cam1
+                            //     dv0_cam1__dr_1r
+                            //     dv0_cam1__dv0_ref
+                            //       dv0_ref__dr_0r
+                            //
+                            //   derr__dt_10
+                            //     dt_10__drt_1r
+                            //     dt_10__dt_r0
+                            //       dnegt_r0__dr_0r
+                            //       dnegt_r0__dt_0r
+                            //
+                            // So
+                            //
+                            //   derr/dr_0r =
+                            //     derr/dv0_cam1 dv0_cam1/dv0_ref dv0_ref/dr_0r +
+                            //     derr/dt_10    dt_10/dt_r0      dt_r0/dr_0r
+                            //
+                            //   derr/dt_0r =
+                            //     derr/dt_10    dt_10/dt_r0      dt_r0/dt_0r
+                            //
+                            //   derr/dr_1r =
+                            //     derr/dv0_cam1 dv0_cam1/dr_1r +
+                            //     derr/dt_10    dt_10/dr_1r
+                            //
+                            //   derr/dt_1r =
+                            //     derr/dt_10    dt_10/dt_1r
+                            if( icam_extrinsics0 >= 0 )
+                            {
+                                const int i_var_camera_rt0  =
+                                    mrcal_state_index_extrinsics(icam_extrinsics0,
+                                                                 ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                                 ctx->Nframes,
+                                                                 ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                                 ctx->problem_selections, &ctx->lensmodel);
+
+                                double* out;
+
+                                out = &Jval[iJacobian];
+                                double* derr__dt_r0;
+                                double _derr__dt_r0[3];
+
+                                if( icam_extrinsics1 >= 0 )
+                                {
+                                    derr__dt_r0 = _derr__dt_r0;
+                                    mul_vec3t_gen33(derr__dt_r0, derr__dt_10.xyz, &dt_10__dt_r0[0][0], 1, );
+
+                                    double temp[3];
+                                    mul_vec3t_gen33(temp, derr__dv0_cam1.xyz, &dv0_cam1__dv0_ref[0][0], 1, );
+                                    mul_vec3t_gen33(out,  temp,               &dv0_ref__dr_0r[0][0],    1, );
+                                }
+                                else
+                                {
+                                    // camera1 is at the reference, so I don't have
+                                    // dt_10__dt_r0 and dv0_cam1__dv0_ref explicitly
+                                    // stored.
+                                    //
+                                    // t_10    = t_r0   --> dt_10__dt_r0      = I
+                                    // v0_cam1 = v0_ref --> dv0_cam1__dv0_ref = I
+                                    derr__dt_r0 = derr__dt_10.xyz;
+                                    mul_vec3t_gen33(out,  derr__dv0_cam1.xyz, &dv0_ref__dr_0r[0][0],    1, );
+                                }
+
+
+                                mul_vec3t_gen33(out, derr__dt_r0, &dnegt_r0__dr_0r[0][0],  -1, _accum);
+
+                                SCALE_JACOBIAN_N( i_var_camera_rt0 + 0,
+                                                  SCALE_ROTATION_CAMERA,
+                                                  3 );
+
+
+                                out = &Jval[iJacobian];
+                                mul_vec3t_gen33(out, derr__dt_r0, &dnegt_r0__dt_0r[0][0], -1, );
+
+                                SCALE_JACOBIAN_N( i_var_camera_rt0 + 3,
+                                                  SCALE_TRANSLATION_CAMERA,
+                                                  3 );
+                            }
+                            if( icam_extrinsics1 >= 0 )
+                            {
+                                const int i_var_camera_rt1  =
+                                    mrcal_state_index_extrinsics(icam_extrinsics1,
+                                                                 ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                                 ctx->Nframes,
+                                                                 ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                                 ctx->problem_selections, &ctx->lensmodel);
+
+                                double* out;
+
+                                out = &Jval[iJacobian];
+
+                                //   derr/dr_1r =
+                                //     derr/dv0_cam1 dv0_cam1/dr_1r +
+                                //     derr/dt_10    dt_10/dr_1r
+                                //
+                                //   derr/dt_1r =
+                                //     derr/dt_10    dt_10/dt_1r
+                                mul_vec3t_gen33(out,
+                                                derr__dv0_cam1.xyz,
+                                                &dv0_cam1__dr_1r[0][0],
+                                                1,
+                                                );
+
+                                if( icam_extrinsics0 >= 0 )
+                                {
+                                    mul_genNM_genML_accum(out, 3,1,
+                                                          1,3,3,
+                                                          derr__dt_10.xyz, 3,1,
+                                                          &dt_10__drt_1r[0][0], 6, 1,
+                                                          1);
+                                    SCALE_JACOBIAN_N( i_var_camera_rt1 + 0,
+                                                      SCALE_ROTATION_CAMERA,
+                                                      3 );
+
+                                    out = &Jval[iJacobian];
+                                    mul_genNM_genML(out, 3,1,
+                                                    1,3,3,
+                                                    derr__dt_10.xyz, 3,1,
+                                                    &dt_10__drt_1r[0][3], 6, 1,
+                                                    1);
+
+                                    SCALE_JACOBIAN_N( i_var_camera_rt1 + 3,
+                                                      SCALE_TRANSLATION_CAMERA,
+                                                      3 );
+                                }
+                                else
+                                {
+                                    // camera0 is at the reference. dt_10__drt_1r is not
+                                    // given explicitly
+                                    //
+                                    // t_10 = t_1r ->
+                                    //   dt_10__dr_1r = 0
+                                    //   dt_10__dt_1r = I
+                                    // So
+                                    //
+                                    //   derr/dr_1r = derr/dv0_cam1 dv0_cam1/dr_1r
+                                    //   derr/dt_1r = derr/dt_10
+                                    SCALE_JACOBIAN_N( i_var_camera_rt1 + 0,
+                                                      SCALE_ROTATION_CAMERA,
+                                                      3 );
+
+                                    out = &Jval[iJacobian];
+
+                                    for(int i=0; i<3; i++)
+                                        out[i] = derr__dt_10.xyz[i];
+
+                                    SCALE_JACOBIAN_N( i_var_camera_rt1 + 3,
+                                                      SCALE_TRANSLATION_CAMERA,
+                                                      3 );
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Don't need the Jacobian. I just move iJacobian as needed
+                            if( icam_extrinsics0 >= 0 )
+                                iJacobian += 6;
+                            if( icam_extrinsics1 >= 0 )
+                                iJacobian += 6;
+                        }
                     }
                     else
                     {
-                        // t_r0 = 0 ->
-                        //
-                        // t_10 = R_1r*t_r0 + t_1r =
-                        //      = R_1r*0    + t_1r =
-                        //      = t_1r
-                        t_10 = &rt_1r->t;
-                    }
+                        // pt1 is an outlier
+                        const double err = 0.0;
 
-                    mrcal_rotate_point_r( &_v0_cam1.xyz[0],
-                                          &dv0_cam1__dr_1r  [0][0],
-                                          &dv0_cam1__dv0_ref[0][0],
-                                          &rt_1r->r.xyz[0], &v0_ref->xyz[0] );
-                }
-                else
-                {
-                    // rt_1r = 0 ->
-                    //
-                    // t_10 = R_1r*t_r0 + t_1r =
-                    //      = t_r0
-                    t_10 = t_r0;
-                    // At most one camera can sit at the reference. So if I'm
-                    // here, I know that t_r0 != NULL and thus t_10 != NULL
+                        const int icam_extrinsics1 = pt1->icam.extrinsics;
 
-                    v0_cam1 = v0_ref;
-                }
+                        x[iMeasurement] = err;
+                        norm2_error += err*err;
 
-                mrcal_point3_t derr__dv0_cam1;
-                mrcal_point3_t derr__dt_10;
-
-                double err =
-                    _mrcal_triangulated_error(&derr__dv0_cam1, &derr__dt_10,
-                                              v1, v0_cam1, t_10);
-
-
-                x[iMeasurement] = err;
-                norm2_error += err*err;
-
-                if(Jt)
-                {
-                    Jrowptr[iMeasurement] = iJacobian;
-
-                    // Now I propagate gradients. Dependency graph:
-                    //
-                    //   derr__dv0_cam1
-                    //     dv0_cam1__dr_1r
-                    //     dv0_cam1__dv0_ref
-                    //       dv0_ref__dr_0r
-                    //
-                    //   derr__dt_10
-                    //     dt_10__drt_1r
-                    //     dt_10__dt_r0
-                    //       dnegt_r0__dr_0r
-                    //       dnegt_r0__dt_0r
-                    //
-                    // So
-                    //
-                    //   derr/dr_0r =
-                    //     derr/dv0_cam1 dv0_cam1/dv0_ref dv0_ref/dr_0r +
-                    //     derr/dt_10    dt_10/dt_r0      dt_r0/dr_0r
-                    //
-                    //   derr/dt_0r =
-                    //     derr/dt_10    dt_10/dt_r0      dt_r0/dt_0r
-                    //
-                    //   derr/dr_1r =
-                    //     derr/dv0_cam1 dv0_cam1/dr_1r +
-                    //     derr/dt_10    dt_10/dr_1r
-                    //
-                    //   derr/dt_1r =
-                    //     derr/dt_10    dt_10/dt_1r
-                    if( icam_extrinsics0 >= 0 )
-                    {
-                        const int i_var_camera_rt0  =
-                            mrcal_state_index_extrinsics(icam_extrinsics0,
-                                                         ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
-                                                         ctx->Nframes,
-                                                         ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                                         ctx->problem_selections, &ctx->lensmodel);
-
-                        double* out;
-
-                        out = &Jval[iJacobian];
-                        double* derr__dt_r0;
-                        double _derr__dt_r0[3];
-
-                        if( icam_extrinsics1 >= 0 )
+                        if(Jt)
                         {
-                            derr__dt_r0 = _derr__dt_r0;
-                            mul_vec3t_gen33(derr__dt_r0, derr__dt_10.xyz, &dt_10__dt_r0[0][0], 1, );
+                            Jrowptr[iMeasurement] = iJacobian;
 
-                            double temp[3];
-                            mul_vec3t_gen33(temp, derr__dv0_cam1.xyz, &dv0_cam1__dv0_ref[0][0], 1, );
-                            mul_vec3t_gen33(out,  temp,               &dv0_ref__dr_0r[0][0],    1, );
+                            if( icam_extrinsics0 >= 0 )
+                            {
+                                const int i_var_camera_rt0  =
+                                    mrcal_state_index_extrinsics(icam_extrinsics0,
+                                                                 ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                                 ctx->Nframes,
+                                                                 ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                                 ctx->problem_selections, &ctx->lensmodel);
+
+                                STORE_JACOBIAN_N( i_var_camera_rt0 + 0,
+                                                  (double*)NULL, 0.0,
+                                                  3 );
+                                STORE_JACOBIAN_N( i_var_camera_rt0 + 3,
+                                                  (double*)NULL, 0.0,
+                                                  3 );
+                            }
+                            if( icam_extrinsics1 >= 0 )
+                            {
+                                const int i_var_camera_rt1  =
+                                    mrcal_state_index_extrinsics(icam_extrinsics1,
+                                                                 ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                                 ctx->Nframes,
+                                                                 ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                                 ctx->problem_selections, &ctx->lensmodel);
+                                STORE_JACOBIAN_N( i_var_camera_rt1 + 0,
+                                                  (double*)NULL, 0.0,
+                                                  3 );
+                                STORE_JACOBIAN_N( i_var_camera_rt1 + 3,
+                                                  (double*)NULL, 0.0,
+                                                  3 );
+                            }
                         }
                         else
                         {
-                            // camera1 is at the reference, so I don't have
-                            // dt_10__dt_r0 and dv0_cam1__dv0_ref explicitly
-                            // stored.
-                            //
-                            // t_10    = t_r0   --> dt_10__dt_r0      = I
-                            // v0_cam1 = v0_ref --> dv0_cam1__dv0_ref = I
-                            derr__dt_r0 = derr__dt_10.xyz;
-                            mul_vec3t_gen33(out,  derr__dv0_cam1.xyz, &dv0_ref__dr_0r[0][0],    1, );
+                            // Don't need the Jacobian. I just move iJacobian as needed
+                            if( icam_extrinsics0 >= 0 )
+                                iJacobian += 6;
+                            if( icam_extrinsics1 >= 0 )
+                                iJacobian += 6;
                         }
-
-
-                        mul_vec3t_gen33(out, derr__dt_r0, &dnegt_r0__dr_0r[0][0],  -1, _accum);
-
-                        SCALE_JACOBIAN_N( i_var_camera_rt0 + 0,
-                                          SCALE_ROTATION_CAMERA,
-                                          3 );
-
-
-                        out = &Jval[iJacobian];
-                        mul_vec3t_gen33(out, derr__dt_r0, &dnegt_r0__dt_0r[0][0], -1, );
-
-                        SCALE_JACOBIAN_N( i_var_camera_rt0 + 3,
-                                          SCALE_TRANSLATION_CAMERA,
-                                          3 );
                     }
-                    if( icam_extrinsics1 >= 0 )
+
+                    iMeasurement++;
+
+                    if(pt1->last_in_set)
+                        break;
+                    i1++;
+                }
+            }
+            else
+            {
+                // pt0 is an outlier. I loop through all the pairwise
+                // observations, but I ignore ALL of them
+                const double err = 0.0;
+
+                const int icam_extrinsics0 = pt0->icam.extrinsics;
+                int i1 = i0+1;
+
+                while(true)
+                {
+                    const mrcal_observation_point_triangulated_t* pt1 =
+                        &ctx->observations_point_triangulated[i1];
+
+                    const int icam_extrinsics1 = pt1->icam.extrinsics;
+
+                    x[iMeasurement] = err;
+                    norm2_error += err*err;
+
+                    if(Jt)
                     {
-                        const int i_var_camera_rt1  =
-                            mrcal_state_index_extrinsics(icam_extrinsics1,
-                                                         ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
-                                                         ctx->Nframes,
-                                                         ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                                         ctx->problem_selections, &ctx->lensmodel);
-
-                        double* out;
-
-                        out = &Jval[iJacobian];
-
-                        //   derr/dr_1r =
-                        //     derr/dv0_cam1 dv0_cam1/dr_1r +
-                        //     derr/dt_10    dt_10/dr_1r
-                        //
-                        //   derr/dt_1r =
-                        //     derr/dt_10    dt_10/dt_1r
-                        mul_vec3t_gen33(out,
-                                        derr__dv0_cam1.xyz,
-                                        &dv0_cam1__dr_1r[0][0],
-                                        1,
-                                        );
+                        Jrowptr[iMeasurement] = iJacobian;
 
                         if( icam_extrinsics0 >= 0 )
                         {
-                            mul_genNM_genML_accum(out, 3,1,
-                                                  1,3,3,
-                                                  derr__dt_10.xyz, 3,1,
-                                                  &dt_10__drt_1r[0][0], 6, 1,
-                                                  1);
-                            SCALE_JACOBIAN_N( i_var_camera_rt1 + 0,
-                                              SCALE_ROTATION_CAMERA,
+                            const int i_var_camera_rt0  =
+                                mrcal_state_index_extrinsics(icam_extrinsics0,
+                                                             ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                             ctx->Nframes,
+                                                             ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                             ctx->problem_selections, &ctx->lensmodel);
+
+                            STORE_JACOBIAN_N( i_var_camera_rt0 + 0,
+                                              (double*)NULL, 0.0,
                                               3 );
-
-                            out = &Jval[iJacobian];
-                            mul_genNM_genML(out, 3,1,
-                                            1,3,3,
-                                            derr__dt_10.xyz, 3,1,
-                                            &dt_10__drt_1r[0][3], 6, 1,
-                                            1);
-
-                            SCALE_JACOBIAN_N( i_var_camera_rt1 + 3,
-                                              SCALE_TRANSLATION_CAMERA,
+                            STORE_JACOBIAN_N( i_var_camera_rt0 + 3,
+                                              (double*)NULL, 0.0,
                                               3 );
                         }
-                        else
+                        if( icam_extrinsics1 >= 0 )
                         {
-                            // camera0 is at the reference. dt_10__drt_1r is not
-                            // given explicitly
-                            //
-                            // t_10 = t_1r ->
-                            //   dt_10__dr_1r = 0
-                            //   dt_10__dt_1r = I
-                            // So
-                            //
-                            //   derr/dr_1r = derr/dv0_cam1 dv0_cam1/dr_1r
-                            //   derr/dt_1r = derr/dt_10
-                            SCALE_JACOBIAN_N( i_var_camera_rt1 + 0,
-                                              SCALE_ROTATION_CAMERA,
+                            const int i_var_camera_rt1  =
+                                mrcal_state_index_extrinsics(icam_extrinsics1,
+                                                             ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                             ctx->Nframes,
+                                                             ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                             ctx->problem_selections, &ctx->lensmodel);
+
+                            STORE_JACOBIAN_N( i_var_camera_rt1 + 0,
+                                              (double*)NULL, 0.0,
                                               3 );
-
-                            out = &Jval[iJacobian];
-
-                            for(int i=0; i<3; i++)
-                                out[i] = derr__dt_10.xyz[i];
-
-                            SCALE_JACOBIAN_N( i_var_camera_rt1 + 3,
-                                              SCALE_TRANSLATION_CAMERA,
+                            STORE_JACOBIAN_N( i_var_camera_rt1 + 3,
+                                              (double*)NULL, 0.0,
                                               3 );
                         }
                     }
-                }
-                else
-                {
-                    // Don't need the Jacobian. I just move iJacobian as needed
-                    if( icam_extrinsics0 >= 0 )
-                        iJacobian += 6;
-                    if( icam_extrinsics1 >= 0 )
-                        iJacobian += 6;
-                }
+                    else
+                    {
+                        // Don't need the Jacobian. I just move iJacobian as needed
+                        if( icam_extrinsics0 >= 0 )
+                            iJacobian += 6;
+                        if( icam_extrinsics1 >= 0 )
+                            iJacobian += 6;
+                    }
 
-                iMeasurement++;
+                    iMeasurement++;
 
-                if(pt1->last_in_set)
-                    break;
-                i1++;
+                    if(pt1->last_in_set)
+                        break;
+                    i1++;
+                }
             }
         }
     }
