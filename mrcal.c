@@ -6441,4 +6441,3 @@ bool mrcal_write_cameramodel_file(const char* filename,
 
 
 #warning "triangulated-solve: fixed points should live in a separate array, instead of at the end of the 'points' array"
-#warning "triangulated-solve: do_apply_regularization should be finer grained"
