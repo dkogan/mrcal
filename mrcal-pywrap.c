@@ -1321,18 +1321,19 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
         const int32_t icam_extrinsics = row[2];
 
         c_observations_point_triangulated[i].last_in_set = false;
+        c_observations_point_triangulated[i].outlier     = false;
         c_observations_point_triangulated[i].icam = (mrcal_camera_index_t){.intrinsics = icam_intrinsics,
                                                                            .extrinsics = icam_extrinsics};
         if(observations_point_triangulated__data != NULL)
         {
-            const mrcal_point2_t* px = (const mrcal_point2_t*)(&observations_point_triangulated__data[3*i]);
+            const mrcal_point3_t* px_weight = (const mrcal_point3_t*)(&observations_point_triangulated__data[3*i]);
 
             // For now the triangulated observations are local observation vectors
             if(!_mrcal_unproject_internal( // out
                                            &c_observations_point_triangulated[i].px,
 
                                            // in
-                                           px, 1,
+                                           (const mrcal_point2_t*)(px_weight->xyz), 1,
                                            lensmodel,
                                            &intrinsics[icam_intrinsics*Nintrinsics_state],
                                            &precomputed))
@@ -1340,6 +1341,8 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
                 BARF("mrcal_unproject() failed");
                 return -1;
             }
+
+            c_observations_point_triangulated[i].outlier = (px_weight->z <= 0.0);
         }
         else
             c_observations_point_triangulated[i].px = (mrcal_point3_t){};

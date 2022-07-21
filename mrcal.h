@@ -553,9 +553,11 @@ typedef struct
 #warning "triangulated-solve: do I really need this? I cannot look at the next observation to determine when this one is done?"
     bool                 last_in_set : 1;
 
+#warning "triangulated-solve: this is temporary. Should be a weight in observations_point_pool like all the other observations"
+    bool                 outlier     : 1;
+
     // Observed pixel coordinates. This works just like elements of
-    // observations_board_pool and mrcal_observation_point_t
-#warning "triangulated-solve: same as above. These should all be stored contiguously in observation_point_triangulated_pool"
+    // observations_board_pool and observations_point_pool
     mrcal_point3_t px;
 } mrcal_observation_point_triangulated_t;
 

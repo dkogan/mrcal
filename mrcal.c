@@ -3892,11 +3892,17 @@ bool markOutliers(// output, input
                   mrcal_point3_t* observations_board_pool,
 
                   // output
-                  int* Noutliers,
+                  int* Nmeasurements_outliers,
 
                   // input
                   int Nobservations_board,
                   int Nobservations_point,
+
+#warning "triangulated-solve: not const because this is where the outlier bit lives currently"
+                  mrcal_observation_point_triangulated_t* observations_point_triangulated,
+                  int Nobservations_point_triangulated,
+
+                  mrcal_problem_selections_t problem_selections,
                   int calibration_object_width_n,
                   int calibration_object_height_n,
 
@@ -3915,51 +3921,119 @@ bool markOutliers(// output, input
     // extra points: all points worse than the lower threshold. This serves to
     // reduce the required re-optimizations
 
+    // Currently I consider only
+    //
+    // - chessboard observations
+    // - triangulated points
+    //
+    // These are the only measurement types that have a way to specify outliers
+
     const double k0 = 4.0;
     const double k1 = 5.0;
-    *Noutliers = 0;
+    *Nmeasurements_outliers = 0;
+
+    const int imeasurement_board0 =
+        mrcal_measurement_index_boards(0,
+                                       Nobservations_board,
+                                       Nobservations_point,
+                                       calibration_object_width_n,
+                                       calibration_object_height_n);
+    const int Nmeasurements_board =
+        mrcal_num_measurements_boards(Nobservations_board,
+                                      calibration_object_width_n,
+                                      calibration_object_height_n);
+
+    const int imeasurement_point_triangulated0 =
+        mrcal_measurement_index_points_triangulated(0,
+                                                    Nobservations_board,
+                                                    Nobservations_point,
+
+                                                    observations_point_triangulated,
+                                                    Nobservations_point_triangulated,
+
+                                                    calibration_object_width_n,
+                                                    calibration_object_height_n);
+
+
+    // just in case
+    if(Nobservations_point_triangulated <= 0)
+    {
+        Nobservations_point_triangulated = 0;
+        observations_point_triangulated = NULL;
+    }
 
     const double* x_boards =
-        &x_measurements[ mrcal_measurement_index_boards(0,
-                                                        Nobservations_board,
-                                                        Nobservations_point,
-                                                        calibration_object_width_n,
-                                                        calibration_object_height_n) ];
+        &x_measurements[ imeasurement_board0 ];
+    const double* x_point_triangulated =
+        &x_measurements[ imeasurement_point_triangulated0 ];
 
     const int Npoints_board =
-        Nobservations_board *
-        calibration_object_width_n *
-        calibration_object_height_n;
+        Nmeasurements_board / 2.;
 
-    int Ninliers = 0;
+    int Nmeasurements_inliers = 0;
+
+    /////////////// Compute the variance to use as a threshold
     double var = 0.0;
-
     for(int i_pt_board = 0;
         i_pt_board < Npoints_board;
         i_pt_board++)
     {
         double* weight = &observations_board_pool[i_pt_board].z;
         if(*weight <= 0.0)
+            (*Nmeasurements_outliers) += 2;
+        else
         {
-            (*Noutliers)++;
-            continue;
+            double dx = x_boards[2*i_pt_board + 0];
+            double dy = x_boards[2*i_pt_board + 1];
+            var += dx*dx + dy*dy;
+            Nmeasurements_inliers += 2;
         }
-
-        double dx = x_boards[2*i_pt_board + 0];
-        double dy = x_boards[2*i_pt_board + 1];
-        var += dx*dx + dy*dy;
-        Ninliers++;
     }
-    var /= (double)(2*Ninliers);
+    for(int i0                              = 0,
+            imeasurement_point_triangulated = 0;
+        i0 < Nobservations_point_triangulated;
+        i0++)
+    {
+        const mrcal_observation_point_triangulated_t* pt0 =
+            &observations_point_triangulated[i0];
+        if(pt0->last_in_set)
+            continue;
 
-    bool markedAny = false;
+        int i1 = i0+1;
+        while(true)
+        {
+            const mrcal_observation_point_triangulated_t* pt1 =
+                &observations_point_triangulated[i1];
+
+            if(pt0->outlier || pt1->outlier)
+            {
+                (*Nmeasurements_outliers)++;
+            }
+            else
+            {
+                var +=
+                    x_point_triangulated[imeasurement_point_triangulated] *
+                    x_point_triangulated[imeasurement_point_triangulated];
+                Nmeasurements_inliers++;
+            }
+
+            imeasurement_point_triangulated++;
+            if(pt1->last_in_set)
+                break;
+            i1++;
+        }
+    }
+    var /= (double)Nmeasurements_inliers;
+
+    ///////////// Any new outliers found?
+    bool foundNewOutliers = false;
     for(int i_pt_board = 0;
         i_pt_board < Npoints_board;
         i_pt_board++)
     {
         double* weight = &observations_board_pool[i_pt_board].z;
         if(*weight <= 0.0)
-          continue;
+            continue;
 
         double dx = x_boards[2*i_pt_board + 0];
         double dy = x_boards[2*i_pt_board + 1];
@@ -3968,24 +4042,52 @@ bool markOutliers(// output, input
         if(dx*dx > k1*k1*var ||
            dy*dy > k1*k1*var )
         {
-            *weight   = -1.0;
-            markedAny = true;
-            (*Noutliers)++;
-            // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean (assumed 0). Observed stdev: %f, limit: %f",
-            //     i_pt_board,
-            //     dx/sqrt(var),
-            //     dy/sqrt(var),
-            //     sqrt(var),
-            //     k1);
+            foundNewOutliers = true;
+            break;
         }
     }
+    for(int i0                              = 0,
+            imeasurement_point_triangulated = 0;
+        i0 < Nobservations_point_triangulated && !foundNewOutliers;
+        i0++)
+    {
+        const mrcal_observation_point_triangulated_t* pt0 =
+            &observations_point_triangulated[i0];
+        if(pt0->last_in_set)
+            continue;
 
-    if(!markedAny)
+        int i1 = i0+1;
+
+        while(true)
+        {
+            const mrcal_observation_point_triangulated_t* pt1 =
+                &observations_point_triangulated[i1];
+
+            if(!pt0->outlier && !pt1->outlier)
+            {
+                double dx = x_point_triangulated[imeasurement_point_triangulated];
+
+                // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
+                // -> x^2 > k^2 var
+                if(dx*dx > k1*k1*var )
+                {
+                    foundNewOutliers = true;
+                    break;
+                }
+            }
+
+            imeasurement_point_triangulated++;
+            if(pt1->last_in_set)
+                break;
+            i1++;
+        }
+    }
+    if(!foundNewOutliers)
         return false;
 
-    // Some measurements were past the worse threshold, so I throw out a bit
-    // extra to leave some margin so that the next re-optimization would be the
-    // last. Hopefully
+    // I have new outliers: some measurements were found past the threshold. I
+    // throw out a bit extra to leave some margin so that the next
+    // re-optimization would hopefully be the last.
     for(int i_pt_board = 0;
         i_pt_board < Npoints_board;
         i_pt_board++)
@@ -4002,9 +4104,56 @@ bool markOutliers(// output, input
            dy*dy > k0*k0*var )
         {
             *weight *= -1.0;
-            (*Noutliers)++;
+            (*Nmeasurements_outliers) += 2;
         }
     }
+    for(int i0                              = 0,
+            imeasurement_point_triangulated = 0;
+        i0 < Nobservations_point_triangulated;
+        i0++)
+    {
+        mrcal_observation_point_triangulated_t* pt0 =
+            &observations_point_triangulated[i0];
+        if(pt0->last_in_set)
+            continue;
+
+        int i1 = i0+1;
+
+        while(true)
+        {
+            mrcal_observation_point_triangulated_t* pt1 =
+                &observations_point_triangulated[i1];
+
+            if(!pt0->outlier && !pt1->outlier)
+            {
+                double dx = x_point_triangulated[imeasurement_point_triangulated];
+
+                // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
+                // -> x^2 > k^2 var
+                if(dx*dx > k0*k0*var )
+                {
+                    // Outlier. I don't know which observations was the broken
+                    // one, so I mark them both
+                    pt0->outlier = true;
+                    pt1->outlier = true;
+
+#warning "triangulated-solve: outlier rejection reports bogus Nmeasurements_outliers"
+                    (*Nmeasurements_outliers)++;
+
+#warning "triangulated-solve: outliers not returned to the caller yet, so I simply print them out here"
+                    MSG("New outliers found: measurement %d observation (%d,%d)",
+                        imeasurement_point_triangulated0 + imeasurement_point_triangulated,
+                        i0, i1);
+                }
+            }
+
+            imeasurement_point_triangulated++;
+            if(pt1->last_in_set)
+                break;
+            i1++;
+        }
+    }
+
     return true;
 }
 
@@ -6237,6 +6386,10 @@ mrcal_optimize( // out
                               &stats.Noutliers,
                               Nobservations_board,
                               Nobservations_point,
+#warning "triangulated-solve: not const for now. this will become const once the outlier bit moves to the point_triangulated pool"
+                              (mrcal_observation_point_triangulated_t*)observations_point_triangulated,
+                              Nobservations_point_triangulated,
+                              problem_selections,
                               calibration_object_width_n,
                               calibration_object_height_n,
                               solver_context->beforeStep->x,
