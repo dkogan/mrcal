@@ -558,7 +558,24 @@ def solve(indices_point_camintrinsics_camextrinsics,
               do_apply_regularization_unity_cam01 = True,
               verbose                             = True)
 
+    filename = '/tmp/geometry-seed.gp'
+    mrcal.show_geometry( nps.glue(mrcal.identity_rt(),
+                                  optimization_inputs['extrinsics_rt_fromref'],
+                                  axis = -2),
+                         cameranames = np.arange(Nimages),
+                         hardcopy    = filename)
+    print(f"Wrote '{filename}'")
+
     stats = mrcal.optimize(**optimization_inputs)
+
+    filename = '/tmp/geometry-solve.gp'
+    mrcal.show_geometry( nps.glue(mrcal.identity_rt(),
+                                  optimization_inputs['extrinsics_rt_fromref'],
+                                  axis = -2),
+                         cameranames = np.arange(Nimages),
+                         hardcopy    = filename)
+    print(f"Wrote '{filename}'")
+
     x = stats['x']
     return x, optimization_inputs
 
