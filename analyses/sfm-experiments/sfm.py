@@ -615,8 +615,46 @@ def show_solution(optimization_inputs):
                 hardcopy  = '/tmp/tst.gp',
                 cbmax     = 0.1)
 
-        with open("/tmp/points.xyz", 'wb') as f:
-            np.savetxt(f, p0[index_good_triangulation])
+        with open("/tmp/points.ply", 'wb') as f:
+            filename = l[0]
+            image = cv2.imread(filename)
+
+            i = (q0[index_good_triangulation] + 0.5).astype(int)
+            pixels = image[i[:,1], i[:,0]]
+
+            # At this point pixels.shape is (N,) or (N,3) depending on whether
+            # the image is monochrome or not
+            if len(pixels.shape) == 1:
+                # Grayscale
+                points = nps.glue(p0[index_good_triangulation],
+                                  nps.transpose(pixels),
+                                  nps.transpose(pixels),
+                                  nps.transpose(pixels),
+                                  axis = -1)
+            else:
+                # Color. Each row of pixels is (b,g,r)
+                points = nps.glue(p0[index_good_triangulation],
+                                  nps.transpose(pixels[:,2]),
+                                  nps.transpose(pixels[:,1]),
+                                  nps.transpose(pixels[:,0]),
+                                  axis = -1)
+
+            header = r'''ply
+format ascii 1.0
+element vertex 6016
+property float x
+property float y
+property float z
+property uchar red
+property uchar green
+property uchar blue
+element face 0
+property list uchar int vertex_indices
+end_header'''
+            np.savetxt(f, points,
+                       fmt      = ('%.1f','%.1f','%.1f','%d','%d','%d'),
+                       comments = '',
+                       header   = header)
 
 
 
