@@ -563,7 +563,8 @@ def solve(indices_point_camintrinsics_camextrinsics,
                                   optimization_inputs['extrinsics_rt_fromref'],
                                   axis = -2),
                          cameranames = np.arange(Nimages),
-                         hardcopy    = filename)
+                         hardcopy    = filename,
+                         title       = 'seed')
     print(f"Wrote '{filename}'")
 
     stats = mrcal.optimize(**optimization_inputs)
@@ -573,7 +574,8 @@ def solve(indices_point_camintrinsics_camextrinsics,
                                   optimization_inputs['extrinsics_rt_fromref'],
                                   axis = -2),
                          cameranames = np.arange(Nimages),
-                         hardcopy    = filename)
+                         hardcopy    = filename,
+                         title       = 'solve')
     print(f"Wrote '{filename}'")
 
     x = stats['x']
