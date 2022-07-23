@@ -615,6 +615,9 @@ def show_solution(optimization_inputs):
                 hardcopy  = '/tmp/tst.gp',
                 cbmax     = 0.1)
 
+        with open("/tmp/points.xyz", 'wb') as f:
+            np.savetxt(f, p0[index_good_triangulation])
+
 
 
 
