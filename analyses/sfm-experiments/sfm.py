@@ -155,11 +155,6 @@ WEIRD. But I guess that's what they did...
         i0 -= 1
         i1 -= 1
 
-        if Nimages is not None and \
-           (i0 >= Nimages or \
-            i1 >= Nimages):
-            return (i0,i1,None,None)
-
         # shape (Ncorrespondences, 2)
         # feature indices
         f01 = np.frombuffer(data, dtype=np.uint32).reshape(rows,cols)
@@ -275,7 +270,11 @@ WEIRD. But I guess that's what they did...
         # q has shape (Npoints, Nimages=2, Nxy=2)
         # f01 has shape (Npoints, Nimages=2)
         i0,i1,f01,q = get_correspondences_from_one_image_pair(row)
-        if q is None: continue
+
+        if Nimages is not None and \
+           (i0 >= Nimages or \
+            i1 >= Nimages):
+            continue
 
         # shape (Npoints,)
         ipt = look_up_point_index(i0,i1,f01)
@@ -486,9 +485,10 @@ def get_observation_pair(i0, i1,
     return q0,q1
 
 def solve(indices_point_camintrinsics_camextrinsics,
-          observations):
+          observations,
+          Nimages):
 
-    print("ASSUMING 2 cameras")
+    # hard-coded known at-infinity point seen in the first two cameras
     q0_infinity = np.array((1853,1037), dtype=float)
     q1_infinity = np.array((1920,1039), dtype=float)
     observations_fixed = nps.glue( q0_infinity,
@@ -507,20 +507,33 @@ def solve(indices_point_camintrinsics_camextrinsics,
                                    np.ones((2,1), dtype=np.int32),
                                    axis = -1)
 
-    print("ASSUMING 2 cameras")
-    i0 = -1
-    i1 = 0
+    # i0 is indexed from -1: it's a camextrinsics index
+    #
+    # This is a relative array:
+    # [ rt10 ]
+    # [ rt21 ]
+    # [ rt32 ]
+    # [ .... ]
+    rt_cam_camprev = \
+        np.array([seed_rt10_pair( *get_observation_pair(i0, i0+1,
+                                                        indices_point_camintrinsics_camextrinsics,
+                                                        observations) ) \
+                  for i0 in range(-1,Nimages-2)])
 
-    # i0, i1 are indexed from -1: these are the camextrinsics indices
-    q0,q1 = get_observation_pair(i0, i1,
-                                 indices_point_camintrinsics_camextrinsics,
-                                 observations)
-
-    rt10 = seed_rt10_pair(q0, q1)
+    # Make an absolute extrinsics array:
+    # [ rt10 ]
+    # [ rt20 ]
+    # [ rt30 ]
+    # [ .... ]
+    rt_cam_ref = np.zeros(rt_cam_camprev.shape, dtype=float)
+    rt_cam_ref[0] = rt_cam_camprev[0]
+    for i in range(1,len(rt_cam_camprev)):
+        rt_cam_ref[i] = mrcal.compose_rt( rt_cam_camprev[i],
+                                          rt_cam_ref[i-1] )
 
     optimization_inputs = \
         dict( intrinsics            = nps.atleast_dims(model.intrinsics()[1], -2),
-              extrinsics_rt_fromref = nps.atleast_dims(rt10, -2),
+              extrinsics_rt_fromref = nps.atleast_dims(rt_cam_ref, -2),
 
               observations_point_triangulated                        = observations,
               indices_point_triangulated_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
@@ -549,77 +562,11 @@ def solve(indices_point_camintrinsics_camextrinsics,
     x = stats['x']
     return x, optimization_inputs
 
-def show_solution(optimization_inputs):
-    if 0:
-        # discrete points
-        gp.plot( (image0_decimated / 255. * np.max(r),
-                  dict( _with     = 'image', \
-                        tuplesize = 3 )),
-                 (q[:,0,0]/decimation,
-                  q[:,0,1]/decimation,
-                  r,
-                  dict( _with     = 'points pt 7 ps 2 palette',
-                        tuplesize = 3)),
-                 _set = ('xrange noextend',
-                         'yrange noextend reverse'),
-                 square=1,
-                 wait = 1)
+def show_solution(optimization_inputs, Nimages):
 
-    if 0:
-        p = optimization_inputs['points']
-        r = nps.mag(p)
-        # p[ r>100] *= 0
-        mrcal.show_geometry(optimization_inputs['extrinsics_rt_fromref'],
-                            # points      = p,
-                            cameranames = np.arange(2),
-                            axis_scale  = 0.1,
-                            _set        = 'view 180,90,2.8',
-                            hardcopy    = '/tmp/geometry.gp')
-
-    # triangulated points
-    if 1:
-        q0, q1 = \
-            get_observation_pair(-1, 0,
-                                 optimization_inputs['indices_point_triangulated_camintrinsics_camextrinsics'],
-                                 optimization_inputs['observations_point_triangulated'])
-        rt10 = optimization_inputs['extrinsics_rt_fromref'][0]
-
-        v0 = mrcal.unproject(q0, *model.intrinsics())
-        v1 = mrcal.unproject(q1, *model.intrinsics())
-
-        p0 = \
-            mrcal.triangulate_leecivera_mid2(v0, v1,
-                                             v_are_local = True,
-                                             Rt01        = mrcal.invert_Rt(mrcal.Rt_from_rt(rt10)))
-
-        # gp.plot(p0,
-        #         tuplesize = -3,
-        #         _3d       = 1,
-        #         square    = 1,
-        #         _with     = 'dots')
-
-        r = nps.mag(p0)
-        index_good_triangulation = r > 0
-
-        q0_r_recip = nps.glue(q0[index_good_triangulation],
-                              nps.transpose(1./r[index_good_triangulation]),
-                              axis = -1)
-
-        gp.plot(q0_r_recip,
-                tuplesize = -3,
-                _with     = 'points pt 7 palette',
-                square    = 1,
-                _xrange   = (0,W),
-                _yrange   = (H,0),
-                rgbimage  = l[0],
-                hardcopy  = '/tmp/tst.gp',
-                cbmax     = 0.1)
-
-        with open("/tmp/points2.ply", 'wb') as f:
-
-            f.write(rb'''ply
+    ply_header = rb'''ply
 format binary_little_endian 1.0
-element vertex 6016
+element vertex NNNNNNN
 property float x
 property float y
 property float z
@@ -628,17 +575,79 @@ property uchar green
 property uchar blue
 property uchar alpha
 end_header
-''')
+'''
+
+    Npoints_pointcloud = 0
+
+    filename_point_cloud = "/tmp/points.ply"
+    with open(filename_point_cloud, 'wb') as f:
+
+        f.write(ply_header)
+
+        # Here I only look at consecutive image pairs, even though the
+        # optimization looked at ALL the pairs
+        for i0 in range(-1, Nimages-2):
+            i1 = i0+1
+
+            q0, q1 = \
+                get_observation_pair(i0, i1,
+                                     optimization_inputs['indices_point_triangulated_camintrinsics_camextrinsics'],
+                                     optimization_inputs['observations_point_triangulated'])
+
+            if i0 < 0:
+                rt_0r = mrcal.identity_rt()
+                rt_01 = mrcal.invert_rt(optimization_inputs['extrinsics_rt_fromref'][i1])
+            else:
+                rt_0r = optimization_inputs['extrinsics_rt_fromref'][i0]
+                rt_1r = optimization_inputs['extrinsics_rt_fromref'][i1]
+
+                rt_01 = mrcal.compose_rt( rt_0r,
+                                          mrcal.invert_rt(rt_1r) )
+
+            v0 = mrcal.unproject(q0, *model.intrinsics())
+            v1 = mrcal.unproject(q1, *model.intrinsics())
+
+            plocal0 = \
+                mrcal.triangulate_leecivera_mid2(v0, v1,
+                                                 v_are_local = True,
+                                                 Rt01        = mrcal.Rt_from_rt(rt_01))
+
+            r = nps.mag(plocal0)
+            index_good_triangulation = r > 0
+
+            q0_r_recip = nps.glue(q0[index_good_triangulation],
+                                  nps.transpose(1./r[index_good_triangulation]),
+                                  axis = -1)
+
+            filename_overlaid_points = f'/tmp/overlaid-points-{i0+1}.pdf'
+            gp.plot(q0_r_recip,
+                    tuplesize = -3,
+                    _with     = 'points pt 7 ps 0.5 palette',
+                    square    = 1,
+                    _xrange   = (0,W),
+                    _yrange   = (H,0),
+                    rgbimage  = image_filename[i0+1],
+                    hardcopy  = filename_overlaid_points,
+                    cbmax     = 0.1)
+            print(f"Wrote '{filename_overlaid_points}'")
+
+
+            ######### point cloud
+            #### THIS IS WRONG: I report a separate point in each consecutive
+            #### triangulation, so if I tracked a feature over N frames, instead
+            #### of reporting one point for that feature, I'll report N-1 of
+            #### them
 
             # I'm including the alpha byte to align each row to 16 bytes.
             # Otherwise I have unaligned 32-bit floats. I don't know for a fact
             # that this breaks anything, but it feels like it would maybe.
-            binary_ply = np.empty( (np.count_nonzero(index_good_triangulation),),
+            N = np.count_nonzero(index_good_triangulation)
+            binary_ply = np.empty( (N,),
                                    dtype = np.dtype([ ('xyz',np.float32,3), ('rgba', np.uint8, 4) ]))
-            binary_ply['xyz'] = p0[index_good_triangulation]
+            binary_ply['xyz'] = mrcal.transform_point_rt(mrcal.invert_rt(rt_0r),
+                                                         plocal0[index_good_triangulation])
 
-            filename = l[0]
-            image = cv2.imread(filename)
+            image = cv2.imread(image_filename[i0+1])
             if not (len(image.shape) == 3 and image.shape[-1] == 3):
                 raise Exception("I only support color RGB images. If you need it, YOU implement the grayscale ones")
 
@@ -652,13 +661,35 @@ end_header
 
             binary_ply.tofile(f)
 
+            Npoints_pointcloud += N
+
+
+    # I wrote the point cloud file with an unknown number of points. Now that I
+    # have the count, I go back, and fill it in.
+    import mmap
+    with open(filename_point_cloud, 'r+b') as f:
+        m = mmap.mmap(f.fileno(), 0)
+
+        i_placeholder_start = ply_header.find(b'NNN')
+        placeholder_width   = ply_header[i_placeholder_start:].find(b'\n')
+        i_placeholder_end   = i_placeholder_start + placeholder_width
+
+        m[i_placeholder_start:i_placeholder_end] = \
+            '{:{width}d}'.format(Npoints_pointcloud, width=placeholder_width).encode()
+
+        m.close()
+
+    print(f"Wrote '{filename_point_cloud}'")
+
+def write_model(filename, model):
+    print(f"Writing '{filename}'")
+    model.write(filename)
 
 
 
 
 
-
-directory                = "/home/dima/data/xxxxx/delta/*.jpg"
+image_directory          = "/home/dima/data/xxxxx/delta/*.jpg"
 outdir                   = "/tmp"
 decimation               = 20
 decimation_extra_plot    = 5
@@ -674,57 +705,57 @@ feature_finder = cv2.ORB_create()
 matcher        = cv2.BFMatcher(cv2.NORM_HAMMING,
                                crossCheck = True)
 
-l = sorted(glob.glob(directory))
+image_filename = sorted(glob.glob(image_directory))
 
-image0,image0_decimated = imread(l[0], decimation)
-
-i_image=0
+image0,image0_decimated = imread(image_filename[0], decimation)
 
 
-print("ERROR: DEFINE Nimages")
-Nimages = 2
 
 
-for f in l[1:Nimages]:
 
-    # q.shape = (Npoints, Nimages=2, Nxy=2)
-    if 0:
-        image1,image1_decimated = imread(f, decimation)
-        q = feature_matching__opencv(image0_decimated, image1_decimated)
-        show_matched_features(image0_decimated, image1_decimated, q)
-    else:
-        indices_point_camintrinsics_camextrinsics, \
-        observations = \
-            feature_matching__colmap(colmap_database_filename,
-                                     Nimages)
 
-    x,optimization_inputs = solve(indices_point_camintrinsics_camextrinsics,
-                                  observations)
+Nimages = 3
 
-    rt10 = optimization_inputs['extrinsics_rt_fromref'][0]
 
-    model0 = mrcal.cameramodel(model)
-    model0.extrinsics_rt_fromref(np.zeros((6,), dtype=float))
+# q.shape = (Npoints, Nimages=2, Nxy=2)
+if 0:
+    image1,image1_decimated = imread(f, decimation)
+    q = feature_matching__opencv(image0_decimated, image1_decimated)
+    show_matched_features(image0_decimated, image1_decimated, q)
+else:
+    indices_point_camintrinsics_camextrinsics, \
+    observations = \
+        feature_matching__colmap(colmap_database_filename,
+                                 Nimages)
+
+x,optimization_inputs = solve(indices_point_camintrinsics_camextrinsics,
+                              observations,
+                              Nimages)
+
+model0 = mrcal.cameramodel(model)
+model0.extrinsics_rt_fromref(np.zeros((6,), dtype=float))
+write_model("/tmp/xxxxx-cam0.cameramodel", model0)
+
+for i in range(1,Nimages):
+    rt_cam_ref = optimization_inputs['extrinsics_rt_fromref'][i-1]
 
     model1 = mrcal.cameramodel(model)
-    model1.extrinsics_rt_fromref(rt10)
+    model1.extrinsics_rt_fromref(rt_cam_ref)
 
-    model0.write("/tmp/xxxxx-cam0.cameramodel")
-    model1.write("/tmp/xxxxx-cam1.cameramodel")
+    write_model(f"/tmp/xxxxx-cam{i}.cameramodel", model1)
 
-    show_solution(optimization_inputs)
+show_solution(optimization_inputs, Nimages)
 
-    import IPython
-    IPython.embed()
-    sys.exit()
-
+import IPython
+IPython.embed()
+sys.exit()
 
 
 
-    try:
-        image0_decimated = image1_decimated
-    except:
-        # if I'm looking at cached features, I never read any actual images
-        pass
 
-    i_image += 1
+try:
+    image0_decimated = image1_decimated
+except:
+    # if I'm looking at cached features, I never read any actual images
+    pass
+
