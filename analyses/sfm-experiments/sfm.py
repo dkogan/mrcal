@@ -615,32 +615,10 @@ def show_solution(optimization_inputs):
                 hardcopy  = '/tmp/tst.gp',
                 cbmax     = 0.1)
 
-        with open("/tmp/points.ply", 'wb') as f:
-            filename = l[0]
-            image = cv2.imread(filename)
+        with open("/tmp/points2.ply", 'wb') as f:
 
-            i = (q0[index_good_triangulation] + 0.5).astype(int)
-            pixels = image[i[:,1], i[:,0]]
-
-            # At this point pixels.shape is (N,) or (N,3) depending on whether
-            # the image is monochrome or not
-            if len(pixels.shape) == 1:
-                # Grayscale
-                points = nps.glue(p0[index_good_triangulation],
-                                  nps.transpose(pixels),
-                                  nps.transpose(pixels),
-                                  nps.transpose(pixels),
-                                  axis = -1)
-            else:
-                # Color. Each row of pixels is (b,g,r)
-                points = nps.glue(p0[index_good_triangulation],
-                                  nps.transpose(pixels[:,2]),
-                                  nps.transpose(pixels[:,1]),
-                                  nps.transpose(pixels[:,0]),
-                                  axis = -1)
-
-            header = r'''ply
-format ascii 1.0
+            f.write(rb'''ply
+format binary_little_endian 1.0
 element vertex 6016
 property float x
 property float y
@@ -648,13 +626,33 @@ property float z
 property uchar red
 property uchar green
 property uchar blue
-element face 0
-property list uchar int vertex_indices
-end_header'''
-            np.savetxt(f, points,
-                       fmt      = ('%.1f','%.1f','%.1f','%d','%d','%d'),
-                       comments = '',
-                       header   = header)
+property uchar alpha
+end_header
+''')
+
+            # I'm including the alpha byte to align each row to 16 bytes.
+            # Otherwise I have unaligned 32-bit floats. I don't know for a fact
+            # that this breaks anything, but it feels like it would maybe.
+            binary_ply = np.empty( (np.count_nonzero(index_good_triangulation),),
+                                   dtype = np.dtype([ ('xyz',np.float32,3), ('rgba', np.uint8, 4) ]))
+            binary_ply['xyz'] = p0[index_good_triangulation]
+
+            filename = l[0]
+            image = cv2.imread(filename)
+            if not (len(image.shape) == 3 and image.shape[-1] == 3):
+                raise Exception("I only support color RGB images. If you need it, YOU implement the grayscale ones")
+
+            i = (q0[index_good_triangulation] + 0.5).astype(int)
+            bgr = image[i[:,1], i[:,0]]
+
+            binary_ply['rgba'][:,0] = bgr[:,2]
+            binary_ply['rgba'][:,1] = bgr[:,1]
+            binary_ply['rgba'][:,2] = bgr[:,0]
+            binary_ply['rgba'][:,3] = 255
+
+            binary_ply.tofile(f)
+
+
 
 
 
