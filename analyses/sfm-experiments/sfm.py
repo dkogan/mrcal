@@ -60,6 +60,66 @@ def match_looks_valid(q, match, flow):
         match.distance < 30 and \
         flow_err_sq    < 2*2
 
+def decompose_essential_matrix(E):
+    '''Returns an R,t defined by an essential matrix
+
+E = R * skew_symmetric(t) = R * T
+    
+I know that cross(t,t) = T * t = 0, so I can get t as an eigenvector of E
+corresponding to an eigenvalue of 0. If I have T then I need to solve E = R * T.
+This is the procrustes problem that I can solve with
+mrcal.align_procrustes_vectors_R01()
+
+    '''
+    l,t = np.linalg.eig(E)
+    i = np.argmin(np.abs(l))
+    if np.abs(l[i]) > 1e-10:
+        raise Exception("E doesn't have a 0 eigenvalue")
+    if nps.norm2(t[:,i].imag) > 1e-10:
+        raise Exception("null eigenvector of E has non-0 imaginary components")
+    t = t[:,i].real
+
+    # The "true" t is k*t for some unknown constant k
+    # And the "true" T is k*T for some unknown constant k
+    T = mrcal.skew_symmetric(t)
+
+    # E = k*R*T -> EtE = k^2 TtT
+    ksq = nps.matmult(nps.transpose(E),E) / nps.matmult(nps.transpose(T),T)
+
+    mean_ksq = np.mean(ksq)
+
+    if nps.norm2( ksq.ravel() - mean_ksq ) > 1e-10:
+        raise Exception("t doesn't have a consistent scale")
+
+    k = np.sqrt(mean_ksq)
+    t *= k
+    T *= k
+
+    # I now have t and T with the right scale, BUT STILL WITH AN UNKNOWN SIGN. I
+    # report both versions
+    Rt = np.empty((2,4,3), dtype=float)
+    
+    Rt[0,:3,:] = \
+        mrcal.align_procrustes_vectors_R01(nps.transpose(E),
+                                           nps.transpose(T))
+    Rt[0,3,:] = t
+    if nps.norm2((nps.matmult(Rt[0,:3,:],T) - E).ravel()) > 1e-10:
+        raise Exception("Non-fitting rotation")
+
+    t *= -1.
+    T *= -1.
+
+    Rt[1,:3,:] = \
+        mrcal.align_procrustes_vectors_R01(nps.transpose(E),
+                                           nps.transpose(T))
+    Rt[1,3,:] = t
+    if nps.norm2((nps.matmult(Rt[1,:3,:],T) - E).ravel()) > 1e-10:
+        raise Exception("Non-fitting rotation")
+
+    return Rt
+
+
+
 def seed_rt10_pair(q0, q1):
     lensmodel,intrinsics_data = model.intrinsics()
     if not re.match("LENSMODEL_(OPENCV|PINHOLE)", lensmodel):
