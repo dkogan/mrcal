@@ -1265,24 +1265,6 @@ observations remaining after outliers and other cameras are thrown out
     return residuals[idx, ...]
 
 
-def _skew_symmetric(v, out=None):
-    r'''Return the skew-symmetric matrix used in a cross product
-
-Let M = _skew_symmetric(a). Then cross(a,b) = M b
-'''
-    if out is None:
-        out = np.zeros(v.shape + (3,), dtype=float)
-
-    # strange-looking implementation to make broadcasting work
-    out[...,0,1] = -v[...,2]
-    out[...,0,2] =  v[...,1]
-    out[...,1,0] =  v[...,2]
-    out[...,1,2] = -v[...,0]
-    out[...,2,0] = -v[...,1]
-    out[...,2,1] =  v[...,0]
-    return out
-
-
 def _compose_r(r0, r1,
               assume_r0_tiny = False,
               get_gradients  = False):
@@ -1465,6 +1447,6 @@ And I differentiate:
     else:                        Bs = B
     dr01_dr0 = \
         Bs/np.tan(Bs) * np.eye(3) + \
-        -mrcal.utils._skew_symmetric(r1) / 2 - \
+        -mrcal.skew_symmetric(r1) / 2 - \
         nps.outer(r1,r1) / (4*Bs) * (1/np.tan(Bs) - 1/Bs)
     return r01, dr01_dr0

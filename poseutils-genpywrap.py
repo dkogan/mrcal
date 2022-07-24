@@ -884,4 +884,66 @@ We return an array of rotation matrices. Each broadcasted slice has shape (3,3)
 '''}
 )
 
+m.function( "skew_symmetric",
+            r"""Return the skew-symmetric matrix used in a cross product
+
+SYNOPSIS
+
+    a = np.array(( 1.,  5.,  7.))
+    b = np.array(( 3., -.1, -10.))
+
+    A = mrcal.skew_symmetric(a)
+
+    print( nps.inner(A,b) )
+    ===>
+    [-49.3  31.  -15.1]
+
+    print( np.cross(a,b) )
+    ===>
+    [-49.3  31.  -15.1]
+
+A vector cross-product a x b can be represented as a matrix multiplication A*b
+where A is a skew-symmetric matrix based on the vector a. This function computes
+this matrix A from the vector a.
+
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- a: array of shape (3,)
+
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If 'out'
+  is given, we return the 'out' that was passed in. This is the standard
+  behavior provided by numpysane_pywrap.
+
+RETURNED VALUE
+
+We return the matrix A in a (3,3) numpy array
+
+    """,
+            args_input       = ('a',),
+            prototype_input  = ((3,),),
+            prototype_output = (3,3),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    // diagonal is zero
+    item__output(0,0) = 0.0;
+    item__output(1,1) = 0.0;
+    item__output(2,2) = 0.0;
+
+    item__output(0,1) = -item__a(2);
+    item__output(0,2) =  item__a(1);
+    item__output(1,0) =  item__a(2);
+    item__output(1,2) = -item__a(0);
+    item__output(2,0) = -item__a(1);
+    item__output(2,1) =  item__a(0);
+
+    return true;
+'''}
+)
+
 m.write()
