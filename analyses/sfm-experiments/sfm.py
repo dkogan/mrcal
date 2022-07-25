@@ -699,6 +699,17 @@ end_header
         dtype = np.dtype([ ('xyz',np.float32,3), ('rgba', np.uint8, 4) ])
         f.write(ply_header)
 
+        # Camera positions in red
+        rt_cam_ref = nps.glue( np.zeros((6,)),
+                               optimization_inputs['extrinsics_rt_fromref'],
+                               axis = -2 )
+        t_ref_cam = mrcal.invert_rt(rt_cam_ref)[:,3:]
+        write_points(f,
+                     t_ref_cam,
+                     np.zeros((Nimages,3),  dtype=np.uint8) +
+                     np.array((0,0,255),    dtype=np.uint8))
+        Npoints_pointcloud += Nimages
+
         # Here I only look at consecutive image pairs, even though the
         # optimization looked at ALL the pairs
         for i0 in range(-1, Nimages-2):
