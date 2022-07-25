@@ -98,7 +98,7 @@ mrcal.align_procrustes_vectors_R01()
     # I now have t and T with the right scale, BUT STILL WITH AN UNKNOWN SIGN. I
     # report both versions
     Rt = np.empty((2,4,3), dtype=float)
-    
+
     Rt[0,:3,:] = \
         mrcal.align_procrustes_vectors_R01(nps.transpose(E),
                                            nps.transpose(T))
