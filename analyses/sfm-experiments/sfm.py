@@ -639,11 +639,48 @@ def solve(indices_point_camintrinsics_camextrinsics,
     x = stats['x']
     return x, optimization_inputs
 
-def show_solution(optimization_inputs, Nimages):
+def show_solution(optimization_inputs, Nimages, binary = True):
 
-    ply_header = rb'''ply
-format binary_little_endian 1.0
-element vertex NNNNNNN
+    def write_points(f, p, bgr):
+
+        N = len(p)
+
+        if binary:
+            binary_ply = np.empty( (N,),
+                                   dtype = dtype)
+            binary_ply['xyz'] = p
+
+            binary_ply['rgba'][:,0] = bgr[:,2]
+            binary_ply['rgba'][:,1] = bgr[:,1]
+            binary_ply['rgba'][:,2] = bgr[:,0]
+            binary_ply['rgba'][:,3] = 255
+
+            binary_ply.tofile(f)
+        else:
+            fp = nps.glue(p,
+                          bgr[:,(2,)],
+                          bgr[:,(1,)],
+                          bgr[:,(0,)],
+                          255*np.ones((N,1)),
+                          axis = -1)
+            np.savetxt(f,
+                       fp,
+                       fmt      = ('%.1f','%.1f','%.1f','%d','%d','%d','%d'),
+                       comments = '',
+                       header   = '')
+        return N
+
+
+
+    if binary:
+        ply_type = 'binary_little_endian'
+    else:
+        ply_type = 'ascii'
+
+    placeholder = 'NNNNNNN'
+    ply_header = f'''ply
+format {ply_type} 1.0
+element vertex {placeholder}
 property float x
 property float y
 property float z
@@ -652,13 +689,14 @@ property uchar green
 property uchar blue
 property uchar alpha
 end_header
-'''
+'''.encode()
 
     Npoints_pointcloud = 0
 
     filename_point_cloud = "/tmp/points.ply"
     with open(filename_point_cloud, 'wb') as f:
 
+        dtype = np.dtype([ ('xyz',np.float32,3), ('rgba', np.uint8, 4) ])
         f.write(ply_header)
 
         # Here I only look at consecutive image pairs, even though the
@@ -708,6 +746,9 @@ end_header
                     cbmax     = 0.1)
             print(f"Wrote '{filename_overlaid_points}'")
 
+            image = cv2.imread(image_filename[i0+1])
+            if not (len(image.shape) == 3 and image.shape[-1] == 3):
+                raise Exception("I only support color RGB images. If you need it, YOU implement the grayscale ones")
 
             ######### point cloud
             #### THIS IS WRONG: I report a separate point in each consecutive
@@ -718,27 +759,13 @@ end_header
             # I'm including the alpha byte to align each row to 16 bytes.
             # Otherwise I have unaligned 32-bit floats. I don't know for a fact
             # that this breaks anything, but it feels like it would maybe.
-            N = np.count_nonzero(index_good_triangulation)
-            binary_ply = np.empty( (N,),
-                                   dtype = np.dtype([ ('xyz',np.float32,3), ('rgba', np.uint8, 4) ]))
-            binary_ply['xyz'] = mrcal.transform_point_rt(mrcal.invert_rt(rt_0r),
-                                                         plocal0[index_good_triangulation])
-
-            image = cv2.imread(image_filename[i0+1])
-            if not (len(image.shape) == 3 and image.shape[-1] == 3):
-                raise Exception("I only support color RGB images. If you need it, YOU implement the grayscale ones")
-
             i = (q0[index_good_triangulation] + 0.5).astype(int)
             bgr = image[i[:,1], i[:,0]]
-
-            binary_ply['rgba'][:,0] = bgr[:,2]
-            binary_ply['rgba'][:,1] = bgr[:,1]
-            binary_ply['rgba'][:,2] = bgr[:,0]
-            binary_ply['rgba'][:,3] = 255
-
-            binary_ply.tofile(f)
-
-            Npoints_pointcloud += N
+            Npoints_pointcloud += \
+                write_points(f,
+                             mrcal.transform_point_rt(mrcal.invert_rt(rt_0r),
+                                                      plocal0[index_good_triangulation]),
+                             bgr)
 
 
     # I wrote the point cloud file with an unknown number of points. Now that I
@@ -747,7 +774,7 @@ end_header
     with open(filename_point_cloud, 'r+b') as f:
         m = mmap.mmap(f.fileno(), 0)
 
-        i_placeholder_start = ply_header.find(b'NNN')
+        i_placeholder_start = ply_header.find(placeholder.encode())
         placeholder_width   = ply_header[i_placeholder_start:].find(b'\n')
         i_placeholder_end   = i_placeholder_start + placeholder_width
 
