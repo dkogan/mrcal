@@ -64,7 +64,7 @@ def decompose_essential_matrix(E):
     '''Returns an R,t defined by an essential matrix
 
 E = R * skew_symmetric(t) = R * T
-    
+
 I know that cross(t,t) = T * t = 0, so I can get t as an eigenvector of E
 corresponding to an eigenvalue of 0. If I have T then I need to solve E = R * T.
 This is the procrustes problem that I can solve with
@@ -117,8 +117,6 @@ mrcal.align_procrustes_vectors_R01()
         raise Exception("Non-fitting rotation")
 
     return Rt
-
-
 
 def seed_rt10_pair(q0, q1):
     lensmodel,intrinsics_data = model.intrinsics()
