@@ -324,6 +324,14 @@ def parse_args():
                         one of ('SGBM','HH','HH4','SGBM_3WAY'). If omitted, the
                         OpenCV default (SGBM) is used''')
 
+    parser.add_argument('--write-point-cloud',
+                        action='store_true',
+                        help='''If given, we write out the point cloud as a .ply
+                        file. Each point is reported in the reference coordinate
+                        system, colored with the nearest-neighbor color of the
+                        camera0 image. This is disabled by default because this
+                        is potentially a very large file''')
+
     parser.add_argument('models',
                         type=str,
                         nargs = 2,
@@ -532,6 +540,109 @@ def write_output(func, filename):
     print(f"Writing '{filename}'")
     func(filename)
 
+def write_ply_points(filename,
+                     # if write_bgr: this is ((points,bgr), (points,bgr), ...)
+                     # else:         this is (points, points, ...)
+                     points_bgr_all,
+                     *,
+                     binary    = True,
+                     write_bgr = False):
+
+    if binary:
+        ply_type = 'binary_little_endian'
+    else:
+        ply_type = 'ascii'
+
+    placeholder = 'NNNNNNN'
+
+    # I'm including the alpha byte to align each row to 16 bytes.
+    # Otherwise I have unaligned 32-bit floats. I don't know for a fact
+    # that this breaks anything, but it feels like it would maybe.
+    header_bgr = '''property uchar red
+property uchar green
+property uchar blue
+property uchar alpha
+''' if write_bgr else ''
+
+    ply_header = f'''ply
+format {ply_type} 1.0
+element vertex {placeholder}
+property float x
+property float y
+property float z
+{header_bgr}end_header
+'''.encode()
+
+    if write_bgr:
+        dtype = np.dtype([ ('xyz',np.float32,3), ('rgba', np.uint8, 4) ])
+    else:
+        dtype = np.dtype([ ('xyz',np.float32,3), ])
+
+
+    def write_chunk(f, points_bgr):
+
+        if write_bgr:
+            N = len(points_bgr[0])
+        else:
+            N = len(points_bgr)
+
+        if binary:
+            binary_ply = np.empty( (N,),
+                                   dtype = dtype)
+            if write_bgr:
+                binary_ply['xyz']       = points_bgr[0].astype(np.float32)
+                binary_ply['rgba'][:,0] = points_bgr[1][:,2]
+                binary_ply['rgba'][:,1] = points_bgr[1][:,1]
+                binary_ply['rgba'][:,2] = points_bgr[1][:,0]
+                binary_ply['rgba'][:,3] = 255
+            else:
+                binary_ply['xyz'] = points_bgr.astype(np.float32)
+
+            binary_ply.tofile(f)
+        else:
+            if write_bgr:
+                pbgr = nps.glue(points_bgr[0],
+                                points_bgr[1][:,(2,)],
+                                points_bgr[1][:,(1,)],
+                                points_bgr[1][:,(0,)],
+                                255*np.ones((N,1)),
+                                axis = -1)
+                np.savetxt(f,
+                           pbgr,
+                           fmt      = ('%.1f','%.1f','%.1f','%d','%d','%d','%d'),
+                           comments = '',
+                           header   = '')
+            else:
+                np.savetxt(f, points_bgr,
+                           fmt      = ('%.1f','%.1f','%.1f',),
+                           comments = '',
+                           header   = '')
+
+        return N
+
+
+    with open(filename, 'wb') as f:
+        f.write(ply_header)
+
+        N = 0
+        for points_bgr in points_bgr_all:
+            N += write_chunk(f, points_bgr)
+
+    # I wrote the point cloud file with an unknown number of points. Now that I
+    # have the count, I go back, and fill it in.
+    import mmap
+    with open(filename, 'r+b') as f:
+        m = mmap.mmap(f.fileno(), 0)
+
+        i_placeholder_start = ply_header.find(placeholder.encode())
+        placeholder_width   = ply_header[i_placeholder_start:].find(b'\n')
+        i_placeholder_end   = i_placeholder_start + placeholder_width
+
+        m[i_placeholder_start:i_placeholder_end] = \
+            '{:{width}d}'.format(N, width=placeholder_width).encode()
+
+        m.close()
+
 if not args.already_rectified:
     rectification_maps = mrcal.rectification_maps(models, models_rectified)
 
@@ -696,46 +807,76 @@ for i in range(Nimages):
 
 
         # generate and output the point cloud, in the cam0 coord system
-        H,W = _range.shape
+        if args.write_point_cloud:
+            H,W = _range.shape
 
-        # shape (H,W,2)
-        q_rectified = np.ascontiguousarray( \
-               nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
-                                             np.arange(H,dtype=float))),
-                       0, -1))
+            # shape (H,W,2)
+            q_rectified = np.ascontiguousarray( \
+                   nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
+                                                 np.arange(H,dtype=float))),
+                           0, -1))
 
-        # Point cloud in rectified camera-0 coordinates
-        # shape (H,W,3)
-        p_rect0 = \
-            mrcal.unproject(q_rectified, *models_rectified[0].intrinsics()) * \
-            nps.dummy(_range, axis=-1)
+            # Point cloud in rectified camera-0 coordinates
+            # shape (H,W,3)
+            p_rect0 = \
+                mrcal.unproject(q_rectified, *models_rectified[0].intrinsics()) * \
+                nps.dummy(_range, axis=-1)
 
-        Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
-                                          models_rectified[0].extrinsics_Rt_toref() )
+            Rt_ref_rect0 = models_rectified[0].extrinsics_Rt_toref()
+            Rt_cam0_ref  = models          [0].extrinsics_Rt_fromref()
 
-        # Point cloud in camera-0 coordinates
-        # shape (H,W,3)
-        p_cam0 = mrcal.transform_point_Rt(Rt_cam0_rect0, p_rect0)
+            # Point cloud in camera-0 coordinates
+            # shape (H,W,3)
+            p_ref = mrcal.transform_point_Rt(Rt_ref_rect0, p_rect0)
 
-        # shape (N,3)
-        p_cam0 = nps.clump(p_cam0, n=2)
+            # shape (N,3)
+            p_ref = nps.clump(p_ref, n=2)
 
-        range_clumped = _range.ravel()
+            range_clumped = _range.ravel()
 
-        # Throw out invalid points (nan or inf or <=0 range) are at 0
-        p_cam0 = p_cam0[ np.isfinite(range_clumped) * range_clumped > 0 ]
+            # Throw out invalid points (nan or inf or <=0 range) are at 0
+            p_ref = p_ref[ np.isfinite(range_clumped) * range_clumped > 0 ]
 
-        q_cam0 = mrcal.project(p_cam0, *models[0].intrinsics())
-        qcam0_pcam0 = nps.glue( q_cam0, p_cam0, axis=-1 )
+            # I set each point color to the nearest-pixel color in the original
+            # image. I only report those points that are in-bounds (they SHOULD
+            # be, but I make sure)
+            q_cam0 = mrcal.project(mrcal.transform_point_Rt(Rt_cam0_ref, p_ref),
+                                   *models[0].intrinsics())
 
-        def write_point_cloud(filename):
-            with open(filename, "w") as f:
-                np.savetxt(f, qcam0_pcam0,
-                           comments='',
-                           fmt='%.2f',
-                           header="## Everything is in camera-0 coordinates\n# qx qy x y z")
-        write_output(write_point_cloud,
-                     'points-cam0.vnl')
+            H,W = images[0].shape
+
+            q_cam0_integer = (q_cam0 + 0.5).astype(int)
+            i = \
+                (q_cam0_integer[:,0] >= 0) * \
+                (q_cam0_integer[:,1] >= 0) * \
+                (q_cam0_integer[:,0] <  W) * \
+                (q_cam0_integer[:,1] <  H)
+            p_ref          = p_ref[i]
+            q_cam0_integer = q_cam0_integer[i]
+
+            image0 = images[0]
+            if len(image0.shape) == 2 and args.force_grayscale:
+                # I have a grayscale image, but the user asked for it for the
+                # purposes of stereo. I reload without asking for grayscale. If
+                # the image was a color one, that would be useful here.
+                image0 = cv2.imread(image_filenames[0])
+                if image0 is None:
+                    raise Exception(f"Couldn't re-read '{image_filenames[0]}' for the point cloud output")
+            if len(image0.shape) == 2:
+                # Still grayscale. I use the grayscale pixels
+                intensityT = nps.transpose(image0[q_cam0_integer[:,1], q_cam0_integer[:,0]])
+                bgr = \
+                    nps.glue( intensityT, intensityT, intensityT,
+                              axis = -1)
+            else:
+                # color
+                bgr = image0[q_cam0_integer[:,1], q_cam0_integer[:,0]]
+
+            write_output(lambda filename: write_ply_points(filename,
+                                                           ((p_ref,bgr),),
+                                                           binary    = True,
+                                                           write_bgr = True),
+                         image_filenames_base[1] + '-points.ply')
 
         sys.exit(0)
 
