@@ -876,7 +876,7 @@ for i in range(Nimages):
                                                            ((p_ref,bgr),),
                                                            binary    = True,
                                                            write_bgr = True),
-                         image_filenames_base[1] + '-points.ply')
+                         image_filenames_base[0] + '-points.ply')
 
         sys.exit(0)
 
