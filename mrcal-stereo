@@ -652,7 +652,8 @@ for i in range(Nimages):
                                   **kwargs)
         disparity = stereo.compute(*images_rectified)
         disparity_colored = mrcal.apply_color_map(disparity,
-                                                  0, disp_max*disparity_scale)
+                                                  disp_min*disparity_scale,
+                                                  disp_max*disparity_scale)
 
     elif args.stereo_matcher == 'ELAS':
 
@@ -665,7 +666,8 @@ for i in range(Nimages):
 
 
     disparity_colored = mrcal.apply_color_map(disparity,
-                                              0, disp_max*disparity_scale)
+                                              disp_min*disparity_scale,
+                                              disp_max*disparity_scale)
 
     if args.viz != 'stereo':
         _range = mrcal.stereo_range( disparity.astype(np.float32) / disparity_scale,
