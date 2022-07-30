@@ -753,13 +753,13 @@ for i in range(Nimages):
         if args.sgbm_mode is not None:
             kwargs['mode']              = args.sgbm_mode
 
+        # blocksize is required, so I always pass it. There's a default set in
+        # the argument parser, so this is never None
+        kwargs['blockSize'] = args.sgbm_block_size
+
         stereo = \
             cv2.StereoSGBM_create(minDisparity      = disp_min,
                                   numDisparities    = disp_max,
-                                  # blocksize is required, so I always pass it.
-                                  # There's a default set in the argument parser, no
-                                  # this is never None
-                                  blockSize         = args.sgbm_block_size,
                                   **kwargs)
         disparity = stereo.compute(*images_rectified)
 
