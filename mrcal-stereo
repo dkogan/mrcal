@@ -734,6 +734,7 @@ for i in range(Nimages):
         # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
         # implementation requires this
         disp_max = disparity_scale*round(disp_max/disparity_scale)
+        disp_min = disparity_scale*int  (disp_min/disparity_scale)
 
         # I only add non-default args. StereoSGBM_create() doesn't like being given
         # None args
@@ -759,7 +760,7 @@ for i in range(Nimages):
 
         stereo = \
             cv2.StereoSGBM_create(minDisparity      = disp_min,
-                                  numDisparities    = disp_max,
+                                  numDisparities    = disp_max - disp_min,
                                   **kwargs)
         disparity = stereo.compute(*images_rectified)
 
