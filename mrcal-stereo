@@ -762,9 +762,6 @@ for i in range(Nimages):
                                   blockSize         = args.sgbm_block_size,
                                   **kwargs)
         disparity = stereo.compute(*images_rectified)
-        disparity_colored = mrcal.apply_color_map(disparity,
-                                                  disp_min*disparity_scale,
-                                                  disp_max*disparity_scale)
 
     elif args.stereo_matcher == 'ELAS':
 
