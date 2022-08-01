@@ -253,7 +253,7 @@ args = parse_args()
 
 if args.object_spacing is None:
     print("WARNING: assuming default calibration-object spacing of 0.1m. If this is wrong, all distances will be off by a scale factor",
-          file = sys.stdderr)
+          file = sys.stderr)
     args.object_spacing = 0.1
 
 if args.object_height_n is None:
