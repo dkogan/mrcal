@@ -96,4 +96,35 @@ m1 = mrcal.cameramodel(f'{workdir}/out.cameramodel')
 testutils.confirm_equal( m1.valid_intrinsics_region(), r_empty,
                          "read empty valid_intrinsics_region properly")
 
+
+# Make sure we can read model data with extra spacing
+string = r'''
+{
+    'lens_model':  'LENSMODEL_OPENCV8',
+
+    # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
+    'intrinsics': [ 1761.181055, 1761.250444,
+                    1965.706996, 1087.518797,
+
+  -0.01266096516, 0.03590794372, -0.0002547045941,
+                    0.0005275929652, 0.01968883397, 0.01482863541, -0.0562239888, 0.0500223357,],
+
+    # extrinsics are rt_fromref
+    'extrinsics': [ 2e-2, -3e-1, -1e-2,  1., 2, -3., ],
+
+    'imagersize': [ 4000, 2200 ]
+}
+'''
+
+import io
+with io.StringIO(string) as f:
+    m = mrcal.cameramodel(f)
+
+    testutils.confirm_equal( m.intrinsics()[1], [ 1761.181055, 1761.250444, 1965.706996, 1087.518797, -0.01266096516, 0.03590794372, -0.0002547045941, 0.0005275929652, 0.01968883397, 0.01482863541, -0.0562239888, 0.0500223357,],
+                             "extra spaces don't confuse the parser")
+
+
+
+
+
 testutils.finish()
