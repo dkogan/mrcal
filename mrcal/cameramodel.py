@@ -476,7 +476,10 @@ A sample valid .cameramodel file:
             filetype = io.IOBase
         if isinstance(f, filetype):
             s    = f.read()
-            name = f.name
+            try:
+                name = f.name
+            except:
+                name = None
         else:
             s    = f
             name = None
