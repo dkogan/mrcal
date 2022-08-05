@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 
-r'''Converts model to the cahvor file format
+r'''Converts a cameramodel to the cahvor file format
 
 SYNOPSIS
 
