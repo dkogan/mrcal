@@ -755,3 +755,64 @@ void mrcal_compose_rt_full( // output
     for(int i=0; i<3; i++)
         P1(rt_out,3+i) = t[i];
 }
+
+void mrcal_compose_r_tinyr0_gradientr0_full( // output
+                           double* dr_dr0,      // (3,3) array; may be NULL
+                           int dr_dr0_stride0,  // in bytes. <= 0 means "contiguous"
+                           int dr_dr0_stride1,  // in bytes. <= 0 means "contiguous"
+
+                           // input
+                           const double* r_1,   // (3,) array
+                           int r_1_stride0      // in bytes. <= 0 means "contiguous"
+                           )
+{
+    init_stride_2D(dr_dr0, 3, 3);
+    init_stride_1D(r_1, 3);
+
+    // All the comments and logic appear in compose_r_core() in
+    // poseutils-uses-autodiff.cc. This is a special-case function with
+    // manually-computed gradients (because I want to make sure they're fast)
+    double norm2_r1 = 0.0;
+    for(int i=0; i<3; i++)
+        norm2_r1 += P1(r_1,i)*P1(r_1,i);
+
+    if(norm2_r1 < 2e-8*2e-8)
+    {
+        // Both vectors are tiny, so I have r01 = r0 + r1, and the gradient is
+        // an identity matrix
+        for(int i=0; i<3; i++)
+            for(int j=0; j<3; j++)
+                P2(dr_dr0,i,j) = i==j ? 1.0 : 0.0;
+        return;
+    }
+
+    // I have
+    // r01 = r1
+    //     - inner(r0,r1) (B/tanB - 1) / 4B^2 r1
+    //     + B/tanB r0
+    //     + cross(r0,r1) / 2
+    //
+    // I differentiate:
+    //
+    //   dr01/dr0 =
+    //     - outer(r1,r1) (B/tanB - 1) / 4B^2
+    //     + B/tanB I
+    //     - skew_symmetric(r1) / 2
+    double B    = sqrt(norm2_r1) / 2.;
+    double B_over_tanB = B / tan(B);
+
+    for(int i=0; i<3; i++)
+        for(int j=0; j<3; j++)
+            P2(dr_dr0,i,j) =
+                - P1(r_1,i)*P1(r_1,j) * (B_over_tanB - 1.) / (4.*B*B);
+    for(int i=0; i<3; i++)
+        P2(dr_dr0,i,i) +=
+            B_over_tanB;
+
+    P2(dr_dr0,0,1) -= -P1(r_1,2)/2.;
+    P2(dr_dr0,0,2) -=  P1(r_1,1)/2.;
+    P2(dr_dr0,1,0) -=  P1(r_1,2)/2.;
+    P2(dr_dr0,1,2) -= -P1(r_1,0)/2.;
+    P2(dr_dr0,2,0) -= -P1(r_1,1)/2.;
+    P2(dr_dr0,2,1) -=  P1(r_1,0)/2.;
+}

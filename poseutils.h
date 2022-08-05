@@ -462,3 +462,62 @@ void mrcal_compose_rt_full( // output
                            const double* rt_1,   // (6,) array
                            int rt_1_stride0      // in bytes. <= 0 means "contiguous"
                            );
+
+// Compose two angle-axis rotations
+//
+// r = r0 * r1  --->  r(x) = r0( r1(x) )
+//
+// The input rotations are given in (3,) arrays r_0 and r_1
+//
+// The result is returned in a (3,) array r_out
+//
+// The gradient dr/dr0 is returned in a (3,3) array dr_dr0. Set to NULL if this
+// is not wanted
+//
+// The gradient dr/dr1 is returned in a (3,3) array dr_dr1. Set to NULL if this
+// is not wanted
+//
+// In-place operation is supported; the output array may be the same as either
+// of the input arrays to overwrite the input.
+#define mrcal_compose_r(r_out,dr_dr0,dr_dr1,r_0,r_1) mrcal_compose_r_full(r_out,0,dr_dr0,0,0,dr_dr1,0,0,r_0,0,r_1,0)
+void mrcal_compose_r_full( // output
+                           double* r_out,       // (3,) array
+                           int r_out_stride0,   // in bytes. <= 0 means "contiguous"
+                           double* dr_dr0,      // (3,3) array; may be NULL
+                           int dr_dr0_stride0,  // in bytes. <= 0 means "contiguous"
+                           int dr_dr0_stride1,  // in bytes. <= 0 means "contiguous"
+                           double* dr_dr1,      // (3,3) array; may be NULL
+                           int dr_dr1_stride0,  // in bytes. <= 0 means "contiguous"
+                           int dr_dr1_stride1,  // in bytes. <= 0 means "contiguous"
+
+                           // input
+                           const double* r_0,   // (3,) array
+                           int r_0_stride0,     // in bytes. <= 0 means "contiguous"
+                           const double* r_1,   // (3,) array
+                           int r_1_stride0      // in bytes. <= 0 means "contiguous"
+                           );
+
+// Special-case rotation composition for the uncertainty computation
+//
+// Same as mrcal_compose_r() except
+//
+// - r0 is assumed to be 0, so we don't ingest it, and we don't report the
+//   composition result
+// - we ONLY report the dr01/dr0 gradient
+//
+// In python this function is equivalent to
+//
+//   _,dr01_dr0,_ = compose_r(np.zeros((3,),),
+//                            r1,
+//                            get_gradients=True)
+#define mrcal_compose_r_tinyr0_gradientr0(dr_dr0,r_1) \
+    mrcal_compose_r_tinyr0_gradientr0_full(dr_dr0,0,0,r_1,0)
+void mrcal_compose_r_tinyr0_gradientr0_full( // output
+                           double* dr_dr0,      // (3,3) array; may be NULL
+                           int dr_dr0_stride0,  // in bytes. <= 0 means "contiguous"
+                           int dr_dr0_stride1,  // in bytes. <= 0 means "contiguous"
+
+                           // input
+                           const double* r_1,   // (3,) array
+                           int r_1_stride0      // in bytes. <= 0 means "contiguous"
+                           );

@@ -143,6 +143,17 @@ struct val_withgrad_t
         return sc;
     }
 
+    val_withgrad_t<NGRAD> tan(void) const
+    {
+        double s, c;
+        ::sincos(x, &s, &c);
+        val_withgrad_t<NGRAD> y;
+        y.x = s/c;
+        for(int i=0; i<NGRAD; i++)
+            y.j[i] = j[i] / (c*c);
+        return y;
+    }
+
     val_withgrad_t<NGRAD> acos(void) const
     {
         val_withgrad_t<NGRAD> th;
@@ -151,6 +162,30 @@ struct val_withgrad_t
         for(int i=0; i<NGRAD; i++)
             th.j[i] = dacos_dx * j[i];
         return th;
+    }
+
+    val_withgrad_t<NGRAD> sinx_over_x(// To avoid recomputing it
+                                      const val_withgrad_t<NGRAD>& sinx) const
+    {
+        // For small x I need special-case logic. In the limit as x->0 I have
+        // sin(x)/x -> 1. But I'm propagating gradients, so I need to capture
+        // that. I have
+        //
+        //   d(sin(x)/x)/dx =
+        //     (x cos(x) - sin(x))/x^2
+        //
+        // As x -> 0 this is
+        //
+        //     (cos(x) - x sin(x) - cos(x)) / (2x) =
+        //     (- x sin(x)) / (2x) =
+        //     -sin(x) / 2 =
+        //     0
+        //
+        // So for small x the gradient is 0
+        if(fabs(x) < 1e-8)
+            return val_withgrad_t<NGRAD>(1.0);
+
+        return sinx / (*this);
     }
 };
 
@@ -188,6 +223,11 @@ struct vec_withgrad_t
     }
 
     val_withgrad_t<NGRAD>& operator[](int i)
+    {
+        return v[i];
+    }
+
+    const val_withgrad_t<NGRAD>& operator[](int i) const
     {
         return v[i];
     }
@@ -345,6 +385,15 @@ struct vec_withgrad_t
             d += e;
         }
         return d;
+    }
+
+    vec_withgrad_t<NGRAD,NVEC> cross( const vec_withgrad_t<NGRAD,NVEC>& x) const
+    {
+        vec_withgrad_t<NGRAD,NVEC> c;
+        c[0] = v[1]*x.v[2] - v[2]*x.v[1];
+        c[1] = v[2]*x.v[0] - v[0]*x.v[2];
+        c[2] = v[0]*x.v[1] - v[1]*x.v[0];
+        return c;
     }
 
     val_withgrad_t<NGRAD> norm2(void) const
