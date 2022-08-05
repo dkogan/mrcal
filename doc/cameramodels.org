@@ -43,7 +43,7 @@ The [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] cl
 based on the filename being read/written. If the filename is unknown when
 reading (if we're reading a pipe, say) then both formats will be tried. If the
 filename is unknown when writing, the =.cameramodel= format will be used. The
-[[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]] and [[file:mrcal-to-cameramodel.html][=mrcal-to-cameramodel=]] tools can be used to convert
+[[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]] and [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]] tools can be used to convert
 between the two file formats.
 
 * Sample usages

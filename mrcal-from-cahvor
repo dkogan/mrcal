@@ -1,11 +1,11 @@
 #!/usr/bin/python3
 
 
-r'''Converts model to the cameramodel file format
+r'''Converts a .cahvor-formatted camera model to the .cameramodel file format
 
 SYNOPSIS
 
-  $ mrcal-to-cameramodel model1.cahvor model2.cahvor
+  $ mrcal-from-cahvor model1.cahvor model2.cahvor
   Wrote model1.cameramodel
   Wrote model2.cameramodel
 

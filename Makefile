@@ -69,7 +69,7 @@ DIST_BIN :=					\
 	mrcal-reproject-image			\
 	mrcal-graft-models			\
 	mrcal-to-cahvor				\
-	mrcal-to-cameramodel			\
+	mrcal-from-cahvor			\
 	mrcal-show-geometry			\
 	mrcal-show-valid-intrinsics-region	\
 	mrcal-is-within-valid-intrinsics-region \
