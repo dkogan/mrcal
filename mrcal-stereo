@@ -823,7 +823,7 @@ for i in range(Nimages):
             Rt_ref_rect0 = models_rectified[0].extrinsics_Rt_toref()
             Rt_cam0_ref  = models          [0].extrinsics_Rt_fromref()
 
-            # Point cloud in camera-0 coordinates
+            # Point cloud in ref coordinates
             # shape (H,W,3)
             p_ref = mrcal.transform_point_Rt(Rt_ref_rect0, p_rect0)
 
