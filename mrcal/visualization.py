@@ -1263,6 +1263,11 @@ plot
                                        atinfinity      = distance is None,
                                        what            = 'rms-stdev' if isotropic else 'worstdirection-stdev',
                                        observed_pixel_uncertainty = observed_pixel_uncertainty)
+
+    # Any nan or inf uncertainty is set to a very high value. This usually
+    # happens if the unproject() call failed, resulting in pcam == 0
+    err[~np.isfinite(err)] = 1e6
+
     if 'title' not in kwargs:
         if distance is None:
             distance_description = ". Looking out to infinity"
