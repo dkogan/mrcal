@@ -800,12 +800,8 @@ drt/drt0,drt/drt1):
             raise Exception("compose_rt(..., get_gradients=True) is supported only if exactly 2 inputs are given")
         return _poseutils_npsp._compose_rt_withgrad(*rt, out=out)
 
-    # I convert them all to Rt and compose for efficiency. Otherwise each
-    # internal composition will convert to Rt, compose, and then convert back to
-    # rt. The way I'm doing it I convert to rt just once, at the end. This will
-    # save operations if I'm composing more than 2 transformations
-    Rt = compose_Rt(*[_poseutils_npsp._Rt_from_rt(_rt) for _rt in rt])
-    return _poseutils_npsp._rt_from_Rt( Rt, out=out)
+    rt1onwards = reduce( _poseutils_npsp._compose_rt, rt[1:] )
+    return _poseutils_npsp._compose_rt(rt[0], rt1onwards, out=out)
 
 def rotate_point_r(r, x, get_gradients=False, out=None, inverted=False):
     r"""Rotate point(s) using a Rodrigues vector
