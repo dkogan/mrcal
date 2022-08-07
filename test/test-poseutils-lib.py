@@ -958,19 +958,13 @@ Rt2 = mrcal.compose_Rt(Rt0_ref, Rt1_ref,Rt0_ref,
                        out=out43)
 confirm_equal( Rt2,
                compose_Rt(compose_Rt(Rt0_ref, Rt1_ref), Rt0_ref),
-               msg='compose_Rt with 3 inputs; associate one way')
-confirm_equal( Rt2,
-               compose_Rt(Rt0_ref, compose_Rt(Rt1_ref, Rt0_ref)),
-               msg='compose_Rt with 3 inputs; associate the other way')
+               msg='compose_Rt with 3 inputs')
 
 rt2 = mrcal.compose_rt(rt0_ref, rt1_ref,rt0_ref,
                        out=out6)
 confirm_equal( rt2,
                compose_rt(compose_rt(rt0_ref, rt1_ref), rt0_ref),
-               msg='compose_rt with 3 inputs; associate one way')
-confirm_equal( rt2,
-               compose_rt(rt0_ref, compose_rt(rt1_ref, rt0_ref)),
-               msg='compose_rt with 3 inputs; associate the other way')
+               msg='compose_rt with 3 inputs')
 
 ################# compose_r()
 #
