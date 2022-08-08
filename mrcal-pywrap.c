@@ -12,6 +12,7 @@
 #endif
 
 #include "mrcal.h"
+#include "mrcal-image.h"
 
 
 #define IS_NULL(x) ((x) == NULL || (PyObject*)(x) == Py_None)
@@ -2519,6 +2520,216 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
     return result;
 }
 
+static
+PyObject* load_image(PyObject* NPY_UNUSED(self),
+                     PyObject* args,
+                     PyObject* kwargs)
+{
+    // THIS IS IMPLEMENTED IN A NOT-GREAT WAY
+    //
+    // mrcal_image_TYPE_load() allocates a new array, and we then allocate a
+    // numpy array to copy the data into it. I should be doing the allocation
+    // once, and numpy should reuse the data. Doing THAT is easy, but hooking
+    // the free() to happen when the numpy array is released takes a LOT of
+    // typing.
+
+    PyObject* result = NULL;
+
+    const char* filename = NULL;
+    int         bpp            = -1;
+    int         channels       = -1;
+
+    // could be any type; not just uint8
+    mrcal_image_uint8_t image = {};
+
+    PyObject* image_array = NULL;
+
+    char* keywords[] = { "filename",
+                         "bpp",
+                         "channels",
+                         NULL};
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "sii",
+                                     keywords,
+                                     &filename, &bpp, &channels ))
+        goto done;
+
+    // I support a small number of combinations:
+    // - bpp = 8,  channels = 1
+    // - bpp = 16, channels = 1
+    // - bpp = 24, channels = 3
+    if(bpp == 8 && channels == 1)
+    {
+        if(!mrcal_image_uint8_load((mrcal_image_uint8_t*)&image,
+                                   filename))
+        {
+            BARF("Error loading image '%s'", filename);
+            goto done;
+        }
+        image_array = PyArray_SimpleNew(2,
+                                        ((npy_intp[]){image.h, image.w}),
+                                        NPY_UINT8);
+    }
+    else if(bpp == 16 && channels == 1)
+    {
+        if(!mrcal_image_uint16_load((mrcal_image_uint16_t*)&image,
+                                    filename))
+        {
+            BARF("Error loading image '%s'", filename);
+            goto done;
+        }
+        image_array = PyArray_SimpleNew(2,
+                                        ((npy_intp[]){image.h, image.w}),
+                                        NPY_UINT16);
+    }
+    else if(bpp == 24 && channels == 3)
+    {
+        if(!mrcal_image_bgr_load((mrcal_image_bgr_t*)&image,
+                                 filename))
+        {
+            BARF("Error loading image '%s' with bpp=%d and channels=%d",
+                 filename,
+                 bpp,
+                 channels);
+            goto done;
+        }
+        image_array = PyArray_SimpleNew(3,
+                                        ((npy_intp[]){image.h, image.w, 3}),
+                                        NPY_UINT8);
+    }
+    else
+    {
+        BARF("Unsupported format requested. I only support (bpp,channels) = (8,1) and (16,1) and (24,3)");
+        goto done;
+    }
+
+    if(image_array == NULL)
+        goto done;
+
+    // The numpy array is dense, but the image array may not be. Copy one line
+    // at a time
+    for(int i=0; i<image.h; i++)
+        memcpy(&((uint8_t*)PyArray_DATA((PyArrayObject*)image_array))[image.w*bpp/8*i],
+               &((uint8_t*)image.data)[image.stride*i],
+               image.w*bpp/8);
+    result = image_array;
+
+ done:
+
+    free(image.data);
+
+    if(result == NULL)
+        Py_XDECREF(image_array);
+
+    return result;
+}
+
+static
+PyObject* save_image(PyObject* NPY_UNUSED(self),
+                     PyObject* args,
+                     PyObject* kwargs)
+{
+    PyObject* result = NULL;
+
+    const char*    filename    = NULL;
+    PyArrayObject* image_array = NULL;
+
+    char* keywords[] = { "filename",
+                         "array",
+                         NULL};
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "sO",
+                                     keywords,
+                                     &filename, &image_array ))
+        goto done;
+
+    // I support a small number of combinations:
+    // - bpp = 8,  channels = 1
+    // - bpp = 16, channels = 1
+    // - bpp = 24, channels = 3
+    if(!PyArray_Check(image_array))
+    {
+        BARF("I only know how to save numpy arrays");
+        goto done;
+    }
+
+    int             ndim    = PyArray_NDIM(image_array);
+    const npy_intp* dims    = PyArray_DIMS(image_array);
+    int             dtype   = PyArray_TYPE(image_array);
+    const npy_intp* strides = PyArray_STRIDES(image_array);
+
+    if(ndim == 2 && dtype == NPY_UINT8)
+    {
+        if(strides[ndim-1] != 1)
+        {
+            BARF("Saving 8-bit grayscale array. I only know how to handle stride[-1] == 1");
+            goto done;
+        }
+        mrcal_image_uint8_t image = {.w      = dims[1],
+                                     .h      = dims[0],
+                                     .stride = strides[0],
+                                     .data   = PyArray_DATA(image_array) };
+        if(!mrcal_image_uint8_save(filename, &image))
+        {
+            BARF("Error saving image '%s'", filename);
+            goto done;
+        }
+    }
+    else if(ndim == 2 && dtype == NPY_UINT16)
+    {
+        if(strides[ndim-1] != 2)
+        {
+            BARF("Saving 16-bit grayscale array. I only know how to handle stride[-1] == 2");
+            goto done;
+        }
+        mrcal_image_uint16_t image = {.w      = dims[1],
+                                      .h      = dims[0],
+                                      .stride = strides[0],
+                                      .data   = PyArray_DATA(image_array) };
+        if(!mrcal_image_uint16_save(filename, &image))
+        {
+            BARF("Error saving image '%s'", filename);
+            goto done;
+        }
+    }
+    else if(ndim == 3 && dtype == NPY_UINT8)
+    {
+        if(dims[2] != 3)
+        {
+            BARF("Saving 3-dimensional array. shape[-1] != 3, so not BGR. Don't know what to do");
+            goto done;
+        }
+
+        if(strides[ndim-1] != 1 ||
+           strides[ndim-2] != 3)
+        {
+            BARF("Saving 8-bit BGR array. I only know how to handle stride[-1] == 1 && stride[-2] == 3");
+            goto done;
+        }
+        mrcal_image_bgr_t image = {.w      = dims[1],
+                                   .h      = dims[0],
+                                   .stride = strides[0],
+                                   .data   = PyArray_DATA(image_array) };
+        if(!mrcal_image_bgr_save(filename, &image))
+        {
+            BARF("Error saving image '%s'", filename);
+            goto done;
+        }
+    }
+    else
+    {
+        BARF("Unsupported array. I only support (bpp,channels) = (8,1) and (16,1) and (24,3)");
+        goto done;
+    }
+
+    Py_INCREF(Py_None);
+    result = Py_None;
+
+ done:
+
+    return result;
+}
+
 static const char state_index_intrinsics_docstring[] =
 #include "state_index_intrinsics.docstring.h"
     ;
@@ -2610,6 +2821,12 @@ static const char supported_lensmodels_docstring[] =
 static const char knots_for_splined_models_docstring[] =
 #include "knots_for_splined_models.docstring.h"
     ;
+static const char load_image_docstring[] =
+#include "load_image.docstring.h"
+    ;
+static const char save_image_docstring[] =
+#include "save_image.docstring.h"
+    ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizer_callback,               METH_VARARGS | METH_KEYWORDS),
@@ -2635,12 +2852,15 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, num_measurements_points,         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, num_measurements_regularization, METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, num_measurements,                METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(, corresponding_icam_extrinsics,METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, corresponding_icam_extrinsics,   METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(,lensmodel_metadata_and_config,METH_VARARGS),
       PYMETHODDEF_ENTRY(,lensmodel_num_params,         METH_VARARGS),
       PYMETHODDEF_ENTRY(,supported_lensmodels,         METH_NOARGS),
       PYMETHODDEF_ENTRY(,knots_for_splined_models,     METH_VARARGS),
+
+      PYMETHODDEF_ENTRY(, load_image,                  METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, save_image,                  METH_VARARGS | METH_KEYWORDS),
       {}
     };
 
