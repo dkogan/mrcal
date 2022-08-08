@@ -392,15 +392,12 @@ np.set_printoptions(precision = 3,
 
 
 if images is not None:
-    import cv2
     if args.clahe:
+        import cv2
         clahe = cv2.createCLAHE()
         clahe.setClipLimit(8)
     def imread(filename):
-        image = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
-        if image is None:
-            print(f"Couldn't read image '{filename}'", file=sys.stderr)
-            sys.exit(1)
+        image = mrcal.load_image(filename, bits_per_pixel = 8, channels = 1)
         if args.clahe:
             image = clahe.apply(image)
         return image

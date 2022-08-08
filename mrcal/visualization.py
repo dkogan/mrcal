@@ -2468,11 +2468,11 @@ SYNOPSIS
 
     model = mrcal.cameramodel('cam0.cameramodel')
 
-    image = cv2.imread('image.jpg')
+    image = mrcal.load_image('image.jpg')
 
     mrcal.annotate_image__valid_intrinsics_region(image, model)
 
-    cv2.imwrite('image-annotated.jpg', image)
+    mrcal.save_image('image-annotated.jpg', image)
 
 This function reads a valid-intrinsics region from a given camera model, and
 draws it on top of a given image. This is useful to see what parts of a captured
@@ -3503,7 +3503,7 @@ SYNOPSIS
     ===>
     dtype('uint8')
 
-    cv2.imwrite('data.png', image_colorcoded)
+    mrcal.save_image('data.png', image_colorcoded)
 
 This is very similar to cv2.applyColorMap() but more flexible in several
 important ways. Differences:

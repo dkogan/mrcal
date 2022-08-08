@@ -111,8 +111,6 @@ if any( m.valid_intrinsics_region() is None for m in models ):
 
 if args.write_image:
 
-    import cv2
-
     # this function stolen from mrcal-reproject-image. Please consolidate
     def target_image_filename(filename_in, suffix):
 
@@ -136,14 +134,10 @@ if args.write_image:
 
 
     imagefile_out = target_image_filename(args.image, 'valid-intrinsics-region')
-    image_out = cv2.imread(args.image)
-    if image_out is None:
-        print(f"Couldn't read image '{image_out}'", file=sys.stderr)
-        sys.exit(1)
-
+    image_out = mrcal.load_image(args.image)
     for m in models:
         mrcal.annotate_image__valid_intrinsics_region(image_out, m)
-    cv2.imwrite(imagefile_out, image_out)
+    mrcal.save_image(imagefile_out, image_out)
     sys.stderr.write("Wrote {}\n".format(imagefile_out))
 
 else:

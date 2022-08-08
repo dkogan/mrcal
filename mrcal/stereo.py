@@ -34,7 +34,7 @@ SYNOPSIS
                for f in ('left.cameramodel',
                          'right.cameramodel') ]
 
-    images = [ cv2.imread(f) \
+    images = [ mrcal.load_image(f) \
                for f in ('left.jpg', 'right.jpg') ]
 
     models_rectified = \
@@ -548,7 +548,7 @@ SYNOPSIS
                for f in ('left.cameramodel',
                          'right.cameramodel') ]
 
-    images = [ cv2.imread(f) \
+    images = [ mrcal.load_image(f) \
                for f in ('left.jpg', 'right.jpg') ]
 
     models_rectified = \
@@ -687,7 +687,7 @@ SYNOPSIS
                for f in ('left.cameramodel',
                          'right.cameramodel') ]
 
-    images = [ cv2.imread(f) \
+    images = [ mrcal.load_image(f) \
                for f in ('left.jpg', 'right.jpg') ]
 
     models_rectified = \

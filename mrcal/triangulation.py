@@ -64,8 +64,8 @@ SYNOPSIS
     models = ( mrcal.cameramodel('cam0.cameramodel'),
                mrcal.cameramodel('cam1.cameramodel') )
 
-    images = (cv2.imread('image0.jpg', cv2.IMREAD_GRAYSCALE),
-              cv2.imread('image1.jpg', cv2.IMREAD_GRAYSCALE))
+    images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
+              mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
@@ -209,8 +209,8 @@ SYNOPSIS
     models = ( mrcal.cameramodel('cam0.cameramodel'),
                mrcal.cameramodel('cam1.cameramodel') )
 
-    images = (cv2.imread('image0.jpg', cv2.IMREAD_GRAYSCALE),
-              cv2.imread('image1.jpg', cv2.IMREAD_GRAYSCALE))
+    images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
+              mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
@@ -359,8 +359,8 @@ SYNOPSIS
     models = ( mrcal.cameramodel('cam0.cameramodel'),
                mrcal.cameramodel('cam1.cameramodel') )
 
-    images = (cv2.imread('image0.jpg', cv2.IMREAD_GRAYSCALE),
-              cv2.imread('image1.jpg', cv2.IMREAD_GRAYSCALE))
+    images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
+              mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
@@ -510,8 +510,8 @@ SYNOPSIS
     models = ( mrcal.cameramodel('cam0.cameramodel'),
                mrcal.cameramodel('cam1.cameramodel') )
 
-    images = (cv2.imread('image0.jpg', cv2.IMREAD_GRAYSCALE),
-              cv2.imread('image1.jpg', cv2.IMREAD_GRAYSCALE))
+    images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
+              mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
@@ -656,8 +656,8 @@ SYNOPSIS
     models = ( mrcal.cameramodel('cam0.cameramodel'),
                mrcal.cameramodel('cam1.cameramodel') )
 
-    images = (cv2.imread('image0.jpg', cv2.IMREAD_GRAYSCALE),
-              cv2.imread('image1.jpg', cv2.IMREAD_GRAYSCALE))
+    images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
+              mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
@@ -802,8 +802,8 @@ SYNOPSIS
     models = ( mrcal.cameramodel('cam0.cameramodel'),
                mrcal.cameramodel('cam1.cameramodel') )
 
-    images = (cv2.imread('image0.jpg', cv2.IMREAD_GRAYSCALE),
-              cv2.imread('image1.jpg', cv2.IMREAD_GRAYSCALE))
+    images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
+              mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )

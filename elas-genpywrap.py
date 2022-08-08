@@ -32,8 +32,8 @@ m.function( "stereo_matching_libelas",
 
 SYNOPSIS
 
-    image0 = cv2.imread('left.png',  cv2.IMREAD_GRAYSCALE)
-    image1 = cv2.imread('right.png', cv2.IMREAD_GRAYSCALE)
+    image0 = mrcal.load_image('left.png',  bpp = 8, channels = 1)
+    image1 = mrcal.load_image('right.png', bpp = 8, channels = 1)
 
     disparity0, disparity1 = \
       mrcal.stereo_matching_libelas(image0, image1)

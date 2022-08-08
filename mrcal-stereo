@@ -674,16 +674,11 @@ for i in range(Nimages):
     image_filenames = (image_filenames_all[0][i],
                        image_filenames_all[1][i])
 
-    flags = ()
+    kwargs_load_image = dict()
     if args.force_grayscale:
-        flags = (cv2.IMREAD_GRAYSCALE,)
-    images = [cv2.imread(f, *flags) for f in image_filenames]
-    if images[0] is None:
-        print(f"Couldn't read image '{images[0]}'", file=sys.stderr)
-        sys.exit(1)
-    if images[1] is None:
-        print(f"Couldn't read image '{images[1]}'", file=sys.stderr)
-        sys.exit(1)
+        kwargs_load_image['bits_per_pixel'] = 8
+        kwargs_load_image['channels']       = 1
+    images = [mrcal.load_image(f, **kwargs_load_image) for f in image_filenames]
 
 
     # This doesn't really matter: I don't use the input imagersize. But a
@@ -789,18 +784,18 @@ for i in range(Nimages):
             write_output(lambda filename: models_rectified[1].write(filename),
                          'rectified1.cameramodel')
 
-            write_output(lambda filename: cv2.imwrite(filename, images_rectified[0]),
+            write_output(lambda filename: mrcal.save_image(filename, images_rectified[0]),
                          image_filenames_base[0] + '-rectified.png')
-            write_output(lambda filename: cv2.imwrite(filename, images_rectified[1]),
+            write_output(lambda filename: mrcal.save_image(filename, images_rectified[1]),
                          image_filenames_base[1] + '-rectified.png')
 
         write_output(lambda filename: \
-                     cv2.imwrite(filename,
-                                 disparity_colored),
+                     mrcal.save_image(filename,
+                                      disparity_colored),
                      image_filenames_base[0] + '-disparity.png')
         write_output(lambda filename: \
-                     cv2.imwrite(filename, mrcal.apply_color_map(_range,
-                                                                 *args.range_image_limits)),
+                     mrcal.save_image(filename, mrcal.apply_color_map(_range,
+                                                                      *args.range_image_limits)),
                      image_filenames_base[0] + '-range.png')
 
 
@@ -857,9 +852,7 @@ for i in range(Nimages):
                 # I have a grayscale image, but the user asked for it for the
                 # purposes of stereo. I reload without asking for grayscale. If
                 # the image was a color one, that would be useful here.
-                image0 = cv2.imread(image_filenames[0])
-                if image0 is None:
-                    raise Exception(f"Couldn't re-read '{image_filenames[0]}' for the point cloud output")
+                image0 = mrcal.load_image(image_filenames[0])
             if len(image0.shape) == 2:
                 # Still grayscale. I use the grayscale pixels
                 intensityT = nps.transpose(image0[q_cam0_integer[:,1], q_cam0_integer[:,0]])

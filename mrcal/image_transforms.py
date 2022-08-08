@@ -149,7 +149,7 @@ def pinhole_model_for_reprojection(model_from,
 SYNOPSIS
 
     model_orig = mrcal.cameramodel("xxx.cameramodel")
-    image_orig = cv2.imread("image.jpg")
+    image_orig = mrcal.load_image("image.jpg")
 
     model_pinhole = mrcal.pinhole_model_for_reprojection(model_orig,
                                                          fit = "corners")
@@ -277,7 +277,7 @@ def image_transformation_map(model_from, model_to,
 SYNOPSIS
 
     model_orig = mrcal.cameramodel("xxx.cameramodel")
-    image_orig = cv2.imread("image.jpg")
+    image_orig = mrcal.load_image("image.jpg")
 
     model_pinhole = mrcal.pinhole_model_for_reprojection(model_orig,
                                                          fit = "corners")
@@ -513,7 +513,7 @@ def transform_image(image, mapxy,
 SYNOPSIS
 
     model_orig = mrcal.cameramodel("xxx.cameramodel")
-    image_orig = cv2.imread("image.jpg")
+    image_orig = mrcal.load_image("image.jpg")
 
     model_pinhole = mrcal.pinhole_model_for_reprojection(model_orig,
                                                          fit = "corners")
