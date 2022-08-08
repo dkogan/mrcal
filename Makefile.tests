@@ -2,8 +2,6 @@
 
 # The test suite no longer runs in parallel, but it ALWAYS tries to run all the
 # tests, even without 'make -k'
-#
-# ANY --do-sample MUST APPEAR AT THE END to make TESTS_NOSAMPLING work
 TESTS :=										\
   test/test-pywrap-functions.py								\
   test/test-pylib-projections.py							\
@@ -61,8 +59,7 @@ TESTS_TRIANGULATION_UNCERTAINTY := $(TESTS_TRIANGULATION_UNCERTAINTY) \
 
 # TESTS_TRIANGULATION_UNCERTAINTY not included in TESTS yet, so TESTS_NOSAMPLING
 # includes none of those
-TESTS_NOSAMPLING := $(filter-out %do-sample,$(TESTS))
-
+TESTS_NOSAMPLING := $(foreach t,$(TESTS),$(if $(filter --do-sample,$(subst __, ,$t)),,$t))
 TESTS := $(TESTS) $(TESTS_TRIANGULATION_UNCERTAINTY)
 
 # "make test"				-> TESTS
