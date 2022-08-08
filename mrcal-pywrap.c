@@ -2535,8 +2535,8 @@ PyObject* load_image(PyObject* NPY_UNUSED(self),
 
     PyObject* result = NULL;
 
-    const char* filename = NULL;
-    int         bpp            = -1;
+    const char* filename       = NULL;
+    int         bits_per_pixel = -1;
     int         channels       = -1;
 
     // could be any type; not just uint8
@@ -2545,39 +2545,39 @@ PyObject* load_image(PyObject* NPY_UNUSED(self),
     PyObject* image_array = NULL;
 
     char* keywords[] = { "filename",
-                         "bpp",
+                         "bits_per_pixel",
                          "channels",
                          NULL};
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
                                      "s|ii",
                                      keywords,
-                                     &filename, &bpp, &channels ))
+                                     &filename, &bits_per_pixel, &channels ))
         goto done;
 
-    if((bpp <= 0 && channels >  0) ||
-       (bpp  > 0 && channels <= 0))
+    if((bits_per_pixel <= 0 && channels >  0) ||
+       (bits_per_pixel  > 0 && channels <= 0))
     {
-        BARF("Both bpp and channels should be given valid values >0, or neither should be");
+        BARF("Both bits_per_pixel and channels should be given valid values >0, or neither should be");
         goto done;
     }
 
-    if(bpp <= 0)
+    if(bits_per_pixel <= 0)
     {
         if(!mrcal_image_anytype_load(&image,
-                                     &bpp, &channels,
+                                     &bits_per_pixel, &channels,
                                      filename))
         {
-            BARF("Error loading image '%s' with autodetected bpp,channels",
+            BARF("Error loading image '%s' with autodetected bits_per_pixel,channels",
                  filename);
             goto done;
         }
     }
 
     // I support a small number of combinations:
-    // - bpp = 8,  channels = 1
-    // - bpp = 16, channels = 1
-    // - bpp = 24, channels = 3
-    if(bpp == 8 && channels == 1)
+    // - bits_per_pixel = 8,  channels = 1
+    // - bits_per_pixel = 16, channels = 1
+    // - bits_per_pixel = 24, channels = 3
+    if(bits_per_pixel == 8 && channels == 1)
     {
         if(image.data == NULL &&
            !mrcal_image_uint8_load((mrcal_image_uint8_t*)&image,
@@ -2590,7 +2590,7 @@ PyObject* load_image(PyObject* NPY_UNUSED(self),
                                         ((npy_intp[]){image.h, image.w}),
                                         NPY_UINT8);
     }
-    else if(bpp == 16 && channels == 1)
+    else if(bits_per_pixel == 16 && channels == 1)
     {
         if(image.data == NULL &&
            !mrcal_image_uint16_load((mrcal_image_uint16_t*)&image,
@@ -2603,15 +2603,15 @@ PyObject* load_image(PyObject* NPY_UNUSED(self),
                                         ((npy_intp[]){image.h, image.w}),
                                         NPY_UINT16);
     }
-    else if(bpp == 24 && channels == 3)
+    else if(bits_per_pixel == 24 && channels == 3)
     {
         if(image.data == NULL &&
            !mrcal_image_bgr_load((mrcal_image_bgr_t*)&image,
                                  filename))
         {
-            BARF("Error loading image '%s' with bpp=%d and channels=%d",
+            BARF("Error loading image '%s' with bits_per_pixel=%d and channels=%d",
                  filename,
-                 bpp,
+                 bits_per_pixel,
                  channels);
             goto done;
         }
@@ -2621,7 +2621,7 @@ PyObject* load_image(PyObject* NPY_UNUSED(self),
     }
     else
     {
-        BARF("Unsupported format requested. I only support (bpp,channels) = (8,1) and (16,1) and (24,3)");
+        BARF("Unsupported format requested. I only support (bits_per_pixel,channels) = (8,1) and (16,1) and (24,3)");
         goto done;
     }
 
@@ -2631,9 +2631,9 @@ PyObject* load_image(PyObject* NPY_UNUSED(self),
     // The numpy array is dense, but the image array may not be. Copy one line
     // at a time
     for(int i=0; i<image.h; i++)
-        memcpy(&((uint8_t*)PyArray_DATA((PyArrayObject*)image_array))[image.w*bpp/8*i],
+        memcpy(&((uint8_t*)PyArray_DATA((PyArrayObject*)image_array))[image.w*bits_per_pixel/8*i],
                &((uint8_t*)image.data)[image.stride*i],
-               image.w*bpp/8);
+               image.w*bits_per_pixel/8);
     result = image_array;
 
  done:
@@ -2666,9 +2666,9 @@ PyObject* save_image(PyObject* NPY_UNUSED(self),
         goto done;
 
     // I support a small number of combinations:
-    // - bpp = 8,  channels = 1
-    // - bpp = 16, channels = 1
-    // - bpp = 24, channels = 3
+    // - bits_per_pixel = 8,  channels = 1
+    // - bits_per_pixel = 16, channels = 1
+    // - bits_per_pixel = 24, channels = 3
     if(!PyArray_Check(image_array))
     {
         BARF("I only know how to save numpy arrays");
@@ -2740,7 +2740,7 @@ PyObject* save_image(PyObject* NPY_UNUSED(self),
     }
     else
     {
-        BARF("Unsupported array. I only support (bpp,channels) = (8,1) and (16,1) and (24,3)");
+        BARF("Unsupported array. I only support (bits_per_pixel,channels) = (8,1) and (16,1) and (24,3)");
         goto done;
     }
 
