@@ -14,18 +14,6 @@
 #include "mrcal.h"
 
 
-#if PY_MAJOR_VERSION == 3
-#define PyString_FromString PyUnicode_FromString
-#define PyString_FromFormat PyUnicode_FromFormat
-#define PyInt_FromLong      PyLong_FromLong
-#define PyString_AsString   PyUnicode_AsUTF8
-#define PyInt_Check         PyLong_Check
-#define PyInt_AsLong        PyLong_AsLong
-#define STRING_OBJECT       "U"
-#else
-#define STRING_OBJECT       "S"
-#endif
-
 #define IS_NULL(x) ((x) == NULL || (PyObject*)(x) == Py_None)
 
 #define BARF(fmt, ...) PyErr_Format(PyExc_RuntimeError, "%s:%d %s(): "fmt, __FILE__, __LINE__, __func__, ## __VA_ARGS__)
@@ -476,9 +464,9 @@ static void CHOLMOD_factorization_dealloc(CHOLMOD_factorization* self)
 static PyObject* CHOLMOD_factorization_str(CHOLMOD_factorization* self)
 {
     if(!(self->inited_common && self->factorization))
-        return PyString_FromString("No factorization given");
+        return PyUnicode_FromString("No factorization given");
 
-    return PyString_FromFormat("Initialized with a valid factorization. N=%d",
+    return PyUnicode_FromFormat("Initialized with a valid factorization. N=%d",
                                self->factorization->n);
 }
 
@@ -663,7 +651,7 @@ static bool parse_lensmodel_from_arg(// output
                                      // input
                                      PyObject* lensmodel_string)
 {
-    const char* lensmodel_cstring = PyString_AsString(lensmodel_string);
+    const char* lensmodel_cstring = PyUnicode_AsUTF8(lensmodel_string);
     if( lensmodel_cstring == NULL)
     {
         BARF("The lens model must be given as a string");
@@ -694,7 +682,7 @@ static PyObject* lensmodel_metadata_and_config(PyObject* NPY_UNUSED(self),
     SET_SIGINT();
 
     PyObject* lensmodel_string = NULL;
-    if(!PyArg_ParseTuple( args, STRING_OBJECT, &lensmodel_string ))
+    if(!PyArg_ParseTuple( args, "U", &lensmodel_string ))
         goto done;
     mrcal_lensmodel_t lensmodel;
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
@@ -741,7 +729,7 @@ static PyObject* knots_for_splined_models(PyObject* NPY_UNUSED(self),
     SET_SIGINT();
 
     PyObject* lensmodel_string = NULL;
-    if(!PyArg_ParseTuple( args, STRING_OBJECT, &lensmodel_string ))
+    if(!PyArg_ParseTuple( args, "U", &lensmodel_string ))
         goto done;
     mrcal_lensmodel_t lensmodel;
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
@@ -802,7 +790,7 @@ static PyObject* lensmodel_num_params(PyObject* NPY_UNUSED(self),
     SET_SIGINT();
 
     PyObject* lensmodel_string = NULL;
-    if(!PyArg_ParseTuple( args, STRING_OBJECT, &lensmodel_string ))
+    if(!PyArg_ParseTuple( args, "U", &lensmodel_string ))
         goto done;
     mrcal_lensmodel_t lensmodel;
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
@@ -876,7 +864,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     _(indices_frame_camintrinsics_camextrinsics,PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_frame_camintrinsics_camextrinsics,  NPY_INT32,    {-1 COMMA  3       } ) \
     _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_point,          NPY_DOUBLE, {-1 COMMA  3       } ) \
     _(indices_point_camintrinsics_camextrinsics,PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_point_camintrinsics_camextrinsics, NPY_INT32,    {-1 COMMA  3       } ) \
-    _(lensmodel,                          PyObject*,      NULL,    STRING_OBJECT,  ,                        NULL,                        -1,         {}                   ) \
+    _(lensmodel,                          PyObject*,      NULL,    "U",  ,                        NULL,                        -1,         {}                   ) \
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT32,    {-1 COMMA 2        } )
 
 // Defaults for do_optimize... MUST match those in ingest_packed_state()
@@ -2676,22 +2664,6 @@ static void _init_mrcal_common(PyObject* module)
     "All functions are exported into the mrcal module. So you can call these via\n" \
     "mrcal._mrcal.fff() or mrcal.fff(). The latter is preferred.\n"
 
-#if PY_MAJOR_VERSION == 2
-
-PyMODINIT_FUNC init_mrcal(void)
-{
-    if (PyType_Ready(&CHOLMOD_factorization_type) < 0)
-        return;
-
-    PyObject* module =
-        Py_InitModule3("_mrcal", methods,
-                       MODULE_DOCSTRING);
-    _init_mrcal_common(module);
-    import_array();
-}
-
-#else
-
 static struct PyModuleDef module_def =
     {
      PyModuleDef_HEAD_INIT,
@@ -2714,5 +2686,3 @@ PyMODINIT_FUNC PyInit__mrcal(void)
 
     return module;
 }
-
-#endif

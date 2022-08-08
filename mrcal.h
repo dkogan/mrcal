@@ -693,7 +693,7 @@ bool mrcal_corresponding_icam_extrinsics(// out
     /* How many pixel observations were thrown out as outliers. Each pixel */ \
     /* observation produces two measurements. Note that this INCLUDES any */ \
     /* outliers that were passed-in at the start */                     \
-    _(int,            Noutliers,                  PyInt_FromLong)
+    _(int,            Noutliers,                  PyLong_FromLong)
 #define MRCAL_STATS_ITEM_DEFINE(type, name, pyconverter) type name;
 typedef struct
 {
