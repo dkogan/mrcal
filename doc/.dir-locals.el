@@ -14,7 +14,12 @@
                          (insert (format "[[file:%1$s.html][=%1$s=]]"
                                          f)))
 
-                       (local-set-key (kbd "<f1>") 'insert-function)
-                       (local-set-key (kbd "<f2>") 'insert-tool))
+                       (defun insert-file (f)
+                         (interactive (list (read-string "File: ")))
+                         (insert (format "[[https://www.github.com/dkogan/mrcal/blob/master/%1$s][=%1$s=]]"
+                                         f)))
 
-                    ))))
+                       (local-set-key (kbd "<f1>") 'insert-function)
+                       (local-set-key (kbd "<f2>") 'insert-tool)
+                       (local-set-key (kbd "<f3>") 'insert-file)
+                       )))))
