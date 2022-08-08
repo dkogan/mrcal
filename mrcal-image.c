@@ -100,7 +100,10 @@ bool generic_load(// output
                   // mrcal_image_uint16_t if bits_per_pixel == 16
                   // mrcal_image_bgr_t    if bits_per_pixel == 24
                   void* _image,
-                  unsigned int bits_per_pixel,
+                  // if >0: this is the requested bits_per_pixel. If == 0: we
+                  // get this from the input image, and set the value on the
+                  // return
+                  int* bits_per_pixel,
 
                   // input
                   const char* filename)
@@ -135,7 +138,31 @@ bool generic_load(// output
     FREE_IMAGE_COLOR_TYPE color_type_expected;
     const char* what_expected;
 
-    if(bits_per_pixel == 8)
+    if(*bits_per_pixel == 0)
+    {
+        // autodetect
+        FREE_IMAGE_COLOR_TYPE color_type_have = FreeImage_GetColorType(fib);
+        if(color_type_have == FIC_RGB ||
+           color_type_have == FIC_PALETTE)
+        {
+            *bits_per_pixel = 24;
+        }
+        else if(color_type_have == FIC_MINISBLACK)
+        {
+            unsigned int bpp_have = FreeImage_GetBPP(fib);
+            if(bpp_have == 16)
+                *bits_per_pixel = 16;
+            else
+                *bits_per_pixel = 8;
+        }
+        else
+        {
+            MSG("Couldn't auto-detect image type. I only know about FIC_RGB, FIC_PALETTE, FIC_MINISBLACK");
+            goto done;
+        }
+    }
+
+    if(*bits_per_pixel == 8)
     {
         color_type_expected = FIC_MINISBLACK;
         what_expected = "grayscale";
@@ -147,7 +174,7 @@ bool generic_load(// output
             goto done;
         }
     }
-    else if(bits_per_pixel == 16)
+    else if(*bits_per_pixel == 16)
     {
         color_type_expected = FIC_MINISBLACK;
         what_expected = "16-bit grayscale";
@@ -157,7 +184,7 @@ bool generic_load(// output
         // the images to 16bpp grayscale
         fib_converted = fib;
     }
-    else if(bits_per_pixel == 24)
+    else if(*bits_per_pixel == 24)
     {
         color_type_expected = FIC_RGB;
         what_expected = "bgr 24-bit";
@@ -171,12 +198,12 @@ bool generic_load(// output
     }
     else
     {
-        MSG("bits_per_pixel must be 8 or 16 or 24; got %d", bits_per_pixel);
+        MSG("Input bits_per_pixel must be 8 or 16 or 24; got %d", *bits_per_pixel);
         goto done;
     }
 
     if(!(FreeImage_GetColorType(fib_converted) == color_type_expected &&
-         FreeImage_GetBPP(fib_converted) == bits_per_pixel))
+         FreeImage_GetBPP(fib_converted) == (unsigned)*bits_per_pixel))
     {
         MSG("Loaded and preprocessed image isn't %s",
             what_expected);
@@ -221,7 +248,8 @@ bool mrcal_image_uint8_load(// output
                            // input
                            const char* filename)
 {
-    return generic_load(image, 8, filename);
+    int bits_per_pixel = 8;
+    return generic_load(image, &bits_per_pixel, filename);
 }
 
 bool mrcal_image_uint16_load(// output
@@ -230,7 +258,8 @@ bool mrcal_image_uint16_load(// output
                             // input
                             const char* filename)
 {
-    return generic_load(image, 16, filename);
+    int bits_per_pixel = 16;
+    return generic_load(image, &bits_per_pixel, filename);
 }
 
 bool mrcal_image_bgr_load  (// output
@@ -239,5 +268,36 @@ bool mrcal_image_bgr_load  (// output
                            // input
                            const char* filename)
 {
-    return generic_load(image, 24, filename);
+    int bits_per_pixel = 24;
+    return generic_load(image, &bits_per_pixel, filename);
+}
+
+bool mrcal_image_anytype_load(// output
+                              // This is ONE of the known types
+                              mrcal_image_uint8_t* image,
+                              int* bits_per_pixel,
+                              int* channels,
+                              // input
+                              const char* filename)
+{
+    *bits_per_pixel = 0;
+    if(!generic_load(image, bits_per_pixel, filename))
+        return false;
+
+    switch(*bits_per_pixel)
+    {
+    case 8:
+    case 16:
+        *channels = 1;
+        break;
+    case 24:
+        *channels = 3;
+        break;
+
+    default:
+        MSG("Getting here is a bug");
+        return false;
+    }
+
+    return true;
 }

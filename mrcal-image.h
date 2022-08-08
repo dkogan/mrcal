@@ -87,3 +87,12 @@ bool mrcal_image_ ## Tname ## _load( mrcal_image_ ## Tname ## _t*  image, const 
 MRCAL_IMAGE_DECLARE(uint8_t,  uint8);
 MRCAL_IMAGE_DECLARE(uint16_t, uint16);
 MRCAL_IMAGE_DECLARE(bgr_t,    bgr);
+
+// Load the image into whatever type is stored on disk
+bool mrcal_image_anytype_load(// output
+                              // This is ONE of the known types
+                              mrcal_image_uint8_t* image,
+                              int* bits_per_pixel,
+                              int* channels,
+                              // input
+                              const char* filename);
