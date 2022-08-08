@@ -2549,10 +2549,29 @@ PyObject* load_image(PyObject* NPY_UNUSED(self),
                          "channels",
                          NULL};
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "sii",
+                                     "s|ii",
                                      keywords,
                                      &filename, &bpp, &channels ))
         goto done;
+
+    if((bpp <= 0 && channels >  0) ||
+       (bpp  > 0 && channels <= 0))
+    {
+        BARF("Both bpp and channels should be given valid values >0, or neither should be");
+        goto done;
+    }
+
+    if(bpp <= 0)
+    {
+        if(!mrcal_image_anytype_load(&image,
+                                     &bpp, &channels,
+                                     filename))
+        {
+            BARF("Error loading image '%s' with autodetected bpp,channels",
+                 filename);
+            goto done;
+        }
+    }
 
     // I support a small number of combinations:
     // - bpp = 8,  channels = 1
@@ -2560,7 +2579,8 @@ PyObject* load_image(PyObject* NPY_UNUSED(self),
     // - bpp = 24, channels = 3
     if(bpp == 8 && channels == 1)
     {
-        if(!mrcal_image_uint8_load((mrcal_image_uint8_t*)&image,
+        if(image.data == NULL &&
+           !mrcal_image_uint8_load((mrcal_image_uint8_t*)&image,
                                    filename))
         {
             BARF("Error loading image '%s'", filename);
@@ -2572,7 +2592,8 @@ PyObject* load_image(PyObject* NPY_UNUSED(self),
     }
     else if(bpp == 16 && channels == 1)
     {
-        if(!mrcal_image_uint16_load((mrcal_image_uint16_t*)&image,
+        if(image.data == NULL &&
+           !mrcal_image_uint16_load((mrcal_image_uint16_t*)&image,
                                     filename))
         {
             BARF("Error loading image '%s'", filename);
@@ -2584,7 +2605,8 @@ PyObject* load_image(PyObject* NPY_UNUSED(self),
     }
     else if(bpp == 24 && channels == 3)
     {
-        if(!mrcal_image_bgr_load((mrcal_image_bgr_t*)&image,
+        if(image.data == NULL &&
+           !mrcal_image_bgr_load((mrcal_image_bgr_t*)&image,
                                  filename))
         {
             BARF("Error loading image '%s' with bpp=%d and channels=%d",
