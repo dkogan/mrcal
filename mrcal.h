@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "basic_geometry.h"
+#include "basic-geometry.h"
 #include "poseutils.h"
 #include "triangulation.h"
 
@@ -1021,4 +1021,4 @@ bool mrcal_write_cameramodel_file(const char* filename,
                                   const mrcal_cameramodel_t* cameramodel);
 
 // Public ABI stuff, that's not for end-user consumption
-#include "mrcal_internal.h"
+#include "mrcal-internal.h"

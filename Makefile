@@ -57,8 +57,8 @@ EXTRA_CLEAN += minimath/minimath_generated.h
 DIST_INCLUDE += \
 	mrcal.h \
 	mrcal-image.h \
-	mrcal_internal.h \
-	basic_geometry.h \
+	mrcal-internal.h \
+	basic-geometry.h \
 	poseutils.h \
 	triangulation.h
 DIST_BIN :=					\

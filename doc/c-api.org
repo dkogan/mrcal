@@ -2,7 +2,7 @@
 #+OPTIONS: toc:t
 
 The C API consists of several headers:
-- [[https://www.github.com/dkogan/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]: /very/ simple geometry structures
+- [[https://www.github.com/dkogan/mrcal/blob/master/basic-geometry.h][=basic-geometry.h=]]: /very/ simple geometry structures
 - [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]]: pose and geometry functions
 - [[https://www.github.com/dkogan/mrcal/blob/master/triangulation.h][=triangulation.h=]]: triangulation routines
 - [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal.h=]]: lens models, projections, optimization
@@ -27,7 +27,7 @@ interfaces are stable. The available functions are broken down into categories,
 and described in a bit more detail here.
 
 * Geometry structures
-We have 3 structures in [[https://www.github.com/dkogan/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]:
+We have 3 structures in [[https://www.github.com/dkogan/mrcal/blob/master/basic-geometry.h][=basic-geometry.h=]]:
 
 - =mrcal_point2_t=: a vector containing 2 double-precision floating-point
   values. The elements can be accessed individually as =.x= and =.y= or as an
