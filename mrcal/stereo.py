@@ -468,6 +468,9 @@ direction in rectified coordinates.
     else:
         raise Exception("Shouldn't get here; This case was checked above")
 
+    if Nel <= 0:
+        raise Exception(f"Resulting stereo geometry has Nel={Nel}. This is nonsensical. You should examine the geometry or adjust the elevation bounds or pixels-per-deg")
+
     ######## The geometry
     Rt_rect0_cam0 = nps.glue(R_rect0_cam0, np.zeros((3,),), axis=-2)
     Rt_rect0_ref  = mrcal.compose_Rt( Rt_rect0_cam0,
