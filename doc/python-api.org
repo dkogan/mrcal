@@ -22,6 +22,7 @@ Functions to manipulate [[file:conventions.org::#pose-representation][rotations 
 - [[file:mrcal-python-api-reference.html#-invert_R][=mrcal.invert_R()=]]: Invert an (3,3) matrix rotation. This is a transpose
 - [[file:mrcal-python-api-reference.html#-invert_Rt][=mrcal.invert_Rt()=]]: Invert an Rt transformation
 - [[file:mrcal-python-api-reference.html#-invert_rt][=mrcal.invert_rt()=]]: Invert an rt transformation
+- [[file:mrcal-python-api-reference.html#-compose_r][=mrcal.compose_r()=]]: Compose Rodrigues rotations
 - [[file:mrcal-python-api-reference.html#-compose_Rt][=mrcal.compose_Rt()=]]: Compose Rt transformations
 - [[file:mrcal-python-api-reference.html#-compose_rt][=mrcal.compose_rt()=]]: Compose rt transformations
 - [[file:mrcal-python-api-reference.html#-rotate_point_r][=mrcal.rotate_point_r()=]]: Rotate point(s) using a Rodrigues vector
