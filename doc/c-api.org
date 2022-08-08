@@ -383,3 +383,10 @@ bool mrcal_write_cameramodel_file(const char* filename,
 
 Only the =.cameramodel= file format is supported by these C functions. The
 Python API supports more formats.
+
+* Image reading/writing
+mrcal includes simple functions for reading/writing images. These use the
+[[https://freeimage.sourceforge.io/][freeimage library]]. These functions aren't interesting, or better than any other
+functions you may have already. The declarations are in [[https://www.github.com/dkogan/mrcal/blob/master/mrcal-image.h][=mrcal-image.h=]], and the
+documentation lives there.
+

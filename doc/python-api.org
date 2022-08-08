@@ -220,6 +220,15 @@ arguments. The available methods:
   camera at optimization time. Used in conjunction with
   [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs][=mrcal.cameramodel.optimization_inputs()=]]
 
+* Image reading/writing
+mrcal includes simple functions for reading/writing images. These aren't
+interesting, or better than any other functions you may have already. These
+exist because they're faster than loading the opencv module and to make life
+easy for those that don't already have other functions handy.
+
+- [[file:mrcal-python-api-reference.html#-load_image][=mrcal.load_image()=]]: load an image from a file on disk into a numpy array
+- [[file:mrcal-python-api-reference.html#-save_image][=mrcal.save_image()=]]: save an image in a numpy array to a file on disk
+
 * Miscellaneous utilities
 - [[file:mrcal-python-api-reference.html#-hypothesis_board_corner_positions][=mrcal.hypothesis_board_corner_positions()=]]: Reports the coordinates of chessboard
   points, as predicted by the optimization state
