@@ -184,7 +184,7 @@ Functions to interpret the contentes of the [[file:formulation.org][state and me
 
 * State packing
 The optimization routine works in the [[file:formulation.org::#state-packing][space of scaled parameters]], and several
-functions are available to pack/unpack the state vector $\vec p$.
+functions are available to pack/unpack the state vector $\vec b$.
 
 - [[file:mrcal-python-api-reference.html#-pack_state][=mrcal.pack_state()=]]: Scales a state vector to the packed, unitless form used by the optimizer
 - [[file:mrcal-python-api-reference.html#-unpack_state][=mrcal.unpack_state()=]]: Scales a state vector from the packed, unitless form used by the optimizer

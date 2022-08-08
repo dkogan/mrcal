@@ -135,7 +135,7 @@ These functions do the same thing as the general =mrcal_project()= and
 
 * Layout of the measurement and state vectors
 The [[file:formulation.org][optimization routine]] tries to minimize the 2-norm of the measurement vector
-$\vec x$ by moving around the state vector $\vec p$.
+$\vec x$ by moving around the state vector $\vec b$.
 
 We select which parts of the optimization problem we're solving by setting bits
 in the =mrcal_problem_selections_t= structure. This defines
@@ -159,12 +159,12 @@ The measurement vector may contain
 - The penalties in the solved point positions
 - The [[file:formulation.org::#Regularization][regularization]] terms
 
-Given =mrcal_problem_selections_t= and a vector $\vec p$ or $\vec x$, it is
+Given =mrcal_problem_selections_t= and a vector $\vec b$ or $\vec x$, it is
 useful to know where specific quantities lie inside those vectors. Here we have
 4 sets of functions to answer such questions:
 
 - =int mrcal_state_index_THING()=: Returns the index in the state vector $\vec
-  p$ where the contiguous block of values describing the THING begins. THING is
+  b$ where the contiguous block of values describing the THING begins. THING is
   any of
   - intrinsics
   - extrinsics
@@ -174,7 +174,7 @@ useful to know where specific quantities lie inside those vectors. Here we have
   If we're not optimizing the THING, return <0
 
 - =int mrcal_num_states_THING()=: Returns the number of values in the contiguous
-  block in the state vector $\vec p$ that describe the given THING. THING is any
+  block in the state vector $\vec b$ that describe the given THING. THING is any
   of
   - intrinsics
   - extrinsics
@@ -198,7 +198,7 @@ useful to know where specific quantities lie inside those vectors. Here we have
 
 * State packing
 The optimization routine works in the [[file:formulation.org::#state-packing][space of scaled parameters]], and several
-functions are available to pack/unpack the state vector $\vec p$:
+functions are available to pack/unpack the state vector $\vec b$:
 
 #+begin_src c
 void mrcal_pack_solver_state_vector(...);

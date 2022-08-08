@@ -1148,7 +1148,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 {
     PyObject* result = NULL;
 
-    PyArrayObject* p_packed_final = NULL;
+    PyArrayObject* b_packed_final = NULL;
     PyArrayObject* x_final        = NULL;
     PyObject*      pystats        = NULL;
 
@@ -1323,8 +1323,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                       problem_selections, &mrcal_lensmodel);
 
         // both optimize() and optimizer_callback() use this
-        p_packed_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nstate}), NPY_DOUBLE);
-        double* c_p_packed_final = PyArray_DATA(p_packed_final);
+        b_packed_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nstate}), NPY_DOUBLE);
+        double* c_b_packed_final = PyArray_DATA(b_packed_final);
 
         x_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements}), NPY_DOUBLE);
         double* c_x_final = PyArray_DATA(x_final);
@@ -1337,7 +1337,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                 calibration_object_width_n*calibration_object_height_n;
 
             mrcal_stats_t stats =
-                mrcal_optimize( c_p_packed_final,
+                mrcal_optimize( c_b_packed_final,
                                 Nstate*sizeof(double),
                                 c_x_final,
                                 Nmeasurements*sizeof(double),
@@ -1399,10 +1399,10 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
             }
             MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_POPULATE_DICT);
 
-            if( 0 != PyDict_SetItemString(pystats, "p_packed",
-                                          (PyObject*)p_packed_final) )
+            if( 0 != PyDict_SetItemString(pystats, "b_packed",
+                                          (PyObject*)b_packed_final) )
             {
-                BARF("Couldn't add to stats dict 'p_packed'");
+                BARF("Couldn't add to stats dict 'b_packed'");
                 goto done;
             }
             if( 0 != PyDict_SetItemString(pystats, "x",
@@ -1453,7 +1453,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
             }
 
             if(!mrcal_optimizer_callback( // out
-                                         c_p_packed_final,
+                                         c_b_packed_final,
                                          Nstate*sizeof(double),
                                          c_x_final,
                                          Nmeasurements*sizeof(double),
@@ -1526,7 +1526,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
             }
 
             result = PyTuple_Pack(4,
-                                  (PyObject*)p_packed_final,
+                                  (PyObject*)b_packed_final,
                                   (PyObject*)x_final,
                                   jacobian,
                                   factorization);
@@ -1541,7 +1541,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(FREE_PYARRAY);
 #pragma GCC diagnostic pop
 
-    Py_XDECREF(p_packed_final);
+    Py_XDECREF(b_packed_final);
     Py_XDECREF(x_final);
     Py_XDECREF(pystats);
     Py_XDECREF(P);
@@ -2250,7 +2250,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
 {
     // This is VERY similar to state_index_generic(). Please consolidate
     PyObject*      result = NULL;
-    PyArrayObject* p      = NULL;
+    PyArrayObject* b      = NULL;
 
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
@@ -2262,7 +2262,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     int Nobservations_board  = -1;
     int Nobservations_point  = -1;
 
-    char* keywords[] = { "p",
+    char* keywords[] = { "b",
                          OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
 
                          "Ncameras_intrinsics",
@@ -2285,7 +2285,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
 
                                      keywords,
 
-                                     PyArray_Converter, &p,
+                                     PyArray_Converter, &b,
                                      OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
                                      &Ncameras_intrinsics,
                                      &Ncameras_extrinsics,
@@ -2340,20 +2340,20 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     if(Nobservations_point < 0) Nobservations_point = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
 
 
-    if( PyArray_TYPE(p) != NPY_DOUBLE )
+    if( PyArray_TYPE(b) != NPY_DOUBLE )
     {
         BARF("The given array MUST have values of type 'float'");
         goto done;
     }
 
-    if( !PyArray_IS_C_CONTIGUOUS(p) )
+    if( !PyArray_IS_C_CONTIGUOUS(b) )
     {
         BARF("The given array MUST be a C-style contiguous array");
         goto done;
     }
 
-    int       ndim = PyArray_NDIM(p);
-    npy_intp* dims = PyArray_DIMS(p);
+    int       ndim = PyArray_NDIM(b);
+    npy_intp* dims = PyArray_DIMS(b);
     if( ndim < 1 )
     {
         BARF("The given array MUST have at least one dimension");
@@ -2373,9 +2373,9 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
         goto done;
     }
 
-    double* x = (double*)PyArray_DATA(p);
+    double* x = (double*)PyArray_DATA(b);
     if(pack)
-        for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
+        for(int i=0; i<PyArray_SIZE(b)/Nstate; i++)
         {
             mrcal_pack_solver_state_vector( x,
                                             Ncameras_intrinsics, Ncameras_extrinsics,
@@ -2384,7 +2384,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
             x = &x[Nstate];
         }
     else
-        for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
+        for(int i=0; i<PyArray_SIZE(b)/Nstate; i++)
         {
             mrcal_unpack_solver_state_vector( x,
                                               Ncameras_intrinsics, Ncameras_extrinsics,
@@ -2403,7 +2403,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
 #pragma GCC diagnostic pop
 
-    Py_XDECREF(p);
+    Py_XDECREF(b);
     return result;
 }
 static PyObject* pack_state(PyObject* self, PyObject* args, PyObject* kwargs)

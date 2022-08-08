@@ -1315,7 +1315,7 @@ If this is a getter (no arguments given), returns a numpy array of shape
 
 SYNOPSIS
 
-    p,x,j = mrcal.optimizer_callback(**model.optimization_inputs())[:3]
+    b,x,j = mrcal.optimizer_callback(**model.optimization_inputs())[:3]
 
 This function retrieves the optimization inputs: a dict containing all the data
 that was used to compute the contents of this model. These are the kwargs

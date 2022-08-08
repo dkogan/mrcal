@@ -6,10 +6,10 @@ SYNOPSIS
 
     optimization_inputs = m.optimization_inputs()
 
-    p_packed = mrcal.optimizer_callback(**optimization_inputs)[0]
+    b_packed = mrcal.optimizer_callback(**optimization_inputs)[0]
 
-    p = p_packed.copy()
-    mrcal.unpack_state(p, **optimization_inputs)
+    b = b_packed.copy()
+    mrcal.unpack_state(b, **optimization_inputs)
 
 In order to make the optimization well-behaved, we scale all the variables in
 the state and the gradients before passing them to the optimizer. The internal
@@ -37,7 +37,7 @@ be 0. Thus most arguments are optional.
 
 ARGUMENTS
 
-- p: a numpy array of shape (..., Nstate). This is the packed state on input,
+- b: a numpy array of shape (..., Nstate). This is the packed state on input,
   and the full state on output. The input array is modified.
 
 - **kwargs: if the optimization inputs are available, they can be passed-in as

@@ -40,13 +40,13 @@ variance our input noise: $\mathrm{Var}\left( \vec q_\mathrm{ref} \right)$.
 We propagate this input noise through the optimization, to find out how this
 noise would affect the calibration solution. Given some perturbation of the
 inputs, we can derive the resulting perturbation in the optimization state:
-$\Delta \vec p = M \Delta \vec q_\mathrm{ref}$ for some matrix $M$ we can
-compute. The [[file:formulation.org::#state-vector][state vector $\vec p$]] contains /everything/: the intrinsics of all
+$\Delta \vec b = M \Delta \vec q_\mathrm{ref}$ for some matrix $M$ we can
+compute. The [[file:formulation.org::#state-vector][state vector $\vec b$]] contains /everything/: the intrinsics of all
 the lenses, the geometry of all the cameras and chessboards, the chessboard
 shape, etc. We have the variance of the input noise, so we can compute the
 variance of the state vector:
 
-\[ \mathrm{Var}(\vec p) = M \mathrm{Var}\left(\vec q_\mathrm{ref}\right) M^T \]
+\[ \mathrm{Var}(\vec b) = M \mathrm{Var}\left(\vec q_\mathrm{ref}\right) M^T \]
 
 Now we need to propagate this uncertainty in the optimization state through a
 projection. Let's say we have a point $\vec p_\mathrm{fixed}$ defined in some
@@ -56,12 +56,12 @@ projection. Let's say we have a point $\vec p_\mathrm{fixed}$ defined in some
 
 So $\vec q$ is a function of the intrinsics and the transformation. Both of
 these are functions of the optimization state, so we can propagate our noise in
-the optimization state $\vec p$:
+the optimization state $\vec b$:
 
 \[ \mathrm{Var}\left( \vec q \right) =
-\frac{\partial \vec q}{\partial \vec p}
-\mathrm{Var}\left( \vec p \right)
-\frac{\partial \vec q}{\partial \vec p}^T
+\frac{\partial \vec q}{\partial \vec b}
+\mathrm{Var}\left( \vec b \right)
+\frac{\partial \vec q}{\partial \vec b}^T
 \]
 
 There lots and lots of details here, so please read the [[file:uncertainty.org][documentation]] if

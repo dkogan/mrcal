@@ -441,7 +441,7 @@ slices = ( (q_true[0], (models_baseline[icam0],models_baseline[icam1])),
 
 _,                       \
 _,                       \
-dp_triangulated_dpstate, \
+dp_triangulated_dbstate, \
 istate_i0,               \
 istate_i1,               \
 icam_extrinsics0,        \
@@ -515,38 +515,38 @@ dp_triangulated_dq_empirical = grad(lambda q: triangulate_nograd(models_baseline
                                     q_true,
                                     step = 1e-3)
 
-testutils.confirm_equal(dp_triangulated_dpstate[...,istate_i0:istate_i0+Nintrinsics],
+testutils.confirm_equal(dp_triangulated_dbstate[...,istate_i0:istate_i0+Nintrinsics],
                         dp_triangulated_di0_empirical,
                         relative = True,
                         worstcase = True,
                         eps = 0.1,
-                        msg = "Gradient check: dp_triangulated_dpstate[intrinsics0]")
-testutils.confirm_equal(dp_triangulated_dpstate[...,istate_i1:istate_i1+Nintrinsics],
+                        msg = "Gradient check: dp_triangulated_dbstate[intrinsics0]")
+testutils.confirm_equal(dp_triangulated_dbstate[...,istate_i1:istate_i1+Nintrinsics],
                         dp_triangulated_di1_empirical,
                         relative = True,
                         worstcase = True,
                         eps = 0.1,
-                        msg = "Gradient check: dp_triangulated_dpstate[intrinsics1]")
+                        msg = "Gradient check: dp_triangulated_dbstate[intrinsics1]")
 if istate_e0 is not None:
-    testutils.confirm_equal(dp_triangulated_dpstate[...,istate_e0:istate_e0+6],
+    testutils.confirm_equal(dp_triangulated_dbstate[...,istate_e0:istate_e0+6],
                             dp_triangulated_de0_empirical,
                             relative = True,
                             worstcase = True,
                             eps = 5e-3,
-                            msg = "Gradient check: dp_triangulated_dpstate[extrinsics0]")
+                            msg = "Gradient check: dp_triangulated_dbstate[extrinsics0]")
 if istate_e1 is not None:
-    testutils.confirm_equal(dp_triangulated_dpstate[...,istate_e1:istate_e1+6],
+    testutils.confirm_equal(dp_triangulated_dbstate[...,istate_e1:istate_e1+6],
                             dp_triangulated_de1_empirical,
                             relative = True,
                             worstcase = True,
                             eps = 5e-3,
-                            msg = "Gradient check: dp_triangulated_dpstate[extrinsics1]")
+                            msg = "Gradient check: dp_triangulated_dbstate[extrinsics1]")
 
 
 if optimization_inputs_baseline.get('do_optimize_frames'):
     istate_f0     = mrcal.state_index_frames(0, **optimization_inputs_baseline)
     Nstate_frames = mrcal.num_states_frames(    **optimization_inputs_baseline)
-    testutils.confirm_equal(dp_triangulated_dpstate[...,istate_f0:istate_f0+Nstate_frames],
+    testutils.confirm_equal(dp_triangulated_dbstate[...,istate_f0:istate_f0+Nstate_frames],
                             nps.clump(dp_triangulated_drtrf_empirical, n=-2),
                             relative = True,
                             worstcase = True,

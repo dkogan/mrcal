@@ -616,13 +616,13 @@ int mrcal_num_intrinsics_optimization_params( mrcal_problem_selections_t problem
 // the state and the gradients before passing them to the optimizer. The internal
 // optimization library thus works only with unitless (or "packed") data.
 //
-// This function takes an (Nstate,) array of full-units values p[], and scales
+// This function takes an (Nstate,) array of full-units values b[], and scales
 // it to produce packed data. This function applies the scaling directly to the
 // input array; the input is modified, and nothing is returned.
 //
 // This is the inverse of mrcal_unpack_solver_state_vector()
 void mrcal_pack_solver_state_vector( // out, in
-                                     double* p,
+                                     double* b,
 
                                      // in
                                      int Ncameras_intrinsics, int Ncameras_extrinsics,
@@ -638,13 +638,13 @@ void mrcal_pack_solver_state_vector( // out, in
 // the state and the gradients before passing them to the optimizer. The internal
 // optimization library thus works only with unitless (or "packed") data.
 //
-// This function takes an (Nstate,) array of unitless values p[], and scales it
+// This function takes an (Nstate,) array of unitless values b[], and scales it
 // to produce full-units data. This function applies the scaling directly to the
 // input array; the input is modified, and nothing is returned.
 //
 // This is the inverse of mrcal_pack_solver_state_vector()
 void mrcal_unpack_solver_state_vector( // out, in
-                                       double* p, // unitless state on input,
+                                       double* b, // unitless state on input,
                                                   // scaled, meaningful state on
                                                   // output
 
@@ -709,7 +709,7 @@ mrcal_stats_t
 mrcal_optimize( // out
                 // Each one of these output pointers may be NULL
                 // Shape (Nstate,)
-                double* p_packed,
+                double* b_packed,
                 // used only to confirm that the user passed-in the buffer they
                 // should have passed-in. The size must match exactly
                 int buffer_size_p_packed,
@@ -790,7 +790,7 @@ bool mrcal_optimizer_callback(// out
                              // their analogues in mrcal_optimize()
 
                              // Shape (Nstate,)
-                             double* p_packed,
+                             double* b_packed,
                              // used only to confirm that the user passed-in the buffer they
                              // should have passed-in. The size must match exactly
                              int buffer_size_p_packed,
@@ -867,7 +867,7 @@ typedef struct
 } mrcal_intrinsics_core_t;
 
 // The optimization routine tries to minimize the length of the measurement
-// vector x by moving around the state vector p.
+// vector x by moving around the state vector b.
 //
 // Depending on the specific optimization problem being solved and the
 // mrcal_problem_selections_t, the state vector may contain any of
@@ -882,7 +882,7 @@ typedef struct
 // - The penalties in the solved point positions
 // - The regularization terms
 //
-// Given the problem selections and a vector p or x it is often useful to know
+// Given the problem selections and a vector b or x it is often useful to know
 // where specific quantities lie in those vectors. We have 4 sets of functions
 // to answer such questions:
 //
@@ -901,7 +901,7 @@ typedef struct
 //   - regularization
 //
 // int mrcal_state_index_THING()
-//   Returns the index in the state vector p where the contiguous block of
+//   Returns the index in the state vector b where the contiguous block of
 //   values describing the THING begins. THING is any of
 //   - intrinsics
 //   - extrinsics
@@ -912,7 +912,7 @@ typedef struct
 //
 // int mrcal_num_states_THING()
 //   Returns the number of values in the contiguous block in the state
-//   vector p that describe the given THING. THING is any of
+//   vector b that describe the given THING. THING is any of
 //   - intrinsics
 //   - extrinsics
 //   - frames

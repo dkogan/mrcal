@@ -6,13 +6,13 @@ SYNOPSIS
 
     optimization_inputs = m.optimization_inputs()
 
-    p = mrcal.optimizer_callback(**optimization_inputs)[0]
-    mrcal.unpack_state(p, **optimization_inputs)
+    b = mrcal.optimizer_callback(**optimization_inputs)[0]
+    mrcal.unpack_state(b, **optimization_inputs)
 
     i_state0 = mrcal.state_index_extrinsics(0, **optimization_inputs)
     Nstates  = mrcal.num_states_extrinsics (   **optimization_inputs)
 
-    extrinsics_rt_fromref_all = p[i_state0:i_state0+Nstates]
+    extrinsics_rt_fromref_all = b[i_state0:i_state0+Nstates]
 
 The optimization algorithm sees its world described in one, big vector of state.
 The optimizer doesn't know or care about the meaning of each element of this

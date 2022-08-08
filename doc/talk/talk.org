@@ -306,15 +306,15 @@ A grand summary of how we do this:
 1. We are assuming a particular distribution of observation input noise
    $\mathrm{Var}\left( \vec q_\mathrm{ref} \right)$
 2. We propagate it through the optimization to get the variance of the
-   optimization state $\mathrm{Var}(\vec p)$
+   optimization state $\mathrm{Var}(\vec b)$
 3. For any /fixed/ point, its projection $\vec q = \mathrm{project}\left(
    \mathrm{transform}\left( \vec p_\mathrm{fixed} \right)\right)$ depends on
-   parameters of $\vec p$, whose variance we know. So
+   parameters of $\vec b$, whose variance we know. So
 
 \[ \mathrm{Var}\left( \vec q \right) =
-\frac{\partial \vec q}{\partial \vec p}
-\mathrm{Var}\left( \vec p \right)
-\frac{\partial \vec q}{\partial \vec p}^T
+\frac{\partial \vec q}{\partial \vec b}
+\mathrm{Var}\left( \vec b \right)
+\frac{\partial \vec q}{\partial \vec b}^T
 \]
 
 ** Uncertainty simulation

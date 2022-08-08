@@ -6,15 +6,15 @@ SYNOPSIS
 
     optimization_inputs = m.optimization_inputs()
 
-    p = mrcal.optimizer_callback(**optimization_inputs)[0]
-    mrcal.unpack_state(p, **optimization_inputs)
+    b = mrcal.optimizer_callback(**optimization_inputs)[0]
+    mrcal.unpack_state(b, **optimization_inputs)
 
     icam_intrinsics = 1
     i_state = mrcal.state_index_intrinsics(icam_intrinsics,
                                            **optimization_inputs)
 
     Nintrinsics = mrcal.lensmodel_num_params(optimization_inputs['lensmodel'])
-    intrinsics_data = p[i_state:i_state+Nintrinsics]
+    intrinsics_data = b[i_state:i_state+Nintrinsics]
 
 The optimization algorithm sees its world described in one, big vector of state.
 The optimizer doesn't know or care about the meaning of each element of this
