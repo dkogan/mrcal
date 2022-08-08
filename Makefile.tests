@@ -62,7 +62,7 @@ TESTS_TRIANGULATION_UNCERTAINTY := $(TESTS_TRIANGULATION_UNCERTAINTY) \
 TESTS_NOSAMPLING := $(foreach t,$(TESTS),$(if $(filter --do-sample,$(subst __, ,$t)),,$t))
 TESTS := $(TESTS) $(TESTS_TRIANGULATION_UNCERTAINTY)
 
-# "make test"				-> TESTS
+# "make test-all"			-> TESTS
 # "make test-nosampling"		-> TESTS_NOSAMPLING
 # "make test-triangulation-uncertainty" -> TESTS_TRIANGULATION_UNCERTAINTY
 define test_set
