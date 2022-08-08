@@ -64,7 +64,15 @@ The strides are given in bytes, and work as expected. For a (for instance)
                           k*xxx_stride2 ]
 #+end_src
 
-These all have direct Python bindings. For instance [[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]].
+There are convenience macros in [[https://www.github.com/dkogan/mrcal/blob/master/strides.h][=strides.h=]], so the above can be equivalently
+expressed as
+
+#+begin_src c
+P3(xxx, i,j,k)
+#+end_src
+
+These all have direct Python bindings. For instance the Python
+[[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]] function wraps =mrcal_rt_from_Rt()= C function.
 
 The [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]] header serves as the listing of available functions.
 
@@ -373,4 +381,5 @@ bool mrcal_write_cameramodel_file(const char* filename,
                                   const mrcal_cameramodel_t* cameramodel);
 #+end_src
 
-The =.cahvor= file format is not supported
+Only the =.cameramodel= file format is supported by these C functions. The
+Python API supports more formats.
