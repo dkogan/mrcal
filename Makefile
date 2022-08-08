@@ -16,7 +16,7 @@ include mrbuild/Makefile.common.header
 
 PROJECT_NAME := mrcal
 ABI_VERSION  := 2
-TAIL_VERSION := 0
+TAIL_VERSION := 2
 
 VERSION := $(VERSION_FROM_PROJECT)
 
