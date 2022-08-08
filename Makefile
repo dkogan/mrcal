@@ -23,6 +23,7 @@ VERSION := $(VERSION_FROM_PROJECT)
 LIB_SOURCES +=			\
   mrcal.c			\
   mrcal-opencv.c		\
+  mrcal-image.c			\
   poseutils.c			\
   poseutils-opencv.c		\
   poseutils-uses-autodiff.cc	\
@@ -39,7 +40,8 @@ BIN_SOURCES +=					\
   test/test-lensmodel-string-manipulation.c     \
   test/test-parser-cameramodel.c
 
-LDLIBS += -ldogleg
+LDLIBS += -ldogleg -lfreeimage
+
 ifneq (${USE_LIBELAS},) # using libelas
 LDLIBS += -lelas
 endif
@@ -54,6 +56,7 @@ EXTRA_CLEAN += minimath/minimath_generated.h
 
 DIST_INCLUDE += \
 	mrcal.h \
+	mrcal-image.h \
 	mrcal_internal.h \
 	basic_geometry.h \
 	poseutils.h \
