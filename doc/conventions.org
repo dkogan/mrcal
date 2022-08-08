@@ -128,7 +128,8 @@ has functions to convert between them. Available representations are:
   is the form used inside the [[file:formulation.org][mrcal optimization routine]].
 
 - =qt=: a (7,) numpy array with a (4,) vector representing a unit quaternion
-  concatenated with another (3,) vector, representing a translation:
+  $\left(w,x,y,z\right)$ concatenated with another (3,) vector, representing a
+  translation:
 
   \[ \left[ \vec q^T \quad \vec t^T \right] \]
 
@@ -191,6 +192,6 @@ Python only. The Python wrapping is done via the [[https://github.com/dkogan/num
 which makes it simple to make consistent Python interfaces /and/ provides
 [[https://numpy.org/doc/stable/user/basics.broadcasting.html][broadcasting]] support.
 
-The Python layer uses [[https://numpy.org/][numpy]] and [[https://github.com/dkogan/numpysane/][=numpysane=]] heavily. All the plotting is done
-with [[https://github.com/dkogan/gnuplotlib][=gnuplotlib=]]. [[https://opencv.org/][OpenCV]] is used a bit, but /only/ in the Python layer (their C
-APIs are gone, and the C++ APIs are unstable).
+The Python layer uses [[https://numpy.org/][=numpy=]] and [[https://github.com/dkogan/numpysane/][=numpysane=]] heavily. All the plotting is done
+with [[https://github.com/dkogan/gnuplotlib][=gnuplotlib=]]. [[https://opencv.org/][OpenCV]] is used a bit, but /only/ in the Python layer, less
+and less over time (their C APIs are gone, and the C++ APIs are unstable).
