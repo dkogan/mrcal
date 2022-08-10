@@ -476,7 +476,10 @@ A sample valid .cameramodel file:
             filetype = io.IOBase
         if isinstance(f, filetype):
             s    = f.read()
-            name = f.name
+            try:
+                name = f.name
+            except:
+                name = None
         else:
             s    = f
             name = None
@@ -592,7 +595,7 @@ We can initialize using one of several methods, depending on which arguments are
 given. The arguments for the methods we're not using MUST all be None. Methods:
 
 - Read a file on disk. The filename should be given in the 'file_or_model'
-  argument (possibly as a poitional argument)
+  argument (possibly as a positional argument)
 
 - Read a python 'file' object. Similarly, the opened file should be given in the
   'file_or_model' argument (possibly as a poitional argument)
@@ -1312,7 +1315,7 @@ If this is a getter (no arguments given), returns a numpy array of shape
 
 SYNOPSIS
 
-    p,x,j = mrcal.optimizer_callback(**model.optimization_inputs())[:3]
+    b,x,j = mrcal.optimizer_callback(**model.optimization_inputs())[:3]
 
 This function retrieves the optimization inputs: a dict containing all the data
 that was used to compute the contents of this model. These are the kwargs

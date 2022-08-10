@@ -435,11 +435,11 @@ plot
         if point_labels is not None:
 
             # all the non-fixed point indices
-            ipoint_not = np.ones( (len(points),), dtype=bool)
-            ipoint_not[np.array(list(point_labels.keys()))] = False
+            ipoint_not_labeled = np.ones( (len(points),), dtype=bool)
+            ipoint_not_labeled[np.array(list(point_labels.keys()))] = False
 
             return \
-                [ (points[ipoint_not],
+                [ (points[ipoint_not_labeled],
                    dict(tuplesize = -3,
                         _with = 'points',
                         legend = 'points')) ] + \
@@ -1263,6 +1263,11 @@ plot
                                        atinfinity      = distance is None,
                                        what            = 'rms-stdev' if isotropic else 'worstdirection-stdev',
                                        observed_pixel_uncertainty = observed_pixel_uncertainty)
+
+    # Any nan or inf uncertainty is set to a very high value. This usually
+    # happens if the unproject() call failed, resulting in pcam == 0
+    err[~np.isfinite(err)] = 1e6
+
     if 'title' not in kwargs:
         if distance is None:
             distance_description = ". Looking out to infinity"
@@ -2463,11 +2468,11 @@ SYNOPSIS
 
     model = mrcal.cameramodel('cam0.cameramodel')
 
-    image = cv2.imread('image.jpg')
+    image = mrcal.load_image('image.jpg')
 
     mrcal.annotate_image__valid_intrinsics_region(image, model)
 
-    cv2.imwrite('image-annotated.jpg', image)
+    mrcal.save_image('image-annotated.jpg', image)
 
 This function reads a valid-intrinsics region from a given camera model, and
 draws it on top of a given image. This is useful to see what parts of a captured
@@ -3498,7 +3503,7 @@ SYNOPSIS
     ===>
     dtype('uint8')
 
-    cv2.imwrite('data.png', image_colorcoded)
+    mrcal.save_image('data.png', image_colorcoded)
 
 This is very similar to cv2.applyColorMap() but more flexible in several
 important ways. Differences:

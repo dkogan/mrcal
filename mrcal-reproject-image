@@ -372,7 +372,6 @@ if args.fit is not None:
 
 
 
-import cv2
 import glob
 import multiprocessing
 import signal
@@ -443,15 +442,11 @@ signal.signal(signal.SIGINT, signal_handler_sigint)
 model_valid_intrinsics_region = None
 mapxy                         = None
 def _transform_this(inout):
-    image = cv2.imread(inout[0])
-    if image is None:
-        print(f"Couldn't read image '{image}'", file=sys.stderr)
-        return
-
+    image = mrcal.load_image(inout[0])
     if model_valid_intrinsics_region is not None:
         mrcal.annotate_image__valid_intrinsics_region(image, model_valid_intrinsics_region)
     image_transformed = mrcal.transform_image(image, mapxy)
-    cv2.imwrite(inout[1], image_transformed)
+    mrcal.save_image(inout[1], image_transformed)
     print(f"Wrote {inout[1]}", file=sys.stderr)
 
 def process(model_from, model_to, image_globs, suffix,

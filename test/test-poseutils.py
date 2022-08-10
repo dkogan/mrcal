@@ -70,6 +70,11 @@ testutils.confirm_equal( mrcal.compose_rt( mrcal.rt_from_Rt(Rt), mrcal.invert_rt
                          np.zeros((6,)),
                          msg = 'compose_rt')
 
+testutils.confirm_equal( mrcal.compose_r( mrcal.r_from_R(R),
+                                          -mrcal.r_from_R(R)),
+                         np.zeros((3,)),
+                         msg = 'compose_r')
+
 testutils.confirm_equal( mrcal.identity_Rt(),
                          nps.glue(np.eye(3), np.zeros((3,)), axis=-2),
                          msg = 'identity_Rt')

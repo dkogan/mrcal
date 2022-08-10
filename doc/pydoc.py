@@ -182,6 +182,7 @@ extranames = \
           vnlog      = "https://www.github.com/dkogan/vnlog",
           np         = "https://numpy.org/doc/stable/reference/index.html",
           numpy      = "https://numpy.org/doc/stable/reference/index.html",
+          scipy      = "https://docs.scipy.org/doc/scipy/reference/index.html",
           cv2        = "https://docs.opencv.org/master/")
 
 

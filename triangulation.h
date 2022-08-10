@@ -1,6 +1,6 @@
 #pragma once
 
-#include "basic_geometry.h"
+#include "basic-geometry.h"
 
 // All of these return (0,0,0) if the rays are parallel or divergent, or if the
 // intersection is behind either of the two cameras. No gradients are reported

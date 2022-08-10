@@ -253,7 +253,7 @@ args = parse_args()
 
 if args.object_spacing is None:
     print("WARNING: assuming default calibration-object spacing of 0.1m. If this is wrong, all distances will be off by a scale factor",
-          file = sys.stdderr)
+          file = sys.stderr)
     args.object_spacing = 0.1
 
 if args.object_height_n is None:
@@ -265,7 +265,6 @@ if args.object_height_n is None:
 import numpy as np
 import scipy.linalg
 import numpysane as nps
-import cv2
 import copy
 import time
 import glob
@@ -297,10 +296,11 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, se
     except:
         raise Exception("Couldn't find any images for camera '{}'".format(icamera))
 
-    img = cv2.imread(paths[iobservation0_thiscamera])
-    if img is None:
-        raise Exception("I needed to read '{}' to get an imagersize, but couldn't open it, and get image dimensions from it. Make the images findable, or pass --imagersize". \
-                        format(paths[iobservation0_thiscamera]))
+    try:
+        img = mrcal.load_image(paths[iobservation0_thiscamera],
+                               bits_per_pixel = 8, channels = 1)
+    except:
+        raise Exception(f"I needed to read '{paths[iobservation0_thiscamera]}' to get an imagersize, but couldn't open it, and get image dimensions from it. Make the images findable, or pass --imagersize")
     h,w = img.shape[:2]
 
     return [w,h]

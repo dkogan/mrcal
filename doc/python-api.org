@@ -22,6 +22,7 @@ Functions to manipulate [[file:conventions.org::#pose-representation][rotations 
 - [[file:mrcal-python-api-reference.html#-invert_R][=mrcal.invert_R()=]]: Invert an (3,3) matrix rotation. This is a transpose
 - [[file:mrcal-python-api-reference.html#-invert_Rt][=mrcal.invert_Rt()=]]: Invert an Rt transformation
 - [[file:mrcal-python-api-reference.html#-invert_rt][=mrcal.invert_rt()=]]: Invert an rt transformation
+- [[file:mrcal-python-api-reference.html#-compose_r][=mrcal.compose_r()=]]: Compose Rodrigues rotations
 - [[file:mrcal-python-api-reference.html#-compose_Rt][=mrcal.compose_Rt()=]]: Compose Rt transformations
 - [[file:mrcal-python-api-reference.html#-compose_rt][=mrcal.compose_rt()=]]: Compose rt transformations
 - [[file:mrcal-python-api-reference.html#-rotate_point_r][=mrcal.rotate_point_r()=]]: Rotate point(s) using a Rodrigues vector
@@ -183,7 +184,7 @@ Functions to interpret the contentes of the [[file:formulation.org][state and me
 
 * State packing
 The optimization routine works in the [[file:formulation.org::#state-packing][space of scaled parameters]], and several
-functions are available to pack/unpack the state vector $\vec p$.
+functions are available to pack/unpack the state vector $\vec b$.
 
 - [[file:mrcal-python-api-reference.html#-pack_state][=mrcal.pack_state()=]]: Scales a state vector to the packed, unitless form used by the optimizer
 - [[file:mrcal-python-api-reference.html#-unpack_state][=mrcal.unpack_state()=]]: Scales a state vector from the packed, unitless form used by the optimizer
@@ -218,6 +219,15 @@ arguments. The available methods:
 - [[file:mrcal-python-api-reference.html#cameramodel-icam_intrinsics][=mrcal.cameramodel.icam_intrinsics()=]]: Get the camera index indentifying this
   camera at optimization time. Used in conjunction with
   [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs][=mrcal.cameramodel.optimization_inputs()=]]
+
+* Image reading/writing
+mrcal includes simple functions for reading/writing images. These aren't
+interesting, or better than any other functions you may have already. These
+exist because they're faster than loading the opencv module and to make life
+easy for those that don't already have other functions handy.
+
+- [[file:mrcal-python-api-reference.html#-load_image][=mrcal.load_image()=]]: load an image from a file on disk into a numpy array
+- [[file:mrcal-python-api-reference.html#-save_image][=mrcal.save_image()=]]: save an image in a numpy array to a file on disk
 
 * Miscellaneous utilities
 - [[file:mrcal-python-api-reference.html#-hypothesis_board_corner_positions][=mrcal.hypothesis_board_corner_positions()=]]: Reports the coordinates of chessboard

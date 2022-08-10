@@ -1,18 +1,38 @@
+# "0" or undefined means "false"
+# everything else means  "true"
+
+# libelas stereo matcher. Available in Debian/non-free. I don't want to depend
+# on anything in non-free, so I default to not using libelas
+USE_LIBELAS ?= 0
+
+
+# convert all USE_XXX:=0 to an empty string
+$(foreach v,$(filter USE_%,$(.VARIABLES)),$(if $(filter 0,${$v}),$(eval undefine $v)))
+# to print them all: $(foreach v,$(filter USE_%,$(.VARIABLES)),$(warning $v = '${$v}'))
+
+
+
 include mrbuild/Makefile.common.header
 
 PROJECT_NAME := mrcal
 ABI_VERSION  := 2
-TAIL_VERSION := 0
+TAIL_VERSION := 2
 
 VERSION := $(VERSION_FROM_PROJECT)
 
 LIB_SOURCES +=			\
   mrcal.c			\
   mrcal-opencv.c		\
+  mrcal-image.c			\
   poseutils.c			\
   poseutils-opencv.c		\
   poseutils-uses-autodiff.cc	\
   triangulation.cc
+
+ifneq (${USE_LIBELAS},) # using libelas
+LIB_SOURCES := $(LIB_SOURCES) stereo-matching-libelas.cc
+endif
+
 
 BIN_SOURCES +=					\
   test-gradients.c				\
@@ -20,7 +40,11 @@ BIN_SOURCES +=					\
   test/test-lensmodel-string-manipulation.c     \
   test/test-parser-cameramodel.c
 
-LDLIBS    += -ldogleg
+LDLIBS += -ldogleg -lfreeimage
+
+ifneq (${USE_LIBELAS},) # using libelas
+LDLIBS += -lelas
+endif
 
 CFLAGS    += --std=gnu99
 CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
@@ -32,8 +56,9 @@ EXTRA_CLEAN += minimath/minimath_generated.h
 
 DIST_INCLUDE += \
 	mrcal.h \
-	mrcal_internal.h \
-	basic_geometry.h \
+	mrcal-image.h \
+	mrcal-internal.h \
+	basic-geometry.h \
 	poseutils.h \
 	triangulation.h
 DIST_BIN :=					\
@@ -47,7 +72,7 @@ DIST_BIN :=					\
 	mrcal-reproject-image			\
 	mrcal-graft-models			\
 	mrcal-to-cahvor				\
-	mrcal-to-cameramodel			\
+	mrcal-from-cahvor			\
 	mrcal-show-geometry			\
 	mrcal-show-valid-intrinsics-region	\
 	mrcal-is-within-valid-intrinsics-region \
@@ -70,6 +95,9 @@ EXTRA_CLEAN += cameramodel-parser_GENERATED.c
 cameramodel-parser_GENERATED.o: CCXXFLAGS += -fno-fast-math
 
 ALL_NPSP_EXTENSION_MODULES := $(patsubst %-genpywrap.py,%,$(wildcard *-genpywrap.py))
+ifeq (${USE_LIBELAS},) # not using libelas
+ALL_NPSP_EXTENSION_MODULES := $(filter-out elas,$(ALL_NPSP_EXTENSION_MODULES))
+endif
 ALL_PY_EXTENSION_MODULES   := _mrcal $(patsubst %,_%_npsp,$(ALL_NPSP_EXTENSION_MODULES))
 %/:
 	mkdir -p $@

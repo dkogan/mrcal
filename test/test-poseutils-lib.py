@@ -120,9 +120,34 @@ def compose_Rt(Rt0, Rt1):
     t2 = nps.matmult(t1, nps.transpose(R0)) + t0
     return nps.glue( R2, t2.ravel(), axis=-2)
 
+def normalize_r(r):
+    r'''If abs(rot) > 180deg -> flip direction, abs(rot) <- 180-abs(rot)'''
+    norm2 = nps.norm2(r)
+    if norm2 < np.pi*np.pi:
+        return r
+
+    mag = np.sqrt(norm2)
+    r_unit = r / mag
+
+    mag = mag % (np.pi*2.)
+    if mag < np.pi:
+        # same direction, but fewer full rotations
+        return r_unit*mag
+
+    return -r_unit * (np.pi*2. - mag)
+
+def normalize_rt(rt):
+    return nps.glue(normalize_r(rt[:3]),
+                    rt[3:],
+                    axis=-1)
+
+def compose_r(r0, r1):
+    r'''Simple reference implementation'''
+    return r_from_R(nps.matmult( R_from_r(r0),
+                                 R_from_r(r1)))
+
 def compose_rt(rt0, rt1):
     r'''Simple reference implementation'''
-
     return rt_from_Rt(compose_Rt( Rt_from_rt(rt0),
                                   Rt_from_rt(rt1)))
 
@@ -882,8 +907,6 @@ confirm_equal( rt2,
                compose_rt(rt0_ref, rt1_ref),
                msg='compose_rt result written in-place to rt1')
 
-# _compose_rt() is not excercised by the python library, so I explicitly test it
-# here
 rt2 = _poseutils._compose_rt(rt0_ref, rt1_ref, out=out6)
 confirm_equal( rt2,
                compose_rt(rt0_ref, rt1_ref),
@@ -956,18 +979,283 @@ Rt2 = mrcal.compose_Rt(Rt0_ref, Rt1_ref,Rt0_ref,
                        out=out43)
 confirm_equal( Rt2,
                compose_Rt(compose_Rt(Rt0_ref, Rt1_ref), Rt0_ref),
-               msg='compose_Rt with 3 inputs; associate one way')
-confirm_equal( Rt2,
-               compose_Rt(Rt0_ref, compose_Rt(Rt1_ref, Rt0_ref)),
-               msg='compose_Rt with 3 inputs; associate the other way')
+               msg='compose_Rt with 3 inputs')
 
 rt2 = mrcal.compose_rt(rt0_ref, rt1_ref,rt0_ref,
                        out=out6)
+# Needed here. The two rotations are semantically equivalent, but numerically
+# different
+rt2 = normalize_rt(rt2)
 confirm_equal( rt2,
                compose_rt(compose_rt(rt0_ref, rt1_ref), rt0_ref),
-               msg='compose_rt with 3 inputs; associate one way')
-confirm_equal( rt2,
-               compose_rt(rt0_ref, compose_rt(rt1_ref, rt0_ref)),
-               msg='compose_rt with 3 inputs; associate the other way')
+               msg='compose_rt with 3 inputs')
+
+################# compose_r()
+#
+# I check big, almost-0 and 0 arrays in both positions, and all the gradients.
+r0big      = base[:3,0,0,0]
+r0nearzero = base[:3,1,0,0]
+r0zero     = base[:3,2,0,0]
+r1big      = base[:3,3,0,0]
+r1nearzero = base[:3,4,0,0]
+r1zero     = base[:3,5,0,0]
+r01        = base[:3,6,0,0]
+dr01_dr0   = base[3:6,:3,0,0]
+dr01_dr1   = base[3:6,3:6,0,0]
+
+r0big[:] = np.array(( 1.0,  3.0, 1.1)) * 1e-1
+r1big[:] = np.array((-2.0, -1.2, 0.3)) * 1e-1
+
+r0nearzero[:] = np.array(( 1.7, -2.0, -5.1 )) * 1e-12
+r1nearzero[:] = np.array((-1.2,  5.2,  0.03)) * 1e-12
+
+r0zero[:] *= 0.
+r1zero[:] *= 0.
+
+confirm_equal( mrcal.compose_r(r0big, r1big),
+               compose_r      (r0big, r1big),
+               msg='compose_r basic operation')
+
+mrcal.compose_r(r0big, r1big, out=r01)
+confirm_equal( r01,
+               compose_r      (r0big, r1big),
+               msg='compose_r in-place output')
+
+r01_notinplace, dr01_dr0_notinplace, dr01_dr1_notinplace = \
+    mrcal.compose_r(r0big, r1big, get_gradients=True)
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, r1big), r0big, step=1e-5)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0big, r1), r1big, step=1e-5)
+confirm_equal( r01_notinplace,
+               compose_r      (r0big, r1big),
+               msg='compose_r gradients: r01')
+confirm_equal( dr01_dr0_notinplace,
+               dr01_dr0_ref,
+               msg='compose_r gradients: dr01_dr0')
+confirm_equal( dr01_dr1_notinplace,
+               dr01_dr1_ref,
+               msg='compose_r gradients: dr01_dr1')
+
+mrcal.compose_r(r0big, r1big,
+                get_gradients=True,
+                out = (r01, dr01_dr0, dr01_dr1))
+confirm_equal( r01,
+               compose_r      (r0big, r1big),
+               msg='compose_r in-place gradients: r01')
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r in-place gradients: dr01_dr0')
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r in-place gradients: dr01_dr1')
+
+
+mrcal.compose_r(r0big, r1nearzero,
+                get_gradients=True,
+                out = (r01, dr01_dr0, dr01_dr1))
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, r1nearzero), r0big, step=1e-5)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0big, r1), r1nearzero, step=1e-5)
+confirm_equal( r01,
+               compose_r      (r0big, r1nearzero),
+               msg='compose_r in-place r1nearzero gradients: r01')
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r in-place r1nearzero gradients: dr01_dr0')
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r in-place r1nearzero gradients: dr01_dr1')
+
+mrcal.compose_r(r0big, r1zero,
+                get_gradients=True,
+                out = (r01, dr01_dr0, dr01_dr1))
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, r1zero), r0big, step=1e-5)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0big, r1), r1zero, step=1e-5)
+confirm_equal( r01,
+               compose_r      (r0big, r1zero),
+               msg='compose_r in-place r1zero gradients: r01')
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r in-place r1zero gradients: dr01_dr0')
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r in-place r1zero gradients: dr01_dr1')
+
+mrcal.compose_r(r0nearzero, r1big,
+                get_gradients=True,
+                out = (r01, dr01_dr0, dr01_dr1))
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, r1big), r0nearzero, step=1e-5)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0nearzero, r1), r1big, step=1e-5)
+confirm_equal( r01,
+               compose_r      (r0nearzero, r1big),
+               msg='compose_r in-place r1nearzero gradients: r01')
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r in-place r1nearzero gradients: dr01_dr0')
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r in-place r1nearzero gradients: dr01_dr1')
+
+mrcal.compose_r(r0zero, r1big,
+                get_gradients=True,
+                out = (r01, dr01_dr0, dr01_dr1))
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, r1big), r0zero, step=1e-5)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0zero, r1), r1big, step=1e-5)
+confirm_equal( r01,
+               compose_r      (r0zero, r1big),
+               msg='compose_r in-place r1zero gradients: r01')
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r in-place r1zero gradients: dr01_dr0')
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r in-place r1zero gradients: dr01_dr1')
+
+mrcal.compose_r(r0nearzero, r1nearzero,
+                get_gradients=True,
+                out = (r01, dr01_dr0, dr01_dr1))
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, r1nearzero), r0nearzero, step=1e-5)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0nearzero, r1), r1nearzero, step=1e-5)
+confirm_equal( r01,
+               compose_r      (r0nearzero, r1nearzero),
+               msg='compose_r in-place r0nearzero,r1nearzero gradients: r01')
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r in-place r0nearzero,r1nearzero gradients: dr01_dr0')
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r in-place r0nearzero,r1nearzero gradients: dr01_dr1')
+
+mrcal.compose_r(r0nearzero, r1zero,
+                get_gradients=True,
+                out = (r01, dr01_dr0, dr01_dr1))
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, r1zero), r0nearzero, step=1e-5)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0nearzero, r1), r1zero, step=1e-5)
+confirm_equal( r01,
+               compose_r      (r0nearzero, r1zero),
+               msg='compose_r in-place r0nearzero,r1zero gradients: r01')
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r in-place r0nearzero,r1zero gradients: dr01_dr0')
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r in-place r0nearzero,r1zero gradients: dr01_dr1')
+
+mrcal.compose_r(r0zero, r1nearzero,
+                get_gradients=True,
+                out = (r01, dr01_dr0, dr01_dr1))
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, r1nearzero), r0zero, step=1e-5)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0zero, r1), r1nearzero, step=1e-5)
+confirm_equal( r01,
+               compose_r      (r0zero, r1nearzero),
+               msg='compose_r in-place r0zero,r1nearzero gradients: r01')
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r in-place r0zero,r1nearzero gradients: dr01_dr0')
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r in-place r0zero,r1nearzero gradients: dr01_dr1')
+
+mrcal.compose_r(r0zero, r1zero,
+                get_gradients=True,
+                out = (r01, dr01_dr0, dr01_dr1))
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, r1zero), r0zero, step=1e-5)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0zero, r1), r1zero, step=1e-5)
+confirm_equal( r01,
+               compose_r      (r0zero, r1zero),
+               msg='compose_r in-place r0zero,r1zero gradients: r01')
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r in-place r0zero,r1zero gradients: dr01_dr0')
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r in-place r0zero,r1zero gradients: dr01_dr1')
+
+# Finally, let's look at rotation composition when the result is 0
+mrcal.compose_r(r0big, -r0big,
+                get_gradients=True,
+                out = (r01, dr01_dr0, dr01_dr1))
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, -r0big), r0big, step=1e-5)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0big, r1), -r0big, step=1e-5)
+confirm_equal( r01,
+               compose_r      (r0big, -r0big),
+               msg='compose_r in-place r0big,-r0big gradients: r01')
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r in-place r0big,-r0big gradients: dr01_dr0')
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r in-place r0big,-r0big gradients: dr01_dr1')
+
+mrcal.compose_r(r0nearzero, -r0nearzero,
+                get_gradients=True,
+                out = (r01, dr01_dr0, dr01_dr1))
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, -r0nearzero), r0nearzero, step=1e-5)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0nearzero, r1), -r0nearzero, step=1e-5)
+confirm_equal( r01,
+               compose_r      (r0nearzero, -r0nearzero),
+               msg='compose_r in-place r0nearzero,-r0nearzero gradients: r01')
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r in-place r0nearzero,-r0nearzero gradients: dr01_dr0')
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r in-place r0nearzero,-r0nearzero gradients: dr01_dr1')
+
+mrcal.compose_r(r0zero, -r0zero,
+                get_gradients=True,
+                out = (r01, dr01_dr0, dr01_dr1))
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, -r0zero), r0zero, step=1e-5)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0zero, r1), -r0zero, step=1e-5)
+confirm_equal( r01,
+               compose_r      (r0zero, -r0zero),
+               msg='compose_r in-place r0zero,-r0zero gradients: r01')
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r in-place r0zero,-r0zero gradients: dr01_dr0')
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r in-place r0zero,-r0zero gradients: dr01_dr1')
+
+################# compose_r_tinyr0_gradientr0()
+# These are a subset of the compose_r() tests just above
+r1big      = base[:3,3,0,0]
+r1nearzero = base[:3,4,0,0]
+r0zero     = base[:3,2,0,0]
+r1zero     = base[:3,5,0,0]
+r01        = base[:3,6,0,0]
+dr01_dr0   = base[3:6,:3,0,0]
+
+r1big      [:] = np.array((-2.0, -1.2, 0.3)) * 1e-1
+r1nearzero [:] = np.array((-1.2,  5.2,  0.03)) * 1e-12
+r0zero     [:] *= 0.
+r1zero     [:] *= 0.
+
+
+mrcal.compose_r_tinyr0_gradientr0(r1big,
+                                  out = dr01_dr0)
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, r1big), r0zero, step=1e-5)
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r_tinyr0_gradientr0 in-place r1zero gradients: dr01_dr0')
+
+mrcal.compose_r_tinyr0_gradientr0(r1nearzero,
+                                  out = dr01_dr0)
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, r1nearzero), r0zero, step=1e-5)
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r_tinyr0_gradientr0 in-place r1nearzero gradients: dr01_dr0')
+
+mrcal.compose_r_tinyr0_gradientr0(r1zero,
+                                  out = dr01_dr0)
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, r1zero), r0zero, step=1e-5)
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r_tinyr0_gradientr0 in-place r1zero gradients: dr01_dr0')
+
+mrcal.compose_r_tinyr0_gradientr0(-r0zero,
+                                  out = dr01_dr0)
+dr01_dr0_ref = grad(lambda r0: compose_r( r0, -r0zero), r0zero, step=1e-5)
+confirm_equal( dr01_dr0,
+               dr01_dr0_ref,
+               msg='compose_r_tinyr0_gradientr0 in-place r0zero,-r0zero gradients: dr01_dr0')
 
 finish()

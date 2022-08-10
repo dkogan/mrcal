@@ -25,10 +25,11 @@ SYNOPSIS
   Writing '/tmp/right-rectified.png'
   Writing '/tmp/left-disparity.png'
   Writing '/tmp/left-range.png'
+  Writing '/tmp/points-cam0.vnl'
 
 Given a pair of calibrated cameras and pairs of images captured by these
 cameras, this tool runs the whole stereo processing sequence to produce
-disparity and range images.
+disparity and range images and a point cloud array.
 
 mrcal functions are used to construct the rectified system. Currently only the
 OpenCV SGBM routine is available to perform stereo matching, but more options
@@ -276,6 +277,14 @@ def parse_args():
                         help='''The nearest,furthest range to encode in the range image.
                         Defaults to 1,1000, arbitrarily''')
 
+    parser.add_argument('--stereo-matcher',
+                        choices=( 'SGBM', 'ELAS' ),
+                        default = 'SGBM',
+                        help='''The stereo-matching method. By default we use
+                        the "SGBM" method from OpenCV. libelas isn't always
+                        available, and must be enabled at compile-time by
+                        setting USE_LIBELAS=1 during the build''')
+
     parser.add_argument('--sgbm-block-size',
                         type=int,
                         default = 5,
@@ -314,6 +323,14 @@ def parse_args():
                         help='''A parameter for the OpenCV SGBM matcher. Must be
                         one of ('SGBM','HH','HH4','SGBM_3WAY'). If omitted, the
                         OpenCV default (SGBM) is used''')
+
+    parser.add_argument('--write-point-cloud',
+                        action='store_true',
+                        help='''If given, we write out the point cloud as a .ply
+                        file. Each point is reported in the reference coordinate
+                        system, colored with the nearest-neighbor color of the
+                        camera0 image. This is disabled by default because this
+                        is potentially a very large file''')
 
     parser.add_argument('models',
                         type=str,
@@ -381,10 +398,14 @@ args = parse_args()
 
 import numpy as np
 import numpysane as nps
-import cv2
 import glob
 import mrcal
 
+
+if args.stereo_matcher == 'ELAS':
+    if not hasattr(mrcal, 'stereo_matching_libelas'):
+        print("ERROR: the ELAS stereo matcher isn't available. libelas must be installed, and enabled at compile-time with USE_LIBELAS=1. Pass '--stereo-matcher SGBM' instead", file=sys.stderr)
+        sys.exit(1)
 
 if args.viz == 'stereo':
 
@@ -401,15 +422,6 @@ if args.viz == 'stereo':
         print("The visualizer needs the GL_image_display library. See https://github.com/dkogan/GL_image_display",
               file=sys.stderr)
         sys.exit(1)
-
-
-if args.sgbm_mode is not None:
-    if   args.sgbm_mode == 'SGBM':      args.sgbm_mode = cv2.StereoSGBM_MODE_SGBM
-    elif args.sgbm_mode == 'HH':        args.sgbm_mode = cv2.StereoSGBM_MODE_HH
-    elif args.sgbm_mode == 'HH4':       args.sgbm_mode = cv2.StereoSGBM_MODE_HH4
-    elif args.sgbm_mode == 'SGBM_3WAY': args.sgbm_mode = cv2.StereoSGBM_MODE_SGBM_3WAY
-    else:
-        raise Exception("arg-parsing error. This is a bug. Please report")
 
 if len(args.pixels_per_deg) == 2:
     pixels_per_deg_az,pixels_per_deg_el = args.pixels_per_deg
@@ -518,6 +530,109 @@ def write_output(func, filename):
     print(f"Writing '{filename}'")
     func(filename)
 
+def write_ply_points(filename,
+                     # if write_bgr: this is ((points,bgr), (points,bgr), ...)
+                     # else:         this is (points, points, ...)
+                     points_bgr_all,
+                     *,
+                     binary    = True,
+                     write_bgr = False):
+
+    if binary:
+        ply_type = 'binary_little_endian'
+    else:
+        ply_type = 'ascii'
+
+    placeholder = 'NNNNNNN'
+
+    # I'm including the alpha byte to align each row to 16 bytes.
+    # Otherwise I have unaligned 32-bit floats. I don't know for a fact
+    # that this breaks anything, but it feels like it would maybe.
+    header_bgr = '''property uchar red
+property uchar green
+property uchar blue
+property uchar alpha
+''' if write_bgr else ''
+
+    ply_header = f'''ply
+format {ply_type} 1.0
+element vertex {placeholder}
+property float x
+property float y
+property float z
+{header_bgr}end_header
+'''.encode()
+
+    if write_bgr:
+        dtype = np.dtype([ ('xyz',np.float32,3), ('rgba', np.uint8, 4) ])
+    else:
+        dtype = np.dtype([ ('xyz',np.float32,3), ])
+
+
+    def write_chunk(f, points_bgr):
+
+        if write_bgr:
+            N = len(points_bgr[0])
+        else:
+            N = len(points_bgr)
+
+        if binary:
+            binary_ply = np.empty( (N,),
+                                   dtype = dtype)
+            if write_bgr:
+                binary_ply['xyz']       = points_bgr[0].astype(np.float32)
+                binary_ply['rgba'][:,0] = points_bgr[1][:,2]
+                binary_ply['rgba'][:,1] = points_bgr[1][:,1]
+                binary_ply['rgba'][:,2] = points_bgr[1][:,0]
+                binary_ply['rgba'][:,3] = 255
+            else:
+                binary_ply['xyz'] = points_bgr.astype(np.float32)
+
+            binary_ply.tofile(f)
+        else:
+            if write_bgr:
+                pbgr = nps.glue(points_bgr[0],
+                                points_bgr[1][:,(2,)],
+                                points_bgr[1][:,(1,)],
+                                points_bgr[1][:,(0,)],
+                                255*np.ones((N,1)),
+                                axis = -1)
+                np.savetxt(f,
+                           pbgr,
+                           fmt      = ('%.1f','%.1f','%.1f','%d','%d','%d','%d'),
+                           comments = '',
+                           header   = '')
+            else:
+                np.savetxt(f, points_bgr,
+                           fmt      = ('%.1f','%.1f','%.1f',),
+                           comments = '',
+                           header   = '')
+
+        return N
+
+
+    with open(filename, 'wb') as f:
+        f.write(ply_header)
+
+        N = 0
+        for points_bgr in points_bgr_all:
+            N += write_chunk(f, points_bgr)
+
+    # I wrote the point cloud file with an unknown number of points. Now that I
+    # have the count, I go back, and fill it in.
+    import mmap
+    with open(filename, 'r+b') as f:
+        m = mmap.mmap(f.fileno(), 0)
+
+        i_placeholder_start = ply_header.find(placeholder.encode())
+        placeholder_width   = ply_header[i_placeholder_start:].find(b'\n')
+        i_placeholder_end   = i_placeholder_start + placeholder_width
+
+        m[i_placeholder_start:i_placeholder_end] = \
+            '{:{width}d}'.format(N, width=placeholder_width).encode()
+
+        m.close()
+
 if not args.already_rectified:
     rectification_maps = mrcal.rectification_maps(models, models_rectified)
 
@@ -537,6 +652,11 @@ if Nimages == 0:
           file=sys.stderr)
     sys.exit(1)
 
+
+if args.clahe or args.stereo_matcher == 'SGBM':
+    import cv2
+
+
 if args.clahe:
     clahe = cv2.createCLAHE()
     clahe.setClipLimit(8)
@@ -549,16 +669,11 @@ for i in range(Nimages):
     image_filenames = (image_filenames_all[0][i],
                        image_filenames_all[1][i])
 
-    flags = ()
+    kwargs_load_image = dict()
     if args.force_grayscale:
-        flags = (cv2.IMREAD_GRAYSCALE,)
-    images = [cv2.imread(f, *flags) for f in image_filenames]
-    if images[0] is None:
-        print(f"Couldn't read image '{images[0]}'", file=sys.stderr)
-        sys.exit(1)
-    if images[1] is None:
-        print(f"Couldn't read image '{images[1]}'", file=sys.stderr)
-        sys.exit(1)
+        kwargs_load_image['bits_per_pixel'] = 8
+        kwargs_load_image['channels']       = 1
+    images = [mrcal.load_image(f, **kwargs_load_image) for f in image_filenames]
 
 
     # This doesn't really matter: I don't use the input imagersize. But a
@@ -575,6 +690,12 @@ for i in range(Nimages):
 
     if args.clahe:
         images = [ clahe.apply(image) for image in images ]
+
+    if len(images[0].shape) == 3:
+        if args.stereo_matcher == 'ELAS':
+            print("The ELAS matcher requires grayscale images. Pass --force-grayscale",
+                  file=sys.stderr)
+            sys.exit(1)
 
     if args.valid_intrinsics_region:
         for i in range(2):
@@ -594,41 +715,67 @@ for i in range(Nimages):
     # Done with all the preliminaries. Run the stereo matching
     disp_min,disp_max = args.disparity_range
 
-    # This is a hard-coded property of the OpenCV StereoSGBM implementation
-    disparity_scale = 16
 
-    # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
-    # implementation requires this
-    disp_max = disparity_scale*round(disp_max/disparity_scale)
+    if args.stereo_matcher == 'SGBM':
 
-    # I only add non-default args. StereoSGBM_create() doesn't like being given
-    # None args
-    kwargs = dict()
-    if args.sgbm_p1 is not None:
-        kwargs['P1']                = args.sgbm_p1
-    if args.sgbm_p2 is not None:
-        kwargs['P2']                = args.sgbm_p2
-    if args.sgbm_disp12_max_diff is not None:
-        kwargs['disp12MaxDiff']     = args.sgbm_disp12_max_diff
-    if args.sgbm_uniqueness_ratio is not None:
-        kwargs['uniquenessRatio']   = args.sgbm_uniqueness_ratio
-    if args.sgbm_speckle_window_size is not None:
-        kwargs['speckleWindowSize'] = args.sgbm_speckle_window_size
-    if args.sgbm_speckle_range is not None:
-        kwargs['speckleRange']      = args.sgbm_speckle_range
-    if args.sgbm_mode is not None:
-        kwargs['mode']              = args.sgbm_mode
-    stereo = \
-        cv2.StereoSGBM_create(minDisparity      = disp_min,
-                              numDisparities    = disp_max,
-                              # blocksize is required, so I always pass it.
-                              # There's a default set in the argument parser, no
-                              # this is never None
-                              blockSize         = args.sgbm_block_size,
-                              **kwargs)
-    disparity = stereo.compute(*images_rectified)
+        # This is a hard-coded property of the OpenCV StereoSGBM implementation
+        disparity_scale = 16
+
+        # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
+        # implementation requires this
+        disp_max = disparity_scale*round(disp_max/disparity_scale)
+        disp_min = disparity_scale*int  (disp_min/disparity_scale)
+
+        # I only add non-default args. StereoSGBM_create() doesn't like being given
+        # None args
+        kwargs = dict()
+        if args.sgbm_p1 is not None:
+            kwargs['P1']                = args.sgbm_p1
+        if args.sgbm_p2 is not None:
+            kwargs['P2']                = args.sgbm_p2
+        if args.sgbm_disp12_max_diff is not None:
+            kwargs['disp12MaxDiff']     = args.sgbm_disp12_max_diff
+        if args.sgbm_uniqueness_ratio is not None:
+            kwargs['uniquenessRatio']   = args.sgbm_uniqueness_ratio
+        if args.sgbm_speckle_window_size is not None:
+            kwargs['speckleWindowSize'] = args.sgbm_speckle_window_size
+        if args.sgbm_speckle_range is not None:
+            kwargs['speckleRange']      = args.sgbm_speckle_range
+        if args.sgbm_mode is not None:
+            if   args.sgbm_mode == 'SGBM':
+                kwargs['mode'] = cv2.StereoSGBM_MODE_SGBM
+            elif args.sgbm_mode == 'HH':
+                kwargs['mode'] = cv2.StereoSGBM_MODE_HH
+            elif args.sgbm_mode == 'HH4':
+                kwargs['mode'] = cv2.StereoSGBM_MODE_HH4
+            elif args.sgbm_mode == 'SGBM_3WAY':
+                kwargs['mode'] = cv2.StereoSGBM_MODE_SGBM_3WAY
+            else:
+                raise Exception("arg-parsing error. This is a bug. Please report")
+
+        # blocksize is required, so I always pass it. There's a default set in
+        # the argument parser, so this is never None
+        kwargs['blockSize'] = args.sgbm_block_size
+
+        stereo = \
+            cv2.StereoSGBM_create(minDisparity      = disp_min,
+                                  numDisparities    = disp_max - disp_min,
+                                  **kwargs)
+        disparity = stereo.compute(*images_rectified)
+
+    elif args.stereo_matcher == 'ELAS':
+
+        disparities = mrcal.stereo_matching_libelas(*images_rectified,
+                                                    disp_min = disp_min,
+                                                    disp_max = disp_max)
+
+        disparity       = disparities[0]
+        disparity_scale = 1
+
+
     disparity_colored = mrcal.apply_color_map(disparity,
-                                              0, disp_max*disparity_scale)
+                                              disp_min*disparity_scale,
+                                              disp_max*disparity_scale)
 
     if args.viz != 'stereo':
         _range = mrcal.stereo_range( disparity.astype(np.float32) / disparity_scale,
@@ -641,19 +788,90 @@ for i in range(Nimages):
             write_output(lambda filename: models_rectified[1].write(filename),
                          'rectified1.cameramodel')
 
-            write_output(lambda filename: cv2.imwrite(filename, images_rectified[0]),
+            write_output(lambda filename: mrcal.save_image(filename, images_rectified[0]),
                          image_filenames_base[0] + '-rectified.png')
-            write_output(lambda filename: cv2.imwrite(filename, images_rectified[1]),
+            write_output(lambda filename: mrcal.save_image(filename, images_rectified[1]),
                          image_filenames_base[1] + '-rectified.png')
 
         write_output(lambda filename: \
-                     cv2.imwrite(filename,
-                                 disparity_colored),
+                     mrcal.save_image(filename,
+                                      disparity_colored),
                      image_filenames_base[0] + '-disparity.png')
         write_output(lambda filename: \
-                     cv2.imwrite(filename, mrcal.apply_color_map(_range,
-                                                                 *args.range_image_limits)),
+                     mrcal.save_image(filename, mrcal.apply_color_map(_range,
+                                                                      *args.range_image_limits)),
                      image_filenames_base[0] + '-range.png')
+
+
+        # generate and output the point cloud, in the cam0 coord system
+        if args.write_point_cloud:
+            H,W = _range.shape
+
+            # shape (H,W,2)
+            q_rectified = np.ascontiguousarray( \
+                   nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
+                                                 np.arange(H,dtype=float))),
+                           0, -1))
+
+            # Point cloud in rectified camera-0 coordinates
+            # shape (H,W,3)
+            p_rect0 = \
+                mrcal.unproject(q_rectified, *models_rectified[0].intrinsics()) * \
+                nps.dummy(_range, axis=-1)
+
+            Rt_ref_rect0 = models_rectified[0].extrinsics_Rt_toref()
+            Rt_cam0_ref  = models          [0].extrinsics_Rt_fromref()
+
+            # Point cloud in ref coordinates
+            # shape (H,W,3)
+            p_ref = mrcal.transform_point_Rt(Rt_ref_rect0, p_rect0)
+
+            # shape (N,3)
+            p_ref = nps.clump(p_ref, n=2)
+
+            range_clumped = _range.ravel()
+
+            # Throw out invalid points (nan or inf or <=0 range) are at 0
+            p_ref = p_ref[ np.isfinite(range_clumped) * range_clumped > 0 ]
+
+            # I set each point color to the nearest-pixel color in the original
+            # image. I only report those points that are in-bounds (they SHOULD
+            # be, but I make sure)
+            q_cam0 = mrcal.project(mrcal.transform_point_Rt(Rt_cam0_ref, p_ref),
+                                   *models[0].intrinsics())
+
+            H,W = images[0].shape
+
+            q_cam0_integer = (q_cam0 + 0.5).astype(int)
+            i = \
+                (q_cam0_integer[:,0] >= 0) * \
+                (q_cam0_integer[:,1] >= 0) * \
+                (q_cam0_integer[:,0] <  W) * \
+                (q_cam0_integer[:,1] <  H)
+            p_ref          = p_ref[i]
+            q_cam0_integer = q_cam0_integer[i]
+
+            image0 = images[0]
+            if len(image0.shape) == 2 and args.force_grayscale:
+                # I have a grayscale image, but the user asked for it for the
+                # purposes of stereo. I reload without asking for grayscale. If
+                # the image was a color one, that would be useful here.
+                image0 = mrcal.load_image(image_filenames[0])
+            if len(image0.shape) == 2:
+                # Still grayscale. I use the grayscale pixels
+                intensityT = nps.transpose(image0[q_cam0_integer[:,1], q_cam0_integer[:,0]])
+                bgr = \
+                    nps.glue( intensityT, intensityT, intensityT,
+                              axis = -1)
+            else:
+                # color
+                bgr = image0[q_cam0_integer[:,1], q_cam0_integer[:,0]]
+
+            write_output(lambda filename: write_ply_points(filename,
+                                                           ((p_ref,bgr),),
+                                                           binary    = True,
+                                                           write_bgr = True),
+                         image_filenames_base[0] + '-points.ply')
 
         sys.exit(0)
 

@@ -12,18 +12,8 @@
 #endif
 
 #include "mrcal.h"
+#include "mrcal-image.h"
 
-#if PY_MAJOR_VERSION == 3
-#define PyString_FromString PyUnicode_FromString
-#define PyString_FromFormat PyUnicode_FromFormat
-#define PyInt_FromLong      PyLong_FromLong
-#define PyString_AsString   PyUnicode_AsUTF8
-#define PyInt_Check         PyLong_Check
-#define PyInt_AsLong        PyLong_AsLong
-#define STRING_OBJECT       "U"
-#else
-#define STRING_OBJECT       "S"
-#endif
 
 #define IS_NULL(x) ((x) == NULL || (PyObject*)(x) == Py_None)
 
@@ -476,9 +466,9 @@ static void CHOLMOD_factorization_dealloc(CHOLMOD_factorization* self)
 static PyObject* CHOLMOD_factorization_str(CHOLMOD_factorization* self)
 {
     if(!(self->inited_common && self->factorization))
-        return PyString_FromString("No factorization given");
+        return PyUnicode_FromString("No factorization given");
 
-    return PyString_FromFormat("Initialized with a valid factorization. N=%d",
+    return PyUnicode_FromFormat("Initialized with a valid factorization. N=%d",
                                self->factorization->n);
 }
 
@@ -663,7 +653,7 @@ static bool parse_lensmodel_from_arg(// output
                                      // input
                                      PyObject* lensmodel_string)
 {
-    const char* lensmodel_cstring = PyString_AsString(lensmodel_string);
+    const char* lensmodel_cstring = PyUnicode_AsUTF8(lensmodel_string);
     if( lensmodel_cstring == NULL)
     {
         BARF("The lens model must be given as a string");
@@ -694,7 +684,7 @@ static PyObject* lensmodel_metadata_and_config(PyObject* NPY_UNUSED(self),
     SET_SIGINT();
 
     PyObject* lensmodel_string = NULL;
-    if(!PyArg_ParseTuple( args, STRING_OBJECT, &lensmodel_string ))
+    if(!PyArg_ParseTuple( args, "U", &lensmodel_string ))
         goto done;
     mrcal_lensmodel_t lensmodel;
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
@@ -741,7 +731,7 @@ static PyObject* knots_for_splined_models(PyObject* NPY_UNUSED(self),
     SET_SIGINT();
 
     PyObject* lensmodel_string = NULL;
-    if(!PyArg_ParseTuple( args, STRING_OBJECT, &lensmodel_string ))
+    if(!PyArg_ParseTuple( args, "U", &lensmodel_string ))
         goto done;
     mrcal_lensmodel_t lensmodel;
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
@@ -802,7 +792,7 @@ static PyObject* lensmodel_num_params(PyObject* NPY_UNUSED(self),
     SET_SIGINT();
 
     PyObject* lensmodel_string = NULL;
-    if(!PyArg_ParseTuple( args, STRING_OBJECT, &lensmodel_string ))
+    if(!PyArg_ParseTuple( args, "U", &lensmodel_string ))
         goto done;
     mrcal_lensmodel_t lensmodel;
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
@@ -874,7 +864,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 
 #define OPTIMIZE_ARGUMENTS_REQUIRED(_)                                  \
     _(intrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics,                  NPY_DOUBLE, {-1 COMMA -1       } ) \
-    _(lensmodel,                          PyObject*,      NULL,    STRING_OBJECT,  ,                        NULL,                        -1,         {}                   ) \
+    _(lensmodel,                          PyObject*,      NULL,    "U",  ,                        NULL,                        -1,         {}                   ) \
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT32,    {-1 COMMA 2        } )
 
 // Defaults for do_optimize... MUST match those in ingest_packed_state()
@@ -1421,7 +1411,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
 {
     PyObject* result = NULL;
 
-    PyArrayObject* p_packed_final = NULL;
+    PyArrayObject* b_packed_final = NULL;
     PyArrayObject* x_final        = NULL;
     PyObject*      pystats        = NULL;
 
@@ -1626,8 +1616,8 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                                       problem_selections, &mrcal_lensmodel);
 
         // both optimize() and optimizer_callback() use this
-        p_packed_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nstate}), NPY_DOUBLE);
-        double* c_p_packed_final = PyArray_DATA(p_packed_final);
+        b_packed_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nstate}), NPY_DOUBLE);
+        double* c_b_packed_final = PyArray_DATA(b_packed_final);
 
         x_final = (PyArrayObject*)PyArray_SimpleNew(1, ((npy_intp[]){Nmeasurements}), NPY_DOUBLE);
         double* c_x_final = PyArray_DATA(x_final);
@@ -1640,7 +1630,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
                 calibration_object_width_n*calibration_object_height_n;
 
             mrcal_stats_t stats =
-                mrcal_optimize( c_p_packed_final,
+                mrcal_optimize( c_b_packed_final,
                                 Nstate*sizeof(double),
                                 c_x_final,
                                 Nmeasurements*sizeof(double),
@@ -1706,10 +1696,10 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
             }
             MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_POPULATE_DICT);
 
-            if( 0 != PyDict_SetItemString(pystats, "p_packed",
-                                          (PyObject*)p_packed_final) )
+            if( 0 != PyDict_SetItemString(pystats, "b_packed",
+                                          (PyObject*)b_packed_final) )
             {
-                BARF("Couldn't add to stats dict 'p_packed'");
+                BARF("Couldn't add to stats dict 'b_packed'");
                 goto done;
             }
             if( 0 != PyDict_SetItemString(pystats, "x",
@@ -1762,7 +1752,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
             }
 
             if(!mrcal_optimizer_callback( // out
-                                         c_p_packed_final,
+                                         c_b_packed_final,
                                          Nstate*sizeof(double),
                                          c_x_final,
                                          Nmeasurements*sizeof(double),
@@ -1839,7 +1829,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
             }
 
             result = PyTuple_Pack(4,
-                                  (PyObject*)p_packed_final,
+                                  (PyObject*)b_packed_final,
                                   (PyObject*)x_final,
                                   jacobian,
                                   factorization);
@@ -1854,7 +1844,7 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(FREE_PYARRAY);
 #pragma GCC diagnostic pop
 
-    Py_XDECREF(p_packed_final);
+    Py_XDECREF(b_packed_final);
     Py_XDECREF(x_final);
     Py_XDECREF(pystats);
     Py_XDECREF(P);
@@ -3147,7 +3137,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
 
-    PyArrayObject* p = NULL;
+    PyArrayObject* b = NULL;
 
     int Ncameras_intrinsics = -1;
     int Ncameras_extrinsics = -1;
@@ -3156,7 +3146,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     int Nobservations_board = -1;
     int Nobservations_point = -1;
 
-    char* keywords[] = { "p",
+    char* keywords[] = { "b",
                          "Ncameras_intrinsics",
                          "Ncameras_extrinsics",
                          "Nframes",
@@ -3187,7 +3177,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
                                      arg_string,
                                      keywords,
 
-                                     PyArray_Converter, &p,
+                                     PyArray_Converter, &b,
                                      &Ncameras_intrinsics,
                                      &Ncameras_extrinsics,
                                      &Nframes,
@@ -3248,20 +3238,20 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
                                       Nframes,
                                       Nobservations_board );
 
-    if( PyArray_TYPE(p) != NPY_DOUBLE )
+    if( PyArray_TYPE(b) != NPY_DOUBLE )
     {
         BARF("The given array MUST have values of type 'float'");
         goto done;
     }
 
-    if( !PyArray_IS_C_CONTIGUOUS(p) )
+    if( !PyArray_IS_C_CONTIGUOUS(b) )
     {
         BARF("The given array MUST be a C-style contiguous array");
         goto done;
     }
 
-    int       ndim = PyArray_NDIM(p);
-    npy_intp* dims = PyArray_DIMS(p);
+    int       ndim = PyArray_NDIM(b);
+    npy_intp* dims = PyArray_DIMS(b);
     if( ndim < 1 )
     {
         BARF("The given array MUST have at least one dimension");
@@ -3281,9 +3271,9 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
         goto done;
     }
 
-    double* x = (double*)PyArray_DATA(p);
+    double* x = (double*)PyArray_DATA(b);
     if(pack)
-        for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
+        for(int i=0; i<PyArray_SIZE(b)/Nstate; i++)
         {
             mrcal_pack_solver_state_vector( x,
                                             Ncameras_intrinsics, Ncameras_extrinsics,
@@ -3292,7 +3282,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
             x = &x[Nstate];
         }
     else
-        for(int i=0; i<PyArray_SIZE(p)/Nstate; i++)
+        for(int i=0; i<PyArray_SIZE(b)/Nstate; i++)
         {
             mrcal_unpack_solver_state_vector( x,
                                               Ncameras_intrinsics, Ncameras_extrinsics,
@@ -3311,7 +3301,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
 #pragma GCC diagnostic pop
 
-    Py_XDECREF(p);
+    Py_XDECREF(b);
     return result;
 }
 static PyObject* pack_state(PyObject* self, PyObject* args, PyObject* kwargs)
@@ -3323,6 +3313,238 @@ static PyObject* unpack_state(PyObject* self, PyObject* args, PyObject* kwargs)
     return _pack_unpack_state(self, args, kwargs, false);
 }
 
+
+static
+PyObject* load_image(PyObject* NPY_UNUSED(self),
+                     PyObject* args,
+                     PyObject* kwargs)
+{
+    // THIS IS IMPLEMENTED IN A NOT-GREAT WAY
+    //
+    // mrcal_image_TYPE_load() allocates a new array, and we then allocate a
+    // numpy array to copy the data into it. I should be doing the allocation
+    // once, and numpy should reuse the data. Doing THAT is easy, but hooking
+    // the free() to happen when the numpy array is released takes a LOT of
+    // typing.
+
+    PyObject* result = NULL;
+
+    const char* filename       = NULL;
+    int         bits_per_pixel = -1;
+    int         channels       = -1;
+
+    // could be any type; not just uint8
+    mrcal_image_uint8_t image = {};
+
+    PyObject* image_array = NULL;
+
+    char* keywords[] = { "filename",
+                         "bits_per_pixel",
+                         "channels",
+                         NULL};
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "s|ii",
+                                     keywords,
+                                     &filename, &bits_per_pixel, &channels ))
+        goto done;
+
+    if((bits_per_pixel <= 0 && channels >  0) ||
+       (bits_per_pixel  > 0 && channels <= 0))
+    {
+        BARF("Both bits_per_pixel and channels should be given valid values >0, or neither should be");
+        goto done;
+    }
+
+    if(bits_per_pixel <= 0)
+    {
+        if(!mrcal_image_anytype_load(&image,
+                                     &bits_per_pixel, &channels,
+                                     filename))
+        {
+            BARF("Error loading image '%s' with autodetected bits_per_pixel,channels",
+                 filename);
+            goto done;
+        }
+    }
+
+    // I support a small number of combinations:
+    // - bits_per_pixel = 8,  channels = 1
+    // - bits_per_pixel = 16, channels = 1
+    // - bits_per_pixel = 24, channels = 3
+    if(bits_per_pixel == 8 && channels == 1)
+    {
+        if(image.data == NULL &&
+           !mrcal_image_uint8_load((mrcal_image_uint8_t*)&image,
+                                   filename))
+        {
+            BARF("Error loading image '%s'", filename);
+            goto done;
+        }
+        image_array = PyArray_SimpleNew(2,
+                                        ((npy_intp[]){image.h, image.w}),
+                                        NPY_UINT8);
+    }
+    else if(bits_per_pixel == 16 && channels == 1)
+    {
+        if(image.data == NULL &&
+           !mrcal_image_uint16_load((mrcal_image_uint16_t*)&image,
+                                    filename))
+        {
+            BARF("Error loading image '%s'", filename);
+            goto done;
+        }
+        image_array = PyArray_SimpleNew(2,
+                                        ((npy_intp[]){image.h, image.w}),
+                                        NPY_UINT16);
+    }
+    else if(bits_per_pixel == 24 && channels == 3)
+    {
+        if(image.data == NULL &&
+           !mrcal_image_bgr_load((mrcal_image_bgr_t*)&image,
+                                 filename))
+        {
+            BARF("Error loading image '%s' with bits_per_pixel=%d and channels=%d",
+                 filename,
+                 bits_per_pixel,
+                 channels);
+            goto done;
+        }
+        image_array = PyArray_SimpleNew(3,
+                                        ((npy_intp[]){image.h, image.w, 3}),
+                                        NPY_UINT8);
+    }
+    else
+    {
+        BARF("Unsupported format requested. I only support (bits_per_pixel,channels) = (8,1) and (16,1) and (24,3)");
+        goto done;
+    }
+
+    if(image_array == NULL)
+        goto done;
+
+    // The numpy array is dense, but the image array may not be. Copy one line
+    // at a time
+    for(int i=0; i<image.h; i++)
+        memcpy(&((uint8_t*)PyArray_DATA((PyArrayObject*)image_array))[image.w*bits_per_pixel/8*i],
+               &((uint8_t*)image.data)[image.stride*i],
+               image.w*bits_per_pixel/8);
+    result = image_array;
+
+ done:
+
+    free(image.data);
+
+    if(result == NULL)
+        Py_XDECREF(image_array);
+
+    return result;
+}
+
+static
+PyObject* save_image(PyObject* NPY_UNUSED(self),
+                     PyObject* args,
+                     PyObject* kwargs)
+{
+    PyObject* result = NULL;
+
+    const char*    filename    = NULL;
+    PyArrayObject* image_array = NULL;
+
+    char* keywords[] = { "filename",
+                         "array",
+                         NULL};
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "sO",
+                                     keywords,
+                                     &filename, &image_array ))
+        goto done;
+
+    // I support a small number of combinations:
+    // - bits_per_pixel = 8,  channels = 1
+    // - bits_per_pixel = 16, channels = 1
+    // - bits_per_pixel = 24, channels = 3
+    if(!PyArray_Check(image_array))
+    {
+        BARF("I only know how to save numpy arrays");
+        goto done;
+    }
+
+    int             ndim    = PyArray_NDIM(image_array);
+    const npy_intp* dims    = PyArray_DIMS(image_array);
+    int             dtype   = PyArray_TYPE(image_array);
+    const npy_intp* strides = PyArray_STRIDES(image_array);
+
+    if(ndim == 2 && dtype == NPY_UINT8)
+    {
+        if(strides[ndim-1] != 1)
+        {
+            BARF("Saving 8-bit grayscale array. I only know how to handle stride[-1] == 1");
+            goto done;
+        }
+        mrcal_image_uint8_t image = {.w      = dims[1],
+                                     .h      = dims[0],
+                                     .stride = strides[0],
+                                     .data   = PyArray_DATA(image_array) };
+        if(!mrcal_image_uint8_save(filename, &image))
+        {
+            BARF("Error saving image '%s'", filename);
+            goto done;
+        }
+    }
+    else if(ndim == 2 && dtype == NPY_UINT16)
+    {
+        if(strides[ndim-1] != 2)
+        {
+            BARF("Saving 16-bit grayscale array. I only know how to handle stride[-1] == 2");
+            goto done;
+        }
+        mrcal_image_uint16_t image = {.w      = dims[1],
+                                      .h      = dims[0],
+                                      .stride = strides[0],
+                                      .data   = PyArray_DATA(image_array) };
+        if(!mrcal_image_uint16_save(filename, &image))
+        {
+            BARF("Error saving image '%s'", filename);
+            goto done;
+        }
+    }
+    else if(ndim == 3 && dtype == NPY_UINT8)
+    {
+        if(dims[2] != 3)
+        {
+            BARF("Saving 3-dimensional array. shape[-1] != 3, so not BGR. Don't know what to do");
+            goto done;
+        }
+
+        if(strides[ndim-1] != 1 ||
+           strides[ndim-2] != 3)
+        {
+            BARF("Saving 8-bit BGR array. I only know how to handle stride[-1] == 1 && stride[-2] == 3");
+            goto done;
+        }
+        mrcal_image_bgr_t image = {.w      = dims[1],
+                                   .h      = dims[0],
+                                   .stride = strides[0],
+                                   .data   = PyArray_DATA(image_array) };
+        if(!mrcal_image_bgr_save(filename, &image))
+        {
+            BARF("Error saving image '%s'", filename);
+            goto done;
+        }
+    }
+    else
+    {
+        BARF("Unsupported array. I only support (bits_per_pixel,channels) = (8,1) and (16,1) and (24,3)");
+        goto done;
+    }
+
+    Py_INCREF(Py_None);
+    result = Py_None;
+
+ done:
+
+    return result;
+}
 
 static const char state_index_intrinsics_docstring[] =
 #include "state_index_intrinsics.docstring.h"
@@ -3424,6 +3646,12 @@ static const char supported_lensmodels_docstring[] =
 static const char knots_for_splined_models_docstring[] =
 #include "knots_for_splined_models.docstring.h"
     ;
+static const char load_image_docstring[] =
+#include "load_image.docstring.h"
+    ;
+static const char save_image_docstring[] =
+#include "save_image.docstring.h"
+    ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizer_callback,               METH_VARARGS | METH_KEYWORDS),
@@ -3451,13 +3679,16 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, num_measurements_points_triangulated,METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, num_measurements_regularization, METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, num_measurements,                METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(, corresponding_icam_extrinsics,METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, corresponding_icam_extrinsics,   METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, decode_observation_indices_points_triangulated,METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(,lensmodel_metadata_and_config,METH_VARARGS),
       PYMETHODDEF_ENTRY(,lensmodel_num_params,         METH_VARARGS),
       PYMETHODDEF_ENTRY(,supported_lensmodels,         METH_NOARGS),
       PYMETHODDEF_ENTRY(,knots_for_splined_models,     METH_VARARGS),
+
+      PYMETHODDEF_ENTRY(, load_image,                  METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, save_image,                  METH_VARARGS | METH_KEYWORDS),
       {}
     };
 #warning "triangulated-solve: fill in the new xxxx.docstring"
@@ -3483,22 +3714,6 @@ static void _init_mrcal_common(PyObject* module)
     "All functions are exported into the mrcal module. So you can call these via\n" \
     "mrcal._mrcal.fff() or mrcal.fff(). The latter is preferred.\n"
 
-#if PY_MAJOR_VERSION == 2
-
-PyMODINIT_FUNC init_mrcal(void)
-{
-    if (PyType_Ready(&CHOLMOD_factorization_type) < 0)
-        return;
-
-    PyObject* module =
-        Py_InitModule3("_mrcal", methods,
-                       MODULE_DOCSTRING);
-    _init_mrcal_common(module);
-    import_array();
-}
-
-#else
-
 static struct PyModuleDef module_def =
     {
      PyModuleDef_HEAD_INIT,
@@ -3521,5 +3736,3 @@ PyMODINIT_FUNC PyInit__mrcal(void)
 
     return module;
 }
-
-#endif

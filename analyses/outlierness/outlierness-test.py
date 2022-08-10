@@ -65,12 +65,12 @@ def func_reference(q):
     # needs to manually match 'reference_equation' above
     return 0.1 * (q+0.2)*(q+0.2) + 3.0
 
-def func_hypothesis(q, p):
+def func_hypothesis(q, b):
     '''Hypothesis based on parameters
 
     '''
-    S = model_matrix(q, len(p))
-    return nps.matmult(p, nps.transpose(S))
+    S = model_matrix(q, len(b))
+    return nps.matmult(b, nps.transpose(S))
 
 def compute_outliernesses(J, x, jq, k_dima, k_cook):
     '''Computes all the outlierness/Cook's D metrics
@@ -212,8 +212,8 @@ def outlierness_test(J, x, f, outlierness, k_dima, k_cook, i=0):
 
     J1 = nps.glue(J[:i,:], J[(i+1):,:], axis=-2)
     f1 = nps.glue(f[:i  ], f[(i+1):  ], axis=-1)
-    p1 = nps.matmult( f1, nps.transpose(np.linalg.pinv(J1)))
-    x1 = nps.matmult(p1, nps.transpose(J1)) - f1
+    b1 = nps.matmult( f1, nps.transpose(np.linalg.pinv(J1)))
+    x1 = nps.matmult(b1, nps.transpose(J1)) - f1
     E1 = nps.inner(x1,x1)
 
     report_mismatch_relerr( (E0-E1) * k_dima,
@@ -238,8 +238,8 @@ def CooksD_test(J, x, f, CooksD, k_dima, k_cook, i=0):
 
     J1 = nps.glue(J[:i,:], J[(i+1):,:], axis=-2)
     f1 = nps.glue(f[:i  ], f[(i+1):  ], axis=-1)
-    p1 = nps.matmult( f1, nps.transpose(np.linalg.pinv(J1)))
-    x1 = nps.matmult(p1, nps.transpose(J)) - f
+    b1 = nps.matmult( f1, nps.transpose(np.linalg.pinv(J1)))
+    x1 = nps.matmult(b1, nps.transpose(J)) - f
 
     dx = x1-x
 
@@ -250,7 +250,7 @@ def CooksD_test(J, x, f, CooksD, k_dima, k_cook, i=0):
                             CooksD['others'][i],
                             "others CooksD computed analytically, explicitly")
 
-def outlierness_query_test(J,p,x, f, query,fquery_ref, outlierness_nox, k_dima, k_cook, i=0):
+def outlierness_query_test(J,b,x, f, query,fquery_ref, outlierness_nox, k_dima, k_cook, i=0):
     r'''Test the concept of outlierness for querying hypothetical data
 
     fquery_test = f(q) isn't true here. If it WERE true, the x of the query
@@ -267,14 +267,14 @@ def outlierness_query_test(J,p,x, f, query,fquery_ref, outlierness_nox, k_dima, 
 
 
     # I add a new point, and reoptimize
-    fquery = func_hypothesis(query,p)
+    fquery = func_hypothesis(query,b)
     xquery = fquery - fquery_ref
-    jquery = model_matrix(query, len(p))
+    jquery = model_matrix(query, len(b))
 
     J1 = nps.glue(J, jquery,     axis=-2)
     f1 = nps.glue(f, fquery_ref, axis=-1)
-    p1 = nps.matmult( f1, nps.transpose(np.linalg.pinv(J1)))
-    x1 = nps.matmult(p1, nps.transpose(J1)) - f1
+    b1 = nps.matmult( f1, nps.transpose(np.linalg.pinv(J1)))
+    x1 = nps.matmult(b1, nps.transpose(J1)) - f1
     E1 = nps.inner(x1,x1)
 
     report_mismatch_relerr( (x1[-1]*x1[-1]) * k_dima,
@@ -287,7 +287,7 @@ def outlierness_query_test(J,p,x, f, query,fquery_ref, outlierness_nox, k_dima, 
                             outlierness_nox['self_others'][i]*xquery*xquery,
                             "self_others query-outlierness computed analytically, explicitly")
 
-def CooksD_query_test(J,p,x, f, query,fquery_ref, CooksD_nox, k_dima, k_cook, i=0):
+def CooksD_query_test(J,b,x, f, query,fquery_ref, CooksD_nox, k_dima, k_cook, i=0):
     r'''Test the concept of CooksD for querying hypothetical data
 
     fquery_test = f(q) isn't true here. If it WERE true, the x of the query
@@ -303,14 +303,14 @@ def CooksD_query_test(J,p,x, f, query,fquery_ref, CooksD_nox, k_dima, k_cook, i=
     fquery_ref = fquery_ref[i]
 
     # I add a new point, and reoptimize
-    fquery = func_hypothesis(query,p)
+    fquery = func_hypothesis(query,b)
     xquery = fquery - fquery_ref
-    jquery = model_matrix(query, len(p))
+    jquery = model_matrix(query, len(b))
 
     J1 = nps.glue(J, jquery,     axis=-2)
     f1 = nps.glue(f, fquery_ref, axis=-1)
-    p1 = nps.matmult( f1, nps.transpose(np.linalg.pinv(J1)))
-    x1 = nps.matmult(p1, nps.transpose(J1)) - f1
+    b1 = nps.matmult( f1, nps.transpose(np.linalg.pinv(J1)))
+    x1 = nps.matmult(b1, nps.transpose(J1)) - f1
 
     dx = x1[:-1] - x
 
@@ -330,11 +330,11 @@ def Var_df(J, squery, stdev):
 
     noise in input -> noise in params -> noise in f
 
-    dp ~ M dm where M = inv(JtJ)Jt
+    db ~ M dm where M = inv(JtJ)Jt
 
-    df = df/dp dp
+    df = df/db db
 
-    df/dp = squery
+    df/db = squery
     Var(dm) = stdev^2 I ->
 
     Var(df) = stdev^2 squery inv(JtJ) Jt J inv(JtJ) squeryt =
@@ -364,21 +364,21 @@ def generate_dataset(N, noise_stdev):
 def fit(q, f, order):
     S = model_matrix(q, order)
     J = S
-    p = nps.matmult( f, nps.transpose(np.linalg.pinv(S)))
-    x = func_hypothesis(q,p) - f
-    return p,J,x
+    b = nps.matmult( f, nps.transpose(np.linalg.pinv(S)))
+    x = func_hypothesis(q,b) - f
+    return b,J,x
 
 
 def test_order(q,f, query, order):
 
     # I look at linear and quadratic models: a0 + a1 q + a2 q^2, with a2=0 for the
     # linear case. I use plain least squares. The parameter vector is [a0 a1 a2]t. S
-    # = [1 q q^2], so the measurement vector x = S p - f. E = norm2(x). J = dx/dp =
+    # = [1 q q^2], so the measurement vector x = S b - f. E = norm2(x). J = dx/db =
     # S.
     #
     # Note the problem "order" is the number of parameters, so a linear model has
     # order==2
-    p,J,x = fit(q,f,order)
+    b,J,x = fit(q,f,order)
 
     Nmeasurements,Nstate = J.shape
     k_dima = 1.0/Nmeasurements
@@ -387,17 +387,17 @@ def test_order(q,f, query, order):
     report_mismatch_abserr(np.linalg.norm(nps.matmult(x,J)), 0, "Jtx")
 
     squery = model_matrix(query, order)
-    fquery = func_hypothesis(query, p)
+    fquery = func_hypothesis(query, b)
     metrics = compute_outliernesses(J,x, squery, k_dima, k_cook)
 
     outlierness_test(J, x, f, metrics['dima']['outliers'], k_dima, k_cook, i=10)
     CooksD_test     (J, x, f, metrics['cook']['outliers'], k_dima, k_cook, i=10)
-    outlierness_query_test(J,p,x,f, query, fquery + 1.2e-3, metrics['dima']['query'], k_dima, k_cook, i=10 )
-    CooksD_query_test     (J,p,x,f, query, fquery + 1.2e-3, metrics['cook']['query'], k_dima, k_cook, i=10 )
+    outlierness_query_test(J,b,x,f, query, fquery + 1.2e-3, metrics['dima']['query'], k_dima, k_cook, i=10 )
+    CooksD_query_test     (J,b,x,f, query, fquery + 1.2e-3, metrics['cook']['query'], k_dima, k_cook, i=10 )
 
     Vquery = Var_df(J, squery, noise_stdev)
     return \
-        dict( p       = p,
+        dict( b       = b,
               J       = J,
               x       = x,
               Vquery  = Vquery,
@@ -434,7 +434,7 @@ def show_outlierness(order, N, q, f, query, cooks_threshold, **stats):
 
 def show_uncertainty(order, N, q, f, query, cooks_threshold, **stats):
 
-    coeffs = stats['p']
+    coeffs = stats['b']
     fitted_equation = '+'.join(['{} * x**{}'.format(coeffs[i], i) for i in range(len(coeffs))])
 
     p = gp.gnuplotlib(equation='({})-({}) title "Fit error off ground truth; y2 axis +- noise stdev" axis x1y2'.format(reference_equation,fitted_equation),

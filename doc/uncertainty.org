@@ -18,9 +18,9 @@ uncertainties through their data pipeline).
 To estimate the projection uncertainty we:
 
 1. Estimate the [[file:formulation.org::#noise-model-inputs][noise in the chessboard observations]]
-2. Propagate that noise to the optimal parameters $\vec p^*$ reported by the
+2. Propagate that noise to the optimal parameters $\vec b^*$ reported by the
    calibration routine
-3. Propagate the uncertainty in calibration parameters $\vec p^*$ through the
+3. Propagate the uncertainty in calibration parameters $\vec b^*$ through the
    projection function to get uncertainty in the resulting pixel coordinate $\vec
    q$
 
@@ -58,35 +58,35 @@ formulation]].
 
 * Propagating input noise to the state vector
 We solved the [[file:formulation.org][least squares problem]], so we have the optimal state vector $\vec
-p^*$.
+b^*$.
 
 We apply a perturbation to the observations $\vec q_\mathrm{ref}$, reoptimize
 this slightly-perturbed least-squares problem, assuming everything is linear,
-and look at what happens to the optimal state vector $\vec p^*$.
+and look at what happens to the optimal state vector $\vec b^*$.
 
 We have
 
 \[ E \equiv \left \Vert \vec x \right \Vert ^2 \]
-\[ J \equiv \frac{\partial \vec x}{\partial \vec p} \]
+\[ J \equiv \frac{\partial \vec x}{\partial \vec b} \]
 
 At the optimum $E$ is minimized, so
 
-\[ \frac{\partial E}{\partial \vec p} \left(\vec p = \vec p^* \right) = 2 J^T \vec x^* = 0 \]
+\[ \frac{\partial E}{\partial \vec b} \left(\vec b = \vec b^* \right) = 2 J^T \vec x^* = 0 \]
 
 We perturb the problem:
 
-\[ E( \vec p + \Delta \vec p, \vec q_\mathrm{ref} + \Delta \vec q_\mathrm{ref})) \approx
-\left \Vert \vec x + \frac{\partial \vec x}{\partial \vec p} \Delta \vec p + \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} \Delta \vec q_\mathrm{ref} \right \Vert ^2 =
-\left \Vert \vec x + J \Delta \vec p + \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} \Delta \vec q_\mathrm{ref} \right \Vert ^2 \]
+\[ E( \vec b + \Delta \vec b, \vec q_\mathrm{ref} + \Delta \vec q_\mathrm{ref})) \approx
+\left \Vert \vec x + \frac{\partial \vec x}{\partial \vec b} \Delta \vec b + \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} \Delta \vec q_\mathrm{ref} \right \Vert ^2 =
+\left \Vert \vec x + J \Delta \vec b + \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} \Delta \vec q_\mathrm{ref} \right \Vert ^2 \]
 
 And we reoptimize:
 
-\[ \frac{\mathrm{d}E}{\mathrm{d}\Delta \vec p} \approx 
-2 \left( \vec x + J \Delta \vec p + \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} {\Delta \vec q_\mathrm{ref}} \right)^T J = 0\]
+\[ \frac{\mathrm{d}E}{\mathrm{d}\Delta \vec b} \approx 
+2 \left( \vec x + J \Delta \vec b + \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} {\Delta \vec q_\mathrm{ref}} \right)^T J = 0\]
 
 We started at an optimum, so $\vec x = \vec x^*$ and $J^T \vec x^* = 0$, and thus
 
-\[ J^T J \Delta \vec p = -J^T \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} {\Delta \vec q_\mathrm{ref}} \]
+\[ J^T J \Delta \vec b = -J^T \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} {\Delta \vec q_\mathrm{ref}} \]
 
 As defined on the [[file:formulation.org::#noise-model][input noise page]], we have
 
@@ -101,17 +101,17 @@ elements of $\vec x$ are at the end, so
 
 and thus
 
-\[ J^T J \Delta \vec p = J_\mathrm{observations}^T W \Delta \vec q_\mathrm{ref} \]
+\[ J^T J \Delta \vec b = J_\mathrm{observations}^T W \Delta \vec q_\mathrm{ref} \]
 
 So if we perturb the input observation vector $q_\mathrm{ref}$ by $\Delta
 q_\mathrm{ref}$, the resulting effect on the optimal parameters is $\Delta \vec
-p = M \Delta \vec q_\mathrm{ref}$ where
+b = M \Delta \vec q_\mathrm{ref}$ where
 
 \[ M = \left( J^T J \right)^{-1} J_\mathrm{observations}^T W \]
 
 As usual,
 
-\[ \mathrm{Var}(\vec p) = M \mathrm{Var}\left(\vec q_\mathrm{ref}\right) M^T \]
+\[ \mathrm{Var}(\vec b) = M \mathrm{Var}\left(\vec q_\mathrm{ref}\right) M^T \]
 
 As stated on the [[file:formulation.org::#noise-model][input noise page]], we're assuming independent noise on all
 observed pixels, with a standard deviation inversely proportional to the weight:
@@ -121,7 +121,7 @@ observed pixels, with a standard deviation inversely proportional to the weight:
 so
 
 \begin{aligned}
-\mathrm{Var}\left(\vec p\right) &= \sigma^2 M W^{-2} M^T \\
+\mathrm{Var}\left(\vec b\right) &= \sigma^2 M W^{-2} M^T \\
 &= \sigma^2 \left( J^T J \right)^{-1} J_\mathrm{observations}^T W W^{-2} W J_\mathrm{observations} \left( J^T J \right)^{-1} \\
 &= \sigma^2 \left( J^T J \right)^{-1} J_\mathrm{observations}^T J_\mathrm{observations}  \left( J^T J \right)^{-1}
 \end{aligned}
@@ -129,26 +129,26 @@ so
 If we have no regularization, then $J_\mathrm{observations} = J$ and we can
 simplify even further:
 
-\[\mathrm{Var}\left(\vec p\right) = \sigma^2 \left( J^T J \right)^{-1} \]
+\[\mathrm{Var}\left(\vec b\right) = \sigma^2 \left( J^T J \right)^{-1} \]
 
 Note that these expressions do not explicitly depend on $W$, but the weights
 still have an effect, since they are a part of $J$. So if an
 observation $i$ were to become less precise, $w_i$ and $x_i$ and $J_i$ would all
-decrease. And as a result, $\mathrm{Var}\left(\vec p\right)$ would increase, as
+decrease. And as a result, $\mathrm{Var}\left(\vec b\right)$ would increase, as
 expected.
 
 * Propagating the state vector noise through projection
 :PROPERTIES:
 :CUSTOM_ID: propagating-through-projection
 :END:
-We now have the variance of the full optimization state $\vec p$, and we want to
+We now have the variance of the full optimization state $\vec b$, and we want to
 propagate this through projection to end up with an estimate of uncertainty at
 any given pixel $\vec q$.
 
-The state vector $\vec p$ is a random variable, and we know its distribution. To
+The state vector $\vec b$ is a random variable, and we know its distribution. To
 evaluate the projection uncertainty we want to project a /fixed/ point, to see
 how this projection $\vec q$ moves around as the chessboards and cameras and
-intrinsics shift due to the uncertainty in $\vec p$. In other words, we want to
+intrinsics shift due to the uncertainty in $\vec b$. In other words, we want to
 project a point defined in the coordinate system of the camera housing, as the
 origin of the mathematical camera moves around inside this housing:
 
@@ -160,7 +160,7 @@ have: chessboards. As with the camera housing, the chessboards themselves are
 fixed in space. We have noisy camera observations of the chessboards that
 implicitly produce estimates of the fixed transformation $T_{\mathrm{cf}_i}$ for
 each chessboard $i$. The explicit transformations that we /actually/ have in
-$\vec p$ all relate to a floating reference coordinate system: $T_\mathrm{cr}$
+$\vec b$ all relate to a floating reference coordinate system: $T_\mathrm{cr}$
 and $T_\mathrm{rf}$. /That/ coordinate system doesn't have any physical meaning,
 and it's useless in producing our fixed point.
 
@@ -229,15 +229,15 @@ So to summarize, to compute the projection uncertainty at a pixel $\vec q$ we
 2. Transform and project back to $\vec q^+$, useing the mean of all the $\vec
    p_{\mathrm{reference}_i}$ and taking into account uncertainties
 
-We have $\vec q^+\left(\vec p\right) = \mathrm{project}\left( T_\mathrm{cr} \,
+We have $\vec q^+\left(\vec b\right) = \mathrm{project}\left( T_\mathrm{cr} \,
 \mathrm{mean}_i \left( T_{\mathrm{rf}_i} \vec p_{\mathrm{frame}_i} \right)
 \right)$ where the transformations $T$ and the intrinsics used in
-$\mathrm{project}()$ come directly from the optimization state vector $\vec p$. So
+$\mathrm{project}()$ come directly from the optimization state vector $\vec b$. So
 
-\[ \mathrm{Var}\left( \vec q \right) = \frac{\partial \vec q^+}{\partial \vec p} \mathrm{Var}\left( \vec p \right ) \frac{\partial \vec q^+}{\partial \vec p}^T \]
+\[ \mathrm{Var}\left( \vec q \right) = \frac{\partial \vec q^+}{\partial \vec b} \mathrm{Var}\left( \vec b \right) \frac{\partial \vec q^+}{\partial \vec b}^T \]
 
-We computed $\mathrm{Var}\left( \vec p \right )$ earlier, and $\frac{\partial
-\vec q^+}{\partial \vec p}$ comes from the projection expression above.
+We computed $\mathrm{Var}\left( \vec b \right)$ earlier, and $\frac{\partial
+\vec q^+}{\partial \vec b}$ comes from the projection expression above.
 
 The [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function implements this logic. For the
 special-case of visualizing the uncertainties, call the any of the uncertainty

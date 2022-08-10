@@ -1,43 +1,27 @@
 #+TITLE: mrcal roadmap
 #+OPTIONS: toc:nil
 
-* New, big features being considered for the next release
+* New, big features being considered for a future release
 - Triangulation in the optimization loop. This will allow efficient SFM since
   the coordinates of each observed 3D point don't need to be explicitly
   optimized as part of the optimization vector. This should also allow
   calibrating extrinsics separately from intrinsics, while propagating all the
-  sources of uncertainty through to the eventual triangulation
+  sources of uncertainty through to the eventual triangulation. This is being
+  developed in the [[https://github.com/dkogan/mrcal/tree/2022-06--triangulated-solve][=2022-06--triangulated-solve= branch]]
 
 - Non-central projection support. At this time, mrcal assumes that all
   projections are /central/: all rays of light are assumed to intersect at a
   single point (the origin of the camera coordinate system). So $k \vec v$
   projects to the same $\vec q$ for any $k$. This is very convenient, but not
   completely realistic. Support for /non-central/ lenses will make possible more
-  precise calibrations of all lenses, but especially wide ones.
+  precise calibrations of all lenses, but especially wide ones. This is being
+  developed in the [[https://github.com/dkogan/mrcal/tree/noncentral][=noncentral= branch]]
 
-- Richer board-shape model. Currently mrcal can solve for an axis-aligned
-  paraboloid board shape. This is better than nothing, but experiments indicate
-  that real-world board warping is more complex than that. A richer board-shape
-  model will make mrcal less sensitive to imperfect chessboards, and will reduce
-  that source of bias
+- Improved projection uncertainty quantification. The [[file:uncertainty.org][current projection
+  uncertainty method]], which functional, has some issues. A new approach in the
+  [[https://github.com/dkogan/mrcal/tree/2022-04--cross-uncertainty][=2022-04--cross-uncertainty= branch]] aims to resolve them.
 
-* Things that should be fixed, but that I'm not actively thinking about today
-** Algorithmic
-*** Uncertainty quantification
-- The input noise should be characterized better. Currently we use the
-  distribution from the optimal residuals. This feels right, but the empirical
-  distribution isn't entirely gaussian. Why? There's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] to quantify the
-  input noise directly in mrgingham. Does it work? Does that estimate agree with
-  what the residuals tell us? If not, which is right? If a better method is
-  found, the =observed_pixel_uncertainty= should come back as something the user
-  passes in.
-
-- Can I quantify heteroscedasticity to detect model errors? In the [[file:tour-initial-calibration.org][tour of mrcal]]
-  the human observer can clearly see patterns in the residuals. Can these
-  patterns be detected automatically to flag these issues, especially when
-  they're small and not entirely obvious? Do I want a [[https://en.wikipedia.org/wiki/White_test]["white test"]]?
-
-- The current projection uncertainty method works badly if given chessboards at
+  The current projection uncertainty method works badly if given chessboards at
   multiple different ranges from the camera. This is due to the aphysical
   transform $T_{\mathrm{r}^+\mathrm{r}}$ computed as part of the [[file:uncertainty.org::#propagating-through-projection][uncertainty
   computation]]. We can clearly see this in the dance study:
@@ -68,14 +52,14 @@
     --model opencv4                   \
     --show-distribution               \
     --range-to-boards 4               \
-    --extra-observation-at 4          \
+    --extra-observation-at 40         \
     --do-sample                       \
     --explore
   #+end_src
 
 
   Some experimental fixes are implemented in
-  [[https://www.github.com/dkogan/mrcal/blob/master/test/test-projection-uncertainty.py][=test/test-projection-uncertainty.py=]]. For instance:
+  =test/test-projection-uncertainty.py=]]. For instance:
 
   #+begin_src sh
   test/test-projection-uncertainty.py \
@@ -91,60 +75,84 @@
   observations are useful at all or not. There was quick a bit of thought and
   experimentation in this area, but no conclusive solutions yet.
 
-  - Potential solution: weigh the mean using the state covariance of each frame
-    pose. This would still end up with an aphysical
-    $T_{\mathrm{r}^+\mathrm{r}}$, but could be a simple solution to the
-    one-far-observation-breaks-uncertainty problem.
+  The solution being considered: solve for $T_{\mathrm{r}^+\mathrm{r}}$
+  directly. We have a solve that minimizes the reprojection error $\Sigma_i
+  \left\Vert\vec q_i - \mathrm{project}\left(T_\mathrm{cr_i} T_\mathrm{rf_i}
+  \vec p_{\mathrm{frame}_i}\right)\right\Vert^2$ and another one that looks at
+  perturbed quantities $\left\Vert\vec q^+ -
+  \mathrm{project}^+\left(T_{\mathrm{c}^+\mathrm{r}^+}
+  T_{\mathrm{r}^+\mathrm{f}^+} \vec p_{\mathrm{frame}}\right)\right\Vert^2$. Can
+  I cross these to find the $T_{\mathrm{r}^+\mathrm{r}}$ that minimizes
+  $\left\Vert\vec q^+ - \mathrm{project}^+\left(T_{\mathrm{c}^+\mathrm{r}^+}
+  T_{\mathrm{r}^+\mathrm{r}} T_\mathrm{rf} \vec
+  p_{\mathrm{frame}}\right)\right\Vert^2$. A diagram:
 
-  - Another potential solution: solve for $T_{\mathrm{r}^+\mathrm{r}}$ directly.
-    We have a solve that minimizes the reprojection error $\left\Vert\vec q -
-    \mathrm{project}\left(T_\mathrm{cr} T_\mathrm{rf} \vec
-    p_{\mathrm{frame}}\right)\right\Vert^2$ and another one that looks at
-    perturbed quantities $\left\Vert\vec q^+ -
-    \mathrm{project}^+\left(T_{\mathrm{c}^+\mathrm{r}^+}
-    T_{\mathrm{r}^+\mathrm{f}^+} \vec p_{\mathrm{frame}}\right)\right\Vert^2$.
-    Can I cross these to find the $T_{\mathrm{r}^+\mathrm{r}}$ that minimizes
-    $\left\Vert\vec q^+ - \mathrm{project}^+\left(T_{\mathrm{c}^+\mathrm{r}^+}
-    T_{\mathrm{r}^+\mathrm{r}} T_\mathrm{rf} \vec
-    p_{\mathrm{frame}}\right)\right\Vert^2$. A diagram:
+  #+begin_example
+  ORIGINAL SOLVE                   PERTURBED SOLVE
 
-    #+begin_example
-    ORIGINAL SOLVE                   PERTURBED SOLVE
+  point in                         point in
+  chessboard                       chessboard
+  frame                            frame
 
-    point in                         point in
-    chessboard                       chessboard
-    frame                            frame
+    |                                |
+    | Trf                            | Tr+f+
+    v                                v
 
-      |                                |
-      | Trf                            | Tr+f+
-      v                                v
+  point in                         point in
+  ref frame     <-- Trr+ -->       ref frame
 
-    point in                         point in
-    ref frame                        ref frame
+    |                                |
+    | Tcr                            | Tc+r+
+    v                                v
 
-      |                                |
-      | Tcr       <-- Tr+r -->         | Tc+r+
-      v                                v
+  point in                         point in
+  cam frame                        cam frame
 
-    point in                         point in
-    cam frame                        cam frame
+    |                                |
+    | project                        | project
+    v                                v
 
-      |                                |
-      | project                        | project
-      v                                v
+  pixel                            pixel
+  #+end_example
 
-    pixel                            pixel
-    #+end_example
+  Some experiments along those lines are implemented in
+  =mrcal-show-projection-diff --same-dance= and in
+  =test/test-projection-uncertainty.py --reproject-perturbed ...=
 
-    Some experiments along those lines are implemented in
-    =mrcal-show-projection-diff --same-dance= and in
-    =test/test-projection-uncertainty.py --reproject-perturbed ...=
-
-- When asked to compute the uncertainty of many pixels at once (such as what
+  When asked to compute the uncertainty of many pixels at once (such as what
   [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool does), mrcal currently computes a
   separate $T_{\mathrm{r}^+\mathrm{r}}$ for each pixel. But there exists only
   one $T_{\mathrm{r}^+\mathrm{r}}$, and this should be computed once for all
   pixels, and applied to all of them.
+
+  Currently we are able to compute projection uncertainties only when given a
+  vanilla calibration problem: stationary cameras are observing a moving
+  chessboard. We should support more cases, for instance structure-from-motion
+  coupled with intrinsics optimization. And computing uncertainty from a
+  points-only chessboard-less solve should be possible
+
+- Richer board-shape model. Currently mrcal can solve for an axis-aligned
+  paraboloid board shape. This is better than nothing, but experiments indicate
+  that real-world board warping is more complex than that. A richer board-shape
+  model will make mrcal less sensitive to imperfect chessboards, and will reduce
+  that source of bias. This is being developed in the [[https://github.com/dkogan/mrcal/tree/richer-board-shape][=richer-board-shape=
+  branch]], but this has the least priority of any ongoing work
+
+* Things that should be fixed, but that I'm not actively thinking about today
+** Algorithmic
+*** Uncertainty quantification
+- The input noise should be characterized better. Currently we use the
+  distribution from the optimal residuals. This feels right, but the empirical
+  distribution isn't entirely gaussian. Why? There's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] to quantify the
+  input noise directly in mrgingham. Does it work? Does that estimate agree with
+  what the residuals tell us? If not, which is right? If a better method is
+  found, the =observed_pixel_uncertainty= should come back as something the user
+  passes in.
+
+- Can I quantify heteroscedasticity to detect model errors? In the [[file:tour-initial-calibration.org][tour of mrcal]]
+  the human observer can clearly see patterns in the residuals. Can these
+  patterns be detected automatically to flag these issues, especially when
+  they're small and not entirely obvious? Do I want a [[https://en.wikipedia.org/wiki/White_test]["white test"]]?
 
 - As desired, we currently report high uncertainties in imager regions with no
   chessboards. When using a splined model, the projection in those regions is
@@ -153,11 +161,6 @@
   thing to rely on, and could break if I have some kind of surveyed calibration
   (known chessboard and/or camera poses).
 
-- Currently we are able to compute projection uncertainties only when given a
-  vanilla calibration problem: stationary cameras are observing a moving
-  chessboard. We should support more cases, for instance structure-from-motion
-  coupled with intrinsics optimization. And computing uncertainty from a
-  points-only chessboard-less solve should be possible
 *** Differencing
 Fitting of the implied transformation is key to computing a diff, and various
 details about how this is done could be improved. Currently mrcal computes this
@@ -186,7 +189,7 @@ whole imager, using the uncertainties as weights. This has two problems:
   configuration parameter) and the spline density (the =Nx= and =Ny=
   parameters). There's some trade-off here: a quadratic spline needs denser
   knots. An initial study of the effects of spline spacings appears [[file:splined-models.org::#splined-models-uncertainty-wiggles][here]]. Can
-  this be used to select the best spline configuration? p
+  this be used to select the best spline configuration?
 
 - In the [[file:tour-uncertainty.org::#tour-uncertainty-splined-model-uncertainties][tour of mrcal]] we saw that uncertainty oscillates, with peaks at the
   knots. The causes and implications of this need to be understood better
