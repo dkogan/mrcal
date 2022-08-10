@@ -68,7 +68,7 @@
     --model opencv4                   \
     --show-distribution               \
     --range-to-boards 4               \
-    --extra-observation-at 4          \
+    --extra-observation-at 40         \
     --do-sample                       \
     --explore
   #+end_src
@@ -97,9 +97,9 @@
     one-far-observation-breaks-uncertainty problem.
 
   - Another potential solution: solve for $T_{\mathrm{r}^+\mathrm{r}}$ directly.
-    We have a solve that minimizes the reprojection error $\left\Vert\vec q -
-    \mathrm{project}\left(T_\mathrm{cr} T_\mathrm{rf} \vec
-    p_{\mathrm{frame}}\right)\right\Vert^2$ and another one that looks at
+    We have a solve that minimizes the reprojection error $\Sigma_i \left\Vert\vec q_i -
+    \mathrm{project}\left(T_\mathrm{cr_i} T_\mathrm{rf_i} \vec
+    p_{\mathrm{frame}_i}\right)\right\Vert^2$ and another one that looks at
     perturbed quantities $\left\Vert\vec q^+ -
     \mathrm{project}^+\left(T_{\mathrm{c}^+\mathrm{r}^+}
     T_{\mathrm{r}^+\mathrm{f}^+} \vec p_{\mathrm{frame}}\right)\right\Vert^2$.
@@ -120,10 +120,10 @@
       v                                v
 
     point in                         point in
-    ref frame                        ref frame
+    ref frame     <-- Trr+ -->       ref frame
 
       |                                |
-      | Tcr       <-- Tr+r -->         | Tc+r+
+      | Tcr                            | Tc+r+
       v                                v
 
     point in                         point in
