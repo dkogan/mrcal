@@ -4923,7 +4923,7 @@ bool mrcal_optimizer_callback(// out
                              double* b_packed,
                              // used only to confirm that the user passed-in the buffer they
                              // should have passed-in. The size must match exactly
-                             int buffer_size_p_packed,
+                             int buffer_size_b_packed,
 
                              // Shape (Nmeasurements,)
                              double* x,
@@ -5004,10 +5004,10 @@ bool mrcal_optimizer_callback(// out
                                         Npoints, Npoints_fixed, Nobservations_board,
                                         problem_selections,
                                         lensmodel);
-    if( buffer_size_p_packed != Nstate*(int)sizeof(double) )
+    if( buffer_size_b_packed != Nstate*(int)sizeof(double) )
     {
         MSG("The buffer passed to fill-in b_packed has the wrong size. Needed exactly %d bytes, but got %d bytes",
-            Nstate*(int)sizeof(double),buffer_size_p_packed);
+            Nstate*(int)sizeof(double),buffer_size_b_packed);
         goto done;
     }
 
@@ -5099,7 +5099,7 @@ mrcal_optimize( // out
                 double* b_packed_final,
                 // used only to confirm that the user passed-in the buffer they
                 // should have passed-in. The size must match exactly
-                int buffer_size_p_packed_final,
+                int buffer_size_b_packed_final,
 
                 // Shape (Nmeasurements,)
                 double* x_final,
@@ -5252,10 +5252,10 @@ mrcal_optimize( // out
                                         lensmodel);
 
     if( b_packed_final != NULL &&
-        buffer_size_p_packed_final != Nstate*(int)sizeof(double) )
+        buffer_size_b_packed_final != Nstate*(int)sizeof(double) )
     {
         MSG("The buffer passed to fill-in b_packed_final has the wrong size. Needed exactly %d bytes, but got %d bytes",
-            Nstate*(int)sizeof(double),buffer_size_p_packed_final);
+            Nstate*(int)sizeof(double),buffer_size_b_packed_final);
         return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
     }
     if( x_final != NULL &&
