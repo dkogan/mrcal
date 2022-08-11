@@ -142,3 +142,12 @@ _mrcal_triangulated_error(// outputs
                           const mrcal_point3_t* _v0,
                           const mrcal_point3_t* _v1,
                           const mrcal_point3_t* _t01);
+
+bool
+_mrcal_triangulate_leecivera_mid2_is_convergent(// inputs
+
+                                                // not-necessarily normalized vectors in the camera-0
+                                                // coord system
+                                                const mrcal_point3_t* _v0,
+                                                const mrcal_point3_t* _v1,
+                                                const mrcal_point3_t* _t01);

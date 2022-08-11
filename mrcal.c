@@ -3865,6 +3865,7 @@ bool markOutliers(// output, input
                   int calibration_object_height_n,
 
                   const double* x_measurements,
+                  const mrcal_pose_t* rt_extrinsics_fromref, // Ncameras_extrinsics of these
                   bool verbose)
 {
     // I define an outlier as a feature that's > k stdevs past the mean. I make
@@ -3949,8 +3950,7 @@ bool markOutliers(// output, input
         if(pt0->last_in_set)                            \
             continue;                                   \
                                                         \
-        int i1 = i0+1;                                  \
-        while(true)
+        int i1 = i0+1;
 
 #define LOOP_TRIANGULATED_POINT_HEADER()                        \
             mrcal_observation_point_triangulated_t* pt1 =       \
@@ -3967,6 +3967,8 @@ bool markOutliers(// output, input
 
 
     /////////////// Compute the variance to set the threshold
+    bool foundNewOutliers = false;
+
     double var = 0.0;
     LOOP_BOARD_OBSERVATION(true)
     {
@@ -3988,9 +3990,110 @@ bool markOutliers(// output, input
     }
     LOOP_TRIANGULATED_POINT0(true)
     {
-        LOOP_TRIANGULATED_POINT1()
+        LOOP_TRIANGULATED_POINT1();
+
+        const mrcal_point3_t* v0 = &pt0->px;
+        const mrcal_point3_t* t_r0;
+        mrcal_point3_t        _t_r0;
+        const mrcal_point3_t* v0_ref;
+        mrcal_point3_t        _v0_ref;
+
+        const int icam_extrinsics0 = pt0->icam.extrinsics;
+        if( icam_extrinsics0 >= 0 )
+        {
+            const mrcal_pose_t* rt_0r = &rt_extrinsics_fromref[icam_extrinsics0];
+            const double* r_0r = &rt_0r->r.xyz[0];
+            const double* t_0r = &rt_0r->t.xyz[0];
+
+            t_r0   = &_t_r0;
+            v0_ref = &_v0_ref;
+
+            mrcal_rotate_point_r_inverted(_t_r0.xyz, NULL,NULL,
+                                          r_0r, t_0r);
+            for(int i=0; i<3; i++)
+                _t_r0.xyz[i] *= -1.;
+
+            mrcal_rotate_point_r_inverted(_v0_ref.xyz, NULL,NULL,
+                                          r_0r, v0->xyz);
+        }
+        else
+        {
+            t_r0   = NULL;
+            v0_ref = v0;
+        }
+
+
+        while(true)
         {
             LOOP_TRIANGULATED_POINT_HEADER();
+
+            /////////////// divergent triangulated observations are DEFINITELY outliers
+            if(!pt0->outlier && !pt1->outlier)
+            {
+                const mrcal_point3_t* v1 = &pt1->px;
+
+                const mrcal_point3_t* t_10;
+                mrcal_point3_t       _t_10;
+                const mrcal_point3_t* v0_cam1;
+                mrcal_point3_t        _v0_cam1;
+
+                const int icam_extrinsics1 = pt1->icam.extrinsics;
+                if( icam_extrinsics1 >= 0 )
+                {
+                    const mrcal_pose_t* rt_1r = &rt_extrinsics_fromref[icam_extrinsics1];
+
+                    v0_cam1 = &_v0_cam1;
+
+                    if( icam_extrinsics0 >= 0 )
+                    {
+                        t_10 = &_t_10;
+                        mrcal_transform_point_rt( &_t_10.xyz[0], NULL, NULL,
+                                                  &rt_1r->r.xyz[0], &t_r0->xyz[0] );
+                    }
+                    else
+                    {
+                        // t_r0 = 0 ->
+                        //
+                        // t_10 = R_1r*t_r0 + t_1r =
+                        //      = R_1r*0    + t_1r =
+                        //      = t_1r
+                        t_10 = &rt_1r->t;
+                    }
+
+                    mrcal_rotate_point_r( &_v0_cam1.xyz[0], NULL, NULL,
+                                          &rt_1r->r.xyz[0], &v0_ref->xyz[0] );
+                }
+                else
+                {
+                    // rt_1r = 0 ->
+                    //
+                    // t_10 = R_1r*t_r0 + t_1r =
+                    //      = t_r0
+                    t_10 = t_r0;
+                    // At most one camera can sit at the reference. So if I'm
+                    // here, I know that t_r0 != NULL and thus t_10 != NULL
+
+                    v0_cam1 = v0_ref;
+                }
+                if(!_mrcal_triangulate_leecivera_mid2_is_convergent(v1, v0_cam1, t_10))
+                {
+                    // Outlier. I don't know which observations was the broken
+                    // one, so I mark them both
+                    pt0->outlier = true;
+                    pt1->outlier = true;
+                    foundNewOutliers = true;
+
+                    // There are a lot of these, so I'm disabling this print for
+                    // now, to avoid spamming the terminal
+                    //
+                    // MSG("New divergent-feature outliers found: measurement %d observation (%d,%d)",
+                    //     imeasurement_point_triangulated0 + imeasurement_point_triangulated,
+                    //     i0, i1);
+
+                }
+            }
+            // just marked divergent triangulations as outliers
+
 
             if(pt0->outlier || pt1->outlier)
             {
@@ -4007,9 +4110,9 @@ bool markOutliers(// output, input
         }
     }
     var /= (double)Nmeasurements_inliers;
+    // MSG("Outlier rejection sees stdev = %f", sqrt(var));
 
     ///////////// Any new outliers found?
-    bool foundNewOutliers = false;
     LOOP_BOARD_OBSERVATION(!foundNewOutliers)
     {
         LOOP_BOARD_FEATURE()
@@ -4039,7 +4142,8 @@ bool markOutliers(// output, input
     }
     LOOP_TRIANGULATED_POINT0(!foundNewOutliers)
     {
-        LOOP_TRIANGULATED_POINT1()
+        LOOP_TRIANGULATED_POINT1();
+        while(true)
         {
             LOOP_TRIANGULATED_POINT_HEADER();
 
@@ -4101,7 +4205,8 @@ bool markOutliers(// output, input
     }
     LOOP_TRIANGULATED_POINT0(true)
     {
-        LOOP_TRIANGULATED_POINT1()
+        LOOP_TRIANGULATED_POINT1();
+        while(true)
         {
             LOOP_TRIANGULATED_POINT_HEADER();
 
@@ -6401,6 +6506,7 @@ mrcal_optimize( // out
                               calibration_object_width_n,
                               calibration_object_height_n,
                               solver_context->beforeStep->x,
+                              extrinsics_fromref,
                               verbose) &&
                  ({MSG("Threw out some outliers. New count = %d/%d (%.1f%%). Going again",
                        stats.Noutliers,
