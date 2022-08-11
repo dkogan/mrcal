@@ -662,6 +662,23 @@ mrcal_triangulate_leecivera_mid2(// outputs
     return _m;
 }
 
+extern "C"
+bool
+_mrcal_triangulate_leecivera_mid2_is_convergent(// inputs
+
+                                                // not-necessarily normalized vectors in the camera-0
+                                                // coord system
+                                                const mrcal_point3_t* _v0,
+                                                const mrcal_point3_t* _v1,
+                                                const mrcal_point3_t* _t01)
+{
+    mrcal_point3_t p = mrcal_triangulate_leecivera_mid2(NULL,NULL,NULL,
+                                                        _v0,_v1,_t01);
+    return !(p.x == 0.0 &&
+             p.y == 0.0 &&
+             p.z == 0.0);
+}
+
 // The "wMid2" method in "Triangulation: Why Optimize?", Seong Hun Lee and
 // Javier Civera. https://arxiv.org/abs/1907.11917
 extern "C"
