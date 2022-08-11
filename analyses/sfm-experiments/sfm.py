@@ -7,7 +7,6 @@ import sys
 import numpy as np
 import numpysane as nps
 import gnuplotlib as gp
-import cv2
 import glob
 import re
 import os
@@ -18,8 +17,11 @@ sys.path[:0] = '/home/dima/projects/mrcal-2022-06--triangulated-solve/',
 import mrcal
 
 
+np.set_printoptions(linewidth = 800000)
+
+
 def imread(filename, decimation):
-    image = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
+    image = mrcal.load_image(filename, bits_per_pixel = 8, channels = 1)
     return image, image[::decimation, ::decimation]
 
 def plot_flow(image, flow, decimation,
@@ -118,31 +120,90 @@ mrcal.align_procrustes_vectors_R01()
 
     return Rt
 
-def seed_rt10_pair(q0, q1):
-    lensmodel,intrinsics_data = model.intrinsics()
-    if not re.match("LENSMODEL_(OPENCV|PINHOLE)", lensmodel):
-        raise Exception("This assumes a pinhole or opencv model. You have something else, and you should reproject to pinhole")
-    fx,fy,cx,cy = intrinsics_data[:4]
-    distortions = intrinsics_data[4:]
-    camera_matrix = np.array((( fx,  0, cx),
-                              ( 0,  fy, cy),
-                              ( 0,   0, 1.)))
+def seed_rt10_pair(i0, q0, q1):
 
-    # arbitrary scale
-    p0 = mrcal.unproject(q0, lensmodel,intrinsics_data)
+    if False:
+        # original
+        lensmodel,intrinsics_data = model.intrinsics()
+        if not re.match("LENSMODEL_(OPENCV|PINHOLE)", lensmodel):
+            raise Exception("This assumes a pinhole or opencv model. You have something else, and you should reproject to pinhole")
+        fx,fy,cx,cy = intrinsics_data[:4]
+        distortions = intrinsics_data[4:]
+        camera_matrix = np.array((( fx,  0, cx),
+                                  ( 0,  fy, cy),
+                                  ( 0,   0, 1.)))
 
-    result,rvec,tvec = \
-        cv2.solvePnP( p0,
-                      np.ascontiguousarray(q1),
-                      camera_matrix,
-                      distortions,
-                      rvec = (0,0,0),
-                      tvec = (0,0,0),
-                      useExtrinsicGuess = True)
-    if not result:
-        raise Exception("solvePnP failed!")
+        # arbitrary scale
+        p0 = mrcal.unproject(q0, lensmodel,intrinsics_data)
 
-    return nps.glue(rvec.ravel(), tvec.ravel(), axis=-1)
+        import cv2
+        result,rvec,tvec = \
+            cv2.solvePnP( p0,
+                          np.ascontiguousarray(q1),
+                          camera_matrix,
+                          distortions,
+                          rvec = (0,0,0),
+                          tvec = (0,0,0),
+                          useExtrinsicGuess = True)
+        if not result:
+            raise Exception("solvePnP failed!")
+
+        return nps.glue(rvec.ravel(), tvec.ravel(), axis=-1)
+    elif True:
+        # driving forward
+        return np.array((-0.0001,0.0001,0.00001, 0.2,0.2,-.95), dtype=float)
+    elif True:
+        # experimental new thing
+
+        rt10_good = np.array((-0.00134372,0.02597833,0.01329075,0.24078343,0.21182828,-0.94718104))
+        Rt10_good = mrcal.Rt_from_rt(rt10_good)
+
+
+
+
+        v0 = mrcal.unproject(q0, *model.intrinsics())
+        v1 = mrcal.unproject(q1, *model.intrinsics())
+
+        import pyopengv
+
+        # E_all = (pyopengv.relative_pose_eightpt(v0,v1),)
+        E_all = pyopengv.relative_pose_fivept_nister(v0,v1)
+
+
+        # shape = (N,4,3)
+        # All the candidate transforms
+        Rt01_all = nps.glue( *[ decompose_essential_matrix(E) \
+                              for E in E_all ],
+                           axis = -3 )
+
+        num_valid_triangulations = \
+            np.array([np.count_nonzero(
+                nps.norm2(
+                    mrcal.triangulate_leecivera_mid2(v0, v1,
+                                                     v_are_local = True,
+                                                     Rt01        = Rt01))) \
+                      for Rt01 in Rt01_all ])
+
+
+        Rt01 = Rt01_all[ np.argmax(num_valid_triangulations) ]
+
+        # unit translation
+        Rt01[3,:] /= nps.mag(Rt01[3,:])
+
+
+        # why does eightpt not return a valid essential matrix?
+        #
+        # If I have R, can I get t? For instance I can get R from stuff at infinity
+        #   relative_pose_twopt() can do it, but depends on the specific pair of points
+        #
+        # If I have t, can I get R? INS can maybe give me t
+        return mrcal.rt_from_Rt( mrcal.invert_Rt(Rt01) )
+    else:
+        # Reading Shehryar's poses
+        if i0 < 0:
+            return mrcal.identity_rt()
+        return rt_cam_camprev__from_data_file[i0]
+
 
 def feature_matching__colmap(colmap_database_filename,
                              Nimages = None # None means "all the images"
@@ -386,7 +447,20 @@ WEIRD. But I guess that's what they did...
         indices_point_camintrinsics_camextrinsics, \
         observations
 
-def feature_matching__opencv(image0_decimated, image1_decimated):
+
+feature_finder = None
+matcher        = None
+def feature_matching__opencv(i_image, image0_decimated, image1_decimated):
+
+    import cv2
+
+    global feature_finder, matcher
+
+    if feature_finder is None:
+        feature_finder = cv2.ORB_create()
+        matcher        = cv2.BFMatcher(cv2.NORM_HAMMING,
+                                       crossCheck = True)
+
     # shape (Hdecimated,Wdecimated,2)
     flow_decimated = \
         cv2.calcOpticalFlowFarneback(image0_decimated, image1_decimated,
@@ -400,10 +474,15 @@ def feature_matching__opencv(image0_decimated, image1_decimated):
                                      flags      = 0# cv2.OPTFLOW_USE_INITIAL_FLOW
                                      )
 
-    if 0:
+    if 1:
         plot_flow(image0_decimated, flow_decimated,
                   decimation_extra_plot,
                   hardcopy = f"{outdir}/flow{i_image:03d}.png")
+
+    import IPython
+    IPython.embed()
+    sys.exit()
+
 
     keypoints0, descriptors0 = feature_finder.detectAndCompute(image0_decimated, None)
     keypoints1, descriptors1 = feature_finder.detectAndCompute(image1_decimated, None)
@@ -546,24 +625,46 @@ def solve(indices_point_camintrinsics_camextrinsics,
           observations,
           Nimages):
 
-    # hard-coded known at-infinity point seen in the first two cameras
-    q0_infinity = np.array((1853,1037), dtype=float)
-    q1_infinity = np.array((1920,1039), dtype=float)
-    observations_fixed = nps.glue( q0_infinity,
-                                   q1_infinity,
-                                   axis = -2 )
-    p_infinity = \
-        10000 *  \
-        mrcal.unproject(q0_infinity, *model.intrinsics(),
-                        normalize = True)
-    indices_point_camintrinsics_camextrinsics_fixed = \
-        np.array((( 0, 0, -1),
-                  ( 0, 0,  0),),
-                 dtype = np.int32)
-    # weights
-    observations_fixed = nps.glue( observations_fixed,
-                                   np.ones((2,1), dtype=np.int32),
-                                   axis = -1)
+    observations_fixed                              = None
+    indices_point_camintrinsics_camextrinsics_fixed = None
+    points_fixed                                    = None
+    Npoints_fixed                                   = 0
+
+    if 0:
+        if 1:
+            # delta. desert
+
+            # hard-coded known at-infinity point seen in the first two cameras
+            q0_infinity = np.array((1853,1037), dtype=float)
+            q1_infinity = np.array((1920,1039), dtype=float)
+        else:
+            # xxxxx ranch
+            q0_infinity = np.array((2122, 501), dtype=float)
+            q1_infinity = np.array((1379, 548), dtype=float)
+
+
+        observations_fixed = nps.glue( q0_infinity,
+                                       q1_infinity,
+                                       axis = -2 )
+        p_infinity = \
+            10000 *  \
+            mrcal.unproject(q0_infinity, *model.intrinsics(),
+                            normalize = True)
+        indices_point_camintrinsics_camextrinsics_fixed = \
+            np.array((( 0, 0, -1),
+                      ( 0, 0,  0),),
+                     dtype = np.int32)
+        # weights
+        observations_fixed = nps.glue( observations_fixed,
+                                       np.ones((2,1), dtype=np.int32),
+                                       axis = -1)
+
+        points_fixed = nps.atleast_dims(p_infinity, -2)
+
+        Npoints_fixed = 1
+
+
+
 
     # i0 is indexed from -1: it's a camextrinsics index
     #
@@ -573,7 +674,8 @@ def solve(indices_point_camintrinsics_camextrinsics,
     # [ rt32 ]
     # [ .... ]
     rt_cam_camprev = \
-        np.array([seed_rt10_pair( *get_observation_pair(i0, i0+1,
+        np.array([seed_rt10_pair( i0+1,
+                                  *get_observation_pair(i0, i0+1,
                                                         indices_point_camintrinsics_camextrinsics,
                                                         observations) ) \
                   for i0 in range(-1,Nimages-2)])
@@ -596,10 +698,10 @@ def solve(indices_point_camintrinsics_camextrinsics,
               observations_point_triangulated                        = observations,
               indices_point_triangulated_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
 
-              points                                    = nps.atleast_dims(p_infinity, -2),
+              points                                    = points_fixed,
               indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics_fixed,
               observations_point                        = observations_fixed,
-              Npoints_fixed                             = 1,
+              Npoints_fixed                             = Npoints_fixed,
               point_min_range                           = 1.,
               point_max_range                           = 20000.,
 
@@ -616,25 +718,18 @@ def solve(indices_point_camintrinsics_camextrinsics,
               do_apply_regularization_unity_cam01 = True,
               verbose                             = True)
 
-    filename = '/tmp/geometry-seed.gp'
-    mrcal.show_geometry( nps.glue(mrcal.identity_rt(),
-                                  optimization_inputs['extrinsics_rt_fromref'],
-                                  axis = -2),
-                         cameranames = np.arange(Nimages),
-                         hardcopy    = filename,
-                         title       = 'seed')
-    print(f"Wrote '{filename}'")
+    print(f"Seed rt_cam_ref = {rt_cam_ref}")
+    write_models("/tmp/xxxxx-seed-cam{}.cameramodel",
+                 model,
+                 optimization_inputs['extrinsics_rt_fromref'])
 
     stats = mrcal.optimize(**optimization_inputs)
 
-    filename = '/tmp/geometry-solve.gp'
-    mrcal.show_geometry( nps.glue(mrcal.identity_rt(),
-                                  optimization_inputs['extrinsics_rt_fromref'],
-                                  axis = -2),
-                         cameranames = np.arange(Nimages),
-                         hardcopy    = filename,
-                         title       = 'solve')
-    print(f"Wrote '{filename}'")
+    write_models("/tmp/xxxxx-solve-cam{}.cameramodel",
+                 model,
+                 optimization_inputs['extrinsics_rt_fromref'])
+
+    print(f"Solved rt_cam_ref = {optimization_inputs['extrinsics_rt_fromref']}")
 
     x = stats['x']
     return x, optimization_inputs
@@ -745,21 +840,19 @@ end_header
                                   nps.transpose(1./r[index_good_triangulation]),
                                   axis = -1)
 
-            filename_overlaid_points = f'/tmp/overlaid-points-{i0+1}.pdf'
-            gp.plot(q0_r_recip,
-                    tuplesize = -3,
-                    _with     = 'points pt 7 ps 0.5 palette',
-                    square    = 1,
-                    _xrange   = (0,W),
-                    _yrange   = (H,0),
-                    rgbimage  = image_filename[i0+1],
-                    hardcopy  = filename_overlaid_points,
-                    cbmax     = 0.1)
-            print(f"Wrote '{filename_overlaid_points}'")
+            # filename_overlaid_points = f'/tmp/overlaid-points-{i0+1}.pdf'
+            # gp.plot(q0_r_recip,
+            #         tuplesize = -3,
+            #         _with     = 'points pt 7 ps 0.5 palette',
+            #         square    = 1,
+            #         _xrange   = (0,W),
+            #         _yrange   = (H,0),
+            #         rgbimage  = image_filename[i0+1],
+            #         hardcopy  = filename_overlaid_points,
+            #         cbmax     = 0.1)
+            # print(f"Wrote '{filename_overlaid_points}'")
 
-            image = cv2.imread(image_filename[i0+1])
-            if not (len(image.shape) == 3 and image.shape[-1] == 3):
-                raise Exception("I only support color RGB images. If you need it, YOU implement the grayscale ones")
+            image = mrcal.load_image(image_filename[i0+1], bits_per_pixel = 24, channels = 3)
 
             ######### point cloud
             #### THIS IS WRONG: I report a separate point in each consecutive
@@ -800,42 +893,112 @@ def write_model(filename, model):
     print(f"Writing '{filename}'")
     model.write(filename)
 
+def write_models(filename_format,
+                 model_baseline, rt_cam_ref):
+
+    model0 = mrcal.cameramodel(model_baseline)
+    model0.extrinsics_rt_fromref(np.zeros((6,), dtype=float))
+    write_model(filename_format.format(0), model0)
+    for i in range(1,len(rt_cam_ref)+1):
+        model1 = mrcal.cameramodel(model_baseline)
+        model1.extrinsics_rt_fromref(rt_cam_ref[i-1])
+        write_model(filename_format.format(i), model1)
+
+
+if 1:
+    # delta. desert
+    image_glob               = "/home/dima/data/xxxxx/delta/*.jpg"
+    outdir                   = "/tmp"
+    decimation               = 20
+    decimation_extra_plot    = 5
+    model_filename           = "/home/dima/xxxxx-sfm/cam.cameramodel"
+    colmap_database_filename = '/tmp/xxxxx.db'
+
+    image_filename = sorted(glob.glob(image_glob))
+
+else:
+    # xxxxx ranch
+
+    # t1_t2_p_qxyzw = np.loadtxt("/mnt/nvm/xxxxx-xxxxx-ranch/time_stamp_xyz_xyzw.vnl",
+    #                            dtype = [ ('time',      np.uint64),
+    #                                      ('timestamp', np.uint64),
+    #                                      ('p',         float, (3,)),
+    #                                      ('quat_xyzw', float, (4,)),])
+    # t_filename    = np.loadtxt("/mnt/nvm/xxxxx-xxxxx-ranch/time_filename.vnl",
+    #                            dtype = [ ('timestamp', np.uint64),
+    #                                      ('filename', 'S50') ])
+
+    # quat_xyzw      = t1_t2_p_qxyzw['quat_xyzw']
+    # quat           = quat_xyzw[...,(3,0,1,2)]
+    # r              = mrcal.r_from_R( mrcal.R_from_quat(quat) )
+    # rt_ref_veh_all = nps.glue(r,
+    #                           t1_t2_p_qxyzw['p'],
+    #                           axis = -1)
+
+    t_dt_p_qxyzw = np.loadtxt("/mnt/nvm/xxxxx-xxxxx-ranch/relative-poses.vnl",
+                               dtype = float)
+    t_filename    = np.loadtxt("/mnt/nvm/xxxxx-xxxxx-ranch/time_filename.vnl",
+                               dtype = [ ('timestamp', np.uint64),
+                                         ('filename', 'S250') ])
+    quat_xyzw        = t_dt_p_qxyzw[:,5:]
+    quat             = quat_xyzw[...,(3,0,1,2)]
+    r                = mrcal.r_from_R( mrcal.R_from_quat(quat) )
+    rt_cam0_cam1_all = nps.glue(r,
+                                t_dt_p_qxyzw[:,2:5],
+                                axis = -1)
 
 
 
+    # Row i in the pose file has
+    #   t[i]-t[i-1] == dt[i]
+    # So I presume it has rt_camprev_cam
+    #
+    # I also checked, and the timestamps in t_filename match those in
+    # t_dt_p_qxyzw exactly. No "interpolation" is needed, but I'll ask for it
+    # anyway
+    import scipy.interpolate
 
-image_directory          = "/home/dima/data/xxxxx/delta/*.jpg"
-outdir                   = "/tmp"
-decimation               = 20
-decimation_extra_plot    = 5
-model_filename           = "/home/dima/xxxxx-sfm/cam.cameramodel"
-colmap_database_filename = '/tmp/xxxxx.db'
+    f = \
+        scipy.interpolate.interp1d(t_dt_p_qxyzw[:,0],
+                                   rt_cam0_cam1_all,
+                                   axis = -2,
+                                   bounds_error  = True,
+                                   assume_sorted = True)
+
+    # I want the last 7 images
+    image_filename = t_filename['filename' ][-7:]
+    rt_camprev_cam__from_data_file = f(t_filename['timestamp'][-7:].astype(float) / 1e9)
+
+
+    # The first image doesn't have a camprev. Throw it away
+    rt_camprev_cam__from_data_file = rt_camprev_cam__from_data_file[1:]
+
+    rt_cam_camprev__from_data_file = mrcal.invert_rt(rt_camprev_cam__from_data_file)
+
+    image_dir               = "/mnt/nvm/xxxxx-xxxxx-ranch/images-last10"
+    outdir                   = "/tmp"
+    decimation               = 20
+    decimation_extra_plot    = 5
+    model_filename           = "/mnt/nvm/xxxxx-xxxxx-ranch/oryx.cameramodel"
+    colmap_database_filename = '/mnt/nvm/xxxxx-xxxxx-ranch/xxxxx.db'
+
+    image_filename = [ f"{image_dir}/{os.path.basename(f.decode())}" for f in image_filename]
+
+
 
 
 
 model = mrcal.cameramodel(model_filename)
 W,H   = model.imagersize()
 
-feature_finder = cv2.ORB_create()
-matcher        = cv2.BFMatcher(cv2.NORM_HAMMING,
-                               crossCheck = True)
 
-image_filename = sorted(glob.glob(image_directory))
-
-image0,image0_decimated = imread(image_filename[0], decimation)
-
-
-
-
-
-
-Nimages = 3
-
+Nimages = 6
 
 # q.shape = (Npoints, Nimages=2, Nxy=2)
 if 0:
-    image1,image1_decimated = imread(f, decimation)
-    q = feature_matching__opencv(image0_decimated, image1_decimated)
+    image0,image0_decimated = imread(image_filename[0], decimation)
+    image1,image1_decimated = imread(image_filename[1], decimation)
+    q = feature_matching__opencv(0, image0_decimated, image1_decimated)
     show_matched_features(image0_decimated, image1_decimated, q)
 else:
     indices_point_camintrinsics_camextrinsics, \
@@ -847,17 +1010,15 @@ x,optimization_inputs = solve(indices_point_camintrinsics_camextrinsics,
                               observations,
                               Nimages)
 
-model0 = mrcal.cameramodel(model)
-model0.extrinsics_rt_fromref(np.zeros((6,), dtype=float))
-write_model("/tmp/xxxxx-cam0.cameramodel", model0)
 
-for i in range(1,Nimages):
-    rt_cam_ref = optimization_inputs['extrinsics_rt_fromref'][i-1]
 
-    model1 = mrcal.cameramodel(model)
-    model1.extrinsics_rt_fromref(rt_cam_ref)
 
-    write_model(f"/tmp/xxxxx-cam{i}.cameramodel", model1)
+
+
+
+
+
+
 
 show_solution(optimization_inputs, Nimages)
 
@@ -874,3 +1035,60 @@ except:
     # if I'm looking at cached features, I never read any actual images
     pass
 
+
+
+# subpixel
+
+
+# (setq hs-block-start-regexp (python-rx block-start))
+
+
+# (defun python-hideshow-forward-sexp-function (_arg)
+#   "Python specific `forward-sexp' function for `hs-minor-mode'.
+# Argument ARG is ignored."
+#   (python-nav-end-of-block)
+#   (unless (python-info-current-line-empty-p)
+#     (backward-char)))
+
+# BUG: M-] after this block gets stuck on this trailing for
+        # qall_decimated = nps.cat(*[np.array((keypoints0[m.queryIdx].pt,
+        #                                      keypoints1[m.trainIdx].pt)) \
+        #                            for m in matches])
+
+# also "if" in list comprehensions
+
+
+# (defun python-nav-beginning-of-block ()
+#   "Move to start of current block."
+#   (interactive "^")
+#   (let ((starting-pos (point)))
+#     (if (progn
+#           (python-nav-beginning-of-statement)
+#           (looking-at (python-rx block-start)))
+#         (point-marker)
+#       ;; Go to first line beginning a statement
+#       (while (and (not (bobp))
+#                   (or (and (python-nav-beginning-of-statement) nil)
+#                       (python-info-current-line-comment-p)
+#                       (python-info-current-line-empty-p)))
+#         (forward-line -1))
+#       (let ((block-matching-indent
+#              (- (current-indentation) python-indent-offset)))
+#         (while
+#             (and (python-nav-backward-block)
+#                  (> (current-indentation) block-matching-indent)))
+#         (if (and (looking-at (python-rx block-start))
+#                  (= (current-indentation) block-matching-indent))
+#             (point-marker)
+#           (and (goto-char starting-pos) nil))))))
+
+
+# Alicevision sequence:
+
+r'''
+av=$HOME/debianstuff/AliceVision/build/Linux-x86_64
+$av/aliceVision_cameraInit --defaultFieldOfView 80 --imageFolder ~/data/xxxxx/delta -o xxxxx.sfm
+$av/aliceVision_featureExtraction -i xxxxx.sfm -o xxxxxdesc
+$av/aliceVision_featureMatching -i xxxxx.sfm -f xxxxx-features -o xxxxx-matches
+$av/aliceVision_incrementalSfM  -i xxxxx.sfm -f xxxxx-features -m xxxxx-matches -o xxxxx-sfm-output/out
+'''
