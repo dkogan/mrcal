@@ -18,9 +18,9 @@ SYNOPSIS
      left.cameramodel right.cameramodel \
      left.jpg         right.jpg
 
+  Processing left.jpg and right.jpg
   Writing '/tmp/rectified0.cameramodel'
   Writing '/tmp/rectified1.cameramodel'
-  ##### processing left.jpg and right.jpg
   Writing '/tmp/left-rectified.png'
   Writing '/tmp/right-rectified.png'
   Writing '/tmp/left-disparity.png'
@@ -664,7 +664,7 @@ if args.clahe:
 
 for i in range(Nimages):
 
-    print(f"##### processing {os.path.split(image_filenames_all[0][i])[1]} and {os.path.split(image_filenames_all[1][i])[1]}")
+    print(f"Processing {os.path.split(image_filenames_all[0][i])[1]} and {os.path.split(image_filenames_all[1][i])[1]}")
 
     image_filenames = (image_filenames_all[0][i],
                        image_filenames_all[1][i])
