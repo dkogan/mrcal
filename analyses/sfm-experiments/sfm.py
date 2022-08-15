@@ -120,6 +120,185 @@ mrcal.align_procrustes_vectors_R01()
 
     return Rt
 
+def seed_rt10_pair_from_far_subset(q0, q1, idx_far):
+    r'''Estimates a transform between two cameras
+
+This method ingests two sets of corresponding features, with a subset of these
+features deemed to be "far". It then
+
+- Computes a Procrustes fit on the "far" features to get an estimate for the
+  rotation. This is valid because observations at infinity are not affected by
+  the relatively tiny translations, and I only need to rotate the vectors
+  properly.
+
+- Assumes this rotation is correct, and uses all the features to estimate the
+  translation. This part is more involved, so I write it up here
+
+I use the geometric triangulation expression derived here:
+
+  https://github.com/dkogan/mrcal/blob/8be76fc28278f8396c0d3b07dcaada2928f1aae0/triangulation.cc#L112
+
+I assume that I'm triangulating normalized v0,v1 both expressed in cam-0
+coordinates. And I have a t01 translation that I call "t" from here on. This is
+unique only up-to-scale, so I assume that norm2(t) = 1. The geometric
+triangulation from the above link says that
+
+  [k0] = 1/(v0.v0 v1.v1 -(v0.v1)**2) [ v1.v1   v0.v1][ t01.v0]
+  [k1]                               [ v0.v1   v0.v0][-t01.v1]
+
+  The midpoint p is
+
+  p = (k0 v0 + t01 + k1 v1)/2
+
+I assume that v are normalized and I represent k as a vector. I also define
+
+  c = inner(v0,v1)
+
+So
+
+  k = 1/(1 - c^2) [1 c] [ v0t] t
+                  [c 1] [-v1t]
+
+I define
+
+  A = 1/(1 - c^2) [1 c]     This is a 2x2 array
+                  [c 1]
+
+  B = [ v0t]                This is a 2x3 array
+      [-v1t]
+
+  V = [v0 v1]               This is a 3x2 array
+
+Note that none of A,B,V depend on t.
+
+So
+
+  k = A B t
+
+Then
+
+  p = (k0 v0 + t01 + k1 v1)/2
+    = (V k + t)/2
+    = (V A B t + t)/2
+    = (I + V A B) t/2
+
+Each triangulated error is
+
+  e = mag(p - k0 v0)
+
+I split A into its rows
+
+  A = [ a0t ]
+      [ a1t ]
+
+Then
+
+  e = p - k0 v0
+    = (I + V A B) t/2 - v0 a0t B t
+    = I t/2 + V A B t/2 - v0 a0t B t
+    = I t/2 + v0 a0t B t/2 + v1 a1t B t/2 - v0 a0t B t
+    = I t/2 - v0 a0t B t/2 + v1 a1t B t/2
+    = ((I - v0 a0t B + v1 a1t B) t) / 2
+    = ((I + (- v0 a0t + v1 a1t) B) t) / 2
+    = ((I - Bt A B) t) / 2
+
+I define a joint error function I'm optimizing as the sum of all the individual
+triangulation errors:
+
+  E = sum(norm2(e_i))
+    = 1/4 tt sum( (I - Bt A B)t (I - Bt A B) ) t
+    ~ tt sum( -2 Bt A B + Bt A B Bt A B ) t
+
+  B Bt = [1  -c]
+         [-c  1]
+
+  B Bt A = 1/(1 - c^2) [1  -c] [1 c]
+                       [-c  1] [c 1]
+         = 1/(1 - c^2) [1-c^2  0     ]
+                       [0      1-c^2 ]
+         = I
+
+-> E ~ tt sum( -2 Bt A B + Bt A B ) t
+     = tt sum( - Bt A B ) t
+
+So to minimize E I find t that is the eigenvector of sum(Bt A B) that
+corresponds to its largest eigenvalue
+
+    '''
+
+    # shape (N,3)
+    # These are in their LOCAL coord system
+    v0 = mrcal.unproject(q0, *model.intrinsics(),
+                         normalize = True)
+    v1 = mrcal.unproject(q1, *model.intrinsics(),
+                         normalize = True)
+
+    R01 = mrcal.align_procrustes_vectors_R01(v0[idx_far], v1[idx_far])
+
+    # I only use the near features to compute t01. The far features don't affect
+    # t very much, and they'll have c ~ 1 and A ~ infinity
+
+    # shape (N,3)
+    v0_cam0coords = v0[~idx_far]
+    v1_cam0coords = mrcal.rotate_point_R(R01, v1[~idx_far])
+    # shape (N,)
+    c = nps.inner(v0_cam0coords,
+                  v1_cam0coords)
+
+    # Any near features that have parallel rays is disqualified
+    idx_parallel = np.abs(1. - c) < 1e-6
+    v0_cam0coords = v0_cam0coords[~idx_parallel]
+    v1_cam0coords = mrcal.rotate_point_R(R01, v1_cam0coords[~idx_parallel])
+
+    # shape (N,)
+    c = nps.inner(v0_cam0coords,
+                  v1_cam0coords)
+
+    N = len(c)
+
+    # shape (N,2,2)
+    A = np.ones((N,2,2), dtype=float)
+    A[:,0,1] = c
+    A[:,1,0] = c
+    A /= nps.mv(1. - c*c, -1,-3)
+
+    # shape (N,2,3)
+    B = np.empty((N,2,3), dtype=float)
+    B[:,0,:] = v0_cam0coords
+    B[:,1,:] = v1_cam0coords
+
+    # shape (3,3)
+    M = np.sum( nps.matmult(nps.transpose(B), A, B),
+                axis = 0 )
+
+    from mrcal.utils import _sorted_eig
+    l,v = _sorted_eig(M)
+
+    # The answer is the eigenvector corresponding to the biggest eigenvalue
+    t01 = v[:,2]
+
+    # Almost done. I want either t or -t. The wrong one will produce
+    # mostly triangulations behind me
+    p = \
+        mrcal.triangulate_geometric(v0_cam0coords,
+                                    v1_cam0coords,
+                                    t01)
+    N_divergent_t   = np.count_nonzero(nps.norm2(p) == 0)
+
+    p = \
+        mrcal.triangulate_geometric(v0_cam0coords,
+                                    v1_cam0coords,
+                                    -t01)
+    N_divergent_negt = np.count_nonzero(nps.norm2(p) == 0)
+
+    if N_divergent_t > N_divergent_negt:
+        t01 *= -1.
+
+    Rt01 = nps.glue(R01, t01, axis=-2)
+    Rt10 = mrcal.invert_Rt(Rt01)
+    rt10 = mrcal.rt_from_Rt(Rt10)
+    return rt10
+
 def seed_rt10_pair(i0, q0, q1):
 
     if False:
@@ -149,11 +328,15 @@ def seed_rt10_pair(i0, q0, q1):
             raise Exception("solvePnP failed!")
 
         return nps.glue(rvec.ravel(), tvec.ravel(), axis=-1)
-    elif True:
+    elif False:
         # driving forward
         return np.array((-0.0001,0.0001,0.00001, 0.2,0.2,-.95), dtype=float)
     elif True:
-        # experimental new thing
+        # My method using known-far features
+        return seed_rt10_pair_from_far_subset(q0,q1,
+                                              (q0[:,1] < 800) * (q1[:,1] < 800))
+    elif True:
+        # experimental opengv
 
         rt10_good = np.array((-0.00134372,0.02597833,0.01329075,0.24078343,0.21182828,-0.94718104))
         Rt10_good = mrcal.Rt_from_rt(rt10_good)
