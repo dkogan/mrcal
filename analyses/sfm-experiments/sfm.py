@@ -15,6 +15,7 @@ import sqlite3
 
 sys.path[:0] = '/home/dima/projects/mrcal-2022-06--triangulated-solve/',
 import mrcal
+from mrcal.utils import _sorted_eig
 
 
 np.set_printoptions(linewidth = 800000)
@@ -226,6 +227,14 @@ corresponds to its largest eigenvalue
 
     '''
 
+    rt10_ref = np.array((-0.001695746207, 0.02603273541, 0.01329430797, 0.239789857, 0.2057362603, -0.9487751819,))
+    r10_ref  = rt10_ref[:3]
+    R10_ref  = mrcal.R_from_r(r10_ref)
+    R01_ref  = mrcal.invert_R(R10_ref)
+    rt01_ref = mrcal.invert_rt(rt10_ref)
+    t01_ref = rt01_ref[3:]
+
+
     # shape (N,3)
     # These are in their LOCAL coord system
     v0 = mrcal.unproject(q0, *model.intrinsics(),
@@ -235,69 +244,103 @@ corresponds to its largest eigenvalue
 
     R01 = mrcal.align_procrustes_vectors_R01(v0[idx_far], v1[idx_far])
 
+
+
+    # can try to do outlier rejection here:
+    #   co = nps.inner(v0[idx_far], mrcal.rotate_point_R(R01, v1[idx_far]))
+    #   gp.plot(co)
+
+
+
+    # Keep all all non-far points initially
+    idx_keep_near = ~idx_far
+
+
     # I only use the near features to compute t01. The far features don't affect
     # t very much, and they'll have c ~ 1 and A ~ infinity
 
     # shape (N,3)
-    v0_cam0coords = v0[~idx_far]
-    v1_cam0coords = mrcal.rotate_point_R(R01, v1[~idx_far])
+    v0_cam0coords = v0
+    v1_cam0coords = mrcal.rotate_point_R(R01, v1)
     # shape (N,)
-    c = nps.inner(v0_cam0coords,
-                  v1_cam0coords)
+    c = nps.inner(v0_cam0coords[idx_keep_near],
+                  v1_cam0coords[idx_keep_near])
 
     # Any near features that have parallel rays is disqualified
     idx_parallel = np.abs(1. - c) < 1e-6
-    v0_cam0coords = v0_cam0coords[~idx_parallel]
-    v1_cam0coords = mrcal.rotate_point_R(R01, v1_cam0coords[~idx_parallel])
+    idx_keep_near[np.nonzero(idx_keep_near)[0][idx_parallel]] = False
 
-    # shape (N,)
-    c = nps.inner(v0_cam0coords,
-                  v1_cam0coords)
 
-    N = len(c)
 
-    # shape (N,2,2)
-    A = np.ones((N,2,2), dtype=float)
-    A[:,0,1] = c
-    A[:,1,0] = c
-    A /= nps.mv(1. - c*c, -1,-3)
+    # Can try to do outlier rejection here. At t=0 all points should be
+    # convergent or all should be divergent. Any non-consensus points are
+    # outliers
+    #   p = mrcal.triangulate_geometric(v0[~idx_far],
+    #                                   mrcal.rotate_point_R(R01, v1[~idx_far]),
+    #                                   np.zeros((3,)))
+    #   idx_divergent = nps.norm2(p) == 0
+    def compute_t(v0_cam0coords, v1_cam0coords):
+        # shape (N,)
+        c = nps.inner(v0_cam0coords,
+                      v1_cam0coords)
 
-    # shape (N,2,3)
-    B = np.empty((N,2,3), dtype=float)
-    B[:,0,:] = v0_cam0coords
-    B[:,1,:] = v1_cam0coords
+        N = len(c)
 
-    # shape (3,3)
-    M = np.sum( nps.matmult(nps.transpose(B), A, B),
-                axis = 0 )
+        # shape (N,2,2)
+        A = np.ones((N,2,2), dtype=float)
+        A[:,0,1] = c
+        A[:,1,0] = c
+        A /= nps.mv(1. - c*c, -1,-3)
 
-    from mrcal.utils import _sorted_eig
-    l,v = _sorted_eig(M)
+        # shape (N,2,3)
+        B = np.empty((N,2,3), dtype=float)
+        B[:,0,:] =  v0_cam0coords
+        B[:,1,:] = -v1_cam0coords
 
-    # The answer is the eigenvector corresponding to the biggest eigenvalue
-    t01 = v[:,2]
+        # shape (3,3)
+        M = np.sum( nps.matmult(nps.transpose(B), A, B),
+                    axis = 0 )
 
-    # Almost done. I want either t or -t. The wrong one will produce
-    # mostly triangulations behind me
-    p = \
-        mrcal.triangulate_geometric(v0_cam0coords,
-                                    v1_cam0coords,
-                                    t01)
-    N_divergent_t   = np.count_nonzero(nps.norm2(p) == 0)
+        l,v = _sorted_eig(M)
 
-    p = \
-        mrcal.triangulate_geometric(v0_cam0coords,
-                                    v1_cam0coords,
-                                    -t01)
-    N_divergent_negt = np.count_nonzero(nps.norm2(p) == 0)
+        # The answer is the eigenvector corresponding to the biggest eigenvalue
+        t01 = v[:,2]
 
-    if N_divergent_t > N_divergent_negt:
-        t01 *= -1.
+        # Almost done. I want either t or -t. The wrong one will produce
+        # mostly triangulations behind me
+        k = nps.matmult(A,B, nps.transpose(t01))[..., 0]
+
+        idx_divergent_t    = (k[:,0] <= 0) + (k[:,1] <= 0)
+        idx_divergent_negt = (k[:,0] >= 0) + (k[:,1] >= 0)
+        N_divergent_t    = np.count_nonzero( idx_divergent_t )
+        N_divergent_negt = np.count_nonzero( idx_divergent_negt )
+
+        if N_divergent_t < N_divergent_negt:
+            return  t01, idx_divergent_t
+        else:
+            return -t01, idx_divergent_negt
+
+
+    i_iteration = 0
+    while True:
+
+        print(f"seed_rt10_pair_from_far_subset() iteration {i_iteration}")
+
+        t01, idx_divergent = \
+            compute_t(v0_cam0coords[idx_keep_near],
+                      v1_cam0coords[idx_keep_near])
+        if np.count_nonzero(idx_divergent) == 0:
+            break
+
+        idx_keep_near[np.nonzero(idx_keep_near)[0][idx_divergent]] = False
+        i_iteration += 1
 
     Rt01 = nps.glue(R01, t01, axis=-2)
     Rt10 = mrcal.invert_Rt(Rt01)
     rt10 = mrcal.rt_from_Rt(Rt10)
-    return rt10
+    return \
+        rt10, \
+        (idx_keep_near + idx_far)
 
 def seed_rt10_pair(i0, q0, q1):
 
@@ -327,14 +370,20 @@ def seed_rt10_pair(i0, q0, q1):
         if not result:
             raise Exception("solvePnP failed!")
 
-        return nps.glue(rvec.ravel(), tvec.ravel(), axis=-1)
+        return nps.glue(rvec.ravel(), tvec.ravel(), axis=-1), \
+            None
     elif False:
         # driving forward
-        return np.array((-0.0001,0.0001,0.00001, 0.2,0.2,-.95), dtype=float)
+        return np.array((-0.0001,0.0001,0.00001, 0.2,0.2,-.95), dtype=float), \
+            None
     elif True:
         # My method using known-far features
-        return seed_rt10_pair_from_far_subset(q0,q1,
-                                              (q0[:,1] < 800) * (q1[:,1] < 800))
+        rt10, idx_inliers = \
+            seed_rt10_pair_from_far_subset(q0,q1,
+                                           (q0[:,1] < 800) * (q1[:,1] < 800))
+
+        return rt10, idx_inliers
+
     elif True:
         # experimental opengv
 
@@ -380,12 +429,15 @@ def seed_rt10_pair(i0, q0, q1):
         #   relative_pose_twopt() can do it, but depends on the specific pair of points
         #
         # If I have t, can I get R? INS can maybe give me t
-        return mrcal.rt_from_Rt( mrcal.invert_Rt(Rt01) )
+        return mrcal.rt_from_Rt( mrcal.invert_Rt(Rt01) ), \
+            None
     else:
         # Reading Shehryar's poses
         if i0 < 0:
-            return mrcal.identity_rt()
-        return rt_cam_camprev__from_data_file[i0]
+            return mrcal.identity_rt(), \
+                None
+        return rt_cam_camprev__from_data_file[i0], \
+            None
 
 
 def feature_matching__colmap(colmap_database_filename,
@@ -856,12 +908,15 @@ def solve(indices_point_camintrinsics_camextrinsics,
     # [ rt21 ]
     # [ rt32 ]
     # [ .... ]
+    seed_rt10_and_idx_inliers = \
+        [seed_rt10_pair( i0+1,
+                         *get_observation_pair(i0, i0+1,
+                                               indices_point_camintrinsics_camextrinsics,
+                                               observations) ) \
+                  for i0 in range(-1,Nimages-2)]
     rt_cam_camprev = \
-        np.array([seed_rt10_pair( i0+1,
-                                  *get_observation_pair(i0, i0+1,
-                                                        indices_point_camintrinsics_camextrinsics,
-                                                        observations) ) \
-                  for i0 in range(-1,Nimages-2)])
+        np.array([ri[0] for ri in seed_rt10_and_idx_inliers])
+
 
     # Make an absolute extrinsics array:
     # [ rt10 ]
