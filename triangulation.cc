@@ -109,11 +109,19 @@ mrcal_triangulate_geometric(// outputs
                             const mrcal_point3_t* _v1,
                             const mrcal_point3_t* _t01)
 {
-    // This is the basic 3d-geometry routine. I find the point in 3D
-    // that minimizes the distance to each of the observation rays. This
-    // is simple, but not as accurate as we'd like. A better method is
-    // available in triangulate_lindstrom()
-
+    // This is the basic 3D-geometry routine. I find the point in 3D that
+    // minimizes the distance to each of the observation rays. This is simple,
+    // but not as accurate as we'd like. All the other methods have lower
+    // biases. See the Lee-Civera papers for details:
+    //
+    //   Paper that compares all methods implemented here:
+    //   "Triangulation: Why Optimize?", Seong Hun Lee and Javier Civera.
+    //   https://arxiv.org/abs/1907.11917
+    //
+    //   Earlier paper that doesn't have mid2 or wmid2:
+    //   "Closed-Form Optimal Two-View Triangulation Based on Angular Errors",
+    //   Seong Hun Lee and Javier Civera. ICCV 2019.
+    //
     // Each pixel observation represents a ray in 3D. The best
     // estimate of the 3d position of the point being observed
     // is the point nearest to both these rays
