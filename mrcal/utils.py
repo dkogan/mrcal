@@ -146,10 +146,10 @@ compute an optimal transformation Rt by calling align_procrustes_points_Rt01().
 ARGUMENTS
 
 - v0: an array of shape (..., N, 3). Each row is a vector in the coordinate
-  system we're transforming TO
+  system we're transforming TO. These are assumed normalized.
 
 - v1: an array of shape (..., N, 3). Each row is a vector in the coordinate
-  system we're transforming FROM
+  system we're transforming FROM. These are assumed normalized.
 
 - weights: optional array of shape (..., N). Specifies the relative weight of
   each vector. If omitted, everything is weighted equally
