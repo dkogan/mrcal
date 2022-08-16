@@ -121,7 +121,7 @@ mrcal.align_procrustes_vectors_R01()
 
     return Rt
 
-def seed_rt10_pair_from_far_subset(q0, q1, idx_far):
+def seed_rt10_pair_from_far_subset(q0, q1, mask_far):
     r'''Estimates a transform between two cameras
 
 This method ingests two sets of corresponding features, with a subset of these
@@ -207,8 +207,11 @@ I define a joint error function I'm optimizing as the sum of all the individual
 triangulation errors:
 
   E = sum(norm2(e_i))
-    = 1/4 tt sum( (I - Bt A B)t (I - Bt A B) ) t
-    ~ tt sum( -2 Bt A B + Bt A B Bt A B ) t
+
+Each component is
+
+  norm2(e) = 1/4 tt (I - Bt A B)t (I - Bt A B) t
+           = 1/4 tt (I - 2 Bt A B + Bt A B Bt A B ) t
 
   B Bt = [1  -c]
          [-c  1]
@@ -219,8 +222,13 @@ triangulation errors:
                        [0      1-c^2 ]
          = I
 
--> E ~ tt sum( -2 Bt A B + Bt A B ) t
-     = tt sum( - Bt A B ) t
+-> norm2(e) = 1/4 tt (I - 2 Bt A B + Bt A B) t
+            = 1/4 tt (I - Bt A B) t
+            = 1/4 - 1/4 tt Bt A B t
+
+So
+
+    E = N/4 - 1/4 tt sum(Bt A B) t
 
 So to minimize E I find t that is the eigenvector of sum(Bt A B) that
 corresponds to its largest eigenvalue
@@ -242,18 +250,18 @@ corresponds to its largest eigenvalue
     v1 = mrcal.unproject(q1, *model.intrinsics(),
                          normalize = True)
 
-    R01 = mrcal.align_procrustes_vectors_R01(v0[idx_far], v1[idx_far])
+    R01 = mrcal.align_procrustes_vectors_R01(v0[mask_far], v1[mask_far])
 
 
 
     # can try to do outlier rejection here:
-    #   co = nps.inner(v0[idx_far], mrcal.rotate_point_R(R01, v1[idx_far]))
+    #   co = nps.inner(v0[mask_far], mrcal.rotate_point_R(R01, v1[mask_far]))
     #   gp.plot(co)
 
 
 
     # Keep all all non-far points initially
-    idx_keep_near = ~idx_far
+    mask_keep_near = ~mask_far
 
 
     # I only use the near features to compute t01. The far features don't affect
@@ -263,22 +271,22 @@ corresponds to its largest eigenvalue
     v0_cam0coords = v0
     v1_cam0coords = mrcal.rotate_point_R(R01, v1)
     # shape (N,)
-    c = nps.inner(v0_cam0coords[idx_keep_near],
-                  v1_cam0coords[idx_keep_near])
+    c = nps.inner(v0_cam0coords[mask_keep_near],
+                  v1_cam0coords[mask_keep_near])
 
     # Any near features that have parallel rays is disqualified
-    idx_parallel = np.abs(1. - c) < 1e-6
-    idx_keep_near[np.nonzero(idx_keep_near)[0][idx_parallel]] = False
+    mask_parallel = np.abs(1. - c) < 1e-6
+    mask_keep_near[np.nonzero(mask_keep_near)[0][mask_parallel]] = False
 
 
 
     # Can try to do outlier rejection here. At t=0 all points should be
     # convergent or all should be divergent. Any non-consensus points are
     # outliers
-    #   p = mrcal.triangulate_geometric(v0[~idx_far],
-    #                                   mrcal.rotate_point_R(R01, v1[~idx_far]),
+    #   p = mrcal.triangulate_geometric(v0[~mask_far],
+    #                                   mrcal.rotate_point_R(R01, v1[~mask_far]),
     #                                   np.zeros((3,)))
-    #   idx_divergent = nps.norm2(p) == 0
+    #   mask_divergent = nps.norm2(p) == 0
     def compute_t(v0_cam0coords, v1_cam0coords):
         # shape (N,)
         c = nps.inner(v0_cam0coords,
@@ -298,8 +306,7 @@ corresponds to its largest eigenvalue
         B[:,1,:] = -v1_cam0coords
 
         # shape (3,3)
-        M = np.sum( nps.matmult(nps.transpose(B), A, B),
-                    axis = 0 )
+        M = np.sum( nps.matmult(nps.transpose(B), A, B), axis = 0 )
 
         l,v = _sorted_eig(M)
 
@@ -310,15 +317,33 @@ corresponds to its largest eigenvalue
         # mostly triangulations behind me
         k = nps.matmult(A,B, nps.transpose(t01))[..., 0]
 
-        idx_divergent_t    = (k[:,0] <= 0) + (k[:,1] <= 0)
-        idx_divergent_negt = (k[:,0] >= 0) + (k[:,1] >= 0)
-        N_divergent_t    = np.count_nonzero( idx_divergent_t )
-        N_divergent_negt = np.count_nonzero( idx_divergent_negt )
+        mask_divergent_t    = (k[:,0] <= 0) + (k[:,1] <= 0)
+        mask_divergent_negt = (k[:,0] >= 0) + (k[:,1] >= 0)
+        N_divergent_t    = np.count_nonzero( mask_divergent_t )
+        N_divergent_negt = np.count_nonzero( mask_divergent_negt )
+
+        if N_divergent_t == 0 or N_divergent_negt == 0:
+
+            # from before: norm2(e) = 1/4 - 1/4 tt Bt A B t
+            # shape (N,2,1)
+            Bt = nps.dummy(nps.inner(B, t01),
+                           -1)
+
+            # shape (N,1,1)
+            tBtABt = nps.matmult(nps.transpose(Bt), A, Bt)
+
+            # shape (N,)
+            tBtABt = tBtABt[:,0,0]
+
+            norm2e = 1/4 * (1 - tBtABt)
+
+        else:
+            norm2e = None
 
         if N_divergent_t < N_divergent_negt:
-            return  t01, idx_divergent_t
+            return  t01, mask_divergent_t, N_divergent_t, norm2e
         else:
-            return -t01, idx_divergent_negt
+            return -t01, mask_divergent_negt, N_divergent_negt, norm2e
 
 
     i_iteration = 0
@@ -326,13 +351,26 @@ corresponds to its largest eigenvalue
 
         print(f"seed_rt10_pair_from_far_subset() iteration {i_iteration}")
 
-        t01, idx_divergent = \
-            compute_t(v0_cam0coords[idx_keep_near],
-                      v1_cam0coords[idx_keep_near])
-        if np.count_nonzero(idx_divergent) == 0:
-            break
+        t01, mask_divergent, Ndivergent, norm2e = \
+            compute_t(v0_cam0coords[mask_keep_near],
+                      v1_cam0coords[mask_keep_near])
+        if Ndivergent == 0:
 
-        idx_keep_near[np.nonzero(idx_keep_near)[0][idx_divergent]] = False
+            # No divergences, and we have norm2e available. I look through
+            # norm2e, and throw away outliers there. If there aren't any of
+            # those either, I'm done.
+            mask_convergent_outlier = norm2e > 0.04
+            if not np.any(mask_convergent_outlier):
+                # no outliers. I'm done!
+                break
+
+            print(f"No divergences, but have {np.count_nonzero(mask_convergent_outlier)} outliers")
+            mask_outlier = mask_convergent_outlier
+        else:
+            # I have divergences. Mark these as outliers, and move on
+            mask_outlier = mask_divergent
+
+        mask_keep_near[np.nonzero(mask_keep_near)[0][mask_outlier]] = False
         i_iteration += 1
 
     Rt01 = nps.glue(R01, t01, axis=-2)
@@ -340,11 +378,11 @@ corresponds to its largest eigenvalue
     rt10 = mrcal.rt_from_Rt(Rt10)
     return \
         rt10, \
-        (idx_keep_near + idx_far)
+        (mask_keep_near + mask_far)
 
 def seed_rt10_pair(i0, q0, q1):
 
-    if False:
+    if   False:
         # original
         lensmodel,intrinsics_data = model.intrinsics()
         if not re.match("LENSMODEL_(OPENCV|PINHOLE)", lensmodel):
@@ -378,12 +416,11 @@ def seed_rt10_pair(i0, q0, q1):
             None
     elif True:
         # My method using known-far features
-        rt10, idx_inliers = \
+        rt10, mask_inliers = \
             seed_rt10_pair_from_far_subset(q0,q1,
                                            (q0[:,1] < 800) * (q1[:,1] < 800))
 
-        return rt10, idx_inliers
-
+        return rt10, mask_inliers
     elif True:
         # experimental opengv
 
@@ -459,7 +496,6 @@ $av/aliceVision_cameraInit --defaultFieldOfView 80 --imageFolder ~/data/xxxxx/de
 $av/aliceVision_featureExtraction -i xxxxx.sfm -o xxxxx-features
 $av/aliceVision_featureMatching -i xxxxx.sfm -f xxxxx-features -o xxxxx-matches
 $av/aliceVision_incrementalSfM  -i xxxxx.sfm -f xxxxx-features -m xxxxx-matches -o xxxxx-sfm-output/
-
     '''
 
     db = sqlite3.connect(colmap_database_filename)
@@ -856,6 +892,47 @@ def get_observation_pair(i0, i1,
 
     return q0,q1
 
+
+def mark_observation_pair_outliers(i0, i1,
+                                   optimization_inputs,
+                                   mask_correspondence_outliers):
+
+    indices_point_camintrinsics_camextrinsics = optimization_inputs['indices_point_triangulated_camintrinsics_camextrinsics']
+    observations                              = optimization_inputs['observations_point_triangulated']
+
+
+
+    # i0, i1 are indexed from -1: these are the camextrinsics indices
+    if i0+1 != i1:
+        raise Exception("mark_observation_pair_outliers() currently only works for consecutive indices")
+
+    # The data is clumped by points. I'm looking at
+    # same-point-consecutive-camera observations, so they're guaranteed to
+    # appear consecutively
+    mask_cam0 = indices_point_camintrinsics_camextrinsics[:,2] == i0
+    mask_cam0[-1] = False # I'm going to be looking at the "next" row, so I
+                          # ignore the last row, since there's no "next" one
+                          # after it
+
+    idx_cam0 = np.nonzero(mask_cam0)[0]
+    row_cam0 = \
+        indices_point_camintrinsics_camextrinsics[idx_cam0]
+    row_next = \
+        indices_point_camintrinsics_camextrinsics[idx_cam0+1]
+
+    # I care about corresponding rows that represent the same point and my two
+    # cameras
+    idx_cam0_selected = \
+        idx_cam0[(row_cam0[:,0] == row_next[:,0]) * (row_next[:,2] == i1)]
+
+    print(f"i0 = {i0}. marking {np.count_nonzero(mask_correspondence_outliers)} correspondences as outliers. 2x observations: {2*np.count_nonzero(mask_correspondence_outliers)}")
+
+    iobservation0 = (idx_cam0_selected  )[mask_correspondence_outliers]
+    iobservation1 = (idx_cam0_selected+1)[mask_correspondence_outliers]
+    observations[iobservation0, 2] = -1.
+    observations[iobservation1, 2] = -1.
+
+
 def solve(indices_point_camintrinsics_camextrinsics,
           observations,
           Nimages):
@@ -908,15 +985,14 @@ def solve(indices_point_camintrinsics_camextrinsics,
     # [ rt21 ]
     # [ rt32 ]
     # [ .... ]
-    seed_rt10_and_idx_inliers = \
+    seed_rt10_and_mask_correspondences_inliers = \
         [seed_rt10_pair( i0+1,
                          *get_observation_pair(i0, i0+1,
                                                indices_point_camintrinsics_camextrinsics,
                                                observations) ) \
                   for i0 in range(-1,Nimages-2)]
     rt_cam_camprev = \
-        np.array([ri[0] for ri in seed_rt10_and_idx_inliers])
-
+        np.array([rm[0] for rm in seed_rt10_and_mask_correspondences_inliers])
 
     # Make an absolute extrinsics array:
     # [ rt10 ]
@@ -955,6 +1031,17 @@ def solve(indices_point_camintrinsics_camextrinsics,
               do_apply_regularization             = True,
               do_apply_regularization_unity_cam01 = True,
               verbose                             = True)
+
+
+    for i0 in range(-1,Nimages-2):
+        mask_correspondence_inliers = seed_rt10_and_mask_correspondences_inliers[i0+1][1]
+        if mask_correspondence_inliers is None:
+            continue
+        mark_observation_pair_outliers(i0, i0+1,
+                                       optimization_inputs,
+                                       ~mask_correspondence_inliers)
+
+
 
     print(f"Seed rt_cam_ref = {rt_cam_ref}")
     write_models("/tmp/xxxxx-seed-cam{}.cameramodel",
@@ -1230,7 +1317,7 @@ model = mrcal.cameramodel(model_filename)
 W,H   = model.imagersize()
 
 
-Nimages = 6
+Nimages = 3
 
 # q.shape = (Npoints, Nimages=2, Nxy=2)
 if 0:
@@ -1324,9 +1411,4 @@ except:
 # Alicevision sequence:
 
 r'''
-av=$HOME/debianstuff/AliceVision/build/Linux-x86_64
-$av/aliceVision_cameraInit --defaultFieldOfView 80 --imageFolder ~/data/xxxxx/delta -o xxxxx.sfm
-$av/aliceVision_featureExtraction -i xxxxx.sfm -o xxxxxdesc
-$av/aliceVision_featureMatching -i xxxxx.sfm -f xxxxx-features -o xxxxx-matches
-$av/aliceVision_incrementalSfM  -i xxxxx.sfm -f xxxxx-features -m xxxxx-matches -o xxxxx-sfm-output/out
 '''
