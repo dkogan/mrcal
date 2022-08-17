@@ -885,9 +885,11 @@ def get_observation_pair(i0, i1,
     return q0,q1
 
 
-def mark_observation_pair_outliers(i0, i1,
-                                   optimization_inputs,
-                                   mask_correspondence_outliers):
+def mark_outliers_from_seed(i0, i1,
+                            optimization_inputs,
+                            mask_correspondence_outliers):
+
+    # Very similar to get_observation_pair(). Please consolidate
 
     indices_point_camintrinsics_camextrinsics = optimization_inputs['indices_point_triangulated_camintrinsics_camextrinsics']
     observations                              = optimization_inputs['observations_point_triangulated']
@@ -896,7 +898,7 @@ def mark_observation_pair_outliers(i0, i1,
 
     # i0, i1 are indexed from -1: these are the camextrinsics indices
     if i0+1 != i1:
-        raise Exception("mark_observation_pair_outliers() currently only works for consecutive indices")
+        raise Exception("mark_outliers_from_seed() currently only works for consecutive indices")
 
     # The data is clumped by points. I'm looking at
     # same-point-consecutive-camera observations, so they're guaranteed to
@@ -923,6 +925,68 @@ def mark_observation_pair_outliers(i0, i1,
     iobservation1 = (idx_cam0_selected+1)[mask_correspondence_outliers]
     observations[iobservation0, 2] = -1.
     observations[iobservation1, 2] = -1.
+
+
+def mark_outliers(indices_point_camintrinsics_camextrinsics, observations,
+                  rt_cam_ref):
+    # I consider consecutive observations only. So if a single point was
+    # observed by in-order frames 0,3,4,6 then here I will consider (0,3), (3,4)
+    # and (4,6)
+    ipoint_current = -1
+    iobservation0  = -1
+
+    vlocal = mrcal.unproject(observations[:,:2], *model.intrinsics(),
+                             normalize = True)
+
+    cos_half_theta_threshold = np.cos(1. * np.pi/180. / 2.)
+
+    for iobservation1 in range(len(indices_point_camintrinsics_camextrinsics)):
+        ipoint,icami,icame = indices_point_camintrinsics_camextrinsics[iobservation1]
+        weight             = observations[iobservation1,  2]
+
+        if weight <= 0:
+            # This observation is an outlier. There's nothing at all to do
+            continue
+
+        if ipoint == ipoint_current and \
+           iobservation0 >= 0:
+            # I'm observing the same point as the previous observation. Compare
+            # them
+            ipoint_prev,icami_prev,icame_prev = \
+                indices_point_camintrinsics_camextrinsics[iobservation0]
+
+            if icame_prev >= 0: rt0r = rt_cam_ref[icame_prev]
+            else:               rt0r = mrcal.identity_rt()
+            if icame      >= 0: rt01 = mrcal.compose_rt(rt0r, mrcal.invert_rt(rt_cam_ref[icame]))
+            else:               rt01 = rt0r
+
+            v0 = vlocal[iobservation0]
+            v1 = mrcal.rotate_point_r(rt01[:3], vlocal[iobservation1])
+            t01 = rt01[3:]
+
+            p = mrcal.triangulate_leecivera_mid2(v0,v1,t01)
+            if nps.norm2(p) == 0 or \
+               nps.inner(p, v0) / nps.mag(p) < cos_half_theta_threshold:
+
+                # outlier
+                observations[iobservation0,2] = -1.
+                observations[iobservation1,2] = -1.
+
+                iobservation0 = -1
+                continue
+                # I KEEP GOING, BUT THIS IS A BUG. What about previous
+                # observations of this point that were deemed not an outlier?
+                # Are those still good? I should also set iobservation0 to
+                # the previous observation in this point that wasn't an outlier.
+                # The logic is complicated so I just ignore it for the time
+                # being
+
+        else:
+            # This is a different point from the previous. Or the previous point
+            # was an outlier. The next iteration will compare against this one
+            ipoint_current= ipoint
+
+        iobservation0 = iobservation1
 
 
 def solve(indices_point_camintrinsics_camextrinsics,
@@ -1024,15 +1088,23 @@ def solve(indices_point_camintrinsics_camextrinsics,
               do_apply_regularization_unity_cam01 = True,
               verbose                             = True)
 
-
+    # I ingest whatever outliers I got from the seeding algorithm
     for i0 in range(-1,Nimages-2):
         mask_correspondence_inliers = seed_rt10_and_mask_correspondences_inliers[i0+1][1]
         if mask_correspondence_inliers is None:
             continue
-        mark_observation_pair_outliers(i0, i0+1,
-                                       optimization_inputs,
-                                       ~mask_correspondence_inliers)
+        mark_outliers_from_seed(i0, i0+1,
+                                optimization_inputs,
+                                ~mask_correspondence_inliers)
 
+    # And now another pass of pre-solve outlier rejection. As currently
+    # implemented, the seeding only considers consecutive-frame observations.
+    # Any observations of a point in frames 0,2 that are NOT observed in frame 1
+    # are not considered by the seeding algorithm, and any outliers will not
+    # appear. Here I go through each observation
+
+    mark_outliers(indices_point_camintrinsics_camextrinsics, observations,
+                  rt_cam_ref)
 
 
     print(f"Seed rt_cam_ref = {rt_cam_ref}")
