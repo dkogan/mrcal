@@ -235,14 +235,6 @@ corresponds to its largest eigenvalue
 
     '''
 
-    rt10_ref = np.array((-0.001695746207, 0.02603273541, 0.01329430797, 0.239789857, 0.2057362603, -0.9487751819,))
-    r10_ref  = rt10_ref[:3]
-    R10_ref  = mrcal.R_from_r(r10_ref)
-    R01_ref  = mrcal.invert_R(R10_ref)
-    rt01_ref = mrcal.invert_rt(rt10_ref)
-    t01_ref = rt01_ref[3:]
-
-
     # shape (N,3)
     # These are in their LOCAL coord system
     v0 = mrcal.unproject(q0, *model.intrinsics(),
