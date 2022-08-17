@@ -1229,7 +1229,7 @@ if 1:
     decimation               = 20
     decimation_extra_plot    = 5
     model_filename           = "/home/dima/xxxxx-sfm/cam.cameramodel"
-    colmap_database_filename = '/tmp/xxxxx.db'
+    colmap_database_filename = '/tmp/xxxxx.exhaustive.db'
 
     image_filename = sorted(glob.glob(image_glob))
 
