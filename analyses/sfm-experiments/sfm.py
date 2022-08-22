@@ -230,8 +230,19 @@ So
 
     E = N/4 - 1/4 tt sum(Bt A B) t
 
-So to minimize E I find t that is the eigenvector of sum(Bt A B) that
-corresponds to its largest eigenvalue
+I let
+
+    M = sum(Bt A B)
+
+So
+
+    E = N/4 - 1/4 tt M t
+      = N/4 - 1/4 lambda
+
+So to minimize E I find t that is the eigenvector of M that corresponds to its
+largest eigenvalue lambda. Furthermore, lambda depends on the rotation. If I
+couldn't estimate the rotation from far-away features I can solve the
+eigenvalue-optimization problem to maximize lambda
 
     '''
 
