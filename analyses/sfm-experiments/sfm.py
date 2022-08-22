@@ -1099,7 +1099,7 @@ def solve(indices_point_camintrinsics_camextrinsics,
               do_apply_regularization_unity_cam01 = True,
               verbose                             = True)
 
-    # I ingest whatever outliers I got from the seeding algorithm
+    # I injest whatever outliers I got from the seeding algorithm
     for i0 in range(-1,Nimages-2):
         mask_correspondence_inliers = seed_rt10_and_mask_correspondences_inliers[i0+1][1]
         if mask_correspondence_inliers is None:
