@@ -11,6 +11,7 @@ import glob
 import re
 import os
 import sqlite3
+import pyopengv
 
 
 sys.path[:0] = '/home/dima/projects/mrcal-2022-06--triangulated-solve/',
@@ -387,6 +388,7 @@ More simplification:
             mask_outlier = mask_convergent_outlier
         else:
             # I have divergences. Mark these as outliers, and move on
+            print(f"saw {Ndivergent} divergences. Total len(v) = {len(v0)}")
             mask_outlier = mask_divergent
 
         mask_keep_near[np.nonzero(mask_keep_near)[0][mask_outlier]] = False
@@ -399,37 +401,111 @@ More simplification:
         rt10, \
         (mask_keep_near + mask_far)
 
+def seed_rt10_pair_kneip_eigensolver(q0, q1):
+    r'''Estimates a transform between two cameras
+
+opengv does all the work
+    '''
+
+
+    # shape (N,3)
+    # These are in their LOCAL coord system
+    v0 = mrcal.unproject(q0, *model.intrinsics(),
+                         normalize = True)
+    v1 = mrcal.unproject(q1, *model.intrinsics(),
+                         normalize = True)
+
+    # Keep all all non-far points initially
+    mask_inliers = np.ones( (q0.shape[0],), dtype=bool )
+
+
+    def compute(v0, v1):
+
+        Rt01 = np.empty((4,3), dtype=float)
+        Rt01[:3,:] = pyopengv.relative_pose_eigensolver(v0, v1,
+                                                        # seed
+                                                        mrcal.identity_R())
+
+        # opengv should do this too, but its Python bindings are lacking. I
+        # recompute the t myself for now
+
+        # shape (N,3)
+        c = np.cross(v0, mrcal.rotate_point_R(Rt01[:3,:], v1))
+        l,v = _sorted_eig(np.sum(nps.outer(c,c), axis=0))
+        # t is the eigenvector corresponding to the smallest eigenvalue
+        Rt01[3,:] = v[:,0]
+
+        # Almost done. I want either t or -t. The wrong one will produce
+        # mostly triangulations behind me
+        p_t = mrcal.triangulate_geometric(v0, v1,
+                                          v_are_local = True,
+                                          Rt01        = Rt01 )
+        mask_divergent_t = (nps.norm2(p_t) == 0)
+        N_divergent_t    = np.count_nonzero( mask_divergent_t )
+
+        Rt01_negt = Rt01 * nps.transpose(np.array((1,1,1,-1),))
+        p_negt = mrcal.triangulate_leecivera_mid2(v0, v1,
+                                                  v_are_local = True,
+                                                  Rt01        = Rt01_negt )
+        mask_divergent_negt = (nps.norm2(p_negt) == 0)
+        N_divergent_negt    = np.count_nonzero( mask_divergent_negt )
+
+        if N_divergent_t != 0 and N_divergent_negt != 0:
+            # We definitely have divergences. Mark them as outliers, and move on
+            if N_divergent_t < N_divergent_negt: return Rt01,      mask_divergent_t,    N_divergent_t
+            else:                                return Rt01_negt, mask_divergent_negt, N_divergent_negt
+
+
+        # Nothing is divergent. I look for outliers
+        if N_divergent_t == 0:
+            p              = p_t
+            mask_divergent = mask_divergent_t
+            N_divergent    = N_divergent_t
+        else:
+            p              = p_negt
+            mask_divergent = mask_divergent_negt
+            N_divergent    = N_divergent_negt
+            Rt01           = Rt01_negt
+
+        costh = nps.inner(p, v0) / nps.mag(p)
+
+        costh_threshold = np.cos(1.0 * np.pi/180.)
+
+        mask_convergent_outliers = costh < costh_threshold
+        if not np.any(mask_convergent_outliers):
+            # no outliers. I'm done!
+            return Rt01, mask_divergent, N_divergent
+
+        Nmask_convergent_outliers = np.count_nonzero(mask_convergent_outliers)
+        print(f"No divergences, but have {Nmask_convergent_outliers} outliers")
+        return Rt01, mask_convergent_outliers, Nmask_convergent_outliers
+
+
+
+    i_iteration = 0
+    while True:
+
+        print(f"seed_rt10_pair_kneip_eigensolver() iteration {i_iteration}")
+
+        Rt01, mask_outlier, Noutliers = compute(v0[mask_inliers], v1[mask_inliers])
+        print(f"saw {Noutliers} outliers. Total len(v) = {len(v0)}")
+        if Noutliers == 0:
+            break
+
+        mask_inliers[np.nonzero(mask_inliers)[0][mask_outlier]] = False
+        i_iteration += 1
+
+    Rt10 = mrcal.invert_Rt(Rt01)
+    rt10 = mrcal.rt_from_Rt(Rt10)
+    return \
+        rt10, \
+        mask_inliers
+
+
+
 def seed_rt10_pair(i0, q0, q1):
 
-    if   False:
-        # original
-        lensmodel,intrinsics_data = model.intrinsics()
-        if not re.match("LENSMODEL_(OPENCV|PINHOLE)", lensmodel):
-            raise Exception("This assumes a pinhole or opencv model. You have something else, and you should reproject to pinhole")
-        fx,fy,cx,cy = intrinsics_data[:4]
-        distortions = intrinsics_data[4:]
-        camera_matrix = np.array((( fx,  0, cx),
-                                  ( 0,  fy, cy),
-                                  ( 0,   0, 1.)))
-
-        # arbitrary scale
-        p0 = mrcal.unproject(q0, lensmodel,intrinsics_data)
-
-        import cv2
-        result,rvec,tvec = \
-            cv2.solvePnP( p0,
-                          np.ascontiguousarray(q1),
-                          camera_matrix,
-                          distortions,
-                          rvec = (0,0,0),
-                          tvec = (0,0,0),
-                          useExtrinsicGuess = True)
-        if not result:
-            raise Exception("solvePnP failed!")
-
-        return nps.glue(rvec.ravel(), tvec.ravel(), axis=-1), \
-            None
-    elif False:
+    if False:
         # driving forward
         return np.array((-0.0001,0.0001,0.00001, 0.2,0.2,-.95), dtype=float), \
             None
@@ -440,53 +516,13 @@ def seed_rt10_pair(i0, q0, q1):
                                            (q0[:,1] < 800) * (q1[:,1] < 800))
 
         return rt10, mask_inliers
+
     elif True:
-        # experimental opengv
+        # The method in opengv. Similar to my method, but better!
+        rt10, mask_inliers = \
+            seed_rt10_pair_kneip_eigensolver(q0,q1)
+        return rt10, mask_inliers
 
-        rt10_good = np.array((-0.00134372,0.02597833,0.01329075,0.24078343,0.21182828,-0.94718104))
-        Rt10_good = mrcal.Rt_from_rt(rt10_good)
-
-
-
-
-        v0 = mrcal.unproject(q0, *model.intrinsics())
-        v1 = mrcal.unproject(q1, *model.intrinsics())
-
-        import pyopengv
-
-        # E_all = (pyopengv.relative_pose_eightpt(v0,v1),)
-        E_all = pyopengv.relative_pose_fivept_nister(v0,v1)
-
-
-        # shape = (N,4,3)
-        # All the candidate transforms
-        Rt01_all = nps.glue( *[ decompose_essential_matrix(E) \
-                              for E in E_all ],
-                           axis = -3 )
-
-        num_valid_triangulations = \
-            np.array([np.count_nonzero(
-                nps.norm2(
-                    mrcal.triangulate_leecivera_mid2(v0, v1,
-                                                     v_are_local = True,
-                                                     Rt01        = Rt01))) \
-                      for Rt01 in Rt01_all ])
-
-
-        Rt01 = Rt01_all[ np.argmax(num_valid_triangulations) ]
-
-        # unit translation
-        Rt01[3,:] /= nps.mag(Rt01[3,:])
-
-
-        # why does eightpt not return a valid essential matrix?
-        #
-        # If I have R, can I get t? For instance I can get R from stuff at infinity
-        #   relative_pose_twopt() can do it, but depends on the specific pair of points
-        #
-        # If I have t, can I get R? INS can maybe give me t
-        return mrcal.rt_from_Rt( mrcal.invert_Rt(Rt01) ), \
-            None
     else:
         # Reading Shehryar's poses
         if i0 < 0:
