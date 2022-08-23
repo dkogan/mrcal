@@ -232,7 +232,9 @@ So
 
 I let
 
-    M = sum(Bt A B)
+    M  = sum(Bt A B)
+    M  = sum(Mi)
+    Mi = Bt A B
 
 So
 
@@ -242,8 +244,22 @@ So
 So to minimize E I find t that is the eigenvector of M that corresponds to its
 largest eigenvalue lambda. Furthermore, lambda depends on the rotation. If I
 couldn't estimate the rotation from far-away features I can solve the
-eigenvalue-optimization problem to maximize lambda
+eigenvalue-optimization problem to maximize lambda.
 
+More simplification:
+
+    Mi = Bt A B = [ v0  -v1 ] A [ v0t]
+                                [-v1t]
+       = 1/(1-c^2) [ v0 - v1 c    v0 c - v1] [ v0t]
+                                             [-v1t]
+       = 1/(1-c^2) ((v0 - v1 c) v0t - (v0 c - v1) v1t)
+
+    c  = v0t v1 ->
+    F0 = v0 v0t
+    F1 = v1 v1t
+
+    -> Mi = 1/(1-c^2) (v0 v0t - v1 v1t v0 v0t + v1 v1t - v0 v0t v1 v1t)
+          = 1/(1-c^2) (F0 + F1 - (F1 F0 + F0 F1))
     '''
 
     # shape (N,3)
