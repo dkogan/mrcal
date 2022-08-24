@@ -3990,6 +3990,9 @@ bool markOutliers(// output, input
             Nmeasurements_inliers += 2;
         }
     }
+    MSG("I started with %d board outliers", *Nmeasurements_outliers);
+
+    int Nmeasurements_outliers_triangulated_start = 0;
     for(int i0                              = 0,
             imeasurement_point_triangulated = 0;
         i0 < Nobservations_point_triangulated;
@@ -4037,7 +4040,9 @@ bool markOutliers(// output, input
                 &observations_point_triangulated[i1];
 
             /////////////// divergent triangulated observations are DEFINITELY outliers
-            if(!pt0->outlier && !pt1->outlier)
+            if(pt0->outlier || pt1->outlier)
+                Nmeasurements_outliers_triangulated_start++;
+            else
             {
                 const mrcal_point3_t* v1 = &pt1->px;
 
@@ -4121,6 +4126,7 @@ bool markOutliers(// output, input
             i1++;
         }
     }
+    MSG("I started with %d triangulated outliers", Nmeasurements_outliers_triangulated_start);
     var /= (double)Nmeasurements_inliers;
     MSG("Outlier rejection sees stdev = %f", sqrt(var));
 
