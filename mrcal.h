@@ -536,6 +536,8 @@ typedef struct
     int                  i_point;
 } mrcal_observation_point_t;
 
+#warning "triangulated-solve: triangulated points into a pool. maybe allowing the intrinsics to move in the process"
+
 // An observation of a discrete point where the point itself is NOT a part of
 // the optimization, but computed implicitly via triangulation. This structure
 // is very similar to mrcal_observation_point_t, except instead of i_point
