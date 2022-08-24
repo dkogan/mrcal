@@ -771,6 +771,14 @@ angle_error__assume_small(const vec_withgrad_t<6,3>& v0,
     // -> th ~ sqrt( 2*(1 - cos(th)) )
     val_withgrad_t<6> th_sq = costh*(-2.) + 2.;
 
+
+#warning "triangulated-solve: temporary hack to avoid dividing by 0"
+    if(th_sq.x < 1e-21)
+    {
+        return val_withgrad_t<6>();
+    }
+
+
     if(th_sq.x < 0)
         // To handle roundoff errors
         th_sq.x = 0;
@@ -779,6 +787,8 @@ angle_error__assume_small(const vec_withgrad_t<6,3>& v0,
 #warning "triangulated-solve: look at numerical issues that will results in sqrt(<0)"
 #warning "triangulated-solve: look at behavior near 0 where dsqrt/dx -> inf"
 }
+
+#warning "triangulated-solve: maybe exposing the triangulated-error C function is OK? I'm already exposing the Python function"
 
 __attribute__((unused))
 static
@@ -949,7 +959,13 @@ _mrcal_triangulated_error(// outputs
         {
             // we're VERY divergent. Add another cost term:
             // the distance to the vanishing point
+#warning "triangulated-solve: temporary testing logic"
+#if defined DIVERGENT_COST_ONLY && DIVERGENT_COST_ONLY
             err = err_to_vanishing_point;
+#else
+            err += err_to_vanishing_point;
+#endif
+            err.x += 200.0;
         }
         else
         {
@@ -960,7 +976,13 @@ _mrcal_triangulated_error(// outputs
                 (err_to_vanishing_point    - THRESHOLD_DIVERGENT_LOWER) /
                 (THRESHOLD_DIVERGENT_UPPER - THRESHOLD_DIVERGENT_LOWER);
 
+#warning "triangulated-solve: temporary testing logic"
+#if defined DIVERGENT_COST_ONLY && DIVERGENT_COST_ONLY
             err = k*err_to_vanishing_point + (val_withgrad_t<6>(1.0)-k)*err;
+#else
+            err += k*err_to_vanishing_point;
+#endif
+            err.x += 100.0;
         }
     }
 
