@@ -385,6 +385,91 @@ def compute_H10_planes(models, q0, v0, plane_n, plane_d):
 
     return H10
 
+def visualize_match(args,
+                    match_feature_diagnostics,
+                    match_feature_out):
+
+    import gnuplotlib as gp
+
+    if match_feature_diagnostics is None:
+        print("## WARNING: no feature matching was performed, so not visualizing the feature-matching results")
+    else:
+        data_tuples, plot_options = match_feature_out[2:]
+
+        # don't plot the correlation map (the last plot data tuple)
+        gp.plot( *data_tuples[:-1], **plot_options,
+                 wait = args.hardcopy is None)
+
+def visualize_uncertainty(args,
+                          Var_p_calibration,
+                          Var_p_observation,
+                          Var_p_joint,
+                          Rt01, p0):
+
+    import gnuplotlib as gp
+
+    if Var_p_calibration is None and \
+       Var_p_observation is None and \
+       Var_p_joint       is None:
+
+        print("## WARNING: don't have any ellipses, so not visualizing them")
+        return
+
+
+
+    def get__puv__R_uv_cam0(Rt01, p):
+        # I remap the point to the epipolar-plane-centered coords:
+        # - x: along the baseline
+        # - y: forward to the point
+        # - z: normal
+        x  = Rt01[3,:].copy()
+        x /= nps.mag(x)
+        y  = p.copy()
+        y -= nps.inner(x,y)*x
+        y /= nps.mag(y)
+        z  = np.cross(x,y)
+
+        R_uvn_cam0 = nps.cat(x,y,z)
+        p_rotated = mrcal.rotate_point_R(R_uvn_cam0, p)
+        return p_rotated[:2], R_uvn_cam0[:2,:]
+
+    # I want to plot the ellipse in uv coords. So I want to plot
+    # Var(R_uvn_cam0*p_cam0) = R_uv_cam0 Var(p_cam0) nps.transpose(R_uv_cam0)
+    p_uv,R_uv_cam0 = get__puv__R_uv_cam0(Rt01, p0)
+    plotargs = []
+    for what,var in ( ("Calibration-time", Var_p_calibration),
+                      ("Observation-time", Var_p_observation),
+                      ("Joint",            Var_p_joint)):
+        if var is None: continue
+
+        var = nps.matmult( R_uv_cam0,
+                           var,
+                           nps.transpose(R_uv_cam0) )
+
+        plotargs.append( \
+            mrcal.utils._plot_arg_covariance_ellipse(p_uv, var,
+                                                     f"{what} noise") )
+
+    plot_options = dict(square = True,
+                        xlabel = 'Epipolar plane x (along the baseline) (m)',
+                        ylabel = 'Epipolar plane y (forward/back) (m)',
+                        title  = "Uncertainty propagation",
+                        wait   = args.hardcopy is None)
+
+    if args.title is not None:
+        plot_options['title'] = args.title
+    if args.extratitle is not None:
+        plot_options['title'] += f": {args.extratitle}"
+
+    gp.add_plot_option(plot_options,
+                       _set       = args.set,
+                       unset      = args.unset,
+                       hardcopy   = args.hardcopy,
+                       terminal   = args.terminal,
+                       overwrite  = True)
+
+    gp.plot(*plotargs, **plot_options)
+
 
 
 np.set_printoptions(precision = 3,
@@ -542,6 +627,15 @@ else:
 
 if nps.norm2(p0) == 0:
     print("Observation rays divergent: feature is near infinity or a false match was found", file=sys.stderr)
+
+    if args.viz == '':
+        pass
+    elif args.viz == 'match':
+        visualize_match(args,
+                        match_feature_diagnostics,
+                        match_feature_out)
+    else:
+        raise Exception("Unknown --viz arg. This is a bug")
     sys.exit(1)
 
 # I use the lower-level triangulation function further on, for the empirical
@@ -787,83 +881,18 @@ if args.make_corrected_model1:
     models[1].extrinsics_rt_fromref(rt_1r)
     models[1].write(sys.stdout)
 
-if args.viz:
-    import gnuplotlib as gp
 
-
-    if args.viz == 'match':
-        if match_feature_diagnostics is None:
-            print("## WARNING: no feature matching was performed, so not visualizing the feature-matching results")
-        else:
-            data_tuples, plot_options = match_feature_out[2:]
-
-            # don't plot the correlation map (the last plot data tuple)
-            gp.plot( *data_tuples[:-1], **plot_options,
-                     wait = args.hardcopy is None)
-
-    elif args.viz == 'uncertainty':
-
-        if Var_p_calibration is None and \
-           Var_p_observation is None and \
-           Var_p_joint       is None:
-
-            print("## WARNING: don't have any ellipses, so not visualizing them")
-
-        else:
-
-            def get__puv__R_uv_cam0(Rt01, p):
-                # I remap the point to the epipolar-plane-centered coords:
-                # - x: along the baseline
-                # - y: forward to the point
-                # - z: normal
-                x  = Rt01[3,:].copy()
-                x /= nps.mag(x)
-                y  = p.copy()
-                y -= nps.inner(x,y)*x
-                y /= nps.mag(y)
-                z  = np.cross(x,y)
-
-                R_uvn_cam0 = nps.cat(x,y,z)
-                p_rotated = mrcal.rotate_point_R(R_uvn_cam0, p)
-                return p_rotated[:2], R_uvn_cam0[:2,:]
-
-
-            # I want to plot the ellipse in uv coords. So I want to plot
-            # Var(R_uvn_cam0*p_cam0) = R_uv_cam0 Var(p_cam0) nps.transpose(R_uv_cam0)
-            p_uv,R_uv_cam0 = get__puv__R_uv_cam0(Rt01, p0)
-            plotargs = []
-            for what,var in ( ("Calibration-time", Var_p_calibration),
-                              ("Observation-time", Var_p_observation),
-                              ("Joint",            Var_p_joint)):
-                if var is None: continue
-
-                var = nps.matmult( R_uv_cam0,
-                                   var,
-                                   nps.transpose(R_uv_cam0) )
-
-                plotargs.append( \
-                    mrcal.utils._plot_arg_covariance_ellipse(p_uv, var,
-                                                             f"{what} noise") )
-
-            plot_options = dict(square = True,
-                                xlabel = 'Epipolar plane x (along the baseline) (m)',
-                                ylabel = 'Epipolar plane y (forward/back) (m)',
-                                title  = "Uncertainty propagation",
-                                wait   = args.hardcopy is None)
-
-            if args.title is not None:
-                plot_options['title'] = args.title
-            if args.extratitle is not None:
-                plot_options['title'] += f": {args.extratitle}"
-
-            gp.add_plot_option(plot_options,
-                               _set       = args.set,
-                               unset      = args.unset,
-                               hardcopy   = args.hardcopy,
-                               terminal   = args.terminal,
-                               overwrite  = True)
-
-            gp.plot(*plotargs, **plot_options)
-
-    else:
-        raise Exception("Unknown --viz arg. This is a bug")
+if args.viz == '':
+    pass
+elif args.viz == 'match':
+    visualize_match(args,
+                    match_feature_diagnostics,
+                    match_feature_out)
+elif args.viz == 'uncertainty':
+    visualize_uncertainty(args,
+                          Var_p_calibration,
+                          Var_p_observation,
+                          Var_p_joint,
+                          Rt01, p0)
+else:
+    raise Exception("Unknown --viz arg. This is a bug")
