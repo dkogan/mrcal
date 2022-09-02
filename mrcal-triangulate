@@ -541,7 +541,7 @@ else:
                            method                          = method )
 
 if nps.norm2(p0) == 0:
-    raise Exception("Baseline divergent")
+    raise Exception("Observation rays divergent: feature is near infinity or a false match was found")
 
 # I use the lower-level triangulation function further on, for the empirical
 # sensitivity calculation. I call it here as a sanity check, to make sure that
