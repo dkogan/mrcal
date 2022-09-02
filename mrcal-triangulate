@@ -541,7 +541,8 @@ else:
                            method                          = method )
 
 if nps.norm2(p0) == 0:
-    raise Exception("Observation rays divergent: feature is near infinity or a false match was found")
+    print("Observation rays divergent: feature is near infinity or a false match was found", file=sys.stderr)
+    sys.exit(1)
 
 # I use the lower-level triangulation function further on, for the empirical
 # sensitivity calculation. I call it here as a sanity check, to make sure that
@@ -644,7 +645,8 @@ else:
         vq = np.array((np.cos(th),np.sin(th)))
         r = get_range(qerr1 = delta * vq)
         if r == 0:
-            raise Exception("Sampled rays divergent")
+            print("Sampled rays divergent", file=sys.stderr)
+            sys.exit(1)
         rangeerr = np.abs(r - range0)
         if rangeerr > rangeerr_worst_qerr:
             rangeerr_worst_qerr = rangeerr
@@ -662,7 +664,8 @@ else:
     r = get_range(r01err_yaw_axis = n_epipolar_plane,
                   r01err_yaw      = delta * np.pi/180.)
     if r == 0:
-        raise Exception("Sampled rays divergent")
+        print("Sampled rays divergent", file=sys.stderr)
+        sys.exit(1)
     rangeerr_yaw = r - range0
     print("## Calibration yaw (rotation in epipolar plane) sensitivity: {:.2f}m/deg. Linearized correction: {:.3f} degrees of yaw". \
           format(rangeerr_yaw/delta,
@@ -671,7 +674,8 @@ else:
     r = get_range(r01err_yaw_axis = np.array((0., 1., 0.,)),
                   r01err_yaw      = delta * np.pi/180.)
     if r == 0:
-        raise Exception("Sampled rays divergent")
+        print("Sampled rays divergent", file=sys.stderr)
+        sys.exit(1)
     rangeerr_yaw = r - range0
     print("## Calibration yaw (cam0 y axis)                sensitivity: {:.2f}m/deg. Linearized correction: {:.3f} degrees of yaw". \
           format(rangeerr_yaw/delta,
@@ -681,7 +685,8 @@ else:
     r = get_range(r01err_pitch_axis = v_pitch,
                   r01err_pitch      = delta * np.pi/180.)
     if r == 0:
-        raise Exception("Sampled rays divergent")
+        print("Sampled rays divergent", file=sys.stderr)
+        sys.exit(1)
     rangeerr_pitch = r - range0
     print("## Calibration pitch (tilt of epipolar plane) sensitivity: {:.2f}m/deg.".format(rangeerr_pitch/delta))
 
@@ -697,7 +702,8 @@ else:
                              np.sin(ph)))
             r = get_range(t01err = delta * vt01)
             if r == 0:
-                raise Exception("Sampled rays divergent")
+                print("Sampled rays divergent", file=sys.stderr)
+                sys.exit(1)
             rangeerr = np.abs(r - range0)
             if rangeerr > rangeerr_worst_t01err:
                 rangeerr_worst_t01err = rangeerr
@@ -774,7 +780,8 @@ if dyawdpitch is not None:
 
 if args.make_corrected_model1:
     if dyaw is None:
-        raise Exception("I can't make the corrected model if I couldn't compute the yaw,pitch shifts")
+        print("I can't make the corrected model if I couldn't compute the yaw,pitch shifts", file=sys.stderr)
+        sys.exit(1)
     rt_1r = mrcal.compose_rt(rt10,
                              models[0].extrinsics_rt_fromref())
     models[1].extrinsics_rt_fromref(rt_1r)
