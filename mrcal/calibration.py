@@ -134,7 +134,7 @@ which mrcal.optimize() expects
     if not (extracol == 'level' or
             extracol == 'weight' or
             extracol == ''):
-        raise Exception(f"extracol must be one of ('level','weight',''); got '{extracol}")
+        raise Exception(f"extracol must be one of ('level','weight',''); got '{extracol}'")
 
     import os
     import fnmatch
