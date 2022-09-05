@@ -289,7 +289,7 @@ which mrcal.optimize() expects
             if pipe_corners_write_fd is not None:
                 os.write(pipe_corners_write_fd, line.encode())
 
-            if re.match(r'\s*#', line[0]):
+            if re.match(r'\s*#', line):
                 continue
             m = re.match(r'\s*(\S+)\s+(.*?)$', line)
             if m is None:
