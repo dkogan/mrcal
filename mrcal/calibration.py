@@ -57,10 +57,11 @@ if weight_column_kind == 'level': the 4th column is a decimation level of the
   and should be ignored: we set weight = -1
 
 elif weight_column_kind == 'weight': the 4th column is already represented as a
-  weight, so I just copy it to the output. If the 4th column is '-' or <0, the
+  weight, so I just copy it to the output. If the 4th column is '-' or <=0, the
   given point was not detected, and should be ignored: we set weight = -1
 
-elif weight_column_kind is None: I hard-code the output weight to 1.0
+elif weight_column_kind is None: I hard-code the output weight to 1.0. Any data
+  in the extra column is ignored
 
 ARGUMENTS
 
