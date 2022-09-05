@@ -60,7 +60,7 @@ elif extracol == 'weight': the 4th column is already represented as a weight, so
   I just copy it to the output. If the 4th column is '-' or <0, the given point
   was not detected, and should be ignored: we set weight = -1
 
-else: I hard-code the output weight to 1.0
+elif extracol is None: I hard-code the output weight to 1.0
 
 ARGUMENTS
 
@@ -97,7 +97,7 @@ ARGUMENTS
 
 - exclude_images: a set of filenames to exclude from reported results
 
-- extracol: an optional string, defaulting to 'level'. Selects the
+- extracol: an optional argument, defaulting to 'level'. Selects the
   interpretation of the 4th column describing each corner. Valid options are:
 
   - 'level': the 4th column is a decimation level. Level-0 means
@@ -107,7 +107,7 @@ ARGUMENTS
   - 'weight': the 4th column is already a weight; I copy it to the output. If
     the 4th column is '-' or <0, the given point was not detected, and should be
     ignored: we set output weight = -1
-  - '' the 4th column should be ignored, and I set the output weight to 1.0
+  - None: the 4th column should be ignored, and I set the output weight to 1.0
 
 RETURNED VALUES
 
@@ -133,8 +133,8 @@ which mrcal.optimize() expects
 
     if not (extracol == 'level' or
             extracol == 'weight' or
-            extracol == ''):
-        raise Exception(f"extracol must be one of ('level','weight',''); got '{extracol}'")
+            extracol is None):
+        raise Exception(f"extracol must be one of ('level','weight',None); got '{extracol}'")
 
     import os
     import fnmatch
@@ -313,7 +313,7 @@ which mrcal.optimize() expects
             else:
                 context['grid'][context['igrid'],:2] = (float(fields[0]),float(fields[1]))
                 context['Nvalidpoints'] += 1
-                if len(fields) == 3 and extracol != '':
+                if len(fields) == 3 and extracol is not None:
                     if fields[2] == '-':
                         # ignore this point
                         context['grid'][context['igrid'],2] = -1.0
