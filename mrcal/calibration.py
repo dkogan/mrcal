@@ -14,6 +14,7 @@ import re
 import mrcal
 
 def compute_chessboard_corners(W, H,
+                               *,
                                globs_per_camera  = ('*',),
                                corners_cache_vnl = None,
                                jobs              = 1,
