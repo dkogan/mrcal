@@ -89,13 +89,13 @@ except Exception as e:
 
 testutils.confirm_equal( observations,
                          observations_ref,
-                         msg = "observations all-or-none-no-weight")
+                         msg = "observations: all-or-none-no-weight")
 testutils.confirm_equal( indices_frame_camera,
                          indices_frame_camera_ref,
-                         msg = "indices_frame_camera all-or-none-no-weight")
+                         msg = "indices_frame_camera: all-or-none-no-weight")
 testutils.confirm_equal( paths,
                          paths_ref,
-                         msg = "paths all-or-none-no-weight")
+                         msg = "paths: all-or-none-no-weight")
 
 corners_all_or_none = r'''# filename x y weight
 frame100-cam1.jpg 0 0   0.01
@@ -172,17 +172,17 @@ except Exception as e:
 
 testutils.confirm_equal( observations,
                          observations_ref,
-                         msg = "observations all-or-none")
+                         msg = "observations: all-or-none")
 testutils.confirm_equal( indices_frame_camera,
                          indices_frame_camera_ref,
-                         msg = "indices_frame_camera all-or-none")
+                         msg = "indices_frame_camera: all-or-none")
 testutils.confirm_equal( paths,
                          paths_ref,
-                         msg = "paths all-or-none")
+                         msg = "paths: all-or-none")
 
 
 
-corners_partial = r'''# filename x y weight
+corners_complicated = r'''# filename x y weight
 frame100-cam1.jpg 0 0   0.01
 frame100-cam1.jpg 1 0   0.02
 frame100-cam1.jpg 0 1   0.03
@@ -193,12 +193,15 @@ frame100-cam2.jpg 10 10 0.07
 frame100-cam2.jpg 11 10 0.08
 frame100-cam2.jpg 10 11 0.09
 frame100-cam2.jpg 11 11 0.10
+  # comments and whitespace shouldn't break stuff
 frame100-cam2.jpg 10 12 0.11
-frame100-cam2.jpg 11 12 0.12
-frame101-cam1.jpg 20 20 0.13
+frame100-cam2.jpg 11 12   0.12
+frame101-cam1.jpg 20	20 0.13
 frame101-cam1.jpg 21 20 0.14
-frame101-cam1.jpg 20 21 0.15
-frame101-cam1.jpg 21 21 0.16
+# missing weight should default to 1.0
+frame101-cam1.jpg 20 21
+# weight of 0 means "ignore point"
+frame101-cam1.jpg 21 21 0
 frame101-cam1.jpg 20 22 0.17
 frame101-cam1.jpg 21 22 0.18
 frame101-cam2.jpg 30 30 0.19
@@ -229,6 +232,8 @@ observations_ref_w = nps.clump(observations_ref[:,:,:,2], n=3)
 observations_ref_w[:] = (np.arange(30) + 1) / 100
 observations_ref[4,1,0,:] = -1.
 observations_ref[4,2,0,:] = -1.
+observations_ref[2,1,0,2] = 1.0 # missing weight in the datafile: use default
+observations_ref[2,1,1,2] = -1.0
 
 indices_frame_camera_ref = np.array(((0,0),
                                      (0,1),
@@ -248,7 +253,7 @@ try:
         mrcal.compute_chessboard_corners(Nw                = 2,
                                          Nh                = 3,
                                          globs             = ('frame*-cam1.jpg','frame*-cam2.jpg'),
-                                         corners_cache_vnl = io.StringIO(corners_partial),
+                                         corners_cache_vnl = io.StringIO(corners_complicated),
                                          extracol          = 'weight')
 except Exception as e:
     observations         = f"Error: {e}"
@@ -256,12 +261,12 @@ except Exception as e:
 
 testutils.confirm_equal( observations,
                          observations_ref,
-                         msg = "observations partial")
+                         msg = "observations: complicated")
 testutils.confirm_equal( indices_frame_camera,
                          indices_frame_camera_ref,
-                         msg = "indices_frame_camera partial")
+                         msg = "indices_frame_camera: complicated")
 testutils.confirm_equal( paths,
                          paths_ref,
-                         msg = "paths partial")
+                         msg = "paths: complicated")
 
 testutils.finish()
