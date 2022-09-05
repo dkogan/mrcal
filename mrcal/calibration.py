@@ -26,8 +26,8 @@ SYNOPSIS
 
     observations, indices_frame_camera, paths = \
         mrcal.compute_chessboard_corners(10, 10,
-                                         ('frame*-cam0.jpg','frame*-cam1.jpg'),
-                                         "corners.vnl")
+                                         globs_per_camera  = ('frame*-cam0.jpg','frame*-cam1.jpg'),
+                                         corners_cache_vnl = "corners.vnl")
 
 The input to a calibration problem is a set of images of a calibration object
 from different angles and positions. This function ingests these images, and

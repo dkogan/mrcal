@@ -550,10 +550,10 @@ else:
 observations, indices_frame_camera, paths = \
     mrcal.compute_chessboard_corners(args.object_width_n,
                                      args.object_height_n,
-                                     args.images,
-                                     args.corners_cache,
-                                     jobs = args.jobs,
-                                     extracol = 'weight' if args.corners_cache_has_weights else 'level')
+                                     globs_per_camera   = args.images,
+                                     corners_cache_vnl  = args.corners_cache,
+                                     jobs               = args.jobs,
+                                     weight_column_kind = 'weight' if args.corners_cache_has_weights else 'level')
 
 Nobservations = len(observations)
 

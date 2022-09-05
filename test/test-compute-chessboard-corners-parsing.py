@@ -78,9 +78,9 @@ paths_ref = ("frame100-cam1.jpg",
 
 try:
     observations, indices_frame_camera, paths = \
-        mrcal.compute_chessboard_corners(Nw                = 2,
-                                         Nh                = 3,
-                                         globs             = ('frame*-cam1.jpg','frame*-cam2.jpg'),
+        mrcal.compute_chessboard_corners(W                 = 2,
+                                         H                 = 3,
+                                         globs_per_camera  = ('frame*-cam1.jpg','frame*-cam2.jpg'),
                                          corners_cache_vnl = io.StringIO(corners_all_or_none_noweight))
 except Exception as e:
     observations         = f"Error: {e}"
@@ -162,11 +162,11 @@ paths_ref = ("frame100-cam1.jpg",
 
 try:
     observations, indices_frame_camera, paths = \
-        mrcal.compute_chessboard_corners(Nw                = 2,
-                                         Nh                = 3,
-                                         globs             = ('frame*-cam1.jpg','frame*-cam2.jpg'),
-                                         corners_cache_vnl = io.StringIO(corners_all_or_none),
-                                         extracol          = 'weight')
+        mrcal.compute_chessboard_corners(W                  = 2,
+                                         H                  = 3,
+                                         globs_per_camera   = ('frame*-cam1.jpg','frame*-cam2.jpg'),
+                                         corners_cache_vnl  = io.StringIO(corners_all_or_none),
+                                         weight_column_kind = 'weight')
 
 except Exception as e:
     observations         = f"Error: {e}"
@@ -247,11 +247,11 @@ paths_ref = ("frame100-cam1.jpg",
 
 try:
     observations, indices_frame_camera, paths = \
-        mrcal.compute_chessboard_corners(Nw                = 2,
-                                         Nh                = 3,
-                                         globs             = ('frame*-cam1.jpg','frame*-cam2.jpg'),
-                                         corners_cache_vnl = io.StringIO(corners_all_or_none_level),
-                                         extracol          = 'level')
+        mrcal.compute_chessboard_corners(W                  = 2,
+                                         H                  = 3,
+                                         globs_per_camera   = ('frame*-cam1.jpg','frame*-cam2.jpg'),
+                                         corners_cache_vnl  = io.StringIO(corners_all_or_none_level),
+                                         weight_column_kind = 'level')
 
 except Exception as e:
     observations         = f"Error: {e}"
@@ -337,11 +337,11 @@ paths_ref = ("frame100-cam1.jpg",
 
 try:
     observations, indices_frame_camera, paths = \
-        mrcal.compute_chessboard_corners(Nw                = 2,
-                                         Nh                = 3,
-                                         globs             = ('frame*-cam1.jpg','frame*-cam2.jpg'),
-                                         corners_cache_vnl = io.StringIO(corners_complicated),
-                                         extracol          = 'weight')
+        mrcal.compute_chessboard_corners(W                  = 2,
+                                         H                  = 3,
+                                         globs_per_camera   = ('frame*-cam1.jpg','frame*-cam2.jpg'),
+                                         corners_cache_vnl  = io.StringIO(corners_complicated),
+                                         weight_column_kind = 'weight')
 except Exception as e:
     observations         = f"Error: {e}"
     indices_frame_camera = f"Error: {e}"
