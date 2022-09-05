@@ -70,6 +70,12 @@ indices_frame_camera_ref = np.array(((0,0),
                                      (2,1),
                                      ), dtype=np.int32)
 
+paths_ref = ("frame100-cam1.jpg",
+             "frame100-cam2.jpg",
+             "frame101-cam1.jpg",
+             "frame101-cam2.jpg",
+             "frame102-cam2.jpg")
+
 try:
     observations, indices_frame_camera, paths = \
         mrcal.compute_chessboard_corners(Nw                = 2,
@@ -87,6 +93,9 @@ testutils.confirm_equal( observations,
 testutils.confirm_equal( indices_frame_camera,
                          indices_frame_camera_ref,
                          msg = "indices_frame_camera all-or-none-no-weight")
+testutils.confirm_equal( paths,
+                         paths_ref,
+                         msg = "paths all-or-none-no-weight")
 
 corners_all_or_none = r'''# filename x y weight
 frame100-cam1.jpg 0 0   0.01
@@ -143,6 +152,12 @@ indices_frame_camera_ref = np.array(((0,0),
                                      (2,1),
                                      ), dtype=np.int32)
 
+paths_ref = ("frame100-cam1.jpg",
+             "frame100-cam2.jpg",
+             "frame101-cam1.jpg",
+             "frame101-cam2.jpg",
+             "frame102-cam2.jpg")
+
 try:
     observations, indices_frame_camera, paths = \
         mrcal.compute_chessboard_corners(Nw                = 2,
@@ -161,6 +176,9 @@ testutils.confirm_equal( observations,
 testutils.confirm_equal( indices_frame_camera,
                          indices_frame_camera_ref,
                          msg = "indices_frame_camera all-or-none")
+testutils.confirm_equal( paths,
+                         paths_ref,
+                         msg = "paths all-or-none")
 
 
 
@@ -219,6 +237,12 @@ indices_frame_camera_ref = np.array(((0,0),
                                      (2,1),
                                      ), dtype=np.int32)
 
+paths_ref = ("frame100-cam1.jpg",
+             "frame100-cam2.jpg",
+             "frame101-cam1.jpg",
+             "frame101-cam2.jpg",
+             "frame102-cam2.jpg")
+
 try:
     observations, indices_frame_camera, paths = \
         mrcal.compute_chessboard_corners(Nw                = 2,
@@ -236,5 +260,8 @@ testutils.confirm_equal( observations,
 testutils.confirm_equal( indices_frame_camera,
                          indices_frame_camera_ref,
                          msg = "indices_frame_camera partial")
+testutils.confirm_equal( paths,
+                         paths_ref,
+                         msg = "paths partial")
 
 testutils.finish()
