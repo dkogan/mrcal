@@ -244,8 +244,8 @@ which mrcal.optimize() expects
                         igrid        = 0,
                         Nvalidpoints = 0)
 
-        # The default weight is 1.0
-        context0['grid'] = np.ones( (Nh*Nw,3), dtype=float)
+        # Init the array to -1.0: everything is invalid
+        context0['grid'] = -np.ones( (Nh*Nw,3), dtype=float)
 
         context = copy.deepcopy(context0)
 
@@ -262,7 +262,7 @@ which mrcal.optimize() expects
                         return True
                 return False
 
-            if context['igrid']:
+            if context['igrid'] > 1:
                 if Nw*Nh != context['igrid']:
                     raise Exception("File '{}' expected to have {} points, but got {}". \
                                     format(context['f'], Nw*Nh, context['igrid']))
@@ -282,21 +282,18 @@ which mrcal.optimize() expects
                         filename_canonical = os.path.join(corners_dir, context['f'])
                     if accum_files(filename_canonical):
                         mapping[filename_canonical] = context['grid'].reshape(Nh,Nw,3)
-                context = copy.deepcopy(context0)
+
+            context = copy.deepcopy(context0)
 
         for line in pipe_corners_read:
             if pipe_corners_write_fd is not None:
                 os.write(pipe_corners_write_fd, line.encode())
 
-            if line[0] == '#':
+            if re.match(r'\s*#', line[0]):
                 continue
-            m = re.match('(\S+)\s+(.*?)$', line)
+            m = re.match(r'\s*(\S+)\s+(.*?)$', line)
             if m is None:
-                raise Exception("Unexpected line in the corners output: '{}'".format(line))
-            if m.group(2)[:2] == '- ':
-                # No observations for this image. Done with this image; move on
-                finish_chessboard_observation()
-                continue
+                raise Exception(f"Unexpected line in the corners output: '{line}'")
             if context['f'] != m.group(1):
                 # Got data for the next image. Finish out this one
                 finish_chessboard_observation()
@@ -308,31 +305,63 @@ which mrcal.optimize() expects
             # A decimation level of - will be used to set weight <0 which means
             # "ignore this point"
             fields = m.group(2).split()
-            if len(fields) < 2:
-                raise Exception("'corners.vnl' data rows must contain a filename and 2 or 3 values. Instead got line '{}'".format(line))
-            else:
-                context['grid'][context['igrid'],:2] = (float(fields[0]),float(fields[1]))
+            if not (len(fields) == 2 or len(fields) == 3):
+                raise Exception(f"'corners.vnl' data rows must contain a filename and 2 or 3 values. Instead got line '{line}'")
+
+
+            def parse_point(out, fields):
+                r'''Parse the given split-string fields
+
+                Write results into out[:]. Return True if the given point is
+                valid. The initial value of out[:] is (-1,-1,-1): "invalid"
+
+                '''
+                if fields[0] == '-' or fields[1] == '-':
+                    # out[:] already is invalid
+                    return False
+
+                try:
+                    out[0] = float(fields[0])
+                    out[1] = float(fields[1])
+                except:
+                    raise Exception(f"'corners.vnl' data rows must lead with 'filename x y' with x and y being numerical or '-'. Instead got line '{line}'")
+
+                if out[0] < 0 or out[1] < 0:
+                    # out[:] already is invalid
+                    return False
+
+                if len(fields) == 2 or extracol is None:
+                    # default weight
+                    out[2] = 1.0
+                    return True
+
+                if fields[2] == '-':
+                    # out[:] already is invalid
+                    return False
+
+                try:
+                    w = float(fields[2])
+                except:
+                    raise Exception(f"'corners.vnl' data rows expected as 'filename x y {extracol}' with {extracol} being numerical or '-'. Instead got line '{line}'")
+
+                if w <= 0.0:
+                    # out[:] already is invalid
+                    return False
+
+                if extracol == 'weight':
+                    out[2] = w
+                else:
+                    # convert decimation level to weight. The weight is
+                    # 2^(-level). I.e. level-0 -> weight=1, level-1 ->
+                    # weight=0.5, etc
+                    out[2] = 1. / (1 << int(w))
+
+                return True
+
+
+            if parse_point(context['grid'][context['igrid'],:],
+                              fields):
                 context['Nvalidpoints'] += 1
-                if len(fields) == 3 and extracol is not None:
-                    if fields[2] == '-':
-                        # ignore this point
-                        context['grid'][context['igrid'],2] = -1.0
-                        context['Nvalidpoints'] -= 1
-                    else:
-                        l = float(fields[2])
-                        if l < 0:
-                            # ignore this point
-                            context['grid'][context['igrid'],2] = -1.0
-                            context['Nvalidpoints'] -= 1
-                        else:
-                            if extracol == 'weight':
-                                context['grid'][context['igrid'],2] = l
-                            else:
-                                # convert decimation level to weight. The weight is
-                                # 2^(-level). I.e. level-0 -> weight=1, level-1 ->
-                                # weight=0.5, etc
-                                context['grid'][context['igrid'],2] = 1. / (1 << int(l))
-                    # else use the 1.0 that's already there
 
             context['igrid'] += 1
 
