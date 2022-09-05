@@ -514,21 +514,152 @@ if args.viz == 'geometry':
 
 
 
-def write_output(func, filename):
-    if args.tag is None:
+def write_output_one(tag, outdir, force,
+                     func, filename):
+    if tag is None:
         tag = ''
     else:
-        tag = '-' + args.tag
+        tag = '-' + tag
 
     f,e = os.path.splitext(filename)
-    filename = f"{args.outdir}/{f}{tag}{e}"
+    filename = f"{outdir}/{f}{tag}{e}"
 
-    if os.path.isfile(filename) and not args.force:
+    if os.path.isfile(filename) and not force:
         print(f"WARNING: '{filename}' already exists. Not overwriting this file. Pass -f to overwrite")
         return
 
     print(f"Writing '{filename}'")
     func(filename)
+
+
+def write_output_all(args,
+                     models,
+                     images,
+                     models_rectified,
+                     images_rectified,
+                     disparity,
+                     disparity_scale,
+                     disparity_colored,
+                     force_override = False):
+
+    _range = mrcal.stereo_range( disparity.astype(np.float32) / disparity_scale,
+                                 models_rectified )
+
+    if not args.already_rectified:
+        write_output_one(args.tag,
+                         args.outdir,
+                         args.force or force_override,
+                         lambda filename: models_rectified[0].write(filename),
+                         'rectified0.cameramodel')
+        write_output_one(args.tag,
+                         args.outdir,
+                         args.force or force_override,
+                         lambda filename: models_rectified[1].write(filename),
+                         'rectified1.cameramodel')
+
+        write_output_one(args.tag,
+                         args.outdir,
+                         args.force or force_override,
+                         lambda filename: mrcal.save_image(filename, images_rectified[0]),
+                         image_filenames_base[0] + '-rectified.png')
+        write_output_one(args.tag,
+                         args.outdir,
+                         args.force or force_override,
+                         lambda filename: mrcal.save_image(filename, images_rectified[1]),
+                         image_filenames_base[1] + '-rectified.png')
+
+    write_output_one(args.tag,
+                     args.outdir,
+                     args.force or force_override,
+                     lambda filename: \
+                     mrcal.save_image(filename,
+                                      disparity_colored),
+                     image_filenames_base[0] + '-disparity.png')
+    write_output_one(args.tag,
+                     args.outdir,
+                     args.force or force_override,
+                     lambda filename: \
+                     mrcal.save_image(filename, mrcal.apply_color_map(_range,
+                                                                      *args.range_image_limits)),
+                     image_filenames_base[0] + '-range.png')
+
+
+    # generate and output the point cloud, in the cam0 coord system
+    if not args.write_point_cloud:
+        return
+
+
+    H,W = _range.shape
+
+    # shape (H,W,2)
+    q_rectified = np.ascontiguousarray( \
+           nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
+                                         np.arange(H,dtype=float))),
+                   0, -1))
+
+    # Point cloud in rectified camera-0 coordinates
+    # shape (H,W,3)
+    p_rect0 = \
+        mrcal.unproject(q_rectified, *models_rectified[0].intrinsics()) * \
+        nps.dummy(_range, axis=-1)
+
+    Rt_ref_rect0 = models_rectified[0].extrinsics_Rt_toref()
+    Rt_cam0_ref  = models          [0].extrinsics_Rt_fromref()
+
+    # Point cloud in ref coordinates
+    # shape (H,W,3)
+    p_ref = mrcal.transform_point_Rt(Rt_ref_rect0, p_rect0)
+
+    # shape (N,3)
+    p_ref = nps.clump(p_ref, n=2)
+
+    range_clumped = _range.ravel()
+
+    # Throw out invalid points (nan or inf or <=0 range) are at 0
+    p_ref = p_ref[ np.isfinite(range_clumped) * range_clumped > 0 ]
+
+    # I set each point color to the nearest-pixel color in the original
+    # image. I only report those points that are in-bounds (they SHOULD
+    # be, but I make sure)
+    q_cam0 = mrcal.project(mrcal.transform_point_Rt(Rt_cam0_ref, p_ref),
+                           *models[0].intrinsics())
+
+    H,W = images[0].shape
+
+    q_cam0_integer = (q_cam0 + 0.5).astype(int)
+    i = \
+        (q_cam0_integer[:,0] >= 0) * \
+        (q_cam0_integer[:,1] >= 0) * \
+        (q_cam0_integer[:,0] <  W) * \
+        (q_cam0_integer[:,1] <  H)
+    p_ref          = p_ref[i]
+    q_cam0_integer = q_cam0_integer[i]
+
+    image0 = images[0]
+    if len(image0.shape) == 2 and args.force_grayscale:
+        # I have a grayscale image, but the user asked for it for the
+        # purposes of stereo. I reload without asking for grayscale. If
+        # the image was a color one, that would be useful here.
+        image0 = mrcal.load_image(image_filenames[0])
+    if len(image0.shape) == 2:
+        # Still grayscale. I use the grayscale pixels
+        intensityT = nps.transpose(image0[q_cam0_integer[:,1], q_cam0_integer[:,0]])
+        bgr = \
+            nps.glue( intensityT, intensityT, intensityT,
+                      axis = -1)
+    else:
+        # color
+        bgr = image0[q_cam0_integer[:,1], q_cam0_integer[:,0]]
+
+    write_output_one(args.tag,
+                     args.outdir,
+                     args.force or force_override,
+                     lambda filename: write_ply_points(filename,
+                                                       ((p_ref,bgr),),
+                                                       binary    = True,
+                                                       write_bgr = True),
+                     image_filenames_base[0] + '-points.ply')
+
 
 def write_ply_points(filename,
                      # if write_bgr: this is ((points,bgr), (points,bgr), ...)
@@ -648,7 +779,12 @@ if len(image_filenames_all[0]) != len(image_filenames_all[1]):
 
 Nimages = len(image_filenames_all[0])
 if Nimages == 0:
-    print("Given globs matched 0 images. Nothing to do",
+    print("The given globs matched 0 images. Nothing to do",
+          file=sys.stderr)
+    sys.exit(1)
+
+if args.viz == 'stereo' and Nimages > 1:
+    print(f"The given globs matched {Nimages} images. But '--viz stereo' was given, so exactly ONE set of images is expected",
           file=sys.stderr)
     sys.exit(1)
 
@@ -778,107 +914,21 @@ for i in range(Nimages):
                                               disp_max*disparity_scale)
 
     if args.viz != 'stereo':
-        _range = mrcal.stereo_range( disparity.astype(np.float32) / disparity_scale,
-                                     models_rectified )
-
-
-        if not args.already_rectified:
-            write_output(lambda filename: models_rectified[0].write(filename),
-                         'rectified0.cameramodel')
-            write_output(lambda filename: models_rectified[1].write(filename),
-                         'rectified1.cameramodel')
-
-            write_output(lambda filename: mrcal.save_image(filename, images_rectified[0]),
-                         image_filenames_base[0] + '-rectified.png')
-            write_output(lambda filename: mrcal.save_image(filename, images_rectified[1]),
-                         image_filenames_base[1] + '-rectified.png')
-
-        write_output(lambda filename: \
-                     mrcal.save_image(filename,
-                                      disparity_colored),
-                     image_filenames_base[0] + '-disparity.png')
-        write_output(lambda filename: \
-                     mrcal.save_image(filename, mrcal.apply_color_map(_range,
-                                                                      *args.range_image_limits)),
-                     image_filenames_base[0] + '-range.png')
-
-
-        # generate and output the point cloud, in the cam0 coord system
-        if args.write_point_cloud:
-            H,W = _range.shape
-
-            # shape (H,W,2)
-            q_rectified = np.ascontiguousarray( \
-                   nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
-                                                 np.arange(H,dtype=float))),
-                           0, -1))
-
-            # Point cloud in rectified camera-0 coordinates
-            # shape (H,W,3)
-            p_rect0 = \
-                mrcal.unproject(q_rectified, *models_rectified[0].intrinsics()) * \
-                nps.dummy(_range, axis=-1)
-
-            Rt_ref_rect0 = models_rectified[0].extrinsics_Rt_toref()
-            Rt_cam0_ref  = models          [0].extrinsics_Rt_fromref()
-
-            # Point cloud in ref coordinates
-            # shape (H,W,3)
-            p_ref = mrcal.transform_point_Rt(Rt_ref_rect0, p_rect0)
-
-            # shape (N,3)
-            p_ref = nps.clump(p_ref, n=2)
-
-            range_clumped = _range.ravel()
-
-            # Throw out invalid points (nan or inf or <=0 range) are at 0
-            p_ref = p_ref[ np.isfinite(range_clumped) * range_clumped > 0 ]
-
-            # I set each point color to the nearest-pixel color in the original
-            # image. I only report those points that are in-bounds (they SHOULD
-            # be, but I make sure)
-            q_cam0 = mrcal.project(mrcal.transform_point_Rt(Rt_cam0_ref, p_ref),
-                                   *models[0].intrinsics())
-
-            H,W = images[0].shape
-
-            q_cam0_integer = (q_cam0 + 0.5).astype(int)
-            i = \
-                (q_cam0_integer[:,0] >= 0) * \
-                (q_cam0_integer[:,1] >= 0) * \
-                (q_cam0_integer[:,0] <  W) * \
-                (q_cam0_integer[:,1] <  H)
-            p_ref          = p_ref[i]
-            q_cam0_integer = q_cam0_integer[i]
-
-            image0 = images[0]
-            if len(image0.shape) == 2 and args.force_grayscale:
-                # I have a grayscale image, but the user asked for it for the
-                # purposes of stereo. I reload without asking for grayscale. If
-                # the image was a color one, that would be useful here.
-                image0 = mrcal.load_image(image_filenames[0])
-            if len(image0.shape) == 2:
-                # Still grayscale. I use the grayscale pixels
-                intensityT = nps.transpose(image0[q_cam0_integer[:,1], q_cam0_integer[:,0]])
-                bgr = \
-                    nps.glue( intensityT, intensityT, intensityT,
-                              axis = -1)
-            else:
-                # color
-                bgr = image0[q_cam0_integer[:,1], q_cam0_integer[:,0]]
-
-            write_output(lambda filename: write_ply_points(filename,
-                                                           ((p_ref,bgr),),
-                                                           binary    = True,
-                                                           write_bgr = True),
-                         image_filenames_base[0] + '-points.ply')
+        write_output_all(args,
+                         models,
+                         images,
+                         models_rectified,
+                         images_rectified,
+                         disparity,
+                         disparity_scale,
+                         disparity_colored)
 
         sys.exit(0)
 
 
     # Done with all the processing. Invoke the visualizer!
 
-    UI_usage_message = r'''  Usage:
+    UI_usage_message = r'''Usage:
 
     Left mouse button click/drag: pan
     Mouse wheel up/down/left/right: pan
@@ -905,6 +955,21 @@ for i in range(Nimages):
 
         widget_status.value(UI_usage_message + "\n" + set_status.qstring + set_status.string)
 
+    def write_output_interactive(widget):
+        # cursor-setting needs threading. I don't bother with it yet
+        # window.cursor(FL_CURSOR_WAIT)
+
+        write_output_all(args,
+                         models,
+                         images,
+                         models_rectified,
+                         images_rectified,
+                         disparity,
+                         disparity_scale,
+                         disparity_colored,
+                         force_override = True)
+
+        # window.cursor(FL_CURSOR_DEFAULT)
 
     class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
@@ -1073,10 +1138,16 @@ for i in range(Nimages):
             return super().handle(event)
 
     window           = Fl_Window(800, 600, "mrcal-stereo")
-    widget_image0    = Fl_Gl_Image_Widget_Derived(0,    0, 400,300)
-    widget_image1    = Fl_Gl_Image_Widget_Derived(0,  300, 400,300)
-    widget_disparity = Fl_Gl_Image_Widget_Derived(400,  0, 400,300)
-    widget_status    = Fl_Multiline_Output(       400,300, 400,300)
+    widget_image0    = Fl_Gl_Image_Widget_Derived(0,    0,        400,300)
+    widget_image1    = Fl_Gl_Image_Widget_Derived(0,  300,        400,300)
+    widget_disparity = Fl_Gl_Image_Widget_Derived(400,  0,        400,300)
+
+    group_status     = Fl_Group(                  400,300,        400,300)
+    widget_status    = Fl_Multiline_Output(       400,300,        400,300-30)
+    widget_dowrite   = Fl_Button(                 400,300+300-30, 400,30, f'Write output to "{args.outdir}" (will overwrite)')
+    widget_dowrite.callback(write_output_interactive)
+    group_status.resizable(widget_status)
+    group_status.end()
 
     set_status('')
 
