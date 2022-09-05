@@ -344,13 +344,15 @@ which mrcal.optimize() expects
                 except:
                     raise Exception(f"'corners.vnl' data rows expected as 'filename x y {extracol}' with {extracol} being numerical or '-'. Instead got line '{line}'")
 
-                if w <= 0.0:
-                    # out[:] already is invalid
-                    return False
-
                 if extracol == 'weight':
+                    if w <= 0.0:
+                        # out[:] already is invalid
+                        return False
                     out[2] = w
                 else:
+                    if w < 0.0:
+                        # out[:] already is invalid
+                        return False
                     # convert decimation level to weight. The weight is
                     # 2^(-level). I.e. level-0 -> weight=1, level-1 ->
                     # weight=0.5, etc
