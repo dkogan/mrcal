@@ -224,4 +224,4 @@ note = \
 print(f"Combined\nIntrinsics from '{args.intrinsics}'\nExtrinsics from '{args.extrinsics}'",
       file = sys.stderr)
 
-model_intrinsics.write(sys.stdout, note)
+model_intrinsics.write(sys.stdout, note=note)

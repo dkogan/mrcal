@@ -563,7 +563,7 @@ A sample valid .cameramodel file:
     def __init__(self,
 
                  file_or_model           = None,
-
+                 *,
                  intrinsics              = None,
                  imagersize              = None,
                  extrinsics_Rt_toref     = None,
@@ -793,7 +793,7 @@ ARGUMENTS
             else:
                 raise Exception("At most one of the extrinsics_... arguments may be given")
 
-            self.intrinsics(intrinsics, imagersize)
+            self.intrinsics(intrinsics, imagersize=imagersize)
 
         elif Nargs['optimization_inputs']:
             if Nargs['file_or_model'] + \
@@ -805,9 +805,9 @@ ARGUMENTS
 
             self.intrinsics( ( optimization_inputs['lensmodel'],
                                optimization_inputs['intrinsics'][icam_intrinsics] ),
-                            optimization_inputs['imagersizes'][icam_intrinsics],
-                            optimization_inputs,
-                            icam_intrinsics)
+                             imagersize = optimization_inputs['imagersizes'][icam_intrinsics],
+                             optimization_inputs = optimization_inputs,
+                             icam_intrinsics     = icam_intrinsics)
 
             icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics,
                                                                   **optimization_inputs)
@@ -852,7 +852,7 @@ ARGUMENTS
             ')'
 
 
-    def write(self, f, note=None, cahvor=False):
+    def write(self, f, *, note=None, cahvor=False):
         r'''Write out this camera model to disk
 
 SYNOPSIS
@@ -899,6 +899,7 @@ None
 
     def intrinsics(self,
                    intrinsics          = None,
+                   *,
                    imagersize          = None,
                    optimization_inputs = None,
                    icam_intrinsics     = None):
