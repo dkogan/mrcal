@@ -87,9 +87,9 @@ There are several modes of operation:
   to be passed in
 
 - --viz stereo: compute the rectified system and the disparity. We don't write
-  anything to disk, but we invoke an interactive visualization tool to display
-  the results. Requires pyFLTK (homepage: https://pyfltk.sourceforge.io) and
-  GL_image_display (homepage: https://github.com/dkogan/GL_image_display)
+  anything to disk initially, but we invoke an interactive visualization tool to
+  display the results. Requires pyFLTK (homepage: https://pyfltk.sourceforge.io)
+  and GL_image_display (homepage: https://github.com/dkogan/GL_image_display)
 
 '''
 
