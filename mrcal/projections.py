@@ -19,6 +19,7 @@ import mrcal
 
 
 def project(v, lensmodel, intrinsics_data,
+            *,
             get_gradients = False,
             out           = None):
     r'''Projects a set of 3D camera-frame points to the imager
@@ -101,6 +102,7 @@ if get_gradients: we return a tuple:
 
 
 def unproject(q, lensmodel, intrinsics_data,
+              *,
               normalize     = False,
               get_gradients = False,
               out           = None):
@@ -458,6 +460,7 @@ if get_gradients: we return a tuple:
 
 def project_pinhole(points,
                     fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
+                    *,
                     get_gradients = False,
                     out           = None):
     r'''Projects 3D camera-frame points using a pinhole projection
@@ -524,6 +527,7 @@ if get_gradients: we return a tuple:
 
 def unproject_pinhole(points,
                       fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
+                      *,
                       get_gradients = False,
                       out           = None):
     r'''Unprojects 2D pixel coordinates using a pinhole projection
@@ -591,6 +595,7 @@ if get_gradients: we return a tuple:
 
 def project_stereographic(points,
                           fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
+                          *,
                           get_gradients = False,
                           out           = None):
     r'''Projects a set of 3D camera-frame points using a stereographic model
@@ -667,6 +672,7 @@ if get_gradients: we return a tuple:
 
 def unproject_stereographic(points,
                             fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
+                            *,
                             get_gradients = False,
                             out           = None):
     r'''Unprojects a set of 2D pixel coordinates using a stereographic model
@@ -745,6 +751,7 @@ if get_gradients: we return a tuple:
 
 def project_lonlat(points,
                    fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
+                   *,
                    get_gradients = False,
                    out           = None):
     r'''Projects a set of 3D camera-frame points using an equirectangular projection
@@ -813,6 +820,7 @@ if get_gradients: we return a tuple:
 
 def unproject_lonlat(points,
                      fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
+                     *,
                      get_gradients = False,
                      out           = None):
     r'''Unprojects a set of 2D pixel coordinates using an equirectangular projection
@@ -881,6 +889,7 @@ if get_gradients: we return a tuple:
 
 def project_latlon(points,
                    fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
+                   *,
                    get_gradients = False,
                    out           = None):
     r'''Projects 3D camera-frame points using a transverse equirectangular projection
@@ -948,6 +957,7 @@ if get_gradients: we return a tuple:
 
 def unproject_latlon(points,
                      fxycxy = np.array((1.0, 1.0, 0.0, 0.0), dtype=float),
+                     *,
                      get_gradients = False,
                      out           = None):
     r'''Unprojects 2D pixel coordinates using a transverse equirectangular projection
