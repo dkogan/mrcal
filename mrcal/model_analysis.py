@@ -16,6 +16,7 @@ import mrcal
 
 
 def implied_Rt10__from_unprojections(q0, p0, v1,
+                                     *,
                                      weights      = None,
                                      atinfinity   = True,
                                      focus_center = np.zeros((2,), dtype=float),
@@ -760,6 +761,7 @@ def _projection_uncertainty_rotationonly( p_cam,
 
 
 def projection_uncertainty( p_cam, model,
+                            *,
                             atinfinity = False,
 
                             # what we're reporting
@@ -1017,6 +1019,7 @@ else:                    we return an array of shape (...)
 
 
 def projection_diff(models,
+                    *,
                     gridn_width  = 60,
                     gridn_height = None,
 
@@ -1306,9 +1309,10 @@ A tuple
                                                      # shape (len(distance),Nheight,Nwidth,3)
                                                      v[0,...] * distance,
                                                      v[1,...],
-                                                     weights,
-                                                     atinfinity,
-                                                     focus_center, focus_radius)
+                                                     weights      = weights,
+                                                     atinfinity   = atinfinity,
+                                                     focus_center = focus_center,
+                                                     focus_radius = focus_radius)
 
         q1 = mrcal.project( mrcal.transform_point_Rt(Rt10,
                                                      # shape (len(distance),Nheight,Nwidth,3)
@@ -1353,8 +1357,10 @@ A tuple
                                                  # shape (len(distance),Nheight,Nwidth,3)
                                                  v0*distance,
                                                  v1,
-                                                 weights, atinfinity,
-                                                 focus_center, focus_radius)
+                                                 weights      = weights,
+                                                 atinfinity   = atinfinity,
+                                                 focus_center = focus_center,
+                                                 focus_radius = focus_radius)
         def get_reprojections(q0, Rt10,
                               lensmodel, intrinsics_data):
             q1 = mrcal.project(mrcal.transform_point_Rt(Rt10,

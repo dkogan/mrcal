@@ -917,7 +917,8 @@ A tuple:
 
     # Now do all the actual work
     difflen,diff,q0,Rt10 = mrcal.projection_diff(models,
-                                                 gridn_width, gridn_height,
+                                                 gridn_width       = gridn_width,
+                                                 gridn_height      = gridn_height,
                                                  intrinsics_only   = intrinsics_only,
                                                  distance          = distance,
                                                  use_uncertainties = use_uncertainties,
