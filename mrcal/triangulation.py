@@ -79,10 +79,10 @@ SYNOPSIS
     # corresponding pixel observation in camera1
     q1, _ = \
         mrcal.match_feature( *images,
+                             q0            = q0,
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0            = q0,
                              H10           = H10, # homography mapping q0 to q1
                            )
 
@@ -224,10 +224,10 @@ SYNOPSIS
     # corresponding pixel observation in camera1
     q1, _ = \
         mrcal.match_feature( *images,
+                             q0            = q0,
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0            = q0,
                              H10           = H10, # homography mapping q0 to q1
                            )
 
@@ -374,10 +374,10 @@ SYNOPSIS
     # corresponding pixel observation in camera1
     q1, _ = \
         mrcal.match_feature( *images,
+                             q0            = q0,
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0            = q0,
                              H10           = H10, # homography mapping q0 to q1
                            )
 
@@ -525,10 +525,10 @@ SYNOPSIS
     # corresponding pixel observation in camera1
     q1, _ = \
         mrcal.match_feature( *images,
+                             q0            = q0,
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0            = q0,
                              H10           = H10, # homography mapping q0 to q1
                            )
 
@@ -671,10 +671,10 @@ SYNOPSIS
     # corresponding pixel observation in camera1
     q1, _ = \
         mrcal.match_feature( *images,
+                             q0            = q0,
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0            = q0,
                              H10           = H10, # homography mapping q0 to q1
                            )
 
@@ -817,10 +817,10 @@ SYNOPSIS
     # corresponding pixel observation in camera1
     q1, _ = \
         mrcal.match_feature( *images,
+                             q0            = q0,
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0            = q0,
                              H10           = H10, # homography mapping q0 to q1
                            )
 
