@@ -943,9 +943,6 @@ if get_gradients: we return a tuple:
         return mrcal._triangulation_npsp._triangulate_lindstrom_withgrad(v0, v1, Rt01, out=out)
 
 
-
-
-
 def _compute_Var_q_triangulation(sigma, stdev_cross_camera_correlation):
     r'''Compute triangulation variance due to observation noise
 
