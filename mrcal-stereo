@@ -586,7 +586,7 @@ def write_output_all(args,
 
 
     # generate and output the point cloud, in the cam0 coord system
-    H,W = _range.shape
+    H,W = ranges.shape
 
     # shape (H,W,2)
     q_rectified = np.ascontiguousarray( \
@@ -598,7 +598,7 @@ def write_output_all(args,
     # shape (H,W,3)
     p_rect0 = \
         mrcal.unproject(q_rectified, *models_rectified[0].intrinsics()) * \
-        nps.dummy(_range, axis=-1)
+        nps.dummy(ranges, axis=-1)
 
     Rt_ref_rect0 = models_rectified[0].extrinsics_Rt_toref()
     Rt_cam0_ref  = models          [0].extrinsics_Rt_fromref()
@@ -610,10 +610,10 @@ def write_output_all(args,
     # shape (N,3)
     p_ref = nps.clump(p_ref, n=2)
 
-    range_clumped = _range.ravel()
+    ranges_clumped = ranges.ravel()
 
     # Throw out invalid points (nan or inf or <=0 range) are at 0
-    p_ref = p_ref[ np.isfinite(range_clumped) * range_clumped > 0 ]
+    p_ref = p_ref[ np.isfinite(ranges_clumped) * ranges_clumped > 0 ]
 
     # I set each point color to the nearest-pixel color in the original
     # image. I only report those points that are in-bounds (they SHOULD
