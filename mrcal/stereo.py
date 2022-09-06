@@ -12,6 +12,7 @@ import numpysane as nps
 import mrcal
 
 def rectified_system(models,
+                     *,
                      az_fov_deg,
                      el_fov_deg,
                      az0_deg             = None,
@@ -702,6 +703,7 @@ contains corresponding pixel coordinates in the input image
 
 def stereo_range(disparity,
                  models_rectified,
+                 *,
                  disparity_scale = 1,
                  qrect0          = None):
 
@@ -1001,6 +1003,7 @@ RETURNED VALUES
 
 def match_feature( image0, image1,
                    q0,
+                   *,
                    search_radius1,
                    template_size1,
                    q1_estimate      = None,
