@@ -211,7 +211,7 @@ whole imager, using the uncertainties as weights. This has two problems:
   those in could be good
 
 - Outlier rejection is currently only enabled for chessboard observations.
-  It shoudl be enabled for discrete points as well
+  It should be enabled for discrete points as well
 
 *** Stereo
 - A pre-filter should be added to the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool to enhance the edges
