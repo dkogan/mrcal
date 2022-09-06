@@ -971,6 +971,16 @@ for i in range(Nimages):
 
         # window.cursor(FL_CURSOR_DEFAULT)
 
+    def process_tab():
+        x_image1    = widget_image1   .x()
+        y_image1    = widget_image1   .y()
+        x_disparity = widget_disparity.x()
+        y_disparity = widget_disparity.y()
+
+        widget_image1   .position(x_disparity, y_disparity)
+        widget_disparity.position(x_image1,    y_image1)
+
+
     class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
         def set_panzoom(self,
@@ -1120,14 +1130,7 @@ for i in range(Nimages):
 
             if event == FL_KEYDOWN:
                 if Fl.event_key() == fltk.FL_Tab:
-
-                    x_image1    = widget_image1   .x()
-                    y_image1    = widget_image1   .y()
-                    x_disparity = widget_disparity.x()
-                    y_disparity = widget_disparity.y()
-
-                    widget_image1   .position(x_disparity, y_disparity)
-                    widget_disparity.position(x_image1,    y_image1)
+                    process_tab()
                     return 1
 
             if event == FL_MOVE:
@@ -1141,14 +1144,40 @@ for i in range(Nimages):
 
             return super().handle(event)
 
-    window           = Fl_Window(800, 600, "mrcal-stereo")
-    widget_image0    = Fl_Gl_Image_Widget_Derived(0,    0,        400,300)
-    widget_image1    = Fl_Gl_Image_Widget_Derived(0,  300,        400,300)
-    widget_disparity = Fl_Gl_Image_Widget_Derived(400,  0,        400,300)
+    class Fl_Multiline_Output_pass_keys(Fl_Multiline_Output):
+        def handle(self, event):
+            if event == FL_KEYDOWN:
+                if Fl.event_key() == fltk.FL_Tab:
+                    process_tab()
+                    return 1
 
-    group_status     = Fl_Group(                  400,300,        400,300)
-    widget_status    = Fl_Multiline_Output(       400,300,        400,300-30)
-    widget_dowrite   = Fl_Button(                 400,300+300-30, 400,30, f'Write output to "{args.outdir}" (will overwrite)')
+                if Fl.event_key() == fltk.FL_Escape:
+                    window.hide()
+
+            return super().handle(event)
+
+    class Fl_Button_pass_keys(Fl_Button):
+        def handle(self, event):
+            if event == FL_KEYDOWN:
+                if Fl.event_key() == fltk.FL_Tab:
+                    process_tab()
+                    return 1
+
+                if Fl.event_key() == fltk.FL_Escape:
+                    window.hide()
+
+            return super().handle(event)
+
+
+    window           = Fl_Window(800, 600, "mrcal-stereo")
+    widget_image0    = Fl_Gl_Image_Widget_Derived(   0,    0,        400,300)
+    widget_image1    = Fl_Gl_Image_Widget_Derived(   0,  300,        400,300)
+    widget_disparity = Fl_Gl_Image_Widget_Derived(   400,  0,        400,300)
+
+    group_status     = Fl_Group(                     400,300,        400,300)
+    widget_status    = Fl_Multiline_Output_pass_keys(400,300,        400,300-30)
+    widget_dowrite   = Fl_Button_pass_keys(          400,300+300-30, 400,30,
+                                                     f'Write output to "{args.outdir}" (will overwrite)')
     widget_dowrite.callback(write_output_interactive)
     group_status.resizable(widget_status)
     group_status.end()
