@@ -267,8 +267,6 @@ it should be fixed
 - The [[file:mrcal-stereo.html][=mrcal-stereo=]] tool should be able to estimate the field of view
   automatically: the user should not be required to pass =--az-fov-deg= and
   =--el-fov-deg=
-- The [[file:mrcal-stereo.html][=mrcal-stereo=]] tool should have a graphical, interactive mode to visualize
-  epipolar line alignment, ranges and triangulation sensitivity
 - Some sort of stereo "unproject" function should still exist to generate point
   clouds from stereo results. Today this would be implemented like
 
@@ -278,9 +276,6 @@ nps.dummy(mrcal.stereo_range(), axis=-1)
   #+end_src
 
   but this is ugly and slow. A dedicated function could do better.
-
-- Some internal routines could be implemented in C. Compatible implementations
-  are already written, but need to be merged
 
 *** Uncertainty
 - Currently [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]] broadcasts nicely, while
