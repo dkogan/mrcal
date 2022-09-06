@@ -398,8 +398,8 @@ else:
             sys.exit(1)
 
         model_to = mrcal.pinhole_model_for_reprojection(model_from, args.fit,
-                                                        args.scale_focal,
-                                                        args.scale_image)
+                                                        scale_focal = args.scale_focal,
+                                                        scale_image = args.scale_image)
 
         print( "## generated on {} with   {}".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                                      ' '.join(mrcal.shellquote(s) for s in sys.argv)) )
@@ -413,8 +413,8 @@ else:
 
         model_to     = mrcal.cameramodel(getattr(args, 'model-to'))
         model_target = mrcal.pinhole_model_for_reprojection(model_to, args.fit,
-                                                            args.scale_focal,
-                                                            args.scale_image)
+                                                            scale_focal = args.scale_focal,
+                                                            scale_image = args.scale_image)
         print( "## generated on {} with   {}".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                                      ' '.join(mrcal.shellquote(s) for s in sys.argv)) )
         print("# Generated pinhole model:")

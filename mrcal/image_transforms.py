@@ -141,6 +141,7 @@ A scalar scale_focal that can be passed to pinhole_model_for_reprojection()
 
 def pinhole_model_for_reprojection(model_from,
                                    fit         = None,
+                                   *,
                                    scale_focal = None,
                                    scale_image = None):
 
@@ -265,7 +266,7 @@ the input model.
 
 
 def image_transformation_map(model_from, model_to,
-
+                             *,
                              intrinsics_only                   = False,
                              distance                          = None,
                              plane_n                           = None,
@@ -503,6 +504,7 @@ This array can be passed to mrcal.transform_image()
 
 
 def transform_image(image, mapxy,
+                    *,
                     out = None,
                     borderMode    = None,
                     borderValue   = 0,
