@@ -1488,54 +1488,5 @@ except:
     pass
 
 
-
-# subpixel
-
-
-# (setq hs-block-start-regexp (python-rx block-start))
-
-
-# (defun python-hideshow-forward-sexp-function (_arg)
-#   "Python specific `forward-sexp' function for `hs-minor-mode'.
-# Argument ARG is ignored."
-#   (python-nav-end-of-block)
-#   (unless (python-info-current-line-empty-p)
-#     (backward-char)))
-
-# BUG: M-] after this block gets stuck on this trailing for
-        # qall_decimated = nps.cat(*[np.array((keypoints0[m.queryIdx].pt,
-        #                                      keypoints1[m.trainIdx].pt)) \
-        #                            for m in matches])
-
-# also "if" in list comprehensions
-
-
-# (defun python-nav-beginning-of-block ()
-#   "Move to start of current block."
-#   (interactive "^")
-#   (let ((starting-pos (point)))
-#     (if (progn
-#           (python-nav-beginning-of-statement)
-#           (looking-at (python-rx block-start)))
-#         (point-marker)
-#       ;; Go to first line beginning a statement
-#       (while (and (not (bobp))
-#                   (or (and (python-nav-beginning-of-statement) nil)
-#                       (python-info-current-line-comment-p)
-#                       (python-info-current-line-empty-p)))
-#         (forward-line -1))
-#       (let ((block-matching-indent
-#              (- (current-indentation) python-indent-offset)))
-#         (while
-#             (and (python-nav-backward-block)
-#                  (> (current-indentation) block-matching-indent)))
-#         (if (and (looking-at (python-rx block-start))
-#                  (= (current-indentation) block-matching-indent))
-#             (point-marker)
-#           (and (goto-char starting-pos) nil))))))
-
-
-# Alicevision sequence:
-
 r'''
 '''
