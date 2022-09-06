@@ -540,10 +540,9 @@ def write_output_all(args,
                      disparity,
                      disparity_scale,
                      disparity_colored,
+                     ranges,
+                     ranges_colored,
                      force_override = False):
-
-    _range = mrcal.stereo_range( disparity.astype(np.float32) / disparity_scale,
-                                 models_rectified )
 
     if not args.already_rectified:
         write_output_one(args.tag,
@@ -572,23 +571,21 @@ def write_output_all(args,
                      args.outdir,
                      args.force or force_override,
                      lambda filename: \
-                     mrcal.save_image(filename,
-                                      disparity_colored),
+                     mrcal.save_image(filename, disparity_colored),
                      image_filenames_base[0] + '-disparity.png')
     write_output_one(args.tag,
                      args.outdir,
                      args.force or force_override,
                      lambda filename: \
-                     mrcal.save_image(filename, mrcal.apply_color_map(_range,
-                                                                      *args.range_image_limits)),
+                     mrcal.save_image(filename, ranges_colored),
                      image_filenames_base[0] + '-range.png')
 
 
-    # generate and output the point cloud, in the cam0 coord system
     if not args.write_point_cloud:
         return
 
 
+    # generate and output the point cloud, in the cam0 coord system
     H,W = _range.shape
 
     # shape (H,W,2)
@@ -913,6 +910,12 @@ for i in range(Nimages):
                                               disp_min*disparity_scale,
                                               disp_max*disparity_scale)
 
+
+    ranges = mrcal.stereo_range( disparity.astype(np.float32) / disparity_scale,
+                                 models_rectified )
+    ranges_colored = mrcal.apply_color_map(ranges,
+                                           *args.range_image_limits)
+
     if args.viz != 'stereo':
         write_output_all(args,
                          models,
@@ -921,7 +924,9 @@ for i in range(Nimages):
                          images_rectified,
                          disparity,
                          disparity_scale,
-                         disparity_colored)
+                         disparity_colored,
+                         ranges,
+                         ranges_colored)
 
         sys.exit(0)
 
@@ -934,6 +939,8 @@ for i in range(Nimages):
     Mouse wheel up/down/left/right: pan
     Ctrl-mouse wheel up/down: zoom
     'u': reset view: zoom out, pan to the center
+    'd': show a colorized disparity image (default)
+    'r': show a colorized range image
 
     Right mouse button click: examine stereo at pixel
     TAB: transpose windows
@@ -967,18 +974,19 @@ for i in range(Nimages):
                          disparity,
                          disparity_scale,
                          disparity_colored,
+                         ranges, ranges_colored,
                          force_override = True)
 
         # window.cursor(FL_CURSOR_DEFAULT)
 
     def process_tab():
-        x_image1    = widget_image1   .x()
-        y_image1    = widget_image1   .y()
-        x_disparity = widget_disparity.x()
-        y_disparity = widget_disparity.y()
+        x_image1    = widget_image1.x()
+        y_image1    = widget_image1.y()
+        x_disparity = widget_result.x()
+        y_disparity = widget_result.y()
 
-        widget_image1   .position(x_disparity, y_disparity)
-        widget_disparity.position(x_image1,    y_image1)
+        widget_image1.position(x_disparity, y_disparity)
+        widget_result.position(x_image1,    y_image1)
 
 
     class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
@@ -1004,7 +1012,7 @@ for i in range(Nimages):
             result = \
                 all( w.set_panzoom(x_centerpixel, y_centerpixel,
                                    -visible_width_pixels) \
-                     for w in (widget_image0, widget_image1, widget_disparity) )
+                     for w in (widget_image0, widget_image1, widget_result) )
 
             self.make_current()
             return result
@@ -1047,46 +1055,46 @@ for i in range(Nimages):
                                   dtype=float )
                 except:
                     set_status("Error converting pixel coordinates")
-                    widget_image0   .set_cross_at(None)
-                    widget_image1   .set_cross_at(None)
-                    widget_disparity.set_cross_at(None)
+                    widget_image0.set_cross_at(None)
+                    widget_image1.set_cross_at(None)
+                    widget_result.set_cross_at(None)
                     return super().handle(event)
 
                 if self is widget_image1:
                     set_status("Please click in the left or disparity windows")
-                    widget_image0   .set_cross_at(q0_rectified, no_vertical = True)
-                    widget_image1   .set_cross_at(q0_rectified, no_vertical = True)
-                    widget_disparity.set_cross_at(q0_rectified, no_vertical = True)
+                    widget_image0.set_cross_at(q0_rectified, no_vertical = True)
+                    widget_image1.set_cross_at(q0_rectified, no_vertical = True)
+                    widget_result.set_cross_at(q0_rectified, no_vertical = True)
                     return super().handle(event)
 
                 if not (q0_rectified[0] >= -0.5 and q0_rectified[0] <= images_rectified[0].shape[1]-0.5 and \
                         q0_rectified[1] >= -0.5 and q0_rectified[1] <= images_rectified[0].shape[0]-0.5):
                     set_status("Out of bounds")
-                    widget_image0   .set_cross_at(q0_rectified, no_vertical = True)
-                    widget_image1   .set_cross_at(q0_rectified, no_vertical = True)
-                    widget_disparity.set_cross_at(q0_rectified, no_vertical = True)
+                    widget_image0.set_cross_at(q0_rectified, no_vertical = True)
+                    widget_image1.set_cross_at(q0_rectified, no_vertical = True)
+                    widget_result.set_cross_at(q0_rectified, no_vertical = True)
                     return super().handle(event)
 
                 d = disparity[round(q0_rectified[-1]),
                               round(q0_rectified[-2])]
                 if d < 0:
                     set_status("No valid disparity at the clicked location")
-                    widget_image0   .set_cross_at(q0_rectified)
-                    widget_image1   .set_cross_at(q0_rectified, no_vertical = True)
-                    widget_disparity.set_cross_at(q0_rectified)
+                    widget_image0.set_cross_at(q0_rectified)
+                    widget_image1.set_cross_at(q0_rectified, no_vertical = True)
+                    widget_result.set_cross_at(q0_rectified)
                     return super().handle(event)
                 if d == 0:
                     set_status("Disparity: 0pixels\n" +
                                "range: infinity\n")
-                    widget_image0   .set_cross_at(q0_rectified)
-                    widget_image1   .set_cross_at(q0_rectified)
-                    widget_disparity.set_cross_at(q0_rectified)
+                    widget_image0.set_cross_at(q0_rectified)
+                    widget_image1.set_cross_at(q0_rectified)
+                    widget_result.set_cross_at(q0_rectified)
                     return super().handle(event)
 
-                widget_image0   .set_cross_at(q0_rectified)
-                widget_image1   .set_cross_at(q0_rectified -
-                                              np.array((d/disparity_scale, 0)))
-                widget_disparity.set_cross_at(q0_rectified)
+                widget_image0.set_cross_at(q0_rectified)
+                widget_image1.set_cross_at(q0_rectified -
+                                           np.array((d/disparity_scale, 0)))
+                widget_result.set_cross_at(q0_rectified)
 
                 delta = 1e-3
                 _range   = mrcal.stereo_range( d,
@@ -1133,6 +1141,20 @@ for i in range(Nimages):
                     process_tab()
                     return 1
 
+                if Fl.event_key() == ord('d') or \
+                   Fl.event_key() == ord('D'):
+                    widget_result. \
+                      update_image(decimation_level = 0,
+                                   image_data       = disparity_colored)
+                    return 1
+
+                if Fl.event_key() == ord('r') or \
+                   Fl.event_key() == ord('R'):
+                    widget_result. \
+                      update_image(decimation_level = 0,
+                                   image_data       = ranges_colored)
+                    return 1
+
             if event == FL_MOVE:
                 try:
                     q = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
@@ -1169,10 +1191,10 @@ for i in range(Nimages):
             return super().handle(event)
 
 
-    window           = Fl_Window(800, 600, "mrcal-stereo")
-    widget_image0    = Fl_Gl_Image_Widget_Derived(   0,    0,        400,300)
-    widget_image1    = Fl_Gl_Image_Widget_Derived(   0,  300,        400,300)
-    widget_disparity = Fl_Gl_Image_Widget_Derived(   400,  0,        400,300)
+    window        = Fl_Window(800, 600, "mrcal-stereo")
+    widget_image0 = Fl_Gl_Image_Widget_Derived(   0,    0,        400,300)
+    widget_image1 = Fl_Gl_Image_Widget_Derived(   0,  300,        400,300)
+    widget_result = Fl_Gl_Image_Widget_Derived(   400,  0,        400,300)
 
     group_status     = Fl_Group(                     400,300,        400,300)
     widget_status    = Fl_Multiline_Output_pass_keys(400,300,        400,300-30)
@@ -1194,7 +1216,7 @@ for i in range(Nimages):
     widget_image1. \
       update_image(decimation_level = 0,
                    image_data       = images_rectified[1])
-    widget_disparity. \
+    widget_result. \
       update_image(decimation_level = 0,
                    image_data       = disparity_colored)
     Fl.run()
