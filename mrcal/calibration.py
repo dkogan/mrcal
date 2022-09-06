@@ -487,8 +487,8 @@ SYNOPSIS
 
     # The calibration object in its reference coordinate system
     calobject = mrcal.ref_calibration_object(object_width_n,
-                                                 object_height_n,
-                                                 object_spacing)
+                                             object_height_n,
+                                             object_spacing)
 
     # The estimated calibration object points in the observing camera coordinate
     # system
@@ -814,7 +814,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
         #
         # No calobject_warp. Good-enough for the seeding
         full_object = mrcal.ref_calibration_object(object_width_n,object_height_n,
-                                                       object_spacing)
+                                                   object_spacing)
 
         A = np.array(())
         B = np.array(())
@@ -1062,8 +1062,8 @@ SYNOPSIS
 
     # The calibration object in its reference coordinate system
     calobject = mrcal.ref_calibration_object(object_width_n,
-                                                 object_height_n,
-                                                 object_spacing)
+                                             object_height_n,
+                                             object_spacing)
 
     # The estimated calibration object points in the reference coordinate
     # system, for this one observation
@@ -1182,7 +1182,7 @@ system FROM the calibration object coordinate system.
         #
         # No calobject_warp. Good-enough for the seeding
         obj = mrcal.ref_calibration_object(object_width_n, object_height_n,
-                                               object_spacing)
+                                           object_spacing)
 
         sum_obj_unproj = obj*0
         for i_observation in range(i_observation0, i_observation1):
