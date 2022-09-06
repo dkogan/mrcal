@@ -52,6 +52,7 @@ def _parse_args(v1,
 
 def triangulate_geometric(v0, v1,
                           t01           = None,
+                          *,
                           get_gradients = False,
                           v_are_local   = False,
                           Rt01          = None,
@@ -197,6 +198,7 @@ if get_gradients: we return a tuple:
 
 def triangulate_leecivera_l1(v0, v1,
                              t01           = None,
+                             *,
                              get_gradients = False,
                              v_are_local   = False,
                              Rt01          = None,
@@ -347,6 +349,7 @@ if get_gradients: we return a tuple:
 
 def triangulate_leecivera_linf(v0, v1,
                                t01           = None,
+                               *,
                                get_gradients = False,
                                v_are_local   = False,
                                Rt01          = None,
@@ -498,6 +501,7 @@ if get_gradients: we return a tuple:
 
 def triangulate_leecivera_mid2(v0, v1,
                                t01           = None,
+                               *,
                                get_gradients = False,
                                v_are_local   = False,
                                Rt01          = None,
@@ -644,6 +648,7 @@ if get_gradients: we return a tuple:
 
 def triangulate_leecivera_wmid2(v0, v1,
                                 t01           = None,
+                                *,
                                 get_gradients = False,
                                 v_are_local   = False,
                                 Rt01          = None,
@@ -791,6 +796,7 @@ if get_gradients: we return a tuple:
 def triangulate_lindstrom(v0, v1,
                           # The other routines take t01 here
                           Rt01,
+                          *,
                           get_gradients = False,
                           v_are_local   = True,
                           out           = None):
@@ -830,7 +836,7 @@ SYNOPSIS
 
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
-    p = mrcal.triangulate_lindstrom( v0, v1, Rt01 )
+    p = mrcal.triangulate_lindstrom( v0, v1, Rt01 = Rt01 )
 
 This is the lower-level triangulation routine. For a richer function that can be
 used to propagate uncertainties, see mrcal.triangulate()
@@ -1458,6 +1464,7 @@ if optimization_inputs is None and q_observation_stdev is None:
 
 def triangulate( q,
                  models,
+                 *,
                  q_calibration_stdev             = None,
                  q_observation_stdev             = None,
                  q_observation_stdev_correlation = 0,
