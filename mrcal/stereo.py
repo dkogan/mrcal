@@ -18,7 +18,8 @@ def rectified_system(models,
                      el0_deg             = 0,
                      pixels_per_deg_az   = -1.,
                      pixels_per_deg_el   = -1.,
-                     rectification_model = 'LENSMODEL_LATLON'):
+                     rectification_model = 'LENSMODEL_LATLON',
+                     return_metadata     = False):
 
     r'''Build rectified models for stereo rectification
 
@@ -162,7 +163,8 @@ ARGUMENTS
   That causes the baseline to no longer be perpendicular with the view axis of
   the cameras, and thus the azimuth=0 vector no longer points "forward". If
   omitted, we compute az0_deg to align the center of the rectified system with
-  the center of the two cameras' views
+  the center of the two cameras' views. This computed value can be retrieved in
+  the metadata dict by passing return_metadata = True
 
 - el0_deg: optional value for the elevation center of the rectified system.
   Defaults to 0.
@@ -172,7 +174,8 @@ ARGUMENTS
   resolution of <0 is requested, we use this as a scale factor on the resolution
   of the input image. For instance, to downsample by a factor of 2, pass
   pixels_per_deg_az = -0.5. By default, we use -1: the resolution of the input
-  image at the center of the rectified system.
+  image at the center of the rectified system. The value we end up with can be
+  retrieved in the metadata dict by passing return_metadata = True
 
 - pixels_per_deg_el: same as pixels_per_deg_az but in the elevation direction
 
@@ -181,11 +184,27 @@ ARGUMENTS
   lens model. Currently supported are "LENSMODEL_LATLON" (the default) and
   "LENSMODEL_PINHOLE"
 
+- return_metadata: optional boolean, defaulting to False. If True, we return a
+  dict of metadata describing the rectified system in addition to the rectified
+  models. This is useful to retrieve any of the autodetected values. At this
+  time, the metadata dict contains keys:
+
+    - az_fov_deg
+    - el_fov_deg
+    - az0_deg
+    - el0_deg
+    - pixels_per_deg_az
+    - pixels_per_deg_el
+    - baseline
+
 RETURNED VALUES
 
-We return a tuple of mrcal.cameramodels describing the two rectified cameras.
+We compute a tuple of mrcal.cameramodels describing the two rectified cameras.
 These two models are identical, except for a baseline translation in the +x
 direction in rectified coordinates.
+
+if not return_metadata: we return this tuple of models
+else:                   we return this tuple of models, dict of metadata
 
     '''
 
@@ -490,7 +509,20 @@ direction in rectified coordinates.
                              imagersize = (Naz, Nel),
                              extrinsics_Rt_fromref = Rt_rect1_ref) )
 
-    return models_rectified
+    if not return_metadata:
+        return models_rectified
+
+    metadata = \
+        dict( az_fov_deg        = az_fov_deg,
+              el_fov_deg        = el_fov_deg,
+              az0_deg           = az0 * 180./np.pi,
+              el0_deg           = el0_deg,
+              pixels_per_deg_az = pixels_per_deg_az,
+              pixels_per_deg_el = pixels_per_deg_el,
+              baseline          = baseline )
+
+    return models_rectified, metadata
+
 
 
 def _validate_models_rectified(models_rectified):
