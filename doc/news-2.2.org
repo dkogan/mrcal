@@ -60,6 +60,13 @@ displayed properly
 
 - compute_chessboard_corners() API rework
 
+- mrcal-stereo --viz stereo
+  - can write interactively
+  - can show range or disparity images
+
+- most Python API functions now use keyword-only arguments. Ambiguous usages
+  will need to be ported
+
 * Migration notes 2.1 -> 2.2
 - Replace pq_from_Rt(),Rt_from_pq() with qt_from_Rt(),Rt_from_qt()
 
