@@ -1191,6 +1191,7 @@ def _plot_args_points_and_covariance_ellipse(q, what):
 
 
 def residuals_chessboard(optimization_inputs,
+                         *,
                          i_cam     = None,
                          residuals = None):
     r'''Compute and return the chessboard residuals
