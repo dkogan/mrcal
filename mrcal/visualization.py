@@ -386,7 +386,8 @@ plot
 
 
         calobject_ref = mrcal.ref_calibration_object(object_width_n, object_height_n,
-                                                     object_spacing, calobject_warp)
+                                                     object_spacing,
+                                                     calobject_warp = calobject_warp)
 
         # object in the ref coord system.
         # shape (Nframes, object_height_n, object_width_n, 3)

@@ -466,7 +466,7 @@ RETURNED VALUE
     full_object         = mrcal.ref_calibration_object(object_width_n,
                                                        object_height_n,
                                                        object_spacing,
-                                                       calobject_warp)
+                                                       calobject_warp = calobject_warp)
     frames_Rt_toref = \
         mrcal.Rt_from_rt( optimization_inputs['frames_rt_toref'] )\
         [ indices_frame_camintrinsics_camextrinsics[:,0] ]

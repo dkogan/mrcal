@@ -860,7 +860,7 @@ cross product
         mrcal.ref_calibration_object(object_width_n,
                                      object_height_n,
                                      object_spacing,
-                                     baseline_calobject_warp)
+                                     calobject_warp = baseline_calobject_warp)
 
     # need to define the broadcasted function myself
     @nps.broadcast_define( ((2,),) )
@@ -869,7 +869,7 @@ cross product
             mrcal.ref_calibration_object(object_width_n,
                                          object_height_n,
                                          object_spacing,
-                                         calobject_warp)
+                                         calobject_warp = calobject_warp)
     calibration_object_query = \
         ref_calibration_object(query_calobject_warp)
 
