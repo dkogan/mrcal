@@ -36,11 +36,45 @@ displayed properly
 
 - Added compose_r()
 
+- pywrap functions take keyword-only args. No positional arguments allowed. This
+  means we must update each mrcal.optimize() and mrcal.optimizer_callback() call
+
 - libelas available as a stereo matcher in mrcal-stereo
 
-* Migration notes 2.1 -> 2.2
-This is a /very/ minor release, and is 99.9% compatible. Incompatible updates:
+- no outliers for discrete points still
 
+- triangulated_error()
+
+- mrcal.skew_symmetric()
+
+- mrcal-stereo --write-point-cloud
+
+- mrcal-calibrate-cameras works without --object-spacing. bug fix
+
+- uncertainty plots can happen even with nan. Happens because of unproject
+  failing. Should apply fix to other analyses too
+
+- convention update: state is "b" not "p"
+  
+- TODO keyword-only args should be defined in Python
+
+- compute_chessboard_corners() API rework
+
+* Migration notes 2.1 -> 2.2
 - Replace pq_from_Rt(),Rt_from_pq() with qt_from_Rt(),Rt_from_qt()
 
 - =mrcal-stereo --show-geometry= is now invoked as =mrcal-stereo --viz geometry=
+
+- renamed =mrcal-to-cameramodel= -> =mrcal-from-cahvor=
+
+- mrcal-image. Dependency on libfreeimage
+
+- Renamed C headers
+  - mrcal_internal.h -> mrcal-internal.h
+  - basic_geometry.h -> basic-geometry.h
+
+- compute_chessboard_corners() API rework
+
+* todo
+- import stereo.c
+
