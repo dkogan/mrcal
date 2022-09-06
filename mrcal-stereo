@@ -986,14 +986,18 @@ for i in range(Nimages):
 
             '''
             if visible_width_pixels < 0:
+                self.make_current()
                 return super().set_panzoom(x_centerpixel, y_centerpixel,
                                            -visible_width_pixels)
 
             # All the widgets should pan/zoom together
-            return \
+            result = \
                 all( w.set_panzoom(x_centerpixel, y_centerpixel,
                                    -visible_width_pixels) \
                      for w in (widget_image0, widget_image1, widget_disparity) )
+
+            self.make_current()
+            return result
 
         def set_cross_at(self, q, no_vertical = False):
             if q is None:
