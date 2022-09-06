@@ -461,7 +461,7 @@ if args.viz == 'geometry':
 
     data_tuples, plot_options = \
         mrcal.show_geometry( list(models) + list(models_rectified),
-                             ( "camera0", "camera1", "camera0-rectified", "camera1-rectified" ),
+                             cameranames      = ( "camera0", "camera1", "camera0-rectified", "camera1-rectified" ),
                              show_calobjects  = False,
                              return_plot_args = True,
                              **plot_options)

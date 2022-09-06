@@ -15,6 +15,7 @@ import os
 import mrcal
 
 def show_geometry(models_or_extrinsics_rt_fromref,
+                  *,
                   cameranames                 = None,
                   cameras_Rt_plot_ref         = None,
                   frames_rt_toref             = None,
@@ -557,7 +558,8 @@ def _options_heatmap_with_contours( # update these
               _with=_with)
 
 
-def fitted_gaussian_equation(binwidth,
+def fitted_gaussian_equation(*,
+                             binwidth,
                              x     = None,
                              mean  = None,
                              sigma = None,
@@ -687,6 +689,7 @@ String passable to gnuplotlib in the 'equation' or 'equation_above' plot option
 
 
 def show_projection_diff(models,
+                         *,
                          gridn_width  = 60,
                          gridn_height = None,
 
@@ -1109,6 +1112,7 @@ A tuple:
 
 
 def show_projection_uncertainty(model,
+                                *,
                                 gridn_width             = 60,
                                 gridn_height            = None,
 
@@ -1370,7 +1374,7 @@ plot
 
 # should be able to control the distance range here
 def show_projection_uncertainty_vs_distance(model,
-
+                                            *,
                                             where        = "centroid",
                                             isotropic    = False,
                                             extratitle   = None,
@@ -1535,6 +1539,7 @@ plot
 
 
 def show_distortion_off_pinhole_radial(model,
+                                       *,
                                        show_fisheye_projections = False,
                                        extratitle               = None,
                                        return_plot_args         = False,
@@ -1722,6 +1727,7 @@ plot
 
 
 def show_distortion_off_pinhole(model,
+                                *,
                                 vectorfield              = False,
                                 vectorscale              = 1.0,
                                 cbmax                    = 25.0,
@@ -1881,6 +1887,7 @@ plot
 
 
 def show_valid_intrinsics_region(models,
+                                 *,
                                  cameranames      = None,
                                  image            = None,
                                  points           = None,
@@ -2025,6 +2032,7 @@ A tuple:
 
 
 def show_splined_model_correction(model,
+                                  *,
                                   vectorfield             = False,
                                   xy                      = None,
                                   imager_domain           = False,
@@ -2462,7 +2470,7 @@ plot
     return (data_tuples, plot_options)
 
 
-def annotate_image__valid_intrinsics_region(image, model, color=(0,255,0)):
+def annotate_image__valid_intrinsics_region(image, model, *, color=(0,255,0)):
     r'''Annotate an image with a model's valid-intrinsics region
 
 SYNOPSIS
@@ -2583,6 +2591,7 @@ The 'using' string.
 
 def show_residuals_board_observation(optimization_inputs,
                                      i_observation,
+                                     *,
                                      from_worst                       = False,
                                      i_observations_sorted_from_worst = None,
                                      residuals                        = None,
@@ -2824,6 +2833,7 @@ plot
 def show_residuals_histogram(optimization_inputs,
                              i_cam            = None,
                              residuals        = None,
+                             *,
                              binwidth         = 0.02,
                              extratitle       = None,
                              return_plot_args = False,
@@ -3002,6 +3012,7 @@ def _get_show_residuals_data_onecam(model,
 
 def show_residuals_vectorfield(model,
                                residuals               = None,
+                               *,
                                vectorscale             = 1.0,
                                valid_intrinsics_region = True,
                                extratitle              = None,
@@ -3112,6 +3123,7 @@ plot
 
 def show_residuals_magnitudes(model,
                               residuals               = None,
+                              *,
                               valid_intrinsics_region = True,
                               extratitle              = None,
                               return_plot_args        = False,
@@ -3214,6 +3226,7 @@ plot
 
 def show_residuals_directions(model,
                               residuals               = None,
+                              *,
                               valid_intrinsics_region = True,
                               extratitle              = None,
                               return_plot_args        = False,
@@ -3336,9 +3349,10 @@ plot
 
 
 def show_residuals_regional(model,
+                            residuals               = None,
+                            *,
                             gridn_width             = 20,
                             gridn_height            = None,
-                            residuals               = None,
                             valid_intrinsics_region = True,
                             extratitle              = None,
                             return_plot_args        = False,

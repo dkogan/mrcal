@@ -174,7 +174,7 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
     #                                  Rt_cam0_ref )
     # rt_rect_ref  = mrcal.rt_from_Rt(Rt_rect_ref)
     # mrcal.show_geometry( [ model0, model1, rt_rect_ref ],
-    #                      ( "camera0", "camera1", "stereo" ),
+    #                      cameranames = ( "camera0", "camera1", "stereo" ),
     #                      show_calobjects = False,
     #                      wait            = True )
     # print(repr(Rt_cam0_rect))

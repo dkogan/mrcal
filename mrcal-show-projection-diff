@@ -446,7 +446,8 @@ if args.observations:
         sys.exit(1)
 
 plot,Rt10 = mrcal.show_projection_diff(models,
-                                       args.gridn[0], args.gridn[1],
+                                       gridn_width             = args.gridn[0],
+                                       gridn_height            = args.gridn[1],
                                        observations            = args.observations,
                                        valid_intrinsics_region = args.valid_intrinsics_region,
                                        distance                = distance,

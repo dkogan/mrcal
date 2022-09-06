@@ -194,7 +194,8 @@ if args.vs_distance_at is not None:
                                                          **plotkwargs_extra)
 else:
     plot = mrcal.show_projection_uncertainty(model,
-                                             args.gridn[0], args.gridn[1],
+                                             gridn_width             = args.gridn[0],
+                                             gridn_height            = args.gridn[1],
                                              distance                = args.distance,
                                              isotropic               = args.isotropic,
                                              observations            = args.observations,
