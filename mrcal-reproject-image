@@ -441,8 +441,16 @@ signal.signal(signal.SIGINT, signal_handler_sigint)
 # really is quite terrible. All I REALLY want is some os.fork() calls...
 model_valid_intrinsics_region = None
 mapxy                         = None
+model_imagersize              = None
 def _transform_this(inout):
     image = mrcal.load_image(inout[0])
+
+    if image.shape[0] != model_imagersize[1] or \
+       image.shape[1] != model_imagersize[0]:
+        print(f"Couldn't process {inout[0]}: image dimensions don't match the input model dimensions. Image size: [{image.shape[1]} {image.shape[0]}]. model.imagersize(): {model_imagersize}",
+              file=sys.stderr)
+        return
+
     if model_valid_intrinsics_region is not None:
         mrcal.annotate_image__valid_intrinsics_region(image, model_valid_intrinsics_region)
     image_transformed = mrcal.transform_image(image, mapxy)
@@ -477,8 +485,11 @@ def process(model_from, model_to, image_globs, suffix,
 
     global mapxy
     global model_valid_intrinsics_region
+    global model_imagersize
     if args.valid_intrinsics_region:
         model_valid_intrinsics_region = model_from
+    model_imagersize = model_from.imagersize()
+
     mapxy = mrcal.image_transformation_map(model_from, model_to,
                                            intrinsics_only = intrinsics_only,
                                            distance        = distance,
