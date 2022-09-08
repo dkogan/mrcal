@@ -11,16 +11,14 @@ not-yet-published Debian 12 (bookworm) or Ubuntu 22.04 (jammy), you can
 simply
 
 #+begin_src sh
-apt install mrcal libmrcal-dev
+apt install mrcal libmrcal-dev python3-mrcal
 #+end_src
 
-to install (for instance) the commandline tools and the C development library
-respectively.
+to install the commandline tools and the C development library and the Python
+library respectively.
 
 For older distros I currently distribute packages for
 
-- Debian/sid (this will be removed soon since mrcal is now in the main Debian
-  archives)
 - Debian/buster
 - Debian/bullseye
 - Ubuntu/focal (20.04 LTS)
@@ -34,7 +32,6 @@ deb [trusted=yes] http://mrcal.secretsauce.net/packages/DISTRO/public/ DISTRO ma
 
 where =DISTRO= is one of
 
-- =sid=
 - =buster=
 - =bulleye=
 - =focal=
