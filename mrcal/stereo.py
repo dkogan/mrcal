@@ -940,7 +940,7 @@ RETURNED VALUES
         disparity = np.array((disparity,),)
 
     W,H = models_rectified[0].imagersize()
-    if qrect0 is None and disparity.shape != (H,W):
+    if qrect0 is None and np.any(disparity.shape - np.array((H,W),dtype=int)):
         raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
 
     intrinsics = models_rectified[0].intrinsics()
