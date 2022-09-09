@@ -65,24 +65,11 @@ SYNOPSIS
                               speckleRange      = 1)
     disparity16 = matcher.compute(*images_rectified) # in pixels*16
 
-    # Convert the disparities to range-to-camera0
-    ranges = mrcal.stereo_range( disparity16,
-                                 models_rectified,
-                                 disparity_scale = 16 )
-
-    H,W = disparity16.shape
-
-    # shape (H,W,2)
-    q = np.ascontiguousarray( \
-           nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
-                                         np.arange(H,dtype=float))),
-                   0, -1))
-
     # Point cloud in rectified camera-0 coordinates
     # shape (H,W,3)
-    p_rect0 = \
-        mrcal.unproject_latlon(q, models_rectified[0].intrinsics()[1]) * \
-        nps.dummy(ranges, axis=-1)
+    p_rect0 = mrcal.stereo_unproject( disparity16,
+                                      models_rectified,
+                                      disparity_scale = 16 )
 
     Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
                                       models_rectified[0].extrinsics_Rt_toref() )
@@ -610,26 +597,13 @@ SYNOPSIS
                               speckleRange      = 1)
     disparity16 = matcher.compute(*images_rectified) # in pixels*16
 
-    # Convert the disparities to range-to-camera0
-    ranges = mrcal.stereo_range( disparity16,
-                                 models_rectified,
-                                 disparity_scale = 16 )
-
-    H,W = disparity16.shape
-
-    # shape (H,W,2)
-    q = np.ascontiguousarray( \
-           nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
-                                         np.arange(H,dtype=float))),
-                   0, -1))
-
     # Point cloud in rectified camera-0 coordinates
     # shape (H,W,3)
-    p_rect0 = \
-        mrcal.unproject_latlon(q, models_rectified[0].intrinsics()[1]) * \
-        nps.dummy(ranges, axis=-1)
+    p_rect0 = mrcal.stereo_unproject( disparity16,
+                                      models_rectified,
+                                      disparity_scale = 16 )
 
-    Rt_cam0_rect0 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+    Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
                                       models_rectified[0].extrinsics_Rt_toref() )
 
     # Point cloud in camera-0 coordinates
@@ -769,7 +743,7 @@ SYNOPSIS
         mrcal.unproject_latlon(q, models_rectified[0].intrinsics()[1]) * \
         nps.dummy(ranges, axis=-1)
 
-    Rt_cam0_rect0 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+    Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
                                       models_rectified[0].extrinsics_Rt_toref() )
 
     # Point cloud in camera-0 coordinates
@@ -778,11 +752,16 @@ SYNOPSIS
 
 As shown in the example above, we can perform stereo processing by building
 rectified models and transformation maps, rectifying our images, and then doing
-stereo matching to get pixel disparities. This function performs the last step:
-converting pixel disparities to ranges.
+stereo matching to get pixel disparities. The disparities can be converted to
+usable geometry by calling one of two functions:
 
-In the most common usage we take a full disparity IMAGE, and then convert it to
-a range IMAGE. In this common case we call
+- stereo_range() to convert pixel disparities to ranges
+
+- stereo_unproject() to convert pixel disparities to a point cloud. This is a
+  superset of stereo_range()
+
+In the most common usage of stereo_range() we take a full disparity IMAGE, and
+then convert it to a range IMAGE. In this common case we call
 
     range_image = mrcal.stereo_range(disparity_image, models_rectified)
 
@@ -1001,6 +980,163 @@ RETURNED VALUES
     if is_scalar:
         r = r[0]
     return r
+
+
+def stereo_unproject(disparity,
+                     models_rectified,
+                     *,
+                     ranges          = None,
+                     disparity_scale = 1,
+                     qrect0          = None):
+
+    r'''Compute a point cloud from observed disparities
+
+SYNOPSIS
+
+    import sys
+    import mrcal
+    import cv2
+    import numpy as np
+    import numpysane as nps
+
+    models = [ mrcal.cameramodel(f) \
+               for f in ('left.cameramodel',
+                         'right.cameramodel') ]
+
+    images = [ mrcal.load_image(f) \
+               for f in ('left.jpg', 'right.jpg') ]
+
+    models_rectified = \
+        mrcal.rectified_system(models,
+                               az_fov_deg = 120,
+                               el_fov_deg = 100)
+
+    rectification_maps = mrcal.rectification_maps(models, models_rectified)
+
+    images_rectified = [ mrcal.transform_image(images[i], rectification_maps[i]) \
+                         for i in range(2) ]
+
+    # Find stereo correspondences using OpenCV
+    block_size = 3
+    max_disp   = 160 # in pixels
+    matcher = \
+        cv2.StereoSGBM_create(minDisparity      = 0,
+                              numDisparities    = max_disp,
+                              blockSize         = block_size,
+                              P1                = 8 *3*block_size*block_size,
+                              P2                = 32*3*block_size*block_size,
+                              uniquenessRatio   = 5,
+
+                              disp12MaxDiff     = 1,
+                              speckleWindowSize = 50,
+                              speckleRange      = 1)
+    disparity16 = matcher.compute(*images_rectified) # in pixels*16
+
+    # Point cloud in rectified camera-0 coordinates
+    # shape (H,W,3)
+    p_rect0 = mrcal.stereo_unproject( disparity16,
+                                      models_rectified,
+                                      disparity_scale = 16 )
+
+    Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
+                                      models_rectified[0].extrinsics_Rt_toref() )
+
+    # Point cloud in camera-0 coordinates
+    # shape (H,W,3)
+    p_cam0 = mrcal.transform_point_Rt(Rt_cam0_rect0, p_rect0)
+
+As shown in the example above, we can perform stereo processing by building
+rectified models and transformation maps, rectifying our images, and then doing
+stereo matching to get pixel disparities. The disparities can be converted to
+usable geometry by calling one of two functions:
+
+- stereo_range() to convert pixel disparities to ranges
+
+- stereo_unproject() to convert pixel disparities to a point cloud, each point in
+  the rectified-camera-0 coordinates. This is a superset of stereo_range()
+
+In the most common usage of stereo_unproject() we take a full disparity IMAGE,
+and then convert it to a dense point cloud: one point per pixel. In this common
+case we call
+
+    p_rect0 = mrcal.stereo_unproject(disparity_image, models_rectified)
+
+If we aren't processing the full disparity image, we can pass in an array of
+rectified pixel coordinates (in the first rectified camera) in the "qrect0"
+argument. These must be broadcastable with the disparity argument.
+
+The arguments are identical to those accepted by stereo_range(), except an
+optional "ranges" argument is accepted. This can be given in lieu of the
+"disparity" argument, if we already have ranges returned by stereo_range().
+Exactly one of (disparity,ranges) must be given as non-None. "ranges" is a
+keyword-only argument, while "disparity" is positional. So if passing ranges,
+the disparity must be explicitly given as None:
+
+    p_rect0 = mrcal.stereo_unproject( disparity        = None,
+                                      models_rectified = models_rectified,
+                                      ranges           = ranges )
+
+ARGUMENTS
+
+- disparity: a numpy array of disparities being processed. If disparity_scale is
+  omitted, this array contains floating-point disparity values in PIXELS. Many
+  stereo-matching algorithms produce integer disparities, in units of some
+  constant number of pixels (the OpenCV StereoSGBM and StereoBM routines use
+  16). In this common case, you can pass the integer scaled disparities here,
+  with the scale factor in disparity_scale. Any array shape is supported. In the
+  common case of a disparity IMAGE, this is an array of shape (Nel, Naz)
+
+- models_rectified: the pair of rectified models, corresponding to the input
+  images. Usually this is returned by mrcal.rectified_system()
+
+- ranges: optional numpy array with the ranges returned by stereo_range().
+  Exactly one of (disparity,ranges) should be given as non-None.
+
+- disparity_scale: optional scale factor for the "disparity" array. If omitted,
+  the "disparity" array is assumed to contain the disparities, in pixels.
+  Otherwise it contains data in the units of 1/disparity_scale pixels.
+
+- qrect0: optional array of rectified camera0 pixel coordinates corresponding to
+  the given disparities. By default, a full disparity image is assumed.
+  Otherwise we use the given rectified coordinates. The shape of this array must
+  be broadcasting-compatible with the disparity array. See the
+  description above.
+
+RETURNED VALUES
+
+- An array of points of the same dimensionality as the input disparity (or
+  ranges) array. Contains floating-point data. Invalid or missing points are
+  represented as (0,0,0).
+
+    '''
+
+    if (ranges is     None and disparity is     None) or \
+       (ranges is not None and disparity is not None):
+        raise Exception("Exactly one of (disparity,ranges) must be non-None")
+
+    if qrect0 is None:
+
+        W,H = models_rectified[0].imagersize()
+
+        # shape (H,W,2)
+        qrect0 = np.ascontiguousarray( \
+               nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
+                                             np.arange(H,dtype=float))),
+                       0, -1))
+
+    if ranges is None:
+        ranges = stereo_range(disparity,
+                              models_rectified,
+                              disparity_scale = disparity_scale,
+                              qrect0          = qrect0)
+
+    # shape (..., 3)
+    vrect0 = mrcal.unproject(qrect0, *models_rectified[0].intrinsics(),
+                             normalize = True)
+    # shape (..., 3)
+    p_rect0 = vrect0 * nps.dummy(ranges, axis = -1)
+
+    return p_rect0
 
 
 def match_feature( image0, image1,

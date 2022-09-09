@@ -123,6 +123,7 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 - [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]]: Construct pixel mappings to transform captured
   images into rectified images
 - [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]]: Compute ranges from observed disparities
+- [[file:mrcal-python-api-reference.html#-stereo_unproject][=mrcal.stereo_unproject()=]]: Compute a point cloud from observed disparities
 - [[file:mrcal-python-api-reference.html#-match_feature][=mrcal.match_feature()=]]: Find a pixel correspondence in a pair of images
 - [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]]: Triangulate N points with uncertainty propagation. This
   is a higher-level function than the other =mrcal.triangulate_...()= routines

@@ -586,19 +586,10 @@ def write_output_all(args,
 
 
     # generate and output the point cloud, in the cam0 coord system
-    H,W = ranges.shape
-
-    # shape (H,W,2)
-    q_rectified = np.ascontiguousarray( \
-           nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
-                                         np.arange(H,dtype=float))),
-                   0, -1))
-
-    # Point cloud in rectified camera-0 coordinates
-    # shape (H,W,3)
     p_rect0 = \
-        mrcal.unproject(q_rectified, *models_rectified[0].intrinsics()) * \
-        nps.dummy(ranges, axis=-1)
+        mrcal.stereo_unproject(disparity        = None,
+                               models_rectified = models_rectified,
+                               ranges           = ranges)
 
     Rt_ref_rect0 = models_rectified[0].extrinsics_Rt_toref()
     Rt_cam0_ref  = models          [0].extrinsics_Rt_fromref()
