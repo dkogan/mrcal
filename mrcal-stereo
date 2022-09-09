@@ -621,7 +621,7 @@ def write_output_all(args,
     q_cam0 = mrcal.project(mrcal.transform_point_Rt(Rt_cam0_ref, p_ref),
                            *models[0].intrinsics())
 
-    H,W = images[0].shape
+    H,W = images[0].shape[:2]
 
     q_cam0_integer = (q_cam0 + 0.5).astype(int)
     i = \
