@@ -906,8 +906,9 @@ for i in range(Nimages):
                                               disp_max*disparity_scale)
 
 
-    ranges = mrcal.stereo_range( disparity.astype(np.float32) / disparity_scale,
-                                 models_rectified )
+    ranges = mrcal.stereo_range( disparity,
+                                 models_rectified,
+                                 disparity_scale = disparity_scale)
     ranges_colored = mrcal.apply_color_map(ranges,
                                            *args.range_image_limits)
 
