@@ -994,6 +994,8 @@ RETURNED VALUES
             ((s_sq_recip + tanaz0*tanaz1) / tanaz0_tanaz1 + \
              tanaz0)
 
+        mask_invalid += ~np.isfinite(r)
+
     r[mask_invalid] = 0
 
     if is_scalar:
