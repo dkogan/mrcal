@@ -267,15 +267,6 @@ it should be fixed
 - The [[file:mrcal-stereo.html][=mrcal-stereo=]] tool should be able to estimate the field of view
   automatically: the user should not be required to pass =--az-fov-deg= and
   =--el-fov-deg=
-- Some sort of stereo "unproject" function should still exist to generate point
-  clouds from stereo results. Today this would be implemented like
-
-  #+begin_src python
-mrcal.unproject(meshgrid(), normalized=True) *
-nps.dummy(mrcal.stereo_range(), axis=-1)
-  #+end_src
-
-  but this is ugly and slow. A dedicated function could do better.
 
 *** Uncertainty
 - Currently [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]] broadcasts nicely, while
