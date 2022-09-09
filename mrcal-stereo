@@ -610,11 +610,6 @@ def write_output_all(args,
     # shape (N,3)
     p_ref = nps.clump(p_ref, n=2)
 
-    ranges_clumped = ranges.ravel()
-
-    # Throw out invalid points (nan or inf or <=0 range) are at 0
-    p_ref = p_ref[ np.isfinite(ranges_clumped) * ranges_clumped > 0 ]
-
     # I set each point color to the nearest-pixel color in the original
     # image. I only report those points that are in-bounds (they SHOULD
     # be, but I make sure)
