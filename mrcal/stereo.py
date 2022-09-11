@@ -1114,6 +1114,12 @@ RETURNED VALUES
        (ranges is not None and disparity is not None):
         raise Exception("Exactly one of (disparity,ranges) must be non-None")
 
+    if ranges is None:
+        ranges = stereo_range(disparity,
+                              models_rectified,
+                              disparity_scale = disparity_scale,
+                              qrect0          = qrect0)
+
     if qrect0 is None:
 
         W,H = models_rectified[0].imagersize()
@@ -1123,12 +1129,6 @@ RETURNED VALUES
                nps.mv( nps.cat( *np.meshgrid(np.arange(W,dtype=float),
                                              np.arange(H,dtype=float))),
                        0, -1))
-
-    if ranges is None:
-        ranges = stereo_range(disparity,
-                              models_rectified,
-                              disparity_scale = disparity_scale,
-                              qrect0          = qrect0)
 
     # shape (..., 3)
     vrect0 = mrcal.unproject(qrect0, *models_rectified[0].intrinsics(),
