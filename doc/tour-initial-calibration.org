@@ -113,17 +113,11 @@ detections?
 $ < corners.vnl vnl-filter --has x -p filename | uniq | grep -v '#' | wc -l
 
 161
-
-
-$ < corners.vnl vnl-filter x=='"-"' -p filename | uniq | grep -v '#' | wc -l
-
-114
 #+end_example
 
-So we have 161 images with detected corners, and 114 images where a full
-chessboard wasn't found. Most of the misses are probably images where the
-chessboard wasn't entirely in view, but some could be failures of mrgingham. In
-any case, 161 observations is usually plenty.
+So we have 161 images with detected corners. Most of the misses are probably
+images where the chessboard wasn't entirely in view, but some could be failures
+of mrgingham. In any case, 161 observations is usually plenty.
 
 If I had more that one camera, the image filenames would need to indicate what
 camera captured each image at which time. I generally use

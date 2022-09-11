@@ -316,22 +316,17 @@ the optimization]]. How many images produced successful corner detections?
 $ < corners.vnl vnl-filter --has x -p filename | uniq | grep -v '#' | wc -l
 
 161
-
-
-$ < corners.vnl vnl-filter x=='"-"' -p filename | uniq | grep -v '#' | wc -l
-
-114
 #+end_example
 
-So we have 161 images with detected corners, and 114 images where a full
-chessboard wasn't found. Most of the misses are probably images where the
-chessboard wasn't entirely in view, but some could be failures of mrgingham. In
-any case, 161 observations is usually plenty.
+So here we have 161 images with detected corners. Most of the misses are
+probably images where the chessboard wasn't entirely in view, but some could be
+failures of mrgingham. In any case, 161 observations is usually plenty.
 
 * Computing a calibration
 :PROPERTIES:
 :CUSTOM_ID: interpreting-results
 :END:
+
 Here I follow the same calibration sequence as in the [[file:tour-initial-calibration.org][tour of mrcal]], but with a
 bit more detail.
 
@@ -376,8 +371,7 @@ D=~/projects/mrcal-doc-external
   initially, as a sanity check. And once that looks OK, to move to
   [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get better accuracy and reliable
   [[file:uncertainty.org][uncertainty reporting]]. For /very/ wide fisheye lenses,
-  [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] is the only model that will work at all, so
-  start directly there if you have an ultra-fisheye lens.
+  [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] is the only model that will work at all.
 
 - =--focal 1700= provides the initial estimate for the camera focal lengths, in
   pixels. This doesn't need to be precise, but do try to get this roughly
