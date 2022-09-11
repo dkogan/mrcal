@@ -1,6 +1,5 @@
-# These xxx markers are to be replaced by git_build_rpm
-Name:           xxx
-Version:        xxx
+Name:           mrcal
+Version:        mrcal
 
 Release:        1%{?dist}
 Summary:        Calibration tools
