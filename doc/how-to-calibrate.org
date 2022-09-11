@@ -33,10 +33,12 @@ granted either.
 Calibrating wide lenses generally requires large chessboards, to fill the field
 of view as much as possible. I use a square chessboard roughly 1m per side to
 calibrate my fisheye lenses. A big chessboard such as this is never completely
-rigid or completely flat, so my board is backed with 2.5cm of foam. This is
-fairly flat and rigid. The board does warp with variations in temperature and
-humidity, but this is slow, and the shape is usually stable long-enough for a
-chessboard dance.
+rigid or completely flat, so I have a chessboard backed by about 1 inch of
+aluminum honeycomb. This is expensive, but works well. The previous board I was
+using is backed with 2.5cm of foam instead. This is significantly cheaper, and
+still pretty good, but noticeably less flat and rigid. The board does warp with
+variations in temperature and humidity, but this is slow, and the shape is
+usually stable long-enough for a chessboard dance.
 
 According to the [[file:tour-choreography.org][dance study]], we want close-ups that fill the imager, so we want
 a smaller board next to the camera in favor of a bigger board further away. The

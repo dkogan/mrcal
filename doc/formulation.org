@@ -397,10 +397,16 @@ And in Python:
 :PROPERTIES:
 :CUSTOM_ID: noise-model
 :END:
+
+The [[file:uncertainty.org::#noise-model][projection uncertainty routine]] is used to gauge the effects of sampling
+error on the solve. This is done by modelling the noise in the input pixel
+observations, and propagating it through the solve.
+
 ** Noise on the inputs
 :PROPERTIES:
 :CUSTOM_ID: noise-model-inputs
 :END:
+
 I solve the calibration problem using [[https://en.wikipedia.org/wiki/Ordinary_least_squares][Ordinary Least Squares]], minimizing the
 discrepancies between pixel observations and their predictions. The pixel
 observations $\vec q_\mathrm{ref}$ are noisy, and I assume that they are

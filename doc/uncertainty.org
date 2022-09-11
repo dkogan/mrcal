@@ -2,18 +2,45 @@
 #+OPTIONS: toc:t
 
 After a calibration has been computed, it is essential to get a sense of how
-good the calibration is. Traditional calibration routines rely on one metric of
-calibration quality: the residual fit error. This is clearly inadequate because
-we can always improve this metric by throwing away input data, and it doesn't
-make sense that using less data would make a calibration /better/.
+good the calibration is (how closely it represents reality). Traditional
+calibration routines rely on one metric of calibration quality: the residual fit
+error. This is clearly inadequate because we can always improve this metric by
+throwing away input data, and it doesn't make sense that using less data would
+make a calibration /better/.
 
-mrcal addresses this with [[file:how-to-calibrate.org::#interpreting-results][some tools]] to gauge how well the data fits the model
-and with a method to estimate the projection uncertainty, accessed via the
+There are two main sources of error in the calibration solve. Without these
+errors, the calibration data would fit perfectly, producing a solve residuals
+vector that's exactly $\vec 0$. The two sources of error are:
+
+- Model errors. These result when the solver's model of the world is
+  insufficient to describe what is actually happening. Examples of this are
+  motion blur, unsyncronized cameras, too-simple [[file:lensmodels.org][lens models]], imperfect
+  chessboard geometry, chessboard detector errors, instability in lens behavior
+  or chessboard shape, and so on. Since these errors aren't modeled, we can't
+  analytically predict their effects, and these errors cannot be eliminated
+  completely. But we have [[file:how-to-calibrate.org::#interpreting-results][tools to detect and correct some of these issues]]. We
+  can take care when gathering data, and then we can [[file:how-to-calibrate.org::#interpreting-results][check that these errors
+  aren't significant]].
+
+- Sampling error. This is the error in the input data. We cannot eliminate this
+  completely either, but we can define a reasonable model of the noise, and we
+  can propagate it analytically to gauge its effect.
+
+The mrcal projection uncertainty analysis studies the effect of sampling error.
+Since /only/ the sampling error is evaluated:
+
+*any promises of a high-quality low-uncertainty calibration are valid only if
+the model errors are small*.
+
+So it's important to run the [[file:how-to-calibrate.org::#interpreting-results][checks]] to make sure that the data fits the model
+well.
+
+The method to estimate the projection uncertainty is accessed via the
 [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function. Here the "uncertainty" is the
-sensitivity to calibration-time pixel noise. This tells us how good a
-calibration is (we aim for low projection uncertainties), and it tells us how
-good the downstream results are (by allowing the user to propagate projection
-uncertainties through their data pipeline).
+sensitivity to sampling error: the calibration-time pixel noise. This tells us
+how good a calibration is (we aim for low projection uncertainties), and it
+tells us how good the downstream results are (by allowing the user to propagate
+projection uncertainties through their data pipeline).
 
 To estimate the projection uncertainty we:
 
