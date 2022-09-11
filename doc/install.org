@@ -1,7 +1,8 @@
 #+title: Building or installing
 
 I provide packages for a number of distros. If possible, please use these
-instead of building from source. Contributions on this front are welcome.
+instead of building from source. If you're interested in packages for a
+not-yet-supported distro, please contribute! Email me for help.
 
 * Installing from packages
 ** Debian-based
@@ -37,11 +38,9 @@ where =DISTRO= is one of
 - =focal=
 - =bionic=
 
-Then, =apt update && apt install mrcal libmrcal-dev=. The =mrcal= package pulls
-in the commandline tools and, indirectly, the python libraries. The
-=libmrcal-dev= is the C dev stuff; not needed if you're not building C code that
-uses mrcal. The chessboard corner finder, while not strictly required, is needed
-if you're doing chessboard-based calibrations. =apt install mrgingham=
+Then, =apt update && apt install mrcal=. The chessboard corner finder, while not
+strictly required, is needed if you're doing chessboard-based calibrations. =apt
+install mrgingham=
 
 * Building from source
 If you cannot use the packages for whatever reason, you must build from source.
