@@ -454,26 +454,30 @@ error was 0.7 pixels. Of the 16100 corner observations (161 observations of the
 board with 10*10 = 100 points each), 155 didn't fit the model well-enough, and
 were thrown out as [[file:formulation.org::#outlier-rejection][outliers]].
 
-High outlier counts or high reprojection errors would indicate that the model
-mrcal is using does not fit the data well. That would suggest some/all of
-these:
+High outlier counts or high reprojection errors would indicate high model
+errors: the model mrcal is using does not fit the data well. That would suggest
+some/all of these:
 
 - Issues in the input data, such as incorrectly-detected chessboard corners,
-  unsynchronized cameras, rolling shutter, motion blur, focus issues, etc. Keep
-  reading for ways to get more insight
+  unsynchronized cameras, rolling shutter, motion blur, focus issues, unstable
+  lens, etc.
 - A badly-fitting lens model. For instance =LENSMODEL_OPENCV4= will not fit wide
-  lenses. And only [[file:splined-models.org][splined lens models]] will fit fisheye lenses all the way in
+  lenses. And only [[file:splined-models.org][splined lens models]] will fit fisheye lenses all the way to
   the corners
+- A badly-fitting chessboard model: is the chessboard flat? If not, does it
+  follow the [[file:formulation.org::#board-deformation][deformation model]] well?
 
-Outlier rejection resolves these up to a point, but if at all possible, it is
+Outlier rejection will throw out the worst-fitting data, but these model errors
+will still cause an uncorrectable bias in the results. If at all possible, it is
 strongly recommended to fix whatever is causing the problem, and then to re-run
 the solve.
 
-In this example the [[file:formulation.org::#board-deformation][board flex]] was computed as 1.0mm horizontally, and 0.5mm
-vertically in the opposite direction. That is a small deflection, and sounds
-reasonable. A way to validate this, would be to get another set of chessboard
-images, to rerun the solve, and compare the new flex values to the old ones.
-From experience, these are usually consistent.
+In this example the [[file:formulation.org::#board-deformation][board deformation]] was computed as 1.0mm horizontally, and
+0.5mm vertically in the opposite direction. That is a small deflection, and
+sounds reasonable. A way to validate this, would be to get another set of
+chessboard images, to rerun the solve, and compare the new flex values to the
+old ones. From experience, if things are working properly, these results are
+usually consistent.
 
 What does the solve think about our geometry? Does it match reality?
 
