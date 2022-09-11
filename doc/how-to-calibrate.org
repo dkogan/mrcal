@@ -75,7 +75,7 @@ everything remain stationary during image capture, even when only one camera is
 involved.
 
 If synchronization or rolling shutter effects are in doubt, look at the residual
-plot made by =show_residuals_board_observation_worst()= (a sample and a
+plot made by the [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] tool (a sample and a
 description appear below). These errors clearly show up as distinct patterns in
 those plots.
 
@@ -185,11 +185,8 @@ if the board is rotated diagonally, then none of these sequences are clearly
 ** Using a non-mrgingham detector
 If we use a grid detector other than mrgingham, we need to produce a compatible
 =corners.vnl= file. This is a [[https://www.github.com/dkogan/vnlog][=vnlog=]] (text table) where each row describes a
-single corner detection. The whole chessboard is described by a sequence of
-these corner detections, listed in a /consistent/ grid order.
-
-This file should contain 3 or 4 columns. The first 3
-columns:
+single corner detection. This file should contain 3 or 4 columns. The first 3
+columns are:
 
 - =filename=: the path to a chessboard image
 - =x=, =y=: pixel coordinates of a detected corner
@@ -214,8 +211,20 @@ detection of that particular corner. It may be either
 
 If no 4th column is present, we assume an even weight of 1.0 for all the points.
 
-Images where no chessboard was detected should be omitted, or represented with a
-single record:
+The whole chessboard is described by a sequence of these corner detections,
+listed in a /consistent/ grid order. Each chessboard image is represented by
+either $N_\mathrm{width} N_\mathrm{height}$ observations records or a single
+record
+
+#+begin_example
+FILENAME - - -
+#+end_example
+
+to represent images with no detected corners. An image with incomplete
+detections should /still/ contain $N_\mathrm{width} N_\mathrm{height}$ records
+in the same consistent order. The missing corners should be given with any =x=,
+=y=, but with $\mathrm{weight} \leq 0$ or =-=. The record could be completely
+null:
 
 #+begin_example
 FILENAME - - -

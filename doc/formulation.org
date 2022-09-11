@@ -400,7 +400,8 @@ And in Python:
 
 The [[file:uncertainty.org::#noise-model][projection uncertainty routine]] is used to gauge the effects of sampling
 error on the solve. This is done by modelling the noise in the input pixel
-observations, and propagating it through the solve.
+observations, and propagating it through the solve. This assumes that model
+errors are insignificant.
 
 ** Noise on the inputs
 :PROPERTIES:
