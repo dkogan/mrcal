@@ -5,6 +5,10 @@ instead of building from source. If you're interested in packages for a
 not-yet-supported distro, please contribute! Email me for help.
 
 * Installing from packages
+:PROPERTIES:
+:CUSTOM_ID: installing-from-packages
+:END:
+
 ** Debian-based
 As of today (2022-02-27), mrcal is included in the bleeding-edge versions of
 Debian and Ubuntu. So if you're running at least Debian/testing or the

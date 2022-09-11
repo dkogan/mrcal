@@ -31,6 +31,8 @@ Functions to manipulate [[file:conventions.org::#pose-representation][rotations 
 - [[file:mrcal-python-api-reference.html#-transform_point_Rt][=mrcal.transform_point_Rt()=]]: Transform point(s) using an Rt transformation
 - [[file:mrcal-python-api-reference.html#-R_from_quat][=mrcal.R_from_quat()=]]: Convert a rotation defined as a unit quaternion rotation to a rotation matrix
 - [[file:mrcal-python-api-reference.html#-quat_from_R][=mrcal.quat_from_R()=]]: Convert a rotation defined as a rotation matrix to a unit quaternion
+- [[file:mrcal-python-api-reference.html#-Rt_from_qt][=mrcal.Rt_from_qt()=]]: Compute an Rt transformation from a qt transformation
+- [[file:mrcal-python-api-reference.html#-qt_from_Rt][=mrcal.qt_from_Rt()=]]: Compute a qt transformation from an Rt transformation
 
 ** Alignment
 - [[file:mrcal-python-api-reference.html#-align_procrustes_points_Rt01][=mrcal.align_procrustes_points_Rt01()=]]: Compute a rigid transformation to align two point clouds
