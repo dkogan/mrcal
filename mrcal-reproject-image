@@ -30,6 +30,48 @@ SYNOPSIS
   Wrote image2-reprojected.jpg
   ...
 
+  ### To "manually" stereo-rectify a pair of images
+  $ mrcal-stereo          \
+      --az-fov-deg 80     \
+      --el-fov-deg 50     \
+      --outdir /tmp       \
+      left.cameramodel    \
+      right.cameramodel
+  Wrote '/tmp/rectified0.cameramodel'
+  Wrote '/tmp/rectified1.cameramodel'
+
+  $ mrcal-reproject-image         \
+      --outdir /tmp               \
+      /tmp/left.cameramodel       \
+      /tmp/rectified0.cameramodel \
+      left.jpg
+  Wrote /tmp/left-reprojected.jpg
+
+  $ mrcal-reproject-image          \
+      --outdir /tmp                \
+      /tmp/right.cameramodel       \
+      /tmp/rectified1.cameramodel  \
+      right.jpg
+  Wrote /tmp/right-reprojected.jpg
+
+  $ mrcal-stereo                       \
+      --already-rectified              \
+      --outdir /tmp                    \
+      /tmp/rectified[01].cameramodel   \
+      /tmp/left-reprojected.jpg        \
+      /tmp/right-reprojected.jpg
+
+  # This is the same as using mrcal-stereo to do all the work:
+  $ mrcal-stereo          \
+      --az-fov-deg 80     \
+      --el-fov-deg 50     \
+      --outdir /tmp       \
+      left.cameramodel    \
+      right.cameramodel   \
+      left.jpg            \
+      right.jpg
+
+
 This tool takes image(s) of a scene captured by one camera model, and produces
 image(s) of the same scene, as it would appear if captured by a different model,
 taking into account both the different lens parameters and geometries. This is
