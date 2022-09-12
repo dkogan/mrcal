@@ -79,6 +79,9 @@ resulting lists of files are assumed to match up.
 
 There are several modes of operation:
 
+- No images given: we compute the rectified system only, writing the models to
+  disk
+
 - No --viz argument given: we compute the rectified system and the disparity,
   and we write all output as images on disk
 
@@ -341,16 +344,15 @@ def parse_args():
     parser.add_argument('images',
                         type=str,
                         nargs='*',
-                        help='''The image globs to use for the triangulation. If
-                        not --viz geometry: exactly two image globs must be
-                        given. If --viz geometry: the images are ignored''')
+                        help='''The image globs to use for the stereo. If
+                        omitted, we only write out the rectified models. If
+                        given, exactly two image globs must be given''')
 
     args = parser.parse_args()
 
-    if not (args.viz == 'geometry' or \
+    if not (len(args.images) == 0 or \
             len(args.images) == 2):
-            print("""Argument-parsing error:
-  exactly 2 images should have been given, since we're performing stereo processing""",
+            print("Argument-parsing error: exactly 0 or exactly 2 images should have been given",
                   file=sys.stderr)
             sys.exit(1)
 
@@ -746,6 +748,22 @@ property float z
             '{:{width}d}'.format(N, width=placeholder_width).encode()
 
         m.close()
+
+
+if len(args.images) == 0:
+    # No images are given. Just write out the rectified models
+    write_output_one(args.tag,
+                     args.outdir,
+                     args.force,
+                     lambda filename: models_rectified[0].write(filename),
+                     'rectified0.cameramodel')
+    write_output_one(args.tag,
+                     args.outdir,
+                     args.force,
+                     lambda filename: models_rectified[1].write(filename),
+                     'rectified1.cameramodel')
+    sys.exit(0)
+
 
 if not args.already_rectified:
     rectification_maps = mrcal.rectification_maps(models, models_rectified)
