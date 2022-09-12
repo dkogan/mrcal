@@ -19,13 +19,13 @@ SYNOPSIS
      left.jpg         right.jpg
 
   Processing left.jpg and right.jpg
-  Writing '/tmp/rectified0.cameramodel'
-  Writing '/tmp/rectified1.cameramodel'
-  Writing '/tmp/left-rectified.png'
-  Writing '/tmp/right-rectified.png'
-  Writing '/tmp/left-disparity.png'
-  Writing '/tmp/left-range.png'
-  Writing '/tmp/points-cam0.vnl'
+  Wrote '/tmp/rectified0.cameramodel'
+  Wrote '/tmp/rectified1.cameramodel'
+  Wrote '/tmp/left-rectified.png'
+  Wrote '/tmp/right-rectified.png'
+  Wrote '/tmp/left-disparity.png'
+  Wrote '/tmp/left-range.png'
+  Wrote '/tmp/points-cam0.vnl'
 
 Given a pair of calibrated cameras and pairs of images captured by these
 cameras, this tool runs the whole stereo processing sequence to produce
@@ -530,7 +530,7 @@ def write_output_one(tag, outdir, force,
         print(f"WARNING: '{filename}' already exists. Not overwriting this file. Pass -f to overwrite")
         return
 
-    print(f"Writing '{filename}'")
+    print(f"Wrote '{filename}'")
     func(filename)
 
 
