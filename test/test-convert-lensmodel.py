@@ -7,16 +7,11 @@ r'''Test of the mrcal-convert-lensmodel tool
 
 
 
+# This is incomplete. My old notes about what should be added:
 
-# add test for mrcal-convert-lensmodel. Should test
-# 1. reoptimization
+# Should test
+# 1. reoptimization (with a non-monocular solve)
 # 2. sampled at various distances with/without uncertainties
-#
-# splined -> opencv8 is probably the interesting direction. I can imagine
-# that the no-geometry sampled solves would fail here because opencv8 just
-# wouldn't fit in that case
-
-# splined model: fix the core
 
 
 
