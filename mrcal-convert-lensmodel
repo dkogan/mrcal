@@ -198,8 +198,7 @@ except:
 
 m = mrcal.cameramodel(args.model)
 
-intrinsics_from = m.intrinsics()
-lensmodel_from = intrinsics_from[0]
+lensmodel_from = m.intrinsics()[0]
 
 if lensmodel_from == lensmodel_to:
     sys.stderr.write("Input and output have the same lens model: {}. Returning the input\n".format(lensmodel_to))
@@ -225,10 +224,11 @@ if not args.sampled:
         raise Exception("optimization_inputs not available in this model, so only sampled fits are possible. Pass --sampled")
 
 
-    intrinsics_core = intrinsics_from[1][:4]
-    distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-3
-    intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
-                                     axis=-2)
+    intrinsics_from = optimization_inputs['intrinsics']
+    Ncameras = len(intrinsics_from)
+    intrinsics_to_values = nps.glue(intrinsics_from[:,:4],
+                                    (np.random.rand(Ncameras,Ndistortions) - 0.5) * 1e-3,
+                                    axis=-1)
 
     optimization_inputs['lensmodel']  = lensmodel_to
     optimization_inputs['intrinsics'] = intrinsics_to_values
@@ -273,6 +273,9 @@ if not args.sampled:
 else:
 
     # Sampled solve. I grid the imager, unproject and fit
+
+    intrinsics_from = m.intrinsics()
+
     if args.distance is None:
         if args.intrinsics_only:
             # We're only looking at the intrinsics, so the distance doesn't
@@ -336,6 +339,8 @@ else:
     # import gnuplotlib as gp
     # gp.plot(q[:,0], q[:,1], _with='points pt 7 ps 2', xrange=[0,3904],yrange=[3904,0], wait=1, square=1)
     # sys.exit()
+
+    intrinsics_from = m.intrinsics()
 
     ### I unproject this, with broadcasting
     v = mrcal.unproject( q, *intrinsics_from, normalize = True ) * \
