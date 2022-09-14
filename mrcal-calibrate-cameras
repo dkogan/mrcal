@@ -678,7 +678,8 @@ for icam in range(len(models)):
         else '{}/camera-{}'.format(args.outdir, icam)
 
     cameramodelfile = filename_base + '.cameramodel'
-    models[icam].write(cameramodelfile, note)
+    models[icam].write(cameramodelfile,
+                       note = note)
     print("Wrote {}".format(cameramodelfile))
 
 
