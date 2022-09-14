@@ -92,6 +92,15 @@ represent the bulk of the changes.
 - The =mrcal-to-cameramodel= tool was renamed to [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]] to make it
   easier to support future format converters.
 
+- The [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool now reports its "RMS error" as the RMS
+  error of the measurement vector. Each pixel observation produces 2 measurement
+  values: the error in $x$ and $y$. Prior to this release I reported the RMS
+  error treating such a pair as /one/ value: $\sqrt{\frac{\left\Vert \vec x
+  \right\Vert^2}{\frac{N_\mathrm{measurement}}{2}}}$. This was in conflict with
+  other parts of the code, so now I report this as two separate values:
+  $\sqrt{\frac{\left\Vert \vec x \right\Vert^2}{N_\mathrm{measurement}}$. So now
+  the reported RMS error is just $\mathrm{Var} \left( \vec x \right)$
+
 * Migration notes 2.1 -> 2.2
 The vast majority of existing usage remains the same, but some updates described
 above will require a code change:

@@ -4910,7 +4910,7 @@ void optimizer_callback(// input state
             assert(0);
         }
 
-        // MSG_IF_VERBOSE("RMS: %g", sqrt(norm2_error / ((double)ctx>Nmeasurements / 2.0)));
+        // MSG_IF_VERBOSE("RMS: %g", sqrt(norm2_error / (double)ctx>Nmeasurements));
     }
 }
 
@@ -5451,8 +5451,7 @@ mrcal_optimize( // out
                                 (dogleg_callback_t*)&optimizer_callback, &ctx);
 
     stats.rms_reproj_error__pixels =
-        // /2 because I have separate x and y measurements
-        sqrt(norm2_error / ((double)ctx.Nmeasurements / 2.0));
+        sqrt(norm2_error / (double)ctx.Nmeasurements);
 
     if(b_packed_final)
         memcpy(b_packed_final, solver_context->beforeStep->p, Nstate*sizeof(double));
