@@ -474,6 +474,7 @@ if args.viz:
                                          distance     = args.distance,
                                          cbmax        = 4,
                                          gridn_width  = None if args.gridn is None else args.gridn[0],
-                                         gridn_height = None if args.gridn is None else args.gridn[1] )
+                                         gridn_height = None if args.gridn is None else args.gridn[1],
+                                         use_uncertainties = not args.sampled)
     plot.wait()
 
