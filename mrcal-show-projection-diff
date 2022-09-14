@@ -264,7 +264,15 @@ if args.title is not None:
 if args.extratitle is not None:
     plotkwargs_extra['extratitle'] = args.extratitle
 
-models = [mrcal.cameramodel(modelfilename) for modelfilename in args.models]
+def openmodel(f):
+    try:
+        return mrcal.cameramodel(f)
+    except:
+        print(f"Couldn't load camera model '{f}'",
+              file=sys.stderr)
+        sys.exit(1)
+
+models = [openmodel(modelfilename) for modelfilename in args.models]
 
 
 if args.same_dance:
