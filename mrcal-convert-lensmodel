@@ -7,10 +7,10 @@ SYNOPSIS
 
   $ mrcal-convert-lensmodel
       --viz LENSMODEL_OPENCV4 left.cameramodel
-      > left.opencv4.cameramodel
 
   ... lots of output as the solve runs ...
   RMS error of the solution: 3.40256580058 pixels.
+  Wrote 'left-LENSMODEL_OPENCV4.cameramodel'
 
   ... a plot pops up showing the differences ...
 
@@ -71,6 +71,9 @@ empirical testing is required to find a good compromise: pass --viz to see the
 resulting differences. Note that --radius and --where applies only if we're
 optimizing sampled reprojections; if we're using the original optimization
 inputs, the options are illegal.
+
+The output is written to a file on disk, with the same filename as the input
+model, but with the new lensmodel added to the filename.
 
 '''
 
@@ -175,6 +178,18 @@ def parse_args():
                         help='''Used if --viz. Extra 'unset' directives to
                         gnuplotlib. Can be given multiple times''')
 
+    parser.add_argument('--force', '-f',
+                        action='store_true',
+                        default=False,
+                        help='''By default existing models on disk are not
+                        overwritten. Pass --force to overwrite them without
+                        complaint''')
+    parser.add_argument('--outdir',
+                        type=lambda d: d if os.path.isdir(d) else \
+                        parser.error(f"--outdir requires an existing directory as the arg, but got '{d}'"),
+                        help='''Directory to write the output into. If omitted,
+                        we use the directory of the input model''')
+
     parser.add_argument('--num-trials',
                         type    = int,
                         default = 1,
@@ -235,12 +250,29 @@ except:
 
 m = mrcal.cameramodel(args.model)
 
+
+if args.model == '-':
+    # Input read from stdin. Write output to stdout
+    filename_output = sys.stdout
+else:
+    if args.outdir is None:
+        filename_base,extension = os.path.splitext(args.model)
+        filename_output = f"{filename_base}-{lensmodel_to}{extension}"
+    else:
+        f,extension             = os.path.splitext(args.model)
+        directory,filename_base = os.path.split(f)
+        filename_output = f"{args.outdir}/{filename_base}-{lensmodel_to}{extension}"
+
+    if os.path.isfile(filename_output) and not args.force:
+        print(f"WARNING: '{filename_output}' already exists. Not overwriting this file. Pass -f to overwrite")
+        sys.exit(1)
+
+
 lensmodel_from = m.intrinsics()[0]
 
 if lensmodel_from == lensmodel_to:
-    sys.stderr.write("Input and output have the same lens model: {}. Returning the input\n".format(lensmodel_to))
+    sys.stderr.write(f"Input and output have the same lens model {lensmodel_from}. Nothing to do")
     sys.stderr.write("RMS error of the solution: 0 pixels.\n")
-    m.write(sys.stdout)
     sys.exit(0)
 
 
@@ -504,7 +536,10 @@ note = \
     format(time.strftime("%Y-%m-%d %H:%M:%S"),
            ' '.join(mrcal.shellquote(s) for s in sys.argv))
 
-m_to.write(sys.stdout, note=note)
+m_to.write(filename_output, note=note)
+if isinstance(filename_output, str):
+    print(f"Wrote '{filename_output}'")
+
 
 if args.viz:
 

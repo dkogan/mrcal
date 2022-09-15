@@ -101,6 +101,13 @@ represent the bulk of the changes.
   $\sqrt{\frac{\left\Vert \vec x \right\Vert^2}{N_\mathrm{measurement}}$. So now
   the reported RMS error is just $\mathrm{Var} \left( \vec x \right)$
 
+- The [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool has nicer commandline options:
+  - The =--viz= output plot can be controlled and written to disk by passing
+    =--set=, =--unset=, =--hardcopy=, etc. Same as with the
+    [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]].
+  - The output model is written to a file on disk instead of to stdout. This is
+    incompatible with previously behavior, but is much nicer
+
 * Migration notes 2.1 -> 2.2
 The vast majority of existing usage remains the same, but some updates described
 above will require a code change:
@@ -124,3 +131,6 @@ above will require a code change:
 
 - The [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] function API was changed. If you're
   using this, please see the documentation
+
+- The [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool writes the output model to a file on disk,
+  not to stdout as it has previously. New usage will need to be adjusted
