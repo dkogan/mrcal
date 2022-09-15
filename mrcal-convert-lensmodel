@@ -144,6 +144,36 @@ def parse_args():
     parser.add_argument('--viz',
                         action='store_true',
                         help='''Visualize the differences between the input and output models''')
+    parser.add_argument('--title',
+                        type=str,
+                        default = None,
+                        help='''Used if --viz. Title string for the diff plot.
+                        Overrides the default title. Exclusive with
+                        --extratitle''')
+    parser.add_argument('--extratitle',
+                        type=str,
+                        default = None,
+                        help='''Used if --viz. Additional string for the plot to
+                        append to the default title. Exclusive with --title''')
+    parser.add_argument('--hardcopy',
+                        type=str,
+                        help='''Used if --viz. Write the diff output to disk,
+                        instead of making an interactive plot''')
+    parser.add_argument('--terminal',
+                        type=str,
+                        help=r'''Used if --viz. gnuplotlib terminal. The default
+                        is good almost always, so most people don't need this
+                        option''')
+    parser.add_argument('--set',
+                        type=str,
+                        action='append',
+                        help='''Used if --viz. Extra 'set' directives to
+                        gnuplotlib. Can be given multiple times''')
+    parser.add_argument('--unset',
+                        type=str,
+                        action='append',
+                        help='''Used if --viz. Extra 'unset' directives to
+                        gnuplotlib. Can be given multiple times''')
 
     parser.add_argument('--num-trials',
                         type    = int,
@@ -160,7 +190,14 @@ def parse_args():
                         type=str,
                         help='''Input camera model. If "-' is given, we read standard input''')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.title      is not None and \
+       args.extratitle is not None:
+        print("--title and --extratitle are exclusive", file=sys.stderr)
+        sys.exit(1)
+
+    return args
 
 args = parse_args()
 
@@ -470,11 +507,28 @@ note = \
 m_to.write(sys.stdout, note=note)
 
 if args.viz:
+
+    plotkwargs_extra = {}
+    if args.set is not None:
+        plotkwargs_extra['set'] = args.set
+    if args.unset is not None:
+        plotkwargs_extra['unset'] = args.unset
+
+    if args.title is not None:
+        plotkwargs_extra['title'] = args.title
+    if args.extratitle is not None:
+        plotkwargs_extra['extratitle'] = args.extratitle
+
     plot,_ = mrcal.show_projection_diff( (m, m_to),
                                          distance     = args.distance,
                                          cbmax        = 4,
                                          gridn_width  = None if args.gridn is None else args.gridn[0],
                                          gridn_height = None if args.gridn is None else args.gridn[1],
-                                         use_uncertainties = not args.sampled)
-    plot.wait()
+                                         use_uncertainties = not args.sampled,
+                                         hardcopy     = args.hardcopy,
+                                         terminal     = args.terminal,
+                                         **plotkwargs_extra)
+    if args.hardcopy is None:
+        plot.wait()
+
 
