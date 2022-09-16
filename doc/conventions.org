@@ -146,8 +146,8 @@ Each of these represents a transformation =rotate(x) + t=.
 
 Since a pose represents a transformation between two coordinate systems, the
 toolkit generally refers to a pose as something like =Rt_AB=, which is an
-=Rt=-represented transformation to convert a point from a representation in the
-coordinate system =B= to a representation in coordinate system =A=.
+=Rt=-represented transformation to convert a point to a representation in the
+coordinate system =A= from a representation in coordinate system =B=.
 
 A Rodrigues rotation vector =r= represents a rotation of =length(r)= radians
 around an axis in the direction =r=. Converting between =R= and =r= is done via
@@ -161,11 +161,11 @@ rotating a vector using a rotation matrix is a matrix-vector multiplication
 operation: $\vec b = R \vec a$ where both $\vec a$ and $\vec b$ are column
 vectors.
 
-However, numpy print vectors (1-dimensional objects), as /row/ vectors, so the
+However, numpy prints vectors (1-dimensional objects), as /row/ vectors, so the
 code treats 1-dimensional objects as transposed vectors. In the code, the above
 rotation would be implemented equivalently: $\vec b^T = \vec a^T R^T$. The
-[[file:mrcal-python-api-reference.html#-rotate_point_R][=mrcal.rotate_point_R()=]] and [[file:mrcal-python-api-reference.html#-transform_point_Rt][=mrcal.transform_point_Rt()=]] functions serve to
-handle this transparently.
+[[file:mrcal-python-api-reference.html#-rotate_point_R][=mrcal.rotate_point_R()=]] and [[file:mrcal-python-api-reference.html#-transform_point_Rt][=mrcal.transform_point_Rt()=]] functions handle this
+transparently.
 
 A similar issue is that numpy follows the linear algebra convention of indexing
 arrays with =(index_row, index_column)= and representing array sizes with
