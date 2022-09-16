@@ -47,7 +47,12 @@ optimized by passing --intrinsics-only. Also, if --sampled then we fit the
 extrinsics off 3D points, not just observation directions. The distance from the
 camera to the fitting points is set by --distance. Set this to the distance
 where you expect the intrinsics to have the most accuracy. This is only needed
-if --sampled and not --intrinsics-only.
+if --sampled and not --intrinsics-only. Note that the geometric transform
+computed from --sampled --distance could be aphysically large, since these
+solves often do not constrain the problem sufficiently. This often happens if
+the requested --distance is much larger than the distance of the chessboards at
+calibration time. The resulting transform is printed on the console, do pay
+attention to it.
 
 We need to consider that the model we're trying to fit may not fit the original
 model in all parts of the imager. Usually this is a factor when converting
@@ -553,6 +558,10 @@ else:
         implied_Rt10 = mrcal.identity_Rt()
     else:
         implied_Rt10 = mrcal.Rt_from_rt(extrinsics_rt_fromref_best)
+
+if args.sampled and not args.intrinsics_only:
+    implied_rt10 = mrcal.rt_from_Rt(implied_Rt10)
+    print(f"Transformation cam_fitted <-- cam_input:  rotation: {nps.mag(implied_rt10[:3])*180./np.pi:.03f} degrees, translation: {implied_rt10[3:]} m")
 
 
 m_to.extrinsics_Rt_fromref( mrcal.compose_Rt( implied_Rt10,
