@@ -898,7 +898,19 @@ for i in range(Nimages):
             cv2.StereoSGBM_create(minDisparity      = disp_min,
                                   numDisparities    = disp_max - disp_min,
                                   **kwargs)
-        disparity = stereo.compute(*images_rectified)
+
+        # opencv barfs if I give it a color image and a monochrome image, so I
+        # convert
+        if len(images_rectified[0].shape) == 2 and \
+           len(images_rectified[1].shape) == 3:
+            disparity = stereo.compute(images_rectified[0],
+                                       cv2.cvtColor(images_rectified[1], cv2.COLOR_BGR2GRAY))
+        elif len(images_rectified[0].shape) == 3 and \
+             len(images_rectified[1].shape) == 2:
+            disparity = stereo.compute(cv2.cvtColor(images_rectified[0], cv2.COLOR_BGR2GRAY),
+                                       images_rectified[1])
+        else:
+            disparity = stereo.compute(*images_rectified)
 
     elif args.stereo_matcher == 'ELAS':
 
