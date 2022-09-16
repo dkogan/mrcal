@@ -160,7 +160,7 @@ ARGUMENTS
 - pixels_per_deg_az: optional value for the azimuth resolution of the rectified
   image. If a resultion of >0 is requested, the value is used as is. If a
   resolution of <0 is requested, we use this as a scale factor on the resolution
-  of the input image. For instance, to downsample by a factor of 2, pass
+  of the first input image. For instance, to downsample by a factor of 2, pass
   pixels_per_deg_az = -0.5. By default, we use -1: the resolution of the input
   image at the center of the rectified system. The value we end up with can be
   retrieved in the metadata dict by passing return_metadata = True

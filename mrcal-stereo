@@ -67,11 +67,11 @@ To pan the stereo system, pass --az0-deg and/or --el0-deg. These specify the
 center of the rectified images, and are optional.
 
 Finally, the resolution of the rectified images is given with --pixels-per-deg.
-This is optional, and defaults to the resolution of the input images. If we want
-to scale the input resolution, pass a value <0. For instance, to generate
-rectified images at half the input resolution, pass --pixels-per-deg=-0.5. Note
-that the Python argparse has a problem with negative numbers, so
-"--pixels-per-deg -0.5" does not work.
+This is optional, and defaults to the resolution of the first input image. If we
+want to scale the input resolution, pass a value <0. For instance, to generate
+rectified images at half the first-input-image resolution, pass
+--pixels-per-deg=-0.5. Note that the Python argparse has a problem with negative
+numbers, so "--pixels-per-deg -0.5" does not work.
 
 The input images are specified by a pair of globs, so we can process many images
 with a single call. Each glob is expanded, and the filenames are sorted. The
@@ -159,9 +159,9 @@ def parse_args():
                         values (az,el) or a single value to be applied to both
                         axes. If a resolution of >0 is requested, the value is
                         used as is. If a resolution of <0 is requested, we use
-                        this as a scale factor on the resolution of the input
-                        image. For instance, to downsample by a factor of 2,
-                        pass -0.5. By default, we use -1 for both axes: the
+                        this as a scale factor on the resolution of the first
+                        input image. For instance, to downsample by a factor of
+                        2, pass -0.5. By default, we use -1 for both axes: the
                         resolution of the input image at the center of the
                         rectified system.''')
     parser.add_argument('--rectification',
@@ -369,7 +369,7 @@ def parse_args():
             args.pixels_per_deg = l
         except:
             print("""Argument-parsing error:
-  --pixels_per_deg requires RESX,RESY or RESXY, where RES... is a value <0 or >0""",
+  --pixels_per_deg requires "RESX,RESY" or "RESXY", where RES... is a value <0 or >0""",
                   file=sys.stderr)
             sys.exit(1)
 
