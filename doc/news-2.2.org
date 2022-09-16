@@ -102,11 +102,13 @@ represent the bulk of the changes.
   the reported RMS error is just $\mathrm{Var} \left( \vec x \right)$
 
 - The [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool has nicer commandline options:
+
   - The =--viz= output plot can be controlled and written to disk by passing
     =--set=, =--unset=, =--hardcopy=, etc. Same as with the
     [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]].
   - The output model is written to a file on disk instead of to stdout. This is
     incompatible with previously behavior, but is much nicer
+  - =--radius= and =--where= work even without =--sampled=
 
 - [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] and [[file:mrcal-python-api-reference.html#-seed_stereographic][=mrcal.seed_stereographic()=]] can accept multiple
   estimates for focal length: one estimate per camera. Useful in seeding
