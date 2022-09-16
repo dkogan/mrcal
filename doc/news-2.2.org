@@ -108,6 +108,10 @@ represent the bulk of the changes.
   - The output model is written to a file on disk instead of to stdout. This is
     incompatible with previously behavior, but is much nicer
 
+- [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] and [[file:mrcal-python-api-reference.html#-seed_stereographic][=mrcal.seed_stereographic()=]] can accept multiple
+  estimates for focal length: one estimate per camera. Useful in seeding
+  calibration problems containing multiple disparate cameras
+
 * Migration notes 2.1 -> 2.2
 The vast majority of existing usage remains the same, but some updates described
 above will require a code change:

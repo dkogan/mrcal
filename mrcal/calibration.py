@@ -1301,8 +1301,12 @@ ARGUMENTS
   shape (Ncameras,2) or a tuple of tuples or a mix of the two
 
 - focal_estimate: an initial estimate of the focal length of the cameras, in
-  pixels. For the purposes of the initial estimate we use the same focal length
-  value for both the x and y focal length of ALL the cameras
+  pixels. For the purposes of the initial estimate we assume the same focal
+  length value for both the x and y focal length. This argument can be
+
+  - a scalar: this is applied to all the cameras
+  - an iterable of length 1: this value is applied to all the cameras
+  - an iterable of length Ncameras: each camera uses a different value
 
 - indices_frame_camera: an array of shape (Nobservations,2) and dtype
   numpy.int32. Each row (iframe,icam) represents an observation of a
@@ -1347,6 +1351,26 @@ We return a tuple:
 
     '''
 
+    Ncameras = len(imagersizes)
+
+    try:
+        Nfocal = len(focal_estimate)
+    except:
+        # scalar
+        Nfocal = 1
+        focal_estimate = (focal_estimate,)
+
+    if Nfocal == 1:
+        focal_estimate = focal_estimate * Ncameras
+    elif Nfocal == Ncameras:
+        # already good
+        pass
+    else:
+        raise Exception(f"Ncameras mismatch: len(imagersizes) = {Ncameras} but len(focal_estimate) = {len(focal_estimate)}")
+
+
+    # Done. focal_estimate is now an iterable length Ncameras
+
     # I compute an estimate of the poses of the calibration object in the local
     # coord system of each camera for each frame. This is done for each frame
     # and for each camera separately. This isn't meant to be precise, and is
@@ -1356,9 +1380,11 @@ We return a tuple:
     # produces the calibration object points in the coord system of the camera.
     # The result has dimensions (N,4,3)
     intrinsics = [('LENSMODEL_STEREOGRAPHIC',
-                   np.array((focal_estimate,focal_estimate,
-                             (imagersize[0]-1.)/2,(imagersize[1]-1.)/2,))) \
-                  for imagersize in imagersizes]
+                   np.array((focal_estimate[icam],
+                             focal_estimate[icam],
+                             (imagersizes[icam][0]-1.)/2,
+                             (imagersizes[icam][1]-1.)/2,))) \
+                  for icam in range(Ncameras)]
 
     calobject_poses_local_Rt_cf = \
         mrcal.estimate_monocular_calobject_poses_Rt_tocam( indices_frame_camera,

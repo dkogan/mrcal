@@ -61,11 +61,15 @@ def parse_args():
                         unless we have a --seed. See http://mrcal.secretsauce.net/how-to-calibrate.html
                         for notes about how to select a model''')
     parser.add_argument('--focal',
-                        type=positive_float,
-                        help=r'''Initial estimate of the focal length, in pixels. Required unless --seed is
-                        given. See
+                        type=str,
+                        help=r'''Initial estimate of the focal length, in
+                        pixels. Required unless --seed is given. See
                         http://mrcal.secretsauce.net/how-to-calibrate.html for
-                        notes about how to estimate a focal length''')
+                        notes about how to estimate a focal length. This is
+                        either a single value to use for all the cameras, or a
+                        comma-separated whitespace-less list of values to use
+                        for each camera. If such a list is given, it must match
+                        the number of cameras being calibrated''')
     parser.add_argument('--imagersize',
                         nargs=2,
                         type=int,
@@ -493,12 +497,30 @@ if Ncameras > 10:
     raise Exception("Got {} image globs. It should be one glob per camera, and this sounds like WAY too many cameras. Did you forget to escape your glob?". \
                     format(Ncameras))
 
+try:
+    args.focal = [ float(f.strip()) for f in args.focal.split(',') ]
+except:
+    print(f"--focal must be given a positive floating-point value, or a comma-separated list of such values",
+          file=sys.stderr)
+    sys.exit(1)
+if not all(f>0 for f in args.focal):
+    print("--focal must be given a POSITIVE floating-point value, or a comma-separated list of such values. Some weren't positive",
+          file=sys.stderr)
+    sys.exit(1)
+
+if not (len(args.focal) == 1 or \
+        len(args.focal) == Ncameras):
+    print(f"--focal must be a single value, or a comma-separated list of exactly Ncameras such values. Received Ncameras={Ncameras} image globs and {len(args.focal)} focal lengths",
+          file=sys.stderr)
+    sys.exit(1)
+
+
 if args.pairs and Ncameras % 2:
     raise Exception(f"With --pairs I must have gotten an even number of cameras, but instead got {Ncameras}")
 
 if args.seed:
 
-    if args.focal:
+    if args.focal is not None:
         raise Exception("Exactly one of --focal and --seed MUST be given")
 
 
@@ -531,7 +553,7 @@ if args.seed:
 
 
 else:
-    if not args.focal:
+    if args.focal is None:
         raise Exception("Exactly one of --focal and --seed MUST be given")
 
     if not args.lensmodel:
