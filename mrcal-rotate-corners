@@ -1,0 +1,178 @@
+#!/bin/bash
+
+# Takes a processed corners.vnl result, and rotates some of the chessboard
+# observations. Used if some of the cameras in the calibrated set were mounted
+# sideways or upside-down
+
+
+
+# Option parsing is the adapted sample in
+# /usr/share/doc/util-linux/examples/getopt-example.bash
+
+usage="
+  < corners.vnl                        \\
+  mrgingham-rotate-corners [--gridn N] \\
+    --90  REGEX_CAM_90deg              \\
+    --180 REGEX_CAM_180deg             \\
+    --270 REGEX_CAM_270deg             \\
+    [... more rotation selections ...] \\
+  > corners-rotated.vnl
+
+Adjust mrgingham corner detections from rotated cameras
+
+Synopsis:
+
+  # camera A is rightside-up
+  # camera B is mounted sideways
+  # cameras C,D are upside-down
+  mrgingham --gridn N                \\
+    'frame*-cameraA.jpg'             \\
+    'frame*-cameraB.jpg'             \\
+    'frame*-cameraC.jpg'             \\
+    'frame*-cameraD.jpg' |           \\
+  mrgingham-rotate-corners --gridn N \\
+    --90 cameraB --180 'camera[CD]'
+
+The mrgingham chessboard detector finds a chessboard in an image, but it has no
+way to know whether the detected chessboard was upside-down or otherwise
+rotated: the chessboard itself has no detectable marking to make this clear. In
+the usual case, the cameras as all mounted in the same orientation, so they all
+detect the same orientation of the chessboard, and there is no problem. However,
+if some cameras are mounted sideways or upside-down, the sequence of corners
+will correspond to different corners between the cameras with different
+orientations. This can be addressed by this tool. This tool ingests mrgingham
+detections, and outputs them after correcting the chessboard observations
+produced by rotated cameras.
+
+Each rotation option is an awk regular expression used to select images from
+specific cameras. The regular expression is tested against the image filenames.
+Each rotation option may be given multiple times. Any files not matched by any
+rotation option are passed through unrotated.
+"
+
+ARGS=$(getopt -n $0 -l help,gridn:,90:,180:,270: -o "h" -- "$@")
+
+if [ $? -ne 0 ]; then
+	echo "Usage: $usage" > /dev/stderr
+	exit 1
+fi
+
+eval set -- "$ARGS"
+unset ARGS
+
+
+gridn=10
+cam_rotate90=()
+cam_rotate180=()
+cam_rotate270=()
+
+while true; do
+	case "$1" in
+            '--help'|'-h')
+                echo "Usage: $usage"
+                exit 0
+                ;;
+            '--gridn')
+                gridn=$2
+                shift 2
+                continue
+                ;;
+            '--90')
+                cam_rotate90+=($2)
+                shift 2
+                ;;
+            '--180')
+                cam_rotate180+=($2)
+                shift 2
+                ;;
+            '--270')
+                cam_rotate270+=($2)
+                shift 2
+                ;;
+            '--')
+                shift
+                break
+                ;;
+            *)
+                echo "Error parsing options!" > /dev/stderr
+                exit 1
+                ;;
+        esac
+done
+
+if (( $# )); then
+    echo "Extra arguments given" > /dev/stderr
+    echo "Usage: $usage"         > /dev/stderr
+    exit 1
+fi
+
+cam_rotate90_select_expression="0"
+for f in ${cam_rotate90[@]}; do
+    cam_rotate90_select_expression+=" || filename ~ \"$f\""
+done
+cam_rotate180_select_expression="0"
+for f in ${cam_rotate180[@]}; do
+    cam_rotate180_select_expression+=" || filename ~ \"$f\""
+done
+cam_rotate270_select_expression="0"
+for f in ${cam_rotate270[@]}; do
+    cam_rotate270_select_expression+=" || filename ~ \"$f\""
+done
+
+Nx=$gridn
+Ny=$gridn
+Nxy=$((Nx*Ny))
+
+ICORNER_FUNCTION="
+if(filename!=filename_prev) {
+
+  N=ithis+1
+  if(!(N == 0 || N == 1 || N == $Nxy)) {
+    print \"# File '\"filename\"': expected \"$Nxy\" points but received \"N;
+    failed=1;
+    exit 1
+  }
+
+  ithis =0;
+  ithisx=0;
+  ithisy=0;
+  filename_prev=filename;
+}
+else {
+  ithis++;
+  ithisx++;
+  if(ithisx == $Nx) {
+    ithisx = 0;
+    ithisy++;
+  }
+}
+i++;
+
+if($cam_rotate90_select_expression)
+  return (i - ithis) + ($Nx-1-ithisx)*$Ny + ithisy;
+if($cam_rotate270_select_expression)
+  return (i - ithis) + ithisx*$Ny + ($Ny-1-ithisy);
+if($cam_rotate180_select_expression)
+  return (i - ithis) + ($Nx*$Ny-1 - ithis);
+return i;
+"
+
+END_EXPRESSION="
+  N=ithis+1
+  if(!failed && !(N == 0 || N == 1 || N == $Nxy)) {
+    print \"# The last file in the data file expected \"$Nxy\" points but received \"N;
+    exit 1
+  }
+"
+
+
+vnl-filter \
+  --skipcomments \
+  --begin '{i = -1}' \
+  --end "$END_EXPRESSION" \
+  --sub "icorner() { $ICORNER_FUNCTION }" \
+  -p icorner='icorner()',. \
+| vnl-sort -nk icorner \
+| vnl-filter -p '!icorner'
+
+exit ${PIPESTATUS[0]}
