@@ -128,7 +128,7 @@ if(filename!=filename_prev) {
 
   N=ithis+1
   if(!(N == 0 || N == 1 || N == $Nxy)) {
-    print \"# File '\"filename\"': expected \"$Nxy\" points but received \"N;
+    print \"# File '\"filename\"': expected \"$Nxy\" points but received \"N > \"/dev/stderr\";
     failed=1;
     exit 1
   }
@@ -160,7 +160,7 @@ return i;
 END_EXPRESSION="
   N=ithis+1
   if(!failed && !(N == 0 || N == 1 || N == $Nxy)) {
-    print \"# The last file in the data file expected \"$Nxy\" points but received \"N;
+    print \"# The last file in the data file expected \"$Nxy\" points but received \"N > \"/dev/stderr\";
     exit 1
   }
 "
