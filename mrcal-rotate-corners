@@ -126,39 +126,38 @@ Nxy=$((Nx*Ny))
 ICORNER_FUNCTION="
 if(filename!=filename_prev) {
 
-  N=ithis+1
+  N=i+1
   if(!(N == 0 || N == 1 || N == $Nxy)) {
     print \"# File '\"filename\"': expected \"$Nxy\" points but received \"N > \"/dev/stderr\";
     failed=1;
     exit 1
   }
 
-  ithis =0;
-  ithisx=0;
-  ithisy=0;
+  i =0;
+  ix=0;
+  iy=0;
   filename_prev=filename;
 }
 else {
-  ithis++;
-  ithisx++;
-  if(ithisx == $Nx) {
-    ithisx = 0;
-    ithisy++;
+  i++;
+  ix++;
+  if(ix == $Nx) {
+    ix = 0;
+    iy++;
   }
 }
-i++;
 
 if($cam_rotate90_select_expression)
-  return (i - ithis) + ($Nx-1-ithisx)*$Ny + ithisy;
+  return ($Nx-1-ix)*$Ny + iy;
 if($cam_rotate270_select_expression)
-  return (i - ithis) + ithisx*$Ny + ($Ny-1-ithisy);
+  return ix*$Ny + ($Ny-1-iy);
 if($cam_rotate180_select_expression)
-  return (i - ithis) + ($Nx*$Ny-1 - ithis);
+  return ($Nx*$Ny-1 - i);
 return i;
 "
 
 END_EXPRESSION="
-  N=ithis+1
+  N=i+1
   if(!failed && !(N == 0 || N == 1 || N == $Nxy)) {
     print \"# The last file in the data file expected \"$Nxy\" points but received \"N > \"/dev/stderr\";
     exit 1
@@ -168,11 +167,10 @@ END_EXPRESSION="
 
 vnl-filter \
   --skipcomments \
-  --begin '{i = -1}' \
   --end "$END_EXPRESSION" \
   --sub "icorner() { $ICORNER_FUNCTION }" \
   -p icorner='icorner()',. \
-| vnl-sort -nk icorner \
+| vnl-sort -k filename -k icorner.n \
 | vnl-filter -p '!icorner'
 
 exit ${PIPESTATUS[0]}
