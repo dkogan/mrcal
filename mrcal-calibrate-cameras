@@ -695,7 +695,7 @@ for icam in range(len(models)):
     filename_base = \
         f'{args.outdir}/camera{icam//2}-{icam%2}' \
         if args.pairs \
-        else f'{args.outdir}/camera-{icam}
+        else f'{args.outdir}/camera-{icam}'
 
     cameramodelfile = filename_base + '.cameramodel'
     models[icam].write(cameramodelfile,
