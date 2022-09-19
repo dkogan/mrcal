@@ -26,6 +26,7 @@ For older distros I currently distribute packages for
 
 - Debian/buster
 - Debian/bullseye
+- Ubuntu/jammy (22.04 LTS)
 - Ubuntu/focal (20.04 LTS)
 - Ubuntu/bionic (18.04 LTS)
 
@@ -39,6 +40,7 @@ where =DISTRO= is one of
 
 - =buster=
 - =bulleye=
+- =jammy=
 - =focal=
 - =bionic=
 
