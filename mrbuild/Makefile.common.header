@@ -82,9 +82,11 @@ ifneq ($(DEB_HOST_MULTIARCH),)
 import ast
 import sys
 
-for d in sys.path:
+prefixes = ("_sysconfigdata_", "_sysconfigdata_m_linuxqq")
+sysconfig_paths = [d + "/" + prefix + "_$(DEB_HOST_MULTIARCH).py" for d in sys.path for prefix in prefixes]
+for filename in sysconfig_paths:
     try:
-        f = open(d + "/_sysconfigdata__$(DEB_HOST_MULTIARCH).py")
+        f = open(filename)
     except:
         continue
 
@@ -94,7 +96,7 @@ for d in sys.path:
     conf = ast.literal_eval(s)
     break
 else:
-    raise Exception("Could not find \"_sysconfigdata__$(DEB_HOST_MULTIARCH).py\" in any sys.path directories")
+    raise Exception("Could not find sysconfig file in any sys.path directories. Tried: {}".format(sysconfig_paths))
 endef
 
 else
