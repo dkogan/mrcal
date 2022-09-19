@@ -10,10 +10,6 @@ SYNOPSIS
     ## image is now a numpy array of shape (height,width) containing the
     ## pixel data
 
-    ... process to create image_output array ...
-
-    mrcal.save_image("result.png", image_output)
-
 This is a completely uninteresting image-loading routine. It's like any other
 image-loading routine out there; use any that you like. This exists because cv2
 is very slow.

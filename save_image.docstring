@@ -2,17 +2,15 @@ Save a numpy array to an image on disk
 
 SYNOPSIS
 
-    image = \
-        mrcal.load_image("scene.jpg",
-                         bpp      = 8,
-                         channels = 1)
+    print(image.shape)
+    ---> (768, 1024, 3)
 
-    ## image is now a numpy array of shape (height,width) containing the
-    ## pixel data
+    print(image.dtype)
+    ---> dtype('uint8')
 
-    ... process to create image_output array ...
+    mrcal.save_image("result.png", image)
 
-    mrcal.save_image("result.png", image_output)
+    # wrote BGR color image to disk
 
 This is a completely uninteresting image-saving routine. It's like any other
 image-saving routine out there; use any that you like. This exists because cv2
