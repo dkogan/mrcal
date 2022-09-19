@@ -27,9 +27,18 @@ bool generic_save(const char* filename,
 {
     bool result = false;
 
+    FIBITMAP* fib = NULL;
+
     // This may actually be a different mrcal_image_xxx_t type, but all the
     // fields line up anyway
     const mrcal_image_uint8_t* image = (const mrcal_image_uint8_t*)_image;
+
+    if(image->w == 0 || image->h == 0)
+    {
+        MSG("Asked to save an empty image: dimensions (%d,%d)!",
+            image->w, image->h);
+        goto done;
+    }
 
 
     // I would like to avoid copying the image buffer by reusing the data, and
@@ -49,12 +58,12 @@ bool generic_save(const char* filename,
     // This function should not be modifying its input, and fighting this isn't
     // worth my time. So I let freeimage make a copy of the image, and then muck
     // around with the new buffer however much it likes.
-    FIBITMAP* fib = FreeImage_ConvertFromRawBits( (BYTE*)image->data,
-                                                  image->width, image->height, image->stride,
-                                                  bits_per_pixel,
-                                                  0,0,0,
-                                                  // Top row is stored first
-                                                  true);
+    fib = FreeImage_ConvertFromRawBits( (BYTE*)image->data,
+                                        image->width, image->height, image->stride,
+                                        bits_per_pixel,
+                                        0,0,0,
+                                        // Top row is stored first
+                                        true);
 
     FREE_IMAGE_FORMAT format = FreeImage_GetFIFFromFilename(filename);
     if(format == FIF_UNKNOWN)
