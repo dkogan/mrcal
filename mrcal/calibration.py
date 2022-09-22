@@ -199,8 +199,7 @@ which mrcal.optimize() expects
         if corners_cache_vnl is not None and \
            not reading_pipe              and \
            os.path.isdir(corners_cache_vnl):
-            raise Exception("Given cache path '{}' is a directory. Must be a file or must not exist". \
-                            format(corners_cache_vnl))
+            raise Exception(f"Given cache path '{corners_cache_vnl}' is a directory. Must be a file or must not exist")
 
         if corners_cache_vnl is None or \
            ( not reading_pipe and \
@@ -229,7 +228,7 @@ which mrcal.optimize() expects
                 # be writing incomplete results, so I write to a temporary file
                 # and then rename when done
                 pipe_corners_write_fd,pipe_corners_write_tmpfilename = mkstemp('.vnl')
-                sys.stderr.write("Will save corners to '{}'\n".format(corners_cache_vnl))
+                sys.stderr.write(f"Will save corners to '{corners_cache_vnl}'\n")
 
             corners_output = subprocess.Popen(args_mrgingham, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                               encoding='ascii')
@@ -378,7 +377,7 @@ which mrcal.optimize() expects
 
             if corners_output.wait() != 0:
                 err = corners_output.stderr.read()
-                raise Exception("mrgingham failed: {}".format(err))
+                raise Exception(f"mrgingham failed: {err}")
             if pipe_corners_write_fd is not None:
                 os.close(pipe_corners_write_fd)
                 shutil.move(pipe_corners_write_tmpfilename, corners_cache_vnl)
@@ -801,7 +800,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
             return mrcal.invert_Rt(Rt)
 
         if icam_to == icam_from:
-            raise Exception("Got icam_to == icam_from ( = {} ). This was probably a mistake".format(icam_to))
+            raise Exception(f"Got icam_to == icam_from ( = {icam_to} ). This was probably a mistake")
 
         # Now I KNOW that icam_from > icam_to
 
@@ -839,8 +838,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
             # icam_to, so I take advantage of that here
             if icam_this == icam_to:
                 if Rt0 is not None:
-                    raise Exception("Saw multiple camera{} observations in frame {}".format(icam_this,
-                                                                                            iframe_this))
+                    raise Exception(f"Saw multiple camera{icam_this} observations in frame {iframe_this}")
                 Rt0 = calobject_poses_local_Rt_cf[i_observation, ...]
                 d0  = observations[i_observation, ..., :2]
             elif icam_this == icam_from:
@@ -848,8 +846,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
                     continue
 
                 if Rt1 is not None:
-                    raise Exception("Saw multiple camera{} observations in frame {}".format(icam_this,
-                                                                                            iframe_this))
+                    raise Exception(f"Saw multiple camera{icam_this} observations in frame {iframe_this}")
                 Rt1 = calobject_poses_local_Rt_cf[i_observation, ...]
                 d1  = observations[i_observation, ..., :2]
 
@@ -1011,8 +1008,8 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
 
     if any([x is None for x in Rt_0c]):
         raise Exception("ERROR: Don't have complete camera observations overlap!\n" +
-                        ("Past-camera-0 Rt:\n{}\n".format(Rt_0c))                   +
-                        ("Shared observations matrix:\n{}\n".format(shared_frames)))
+                        f"Past-camera-0 Rt:\n{Rt_0c}\n"                             +
+                        f"Shared observations matrix:\n{shared_frames}\n")
 
 
     return np.ascontiguousarray(nps.cat(*Rt_0c))
