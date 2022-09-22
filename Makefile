@@ -120,7 +120,8 @@ $(ALL_NPSP_O): CFLAGS += -Wno-array-bounds
 mrcal-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $(PY_MRBUILD_LDFLAGS) $< -lmrcal -o $@
-
+# Needed on Debian. Unnecessary, but harmless on Arch Linux
+mrcal-pywrap.o: CFLAGS += -I/usr/include/suitesparse
 PYTHON_OBJECTS := mrcal-pywrap.o $(ALL_NPSP_O)
 
 # In the python api I have to cast a PyCFunctionWithKeywords to a PyCFunction,
