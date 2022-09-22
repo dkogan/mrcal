@@ -210,14 +210,17 @@ which mrcal.optimize() expects
 
             # Need to compute the dot coords. And maybe need to save them into a
             # cache file too
-            if W != 10 or H != 10:
-                raise Exception("mrgingham currently accepts ONLY 10x10 grids")
+            if W != H:
+                if corners_cache_vnl is None:
+                    raise Exception(f"No corners cache file given, so we need to run mrgingham to compute them. mrgingham currently accepts ONLY square grids, but we were asked for a {W}x{H} grid")
+                else:
+                    raise Exception(f"Requested corners cache file '{corners_cache_vnl}' doesn't exist, so we need to run mrgingham to compute them. mrgingham currently accepts ONLY square grids, but we were asked for a {W}x{H} grid")
 
             if weight_column_kind == 'weight':
                 raise Exception("Need to run mrgingham, so I will get a column of decimation levels, but weight_column_kind == 'weight'")
 
-            args_mrgingham = ['mrgingham', '--jobs',
-                              str(jobs)]
+            args_mrgingham = ['mrgingham', '--jobs', str(jobs),
+                              '--gridn', str(W)]
             args_mrgingham.extend(globs_per_camera)
 
             sys.stderr.write("Computing chessboard corners by running:\n   {}\n". \
