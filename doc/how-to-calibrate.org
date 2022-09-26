@@ -33,10 +33,12 @@ granted either.
 Calibrating wide lenses generally requires large chessboards, to fill the field
 of view as much as possible. I use a square chessboard roughly 1m per side to
 calibrate my fisheye lenses. A big chessboard such as this is never completely
-rigid or completely flat, so my board is backed with 2.5cm of foam. This is
-fairly flat and rigid. The board does warp with variations in temperature and
-humidity, but this is slow, and the shape is usually stable long-enough for a
-chessboard dance.
+rigid or completely flat, so I have a chessboard backed by about 1 inch of
+aluminum honeycomb. This is expensive, but works well. The previous board I was
+using is backed with 2.5cm of foam instead. This is significantly cheaper, and
+still pretty good, but noticeably less flat and rigid. The board does warp with
+variations in temperature and humidity, but this is slow, and the shape is
+usually stable long-enough for a chessboard dance.
 
 According to the [[file:tour-choreography.org][dance study]], we want close-ups that fill the imager, so we want
 a smaller board next to the camera in favor of a bigger board further away. The
@@ -73,7 +75,7 @@ everything remain stationary during image capture, even when only one camera is
 involved.
 
 If synchronization or rolling shutter effects are in doubt, look at the residual
-plot made by =show_residuals_board_observation_worst()= (a sample and a
+plot made by the [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] tool (a sample and a
 description appear below). These errors clearly show up as distinct patterns in
 those plots.
 
@@ -183,11 +185,8 @@ if the board is rotated diagonally, then none of these sequences are clearly
 ** Using a non-mrgingham detector
 If we use a grid detector other than mrgingham, we need to produce a compatible
 =corners.vnl= file. This is a [[https://www.github.com/dkogan/vnlog][=vnlog=]] (text table) where each row describes a
-single corner detection. The whole chessboard is described by a sequence of
-these corner detections, listed in a /consistent/ grid order.
-
-This file should contain 3 or 4 columns. The first 3
-columns:
+single corner detection. This file should contain 3 or 4 columns. The first 3
+columns are:
 
 - =filename=: the path to a chessboard image
 - =x=, =y=: pixel coordinates of a detected corner
@@ -212,8 +211,20 @@ detection of that particular corner. It may be either
 
 If no 4th column is present, we assume an even weight of 1.0 for all the points.
 
-Images where no chessboard was detected should be omitted, or represented with a
-single record:
+The whole chessboard is described by a sequence of these corner detections,
+listed in a /consistent/ grid order. Each chessboard image is represented by
+either $N_\mathrm{width} N_\mathrm{height}$ observations records or a single
+record
+
+#+begin_example
+FILENAME - - -
+#+end_example
+
+to represent images with no detected corners. An image with incomplete
+detections should /still/ contain $N_\mathrm{width} N_\mathrm{height}$ records
+in the same consistent order. The missing corners should be given with any =x=,
+=y=, but with $\mathrm{weight} \leq 0$ or =-=. The record could be completely
+null:
 
 #+begin_example
 FILENAME - - -
@@ -305,22 +316,17 @@ the optimization]]. How many images produced successful corner detections?
 $ < corners.vnl vnl-filter --has x -p filename | uniq | grep -v '#' | wc -l
 
 161
-
-
-$ < corners.vnl vnl-filter x=='"-"' -p filename | uniq | grep -v '#' | wc -l
-
-114
 #+end_example
 
-So we have 161 images with detected corners, and 114 images where a full
-chessboard wasn't found. Most of the misses are probably images where the
-chessboard wasn't entirely in view, but some could be failures of mrgingham. In
-any case, 161 observations is usually plenty.
+So here we have 161 images with detected corners. Most of the misses are
+probably images where the chessboard wasn't entirely in view, but some could be
+failures of mrgingham. In any case, 161 observations is usually plenty.
 
 * Computing a calibration
 :PROPERTIES:
 :CUSTOM_ID: interpreting-results
 :END:
+
 Here I follow the same calibration sequence as in the [[file:tour-initial-calibration.org][tour of mrcal]], but with a
 bit more detail.
 
@@ -365,8 +371,7 @@ D=~/projects/mrcal-doc-external
   initially, as a sanity check. And once that looks OK, to move to
   [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get better accuracy and reliable
   [[file:uncertainty.org][uncertainty reporting]]. For /very/ wide fisheye lenses,
-  [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] is the only model that will work at all, so
-  start directly there if you have an ultra-fisheye lens.
+  [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] is the only model that will work at all.
 
 - =--focal 1700= provides the initial estimate for the camera focal lengths, in
   pixels. This doesn't need to be precise, but do try to get this roughly
@@ -449,26 +454,30 @@ error was 0.7 pixels. Of the 16100 corner observations (161 observations of the
 board with 10*10 = 100 points each), 155 didn't fit the model well-enough, and
 were thrown out as [[file:formulation.org::#outlier-rejection][outliers]].
 
-High outlier counts or high reprojection errors would indicate that the model
-mrcal is using does not fit the data well. That would suggest some/all of
-these:
+High outlier counts or high reprojection errors would indicate high model
+errors: the model mrcal is using does not fit the data well. That would suggest
+some/all of these:
 
 - Issues in the input data, such as incorrectly-detected chessboard corners,
-  unsynchronized cameras, rolling shutter, motion blur, focus issues, etc. Keep
-  reading for ways to get more insight
+  unsynchronized cameras, rolling shutter, motion blur, focus issues, unstable
+  lens, etc.
 - A badly-fitting lens model. For instance =LENSMODEL_OPENCV4= will not fit wide
-  lenses. And only [[file:splined-models.org][splined lens models]] will fit fisheye lenses all the way in
+  lenses. And only [[file:splined-models.org][splined lens models]] will fit fisheye lenses all the way to
   the corners
+- A badly-fitting chessboard model: is the chessboard flat? If not, does it
+  follow the [[file:formulation.org::#board-deformation][deformation model]] well?
 
-Outlier rejection resolves these up to a point, but if at all possible, it is
+Outlier rejection will throw out the worst-fitting data, but these model errors
+will still cause an uncorrectable bias in the results. If at all possible, it is
 strongly recommended to fix whatever is causing the problem, and then to re-run
 the solve.
 
-In this example the [[file:formulation.org::#board-deformation][board flex]] was computed as 1.0mm horizontally, and 0.5mm
-vertically in the opposite direction. That is a small deflection, and sounds
-reasonable. A way to validate this, would be to get another set of chessboard
-images, to rerun the solve, and compare the new flex values to the old ones.
-From experience, these are usually consistent.
+In this example the [[file:formulation.org::#board-deformation][board deformation]] was computed as 1.0mm horizontally, and
+0.5mm vertically in the opposite direction. That is a small deflection, and
+sounds reasonable. A way to validate this, would be to get another set of
+chessboard images, to rerun the solve, and compare the new flex values to the
+old ones. From experience, if things are working properly, these results are
+usually consistent.
 
 What does the solve think about our geometry? Does it match reality?
 

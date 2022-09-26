@@ -22,6 +22,7 @@ Functions to manipulate [[file:conventions.org::#pose-representation][rotations 
 - [[file:mrcal-python-api-reference.html#-invert_R][=mrcal.invert_R()=]]: Invert an (3,3) matrix rotation. This is a transpose
 - [[file:mrcal-python-api-reference.html#-invert_Rt][=mrcal.invert_Rt()=]]: Invert an Rt transformation
 - [[file:mrcal-python-api-reference.html#-invert_rt][=mrcal.invert_rt()=]]: Invert an rt transformation
+- [[file:mrcal-python-api-reference.html#-compose_r][=mrcal.compose_r()=]]: Compose Rodrigues rotations
 - [[file:mrcal-python-api-reference.html#-compose_Rt][=mrcal.compose_Rt()=]]: Compose Rt transformations
 - [[file:mrcal-python-api-reference.html#-compose_rt][=mrcal.compose_rt()=]]: Compose rt transformations
 - [[file:mrcal-python-api-reference.html#-rotate_point_r][=mrcal.rotate_point_r()=]]: Rotate point(s) using a Rodrigues vector
@@ -30,6 +31,8 @@ Functions to manipulate [[file:conventions.org::#pose-representation][rotations 
 - [[file:mrcal-python-api-reference.html#-transform_point_Rt][=mrcal.transform_point_Rt()=]]: Transform point(s) using an Rt transformation
 - [[file:mrcal-python-api-reference.html#-R_from_quat][=mrcal.R_from_quat()=]]: Convert a rotation defined as a unit quaternion rotation to a rotation matrix
 - [[file:mrcal-python-api-reference.html#-quat_from_R][=mrcal.quat_from_R()=]]: Convert a rotation defined as a rotation matrix to a unit quaternion
+- [[file:mrcal-python-api-reference.html#-Rt_from_qt][=mrcal.Rt_from_qt()=]]: Compute an Rt transformation from a qt transformation
+- [[file:mrcal-python-api-reference.html#-qt_from_Rt][=mrcal.qt_from_Rt()=]]: Compute a qt transformation from an Rt transformation
 
 ** Alignment
 - [[file:mrcal-python-api-reference.html#-align_procrustes_points_Rt01][=mrcal.align_procrustes_points_Rt01()=]]: Compute a rigid transformation to align two point clouds
@@ -94,7 +97,7 @@ These are all backends for the corresponding [[file:commandline-tools.org][comma
 These are used by routines implementing a [[file:formulation.org][camera calibration]] system. Most users
 will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool instead of calling these.
 
-- [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]]: Compute the chessboard observations and returns them in a usable form
+- [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]]: Compute or read the chessboard observations, and return them in a usable form
 - [[file:mrcal-python-api-reference.html#-estimate_monocular_calobject_poses_Rt_tocam][=mrcal.estimate_monocular_calobject_poses_Rt_tocam()=]]: Estimate camera-referenced poses of the calibration object from monocular views
 - [[file:mrcal-python-api-reference.html#-estimate_joint_frame_poses][=mrcal.estimate_joint_frame_poses()=]]: Estimate world-referenced poses of the calibration object
 - [[file:mrcal-python-api-reference.html#-seed_stereographic][=mrcal.seed_stereographic()=]]: Compute an optimization seed for a camera calibration
@@ -122,6 +125,7 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 - [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]]: Construct pixel mappings to transform captured
   images into rectified images
 - [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]]: Compute ranges from observed disparities
+- [[file:mrcal-python-api-reference.html#-stereo_unproject][=mrcal.stereo_unproject()=]]: Compute a point cloud from observed disparities
 - [[file:mrcal-python-api-reference.html#-match_feature][=mrcal.match_feature()=]]: Find a pixel correspondence in a pair of images
 - [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]]: Triangulate N points with uncertainty propagation. This
   is a higher-level function than the other =mrcal.triangulate_...()= routines
@@ -183,7 +187,7 @@ Functions to interpret the contentes of the [[file:formulation.org][state and me
 
 * State packing
 The optimization routine works in the [[file:formulation.org::#state-packing][space of scaled parameters]], and several
-functions are available to pack/unpack the state vector $\vec p$.
+functions are available to pack/unpack the state vector $\vec b$.
 
 - [[file:mrcal-python-api-reference.html#-pack_state][=mrcal.pack_state()=]]: Scales a state vector to the packed, unitless form used by the optimizer
 - [[file:mrcal-python-api-reference.html#-unpack_state][=mrcal.unpack_state()=]]: Scales a state vector from the packed, unitless form used by the optimizer
@@ -218,6 +222,15 @@ arguments. The available methods:
 - [[file:mrcal-python-api-reference.html#cameramodel-icam_intrinsics][=mrcal.cameramodel.icam_intrinsics()=]]: Get the camera index indentifying this
   camera at optimization time. Used in conjunction with
   [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs][=mrcal.cameramodel.optimization_inputs()=]]
+
+* Image reading/writing
+mrcal includes simple functions for reading/writing images. These aren't
+interesting, or better than any other functions you may have already. These
+exist because they're faster than loading the opencv module and to make life
+easy for those that don't already have other functions handy.
+
+- [[file:mrcal-python-api-reference.html#-load_image][=mrcal.load_image()=]]: load an image from a file on disk into a numpy array
+- [[file:mrcal-python-api-reference.html#-save_image][=mrcal.save_image()=]]: save an image in a numpy array to a file on disk
 
 * Miscellaneous utilities
 - [[file:mrcal-python-api-reference.html#-hypothesis_board_corner_positions][=mrcal.hypothesis_board_corner_positions()=]]: Reports the coordinates of chessboard

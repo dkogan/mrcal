@@ -2,23 +2,141 @@
 #+OPTIONS: toc:nil
 
 * New in mrcal 2.2
-mrcal-stereo --viz
 
-build update: I can cross-compile
+This is a mostly-maintenance release. Many bugs were fixed. Many things were
+cleaned up. Lots of internal updates to pave the way for big future features.
+/Some/ new features and nice improvements in /this/ release also, but they don't
+represent the bulk of the changes.
 
-quaternion support improved:
+** Stereo processing
 
-quat_from_R() improved
-R_from_quat() improved
-qt_from_Rt() new
-Rt_from_qt() new
-pq_from_Rt() removed
-Rt_from_pq() removed
+- The [[file:mrcal-stereo.html][=mrcal-stereo=]] tool includes an interactive, graphical visualizer,
+  accessed with =mrcal-stereo --viz stereo=. This allows the user to quickly
+  assess the quality of the stereo result, the ranges, epipolar misalignment,
+  and sensitivity to errors. Requires [[https://pyfltk.sourceforge.io/][pyfltk]] and [[https://github.com/dkogan/GL_image_display][GL_image_display]]
 
+- Since the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool now has multiple visualizers, the
+  =--show-geometry= option has been renamed to =--viz geometry=
+
+- The [[file:mrcal-stereo.html][=mrcal-stereo=]] tool can write out a point cloud in the [[https://en.wikipedia.org/wiki/PLY_(file_format)][=.ply= format]] if
+  invoked with the =--write-point-cloud= option
+
+- The [[file:mrcal-stereo.html][=mrcal-stereo=]] tool can use the [[https://www.cvlibs.net/software/libelas/][libelas stereo matcher]] instead of the
+  default [[https://docs.opencv.org/4.x/d2/d85/classcv_1_1StereoSGBM.html][SGBM matcher in OpenCV]] if invoked with =--stereo-matcher ELAS=.
+  Requires [[https://www.cvlibs.net/software/libelas/][libelas]].
+
+- The [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]] function can accept scalar disparities
+
+- Added [[file:mrcal-python-api-reference.html#-stereo_unproject][=mrcal.stereo_unproject()=]] function to compute 3D points directly,
+  instead of explicitly calling [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]] first
+
+- The [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] function returns an additional dict of metadata
+  if invoked with =return_metadata = True=. This is useful to determine the
+  computed stereo resolution and field-of-view parameters
+
+** [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.py][=poseutils=]]
+
+- The =pq= transform representation was replaced with the [[file:conventions.org::#pose-representation][=qt= representation]],
+  which is analogous to the [[file:conventions.org::#pose-representation][=rt= representation]]. Consequently the
+  =mrcal.pq_from_Rt()=, =mrcal.Rt_from_pq()= functions have been replaced with
+  [[file:mrcal-python-api-reference.html#-qt_from_Rt][=mrcal.qt_from_Rt()=]], [[file:mrcal-python-api-reference.html#-Rt_from_qt][=mrcal.Rt_from_qt()=]] functions. These are available only
+  in the Python layer.
+
+- [[file:mrcal-python-api-reference.html#-quat_from_R][=mrcal.quat_from_R()=]] and [[file:mrcal-python-api-reference.html#-R_from_quat][=mrcal.R_from_quat()=]] are now implemented in C,
+  broadcast fully, and support in-place output. Like the rest of the
+  [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.py][=poseutils=]]. These are available only in the Python layer.
+
+- Added [[file:mrcal-python-api-reference.html#-compose_r][=mrcal.compose_r()=]] function for direct composition of [[https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Rotation_vector][Rodrigues
+  rotations]], /without/ transforming to a rotation matrix first. This is
+  available in both the Python and C layers
+
+- Added [[file:mrcal-python-api-reference.html#-skew_symmetric][=mrcal.skew_symmetric()=]] function for a matrix-multiplication-based
+  cross-product. This is available only in the Python layer
+
+** Other
+
+- Most functions in the Python API now accept non-essential arguments as
+  keywords only. Most common usages should remain functional, but code that used
+  too many positional arguments in calls will need to be ported. This will
+  increase the readability of that code, and this change makes it easier to
+  maintain API compatibility in the future
+
+- The [[file:conventions.org::#symbols-optimization][variable convention used for the optimization state]] changed to $\vec b$
+  from $\vec p$. Previously, $\vec p$ was used to denote both optimization state
+  and points in space, with this ambiguity being clear from context. However,
+  too many times we'd see a situation where this /wasn't/ clear from context.
+  Renaming this clears up the ambiguity. This isn't a functional change, but
+  affects lots of documentation, comments and variable names.
+
+- Added [[file:mrcal-python-api-reference.html#-load_image][=mrcal.load_image()=]] and [[file:mrcal-python-api-reference.html#-save_image][=mrcal.save_image()=]] functions to both the
+  Python and C APIs. These aren't special in any way, but are convenient, and
+  allow us to avoid OpenCV, which is slow and massive. Requires [[https://freeimage.sourceforge.io/][libfreeimage]]
+
+- The [[file:mrcal-python-api-reference.html#-mrcal-triangulate][=mrcal.mrcal-triangulate()=]] tool now has a =--clahe= option to apply
+  equalization to the input images prior to processing
+
+- The [[file:mrcal-python-api-reference.html#-ref_calibration_object][=mrcal.ref_calibration_object()=]] function can accept different spacings in
+  the horizontal and vertical directions
+
+- The [[file:mrcal-python-api-reference.html#-ref_calibration_object][=mrcal.ref_calibration_object()=]] function can broadcast over
+  =object_spacing= and =calobject_warp=
+
+- The code can be cross-built, if invoked from the Debian build tools
+  (=DEB_HOST_MULTIARCH= and the compiler and linker environment variables set)
+
+- The [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] function API was cleaned up. Many
+  arguments have different names, and most of them are only accepted as
+  keywords. The =weight_column_kind= argument must be one of ='level'= or
+  ='weight'= or =None=.
+
+- The =mrcal-to-cameramodel= tool was renamed to [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]] to make it
+  easier to support future format converters.
+
+- The [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool now reports its "RMS error" as the RMS
+  error of the measurement vector. Each pixel observation produces 2 measurement
+  values: the error in $x$ and $y$. Prior to this release I reported the RMS
+  error treating such a pair as /one/ value: $\sqrt{\frac{\left\Vert \vec x
+  \right\Vert^2}{\frac{N_\mathrm{measurement}}{2}}}$. This was in conflict with
+  other parts of the code, so now I report this as two separate values:
+  $\sqrt{\frac{\left\Vert \vec x \right\Vert^2}{N_\mathrm{measurement}}$. So now
+  the reported RMS error is just $\mathrm{Var} \left( \vec x \right)$
+
+- The [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool has nicer commandline options:
+
+  - The =--viz= output plot can be controlled and written to disk by passing
+    =--set=, =--unset=, =--hardcopy=, etc. Same as with the
+    [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]].
+  - The output model is written to a file on disk instead of to stdout. This is
+    incompatible with previously behavior, but is much nicer
+  - =--radius= and =--where= work even without =--sampled=
+
+- [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] and [[file:mrcal-python-api-reference.html#-seed_stereographic][=mrcal.seed_stereographic()=]] can accept multiple
+  estimates for focal length: one estimate per camera. Useful in seeding
+  calibration problems containing multiple disparate cameras
 
 * Migration notes 2.1 -> 2.2
-This is a /very/ minor release, and is 99.9% compatible. The only incompatible
-update:
+The vast majority of existing usage remains the same, but some updates described
+above will require a code change:
 
-- Replace pq_from_Rt(),Rt_from_pq() with qt_from_Rt(),Rt_from_qt()
+- Most of the Python API functions now use keyword-only arguments for the
+  non-essential arguments. Any calls that used too many positional arguments
+  will need to be clarified with keywords
 
+- =mrcal.pq_from_Rt()= calls must be replaced with [[file:mrcal-python-api-reference.html#-qt_from_Rt][=mrcal.qt_from_Rt()=]], and the
+  caller must use the [[file:conventions.org::#pose-representation][=qt= transform representation]]
+
+- =mrcal.Rt_from_pq()= calls must be replaced with [[file:mrcal-python-api-reference.html#-Rt_from_qt][=mrcal.Rt_from_qt()=]], and the
+  caller must use the [[file:conventions.org::#pose-representation][=qt= transform representation]]
+
+- =mrcal-stereo --show-geometry= is now invoked as =mrcal-stereo --viz geometry=
+
+- The =mrcal-to-cameramodel= tool was renamed to [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]]
+
+- A C header was renamed: =basic_geometry.h= -> [[https://www.github.com/dkogan/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]], requiring an
+  =#include= update
+
+- The [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] function API was changed. If you're
+  using this, please see the documentation
+
+- The [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool writes the output model to a file on disk,
+  not to stdout as it has previously. New usage will need to be adjusted

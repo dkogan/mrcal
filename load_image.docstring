@@ -1,0 +1,45 @@
+Load an image from disk into a numpy array
+
+SYNOPSIS
+
+    image = \
+        mrcal.load_image("scene.jpg",
+                         bits_per_pixel = 8,
+                         channels       = 1)
+
+    ## image is now a numpy array of shape (height,width) containing the
+    ## pixel data
+
+This is a completely uninteresting image-loading routine. It's like any other
+image-loading routine out there; use any that you like. This exists because cv2
+is very slow.
+
+This wraps the mrcal_image_TYPE_load() functions. At this time I support only
+these 3 data formats:
+
+- bits_per_pixel = 8,  channels = 1: 8-bit grayscale data
+- bits_per_pixel = 16, channels = 1: 16-bit grayscale data
+- bits_per_pixel = 24, channels = 3: BGR color data
+
+With the exception of 16-bit grayscale data, the load function will convert the
+input image to the requested format. At this time, loading 16-bit grayscale data
+requires that the input image matches that format.
+
+If the bits_per_pixel, channels arguments are omitted or set to <= 0, we will
+load the image in whatever format it appears on disk.
+
+ARGUMENTS
+
+- filename: the image on disk to load
+
+- bits_per_pixel: optional integer describing the requested bit depth. Must be 8
+  or 16 or 24. If omitted or <= 0, we use the bit depth of the image on disk
+
+- channels: optional integer describing the number of channels in the image.
+  Integer. Must be 1 or 3. If omitted or <= 0, we use the channel count of the
+  image on disk
+
+RETURNED VALUE
+
+A numpy array containing the pixel data
+

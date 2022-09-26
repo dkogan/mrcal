@@ -2,8 +2,6 @@
 
 # The test suite no longer runs in parallel, but it ALWAYS tries to run all the
 # tests, even without 'make -k'
-#
-# ANY --do-sample MUST APPEAR AT THE END to make TESTS_NOSAMPLING work
 TESTS :=										\
   test/test-pywrap-functions.py								\
   test/test-pylib-projections.py							\
@@ -35,8 +33,10 @@ TESTS :=										\
   test/test-match-feature.py								\
   test/test-triangulation.py								\
   test/test-uncertainty-broadcasting.py__--q-calibration-stdev__0.3__--q-observation-stdev__0.3__--q-observation-stdev-correlation__0.5 \
-  test/test-parser-cameramodel                                                      \
-  test/test-extrinsics_moved_since_calibration.py
+  test/test-parser-cameramodel                                                          \
+  test/test-extrinsics_moved_since_calibration.py                                       \
+  test/test-broadcasting.py								\
+  test/test-compute-chessboard-corners-parsing.py
 
 # triangulation-uncertainty tests. Lots and lots of tests to exhaustively try
 # out different scenarios
@@ -60,11 +60,10 @@ TESTS_TRIANGULATION_UNCERTAINTY := $(TESTS_TRIANGULATION_UNCERTAINTY) \
 
 # TESTS_TRIANGULATION_UNCERTAINTY not included in TESTS yet, so TESTS_NOSAMPLING
 # includes none of those
-TESTS_NOSAMPLING := $(filter-out %do-sample,$(TESTS))
-
+TESTS_NOSAMPLING := $(foreach t,$(TESTS),$(if $(filter --do-sample,$(subst __, ,$t)),,$t))
 TESTS := $(TESTS) $(TESTS_TRIANGULATION_UNCERTAINTY)
 
-# "make test"				-> TESTS
+# "make test-all"			-> TESTS
 # "make test-nosampling"		-> TESTS_NOSAMPLING
 # "make test-triangulation-uncertainty" -> TESTS_TRIANGULATION_UNCERTAINTY
 define test_set
@@ -79,5 +78,5 @@ $(TESTS_ALL_TARGETS): all
 .PHONY: $(TESTS_ALL_TARGETS)
 
 test:
-	@echo "Which test set should we run? I know about '$(TESTS_ALL_TARGETS)" >> /dev/stderr; false
+	@echo "Which test set should we run? I know about '$(TESTS_ALL_TARGETS)'" >> /dev/stderr; false
 .PHONY: test

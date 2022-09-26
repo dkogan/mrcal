@@ -15,6 +15,7 @@ import os
 import mrcal
 
 def show_geometry(models_or_extrinsics_rt_fromref,
+                  *,
                   cameranames                 = None,
                   cameras_Rt_plot_ref         = None,
                   frames_rt_toref             = None,
@@ -385,7 +386,8 @@ plot
 
 
         calobject_ref = mrcal.ref_calibration_object(object_width_n, object_height_n,
-                                                     object_spacing, calobject_warp)
+                                                     object_spacing,
+                                                     calobject_warp = calobject_warp)
 
         # object in the ref coord system.
         # shape (Nframes, object_height_n, object_width_n, 3)
@@ -435,11 +437,11 @@ plot
         if point_labels is not None:
 
             # all the non-fixed point indices
-            ipoint_not = np.ones( (len(points),), dtype=bool)
-            ipoint_not[np.array(list(point_labels.keys()))] = False
+            ipoint_not_labeled = np.ones( (len(points),), dtype=bool)
+            ipoint_not_labeled[np.array(list(point_labels.keys()))] = False
 
             return \
-                [ (points[ipoint_not],
+                [ (points[ipoint_not_labeled],
                    dict(tuplesize = -3,
                         _with = 'points',
                         legend = 'points')) ] + \
@@ -557,7 +559,8 @@ def _options_heatmap_with_contours( # update these
               _with=_with)
 
 
-def fitted_gaussian_equation(binwidth,
+def fitted_gaussian_equation(*,
+                             binwidth,
                              x     = None,
                              mean  = None,
                              sigma = None,
@@ -687,6 +690,7 @@ String passable to gnuplotlib in the 'equation' or 'equation_above' plot option
 
 
 def show_projection_diff(models,
+                         *,
                          gridn_width  = 60,
                          gridn_height = None,
 
@@ -917,7 +921,8 @@ A tuple:
 
     # Now do all the actual work
     difflen,diff,q0,Rt10 = mrcal.projection_diff(models,
-                                                 gridn_width, gridn_height,
+                                                 gridn_width       = gridn_width,
+                                                 gridn_height      = gridn_height,
                                                  intrinsics_only   = intrinsics_only,
                                                  distance          = distance,
                                                  use_uncertainties = use_uncertainties,
@@ -1038,6 +1043,10 @@ A tuple:
 
         _2d = bool(vectorfield)
 
+        optimization_inputs = [ m.optimization_inputs() for m in models ]
+        if any( oi is None for oi in optimization_inputs ):
+            raise Exception("mrcal.show_projection_diff(observations=True) requires optimization_inputs to be available for all models, but this is missing for some models")
+
         for i in range(len(models)):
 
             m = models[i]
@@ -1046,7 +1055,7 @@ A tuple:
             p_cam_calobjects_inliers, \
             p_cam_calobjects_outliers = \
                 mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
-                                                        **m.optimization_inputs())[-3:]
+                                                        **optimization_inputs[i])[-3:]
             q_cam_calobjects = \
                 mrcal.project( p_cam_calobjects,          *m.intrinsics() )
             q_cam_calobjects_inliers = \
@@ -1104,6 +1113,7 @@ A tuple:
 
 
 def show_projection_uncertainty(model,
+                                *,
                                 gridn_width             = 60,
                                 gridn_height            = None,
 
@@ -1262,6 +1272,11 @@ plot
                                        atinfinity      = distance is None,
                                        what            = 'rms-stdev' if isotropic else 'worstdirection-stdev',
                                        observed_pixel_uncertainty = observed_pixel_uncertainty)
+
+    # Any nan or inf uncertainty is set to a very high value. This usually
+    # happens if the unproject() call failed, resulting in pcam == 0
+    err[~np.isfinite(err)] = 1e6
+
     if 'title' not in kwargs:
         if distance is None:
             distance_description = ". Looking out to infinity"
@@ -1363,7 +1378,7 @@ plot
 
 # should be able to control the distance range here
 def show_projection_uncertainty_vs_distance(model,
-
+                                            *,
                                             where        = "centroid",
                                             isotropic    = False,
                                             extratitle   = None,
@@ -1528,6 +1543,7 @@ plot
 
 
 def show_distortion_off_pinhole_radial(model,
+                                       *,
                                        show_fisheye_projections = False,
                                        extratitle               = None,
                                        return_plot_args         = False,
@@ -1715,6 +1731,7 @@ plot
 
 
 def show_distortion_off_pinhole(model,
+                                *,
                                 vectorfield              = False,
                                 vectorscale              = 1.0,
                                 cbmax                    = 25.0,
@@ -1874,6 +1891,7 @@ plot
 
 
 def show_valid_intrinsics_region(models,
+                                 *,
                                  cameranames      = None,
                                  image            = None,
                                  points           = None,
@@ -2018,6 +2036,7 @@ A tuple:
 
 
 def show_splined_model_correction(model,
+                                  *,
                                   vectorfield             = False,
                                   xy                      = None,
                                   imager_domain           = False,
@@ -2455,18 +2474,18 @@ plot
     return (data_tuples, plot_options)
 
 
-def annotate_image__valid_intrinsics_region(image, model, color=(0,255,0)):
+def annotate_image__valid_intrinsics_region(image, model, *, color=(0,255,0)):
     r'''Annotate an image with a model's valid-intrinsics region
 
 SYNOPSIS
 
     model = mrcal.cameramodel('cam0.cameramodel')
 
-    image = cv2.imread('image.jpg')
+    image = mrcal.load_image('image.jpg')
 
     mrcal.annotate_image__valid_intrinsics_region(image, model)
 
-    cv2.imwrite('image-annotated.jpg', image)
+    mrcal.save_image('image-annotated.jpg', image)
 
 This function reads a valid-intrinsics region from a given camera model, and
 draws it on top of a given image. This is useful to see what parts of a captured
@@ -2576,6 +2595,7 @@ The 'using' string.
 
 def show_residuals_board_observation(optimization_inputs,
                                      i_observation,
+                                     *,
                                      from_worst                       = False,
                                      i_observations_sorted_from_worst = None,
                                      residuals                        = None,
@@ -2817,6 +2837,7 @@ plot
 def show_residuals_histogram(optimization_inputs,
                              i_cam            = None,
                              residuals        = None,
+                             *,
                              binwidth         = 0.02,
                              extratitle       = None,
                              return_plot_args = False,
@@ -2995,6 +3016,7 @@ def _get_show_residuals_data_onecam(model,
 
 def show_residuals_vectorfield(model,
                                residuals               = None,
+                               *,
                                vectorscale             = 1.0,
                                valid_intrinsics_region = True,
                                extratitle              = None,
@@ -3105,6 +3127,7 @@ plot
 
 def show_residuals_magnitudes(model,
                               residuals               = None,
+                              *,
                               valid_intrinsics_region = True,
                               extratitle              = None,
                               return_plot_args        = False,
@@ -3207,6 +3230,7 @@ plot
 
 def show_residuals_directions(model,
                               residuals               = None,
+                              *,
                               valid_intrinsics_region = True,
                               extratitle              = None,
                               return_plot_args        = False,
@@ -3329,9 +3353,10 @@ plot
 
 
 def show_residuals_regional(model,
+                            residuals               = None,
+                            *,
                             gridn_width             = 20,
                             gridn_height            = None,
-                            residuals               = None,
                             valid_intrinsics_region = True,
                             extratitle              = None,
                             return_plot_args        = False,
@@ -3497,7 +3522,7 @@ SYNOPSIS
     ===>
     dtype('uint8')
 
-    cv2.imwrite('data.png', image_colorcoded)
+    mrcal.save_image('data.png', image_colorcoded)
 
 This is very similar to cv2.applyColorMap() but more flexible in several
 important ways. Differences:

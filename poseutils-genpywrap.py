@@ -691,6 +691,133 @@ for that function for details. This internal function differs from compose_Rt():
 '''},
 )
 
+m.function( "_compose_r",
+            """Compose two angle-axis rotations
+
+This is an internal function. You probably want mrcal.compose_r(). See the docs
+for that function for details. This internal function differs from compose_r():
+
+- It supports exactly two arguments, while compose_r() can compose N rotations
+
+- It never reports gradients
+""",
+
+            args_input       = ('r0', 'r1'),
+            prototype_input  = ((3,), (3,)),
+            prototype_output = (3,),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_compose_r_full( (double*)data_slice__output,
+                           strides_slice__output[0],
+                           NULL,0,0,
+                           NULL,0,0,
+                           (const double*)data_slice__r0,
+                           strides_slice__r0[0],
+                           (const double*)data_slice__r1,
+                           strides_slice__r1[0] );
+    return true;
+'''},
+)
+
+m.function( "_compose_r_withgrad",
+            """Compose two angle-axis rotations; return (r,dr/dr0,dr/dr1)
+
+This is an internal function. You probably want mrcal.compose_r(). See the docs
+for that function for details. This internal function differs from compose_r():
+
+- It supports exactly two arguments, while compose_r() can compose N rotations
+
+- It always reports gradients
+
+""",
+
+            args_input       = ('r0', 'r1'),
+            prototype_input  = ((3,), (3,)),
+            prototype_output = ((3,), (3,3),(3,3)),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_compose_r_full( (double*)data_slice__output0,
+                           strides_slice__output0[0],
+
+                           // dr/dr0
+                           &item__output1(0,0),
+                           strides_slice__output1[0], strides_slice__output1[1],
+
+                           // dr/dr1
+                           &item__output2(0,0),
+                           strides_slice__output2[0], strides_slice__output2[1],
+
+                           (const double*)data_slice__r0,
+                           strides_slice__r0[0],
+                           (const double*)data_slice__r1,
+                           strides_slice__r1[0] );
+
+    return true;
+'''},
+)
+
+m.function( "compose_r_tinyr0_gradientr0",
+    r"""Special-case rotation composition for the uncertainty computation
+
+SYNOPSIS
+
+    r1 = rotation_axis1 * rotation_magnitude1
+
+    dr01_dr0 = compose_r_tinyr0_gradientr0(r1)
+
+    ### Another way to get the same thing (but possibly less efficiently)
+     _,dr01_dr0,_ = compose_r(np.zeros((3,),),
+                              r1,
+                              get_gradients=True)
+
+This is a special-case subset of compose_r(). It is the same, except:
+
+- r0 is assumed to be 0, so we don't ingest it, and we don't report the
+  composition result
+- we ONLY report the dr01/dr0 gradient
+
+This special-case function is a part of the projection uncertainty computation,
+so it exists by itself. See the documentation for compose_r() for all the
+details.
+
+ARGUMENTS
+
+- r1: the second of the two rotations being composed. The first rotation is an
+  identity, so it's not given
+
+- out: optional argument specifying the destination. By default, a new numpy
+  array(s) is created and returned. To write the results into an existing (and
+  possibly non-contiguous) array, specify it with the 'out' kwarg. 'out' is the
+  one numpy array we will write into
+
+RETURNED VALUE
+
+We return a single array: dr01/dr0
+
+""",
+
+            args_input       = ('r1',),
+            prototype_input  = ((3,),),
+            prototype_output = (3,3),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_compose_r_tinyr0_gradientr0_full(
+        // dr/dr0
+        &item__output(0,0),
+        strides_slice__output[0], strides_slice__output[1],
+        (const double*)data_slice__r1,
+        strides_slice__r1[0] );
+
+    return true;
+'''},
+)
+
 m.function( "_compose_rt",
             """Compose two rt transformations
 
@@ -879,6 +1006,68 @@ We return an array of rotation matrices. Each broadcasted slice has shape (3,3)
     item__output(2,0) =      2.*(ik-jr);
     item__output(2,1) =      2.*(jk+ir);
     item__output(2,2) = 1. - 2.*(ii+jj);
+
+    return true;
+'''}
+)
+
+m.function( "skew_symmetric",
+            r"""Return the skew-symmetric matrix used in a cross product
+
+SYNOPSIS
+
+    a = np.array(( 1.,  5.,  7.))
+    b = np.array(( 3., -.1, -10.))
+
+    A = mrcal.skew_symmetric(a)
+
+    print( nps.inner(A,b) )
+    ===>
+    [-49.3  31.  -15.1]
+
+    print( np.cross(a,b) )
+    ===>
+    [-49.3  31.  -15.1]
+
+A vector cross-product a x b can be represented as a matrix multiplication A*b
+where A is a skew-symmetric matrix based on the vector a. This function computes
+this matrix A from the vector a.
+
+This function supports broadcasting fully.
+
+ARGUMENTS
+
+- a: array of shape (3,)
+
+- out: optional argument specifying the destination. By default, new numpy
+  array(s) are created and returned. To write the results into existing (and
+  possibly non-contiguous) arrays, specify them with the 'out' kwarg. If 'out'
+  is given, we return the 'out' that was passed in. This is the standard
+  behavior provided by numpysane_pywrap.
+
+RETURNED VALUE
+
+We return the matrix A in a (3,3) numpy array
+
+    """,
+            args_input       = ('a',),
+            prototype_input  = ((3,),),
+            prototype_output = (3,3),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    // diagonal is zero
+    item__output(0,0) = 0.0;
+    item__output(1,1) = 0.0;
+    item__output(2,2) = 0.0;
+
+    item__output(0,1) = -item__a(2);
+    item__output(0,2) =  item__a(1);
+    item__output(1,0) =  item__a(2);
+    item__output(1,2) = -item__a(0);
+    item__output(2,0) = -item__a(1);
+    item__output(2,1) =  item__a(0);
 
     return true;
 '''}

@@ -13,20 +13,21 @@ import sys
 import re
 import mrcal
 
-def compute_chessboard_corners(Nw, Nh,
-                               globs             = ('*',),
+def compute_chessboard_corners(W, H,
+                               *,
+                               globs_per_camera  = ('*',),
                                corners_cache_vnl = None,
                                jobs              = 1,
                                exclude_images    = set(),
-                               extracol          = 'level'):
+                               weight_column_kind= 'level'):
     r'''Compute the chessboard observations and returns them in a usable form
 
 SYNOPSIS
 
     observations, indices_frame_camera, paths = \
         mrcal.compute_chessboard_corners(10, 10,
-                                         ('frame*-cam0.jpg','frame*-cam1.jpg'),
-                                         "corners.vnl")
+                                         globs_per_camera  = ('frame*-cam0.jpg','frame*-cam1.jpg'),
+                                         corners_cache_vnl = "corners.vnl")
 
 The input to a calibration problem is a set of images of a calibration object
 from different angles and positions. This function ingests these images, and
@@ -45,39 +46,41 @@ chessboard corner. The first 3 columns are
 
 If the 4th column is given, it usually is a 'level' or a 'weight'. It encodes
 the confidence we have in that corner, and the exact interpretation is dependent
-on the value of the 'extracol' argument. The output of this function is an array
-with a weight for each point, so the logic serves to convert the extra column to
-a weight.
+on the value of the 'weight_column_kind' argument. The output of this function
+is an array with a weight for each point, so the logic serves to convert the
+extra column to a weight.
 
-if extracol == 'level': the 4th column is a decimation level of the detected
-  corner. If we needed to cut down the image resolution to detect a corner, its
-  coordinates are known less precisely, and we use that information to weight
-  the errors appropriately later. We set the output weight = 1/2^level. If the
-  4th column is '-' or <0, the given point was not detected, and should be
-  ignored: we set weight = -1
+if weight_column_kind == 'level': the 4th column is a decimation level of the
+  detected corner. If we needed to cut down the image resolution to detect a
+  corner, its coordinates are known less precisely, and we use that information
+  to weight the errors appropriately later. We set the output weight =
+  1/2^level. If the 4th column is '-' or <0, the given point was not detected,
+  and should be ignored: we set weight = -1
 
-elif extracol == 'weight': the 4th column is already represented as a weight, so
-  I just copy it to the output. If the 4th column is '-' or <0, the given point
-  was not detected, and should be ignored: we set weight = -1
+elif weight_column_kind == 'weight': the 4th column is already represented as a
+  weight, so I just copy it to the output. If the 4th column is '-' or <=0, the
+  given point was not detected, and should be ignored: we set weight = -1
 
-else: I hard-code the output weight to 1.0
+elif weight_column_kind is None: I hard-code the output weight to 1.0. Any data
+  in the extra column is ignored
 
 ARGUMENTS
 
-- Nw, Nh: the width and height of the point grid in the calibration object we're
+- W, H: the width and height of the point grid in the calibration object we're
   using
 
-- globs: a list of strings, one per camera, containing globs matching the image
-  filenames for that camera. The filenames are expected to encode the
-  instantaneous frame numbers, with identical frame numbers implying
-  synchronized images. A common scheme is to name an image taken by frame C at
-  time T "frameT-camC.jpg". Then images frame10-cam0.jpg and frame10-cam1.jpg
-  are assumed to have been captured at the same moment in time by cameras 0 and
-  1. With this scheme, if you wanted to calibrate these two cameras together,
-  you'd pass ('frame*-cam0.jpg','frame*-cam1.jpg') in the "globs" argument.
+- globs_per_camera: a list of strings, one per camera, containing
+  globs_per_camera matching the image filenames for that camera. The filenames
+  are expected to encode the instantaneous frame numbers, with identical frame
+  numbers implying synchronized images. A common scheme is to name an image
+  taken by frame C at time T "frameT-camC.jpg". Then images frame10-cam0.jpg and
+  frame10-cam1.jpg are assumed to have been captured at the same moment in time
+  by cameras 0 and 1. With this scheme, if you wanted to calibrate these two
+  cameras together, you'd pass ('frame*-cam0.jpg','frame*-cam1.jpg') in the
+  "globs_per_camera" argument.
 
-  The "globs" argument may be omitted. In this case all images are mapped to the
-  same camera.
+  The "globs_per_camera" argument may be omitted. In this case all images are
+  mapped to the same camera.
 
 - corners_cache_vnl: the name of a file to use to read/write the detected
   corners; or a python file object to read data from. If the given file exists
@@ -97,7 +100,7 @@ ARGUMENTS
 
 - exclude_images: a set of filenames to exclude from reported results
 
-- extracol: an optional string, defaulting to 'level'. Selects the
+- weight_column_kind: an optional argument, defaulting to 'level'. Selects the
   interpretation of the 4th column describing each corner. Valid options are:
 
   - 'level': the 4th column is a decimation level. Level-0 means
@@ -107,7 +110,7 @@ ARGUMENTS
   - 'weight': the 4th column is already a weight; I copy it to the output. If
     the 4th column is '-' or <0, the given point was not detected, and should be
     ignored: we set output weight = -1
-  - '' the 4th column should be ignored, and I set the output weight to 1.0
+  - None: the 4th column should be ignored, and I set the output weight to 1.0
 
 RETURNED VALUES
 
@@ -131,10 +134,10 @@ which mrcal.optimize() expects
 
     '''
 
-    if not (extracol == 'level' or
-            extracol == 'weight' or
-            extracol == ''):
-        raise Exception(f"extracol must be one of ('level','weight',''); got '{extracol}")
+    if not (weight_column_kind == 'level' or
+            weight_column_kind == 'weight' or
+            weight_column_kind is None):
+        raise Exception(f"weight_column_kind must be one of ('level','weight',None); got '{weight_column_kind}'")
 
     import os
     import fnmatch
@@ -144,7 +147,7 @@ which mrcal.optimize() expects
     import io
     import copy
 
-    def get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude_images=set()):
+    def get_corner_observations(W, H, globs_per_camera, corners_cache_vnl, exclude_images=set()):
         r'''Return dot observations, from a cache or from mrgingham
 
         Returns a dict mapping from filename to a numpy array with a full grid
@@ -159,8 +162,9 @@ which mrcal.optimize() expects
             The corner coordinates are read from this file instead of being
             computed. We don't need to actually have the images stored on disk.
             Any image filenames mentioned in this cache file are matched against
-            the globs to decide which camera the image belongs to. If it matches
-            none of the globs, that image filename is silently ignored
+            the globs_per_camera to decide which camera the image belongs to. If
+            it matches none of the globs_per_camera, that image filename is
+            silently ignored
 
         If this file does not exist:
 
@@ -174,9 +178,9 @@ which mrcal.optimize() expects
         '''
 
         # Expand any ./ and // etc
-        globs = [os.path.normpath(g) for g in globs]
+        globs_per_camera = [os.path.normpath(g) for g in globs_per_camera]
 
-        Ncameras = len(globs)
+        Ncameras = len(globs_per_camera)
         files_per_camera = []
         for i in range(Ncameras):
             files_per_camera.append([])
@@ -195,8 +199,7 @@ which mrcal.optimize() expects
         if corners_cache_vnl is not None and \
            not reading_pipe              and \
            os.path.isdir(corners_cache_vnl):
-            raise Exception("Given cache path '{}' is a directory. Must be a file or must not exist". \
-                            format(corners_cache_vnl))
+            raise Exception(f"Given cache path '{corners_cache_vnl}' is a directory. Must be a file or must not exist")
 
         if corners_cache_vnl is None or \
            ( not reading_pipe and \
@@ -207,15 +210,18 @@ which mrcal.optimize() expects
 
             # Need to compute the dot coords. And maybe need to save them into a
             # cache file too
-            if Nw != 10 or Nh != 10:
-                raise Exception("mrgingham currently accepts ONLY 10x10 grids")
+            if W != H:
+                if corners_cache_vnl is None:
+                    raise Exception(f"No corners cache file given, so we need to run mrgingham to compute them. mrgingham currently accepts ONLY square grids, but we were asked for a {W}x{H} grid")
+                else:
+                    raise Exception(f"Requested corners cache file '{corners_cache_vnl}' doesn't exist, so we need to run mrgingham to compute them. mrgingham currently accepts ONLY square grids, but we were asked for a {W}x{H} grid")
 
-            if extracol == 'weight':
-                raise Exception("Need to run mrgingham, so I will get a column of decimation levels, but extracol == 'weight'")
+            if weight_column_kind == 'weight':
+                raise Exception("Need to run mrgingham, so I will get a column of decimation levels, but weight_column_kind == 'weight'")
 
-            args_mrgingham = ['mrgingham', '--jobs',
-                              str(jobs)]
-            args_mrgingham.extend(globs)
+            args_mrgingham = ['mrgingham', '--jobs', str(jobs),
+                              '--gridn', str(W)]
+            args_mrgingham.extend(globs_per_camera)
 
             sys.stderr.write("Computing chessboard corners by running:\n   {}\n". \
                              format(' '.join(mrcal.shellquote(s) for s in args_mrgingham)))
@@ -225,7 +231,7 @@ which mrcal.optimize() expects
                 # be writing incomplete results, so I write to a temporary file
                 # and then rename when done
                 pipe_corners_write_fd,pipe_corners_write_tmpfilename = mkstemp('.vnl')
-                sys.stderr.write("Will save corners to '{}'\n".format(corners_cache_vnl))
+                sys.stderr.write(f"Will save corners to '{corners_cache_vnl}'\n")
 
             corners_output = subprocess.Popen(args_mrgingham, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                               encoding='ascii')
@@ -244,28 +250,28 @@ which mrcal.optimize() expects
                         igrid        = 0,
                         Nvalidpoints = 0)
 
-        # The default weight is 1.0
-        context0['grid'] = np.ones( (Nh*Nw,3), dtype=float)
+        # Init the array to -1.0: everything is invalid
+        context0['grid'] = -np.ones( (H*W,3), dtype=float)
 
         context = copy.deepcopy(context0)
 
-        # relative-path globs: add explicit "*/" to the start
-        globs = [g if g[0]=='/' else '*/'+g for g in globs]
+        # relative-path globs_per_camera: add explicit "*/" to the start
+        globs_per_camera = [g if g[0]=='/' else '*/'+g for g in globs_per_camera]
 
         def finish_chessboard_observation():
             nonlocal context
 
             def accum_files(f):
                 for icam in range(Ncameras):
-                    if fnmatch.fnmatch(os.path.abspath(f), globs[icam]):
+                    if fnmatch.fnmatch(os.path.abspath(f), globs_per_camera[icam]):
                         files_per_camera[icam].append(f)
                         return True
                 return False
 
-            if context['igrid']:
-                if Nw*Nh != context['igrid']:
+            if context['igrid'] > 1:
+                if W*H != context['igrid']:
                     raise Exception("File '{}' expected to have {} points, but got {}". \
-                                    format(context['f'], Nw*Nh, context['igrid']))
+                                    format(context['f'], W*H, context['igrid']))
                 if context['f'] not in exclude_images and \
                    context['Nvalidpoints'] > 3:
                     # There is a bit of ambiguity here. The image path stored in
@@ -281,22 +287,19 @@ which mrcal.optimize() expects
                     else:
                         filename_canonical = os.path.join(corners_dir, context['f'])
                     if accum_files(filename_canonical):
-                        mapping[filename_canonical] = context['grid'].reshape(Nh,Nw,3)
-                context = copy.deepcopy(context0)
+                        mapping[filename_canonical] = context['grid'].reshape(H,W,3)
+
+            context = copy.deepcopy(context0)
 
         for line in pipe_corners_read:
             if pipe_corners_write_fd is not None:
                 os.write(pipe_corners_write_fd, line.encode())
 
-            if line[0] == '#':
+            if re.match(r'\s*#', line):
                 continue
-            m = re.match('(\S+)\s+(.*?)$', line)
+            m = re.match(r'\s*(\S+)\s+(.*?)$', line)
             if m is None:
-                raise Exception("Unexpected line in the corners output: '{}'".format(line))
-            if m.group(2)[:2] == '- ':
-                # No observations for this image. Done with this image; move on
-                finish_chessboard_observation()
-                continue
+                raise Exception(f"Unexpected line in the corners output: '{line}'")
             if context['f'] != m.group(1):
                 # Got data for the next image. Finish out this one
                 finish_chessboard_observation()
@@ -308,31 +311,65 @@ which mrcal.optimize() expects
             # A decimation level of - will be used to set weight <0 which means
             # "ignore this point"
             fields = m.group(2).split()
-            if len(fields) < 2:
-                raise Exception("'corners.vnl' data rows must contain a filename and 2 or 3 values. Instead got line '{}'".format(line))
-            else:
-                context['grid'][context['igrid'],:2] = (float(fields[0]),float(fields[1]))
+            if not (len(fields) == 2 or len(fields) == 3):
+                raise Exception(f"'corners.vnl' data rows must contain a filename and 2 or 3 values. Instead got line '{line}'")
+
+
+            def parse_point(out, fields):
+                r'''Parse the given split-string fields
+
+                Write results into out[:]. Return True if the given point is
+                valid. The initial value of out[:] is (-1,-1,-1): "invalid"
+
+                '''
+                if fields[0] == '-' or fields[1] == '-':
+                    # out[:] already is invalid
+                    return False
+
+                try:
+                    out[0] = float(fields[0])
+                    out[1] = float(fields[1])
+                except:
+                    raise Exception(f"'corners.vnl' data rows must lead with 'filename x y' with x and y being numerical or '-'. Instead got line '{line}'")
+
+                if out[0] < 0 or out[1] < 0:
+                    # out[:] already is invalid
+                    return False
+
+                if len(fields) == 2 or weight_column_kind is None:
+                    # default weight
+                    out[2] = 1.0
+                    return True
+
+                if fields[2] == '-':
+                    # out[:] already is invalid
+                    return False
+
+                try:
+                    w = float(fields[2])
+                except:
+                    raise Exception(f"'corners.vnl' data rows expected as 'filename x y {weight_column_kind}' with {weight_column_kind} being numerical or '-'. Instead got line '{line}'")
+
+                if weight_column_kind == 'weight':
+                    if w <= 0.0:
+                        # out[:] already is invalid
+                        return False
+                    out[2] = w
+                else:
+                    if w < 0.0:
+                        # out[:] already is invalid
+                        return False
+                    # convert decimation level to weight. The weight is
+                    # 2^(-level). I.e. level-0 -> weight=1, level-1 ->
+                    # weight=0.5, etc
+                    out[2] = 1. / (1 << int(w))
+
+                return True
+
+
+            if parse_point(context['grid'][context['igrid'],:],
+                              fields):
                 context['Nvalidpoints'] += 1
-                if len(fields) == 3 and extracol != '':
-                    if fields[2] == '-':
-                        # ignore this point
-                        context['grid'][context['igrid'],2] = -1.0
-                        context['Nvalidpoints'] -= 1
-                    else:
-                        l = float(fields[2])
-                        if l < 0:
-                            # ignore this point
-                            context['grid'][context['igrid'],2] = -1.0
-                            context['Nvalidpoints'] -= 1
-                        else:
-                            if extracol == 'weight':
-                                context['grid'][context['igrid'],2] = l
-                            else:
-                                # convert decimation level to weight. The weight is
-                                # 2^(-level). I.e. level-0 -> weight=1, level-1 ->
-                                # weight=0.5, etc
-                                context['grid'][context['igrid'],2] = 1. / (1 << int(l))
-                    # else use the 1.0 that's already there
 
             context['igrid'] += 1
 
@@ -343,7 +380,7 @@ which mrcal.optimize() expects
 
             if corners_output.wait() != 0:
                 err = corners_output.stderr.read()
-                raise Exception("mrgingham failed: {}".format(err))
+                raise Exception(f"mrgingham failed: {err}")
             if pipe_corners_write_fd is not None:
                 os.close(pipe_corners_write_fd)
                 shutil.move(pipe_corners_write_tmpfilename, corners_cache_vnl)
@@ -373,7 +410,7 @@ which mrcal.optimize() expects
 
             if N < min_num_images:
                 raise Exception("Found too few ({}; need at least {}) images containing a calibration pattern in camera {}; glob '{}'". \
-                                format(N, min_num_images, icam, globs[icam]))
+                                format(N, min_num_images, icam, globs_per_camera[icam]))
 
         return mapping,files_per_camera
 
@@ -387,7 +424,7 @@ which mrcal.optimize() expects
     #           if have observation:
     #               push observations
     #               push indices_frame_camera
-    mapping_file_corners,files_per_camera = get_corner_observations(Nw, Nh, globs, corners_cache_vnl, exclude_images)
+    mapping_file_corners,files_per_camera = get_corner_observations(W, H, globs_per_camera, corners_cache_vnl, exclude_images)
     file_framenocameraindex               = mrcal.mapping_file_framenocameraindex(*files_per_camera)
 
     # I create a file list sorted by frame and then camera. So my for(frames)
@@ -452,8 +489,8 @@ SYNOPSIS
 
     # The calibration object in its reference coordinate system
     calobject = mrcal.ref_calibration_object(object_width_n,
-                                                 object_height_n,
-                                                 object_spacing)
+                                             object_height_n,
+                                             object_spacing)
 
     # The estimated calibration object points in the observing camera coordinate
     # system
@@ -598,7 +635,7 @@ camera coordinate system FROM the calibration object coordinate system.
         camera_matrix_pinhole_scaled[0,0] *= s
         camera_matrix_pinhole_scaled[1,1] *= s
 
-        # shape (Nh,Nw,6); each row is an x,y,weight pixel observation followed
+        # shape (H,W,6); each row is an x,y,weight pixel observation followed
         # by the xyz coord of the point in the calibration object
         d = np.zeros((object_height_n,object_width_n,6), dtype=float)
         d[..., 2] = observations[i_observation, ..., 2]
@@ -612,7 +649,7 @@ camera coordinate system FROM the calibration object coordinate system.
                       intrinsics_data_pinhole_scaled,
                       out = d[...,:2])
 
-        # shape (Nh*Nw,6)
+        # shape (H*W,6)
         d = nps.clump( d, n=2)
 
         # I pick off those rows where the point observation is valid. Result
@@ -766,7 +803,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
             return mrcal.invert_Rt(Rt)
 
         if icam_to == icam_from:
-            raise Exception("Got icam_to == icam_from ( = {} ). This was probably a mistake".format(icam_to))
+            raise Exception(f"Got icam_to == icam_from ( = {icam_to} ). This was probably a mistake")
 
         # Now I KNOW that icam_from > icam_to
 
@@ -779,7 +816,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
         #
         # No calobject_warp. Good-enough for the seeding
         full_object = mrcal.ref_calibration_object(object_width_n,object_height_n,
-                                                       object_spacing)
+                                                   object_spacing)
 
         A = np.array(())
         B = np.array(())
@@ -804,8 +841,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
             # icam_to, so I take advantage of that here
             if icam_this == icam_to:
                 if Rt0 is not None:
-                    raise Exception("Saw multiple camera{} observations in frame {}".format(icam_this,
-                                                                                            iframe_this))
+                    raise Exception(f"Saw multiple camera{icam_this} observations in frame {iframe_this}")
                 Rt0 = calobject_poses_local_Rt_cf[i_observation, ...]
                 d0  = observations[i_observation, ..., :2]
             elif icam_this == icam_from:
@@ -813,8 +849,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
                     continue
 
                 if Rt1 is not None:
-                    raise Exception("Saw multiple camera{} observations in frame {}".format(icam_this,
-                                                                                            iframe_this))
+                    raise Exception(f"Saw multiple camera{icam_this} observations in frame {iframe_this}")
                 Rt1 = calobject_poses_local_Rt_cf[i_observation, ...]
                 d1  = observations[i_observation, ..., :2]
 
@@ -976,8 +1011,8 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
 
     if any([x is None for x in Rt_0c]):
         raise Exception("ERROR: Don't have complete camera observations overlap!\n" +
-                        ("Past-camera-0 Rt:\n{}\n".format(Rt_0c))                   +
-                        ("Shared observations matrix:\n{}\n".format(shared_frames)))
+                        f"Past-camera-0 Rt:\n{Rt_0c}\n"                             +
+                        f"Shared observations matrix:\n{shared_frames}\n")
 
 
     return np.ascontiguousarray(nps.cat(*Rt_0c))
@@ -1027,8 +1062,8 @@ SYNOPSIS
 
     # The calibration object in its reference coordinate system
     calobject = mrcal.ref_calibration_object(object_width_n,
-                                                 object_height_n,
-                                                 object_spacing)
+                                             object_height_n,
+                                             object_spacing)
 
     # The estimated calibration object points in the reference coordinate
     # system, for this one observation
@@ -1147,7 +1182,7 @@ system FROM the calibration object coordinate system.
         #
         # No calobject_warp. Good-enough for the seeding
         obj = mrcal.ref_calibration_object(object_width_n, object_height_n,
-                                               object_spacing)
+                                           object_spacing)
 
         sum_obj_unproj = obj*0
         for i_observation in range(i_observation0, i_observation1):
@@ -1256,7 +1291,7 @@ and supports moving cameras, hence it uses a more general
 indices_frame_camintrinsics_camextrinsics array instead of the
 indices_frame_camera array used here.
 
-See test/test-calibration-basic.py and mrcal-calibrate-cameras for usage
+See test/test-basic-calibration.py and mrcal-calibrate-cameras for usage
 examples.
 
 ARGUMENTS
@@ -1266,8 +1301,12 @@ ARGUMENTS
   shape (Ncameras,2) or a tuple of tuples or a mix of the two
 
 - focal_estimate: an initial estimate of the focal length of the cameras, in
-  pixels. For the purposes of the initial estimate we use the same focal length
-  value for both the x and y focal length of ALL the cameras
+  pixels. For the purposes of the initial estimate we assume the same focal
+  length value for both the x and y focal length. This argument can be
+
+  - a scalar: this is applied to all the cameras
+  - an iterable of length 1: this value is applied to all the cameras
+  - an iterable of length Ncameras: each camera uses a different value
 
 - indices_frame_camera: an array of shape (Nobservations,2) and dtype
   numpy.int32. Each row (iframe,icam) represents an observation of a
@@ -1312,6 +1351,26 @@ We return a tuple:
 
     '''
 
+    Ncameras = len(imagersizes)
+
+    try:
+        Nfocal = len(focal_estimate)
+    except:
+        # scalar
+        Nfocal = 1
+        focal_estimate = (focal_estimate,)
+
+    if Nfocal == 1:
+        focal_estimate = focal_estimate * Ncameras
+    elif Nfocal == Ncameras:
+        # already good
+        pass
+    else:
+        raise Exception(f"Ncameras mismatch: len(imagersizes) = {Ncameras} but len(focal_estimate) = {len(focal_estimate)}")
+
+
+    # Done. focal_estimate is now an iterable length Ncameras
+
     # I compute an estimate of the poses of the calibration object in the local
     # coord system of each camera for each frame. This is done for each frame
     # and for each camera separately. This isn't meant to be precise, and is
@@ -1321,9 +1380,11 @@ We return a tuple:
     # produces the calibration object points in the coord system of the camera.
     # The result has dimensions (N,4,3)
     intrinsics = [('LENSMODEL_STEREOGRAPHIC',
-                   np.array((focal_estimate,focal_estimate,
-                             (imagersize[0]-1.)/2,(imagersize[1]-1.)/2,))) \
-                  for imagersize in imagersizes]
+                   np.array((focal_estimate[icam],
+                             focal_estimate[icam],
+                             (imagersizes[icam][0]-1.)/2,
+                             (imagersizes[icam][1]-1.)/2,))) \
+                  for icam in range(Ncameras)]
 
     calobject_poses_local_Rt_cf = \
         mrcal.estimate_monocular_calobject_poses_Rt_tocam( indices_frame_camera,

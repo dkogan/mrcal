@@ -7,10 +7,10 @@ SYNOPSIS
 
   $ mrcal-convert-lensmodel
       --viz LENSMODEL_OPENCV4 left.cameramodel
-      > left.opencv4.cameramodel
 
   ... lots of output as the solve runs ...
   RMS error of the solution: 3.40256580058 pixels.
+  Wrote 'left-LENSMODEL_OPENCV4.cameramodel'
 
   ... a plot pops up showing the differences ...
 
@@ -47,18 +47,24 @@ optimized by passing --intrinsics-only. Also, if --sampled then we fit the
 extrinsics off 3D points, not just observation directions. The distance from the
 camera to the fitting points is set by --distance. Set this to the distance
 where you expect the intrinsics to have the most accuracy. This is only needed
-if --sampled and not --intrinsics-only.
+if --sampled and not --intrinsics-only. Note that the geometric transform
+computed from --sampled --distance could be aphysically large, since these
+solves often do not constrain the problem sufficiently. This often happens if
+the requested --distance is much larger than the distance of the chessboards at
+calibration time. The resulting transform is printed on the console, do pay
+attention to it.
 
-If --sampled, we need to consider that the model we're trying to fit may not fit
-the original model in all parts of the imager. Usually this is a factor when
-converting wide-angle cameramodels to use a leaner model: a decent fit will be
-possible at the center, with more and more divergence as we move towards the
-edges. We handle this with the --where and --radius options to allow the user to
-choose the area of the imager that is used for the fit. This region is centered
-on the point given by --where (or at the center of the imager, if omitted). The
-radius of this region is given by --radius. If '--radius 0' then I use ALL the
-data. A radius<0 can be used to set the size of the no-data margin at the
-corners; in this case I'll use
+We need to consider that the model we're trying to fit may not fit the original
+model in all parts of the imager. Usually this is a factor when converting
+wide-angle cameramodels to use a leaner model: a decent fit will be possible at
+the center, with more and more divergence as we move towards the edges. We
+handle this with the --where and --radius options to allow the user to select
+the area of the imager that is used for the fit: observations outside the
+selected area are thrown out. This region is centered on the point given by
+--where (or at the center of the imager, if --where is omitted). The radius of
+this region is given by --radius. If '--radius 0' then we use ALL the data. A
+radius<0 can be used to set the size of the no-data margin at the corners; in
+this case I'll use
 
     r = sqrt(width^2 + height^2)/2. - abs(radius)
 
@@ -71,6 +77,9 @@ empirical testing is required to find a good compromise: pass --viz to see the
 resulting differences. Note that --radius and --where applies only if we're
 optimizing sampled reprojections; if we're using the original optimization
 inputs, the options are illegal.
+
+The output is written to a file on disk, with the same filename as the input
+model, but with the new lensmodel added to the filename.
 
 '''
 
@@ -144,6 +153,48 @@ def parse_args():
     parser.add_argument('--viz',
                         action='store_true',
                         help='''Visualize the differences between the input and output models''')
+    parser.add_argument('--title',
+                        type=str,
+                        default = None,
+                        help='''Used if --viz. Title string for the diff plot.
+                        Overrides the default title. Exclusive with
+                        --extratitle''')
+    parser.add_argument('--extratitle',
+                        type=str,
+                        default = None,
+                        help='''Used if --viz. Additional string for the plot to
+                        append to the default title. Exclusive with --title''')
+    parser.add_argument('--hardcopy',
+                        type=str,
+                        help='''Used if --viz. Write the diff output to disk,
+                        instead of making an interactive plot''')
+    parser.add_argument('--terminal',
+                        type=str,
+                        help=r'''Used if --viz. gnuplotlib terminal. The default
+                        is good almost always, so most people don't need this
+                        option''')
+    parser.add_argument('--set',
+                        type=str,
+                        action='append',
+                        help='''Used if --viz. Extra 'set' directives to
+                        gnuplotlib. Can be given multiple times''')
+    parser.add_argument('--unset',
+                        type=str,
+                        action='append',
+                        help='''Used if --viz. Extra 'unset' directives to
+                        gnuplotlib. Can be given multiple times''')
+
+    parser.add_argument('--force', '-f',
+                        action='store_true',
+                        default=False,
+                        help='''By default existing models on disk are not
+                        overwritten. Pass --force to overwrite them without
+                        complaint''')
+    parser.add_argument('--outdir',
+                        type=lambda d: d if os.path.isdir(d) else \
+                        parser.error(f"--outdir requires an existing directory as the arg, but got '{d}'"),
+                        help='''Directory to write the output into. If omitted,
+                        we use the directory of the input model''')
 
     parser.add_argument('--num-trials',
                         type    = int,
@@ -160,7 +211,14 @@ def parse_args():
                         type=str,
                         help='''Input camera model. If "-' is given, we read standard input''')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.title      is not None and \
+       args.extratitle is not None:
+        print("--title and --extratitle are exclusive", file=sys.stderr)
+        sys.exit(1)
+
+    return args
 
 args = parse_args()
 
@@ -198,21 +256,34 @@ except:
 
 m = mrcal.cameramodel(args.model)
 
-intrinsics_from = m.intrinsics()
-lensmodel_from = intrinsics_from[0]
+
+if args.model == '-':
+    # Input read from stdin. Write output to stdout
+    filename_output = sys.stdout
+else:
+    if args.outdir is None:
+        filename_base,extension = os.path.splitext(args.model)
+        filename_output = f"{filename_base}-{lensmodel_to}{extension}"
+    else:
+        f,extension             = os.path.splitext(args.model)
+        directory,filename_base = os.path.split(f)
+        filename_output = f"{args.outdir}/{filename_base}-{lensmodel_to}{extension}"
+
+    if os.path.isfile(filename_output) and not args.force:
+        print(f"WARNING: '{filename_output}' already exists. Not overwriting this file. Pass -f to overwrite")
+        sys.exit(1)
+
+
+lensmodel_from = m.intrinsics()[0]
 
 if lensmodel_from == lensmodel_to:
-    sys.stderr.write("Input and output have the same lens model: {}. Returning the input\n".format(lensmodel_to))
+    sys.stderr.write(f"Input and output have the same lens model {lensmodel_from}. Nothing to do")
     sys.stderr.write("RMS error of the solution: 0 pixels.\n")
-    m.write(sys.stdout)
     sys.exit(0)
 
 
 if not args.sampled:
 
-    if args.where is not None or args.radius is not None:
-        print("--where and --radius only make sense with --sampled", file=sys.stderr)
-        sys.exit(1)
     if args.distance is not None:
         raise Exception("--distance requires --sampled")
     if args.intrinsics_only:
@@ -225,10 +296,11 @@ if not args.sampled:
         raise Exception("optimization_inputs not available in this model, so only sampled fits are possible. Pass --sampled")
 
 
-    intrinsics_core = intrinsics_from[1][:4]
-    distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-3
-    intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
-                                     axis=-2)
+    intrinsics_from = optimization_inputs['intrinsics']
+    Ncameras = len(intrinsics_from)
+    intrinsics_to_values = nps.glue(intrinsics_from[:,:4],
+                                    (np.random.rand(Ncameras,Ndistortions) - 0.5) * 1e-3,
+                                    axis=-1)
 
     optimization_inputs['lensmodel']  = lensmodel_to
     optimization_inputs['intrinsics'] = intrinsics_to_values
@@ -241,6 +313,35 @@ if not args.sampled:
         optimization_inputs['do_optimize_intrinsics_core'] = False
 
     optimization_inputs_before = copy.deepcopy(optimization_inputs)
+
+
+    # Ignore observations in the corners, as requested
+    if not (args.radius is None or args.radius == 0):
+        for icam in range(Ncameras):
+
+            dims = optimization_inputs['imagersizes'][icam].astype(float)
+
+            if args.where is None:
+                focus_center = (dims - 1) / 2
+            else:
+                focus_center = args.where
+
+            if args.radius > 0:
+                r = args.radius
+            else:
+                if nps.norm2(focus_center - (dims - 1.) / 2) > 1e-3:
+                    sys.stderr.write("A radius <0 is only implemented if we're focusing on the imager center\n")
+                    sys.exit(1)
+                r = nps.mag(dims)/2. + args.radius
+
+
+            indices_cam  = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,1]
+            observations = optimization_inputs['observations_board']
+
+            mask_thiscam     = indices_cam == icam
+            mask_past_radius = nps.norm2(observations[...,:2] - focus_center) > r*r
+
+            observations[nps.mv(mask_thiscam, -1, -3) * mask_past_radius, 2] = -1
 
     stats = mrcal.optimize(**optimization_inputs)
 
@@ -273,6 +374,9 @@ if not args.sampled:
 else:
 
     # Sampled solve. I grid the imager, unproject and fit
+
+    intrinsics_from = m.intrinsics()
+
     if args.distance is None:
         if args.intrinsics_only:
             # We're only looking at the intrinsics, so the distance doesn't
@@ -336,6 +440,8 @@ else:
     # import gnuplotlib as gp
     # gp.plot(q[:,0], q[:,1], _with='points pt 7 ps 2', xrange=[0,3904],yrange=[3904,0], wait=1, square=1)
     # sys.exit()
+
+    intrinsics_from = m.intrinsics()
 
     ### I unproject this, with broadcasting
     v = mrcal.unproject( q, *intrinsics_from, normalize = True ) * \
@@ -453,6 +559,10 @@ else:
     else:
         implied_Rt10 = mrcal.Rt_from_rt(extrinsics_rt_fromref_best)
 
+if args.sampled and not args.intrinsics_only:
+    implied_rt10 = mrcal.rt_from_Rt(implied_Rt10)
+    print(f"Transformation cam_fitted <-- cam_input:  rotation: {nps.mag(implied_rt10[:3])*180./np.pi:.03f} degrees, translation: {implied_rt10[3:]} m")
+
 
 m_to.extrinsics_Rt_fromref( mrcal.compose_Rt( implied_Rt10,
                                               mrcal.Rt_from_rt( m.extrinsics_rt_fromref())))
@@ -462,13 +572,34 @@ note = \
     format(time.strftime("%Y-%m-%d %H:%M:%S"),
            ' '.join(mrcal.shellquote(s) for s in sys.argv))
 
-m_to.write(sys.stdout, note=note)
+m_to.write(filename_output, note=note)
+if isinstance(filename_output, str):
+    print(f"Wrote '{filename_output}'")
+
 
 if args.viz:
+
+    plotkwargs_extra = {}
+    if args.set is not None:
+        plotkwargs_extra['set'] = args.set
+    if args.unset is not None:
+        plotkwargs_extra['unset'] = args.unset
+
+    if args.title is not None:
+        plotkwargs_extra['title'] = args.title
+    if args.extratitle is not None:
+        plotkwargs_extra['extratitle'] = args.extratitle
+
     plot,_ = mrcal.show_projection_diff( (m, m_to),
                                          distance     = args.distance,
                                          cbmax        = 4,
                                          gridn_width  = None if args.gridn is None else args.gridn[0],
-                                         gridn_height = None if args.gridn is None else args.gridn[1] )
-    plot.wait()
+                                         gridn_height = None if args.gridn is None else args.gridn[1],
+                                         use_uncertainties = not args.sampled,
+                                         hardcopy     = args.hardcopy,
+                                         terminal     = args.terminal,
+                                         **plotkwargs_extra)
+    if args.hardcopy is None:
+        plot.wait()
+
 

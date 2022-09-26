@@ -70,6 +70,11 @@ testutils.confirm_equal( mrcal.compose_rt( mrcal.rt_from_Rt(Rt), mrcal.invert_rt
                          np.zeros((6,)),
                          msg = 'compose_rt')
 
+testutils.confirm_equal( mrcal.compose_r( mrcal.r_from_R(R),
+                                          -mrcal.r_from_R(R)),
+                         np.zeros((3,)),
+                         msg = 'compose_r')
+
 testutils.confirm_equal( mrcal.identity_Rt(),
                          nps.glue(np.eye(3), np.zeros((3,)), axis=-2),
                          msg = 'identity_Rt')
@@ -184,6 +189,17 @@ for th in (1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6):
                              worstcase = True,
                              eps = 1e-13,
                              msg = f'r_from_R() for tiny rotations: th = {th}')
+
+
+###### skew_symmetric()
+a = np.array((1.,5.,7.))
+b = np.array((3.,-.1,-10.))
+
+A = mrcal.skew_symmetric(a)
+testutils.confirm_equal( nps.inner(A,b),
+                         np.cross(a,b),
+                         eps = 1e-13,
+                         msg = f'skew_symmetric()')
 
 
 testutils.finish()

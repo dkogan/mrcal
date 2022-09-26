@@ -30,6 +30,48 @@ SYNOPSIS
   Wrote image2-reprojected.jpg
   ...
 
+  ### To "manually" stereo-rectify a pair of images
+  $ mrcal-stereo          \
+      --az-fov-deg 80     \
+      --el-fov-deg 50     \
+      --outdir /tmp       \
+      left.cameramodel    \
+      right.cameramodel
+  Wrote '/tmp/rectified0.cameramodel'
+  Wrote '/tmp/rectified1.cameramodel'
+
+  $ mrcal-reproject-image         \
+      --outdir /tmp               \
+      /tmp/left.cameramodel       \
+      /tmp/rectified0.cameramodel \
+      left.jpg
+  Wrote /tmp/left-reprojected.jpg
+
+  $ mrcal-reproject-image          \
+      --outdir /tmp                \
+      /tmp/right.cameramodel       \
+      /tmp/rectified1.cameramodel  \
+      right.jpg
+  Wrote /tmp/right-reprojected.jpg
+
+  $ mrcal-stereo                       \
+      --already-rectified              \
+      --outdir /tmp                    \
+      /tmp/rectified[01].cameramodel   \
+      /tmp/left-reprojected.jpg        \
+      /tmp/right-reprojected.jpg
+
+  # This is the same as using mrcal-stereo to do all the work:
+  $ mrcal-stereo          \
+      --az-fov-deg 80     \
+      --el-fov-deg 50     \
+      --outdir /tmp       \
+      left.cameramodel    \
+      right.cameramodel   \
+      left.jpg            \
+      right.jpg
+
+
 This tool takes image(s) of a scene captured by one camera model, and produces
 image(s) of the same scene, as it would appear if captured by a different model,
 taking into account both the different lens parameters and geometries. This is
@@ -95,6 +137,13 @@ by a command like this:
     --plane-n 1.1 2.2 3.3
     --plane-d 4.4
     model0.cameramodel model1.cameramodel 'image*-cam0.jpg' 'image*-cam1.jpg'
+
+If the models were already pinhole-projected, this does the same thing as
+
+  mrcal-reproject-image
+    --plane-n 1.1 2.2 3.3
+    --plane-d 4.4
+    model0.cameramodel model1.cameramodel 'image*-cam0.jpg'
 
 This maps observations of a given plane in camera0 coordinates to where this
 plane would be observed in camera1 coordinates. This requires both models to be
@@ -365,7 +414,6 @@ if args.fit is not None:
 
 
 
-import cv2
 import glob
 import multiprocessing
 import signal
@@ -392,8 +440,8 @@ else:
             sys.exit(1)
 
         model_to = mrcal.pinhole_model_for_reprojection(model_from, args.fit,
-                                                        args.scale_focal,
-                                                        args.scale_image)
+                                                        scale_focal = args.scale_focal,
+                                                        scale_image = args.scale_image)
 
         print( "## generated on {} with   {}".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                                      ' '.join(mrcal.shellquote(s) for s in sys.argv)) )
@@ -407,8 +455,8 @@ else:
 
         model_to     = mrcal.cameramodel(getattr(args, 'model-to'))
         model_target = mrcal.pinhole_model_for_reprojection(model_to, args.fit,
-                                                            args.scale_focal,
-                                                            args.scale_image)
+                                                            scale_focal = args.scale_focal,
+                                                            scale_image = args.scale_image)
         print( "## generated on {} with   {}".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                                      ' '.join(mrcal.shellquote(s) for s in sys.argv)) )
         print("# Generated pinhole model:")
@@ -435,16 +483,20 @@ signal.signal(signal.SIGINT, signal_handler_sigint)
 # really is quite terrible. All I REALLY want is some os.fork() calls...
 model_valid_intrinsics_region = None
 mapxy                         = None
+model_imagersize              = None
 def _transform_this(inout):
-    image = cv2.imread(inout[0])
-    if image is None:
-        print(f"Couldn't read image '{image}'", file=sys.stderr)
+    image = mrcal.load_image(inout[0])
+
+    if image.shape[0] != model_imagersize[1] or \
+       image.shape[1] != model_imagersize[0]:
+        print(f"Couldn't process {inout[0]}: image dimensions don't match the input model dimensions. Image size: [{image.shape[1]} {image.shape[0]}]. model.imagersize(): {model_imagersize}",
+              file=sys.stderr)
         return
 
     if model_valid_intrinsics_region is not None:
         mrcal.annotate_image__valid_intrinsics_region(image, model_valid_intrinsics_region)
     image_transformed = mrcal.transform_image(image, mapxy)
-    cv2.imwrite(inout[1], image_transformed)
+    mrcal.save_image(inout[1], image_transformed)
     print(f"Wrote {inout[1]}", file=sys.stderr)
 
 def process(model_from, model_to, image_globs, suffix,
@@ -475,8 +527,11 @@ def process(model_from, model_to, image_globs, suffix,
 
     global mapxy
     global model_valid_intrinsics_region
+    global model_imagersize
     if args.valid_intrinsics_region:
         model_valid_intrinsics_region = model_from
+    model_imagersize = model_from.imagersize()
+
     mapxy = mrcal.image_transformation_map(model_from, model_to,
                                            intrinsics_only = intrinsics_only,
                                            distance        = distance,

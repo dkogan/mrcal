@@ -1,4 +1,9 @@
-These are sample package definitions for Debian-based and Redhat-based OSs. See
-the documentation for details:
+These are sample package definitions for Redhat-based OSs.
+Debian-based OSs already have mrcal in their repositories; the mrcal
+Debian git repo is here:
+
+https://salsa.debian.org/science-team/mrcal
+
+See the documentation for details:
 
 http://mrcal.secretsauce.net/install.html

@@ -14,8 +14,9 @@ import testutils
 
 import cv2
 
-image = cv2.imread(f'{testdir}/data/figueroa-overpass-looking-S.0.downsampled.jpg',
-                   cv2.IMREAD_GRAYSCALE)
+image = mrcal.load_image(f'{testdir}/data/figueroa-overpass-looking-S.0.downsampled.jpg',
+                         bits_per_pixel = 8,
+                         channels       = 1)
 
 # some made-up homography with scaling, rotating, skewing and translating
 H01 = np.array((( 0.7, 0.3, 1.),

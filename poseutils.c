@@ -627,131 +627,95 @@ void mrcal_compose_rt_full( // output
     init_stride_1D(rt_0,   6);
     init_stride_1D(rt_1,   6);
 
-    // I convert this to Rt to get the composition, and then convert back
-    if(dr_r0 == NULL)
-    {
-        // no gradients
-        double Rt_0  [4*3];
-        double Rt_1  [4*3];
-        mrcal_Rt_from_rt_full(Rt_0, 0,0,
-                              NULL,0,0,0,
-                              rt_0, rt_0_stride0);
-        mrcal_Rt_from_rt_full(Rt_1, 0,0,
-                              NULL,0,0,0,
-                              rt_1, rt_1_stride0);
+    // r0 (r1 x + t1) + t0 = r0 r1 x + r0 t1 + t0
+    // -> I want (r0 r1, r0 t1 + t0)
 
-        double Rt_out[4*3];
-        mrcal_compose_Rt(Rt_out, Rt_0, Rt_1);
-        mrcal_rt_from_Rt_full(rt_out, rt_out_stride0,
-                              NULL,0,0,0,
-                              Rt_out,0,0);
+
+    // to make in-place operation work
+    double rt0[6];
+    for(int i=0; i<6; i++)
+        rt0[i] = P1(rt_0, i);
+
+    // Compute r01
+    mrcal_compose_r_full( rt_out, rt_out_stride0,
+                          dr_r0, dr_r0_stride0, dr_r0_stride1,
+                          dr_r1, dr_r1_stride0, dr_r1_stride1,
+
+                          rt_0, rt_0_stride0,
+                          rt_1, rt_1_stride0);
+
+
+    // t01 <- r0 t1
+    mrcal_rotate_point_r_full( &P1(rt_out,3), rt_out_stride0,
+                               dt_r0, dt_r0_stride0, dt_r0_stride1,
+                               dt_t1, dt_t1_stride0, dt_t1_stride1,
+
+                               rt0, -1,
+                               &P1(rt_1,3), rt_1_stride0,
+
+                               false );
+    // t01 <- r0 t1 + t0
+    for(int i=0; i<3; i++)
+        P1(rt_out,3+i) += rt0[3+i];
+}
+
+void mrcal_compose_r_tinyr0_gradientr0_full( // output
+                           double* dr_dr0,      // (3,3) array; may be NULL
+                           int dr_dr0_stride0,  // in bytes. <= 0 means "contiguous"
+                           int dr_dr0_stride1,  // in bytes. <= 0 means "contiguous"
+
+                           // input
+                           const double* r_1,   // (3,) array
+                           int r_1_stride0      // in bytes. <= 0 means "contiguous"
+                           )
+{
+    init_stride_2D(dr_dr0, 3, 3);
+    init_stride_1D(r_1, 3);
+
+    // All the comments and logic appear in compose_r_core() in
+    // poseutils-uses-autodiff.cc. This is a special-case function with
+    // manually-computed gradients (because I want to make sure they're fast)
+    double norm2_r1 = 0.0;
+    for(int i=0; i<3; i++)
+        norm2_r1 += P1(r_1,i)*P1(r_1,i);
+
+    if(norm2_r1 < 2e-8*2e-8)
+    {
+        // Both vectors are tiny, so I have r01 = r0 + r1, and the gradient is
+        // an identity matrix
+        for(int i=0; i<3; i++)
+            for(int j=0; j<3; j++)
+                P2(dr_dr0,i,j) = i==j ? 1.0 : 0.0;
         return;
     }
 
-    // Alright. gradients!
-    // I have (R0*R1)*x + R0*t1+t0
-    //   r = r_from_R(R0*R1)
-    //   t = R0*t1+t0
-
-    double* R0 = dt_t1; // this one is easy!
-
-    double dR0_dr0[3*3*3];
-    mrcal_R_from_r_full( R0, dt_t1_stride0, dt_t1_stride1,
-                         dR0_dr0, 0,0,0,
-                         rt_0, rt_0_stride0 );
-
-    // to make in-place operations work
-    double t[3];
-    mul_vec3_gen33t_vout_full( t, sizeof(double),
-                               &P1(rt_1, 3), rt_1_stride0,
-                               R0, dt_t1_stride0, dt_t1_stride1);
-    for(int i=0; i<3; i++)
-        t[i] += P1(rt_0,3+i);
-
-    double R1[3*3];
-    double dR1_dr1[3*3*3];
-    mrcal_R_from_r_full( R1, 0,0,
-                         dR1_dr1, 0,0,0,
-                         rt_1, rt_1_stride0 );
-
-    double R[3*3];
-    mul_gen33_gen33_vout_full(R,  3*sizeof(R [0]), sizeof(R [0]),
-                              R0, dt_t1_stride0, dt_t1_stride1,
-                              R1, 3*sizeof(R1[0]), sizeof(R1[0]));
-
-    double dr_dR[3*3*3];
-    mrcal_r_from_R_full( rt_out, rt_out_stride0,
-                         dr_dR, 0,0,0,
-                         R, 0,0);
-
-    // dr/dvecr0 = dr/dvecR dvecR/dvecR0 dvecR0/dvecr0
-    // R = R0*R1
-    // vecR = [ inner(R0[0:3], R1t[0:3]),inner(R0[0:3], R1t[4:6]),inner(R0[0:3], R1t[7:9]),
-    //          inner(R0[4:6], R1t[0:3]),inner(R0[4:6], R1t[4:6]),inner(R0[4:6], R1t[7:9]),
-    //          inner(R0[7:9], R1t[0:3]),inner(R0[7:9], R1t[4:6]),inner(R0[7:9], R1t[7:9]), ]
-    //      = [ R1t * R0[0:3]t ]
-    //      = [ R1t * R0[3:6]t ]
-    //      = [ R1t * R0[6:9]t ]
-    //                     [R1t]
-    // dvecR/dvecR0[0:3] = [ 0 ]
-    //                     [ 0 ]
-    //                     [R1t]
-    // dvecR/dvecR0[3:6] = [ 0 ]
-    //                     [ 0 ]
-    // ... -> dvecR/dvecR0 = blockdiag(R1t,R1t,R1t) ->
-    //                         [D]                         [D]
-    // -> [A B C] dvecR/dvecR0 [E] = [A R1t  B R1t  C R1t] [E] =
-    //                         [F]                         [F]
+    // I have
+    // r01 = r1
+    //     - inner(r0,r1) (B/tanB - 1) / 4B^2 r1
+    //     + B/tanB r0
+    //     + cross(r0,r1) / 2
     //
-    // = A R1t D + B R1t E + C R1t F
+    // I differentiate:
+    //
+    //   dr01/dr0 =
+    //     - outer(r1,r1) (B/tanB - 1) / 4B^2
+    //     + B/tanB I
+    //     - skew_symmetric(r1) / 2
+    double B    = sqrt(norm2_r1) / 2.;
+    double B_over_tanB = B / tan(B);
+
     for(int i=0; i<3; i++)
         for(int j=0; j<3; j++)
-            P2(dr_r0,i,j) = 0.0;
+            P2(dr_dr0,i,j) =
+                - P1(r_1,i)*P1(r_1,j) * (B_over_tanB - 1.) / (4.*B*B);
     for(int i=0; i<3; i++)
-    {
-        // compute dr_dR R1t dR0_dr0 for submatrix i
-        double dr_dR_R1t[3*3];
-        for(int j=0; j<3; j++)
-            for(int k=0; k<3; k++)
-                dr_dR_R1t[j*3+k] = inner3(&dr_dR[3*i + j*9], &R1[3*k] );
+        P2(dr_dr0,i,i) +=
+            B_over_tanB;
 
-        mul_gen33_gen33_vaccum_full(dr_r0, dr_r0_stride0, dr_r0_stride1,
-                                    dr_dR_R1t, 3*sizeof(dr_dR_R1t[0]), sizeof(dr_dR_R1t[0]),
-                                    &dR0_dr0[9*i], 3*sizeof(dR0_dr0[0]), sizeof(dR0_dr0[0]));
-    }
-
-    // dr/dvecr1 = dr/dvecR dvecR/dvecR1 dvecR1/dvecr1
-    // R = R0*R1
-    // dvecR/dvecR1 = [ R0_00 I   R0_01 I   R0_02 I]
-    //              = [ R0_10 I   R0_11 I   R0_12 I]
-    //              = [ R0_20 I   R0_21 I   R0_22 I]
-    //                         [D]
-    // -> [A B C] dvecR/dvecR1 [E] =
-    //                         [F]
-    // = AD R0_00 + AE R0_01 + AF R0_02 + ...
-    for(int i=0; i<3; i++)
-        for(int j=0; j<3; j++)
-            P2(dr_r1,i,j) = 0.0;
-    for(int i=0; i<3; i++)
-        for(int j=0; j<3; j++)
-            for(int k=0; k<3; k++)
-                mul_vec3_gen33_vaccum_scaled_full(&P2(dr_r1,k,0), dr_r1_stride1,
-
-                                                  &dr_dR[i*3 + 9*k], sizeof(dr_dR[0]),
-                                                  &dR1_dr1[9*j],     3*sizeof(dR1_dr1[0]), sizeof(dR1_dr1[0]),
-
-                                                  // scale
-                                                  _P2(R0,dt_t1_stride0,dt_t1_stride1, i,j));
-
-    // t = R0*t1+t0
-    // t[0] = inner(R0[0:3], t1)
-    // -> dt[0]/dr0 = t1t dR0[0:3]/dr0
-    for(int i=0; i<3; i++)
-        mul_vec3_gen33_vout_scaled_full(&P2(dt_r0,i,0), dt_r0_stride1,
-                                        &P1(rt_1,3), rt_1_stride0,
-                                        &dR0_dr0[9*i], 3*sizeof(dR0_dr0[0]), sizeof(dR0_dr0[0]),
-                                        1.0);
-
-    for(int i=0; i<3; i++)
-        P1(rt_out,3+i) = t[i];
+    P2(dr_dr0,0,1) -= -P1(r_1,2)/2.;
+    P2(dr_dr0,0,2) -=  P1(r_1,1)/2.;
+    P2(dr_dr0,1,0) -=  P1(r_1,2)/2.;
+    P2(dr_dr0,1,2) -= -P1(r_1,0)/2.;
+    P2(dr_dr0,2,0) -= -P1(r_1,1)/2.;
+    P2(dr_dr0,2,1) -=  P1(r_1,0)/2.;
 }

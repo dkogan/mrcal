@@ -38,17 +38,17 @@ def parse_args():
         try:
             value = float(string)
         except:
-            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+            raise argparse.ArgumentTypeError(f"argument MUST be a positive floating-point number. Got '{string}'")
         if value <= 0:
-            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+            raise argparse.ArgumentTypeError(f"argument MUST be a positive floating-point number. Got '{string}'")
         return value
     def positive_int(string):
         try:
             value = int(string)
         except:
-            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+            raise argparse.ArgumentTypeError(f"argument MUST be a positive integer. Got '{string}'")
         if value <= 0 or abs(value-float(string)) > 1e-6:
-            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+            raise argparse.ArgumentTypeError(f"argument MUST be a positive integer. Got '{string}'")
         return value
 
 
@@ -61,11 +61,15 @@ def parse_args():
                         unless we have a --seed. See http://mrcal.secretsauce.net/how-to-calibrate.html
                         for notes about how to select a model''')
     parser.add_argument('--focal',
-                        type=positive_float,
-                        help=r'''Initial estimate of the focal length, in pixels. Required unless --seed is
-                        given. See
+                        type=str,
+                        help=r'''Initial estimate of the focal length, in
+                        pixels. Required unless --seed is given. See
                         http://mrcal.secretsauce.net/how-to-calibrate.html for
-                        notes about how to estimate a focal length''')
+                        notes about how to estimate a focal length. This is
+                        either a single value to use for all the cameras, or a
+                        comma-separated whitespace-less list of values to use
+                        for each camera. If such a list is given, it must match
+                        the number of cameras being calibrated''')
     parser.add_argument('--imagersize',
                         nargs=2,
                         type=int,
@@ -76,7 +80,7 @@ def parse_args():
                         --imagersize values must match the --seed exactly''')
     parser.add_argument('--outdir',
                         type=lambda d: d if os.path.isdir(d) else \
-                                parser.error("--outdir requires an existing directory as the arg, but got '{}'".format(d)),
+                                parser.error(f"--outdir requires an existing directory as the arg, but got '{d}'"),
                         default='.',
                         help='Directory for the output camera models')
     parser.add_argument('--object-spacing',
@@ -112,7 +116,7 @@ def parse_args():
                         corner finder. If we are reading a cache file, this does nothing''')
     parser.add_argument('--corners-cache',
                         type=lambda f: f if os.path.isfile(f) or not os.path.isdir(f) else \
-                                parser.error("--corners-cache requires an existing, readable file as the arg or a non-existing path, but got '{}'".format(f)),
+                                parser.error(f"--corners-cache requires an existing, readable file as the arg or a non-existing path, but got '{f}'"),
                         required=False,
                         help=r'''Path to the corner-finder results. If this file exists, I use the corners in
                         this file. If it doesn't exist, I invoke mrgingham to
@@ -253,7 +257,7 @@ args = parse_args()
 
 if args.object_spacing is None:
     print("WARNING: assuming default calibration-object spacing of 0.1m. If this is wrong, all distances will be off by a scale factor",
-          file = sys.stdderr)
+          file = sys.stderr)
     args.object_spacing = 0.1
 
 if args.object_height_n is None:
@@ -265,7 +269,6 @@ if args.object_height_n is None:
 import numpy as np
 import scipy.linalg
 import numpysane as nps
-import cv2
 import copy
 import time
 import glob
@@ -295,12 +298,13 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, se
     try:
         iobservation0_thiscamera = next( i for i in range(len(paths)) if indices_frame_camera[i,1] == icamera )
     except:
-        raise Exception("Couldn't find any images for camera '{}'".format(icamera))
+        raise Exception(f"Couldn't find any images for camera '{icamera}'")
 
-    img = cv2.imread(paths[iobservation0_thiscamera])
-    if img is None:
-        raise Exception("I needed to read '{}' to get an imagersize, but couldn't open it, and get image dimensions from it. Make the images findable, or pass --imagersize". \
-                        format(paths[iobservation0_thiscamera]))
+    try:
+        img = mrcal.load_image(paths[iobservation0_thiscamera],
+                               bits_per_pixel = 8, channels = 1)
+    except:
+        raise Exception(f"I needed to read '{paths[iobservation0_thiscamera]}' to get an imagersize, but couldn't open it, and get image dimensions from it. Make the images findable, or pass --imagersize")
     h,w = img.shape[:2]
 
     return [w,h]
@@ -345,7 +349,7 @@ def solve_initial(args, seedmodels, imagersizes,
                                do_apply_outlier_rejection        = False,
                                do_apply_regularization           = False,
                                verbose                           = False)
-        sys.stderr.write("## RMS error: {}\n\n".format(stats['rms_reproj_error__pixels']))
+        sys.stderr.write(f"## RMS error: {stats['rms_reproj_error__pixels']}\n\n")
 
         sys.stderr.write("## initial solve: geometry and LENSMODEL_STEREOGRAPHIC core only\n")
         stats = mrcal.optimize(intrinsics_data, extrinsics_rt_fromref, frames_rt_toref, None,
@@ -493,12 +497,30 @@ if Ncameras > 10:
     raise Exception("Got {} image globs. It should be one glob per camera, and this sounds like WAY too many cameras. Did you forget to escape your glob?". \
                     format(Ncameras))
 
+try:
+    args.focal = [ float(f.strip()) for f in args.focal.split(',') ]
+except:
+    print(f"--focal must be given a positive floating-point value, or a comma-separated list of such values",
+          file=sys.stderr)
+    sys.exit(1)
+if not all(f>0 for f in args.focal):
+    print("--focal must be given a POSITIVE floating-point value, or a comma-separated list of such values. Some weren't positive",
+          file=sys.stderr)
+    sys.exit(1)
+
+if not (len(args.focal) == 1 or \
+        len(args.focal) == Ncameras):
+    print(f"--focal must be a single value, or a comma-separated list of exactly Ncameras such values. Received Ncameras={Ncameras} image globs and {len(args.focal)} focal lengths",
+          file=sys.stderr)
+    sys.exit(1)
+
+
 if args.pairs and Ncameras % 2:
-    raise Exception("With --pairs I must have gotten an even number of cameras, but instead got {}".format(Ncameras))
+    raise Exception(f"With --pairs I must have gotten an even number of cameras, but instead got {Ncameras}")
 
 if args.seed:
 
-    if args.focal:
+    if args.focal is not None:
         raise Exception("Exactly one of --focal and --seed MUST be given")
 
 
@@ -506,14 +528,13 @@ if args.seed:
         for g in args.seed.split(','):
             globbed_filenames = sorted(glob.glob(g))
             if 0 == len(globbed_filenames):
-                raise Exception("seed glob '{}' matched no files!".format(g))
+                raise Exception(f"seed glob '{g}' matched no files!")
             for f in globbed_filenames:
                 yield mrcal.cameramodel(f)
     seedmodels = list(seedmodels_iterator())
 
     if Ncameras != len(seedmodels):
-        raise Exception("I saw {} image globs, but {} --seed models. Both represent cameras, so I should have identical counts". \
-                        format(Ncameras, len(seedmodels)))
+        raise Exception(f"I saw {Ncameras} image globs, but {len(seedmodels)} --seed models. Both represent cameras, so I should have identical counts")
 
     if args.imagersize is not None:
         for m in seedmodels:
@@ -532,7 +553,7 @@ if args.seed:
 
 
 else:
-    if not args.focal:
+    if args.focal is None:
         raise Exception("Exactly one of --focal and --seed MUST be given")
 
     if not args.lensmodel:
@@ -550,10 +571,10 @@ else:
 observations, indices_frame_camera, paths = \
     mrcal.compute_chessboard_corners(args.object_width_n,
                                      args.object_height_n,
-                                     args.images,
-                                     args.corners_cache,
-                                     jobs = args.jobs,
-                                     extracol = 'weight' if args.corners_cache_has_weights else 'level')
+                                     globs_per_camera   = args.images,
+                                     corners_cache_vnl  = args.corners_cache,
+                                     jobs               = args.jobs,
+                                     weight_column_kind = 'weight' if args.corners_cache_has_weights else 'level')
 
 Nobservations = len(observations)
 
@@ -597,9 +618,9 @@ if not optimization_inputs['do_apply_regularization']:
     optimization_inputs['verbose']                = args.verbose_solver
 
 stats = mrcal.optimize(**optimization_inputs)
-sys.stderr.write("## RMS error: {}\n".format(stats['rms_reproj_error__pixels']))
+sys.stderr.write(f"## RMS error: {stats['rms_reproj_error__pixels']}\n")
 
-report = "RMS reprojection error: {:.01f} pixels\n".format(stats['rms_reproj_error__pixels'])
+report = f"RMS reprojection error: {stats['rms_reproj_error__pixels']:.01f} pixels\n"
 
 Npoints_chessboard = args.object_width_n*args.object_height_n*Nobservations
 
@@ -608,14 +629,14 @@ residuals = \
     stats['x'][:Npoints_chessboard*2]. \
     reshape(Nobservations, args.object_height_n, args.object_width_n, 2)
 worst_point_err = np.sqrt(np.max(nps.norm2( nps.clump(residuals, n=3) )))
-report += "Worst residual (by measurement): {:.01f} pixels\n".format(worst_point_err)
+report += f"Worst residual (by measurement): {worst_point_err:.01f} pixels\n"
 if not args.skip_outlier_rejection:
     report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
         format(stats['Noutliers'],
                args.object_height_n*args.object_width_n*len(observations),
                100.0 * stats['Noutliers'] / (args.object_height_n*args.object_width_n*len(observations)))
 if calobject_warp is not None:
-    report += "calobject_warp = {}\n".format(calobject_warp)
+    report += f"calobject_warp = {calobject_warp}\n"
 
 print(report)
 
@@ -667,19 +688,19 @@ if not args.skip_intrinsics_solve and \
 
 # The note says how we ran this, and contains the commented-out report
 note = \
-    "generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),
-                                           ' '.join(mrcal.shellquote(s) for s in sys.argv)) + \
+    f"generated on {time.strftime('%Y-%m-%d %H:%M:%S')} with   {' '.join(mrcal.shellquote(s) for s in sys.argv)}\n" + \
     report
 for icam in range(len(models)):
 
     filename_base = \
-        '{}/camera{}-{}'.format(args.outdir, icam//2, icam%2) \
+        f'{args.outdir}/camera{icam//2}-{icam%2}' \
         if args.pairs \
-        else '{}/camera-{}'.format(args.outdir, icam)
+        else f'{args.outdir}/camera-{icam}'
 
     cameramodelfile = filename_base + '.cameramodel'
-    models[icam].write(cameramodelfile, note)
-    print("Wrote {}".format(cameramodelfile))
+    models[icam].write(cameramodelfile,
+                       note = note)
+    print(f"Wrote {cameramodelfile}")
 
 
 
@@ -729,7 +750,7 @@ def show_generic_per_cam(f, icam, **kwargs):
     for icam in icam_all:
         plots[f.__name__ + str(icam)] = \
             f(models[icam],
-              extratitle = "camera {}".format(icam),
+              extratitle = f"camera {icam}",
               **kwargs)
 
 def show_generic(f, *args, **kwargs):

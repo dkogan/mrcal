@@ -27,3 +27,11 @@ from .calibration           import *
 from .image_transforms      import *
 from .utils                 import *
 from .triangulation         import *
+
+
+# libelas is optional. If we don't have it, I don't complain
+try:
+    from ._elas_npsp    import *
+except ModuleNotFoundError:
+    pass
+

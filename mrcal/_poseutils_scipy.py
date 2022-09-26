@@ -5,7 +5,7 @@ import numpy as np
 import numpysane as nps
 
 
-def quat_from_R(R, out=None):
+def quat_from_R(R, *, out=None):
     r"""Convert a rotation defined as a rotation matrix to a unit quaternion
 
 SYNOPSIS

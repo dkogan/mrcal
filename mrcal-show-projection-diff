@@ -264,7 +264,15 @@ if args.title is not None:
 if args.extratitle is not None:
     plotkwargs_extra['extratitle'] = args.extratitle
 
-models = [mrcal.cameramodel(modelfilename) for modelfilename in args.models]
+def openmodel(f):
+    try:
+        return mrcal.cameramodel(f)
+    except:
+        print(f"Couldn't load camera model '{f}'",
+              file=sys.stderr)
+        sys.exit(1)
+
+models = [openmodel(modelfilename) for modelfilename in args.models]
 
 
 if args.same_dance:
@@ -438,8 +446,16 @@ if args.same_dance:
         # # IPython.embed()
         # # sys.exit()
 
+if args.observations:
+    optimization_inputs = [ m.optimization_inputs() for m in models ]
+    if any( oi is None for oi in optimization_inputs ):
+        print("mrcal-show-projection-diff --observations requires optimization_inputs to be available for all models, but this is missing for some models",
+              file=sys.stderr)
+        sys.exit(1)
+
 plot,Rt10 = mrcal.show_projection_diff(models,
-                                       args.gridn[0], args.gridn[1],
+                                       gridn_width             = args.gridn[0],
+                                       gridn_height            = args.gridn[1],
                                        observations            = args.observations,
                                        valid_intrinsics_region = args.valid_intrinsics_region,
                                        distance                = distance,

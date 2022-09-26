@@ -237,7 +237,7 @@ mrcal-stereo        \
   --el-fov-deg 135  \
   --el0-deg    5    \
   --set 'view 70,5' \
-  --show-geometry   \
+  --viz geometry    \
   splined-[01].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
@@ -246,7 +246,7 @@ mrcal-stereo        \
   --el-fov-deg 135                                                  \
   --el0-deg    5                                                    \
   --set 'view 70,5'                                                 \
-  --show-geometry                                                   \
+  --viz geometry                                                    \
   --hardcopy $D/figures/stereo/stereo-rectified-system.svg          \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
   $D1/splined-[01].cameramodel
@@ -591,7 +591,7 @@ mrcal-stereo                        \
   --el-fov-deg 80                   \
   --az0-deg    -45                  \
   --set 'view 70,5'                 \
-  --show-geometry                   \
+  --viz geometry                    \
   splined-[01].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
@@ -601,7 +601,7 @@ mrcal-stereo                        \
   --el-fov-deg 80                                                   \
   --az0-deg    -45                                                  \
   --set 'view 70,5'                                                 \
-  --show-geometry                                                   \
+  --viz geometry                                                    \
   --hardcopy $D/figures/stereo/stereo-rectified-system-narrow.svg   \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
   $D1/splined-[01].cameramodel

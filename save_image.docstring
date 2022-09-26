@@ -1,0 +1,39 @@
+Save a numpy array to an image on disk
+
+SYNOPSIS
+
+    print(image.shape)
+    ---> (768, 1024, 3)
+
+    print(image.dtype)
+    ---> dtype('uint8')
+
+    mrcal.save_image("result.png", image)
+
+    # wrote BGR color image to disk
+
+This is a completely uninteresting image-saving routine. It's like any other
+image-saving routine out there; use any that you like. This exists because cv2
+is very slow.
+
+This wraps the mrcal_image_TYPE_save() functions. At this time I support only
+these 3 data formats:
+
+- bpp = 8,  channels = 1: 8-bit grayscale data
+- bpp = 16, channels = 1: 16-bit grayscale data
+- bpp = 24, channels = 3: BGR color data
+
+ARGUMENTS
+
+- filename: the image on disk to save to
+
+- array: numpy array containing the input data. Must have shape (height,width)
+  for grayscale data or (height,width,3) for color data. Each row must be stored
+  densely, but a non-dense stride is supported when moving from column to
+  column. The dtype must be either np.uint8 or np.uint16.
+
+RETURNED VALUE
+
+None on success. Exception thrown on error
+
+

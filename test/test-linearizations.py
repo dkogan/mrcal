@@ -62,11 +62,13 @@ calobject_warp_ref      = np.array((0.002, -0.005))
 #        (Nframes, 4,3)
 q_ref,Rt_ref_board_ref = \
     mrcal.synthesize_board_observations(models_ref,
-                                        object_width_n, object_height_n, object_spacing,
-                                        calobject_warp_ref,
-                                        np.array((0.,  0.,  0., -2,   0,  4.0)),
-                                        np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5, 2.5, 2.0)),
-                                        Nframes)
+                                        object_width_n                  = object_width_n,
+                                        object_height_n                 = object_height_n,
+                                        object_spacing                  = object_spacing,
+                                        calobject_warp                  = calobject_warp_ref,
+                                        rt_ref_boardcenter              = np.array((0.,  0.,  0., -2,   0,  4.0)),
+                                        rt_ref_boardcenter__noiseradius = np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5, 2.5, 2.0)),
+                                        Nframes                         = Nframes)
 
 ############# I have perfect observations in q_ref. I corrupt them by noise
 # weight has shape (Nframes, Ncameras, Nh, Nw),
@@ -142,7 +144,7 @@ Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
 Nmeasurements_boards         = mrcal.num_measurements_boards(**baseline)
 Nmeasurements_regularization = mrcal.num_measurements_regularization(**baseline)
 
-p0,x0,J0 = mrcal.optimizer_callback(no_factorization = True,
+b0,x0,J0 = mrcal.optimizer_callback(no_factorization = True,
                                     **baseline)[:3]
 J0 = J0.toarray()
 
@@ -151,9 +153,9 @@ J0 = J0.toarray()
 # First a very basic gradient check. Looking at an arbitrary camera's
 # intrinsics. The test-gradients tool does this much more thoroughly
 optimization_inputs = copy.deepcopy(baseline)
-dp_packed           = np.random.randn(len(p0)) * 1e-9
+db_packed           = np.random.randn(len(b0)) * 1e-9
 
-mrcal.ingest_packed_state(p0 + dp_packed,
+mrcal.ingest_packed_state(b0 + db_packed,
                           **optimization_inputs)
 
 x1 = mrcal.optimizer_callback(no_factorization = True,
@@ -162,7 +164,7 @@ x1 = mrcal.optimizer_callback(no_factorization = True,
 
 dx_observed = x1 - x0
 
-dx_predicted = nps.inner(J0, dp_packed)
+dx_predicted = nps.inner(J0, db_packed)
 testutils.confirm_equal( dx_predicted, dx_observed,
                          eps = 1e-1,
                          worstcase = True,
@@ -178,9 +180,9 @@ if 0:
              wait=1)
 
 ###########################################################################
-# We're supposed to be at the optimum. E = norm2(x) ~ norm2(x0 + J dp) =
-# norm2(x0) + 2 dpt Jt x0 + norm2(J dp). At the optimum Jt x0 = 0 -> E =
-# norm2(x0) + norm2(J dp). dE = norm2(J dp) = norm2(dx_predicted)
+# We're supposed to be at the optimum. E = norm2(x) ~ norm2(x0 + J db) =
+# norm2(x0) + 2 dbt Jt x0 + norm2(J db). At the optimum Jt x0 = 0 -> E =
+# norm2(x0) + norm2(J db). dE = norm2(J db) = norm2(dx_predicted)
 x_predicted  = x0 + dx_predicted
 dE           = nps.norm2(x1) - nps.norm2(x0)
 dE_predicted = nps.norm2(dx_predicted)
@@ -189,13 +191,13 @@ testutils.confirm_equal( dE_predicted, dE,
                          relative = True,
                          msg = "diff(E) predicted")
 
-# At the optimum dE/dp = 0 -> xtJ = 0
+# At the optimum dE/db = 0 -> xtJ = 0
 xtJ0 = nps.inner(nps.transpose(J0),x0)
 mrcal.pack_state(xtJ0, **optimization_inputs)
 testutils.confirm_equal( xtJ0, 0,
                          eps = 1.5e-2,
                          worstcase = True,
-                         msg = "dE/dp = 0 at the optimum: original")
+                         msg = "dE/db = 0 at the optimum: original")
 
 ###########################################################################
 # I perturb my input observation vector qref by dqref.
@@ -206,12 +208,12 @@ optimization_inputs = copy.deepcopy(baseline)
 optimization_inputs['observations_board'] = observations_perturbed
 
 mrcal.optimize(**optimization_inputs, do_apply_outlier_rejection=False)
-p1,x1,J1 = mrcal.optimizer_callback(no_factorization = True,
+b1,x1,J1 = mrcal.optimizer_callback(no_factorization = True,
                                     **optimization_inputs)[:3]
 J1 = J1.toarray()
 
 dx_observed = x1-x0
-dp_observed = p1-p0
+db_observed = b1-b0
 w           = observations_perturbed[...,2]
 w[w < 0]    = 0 # outliers have weight=0
 w           = np.ravel(nps.mv(nps.cat(w,w),0,-1)) # each weight controls x,y
@@ -221,15 +223,15 @@ mrcal.pack_state(xtJ0, **optimization_inputs)
 testutils.confirm_equal( xtJ1, 0,
                          eps = 1e-2,
                          worstcase = True,
-                         msg = "dE/dp = 0 at the optimum: perturbed")
+                         msg = "dE/db = 0 at the optimum: perturbed")
 
 # I added noise reoptimized, did dx do the expected thing?
 # I should have
-#   x(p+dp, qref+dqref) = x + J dp + dx/dqref dqref
-# -> x1-x0 ~ J dp + dx/dqref dqref
+#   x(b+db, qref+dqref) = x + J db + dx/dqref dqref
+# -> x1-x0 ~ J db + dx/dqref dqref
 #   x[measurements] = (q - qref) * weight
 # -> dx/dqref = -diag(weight)
-dx_predicted = nps.inner(J0,dp_observed)
+dx_predicted = nps.inner(J0,db_observed)
 dx_predicted[:Nmeasurements_boards] -= w * dqref.ravel()
 
 # plot_dx = gp.gnuplotlib( title = "dx predicted,observed",
@@ -247,11 +249,11 @@ testutils.confirm_equal( dx_predicted, dx_observed,
                          msg = "dx follows the prediction")
 
 # The effect on the
-# parameters should be dp = M dqref. Where M = inv(JtJ) Jobservationst W
+# parameters should be db = M dqref. Where M = inv(JtJ) Jobservationst W
 
 M = np.linalg.solve( nps.matmult(nps.transpose(J0),J0),
                      nps.transpose(J0[:Nmeasurements_boards, :]) ) * w
-dp_predicted = nps.matmult( dqref.ravel(), nps.transpose(M)).ravel()
+db_predicted = nps.matmult( dqref.ravel(), nps.transpose(M)).ravel()
 
 istate0_frames         = mrcal.state_index_frames (0, **baseline)
 istate0_calobject_warp = mrcal.state_index_calobject_warp(**baseline)
@@ -267,32 +269,32 @@ slice_frames     = slice(istate0_frames, istate0_calobject_warp)
 # working properly. Look at the plots:
 if 0:
     import gnuplotlib as gp
-    plot_dp = gp.gnuplotlib( title = "dp predicted,observed",
+    plot_db = gp.gnuplotlib( title = "db predicted,observed",
                              _set  = mrcal.plotoptions_state_boundaries(**optimization_inputs))
-    plot_dp.plot( (nps.cat(dp_observed,dp_predicted),
+    plot_db.plot( (nps.cat(db_observed,db_predicted),
                    dict(legend = np.array(('observed','predicted')),
                         _with  = 'linespoints')),
-                  (dp_observed-dp_predicted,
+                  (db_observed-db_predicted,
                    dict(legend = "err",
                         _with  = "lines lw 2",
                         y2=1)))
-    plot_dp.wait()
+    plot_db.wait()
 
-testutils.confirm_equal( dp_predicted[slice_intrinsics],
-                         dp_observed [slice_intrinsics],
+testutils.confirm_equal( db_predicted[slice_intrinsics],
+                         db_observed [slice_intrinsics],
                          percentile = 80,
                          eps        = 0.2,
-                         msg        = f"Predicted dp from dqref: intrinsics")
-testutils.confirm_equal( dp_predicted[slice_extrinsics],
-                         dp_observed [slice_extrinsics],
+                         msg        = f"Predicted db from dqref: intrinsics")
+testutils.confirm_equal( db_predicted[slice_extrinsics],
+                         db_observed [slice_extrinsics],
                          relative   = True,
                          percentile = 80,
                          eps        = 0.2,
-                         msg        = f"Predicted dp from dqref: extrinsics")
-testutils.confirm_equal( dp_predicted[slice_frames],
-                         dp_observed [slice_frames],
+                         msg        = f"Predicted db from dqref: extrinsics")
+testutils.confirm_equal( db_predicted[slice_frames],
+                         db_observed [slice_frames],
                          percentile = 80,
                          eps        = 0.2,
-                         msg        = f"Predicted dp from dqref: frames")
+                         msg        = f"Predicted db from dqref: frames")
 
 testutils.finish()

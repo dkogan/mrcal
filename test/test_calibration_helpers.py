@@ -73,7 +73,8 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          fixedframes,
                          testdir,
                          cull_left_of_center = False,
-                         allow_nonidentity_cam0_transform = False):
+                         allow_nonidentity_cam0_transform = False,
+                         range_to_boards = 4.0):
     r'''Compute a calibration baseline as a starting point for experiments
 
 This is a perfect, noiseless solve. Regularization IS enabled, and the returned
@@ -140,30 +141,28 @@ ARGUMENTS
     #        (Nframes, 4,3)
     q_true,Rt_ref_board_true = \
         mrcal.synthesize_board_observations(models_true,
-                                            object_width_n, object_height_n, object_spacing,
-                                            calobject_warp_true,
-                                            np.array((0.,             0.,             0.,             x_center, 0,   4.0)),
-                                            np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5,      2.5, 2.0)),
-                                            Nframes)
+                                            object_width_n                  = object_width_n,
+                                            object_height_n                 = object_height_n,
+                                            object_spacing                  = object_spacing,
+                                            calobject_warp                  = calobject_warp_true,
+                                            rt_ref_boardcenter              = np.array((0.,             0.,             0.,             x_center, 0,   range_to_boards)),
+                                            rt_ref_boardcenter__noiseradius = np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5,      2.5, range_to_boards/2.0)),
+                                            Nframes                         = Nframes)
+    if extra_observation_at is not None:
+        q_true_extra,Rt_ref_board_true_extra = \
+            mrcal.synthesize_board_observations(models_true,
+                                                object_width_n                  = object_width_n,
+                                                object_height_n                 = object_height_n,
+                                                object_spacing                  = object_spacing,
+                                                calobject_warp                  = calobject_warp_true,
+                                                rt_ref_boardcenter              = np.array((0.,             0.,             0.,             x_center, 0,   extra_observation_at)),
+                                                rt_ref_boardcenter__noiseradius = np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5,      2.5, extra_observation_at/10.0)),
+                                                Nframes                         = Nframes)
 
-
-    if extra_observation_at:
-        c = mrcal.ref_calibration_object(object_width_n,
-                                         object_height_n,
-                                         object_spacing,
-                                         calobject_warp_true)
-        Rt_cam0_board_true_far = \
-            nps.glue( np.eye(3),
-                      np.array((0,0,extra_observation_at)),
-                      axis=-2)
-        Rt_ref_board_true_far = mrcal.compose_Rt(models_true[0].extrinsics_Rt_toref(),
-                                                 Rt_cam0_board_true_far)
-        q_true_far = \
-            mrcal.project(mrcal.transform_point_Rt(Rt_cam0_board_true_far, c),
-                          *models_true[0].intrinsics())
-
-        q_true            = nps.glue( q_true_far, q_true, axis=-5)
-        Rt_ref_board_true = nps.glue( Rt_ref_board_true_far, Rt_ref_board_true, axis=-3)
+        q_true            = nps.glue( q_true, q_true_extra,
+                                      axis=-5)
+        Rt_ref_board_true = nps.glue( Rt_ref_board_true, Rt_ref_board_true_extra,
+                                      axis=-3)
 
         Nframes += 1
 
@@ -286,12 +285,14 @@ def calibration_sample(Nsamples, Ncameras, Nframes,
     extrinsics_sampled_mounted = np.zeros((Nsamples,Ncameras,6),           dtype=float)
     frames_sampled             = np.zeros((Nsamples,Nframes, 6),           dtype=float)
     calobject_warp_sampled     = np.zeros((Nsamples,2),                    dtype=float)
+    optimization_inputs_sampled = [None] * Nsamples
 
     for isample in range(Nsamples):
         if (isample+1) % 20 == 0:
             print(f"Sampling {isample+1}/{Nsamples}")
 
-        optimization_inputs = copy.deepcopy(optimization_inputs_baseline)
+        optimization_inputs_sampled[isample] = copy.deepcopy(optimization_inputs_baseline)
+        optimization_inputs = optimization_inputs_sampled[isample]
         optimization_inputs['observations_board'] = \
             sample_dqref(observations_true, pixel_uncertainty_stdev)[1]
         mrcal.optimize(**optimization_inputs)
@@ -309,4 +310,5 @@ def calibration_sample(Nsamples, Ncameras, Nframes,
         ( intrinsics_sampled,         \
           extrinsics_sampled_mounted, \
           frames_sampled,             \
-          calobject_warp_sampled )
+          calobject_warp_sampled,
+          optimization_inputs_sampled)

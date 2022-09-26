@@ -1,6 +1,5 @@
-# These xxx markers are to be replaced by git_build_rpm
-Name:           xxx
-Version:        xxx
+Name:           mrcal
+Version:        mrcal
 
 Release:        1%{?dist}
 Summary:        Calibration tools
@@ -54,6 +53,8 @@ Requires: python36
 Requires: python36-ipython-console
 # for image_transformation_map(), not for plotting
 Requires: python36-matplotlib
+# for mrcal-stereo --viz stereo
+Requires: python36-gl-image-display
 
 
 %description

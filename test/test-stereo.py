@@ -174,7 +174,7 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
     #                                  Rt_cam0_ref )
     # rt_rect_ref  = mrcal.rt_from_Rt(Rt_rect_ref)
     # mrcal.show_geometry( [ model0, model1, rt_rect_ref ],
-    #                      ( "camera0", "camera1", "stereo" ),
+    #                      cameranames = ( "camera0", "camera1", "stereo" ),
     #                      show_calobjects = False,
     #                      wait            = True )
     # print(repr(Rt_cam0_rect))
@@ -329,5 +329,38 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
 
     testutils.confirm_equal( r, nps.mag(pcam0),
                              msg=f'stereo_range reports the right thing ({lensmodel})')
+
+    r = mrcal.stereo_range( disparity[0],
+                            models_rectified,
+                            qrect0 = qrect0[0],
+                           )
+    testutils.confirm_equal( r, nps.mag(pcam0[0]),
+                             msg=f'stereo_range (1-element array) reports the right thing ({lensmodel})',
+                             eps=2e-6)
+
+    r = mrcal.stereo_range( float(disparity[0]),
+                            models_rectified,
+                            qrect0 = qrect0[0],
+                           )
+    testutils.confirm_equal( r, float(nps.mag(pcam0[0])),
+                             msg=f'stereo_range (scalar) reports the right thing ({lensmodel})',
+                             eps=2e-6)
+
+
+    disparity = qrect0[:,0] - qrect1[:,0]
+    p = mrcal.stereo_unproject( disparity,
+                                models_rectified,
+                                qrect0 = qrect0,
+                               )
+    testutils.confirm_equal( p, prect0,
+                             msg=f'stereo_unproject reports the right thing ({lensmodel})')
+
+    p = mrcal.stereo_unproject( float(disparity[0]),
+                                models_rectified,
+                                qrect0 = qrect0[0],
+                               )
+    testutils.confirm_equal( p, prect0[0],
+                             msg=f'stereo_unproject (scalar) reports the right thing ({lensmodel})')
+
 
 testutils.finish()

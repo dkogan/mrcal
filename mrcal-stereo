@@ -18,17 +18,18 @@ SYNOPSIS
      left.cameramodel right.cameramodel \
      left.jpg         right.jpg
 
-  Writing '/tmp/rectified0.cameramodel'
-  Writing '/tmp/rectified1.cameramodel'
-  ##### processing left.jpg and right.jpg
-  Writing '/tmp/left-rectified.png'
-  Writing '/tmp/right-rectified.png'
-  Writing '/tmp/left-disparity.png'
-  Writing '/tmp/left-range.png'
+  Processing left.jpg and right.jpg
+  Wrote '/tmp/rectified0.cameramodel'
+  Wrote '/tmp/rectified1.cameramodel'
+  Wrote '/tmp/left-rectified.png'
+  Wrote '/tmp/right-rectified.png'
+  Wrote '/tmp/left-disparity.png'
+  Wrote '/tmp/left-range.png'
+  Wrote '/tmp/points-cam0.vnl'
 
 Given a pair of calibrated cameras and pairs of images captured by these
 cameras, this tool runs the whole stereo processing sequence to produce
-disparity and range images.
+disparity and range images and a point cloud array.
 
 mrcal functions are used to construct the rectified system. Currently only the
 OpenCV SGBM routine is available to perform stereo matching, but more options
@@ -66,15 +67,32 @@ To pan the stereo system, pass --az0-deg and/or --el0-deg. These specify the
 center of the rectified images, and are optional.
 
 Finally, the resolution of the rectified images is given with --pixels-per-deg.
-This is optional, and defaults to the resolution of the input images. If we want
-to scale the input resolution, pass a value <0. For instance, to generate
-rectified images at half the input resolution, pass --pixels-per-deg=-0.5. Note
-that the Python argparse has a problem with negative numbers, so
-"--pixels-per-deg -0.5" does not work.
+This is optional, and defaults to the resolution of the first input image. If we
+want to scale the input resolution, pass a value <0. For instance, to generate
+rectified images at half the first-input-image resolution, pass
+--pixels-per-deg=-0.5. Note that the Python argparse has a problem with negative
+numbers, so "--pixels-per-deg -0.5" does not work.
 
 The input images are specified by a pair of globs, so we can process many images
 with a single call. Each glob is expanded, and the filenames are sorted. The
 resulting lists of files are assumed to match up.
+
+There are several modes of operation:
+
+- No images given: we compute the rectified system only, writing the models to
+  disk
+
+- No --viz argument given: we compute the rectified system and the disparity,
+  and we write all output as images on disk
+
+- --viz geometry: we compute the rectified system, and display its geometry as a
+  plot. No rectification is computed, and the images aren't used, and don't need
+  to be passed in
+
+- --viz stereo: compute the rectified system and the disparity. We don't write
+  anything to disk initially, but we invoke an interactive visualization tool to
+  display the results. Requires pyFLTK (homepage: https://pyfltk.sourceforge.io)
+  and GL_image_display (homepage: https://github.com/dkogan/GL_image_display)
 
 '''
 
@@ -141,9 +159,9 @@ def parse_args():
                         values (az,el) or a single value to be applied to both
                         axes. If a resolution of >0 is requested, the value is
                         used as is. If a resolution of <0 is requested, we use
-                        this as a scale factor on the resolution of the input
-                        image. For instance, to downsample by a factor of 2,
-                        pass -0.5. By default, we use -1 for both axes: the
+                        this as a scale factor on the resolution of the first
+                        input image. For instance, to downsample by a factor of
+                        2, pass -0.5. By default, we use -1 for both axes: the
                         resolution of the input image at the center of the
                         rectified system.''')
     parser.add_argument('--rectification',
@@ -181,41 +199,47 @@ def parse_args():
                         posibly-color images to all the processing steps.
                         Required if --clahe''')
 
-    ######## --show-geometry
-    parser.add_argument('--show-geometry',
-                        action='store_true',
-                        help='''If given, we construct the rectified stereo
-                        system, but instead of continuing with the stereo
-                        processing, we render the geometry of the stereo world.
-                        The images are ignored in this mode.''')
+    ######## --viz
+    parser.add_argument('--viz',
+                        choices=('geometry', 'stereo'),
+                        default='',
+                        help='''If given, we visualize either the rectified
+                        geometry or the stereo results. If --viz geometry: we
+                        construct the rectified stereo system, but instead of
+                        continuing with the stereo processing, we render the
+                        geometry of the stereo world; the images are ignored in
+                        this mode. If --viz stereo: we launch an interactive
+                        graphical tool to examine the rectification and stereo
+                        matching results; the Fl_Gl_Image_Widget Python library
+                        must be available''')
     parser.add_argument('--axis-scale',
                         type=float,
-                        help='''Used if --show-geometry. Scale for the camera
+                        help='''Used if --viz geometry. Scale for the camera
                         axes. By default a reasonable default is chosen (see
                         mrcal.show_geometry() for the logic)''')
     parser.add_argument('--title',
                         type=str,
                         default = None,
-                        help='''Used if --show-geometry. Title string for the plot''')
+                        help='''Used if --viz geometry. Title string for the plot''')
     parser.add_argument('--hardcopy',
                         type=str,
-                        help='''Used if --show-geometry. Write the output to
+                        help='''Used if --viz geometry. Write the output to
                         disk, instead of making an interactive plot. The output
                         filename is given in the option''')
     parser.add_argument('--terminal',
                         type=str,
-                        help=r'''Used if --show-geometry. The gnuplotlib
+                        help=r'''Used if --viz geometry. The gnuplotlib
                         terminal. The default is almost always right, so most
                         people don't need this option''')
     parser.add_argument('--set',
                         type=str,
                         action='append',
-                        help='''Used if --show-geometry. Extra 'set' directives
+                        help='''Used if --viz geometry. Extra 'set' directives
                         to pass to gnuplotlib. May be given multiple times''')
     parser.add_argument('--unset',
                         type=str,
                         action='append',
-                        help='''Used if --show-geometry. Extra 'unset'
+                        help='''Used if --viz geometry. Extra 'unset'
                         directives to pass to gnuplotlib. May be given multiple
                         times''')
 
@@ -256,6 +280,14 @@ def parse_args():
                         help='''The nearest,furthest range to encode in the range image.
                         Defaults to 1,1000, arbitrarily''')
 
+    parser.add_argument('--stereo-matcher',
+                        choices=( 'SGBM', 'ELAS' ),
+                        default = 'SGBM',
+                        help='''The stereo-matching method. By default we use
+                        the "SGBM" method from OpenCV. libelas isn't always
+                        available, and must be enabled at compile-time by
+                        setting USE_LIBELAS=1 during the build''')
+
     parser.add_argument('--sgbm-block-size',
                         type=int,
                         default = 5,
@@ -295,6 +327,14 @@ def parse_args():
                         one of ('SGBM','HH','HH4','SGBM_3WAY'). If omitted, the
                         OpenCV default (SGBM) is used''')
 
+    parser.add_argument('--write-point-cloud',
+                        action='store_true',
+                        help='''If given, we write out the point cloud as a .ply
+                        file. Each point is reported in the reference coordinate
+                        system, colored with the nearest-neighbor color of the
+                        camera0 image. This is disabled by default because this
+                        is potentially a very large file''')
+
     parser.add_argument('models',
                         type=str,
                         nargs = 2,
@@ -304,17 +344,15 @@ def parse_args():
     parser.add_argument('images',
                         type=str,
                         nargs='*',
-                        help='''The image globs to use for the triangulation. If
-                        not --show-geometry: exactly two image globs must be
-                        given. If --show-geometry: the images are ignored''')
+                        help='''The image globs to use for the stereo. If
+                        omitted, we only write out the rectified models. If
+                        given, exactly two image globs must be given''')
 
     args = parser.parse_args()
 
-    if not args.show_geometry and \
-       len(args.images) != 2:
-            print("""Argument-parsing error:
-  --show-geometry not given: exactly 2 images should have been given, since we're
-  performing stereo processing""",
+    if not (len(args.images) == 0 or \
+            len(args.images) == 2):
+            print("Argument-parsing error: exactly 0 or exactly 2 images should have been given",
                   file=sys.stderr)
             sys.exit(1)
 
@@ -331,7 +369,7 @@ def parse_args():
             args.pixels_per_deg = l
         except:
             print("""Argument-parsing error:
-  --pixels_per_deg requires RESX,RESY or RESXY, where RES... is a value <0 or >0""",
+  --pixels_per_deg requires "RESX,RESY" or "RESXY", where RES... is a value <0 or >0""",
                   file=sys.stderr)
             sys.exit(1)
 
@@ -362,17 +400,30 @@ args = parse_args()
 
 import numpy as np
 import numpysane as nps
-import cv2
 import glob
 import mrcal
 
-if args.sgbm_mode is not None:
-    if   args.sgbm_mode == 'SGBM':      args.sgbm_mode = cv2.StereoSGBM_MODE_SGBM
-    elif args.sgbm_mode == 'HH':        args.sgbm_mode = cv2.StereoSGBM_MODE_HH
-    elif args.sgbm_mode == 'HH4':       args.sgbm_mode = cv2.StereoSGBM_MODE_HH4
-    elif args.sgbm_mode == 'SGBM_3WAY': args.sgbm_mode = cv2.StereoSGBM_MODE_SGBM_3WAY
-    else:
-        raise Exception("arg-parsing error. This is a bug. Please report")
+
+if args.stereo_matcher == 'ELAS':
+    if not hasattr(mrcal, 'stereo_matching_libelas'):
+        print("ERROR: the ELAS stereo matcher isn't available. libelas must be installed, and enabled at compile-time with USE_LIBELAS=1. Pass '--stereo-matcher SGBM' instead", file=sys.stderr)
+        sys.exit(1)
+
+if args.viz == 'stereo':
+
+    try:
+        from fltk import *
+    except:
+        print("The visualizer needs the pyFLTK tool. See https://pyfltk.sourceforge.io",
+              file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        from Fl_Gl_Image_Widget import *
+    except:
+        print("The visualizer needs the GL_image_display library. See https://github.com/dkogan/GL_image_display",
+              file=sys.stderr)
+        sys.exit(1)
 
 if len(args.pixels_per_deg) == 2:
     pixels_per_deg_az,pixels_per_deg_el = args.pixels_per_deg
@@ -399,7 +450,7 @@ else:
     models_rectified = models
     mrcal.stereo._validate_models_rectified(models_rectified)
 
-if args.show_geometry:
+if args.viz == 'geometry':
     # Display the geometry of the two cameras in the stereo pair, and of the
     # rectified system
     plot_options = dict(terminal = args.terminal,
@@ -412,7 +463,7 @@ if args.show_geometry:
 
     data_tuples, plot_options = \
         mrcal.show_geometry( list(models) + list(models_rectified),
-                             ( "camera0", "camera1", "camera0-rectified", "camera1-rectified" ),
+                             cameranames      = ( "camera0", "camera1", "camera0-rectified", "camera1-rectified" ),
                              show_calobjects  = False,
                              return_plot_args = True,
                              **plot_options)
@@ -465,31 +516,282 @@ if args.show_geometry:
 
 
 
-def write_output(func, filename):
-    if args.tag is None:
+def write_output_one(tag, outdir, force,
+                     func, filename):
+    if tag is None:
         tag = ''
     else:
-        tag = '-' + args.tag
+        tag = '-' + tag
 
     f,e = os.path.splitext(filename)
-    filename = f"{args.outdir}/{f}{tag}{e}"
+    filename = f"{outdir}/{f}{tag}{e}"
 
-    if os.path.isfile(filename) and not args.force:
+    if os.path.isfile(filename) and not force:
         print(f"WARNING: '{filename}' already exists. Not overwriting this file. Pass -f to overwrite")
         return
 
-    print(f"Writing '{filename}'")
+    print(f"Wrote '{filename}'")
     func(filename)
 
-if not args.already_rectified:
-    write_output(lambda filename: models_rectified[0].write(filename),
-                 'rectified0.cameramodel')
-    write_output(lambda filename: models_rectified[1].write(filename),
-                 'rectified1.cameramodel')
 
+def write_output_all(args,
+                     models,
+                     images,
+                     models_rectified,
+                     images_rectified,
+                     disparity,
+                     disparity_scale,
+                     disparity_colored,
+                     ranges,
+                     ranges_colored,
+                     force_override = False):
+
+    if not args.already_rectified:
+        write_output_one(args.tag,
+                         args.outdir,
+                         args.force or force_override,
+                         lambda filename: models_rectified[0].write(filename),
+                         'rectified0.cameramodel')
+        write_output_one(args.tag,
+                         args.outdir,
+                         args.force or force_override,
+                         lambda filename: models_rectified[1].write(filename),
+                         'rectified1.cameramodel')
+
+        write_output_one(args.tag,
+                         args.outdir,
+                         args.force or force_override,
+                         lambda filename: mrcal.save_image(filename, images_rectified[0]),
+                         image_filenames_base[0] + '-rectified.png')
+        write_output_one(args.tag,
+                         args.outdir,
+                         args.force or force_override,
+                         lambda filename: mrcal.save_image(filename, images_rectified[1]),
+                         image_filenames_base[1] + '-rectified.png')
+
+    write_output_one(args.tag,
+                     args.outdir,
+                     args.force or force_override,
+                     lambda filename: \
+                     mrcal.save_image(filename, disparity_colored),
+                     image_filenames_base[0] + '-disparity.png')
+    write_output_one(args.tag,
+                     args.outdir,
+                     args.force or force_override,
+                     lambda filename: \
+                     mrcal.save_image(filename, ranges_colored),
+                     image_filenames_base[0] + '-range.png')
+
+
+    if not args.write_point_cloud:
+        return
+
+
+    # generate and output the point cloud, in the cam0 coord system
+    p_rect0 = \
+        mrcal.stereo_unproject(disparity        = None,
+                               models_rectified = models_rectified,
+                               ranges           = ranges)
+
+    Rt_ref_rect0 = models_rectified[0].extrinsics_Rt_toref()
+    Rt_cam0_ref  = models          [0].extrinsics_Rt_fromref()
+
+    # Point cloud in ref coordinates
+    # shape (H,W,3)
+    p_ref = mrcal.transform_point_Rt(Rt_ref_rect0, p_rect0)
+
+    # shape (N,3)
+    p_ref = nps.clump(p_ref, n=2)
+
+    # I set each point color to the nearest-pixel color in the original
+    # image. I only report those points that are in-bounds (they SHOULD
+    # be, but I make sure)
+    q_cam0 = mrcal.project(mrcal.transform_point_Rt(Rt_cam0_ref, p_ref),
+                           *models[0].intrinsics())
+
+    H,W = images[0].shape[:2]
+
+    q_cam0_integer = (q_cam0 + 0.5).astype(int)
+    i = \
+        (q_cam0_integer[:,0] >= 0) * \
+        (q_cam0_integer[:,1] >= 0) * \
+        (q_cam0_integer[:,0] <  W) * \
+        (q_cam0_integer[:,1] <  H)
+    p_ref          = p_ref[i]
+    q_cam0_integer = q_cam0_integer[i]
+
+    image0 = images[0]
+    if len(image0.shape) == 2 and args.force_grayscale:
+        # I have a grayscale image, but the user asked for it for the
+        # purposes of stereo. I reload without asking for grayscale. If
+        # the image was a color one, that would be useful here.
+        image0 = mrcal.load_image(image_filenames[0])
+    if len(image0.shape) == 2:
+        # Still grayscale. I use the grayscale pixels
+        intensityT = nps.transpose(image0[q_cam0_integer[:,1], q_cam0_integer[:,0]])
+        bgr = \
+            nps.glue( intensityT, intensityT, intensityT,
+                      axis = -1)
+    else:
+        # color
+        bgr = image0[q_cam0_integer[:,1], q_cam0_integer[:,0]]
+
+    write_output_one(args.tag,
+                     args.outdir,
+                     args.force or force_override,
+                     lambda filename: write_ply_points(filename,
+                                                       ((p_ref,bgr),),
+                                                       binary    = True,
+                                                       write_bgr = True),
+                     image_filenames_base[0] + '-points.ply')
+
+
+def write_ply_points(filename,
+                     # if write_bgr: this is ((points,bgr), (points,bgr), ...)
+                     # else:         this is (points, points, ...)
+                     points_bgr_all,
+                     *,
+                     binary    = True,
+                     write_bgr = False):
+
+    if binary:
+        ply_type = 'binary_little_endian'
+    else:
+        ply_type = 'ascii'
+
+    placeholder = 'NNNNNNN'
+
+    # I'm including the alpha byte to align each row to 16 bytes.
+    # Otherwise I have unaligned 32-bit floats. I don't know for a fact
+    # that this breaks anything, but it feels like it would maybe.
+    header_bgr = '''property uchar red
+property uchar green
+property uchar blue
+property uchar alpha
+''' if write_bgr else ''
+
+    ply_header = f'''ply
+format {ply_type} 1.0
+element vertex {placeholder}
+property float x
+property float y
+property float z
+{header_bgr}end_header
+'''.encode()
+
+    if write_bgr:
+        dtype = np.dtype([ ('xyz',np.float32,3), ('rgba', np.uint8, 4) ])
+    else:
+        dtype = np.dtype([ ('xyz',np.float32,3), ])
+
+
+    def write_chunk(f, points_bgr):
+
+        if write_bgr:
+            N = len(points_bgr[0])
+        else:
+            N = len(points_bgr)
+
+        if binary:
+            binary_ply = np.empty( (N,),
+                                   dtype = dtype)
+            if write_bgr:
+                binary_ply['xyz']       = points_bgr[0].astype(np.float32)
+                binary_ply['rgba'][:,0] = points_bgr[1][:,2]
+                binary_ply['rgba'][:,1] = points_bgr[1][:,1]
+                binary_ply['rgba'][:,2] = points_bgr[1][:,0]
+                binary_ply['rgba'][:,3] = 255
+            else:
+                binary_ply['xyz'] = points_bgr.astype(np.float32)
+
+            binary_ply.tofile(f)
+        else:
+            if write_bgr:
+                pbgr = nps.glue(points_bgr[0],
+                                points_bgr[1][:,(2,)],
+                                points_bgr[1][:,(1,)],
+                                points_bgr[1][:,(0,)],
+                                255*np.ones((N,1)),
+                                axis = -1)
+                np.savetxt(f,
+                           pbgr,
+                           fmt      = ('%.1f','%.1f','%.1f','%d','%d','%d','%d'),
+                           comments = '',
+                           header   = '')
+            else:
+                np.savetxt(f, points_bgr,
+                           fmt      = ('%.1f','%.1f','%.1f',),
+                           comments = '',
+                           header   = '')
+
+        return N
+
+
+    with open(filename, 'wb') as f:
+        f.write(ply_header)
+
+        N = 0
+        for points_bgr in points_bgr_all:
+            N += write_chunk(f, points_bgr)
+
+    # I wrote the point cloud file with an unknown number of points. Now that I
+    # have the count, I go back, and fill it in.
+    import mmap
+    with open(filename, 'r+b') as f:
+        m = mmap.mmap(f.fileno(), 0)
+
+        i_placeholder_start = ply_header.find(placeholder.encode())
+        placeholder_width   = ply_header[i_placeholder_start:].find(b'\n')
+        i_placeholder_end   = i_placeholder_start + placeholder_width
+
+        m[i_placeholder_start:i_placeholder_end] = \
+            '{:{width}d}'.format(N, width=placeholder_width).encode()
+
+        m.close()
+
+
+if len(args.images) == 0:
+    # No images are given. Just write out the rectified models
+    write_output_one(args.tag,
+                     args.outdir,
+                     args.force,
+                     lambda filename: models_rectified[0].write(filename),
+                     'rectified0.cameramodel')
+    write_output_one(args.tag,
+                     args.outdir,
+                     args.force,
+                     lambda filename: models_rectified[1].write(filename),
+                     'rectified1.cameramodel')
+    sys.exit(0)
+
+
+if not args.already_rectified:
     rectification_maps = mrcal.rectification_maps(models, models_rectified)
 
 
+
+
+image_filenames_all = [sorted(glob.glob(os.path.expanduser(g))) for g in args.images]
+
+if len(image_filenames_all[0]) != len(image_filenames_all[1]):
+    print(f"First glob matches {len(image_filenames_all[0])} files, but the second glob matches {len(image_filenames_all[1])} files. These must be identical",
+          file=sys.stderr)
+    sys.exit(1)
+
+Nimages = len(image_filenames_all[0])
+if Nimages == 0:
+    print("The given globs matched 0 images. Nothing to do",
+          file=sys.stderr)
+    sys.exit(1)
+
+if args.viz == 'stereo' and Nimages > 1:
+    print(f"The given globs matched {Nimages} images. But '--viz stereo' was given, so exactly ONE set of images is expected",
+          file=sys.stderr)
+    sys.exit(1)
+
+
+if args.clahe or args.stereo_matcher == 'SGBM':
+    import cv2
 
 
 if args.clahe:
@@ -497,30 +799,18 @@ if args.clahe:
     clahe.setClipLimit(8)
 
 
-image_filenames_all = [sorted(glob.glob(os.path.expanduser(g))) for g in args.images]
-
-if len(image_filenames_all[0]) != len(image_filenames_all[1]):
-    raise Exception(f"First glob matches {len(image_filenames_all[0])} files, but the second glob matches {len(image_filenames_all[1])} files. These must be identical")
-
-Nimages = len(image_filenames_all[0])
-
 for i in range(Nimages):
 
-    print(f"##### processing {os.path.split(image_filenames_all[0][i])[1]} and {os.path.split(image_filenames_all[1][i])[1]}")
+    print(f"Processing {os.path.split(image_filenames_all[0][i])[1]} and {os.path.split(image_filenames_all[1][i])[1]}")
 
     image_filenames = (image_filenames_all[0][i],
                        image_filenames_all[1][i])
 
-    flags = ()
+    kwargs_load_image = dict()
     if args.force_grayscale:
-        flags = (cv2.IMREAD_GRAYSCALE,)
-    images = [cv2.imread(f, *flags) for f in image_filenames]
-    if images[0] is None:
-        print(f"Couldn't read image '{images[0]}'", file=sys.stderr)
-        sys.exit(1)
-    if images[1] is None:
-        print(f"Couldn't read image '{images[1]}'", file=sys.stderr)
-        sys.exit(1)
+        kwargs_load_image['bits_per_pixel'] = 8
+        kwargs_load_image['channels']       = 1
+    images = [mrcal.load_image(f, **kwargs_load_image) for f in image_filenames]
 
 
     # This doesn't really matter: I don't use the input imagersize. But a
@@ -538,6 +828,12 @@ for i in range(Nimages):
     if args.clahe:
         images = [ clahe.apply(image) for image in images ]
 
+    if len(images[0].shape) == 3:
+        if args.stereo_matcher == 'ELAS':
+            print("The ELAS matcher requires grayscale images. Pass --force-grayscale",
+                  file=sys.stderr)
+            sys.exit(1)
+
     if args.valid_intrinsics_region:
         for i in range(2):
             mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
@@ -549,11 +845,6 @@ for i in range(Nimages):
         images_rectified = [mrcal.transform_image(images[i],
                                                   rectification_maps[i]) \
                             for i in range(2)]
-
-        write_output(lambda filename: cv2.imwrite(filename, images_rectified[0]),
-                     image_filenames_base[0] + '-rectified.png')
-        write_output(lambda filename: cv2.imwrite(filename, images_rectified[1]),
-                     image_filenames_base[1] + '-rectified.png')
     else:
         images_rectified = images
 
@@ -561,246 +852,390 @@ for i in range(Nimages):
     # Done with all the preliminaries. Run the stereo matching
     disp_min,disp_max = args.disparity_range
 
-    # This is a hard-coded property of the OpenCV StereoSGBM implementation
-    disparity_scale = 16
 
-    # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
-    # implementation requires this
-    disp_max = disparity_scale*round(disp_max/disparity_scale)
+    if args.stereo_matcher == 'SGBM':
 
-    # I only add non-default args. StereoSGBM_create() doesn't like being given
-    # None args
-    kwargs = dict()
-    if args.sgbm_p1 is not None:
-        kwargs['P1']                = args.sgbm_p1
-    if args.sgbm_p2 is not None:
-        kwargs['P2']                = args.sgbm_p2
-    if args.sgbm_disp12_max_diff is not None:
-        kwargs['disp12MaxDiff']     = args.sgbm_disp12_max_diff
-    if args.sgbm_uniqueness_ratio is not None:
-        kwargs['uniquenessRatio']   = args.sgbm_uniqueness_ratio
-    if args.sgbm_speckle_window_size is not None:
-        kwargs['speckleWindowSize'] = args.sgbm_speckle_window_size
-    if args.sgbm_speckle_range is not None:
-        kwargs['speckleRange']      = args.sgbm_speckle_range
-    if args.sgbm_mode is not None:
-        kwargs['mode']              = args.sgbm_mode
-    stereo = \
-        cv2.StereoSGBM_create(minDisparity      = disp_min,
-                              numDisparities    = disp_max,
-                              # blocksize is required, so I always pass it.
-                              # There's a default set in the argument parser, no
-                              # this is never None
-                              blockSize         = args.sgbm_block_size,
-                              **kwargs)
-    disparity = stereo.compute(*images_rectified)
+        # This is a hard-coded property of the OpenCV StereoSGBM implementation
+        disparity_scale = 16
+
+        # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
+        # implementation requires this
+        disp_max = disparity_scale*round(disp_max/disparity_scale)
+        disp_min = disparity_scale*int  (disp_min/disparity_scale)
+
+        # I only add non-default args. StereoSGBM_create() doesn't like being given
+        # None args
+        kwargs = dict()
+        if args.sgbm_p1 is not None:
+            kwargs['P1']                = args.sgbm_p1
+        if args.sgbm_p2 is not None:
+            kwargs['P2']                = args.sgbm_p2
+        if args.sgbm_disp12_max_diff is not None:
+            kwargs['disp12MaxDiff']     = args.sgbm_disp12_max_diff
+        if args.sgbm_uniqueness_ratio is not None:
+            kwargs['uniquenessRatio']   = args.sgbm_uniqueness_ratio
+        if args.sgbm_speckle_window_size is not None:
+            kwargs['speckleWindowSize'] = args.sgbm_speckle_window_size
+        if args.sgbm_speckle_range is not None:
+            kwargs['speckleRange']      = args.sgbm_speckle_range
+        if args.sgbm_mode is not None:
+            if   args.sgbm_mode == 'SGBM':
+                kwargs['mode'] = cv2.StereoSGBM_MODE_SGBM
+            elif args.sgbm_mode == 'HH':
+                kwargs['mode'] = cv2.StereoSGBM_MODE_HH
+            elif args.sgbm_mode == 'HH4':
+                kwargs['mode'] = cv2.StereoSGBM_MODE_HH4
+            elif args.sgbm_mode == 'SGBM_3WAY':
+                kwargs['mode'] = cv2.StereoSGBM_MODE_SGBM_3WAY
+            else:
+                raise Exception("arg-parsing error. This is a bug. Please report")
+
+        # blocksize is required, so I always pass it. There's a default set in
+        # the argument parser, so this is never None
+        kwargs['blockSize'] = args.sgbm_block_size
+
+        stereo = \
+            cv2.StereoSGBM_create(minDisparity      = disp_min,
+                                  numDisparities    = disp_max - disp_min,
+                                  **kwargs)
+
+        # opencv barfs if I give it a color image and a monochrome image, so I
+        # convert
+        if len(images_rectified[0].shape) == 2 and \
+           len(images_rectified[1].shape) == 3:
+            disparity = stereo.compute(images_rectified[0],
+                                       cv2.cvtColor(images_rectified[1], cv2.COLOR_BGR2GRAY))
+        elif len(images_rectified[0].shape) == 3 and \
+             len(images_rectified[1].shape) == 2:
+            disparity = stereo.compute(cv2.cvtColor(images_rectified[0], cv2.COLOR_BGR2GRAY),
+                                       images_rectified[1])
+        else:
+            disparity = stereo.compute(*images_rectified)
+
+    elif args.stereo_matcher == 'ELAS':
+
+        disparities = mrcal.stereo_matching_libelas(*images_rectified,
+                                                    disp_min = disp_min,
+                                                    disp_max = disp_max)
+
+        disparity       = disparities[0]
+        disparity_scale = 1
+
+
     disparity_colored = mrcal.apply_color_map(disparity,
-                                              0, disp_max*disparity_scale)
-    write_output(lambda filename: \
-                 cv2.imwrite(filename,
-                             disparity_colored),
-                 image_filenames_base[0] + '-disparity.png')
-
-    if hasattr(args, 'viz') and \
-       args.viz is not None and \
-       args.viz == 'stereo':
-
-        UI_usage_message = r'''Usage:
-
-Left mouse button click/drag: pan
-Mouse wheel up/down/left/right: pan
-Ctrl-mouse wheel up/down: zoom
-'u': reset view: zoom out, pan to the center
-
-Right mouse button click: examine stereo at pixel
-TAB: transpose windows
-'''
-
-        from fltk               import *
-        from Fl_Gl_Image_Widget import *
-
-        class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
-
-            def set_panzoom(self,
-                            x_centerpixel, y_centerpixel,
-                            visible_width_pixels):
-                r'''Pan/zoom the image
-
-                This is an override of the function to do this: any request to
-                pan/zoom the widget will come here first. I dispatch any
-                pan/zoom commands to all the widgets, so that they all work in
-                unison. visible_width_pixels < 0 means: this is the redirected
-                call. Just call the base class
-
-                '''
-                if visible_width_pixels < 0:
-                    return super().set_panzoom(x_centerpixel, y_centerpixel,
-                                               -visible_width_pixels)
-
-                # All the widgets should pan/zoom together
-                return \
-                    all( w.set_panzoom(x_centerpixel, y_centerpixel,
-                                       -visible_width_pixels) \
-                         for w in (widget_image0, widget_image1, widget_disparity) )
-
-            def set_cross_at(self, q):
-                if q is None:
-                    return \
-                        self.set_lines( () )
-
-                x,y = q
-                return \
-                    self.set_lines( (dict(points =
-                                          np.array( (((x - 50, y),
-                                                      (x + 50, y)),
-                                                     ((x,      -0.5),
-                                                      (x,      models_rectified[0].imagersize()[1]-0.5))),
-                                                    dtype=np.float32),
-                                          color_rgb = np.array((1,0,0), dtype=np.float32) ),))
-
-            def handle(self, event):
-                if event == FL_PUSH:
-
-                    if Fl.event_button() != FL_RIGHT_MOUSE:
-                        return super().handle(event)
-
-                    if self is widget_image1:
-                        widget_status.value(UI_usage_message + "\n" + \
-                                            "Please click in the left or disparity windows")
-                        widget_image0   .set_cross_at(None)
-                        widget_image1   .set_cross_at(None)
-                        widget_disparity.set_cross_at(None)
-                        return super().handle(event)
-
-                    try:
-                        q0_rectified = \
-                            np.array( self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ),
-                                      dtype=float )
-                    except:
-                        widget_status.value(UI_usage_message + "\n" + \
-                                            "Error converting pixel coordinates")
-                        widget_image0   .set_cross_at(None)
-                        widget_image1   .set_cross_at(None)
-                        widget_disparity.set_cross_at(None)
-                        return super().handle(event)
-
-                    if not (q0_rectified[0] >= -0.5 and q0_rectified[0] <= images_rectified[0].shape[1]-0.5 and \
-                            q0_rectified[1] >= -0.5 and q0_rectified[1] <= images_rectified[0].shape[0]-0.5):
-                        widget_status.value(UI_usage_message + "\n" + \
-                                            "Out of bounds")
-                        widget_image0   .set_cross_at(None)
-                        widget_image1   .set_cross_at(None)
-                        widget_disparity.set_cross_at(None)
-                        return super().handle(event)
-
-                    d = disparity[round(q0_rectified[-1]),
-                                  round(q0_rectified[-2])]
-                    if d < 0:
-                        widget_status.value(UI_usage_message + "\n" + \
-                                            "No valid disparity at the clicked location")
-                        widget_image0   .set_cross_at(q0_rectified)
-                        widget_image1   .set_cross_at(None)
-                        widget_disparity.set_cross_at(q0_rectified)
-                        return super().handle(event)
-                    if d == 0:
-                        widget_status.value(UI_usage_message + "\n" + \
-                                        "Disparity: 0pixels\n" +
-                                        "range: infinity\n")
-                        widget_image0   .set_cross_at(q0_rectified)
-                        widget_image1   .set_cross_at(q0_rectified)
-                        widget_disparity.set_cross_at(q0_rectified)
-                        return super().handle(event)
-
-                    widget_image0   .set_cross_at(q0_rectified)
-                    widget_image1   .set_cross_at(q0_rectified -
-                                                  np.array((d/disparity_scale, 0)))
-                    widget_disparity.set_cross_at(q0_rectified)
-
-                    delta = 1e-3
-                    _range   = mrcal.stereo_range( d,
-                                                   models_rectified,
-                                                   disparity_scale = disparity_scale,
-                                                   qrect0          = q0_rectified)
-                    _range_d = mrcal.stereo_range( d + delta*disparity_scale,
-                                                   models_rectified,
-                                                   disparity_scale = disparity_scale,
-                                                   qrect0          = q0_rectified)
-                    drange_ddisparity = np.abs(_range_d - _range) / delta
+                                              disp_min*disparity_scale,
+                                              disp_max*disparity_scale)
 
 
-                    # mrcal-triangulate tool: guts into a function. Call those
-                    # guts here, and display them in the window
-                    widget_status.value(UI_usage_message + "\n" + \
-                                        f"Disparity: {d/disparity_scale:.2f}pixels\n" +
-                                        f"range: {_range:.2f}m\n" +
-                                        f"drange/ddisparity: {drange_ddisparity:.1f}m/pixel")
+    ranges = mrcal.stereo_range( disparity,
+                                 models_rectified,
+                                 disparity_scale = disparity_scale)
+    ranges_colored = mrcal.apply_color_map(ranges,
+                                           *args.range_image_limits)
 
-                    if 0:
-                        p0_rectified = \
-                            mrcal.unproject(q0_rectified,
-                                            *models_rectified[0].intrinsics(),
-                                            normalize = True) * _range
-                        p0 = mrcal.transform_point_Rt( mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
-                                                                         models_rectified[0].extrinsics_Rt_toref()),
-                                                       p0_rectified )
-                        p1 = mrcal.transform_point_Rt( mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
-                                                                         models[0].extrinsics_Rt_toref()),
-                                                       p0 )
-
-                        q0  = mrcal.project(p0, *models[0].intrinsics())
-
-                        pt = \
-                            mrcal.triangulate( nps.cat(q0, q1),
-                                               models,
-                                               stabilize_coords = True )
-                        print(f"range = {_range:.2f}, {nps.mag(pt):.2f}")
-
-                    return 0
-
-                if event == FL_KEYDOWN:
-                    if Fl.event_key() == fltk.FL_Tab:
-
-                        x_image1    = widget_image1   .x()
-                        y_image1    = widget_image1   .y()
-                        x_disparity = widget_disparity.x()
-                        y_disparity = widget_disparity.y()
-
-                        widget_image1   .position(x_disparity, y_disparity)
-                        widget_disparity.position(x_image1,    y_image1)
-                        return 1
-
-                return super().handle(event)
-
-        window           = Fl_Window(800, 600, "mrcal-stereo")
-        widget_image0    = Fl_Gl_Image_Widget_Derived(0,    0, 400,300)
-        widget_image1    = Fl_Gl_Image_Widget_Derived(0,  300, 400,300)
-        widget_disparity = Fl_Gl_Image_Widget_Derived(400,  0, 400,300)
-        widget_status    = Fl_Multiline_Output(       400,300, 400,300)
-
-        widget_status.value(UI_usage_message)
-
-        window.resizable(window)
-        window.end()
-        window.show()
-
-        import numpy as np
-        widget_image0. \
-          update_image(decimation_level = 0,
-                       image_data       = images_rectified[0])
-        widget_image1. \
-          update_image(decimation_level = 0,
-                       image_data       = images_rectified[1])
-        widget_disparity. \
-          update_image(decimation_level = 0,
-                       image_data       = disparity_colored)
-        Fl.run()
+    if args.viz != 'stereo':
+        write_output_all(args,
+                         models,
+                         images,
+                         models_rectified,
+                         images_rectified,
+                         disparity,
+                         disparity_scale,
+                         disparity_colored,
+                         ranges,
+                         ranges_colored)
 
         sys.exit(0)
 
 
-    _range = mrcal.stereo_range( disparity.astype(np.float32) / disparity_scale,
-                                 models_rectified )
-    write_output(lambda filename: \
-                 cv2.imwrite(filename, mrcal.apply_color_map(_range,
-                                                             *args.range_image_limits)),
-                 image_filenames_base[0] + '-range.png')
+    # Done with all the processing. Invoke the visualizer!
+
+    UI_usage_message = r'''Usage:
+
+    Left mouse button click/drag: pan
+    Mouse wheel up/down/left/right: pan
+    Ctrl-mouse wheel up/down: zoom
+    'u': reset view: zoom out, pan to the center
+    'd': show a colorized disparity image (default)
+    'r': show a colorized range image
+
+    Right mouse button click: examine stereo at pixel
+    TAB: transpose windows
+'''
+
+    def set_status(string, q = None):
+        # None means "use previous"
+        if string is not None:
+            set_status.string = string
+        else:
+            if not hasattr(set_status, 'string'):
+                set_status.string = ''
+
+        if q is not None:
+            set_status.qstring = f"q = {q[0]:.1f},{q[1]:.1f}\n\n"
+        else:
+            if not hasattr(set_status, 'qstring'):
+                set_status.qstring = 'No current pixel\n\n'
+
+        widget_status.value(UI_usage_message + "\n" + set_status.qstring + set_status.string)
+
+    def write_output_interactive(widget):
+        # cursor-setting needs threading. I don't bother with it yet
+        # window.cursor(FL_CURSOR_WAIT)
+
+        write_output_all(args,
+                         models,
+                         images,
+                         models_rectified,
+                         images_rectified,
+                         disparity,
+                         disparity_scale,
+                         disparity_colored,
+                         ranges, ranges_colored,
+                         force_override = True)
+
+        # window.cursor(FL_CURSOR_DEFAULT)
+
+    def process_tab():
+        x_image1    = widget_image1.x()
+        y_image1    = widget_image1.y()
+        x_disparity = widget_result.x()
+        y_disparity = widget_result.y()
+
+        widget_image1.position(x_disparity, y_disparity)
+        widget_result.position(x_image1,    y_image1)
+
+
+    class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
+
+        def set_panzoom(self,
+                        x_centerpixel, y_centerpixel,
+                        visible_width_pixels):
+            r'''Pan/zoom the image
+
+            This is an override of the function to do this: any request to
+            pan/zoom the widget will come here first. I dispatch any
+            pan/zoom commands to all the widgets, so that they all work in
+            unison. visible_width_pixels < 0 means: this is the redirected
+            call; just call the base class
+
+            '''
+            if visible_width_pixels < 0:
+                self.make_current()
+                return super().set_panzoom(x_centerpixel, y_centerpixel,
+                                           -visible_width_pixels)
+
+            # All the widgets should pan/zoom together
+            result = \
+                all( w.set_panzoom(x_centerpixel, y_centerpixel,
+                                   -visible_width_pixels) \
+                     for w in (widget_image0, widget_image1, widget_result) )
+
+            self.make_current()
+            return result
+
+        def set_cross_at(self, q, no_vertical = False):
+            if q is None:
+                return \
+                    self.set_lines()
+
+            x,y = q
+            W,H = models_rectified[0].imagersize()
+            if no_vertical:
+                points = np.array( ((( -0.5, y),
+                                     (W-0.5, y),),),
+                                   dtype=np.float32)
+                color_rgb = np.array((1,0,0),
+                                     dtype=np.float32)
+            else:
+                points = np.array( ((( -0.5, y),
+                                     (W-0.5, y)),
+                                    ((x,       -0.5),
+                                     (x,      H-0.5))),
+                                   dtype=np.float32)
+                color_rgb = np.array((0,0,1),
+                                     dtype=np.float32)
+
+            return \
+                self.set_lines( dict(points    = points,
+                                     color_rgb = color_rgb ))
+
+        def handle(self, event):
+            if event == FL_PUSH:
+
+                if Fl.event_button() != FL_RIGHT_MOUSE:
+                    return super().handle(event)
+
+                try:
+                    q0_rectified = \
+                        np.array( self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ),
+                                  dtype=float )
+                except:
+                    set_status("Error converting pixel coordinates")
+                    widget_image0.set_cross_at(None)
+                    widget_image1.set_cross_at(None)
+                    widget_result.set_cross_at(None)
+                    return super().handle(event)
+
+                if self is widget_image1:
+                    set_status("Please click in the left or disparity windows")
+                    widget_image0.set_cross_at(q0_rectified, no_vertical = True)
+                    widget_image1.set_cross_at(q0_rectified, no_vertical = True)
+                    widget_result.set_cross_at(q0_rectified, no_vertical = True)
+                    return super().handle(event)
+
+                if not (q0_rectified[0] >= -0.5 and q0_rectified[0] <= images_rectified[0].shape[1]-0.5 and \
+                        q0_rectified[1] >= -0.5 and q0_rectified[1] <= images_rectified[0].shape[0]-0.5):
+                    set_status("Out of bounds")
+                    widget_image0.set_cross_at(q0_rectified, no_vertical = True)
+                    widget_image1.set_cross_at(q0_rectified, no_vertical = True)
+                    widget_result.set_cross_at(q0_rectified, no_vertical = True)
+                    return super().handle(event)
+
+                d = disparity[round(q0_rectified[-1]),
+                              round(q0_rectified[-2])]
+                if d < 0:
+                    set_status("No valid disparity at the clicked location")
+                    widget_image0.set_cross_at(q0_rectified)
+                    widget_image1.set_cross_at(q0_rectified, no_vertical = True)
+                    widget_result.set_cross_at(q0_rectified)
+                    return super().handle(event)
+                if d == 0:
+                    set_status("Disparity: 0pixels\n" +
+                               "range: infinity\n")
+                    widget_image0.set_cross_at(q0_rectified)
+                    widget_image1.set_cross_at(q0_rectified)
+                    widget_result.set_cross_at(q0_rectified)
+                    return super().handle(event)
+
+                widget_image0.set_cross_at(q0_rectified)
+                widget_image1.set_cross_at(q0_rectified -
+                                           np.array((d/disparity_scale, 0)))
+                widget_result.set_cross_at(q0_rectified)
+
+                delta = 1e-3
+                _range   = mrcal.stereo_range( d,
+                                               models_rectified,
+                                               disparity_scale = disparity_scale,
+                                               qrect0          = q0_rectified)
+                _range_d = mrcal.stereo_range( d + delta*disparity_scale,
+                                               models_rectified,
+                                               disparity_scale = disparity_scale,
+                                               qrect0          = q0_rectified)
+                drange_ddisparity = np.abs(_range_d - _range) / delta
+
+
+                # mrcal-triangulate tool: guts into a function. Call those
+                # guts here, and display them in the window
+                set_status(f"Disparity: {d/disparity_scale:.2f}pixels\n" +
+                           f"range: {_range:.2f}m\n" +
+                           f"drange/ddisparity: {drange_ddisparity:.1f}m/pixel")
+
+                if 0:
+                    p0_rectified = \
+                        mrcal.unproject(q0_rectified,
+                                        *models_rectified[0].intrinsics(),
+                                        normalize = True) * _range
+                    p0 = mrcal.transform_point_Rt( mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
+                                                                     models_rectified[0].extrinsics_Rt_toref()),
+                                                   p0_rectified )
+                    p1 = mrcal.transform_point_Rt( mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
+                                                                     models[0].extrinsics_Rt_toref()),
+                                                   p0 )
+
+                    q0  = mrcal.project(p0, *models[0].intrinsics())
+
+                    pt = \
+                        mrcal.triangulate( nps.cat(q0, q1),
+                                           models,
+                                           stabilize_coords = True )
+                    print(f"range = {_range:.2f}, {nps.mag(pt):.2f}")
+
+                return 0
+
+            if event == FL_KEYDOWN:
+                if Fl.event_key() == fltk.FL_Tab:
+                    process_tab()
+                    return 1
+
+                if Fl.event_key() == ord('d') or \
+                   Fl.event_key() == ord('D'):
+                    widget_result. \
+                      update_image(decimation_level = 0,
+                                   image_data       = disparity_colored)
+                    return 1
+
+                if Fl.event_key() == ord('r') or \
+                   Fl.event_key() == ord('R'):
+                    widget_result. \
+                      update_image(decimation_level = 0,
+                                   image_data       = ranges_colored)
+                    return 1
+
+            if event == FL_MOVE:
+                try:
+                    q = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
+                except:
+                    q = None
+                set_status(string = None, # keep old string
+                           q      = q)
+                # fall through to let parent handlers run
+
+            return super().handle(event)
+
+    class Fl_Multiline_Output_pass_keys(Fl_Multiline_Output):
+        def handle(self, event):
+            if event == FL_KEYDOWN:
+                if Fl.event_key() == fltk.FL_Tab:
+                    process_tab()
+                    return 1
+
+                if Fl.event_key() == fltk.FL_Escape:
+                    window.hide()
+
+            return super().handle(event)
+
+    class Fl_Button_pass_keys(Fl_Button):
+        def handle(self, event):
+            if event == FL_KEYDOWN:
+                if Fl.event_key() == fltk.FL_Tab:
+                    process_tab()
+                    return 1
+
+                if Fl.event_key() == fltk.FL_Escape:
+                    window.hide()
+
+            return super().handle(event)
+
+
+    window        = Fl_Window(800, 600, "mrcal-stereo")
+    widget_image0 = Fl_Gl_Image_Widget_Derived(   0,    0,        400,300)
+    widget_image1 = Fl_Gl_Image_Widget_Derived(   0,  300,        400,300)
+    widget_result = Fl_Gl_Image_Widget_Derived(   400,  0,        400,300)
+
+    group_status     = Fl_Group(                     400,300,        400,300)
+    widget_status    = Fl_Multiline_Output_pass_keys(400,300,        400,300-30)
+    widget_dowrite   = Fl_Button_pass_keys(          400,300+300-30, 400,30,
+                                                     f'Write output to "{args.outdir}" (will overwrite)')
+    widget_dowrite.callback(write_output_interactive)
+    group_status.resizable(widget_status)
+    group_status.end()
+
+    set_status('')
+
+    window.resizable(window)
+    window.end()
+    window.show()
+
+    widget_image0. \
+      update_image(decimation_level = 0,
+                   image_data       = images_rectified[0])
+    widget_image1. \
+      update_image(decimation_level = 0,
+                   image_data       = images_rectified[1])
+    widget_result. \
+      update_image(decimation_level = 0,
+                   image_data       = disparity_colored)
+    Fl.run()
+
+    sys.exit(0)
