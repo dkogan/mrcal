@@ -82,7 +82,7 @@ ifneq ($(DEB_HOST_MULTIARCH),)
 import ast
 import sys
 
-prefixes = ("_sysconfigdata_", "_sysconfigdata_m_linuxqq")
+prefixes = ("_sysconfigdata_", "_sysconfigdata_m_linux")
 sysconfig_paths = [d + "/" + prefix + "_$(DEB_HOST_MULTIARCH).py" for d in sys.path for prefix in prefixes]
 for filename in sysconfig_paths:
     try:
