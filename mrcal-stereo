@@ -1021,7 +1021,6 @@ for i in range(Nimages):
 
             '''
             if visible_width_pixels < 0:
-                self.make_current()
                 return super().set_panzoom(x_centerpixel, y_centerpixel,
                                            -visible_width_pixels)
 
@@ -1031,6 +1030,7 @@ for i in range(Nimages):
                                    -visible_width_pixels) \
                      for w in (widget_image0, widget_image1, widget_result) )
 
+            # Switch back to THIS widget
             self.make_current()
             return result
 
