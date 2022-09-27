@@ -286,15 +286,23 @@ if lensmodel_from == lensmodel_to:
 if not args.sampled:
 
     if args.distance is not None:
-        raise Exception("--distance requires --sampled")
+        print("--distance requires --sampled",
+              file=sys.stderr)
+        sys.exit(1)
     if args.intrinsics_only:
-        raise Exception("--intrinsics-only requires --sampled")
+        print("--intrinsics-only requires --sampled",
+              file=sys.stderr)
+        sys.exit(1)
     if not mrcal.lensmodel_metadata_and_config(lensmodel_from)['has_core']:
-        raise Exception("Without --sampled, the TO models must support contain an intrinsics core. It COULD work otherwise, but somebody needs to implement it")
+        print("Without --sampled, the TO models must support contain an intrinsics core. It COULD work otherwise, but somebody needs to implement it",
+              file=sys.stderr)
+        sys.exit(1)
 
     optimization_inputs = m.optimization_inputs()
     if optimization_inputs is None:
-        raise Exception("optimization_inputs not available in this model, so only sampled fits are possible. Pass --sampled")
+        print("optimization_inputs not available in this model, so only sampled fits are possible. Pass --sampled",
+              file=sys.stderr)
+        sys.exit(1)
 
 
     intrinsics_from = optimization_inputs['intrinsics']
@@ -384,7 +392,10 @@ else:
             # matter. I pick an arbitrary value
             args.distance = 10.
         else:
-            raise Exception("--sampled without --intrinsics-only REQUIRES --distance")
+            print("--sampled without --intrinsics-only REQUIRES --distance",
+                  file=sys.stderr)
+            sys.exit(1)
+
 
     dims = m.imagersize()
     if dims is None:
