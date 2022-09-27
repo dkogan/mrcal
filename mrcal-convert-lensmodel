@@ -135,20 +135,21 @@ def parse_args():
     parser.add_argument('--where',
                         type=float,
                         nargs=2,
-                        help='''Used if --sampled. I use a subset of the imager to compute the fit. The
-                        active region is a circle centered on this point. If
-                        omitted, we will focus on the center of the imager''')
+                        help='''Used with or without --sampled. I use a subset
+                        of the imager to compute the fit. The active region is a
+                        circle centered on this point. If omitted, we will focus
+                        on the center of the imager''')
     parser.add_argument('--radius',
                         type=float,
-                        help='''Used if --sampled. I use a subset of the imager to compute the fit. The
-                        active region is a circle with a radius given by this
-                        parameter. If radius == 0, I'll use the whole imager for
-                        the fit. If radius < 0, this parameter specifies the
-                        width of the region at the corners that I should ignore:
-                        I will use sqrt(width^2 + height^2)/2. - abs(radius).
-                        This is valid ONLY if we're focusing at the center of
-                        the imager. By default I ignore a large-ish chunk area
-                        at the corners.''')
+                        help='''Used with or without --sampled. I use a subset
+                        of the imager to compute the fit. The active region is a
+                        circle with a radius given by this parameter. If radius
+                        == 0, I'll use the whole imager for the fit. If radius <
+                        0, this parameter specifies the width of the region at
+                        the corners that I should ignore: I will use
+                        sqrt(width^2 + height^2)/2. - abs(radius). This is valid
+                        ONLY if we're focusing at the center of the imager. By
+                        default I ignore a large-ish chunk area at the corners.''')
 
     parser.add_argument('--viz',
                         action='store_true',
