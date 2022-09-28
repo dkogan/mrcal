@@ -267,8 +267,8 @@ if args.extratitle is not None:
 def openmodel(f):
     try:
         return mrcal.cameramodel(f)
-    except:
-        print(f"Couldn't load camera model '{f}'",
+    except Exception as e:
+        print(f"Couldn't load camera model '{f}': {e}",
               file=sys.stderr)
         sys.exit(1)
 
