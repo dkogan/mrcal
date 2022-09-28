@@ -21,7 +21,7 @@ def show_geometry(models_or_extrinsics_rt_fromref,
                   frames_rt_toref             = None,
                   points                      = None,
 
-                  show_calobjects    = False,
+                  show_calobjects    = 'all',
                   axis_scale         = None,
                   object_width_n     = None,
                   object_height_n    = None,
@@ -57,12 +57,26 @@ SYNOPSIS
                           zlabel          = 'Down (m)')
 
 This function visualizes the world described by a set of camera models. It shows
-the geometry of the cameras themselves (each one is represented by the axes of
-its coordinate system). If available (via a frames_rt_toref argument or from
-model.optimization_inputs() in the given models), the geometry of the
-calibration objects used to compute these models is shown if show_calobjects. We
-use frames_rt_toref if this is given. If not, we use the optimization_inputs()
-from the FIRST model that provides them.
+
+- The geometry of the cameras themselves. Each one is represented by the axes of
+  its coordinate system
+
+- The geometry of the calibration objects used to compute these models. These
+  are shown only if available and requested
+
+  - Available: The data comes either from the frames_rt_toref argument or from
+    the first model.optimization_inputs() that is given. If we have both, we use
+    the frames_rt_toref
+
+  - Requested: if we're using frames_rt_toref then we show the calibration
+    objects if show_calobjects. I.e. show_calobjects is treated as a boolean.
+
+    If we're using a model.optimization_inputs() then we can have finer-grained
+    control. if show_calobjects == 'all': we show ALL the calibration objects,
+    observed by ANY camera. elif show_calobjects == 'thiscamera': we only show
+    the calibration objects that were observed by the given camera at
+    calibration time. As before, if we have multiple camera models with multiple
+    optimization_inputs, we use the first one
 
 This function can also be used to visualize the output (or input) of
 mrcal.optimize(); the relevant parameters are all identical to those
@@ -128,10 +142,12 @@ ARGUMENTS
   labelled in this way. If omitted, none of the points will be labelled
   specially. This is used only if points is not None
 
-- show_calobjects: optional boolean defaults to False. if show_calobjects: we
+- show_calobjects: optional string defaults to 'all'. if show_calobjects: we
   render the observed calibration objects (if they are available in
-  model.optimization_inputs()['frames_rt_toref']; we look at the FIRST model
-  that provides this data)
+  frames_rt_toref or model.optimization_inputs()['frames_rt_toref']; we look at
+  the FIRST model that provides this data). If we have optimization_inputs and
+  show_calobjects == 'all': we display the objects observed by ANY camera. elif
+  show_calobjects == 'thiscamera': we only show those observed by THIS camera.
 
 - axis_scale: optional scale factor for the size of the axes used to represent
   the cameras. Can be omitted to use some reasonable default size, but tweaking
@@ -197,6 +213,14 @@ plot
     if not show_calobjects:
         frames_rt_toref = None
     elif frames_rt_toref is None:
+
+        if show_calobjects is True:
+            show_calobjects = 'all'
+
+        if not (show_calobjects == 'all' or
+                show_calobjects == 'thiscamera'):
+            raise Exception("show_calobjects must be 'all' or 'thiscamera' or True or False")
+
         # No frames were given. I grab them from the first .cameramodel that has
         # them. If none of the models have this data, I don't plot any frames at
         # all
@@ -218,11 +242,21 @@ plot
                 _object_height_n = optimization_inputs['observations_board'].shape[-3]
                 _calobject_warp  = optimization_inputs['calobject_warp']
 
+                icam_intrinsics = m.icam_intrinsics()
+
+                if show_calobjects == 'thiscamera':
+                    indices_frame_camintrinsics_camextrinsics = \
+                        optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+                    mask_observations = \
+                        indices_frame_camintrinsics_camextrinsics[:,1] == icam_intrinsics
+                    idx_frames = indices_frame_camintrinsics_camextrinsics[mask_observations,0]
+                    _frames_rt_toref = _frames_rt_toref[idx_frames]
+
                 # The current frames_rt_toref uses the calibration-time ref, NOT
                 # the current ref. I transform. frames_rt_toref = T_rcal_f
                 # I want T_rnow_rcal T_rcal_f
                 icam_extrinsics = \
-                    mrcal.corresponding_icam_extrinsics(m.icam_intrinsics(),
+                    mrcal.corresponding_icam_extrinsics(icam_intrinsics,
                                                         **optimization_inputs)
                 if icam_extrinsics >= 0:
                     _frames_rt_toref = \

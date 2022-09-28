@@ -114,6 +114,11 @@ represent the bulk of the changes.
   estimates for focal length: one estimate per camera. Useful in seeding
   calibration problems containing multiple disparate cameras
 
+- The [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool and the [[file:mrcal-python-api-reference.html#-show_geometry][=mrcal.show_geometry()=]] function can
+  now display the calibration objects observed by /all/ cameras during a
+  calibration (previous behavior) /or/ they can dispaly the objects observed by
+  just the given camera. The default behavior is unchanged.
+
 * Migration notes 2.1 -> 2.2
 The vast majority of existing usage remains the same, but some updates described
 above will require a code change:
