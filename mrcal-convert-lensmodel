@@ -281,8 +281,8 @@ else:
 lensmodel_from = m.intrinsics()[0]
 
 if lensmodel_from == lensmodel_to:
-    sys.stderr.write(f"Input and output have the same lens model {lensmodel_from}. Nothing to do")
-    sys.stderr.write("RMS error of the solution: 0 pixels.\n")
+    print(f"Input and output have the same lens model {lensmodel_from}. Nothing to do", file=sys.stderr)
+    print("RMS error of the solution: 0 pixels.", file=sys.stderr)
     sys.exit(0)
 
 
@@ -342,7 +342,7 @@ if not args.sampled:
                 r = args.radius
             else:
                 if nps.norm2(focus_center - (dims - 1.) / 2) > 1e-3:
-                    sys.stderr.write("A radius <0 is only implemented if we're focusing on the imager center\n")
+                    print("A radius <0 is only implemented if we're focusing on the imager center", file=sys.stderr)
                     sys.exit(1)
                 r = nps.mag(dims)/2. + args.radius
 
@@ -378,8 +378,8 @@ if not args.sampled:
     # distance. I use the mean observation distance
     args.distance = np.mean(nps.mag(calobject1))
 
-    sys.stderr.write("RMS error of the solution: {} pixels.\n". \
-                     format(stats['rms_reproj_error__pixels']))
+    print(f"RMS error of the solution: {stats['rms_reproj_error__pixels']} pixels.",
+          file=sys.stderr)
     m_to = mrcal.cameramodel( optimization_inputs = optimization_inputs,
                               icam_intrinsics     = m.icam_intrinsics() )
 
@@ -402,17 +402,17 @@ else:
 
     dims = m.imagersize()
     if dims is None:
-        sys.stderr.write("Warning: imager size not available. Using centerpixel*2\n")
+        print("Warning: imager size not available. Using centerpixel*2", file=sys.stderr)
         dims = intrinsics_from[1][2:4] * 2
 
     if args.radius is None:
         # By default use 1/4 of the smallest dimension
         args.radius = -np.min(m.imagersize()) // 4
-        sys.stderr.write("Default radius: {}. We're ignoring the regions {} pixels from each corner\n". \
-                         format(args.radius, -args.radius))
+        print(f"Default radius: {args.radius}. We're ignoring the regions {-args.radius} pixels from each corner",
+              file=sys.stderr)
         if args.where is not None and \
            nps.norm2(args.where - (dims - 1.) / 2) > 1e-3:
-            sys.stderr.write("A radius <0 is only implemented if we're focusing on the imager center: use an explicit --radius, or omit --where\n")
+            print("A radius <0 is only implemented if we're focusing on the imager center: use an explicit --radius, or omit --where", file=sys.stderr)
             sys.exit(1)
 
 
@@ -442,7 +442,7 @@ else:
             r = args.radius
         else:
             if nps.norm2(focus_center - (dims - 1.) / 2) > 1e-3:
-                sys.stderr.write("A radius <0 is only implemented if we're focusing on the imager center\n")
+                print("A radius <0 is only implemented if we're focusing on the imager center", file=sys.stderr)
                 sys.exit(1)
             r = nps.mag(dims)/2. + args.radius
 
@@ -565,7 +565,7 @@ else:
         sys.exit(1)
 
     if args.num_trials > 1:
-        sys.stderr.write("RMS error of the BEST solution: {} pixels.\n".format(err_rms_best))
+        print(f"RMS error of the BEST solution: {err_rms_best} pixels.", file=sys.stderr)
 
     m_to = mrcal.cameramodel( intrinsics = (lensmodel_to, intrinsics_data_best.ravel()),
                               imagersize = dims )
