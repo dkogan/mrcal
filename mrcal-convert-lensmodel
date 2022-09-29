@@ -607,6 +607,7 @@ if args.viz:
         plotkwargs_extra['extratitle'] = args.extratitle
 
     plot,_ = mrcal.show_projection_diff( (m, m_to),
+                                         implied_Rt10 = implied_Rt10,
                                          distance     = args.distance,
                                          cbmax        = 4,
                                          gridn_width  = None if args.gridn is None else args.gridn[0],
