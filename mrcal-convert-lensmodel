@@ -564,7 +564,8 @@ else:
         print("No valid intrinsics found!", file=sys.stderr)
         sys.exit(1)
 
-    sys.stderr.write("RMS error of the BEST solution: {} pixels.\n".format(err_rms_best))
+    if args.num_trials > 1:
+        sys.stderr.write("RMS error of the BEST solution: {} pixels.\n".format(err_rms_best))
 
     m_to = mrcal.cameramodel( intrinsics = (lensmodel_to, intrinsics_data_best.ravel()),
                               imagersize = dims )
