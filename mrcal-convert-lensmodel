@@ -577,7 +577,7 @@ else:
 
 if args.sampled and not args.intrinsics_only:
     implied_rt10 = mrcal.rt_from_Rt(implied_Rt10)
-    print(f"Transformation cam_fitted <-- cam_input:  rotation: {nps.mag(implied_rt10[:3])*180./np.pi:.03f} degrees, translation: {implied_rt10[3:]} m")
+    print(f"## Transformation cam_fitted <-- cam_input:  rotation: {nps.mag(implied_rt10[:3])*180./np.pi:.03f} degrees, translation: {implied_rt10[3:]} m")
 
 
 m_to.extrinsics_Rt_fromref( mrcal.compose_Rt( implied_Rt10,
