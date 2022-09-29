@@ -725,6 +725,7 @@ String passable to gnuplotlib in the 'equation' or 'equation_above' plot option
 
 def show_projection_diff(models,
                          *,
+                         implied_Rt10 = None,
                          gridn_width  = 60,
                          gridn_height = None,
 
@@ -780,7 +781,9 @@ The top-level operation of this function:
 - Project the transformed points to the other camera
 - Look at the resulting pixel difference in the reprojection
 
-Several variables control how we obtain the transformation. Top-level logic:
+If implied_Rt10 is given, we simply use that as the transformation (this is
+currently supported ONLY for diffing exactly 2 cameras). If implied_Rt10 is not
+given, we estimate it. Several variables control this. Top-level logic:
 
   if intrinsics_only:
       Rt10 = identity_Rt()
@@ -798,6 +801,11 @@ ARGUMENTS
 - models: iterable of mrcal.cameramodel objects we're comparing. Usually there
   will be 2 of these, but more than 2 is possible. The intrinsics are used; the
   extrinsics are NOT.
+
+- implied_Rt10: optional transformation to use to line up the camera coordinate
+  systems. Most of the time we want to estimate this transformation, so this
+  should be omitted or None. Currently this is supported only if exactly two
+  models are being compared.
 
 - gridn_width: optional value, defaulting to 60. How many points along the
   horizontal gridding dimension
@@ -955,6 +963,7 @@ A tuple:
 
     # Now do all the actual work
     difflen,diff,q0,Rt10 = mrcal.projection_diff(models,
+                                                 implied_Rt10      = implied_Rt10,
                                                  gridn_width       = gridn_width,
                                                  gridn_height      = gridn_height,
                                                  intrinsics_only   = intrinsics_only,

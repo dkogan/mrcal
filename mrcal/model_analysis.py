@@ -1020,6 +1020,7 @@ else:                    we return an array of shape (...)
 
 def projection_diff(models,
                     *,
+                    implied_Rt10 = None,
                     gridn_width  = 60,
                     gridn_height = None,
 
@@ -1056,7 +1057,7 @@ instance, one may want to validate a calibration by comparing the results of two
 different chessboard dances. Or one may want to evaluate the stability of the
 intrinsics in response to mechanical or thermal stresses. This function makes
 these comparisons, and returns the results. A visualization wrapper is
-available: mrcal.show_projection_diff()
+available: mrcal.show_projection_diff() and the mrcal-show-projection-diff tool.
 
 In the most common case we're given exactly 2 models to compare, and we compute
 the differences in projection of each point. If we're given more than 2 models,
@@ -1072,7 +1073,9 @@ The top-level operation of this function:
 - Project the transformed points to the other camera
 - Look at the resulting pixel difference in the reprojection
 
-Several variables control how we obtain the transformation. Top-level logic:
+If implied_Rt10 is given, we simply use that as the transformation (this is
+currently supported ONLY for diffing exactly 2 cameras). If implied_Rt10 is not
+given, we estimate it. Several variables control this. Top-level logic:
 
   if intrinsics_only:
       Rt10 = identity_Rt()
@@ -1151,6 +1154,11 @@ ARGUMENTS
   will be 2 of these, but more than 2 is allowed. The intrinsics are always
   used; the extrinsics are used only if not intrinsics_only and focus_radius==0
 
+- implied_Rt10: optional transformation to use to line up the camera coordinate
+  systems. Most of the time we want to estimate this transformation, so this
+  should be omitted or None. Currently this is supported only if exactly two
+  models are being compared.
+
 - gridn_width: optional value, defaulting to 60. How many points along the
   horizontal gridding dimension
 
@@ -1221,6 +1229,8 @@ A tuple
 
     if len(models) < 2:
         raise Exception("At least 2 models are required to compute the diff")
+    if len(models) > 2 and implied_Rt10 is not None:
+        raise Exception("A given implied_Rt10 is currently supported ONLY if exactly 2 models are being compared")
 
     # If the distance is iterable, the shape of the output is (len(distance),
     # ...). Otherwise it is just (...). In the intermediate computations, the
@@ -1255,8 +1265,9 @@ A tuple
                                          normalize = True)
 
     uncertainties = None
-    if not intrinsics_only and focus_radius != 0 and \
-       use_uncertainties:
+    if use_uncertainties and \
+       not intrinsics_only and focus_radius != 0 and \
+       implied_Rt10 is None:
         try:
             # len(uncertainties) = Ncameras. Each has shape (len(distance),Nh,Nw)
             uncertainties = \
@@ -1281,38 +1292,43 @@ A tuple
 
     if len(models) == 2:
         # Two models. Take the difference and call it good
-        if intrinsics_only:
-            Rt10 = mrcal.identity_Rt()
+        if implied_Rt10 is not None:
+            Rt10 = implied_Rt10
+
         else:
-            if focus_radius == 0:
-                Rt10 = mrcal.compose_Rt(models[1].extrinsics_Rt_fromref(),
-                                        models[0].extrinsics_Rt_toref())
+            if intrinsics_only:
+                Rt10 = mrcal.identity_Rt()
             else:
-                # weights has shape (len(distance),Nh,Nw))
-                if uncertainties is not None:
-                    weights = 1.0 / (uncertainties[0]*uncertainties[1])
-
-                    # It appears to work better if I discount the uncertain regions
-                    # even more. This isn't a principled decision, and is supported
-                    # only by a little bit of data. The differencing.org I'm writing
-                    # now will contain a weighted diff of culled and not-culled
-                    # splined model data. That diff computation requires this.
-                    weights *= weights
+                if focus_radius == 0:
+                    Rt10 = mrcal.compose_Rt(models[1].extrinsics_Rt_fromref(),
+                                            models[0].extrinsics_Rt_toref())
                 else:
-                    weights = None
+                    # weights has shape (len(distance),Nh,Nw))
+                    if uncertainties is not None:
+                        weights = 1.0 / (uncertainties[0]*uncertainties[1])
 
-                # weight may be inf or nan. implied_Rt10__from_unprojections() will
-                # clean those up, as well as any inf/nan in v (from failed
-                # unprojections)
-                Rt10 = \
-                    implied_Rt10__from_unprojections(q0,
-                                                     # shape (len(distance),Nheight,Nwidth,3)
-                                                     v[0,...] * distance,
-                                                     v[1,...],
-                                                     weights      = weights,
-                                                     atinfinity   = atinfinity,
-                                                     focus_center = focus_center,
-                                                     focus_radius = focus_radius)
+                        # It appears to work better if I discount the uncertain regions
+                        # even more. This isn't a principled decision, and is supported
+                        # only by a little bit of data. The differencing.org I'm writing
+                        # now will contain a weighted diff of culled and not-culled
+                        # splined model data. That diff computation requires this.
+                        weights *= weights
+                    else:
+                        weights = None
+
+                    # weight may be inf or nan. implied_Rt10__from_unprojections() will
+                    # clean those up, as well as any inf/nan in v (from failed
+                    # unprojections)
+                    Rt10 = \
+                        implied_Rt10__from_unprojections(q0,
+                                                         # shape (len(distance),Nheight,Nwidth,3)
+                                                         v[0,...] * distance,
+                                                         v[1,...],
+                                                         weights      = weights,
+                                                         atinfinity   = atinfinity,
+                                                         focus_center = focus_center,
+                                                         focus_radius = focus_radius)
+
 
         q1 = mrcal.project( mrcal.transform_point_Rt(Rt10,
                                                      # shape (len(distance),Nheight,Nwidth,3)
