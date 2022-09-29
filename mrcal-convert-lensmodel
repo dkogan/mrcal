@@ -209,8 +209,11 @@ def parse_args():
                         help='The target lens model')
 
     parser.add_argument('model',
+                        default='-',
+                        nargs='?',
                         type=str,
-                        help='''Input camera model. If "-' is given, we read standard input''')
+                        help='''Input camera model. If omitted or "-", we read
+                        standard input''')
 
     args = parser.parse_args()
 
