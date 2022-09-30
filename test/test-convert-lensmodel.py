@@ -4,28 +4,12 @@ r'''Test of the mrcal-convert-lensmodel tool
 
 '''
 
-
-
-
-# This is incomplete. My old notes about what should be added:
-
-# Should test
-# 1. reoptimization (with a non-monocular solve)
-# 2. sampled at various distances with/without uncertainties
-
-
-
-
-
-
-
-
-
 import sys
 import numpy as np
 import numpysane as nps
 import os
 import subprocess
+import re
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 
@@ -50,40 +34,84 @@ def cleanup():
 atexit.register(cleanup)
 
 
-filename_splined = f"{testdir}/data/cam0.splined.cameramodel"
-with open(filename_splined, "r") as f: text_splined = f.read()
-model_splined = mrcal.cameramodel(filename_splined)
+filename_splined          = f"{testdir}/data/cam0.splined.cameramodel"
+filename_format_converted = workdir + "/cam0.splined-{model}.cameramodel"
+model_splined             = mrcal.cameramodel(filename_splined)
 
-# These settings are semi-arbitrary. I could test that higher radii fit more
-# stuff until we go too high, and it doesn't fit at all anymore. Need --sampled
-# because my models don't have optimization_inputs. For a basic test this is
-# fine
-text_out_cahvor = \
-    subprocess.check_output( (f"{testdir}/../mrcal-convert-lensmodel",
-                              "--radius", "800",
-                              "--intrinsics-only",
-                              "--sampled",
-                              "--distance", "3",
-                              "LENSMODEL_CAHVOR",
-                              "-",),
-                             encoding = 'ascii',
-                             input    = text_splined,
-                             stderr   = subprocess.DEVNULL)
 
-filename_out_cahvor = f"{workdir}/cam0.out.cahvor.cameramodel"
-with open(filename_out_cahvor, "w") as f:
-    print(text_out_cahvor, file=f)
+def check(lensmodel, args, *,
+          must_warn_of_aphysical_translation,
+          what):
+    process = \
+        subprocess.Popen( (f"{testdir}/../mrcal-convert-lensmodel",
+                           *args,
+                           # need multiple attempts to hit the accuracy targets below
+                           "--num-trials", "4",
+                           "-f",
+                           "--outdir", workdir,
+                           lensmodel,
+                           filename_splined,),
+                          encoding = 'ascii',
+                          stdout   = subprocess.PIPE,
+                          stderr   = subprocess.PIPE)
+    stdout,stderr = process.communicate()
 
-model_out_cahvor = mrcal.cameramodel(filename_out_cahvor)
+    if process.returncode != 0:
+        testutils.confirm( False, msg = f"{what}: convert failed: {stderr}" )
+    else:
+        testutils.confirm( True, msg = f"{what}: convert succeeded" )
 
-difflen, diff, q0, implied_Rt10 = \
-    mrcal.projection_diff( (model_out_cahvor, model_splined),
-                           use_uncertainties = False,
-                           distance          = 3)
-icenter = np.array(difflen.shape) // 2
+        have_warn_of_aphysical_translation = \
+            re.search("WARNING: fitted camera moved by.*aphysically high", stderr)
+        if must_warn_of_aphysical_translation:
+            testutils.confirm( have_warn_of_aphysical_translation,
+                               msg = "Expected a warning about an aphysical translation")
+        else:
+            testutils.confirm( not have_warn_of_aphysical_translation,
+                               msg = "Expected no warning about an aphysical translation")
 
-testutils.confirm_equal( 0, difflen[icenter[0],icenter[1]],
-                         eps = 0.1,
-                         msg = "Low-enough diff at the center")
+        filename_converted = filename_format_converted.format(model = lensmodel)
+        model_converted    = mrcal.cameramodel(filename_converted)
+
+        difflen, diff, q0, implied_Rt10 = \
+            mrcal.projection_diff( (model_converted, model_splined),
+                                   use_uncertainties = False,
+                                   distance          = 3)
+        icenter = np.array(difflen.shape) // 2
+        ithird  = np.array(difflen.shape) // 3
+
+        testutils.confirm_equal( 0, difflen[icenter[0],icenter[1]],
+                                 eps = 0.6,
+                                 msg = f"{what}: low-enough diff at the center")
+
+        testutils.confirm_equal( 0, difflen[ithird[0],ithird[1]],
+                                 eps = 0.6,
+                                 msg = f"{what}: low-enough diff at 1/3 from top-left")
+
+
+check( "LENSMODEL_CAHVOR",
+       ("--radius", "800",
+        "--intrinsics-only",
+        "--sampled"),
+       must_warn_of_aphysical_translation = False,
+       what = 'CAHVOR, sampled, intrinsics-only',)
+check( "LENSMODEL_CAHVOR",
+       ("--radius", "800",
+        "--sampled",
+        "--distance", "3"),
+       must_warn_of_aphysical_translation = True,
+       what = 'CAHVOR, sampled at 3m',)
+check( "LENSMODEL_CAHVOR",
+       ("--radius", "800",
+        "--sampled",
+        "--distance", "3000"),
+       must_warn_of_aphysical_translation = True,
+       what = 'CAHVOR, sampled at 3000m',)
+check( "LENSMODEL_CAHVOR",
+       ("--radius", "800",
+        "--sampled",
+        "--distance", "3000,3"),
+       must_warn_of_aphysical_translation = False,
+       what = 'CAHVOR, sampled at 3000m,3m',)
 
 testutils.finish()
