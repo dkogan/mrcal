@@ -15,10 +15,10 @@ SYNOPSIS
   ... a plot pops up showing the differences ...
 
 Given a camera model, this tool computes another model that represents the same
-lens, but using a different lens model. While lens models all exist to solve the
+lens, but uses a different lens model. While lens models all exist to solve the
 same problem, the different representations don't map to one another perfectly,
-and this tool seeks to find the best-fitting parameters of the target lens
-model. Two different methods are implemented:
+and this tool finds the best-fitting parameters of the target lens model. Two
+different methods are implemented:
 
 1. If the given cameramodel file contains optimization_inputs, then we have all
    the data that was used to compute this model in the first place, and we can
@@ -26,33 +26,43 @@ model. Two different methods are implemented:
    default behavior. If the input model doesn't have optimization_inputs, an
    error will result, and the other method must be selected by passing --sampled
 
-2. We can sample lots of points on the imager, unproject them to observation
+2. We can sample a grid of points on the imager, unproject them to observation
    vectors in the camera coordinate system, and then fit a new camera model that
    reprojects these vectors as closely to the original pixel coordinates as
    possible. Select this mode by passing --sampled.
 
 The first method is preferred. Since camera models (lens parameters AND
-geometry) are computed off real pixel observations, the confidence of the final
-projections varies greatly, depending on the location of the points being
-projected. The first method uses the original data, so it implicitly respects
-these uncertainties 100%: low-data areas in the original model will also be
-low-data areas in the new model. The second method, however, doesn't have this
-information: it doesn't know which parts of the imager are reliable and which
-aren't, so the results won't be as good.
+geometry) are computed off real pixel observations, the confidence of the
+projections varies greatly across the imager. The first method uses the original
+data, so it implicitly respects these uncertainties%: uncertain areas in the
+original model will be uncertain areas in the new model too. The second method,
+however, doesn't have this information: it doesn't know which parts of the
+imager are reliable and which aren't, so the results could suffer.
 
 As always, the intrinsics have some baked-in geometry information. Both methods
 optimize intrinsics AND extrinsics, and output cameramodels with updated
-versions of both. If --sampled, then we can request that only the intrinsics be
-optimized by passing --intrinsics-only. Also, if --sampled then we fit the
-extrinsics off 3D points, not just observation directions. The distance from the
-camera to the fitting points is set by --distance. Set this to the distance
-where you expect the intrinsics to have the most accuracy. This is only needed
-if --sampled and not --intrinsics-only. Note that the geometric transform
-computed from --sampled --distance could be aphysically large, since these
-solves often do not constrain the problem sufficiently. This often happens if
-the requested --distance is much larger than the distance of the chessboards at
-calibration time. The resulting transform is printed on the console, do pay
-attention to it.
+versions of both. If --sampled: we can request that only the intrinsics be
+optimized by passing --intrinsics-only.
+
+Also, if --sampled and not --intrinsics-only: we fit the extrinsics off 3D
+points, not just observation directions. The distance from the camera to the
+points is set by --distance. This can take a comma-separated list of distances
+to use. It's STRONGLY recommended to ask for two different distances:
+
+- A "near" distance: where we expect the intrinsics to have the most accuracy.
+  At the range of the chessboards, usually
+
+- A "far" distance: at "infinity". A few km is good usually.
+
+The reason for this is that --sampled solves at a single distance aren't
+sufficiently constrained. If we ask for a single far distance: "--distance 1000"
+for instance, we can easily get an extrinsics shift of 100m. This is aphysical:
+changing the intrinsics could shift the camera origin by a few mm, but not 100m.
+Conceptually we want to perform a rotation-only extrinsics solve, but this isn't
+yet implemented. Passing both a near and far distance appears to constrain the
+extrinsics well in practice. The computed extrinsics transform is printed on the
+console, with a warning if an aphysical shift was computed. Do pay attention to
+the console output.
 
 We need to consider that the model we're trying to fit may not fit the original
 model in all parts of the imager. Usually this is a factor when converting
@@ -109,7 +119,7 @@ def parse_args():
                         help='''Used if --sampled. How densely we should sample the imager. By default we use
                         a 30x20 grid''')
     parser.add_argument('--distance',
-                        type=float,
+                        type=str,
                         help='''Used (and required) if --sampled and not
                         --intrinsics-only. A sampled solve fits the intrinsics
                         and extrinsics to match up reprojections of a grid of
@@ -117,8 +127,13 @@ def parse_args():
                         particular distance (set by this argument) from the
                         camera. Set this to the distance that is expected to be
                         most confident for the given cameramodel. Points at
-                        infinity aren't explicitly supported: specify a high
-                        distance instead''')
+                        infinity aren't supported yet: specify a high distance
+                        instead. We can fit multiple distances at the same time
+                        by passing them here in a comma-separated,
+                        whitespace-less list. If multiple distances are given,
+                        we fit the model using ALL the distances, but --viz
+                        displays the difference for the FIRST distance given.
+                        See the description above''')
     parser.add_argument('--intrinsics-only',
                         action='store_true',
                         help='''Used if --sampled. By default I optimize the
@@ -153,7 +168,9 @@ def parse_args():
 
     parser.add_argument('--viz',
                         action='store_true',
-                        help='''Visualize the differences between the input and output models''')
+                        help='''Visualize the differences between the input and
+                        output models. If we have --distance, the FIRST given
+                        distance is used to display the fit error''')
     parser.add_argument('--title',
                         type=str,
                         default = None,
@@ -219,8 +236,16 @@ def parse_args():
 
     if args.title      is not None and \
        args.extratitle is not None:
-        print("--title and --extratitle are exclusive", file=sys.stderr)
+        print("Error: --title and --extratitle are exclusive", file=sys.stderr)
         sys.exit(1)
+
+    if args.distance is not None:
+        try:
+            args.distance = [float(d) for d in args.distance.split(',')]
+        except:
+            print("Error: distances must be given a comma-separated list of floats in --distance",
+                  file=sys.stderr)
+            sys.exit(1)
 
     return args
 
@@ -274,7 +299,8 @@ else:
         filename_output = f"{args.outdir}/{filename_base}-{lensmodel_to}{extension}"
 
     if os.path.isfile(filename_output) and not args.force:
-        print(f"WARNING: '{filename_output}' already exists. Not overwriting this file. Pass -f to overwrite")
+        print(f"WARNING: '{filename_output}' already exists. Not overwriting this file. Pass -f to overwrite",
+              file=sys.stderr)
         sys.exit(1)
 
 
@@ -376,7 +402,7 @@ if not args.sampled:
 
     # And for the purposes of visualization, it'd be nice to have a reference
     # distance. I use the mean observation distance
-    args.distance = np.mean(nps.mag(calobject1))
+    distance_for_diff = np.mean(nps.mag(calobject1))
 
     print(f"RMS error of the solution: {stats['rms_reproj_error__pixels']} pixels.",
           file=sys.stderr)
@@ -393,7 +419,7 @@ else:
         if args.intrinsics_only:
             # We're only looking at the intrinsics, so the distance doesn't
             # matter. I pick an arbitrary value
-            args.distance = 10.
+            args.distance = [10.]
         else:
             print("--sampled without --intrinsics-only REQUIRES --distance",
                   file=sys.stderr)
@@ -402,7 +428,8 @@ else:
 
     dims = m.imagersize()
     if dims is None:
-        print("Warning: imager size not available. Using centerpixel*2", file=sys.stderr)
+        print("Warning: imager size not available. Using centerpixel*2",
+              file=sys.stderr)
         dims = intrinsics_from[1][2:4] * 2
 
     if args.radius is None:
@@ -412,7 +439,8 @@ else:
               file=sys.stderr)
         if args.where is not None and \
            nps.norm2(args.where - (dims - 1.) / 2) > 1e-3:
-            print("A radius <0 is only implemented if we're focusing on the imager center: use an explicit --radius, or omit --where", file=sys.stderr)
+            print("A radius <0 is only implemented if we're focusing on the imager center: use an explicit --radius, or omit --where",
+                  file=sys.stderr)
             sys.exit(1)
 
 
@@ -442,7 +470,8 @@ else:
             r = args.radius
         else:
             if nps.norm2(focus_center - (dims - 1.) / 2) > 1e-3:
-                print("A radius <0 is only implemented if we're focusing on the imager center", file=sys.stderr)
+                print("A radius <0 is only implemented if we're focusing on the imager center",
+                      file=sys.stderr)
                 sys.exit(1)
             r = nps.mag(dims)/2. + args.radius
 
@@ -459,12 +488,26 @@ else:
     intrinsics_from = m.intrinsics()
 
     ### I unproject this, with broadcasting
-    v = mrcal.unproject( q, *intrinsics_from, normalize = True ) * \
-        args.distance
+    # shape (Ndistances,)
+    d = np.array(args.distance)
+    # shape (Ndistances, Ny*Nx, 2)
+    q = q * np.ones((d.size,1,1))
+    # shape (Ndistances, Ny*Nx, 3)
+    p = mrcal.unproject( q, *intrinsics_from, normalize = True ) * \
+        nps.mv(d, -1, -3)
+
+    # shape (Ndistances*Ny*Nx, 2)
+    q = nps.clump(q, n=2)
+    # shape (Ndistances*Ny*Nx, 3)
+    p = nps.clump(p, n=2)
+
+    # The list of distances. The meaning is the same as expected by
+    # mrcal.show_projection_diff(): we visualize the diff of the FIRST distance
+    distance_for_diff = d
 
     # Ignore any failed unprojections
-    i_finite = np.isfinite(v[:,0])
-    v = v[i_finite]
+    i_finite = np.isfinite(p[:,0])
+    p = p[i_finite]
     q = q[i_finite]
     Npoints = len(q)
     weights = np.ones((Npoints,), dtype=float)
@@ -502,7 +545,7 @@ else:
             dict(intrinsics                                = intrinsics_to_values,
                  extrinsics_rt_fromref                     = None,
                  frames_rt_toref                           = None, # no frames. Just points
-                 points                                    = v,
+                 points                                    = p,
                  observations_board                        = None, # no board observations
                  indices_frame_camintrinsics_camextrinsics = None, # no board observations
                  observations_point                        = observations_points,
@@ -514,8 +557,8 @@ else:
                  # I'm not optimizing the point positions (frames), so these
                  # need to be set to be inactive, and to include the ranges I do
                  # have
-                 point_min_range                           = args.distance * 0.9,
-                 point_max_range                           = args.distance * 1.1,
+                 point_min_range                           = np.min(d) * 0.9,
+                 point_max_range                           = np.max(d) * 1.1,
 
                  # I optimize the lens parameters. That's the whole point
                  do_optimize_intrinsics_core               = True,
@@ -565,7 +608,8 @@ else:
         sys.exit(1)
 
     if args.num_trials > 1:
-        print(f"RMS error of the BEST solution: {err_rms_best} pixels.", file=sys.stderr)
+        print(f"RMS error of the BEST solution: {err_rms_best} pixels.",
+              file=sys.stderr)
 
     m_to = mrcal.cameramodel( intrinsics = (lensmodel_to, intrinsics_data_best.ravel()),
                               imagersize = dims )
@@ -575,9 +619,19 @@ else:
     else:
         implied_Rt10 = mrcal.Rt_from_rt(extrinsics_rt_fromref_best)
 
-if args.sampled and not args.intrinsics_only:
+if not (args.sampled and args.intrinsics_only):
     implied_rt10 = mrcal.rt_from_Rt(implied_Rt10)
-    print(f"## Transformation cam_fitted <-- cam_input:  rotation: {nps.mag(implied_rt10[:3])*180./np.pi:.03f} degrees, translation: {implied_rt10[3:]} m")
+    print(f"Transformation cam_fitted <-- cam_input:  rotation: {nps.mag(implied_rt10[:3])*180./np.pi:.03f} degrees, translation: {np.array2string(implied_rt10[3:], precision=2)} m",
+          file=sys.stderr)
+
+    dist_shift = nps.mag(implied_rt10[3:])
+    if dist_shift > 0.01:
+        msg = f"## WARNING: fitted camera moved by {dist_shift:.03f}m. This is probably aphysically high, and something is wrong."
+        if args.distance is not None:
+            print(msg + " Pass both a high and a low --distance?",
+                  file=sys.stderr)
+        else:
+            print(msg, file=sys.stderr)
 
 
 m_to.extrinsics_Rt_fromref( mrcal.compose_Rt( implied_Rt10,
@@ -590,7 +644,8 @@ note = \
 
 m_to.write(filename_output, note=note)
 if isinstance(filename_output, str):
-    print(f"Wrote '{filename_output}'")
+    print(f"Wrote '{filename_output}'",
+          file=sys.stderr)
 
 
 if args.viz:
@@ -608,7 +663,7 @@ if args.viz:
 
     plot,_ = mrcal.show_projection_diff( (m, m_to),
                                          implied_Rt10 = implied_Rt10,
-                                         distance     = args.distance,
+                                         distance     = distance_for_diff,
                                          cbmax        = 4,
                                          gridn_width  = None if args.gridn is None else args.gridn[0],
                                          gridn_height = None if args.gridn is None else args.gridn[1],
