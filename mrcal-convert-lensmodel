@@ -23,21 +23,22 @@ different methods are implemented:
 1. If the given cameramodel file contains optimization_inputs, then we have all
    the data that was used to compute this model in the first place, and we can
    re-run the original optimization, using the new lens model. This is the
-   default behavior. If the input model doesn't have optimization_inputs, an
-   error will result, and the other method must be selected by passing --sampled
+   default behavior, and is the preferred choice. However it can only work with
+   models that were computed by mrcal originally.
 
 2. We can sample a grid of points on the imager, unproject them to observation
    vectors in the camera coordinate system, and then fit a new camera model that
    reprojects these vectors as closely to the original pixel coordinates as
-   possible. Select this mode by passing --sampled.
+   possible. This can be applied to models that didn't come from mrcal. Select
+   this mode by passing --sampled.
 
-The first method is preferred. Since camera models (lens parameters AND
-geometry) are computed off real pixel observations, the confidence of the
-projections varies greatly across the imager. The first method uses the original
-data, so it implicitly respects these uncertainties%: uncertain areas in the
-original model will be uncertain areas in the new model too. The second method,
-however, doesn't have this information: it doesn't know which parts of the
-imager are reliable and which aren't, so the results could suffer.
+Since camera models (lens parameters AND geometry) are computed off real pixel
+observations, the confidence of the projections varies greatly across the
+imager. The first method uses the original data, so it implicitly respects these
+uncertainties%: uncertain areas in the original model will be uncertain areas in
+the new model too. The second method, however, doesn't have this information: it
+doesn't know which parts of the imager are reliable and which aren't, so the
+results could suffer.
 
 As always, the intrinsics have some baked-in geometry information. Both methods
 optimize intrinsics AND extrinsics, and output cameramodels with updated
@@ -217,9 +218,10 @@ def parse_args():
     parser.add_argument('--num-trials',
                         type    = int,
                         default = 1,
-                        help='''If given, run the solve more than once. Useful in case random initialization
-                        produces noticeably different results. By default we run
-                        just one trial, which hopefully should be enough''')
+                        help='''If given, run the solve more than once. Useful
+                        in case random initialization produces noticeably
+                        different results. By default we run just one trial,
+                        which is enough most of the time''')
 
     parser.add_argument('to',
                         type=str,
