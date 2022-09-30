@@ -10,6 +10,7 @@ import numpysane as nps
 import os
 import subprocess
 import re
+import io
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 
@@ -34,27 +35,27 @@ def cleanup():
 atexit.register(cleanup)
 
 
-filename_splined          = f"{testdir}/data/cam0.splined.cameramodel"
-filename_format_converted = workdir + "/cam0.splined-{model}.cameramodel"
-model_splined             = mrcal.cameramodel(filename_splined)
 
-
-def check(lensmodel, args, *,
+def check(filename_from, model_from,
+          lensmodel_to,
+          args, *,
           must_warn_of_aphysical_translation,
           what):
     process = \
         subprocess.Popen( (f"{testdir}/../mrcal-convert-lensmodel",
                            *args,
                            # need multiple attempts to hit the accuracy targets below
-                           "--num-trials", "4",
-                           "-f",
+                           "--num-trials", "8",
                            "--outdir", workdir,
-                           lensmodel,
-                           filename_splined,),
+                           lensmodel_to),
                           encoding = 'ascii',
+                          stdin    = subprocess.PIPE,
                           stdout   = subprocess.PIPE,
                           stderr   = subprocess.PIPE)
-    stdout,stderr = process.communicate()
+
+    with open(filename_from, "r") as f:
+        text_from = f.read()
+    stdout,stderr = process.communicate(input = text_from)
 
     if process.returncode != 0:
         testutils.confirm( False, msg = f"{what}: convert failed: {stderr}" )
@@ -70,11 +71,11 @@ def check(lensmodel, args, *,
             testutils.confirm( not have_warn_of_aphysical_translation,
                                msg = "Expected no warning about an aphysical translation")
 
-        filename_converted = filename_format_converted.format(model = lensmodel)
-        model_converted    = mrcal.cameramodel(filename_converted)
+        with io.StringIO(stdout) as f:
+            model_converted = mrcal.cameramodel(f)
 
         difflen, diff, q0, implied_Rt10 = \
-            mrcal.projection_diff( (model_converted, model_splined),
+            mrcal.projection_diff( (model_converted, model_from),
                                    use_uncertainties = False,
                                    distance          = 3)
         icenter = np.array(difflen.shape) // 2
@@ -89,25 +90,32 @@ def check(lensmodel, args, *,
                                  msg = f"{what}: low-enough diff at 1/3 from top-left")
 
 
-check( "LENSMODEL_CAHVOR",
+filename_from = f"{testdir}/data/cam0.splined.cameramodel"
+model_from    = mrcal.cameramodel(filename_from)
+
+check( filename_from, model_from,
+       "LENSMODEL_CAHVOR",
        ("--radius", "800",
         "--intrinsics-only",
         "--sampled"),
        must_warn_of_aphysical_translation = False,
        what = 'CAHVOR, sampled, intrinsics-only',)
-check( "LENSMODEL_CAHVOR",
+check( filename_from, model_from,
+       "LENSMODEL_CAHVOR",
        ("--radius", "800",
         "--sampled",
         "--distance", "3"),
        must_warn_of_aphysical_translation = True,
        what = 'CAHVOR, sampled at 3m',)
-check( "LENSMODEL_CAHVOR",
+check( filename_from, model_from,
+       "LENSMODEL_CAHVOR",
        ("--radius", "800",
         "--sampled",
         "--distance", "3000"),
        must_warn_of_aphysical_translation = True,
        what = 'CAHVOR, sampled at 3000m',)
-check( "LENSMODEL_CAHVOR",
+check( filename_from, model_from,
+       "LENSMODEL_CAHVOR",
        ("--radius", "800",
         "--sampled",
         "--distance", "3000,3"),
