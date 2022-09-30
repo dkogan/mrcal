@@ -186,7 +186,9 @@ else:
     try:
         distance = [float(d) for d in args.distance.split(',')]
     except:
-        raise Exception("distances must be given a comma-separated list of floats in --distance")
+        print("Error: distances must be given a comma-separated list of floats in --distance",
+              file=sys.stderr)
+        sys.exit(1)
 
 if args.radius == 0:
     rt_cr = model_extrinsics.extrinsics_rt_fromref()
