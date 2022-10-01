@@ -44,8 +44,6 @@ def check(filename_from, model_from,
     process = \
         subprocess.Popen( (f"{testdir}/../mrcal-convert-lensmodel",
                            *args,
-                           # need multiple attempts to hit the accuracy targets below
-                           "--num-trials", "8",
                            "--outdir", workdir,
                            lensmodel_to),
                           encoding = 'ascii',
@@ -97,28 +95,36 @@ check( filename_from, model_from,
        "LENSMODEL_CAHVOR",
        ("--radius", "800",
         "--intrinsics-only",
-        "--sampled"),
+        "--sampled",
+        # need multiple attempts to hit the accuracy targets below
+        "--num-trials", "8",),
        must_warn_of_aphysical_translation = False,
        what = 'CAHVOR, sampled, intrinsics-only',)
 check( filename_from, model_from,
        "LENSMODEL_CAHVOR",
        ("--radius", "800",
         "--sampled",
-        "--distance", "3"),
+        "--distance", "3",
+        # need multiple attempts to hit the accuracy targets below
+        "--num-trials", "8",),
        must_warn_of_aphysical_translation = True,
        what = 'CAHVOR, sampled at 3m',)
 check( filename_from, model_from,
        "LENSMODEL_CAHVOR",
        ("--radius", "800",
         "--sampled",
-        "--distance", "3000"),
+        "--distance", "3000",
+        # need multiple attempts to hit the accuracy targets below
+        "--num-trials", "8",),
        must_warn_of_aphysical_translation = True,
        what = 'CAHVOR, sampled at 3000m',)
 check( filename_from, model_from,
        "LENSMODEL_CAHVOR",
        ("--radius", "800",
         "--sampled",
-        "--distance", "3000,3"),
+        "--distance", "3000,3",
+        # need multiple attempts to hit the accuracy targets below
+        "--num-trials", "8",),
        must_warn_of_aphysical_translation = False,
        what = 'CAHVOR, sampled at 3000m,3m',)
 
