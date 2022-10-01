@@ -348,7 +348,7 @@ if not args.sampled:
 
     if re.match("LENSMODEL_SPLINED_STEREOGRAPHIC_", lensmodel_to):
         # splined models have a core, but those variables are largely redundant
-        # with the spline parameters. So I lock down the core when targetting
+        # with the spline parameters. So I lock down the core when targeting
         # splined models
         optimization_inputs['do_optimize_intrinsics_core'] = False
 
