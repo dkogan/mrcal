@@ -149,7 +149,7 @@ above will require a code change:
 
 - The =mrcal-to-cameramodel= tool was renamed to [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]]
 
-- A C header was renamed: =basic_geometry.h= -> [[https://www.github.com/dkogan/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]], requiring an
+- A C header was renamed: =basic_geometry.h= -> [[https://www.github.com/dkogan/mrcal/blob/master/basic-geometry.h][=basic-geometry.h=]], requiring an
   =#include= update
 
 - The [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] function API was changed. If you're
