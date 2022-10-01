@@ -415,7 +415,7 @@ def solve_initial(args, seedmodels, imagersizes,
     def expand_intrinsics(lensmodel, intrinsics_data):
         NnewDistortions = \
             mrcal.lensmodel_num_params(lensmodel) - \
-            intrinsics_data.shape[1]
+            intrinsics_data.shape[-1]
         newDistortions = \
             (np.random.random((Ncameras, NnewDistortions)) - 0.5)*2. *1e-6
         m = re.search("OPENCV([0-9]+)", lensmodel)
