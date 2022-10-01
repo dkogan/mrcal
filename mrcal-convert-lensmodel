@@ -324,8 +324,9 @@ if not args.sampled:
         print("--intrinsics-only requires --sampled",
               file=sys.stderr)
         sys.exit(1)
-    if not mrcal.lensmodel_metadata_and_config(lensmodel_from)['has_core']:
-        print("Without --sampled, the TO models must support contain an intrinsics core. It COULD work otherwise, but somebody needs to implement it",
+    if not (mrcal.lensmodel_metadata_and_config(lensmodel_from)['has_core'] and \
+            mrcal.lensmodel_metadata_and_config(lensmodel_to  )['has_core']):
+        print("Without --sampled, the TO and FROM models must support contain an intrinsics core. It COULD work otherwise, but somebody needs to implement it",
               file=sys.stderr)
         sys.exit(1)
 
@@ -335,54 +336,9 @@ if not args.sampled:
               file=sys.stderr)
         sys.exit(1)
 
-
-    intrinsics_from = optimization_inputs['intrinsics']
-    Ncameras = len(intrinsics_from)
-
-
-    # stolen from mrcal-calibrate-extrinsics. Please consolidate
-    def expand_intrinsics(lensmodel, intrinsics_data):
-        NnewDistortions = \
-            mrcal.lensmodel_num_params(lensmodel) - \
-            intrinsics_data.shape[-1]
-        newDistortions = \
-            (np.random.random((Ncameras, NnewDistortions)) - 0.5)*2. *1e-6
-        m = re.search("OPENCV([0-9]+)", lensmodel)
-        if m:
-            Nd = int(m.group(1))
-            if Nd >= 8:
-                # Push down the rational components of the seed. I'd like these all to
-                # sit at 0 ideally. The radial distortion in opencv is x_distorted =
-                # x*scale where r2 = norm2(xy - xyc) and
-                #
-                # scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
-                #
-                # Note that k2,k3 are tangential (NOT radial) distortion components.
-                # Note that the r6 factor in the numerator is only present for
-                # >=LENSMODEL_OPENCV5. Note that the denominator is only present for >=
-                # LENSMODEL_OPENCV8. The danger with a rational model is that it's
-                # possible to get into a situation where scale ~ 0/0 ~ 1. This would
-                # have very poorly behaved derivatives. If all the rational coefficients
-                # are ~0, then the denominator is always ~1, and this problematic case
-                # can't happen. I favor that.
-                newDistortions[5:8] *= 1e-3
-        return nps.glue( intrinsics_data, newDistortions, axis=-1 )
-
-
-    intrinsics_to_values = expand_intrinsics(lensmodel_to, intrinsics_from[:,:4])
-
-    optimization_inputs['lensmodel']  = lensmodel_to
-    optimization_inputs['intrinsics'] = intrinsics_to_values
-    optimization_inputs['verbose']    = False
-
-    if re.match("LENSMODEL_SPLINED_STEREOGRAPHIC_", lensmodel_to):
-        # splined models have a core, but those variables are largely redundant
-        # with the spline parameters. So I lock down the core when targeting
-        # splined models
-        optimization_inputs['do_optimize_intrinsics_core'] = False
-
-    optimization_inputs_before = copy.deepcopy(optimization_inputs)
-
+    intrinsics_from      = optimization_inputs['intrinsics']
+    intrinsics_from_core = intrinsics_from[..., :4]
+    Ncameras             = len(intrinsics_from)
 
     # Ignore observations in the corners, as requested
     if not (args.radius is None or args.radius == 0):
@@ -412,6 +368,61 @@ if not args.sampled:
 
             observations[nps.mv(mask_thiscam, -1, -3) * mask_past_radius, 2] = -1
 
+
+    optimization_inputs['verbose']          = False
+
+    optimization_inputs['lensmodel']        = lensmodel_to
+    optimization_inputs['intrinsics']       = np.zeros((Ncameras,Ndistortions+4), dtype=float)
+    optimization_inputs['intrinsics'][:,:4] = intrinsics_from_core
+
+    # I do this in stages, similar to how mrcal-calibrate-cameras does it. First
+    # just the frames and extrinsics. Assuming a core-only intrinsics
+    optimization_inputs['do_optimize_intrinsics_core']       = False
+    optimization_inputs['do_optimize_intrinsics_distortions']= False
+    optimization_inputs['do_optimize_calobject_warp']        = False
+    optimization_inputs['do_apply_outlier_rejection']        = False
+    optimization_inputs['do_apply_regularization']           = False
+    stats = mrcal.optimize(**optimization_inputs)
+
+    # Then I optimize the core also
+    optimization_inputs['do_optimize_intrinsics_core']       = True
+    stats = mrcal.optimize(**optimization_inputs)
+
+    # Then the intrinsics too
+    optimization_inputs['do_optimize_intrinsics_distortions']= True
+    optimization_inputs['do_apply_outlier_rejection']        = True
+    optimization_inputs['do_apply_regularization']           = True
+    if re.match("LENSMODEL_SPLINED_STEREOGRAPHIC_", lensmodel_to):
+        # splined models have a core, but those variables are largely redundant
+        # with the spline parameters. So I lock down the core when targeting
+        # splined models
+        optimization_inputs['do_optimize_intrinsics_core'] = False
+    # stolen expand_intrinsics() in mrcal-calibrate-extrinsics. Please consolidate
+    optimization_inputs['intrinsics'][:,4:] = \
+        (np.random.random((Ncameras, Ndistortions)) - 0.5)*2. *1e-6
+    modelmatch = re.search("OPENCV([0-9]+)", lensmodel_to)
+    if modelmatch:
+        Nd = int(modelmatch.group(1))
+        if Nd >= 8:
+            # Push down the rational components of the seed. I'd like these all to
+            # sit at 0 ideally. The radial distortion in opencv is x_distorted =
+            # x*scale where r2 = norm2(xy - xyc) and
+            #
+            # scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
+            #
+            # Note that k2,k3 are tangential (NOT radial) distortion components.
+            # Note that the r6 factor in the numerator is only present for
+            # >=LENSMODEL_OPENCV5. Note that the denominator is only present for >=
+            # LENSMODEL_OPENCV8. The danger with a rational model is that it's
+            # possible to get into a situation where scale ~ 0/0 ~ 1. This would
+            # have very poorly behaved derivatives. If all the rational coefficients
+            # are ~0, then the denominator is always ~1, and this problematic case
+            # can't happen. I favor that.
+            optimization_inputs['intrinsics'][:,4:][:,5:8] *= 1e-3
+    stats = mrcal.optimize(**optimization_inputs)
+
+    # And finally I do the calobject_warp too
+    optimization_inputs['do_optimize_calobject_warp'] = True
     stats = mrcal.optimize(**optimization_inputs)
 
 
@@ -422,7 +433,7 @@ if not args.sampled:
 
     calobject0 = \
         mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
-                                                **optimization_inputs_before,
+                                                **m.optimization_inputs(),
                                                 idx_inliers = idx_inliers1 )[-2]
     calobject1 = \
         mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
