@@ -121,20 +121,20 @@ def parse_args():
                         a 30x20 grid''')
     parser.add_argument('--distance',
                         type=str,
-                        help='''Used (and required) if --sampled and not
-                        --intrinsics-only. A sampled solve fits the intrinsics
-                        and extrinsics to match up reprojections of a grid of
-                        observed pixels. The points being projected are set a
-                        particular distance (set by this argument) from the
-                        camera. Set this to the distance that is expected to be
-                        most confident for the given cameramodel. Points at
-                        infinity aren't supported yet: specify a high distance
-                        instead. We can fit multiple distances at the same time
-                        by passing them here in a comma-separated,
-                        whitespace-less list. If multiple distances are given,
-                        we fit the model using ALL the distances, but --viz
-                        displays the difference for the FIRST distance given.
-                        See the description above''')
+                        help='''Required if --sampled and not --intrinsics-only.
+                        A sampled solve fits the intrinsics and extrinsics to
+                        match up reprojections of a grid of observed pixels. The
+                        points being projected are set a particular distance
+                        (set by this argument) from the camera. Set this to the
+                        distance that is expected to be most confident for the
+                        given cameramodel. Points at infinity aren't supported
+                        yet: specify a high distance instead. We can fit
+                        multiple distances at the same time by passing them here
+                        in a comma-separated, whitespace-less list. If multiple
+                        distances are given, we fit the model using ALL the
+                        distances, but --viz displays the difference for the
+                        FIRST distance given. See the description above. Without
+                        --sampled, this is used for the visualization only''')
     parser.add_argument('--intrinsics-only',
                         action='store_true',
                         help='''Used if --sampled. By default I optimize the
@@ -316,10 +316,6 @@ if lensmodel_from == lensmodel_to:
 
 if not args.sampled:
 
-    if args.distance is not None:
-        print("--distance requires --sampled",
-              file=sys.stderr)
-        sys.exit(1)
     if args.intrinsics_only:
         print("--intrinsics-only requires --sampled",
               file=sys.stderr)
@@ -442,9 +438,13 @@ if not args.sampled:
 
     implied_Rt10 = mrcal.align_procrustes_points_Rt01(calobject1, calobject0)
 
-    # And for the purposes of visualization, it'd be nice to have a reference
-    # distance. I use the mean observation distance
-    distance_for_diff = np.mean(nps.mag(calobject1))
+    # For the purposes of visualization I use what I was given. Or the mean
+    # observation distance if I was given nothing
+    if args.distance is None:
+        distance_for_diff = np.mean(nps.mag(calobject1))
+    else:
+        distance_for_diff = np.array(args.distance)
+
 
     print(f"RMS error of the solution: {stats['rms_reproj_error__pixels']} pixels.",
           file=sys.stderr)
@@ -669,7 +669,7 @@ if not (args.sampled and args.intrinsics_only):
     dist_shift = nps.mag(implied_rt10[3:])
     if dist_shift > 0.01:
         msg = f"## WARNING: fitted camera moved by {dist_shift:.03f}m. This is probably aphysically high, and something is wrong."
-        if args.distance is not None:
+        if args.distance is not None and args.sampled:
             print(msg + " Pass both a high and a low --distance?",
                   file=sys.stderr)
         else:
