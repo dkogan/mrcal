@@ -40,7 +40,8 @@ def check(filename_from, model_from,
           lensmodel_to,
           args, *,
           must_warn_of_aphysical_translation,
-          what):
+          what,
+          distance = 3):
     process = \
         subprocess.Popen( (f"{testdir}/../mrcal-convert-lensmodel",
                            *args,
@@ -75,7 +76,7 @@ def check(filename_from, model_from,
         difflen, diff, q0, implied_Rt10 = \
             mrcal.projection_diff( (model_converted, model_from),
                                    use_uncertainties = False,
-                                   distance          = 3)
+                                   distance          = distance)
         icenter = np.array(difflen.shape) // 2
         ithird  = np.array(difflen.shape) // 3
 
@@ -127,5 +128,19 @@ check( filename_from, model_from,
         "--num-trials", "8",),
        must_warn_of_aphysical_translation = False,
        what = 'CAHVOR, sampled at 3000m,3m',)
+
+# Need a model with optimization_inputs to do non-sampled fits
+if not os.path.isdir(f"{testdir}/../../mrcal-doc-external"):
+    testutils.print_blue(f"../mrcal-doc-external isn't on this disk. Skipping non-sampled tests")
+else:
+
+    filename_from = f"{testdir}/../../mrcal-doc-external/data/board/splined.cameramodel"
+    model_from = mrcal.cameramodel(filename_from)
+
+    check( filename_from, model_from,
+           "LENSMODEL_OPENCV8",
+           ("--radius", "-1000"),
+           must_warn_of_aphysical_translation = False,
+           what = 'non-sampled fit to opencv8',)
 
 testutils.finish()
