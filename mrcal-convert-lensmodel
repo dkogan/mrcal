@@ -301,7 +301,7 @@ else:
         filename_output = f"{args.outdir}/{filename_base}-{lensmodel_to}{extension}"
 
     if os.path.isfile(filename_output) and not args.force:
-        print(f"WARNING: '{filename_output}' already exists. Not overwriting this file. Pass -f to overwrite",
+        print(f"ERROR: '{filename_output}' already exists. Not overwriting this file. Pass -f to overwrite",
               file=sys.stderr)
         sys.exit(1)
 
