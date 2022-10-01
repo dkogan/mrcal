@@ -338,9 +338,38 @@ if not args.sampled:
 
     intrinsics_from = optimization_inputs['intrinsics']
     Ncameras = len(intrinsics_from)
-    intrinsics_to_values = nps.glue(intrinsics_from[:,:4],
-                                    (np.random.rand(Ncameras,Ndistortions) - 0.5) * 1e-3,
-                                    axis=-1)
+
+
+    # stolen from mrcal-calibrate-extrinsics. Please consolidate
+    def expand_intrinsics(lensmodel, intrinsics_data):
+        NnewDistortions = \
+            mrcal.lensmodel_num_params(lensmodel) - \
+            intrinsics_data.shape[-1]
+        newDistortions = \
+            (np.random.random((Ncameras, NnewDistortions)) - 0.5)*2. *1e-6
+        m = re.search("OPENCV([0-9]+)", lensmodel)
+        if m:
+            Nd = int(m.group(1))
+            if Nd >= 8:
+                # Push down the rational components of the seed. I'd like these all to
+                # sit at 0 ideally. The radial distortion in opencv is x_distorted =
+                # x*scale where r2 = norm2(xy - xyc) and
+                #
+                # scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
+                #
+                # Note that k2,k3 are tangential (NOT radial) distortion components.
+                # Note that the r6 factor in the numerator is only present for
+                # >=LENSMODEL_OPENCV5. Note that the denominator is only present for >=
+                # LENSMODEL_OPENCV8. The danger with a rational model is that it's
+                # possible to get into a situation where scale ~ 0/0 ~ 1. This would
+                # have very poorly behaved derivatives. If all the rational coefficients
+                # are ~0, then the denominator is always ~1, and this problematic case
+                # can't happen. I favor that.
+                newDistortions[5:8] *= 1e-3
+        return nps.glue( intrinsics_data, newDistortions, axis=-1 )
+
+
+    intrinsics_to_values = expand_intrinsics(lensmodel_to, intrinsics_from[:,:4])
 
     optimization_inputs['lensmodel']  = lensmodel_to
     optimization_inputs['intrinsics'] = intrinsics_to_values
