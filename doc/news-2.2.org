@@ -119,7 +119,7 @@ This tool received lots of usability and robustment improvements:
   error treating such a pair as /one/ value: $\sqrt{\frac{\left\Vert \vec x
   \right\Vert^2}{\frac{N_\mathrm{measurement}}{2}}}$. This was in conflict with
   other parts of the code, so now I report this as two separate values:
-  $\sqrt{\frac{\left\Vert \vec x \right\Vert^2}{N_\mathrm{measurement}}$. So now
+  $\sqrt{\frac{\left\Vert \vec x \right\Vert^2}{N_\mathrm{measurement}}}$. So now
   the reported RMS error is just $\mathrm{Var} \left( \vec x \right)$
 
 - [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] and [[file:mrcal-python-api-reference.html#-seed_stereographic][=mrcal.seed_stereographic()=]] can accept multiple
