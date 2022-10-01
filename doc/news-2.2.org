@@ -53,6 +53,27 @@ represent the bulk of the changes.
 - Added [[file:mrcal-python-api-reference.html#-skew_symmetric][=mrcal.skew_symmetric()=]] function for a matrix-multiplication-based
   cross-product. This is available only in the Python layer
 
+** The [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool improvements
+This tool received lots of usability and robustment improvements:
+
+- The =--viz= output plot can be controlled and written to disk by passing
+  =--set=, =--unset=, =--hardcopy=, etc. Same as with the
+  [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] tool and others.
+- The output model is written to a file on disk instead of to stdout. This is
+  incompatible with previously behavior, but is much nicer. We're now less
+  likely to produce an unwanted spew onto the console
+- =--radius= and =--where= work even without =--sampled=: they cut down on the
+  observations being fitted
+- We can pass multiple values in =--distance=. This is critically important for
+  =--sampled= solves: using a near and far distance together stabilizes the
+  fitted translation. Prior to this =--sampled= solves often ended up unusable
+  due to an aphysical translation.
+- =--distance= is used even without =--sampled=: this controls the diff
+  visualization produced with =--viz=
+- Non-sampled solves are now run using incremental stages, just like in the
+  [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool. This makes the non-sampled operation of this
+  tool much more robust
+
 ** Other
 
 - Most functions in the Python API now accept non-essential arguments as
@@ -100,15 +121,6 @@ represent the bulk of the changes.
   other parts of the code, so now I report this as two separate values:
   $\sqrt{\frac{\left\Vert \vec x \right\Vert^2}{N_\mathrm{measurement}}$. So now
   the reported RMS error is just $\mathrm{Var} \left( \vec x \right)$
-
-- The [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool has nicer commandline options:
-
-  - The =--viz= output plot can be controlled and written to disk by passing
-    =--set=, =--unset=, =--hardcopy=, etc. Same as with the
-    [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]].
-  - The output model is written to a file on disk instead of to stdout. This is
-    incompatible with previously behavior, but is much nicer
-  - =--radius= and =--where= work even without =--sampled=
 
 - [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] and [[file:mrcal-python-api-reference.html#-seed_stereographic][=mrcal.seed_stereographic()=]] can accept multiple
   estimates for focal length: one estimate per camera. Useful in seeding
