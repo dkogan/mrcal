@@ -644,7 +644,6 @@ models = \
     [ mrcal.cameramodel( \
                 optimization_inputs = optimization_inputs,
                 icam_intrinsics     = icam ) \
-
       for icam in range(len(optimization_inputs['intrinsics'])) ]
 
 # shape (Nobservations)
