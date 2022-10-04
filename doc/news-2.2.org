@@ -77,6 +77,8 @@ This tool received lots of usability and robustment improvements:
 - Non-sampled solves are now run using incremental stages, just like in the
   [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool. This makes the non-sampled operation of this
   tool much more robust
+- Non-sampled solves can be limited to just the camera in question by passing
+  =--monotonic=
 
 ** Other
 

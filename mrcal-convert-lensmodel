@@ -24,7 +24,10 @@ different methods are implemented:
    the data that was used to compute this model in the first place, and we can
    re-run the original optimization, using the new lens model. This is the
    default behavior, and is the preferred choice. However it can only work with
-   models that were computed by mrcal originally.
+   models that were computed by mrcal originally. We re-run the full original
+   solve, even it contained multiple cameras, unless --monocular is given. With
+   that option, we re-solve only the subset of the images observed by the one
+   requested camera
 
 2. We can sample a grid of points on the imager, unproject them to observation
    vectors in the camera coordinate system, and then fit a new camera model that
@@ -166,6 +169,15 @@ def parse_args():
                         sqrt(width^2 + height^2)/2. - abs(radius). This is valid
                         ONLY if we're focusing at the center of the imager. By
                         default I ignore a large-ish chunk area at the corners.''')
+
+    parser.add_argument('--monocular',
+                        action='store_true',
+                        help='''Used if not --sampled. By default we re-solve
+                        the full calibration problem that was used to originally
+                        obtain the input model, even if it contained multiple
+                        cameras. If --monocular, we re-solve only a subset of
+                        the original problem, using ONLY the observations made
+                        by THIS camera''')
 
     parser.add_argument('--viz',
                         action='store_true',
@@ -332,6 +344,92 @@ if not args.sampled:
               file=sys.stderr)
         sys.exit(1)
 
+    icam_intrinsics = m.icam_intrinsics()
+
+    if args.monocular:
+        if optimization_inputs['indices_point_camintrinsics_camextrinsics'] is not None and \
+           optimization_inputs['indices_point_camintrinsics_camextrinsics'].size > 0:
+            print("--monocular can be used ONLY to re-optimize vanilla calibration problems. This one has points",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        intrinsics = \
+            optimization_inputs['intrinsics']
+        imagersizes = \
+            optimization_inputs['imagersizes']
+        extrinsics_rt_fromref = \
+            optimization_inputs['extrinsics_rt_fromref']
+        frames_rt_toref = \
+            optimization_inputs['frames_rt_toref']
+        indices_frame_camintrinsics_camextrinsics = \
+            optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+        observations_board = \
+            optimization_inputs['observations_board']
+        if 'imagepaths' in  optimization_inputs:
+            imagepaths = \
+                optimization_inputs['imagepaths']
+
+        mask_observations = indices_frame_camintrinsics_camextrinsics[:,1] == icam_intrinsics
+        indices_frame_camintrinsics_camextrinsics = \
+            indices_frame_camintrinsics_camextrinsics[mask_observations]
+        observations_board = \
+            observations_board[mask_observations]
+        if 'imagepaths' in  optimization_inputs:
+            imagepaths = \
+                imagepaths[mask_observations]
+
+        ### Now I must cull the extrinsics and frames to only use these
+        ### observations
+
+        # intrinsics
+        indices_frame_camintrinsics_camextrinsics[:,1] = 0
+        intrinsics  = intrinsics [(icam_intrinsics,), :]
+        imagersizes = imagersizes[(icam_intrinsics,), :]
+
+        # extrinsics
+        icam_extrinsics = \
+            indices_frame_camintrinsics_camextrinsics[0,2]
+        if not np.all(indices_frame_camintrinsics_camextrinsics[:,2] == icam_extrinsics):
+            print("Error: --monocular can work ONLY if the calibration-time cameras are stationary. Here the requested camera was moving",
+                  file=sys.stderr)
+            sys.exit(1)
+        indices_frame_camintrinsics_camextrinsics[:,2] = -1
+        if icam_extrinsics >= 0:
+            # I'm moving the reference to lie at this one new camera. Transform
+            # everything
+            rt_cam_reforig = extrinsics_rt_fromref[icam_extrinsics]
+            rt_refnew_reforig = rt_cam_reforig
+
+            frames_rt_toref = mrcal.compose_rt( rt_refnew_reforig, frames_rt_toref )
+            extrinsics_rt_fromref = np.empty((0,6), dtype=float)
+
+        # frames
+        frames_rt_toref = frames_rt_toref[indices_frame_camintrinsics_camextrinsics[:,0], :]
+        Nframes = len(indices_frame_camintrinsics_camextrinsics)
+        indices_frame_camintrinsics_camextrinsics[:,0] = np.arange(Nframes)
+
+        # store everythin back into the inputs
+        optimization_inputs['intrinsics'] = \
+            intrinsics
+        optimization_inputs['imagersizes'] = \
+            imagersizes
+        optimization_inputs['extrinsics_rt_fromref'] = \
+            extrinsics_rt_fromref
+        optimization_inputs['frames_rt_toref'] = \
+            frames_rt_toref
+        optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = \
+            indices_frame_camintrinsics_camextrinsics
+        optimization_inputs['observations_board'] = \
+            observations_board
+        if 'imagepaths' in  optimization_inputs:
+            optimization_inputs['imagepaths'] = \
+                imagepaths
+
+        icam_intrinsics = 0
+
+
+    optimization_inputs_before = copy.deepcopy(optimization_inputs)
+
     intrinsics_from      = optimization_inputs['intrinsics']
     intrinsics_from_core = intrinsics_from[..., :4]
     Ncameras             = len(intrinsics_from)
@@ -425,23 +523,24 @@ if not args.sampled:
     # I pick the inlier set using the post-solve inliers/outliers. The solve
     # could add some outliers, but it won't take any away, so the union of the
     # before/after inlier sets is just the post-solve set
-    idx_inliers1 = optimization_inputs['observations_board'][...,2] > 0
+    idx_inliers_after = optimization_inputs['observations_board'][...,2] > 0
 
-    calobject0 = \
-        mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
-                                                **m.optimization_inputs(),
-                                                idx_inliers = idx_inliers1 )[-2]
-    calobject1 = \
-        mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
+    calobject_camframe_before = \
+        mrcal.hypothesis_board_corner_positions(icam_intrinsics,
+                                                **optimization_inputs_before,
+                                                idx_inliers = idx_inliers_after )[-2]
+    calobject_camframe_after = \
+        mrcal.hypothesis_board_corner_positions(icam_intrinsics,
                                                 **optimization_inputs,
-                                                idx_inliers = idx_inliers1 )[-2]
+                                                idx_inliers = idx_inliers_after )[-2]
 
-    implied_Rt10 = mrcal.align_procrustes_points_Rt01(calobject1, calobject0)
+    implied_Rt10 = mrcal.align_procrustes_points_Rt01(calobject_camframe_after,
+                                                      calobject_camframe_before)
 
     # For the purposes of visualization I use what I was given. Or the mean
     # observation distance if I was given nothing
     if args.distance is None:
-        distance_for_diff = np.mean(nps.mag(calobject1))
+        distance_for_diff = np.mean(nps.mag(calobject_camframe_after))
     else:
         distance_for_diff = np.array(args.distance)
 
@@ -449,7 +548,7 @@ if not args.sampled:
     print(f"RMS error of the solution: {stats['rms_reproj_error__pixels']} pixels.",
           file=sys.stderr)
     m_to = mrcal.cameramodel( optimization_inputs = optimization_inputs,
-                              icam_intrinsics     = m.icam_intrinsics() )
+                              icam_intrinsics     = icam_intrinsics )
 
 else:
 
@@ -467,6 +566,10 @@ else:
                   file=sys.stderr)
             sys.exit(1)
 
+    if args.monocular:
+        print("--monocular doesn't work with --sampled",
+              file=sys.stderr)
+        sys.exit(1)
 
     dims = m.imagersize()
     if dims is None:
