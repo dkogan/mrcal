@@ -534,6 +534,10 @@ if not args.sampled:
                                                 **optimization_inputs,
                                                 idx_inliers = idx_inliers_after )[-2]
 
+    # This is a procrustes-based transformation. This transform is usable, but
+    # isn't based on camera observations, and often produces poor diffs if used
+    # directly. Let mrcal.projection_diff() figure out the implied_Rt10 instead
+    # of using this
     implied_Rt10 = mrcal.align_procrustes_points_Rt01(calobject_camframe_after,
                                                       calobject_camframe_before)
 
@@ -806,13 +810,27 @@ if args.viz:
     if args.extratitle is not None:
         plotkwargs_extra['extratitle'] = args.extratitle
 
+    # If this is a sampled solve, we don't have projection uncertainties. But we
+    # do have an implied_Rt10 based on observations, and we can feed that to the
+    # diff directly.
+    #
+    # If this is NOT a sampled solve, then the implied_Rt10 comes from a
+    # Procrustes fit (minimizing error in 3D space), which is usually not
+    # close-enough to get a diff. We let the diff method figure out the
+    # implied_Rt10, and we use the uncertainties that we have to do it
+    if args.sampled:
+        use_uncertainties = False
+    else:
+        implied_Rt10      = None
+        use_uncertainties = True
+
     plot,_ = mrcal.show_projection_diff( (m, m_to),
                                          implied_Rt10      = implied_Rt10,
                                          distance          = distance_for_diff,
                                          cbmax             = 4,
                                          gridn_width       = None if args.gridn is None else args.gridn[0],
                                          gridn_height      = None if args.gridn is None else args.gridn[1],
-                                         use_uncertainties = not args.sampled,
+                                         use_uncertainties = use_uncertainties,
                                          hardcopy          = args.hardcopy,
                                          terminal          = args.terminal,
                                          **plotkwargs_extra)
