@@ -38,7 +38,7 @@ different methods are implemented:
 Since camera models (lens parameters AND geometry) are computed off real pixel
 observations, the confidence of the projections varies greatly across the
 imager. The first method uses the original data, so it implicitly respects these
-uncertainties%: uncertain areas in the original model will be uncertain areas in
+uncertainties: uncertain areas in the original model will be uncertain areas in
 the new model too. The second method, however, doesn't have this information: it
 doesn't know which parts of the imager are reliable and which aren't, so the
 results could suffer.
