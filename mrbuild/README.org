@@ -1,3 +1,0 @@
-This is the build system. It's a copy of https://github.com/dkogan/mrbuild at
-eb52e4b (2022/09). Some day this might become a package, but until that point I
-don't want to introduce a dependency

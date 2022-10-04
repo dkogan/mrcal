@@ -64,7 +64,7 @@ $(DOC_ALL_HTML_TARGET): doc/mrcal-docs-publish.el | doc/out/
 $(DIST_MAN): %.1: %.pod
 	pod2man --center="mrcal: camera projection, calibration toolkit" --name=MRCAL --release="mrcal $(VERSION)" --section=1 $< $@
 %.pod: %
-	mrbuild/make-pod-from-help.pl $< > $@.tmp && cat footer.pod >> $@.tmp && mv $@.tmp $@
+	$(MRBUILD_BIN)/make-pod-from-help $< > $@.tmp && cat footer.pod >> $@.tmp && mv $@.tmp $@
 EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
 # I generate a manpage. Some perl stuff to add the html preamble
