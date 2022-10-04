@@ -11,6 +11,7 @@ but nothing huge. Exciting new features in future releases.
 
 In the nearest term, I need some sort of "recipes" documentation section and an
 extension of the [[file:tour.org][tour of mrcal]] with better calibration data. This is coming.
+Soon.
 
 ** Stereo processing
 
