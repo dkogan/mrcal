@@ -52,6 +52,7 @@ def _parse_args(v1,
 
 def triangulate_geometric(v0, v1,
                           t01           = None,
+                          *,
                           get_gradients = False,
                           v_are_local   = False,
                           Rt01          = None,
@@ -64,8 +65,8 @@ SYNOPSIS
     models = ( mrcal.cameramodel('cam0.cameramodel'),
                mrcal.cameramodel('cam1.cameramodel') )
 
-    images = (cv2.imread('image0.jpg', cv2.IMREAD_GRAYSCALE),
-              cv2.imread('image1.jpg', cv2.IMREAD_GRAYSCALE))
+    images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
+              mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
@@ -79,10 +80,10 @@ SYNOPSIS
     # corresponding pixel observation in camera1
     q1, _ = \
         mrcal.match_feature( *images,
+                             q0            = q0,
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0            = q0,
                              H10           = H10, # homography mapping q0 to q1
                            )
 
@@ -197,6 +198,7 @@ if get_gradients: we return a tuple:
 
 def triangulate_leecivera_l1(v0, v1,
                              t01           = None,
+                             *,
                              get_gradients = False,
                              v_are_local   = False,
                              Rt01          = None,
@@ -209,8 +211,8 @@ SYNOPSIS
     models = ( mrcal.cameramodel('cam0.cameramodel'),
                mrcal.cameramodel('cam1.cameramodel') )
 
-    images = (cv2.imread('image0.jpg', cv2.IMREAD_GRAYSCALE),
-              cv2.imread('image1.jpg', cv2.IMREAD_GRAYSCALE))
+    images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
+              mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
@@ -224,10 +226,10 @@ SYNOPSIS
     # corresponding pixel observation in camera1
     q1, _ = \
         mrcal.match_feature( *images,
+                             q0            = q0,
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0            = q0,
                              H10           = H10, # homography mapping q0 to q1
                            )
 
@@ -347,6 +349,7 @@ if get_gradients: we return a tuple:
 
 def triangulate_leecivera_linf(v0, v1,
                                t01           = None,
+                               *,
                                get_gradients = False,
                                v_are_local   = False,
                                Rt01          = None,
@@ -359,8 +362,8 @@ SYNOPSIS
     models = ( mrcal.cameramodel('cam0.cameramodel'),
                mrcal.cameramodel('cam1.cameramodel') )
 
-    images = (cv2.imread('image0.jpg', cv2.IMREAD_GRAYSCALE),
-              cv2.imread('image1.jpg', cv2.IMREAD_GRAYSCALE))
+    images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
+              mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
@@ -374,10 +377,10 @@ SYNOPSIS
     # corresponding pixel observation in camera1
     q1, _ = \
         mrcal.match_feature( *images,
+                             q0            = q0,
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0            = q0,
                              H10           = H10, # homography mapping q0 to q1
                            )
 
@@ -498,6 +501,7 @@ if get_gradients: we return a tuple:
 
 def triangulate_leecivera_mid2(v0, v1,
                                t01           = None,
+                               *,
                                get_gradients = False,
                                v_are_local   = False,
                                Rt01          = None,
@@ -510,8 +514,8 @@ SYNOPSIS
     models = ( mrcal.cameramodel('cam0.cameramodel'),
                mrcal.cameramodel('cam1.cameramodel') )
 
-    images = (cv2.imread('image0.jpg', cv2.IMREAD_GRAYSCALE),
-              cv2.imread('image1.jpg', cv2.IMREAD_GRAYSCALE))
+    images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
+              mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
@@ -525,10 +529,10 @@ SYNOPSIS
     # corresponding pixel observation in camera1
     q1, _ = \
         mrcal.match_feature( *images,
+                             q0            = q0,
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0            = q0,
                              H10           = H10, # homography mapping q0 to q1
                            )
 
@@ -644,6 +648,7 @@ if get_gradients: we return a tuple:
 
 def triangulate_leecivera_wmid2(v0, v1,
                                 t01           = None,
+                                *,
                                 get_gradients = False,
                                 v_are_local   = False,
                                 Rt01          = None,
@@ -656,8 +661,8 @@ SYNOPSIS
     models = ( mrcal.cameramodel('cam0.cameramodel'),
                mrcal.cameramodel('cam1.cameramodel') )
 
-    images = (cv2.imread('image0.jpg', cv2.IMREAD_GRAYSCALE),
-              cv2.imread('image1.jpg', cv2.IMREAD_GRAYSCALE))
+    images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
+              mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
@@ -671,10 +676,10 @@ SYNOPSIS
     # corresponding pixel observation in camera1
     q1, _ = \
         mrcal.match_feature( *images,
+                             q0            = q0,
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0            = q0,
                              H10           = H10, # homography mapping q0 to q1
                            )
 
@@ -791,6 +796,7 @@ if get_gradients: we return a tuple:
 def triangulate_lindstrom(v0, v1,
                           # The other routines take t01 here
                           Rt01,
+                          *,
                           get_gradients = False,
                           v_are_local   = True,
                           out           = None):
@@ -802,8 +808,8 @@ SYNOPSIS
     models = ( mrcal.cameramodel('cam0.cameramodel'),
                mrcal.cameramodel('cam1.cameramodel') )
 
-    images = (cv2.imread('image0.jpg', cv2.IMREAD_GRAYSCALE),
-              cv2.imread('image1.jpg', cv2.IMREAD_GRAYSCALE))
+    images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
+              mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
@@ -817,10 +823,10 @@ SYNOPSIS
     # corresponding pixel observation in camera1
     q1, _ = \
         mrcal.match_feature( *images,
+                             q0            = q0,
                              template_size = (17,17),
                              method        = cv2.TM_CCORR_NORMED,
                              search_radius = 20,
-                             q0            = q0,
                              H10           = H10, # homography mapping q0 to q1
                            )
 
@@ -830,7 +836,7 @@ SYNOPSIS
 
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
-    p = mrcal.triangulate_lindstrom( v0, v1, Rt01 )
+    p = mrcal.triangulate_lindstrom( v0, v1, Rt01 = Rt01 )
 
 This is the lower-level triangulation routine. For a richer function that can be
 used to propagate uncertainties, see mrcal.triangulate()
@@ -941,9 +947,6 @@ if get_gradients: we return a tuple:
         return mrcal._triangulation_npsp._triangulate_lindstrom(v0, v1, Rt01, out=out)
     else:
         return mrcal._triangulation_npsp._triangulate_lindstrom_withgrad(v0, v1, Rt01, out=out)
-
-
-
 
 
 def _compute_Var_q_triangulation(sigma, stdev_cross_camera_correlation):
@@ -1253,7 +1256,7 @@ if optimization_inputs is None and q_observation_stdev is None:
 
     # Output goes here. This function fills in the observation-time stuff.
     # Otherwise this function just returns the array of 0s, which the callers
-    # will fill using the dp_triangulated_dpstate data this function returns
+    # will fill using the dp_triangulated_dbstate data this function returns
     p = np.zeros((Npoints,3), dtype=float)
 
     if optimization_inputs is not None:
@@ -1261,9 +1264,9 @@ if optimization_inputs is None and q_observation_stdev is None:
         Nintrinsics = mrcal.num_intrinsics_optimization_params(**optimization_inputs)
         Nstate      = mrcal.num_states(**optimization_inputs)
 
-        # I store dp_triangulated_dpstate initially, without worrying about the "packed"
+        # I store dp_triangulated_dbstate initially, without worrying about the "packed"
         # part. I'll scale the thing when done to pack it
-        dp_triangulated_dpstate = np.zeros((Npoints,3,Nstate), dtype=float)
+        dp_triangulated_dbstate = np.zeros((Npoints,3,Nstate), dtype=float)
 
         if stabilize_coords and optimization_inputs.get('do_optimize_frames'):
             # We're re-optimizing (looking at calibration uncertainty) AND we
@@ -1279,7 +1282,7 @@ if optimization_inputs is None and q_observation_stdev is None:
 
     else:
         # We don't need to evaluate the calibration-time noise.
-        dp_triangulated_dpstate = None
+        dp_triangulated_dbstate = None
         istate_i0               = None
         istate_i1               = None
         icam_extrinsics0        = None
@@ -1378,12 +1381,12 @@ if optimization_inputs is None and q_observation_stdev is None:
             # dp_triangulated_di1 = dp_triangulated_dv1 dv1_dvlocal1 dvlocal1_di1
             nps.matmult( dp_triangulated_dv0,
                          dvlocal0_dintrinsics0,
-                         out = dp_triangulated_dpstate[ipt, :, istate_i0:istate_i0+Nintrinsics])
+                         out = dp_triangulated_dbstate[ipt, :, istate_i0:istate_i0+Nintrinsics])
         if istate_i1 is not None:
             nps.matmult( dp_triangulated_dv1,
                          dv1_dvlocal1,
                          dvlocal1_dintrinsics1,
-                         out = dp_triangulated_dpstate[ipt, :, istate_i1:istate_i1+Nintrinsics])
+                         out = dp_triangulated_dbstate[ipt, :, istate_i1:istate_i1+Nintrinsics])
 
 
         icam_extrinsics0 = mrcal.corresponding_icam_extrinsics(icam_intrinsics0, **optimization_inputs)
@@ -1411,13 +1414,13 @@ if optimization_inputs is None and q_observation_stdev is None:
             nps.matmult( dp_triangulated_dv1,
                          dv1_dr01,
                          dr01_dr_1ref,
-                         out = dp_triangulated_dpstate[ipt, :, istate_e1:istate_e1+3])
-            dp_triangulated_dpstate[ipt, :, istate_e1:istate_e1+3] += \
+                         out = dp_triangulated_dbstate[ipt, :, istate_e1:istate_e1+3])
+            dp_triangulated_dbstate[ipt, :, istate_e1:istate_e1+3] += \
                 nps.matmult(dp_triangulated_dt01, dt01_dr_1ref)
 
             nps.matmult( dp_triangulated_dt01,
                          dt01_dt_1ref,
-                         out = dp_triangulated_dpstate[ipt, :, istate_e1+3:istate_e1+6])
+                         out = dp_triangulated_dbstate[ipt, :, istate_e1+3:istate_e1+6])
 
         if istate_e0 is not None:
             dr01_dr_0ref = drt01_drt_0ref[:3,:3]
@@ -1427,16 +1430,16 @@ if optimization_inputs is None and q_observation_stdev is None:
             nps.matmult( dp_triangulated_dv1,
                          dv1_dr01,
                          dr01_dr_0ref,
-                         out = dp_triangulated_dpstate[ipt, :, istate_e0:istate_e0+3])
-            dp_triangulated_dpstate[ipt, :, istate_e0:istate_e0+3] += \
+                         out = dp_triangulated_dbstate[ipt, :, istate_e0:istate_e0+3])
+            dp_triangulated_dbstate[ipt, :, istate_e0:istate_e0+3] += \
                 nps.matmult(dp_triangulated_dt01, dt01_dr_0ref)
 
             nps.matmult( dp_triangulated_dt01,
                          dt01_dt_0ref,
-                         out = dp_triangulated_dpstate[ipt, :, istate_e0+3:istate_e0+6])
+                         out = dp_triangulated_dbstate[ipt, :, istate_e0+3:istate_e0+6])
 
             if dp_triangulated_drt_0ref is not None:
-                dp_triangulated_dpstate[ipt, :, istate_e0:istate_e0+6] += dp_triangulated_drt_0ref
+                dp_triangulated_dbstate[ipt, :, istate_e0:istate_e0+6] += dp_triangulated_drt_0ref
 
         if dp_triangulated_drtrf is not None:
             # We're re-optimizing (looking at calibration uncertainty) AND we
@@ -1444,13 +1447,13 @@ if optimization_inputs is None and q_observation_stdev is None:
             # Without stabilization, there's no dependence on rt_ref_frame
 
             # dp_triangulated_drtrf has shape (Npoints,Nframes,3,6). I reshape to (Npoints,3,Nframes*6)
-            dp_triangulated_dpstate[ipt, :, istate_f0:istate_f0+Nstate_frames] = \
+            dp_triangulated_dbstate[ipt, :, istate_f0:istate_f0+Nstate_frames] = \
                 nps.clump(nps.xchg(dp_triangulated_drtrf,-2,-3), n=-2)
 
     # Returning the istate stuff for the test suite. These are the istate_...
     # and icam_... for the last slice only. This is good-enough for the test
     # suite
-    return p, Var_p_observation, dp_triangulated_dpstate, \
+    return p, Var_p_observation, dp_triangulated_dbstate, \
         istate_i0,                            \
         istate_i1,                            \
         icam_extrinsics0,                     \
@@ -1461,6 +1464,7 @@ if optimization_inputs is None and q_observation_stdev is None:
 
 def triangulate( q,
                  models,
+                 *,
                  q_calibration_stdev             = None,
                  q_observation_stdev             = None,
                  q_observation_stdev_correlation = 0,
@@ -1768,7 +1772,7 @@ Complete logic:
             if models_flat[i0]._extrinsics_moved_since_calibration():
                 raise Exception(f"The given models must have been fixed inside the initial calibration. Model {i0} has been moved")
 
-        ppacked,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs)
+        bpacked,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs)
 
         if q_calibration_stdev < 0:
             q_calibration_stdev = \
@@ -1782,10 +1786,10 @@ Complete logic:
 
     # p has shape (Npoints + (3,))
     # Var_p_observation_flat has shape (Npoints + (3,3))
-    # dp_triangulated_dpstate has shape (Npoints*3 + (Nstate,))
+    # dp_triangulated_dbstate has shape (Npoints*3 + (Nstate,))
     p,                      \
     Var_p_observation_flat, \
-    dp_triangulated_dpstate = \
+    dp_triangulated_dbstate = \
         _triangulation_uncertainty_internal(
                         slices,
                         optimization_inputs,
@@ -1796,15 +1800,15 @@ Complete logic:
 
     # Done looping through all the triangulated points. I have computed the
     # observation-time noise contributions in Var_p_observation. And I have all
-    # the gradients in dp_triangulated_dpstate
+    # the gradients in dp_triangulated_dbstate
 
     if optimization_inputs is not None:
         # pack the denominator by unpacking the numerator
-        mrcal.unpack_state(dp_triangulated_dpstate, **optimization_inputs)
+        mrcal.unpack_state(dp_triangulated_dbstate, **optimization_inputs)
 
-        # reshape dp_triangulated_dpstate to (Npoints*3, Nstate)
+        # reshape dp_triangulated_dbstate to (Npoints*3, Nstate)
         # So the Var(p) will end up with shape (Npoints*3, Npoints*3)
-        dp_triangulated_dpstate = nps.clump(dp_triangulated_dpstate,n=2)
+        dp_triangulated_dbstate = nps.clump(dp_triangulated_dbstate,n=2)
 
         Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs)
         if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs):
@@ -1814,7 +1818,7 @@ Complete logic:
         # Var_p_calibration_flat has shape (Npoints*3,Npoints*3)
         Var_p_calibration_flat = \
             mrcal.model_analysis._propagate_calibration_uncertainty(
-                                               dp_triangulated_dpstate,
+                                               dp_triangulated_dbstate,
                                                factorization, Jpacked,
                                                Nmeasurements_observations,
                                                q_calibration_stdev,

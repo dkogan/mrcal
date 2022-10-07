@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
           "#,\n"
           ",\n"
           "#]\n"
-          "],'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
+          "],'intrinsics': [ 4, 3, 4,\n5,    0,  \n\n  1, 3, 5, 4, 10, 11, 12 ],\n"
           "    'imagersize': [110, 400]\n"
           "# }\n"
           "}  \n"

@@ -221,7 +221,7 @@ if args.extratitle is not None:
     plotkwargs['extratitle'] = args.extratitle
 
 try:
-    plot = mrcal.show_splined_model_correction(model,
+    plot = mrcal.show_splined_model_correction( model,
                                                 vectorfield             = args.vectorfield,
                                                 xy                      = args.xy,
                                                 imager_domain           = args.imager_domain,

@@ -15,19 +15,19 @@ tools provide, and can solve other problems, such as structure-from-motion. Note
 that the APIs for handling discrete points are still unstable, so the SFM
 functionality remains lightly-documented for now.
 
-The solver moves around the /state/ vector $\vec p$, which contains all the
-geometry and all the lens models. For any hypothesis $\vec p$, the solver can
+The solver moves around the /state/ vector $\vec b$, which contains all the
+geometry and all the lens models. For any hypothesis $\vec b$, the solver can
 predict the pixel coordinates where the hypothetical cameras would observe their
 hypothetical world. The differences between these predicted pixel observations
 and the actual pixel observations we gathered from looking at chessboards are
 stored in a /measurement/ vector $\vec x$. The solver then tries to find the set
 of geometry and lens parameters to best explain the observed pixel coordinates,
-so it seeks the $\vec p$ to minimize the cost function $E \equiv \left \Vert \vec x
-\left(\vec p\right)\right \Vert ^2$.
+so it seeks the $\vec b$ to minimize the cost function $E \equiv \left \Vert \vec x
+\left(\vec b\right)\right \Vert ^2$.
 
 The optimization library interfaces with mrcal by invoking a callback function
-for each hypothesis $\vec p$ to test. This callback function computes $\vec x$
-and the local gradients $J \equiv \frac{\partial \vec x}{\partial \vec p}$ (large and sparse). For
+for each hypothesis $\vec b$ to test. This callback function computes $\vec x$
+and the local gradients $J \equiv \frac{\partial \vec x}{\partial \vec b}$ (large and sparse). For
 analysis, this callback function is available by itself via
 
 - =mrcal_optimizer_callback()= routine in the [[file:c-api.org][C API]]
@@ -220,11 +220,11 @@ estimate of the solution) to the optimization routines. The
    passed to [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal_optimize()=]] in C (or the =do_optimize_...= arguments to
    [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] in Python).
 
-* State vector $\vec p$
+* State vector $\vec b$
 :PROPERTIES:
 :CUSTOM_ID: state-vector
 :END:
-The state vector $\vec p$ is controlled by the optimization algorithm as it
+The state vector $\vec b$ is controlled by the optimization algorithm as it
 searches for the optimal solution. This vector may contain
 
 - *intrinsics*: the lens parameters of all the cameras in the optimization problem
@@ -246,19 +246,19 @@ contains a subset, depending on the specific problem being solved. Common
 problems are:
 
 - A vanilla calibration problem. We have stationary cameras observing a moving
-  chessboard. $\vec p$ contains intrinsics and extrinsics and frames and the
+  chessboard. $\vec b$ contains intrinsics and extrinsics and frames and the
   calibration-object warp
 - Structure-from-motion. We have moving cameras observing a stationary world.
-  $\vec p$ contains extrinsics and points.
+  $\vec b$ contains extrinsics and points.
 - An intrinsics-fitting problem such as what [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] solves.
-  $\vec p$ contains intrinsics and points
+  $\vec b$ contains intrinsics and points
 
 Any other combination is possible.
 
 ** State vector layout
 When analyzing the behavior of the optimizer it is often useful to pick out
-particular elements of the full optimization vector $\vec p$. mrcal provides a
-number of functions to report the index and size of the block of $\vec p$ that
+particular elements of the full optimization vector $\vec b$. mrcal provides a
+number of functions to report the index and size of the block of $\vec b$ that
 contains specific data. In C:
 
 - [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal_state_index_intrinsics()=]]: Return the index in the optimization vector of the intrinsics of camera i
@@ -307,18 +307,18 @@ The nonlinear least squares-solving library used by mrcal is [[https://www.githu
 implements [[https://en.wikipedia.org/wiki/Powell's_dog_leg_method][Powell's dogleg method]]. This is a trust-region algorithm that
 represents the trust region as a ball in state space. I.e. the radius of this
 trust region is the same in every direction. And /that/ means that the
-optimization will work best when each state variable in $\vec p$ affects the
+optimization will work best when each state variable in $\vec b$ affects the
 cost function $E$ evenly. Example of what we don't want: camera positions
 measured in km, while the chessboard positions are measured in mm, with both
-sets of these very different numbers stored in $\vec p$.
+sets of these very different numbers stored in $\vec b$.
 
 Clearly getting identical behavior from each variable is impossible, but we can
-scale the elements of $\vec p$ to keep things more or less even. mrcal applies
+scale the elements of $\vec b$ to keep things more or less even. mrcal applies
 this scaling, and the =libdogleg= optimization library never sees the full state
-vector $\vec p$, but the scaled vector $\vec p_\mathrm{packed}$. Similarly, it
-never sees the full jacobian $J \equiv \frac{\partial \vec x}{\partial \vec p}$,
+vector $\vec b$, but the scaled vector $\vec b_\mathrm{packed}$. Similarly, it
+never sees the full jacobian $J \equiv \frac{\partial \vec x}{\partial \vec b}$,
 but rather $J_\mathrm{packed} \equiv \frac{\partial \vec x}{\partial \vec
-p_\mathrm{packed}}$. This means that the optimization callback functions report
+b_\mathrm{packed}}$. This means that the optimization callback functions report
 packed state. These are
 
 - =mrcal_optimizer_callback()= routine in the [[file:c-api.org][C API]]
@@ -335,19 +335,19 @@ And in Python:
 - [[file:mrcal-python-api-reference.html#-unpack_state][=mrcal.unpack_state()=]]: Scales a state vector from the packed, unitless form used by the optimizer
 
 * Measurement vector $\vec x$
-Given a hypothesis state vector $\vec p$ mrcal computes a vector of errors, or
+Given a hypothesis state vector $\vec b$ mrcal computes a vector of errors, or
 /measurements/ $\vec x$. The optimization algorithm searches the space of
-hypotheses $\vec p$, trying to minimize $E \equiv \left \Vert \vec x \right \Vert^2$.
+hypotheses $\vec b$, trying to minimize $E \equiv \left \Vert \vec x \right \Vert^2$.
 
 We know where each point was observed in reality, and we know where the state
-vector $\vec p$ predicts each one would have been observed. So we can construct
+vector $\vec b$ predicts each one would have been observed. So we can construct
 a vector of errors $\vec q_\mathrm{err} \equiv \vec q_\mathrm{predicted}\left(
-\vec p \right) - \vec q_\mathrm{ref}$.
+\vec b \right) - \vec q_\mathrm{ref}$.
 
 From the [[#noise-model][noise analysis]] we derive a matrix of weights $W$ to construct
 
 \[ \vec x_\mathrm{observations} \equiv W q_\mathrm{err} = W \left( \vec
-q_\mathrm{predicted}\left( \vec p \right) - \vec q_\mathrm{ref} \right) \]
+q_\mathrm{predicted}\left( \vec b \right) - \vec q_\mathrm{ref} \right) \]
 
 This is the bulk of the measurement vector.
 
@@ -397,10 +397,17 @@ And in Python:
 :PROPERTIES:
 :CUSTOM_ID: noise-model
 :END:
+
+The [[file:uncertainty.org::#noise-model][projection uncertainty routine]] is used to gauge the effects of sampling
+error on the solve. This is done by modelling the noise in the input pixel
+observations, and propagating it through the solve. This assumes that model
+errors are insignificant.
+
 ** Noise on the inputs
 :PROPERTIES:
 :CUSTOM_ID: noise-model-inputs
 :END:
+
 I solve the calibration problem using [[https://en.wikipedia.org/wiki/Ordinary_least_squares][Ordinary Least Squares]], minimizing the
 discrepancies between pixel observations and their predictions. The pixel
 observations $\vec q_\mathrm{ref}$ are noisy, and I assume that they are
@@ -456,9 +463,9 @@ currently doesn't try to catch this case. This might be added in the future.
 :CUSTOM_ID: noise-in-measurement-vector
 :END:
 We know where each point was observed in reality, and we know where the state
-vector $\vec p$ predicts each one would have been observed. So we can construct
+vector $\vec b$ predicts each one would have been observed. So we can construct
 a vector of errors $\vec q_\mathrm{err} \equiv \vec q_\mathrm{predicted}\left(
-\vec p \right) - \vec q_\mathrm{ref}$.
+\vec b \right) - \vec q_\mathrm{ref}$.
 
 For the purposes of optimization we want to weight the errors of uncertain
 observations less than confident ones, and to do that we can use the same $s_i$
@@ -470,7 +477,7 @@ Let's construct a diagonal matrix of all these weights: $W \equiv
 \mathrm{diag}\left( \vec w \right)$. Then the measurement vector is
 
 \[ \vec x_\mathrm{observations} \equiv W q_\mathrm{err} = W \left( \vec
-q_\mathrm{predicted}\left( \vec p \right) - \vec q_\mathrm{ref} \right) \]
+q_\mathrm{predicted}\left( \vec b \right) - \vec q_\mathrm{ref} \right) \]
 
 If we assume that the model fits the data and that we have enough data to not
 overfit (both reasonable assumptions), then 

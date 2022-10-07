@@ -14,7 +14,7 @@ import numpysane as nps
 import sys
 import mrcal
 
-def ref_calibration_object(W, H, object_spacing, calobject_warp=None):
+def ref_calibration_object(W, H, object_spacing, *, calobject_warp=None):
     r'''Return the geometry of the calibration object
 
 SYNOPSIS
@@ -147,8 +147,11 @@ dimensions set by the broadcasting rules
 
 
 def synthesize_board_observations(models,
-                                  object_width_n,object_height_n,
-                                  object_spacing, calobject_warp,
+                                  *,
+                                  object_width_n,
+                                  object_height_n,
+                                  object_spacing,
+                                  calobject_warp,
                                   rt_ref_boardcenter,
                                   rt_ref_boardcenter__noiseradius,
                                   Nframes,
@@ -168,14 +171,17 @@ SYNOPSIS
           models,
 
           # board geometry
-          10,12,0.1,None,
+          object_width_n  = 10,
+          object_height_n = 12,
+          object_spacing  = 0.1,
+          calobject_warp  = None,
 
           # mean board pose and the radius of the added uniform noise
-          rt_ref_boardcenter,
-          rt_ref_boardcenter__noiseradius,
+          rt_ref_boardcenter              = rt_ref_boardcenter
+          rt_ref_boardcenter__noiseradius = rt_ref_boardcenter__noiseradius,
 
           # How many frames we want
-          100,
+          Nframes = 100
 
           which = 'some-cameras-must-see-half-board')
 
@@ -286,10 +292,13 @@ We return a tuple:
                                imagersize = np.array((2000,2000)) )
     Rt_ref_boardref = \
         mrcal.synthesize_board_observations([model],
-                                            5,20,0.1,None,
-                                            nps.glue(r, np.array((0,0,3.)), axis=-1),
-                                            np.array((0,0,0., 0,0,0)),
-                                            1) [1]
+                                            object_width_n                  = 5,
+                                            object_height_n                 = 20,
+                                            object_spacing                  = 0.1,
+                                            calobject_warp                  = None,
+                                            rt_ref_boardcenter              = nps.glue(r, np.array((0,0,3.)), axis=-1),
+                                            rt_ref_boardcenter__noiseradius = np.array((0,0,0., 0,0,0)),
+                                            Nframes                         = 1) [1]
     mrcal.show_geometry( models_or_extrinsics_rt_fromref = np.zeros((1,1,6), dtype=float),
                          frames_rt_toref                 = mrcal.rt_from_Rt(Rt_ref_boardref),
                          object_width_n                  = 20,
@@ -323,7 +332,8 @@ We return a tuple:
     # shape: (Nh,Nw,3)
     board_reference = \
         mrcal.ref_calibration_object(object_width_n,object_height_n,
-                                     object_spacing,calobject_warp) - \
+                                     object_spacing,
+                                     calobject_warp = calobject_warp) - \
         board_center
 
     # Transformation from the board returned by ref_calibration_object() to

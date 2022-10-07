@@ -49,6 +49,11 @@ def print_green(x):
     """Print the message in green"""
     sys.stdout.write("\x1b[32m" + test_location() + ": " + x + "\x1b[0m\n")
 
+def print_blue(x):
+    """Print the message in blue"""
+    sys.stdout.write("\x1b[34m" + test_location() + ": " + x + "\x1b[0m\n")
+
+
 
 def relative_scale(a,b, eps = 1e-6):
     return (np.abs(a) + np.abs(b)) / 2 + eps

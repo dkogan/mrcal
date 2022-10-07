@@ -2,6 +2,9 @@ This is a copy of libminimath 0.7 from
 
 https://github.com/dkogan/libminimath
 
+I also added an extra minimath-extra.h. This will be added to libminimath
+eventually
+
 
 
 

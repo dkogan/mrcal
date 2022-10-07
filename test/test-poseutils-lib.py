@@ -120,6 +120,27 @@ def compose_Rt(Rt0, Rt1):
     t2 = nps.matmult(t1, nps.transpose(R0)) + t0
     return nps.glue( R2, t2.ravel(), axis=-2)
 
+def normalize_r(r):
+    r'''If abs(rot) > 180deg -> flip direction, abs(rot) <- 180-abs(rot)'''
+    norm2 = nps.norm2(r)
+    if norm2 < np.pi*np.pi:
+        return r
+
+    mag = np.sqrt(norm2)
+    r_unit = r / mag
+
+    mag = mag % (np.pi*2.)
+    if mag < np.pi:
+        # same direction, but fewer full rotations
+        return r_unit*mag
+
+    return -r_unit * (np.pi*2. - mag)
+
+def normalize_rt(rt):
+    return nps.glue(normalize_r(rt[:3]),
+                    rt[3:],
+                    axis=-1)
+
 def compose_r(r0, r1):
     r'''Simple reference implementation'''
     return r_from_R(nps.matmult( R_from_r(r0),
@@ -958,19 +979,16 @@ Rt2 = mrcal.compose_Rt(Rt0_ref, Rt1_ref,Rt0_ref,
                        out=out43)
 confirm_equal( Rt2,
                compose_Rt(compose_Rt(Rt0_ref, Rt1_ref), Rt0_ref),
-               msg='compose_Rt with 3 inputs; associate one way')
-confirm_equal( Rt2,
-               compose_Rt(Rt0_ref, compose_Rt(Rt1_ref, Rt0_ref)),
-               msg='compose_Rt with 3 inputs; associate the other way')
+               msg='compose_Rt with 3 inputs')
 
 rt2 = mrcal.compose_rt(rt0_ref, rt1_ref,rt0_ref,
                        out=out6)
+# Needed here. The two rotations are semantically equivalent, but numerically
+# different
+rt2 = normalize_rt(rt2)
 confirm_equal( rt2,
                compose_rt(compose_rt(rt0_ref, rt1_ref), rt0_ref),
-               msg='compose_rt with 3 inputs; associate one way')
-confirm_equal( rt2,
-               compose_rt(rt0_ref, compose_rt(rt1_ref, rt0_ref)),
-               msg='compose_rt with 3 inputs; associate the other way')
+               msg='compose_rt with 3 inputs')
 
 ################# compose_r()
 #

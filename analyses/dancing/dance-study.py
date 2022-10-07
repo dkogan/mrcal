@@ -688,29 +688,35 @@ def eval_one_rangenear_tilt(models_true,
     #        (Nframes, 4,3)
     q_true_near, Rt_ref_board_true_near = \
         mrcal.synthesize_board_observations(models_true,
-                                            object_width_n, object_height_n, object_spacing,
-                                            calobject_warp_true_ref,
-                                            np.array((0.,  0., 0., radius_cameras, 0,  range_near,)),
-                                            np.array((np.pi/180. * tilt_radius,
-                                                      np.pi/180. * tilt_radius,
-                                                      np.pi/180. * args.roll_radius,
-                                                      x_radius, y_radius, z_radius)),
-                                            np.max(Nframes_near_samples),
-                                            which = args.which)
+                                            object_width_n                  = object_width_n,
+                                            object_height_n                 = object_height_n,
+                                            object_spacing                  = object_spacing,
+                                            calobject_warp                  = calobject_warp_true_ref,
+                                            rt_ref_boardcenter              = np.array((0.,  0., 0., radius_cameras, 0,  range_near,)),
+                                            rt_ref_boardcenter__noiseradius = \
+                                              np.array((np.pi/180. * tilt_radius,
+                                                        np.pi/180. * tilt_radius,
+                                                        np.pi/180. * args.roll_radius,
+                                                        x_radius, y_radius, z_radius)),
+                                            Nframes                         = np.max(Nframes_near_samples),
+                                            which                           = args.which)
     if range_far is not None:
         q_true_far, Rt_ref_board_true_far  = \
             mrcal.synthesize_board_observations(models_true,
-                                                object_width_n, object_height_n, object_spacing,
-                                                calobject_warp_true_ref,
-                                                np.array((0.,  0., 0., radius_cameras, 0,  range_far,)),
-                                                np.array((np.pi/180. * tilt_radius,
-                                                          np.pi/180. * tilt_radius,
-                                                          np.pi/180. * args.roll_radius,
-                                                          range_far*2. + radius_cameras,
-                                                          range_far*2.,
-                                                          range_far/10.)),
-                                                np.max(Nframes_far_samples),
-                                                which = args.which)
+                                                object_width_n                  = object_width_n,
+                                                object_height_n                 = object_height_n,
+                                                object_spacing                  = object_spacing,
+                                                calobject_warp                  = calobject_warp_true_ref,
+                                                rt_ref_boardcenter              = np.array((0.,  0., 0., radius_cameras, 0,  range_far,)),
+                                                rt_ref_boardcenter__noiseradius = \
+                                                  np.array((np.pi/180. * tilt_radius,
+                                                            np.pi/180. * tilt_radius,
+                                                            np.pi/180. * args.roll_radius,
+                                                            range_far*2. + radius_cameras,
+                                                            range_far*2.,
+                                                            range_far/10.)),
+                                                Nframes                         = np.max(Nframes_far_samples),
+                                                which                           = args.which)
     else:
         q_true_far            = None
         Rt_ref_board_true_far = None

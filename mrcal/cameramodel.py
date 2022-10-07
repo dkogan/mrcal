@@ -476,7 +476,10 @@ A sample valid .cameramodel file:
             filetype = io.IOBase
         if isinstance(f, filetype):
             s    = f.read()
-            name = f.name
+            try:
+                name = f.name
+            except:
+                name = None
         else:
             s    = f
             name = None
@@ -560,7 +563,7 @@ A sample valid .cameramodel file:
     def __init__(self,
 
                  file_or_model           = None,
-
+                 *,
                  intrinsics              = None,
                  imagersize              = None,
                  extrinsics_Rt_toref     = None,
@@ -592,7 +595,7 @@ We can initialize using one of several methods, depending on which arguments are
 given. The arguments for the methods we're not using MUST all be None. Methods:
 
 - Read a file on disk. The filename should be given in the 'file_or_model'
-  argument (possibly as a poitional argument)
+  argument (possibly as a positional argument)
 
 - Read a python 'file' object. Similarly, the opened file should be given in the
   'file_or_model' argument (possibly as a poitional argument)
@@ -790,7 +793,7 @@ ARGUMENTS
             else:
                 raise Exception("At most one of the extrinsics_... arguments may be given")
 
-            self.intrinsics(intrinsics, imagersize)
+            self.intrinsics(intrinsics, imagersize=imagersize)
 
         elif Nargs['optimization_inputs']:
             if Nargs['file_or_model'] + \
@@ -802,9 +805,9 @@ ARGUMENTS
 
             self.intrinsics( ( optimization_inputs['lensmodel'],
                                optimization_inputs['intrinsics'][icam_intrinsics] ),
-                            optimization_inputs['imagersizes'][icam_intrinsics],
-                            optimization_inputs,
-                            icam_intrinsics)
+                             imagersize = optimization_inputs['imagersizes'][icam_intrinsics],
+                             optimization_inputs = optimization_inputs,
+                             icam_intrinsics     = icam_intrinsics)
 
             icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics,
                                                                   **optimization_inputs)
@@ -849,7 +852,7 @@ ARGUMENTS
             ')'
 
 
-    def write(self, f, note=None, cahvor=False):
+    def write(self, f, *, note=None, cahvor=False):
         r'''Write out this camera model to disk
 
 SYNOPSIS
@@ -896,6 +899,7 @@ None
 
     def intrinsics(self,
                    intrinsics          = None,
+                   *,
                    imagersize          = None,
                    optimization_inputs = None,
                    icam_intrinsics     = None):
@@ -1312,7 +1316,7 @@ If this is a getter (no arguments given), returns a numpy array of shape
 
 SYNOPSIS
 
-    p,x,j = mrcal.optimizer_callback(**model.optimization_inputs())[:3]
+    b,x,j = mrcal.optimizer_callback(**model.optimization_inputs())[:3]
 
 This function retrieves the optimization inputs: a dict containing all the data
 that was used to compute the contents of this model. These are the kwargs

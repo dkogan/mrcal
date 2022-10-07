@@ -141,6 +141,7 @@ A scalar scale_focal that can be passed to pinhole_model_for_reprojection()
 
 def pinhole_model_for_reprojection(model_from,
                                    fit         = None,
+                                   *,
                                    scale_focal = None,
                                    scale_image = None):
 
@@ -149,7 +150,7 @@ def pinhole_model_for_reprojection(model_from,
 SYNOPSIS
 
     model_orig = mrcal.cameramodel("xxx.cameramodel")
-    image_orig = cv2.imread("image.jpg")
+    image_orig = mrcal.load_image("image.jpg")
 
     model_pinhole = mrcal.pinhole_model_for_reprojection(model_orig,
                                                          fit = "corners")
@@ -265,7 +266,7 @@ the input model.
 
 
 def image_transformation_map(model_from, model_to,
-
+                             *,
                              intrinsics_only                   = False,
                              distance                          = None,
                              plane_n                           = None,
@@ -277,7 +278,7 @@ def image_transformation_map(model_from, model_to,
 SYNOPSIS
 
     model_orig = mrcal.cameramodel("xxx.cameramodel")
-    image_orig = cv2.imread("image.jpg")
+    image_orig = mrcal.load_image("image.jpg")
 
     model_pinhole = mrcal.pinhole_model_for_reprojection(model_orig,
                                                          fit = "corners")
@@ -503,6 +504,7 @@ This array can be passed to mrcal.transform_image()
 
 
 def transform_image(image, mapxy,
+                    *,
                     out = None,
                     borderMode    = None,
                     borderValue   = 0,
@@ -513,7 +515,7 @@ def transform_image(image, mapxy,
 SYNOPSIS
 
     model_orig = mrcal.cameramodel("xxx.cameramodel")
-    image_orig = cv2.imread("image.jpg")
+    image_orig = mrcal.load_image("image.jpg")
 
     model_pinhole = mrcal.pinhole_model_for_reprojection(model_orig,
                                                          fit = "corners")

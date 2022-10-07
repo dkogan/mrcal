@@ -17,8 +17,9 @@ given. Exactly one is required:
     X coordinate
 
   --cull-rad-off-center D: throw away all corner observations further than D
-    away from the imager center. --imagersize must be given also so that we know
-    where the imager center is
+    away from the center. --imagersize or --where must be given also so that we
+    know where the center is. If D < 0: we cull the points -D or closer to the
+    corners: we use a radius of sqrt(width^2 + height^2)/2. - abs(D)
 
   --cull-random-observations-ratio R: throws away a ratio R object observations
     at random. To throw out half of all object observations, pass R = 0.5.
@@ -72,7 +73,8 @@ def parse_args():
     parser.add_argument('--imagersize',
                         nargs=2,
                         type=int,
-                        help='''Size of the imager. This is required if --cull-rad-off-center''')
+                        help='''Size of the imager. If --cull-rad-off-center is
+                        given: we require --imagersize or --where''')
 
     parser.add_argument('--cull-left-of',
                         required=False,
@@ -82,8 +84,10 @@ def parse_args():
     parser.add_argument('--cull-rad-off-center',
                         required=False,
                         type=float,
-                        help='''Throw out all observations with dist_from_center > the given value. Exclusive
-                        with the other --cull-... options''')
+                        help='''Throw out all observations with dist_from_center
+                        > the given value. Exclusive with the other --cull-...
+                        options. If --cull-rad-off-center is given: we require
+                        --imagersize or --where''')
     parser.add_argument('--cull-random-observations-ratio',
                         required=False,
                         type=float,
@@ -91,6 +95,23 @@ def parse_args():
                         given as the argument. 1.0 = throw out ALL the
                         observations; 0.0 = throw out NONE of the observations.
                         Exclusive with the other --cull-... options''')
+    parser.add_argument('--where',
+                        type=float,
+                        nargs=2,
+                        help='''Used with --cull-rad-off-center. Specifies the
+                        location of the "center" point. If omitted, we use the
+                        center of the imager. May NOT be given if
+                        --cull-rad-off-center < 0. If --cull-rad-off-center is
+                        given: we require --imagersize or --where''')
+    parser.add_argument('--filename',
+                        type=str,
+                        action='append',
+                        help='''Apply the filtering only to observations where
+                        the filename matches the given regex. May be given
+                        multiple times: filenames that match ANY of the given
+                        regexen are culled. If omitted, we cull ALL the
+                        observations. Exclusive with
+                        --cull-random-observations-ratio''')
     return parser.parse_args()
 
 args = parse_args()
@@ -106,15 +127,23 @@ if Nculloptions != 1:
 
 if args.object_width_n is not None and args.object_height_n is None:
     args.object_height_n = args.object_width_n
-if args.cull_random_observations_ratio and \
-   (args.object_width_n is None or args.object_height_n is None):
-    print("--cull-random-observation-ratio requires --object-width-n and --object-height-n",
-          file=sys.stderr)
-    sys.exit(1)
+if args.cull_random_observations_ratio:
+    if (args.object_width_n is None or args.object_height_n is None):
+        print("--cull-random-observation-ratio requires --object-width-n and --object-height-n",
+              file=sys.stderr)
+        sys.exit(1)
+    if args.filename is not None:
+        print("--cull-random-observation-ratio is exclusive with --filename",
+              file=sys.stderr)
+        sys.exit(1)
 
-if args.cull_rad_off_center is not None and args.imagersize is None:
-    print("--cull-rad-off-center requires --imagersize", file=sys.stderr)
-    sys.exit(1)
+if args.cull_rad_off_center is not None:
+    if args.imagersize is None and args.where is None:
+        print("--cull-rad-off-center requires --imagersize or --where", file=sys.stderr)
+        sys.exit(1)
+    if args.cull_rad_off_center < 0 and args.where is not None:
+        print("--cull-rad-off-center < 0 may not be given with --where", file=sys.stderr)
+        sys.exit(1)
 
 
 
@@ -123,13 +152,31 @@ import re
 import numpy as np
 import numpysane as nps
 import mrcal
+import time
+
+
+print(f"## generated on {time.strftime('%Y-%m-%d %H:%M:%S')} with   {' '.join(mrcal.shellquote(s) for s in sys.argv)}")
 
 if args.cull_left_of is not None or args.cull_rad_off_center is not None:
     # Simple file parsing.
 
+    if args.filename is None:
+        filename_filter = None
+    else:
+        filename_filter_string = '|'.join(f"(?:{s})" for s in args.filename)
+        filename_filter = re.compile(filename_filter_string)
+
     if args.cull_rad_off_center is not None:
-        c  = (np.array(args.imagersize, dtype=float) - 1.) / 2.
-        r2 = args.cull_rad_off_center*args.cull_rad_off_center
+        if args.cull_rad_off_center >= 0:
+            if args.where is None:
+                c  = (np.array(args.imagersize, dtype=float) - 1.) / 2.
+            else:
+                c = np.array(args.where, dtype=float)
+            r = args.cull_rad_off_center
+        else:
+            dims = np.array(args.imagersize, dtype=float)
+            c  = (dims - 1.) / 2.
+            r = nps.mag(dims)/2. + args.cull_rad_off_center
 
     for l in sys.stdin:
         if re.match('\s*(?:##|$)',l):
@@ -153,14 +200,20 @@ if args.cull_left_of is not None or args.cull_rad_off_center is not None:
             sys.stdout.write(l)
             continue
 
+        if filename_filter is not None and \
+           not filename_filter.search(f[0]):
+            sys.stdout.write(l)
+            continue
+
         if args.cull_left_of        is not None and float(f[1]) > args.cull_left_of:
             sys.stdout.write(l)
             continue
         if args.cull_rad_off_center is not None and \
-           nps.norm2(np.array((float(f[1]), float(f[2]))) - c) < r2:
+           nps.norm2(np.array((float(f[1]), float(f[2]))) - c) < r*r:
             sys.stdout.write(l)
             continue
 
+        # Cull the point!
         f[3] = '-'
         sys.stdout.write(' '.join(f) + '\n')
 
@@ -171,10 +224,10 @@ if args.cull_left_of is not None or args.cull_rad_off_center is not None:
 
 
 observations, _, paths = \
-    mrcal.compute_chessboard_corners(Nw = args.object_width_n,
-                                     Nh = args.object_height_n,
-                                     corners_cache_vnl = sys.stdin,
-                                     extracol = 'weight')
+    mrcal.compute_chessboard_corners(W                  = args.object_width_n,
+                                     H                  = args.object_height_n,
+                                     corners_cache_vnl  = sys.stdin,
+                                     weight_column_kind = 'weight')
 
 N_keep       = int(round((1.0 - args.cull_random_observations_ratio) * len(observations)))
 indices_keep = np.sort(np.random.choice(len(observations), N_keep, replace=False))

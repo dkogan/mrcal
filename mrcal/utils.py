@@ -146,10 +146,10 @@ compute an optimal transformation Rt by calling align_procrustes_points_Rt01().
 ARGUMENTS
 
 - v0: an array of shape (..., N, 3). Each row is a vector in the coordinate
-  system we're transforming TO
+  system we're transforming TO. These are assumed normalized.
 
 - v1: an array of shape (..., N, 3). Each row is a vector in the coordinate
-  system we're transforming FROM
+  system we're transforming FROM. These are assumed normalized.
 
 - weights: optional array of shape (..., N). Specifies the relative weight of
   each vector. If omitted, everything is weighted equally
@@ -466,7 +466,7 @@ RETURNED VALUE
     full_object         = mrcal.ref_calibration_object(object_width_n,
                                                        object_height_n,
                                                        object_spacing,
-                                                       calobject_warp)
+                                                       calobject_warp = calobject_warp)
     frames_Rt_toref = \
         mrcal.Rt_from_rt( optimization_inputs['frames_rt_toref'] )\
         [ indices_frame_camintrinsics_camextrinsics[:,0] ]
@@ -1027,7 +1027,7 @@ A list of 'set' directives passable as plot options to gnuplotlib
     return [f"arrow nohead from {x},graph 0 to {x},graph 1" for x in imeas0]
 
 
-def ingest_packed_state(p_packed,
+def ingest_packed_state(b_packed,
                         **optimization_inputs):
     r'''Read a given packed state into optimization_inputs
 
@@ -1038,12 +1038,12 @@ SYNOPSIS
     model               = mrcal.cameramodel('xxx.cameramodel')
     optimization_inputs = model.optimization_inputs()
 
-    p0,x0,J = mrcal.optimizer_callback(no_factorization = True,
+    b0,x0,J = mrcal.optimizer_callback(no_factorization = True,
                                        **optimization_inputs)[:3]
 
-    dp = np.random.randn(len(p0)) * 1e-9
+    db = np.random.randn(len(b0)) * 1e-9
 
-    mrcal.ingest_packed_state(p0 + dp,
+    mrcal.ingest_packed_state(b0 + db,
                               **optimization_inputs)
 
     x1 = mrcal.optimizer_callback(no_factorization = True,
@@ -1051,18 +1051,18 @@ SYNOPSIS
                                   **optimization_inputs)[1]
 
     dx_observed  = x1 - x0
-    dx_predicted = nps.inner(J, dp_packed)
+    dx_predicted = nps.inner(J, db_packed)
 
 This is the converse of mrcal.optimizer_callback(). One thing
 mrcal.optimizer_callback() does is to convert the expanded (intrinsics,
 extrinsics, ...) arrays into a 1-dimensional scaled optimization vector
-p_packed. mrcal.ingest_packed_state() allows updates to p_packed to be absorbed
+b_packed. mrcal.ingest_packed_state() allows updates to b_packed to be absorbed
 back into the (intrinsics, extrinsics, ...) arrays for further evaluation with
 mrcal.optimizer_callback() and others.
 
 ARGUMENTS
 
-- p_packed: a numpy array of shape (Nstate,) containing the input packed state
+- b_packed: a numpy array of shape (Nstate,) containing the input packed state
 
 - **optimization_inputs: a dict() of arguments passable to mrcal.optimize() and
   mrcal.optimizer_callback(). The arrays in this dict are updated
@@ -1105,11 +1105,11 @@ None
     do_optimize_calobject_warp         = optimization_inputs.get('do_optimize_calobject_warp',         True)
 
 
-    if p_packed.ravel().size != Nvars_expected:
-        raise Exception(f"Mismatched array size: p_packed.size={p_packed.ravel().size} while the optimization problem expects {Nvars_expected}")
+    if b_packed.ravel().size != Nvars_expected:
+        raise Exception(f"Mismatched array size: b_packed.size={b_packed.ravel().size} while the optimization problem expects {Nvars_expected}")
 
-    p = p_packed.copy()
-    mrcal.unpack_state(p, **optimization_inputs)
+    b = b_packed.copy()
+    mrcal.unpack_state(b, **optimization_inputs)
 
     if do_optimize_intrinsics_core or \
        do_optimize_intrinsics_distortions:
@@ -1129,27 +1129,27 @@ None
                 iunpacked1 = -Ndistortions
 
             intrinsics[:, iunpacked0:iunpacked1].ravel()[:] = \
-                p[ ivar0:Nvars_intrinsics ]
+                b[ ivar0:Nvars_intrinsics ]
 
     if do_optimize_extrinsics:
         ivar0 = mrcal.state_index_extrinsics(0, **optimization_inputs)
         if ivar0 is not None:
-            extrinsics.ravel()[:] = p[ivar0:ivar0+Nvars_extrinsics]
+            extrinsics.ravel()[:] = b[ivar0:ivar0+Nvars_extrinsics]
 
     if do_optimize_frames:
         ivar0 = mrcal.state_index_frames(0, **optimization_inputs)
         if ivar0 is not None:
-            frames.ravel()[:] = p[ivar0:ivar0+Nvars_frames]
+            frames.ravel()[:] = b[ivar0:ivar0+Nvars_frames]
 
     if do_optimize_frames:
         ivar0 = mrcal.state_index_points(0, **optimization_inputs)
         if ivar0 is not None:
-            points.ravel()[:-Npoints_fixed*3] = p[ivar0:ivar0+Nvars_points]
+            points.ravel()[:-Npoints_fixed*3] = b[ivar0:ivar0+Nvars_points]
 
     if do_optimize_calobject_warp:
         ivar0 = mrcal.state_index_calobject_warp(**optimization_inputs)
         if ivar0 is not None:
-            calobject_warp.ravel()[:] = p[ivar0:ivar0+Nvars_calobject_warp]
+            calobject_warp.ravel()[:] = b[ivar0:ivar0+Nvars_calobject_warp]
 
 
 def _sorted_eig(C):
@@ -1191,6 +1191,7 @@ def _plot_args_points_and_covariance_ellipse(q, what):
 
 
 def residuals_chessboard(optimization_inputs,
+                         *,
                          i_cam     = None,
                          residuals = None):
     r'''Compute and return the chessboard residuals
@@ -1263,21 +1264,3 @@ observations remaining after outliers and other cameras are thrown out
 
     # shape (N,2)
     return residuals[idx, ...]
-
-
-def _skew_symmetric(v, out=None):
-    r'''Return the skew-symmetric matrix used in a cross product
-
-Let M = _skew_symmetric(a). Then cross(a,b) = M b
-'''
-    if out is None:
-        out = np.zeros(v.shape + (3,), dtype=float)
-
-    # strange-looking implementation to make broadcasting work
-    out[...,0,1] = -v[...,2]
-    out[...,0,2] =  v[...,1]
-    out[...,1,0] =  v[...,2]
-    out[...,1,2] = -v[...,0]
-    out[...,2,0] = -v[...,1]
-    out[...,2,1] =  v[...,0]
-    return out

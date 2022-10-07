@@ -16,6 +16,7 @@ import mrcal
 
 
 def implied_Rt10__from_unprojections(q0, p0, v1,
+                                     *,
                                      weights      = None,
                                      atinfinity   = True,
                                      focus_center = np.zeros((2,), dtype=float),
@@ -454,84 +455,84 @@ broadcasting
     return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
 
 
-def _propagate_calibration_uncertainty( dF_dppacked,
+def _propagate_calibration_uncertainty( dF_dbpacked,
                                         factorization, Jpacked,
                                         Nmeasurements_observations,
                                         observed_pixel_uncertainty, what ):
     r'''Helper for uncertainty propagation functions
 
 Propagates the calibration-time uncertainty to compute Var(F) for some arbitrary
-vector F. The user specifies the gradient dF/dp: the sensitivity of F to noise
+vector F. The user specifies the gradient dF/db: the sensitivity of F to noise
 in the calibration state. The vector F can have any length: this is inferred
-from the dimensions of the given dF/dp gradient.
+from the dimensions of the given dF/db gradient.
 
-The given factorization uses the packed, unitless state: p*.
+The given factorization uses the packed, unitless state: b*.
 
-The given Jpacked uses the packed, unitless state: p*. Jpacked applies to all
+The given Jpacked uses the packed, unitless state: b*. Jpacked applies to all
 observations. The leading Nmeasurements_observations rows apply to the
 observations of the calibration object, and we use just those for the input
 noise propagation. if Nmeasurements_observations is None: assume that ALL the
 measurements come from the calibration object observations; a simplifed
 expression can be used in this case
 
-The given dF_dppacked uses the packed, unitless state p*, so it already includes
+The given dF_dbpacked uses the packed, unitless state b*, so it already includes
 the multiplication by D in the expressions below. It's usually sparse, but
 stored densely.
 
 The uncertainty computation in
 http://mrcal.secretsauce.net/uncertainty.html concludes that
 
-  Var(p) = observed_pixel_uncertainty^2 inv(JtJ) J[observations]t J[observations] inv(JtJ)
+  Var(b) = observed_pixel_uncertainty^2 inv(JtJ) J[observations]t J[observations] inv(JtJ)
 
-I actually operate with p* and J*: the UNITLESS state and the jacobian
+I actually operate with b* and J*: the UNITLESS state and the jacobian
 respectively. I have
 
-  p = D p*
+  b = D b*
   J = J* inv(D)
 
 so
 
-  Var(p*) = observed_pixel_uncertainty^2 inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
+  Var(b*) = observed_pixel_uncertainty^2 inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
 
 In the special case where all the measurements come from observations, this
 simplifies to
 
-  Var(p*) = observed_pixel_uncertainty^2 inv(J*tJ*)
+  Var(b*) = observed_pixel_uncertainty^2 inv(J*tJ*)
 
 My factorization is of packed (scaled, unitless) flavors of J (J*). So
 
-  Var(p) = D Var(p*) D
+  Var(b) = D Var(b*) D
 
-I want Var(F) = dF/dp Var(p) dF/dpt
+I want Var(F) = dF/db Var(b) dF/dbt
 
 So
 
-  Var(F) = dF/dp D Var(p*) D dF/dpt
+  Var(F) = dF/db D Var(b*) D dF/dbt
 
 In the regularized case I have
 
-  Var(F) = dF/dp D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D dF/dpt observed_pixel_uncertainty^2
+  Var(F) = dF/db D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D dF/dbt observed_pixel_uncertainty^2
 
-It is far more efficient to compute inv(J*tJ*) D dF/dpt than
+It is far more efficient to compute inv(J*tJ*) D dF/dbt than
 inv(J*tJ*) J*[observations]t: there's far less to compute, and the matrices
 are far smaller. Thus I don't compute the covariances directly.
 
 In the non-regularized case:
 
-  Var(F) = dF/dp D inv(J*tJ*) D dF/dpt
+  Var(F) = dF/db D inv(J*tJ*) D dF/dbt
 
-  1. solve( J*tJ*, D dF/dpt)
+  1. solve( J*tJ*, D dF/dbt)
      The result has shape (Nstate,2)
 
-  2. pre-multiply by dF/dp D
+  2. pre-multiply by dF/db D
 
   3. multiply by observed_pixel_uncertainty^2
 
 In the regularized case:
 
-  Var(F) = dF/dp D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D dF/dpt
+  Var(F) = dF/db D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D dF/dbt
 
-  1. solve( J*tJ*, D dF/dpt)
+  1. solve( J*tJ*, D dF/dbt)
      The result has shape (Nstate,2)
 
   2. Pre-multiply by J*[observations]
@@ -544,7 +545,7 @@ In the regularized case:
     '''
 
     # shape (2,Nstate)
-    A = factorization.solve_xt_JtJ_bt( dF_dppacked )
+    A = factorization.solve_xt_JtJ_bt( dF_dbpacked )
     if Nmeasurements_observations is not None:
         # I have regularization. Use the more complicated expression
 
@@ -555,7 +556,7 @@ In the regularized case:
                                               Nleading_rows_J = Nmeasurements_observations)
     else:
         # No regularization. Use the simplified expression
-        Var_dF = nps.matmult(dF_dppacked, nps.transpose(A))
+        Var_dF = nps.matmult(dF_dbpacked, nps.transpose(A))
 
     if what == 'covariance':           return Var_dF * observed_pixel_uncertainty*observed_pixel_uncertainty
     if what == 'worstdirection-stdev': return worst_direction_stdev(Var_dF) * observed_pixel_uncertainty
@@ -582,7 +583,7 @@ def _projection_uncertainty( p_cam,
     '''
 
     Nstate = Jpacked.shape[-1]
-    dq_dpief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
+    dq_dbief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
     if frames_rt_toref is not None:
         Nframes = len(frames_rt_toref)
@@ -631,7 +632,7 @@ def _projection_uncertainty( p_cam,
     if istate_intrinsics is not None:
         dq_dintrinsics_optimized = dq_dintrinsics[..., slice_optimized_intrinsics]
         Nintrinsics = dq_dintrinsics_optimized.shape[-1]
-        dq_dpief[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
+        dq_dbief[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
             dq_dintrinsics_optimized
 
     if extrinsics_rt_fromref is not None:
@@ -639,22 +640,22 @@ def _projection_uncertainty( p_cam,
             mrcal.transform_point_rt(extrinsics_rt_fromref, p_ref,
                                      get_gradients = True)
 
-        dq_dpief[..., istate_extrinsics:istate_extrinsics+6] = \
+        dq_dbief[..., istate_extrinsics:istate_extrinsics+6] = \
             nps.matmult(dq_dpcam, dpcam_drt)
 
         if frames_rt_toref is not None:
-            dq_dpief[..., istate_frames:istate_frames+Nframes*6] = \
+            dq_dbief[..., istate_frames:istate_frames+Nframes*6] = \
                 nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
     else:
         if frames_rt_toref is not None:
-            dq_dpief[..., istate_frames:istate_frames+Nframes*6] = \
+            dq_dbief[..., istate_frames:istate_frames+Nframes*6] = \
                 nps.matmult(dq_dpcam, dpref_dframes)
 
-    # Make dq_dpief use the packed state. I call "unpack_state" because the
+    # Make dq_dbief use the packed state. I call "unpack_state" because the
     # state is in the denominator
-    mrcal.unpack_state(dq_dpief, **optimization_inputs)
+    mrcal.unpack_state(dq_dbief, **optimization_inputs)
     return \
-        _propagate_calibration_uncertainty( dq_dpief,
+        _propagate_calibration_uncertainty( dq_dbief,
                                             factorization, Jpacked,
                                             Nmeasurements_observations,
                                             observed_pixel_uncertainty,
@@ -680,7 +681,7 @@ def _projection_uncertainty_rotationonly( p_cam,
     '''
 
     Nstate = Jpacked.shape[-1]
-    dq_dpief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
+    dq_dbief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
     if frames_rt_toref is not None:
         Nframes = len(frames_rt_toref)
@@ -723,14 +724,14 @@ def _projection_uncertainty_rotationonly( p_cam,
     if istate_intrinsics is not None:
         dq_dintrinsics_optimized = dq_dintrinsics[..., slice_optimized_intrinsics]
         Nintrinsics = dq_dintrinsics_optimized.shape[-1]
-        dq_dpief[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
+        dq_dbief[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
             dq_dintrinsics_optimized
 
     if extrinsics_rt_fromref is not None:
         _, dpcam_dr, dpcam_dpref = \
             mrcal.rotate_point_r(extrinsics_rt_fromref[...,:3], p_ref,
                                  get_gradients = True)
-        dq_dpief[..., istate_extrinsics:istate_extrinsics+3] = \
+        dq_dbief[..., istate_extrinsics:istate_extrinsics+3] = \
             nps.matmult(dq_dpcam, dpcam_dr)
 
         if frames_rt_toref is not None:
@@ -739,20 +740,20 @@ def _projection_uncertainty_rotationonly( p_cam,
 
             # dprefallframes_dframesr has shape (..., Nframes,3,3)
             for i in range(Nframes):
-                dq_dpief[..., istate_frames+6*i:istate_frames+6*i+3] = \
+                dq_dbief[..., istate_frames+6*i:istate_frames+6*i+3] = \
                     nps.matmult(dq_dpref, dprefallframes_dframesr[...,i,:,:]) / Nframes
     else:
         if frames_rt_toref is not None:
             # dprefallframes_dframesr has shape (..., Nframes,3,3)
             for i in range(Nframes):
-                dq_dpief[..., istate_frames+6*i:istate_frames+6*i+3] = \
+                dq_dbief[..., istate_frames+6*i:istate_frames+6*i+3] = \
                     nps.matmult(dq_dpcam, dprefallframes_dframesr[...,i,:,:]) / Nframes
 
-    # Make dq_dpief use the packed state. I call "unpack_state" because the
+    # Make dq_dbief use the packed state. I call "unpack_state" because the
     # state is in the denominator
-    mrcal.unpack_state(dq_dpief, **optimization_inputs)
+    mrcal.unpack_state(dq_dbief, **optimization_inputs)
     return \
-        _propagate_calibration_uncertainty( dq_dpief,
+        _propagate_calibration_uncertainty( dq_dbief,
                                             factorization, Jpacked,
                                             Nmeasurements_observations,
                                             observed_pixel_uncertainty,
@@ -760,6 +761,7 @@ def _projection_uncertainty_rotationonly( p_cam,
 
 
 def projection_uncertainty( p_cam, model,
+                            *,
                             atinfinity = False,
 
                             # what we're reporting
@@ -854,39 +856,39 @@ else:                    we return an array of shape (...)
     '''
 
 
-    # I computed Var(p) earlier, which contains the variance of ALL the optimization
+    # I computed Var(b) earlier, which contains the variance of ALL the optimization
     # parameters together. The noise on the chessboard poses is coupled to the noise
     # on the extrinsics and to the noise on the intrinsics. And we can apply all these
     # together to propagate the uncertainty.
 
     # Let's define some variables:
 
-    # - p_i: the intrinsics of a camera
-    # - p_e: the extrinsics of that camera (T_cr)
-    # - p_f: ALL the chessboard poses (T_fr)
-    # - p_ief: the concatenation of p_i, p_e and p_f
+    # - b_i: the intrinsics of a camera
+    # - b_e: the extrinsics of that camera (T_cr)
+    # - b_f: ALL the chessboard poses (T_fr)
+    # - b_ief: the concatenation of b_i, b_e and b_f
 
     # I have
 
-    #     dq = q0 + dq/dp_ief dp_ief
+    #     dq = q0 + dq/db_ief db_ief
 
-    #     Var(q) = dq/dp_ief Var(p_ief) (dq/dp_ief)t
+    #     Var(q) = dq/db_ief Var(b_ief) (dq/db_ief)t
 
-    #     Var(p_ief) is a subset of Var(p), computed above.
+    #     Var(b_ief) is a subset of Var(b), computed above.
 
-    #     dq/dp_ief = [dq/dp_i dq/dp_e dq/dp_f]
+    #     dq/db_ief = [dq/db_i dq/db_e dq/db_f]
 
-    #     dq/dp_e = dq/dpcam dpcam/dp_e
+    #     dq/db_e = dq/dpcam dpcam/db_e
 
-    #     dq/dp_f = dq/dpcam dpcam/dpref dpref/dp_f / Nframes
+    #     dq/db_f = dq/dpcam dpcam/dpref dpref/db_f / Nframes
 
-    # dq/dp_i and all the constituent expressions comes directly from the project()
+    # dq/db_i and all the constituent expressions comes directly from the project()
     # and transform calls above. Depending on the details of the optimization problem,
     # some of these may not exist. For instance, if we're looking at a camera that is
-    # sitting at the reference coordinate system, then there is no p_e, and Var_ief is
+    # sitting at the reference coordinate system, then there is no b_e, and Var_ief is
     # smaller: it's just Var_if. If we somehow know the poses of the frames, then
     # there's no Var_f. If we want to know the uncertainty at distance=infinity, then
-    # we ignore all the translation components of p_e and p_f.
+    # we ignore all the translation components of b_e and b_f.
 
 
 
@@ -926,7 +928,7 @@ else:                    we return an array of shape (...)
     if not optimization_inputs.get('do_optimize_extrinsics'):
         raise Exception("Computing uncertainty if !do_optimize_extrinsics not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for fixed extrinsics like they already do for fixed frames")
 
-    ppacked,x,Jpacked,factorization = \
+    bpacked,x,Jpacked,factorization = \
         mrcal.optimizer_callback( **optimization_inputs )
 
     if factorization is None:
@@ -1017,6 +1019,8 @@ else:                    we return an array of shape (...)
 
 
 def projection_diff(models,
+                    *,
+                    implied_Rt10 = None,
                     gridn_width  = 60,
                     gridn_height = None,
 
@@ -1053,7 +1057,7 @@ instance, one may want to validate a calibration by comparing the results of two
 different chessboard dances. Or one may want to evaluate the stability of the
 intrinsics in response to mechanical or thermal stresses. This function makes
 these comparisons, and returns the results. A visualization wrapper is
-available: mrcal.show_projection_diff()
+available: mrcal.show_projection_diff() and the mrcal-show-projection-diff tool.
 
 In the most common case we're given exactly 2 models to compare, and we compute
 the differences in projection of each point. If we're given more than 2 models,
@@ -1069,7 +1073,9 @@ The top-level operation of this function:
 - Project the transformed points to the other camera
 - Look at the resulting pixel difference in the reprojection
 
-Several variables control how we obtain the transformation. Top-level logic:
+If implied_Rt10 is given, we simply use that as the transformation (this is
+currently supported ONLY for diffing exactly 2 cameras). If implied_Rt10 is not
+given, we estimate it. Several variables control this. Top-level logic:
 
   if intrinsics_only:
       Rt10 = identity_Rt()
@@ -1148,6 +1154,11 @@ ARGUMENTS
   will be 2 of these, but more than 2 is allowed. The intrinsics are always
   used; the extrinsics are used only if not intrinsics_only and focus_radius==0
 
+- implied_Rt10: optional transformation to use to line up the camera coordinate
+  systems. Most of the time we want to estimate this transformation, so this
+  should be omitted or None. Currently this is supported only if exactly two
+  models are being compared.
+
 - gridn_width: optional value, defaulting to 60. How many points along the
   horizontal gridding dimension
 
@@ -1218,6 +1229,8 @@ A tuple
 
     if len(models) < 2:
         raise Exception("At least 2 models are required to compute the diff")
+    if len(models) > 2 and implied_Rt10 is not None:
+        raise Exception("A given implied_Rt10 is currently supported ONLY if exactly 2 models are being compared")
 
     # If the distance is iterable, the shape of the output is (len(distance),
     # ...). Otherwise it is just (...). In the intermediate computations, the
@@ -1252,8 +1265,9 @@ A tuple
                                          normalize = True)
 
     uncertainties = None
-    if not intrinsics_only and focus_radius != 0 and \
-       use_uncertainties:
+    if use_uncertainties and \
+       not intrinsics_only and focus_radius != 0 and \
+       implied_Rt10 is None:
         try:
             # len(uncertainties) = Ncameras. Each has shape (len(distance),Nh,Nw)
             uncertainties = \
@@ -1278,37 +1292,43 @@ A tuple
 
     if len(models) == 2:
         # Two models. Take the difference and call it good
-        if intrinsics_only:
-            Rt10 = mrcal.identity_Rt()
+        if implied_Rt10 is not None:
+            Rt10 = implied_Rt10
+
         else:
-            if focus_radius == 0:
-                Rt10 = mrcal.compose_Rt(models[1].extrinsics_Rt_fromref(),
-                                        models[0].extrinsics_Rt_toref())
+            if intrinsics_only:
+                Rt10 = mrcal.identity_Rt()
             else:
-                # weights has shape (len(distance),Nh,Nw))
-                if uncertainties is not None:
-                    weights = 1.0 / (uncertainties[0]*uncertainties[1])
-
-                    # It appears to work better if I discount the uncertain regions
-                    # even more. This isn't a principled decision, and is supported
-                    # only by a little bit of data. The differencing.org I'm writing
-                    # now will contain a weighted diff of culled and not-culled
-                    # splined model data. That diff computation requires this.
-                    weights *= weights
+                if focus_radius == 0:
+                    Rt10 = mrcal.compose_Rt(models[1].extrinsics_Rt_fromref(),
+                                            models[0].extrinsics_Rt_toref())
                 else:
-                    weights = None
+                    # weights has shape (len(distance),Nh,Nw))
+                    if uncertainties is not None:
+                        weights = 1.0 / (uncertainties[0]*uncertainties[1])
 
-                # weight may be inf or nan. implied_Rt10__from_unprojections() will
-                # clean those up, as well as any inf/nan in v (from failed
-                # unprojections)
-                Rt10 = \
-                    implied_Rt10__from_unprojections(q0,
-                                                     # shape (len(distance),Nheight,Nwidth,3)
-                                                     v[0,...] * distance,
-                                                     v[1,...],
-                                                     weights,
-                                                     atinfinity,
-                                                     focus_center, focus_radius)
+                        # It appears to work better if I discount the uncertain regions
+                        # even more. This isn't a principled decision, and is supported
+                        # only by a little bit of data. The differencing.org I'm writing
+                        # now will contain a weighted diff of culled and not-culled
+                        # splined model data. That diff computation requires this.
+                        weights *= weights
+                    else:
+                        weights = None
+
+                    # weight may be inf or nan. implied_Rt10__from_unprojections() will
+                    # clean those up, as well as any inf/nan in v (from failed
+                    # unprojections)
+                    Rt10 = \
+                        implied_Rt10__from_unprojections(q0,
+                                                         # shape (len(distance),Nheight,Nwidth,3)
+                                                         v[0,...] * distance,
+                                                         v[1,...],
+                                                         weights      = weights,
+                                                         atinfinity   = atinfinity,
+                                                         focus_center = focus_center,
+                                                         focus_radius = focus_radius)
+
 
         q1 = mrcal.project( mrcal.transform_point_Rt(Rt10,
                                                      # shape (len(distance),Nheight,Nwidth,3)
@@ -1353,8 +1373,10 @@ A tuple
                                                  # shape (len(distance),Nheight,Nwidth,3)
                                                  v0*distance,
                                                  v1,
-                                                 weights, atinfinity,
-                                                 focus_center, focus_radius)
+                                                 weights      = weights,
+                                                 atinfinity   = atinfinity,
+                                                 focus_center = focus_center,
+                                                 focus_radius = focus_radius)
         def get_reprojections(q0, Rt10,
                               lensmodel, intrinsics_data):
             q1 = mrcal.project(mrcal.transform_point_Rt(Rt10,

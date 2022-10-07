@@ -113,17 +113,11 @@ detections?
 $ < corners.vnl vnl-filter --has x -p filename | uniq | grep -v '#' | wc -l
 
 161
-
-
-$ < corners.vnl vnl-filter x=='"-"' -p filename | uniq | grep -v '#' | wc -l
-
-114
 #+end_example
 
-So we have 161 images with detected corners, and 114 images where a full
-chessboard wasn't found. Most of the misses are probably images where the
-chessboard wasn't entirely in view, but some could be failures of mrgingham. In
-any case, 161 observations is usually plenty.
+So we have 161 images with detected corners. Most of the misses are probably
+images where the chessboard wasn't entirely in view, but some could be failures
+of mrgingham. In any case, 161 observations is usually plenty.
 
 If I had more that one camera, the image filenames would need to indicate what
 camera captured each image at which time. I generally use
@@ -344,7 +338,9 @@ later.
 One issue with lean models such as =LENSMODEL_OPENCV8=, which is used here, is
 that the radial distortion is never quite right, especially as we move further
 and further away form the optical axis: this is the last point in the
-common-errors list above. We can clearly see this here in the 3rd-worst image:
+common-errors list above. The result of these radial distortion errors is high
+residuals in the corners of the image. We can clearly see this here in the
+3rd-worst image:
 
 #+begin_src sh
 mrcal-show-residuals-board-observation \
@@ -370,8 +366,28 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board
 
 [[file:external/figures/calibration/worst-incorner-opencv8.png]]
 
-/This/ is clearly a problem. We note that this is observation 79, so that we can
-come back to it later.
+And we can see this in the residual magnitudes of all the observations:
+
+#+begin_src sh
+mrcal-show-residuals                   \
+  --magnitudes                         \
+  --set 'cbrange [0:3.5]'              \
+  opencv8.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
+PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+  --magnitudes \
+  --set 'cbrange [0:3.5]' \
+  --hardcopy "$D/figures/calibration/residual-magnitudes-opencv8.png" \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
+  $D/data/board/opencv8.cameramodel
+#+end_src
+
+[[file:external/figures/calibration/residual-magnitudes-opencv8.png]]
+
+/This/ is clearly a problem. We note that we looked at observation 79, so that
+we can come back to it later.
 
 Let's look at the systematic errors in another way: let's look at all the
 residuals over all the observations, color-coded by their direction, ignoring
@@ -674,6 +690,26 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board
 #+end_src
 
 [[file:external/figures/calibration/worst-incorner-splined.png]]
+
+And the residual magnitudes of all the observations:
+
+#+begin_src sh
+mrcal-show-residuals                   \
+  --magnitudes                         \
+  --set 'cbrange [0:3.5]'              \
+  splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external
+PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+  --magnitudes \
+  --set 'cbrange [0:3.5]' \
+  --hardcopy "$D/figures/calibration/residual-magnitudes-splined.png" \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
+  $D/data/board/splined.cameramodel
+#+end_src
+
+[[file:external/figures/calibration/residual-magnitudes-splined.png]]
 
 Neat! The model fits the data in the corners now. And what about the residual directions?
 

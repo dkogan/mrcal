@@ -6,14 +6,14 @@ SYNOPSIS
 
     optimization_inputs = m.optimization_inputs()
 
-    p = mrcal.optimizer_callback(**optimization_inputs)[0]
-    mrcal.unpack_state(p, **optimization_inputs)
+    b = mrcal.optimizer_callback(**optimization_inputs)[0]
+    mrcal.unpack_state(b, **optimization_inputs)
 
     i_point = 1
     i_state = mrcal.state_index_points(i_point,
                                        **optimization_inputs)
 
-    point = p[i_state:i_state+3]
+    point = b[i_state:i_state+3]
 
 The optimization algorithm sees its world described in one, big vector of state.
 The optimizer doesn't know or care about the meaning of each element of this

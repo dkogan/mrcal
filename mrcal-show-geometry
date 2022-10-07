@@ -48,7 +48,20 @@ def parse_args():
                         action='store_true',
                         help='''If given, draw the calibration object
                         observations from the FIRST given camera model that
-                        contains the optimization_inputs''')
+                        contains the optimization_inputs. Unlike
+                        --show-calobjects-thiscamera, this option displays the
+                        calibration objects observed by ALL cameras at
+                        calibration time. Exclusive with
+                        --show-calobjects-thiscamera''')
+
+    parser.add_argument('--show-calobjects-thiscamera',
+                        action='store_true',
+                        help='''If given, draw the calibration object
+                        observations from the FIRST given camera model that
+                        contains the optimization_inputs. Unlike
+                        --show-calobjects, this option displays the calibration
+                        objects observed ONLY by the FIRST camera at calibration
+                        time. Exclusive with --show-calobjects''')
 
     parser.add_argument('--transforms',
                         type=str,
@@ -76,6 +89,11 @@ def parse_args():
     return parser.parse_args()
 
 args = parse_args()
+
+if args.show_calobjects and args.show_calobjects_thiscamera:
+    print("--show-calobjects and --show-calobjects-thiscamera are exclusive",
+          file=sys.stderr)
+    sys.exit(1)
 
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
@@ -120,10 +138,17 @@ if args.set   is not None:
 if args.unset is not None:
     gp.add_plot_option( plotkwargs, 'unset', args.unset)
 
+if args.show_calobjects:
+    show_calobjects = 'all'
+elif args.show_calobjects_thiscamera:
+    show_calobjects = 'thiscamera'
+else:
+    show_calobjects = False
+
 plot = mrcal.show_geometry(models,
                            cameranames         = args.models,
                            cameras_Rt_plot_ref = cameras_Rt_plot_ref,
-                           show_calobjects     = args.show_calobjects,
+                           show_calobjects     = show_calobjects,
                            axis_scale          = args.axis_scale,
                            **plotkwargs)
 

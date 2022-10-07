@@ -1,9 +1,14 @@
 #+title: Building or installing
 
 I provide packages for a number of distros. If possible, please use these
-instead of building from source. Contributions on this front are welcome.
+instead of building from source. If you're interested in packages for a
+not-yet-supported distro, please contribute! You can email me for help.
 
 * Installing from packages
+:PROPERTIES:
+:CUSTOM_ID: installing-from-packages
+:END:
+
 ** Debian-based
 As of today (2022-02-27), mrcal is included in the bleeding-edge versions of
 Debian and Ubuntu. So if you're running at least Debian/testing or the
@@ -11,18 +16,17 @@ not-yet-published Debian 12 (bookworm) or Ubuntu 22.04 (jammy), you can
 simply
 
 #+begin_src sh
-apt install mrcal libmrcal-dev
+apt install mrcal libmrcal-dev python3-mrcal
 #+end_src
 
-to install (for instance) the commandline tools and the C development library
-respectively.
+to install the commandline tools and the C development library and the Python
+library respectively.
 
 For older distros I currently distribute packages for
 
-- Debian/sid (this will be removed soon since mrcal is now in the main Debian
-  archives)
 - Debian/buster
 - Debian/bullseye
+- Ubuntu/jammy (22.04 LTS)
 - Ubuntu/focal (20.04 LTS)
 - Ubuntu/bionic (18.04 LTS)
 
@@ -34,17 +38,15 @@ deb [trusted=yes] http://mrcal.secretsauce.net/packages/DISTRO/public/ DISTRO ma
 
 where =DISTRO= is one of
 
-- =sid=
 - =buster=
 - =bulleye=
+- =jammy=
 - =focal=
 - =bionic=
 
-Then, =apt update && apt install mrcal libmrcal-dev=. The =mrcal= package pulls
-in the commandline tools and, indirectly, the python libraries. The
-=libmrcal-dev= is the C dev stuff; not needed if you're not building C code that
-uses mrcal. The chessboard corner finder, while not strictly required, is needed
-if you're doing chessboard-based calibrations. =apt install mrgingham=
+Then, =apt update && apt install mrcal=. The chessboard corner finder, while not
+strictly required, is needed if you're doing chessboard-based calibrations. =apt
+install mrgingham=
 
 * Building from source
 If you cannot use the packages for whatever reason, you must build from source.
@@ -52,55 +54,64 @@ This isn't /difficult/, but requires you to obtain all the dependencies. They're
 listed in the =Build-Depends= section of the [[https://salsa.debian.org/science-team/mrcal/-/blob/master/debian/control][debian package definition]]. Most of
 these are available in most distros. Things that may not be:
 
-- =libdogleg-dev=: the optimization library. Sources live [[https://github.com/dkogan/libdogleg/][here]]. You need at
-  least version 0.15.3.
+- [[https://github.com/dkogan/libdogleg/][=libdogleg-dev=]]: the optimization library. You need at least version 0.15.3.
 
-- =vnlog=: the toolkit to manipulate textual tables. Sources live [[https://github.com/dkogan/vnlog/][here]]. You only
-  /need/ this for the test suite. There's nothing to build. Simply downloading
-  the sources and pointing the =PATH= there is sufficient.
+- [[https://github.com/dkogan/vnlog/][=vnlog=]]: the toolkit to manipulate textual tables. You only /need/ this for
+  the test suite. There's nothing to build. Simply downloading the sources and
+  pointing the =PATH= there is sufficient.
 
-- =python3-numpysane=: The make-numpy-reasonable library from [[https://github.com/dkogan/numpysane/][here]]. You
-  absolutely need at least version 0.35. Available in the usual places Python
-  libraries live. This is a python-only library. Simply downloading the sources
-  and pointing the =PYTHONPATH= there is sufficient.
-
-- =python3-gnuplotlib=: The plotting library from [[https://github.com/dkogan/gnuplotlib/][here]]. You need at least
-  version 0.38. Available in the usual places Python libraries live. This is a
-  python-only library. Simply downloading the sources and pointing the
+- [[https://github.com/dkogan/numpysane/][=python3-numpysane=]]: The make-numpy-reasonable library. You absolutely need at
+  least version 0.35. Available in the usual places Python libraries live. This
+  is a python-only library. Simply downloading the sources and pointing the
   =PYTHONPATH= there is sufficient.
 
-- =mrgingham=: the chessboard corner finder. This isn't strictly a requirement -
-  any corner finder can be used. If you want to use this one (and you can't use
-  the packages), you need to build it. Sources live [[https://github.com/dkogan/mrgingham/][here]].
+- [[https://github.com/dkogan/gnuplotlib/][=python3-gnuplotlib=]]: The plotting library used in all the visualizations. You
+  need at least version 0.38. Available in the usual places Python libraries
+  live. This is a python-only library. Simply downloading the sources and
+  pointing the =PYTHONPATH= there is sufficient.
 
-- =re2c=: parser-generator for the C code to parse =.cameramodel= files. At
+- [[https://github.com/dkogan/mrgingham/][=mrgingham=]]: the chessboard corner finder. This isn't strictly a requirement -
+  any corner finder can be used. If you want to use this one (and you can't use
+  the packages), you need to build it.
+
+- [[https://re2c.org/][=re2c=]]: parser-generator for the C code to parse =.cameramodel= files. At
   least version 2 is required.
 
-Once these are all downloaded, =libdogleg= and =re2c= built and the =PATH= and
-=PYTHONPATH= set, we can build mrcal. The child processes need access to the
-=PATH= and =PYTHONPATH=, so
+- [[https://pyfltk.sourceforge.io/][=python3-fltk=]]: Python bindings for the [[https://www.fltk.org/][FLTK]] GUI toolkit. Optional. Used only
+  in the visualizer in the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool.
+
+- [[https://github.com/dkogan/GL_image_display][=python3-gl-image-display=]]: an image widget for FLTK. Optional. Used only in
+  the visualizer in the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool.
+
+- [[https://freeimage.sourceforge.io/][=libfreeimage-dev=]]: an image reading/writing library. Most distros have this
+  available.
+
+- [[https://www.cvlibs.net/software/libelas/][=libelas-dev=]]: the ELAS stereo matcher. Used as an option in the
+  [[file:mrcal-stereo.html][=mrcal-stereo=]] tool. Optional.
+
+Once these are all downloaded and built (where needed), we can talk about
+building mrcal. The build-time executables (=re2c=) must be found in the =PATH=,
+the Python libraries in =PYTHONPATH=, and the C headers and libraries must be
+findable via the flags in =CFLAGS= and =LDFLAGS= respectively. Anything that
+hasn't been installed to a standard location must be pointed to via the
+environment. So to build:
 
 #+begin_src sh
-export PATH
-export PYTHONPATH
+export PATH=$PATH:extra_path_to_executables
+export PYTHONPATH=extra_path_to_python_libraries
+
+CFLAGS=-Iextra_path_to_c_headers LDFLAGS="-Lextra_path_to_libraries -Wl,-rpath=extra_path_to_libraries" make
 #+end_src
 
-If you "installed" =libdogleg= somehow, then you're ready, so just =make=.
-Otherwise, tell the build about where the built =libdogleg= is:
-
-#+begin_src sh
-LIBDOGLEGDIR=....
-CFLAGS=-I$LIBDOGLEGDIR LDFLAGS="-L$LIBDOGLEGDIR -Wl,-rpath=$LIBDOGLEGDIR"  make
-#+end_src
-
-If that works, the test suite should all pass:
+If everything has been installed to a standard location, you just run =make=
+without any of the extra stuff. The build should then complete successfully, and
+the test suite should pass:
 
 #+begin_src sh
 make test-nosampling
 #+end_src
 
-If stuff doesn't work, feel free to bug me. But you /really/ should be using the
-packages, if at all possible
+If stuff doesn't work, feel free to bug me.
 
 * code                                                             :noexport:
 Build, upload each package like this:

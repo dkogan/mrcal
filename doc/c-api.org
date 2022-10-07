@@ -2,7 +2,7 @@
 #+OPTIONS: toc:t
 
 The C API consists of several headers:
-- [[https://www.github.com/dkogan/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]: /very/ simple geometry structures
+- [[https://www.github.com/dkogan/mrcal/blob/master/basic-geometry.h][=basic-geometry.h=]]: /very/ simple geometry structures
 - [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]]: pose and geometry functions
 - [[https://www.github.com/dkogan/mrcal/blob/master/triangulation.h][=triangulation.h=]]: triangulation routines
 - [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal.h=]]: lens models, projections, optimization
@@ -12,11 +12,14 @@ headers. This is a C (not C++) library, so [[https://en.wikipedia.org/wiki/X_Mac
 for templating. 
 
 mrcal is a research project, so the capabilities and focus are still evolving.
-Thus, the interfaces, especially those in the C API are not yet stable. I do try
-to maintain stability, but this is not fully impossible, especially in the
-higher-level APIs (=mrcal_optimize()= for instance). For now, assume that each
-major release breaks both the API and the ABI. The migration notes for each
-release are described in the [[file:versions.org][relevant release notes]].
+Thus, the interfaces, /especially/ those in the C API are not yet stable. I do
+try to maintain stability, but this is not fully possible, especially in the
+higher-level APIs (=mrcal_optimize()= and =mrcal_optimizer_callback()=). For
+now, assume that each major release breaks both the API and the ABI. The
+migration notes for each release are described in the [[file:versions.org][relevant release notes]].
+
+If you use the C APIs, shoot me an email to let me know, and I'll keep you in
+mind when making API updates.
 
 The best documentation for the C interfaces is the comments in the headers. I
 don't want to write up anything complete and detailed until I'm sure the
@@ -24,7 +27,7 @@ interfaces are stable. The available functions are broken down into categories,
 and described in a bit more detail here.
 
 * Geometry structures
-We have 3 structures in [[https://www.github.com/dkogan/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]]:
+We have 3 structures in [[https://www.github.com/dkogan/mrcal/blob/master/basic-geometry.h][=basic-geometry.h=]]:
 
 - =mrcal_point2_t=: a vector containing 2 double-precision floating-point
   values. The elements can be accessed individually as =.x= and =.y= or as an
@@ -34,7 +37,7 @@ We have 3 structures in [[https://www.github.com/dkogan/mrcal/blob/master/basic_
   containing 3 double-precision floating-point values. The elements can be
   accessed individually as =.x= and =.y= and =.z= or as an array =.xyz[]=
 
-- =mrcal_pose_t=: an unconstrained 6-DOF pose. Contains two sub-structures:
+- =mrcal_pose_t=: an unconstrained [[file:conventions.org::#pose-representation][6-DOF pose]]. Contains two sub-structures:
   - =mrcal_point3_t r=: a [[https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Rotation_vector][Rodrigues rotation]]
   - =mrcal_point3_t t=: a translation
 
@@ -61,7 +64,15 @@ The strides are given in bytes, and work as expected. For a (for instance)
                           k*xxx_stride2 ]
 #+end_src
 
-These all have direct Python bindings. For instance [[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]].
+There are convenience macros in [[https://www.github.com/dkogan/mrcal/blob/master/strides.h][=strides.h=]], so the above can be equivalently
+expressed as
+
+#+begin_src c
+P3(xxx, i,j,k)
+#+end_src
+
+These all have direct Python bindings. For instance the Python
+[[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]] function wraps =mrcal_rt_from_Rt()= C function.
 
 The [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]] header serves as the listing of available functions.
 
@@ -124,7 +135,7 @@ These functions do the same thing as the general =mrcal_project()= and
 
 * Layout of the measurement and state vectors
 The [[file:formulation.org][optimization routine]] tries to minimize the 2-norm of the measurement vector
-$\vec x$ by moving around the state vector $\vec p$.
+$\vec x$ by moving around the state vector $\vec b$.
 
 We select which parts of the optimization problem we're solving by setting bits
 in the =mrcal_problem_selections_t= structure. This defines
@@ -148,12 +159,12 @@ The measurement vector may contain
 - The penalties in the solved point positions
 - The [[file:formulation.org::#Regularization][regularization]] terms
 
-Given =mrcal_problem_selections_t= and a vector $\vec p$ or $\vec x$, it is
+Given =mrcal_problem_selections_t= and a vector $\vec b$ or $\vec x$, it is
 useful to know where specific quantities lie inside those vectors. Here we have
 4 sets of functions to answer such questions:
 
 - =int mrcal_state_index_THING()=: Returns the index in the state vector $\vec
-  p$ where the contiguous block of values describing the THING begins. THING is
+  b$ where the contiguous block of values describing the THING begins. THING is
   any of
   - intrinsics
   - extrinsics
@@ -163,7 +174,7 @@ useful to know where specific quantities lie inside those vectors. Here we have
   If we're not optimizing the THING, return <0
 
 - =int mrcal_num_states_THING()=: Returns the number of values in the contiguous
-  block in the state vector $\vec p$ that describe the given THING. THING is any
+  block in the state vector $\vec b$ that describe the given THING. THING is any
   of
   - intrinsics
   - extrinsics
@@ -187,7 +198,7 @@ useful to know where specific quantities lie inside those vectors. Here we have
 
 * State packing
 The optimization routine works in the [[file:formulation.org::#state-packing][space of scaled parameters]], and several
-functions are available to pack/unpack the state vector $\vec p$:
+functions are available to pack/unpack the state vector $\vec b$:
 
 #+begin_src c
 void mrcal_pack_solver_state_vector(...);
@@ -196,7 +207,9 @@ void mrcal_unpack_solver_state_vector(...);
 
 * Optimization
 The mrcal [[file:formulation.org][optimization routines]] are defined in [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h][=mrcal.h=]]. There are two primary
-functions, each accessing a /lot/ of functionality, and taking /many/ arguments:
+functions, each accessing a /lot/ of functionality, and taking /many/ arguments.
+At this time, the prototypes will likely change in each release of mrcal, so try
+not to rely on these being stable.
 
 - =mrcal_optimize()= is the entry point to the optimization routine. This
   function ingests the state, runs the optimization, and returns the optimal
@@ -208,6 +221,8 @@ functions, each accessing a /lot/ of functionality, and taking /many/ arguments:
   function standalone, /without/ being wrapped into the optimization loop
 
 ** Helper structures
+This is correct as of mrcal 2.1. It may change in future releases.
+
 We define some structures to organize the input to these functions. Each
 observation has a =mrcal_camera_index_t= to identify the observing camera:
 
@@ -366,4 +381,12 @@ bool mrcal_write_cameramodel_file(const char* filename,
                                   const mrcal_cameramodel_t* cameramodel);
 #+end_src
 
-The =.cahvor= file format is not supported
+Only the =.cameramodel= file format is supported by these C functions. The
+Python API supports more formats.
+
+* Image reading/writing
+mrcal includes simple functions for reading/writing images. These use the
+[[https://freeimage.sourceforge.io/][freeimage library]]. These functions aren't interesting, or better than any other
+functions you may have already. The declarations are in [[https://www.github.com/dkogan/mrcal/blob/master/mrcal-image.h][=mrcal-image.h=]], and the
+documentation lives there.
+

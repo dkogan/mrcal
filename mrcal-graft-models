@@ -114,7 +114,7 @@ def parse_args():
                         type=float,
                         nargs=2,
                         help='''Used if we're computing the implied-by-the-intrinsics transformation. Center
-                        of the region of interest used for the transformatoin
+                        of the region of interest used for the transformation
                         fit. It is usually impossible for the models to match
                         everywhere, but focusing on a particular area can work
                         better. The implied transformation will be fit to match
@@ -186,7 +186,9 @@ else:
     try:
         distance = [float(d) for d in args.distance.split(',')]
     except:
-        raise Exception("--distances must be given a comma-separated list of distances")
+        print("Error: distances must be given a comma-separated list of floats in --distance",
+              file=sys.stderr)
+        sys.exit(1)
 
 if args.radius == 0:
     rt_cr = model_extrinsics.extrinsics_rt_fromref()
@@ -195,13 +197,13 @@ else:
     difflen,diff,q0, Rt_camoldintrinsics_camnewintrinsics = \
         mrcal.projection_diff((model_intrinsics, model_extrinsics),
 
-                              gridn_width       = args.gridn[0],
-                              gridn_height      = args.gridn[1],
-                              intrinsics_only   = False,
-                              distance          = distance,
-                              use_uncertainties = not args.no_uncertainties,
-                              focus_center      = args.where,
-                              focus_radius      = args.radius)
+                               gridn_width       = args.gridn[0],
+                               gridn_height      = args.gridn[1],
+                               intrinsics_only   = False,
+                               distance          = distance,
+                               use_uncertainties = not args.no_uncertainties,
+                               focus_center      = args.where,
+                               focus_radius      = args.radius)
 
     rt10 = mrcal.rt_from_Rt(Rt_camoldintrinsics_camnewintrinsics)
     print(f"Transformation cam1 <-- cam0:  rotation: {nps.mag(rt10[:3])*180./np.pi:.03f} degrees, translation: {rt10[3:]} m",
@@ -224,4 +226,4 @@ note = \
 print(f"Combined\nIntrinsics from '{args.intrinsics}'\nExtrinsics from '{args.extrinsics}'",
       file = sys.stderr)
 
-model_intrinsics.write(sys.stdout, note)
+model_intrinsics.write(sys.stdout, note=note)
