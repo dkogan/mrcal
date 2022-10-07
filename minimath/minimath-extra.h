@@ -1929,6 +1929,7 @@ void mul_genNM_genML_accum(// output
 #undef _MUL_CORE
 
 // Some common cases into convenient macros
+#define mul_gen23_gen33(P,A,B,scale,ACCUM)  mul_genNM_genML ## ACCUM(P,3,1, 2,3,3, A,3,1, B,3,1, scale)
 #define mul_gen33_gen33(P,A,B,scale,ACCUM)  mul_genNM_genML ## ACCUM(P,3,1, 3,3,3, A,3,1, B,3,1, scale)
 #define mul_gen33t_gen33(P,A,B,scale,ACCUM) mul_genNM_genML ## ACCUM(P,3,1, 3,3,3, A,1,3, B,3,1, scale)
 #define mul_gen33_gen33t(P,A,B,scale,ACCUM) mul_genNM_genML ## ACCUM(P,3,1, 3,3,3, A,3,1, B,1,3, scale)
