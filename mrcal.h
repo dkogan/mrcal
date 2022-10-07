@@ -712,7 +712,7 @@ mrcal_optimize( // out
                 double* b_packed,
                 // used only to confirm that the user passed-in the buffer they
                 // should have passed-in. The size must match exactly
-                int buffer_size_p_packed,
+                int buffer_size_b_packed,
 
                 // Shape (Nmeasurements,)
                 double* x,
@@ -793,7 +793,7 @@ bool mrcal_optimizer_callback(// out
                              double* b_packed,
                              // used only to confirm that the user passed-in the buffer they
                              // should have passed-in. The size must match exactly
-                             int buffer_size_p_packed,
+                             int buffer_size_b_packed,
 
                              // Shape (Nmeasurements,)
                              double* x,
