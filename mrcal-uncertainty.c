@@ -168,8 +168,10 @@ void finish_Jcross_computations(// output
         // and similar for calobject_warp
         // Acw = drr_t Dinv S; ~
         // -> Acwt = St Dinv drr;
-        mul_gen23_gen33_accum(// transposed
+        mul_genNM_genML_accum(// transposed
                               Acw, 1, Nstate_noi_noe,
+
+                              2,3,3,
                               // transposed
                               &sum_outer_jf_jcw_packed[0*2 + 0], 1,2,
                               dr_ref_frameperturbed__dr_ref_refperturbed, 3,1,
