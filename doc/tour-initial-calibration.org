@@ -18,16 +18,15 @@ and humidity, so mrcal estimates the [[file:formulation.org::#board-deformation]
 solve.
 
 An important consideration when gathering calibration images is keeping them in
-focus. As we shall see [[file:tour-choreography.org][later]], we want to gather close-up images as much as
-possible, so depth-of-field is the limiting factor. Moving the focus ring or the
+focus. As we shall see [[file:tour-choreography.org][later]], we want to gather as many close-up images as we
+can, so depth-of-field is the limiting factor. Moving the focus ring or the
 aperture ring on the lens /may/ affect the intrinsics, so ideally a single lens
 setting can cover both the calibration-time closeups and the working distance
 (presumably much further out).
 
 So for these tests I set the focus to infinity, and gather all my images at F22
-to increase the depth-of-field as much as I can. To also avoid motion blur I
-need fast exposures, so I did all the image gathering outside, with bright
-natural lighting.
+to maximize the depth-of-field. To also avoid motion blur I need fast exposures,
+so I did all the image gathering outside, with bright natural lighting.
 
 The images live [[file:external/data/board][here]]. I'm using [[https://github.com/dkogan/mrgingham/][mrgingham]] 1.19 to detect the [[file:external/data/board/corners.vnl][chessboard corners]]:
 
@@ -53,9 +52,9 @@ D=~/projects/mrcal-doc-external
 [[file:external/figures/calibration/mrgingham-coverage.png]]
 
 Looks like we did OK. It's a bit thin along the bottom edge, but not terrible.
-Visualizing the observations in this way is useful, but not completely
-necessary, since thing observations will clearly result in poor projection
-uncertainty; [[file:tour-uncertainty.org][much more on that later]].
+Visualizing the observations in this way is interesting but not necessary, since
+thin observations will clearly result in poor projection uncertainty we can
+automatically detect; [[file:tour-uncertainty.org][much more on that later]].
 
 For an arbitrary image we can visualize at the corner detections:
 
@@ -117,7 +116,7 @@ $ < corners.vnl vnl-filter --has x -p filename | uniq | grep -v '#' | wc -l
 
 So we have 161 images with detected corners. Most of the misses are probably
 images where the chessboard wasn't entirely in view, but some could be failures
-of mrgingham. In any case, 161 observations is usually plenty.
+of mrgingham. In any case, 161 observations is plenty.
 
 If I had more that one camera, the image filenames would need to indicate what
 camera captured each image at which time. I generally use
@@ -278,13 +277,15 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
 
 We would like to see a normal distribution since that's what the [[file:formulation.org::#noise-model][noise model]]
 assumes. We do see this somewhat, but the central cluster is a bit
-over-populated. This is a violation of the noise model, but at this time I don't
-have a good sense of what this means. It's normal-ish, and there isn't a lot to
-do about this, so I will claim this is close-enough.
+over-populated. This is a violation of the noise model, bit it's normal-ish, and
+there isn't a whole lot I can do about it, so I will claim this is close-enough.
+A common cause of such distributions is observing corners with different
+intensities; this happens all the time as the angle to the illumination source
+changes.
 
 Let's look deeper. If there's anything really wrong with our data, then we
 should see it in the worst-fitting images. Let's ask the tool to see the worst
-one:
+image:
 
 #+begin_src sh
 mrcal-show-residuals-board-observation \
@@ -337,7 +338,7 @@ later.
 
 One issue with lean models such as =LENSMODEL_OPENCV8=, which is used here, is
 that the radial distortion is never quite right, especially as we move further
-and further away form the optical axis: this is the last point in the
+and further away from the optical axis: this is the last point in the
 common-errors list above. The result of these radial distortion errors is high
 residuals in the corners of the image. We can clearly see this here in the
 3rd-worst image:
@@ -366,7 +367,11 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board
 
 [[file:external/figures/calibration/worst-incorner-opencv8.png]]
 
-And we can see this in the residual magnitudes of all the observations:
+/This/ is clearly a problem. We note that we looked at observation 79, so that
+we can come back to it later.
+
+And we can see this same high-error-in-the-corners effect in the residual
+magnitudes of all the observations:
 
 #+begin_src sh
 mrcal-show-residuals                   \
@@ -379,15 +384,13 @@ D=~/projects/mrcal-doc-external
 PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
   --magnitudes \
   --set 'cbrange [0:3.5]' \
+  --set 'pointsize 0.25' \
   --hardcopy "$D/figures/calibration/residual-magnitudes-opencv8.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/data/board/opencv8.cameramodel
 #+end_src
 
 [[file:external/figures/calibration/residual-magnitudes-opencv8.png]]
-
-/This/ is clearly a problem. We note that we looked at observation 79, so that
-we can come back to it later.
 
 Let's look at the systematic errors in another way: let's look at all the
 residuals over all the observations, color-coded by their direction, ignoring
@@ -444,9 +447,8 @@ Let's fix it.
 :END:
 
 Usable [[file:uncertainty.org][uncertainty quantification]] and accurate projections are major goals of
-mrcal. To achive these, mrcal supports /splined/ models. At this time there's
-only one representation supported: a /splined stereographic/ model, described in
-detail [[file:splined-models.org][here]].
+mrcal. To achive these, mrcal supports a /splined stereographic/ model,
+described in detail [[file:splined-models.org][here]].
 
 ** Splined stereographic model definition
 :PROPERTIES:
@@ -704,6 +706,7 @@ D=~/projects/mrcal-doc-external
 PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
   --magnitudes \
   --set 'cbrange [0:3.5]' \
+  --set 'pointsize 0.25' \
   --hardcopy "$D/figures/calibration/residual-magnitudes-splined.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/data/board/splined.cameramodel
