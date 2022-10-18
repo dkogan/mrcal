@@ -1092,8 +1092,8 @@ for i in range(Nimages):
                     widget_result.set_cross_at(q0_rectified, no_vertical = True)
                     return super().handle(event)
 
-                d = disparity[round(q0_rectified[-1]),
-                              round(q0_rectified[-2])]
+                d = disparity[int(round(q0_rectified[-1])),
+                              int(round(q0_rectified[-2]))]
                 if d < 0:
                     set_status("No valid disparity at the clicked location")
                     widget_image0.set_cross_at(q0_rectified)
