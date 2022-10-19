@@ -488,7 +488,15 @@ if images is not None:
         return image
     images = [imread(f) for f in images]
 
-models = [mrcal.cameramodel(m) for m in args.models]
+def openmodel(f):
+    try:
+        return mrcal.cameramodel(f)
+    except Exception as e:
+        print(f"Couldn't load camera model '{f}': {e}",
+              file=sys.stderr)
+        sys.exit(1)
+
+models = [openmodel(modelfilename) for modelfilename in args.models]
 
 if args.q_calibration_stdev is not None and \
    args.q_calibration_stdev != 0:

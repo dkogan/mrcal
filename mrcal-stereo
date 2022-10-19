@@ -434,7 +434,15 @@ if args.tag is not None:
     args.tag = re.sub('[^a-zA-Z0-9_+-]+', '_', args.tag)
 
 
-models = [mrcal.cameramodel(m) for m in args.models]
+def openmodel(f):
+    try:
+        return mrcal.cameramodel(f)
+    except Exception as e:
+        print(f"Couldn't load camera model '{f}': {e}",
+              file=sys.stderr)
+        sys.exit(1)
+
+models = [openmodel(modelfilename) for modelfilename in args.models]
 
 if not args.already_rectified:
     models_rectified = \

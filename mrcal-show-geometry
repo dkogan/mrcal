@@ -108,7 +108,15 @@ import mrcal
 
 
 
-models = [mrcal.cameramodel(m) for m in args.models]
+def openmodel(f):
+    try:
+        return mrcal.cameramodel(f)
+    except Exception as e:
+        print(f"Couldn't load camera model '{f}': {e}",
+              file=sys.stderr)
+        sys.exit(1)
+
+models = [openmodel(modelfilename) for modelfilename in args.models]
 
 cameras_Rt_plot_ref = None
 if args.transforms is not None:
