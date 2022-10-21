@@ -3,10 +3,15 @@
 
 * New in mrcal 2.2
 
-This is a mostly-maintenance release. Many bugs were fixed. Many things were
-cleaned up. Lots of internal updates to pave the way for big future features.
-/Some/ new features and nice improvements in /this/ release also, but they don't
-represent the bulk of the changes.
+This is a mostly-maintenance release. I'm using these tools myself a /lot/, and
+I'm developing some [[file:roadmap.org][exciting (and not-yet-ready) new features]]. In the process,
+I'm cleaning things up and making infrastructural improvements. This release is
+a collection of many such improvements: there are a lot of medium-size fixes,
+but nothing huge. Exciting new features in future releases.
+
+In the nearest term, I need some sort of "recipes" documentation section and an
+extension of the [[file:tour.org][tour of mrcal]] with better calibration data. This is coming.
+Soon.
 
 ** Stereo processing
 
@@ -53,6 +58,29 @@ represent the bulk of the changes.
 - Added [[file:mrcal-python-api-reference.html#-skew_symmetric][=mrcal.skew_symmetric()=]] function for a matrix-multiplication-based
   cross-product. This is available only in the Python layer
 
+** The [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool improvements
+This tool received lots of usability and robustment improvements:
+
+- The =--viz= output plot can be controlled and written to disk by passing
+  =--set=, =--unset=, =--hardcopy=, etc. Same as with the
+  [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] tool and others.
+- The output model is written to a file on disk instead of to stdout. This is
+  incompatible with previously behavior, but is much nicer. We're now less
+  likely to produce an unwanted spew onto the console
+- =--radius= and =--where= work even without =--sampled=: they cut down on the
+  observations being fitted
+- We can pass multiple values in =--distance=. This is critically important for
+  =--sampled= solves: using a near and far distance together stabilizes the
+  fitted translation. Prior to this =--sampled= solves often ended up unusable
+  due to an aphysical translation.
+- =--distance= is used even without =--sampled=: this controls the diff
+  visualization produced with =--viz=
+- Non-sampled solves are now run using incremental stages, just like in the
+  [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool. This makes the non-sampled operation of this
+  tool much more robust
+- Non-sampled solves can be limited to just the camera in question by passing
+  =--monotonic=
+
 ** Other
 
 - Most functions in the Python API now accept non-essential arguments as
@@ -98,21 +126,17 @@ represent the bulk of the changes.
   error treating such a pair as /one/ value: $\sqrt{\frac{\left\Vert \vec x
   \right\Vert^2}{\frac{N_\mathrm{measurement}}{2}}}$. This was in conflict with
   other parts of the code, so now I report this as two separate values:
-  $\sqrt{\frac{\left\Vert \vec x \right\Vert^2}{N_\mathrm{measurement}}$. So now
+  $\sqrt{\frac{\left\Vert \vec x \right\Vert^2}{N_\mathrm{measurement}}}$. So now
   the reported RMS error is just $\mathrm{Var} \left( \vec x \right)$
-
-- The [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool has nicer commandline options:
-
-  - The =--viz= output plot can be controlled and written to disk by passing
-    =--set=, =--unset=, =--hardcopy=, etc. Same as with the
-    [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]].
-  - The output model is written to a file on disk instead of to stdout. This is
-    incompatible with previously behavior, but is much nicer
-  - =--radius= and =--where= work even without =--sampled=
 
 - [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] and [[file:mrcal-python-api-reference.html#-seed_stereographic][=mrcal.seed_stereographic()=]] can accept multiple
   estimates for focal length: one estimate per camera. Useful in seeding
   calibration problems containing multiple disparate cameras
+
+- The [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] tool and the [[file:mrcal-python-api-reference.html#-show_geometry][=mrcal.show_geometry()=]] function can
+  now display the calibration objects observed by /all/ cameras during a
+  calibration (previous behavior) /or/ they can dispaly the objects observed by
+  just the given camera. The default behavior is unchanged.
 
 * Migration notes 2.1 -> 2.2
 The vast majority of existing usage remains the same, but some updates described
@@ -132,7 +156,7 @@ above will require a code change:
 
 - The =mrcal-to-cameramodel= tool was renamed to [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]]
 
-- A C header was renamed: =basic_geometry.h= -> [[https://www.github.com/dkogan/mrcal/blob/master/basic_geometry.h][=basic_geometry.h=]], requiring an
+- A C header was renamed: =basic_geometry.h= -> [[https://www.github.com/dkogan/mrcal/blob/master/basic-geometry.h][=basic-geometry.h=]], requiring an
   =#include= update
 
 - The [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] function API was changed. If you're

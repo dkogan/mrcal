@@ -271,8 +271,12 @@ come across them.
 mrcal supports =LENSMODEL_CAHVOR=, a lens model used in a number of tools at
 JPL. The =LENSMODEL_CAHVOR= model has 5 "distortion" parameters in addition to
 the 4 core parameters. This support exists only for compatibility, and there's
-no reason to use it otherwise. If you don't know what this is, you don't need
-it.
+no reason to use it otherwise. This model is described in:
+
+[[https://trs.jpl.nasa.gov/bitstream/handle/2014/20686/98-1739.pdf][Gennery, D.B. 2001. Least-squares camera calibration including lens distortion
+and automatic editing of calibration points. In Calibration and Orientation of
+Cameras in Computer Vision, A. Gruen and T.S. Huang (Eds.), Springer-Verlag, pp.
+123–136]]
 
 ** =LENSMODEL_CAHVORE=
 :PROPERTIES:
@@ -284,9 +288,12 @@ core parameters. CAHVORE is only partially supported:
 
 - the parameter gradients aren't implemented, so it isn't currently possible to
   solve for a CAHVORE model
-- there're questions about whether CAHVORE projections are invariant to scaling
-  and whether they /should/ be invariant to scaling. These need to be answered
-  conclusively before using the CAHVORE implementation in mrcal. Talk to Dima.
+- this is a noncentral projection, so more infrastructure is required to make
+  =unproject()= do something reasonable. Today, a CAHVORE =unproject()= will
+  report a point at an arbitrary range. This model is described in:
+
+[[https://link.springer.com/article/10.1007/s11263-006-5168-1][Gennery, D.B. Generalized Camera Calibration Including Fish-Eye Lenses. Int J
+Comput Vision 68, 239–266 (2006)]]
 
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC_...=
 :PROPERTIES:

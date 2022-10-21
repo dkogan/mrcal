@@ -104,7 +104,15 @@ if args.write_image:
 import mrcal
 import numpy as np
 
-models = [mrcal.cameramodel(m) for m in args.models]
+def openmodel(f):
+    try:
+        return mrcal.cameramodel(f)
+    except Exception as e:
+        print(f"Couldn't load camera model '{f}': {e}",
+              file=sys.stderr)
+        sys.exit(1)
+
+models = [openmodel(modelfilename) for modelfilename in args.models]
 
 if any( m.valid_intrinsics_region() is None for m in models ):
     raise Exception("Not all given models have a valid-intrinsics contour! Giving up")

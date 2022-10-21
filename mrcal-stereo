@@ -434,7 +434,15 @@ if args.tag is not None:
     args.tag = re.sub('[^a-zA-Z0-9_+-]+', '_', args.tag)
 
 
-models = [mrcal.cameramodel(m) for m in args.models]
+def openmodel(f):
+    try:
+        return mrcal.cameramodel(f)
+    except Exception as e:
+        print(f"Couldn't load camera model '{f}': {e}",
+              file=sys.stderr)
+        sys.exit(1)
+
+models = [openmodel(modelfilename) for modelfilename in args.models]
 
 if not args.already_rectified:
     models_rectified = \
@@ -1021,7 +1029,6 @@ for i in range(Nimages):
 
             '''
             if visible_width_pixels < 0:
-                self.make_current()
                 return super().set_panzoom(x_centerpixel, y_centerpixel,
                                            -visible_width_pixels)
 
@@ -1031,6 +1038,7 @@ for i in range(Nimages):
                                    -visible_width_pixels) \
                      for w in (widget_image0, widget_image1, widget_result) )
 
+            # Switch back to THIS widget
             self.make_current()
             return result
 
@@ -1092,8 +1100,8 @@ for i in range(Nimages):
                     widget_result.set_cross_at(q0_rectified, no_vertical = True)
                     return super().handle(event)
 
-                d = disparity[round(q0_rectified[-1]),
-                              round(q0_rectified[-2])]
+                d = disparity[int(round(q0_rectified[-1])),
+                              int(round(q0_rectified[-2]))]
                 if d < 0:
                     set_status("No valid disparity at the clicked location")
                     widget_image0.set_cross_at(q0_rectified)

@@ -222,7 +222,9 @@ args = parse_args()
 # stuff, so that I can generate the manpages and README
 
 if args.vectorscale != 1.0 and not args.vectorfield:
-    raise Exception("--vectorscale only makes sense with --vectorfield")
+    print("Error: --vectorscale only makes sense with --vectorfield",
+          file = sys.stderr)
+    sys.exit(1)
 
 if args.distance is None:
     distance = None
@@ -230,22 +232,34 @@ else:
     try:
         distance = [float(d) for d in args.distance.split(',')]
     except:
-        raise Exception("--distances must be given a comma-separated list of distances")
+        print("Error: distances must be given a comma-separated list of floats in --distance",
+              file = sys.stderr)
+        sys.exit(1)
 
     if len(distance) > 1 and args.vectorfield:
-        raise Exception("--distance can support at most one value if --vectorfield. Not clear how to plot otherwise")
+        print("Error: --distance can support at most one value if --vectorfield. Not clear how to plot otherwise",
+              file = sys.stderr)
+        sys.exit(1)
 
 if len(args.models) > 2:
     if args.vectorfield:
-        raise Exception("--vectorfield works only with exactly 2 models")
+        print("Error: --vectorfield works only with exactly 2 models",
+              file = sys.stderr)
+        sys.exit(1)
     if args.directions:
-        raise Exception("--directions works only with exactly 2 models")
+        print("Error: --directions works only with exactly 2 models",
+              file = sys.stderr)
+        sys.exit(1)
     if args.same_dance:
-        raise Exception("--same-dance works only with exactly 2 models")
+        print("Error: --same-dance works only with exactly 2 models",
+              file = sys.stderr)
+        sys.exit(1)
 
 if args.same_dance and \
    (args.where is not None or args.radius >= 0):
-    raise Exception("--same-dance is exclusive with --where and --radius")
+    print("Error: --same-dance is exclusive with --where and --radius",
+          file = sys.stderr)
+    sys.exit(1)
 
 
 import mrcal
@@ -267,8 +281,8 @@ if args.extratitle is not None:
 def openmodel(f):
     try:
         return mrcal.cameramodel(f)
-    except:
-        print(f"Couldn't load camera model '{f}'",
+    except Exception as e:
+        print(f"Couldn't load camera model '{f}': {e}",
               file=sys.stderr)
         sys.exit(1)
 
@@ -290,12 +304,16 @@ if args.same_dance:
                      for model in models]
         if i_f_ci_ce[0].shape != i_f_ci_ce[1].shape or \
            not np.all(i_f_ci_ce[0] == i_f_ci_ce[1]):
-            raise Exception(f"--same-dance means that the two models must have an identical indices_frame_camintrinsics_camextrinsics, but they do not. Shapes {i_f_ci_ce[0].shape},{i_f_ci_ce[1].shape}")
+            print(f"--same-dance means that the two models must have an identical indices_frame_camintrinsics_camextrinsics, but they do not. Shapes {i_f_ci_ce[0].shape},{i_f_ci_ce[1].shape}",
+                  file=sys.stderr)
+            sys.exit(1)
 
         obs = [model.optimization_inputs()['observations_board'] \
                      for model in models]
         if obs[0].shape != obs[1].shape:
-            raise Exception(f"--same-dance means that the two models must have an identically-laid-out observations_board, but they do not. Shapes {obs[0].shape},{obs[1].shape}")
+            print(f"--same-dance means that the two models must have an identically-laid-out observations_board, but they do not. Shapes {obs[0].shape},{obs[1].shape}",
+                  file=sys.stderr)
+            sys.exit(1)
 
         idx_inliers = [ obs[i][ ...,2] > 0 \
                         for i in range(len(models)) ]

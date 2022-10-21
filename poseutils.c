@@ -133,42 +133,27 @@
 // multiply two (3,3) matrices
 static inline
 void mul_gen33_gen33_vout_full(// output
-                               double* restrict m0m1,
+                               double* m0m1,
                                int m0m1_stride0, int m0m1_stride1,
 
                                // input
-                               const double* restrict m0,
+                               const double* m0,
                                int m0_stride0, int m0_stride1,
-                               const double* restrict m1,
+                               const double* m1,
                                int m1_stride0, int m1_stride1)
 {
+    /* needed for in-place operations */
+    double outcopy2[9];
+
     for(int i=0; i<3; i++)
         // one row at a time
-        mul_vec3_gen33_vout_scaled_full(
-                                        &_P2(m0m1,m0m1_stride0,m0m1_stride1,  i,0),   m0m1_stride1,
+        mul_vec3_gen33_vout_scaled_full(&outcopy2[i*3], sizeof(outcopy2[0]),
                                         &_P2(m0  ,  m0_stride0,  m0_stride1,  i,0),   m0_stride1,
                                         m1, m1_stride0, m1_stride1,
                                         1.0);
-}
-// multiply two (3,3) matrices, but accumulate the result instead of setting
-static inline
-void mul_gen33_gen33_vaccum_full(// output
-                                 double* restrict m0m1,
-                                 int m0m1_stride0, int m0m1_stride1,
-
-                                 // input
-                                 const double* restrict m0,
-                                 int m0_stride0, int m0_stride1,
-                                 const double* restrict m1,
-                                 int m1_stride0, int m1_stride1)
-{
     for(int i=0; i<3; i++)
-        // one row at a time
-        mul_vec3_gen33_vaccum_scaled_full(
-                                          &_P2(m0m1,m0m1_stride0,m0m1_stride1,  i,0),   m0m1_stride1,
-                                          &_P2(m0  ,  m0_stride0,  m0_stride1,  i,0),   m0_stride1,
-                                          m1, m1_stride0, m1_stride1,
-                                          1.0);
+        for(int j=0; j<3; j++)
+            P2(m0m1, i,j) = outcopy2[3*i+j];
 }
 
 static inline

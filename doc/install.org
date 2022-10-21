@@ -54,6 +54,10 @@ This isn't /difficult/, but requires you to obtain all the dependencies. They're
 listed in the =Build-Depends= section of the [[https://salsa.debian.org/science-team/mrcal/-/blob/master/debian/control][debian package definition]]. Most of
 these are available in most distros. Things that may not be:
 
+- [[https://www.github.com/dkogan/mrbuild][=mrbuild=]]: the build system. If you can't get it from the package manager,
+  just run =make=, and follow the printed message to get a local copy of
+  =mrbuild=.
+
 - [[https://github.com/dkogan/libdogleg/][=libdogleg-dev=]]: the optimization library. You need at least version 0.15.3.
 
 - [[https://github.com/dkogan/vnlog/][=vnlog=]]: the toolkit to manipulate textual tables. You only /need/ this for

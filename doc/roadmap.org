@@ -251,11 +251,6 @@ index 6ba3549..7a6eabc 100644
   cause mrcal to fail. But it could work: the rectified images are similar to a
   polar transform of the input.
 
-*** [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool
-This tool should be able to fit a rotation only /without/ a translation.
-Otherwise I can get huge axial motions when trying to fit models from long
-lenses.
-
 *** [[file:mrcal-python-api-reference.html#-estimate_monocular_calobject_poses_Rt_tocam][=mrcal.estimate_monocular_calobject_poses_Rt_tocam()=]]
 An early stage of a calibration run generates a rough estimate of the chessboard
 geometry. Internally this is currently assuming a pinhole model, which is wrong,

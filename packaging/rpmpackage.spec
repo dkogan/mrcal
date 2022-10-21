@@ -1,5 +1,5 @@
 Name:           mrcal
-Version:        mrcal
+Version:        2.2
 
 Release:        1%{?dist}
 Summary:        Calibration tools
