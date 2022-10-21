@@ -2364,35 +2364,12 @@ bool _mrcal_project_internal_cahvore( // out
 
     for(int i_pt=0; i_pt<N; i_pt++)
     {
-        ///////////////// THIS IS MADE UP, AND PROBABLY WRONG
-
-        // I'm using jplv as the reference implementation for this, but that
-        // implementation can't work. In jplv project(p) and project(k*p) don't
-        // project to the same point, which they must for a valid projection
-        // function. Look at the definition of upsilon below. omega and l are
-        // proportional to the distance to the camera while the other terms are
-        // not. So if I'm looking at a point along the same observation ray, but
-        // 1000 times further out, omega and l will jump by a factor of 1000,
-        // while the other terms will not. I thus won't get the same projection
-        // result.
-        //
-        // I'm hypothesizing that they meant to normalize p, but never did it.
-        // So I'm doing that here. mrcal supports cahvore only for
-        // compatibility, so nobody's using this code. IF YOU ARE GOING TO USE
-        // THIS CODE, PLEASE CONFIRM THAT THIS CAHVORE PROJECTION IS CORRECT
-        double pnorm = sqrt(p[i_pt].x*p[i_pt].x +
-                            p[i_pt].y*p[i_pt].y +
-                            p[i_pt].z*p[i_pt].z );
-        double v[] =
-            {
-                p[i_pt].x / pnorm,
-                p[i_pt].y / pnorm,
-                p[i_pt].z / pnorm
-            };
+        // Note: CAHVORE is noncentral: project(p) and project(k*p) do NOT
+        // project to the same point
 
         // cos( angle between p and o ) = inner(p,o) / (norm(o) * norm(p)) =
         // omega/norm(p)
-        double omega = v[0]*o[0] + v[1]*o[1] + v[2]*o[2];
+        double omega = p[i_pt].x*o[0] + p[i_pt].y*o[1] + p[i_pt].z*o[2];
 
 
         // Basic Computations
@@ -2402,7 +2379,7 @@ bool _mrcal_project_internal_cahvore( // out
         for(int i=0; i<3; i++) u[i] = omega*o[i];
 
         double ll[3];
-        for(int i=0; i<3; i++) ll[i] = v[i]-u[i];
+        for(int i=0; i<3; i++) ll[i] = p[i_pt].xyz[i]-u[i];
         double l = sqrt(ll[0]*ll[0] + ll[1]*ll[1] + ll[2]*ll[2]);
 
         // Calculate theta using Newton's Method
@@ -2486,8 +2463,8 @@ bool _mrcal_project_internal_cahvore( // out
         else
         {
             // now I apply a normal projection to the warped 3d point p
-            out[i_pt].x = core->focal_xy[0] * v[0]/v[2] + core->center_xy[0];
-            out[i_pt].y = core->focal_xy[1] * v[1]/v[2] + core->center_xy[1];
+            out[i_pt].x = core->focal_xy[0] * p[i_pt].x/p[i_pt].z + core->center_xy[0];
+            out[i_pt].y = core->focal_xy[1] * p[i_pt].y/p[i_pt].z + core->center_xy[1];
         }
     }
     return true;
