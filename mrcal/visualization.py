@@ -3316,16 +3316,6 @@ plot
 
     '''
 
-    r'''Visualize the optimized residuals as color-coded directions
-
-    We plot each observed point, but instead of showing an error vector, we show
-    the color-coded direction of the error. The error magnitude is ignored. This
-    is useful to see systematic patterns in the error surface
-
-    icam is the camera in question. First camera by default
-
-    '''
-
     import gnuplotlib as gp
 
     err,obs, \
