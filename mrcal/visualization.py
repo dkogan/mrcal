@@ -2994,7 +2994,7 @@ def _get_show_residuals_data_onecam(model,
     icam is the camera in question, or None for ALL the cameras'''
 
     optimization_inputs = model.optimization_inputs()
-    icam                = model.icam_intrinsics()
+    icam_intrinsics     = model.icam_intrinsics()
 
     if residuals is None:
         # Flattened residuals. The board measurements are at the start of the
@@ -3017,7 +3017,7 @@ def _get_show_residuals_data_onecam(model,
     idx = np.ones( observations.shape[:-1], dtype=bool)
 
     # select residuals from THIS camera
-    idx[indices_frame_camera[:,1] != icam, ...] = False
+    idx[indices_frame_camera[:,1] != icam_intrinsics, ...] = False
     # select non-outliers
     idx[ observations[...,2] <= 0.0 ] = False
 
@@ -3025,7 +3025,7 @@ def _get_show_residuals_data_onecam(model,
     err = residuals   [idx, ...    ]
     obs = observations[idx, ..., :2]
 
-    if valid_intrinsics_region and icam is not None:
+    if valid_intrinsics_region and icam_intrinsics is not None:
         legend = "Valid-intrinsics region"
         valid_region = model.valid_intrinsics_region()
 
