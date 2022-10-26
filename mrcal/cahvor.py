@@ -71,10 +71,7 @@ def _read(s, name):
         m = re.match('\s*(\w+)\s*=\s*(.+?)\s*\n?$',
                      l, flags=re.I)
         if m:
-            key = m.group(1)
-            if key in x:
-                raise Exception("Reading '{}': key '{}' seen more than once".format(name,
-                                                                                    m.group(1)))
+            key   = m.group(1)
             value = m.group(2)
 
             # for compatibility
