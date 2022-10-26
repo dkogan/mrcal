@@ -4961,8 +4961,8 @@ bool mrcal_optimizer_callback(// out
 
     if(!problem_selections.do_optimize_intrinsics_core        &&
        !problem_selections.do_optimize_intrinsics_distortions &&
-       !problem_selections.do_optimize_extrinsics            &&
-       !problem_selections.do_optimize_frames                &&
+       !problem_selections.do_optimize_extrinsics             &&
+       !problem_selections.do_optimize_frames                 &&
        !problem_selections.do_optimize_calobject_warp)
     {
         MSG("Not optimizing any of our variables!");
