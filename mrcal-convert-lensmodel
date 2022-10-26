@@ -681,14 +681,14 @@ else:
         observations_points = np.ascontiguousarray(observations_points) # must be contiguous. mrcal.optimize() should really be more lax here
 
         # Which points we're observing. This is dense and kinda silly for this
-        # application. Each slice is (i_point,i_camera)
+        # application. Each slice is (i_point,i_camera,i_camera-1). Initially O
+        # do everything in camera-0 coordinates, and I do not move the
+        # extrinsics
         indices_point_camintrinsics_camextrinsics = np.zeros((Npoints,3), dtype=np.int32)
         indices_point_camintrinsics_camextrinsics[:,0] = \
             np.arange(Npoints,    dtype=np.int32)
-        indices_point_camintrinsics_camextrinsics[:,1] = \
-            np.zeros ((Npoints,), dtype=np.int32)
-        indices_point_camintrinsics_camextrinsics[:,2] = \
-            np.zeros ((Npoints,), dtype=np.int32) - 1
+        indices_point_camintrinsics_camextrinsics[:,1] = 0
+        indices_point_camintrinsics_camextrinsics[:,2] = -1
 
         optimization_inputs = \
             dict(intrinsics                                = intrinsics_to_values,
