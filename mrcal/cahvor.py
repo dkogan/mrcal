@@ -142,6 +142,9 @@ def _read(s, name):
     else:
         is_cahvore = False
 
+    # normalize optical axis. Mostly this is here to smooth out ASCII roundoff
+    # errors
+    x['A'] /= nps.mag(x['A'])
     Hp,Vp = _HVs_HVc_HVp(x)[-2:]
 
     # By construction Hp and Vp will both be orthogonal to A. But CAHVOR allows
