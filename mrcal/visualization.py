@@ -2996,34 +2996,13 @@ def _get_show_residuals_data_onecam(model,
     optimization_inputs = model.optimization_inputs()
     icam_intrinsics     = model.icam_intrinsics()
 
-    if residuals is None:
-        # Flattened residuals. The board measurements are at the start of the
-        # array
-        residuals = \
-            mrcal.optimizer_callback(**optimization_inputs,
-                                     no_jacobian      = True,
-                                     no_factorization = True)[1]
 
-    # shape (Nobservations, object_height_n, object_width_n, 3)
-    observations = optimization_inputs['observations_board']
-    residuals_shape = observations.shape[:-1] + (2,)
-
-    # shape (Nobservations, object_height_n, object_width_n, 2)
-    residuals = residuals[:np.product(residuals_shape)].reshape(*residuals_shape)
-
-    indices_frame_camera = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][...,:2]
-
-    # shape (Nobservations, object_height_n, object_width_n)
-    idx = np.ones( observations.shape[:-1], dtype=bool)
-
-    # select residuals from THIS camera
-    idx[indices_frame_camera[:,1] != icam_intrinsics, ...] = False
-    # select non-outliers
-    idx[ observations[...,2] <= 0.0 ] = False
-
-    # shape (N,2)
-    err = residuals   [idx, ...    ]
-    obs = observations[idx, ..., :2]
+    # shape (N,2), (N,2)
+    err,obs = \
+        mrcal.residuals_chessboard(optimization_inputs,
+                                   icam_intrinsics     = icam_intrinsics,
+                                   residuals           = residuals,
+                                   return_observations = True)
 
     if valid_intrinsics_region and icam_intrinsics is not None:
         legend = "Valid-intrinsics region"
