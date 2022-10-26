@@ -4956,6 +4956,17 @@ bool mrcal_optimizer_callback(// out
 {
     bool result = false;
 
+    if( Nobservations_board > 0 )
+    {
+        if( problem_selections.do_optimize_calobject_warp && calobject_warp == NULL )
+        {
+            MSG("ERROR: We're optimizing the calibration object warp, so a buffer with a seed MUST be passed in.");
+            goto done;
+        }
+    }
+    else
+        problem_selections.do_optimize_calobject_warp = false;
+
     if(!modelHasCore_fxfycxcy(lensmodel))
         problem_selections.do_optimize_intrinsics_core = false;
 
@@ -4966,12 +4977,6 @@ bool mrcal_optimizer_callback(// out
        !problem_selections.do_optimize_calobject_warp)
     {
         MSG("Not optimizing any of our variables!");
-        goto done;
-    }
-
-    if( calobject_warp == NULL && problem_selections.do_optimize_calobject_warp )
-    {
-        MSG("ERROR: We're using the calibration object warp, so a value MUST be passed in.");
         goto done;
     }
 
