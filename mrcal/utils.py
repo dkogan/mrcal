@@ -1192,8 +1192,8 @@ def _plot_args_points_and_covariance_ellipse(q, what):
 
 def residuals_chessboard(optimization_inputs,
                          *,
-                         i_cam     = None,
-                         residuals = None):
+                         icam_intrinsics = None,
+                         residuals       = None):
     r'''Compute and return the chessboard residuals
 
 SYNOPSIS
@@ -1202,7 +1202,7 @@ SYNOPSIS
 
     gp.plot( mrcal.residuals_chessboard(
                optimization_inputs = model.optimization_inputs(),
-               i_cam               = i_cam ).ravel(),
+               icam_intrinsics     = icam_intrinsics ).ravel(),
              histogram = True,
              binwidth  = 0.02 )
 
@@ -1219,8 +1219,9 @@ ARGUMENTS
   from mrcal.optimize(). This describes the solved optimization problem that
   we're visualizing
 
-- i_cam: optional integer to select the camera whose residuals we're visualizing
-  If omitted or None, we report the residuals for ALL the cameras together.
+- icam_intrinsics: optional integer to select the camera whose residuals we're
+  visualizing If omitted or None, we report the residuals for ALL the cameras
+  together.
 
 - residuals: optional numpy array of shape (Nmeasurements,) containing the
   optimization residuals. If omitted or None, this will be recomputed. To use a
@@ -1255,9 +1256,9 @@ observations remaining after outliers and other cameras are thrown out
     # shape (Nobservations, object_height_n, object_width_n)
     idx = np.ones( observations.shape[:-1], dtype=bool)
 
-    if i_cam is not None:
+    if icam_intrinsics is not None:
         # select residuals from THIS camera
-        idx[indices_frame_camera[:,1] != i_cam, ...] = False
+        idx[indices_frame_camera[:,1] != icam_intrinsics, ...] = False
 
     # select non-outliers
     idx[ observations[...,2] <= 0.0 ] = False

@@ -210,7 +210,7 @@ elif args.directions:
 
 elif args.histogram:
     mrcal.show_residuals_histogram(optimization_inputs,
-                                   i_cam    = model.icam_intrinsics() if args.histogram_this_camera else None,
+                                   icam_intrinsics = model.icam_intrinsics() if args.histogram_this_camera else None,
                                    binwidth = args.binwidth,
                                    **kwargs)
 

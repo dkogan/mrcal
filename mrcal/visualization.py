@@ -2875,7 +2875,7 @@ plot
 
 
 def show_residuals_histogram(optimization_inputs,
-                             i_cam            = None,
+                             icam_intrinsics  = None,
                              residuals        = None,
                              *,
                              binwidth         = 0.02,
@@ -2904,8 +2904,9 @@ ARGUMENTS
   from mrcal.optimize(). This describes the solved optimization problem that
   we're visualizing
 
-- i_cam: optional integer to select the camera whose residuals we're visualizing
-  If omitted or None, we display the residuals for ALL the cameras together.
+- icam_intrinsics: optional integer to select the camera whose residuals we're
+  visualizing If omitted or None, we display the residuals for ALL the cameras
+  together.
 
 - residuals: optional numpy array of shape (Nmeasurements,) containing the
   optimization residuals. If omitted or None, this will be recomputed. To use a
@@ -2945,7 +2946,7 @@ plot
 
     x = \
         mrcal.residuals_chessboard(optimization_inputs = optimization_inputs,
-                                   i_cam               = i_cam,
+                                   icam_intrinsics     = icam_intrinsics,
                                    residuals           = residuals).ravel()
     sigma_observed = np.std(x)
 
@@ -2955,10 +2956,10 @@ plot
                                         binwidth = binwidth,
                                         legend   = f'Normal distribution of residuals with observed stdev: {sigma_observed:.02f} pixels')
 
-    if i_cam is None:
+    if icam_intrinsics is None:
         what = 'all the cameras'
     else:
-        what = f"camera {i_cam}"
+        what = f"camera {icam_intrinsics}"
 
     plot_options = dict(kwargs)
 
