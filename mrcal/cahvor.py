@@ -23,6 +23,7 @@ reason to use this module.
 '''
 
 
+import sys
 import re
 
 import numpy     as np
@@ -142,6 +143,17 @@ def _read(s, name):
         is_cahvore = False
 
     Hp,Vp = _HVs_HVc_HVp(x)[-2:]
+
+    # By construction Hp and Vp will both be orthogonal to A. But CAHVOR allows
+    # non-orthogonal Hp,Vp. MY implementation does not support this, so I check,
+    # and barf if I encounter non-orthogonal Hp,Vp
+    Vp_expected = np.cross(x['A'], Hp)
+    th = np.arccos(nps.inner(Vp,Vp_expected))*180./np.pi
+    if th > 1e-3:
+        print(f"WARNING: parsed .cahvor file has non-orthogonal Hp,Vp. Skew of {th:.3f} degrees. I'm using an orthogonal Vp, so the resulting model will work slightly differently",
+              file=sys.stderr)
+    Vp = Vp_expected
+
     R_toref = nps.transpose( nps.cat( Hp,
                                       Vp,
                                       x['A'] ))
