@@ -183,7 +183,7 @@ def _read(s, name):
                 distortions = np.array((alpha,beta,R0,R1,R2), dtype=float)
                 lensmodel = 'LENSMODEL_CAHVOR'
 
-    m = mrcal.cameramodel(imagersize = x['Dimensions'].astype(np.int32),
+    m = mrcal.cameramodel(imagersize = x['Dimensions'][:2].astype(np.int32),
                           intrinsics = (lensmodel, nps.glue( np.array(_fxy_cxy(x), dtype=float),
                                                                     distortions,
                                                                     axis = -1)),
