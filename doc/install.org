@@ -10,27 +10,25 @@ not-yet-supported distro, please contribute! You can email me for help.
 :END:
 
 ** Debian-based
-As of today (2022-02-27), mrcal is included in the bleeding-edge versions of
-Debian and Ubuntu. So if you're running at least Debian/testing or the
-not-yet-published Debian 12 (bookworm) or Ubuntu 22.04 (jammy), you can
-simply
+mrcal is included in recent versions of Debian and Ubuntu. So if you're running
+at least Debian/testing or the not-yet-published Debian 12 (bookworm) or Ubuntu
+22.04 (jammy), you can install with a single command. For instance the
+commandline tools and the C development library and the Python library can be
+installed with
 
 #+begin_src sh
 apt install mrcal libmrcal-dev python3-mrcal
 #+end_src
 
-to install the commandline tools and the C development library and the Python
-library respectively.
-
 For older distros I currently distribute packages for
 
-- Debian/buster
-- Debian/bullseye
-- Ubuntu/jammy (22.04 LTS)
-- Ubuntu/focal (20.04 LTS)
+- Debian/buster (10)
+- Debian/bullseye (11)
 - Ubuntu/bionic (18.04 LTS)
+- Ubuntu/focal (20.04 LTS)
+- Ubuntu/jammy (22.04 LTS)
 
-To use these, add to your =/etc/apt/sources.list=:
+=amd64= architecture only. To use these, add to your =/etc/apt/sources.list=:
 
 #+begin_example
 deb [trusted=yes] http://mrcal.secretsauce.net/packages/DISTRO/public/ DISTRO main
@@ -40,9 +38,9 @@ where =DISTRO= is one of
 
 - =buster=
 - =bulleye=
-- =jammy=
-- =focal=
 - =bionic=
+- =focal=
+- =jammy=
 
 Then, =apt update && apt install mrcal=. The chessboard corner finder, while not
 strictly required, is needed if you're doing chessboard-based calibrations. =apt
