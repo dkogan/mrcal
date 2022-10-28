@@ -1291,3 +1291,108 @@ else:
         return \
             residuals_board   [idx, ...    ], \
             observations_board[idx, ..., :2]
+
+
+def residuals_point(optimization_inputs,
+                    *,
+                    icam_intrinsics     = None,
+                    residuals           = None,
+                    return_observations = False):
+    r'''Compute and return the point observation residuals
+
+SYNOPSIS
+
+    model = mrcal.cameramodel(model_filename)
+
+    gp.plot( mrcal.residuals_point(
+               optimization_inputs = model.optimization_inputs(),
+               icam_intrinsics     = icam_intrinsics ).ravel(),
+             histogram = True,
+             binwidth  = 0.02 )
+
+    ... A plot pops up showing the empirical distribution of point fit
+    ... errors in this solve. For the given camera only
+
+Given a calibration solve, returns the residuals of point observations, throwing
+out outliers and, optionally, selecting the residuals from a specific camera.
+
+ARGUMENTS
+
+- optimization_inputs: the optimization inputs dict passed into and returned
+  from mrcal.optimize(). This describes the solved optimization problem that
+  we're visualizing
+
+- icam_intrinsics: optional integer to select the camera whose residuals we're
+  visualizing If omitted or None, we report the residuals for ALL the cameras
+  together.
+
+- residuals: optional numpy array of shape (Nmeasurements,) containing the
+  optimization residuals. If omitted or None, this will be recomputed. To use a
+  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+  mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- return_observations: optional boolean, defaulting to False. if
+  return_observations: we return a tuple (residuals,observations) instead of
+  just residuals
+
+RETURNED VALUES
+
+if return_observations:
+
+  we return a numpy array of shape (N,2) of all the residuals. N is the number
+  of pixel observations remaining after outliers and other cameras are thrown
+  out
+
+else:
+
+  we return a tuple:
+
+  - The same residuals array as before
+
+  - The corresponding observation points in a numpy array of shape (N,2). These
+    are a slice of observations_point[] corresponding to each residual
+
+    '''
+
+    if residuals is None:
+        # Flattened residuals. This is ALL the measurements: chessboard, point,
+        # regularization...
+        residuals = \
+            mrcal.optimizer_callback(**optimization_inputs,
+                                     no_jacobian      = True,
+                                     no_factorization = True)[1]
+
+    # shape (Nobservations, 3)
+    observations_point = optimization_inputs['observations_point']
+    Nobservations = len(observations_point)
+
+    imeas0 = mrcal.measurement_index_points(0, **optimization_inputs)
+    Nmeas  = mrcal.num_measurements_points(**optimization_inputs)
+
+    # shape (Nobservations, 2)
+    #
+    # Each observation row is (err_x, err_y, range_penalty). I ignore the
+    # range_penalty here
+    residuals_point = residuals[imeas0:imeas0+Nmeas].reshape(Nobservations,3)[:,:2]
+
+    indices_point_camera = optimization_inputs['indices_point_camintrinsics_camextrinsics'][...,:2]
+
+    # shape (Nobservations,)
+    idx = np.ones( (Nobservations,), dtype=bool)
+
+    if icam_intrinsics is not None:
+        # select residuals from THIS camera
+        idx[indices_point_camera[:,1] != icam_intrinsics, ...] = False
+
+    # select non-outliers
+    idx[ observations_point[...,2] <= 0.0 ] = False
+
+    if not return_observations:
+        # shape (N,2)
+        return \
+            residuals_point   [idx, ...    ]
+    else:
+        # shape (N,2), (N,2)
+        return \
+            residuals_point   [idx, ...    ], \
+            observations_point[idx, ..., :2]
