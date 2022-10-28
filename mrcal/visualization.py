@@ -2944,10 +2944,33 @@ plot
 
     import gnuplotlib as gp
 
-    x = \
-        mrcal.residuals_chessboard(optimization_inputs = optimization_inputs,
-                                   icam_intrinsics     = icam_intrinsics,
-                                   residuals           = residuals).ravel()
+    if 'observations_board' in optimization_inputs and \
+       optimization_inputs['observations_board'] is not None:
+        x_chessboard = \
+            mrcal.residuals_chessboard(optimization_inputs = optimization_inputs,
+                                       icam_intrinsics     = icam_intrinsics,
+                                       residuals           = residuals).ravel()
+    else:
+        x_chessboard = np.array(())
+
+    if 'observations_point' in optimization_inputs and \
+       optimization_inputs['observations_point'] is not None:
+        x_point = \
+            mrcal.residuals_point(optimization_inputs = optimization_inputs,
+                                  icam_intrinsics     = icam_intrinsics,
+                                  residuals           = residuals).ravel()
+    else:
+        x_point = np.array(())
+
+    # I just pool all the observations together for now. I could display them
+    # separately...
+    x = nps.glue(x_chessboard,
+                 x_point,
+                 axis=-1)
+
+    if x.size == 0:
+        raise Exception("No board or point observations in this solve!")
+
     sigma_observed = np.std(x)
 
     equation = fitted_gaussian_equation(sigma    = sigma_observed,
@@ -2964,7 +2987,7 @@ plot
     plot_options = dict(kwargs)
 
     if 'title' not in plot_options:
-        title = f'Observed and expected distribution of fitted residuals for {what}'
+        title = f'Distribution of fitted residuals and a gaussian fit for {what}'
         if extratitle is not None:
             title += ": " + extratitle
         plot_options['title'] = title
@@ -2997,12 +3020,42 @@ def _get_show_residuals_data_onecam(model,
     icam_intrinsics     = model.icam_intrinsics()
 
 
-    # shape (N,2), (N,2)
-    err,obs = \
-        mrcal.residuals_chessboard(optimization_inputs,
-                                   icam_intrinsics     = icam_intrinsics,
-                                   residuals           = residuals,
-                                   return_observations = True)
+
+
+
+
+    if 'observations_board' in optimization_inputs and \
+       optimization_inputs['observations_board'] is not None:
+        # shape (N,2), (N,2)
+        err_chessboard,obs_chessboard = \
+            mrcal.residuals_chessboard(optimization_inputs = optimization_inputs,
+                                       icam_intrinsics     = icam_intrinsics,
+                                       residuals           = residuals,
+                                       return_observations = True)
+    else:
+        err_chessboard,obs_chessboard = \
+            np.array(()),np.array(())
+
+    if 'observations_point' in optimization_inputs and \
+       optimization_inputs['observations_point'] is not None:
+        # shape (N,2), (N,2)
+        err_point,obs_point = \
+            mrcal.residuals_point(optimization_inputs = optimization_inputs,
+                                  icam_intrinsics     = icam_intrinsics,
+                                  residuals           = residuals,
+                                  return_observations = True)
+    else:
+        err_point,obs_point = \
+            np.array(()),np.array(())
+
+    # I just pool all the observations together for now. I could display them
+    # separately...
+    err = nps.glue(err_chessboard,
+                   err_point,
+                   axis=-1)
+    obs = nps.glue(obs_chessboard,
+                   obs_point,
+                   axis=-1)
 
     if valid_intrinsics_region and icam_intrinsics is not None:
         legend = "Valid-intrinsics region"
