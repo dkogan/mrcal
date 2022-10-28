@@ -1208,7 +1208,7 @@ SYNOPSIS
              binwidth  = 0.02 )
 
     ... A plot pops up showing the empirical distribution of chessboard fit
-    ... errors in this solve. For ALL the cameras
+    ... errors in this solve. For the given camera only
 
 Given a calibration solve, returns the residuals of chessboard observations,
 throwing out outliers and, optionally, selecting the residuals from a specific
