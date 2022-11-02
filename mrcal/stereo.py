@@ -661,9 +661,12 @@ contains corresponding pixel coordinates in the input image
     else:
         unproject = mrcal.unproject_pinhole
 
+    az, el = \
+        np.meshgrid(np.arange(Naz,dtype=float),
+                    np.arange(Nel,dtype=float))
+
     v = unproject( np.ascontiguousarray( \
-           nps.mv( nps.cat( *np.meshgrid(np.arange(Naz,dtype=float),
-                                         np.arange(Nel,dtype=float))),
+           nps.mv( nps.cat(az,el),
                    0, -1)),
                    fxycxy)
 
