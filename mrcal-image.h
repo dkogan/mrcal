@@ -69,6 +69,7 @@ const T* mrcal_image_ ## Tname ## _at_const(const mrcal_image_ ## Tname ## _t* i
     return &image->data[x + y*image->stride / sizeof(T)];               \
 }                                                                       \
                                                                         \
+static inline                                                           \
 mrcal_image_ ## Tname ## _t                                             \
 mrcal_image_ ## Tname ## _crop(mrcal_image_ ## Tname ## _t* image,      \
                               int x0, int y0,                           \
