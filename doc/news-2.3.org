@@ -1,0 +1,19 @@
+#+TITLE: mrcal 2.3 release notes
+#+OPTIONS: toc:nil
+
+* New in mrcal 2.3
+residuals_chessboard() argument rename: i_cam -> icam_intrinsics
+For consistency. Old argument still accepted for compatibility
+
+residuals_chessboard() has new return_observations argument
+The default return_observations=False produces the original behavior. if
+return_observations: we return residuals,observations
+
+added residuals_point()
+
+show_residuals_....() displays board AND point residuals
+
+mrcal_image_..._crop() is now static inline
+This fixes linker errors on some compilers
+
+* Migration notes 2.2 -> 2.3
