@@ -86,17 +86,23 @@ args = parse_args()
 
 if args.write_image:
     if args.image is None:
-        raise Exception("--write-image NEEDS an image to annotate")
+        print("--write-image NEEDS an image to annotate",
+              file=sys.stderr)
+        sys.exit(1)
 
     if args.title    is not None or \
        args.hardcopy is not None or \
        args.terminal is not None or \
        args.set      is not None or \
        args.unset    is not None:
-        raise Exception("--title and --hardcopy and --terminal and --set and --unset are only valid without --write-image")
+        print("--title and --hardcopy and --terminal and --set and --unset are only valid without --write-image",
+              file=sys.stderr)
+        sys.exit(1)
 
     if args.points:
-        raise Exception("Currently --points is implemented ONLY if not --write-image")
+        print("Currently --points is implemented ONLY if not --write-image",
+              file=sys.stderr)
+        sys.exit(1)
 
 
 
@@ -115,7 +121,9 @@ def openmodel(f):
 models = [openmodel(modelfilename) for modelfilename in args.models]
 
 if any( m.valid_intrinsics_region() is None for m in models ):
-    raise Exception("Not all given models have a valid-intrinsics contour! Giving up")
+    print("Not all given models have a valid-intrinsics contour! Giving up",
+          file=sys.stderr)
+    sys.exit(1)
 
 if args.write_image:
 
@@ -124,7 +132,9 @@ if args.write_image:
 
         base,extension = os.path.splitext(filename_in)
         if len(extension) != 4:
-            raise Exception(f"imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{filename_in}'")
+            print(f"imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{filename_in}'",
+                  file=sys.stderr)
+            sys.exit(1)
         filename_out = f"{base}-{suffix}{extension}"
         if not args.force and os.path.isfile(filename_out):
             print(f"Target image '{filename_out}' already exists. Doing nothing, and giving up. Pass -f to overwrite",
@@ -136,7 +146,9 @@ if args.write_image:
 
         base,extension = os.path.splitext(filename_in)
         if len(extension) != 4:
-            raise Exception(f"imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{filename_in}'")
+            print(f"imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{filename_in}'",
+                  file=sys.stderr)
+            sys.exit(1)
         filename_out = f"{base}-{suffix}{extension}"
         return filename_out
 

@@ -252,4 +252,6 @@ elif args.regional:
 
 
 else:
-    raise Exception("Unknown mode. Exactly one of the mutually-exclusive variables should have gotten through the argument parser. Is this an argparse bug?")
+    print("Unknown mode. Exactly one of the mutually-exclusive variables should have gotten through the argument parser. Is this an argparse bug?",
+          file=sys.stderr)
+    sys.exit(1)

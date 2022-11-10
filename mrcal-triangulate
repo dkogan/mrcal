@@ -43,17 +43,25 @@ def parse_args():
         try:
             value = float(string)
         except:
-            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+            print(f"argument MUST be a positive floating-point number. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         if value <= 0:
-            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+            print(f"argument MUST be a positive floating-point number. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         return value
     def positive_int(string):
         try:
             value = int(string)
         except:
-            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+            print(f"argument MUST be a positive integer. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         if value <= 0 or abs(value-float(string)) > 1e-6:
-            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+            print(f"argument MUST be a positive integer. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         return value
 
     parser = \

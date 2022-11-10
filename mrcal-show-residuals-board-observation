@@ -113,7 +113,9 @@ def parse_args():
 
     if args.image_path_prefix is not None and \
        args.image_directory is not None:
-        raise Exception("--image-path-prefix and --image-directory are mutually exclusive")
+        print("--image-path-prefix and --image-directory are mutually exclusive",
+              file=sys.stderr)
+        sys.exit(1)
 
     def list_ints_from_range_string(s):
         try:

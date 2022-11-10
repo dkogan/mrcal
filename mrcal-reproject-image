@@ -506,7 +506,9 @@ def process(model_from, model_to, image_globs, suffix,
 
         base,extension = os.path.splitext(filename_in)
         if len(extension) != 4:
-            raise Exception(f"imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{filename_in}'")
+            print(f"imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{filename_in}'",
+                  file=sys.stderr)
+            sys.exit(1)
 
         if args.outdir is not None:
             base = args.outdir + '/' + os.path.split(base)[1]

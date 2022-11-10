@@ -107,17 +107,25 @@ def parse_args():
         try:
             value = float(string)
         except:
-            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+            print(f"argument MUST be a positive floating-point number. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         if value <= 0:
-            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+            print(f"argument MUST be a positive floating-point number. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         return value
     def positive_int(string):
         try:
             value = int(string)
         except:
-            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+            print(f"argument MUST be a positive integer. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         if value <= 0 or abs(value-float(string)) > 1e-6:
-            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+            print(f"argument MUST be a positive integer. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         return value
 
 
@@ -827,11 +835,15 @@ for i in range(Nimages):
     imagersize_image = np.array((images[0].shape[1], images[0].shape[0]))
     imagersize_model = models[0].imagersize()
     if np.any(imagersize_image - imagersize_model):
-        raise Exception(f"Image '{image_filenames_all[0][i]}' dimensions {imagersize_image} don't match the model '{args.models[0]}' dimensions {imagersize_model}")
+        print(f"Image '{image_filenames_all[0][i]}' dimensions {imagersize_image} don't match the model '{args.models[0]}' dimensions {imagersize_model}",
+              file=sys.stderr)
+        sys.exit(1)
     imagersize_image = np.array((images[1].shape[1], images[1].shape[0]))
     imagersize_model = models[1].imagersize()
     if np.any(imagersize_image - imagersize_model):
-        raise Exception(f"Image '{image_filenames_all[1][i]}' dimensions {imagersize_image} don't match the model '{args.models[1]}' dimensions {imagersize_model}")
+        print(f"Image '{image_filenames_all[1][i]}' dimensions {imagersize_image} don't match the model '{args.models[1]}' dimensions {imagersize_model}",
+              file=sys.stderr)
+        sys.exit(1)
 
     if args.clahe:
         images = [ clahe.apply(image) for image in images ]
