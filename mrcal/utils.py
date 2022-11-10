@@ -1194,7 +1194,11 @@ def residuals_chessboard(optimization_inputs,
                          *,
                          icam_intrinsics     = None,
                          residuals           = None,
-                         return_observations = False):
+                         return_observations = False,
+
+                         # for backwards-compatibility only; same as
+                         # icam_intrinsics
+                         i_cam               = None):
     r'''Compute and return the chessboard residuals
 
 SYNOPSIS
@@ -1251,6 +1255,10 @@ else:
     are a slice of observations_board[] corresponding to each residual
 
     '''
+
+    # for backwards compatibility
+    if i_cam is not None:
+        icam_intrinsics = i_cam
 
     if residuals is None:
         # Flattened residuals. This is ALL the measurements: chessboard, point,
