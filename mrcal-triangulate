@@ -532,6 +532,8 @@ print("## generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S")
 
 v0 = mrcal.unproject(q0, *models[0].intrinsics(), normalize = True)
 
+Rtr0 = models[0].extrinsics_Rt_toref()
+
 Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                          models[1].extrinsics_Rt_toref() )
 
@@ -729,7 +731,10 @@ else:
 
     range_err_have = range0 - args.range_estimate
 
-    print(f"## Triangulated point at {p0}; direction: {v0}")
+    p0_ref = mrcal.transform_point_Rt(Rtr0, p0)
+    v0_ref = mrcal.rotate_point_R(Rtr0[:3,:], v0)
+    print(f"## Triangulated point at {p0}; direction: {v0} [camera coordinates]")
+    print(f"## Triangulated point at {p0_ref}; direction: {v0_ref} [reference coordinates]")
     print("## Range: {:.2f} m (error: {:.2f} m)".format(range0, range_err_have))
     print(f"## q0 - q0_triangulation = {q0 - mrcal.project(p0, *models[0].intrinsics())}")
 
