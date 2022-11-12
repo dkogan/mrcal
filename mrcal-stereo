@@ -1149,7 +1149,7 @@ for i in range(Nimages):
                 # guts here, and display them in the window
                 set_status(f"Disparity: {d/disparity_scale:.2f}pixels\n" +
                            f"range: {_range:.2f}m\n" +
-                           f"drange/ddisparity: {drange_ddisparity:.1f}m/pixel")
+                           f"drange/ddisparity: {drange_ddisparity:.3f}m/pixel")
 
                 if 0:
                     p0_rectified = \
