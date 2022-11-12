@@ -1001,6 +1001,10 @@ A tuple:
                            cbrange = [0,cbmax])
         color = difflen
 
+    # Any invalid values (nan or inf) are set to an effectively infinite
+    # difference
+    color[~np.isfinite(color)] = 1e6
+
     if vectorfield:
         # The mrcal.projection_diff() call made sure they're the same for all
         # the models
