@@ -748,7 +748,7 @@ else:
             # look at the least-confident direction
             sigma = np.sqrt(l[-1])
             v     = v[:,-1]
-            print(f"## Uncertainty propagation: {what} noise suggests worst confidence of sigma={sigma:.2f}m along {v}")
+            print(f"## Uncertainty propagation: {what} noise suggests worst confidence of sigma={sigma:.3f}m along {v}")
 
 
 
