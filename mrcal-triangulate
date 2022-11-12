@@ -15,7 +15,7 @@ SYNOPSIS
   ## q1 - q1_perfect_at_range = [-1.43873946 -0.76196924]
   ## Range: 677.699 m (error: -192.301 m)
   ## Reprojection error between triangulated point and q0: [5.62522473e-10 3.59364094e-09]pixels
-  ## Observed-pixel sensitivity: 103.641m/pixel (q1). Worst direction: [1. 0.]. Linearized correction: 1.855 pixels
+  ## Observed-pixel range sensitivity: 103.641m/pixel (q1). Worst direction: [1. 0.]. Linearized correction: 1.855 pixels
   ## Calibration yaw sensitivity: -3760.702m/deg. Linearized correction: -0.051 degrees of yaw
   ## Calibration pitch sensitivity: 0.059m/deg.
   ## Calibration translation sensitivity: 319.484m/m. Worst direction: [1 0 0].
@@ -766,7 +766,7 @@ else:
         if rangeerr > rangeerr_worst_qerr:
             rangeerr_worst_qerr = rangeerr
             vq_worst_err        = vq
-    print("## Observed-pixel sensitivity: {:.2f}m/pixel (q1). Worst direction: {}. Linearized correction: {:.2f} pixels". \
+    print("## Observed-pixel range sensitivity: {:.2f}m/pixel (q1). Worst direction: {}. Linearized correction: {:.2f} pixels". \
           format(rangeerr_worst_qerr/delta,
                  vq_worst_err,
                  -range_err_have/rangeerr_worst_qerr*delta ))
