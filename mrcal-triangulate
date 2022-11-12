@@ -766,7 +766,7 @@ else:
         if rangeerr > rangeerr_worst_qerr:
             rangeerr_worst_qerr = rangeerr
             vq_worst_err        = vq
-    print("## Observed-pixel range sensitivity: {:.2f}m/pixel (q1). Worst direction: {}. Linearized correction: {:.2f} pixels". \
+    print("## Observed-pixel range sensitivity: {:.3f}m/pixel (q1). Worst direction: {}. Linearized correction: {:.3f} pixels". \
           format(rangeerr_worst_qerr/delta,
                  vq_worst_err,
                  -range_err_have/rangeerr_worst_qerr*delta ))
