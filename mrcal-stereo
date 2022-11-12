@@ -591,6 +591,14 @@ def write_output_all(args,
                      lambda filename: \
                      mrcal.save_image(filename, disparity_colored),
                      image_filenames_base[0] + '-disparity.png')
+    def write_binary(filename):
+        with open(filename, "wb") as f:
+            f.write(disparity.tobytes())
+    write_output_one(args.tag,
+                     args.outdir,
+                     args.force or force_override,
+                     write_binary,
+                     image_filenames_base[0] + f'-disparity-binary-{str(disparity.dtype)}-{disparity.shape[1]}x{disparity.shape[0]}-scale{disparity_scale}.dat')
     write_output_one(args.tag,
                      args.outdir,
                      args.force or force_override,
