@@ -2797,8 +2797,7 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
 
     // input
     mrcal_lensmodel_t mrcal_lensmodel;
-    double            az_fov_deg;
-    double            el_fov_deg;
+    mrcal_point2_t    azel_fov_deg;
     mrcal_point2_t    azel0_deg;
     char*             rectification_model_string;
     mrcal_lensmodel_t rectification_model;
@@ -2824,8 +2823,8 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
 
                                      LENSMODEL_ONE_ARGUMENTS(PARSEARG)
                                      RECTIFIED_RESOLUTION_ARGUMENTS(PARSEARG)
-                                     &az_fov_deg,
-                                     &el_fov_deg,
+                                     &azel_fov_deg.x,
+                                     &azel_fov_deg.y,
                                      &azel0_deg.x,
                                      &azel0_deg.y,
                                      &rectification_model_string,
@@ -2852,8 +2851,7 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
                                     // input
                                     &mrcal_lensmodel,
                                     PyArray_DATA(intrinsics),
-                                    az_fov_deg,
-                                    el_fov_deg,
+                                    &azel_fov_deg,
                                     &azel0_deg,
                                     PyArray_DATA(R_cam0_rect0),
                                     rectification_model.type))

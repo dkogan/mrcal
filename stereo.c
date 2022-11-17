@@ -16,8 +16,7 @@ bool mrcal_rectified_resolution( // output and input
                                  // input
                                  const mrcal_lensmodel_t*     lensmodel,
                                  const double*                intrinsics,
-                                 double                       az_fov_deg,
-                                 double                       el_fov_deg,
+                                 const mrcal_point2_t*        azel_fov_deg,
                                  const mrcal_point2_t*        azel0_deg,
                                  const double*                R_cam0_rect0,
                                  const mrcal_lensmodel_type_t rectification_model)
@@ -160,11 +159,11 @@ bool mrcal_rectified_resolution( // output and input
     if(rectification_model == MRCAL_LENSMODEL_LATLON ||
        rectification_model == MRCAL_LENSMODEL_LONLAT)
     {
-        int Naz = (int)round(az_fov_deg * (*pixels_per_deg_az));
-        int Nel = (int)round(el_fov_deg * (*pixels_per_deg_el));
+        int Naz = (int)round(azel_fov_deg->x * (*pixels_per_deg_az));
+        int Nel = (int)round(azel_fov_deg->y * (*pixels_per_deg_el));
 
-        *pixels_per_deg_az = (double)Naz/az_fov_deg;
-        *pixels_per_deg_el = (double)Nel/el_fov_deg;
+        *pixels_per_deg_az = (double)Naz/azel_fov_deg->x;
+        *pixels_per_deg_el = (double)Nel/azel_fov_deg->y;
     }
 
     return true;
