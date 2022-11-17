@@ -1533,12 +1533,9 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
     }
 
  done:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
     OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY);
     OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY);
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(FREE_PYARRAY);
-#pragma GCC diagnostic pop
 
     Py_XDECREF(b_packed_final);
     Py_XDECREF(x_final);
@@ -1740,11 +1737,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
     }
 
  done:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
     OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
     OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
-#pragma GCC diagnostic pop
 
     return result;
 }
@@ -2390,11 +2384,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     result = Py_None;
 
  done:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
     OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
     OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
-#pragma GCC diagnostic pop
 
     Py_XDECREF(b);
     return result;
@@ -2512,11 +2503,8 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
     result = PyLong_FromLong(icam_extrinsics);
 
  done:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
     OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
     OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
-#pragma GCC diagnostic pop
 
     return result;
 }
