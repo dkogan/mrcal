@@ -11,6 +11,192 @@ import numpy as np
 import numpysane as nps
 import mrcal
 
+
+def rectified_resolution(model,
+                         *,
+                         az_fov_deg,
+                         el_fov_deg,
+                         az0_deg,
+                         el0_deg,
+                         R_cam0_rect0,
+                         pixels_per_deg_az   = -1.,
+                         pixels_per_deg_el   = -1.,
+                         rectification_model = 'LENSMODEL_LATLON'):
+
+    r'''Compute the resolution to be used for the rectified system
+
+SYNOPSIS
+
+    pixels_per_deg_az,  \
+    pixels_per_deg_el = \
+        mrcal.rectified_resolution(model,
+                                   az_fov_deg = 120,
+                                   el_fov_deg = 100,
+                                   az0_deg    = 0,
+                                   el0_deg    = 0
+                                   R_cam0_rect0)
+
+This is usually called from inside mrcal.rectified_system() only, and usually
+there's no reason for the end-user to call this function. If the final
+resolution used in the rectification is needed, call
+mrcal.rectified_system(return_metadata = True)
+
+This function also supports LENSMODEL_LONLAT (not for stereo rectification, but
+for a 360deg around-the-horizon view), and is useful to compute the image
+resolution in those applications.
+
+Similar to mrcal.rectified_system(), this functions takes in rectified-image
+pan,zoom values and a desired resolution in pixels_per_deg_.... If
+pixels_per_deg_... < 0: we compute and return a scaled factor of the input image
+resolution at the center of the rectified field of view. pixels_per_deg_... = -1
+means "full resolution", pixels_per_deg_... = -0.5 means "half resolution" and
+so on.
+
+If pixels_per_deg_... > 0: then we use the intended value as is.
+
+In either case, we adjust the returned pixels_per_deg_... to evenly fit into the
+requested field of view, to match the integer pixel count in the rectified
+image. This is only possible for LENSMODEL_LATLON and LENSMODEL_LONLAT.
+
+ARGUMENTS
+
+- model: the model of the camera that captured the image that will be
+  reprojected. In a stereo pair this is the FIRST camera. Used to determine the
+  angular resolution of the input image. Only the intrinsics are used.
+
+- az_fov_deg: required value for the azimuth (along-the-baseline) field-of-view
+  of the desired rectified system, in degrees
+
+- el_fov_deg: required value for the elevation (across-the-baseline)
+  field-of-view of the desired rectified system, in degrees
+
+- az0_deg: required value for the azimuth center of the rectified images.
+
+- el0_deg: required value for the elevation center of the rectified system.
+
+- pixels_per_deg_az: optional value for the azimuth resolution of the rectified
+  image. If a resolution of >0 is requested, the value is used as is. If a
+  resolution of <0 is requested, we use this as a scale factor on the resolution
+  of the first input image. For instance, to downsample by a factor of 2, pass
+  pixels_per_deg_az = -0.5. By default, we use -1: the resolution of the input
+  image at the center of the rectified system.
+
+- pixels_per_deg_el: same as pixels_per_deg_az but in the elevation direction
+
+- rectification_model: optional string that selects the projection function to
+  use in the resulting rectified system. This is a string selecting the mrcal
+  lens model. Currently supported are "LENSMODEL_LATLON" (the default) and
+  "LENSMODEL_LONLAT" and "LENSMODEL_PINHOLE"
+
+RETURNED VALUES
+
+A tuple (pixels_per_deg_az,pixels_per_deg_el)
+
+    '''
+
+    if pixels_per_deg_az < 0 or \
+       pixels_per_deg_el < 0:
+
+        az0 = az0_deg * np.pi/180.
+        el0 = el0_deg * np.pi/180.
+
+
+        # I need to compute the resolution of the rectified images. I try to
+        # match the resolution of the cameras. I just look at camera0. If your
+        # two cameras are different, pass in the pixels_per_deg yourself
+        #
+        # I look at the center of the stereo field of view. There I have q =
+        # project(v) where v is a unit projection vector. I compute dq/dth where
+        # th is an angular perturbation applied to v.
+        if rectification_model == 'LENSMODEL_LATLON':
+            q0_normalized = np.array((az0,el0))
+            v,dv_dazel = \
+                mrcal.unproject_latlon( q0_normalized,
+                                        get_gradients = True )
+        elif rectification_model == 'LENSMODEL_LONLAT':
+            q0_normalized = np.array((az0,el0))
+            v,dv_dazel = \
+                mrcal.unproject_lonlat( q0_normalized,
+                                        get_gradients = True )
+        elif rectification_model == 'LENSMODEL_PINHOLE':
+            q0_normalized = np.array((np.tan(az0),np.tan(el0)))
+            v,dv_dq0normalized = \
+                mrcal.unproject_pinhole( q0_normalized,
+                                         get_gradients = True )
+            # dq/dth = dtanth/dth = 1/cos^2(th)
+            dv_dazel = dv_dq0normalized
+
+            cos_az0 = np.cos(az0)
+            cos_el0 = np.cos(el0)
+
+            dv_dazel[:,0] /= cos_az0*cos_az0
+            dv_dazel[:,1] /= cos_el0*cos_el0
+        else:
+            raise Exception("Unsupported rectification model")
+
+        v0         = mrcal.rotate_point_R(R_cam0_rect0, v)
+        dv0_dazel  = nps.matmult(R_cam0_rect0, dv_dazel)
+
+        _,dq_dv0,_ = mrcal.project(v0, *model.intrinsics(), get_gradients = True)
+
+        # More complex method that's probably not any better
+        #
+        # if False:
+        #     # I rotate my v to a coordinate system where u = rotate(v) is [0,0,1].
+        #     # Then u = [a,b,0] are all orthogonal to v. So du/dth = [cos, sin, 0].
+        #     # I then have dq/dth = dq/dv dv/du [cos, sin, 0]t
+        #     # ---> dq/dth = dq/dv dv/du[:,:2] [cos, sin]t = M [cos,sin]t
+        #     #
+        #     # norm2(dq/dth) = [cos,sin] MtM [cos,sin]t is then an ellipse with the
+        #     # eigenvalues of MtM giving me the best and worst sensitivities. I can
+        #     # use mrcal.worst_direction_stdev() to find the densest direction. But I
+        #     # actually know the directions I care about, so I evaluate them
+        #     # independently for the az and el directions
+        #     def rotation_any_v_to_z(v):
+        #         r'''Return any rotation matrix that maps the given unit vector v to [0,0,1]'''
+        #         z = v
+        #         if np.abs(v[0]) < .9:
+        #             x = np.array((1,0,0))
+        #         else:
+        #             x = np.array((0,1,0))
+        #         x -= nps.inner(x,v)*v
+        #         x /= nps.mag(x)
+        #         y = np.cross(z,x)
+        #         return nps.cat(x,y,z)
+        #     Ruv = rotation_any_v_to_z(v0)
+        #     M = nps.matmult(dq_dv0, nps.transpose(Ruv[:2,:]))
+        #     # I pick the densest direction: highest |dq/dth|
+        #     pixels_per_rad = mrcal.worst_direction_stdev( nps.matmult( nps.transpose(M),M) )
+
+        dq_dazel = nps.matmult(dq_dv0, dv0_dazel)
+
+        if pixels_per_deg_az < 0:
+            pixels_per_deg_az_have = nps.mag(dq_dazel[:,0])*np.pi/180.
+            pixels_per_deg_az = -pixels_per_deg_az * pixels_per_deg_az_have
+
+        if pixels_per_deg_el < 0:
+            pixels_per_deg_el_have = nps.mag(dq_dazel[:,1])*np.pi/180.
+            pixels_per_deg_el = -pixels_per_deg_el * pixels_per_deg_el_have
+
+    # I now have the desired pixels_per_deg?
+    #
+    # With LENSMODEL_LATLON or LENSMODEL_LONLAT we have even angular spacing, so
+    # q = f th + c -> dq/dth = f everywhere. I can thus compute the rectified
+    # image size and adjust the resolution accordingly
+    #
+    # With LENSMODEL_PINHOLE this is much more complex, so this function just
+    # leaves the desired pixels_per_deg as it is
+    if rectification_model == 'LENSMODEL_LATLON' or \
+       rectification_model == 'LENSMODEL_LONLAT':
+
+        Naz = round(az_fov_deg*pixels_per_deg_az)
+        Nel = round(el_fov_deg*pixels_per_deg_el)
+
+    return \
+        pixels_per_deg_az, \
+        pixels_per_deg_el
+
+
 def rectified_system(models,
                      *,
                      az_fov_deg,
@@ -158,7 +344,7 @@ ARGUMENTS
   Defaults to 0.
 
 - pixels_per_deg_az: optional value for the azimuth resolution of the rectified
-  image. If a resultion of >0 is requested, the value is used as is. If a
+  image. If a resolution of >0 is requested, the value is used as is. If a
   resolution of <0 is requested, we use this as a scale factor on the resolution
   of the first input image. For instance, to downsample by a factor of 2, pass
   pixels_per_deg_az = -0.5. By default, we use -1: the resolution of the input
@@ -294,81 +480,21 @@ else:                   we return this tuple of models, dict of metadata
         # direction of the cameras in the rectified system, and set that as the
         # center azimuth az0.
         az0 = np.arcsin( forward01_proj_right / nps.mag(forward01) )
+        az0_deg = az0 * 180./np.pi
 
     el0 = el0_deg * np.pi/180.
 
-    cos_az0 = np.cos(az0)
-    cos_el0 = np.cos(el0)
-
-    ####### Rectified image resolution
-    if pixels_per_deg_az < 0 or \
-       pixels_per_deg_el < 0:
-        # I need to compute the resolution of the rectified images. I try to
-        # match the resolution of the cameras. I just look at camera0. If your
-        # two cameras are different, pass in the pixels_per_deg yourself
-        #
-        # I look at the center of the stereo field of view. There I have q =
-        # project(v) where v is a unit projection vector. I compute dq/dth where
-        # th is an angular perturbation applied to v.
-
-        if rectification_model == 'LENSMODEL_LATLON':
-            q0_normalized = np.array((az0,el0))
-            v,dv_dazel = \
-                mrcal.unproject_latlon( q0_normalized,
-                                        get_gradients = True )
-        else:
-            q0_normalized = np.array((np.tan(az0),np.tan(el0)))
-            v,dv_dq0normalized = \
-                mrcal.unproject_pinhole( q0_normalized,
-                                         get_gradients = True )
-            # dq/dth = dtanth/dth = 1/cos^2(th)
-            dv_dazel = dv_dq0normalized
-            dv_dazel[:,0] /= cos_az0*cos_az0
-            dv_dazel[:,1] /= cos_el0*cos_el0
-
-        v0         = mrcal.rotate_point_R(R_cam0_rect0, v)
-        dv0_dazel  = nps.matmult(R_cam0_rect0, dv_dazel)
-
-        _,dq_dv0,_ = mrcal.project(v0, *models[0].intrinsics(), get_gradients = True)
-
-        # More complex method that's probably not any better
-        #
-        # if False:
-        #     # I rotate my v to a coordinate system where u = rotate(v) is [0,0,1].
-        #     # Then u = [a,b,0] are all orthogonal to v. So du/dth = [cos, sin, 0].
-        #     # I then have dq/dth = dq/dv dv/du [cos, sin, 0]t
-        #     # ---> dq/dth = dq/dv dv/du[:,:2] [cos, sin]t = M [cos,sin]t
-        #     #
-        #     # norm2(dq/dth) = [cos,sin] MtM [cos,sin]t is then an ellipse with the
-        #     # eigenvalues of MtM giving me the best and worst sensitivities. I can
-        #     # use mrcal.worst_direction_stdev() to find the densest direction. But I
-        #     # actually know the directions I care about, so I evaluate them
-        #     # independently for the az and el directions
-        #     def rotation_any_v_to_z(v):
-        #         r'''Return any rotation matrix that maps the given unit vector v to [0,0,1]'''
-        #         z = v
-        #         if np.abs(v[0]) < .9:
-        #             x = np.array((1,0,0))
-        #         else:
-        #             x = np.array((0,1,0))
-        #         x -= nps.inner(x,v)*v
-        #         x /= nps.mag(x)
-        #         y = np.cross(z,x)
-        #         return nps.cat(x,y,z)
-        #     Ruv = rotation_any_v_to_z(v0)
-        #     M = nps.matmult(dq_dv0, nps.transpose(Ruv[:2,:]))
-        #     # I pick the densest direction: highest |dq/dth|
-        #     pixels_per_rad = mrcal.worst_direction_stdev( nps.matmult( nps.transpose(M),M) )
-
-        dq_dazel = nps.matmult(dq_dv0, dv0_dazel)
-
-        if pixels_per_deg_az < 0:
-            pixels_per_deg_az_have = nps.mag(dq_dazel[:,0])*np.pi/180.
-            pixels_per_deg_az = -pixels_per_deg_az * pixels_per_deg_az_have
-
-        if pixels_per_deg_el < 0:
-            pixels_per_deg_el_have = nps.mag(dq_dazel[:,1])*np.pi/180.
-            pixels_per_deg_el = -pixels_per_deg_el * pixels_per_deg_el_have
+    pixels_per_deg_az,  \
+    pixels_per_deg_el = \
+        rectified_resolution(models[0],
+                             az_fov_deg          = az_fov_deg,
+                             el_fov_deg          = el_fov_deg,
+                             az0_deg             = az0_deg,
+                             el0_deg             = el0_deg,
+                             R_cam0_rect0        = R_cam0_rect0,
+                             pixels_per_deg_az   = pixels_per_deg_az,
+                             pixels_per_deg_el   = pixels_per_deg_el,
+                             rectification_model = rectification_model)
 
     # How do we apply the desired pixels_per_deg?
     #
@@ -393,6 +519,8 @@ else:                   we return this tuple of models, dict of metadata
             mrcal.project_latlon( v, fxycxy )
 
     elif rectification_model == 'LENSMODEL_PINHOLE':
+        cos_az0 = np.cos(az0)
+        cos_el0 = np.cos(el0)
         fxycxy[0] *= cos_az0*cos_az0
         fxycxy[1] *= cos_el0*cos_el0
 
