@@ -680,7 +680,6 @@ static PyObject* lensmodel_metadata_and_config(PyObject* NPY_UNUSED(self),
                                                PyObject* args)
 {
     PyObject* result = NULL;
-    SET_SIGINT();
 
     PyObject* lensmodel_string = NULL;
     if(!PyArg_ParseTuple( args, "U", &lensmodel_string ))
@@ -717,7 +716,6 @@ static PyObject* lensmodel_metadata_and_config(PyObject* NPY_UNUSED(self),
     Py_INCREF(result);
 
  done:
-    RESET_SIGINT();
     return result;
 }
 
@@ -727,7 +725,6 @@ static PyObject* knots_for_splined_models(PyObject* NPY_UNUSED(self),
     PyObject*      result = NULL;
     PyArrayObject* py_ux  = NULL;
     PyArrayObject* py_uy  = NULL;
-    SET_SIGINT();
 
     PyObject* lensmodel_string = NULL;
     if(!PyArg_ParseTuple( args, "U", &lensmodel_string ))
@@ -780,7 +777,6 @@ static PyObject* knots_for_splined_models(PyObject* NPY_UNUSED(self),
  done:
     Py_XDECREF(py_ux);
     Py_XDECREF(py_uy);
-    RESET_SIGINT();
     return result;
 }
 
@@ -788,7 +784,6 @@ static PyObject* lensmodel_num_params(PyObject* NPY_UNUSED(self),
                                  PyObject* args)
 {
     PyObject* result = NULL;
-    SET_SIGINT();
 
     PyObject* lensmodel_string = NULL;
     if(!PyArg_ParseTuple( args, "U", &lensmodel_string ))
@@ -802,7 +797,6 @@ static PyObject* lensmodel_num_params(PyObject* NPY_UNUSED(self),
     result = Py_BuildValue("i", Nparams);
 
  done:
-    RESET_SIGINT();
     return result;
 }
 
@@ -810,7 +804,6 @@ static PyObject* supported_lensmodels(PyObject* NPY_UNUSED(self),
                                       PyObject* NPY_UNUSED(args))
 {
     PyObject* result = NULL;
-    SET_SIGINT();
     const char* const* names = mrcal_supported_lensmodel_names();
 
     // I now have a NULL-terminated list of NULL-terminated strings. Get N
@@ -839,7 +832,6 @@ static PyObject* supported_lensmodels(PyObject* NPY_UNUSED(self),
     }
 
  done:
-    RESET_SIGINT();
     return result;
 }
 
