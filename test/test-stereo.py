@@ -66,7 +66,7 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
     Naz,Nel = models_rectified[0].imagersize()
 
     q0 = np.array(((Naz-1.)/2., (Nel-1.)/2.))
-    v0   = mrcal.unproject(q0, *models_rectified[0].intrinsics(), normalize=True)
+    v0 = mrcal.unproject(q0, *models_rectified[0].intrinsics(), normalize=True)
 
     if lensmodel == 'LENSMODEL_LATLON':
         v0_rect = mrcal.unproject_latlon(np.array((az0, el0)))
