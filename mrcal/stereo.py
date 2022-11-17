@@ -441,7 +441,8 @@ else:                   we return this tuple of models, dict of metadata
 
     # Rotation relating camera0 coords to the rectified camera coords. I fill in
     # each row separately
-    R_rect0_cam0 = np.zeros((3,3), dtype=float)
+    Rt_rect0_cam0 = np.zeros((4,3), dtype=float)
+    R_rect0_cam0 = Rt_rect0_cam0[:3,:]
 
     # Axes of the rectified system, in the cam0 coord system
     right       = R_rect0_cam0[0,:]
@@ -450,7 +451,7 @@ else:                   we return this tuple of models, dict of metadata
 
     # "right" of the rectified coord system: towards the origin of camera1 from
     # camera0, in camera0 coords
-    right += Rt01[3,:]
+    right[:] = Rt01[3,:]
     baseline = nps.mag(right)
     right   /= baseline
 
@@ -462,21 +463,12 @@ else:                   we return this tuple of models, dict of metadata
     # optical-axis direction of the two cameras: component orthogonal to "right"
     forward01 = forward0 + forward1
     forward01_proj_right = nps.inner(forward01,right)
-    forward += forward01 - forward01_proj_right*right
+    forward[:] = forward01 - forward01_proj_right*right
     forward /= nps.mag(forward)
 
     # "down" of the rectified coord system, in camera0 coords. Completes the
     # right,down,forward coordinate system
     down[:] = np.cross(forward,right)
-
-    # All components of R_rect0_cam0 are now filled in
-
-    R_cam0_rect0 = nps.transpose(R_rect0_cam0)
-
-    # rect1 coord system has the same orientation as rect0, but is translated so
-    # that its origin is at the origin of cam1
-    R_rect1_cam0  = R_rect0_cam0
-    R_rect1_cam1  = nps.matmult(R_rect1_cam0, Rt01[:3,:])
 
     ######## Done with the geometry! Now to get the az/el grid. I need to figure
     ######## out the resolution and the extents
@@ -522,7 +514,7 @@ else:                   we return this tuple of models, dict of metadata
                                    el_fov_deg          = el_fov_deg,
                                    az0_deg             = az0_deg,
                                    el0_deg             = el0_deg,
-                                   R_cam0_rect0        = R_cam0_rect0,
+                                   R_cam0_rect0        = nps.transpose(R_rect0_cam0),
                                    pixels_per_deg_az   = pixels_per_deg_az,
                                    pixels_per_deg_el   = pixels_per_deg_el,
                                    rectification_model = rectification_model)
@@ -544,10 +536,9 @@ else:                   we return this tuple of models, dict of metadata
         # (az0,el0) = unproject(imager center)
         Naz = round(az_fov_deg*pixels_per_deg_az)
         Nel = round(el_fov_deg*pixels_per_deg_el)
-        v = mrcal.unproject_latlon( np.array((az0,el0)) )
         fxycxy[2:] = \
             np.array(((Naz-1.)/2.,(Nel-1.)/2.)) - \
-            mrcal.project_latlon( v, fxycxy )
+            np.array((az0,el0)) * fxycxy[:2]
 
     elif rectification_model == 'LENSMODEL_PINHOLE':
         cos_az0 = np.cos(az0)
@@ -638,11 +629,16 @@ else:                   we return this tuple of models, dict of metadata
         raise Exception(f"Resulting stereo geometry has Nel={Nel}. This is nonsensical. You should examine the geometry or adjust the elevation bounds or pixels-per-deg")
 
     ######## The geometry
-    Rt_rect0_cam0 = nps.glue(R_rect0_cam0, np.zeros((3,),), axis=-2)
     Rt_rect0_ref  = mrcal.compose_Rt( Rt_rect0_cam0,
                                       models[0].extrinsics_Rt_fromref())
     # rect1 coord system has the same orientation as rect0, but is translated so
     # that its origin is at the origin of cam1
+
+    # rect1 coord system has the same orientation as rect0, but is translated so
+    # that its origin is at the origin of cam1
+    R_rect1_cam0  = R_rect0_cam0
+    R_rect1_cam1  = nps.matmult(R_rect1_cam0, Rt01[:3,:])
+
     Rt_rect1_cam1 = nps.glue(R_rect1_cam1, np.zeros((3,),), axis=-2)
     Rt_rect1_ref  = mrcal.compose_Rt( Rt_rect1_cam1,
                                       models[1].extrinsics_Rt_fromref())
