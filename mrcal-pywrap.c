@@ -869,6 +869,11 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     return PyArray_Converter(obj,address);
 }
 
+// For various utility functions. Accepts ONE lens model, not N of them like the optimization function
+#define LENSMODEL_ONE_ARGUMENTS(_)                                  \
+    _(lensmodel,                          char*,          NULL,    "s",  ,                                  NULL,                        -1,         {}          ) \
+    _(intrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics,                  NPY_DOUBLE, {-1       } )
+
 #define OPTIMIZE_ARGUMENTS_REQUIRED(_)                                  \
     _(intrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics,                  NPY_DOUBLE, {-1 COMMA -1       } ) \
     _(extrinsics_rt_fromref,              PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, extrinsics_rt_fromref,       NPY_DOUBLE, {-1 COMMA  6       } ) \
@@ -909,6 +914,33 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     _(no_jacobian,                        int,               0,    "p",  ,                                  NULL,           -1,         {}) \
     _(no_factorization,                   int,               0,    "p",  ,                                  NULL,           -1,         {})
 
+
+static bool lensmodel_one_validate_args( // out
+                                         mrcal_lensmodel_t* mrcal_lensmodel,
+
+                                         // in
+                                         LENSMODEL_ONE_ARGUMENTS(ARG_LIST_DEFINE)
+                                         bool do_check_layout)
+{
+    if(do_check_layout)
+    {
+        LENSMODEL_ONE_ARGUMENTS(CHECK_LAYOUT);
+    }
+
+    if(!parse_lensmodel_from_arg(mrcal_lensmodel, lensmodel))
+        return false;
+    int NlensParams      = mrcal_lensmodel_num_params(mrcal_lensmodel);
+    int NlensParams_have = PyArray_DIMS(intrinsics)[PyArray_NDIM(intrinsics)-1];
+    if( NlensParams != NlensParams_have )
+    {
+        BARF("intrinsics.shape[-1] MUST be %d. Instead got %ld",
+             NlensParams,
+             NlensParams_have );
+        return false;
+    }
+
+    return true;
+}
 
 // Using this for both optimize() and optimizer_callback()
 static bool optimize_validate_args( // out
@@ -972,17 +1004,14 @@ static bool optimize_validate_args( // out
         return false;
     }
 
-    if(!parse_lensmodel_from_arg(mrcal_lensmodel, lensmodel))
+    // I reuse the single-lensmodel validation function. That function expects
+    // ONE set of intrinsics instead of N intrinsics, like this function does.
+    // But I already did the CHECK_LAYOUT() at the start of this function, and
+    // I'm not going to do that again here: passing do_check_layout=false. So
+    // that difference doesn't matter
+    if(!lensmodel_one_validate_args(mrcal_lensmodel, lensmodel, intrinsics,
+                                    false))
         return false;
-
-    int NlensParams = mrcal_lensmodel_num_params(mrcal_lensmodel);
-    if( NlensParams != PyArray_DIMS(intrinsics)[1] )
-    {
-        BARF("intrinsics.shape[1] MUST be %d. Instead got %ld",
-                     NlensParams,
-                     PyArray_DIMS(intrinsics)[1] );
-        return false;
-    }
 
     // make sure the indices arrays are valid: the data is monotonic and
     // in-range
