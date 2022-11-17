@@ -62,43 +62,69 @@ do {                                                                    \
 #define PARSECODE(      name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) parsecode
 #define PARSEARG(       name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) parseprearg &name,
 #define FREE_PYARRAY(   name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) Py_XDECREF(name_pyarrayobj);
-#define CHECK_LAYOUT(   name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) \
-    if(!IS_NULL(name_pyarrayobj)) {                                     \
-        int dims[] = dims_ref;                                          \
-        int ndims = (int)sizeof(dims)/(int)sizeof(dims[0]);             \
-                                                                        \
-        if( ndims > 0 )                                                 \
-        {                                                               \
-            if( PyArray_NDIM((PyArrayObject*)name_pyarrayobj) != ndims )          \
-            {                                                           \
-                BARF("'" #name "' must have exactly %d dims; got %d", ndims, PyArray_NDIM((PyArrayObject*)name_pyarrayobj)); \
-                return false;                                           \
-            }                                                           \
-            for(int i=0; i<ndims; i++)                                  \
-                if(dims[i] >= 0 && dims[i] != PyArray_DIMS((PyArrayObject*)name_pyarrayobj)[i]) \
-                {                                                       \
-                    BARF("'" #name "' must have dimensions '" #dims_ref "' where <0 means 'any'. Dims %d got %ld instead", i, PyArray_DIMS((PyArrayObject*)name_pyarrayobj)[i]); \
-                    return false;                                       \
-                }                                                       \
-        }                                                               \
-        if( (int)npy_type >= 0 )                                        \
-        {                                                               \
-            if( PyArray_TYPE((PyArrayObject*)name_pyarrayobj) != npy_type )       \
-            {                                                           \
-                BARF("'" #name "' must have type: " #npy_type); \
-                return false;                                           \
-            }                                                           \
-            if( !PyArray_IS_C_CONTIGUOUS((PyArrayObject*)name_pyarrayobj) )       \
-            {                                                           \
-                BARF("'" #name "' must be c-style contiguous"); \
-                return false;                                           \
-            }                                                           \
-        }                                                               \
-    }
 #define PYMETHODDEF_ENTRY(function_prefix, name, args) {#name,          \
                                                         (PyCFunction)function_prefix ## name, \
                                                         args,           \
                                                         function_prefix ## name ## _docstring}
+#define CHECK_LAYOUT(   name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) \
+    {                                                                   \
+        const int dims[] = dims_ref;                                    \
+        int       ndims  = (int)sizeof(dims)/(int)sizeof(dims[0]);      \
+        if(!_check_layout( #name, (PyArrayObject*)name_pyarrayobj, (int)npy_type, #npy_type, dims, ndims, #dims_ref )) \
+            return false;                                               \
+    }
+
+static bool _check_layout(const char*    name,
+                          PyArrayObject* pyarrayobj,
+                          int            npy_type,
+                          const char*    npy_type_string,
+                          const int*     dims_ref,
+                          int            Ndims_ref,
+                          const char*    dims_ref_string)
+{
+    if(!IS_NULL(pyarrayobj))
+    {
+        if( Ndims_ref > 0 )
+        {
+            if( PyArray_NDIM(pyarrayobj) != Ndims_ref )
+            {
+                BARF("'%s' must have exactly %d dims; got %d",
+                     name,
+                     Ndims_ref, PyArray_NDIM(pyarrayobj));
+                return false;
+            }
+            for(int i=0; i<Ndims_ref; i++)
+                if(dims_ref[i] >= 0 && dims_ref[i] != PyArray_DIMS(pyarrayobj)[i])
+                {
+                    BARF("'%s' must have dimensions '%s' where <0 means 'any'. Dims %d got %ld instead",
+                         name, dims_ref_string,
+                         i, PyArray_DIMS(pyarrayobj)[i]);
+                    return false;
+                }
+        }
+        if( npy_type >= 0 )
+        {
+            if( PyArray_TYPE(pyarrayobj) != npy_type )
+            {
+                BARF("'%s' must have type: %s",
+                     name, npy_type_string);
+                return false;
+            }
+            if( !PyArray_IS_C_CONTIGUOUS(pyarrayobj) )
+            {
+                BARF("'%s' must be c-style contiguous",
+                     name);
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+
+
+
+
 
 
 // adds a reference to P,I,X, unless an error is reported
@@ -896,12 +922,9 @@ static bool optimize_validate_args( // out
 {
     static_assert( sizeof(mrcal_pose_t)/sizeof(double) == 6, "mrcal_pose_t is assumed to contain 6 elements");
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
     OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
     OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(CHECK_LAYOUT);
-#pragma GCC diagnostic pop
 
     int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
     int Ncameras_extrinsics = PyArray_DIMS(extrinsics_rt_fromref)[0];
@@ -1668,11 +1691,8 @@ static PyObject* state_index_generic(PyObject* self, PyObject* args, PyObject* k
     // dimensions safely
     bool check(void)
     {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
         OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
         OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
-#pragma GCC diagnostic pop
         return true;
     }
     if(!check()) goto done;
@@ -2294,11 +2314,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     // dimensions safely
     bool check(void)
     {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
         OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
         OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
-#pragma GCC diagnostic pop
         return true;
     }
     if(!check()) goto done;
@@ -2438,11 +2455,8 @@ static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, P
     // dimensions safely
     bool check(void)
     {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
         OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
         OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
-#pragma GCC diagnostic pop
         return true;
     }
     if(!check()) goto done;
