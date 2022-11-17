@@ -103,7 +103,6 @@ A tuple (pixels_per_deg_az,pixels_per_deg_el)
                                               pixels_per_deg_el   = pixels_per_deg_el,
                                               rectification_model = rectification_model)
 
-
 def _rectified_resolution_python(model,
                                  *,
                                  az_fov_deg,
@@ -670,7 +669,6 @@ else:                   we return this tuple of models, dict of metadata
               baseline          = baseline )
 
     return models_rectified, metadata
-
 
 
 def _validate_models_rectified(models_rectified):
