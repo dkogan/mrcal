@@ -1155,9 +1155,60 @@ for i in range(Nimages):
 
                 # mrcal-triangulate tool: guts into a function. Call those
                 # guts here, and display them in the window
+
+
+
+
+
+
+
+                # This is range sensitivity when looking at the expected plane.
+                # ASSUMING the usual latlon rectification
+                n0 = np.array((0.02652536, 0.84598057, 0.53255355))
+                dist  = 0.1565642688765455
+                Rt_rect0_cam0 = \
+                    mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
+                                      models          [0].extrinsics_Rt_toref() )
+                nrect0 = mrcal.rotate_point_R(Rt_rect0_cam0[:3,:], n0)
+
+                vrect0 = mrcal.unproject_latlon(q0_rectified,
+                                           models_rectified[0].intrinsics()[1])
+                k = dist / nps.inner(vrect0, nrect0)
+                prect0 = k*vrect0
+
+                # This should be just p1 = p0 - b*xhat
+                prect1 = \
+                    mrcal.transform_point_Rt( mrcal.compose_Rt( models_rectified[1].extrinsics_Rt_fromref(),
+                                                                models_rectified[0].extrinsics_Rt_toref()),
+                                              prect0 )
+                th0 = mrcal.project_latlon(prect0)[0]
+                th1 = mrcal.project_latlon(prect1)[0]
+                baseline = \
+                    nps.mag(mrcal.compose_Rt( models_rectified[1].extrinsics_Rt_fromref(),
+                                              models_rectified[0].extrinsics_Rt_toref())[3,:])
+                range_predicted = -baseline * (np.cos(th0)/np.tan(th1-th0) - np.sin(th0))
+
+                s = np.sin(th1-th0)
+                drange_dth1 = baseline * np.cos(th0)/(s*s)
+                fx = models_rectified[0].intrinsics()[1][0]
+                drange_ddisparity_predicted = drange_dth1 / fx
+
+
+
+
+
+
+
+
+
                 set_status(f"Disparity: {d/disparity_scale:.2f}pixels\n" +
                            f"range: {_range:.2f}m\n" +
-                           f"drange/ddisparity: {drange_ddisparity:.3f}m/pixel")
+                           f"drange/ddisparity: {drange_ddisparity:.4f}m/pixel\n" + \
+                           f"Expected range error: {drange_ddisparity*0.3:.4f}m\n" \
+                           f"Expected range error: {drange_ddisparity*0.3/_range*100:.1f}%\n" \
+                           + f"\n\npredicted range at plane: {range_predicted}" \
+                           + f"\n\npredicted drange/ddisparity at plane: {drange_ddisparity_predicted}"
+                           )
 
                 if 0:
                     p0_rectified = \
