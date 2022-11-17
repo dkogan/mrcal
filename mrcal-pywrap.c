@@ -2770,6 +2770,110 @@ PyObject* save_image(PyObject* NPY_UNUSED(self),
     return result;
 }
 
+// LENSMODEL_ONE_ARGUMENTS followed by these
+#define RECTIFIED_RESOLUTION_ARGUMENTS(_)                               \
+    _(R_cam0_rect0, PyArrayObject*, NULL, "O&", PyArray_Converter COMMA, R_cam0_rect0, NPY_DOUBLE, {3 COMMA 3 } )
+static bool
+rectified_resolution_validate_args(RECTIFIED_RESOLUTION_ARGUMENTS(ARG_LIST_DEFINE)
+                                   void* dummy __attribute__((unused)))
+{
+    RECTIFIED_RESOLUTION_ARGUMENTS(CHECK_LAYOUT);
+    return true;
+}
+
+static
+PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
+                                PyObject* args,
+                                PyObject* kwargs)
+{
+    PyObject* result = NULL;
+
+    LENSMODEL_ONE_ARGUMENTS(ARG_DEFINE);
+    RECTIFIED_RESOLUTION_ARGUMENTS(ARG_DEFINE);
+
+    // input and output
+    double pixels_per_deg_az;
+    double pixels_per_deg_el;
+
+    // input
+    mrcal_lensmodel_t mrcal_lensmodel;
+    double            az_fov_deg;
+    double            el_fov_deg;
+    mrcal_point2_t    azel0_deg;
+    char*             rectification_model_string;
+    mrcal_lensmodel_t rectification_model;
+
+
+    char* keywords[] = { LENSMODEL_ONE_ARGUMENTS(NAMELIST)
+                         RECTIFIED_RESOLUTION_ARGUMENTS(NAMELIST)
+                         "az_fov_deg",
+                         "el_fov_deg",
+                         "az0_deg",
+                         "el0_deg",
+                         "rectification_model",
+                         "pixels_per_deg_az",
+                         "pixels_per_deg_el",
+                         NULL};
+    // This function is internal, so EVERYTHING is required
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     LENSMODEL_ONE_ARGUMENTS(PARSECODE)
+                                     RECTIFIED_RESOLUTION_ARGUMENTS(PARSECODE)
+                                     "ddddsdd",
+
+                                     keywords,
+
+                                     LENSMODEL_ONE_ARGUMENTS(PARSEARG)
+                                     RECTIFIED_RESOLUTION_ARGUMENTS(PARSEARG)
+                                     &az_fov_deg,
+                                     &el_fov_deg,
+                                     &azel0_deg.x,
+                                     &azel0_deg.y,
+                                     &rectification_model_string,
+                                     &pixels_per_deg_az,
+                                     &pixels_per_deg_el ))
+        goto done;
+
+
+    if( !lensmodel_one_validate_args(&mrcal_lensmodel,
+                                     LENSMODEL_ONE_ARGUMENTS(ARG_LIST_CALL)
+                                     true /* DO check the layout */ ))
+        goto done;
+
+    if(!parse_lensmodel_from_arg(&rectification_model, rectification_model_string))
+        goto done;
+
+    if(!rectified_resolution_validate_args(RECTIFIED_RESOLUTION_ARGUMENTS(ARG_LIST_CALL)
+                                           NULL))
+        goto done;
+
+    if(!mrcal_rectified_resolution( &pixels_per_deg_az,
+                                    &pixels_per_deg_el,
+
+                                    // input
+                                    &mrcal_lensmodel,
+                                    PyArray_DATA(intrinsics),
+                                    az_fov_deg,
+                                    el_fov_deg,
+                                    &azel0_deg,
+                                    PyArray_DATA(R_cam0_rect0),
+                                    rectification_model.type))
+    {
+        BARF("mrcal_rectified_resolution() failed!");
+        goto done;
+    }
+
+    result = Py_BuildValue("(dd)",
+                           pixels_per_deg_az,
+                           pixels_per_deg_el);
+
+ done:
+
+    LENSMODEL_ONE_ARGUMENTS(FREE_PYARRAY);
+    RECTIFIED_RESOLUTION_ARGUMENTS(FREE_PYARRAY);
+
+    return result;
+}
+
 static const char state_index_intrinsics_docstring[] =
 #include "state_index_intrinsics.docstring.h"
     ;
@@ -2867,6 +2971,9 @@ static const char load_image_docstring[] =
 static const char save_image_docstring[] =
 #include "save_image.docstring.h"
     ;
+static const char _rectified_resolution_docstring[] =
+#include "_rectified_resolution.docstring.h"
+    ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizer_callback,               METH_VARARGS | METH_KEYWORDS),
@@ -2901,6 +3008,8 @@ static PyMethodDef methods[] =
 
       PYMETHODDEF_ENTRY(, load_image,                  METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, save_image,                  METH_VARARGS | METH_KEYWORDS),
+
+      PYMETHODDEF_ENTRY(,_rectified_resolution,        METH_VARARGS | METH_KEYWORDS),
       {}
     };
 

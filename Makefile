@@ -24,6 +24,7 @@ LIB_SOURCES +=			\
   mrcal.c			\
   mrcal-opencv.c		\
   mrcal-image.c			\
+  stereo.c			\
   poseutils.c			\
   poseutils-opencv.c		\
   poseutils-uses-autodiff.cc	\

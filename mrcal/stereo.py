@@ -91,15 +91,46 @@ ARGUMENTS
 RETURNED VALUES
 
 A tuple (pixels_per_deg_az,pixels_per_deg_el)
+'''
+    # The guts of this function are implemented in C. Call that
+    return mrcal._mrcal._rectified_resolution(*model.intrinsics(),
+                                              R_cam0_rect0        = np.ascontiguousarray(R_cam0_rect0),
+                                              az_fov_deg          = az_fov_deg,
+                                              el_fov_deg          = el_fov_deg,
+                                              az0_deg             = az0_deg,
+                                              el0_deg             = el0_deg,
+                                              pixels_per_deg_az   = pixels_per_deg_az,
+                                              pixels_per_deg_el   = pixels_per_deg_el,
+                                              rectification_model = rectification_model)
+
+
+def _rectified_resolution_python(model,
+                                 *,
+                                 az_fov_deg,
+                                 el_fov_deg,
+                                 az0_deg,
+                                 el0_deg,
+                                 R_cam0_rect0,
+                                 pixels_per_deg_az   = -1.,
+                                 pixels_per_deg_el   = -1.,
+                                 rectification_model = 'LENSMODEL_LATLON'):
+
+    r'''Reference implementation of mrcal_rectified_resolution() in python
+
+The main implementation is written in C in stereo.c:
+
+  mrcal_rectified_resolution()
+
+This should be identical to the rectified_resolution() function above. There's
+no explicit test to compare the two implementations, but test/test-stereo.py
+should catch any differences.
 
     '''
 
     if pixels_per_deg_az < 0 or \
        pixels_per_deg_el < 0:
 
-        az0 = az0_deg * np.pi/180.
-        el0 = el0_deg * np.pi/180.
-
+        azel0 = np.array((az0_deg,el0_deg)) * np.pi/180.
 
         # I need to compute the resolution of the rectified images. I try to
         # match the resolution of the cameras. I just look at camera0. If your
@@ -109,28 +140,26 @@ A tuple (pixels_per_deg_az,pixels_per_deg_el)
         # project(v) where v is a unit projection vector. I compute dq/dth where
         # th is an angular perturbation applied to v.
         if rectification_model == 'LENSMODEL_LATLON':
-            q0_normalized = np.array((az0,el0))
+            q0_normalized = azel0
             v,dv_dazel = \
                 mrcal.unproject_latlon( q0_normalized,
                                         get_gradients = True )
         elif rectification_model == 'LENSMODEL_LONLAT':
-            q0_normalized = np.array((az0,el0))
+            q0_normalized = azel0
             v,dv_dazel = \
                 mrcal.unproject_lonlat( q0_normalized,
                                         get_gradients = True )
         elif rectification_model == 'LENSMODEL_PINHOLE':
-            q0_normalized = np.array((np.tan(az0),np.tan(el0)))
+            q0_normalized = np.tan(azel0)
             v,dv_dq0normalized = \
                 mrcal.unproject_pinhole( q0_normalized,
                                          get_gradients = True )
             # dq/dth = dtanth/dth = 1/cos^2(th)
             dv_dazel = dv_dq0normalized
 
-            cos_az0 = np.cos(az0)
-            cos_el0 = np.cos(el0)
+            cos_azel0 = np.cos(azel0)
+            dv_dazel /= cos_azel0*cos_azel0
 
-            dv_dazel[:,0] /= cos_az0*cos_az0
-            dv_dazel[:,1] /= cos_el0*cos_el0
         else:
             raise Exception("Unsupported rectification model")
 
@@ -172,13 +201,13 @@ A tuple (pixels_per_deg_az,pixels_per_deg_el)
 
         if pixels_per_deg_az < 0:
             pixels_per_deg_az_have = nps.mag(dq_dazel[:,0])*np.pi/180.
-            pixels_per_deg_az = -pixels_per_deg_az * pixels_per_deg_az_have
+            pixels_per_deg_az *= -pixels_per_deg_az_have
 
         if pixels_per_deg_el < 0:
             pixels_per_deg_el_have = nps.mag(dq_dazel[:,1])*np.pi/180.
-            pixels_per_deg_el = -pixels_per_deg_el * pixels_per_deg_el_have
+            pixels_per_deg_el *= -pixels_per_deg_el_have
 
-    # I now have the desired pixels_per_deg?
+    # I now have the desired pixels_per_deg
     #
     # With LENSMODEL_LATLON or LENSMODEL_LONLAT we have even angular spacing, so
     # q = f th + c -> dq/dth = f everywhere. I can thus compute the rectified
@@ -489,15 +518,15 @@ else:                   we return this tuple of models, dict of metadata
 
     pixels_per_deg_az,  \
     pixels_per_deg_el = \
-        rectified_resolution(models[0],
-                             az_fov_deg          = az_fov_deg,
-                             el_fov_deg          = el_fov_deg,
-                             az0_deg             = az0_deg,
-                             el0_deg             = el0_deg,
-                             R_cam0_rect0        = R_cam0_rect0,
-                             pixels_per_deg_az   = pixels_per_deg_az,
-                             pixels_per_deg_el   = pixels_per_deg_el,
-                             rectification_model = rectification_model)
+        mrcal.rectified_resolution(models[0],
+                                   az_fov_deg          = az_fov_deg,
+                                   el_fov_deg          = el_fov_deg,
+                                   az0_deg             = az0_deg,
+                                   el0_deg             = el0_deg,
+                                   R_cam0_rect0        = R_cam0_rect0,
+                                   pixels_per_deg_az   = pixels_per_deg_az,
+                                   pixels_per_deg_el   = pixels_per_deg_el,
+                                   rectification_model = rectification_model)
 
     # How do we apply the desired pixels_per_deg?
     #
