@@ -650,15 +650,8 @@ CHOLMOD_factorization_from_cholmod_sparse(cholmod_sparse* Jt)
 static bool parse_lensmodel_from_arg(// output
                                      mrcal_lensmodel_t* lensmodel,
                                      // input
-                                     PyObject* lensmodel_string)
+                                     const char* lensmodel_cstring)
 {
-    const char* lensmodel_cstring = PyUnicode_AsUTF8(lensmodel_string);
-    if( lensmodel_cstring == NULL)
-    {
-        BARF("The lens model must be given as a string");
-        return false;
-    }
-
     mrcal_lensmodel_from_name(lensmodel, lensmodel_cstring);
     if( !mrcal_lensmodel_type_is_valid(lensmodel->type) )
     {
@@ -681,8 +674,8 @@ static PyObject* lensmodel_metadata_and_config(PyObject* NPY_UNUSED(self),
 {
     PyObject* result = NULL;
 
-    PyObject* lensmodel_string = NULL;
-    if(!PyArg_ParseTuple( args, "U", &lensmodel_string ))
+    char* lensmodel_string = NULL;
+    if(!PyArg_ParseTuple( args, "s", &lensmodel_string ))
         goto done;
     mrcal_lensmodel_t lensmodel;
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
@@ -726,8 +719,8 @@ static PyObject* knots_for_splined_models(PyObject* NPY_UNUSED(self),
     PyArrayObject* py_ux  = NULL;
     PyArrayObject* py_uy  = NULL;
 
-    PyObject* lensmodel_string = NULL;
-    if(!PyArg_ParseTuple( args, "U", &lensmodel_string ))
+    char* lensmodel_string = NULL;
+    if(!PyArg_ParseTuple( args, "s", &lensmodel_string ))
         goto done;
     mrcal_lensmodel_t lensmodel;
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
@@ -735,7 +728,7 @@ static PyObject* knots_for_splined_models(PyObject* NPY_UNUSED(self),
 
     if(lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
     {
-        BARF( "This function works only with the MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC model. %S passed in",
+        BARF( "This function works only with the MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC model. %s passed in",
               lensmodel_string);
         goto done;
     }
@@ -785,8 +778,8 @@ static PyObject* lensmodel_num_params(PyObject* NPY_UNUSED(self),
 {
     PyObject* result = NULL;
 
-    PyObject* lensmodel_string = NULL;
-    if(!PyArg_ParseTuple( args, "U", &lensmodel_string ))
+    char* lensmodel_string = NULL;
+    if(!PyArg_ParseTuple( args, "s", &lensmodel_string ))
         goto done;
     mrcal_lensmodel_t lensmodel;
     if(!parse_lensmodel_from_arg(&lensmodel, lensmodel_string))
@@ -857,7 +850,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     _(indices_frame_camintrinsics_camextrinsics,PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_frame_camintrinsics_camextrinsics,  NPY_INT32,    {-1 COMMA  3       } ) \
     _(observations_point,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_point,          NPY_DOUBLE, {-1 COMMA  3       } ) \
     _(indices_point_camintrinsics_camextrinsics,PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_point_camintrinsics_camextrinsics, NPY_INT32,    {-1 COMMA  3       } ) \
-    _(lensmodel,                          PyObject*,      NULL,    "U",  ,                        NULL,                        -1,         {}                   ) \
+    _(lensmodel,                          char*,          NULL,    "s",  ,                        NULL,                        -1,         {}                   ) \
     _(imagersizes,                        PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, imagersizes,                 NPY_INT32,    {-1 COMMA 2        } )
 
 // Defaults for do_optimize... MUST match those in ingest_packed_state()
