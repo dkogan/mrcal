@@ -192,6 +192,9 @@ A tuple (pixels_per_deg_az,pixels_per_deg_el)
         Naz = round(az_fov_deg*pixels_per_deg_az)
         Nel = round(el_fov_deg*pixels_per_deg_el)
 
+        pixels_per_deg_az = Naz/az_fov_deg
+        pixels_per_deg_el = Nel/el_fov_deg
+
     return \
         pixels_per_deg_az, \
         pixels_per_deg_el
