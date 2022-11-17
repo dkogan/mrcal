@@ -19,7 +19,7 @@ bool mrcal_rectified_resolution( // output and input
                                  const mrcal_point2_t*        azel_fov_deg,
                                  const mrcal_point2_t*        azel0_deg,
                                  const double*                R_cam0_rect0,
-                                 const mrcal_lensmodel_type_t rectification_model)
+                                 const mrcal_lensmodel_type_t rectification_model_type)
 {
     // Get the rectified image resolution
     if( *pixels_per_deg_az < 0 ||
@@ -37,17 +37,17 @@ bool mrcal_rectified_resolution( // output and input
         // th is an angular perturbation applied to v.
         double v[3];
         double dv_dazel[3*2];
-        if(rectification_model == MRCAL_LENSMODEL_LATLON)
+        if(rectification_model_type == MRCAL_LENSMODEL_LATLON)
             mrcal_unproject_latlon((mrcal_point3_t*)v, (mrcal_point2_t*)dv_dazel,
                                    &azel0,
                                    1,
                                    (double[]){1.,1.,0.,0.});
-        else if(rectification_model == MRCAL_LENSMODEL_LONLAT)
+        else if(rectification_model_type == MRCAL_LENSMODEL_LONLAT)
             mrcal_unproject_lonlat((mrcal_point3_t*)v, (mrcal_point2_t*)dv_dazel,
                                    &azel0,
                                    1,
                                    (double[]){1.,1.,0.,0.});
-        else if(rectification_model == MRCAL_LENSMODEL_PINHOLE)
+        else if(rectification_model_type == MRCAL_LENSMODEL_PINHOLE)
         {
 
             mrcal_point2_t q0_normalized = {.x = tan(azel0.x),
@@ -156,8 +156,8 @@ bool mrcal_rectified_resolution( // output and input
     //
     // With LENSMODEL_PINHOLE this is much more complex, so this function just
     // leaves the desired pixels_per_deg as it is
-    if(rectification_model == MRCAL_LENSMODEL_LATLON ||
-       rectification_model == MRCAL_LENSMODEL_LONLAT)
+    if(rectification_model_type == MRCAL_LENSMODEL_LATLON ||
+       rectification_model_type == MRCAL_LENSMODEL_LONLAT)
     {
         int Naz = (int)round(azel_fov_deg->x * (*pixels_per_deg_az));
         int Nel = (int)round(azel_fov_deg->y * (*pixels_per_deg_el));

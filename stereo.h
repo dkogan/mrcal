@@ -18,4 +18,4 @@ bool mrcal_rectified_resolution( // output and input
                                  const mrcal_point2_t*        azel_fov_deg,
                                  const mrcal_point2_t*        azel0_deg,
                                  const double*                R_cam0_rect0,
-                                 const mrcal_lensmodel_type_t rectification_model);
+                                 const mrcal_lensmodel_type_t rectification_model_type);
