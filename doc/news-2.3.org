@@ -16,4 +16,13 @@ show_residuals_....() displays board AND point residuals
 mrcal_image_..._crop() is now static inline
 This fixes linker errors on some compilers
 
+Commandline tools print errors instead of throwing exceptions
+
+mrcal-stereo writes out a binary disparity image for easy post-processing
+
+show_projection_diff() and mrcal-show-projection-diff handles nan values better:
+no confused plots or ugly warnings on the console
+
+mrcal.rectified_resolution() is now separate from mrcal.rectified_system()
+
 * Migration notes 2.2 -> 2.3
