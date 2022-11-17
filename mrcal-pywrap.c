@@ -13,7 +13,7 @@
 
 #include "mrcal.h"
 #include "mrcal-image.h"
-
+#include "stereo.h"
 
 #define IS_NULL(x) ((x) == NULL || (PyObject*)(x) == Py_None)
 
