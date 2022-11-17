@@ -70,7 +70,7 @@ do {                                                                    \
     {                                                                   \
         const int dims[] = dims_ref;                                    \
         int       ndims  = (int)sizeof(dims)/(int)sizeof(dims[0]);      \
-        if(!_check_layout( #name, (PyArrayObject*)name_pyarrayobj, (int)npy_type, #npy_type, dims, ndims, #dims_ref )) \
+        if(!_check_layout( #name, (PyArrayObject*)name_pyarrayobj, (int)npy_type, #npy_type, dims, ndims, #dims_ref, true )) \
             return false;                                               \
     }
 
@@ -80,7 +80,8 @@ static bool _check_layout(const char*    name,
                           const char*    npy_type_string,
                           const int*     dims_ref,
                           int            Ndims_ref,
-                          const char*    dims_ref_string)
+                          const char*    dims_ref_string,
+                          bool           do_check_for_contiguity)
 {
     if(!IS_NULL(pyarrayobj))
     {
@@ -110,7 +111,8 @@ static bool _check_layout(const char*    name,
                      name, npy_type_string);
                 return false;
             }
-            if( !PyArray_IS_C_CONTIGUOUS(pyarrayobj) )
+            if( do_check_for_contiguity &&
+                !PyArray_IS_C_CONTIGUOUS(pyarrayobj) )
             {
                 BARF("'%s' must be c-style contiguous",
                      name);
