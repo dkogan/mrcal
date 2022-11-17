@@ -50,7 +50,8 @@ typedef struct {} mrcal_LENSMODEL_CAHVOR__config_t;
 #define _MRCAL_ITEM_DEFINE_ELEMENT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) type name bitfield;
 
 #ifndef __cplusplus
-// This barfs with g++ 4.8, so I disable it
+// This barfs with g++ 4.8, so I disable it for C++ in general. Checking it for
+// C code is sufficient
 _Static_assert(sizeof(uint16_t) == sizeof(unsigned short int), "I need a short to be 16-bit. Py_BuildValue doesn't let me just specify that. H means 'unsigned short'");
 #endif
 
