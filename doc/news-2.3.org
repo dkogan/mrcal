@@ -26,4 +26,6 @@ no confused plots or ugly warnings on the console
 mrcal.rectified_resolution() is now separate from mrcal.rectified_system(), and
 has a callable C implementation
 
+same with mrcal.rectified_system()
+
 * Migration notes 2.2 -> 2.3
