@@ -2809,15 +2809,15 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
                          "el_fov_deg",
                          "az0_deg",
                          "el0_deg",
-                         "rectification_model",
                          "pixels_per_deg_az",
                          "pixels_per_deg_el",
+                         "rectification_model",
                          NULL};
     // This function is internal, so EVERYTHING is required
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
                                      LENSMODEL_ONE_ARGUMENTS(PARSECODE)
                                      RECTIFIED_RESOLUTION_ARGUMENTS(PARSECODE)
-                                     "ddddsdd",
+                                     "dddddds",
 
                                      keywords,
 
@@ -2827,9 +2827,9 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
                                      &azel_fov_deg.y,
                                      &azel0_deg.x,
                                      &azel0_deg.y,
-                                     &rectification_model_string,
                                      &pixels_per_deg_az,
-                                     &pixels_per_deg_el ))
+                                     &pixels_per_deg_el,
+                                     &rectification_model_string ))
         goto done;
 
 
