@@ -413,6 +413,104 @@ else:                   we return this tuple of models, dict of metadata
 
     '''
 
+    if rectification_model == 'LENSMODEL_PINHOLE':
+        # The pinhole rectification path is not implemented in C yet. Call the
+        # Python
+        return _rectified_system_python(models,
+                                        az_fov_deg          = az_fov_deg,
+                                        el_fov_deg          = el_fov_deg,
+                                        az0_deg             = az0_deg,
+                                        el0_deg             = el0_deg,
+                                        pixels_per_deg_az   = pixels_per_deg_az,
+                                        pixels_per_deg_el   = pixels_per_deg_el,
+                                        rectification_model = rectification_model,
+                                        return_metadata     = return_metadata)
+
+    # The guts of this function are implemented in C. Call that
+    pixels_per_deg_az, \
+    pixels_per_deg_el, \
+    Naz, Nel,          \
+    fxycxy_rectified,  \
+    rt_rect0_ref,      \
+    baseline,          \
+    az_fov_deg,        \
+    el_fov_deg,        \
+    az0_deg,           \
+    el0_deg =          \
+        mrcal._mrcal._rectified_system(*models[0].intrinsics(),
+                                       models[0].extrinsics_rt_fromref(),
+                                       models[1].extrinsics_rt_fromref(),
+                                       az_fov_deg          = az_fov_deg,
+                                       el_fov_deg          = el_fov_deg,
+                                       az0_deg             = az0_deg if az0_deg is not None else 1e7,
+                                       el0_deg             = el0_deg,
+                                       pixels_per_deg_az   = pixels_per_deg_az,
+                                       pixels_per_deg_el   = pixels_per_deg_el,
+                                       rectification_model = rectification_model)
+
+
+    ######## The geometry
+
+    # rect1 coord system has the same orientation as rect0, but translated by
+    # baseline in the x direction (its origin is at the origin of cam1)
+    #   rt_rect0_rect1 = (0,0,0, baseline,0,0)
+    #   rt_rect1_ref = rt_rect1_rect0 rt_rect0_ref
+    rt_rect1_ref = rt_rect0_ref.copy()
+    rt_rect1_ref[3] -= baseline
+
+    models_rectified = \
+        ( mrcal.cameramodel( intrinsics = (rectification_model, fxycxy_rectified),
+                             imagersize = (Naz, Nel),
+                             extrinsics_rt_fromref = rt_rect0_ref),
+
+          mrcal.cameramodel( intrinsics = (rectification_model, fxycxy_rectified),
+                             imagersize = (Naz, Nel),
+                             extrinsics_rt_fromref = rt_rect1_ref) )
+
+    if not return_metadata:
+        return models_rectified
+
+    metadata = \
+        dict( az_fov_deg        = az_fov_deg,
+              el_fov_deg        = el_fov_deg,
+              az0_deg           = az0_deg,
+              el0_deg           = el0_deg,
+              pixels_per_deg_az = pixels_per_deg_az,
+              pixels_per_deg_el = pixels_per_deg_el,
+              baseline          = baseline )
+
+    return models_rectified, metadata
+
+
+
+
+def _rectified_system_python(models,
+                             *,
+                             az_fov_deg,
+                             el_fov_deg,
+                             az0_deg             = None,
+                             el0_deg             = 0,
+                             pixels_per_deg_az   = -1.,
+                             pixels_per_deg_el   = -1.,
+                             rectification_model = 'LENSMODEL_LATLON',
+                             return_metadata     = False):
+
+    r'''Reference implementation of mrcal_rectified_system() in python
+
+The main implementation is written in C in stereo.c:
+
+  mrcal_rectified_system()
+
+This should be identical to the rectified_system() function above. There's no
+explicit test to compare the two implementations, but test/test-stereo.py should
+catch any differences.
+
+NOTE: THE C IMPLEMENTATION HANDLES LENSMODEL_LATLON only. The
+mrcal.rectified_system() wrapper above calls THIS function in that case
+
+    '''
+
+
     if not (rectification_model == 'LENSMODEL_LATLON' or \
             rectification_model == 'LENSMODEL_PINHOLE'):
         raise(f"Unsupported rectification model '{rectification_model}'. Only LENSMODEL_LATLON and LENSMODEL_PINHOLE are supported.")

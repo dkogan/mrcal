@@ -2872,6 +2872,163 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
     return result;
 }
 
+// LENSMODEL_ONE_ARGUMENTS followed by these
+#define RECTIFIED_SYSTEM_ARGUMENTS(_)                               \
+    _(rt_cam0_ref, PyArrayObject*, NULL, "O&", PyArray_Converter COMMA, rt_cam0_ref, NPY_DOUBLE, {6 } ) \
+    _(rt_cam1_ref, PyArrayObject*, NULL, "O&", PyArray_Converter COMMA, rt_cam1_ref, NPY_DOUBLE, {6 } )
+static bool
+rectified_system_validate_args(RECTIFIED_SYSTEM_ARGUMENTS(ARG_LIST_DEFINE)
+                               void* dummy __attribute__((unused)))
+{
+    RECTIFIED_SYSTEM_ARGUMENTS(CHECK_LAYOUT);
+    return true;
+}
+
+static
+PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
+                            PyObject* args,
+                            PyObject* kwargs)
+{
+    PyObject* result = NULL;
+
+    LENSMODEL_ONE_ARGUMENTS(ARG_DEFINE);
+    RECTIFIED_SYSTEM_ARGUMENTS(ARG_DEFINE);
+
+    // output
+    unsigned int   imagersize_rectified[2];
+    PyArrayObject* fxycxy_rectified = NULL;
+    PyArrayObject* rt_rect0_ref     = NULL;
+    double         baseline;
+
+    // input and output
+    double         pixels_per_deg_az;
+    double         pixels_per_deg_el;
+    mrcal_point2_t azel_fov_deg;
+    mrcal_point2_t azel0_deg;
+
+    // input
+    mrcal_lensmodel_t mrcal_lensmodel0;
+    char*             rectification_model_string;
+    mrcal_lensmodel_t rectification_model;
+
+    bool az0_deg_autodetect    = false;
+    bool el0_deg_autodetect    = false;
+    bool az_fov_deg_autodetect = false;
+    bool el_fov_deg_autodetect = false;
+
+    fxycxy_rectified =
+        (PyArrayObject*)PyArray_SimpleNew(1,
+                                          ((npy_intp[]){4}),
+                                          NPY_DOUBLE);
+    if(NULL == fxycxy_rectified)
+    {
+        BARF("Couldn't allocate fxycxy_rectified");
+        goto done;
+    }
+    rt_rect0_ref =
+        (PyArrayObject*)PyArray_SimpleNew(1,
+                                          ((npy_intp[]){6}),
+                                          NPY_DOUBLE);
+    if(NULL == rt_rect0_ref)
+    {
+        BARF("Couldn't allocate rt_rect0_ref");
+        goto done;
+    }
+
+    char* keywords[] = { LENSMODEL_ONE_ARGUMENTS(NAMELIST)
+                         RECTIFIED_SYSTEM_ARGUMENTS(NAMELIST)
+                         "az_fov_deg",
+                         "el_fov_deg",
+                         "az0_deg",
+                         "el0_deg",
+                         "pixels_per_deg_az",
+                         "pixels_per_deg_el",
+                         "rectification_model",
+                         NULL};
+    // This function is internal, so EVERYTHING is required
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     LENSMODEL_ONE_ARGUMENTS(PARSECODE)
+                                     RECTIFIED_SYSTEM_ARGUMENTS(PARSECODE)
+                                     "dddddds",
+
+                                     keywords,
+
+                                     LENSMODEL_ONE_ARGUMENTS(PARSEARG)
+                                     RECTIFIED_SYSTEM_ARGUMENTS(PARSEARG)
+                                     &azel_fov_deg.x,
+                                     &azel_fov_deg.y,
+                                     &azel0_deg.x,
+                                     &azel0_deg.y,
+                                     &pixels_per_deg_az,
+                                     &pixels_per_deg_el,
+                                     &rectification_model_string ))
+        goto done;
+
+    if(azel0_deg.x > 1e6)
+        az0_deg_autodetect = true;
+
+    if( !lensmodel_one_validate_args(&mrcal_lensmodel0,
+                                     LENSMODEL_ONE_ARGUMENTS(ARG_LIST_CALL)
+                                     true /* DO check the layout */ ))
+        goto done;
+
+    if(!parse_lensmodel_from_arg(&rectification_model, rectification_model_string))
+        goto done;
+
+    if(!rectified_system_validate_args(RECTIFIED_SYSTEM_ARGUMENTS(ARG_LIST_CALL)
+                                       NULL))
+        goto done;
+
+    if(!mrcal_rectified_system( // output
+                                imagersize_rectified,
+                                PyArray_DATA(fxycxy_rectified),
+                                PyArray_DATA(rt_rect0_ref),
+                                &baseline,
+
+                                // input, output
+                                &pixels_per_deg_az,
+                                &pixels_per_deg_el,
+
+                                // input, output
+                                &azel_fov_deg,
+                                &azel0_deg,
+
+                                // input
+                                &mrcal_lensmodel0,
+                                PyArray_DATA(intrinsics),
+                                PyArray_DATA(rt_cam0_ref),
+                                PyArray_DATA(rt_cam1_ref),
+                                rectification_model.type,
+                                az0_deg_autodetect,
+                                el0_deg_autodetect,
+                                az_fov_deg_autodetect,
+                                el_fov_deg_autodetect))
+    {
+        BARF("mrcal_rectified_system() failed!");
+        goto done;
+    }
+
+    result = Py_BuildValue("(ddiiOOddddd)",
+                           pixels_per_deg_az,
+                           pixels_per_deg_el,
+                           imagersize_rectified[0], imagersize_rectified[1],
+                           fxycxy_rectified,
+                           rt_rect0_ref,
+                           baseline,
+                           azel_fov_deg.x, azel_fov_deg.y,
+                           azel0_deg.x, azel0_deg.y);
+
+ done:
+
+    LENSMODEL_ONE_ARGUMENTS(FREE_PYARRAY);
+    RECTIFIED_SYSTEM_ARGUMENTS(FREE_PYARRAY);
+
+    Py_XDECREF(fxycxy_rectified);
+    Py_XDECREF(rt_rect0_ref);
+
+    return result;
+}
+
 static const char state_index_intrinsics_docstring[] =
 #include "state_index_intrinsics.docstring.h"
     ;
@@ -2972,6 +3129,9 @@ static const char save_image_docstring[] =
 static const char _rectified_resolution_docstring[] =
 #include "_rectified_resolution.docstring.h"
     ;
+static const char _rectified_system_docstring[] =
+#include "_rectified_system.docstring.h"
+    ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizer_callback,               METH_VARARGS | METH_KEYWORDS),
@@ -3008,6 +3168,7 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, save_image,                  METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(,_rectified_resolution,        METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,_rectified_system,            METH_VARARGS | METH_KEYWORDS),
       {}
     };
 
