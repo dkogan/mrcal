@@ -480,9 +480,6 @@ else:                   we return this tuple of models, dict of metadata
 
     return models_rectified, metadata
 
-
-
-
 def _rectified_system_python(models,
                              *,
                              az_fov_deg,
@@ -760,7 +757,6 @@ mrcal.rectified_system() wrapper above calls THIS function in that case
 
     return models_rectified, metadata
 
-
 def _validate_models_rectified(models_rectified):
     r'''Internal function to validate a rectified system
 
@@ -797,7 +793,6 @@ rectified direction
 
     if nps.norm2(Rt01[3,1:]) > 1e-9:
         raise Exception("The two rectified models MUST have a translation ONLY in the +x rectified direction")
-
 
 def rectification_maps(models,
                        models_rectified):
@@ -924,7 +919,6 @@ contains corresponding pixel coordinates in the input image
     return                                                                \
         (mrcal.project( v0, *models[0].intrinsics()).astype(np.float32),  \
          mrcal.project( v1, *models[1].intrinsics()).astype(np.float32))
-
 
 def stereo_range(disparity,
                  models_rectified,
@@ -1232,7 +1226,6 @@ RETURNED VALUES
         r = r[0]
     return r
 
-
 def stereo_unproject(disparity,
                      models_rectified,
                      *,
@@ -1388,7 +1381,6 @@ RETURNED VALUES
     p_rect0 = vrect0 * nps.dummy(ranges, axis = -1)
 
     return p_rect0
-
 
 def match_feature( image0, image1,
                    q0,
