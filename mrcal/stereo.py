@@ -633,9 +633,6 @@ else:                   we return this tuple of models, dict of metadata
                                       models[0].extrinsics_Rt_fromref())
     # rect1 coord system has the same orientation as rect0, but is translated so
     # that its origin is at the origin of cam1
-
-    # rect1 coord system has the same orientation as rect0, but is translated so
-    # that its origin is at the origin of cam1
     R_rect1_cam0  = R_rect0_cam0
     R_rect1_cam1  = nps.matmult(R_rect1_cam0, Rt01[:3,:])
 
