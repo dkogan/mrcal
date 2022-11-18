@@ -881,6 +881,43 @@ contains corresponding pixel coordinates in the input image
 
     _validate_models_rectified(models_rectified)
 
+    if models_rectified[0].intrinsics()[0] == 'LENSMODEL_PINHOLE':
+        # The pinhole rectification path is not implemented in C yet. Call the
+        # Python
+        return _rectification_maps_python(models,
+                                          models_rectified)
+
+    Naz,Nel = models_rectified[0].imagersize()
+    # shape (Ncameras=2, Nel, Naz, Nxy=2)
+    rectification_maps = np.zeros((2, Nel, Naz, 2),
+                                  dtype = np.float32)
+    mrcal._mrcal._rectification_maps(*models[0].intrinsics(),
+                                     *models[1].intrinsics(),
+                                     *models_rectified[0].intrinsics(),
+                                     r_cam0_ref  = models[0].extrinsics_rt_fromref()[:3],
+                                     r_cam1_ref  = models[1].extrinsics_rt_fromref()[:3],
+                                     r_rect0_ref = models_rectified[0].extrinsics_rt_fromref()[:3],
+                                     rectification_maps = rectification_maps)
+
+    return rectification_maps
+
+
+def _rectification_maps_python(models,
+                               models_rectified):
+    r'''Reference implementation of mrcal_rectification_maps() in python
+
+The main implementation is written in C in stereo.c:
+
+  mrcal_rectification_maps()
+
+This should be identical to the rectification_maps() function above. There's no
+explicit test to compare the two implementations yet.
+
+NOTE: THE C IMPLEMENTATION HANDLES LENSMODEL_LATLON only. The
+mrcal.rectification_maps() wrapper above calls THIS function in that case
+
+    '''
+
     Naz,Nel = models_rectified[0].imagersize()
     fxycxy  = models_rectified[0].intrinsics()[1]
 

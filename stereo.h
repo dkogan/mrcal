@@ -53,3 +53,21 @@ bool mrcal_rectified_system(// output
                             bool   el0_deg_autodetect,
                             bool   az_fov_deg_autodetect,
                             bool   el_fov_deg_autodetect);
+
+bool mrcal_rectification_maps(// output
+                              // Dense array of shape (Ncameras=2, Nel, Naz, Nxy=2)
+                              float* rectification_maps,
+
+                              // input
+                              const mrcal_lensmodel_t* lensmodel0,
+                              const double*            intrinsics0,
+                              const double*            r_cam0_ref,
+
+                              const mrcal_lensmodel_t* lensmodel1,
+                              const double*            intrinsics1,
+                              const double*            r_cam1_ref,
+
+                              const mrcal_lensmodel_type_t rectification_model_type,
+                              const double*                fxycxy_rectified,
+                              const unsigned int*          imagersize_rectified,
+                              const double*                r_rect0_ref);

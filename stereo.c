@@ -1,6 +1,8 @@
+#define _GNU_SOURCE
 #include <math.h>
 
 #include "mrcal.h"
+#include "minimath/minimath.h"
 #include "util.h"
 
 // The equivalent function in Python is _rectified_resolution_python() in
@@ -403,6 +405,132 @@ bool mrcal_rectified_system(// output
     mrcal_compose_Rt(Rt_rect0_ref,
                      Rt_rect0_cam0, Rt_cam0_ref);
     mrcal_rt_from_Rt(rt_rect0_ref, NULL, Rt_rect0_ref);
+
+    return true;
+}
+
+bool mrcal_rectification_maps(// output
+                              // Dense array of shape (Ncameras=2, Nel, Naz, Nxy=2)
+                              float* rectification_maps,
+
+                              // input
+                              const mrcal_lensmodel_t* lensmodel0,
+                              const double*            intrinsics0,
+                              const double*            r_cam0_ref,
+
+                              const mrcal_lensmodel_t* lensmodel1,
+                              const double*            intrinsics1,
+                              const double*            r_cam1_ref,
+
+                              const mrcal_lensmodel_type_t rectification_model_type,
+                              const double*                fxycxy_rectified,
+                              const unsigned int*          imagersize_rectified,
+                              const double*                r_rect0_ref)
+{
+    ///// TODAY this C implementation supports MRCAL_LENSMODEL_LATLON only. This
+    ///// isn't a design choice, I just don't want to do the extra work yet. The
+    ///// API already is general enough to support both rectification schemes.
+    if( rectification_model_type != MRCAL_LENSMODEL_LATLON )
+    {
+        MSG("Today this C implementation supports MRCAL_LENSMODEL_LATLON only.");
+        return false;
+    }
+
+    double R_cam0_ref[3*3];
+    double R_cam1_ref[3*3];
+    mrcal_R_from_r(R_cam0_ref, NULL, r_cam0_ref);
+    mrcal_R_from_r(R_cam1_ref, NULL, r_cam1_ref);
+
+    double R_cam0_rect[3*3];
+    double R_cam1_rect[3*3];
+
+    double R_rect0_ref[3*3];
+    mrcal_R_from_r(R_rect0_ref, NULL, r_rect0_ref);
+
+    mul_genN3_gen33t_vout(3, R_cam0_ref, R_rect0_ref, R_cam0_rect);
+    mul_genN3_gen33t_vout(3, R_cam1_ref, R_rect0_ref, R_cam1_rect);
+
+    float* rectification_map0 = &(rectification_maps[0]);
+    float* rectification_map1 = &(rectification_maps[imagersize_rectified[0]*imagersize_rectified[1]*2]);
+
+    // I had this:
+    //   for(int i=0; i<imagersize_rectified[1]; i++)
+    //       for(int j=0; j<imagersize_rectified[0]; j++)
+    //       {
+    //           mrcal_point2_t q = {.x = j, .y = i};
+    //           mrcal_point3_t v;
+    //           mrcal_unproject_latlon(&v, NULL,
+    //                                  &q,
+    //                                  1,
+    //                                  fxycxy_rectified);
+    //           ....
+    //
+    // I'm inlining the mrcal_unproject_latlon() call, and moving some constant
+    // guts outside the loops. And I'm caching sin(),cos() values.
+    //
+    // Potential optimization: I can compute sin,cos incrementally:
+    //   sin(x0 + dx) = sin(x0)*cos(dx) + cos(x0)*sin(dx)
+    //   cos(x0 + dx) = cos(x0)*cos(dx) - sin(x0)*sin(dx)
+    //
+    // Since dx is constant here I can compute the sin/cos sequence very
+    // quickly. I'm NOT doing that because each computation would accumulate
+    // floating-point error, which could add up. I can look at that later,
+    // if/when I need to optimize this function
+    const double fx         = fxycxy_rectified[0];
+    const double fy         = fxycxy_rectified[1];
+    const double fx_recip   = 1./fx;
+    const double fy_recip   = 1./fy;
+    const double c_over_f_x = fxycxy_rectified[2] * fx_recip;
+    const double c_over_f_y = fxycxy_rectified[3] * fy_recip;
+
+    double sincoslat[imagersize_rectified[0]][2];
+    for(unsigned int j=0; j<imagersize_rectified[0]; j++)
+    {
+        double qx = (double)j;
+        double lat = qx*fx_recip - c_over_f_x;
+        sincos(lat,
+               &sincoslat[j][0],
+               &sincoslat[j][1]);
+    }
+
+    for(unsigned int i=0; i<imagersize_rectified[1]; i++)
+    {
+        double qy = (double)i;
+        double lon = qy*fy_recip - c_over_f_y;
+        double clon,slon;
+        sincos(lon, &slon, &clon);
+
+        for(unsigned int j=0; j<imagersize_rectified[0]; j++)
+        {
+            double slat = sincoslat[j][0];
+            double clat = sincoslat[j][1];
+            mrcal_point3_t v =
+                (mrcal_point3_t){.x = slat,
+                                 .y = clat * slon,
+                                 .z = clat * clon};
+
+            mrcal_point3_t vcam;
+            mrcal_point2_t q;
+
+            vcam = v;
+            mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
+                                 R_cam0_rect, v.xyz);
+            mrcal_project(&q, NULL, NULL,
+                          &vcam, 1,
+                          lensmodel0, intrinsics0);
+            rectification_map0[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
+            rectification_map0[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
+
+            vcam = v;
+            mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
+                                 R_cam1_rect, v.xyz);
+            mrcal_project(&q, NULL, NULL,
+                          &vcam, 1,
+                          lensmodel1, intrinsics1);
+            rectification_map1[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
+            rectification_map1[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
+        }
+    }
 
     return true;
 }

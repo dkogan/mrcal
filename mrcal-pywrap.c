@@ -3029,6 +3029,115 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
     return result;
 }
 
+// LENSMODEL_ONE_ARGUMENTS followed by these
+#define RECTIFICATION_MAPS_ARGUMENTS(_)                               \
+    _(r_cam0_ref,           PyArrayObject*, NULL, "O&", PyArray_Converter COMMA, r_cam0_ref,           NPY_DOUBLE, {3} ) \
+    _(r_cam1_ref,           PyArrayObject*, NULL, "O&", PyArray_Converter COMMA, r_cam1_ref,           NPY_DOUBLE, {3} ) \
+    _(r_rect0_ref,          PyArrayObject*, NULL, "O&", PyArray_Converter COMMA, r_rect0_ref,          NPY_DOUBLE, {3} ) \
+    _(rectification_maps,   PyArrayObject*, NULL, "O&", PyArray_Converter COMMA, rectification_maps,   NPY_FLOAT,  {2 COMMA -1 COMMA -1 COMMA 2} )
+
+static bool
+rectification_maps_validate_args(RECTIFICATION_MAPS_ARGUMENTS(ARG_LIST_DEFINE)
+                                 void* dummy __attribute__((unused)))
+{
+    RECTIFICATION_MAPS_ARGUMENTS(CHECK_LAYOUT);
+    return true;
+}
+
+static
+PyObject* _rectification_maps(PyObject* NPY_UNUSED(self),
+                              PyObject* args,
+                              PyObject* kwargs)
+{
+    PyObject* result = NULL;
+
+    unsigned int imagersize_rectified[2];
+
+    LENSMODEL_ONE_ARGUMENTS(ARG_DEFINE, 0);
+    LENSMODEL_ONE_ARGUMENTS(ARG_DEFINE, 1);
+    LENSMODEL_ONE_ARGUMENTS(ARG_DEFINE, _rectified);
+    RECTIFICATION_MAPS_ARGUMENTS(ARG_DEFINE);
+
+    // input
+    mrcal_lensmodel_t mrcal_lensmodel0;
+    mrcal_lensmodel_t mrcal_lensmodel1;
+    mrcal_lensmodel_t mrcal_lensmodel_rectified;
+
+    char* keywords[] = { LENSMODEL_ONE_ARGUMENTS(NAMELIST, 0)
+                         LENSMODEL_ONE_ARGUMENTS(NAMELIST, 1)
+                         LENSMODEL_ONE_ARGUMENTS(NAMELIST, _rectified)
+                         RECTIFICATION_MAPS_ARGUMENTS(NAMELIST)
+                         NULL};
+    // This function is internal, so EVERYTHING is required
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     LENSMODEL_ONE_ARGUMENTS(PARSECODE, 0)
+                                     LENSMODEL_ONE_ARGUMENTS(PARSECODE, 1)
+                                     LENSMODEL_ONE_ARGUMENTS(PARSECODE, _rectified)
+                                     RECTIFICATION_MAPS_ARGUMENTS(PARSECODE),
+
+                                     keywords,
+
+                                     LENSMODEL_ONE_ARGUMENTS(PARSEARG, 0)
+                                     LENSMODEL_ONE_ARGUMENTS(PARSEARG, 1)
+                                     LENSMODEL_ONE_ARGUMENTS(PARSEARG, _rectified)
+                                     RECTIFICATION_MAPS_ARGUMENTS(PARSEARG)
+                                     NULL ))
+        goto done;
+
+    if( !lensmodel_one_validate_args(&mrcal_lensmodel0,
+                                     LENSMODEL_ONE_ARGUMENTS(ARG_LIST_CALL, 0)
+                                     true /* DO check the layout */ ))
+        goto done;
+    if( !lensmodel_one_validate_args(&mrcal_lensmodel1,
+                                     LENSMODEL_ONE_ARGUMENTS(ARG_LIST_CALL, 1)
+                                     true /* DO check the layout */ ))
+        goto done;
+    if( !lensmodel_one_validate_args(&mrcal_lensmodel_rectified,
+                                     LENSMODEL_ONE_ARGUMENTS(ARG_LIST_CALL, _rectified)
+                                     true /* DO check the layout */ ))
+        goto done;
+
+    if(!rectification_maps_validate_args(RECTIFICATION_MAPS_ARGUMENTS(ARG_LIST_CALL)
+                                         NULL))
+        goto done;
+
+    // rectification_maps has shape (Ncameras=2, Nel, Naz, Nxy=2)
+    imagersize_rectified[0] = PyArray_DIMS(rectification_maps)[2];
+    imagersize_rectified[1] = PyArray_DIMS(rectification_maps)[1];
+
+    if(!mrcal_rectification_maps( // output
+                                  PyArray_DATA(rectification_maps),
+
+                                  // input
+                                  &mrcal_lensmodel0,
+                                  PyArray_DATA(intrinsics0),
+                                  PyArray_DATA(r_cam0_ref),
+
+                                  &mrcal_lensmodel1,
+                                  PyArray_DATA(intrinsics1),
+                                  PyArray_DATA(r_cam1_ref),
+
+                                  mrcal_lensmodel_rectified.type,
+                                  PyArray_DATA(intrinsics_rectified),
+                                  imagersize_rectified,
+                                  PyArray_DATA(r_rect0_ref)))
+    {
+        BARF("mrcal_rectification_maps() failed!");
+        goto done;
+    }
+
+    Py_INCREF(Py_None);
+    result = Py_None;
+
+ done:
+
+    LENSMODEL_ONE_ARGUMENTS(FREE_PYARRAY, 0);
+    LENSMODEL_ONE_ARGUMENTS(FREE_PYARRAY, 1);
+    RECTIFICATION_MAPS_ARGUMENTS(FREE_PYARRAY);
+
+    return result;
+}
+
 static const char state_index_intrinsics_docstring[] =
 #include "state_index_intrinsics.docstring.h"
     ;
@@ -3132,6 +3241,9 @@ static const char _rectified_resolution_docstring[] =
 static const char _rectified_system_docstring[] =
 #include "_rectified_system.docstring.h"
     ;
+static const char _rectification_maps_docstring[] =
+#include "_rectification_maps.docstring.h"
+    ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizer_callback,               METH_VARARGS | METH_KEYWORDS),
@@ -3169,6 +3281,7 @@ static PyMethodDef methods[] =
 
       PYMETHODDEF_ENTRY(,_rectified_resolution,        METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,_rectified_system,            METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,_rectification_maps,          METH_VARARGS | METH_KEYWORDS),
       {}
     };
 
