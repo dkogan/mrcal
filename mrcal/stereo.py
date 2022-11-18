@@ -227,7 +227,6 @@ should catch any differences.
         pixels_per_deg_az, \
         pixels_per_deg_el
 
-
 def rectified_system(models,
                      *,
                      az_fov_deg,
