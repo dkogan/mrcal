@@ -23,6 +23,7 @@ mrcal-stereo writes out a binary disparity image for easy post-processing
 show_projection_diff() and mrcal-show-projection-diff handles nan values better:
 no confused plots or ugly warnings on the console
 
-mrcal.rectified_resolution() is now separate from mrcal.rectified_system()
+mrcal.rectified_resolution() is now separate from mrcal.rectified_system(), and
+has a callable C implementation
 
 * Migration notes 2.2 -> 2.3
