@@ -870,9 +870,9 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 }
 
 // For various utility functions. Accepts ONE lens model, not N of them like the optimization function
-#define LENSMODEL_ONE_ARGUMENTS(_)                                  \
-    _(lensmodel,                          char*,          NULL,    "s",  ,                                  NULL,                        -1,         {}          ) \
-    _(intrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics,                  NPY_DOUBLE, {-1       } )
+#define LENSMODEL_ONE_ARGUMENTS(_, suffix)                                     \
+    _(lensmodel  ## suffix,                         char*,          NULL,    "s",  ,                                  NULL,                        -1,         {}          ) \
+    _(intrinsics ## suffix,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics ## suffix,        NPY_DOUBLE, {-1       } )
 
 #define OPTIMIZE_ARGUMENTS_REQUIRED(_)                                  \
     _(intrinsics,                         PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, intrinsics,                  NPY_DOUBLE, {-1 COMMA -1       } ) \
@@ -919,12 +919,12 @@ static bool lensmodel_one_validate_args( // out
                                          mrcal_lensmodel_t* mrcal_lensmodel,
 
                                          // in
-                                         LENSMODEL_ONE_ARGUMENTS(ARG_LIST_DEFINE)
+                                         LENSMODEL_ONE_ARGUMENTS(ARG_LIST_DEFINE, )
                                          bool do_check_layout)
 {
     if(do_check_layout)
     {
-        LENSMODEL_ONE_ARGUMENTS(CHECK_LAYOUT);
+        LENSMODEL_ONE_ARGUMENTS(CHECK_LAYOUT, );
     }
 
     if(!parse_lensmodel_from_arg(mrcal_lensmodel, lensmodel))
@@ -2788,7 +2788,7 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
 {
     PyObject* result = NULL;
 
-    LENSMODEL_ONE_ARGUMENTS(ARG_DEFINE);
+    LENSMODEL_ONE_ARGUMENTS(ARG_DEFINE, );
     RECTIFIED_RESOLUTION_ARGUMENTS(ARG_DEFINE);
 
     // input and output
@@ -2803,7 +2803,7 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
     mrcal_lensmodel_t rectification_model;
 
 
-    char* keywords[] = { LENSMODEL_ONE_ARGUMENTS(NAMELIST)
+    char* keywords[] = { LENSMODEL_ONE_ARGUMENTS(NAMELIST, )
                          RECTIFIED_RESOLUTION_ARGUMENTS(NAMELIST)
                          "az_fov_deg",
                          "el_fov_deg",
@@ -2815,13 +2815,13 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
                          NULL};
     // This function is internal, so EVERYTHING is required
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     LENSMODEL_ONE_ARGUMENTS(PARSECODE)
+                                     LENSMODEL_ONE_ARGUMENTS(PARSECODE, )
                                      RECTIFIED_RESOLUTION_ARGUMENTS(PARSECODE)
                                      "dddddds",
 
                                      keywords,
 
-                                     LENSMODEL_ONE_ARGUMENTS(PARSEARG)
+                                     LENSMODEL_ONE_ARGUMENTS(PARSEARG, )
                                      RECTIFIED_RESOLUTION_ARGUMENTS(PARSEARG)
                                      &azel_fov_deg.x,
                                      &azel_fov_deg.y,
@@ -2834,7 +2834,7 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
 
 
     if( !lensmodel_one_validate_args(&mrcal_lensmodel,
-                                     LENSMODEL_ONE_ARGUMENTS(ARG_LIST_CALL)
+                                     LENSMODEL_ONE_ARGUMENTS(ARG_LIST_CALL, )
                                      true /* DO check the layout */ ))
         goto done;
 
@@ -2866,7 +2866,7 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
 
  done:
 
-    LENSMODEL_ONE_ARGUMENTS(FREE_PYARRAY);
+    LENSMODEL_ONE_ARGUMENTS(FREE_PYARRAY, );
     RECTIFIED_RESOLUTION_ARGUMENTS(FREE_PYARRAY);
 
     return result;
@@ -2891,7 +2891,7 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
 {
     PyObject* result = NULL;
 
-    LENSMODEL_ONE_ARGUMENTS(ARG_DEFINE);
+    LENSMODEL_ONE_ARGUMENTS(ARG_DEFINE, 0);
     RECTIFIED_SYSTEM_ARGUMENTS(ARG_DEFINE);
 
     // output
@@ -2935,7 +2935,7 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
         goto done;
     }
 
-    char* keywords[] = { LENSMODEL_ONE_ARGUMENTS(NAMELIST)
+    char* keywords[] = { LENSMODEL_ONE_ARGUMENTS(NAMELIST, 0)
                          RECTIFIED_SYSTEM_ARGUMENTS(NAMELIST)
                          "az_fov_deg",
                          "el_fov_deg",
@@ -2947,13 +2947,13 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
                          NULL};
     // This function is internal, so EVERYTHING is required
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     LENSMODEL_ONE_ARGUMENTS(PARSECODE)
+                                     LENSMODEL_ONE_ARGUMENTS(PARSECODE, 0)
                                      RECTIFIED_SYSTEM_ARGUMENTS(PARSECODE)
                                      "dddddds",
 
                                      keywords,
 
-                                     LENSMODEL_ONE_ARGUMENTS(PARSEARG)
+                                     LENSMODEL_ONE_ARGUMENTS(PARSEARG, 0)
                                      RECTIFIED_SYSTEM_ARGUMENTS(PARSEARG)
                                      &azel_fov_deg.x,
                                      &azel_fov_deg.y,
@@ -2968,7 +2968,7 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
         az0_deg_autodetect = true;
 
     if( !lensmodel_one_validate_args(&mrcal_lensmodel0,
-                                     LENSMODEL_ONE_ARGUMENTS(ARG_LIST_CALL)
+                                     LENSMODEL_ONE_ARGUMENTS(ARG_LIST_CALL, 0)
                                      true /* DO check the layout */ ))
         goto done;
 
@@ -2995,7 +2995,7 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
 
                                 // input
                                 &mrcal_lensmodel0,
-                                PyArray_DATA(intrinsics),
+                                PyArray_DATA(intrinsics0),
                                 PyArray_DATA(rt_cam0_ref),
                                 PyArray_DATA(rt_cam1_ref),
                                 rectification_model.type,
@@ -3020,7 +3020,7 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
 
  done:
 
-    LENSMODEL_ONE_ARGUMENTS(FREE_PYARRAY);
+    LENSMODEL_ONE_ARGUMENTS(FREE_PYARRAY, 0);
     RECTIFIED_SYSTEM_ARGUMENTS(FREE_PYARRAY);
 
     Py_XDECREF(fxycxy_rectified);
