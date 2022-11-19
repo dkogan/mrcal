@@ -54,6 +54,6 @@ for rectification in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
                             rectification_maps_ref,
                             msg=f'Pixel error with ({rectification})',
                             worstcase = True,
-                            eps = 1e-5)
+                            eps = 1e-6)
 
 testutils.finish()
