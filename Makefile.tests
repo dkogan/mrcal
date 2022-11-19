@@ -36,7 +36,8 @@ TESTS :=										\
   test/test-parser-cameramodel                                                          \
   test/test-extrinsics-moved-since-calibration.py                                       \
   test/test-broadcasting.py								\
-  test/test-compute-chessboard-corners-parsing.py
+  test/test-compute-chessboard-corners-parsing.py					\
+  test/test-rectification-maps.py
 
 # triangulation-uncertainty tests. Lots and lots of tests to exhaustively try
 # out different scenarios
