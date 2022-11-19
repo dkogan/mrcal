@@ -466,16 +466,16 @@ bool mrcal_rectification_maps(// output
     //           ....
     //
     // I'm inlining the mrcal_unproject_latlon() call, and moving some constant
-    // guts outside the loops. And I'm caching sin(),cos() values.
+    // guts outside the loops.
     //
-    // Potential optimization: I can compute sin,cos incrementally:
+    //  And I'm computing sin,cos incrementally:
     //   sin(x0 + dx) = sin(x0)*cos(dx) + cos(x0)*sin(dx)
     //   cos(x0 + dx) = cos(x0)*cos(dx) - sin(x0)*sin(dx)
     //
     // Since dx is constant here I can compute the sin/cos sequence very
-    // quickly. I'm NOT doing that because each computation would accumulate
-    // floating-point error, which could add up. I can look at that later,
-    // if/when I need to optimize this function
+    // quickly. One concern about this is that each computation would accumulate
+    // floating-point error, which could add up. The test-rectification-maps.py
+    // test explicitly checks for this, and determines that this isn't an issue
     const double fx         = fxycxy_rectified[0];
     const double fy         = fxycxy_rectified[1];
     const double fx_recip   = 1./fx;
@@ -483,27 +483,24 @@ bool mrcal_rectification_maps(// output
     const double c_over_f_x = fxycxy_rectified[2] * fx_recip;
     const double c_over_f_y = fxycxy_rectified[3] * fy_recip;
 
-    double sincoslat[imagersize_rectified[0]][2];
-    for(unsigned int j=0; j<imagersize_rectified[0]; j++)
-    {
-        double qx = (double)j;
-        double lat = qx*fx_recip - c_over_f_x;
-        sincos(lat,
-               &sincoslat[j][0],
-               &sincoslat[j][1]);
-    }
+    double sdlon, cdlon;
+    sincos(fy_recip, &sdlon, &cdlon);
+    double lon0 = -c_over_f_y;
+    double slon0, clon0;
+    sincos(lon0, &slon0, &clon0);
 
+    double sdlat, cdlat;
+    sincos(fx_recip, &sdlat, &cdlat);
+    double lat0 = -c_over_f_x;
+    double slat0, clat0;
+    sincos(lat0, &slat0, &clat0);
+
+    double slon = slon0, clon = clon0;
     for(unsigned int i=0; i<imagersize_rectified[1]; i++)
     {
-        double qy = (double)i;
-        double lon = qy*fy_recip - c_over_f_y;
-        double clon,slon;
-        sincos(lon, &slon, &clon);
-
+        double slat = slat0, clat = clat0;
         for(unsigned int j=0; j<imagersize_rectified[0]; j++)
         {
-            double slat = sincoslat[j][0];
-            double clat = sincoslat[j][1];
             mrcal_point3_t v =
                 (mrcal_point3_t){.x = slat,
                                  .y = clat * slon,
@@ -529,7 +526,14 @@ bool mrcal_rectification_maps(// output
                           lensmodel1, intrinsics1);
             rectification_map1[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
             rectification_map1[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
+
+            double _slat = slat;
+            slat = _slat*cdlat +  clat*sdlat;
+            clat =  clat*cdlat - _slat*sdlat;
         }
+        double _slon = slon;
+        slon = _slon*cdlon +  clon*sdlon;
+        clon =  clon*cdlon - _slon*sdlon;
     }
 
     return true;
