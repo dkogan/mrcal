@@ -2,41 +2,41 @@
 
 # The test suite no longer runs in parallel, but it ALWAYS tries to run all the
 # tests, even without 'make -k'
-TESTS :=										\
-  test/test-pywrap-functions.py								\
-  test/test-pylib-projections.py							\
-  test/test-poseutils.py								\
-  test/test-cameramodel.py								\
-  test/test-poseutils-lib.py								\
-  test/test-projections.py								\
-  test/test-projection--special-cases.py__pinhole					\
-  test/test-projection--special-cases.py__stereographic					\
-  test/test-projection--special-cases.py__lonlat					\
-  test/test-projection--special-cases.py__latlon					\
-  test/test-gradients.py								\
-  test/test-py-gradients.py								\
-  test/test-cahvor									\
-  test/test-optimizer-callback.py							\
-  test/test-basic-sfm.py								\
-  test/test-basic-calibration.py							\
-  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample	\
-  test/test-projection-uncertainty.py__--fixed__frames__--model__opencv4__--do-sample__--Nsamples__200	\
-  test/test-projection-uncertainty.py__--fixed__cam0__--model__splined			\
-  test/test-linearizations.py								\
-  test/test-lensmodel-string-manipulation						\
-  test/test-CHOLMOD-factorization.py							\
-  test/test-projection-diff.py								\
-  test/test-graft-models.py								\
-  test/test-convert-lensmodel.py							\
-  test/test-stereo.py									\
-  test/test-solvepnp.py									\
-  test/test-match-feature.py								\
-  test/test-triangulation.py								\
-  test/test-uncertainty-broadcasting.py__--q-calibration-stdev__0.3__--q-observation-stdev__0.3__--q-observation-stdev-correlation__0.5 \
-  test/test-parser-cameramodel                                                          \
-  test/test-extrinsics-moved-since-calibration.py                                       \
-  test/test-broadcasting.py								\
-  test/test-compute-chessboard-corners-parsing.py					\
+TESTS :=																\
+  test/test-pywrap-functions.py														\
+  test/test-pylib-projections.py													\
+  test/test-poseutils.py														\
+  test/test-cameramodel.py														\
+  test/test-poseutils-lib.py														\
+  test/test-projections.py														\
+  test/test-projection--special-cases.py__pinhole											\
+  test/test-projection--special-cases.py__stereographic											\
+  test/test-projection--special-cases.py__lonlat											\
+  test/test-projection--special-cases.py__latlon											\
+  test/test-gradients.py														\
+  test/test-py-gradients.py														\
+  test/test-cahvor															\
+  test/test-optimizer-callback.py													\
+  test/test-basic-sfm.py														\
+  test/test-basic-calibration.py													\
+  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample							\
+  test/test-projection-uncertainty.py__--fixed__frames__--model__opencv4__--do-sample__--Nsamples__200					\
+  test/test-projection-uncertainty.py__--fixed__cam0__--model__splined									\
+  test/test-linearizations.py														\
+  test/test-lensmodel-string-manipulation												\
+  test/test-CHOLMOD-factorization.py													\
+  test/test-projection-diff.py														\
+  test/test-graft-models.py														\
+  test/test-convert-lensmodel.py													\
+  test/test-stereo.py															\
+  test/test-solvepnp.py															\
+  test/test-match-feature.py														\
+  test/test-triangulation.py														\
+  test/test-uncertainty-broadcasting.py__--q-calibration-stdev__0.3__--q-observation-stdev__0.3__--q-observation-stdev-correlation__0.5	\
+  test/test-parser-cameramodel														\
+  test/test-extrinsics-moved-since-calibration.py											\
+  test/test-broadcasting.py														\
+  test/test-compute-chessboard-corners-parsing.py											\
   test/test-rectification-maps.py
 
 # triangulation-uncertainty tests. Lots and lots of tests to exhaustively try
