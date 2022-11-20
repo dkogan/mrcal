@@ -910,8 +910,8 @@ The main implementation is written in C in stereo.c:
 
   mrcal_rectification_maps()
 
-This should be identical to the rectification_maps() function above. There's no
-explicit test to compare the two implementations yet.
+This should be identical to the rectification_maps() function above. This is
+checked by the test-rectification-maps.py test.
 
 NOTE: THE C IMPLEMENTATION HANDLES LENSMODEL_LATLON only. The
 mrcal.rectification_maps() wrapper above calls THIS function in that case
@@ -1544,7 +1544,7 @@ The top-level logic of this function:
 4. Select a region in image1, centered at q1_estimate, that fits the template
    search_radius1 pixels off center in each dimension
 
-4. cv2.matchTemplate() to search for the template in this region of image1
+5. cv2.matchTemplate() to search for the template in this region of image1
 
 If the template being matched is out-of-bounds in either image, this function
 raises an exception.
