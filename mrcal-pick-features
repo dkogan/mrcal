@@ -1,8 +1,5 @@
 #!/usr/bin/python3
 
-import sys
-sys.path[:0] = '/home/dima/projects/GL_image_display',
-
 r'''xxx'''
 
 import sys
