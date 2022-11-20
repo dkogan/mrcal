@@ -1,0 +1,4 @@
+Construct image transformation maps to make rectified images
+
+This is an internal function. You probably want mrcal.rectification_maps(). See
+the docs for that function for details.
