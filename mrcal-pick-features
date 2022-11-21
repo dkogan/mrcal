@@ -475,6 +475,10 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                                -visible_width_pixels) \
                  for w in (widget_image0, widget_image1) )
 
+        # Switch back to THIS widget
+        self.make_current()
+        return result
+
     def handle(self, event):
         global points_state
 
