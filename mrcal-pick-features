@@ -447,8 +447,8 @@ def set_all_overlay_lines():
                                  highlighted_point_radius[what],
                                  highlighted_point_color [what])
 
-    widget_image0.set_lines(lines[0])
-    widget_image1.set_lines(lines[1])
+    widget_image0.set_lines(*lines[0])
+    widget_image1.set_lines(*lines[1])
 
 
 class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
