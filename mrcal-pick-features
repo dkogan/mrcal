@@ -143,10 +143,6 @@ def parse_args():
                         one of ('SGBM','HH','HH4','SGBM_3WAY'). If omitted, the
                         OpenCV default (SGBM) is used''')
 
-    parser.add_argument('--baseline-nominal',
-                        type=float,
-                        required=True,
-                        help='''Baseline in my nominal stereo-pair geometry''')
     parser.add_argument('--range-nominal',
                         type=float,
                         default=10.,
@@ -175,7 +171,8 @@ def parse_args():
                         nargs = 2,
                         help='''Camera models representing cameras used to
                         capture the images. Intrinsics only are used. A nominal
-                        stereo geometry with --baseline-nominal is assumed''')
+                        stereo geometry with unit baseline is assumed. Given
+                        models are the left, right cameras''')
     parser.add_argument('images',
                         type=str,
                         nargs=2,
@@ -241,8 +238,8 @@ else:
 
 models = [mrcal.cameramodel(m) for m in args.models]
 
-models[0].extrinsics_rt_fromref(np.array((0,0,0,                      0,0,0), dtype=float))
-models[1].extrinsics_rt_fromref(np.array((0,0,0, -args.baseline_nominal,0,0), dtype=float))
+models[0].extrinsics_rt_fromref(np.array((0,0,0, 0,0,0), dtype=float))
+models[1].extrinsics_rt_fromref(np.array((0,0,0, 1,0,0), dtype=float))
 
 
 Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
@@ -259,7 +256,6 @@ models_rectified = \
                            pixels_per_deg_el   = pixels_per_deg_el,
                            rectification_model = args.rectification)
 
-print("maybe I don't need --baseline-nominal: the transformed images are the same")
 rectification_maps = mrcal.rectification_maps(models, models_rectified)
 
 if args.clahe:
