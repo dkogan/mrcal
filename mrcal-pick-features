@@ -460,24 +460,18 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
         This is an override of the function to do this: any request to
         pan/zoom the widget will come here first. I dispatch any
-        pan/zoom commands to all the widgets, so that they all zoom in
+        pan/zoom commands to all the widgets, so that they all work in
         unison. visible_width_pixels < 0 means: this is the redirected
-        call. Just call the base class
+        call; just call the base class
 
         '''
         if visible_width_pixels < 0:
             return super().set_panzoom(x_centerpixel, y_centerpixel,
                                        -visible_width_pixels)
-        if visible_width_pixels is np.nan:
-            return super().set_panzoom(x_centerpixel, y_centerpixel,
-                                       visible_width_pixels)
 
-        # All the widgets should zoom together. I perform the requested
-        # operation, and then ask all the widgets to zoom-only to this setting
-        super().set_panzoom(x_centerpixel, y_centerpixel,
-                            visible_width_pixels)
-        return \
-            all( w.set_panzoom(np.nan, np.nan,
+        # All the widgets should pan/zoom together
+        result = \
+            all( w.set_panzoom(x_centerpixel, y_centerpixel,
                                -visible_width_pixels) \
                  for w in (widget_image0, widget_image1) )
 
