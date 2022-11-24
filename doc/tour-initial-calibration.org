@@ -396,12 +396,13 @@ mrcal-show-residuals \
 
 [[file:external/figures/calibration/residual-magnitudes-opencv8.png]]
 
-In addition to the high errors at the edges, this plot also shows that the
-solver sacrificed accuracy at the center of the image to get a better fit in the
-much larger areas further out. Clearly this lens model cannot fit everywhere at
-once. Let's look at the systematic errors in another way: let's look at all the
-residuals over all the observations, color-coded by their direction, ignoring
-the magnitudes:
+In addition to the high errors at the edges, this plot also shows an anomalous
+ring of poorly-fitting observations at the center. This could be cauesd by the
+solver sacrificing accuracy at the center of the image to get a better fit in
+the much larger areas further out. Clearly this lens model cannot fit everywhere
+at once. Let's look at the systematic errors in another way: let's look at all
+the residuals over all the observations, color-coded by their direction,
+ignoring the magnitudes:
 
 #+begin_src sh
 mrcal-show-residuals    \
@@ -739,9 +740,10 @@ mrcal-show-residuals \
 [[file:external/figures/calibration/directions-splined.png]]
 
 /Much/ better than before: the color clustering is /gone/. The poorly-fitting
-circle in the center is still there, however. This is something odd that the
-Sony camera is doing: other cameras using this lens do not have this effect. A
-denser spline spacing maybe can model whatever this is. We move on.
+ring in the center is still there, however. This look like a peculiar image
+processing artifact of the Sony Alpha 7 III camera: other cameras using this
+lens do not exhibit this effect. A denser spline spacing maybe can model
+whatever this is. We move on.
 
 We can also visualize the [[file:splined-models.org][magnitude of the vector field defined by the splined
 surfaces]] $\left| \Delta \vec u \right|$:

@@ -12,7 +12,7 @@ grid of points. mrcal doesn't care where these observations come from: any tool
 that can produce a table of corner observations can be utilized. See the [[#corner-detector][below]]
 for the format details. Currently the recommended method is to use a classical
 /chessboard/ target, and to employ the [[http://github.com/dkogan/mrgingham][mrgingham]] detector. The mrgingham
-documentation has a [[https://github.com/dkogan/mrgingham/raw/master/chessboard.10x10.pdf][.pdf of a chessboard pattern]] that works well.
+documentation has a [[https://github.com/dkogan/mrgingham/raw/master/chessboard.14x14.pdf][.pdf of a chessboard pattern]] that works well.
 
 The pattern should be printed and mounted onto a /rigid/ and /flat/ surface to
 produce the calibration object. The [[file:formulation.org][optimization problem]] assumes the board shape

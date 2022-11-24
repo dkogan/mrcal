@@ -1,11 +1,12 @@
 #+title: mrcal - camera calibrations and more!
 
-mrcal is a photogrammetry toolkit that provides improved methods for making and
-using camera models (calibration, tracking, mapping, etc). Currently the focus
-is on calibration and uncertainty propagation, but more methods will be added
-with time. It was originally built at NASA/JPL to generate the high-accuracy
-calibrations demanded by long-range stereo, so it provides facilities to analyze
-calibration accuracy and to propagate and report uncertainties.
+mrcal is a toolkit that provides improved methods for making and using camera
+models (calibration, tracking, mapping, photogrammetry, etc). Currently the
+focus is on calibration and uncertainty propagation, but more methods will be
+added with time. It was originally built at NASA/JPL to generate the
+high-accuracy calibrations demanded by long-range stereo, so it provides
+facilities to analyze calibration accuracy and to propagate and report
+uncertainties.
 
 * Why mrcal?
 Because all other tools are terrible if you care about accuracy. They make basic
