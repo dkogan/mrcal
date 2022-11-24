@@ -30,19 +30,19 @@ Let's compare the two models:
 #+begin_src sh
 mrcal-show-projection-diff \
   --intrinsics-only        \
-  --cbmax 200              \
+  --cbmax 15               \
   --unset key              \
   opencv8.cameramodel      \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-projection-diff                           \
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+mrcal-show-projection-diff                           \
   --intrinsics-only                                                   \
-  --cbmax 200                                                         \
+  --cbmax 15                                                         \
   --unset key                                                         \
-  $D/data/board/{opencv8,splined}.cameramodel                         \
-  --hardcopy $D/figures/diff/diff-radius0-heatmap-splined-opencv8.png \
+  $D/{opencv8,splined}.cameramodel                         \
+  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-radius0-heatmap-splined-opencv8.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
 
@@ -57,34 +57,34 @@ heat map, we get a hint about what's going on:
 mrcal-show-projection-diff \
   --intrinsics-only        \
   --vectorfield            \
-  --vectorscale 5          \
+  --vectorscale 10          \
   --gridn 30 20            \
-  --cbmax 200              \
+  --cbmax 15               \
   --unset key              \
   opencv8.cameramodel      \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-projection-diff                               \
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+mrcal-show-projection-diff                               \
   --intrinsics-only                                                       \
   --vectorfield                                                           \
-  --vectorscale 5                                                         \
+  --vectorscale 10                                                         \
   --gridn 30 20                                                           \
-  --cbmax 200                                                             \
+  --cbmax 15                                                             \
   --unset key                                                             \
-  $D/data/board/{opencv8,splined}.cameramodel                             \
-  --hardcopy $D/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg \
+  $D/{opencv8,splined}.cameramodel                             \
+  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
-~/projects/mrcal/mrcal-show-projection-diff                               \
+mrcal-show-projection-diff                               \
   --intrinsics-only                                                       \
   --vectorfield                                                           \
-  --vectorscale 5                                                         \
+  --vectorscale 10                                                         \
   --gridn 30 20                                                           \
-  --cbmax 200                                                             \
+  --cbmax 15                                                             \
   --unset key                                                             \
-  $D/data/board/{opencv8,splined}.cameramodel                             \
-  --hardcopy $D/figures/diff/diff-radius0-vectorfield-splined-opencv8.pdf \
+  $D/{opencv8,splined}.cameramodel                             \
+  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-radius0-vectorfield-splined-opencv8.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
 #+end_src
 
@@ -134,18 +134,20 @@ mrcal-show-projection-diff \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-projection-diff           \
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+mrcal-show-projection-diff           \
   --unset key                                         \
-  $D/data/board/{opencv8,splined}.cameramodel         \
-  --hardcopy $D/figures/diff/diff-splined-opencv8.png \
+  $D/{opencv8,splined}.cameramodel         \
+  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-splined-opencv8.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
 
 [[file:external/figures/diff/diff-splined-opencv8.png]]
 
-/Much/ better. As expected, the two models agree relatively well in the center,
-and the error grows as we move towards the edges.
+/Much/ better. As observed earlier, the Sony Alpha 7 III camera is applying some
+extra image processing that's not modeled by =LENSMODEL_OPENV8=, so we see a
+discrepancy in the center. The models agree well past that, and then the error
+grows as we move towards the edges.
 
 This differencing method is very powerful, and has numerous applications. For
 instance:
