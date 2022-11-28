@@ -242,22 +242,22 @@ First, the =LENSMODEL_OPENCV8= solve:
 mrcal-show-projection-uncertainty opencv8.cameramodel --cbmax 1 --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/opencv8.cameramodel \
+mrcal-show-projection-uncertainty \
+  $D/opencv8.cameramodel \
   --cbmax 1 \
   --unset key \
   --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.svg \
   --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/opencv8.cameramodel \
+mrcal-show-projection-uncertainty \
+  $D/opencv8.cameramodel \
   --cbmax 1 \
   --unset key \
   --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/opencv8.cameramodel \
+mrcal-show-projection-uncertainty \
+  $D/opencv8.cameramodel \
   --cbmax 1 \
   --unset key \
   --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.png \
@@ -272,22 +272,22 @@ And the splined solve:
 mrcal-show-projection-uncertainty splined.cameramodel --cbmax 1 --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/splined.cameramodel \
+mrcal-show-projection-uncertainty \
+  $D/splined.cameramodel \
   --cbmax 1 \
   --unset key \
   --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.svg \
   --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/splined.cameramodel \
+mrcal-show-projection-uncertainty \
+  $D/splined.cameramodel \
   --cbmax 1 \
   --unset key \
   --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/splined.cameramodel \
+mrcal-show-projection-uncertainty \
+  $D/splined.cameramodel \
   --cbmax 1 \
   --unset key \
   --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.png \
