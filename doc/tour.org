@@ -2,9 +2,7 @@
 #+OPTIONS: toc:nil
 
 mrcal is a toolkit that provides improved methods for making and using camera
-models (calibration, tracking, mapping, photogrammetry, etc). Currently the
-focus is on calibration and uncertainty propagation, but more methods will be
-added with time.
+models (calibration, tracking, mapping, photogrammetry, etc).
 
 The best way to convey a sense of the capabilities is to demonstrate some
 real-world usage scenarios. So let's go through a full calibration sequence
@@ -14,10 +12,10 @@ make mrcal different and better than other tools. For more details, please see
 the links in [[file:index.org][the main documentation]]. For /practical/ details (if you just want
 to calibrate some cameras), please see the [[file:how-to-calibrate.org][how-to-calibrate page]].
 
-All images have been gathered with a Sony Alpha 7 III SLR. I want to stress-test
-the system, so I'm using the widest lens I can find: a Samyang 12mm F2.8 fisheye
-lens. This lens has a ~ 180deg field of view corner to corner, and about 160deg
-field of view horizontally.
+All images in these articles have been gathered with a Sony Alpha 7 III SLR. I
+want to stress-test the system, so I'm using the widest lens I can find: a
+Samyang 12mm F2.8 fisheye lens. This lens has a ~ 180deg field of view corner to
+corner, and about 160deg field of view horizontally.
 
 In these demos I'm using only one camera, so I'm going to run a /monocular/
 calibration to compute the intrinsics (the lens parameters). mrcal is fully able
