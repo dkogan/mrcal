@@ -593,7 +593,7 @@ def write_output_all(args,
                      image_filenames_base[0] + '-disparity.png')
     def write_binary(filename):
         with open(filename, "wb") as f:
-            f.write(disparity.tobytes())
+            f.write(np.ascontiguousarray(disparity).tobytes())
     write_output_one(args.tag,
                      args.outdir,
                      args.force or force_override,
