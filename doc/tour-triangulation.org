@@ -74,8 +74,9 @@ mrcal-triangulate                       \
   2874 1231 
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-triangulate        \
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
+export PYTHONPATH=(..(:A));               \
+$PYTHONPATH/mrcal-triangulate             \
     --range-estimate 566                  \
     --q-observation-stdev 0.3             \
     --q-observation-stdev-correlation 0.1 \
@@ -83,7 +84,7 @@ D=~/projects/mrcal-doc-external
     --template-size 31 17                 \
     --search-radius 10                    \
     --viz uncertainty                     \
-    --hardcopy ../mrcal-doc-external/figures/triangulation/figueroa-ellipse.svg \
+    --hardcopy $PYTHONPATH/doc/external/figures/triangulation/figueroa-ellipse.svg \
     --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'     \
     $D/data/figueroa-overpass-looking-S/splined-[01].cameramodel          \
     $D/data/figueroa-overpass-looking-S/[01].jpg                           \
