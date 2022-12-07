@@ -1,18 +1,18 @@
 #+title: mrcal - camera calibrations and more!
 
 mrcal is a toolkit that provides improved methods for making and using camera
-models (calibration, tracking, mapping, photogrammetry, etc). Currently the
-focus is on calibration and uncertainty propagation, but more methods will be
-added with time. It was originally built at NASA/JPL to generate the
-high-accuracy calibrations demanded by long-range stereo, so it provides
-facilities to analyze calibration accuracy and to propagate and report
-uncertainties.
+models (calibration, tracking, mapping, photogrammetry, etc). It was originally
+built at NASA/JPL to generate the high-accuracy calibrations demanded by
+long-range stereo, so it provides facilities to calibrate cameras, analyze the
+accuracy of the result, and to propagate and report uncertainties.
 
 * Why mrcal?
 Because all other tools are terrible if you care about accuracy. They make basic
 questions like "how much data should I gather for a calibration?" and "how good
 is this calibration I just computed?" and "how different are these two models?"
-unanswerable.
+unanswerable. The previous state-of-the-art was good-enough for low-resolution
+cameras and long-focal-length lenses and low-range stereo. But today, the
+existing tools are often insufficient.
 
 This toolkit allows the user to confidently produce calibrations that are as
 good as possible. It provides lots of visualization capabilities to evaluate
@@ -25,8 +25,8 @@ rectified stereo isn't done with a pinhole model, and so on.
 
 * Documentation index
 ** Overview
-Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
-toolkit.
+Please see [[file:tour.org][a tour of mrcal]] for an overview of the capabilities of the toolkit.
+This gives a good sense of what mrcal can do that's better than other tools.
 
 ** Building, installing
 First, the tools should be [[file:install.org][built or installed]].
@@ -44,7 +44,7 @@ written to a [[file:cameramodels.org][file on disk]].
 A separate page describes various details about [[file:splined-models.org][splined models]].
 
 ** Applications
-A [[file:how-to-calibrate.org][how-to-calibrate]] page describes this very common task.
+A [[file:how-to-calibrate.org][how-to-calibrate]] page describes this core task.
 
 Given a model, we can compute its [[file:uncertainty.org][projection uncertainties]]. Given more than one
 model, we can [[file:differencing.org][compare their intrinsics (projection behaviors)]].

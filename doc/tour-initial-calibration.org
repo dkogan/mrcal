@@ -8,24 +8,24 @@ The is the first stage in the [[file:tour.org][tour of mrcal]].
 :CUSTOM_ID: gathering-corners
 :END:
 
-We start by gathering images of a [[file:formulation.org::#calibration-object][chessboard]]. This is a wide lens, so I need a
-large chessboard in order to fill the imager. My chessboard has 14x14 internal
-corners with a corner-corner spacing of 5.88cm. A big chessboard such as this is
-never completely rigid or completely flat. I'm using a board backed with 1in of
+We start by gathering images of a [[file:formulation.org::#calibration-object][chessboard]]. This is a wide lens, so I use a
+large chessboard in order to fill the imager (details about why are on the
+[[file:tour-choreography.org][choreography page]]). My chessboard has 14x14 internal corners with a
+corner-corner spacing of 5.88cm. A big chessboard such as this is never
+completely rigid or completely flat. I'm using a board backed with 1in of
 aluminum honeycomb, which is both flat and stable. It took several iterations to
 settle on this material. See the [[file:how-to-calibrate.org][how-to-calibrate page]] for details.
 
 An important consideration when gathering calibration images is keeping them in
 focus. As we shall see [[file:tour-choreography.org][later]], we want to gather as many close-up images as we
 can, so depth-of-field is the limiting factor. Moving the focus ring or the
-aperture ring on the lens /may/ affect the intrinsics, so ideally a single lens
-setting can cover both the calibration-time closeups and the working distance
-(presumably much further out). So for these tests I set the focus to infinity,
-and gather all my images at F22 to maximize the depth-of-field. To also avoid
-motion blur I need fast exposures, so I did all the image gathering outside,
-with bright natural lighting. When gathering real-world calibration data
-compromises have to be made sometimes. See the [[file:how-to-calibrate.org][how-to-calibrate page]] for more
-details.
+aperture ring affects the intrinsics, so ideally a single lens setting can cover
+both the calibration-time closeups and the working distance (presumably much
+further out). So for these tests I set the focus to infinity, and gather all my
+images at F22 to maximize the depth-of-field. To also avoid motion blur I need
+fast exposures, so I did all the image gathering outside, with bright natural
+lighting. When gathering real-world calibration data, compromises have to be
+made; see the [[file:how-to-calibrate.org][how-to-calibrate page]] for details.
 
 I gathered some [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/images][calibration images]], and used [[https://github.com/dkogan/mrgingham/][mrgingham]] 1.22 to detect the
 [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/corners.vnl][chessboard corners]]:
@@ -55,7 +55,7 @@ D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22
 We did OK, except maybe at the top center. This is a good quick/dirty
 visualization, but as we'll see later, [[file:tour-uncertainty.org][we can do much better]].
 
-For an arbitrary image we can visualize at the corner detections:
+For an arbitrary image we can visualize the corner detections:
 
 #+begin_example
 $ < corners.vnl head -n5
@@ -121,20 +121,19 @@ view, but some could be failures of mrgingham. In any case, 84 observations is
 usually plenty.
 
 If I had more that one camera, the image filenames would need to indicate what
-camera captured each image at which time. I generally use
+camera captured each image at which time. I usually name my images
 =frameFFF-cameraCCC.jpg=. Images with the same =FFF= are assumed to have been
 captured at the same instant in time. The exact pattern doesn't matter, but a
-constant base with a changing =FFF= and =CCC= are required.
+constant pattern with a changing =FFF= and =CCC= are required.
 
 * Monocular calibration with the 8-parameter opencv model
 :PROPERTIES:
 :CUSTOM_ID: opencv8-model-solving
 :END:
 
-Let's calibrate the intrinsics! We begin with a lean model used commonly for
-wide lenses in other tools: [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]]. Primarily this works via a
-rational radial "distortion" model. Projecting $\vec p$ in the camera coordinate
-system:
+Let's calibrate! We begin with a lean model used commonly for wide lenses in
+other tools: [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]]. Primarily this works via a rational radial
+"distortion" model. Projecting $\vec p$ in the camera coordinate system:
 
 \begin{aligned}
 \vec P &\equiv \frac{\vec p_{xy}}{p_z} \\
@@ -143,8 +142,9 @@ r &\equiv \left|\vec P\right|            \\
 \vec q &= \vec f_{xy} \left( \vec P_\mathrm{radial} + \cdots \right) + \vec c_{xy}
 \end{aligned}
 
-Where $\vec q$ is the resulting projected pixel, $\vec f_{xy}$
-is the focal lengths and $\vec c_{xy}$ is the center pixel of the imager.
+where $\vec q$ is the resulting projected pixel, $k_i$ are the distortion
+parameters, $\vec f_{xy}$ is the focal lengths and $\vec c_{xy}$ is the center
+pixel of the imager.
 
 Let's compute the calibration using the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool:
 
@@ -158,10 +158,10 @@ mrcal-calibrate-cameras         \
   '*.JPG'
 #+end_src
 
-I'm specifying the initial very rough estimate of the focal length (in pixels),
-the geometry of my chessboard, the lens model I want to use, chessboard corners
-we just detected and the image globs. I have just one camera, so I have one
-glob: =*.JPG=. With more cameras you'd have something like ='*-camera0.jpg'
+I'm specifying the initial rough estimate of the focal length (in pixels), the
+geometry of my chessboard, the lens model I want to use, chessboard corners we
+just detected and the image globs. I have just one camera, so I have one glob:
+=*.JPG=. With more cameras you'd have something like ='*-camera0.jpg'
 '*-camera1.jpg' '*-camera2.jpg'=.
 
 The [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool reports some high-level diagnostics, writes
@@ -192,14 +192,14 @@ Wrote /tmp/camera-0.cameramodel
 The resulting model is available [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/opencv8.cameramodel][here]]. This is a [[file:cameramodels.org][mrcal-native =.cameramodel=
 file]] containing at least the lens parameters and the geometry.
 
-Let's sanity-check the results. We want to flag down any issues with the data
-that would violate the [[file:formulation.org::#noise-model][assumptions made by the solver]].
+We want to flag down any issues with the data that would violate the [[file:formulation.org::#noise-model][assumptions
+made by the solver]]. Let's start by sanity-checking the results.
 
-The tool reports some diagnostics. As we can see, the final RMS reprojection
-error was 0.4 pixels. Of the 16464 corner observations (84 observations of the
-board with 14*14 points each), 564 didn't fit the model well-enough, and were
-thrown out as [[file:formulation.org::#outlier-rejection][outliers]]. And the [[file:formulation.org::#board-deformation][board flex]] was computed as .13mm horizontally,
-and 0.14mm vertically. That all sounds reasonable.
+As we can see in the console output, the final RMS reprojection error was 0.4
+pixels. Of the 16464 corner observations (84 observations of the board with
+14*14 points each), 564 didn't fit the model well-enough, and were thrown out as
+[[file:formulation.org::#outlier-rejection][outliers]]. The [[file:formulation.org::#board-deformation][board flex]] was computed as .13mm horizontally, and 0.14mm
+vertically. That all sounds reasonable.
 
 Let's examine the solution further. We can either
 
@@ -274,16 +274,16 @@ mrcal-show-residuals \
 
 [[file:external/figures/calibration/residuals-histogram-opencv8.svg]]
 
-We would like to see a normal distribution since that's what the [[file:formulation.org::#noise-model][noise model]]
-assumes. We do see this here. If the images were captured with varying
-illumination (which happens with different board orientations on a sunny day),
-the center cluster or the tails could get over-populated. That would be a
-violation of the noise model, bit things still appear to work OK even in that
-case.
+We would like to see a normal distribution (since that's what the [[file:formulation.org::#noise-model][noise model]]
+assumes), and we roughly do see that here. If the images were captured with
+varying illumination (which happens with different board orientations and a
+directional light source), the center cluster or the tails would get
+over-populated. That would be a violation of the noise model, bit things still
+appear to work OK even in that case.
 
 Let's look deeper. If there's anything really wrong with our data, then we
-should see it in the worst-fitting images. Let's ask the tool to see the worst
-image:
+should see it in the worst-fitting images. Let's ask the tool to show us the
+worst image:
 
 #+begin_src sh
 mrcal-show-residuals-board-observation \
@@ -333,9 +333,9 @@ of the errors in this image is 0.70 pixels. The residuals in this image look
 mostly reasonable. There is an issue, however: if the model fit this data, the
 residuals would sample independent, random noise, and would be uncorrelated.
 /Here/ there's a pattern: the errors are mostly radial in the chessboard (point
-to/from the center). A unmodeled chessboard flex would cause this kind of
-problem. This is a source of bias in his solution. Let's keep going, keeping
-this in mind.
+to/from the center). A unmodeled chessboard flex could cause this kind of
+problem, for instance. This is a source of bias in his solution. Let's keep
+going, keeping this in mind.
 
 One issue with lean models such as =LENSMODEL_OPENCV8= (used here) is that the
 radial distortion is never quite right, especially as we move further and
@@ -396,13 +396,13 @@ mrcal-show-residuals \
 
 [[file:external/figures/calibration/residual-magnitudes-opencv8.png]]
 
-In addition to the high errors at the edges, this plot also shows an anomalous
-ring of poorly-fitting observations at the center. This could be cauesd by the
-solver sacrificing accuracy at the center of the image to get a better fit in
-the much larger areas further out. Clearly this lens model cannot fit everywhere
-at once. Let's look at the systematic errors in another way: let's look at all
-the residuals over all the observations, color-coded by their direction,
-ignoring the magnitudes:
+In addition to the expected high errors at the edges, this plot also shows an
+anomalous ring of poorly-fitting observations at the center. This could maybe be
+caused by the solver sacrificing accuracy at the center of the image to get a
+better fit in the much larger areas further out? We shall see in a bit. Let's
+look at the systematic errors in another way: let's look at all the residuals
+over all the observations, color-coded by their direction, ignoring the
+magnitudes:
 
 #+begin_src sh
 mrcal-show-residuals    \
@@ -447,8 +447,8 @@ this time mrcal doesn't provide an automated way to do that. This will be added
 in the future.
 
 Clearly there're unmodeled errors in this solve. As we have seen, the errors
-here are all fairly small, but they become very important when doing precision
-work like, for instance, long-range stereo.
+here are all fairly small, but they become important when doing precision work
+like, for instance, long-range stereo.
 
 Let's fix it.
 
@@ -459,7 +459,8 @@ Let's fix it.
 
 Usable [[file:uncertainty.org][uncertainty quantification]] and accurate projections are major goals of
 mrcal. To achive these, mrcal supports a /splined stereographic/ model,
-described in detail [[file:splined-models.org][here]].
+described in detail [[file:splined-models.org][here]], and summarized below. We use this splined
+stereographic model to more precisely model the behavior or this lens.
 
 ** Splined stereographic model definition
 :PROPERTIES:
@@ -468,17 +469,16 @@ described in detail [[file:splined-models.org][here]].
 
 The basis of a splined stereographic model is a [[file:lensmodels.org::#lensmodel-stereographic][stereographic projection]]. In
 this projection, a point that lies an angle $\theta$ off the camera's optical
-axis projects to $\left|\vec q - \vec q_\mathrm{center}\right| = 2 f \tan \frac{\theta}{2}$
-pixels from the imager center, where $f$ is the focal length. Note that this
-representation supports projections behind the camera ($\theta > 90^\circ$) with
-a single singularity directly behind the camera. This is unlike the pinhole
-model, which has $\left|\vec q - \vec q_\mathrm{center}\right| = f \tan \theta$, and projects
-to infinity as $\theta \rightarrow 90^\circ$.
+axis projects to $\left|\vec q - \vec q_\mathrm{center}\right| = 2 f \tan
+\frac{\theta}{2}$ pixels from the imager center, where $f$ is the focal length.
+Note that this representation supports projections behind the camera ($\theta >
+90^\circ$) with a single singularity directly behind the camera. This is unlike
+the pinhole model, which has $\left|\vec q - \vec q_\mathrm{center}\right| = f
+\tan \theta$, and projects to infinity as $\theta \rightarrow 90^\circ$. The
+pinhole model can /not/ represent projections behind the imager.
 
 Basing the new model on a stereographic projection lifts the inherent
-forward-view-only limitation of =LENSMODEL_OPENCV8=. To give the model enough
-flexibility to be able to represent any projection function, I define two
-correction surfaces.
+forward-view-only limitation of =LENSMODEL_OPENCV8=.
 
 Let $\vec p$ be the camera-coordinate system point being projected. The angle
 off the optical axis is
@@ -490,9 +490,8 @@ The /normalized/ stereographic projection is
 \[ \vec u \equiv \frac{\vec p_{xy}}{\left| \vec p_{xy} \right|} 2 \tan\frac{\theta}{2} \]
 
 This initial projection operation unambiguously collapses the 3D point $\vec p$
-into a 2D point $\vec u$. We then use $\vec u$ to look-up an
-adjustment factor $\Delta \vec u$ using two splined surfaces: one for each of
-the two elements of
+into a 2D vector $\vec u$. We then use $\vec u$ to look-up an adjustment factor
+$\Delta \vec u$ using two splined surfaces: one for each of the two elements:
 
 \[ \Delta \vec u \equiv
 \left[ \begin{aligned}
@@ -556,15 +555,16 @@ difference in the command. Unlike =LENSMODEL_OPENCV8=, /this/ model has some
 /configuration/ parameters: the spline order (we use cubic splines here), the
 spline density (here each spline surface has 30 x 18 knots), and the rough
 horizontal field-of-view we support (we specify about 150 degrees horizontal
-field of view).
+field of view). These parameters are fixed in the model, and are not subject to
+optimization.
 
-There're over 1000 lens parameters here, but the problem is very sparse, so we
-can still process this in a reasonable amount of time.
+There're over 1000 lens parameters here, but the problem is sparse, so we can
+still process this in a reasonable amount of time.
 
-The =LENSMODEL_OPENCV8= solve had 564 points that fit so poorly, the solver
-threw them away as outliers; here we have 28. The RMS reprojection error dropped
-from 0.4 pixels to 0.2 pixels. The estimated chessboard shape stayed roughly the
-same: flat. These are all what we expect and hope to see.
+The =LENSMODEL_OPENCV8= solve above had 564 points that fit so poorly, the
+solver threw them away as outliers; here we have 28. The RMS reprojection error
+dropped from 0.4 pixels to 0.2 pixels. The estimated chessboard shape stayed
+roughly the same: flat. These are all what we expect and hope to see.
 
 Let's look at the residual distribution in /this/ solve:
 
@@ -742,10 +742,10 @@ mrcal-show-residuals \
 /Much/ better than before: the color clustering is /gone/. The poorly-fitting
 ring in the center is still there, but it is being modeled by this splined model
 far better than how =LENSMODEL_OPENCV8= did (error magnitudes are much better).
-We /do/ still see a clear pattern in the directions, so this fit quality can
+We /do/ still see a clear pattern in the directions inside the ring, so it could
 still be improved: a denser spline spacing would do better. This is a peculiar
-image processing artifact of the Sony Alpha 7 III camera: other cameras using
-this lens do not exhibit this effect.
+image processing artifact of the Sony Alpha 7 III camera: from experience, other
+cameras using this lens do not exhibit this effect.
 
 We can also visualize the [[file:splined-models.org][magnitude of the vector field defined by the splined
 surfaces]] $\left| \Delta \vec u \right|$:
@@ -781,19 +781,18 @@ and the knots are arranged in a regular grid. The region where the spline
 surface is well-defined begins at the 2nd knot from the edges; its boundary is
 shown as a thin green line. The valid-intrinsics region (the area where the
 intrinsics are confident because we had sufficient chessboard observations
-there) is shown as a thick, purple curve. Since each $\vec u$ projects to a
-pixel coordinate $\vec q$ in some very nonlinear way, this curve is not
-straight.
+there) is shown as a thick, green curve. Since each $\vec u$ projects to a pixel
+coordinate $\vec q$ in some nonlinear way, this curve is not straight.
 
 We want the valid-intrinsics region to lie entirely within the spline-in-bounds
-region, and that happens here everywhere, except for a tiny sliver at the
-bottom-right. If some observations lie outside the spline-in-bounds regions, the
-projection behavior there will be less flexible than the rest of the model,
-resulting in less realistic uncertainties. See [[file:splined-models.org::#splined models field of view selection][the lensmodel documentation]] for
-more detail.
+region, and we get that here nicely. If some observations did lie outside the
+spline-in-bounds regions, the projection behavior there would be less flexible
+than the rest of the model, resulting in less realistic uncertainties, and a
+larger-fov splined model would be more appropriate. See [[file:splined-models.org::#splined models field of view selection][the lensmodel
+documentation]] for more detail.
 
 Alternately, I can look at the spline surface as a function of the pixel
-coordinates. Just for $\Delta u_x$:
+coordinates:
 
 #+begin_src sh
 mrcal-show-splined-model-correction   \
@@ -821,9 +820,9 @@ mrcal-show-splined-model-correction \
 
 [[file:external/figures/splined-models/splined-magnitude-imager-domain.png]]
 
-Now the valid-intrinsics region is a nice rectangle, but the spline-in-bounds
-region is complex curve. Projection at the edges is poorly-defined, so the
-boundary of the spline-in-bounds region appears irregular in this view.
+Now the valid-intrinsics region is straight, but the spline-in-bounds region is
+a curve. Projection at the edges is poorly-defined, so the boundary of the
+spline-in-bounds region appears irregular in this view.
 
 I can /also/ look at the correction vector field:
 #+begin_src sh
@@ -856,7 +855,7 @@ D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22
 
 [[file:external/figures/splined-models/splined-vectorfield-imager-domain.svg]]
 
-This doesn't show anything noteworthy in this solve, but seeing this is often
+This doesn't show anything noteworthy in this solve, but seeing it is often
 informative with other lenses.
 
 * Next
