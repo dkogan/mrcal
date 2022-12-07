@@ -9,7 +9,7 @@ We just [[file:tour-choreography.org][found the best chessboard-dancing techniqu
 * Stereo
 #+begin_src sh :exports none :eval no-export
 # all the images downsampled for view on the page like this
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 D1=$D/data/figueroa-overpass-looking-S
 for img ( $D1/{[01].jpg,[01]-reprojected-scale*.jpg,jplv-stereo-*-scale*.png,{rectified[01],disparity,range}-*.png} ) { \
   convert $img -scale 12% ${img:r}.downsampled.${img:e}
@@ -58,7 +58,7 @@ and propagating it through the recomputed extrinsics to triangulation is on the
 
 # I reprojected the images to a pinhole model
 
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 D1=$D/data/figueroa-overpass-looking-S;
 for s (0.6 0.35) { \
   for what (splined opencv8) { \
@@ -66,7 +66,7 @@ for s (0.6 0.35) { \
       -f \
       --to-pinhole \
       --scale-focal $s \
-      $D/data/board/$what.cameramodel \
+      $D/$what.cameramodel \
       $D/data/figueroa-overpass-looking-S/[01].jpg | \
     ~/projects/mrcal/mrcal-to-cahvor > \
     $D/data/figueroa-overpass-looking-S/$what.pinhole.scale$s.cahvor;
@@ -98,13 +98,13 @@ paste \
        ~/projects/mrcal/mrcal-reproject-points \
          --intrinsics-only \
          $D/data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor \
-         $D/data/board/opencv8.cameramodel) \
+         $D/opencv8.cameramodel) \
   <( < $D/data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl \
        vnl-filter -p Feat2x,Feat2y | \
        ~/projects/mrcal/mrcal-reproject-points \
          --intrinsics-only \
          $D/data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor \
-         $D/data/board/opencv8.cameramodel) > \
+         $D/opencv8.cameramodel) > \
   data/figueroa-overpass-looking-S/features.imgany.inputimage.vnl
 
 # And THEN I could use deltapose to compute extrinsics
@@ -121,7 +121,7 @@ for what (splined opencv8) {
     --seedrt01 0 0 0 $((7.*12*2.54/100)) 0 0 \
     --cam0pose identity \
     --observed-pixel-uncertainty 1 \
-    $D1/data/board/$what.cameramodel{,} && \
+    $D1/$what.cameramodel{,} && \
   zmv -W \
     'camera-*.cameramodel' \
     $D1/$what-\*.cameramodel
@@ -149,10 +149,11 @@ mrcal-stereo                     \
   [01].jpg
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 D1=$D/data/figueroa-overpass-looking-S/
 
-~/projects/mrcal/mrcal-stereo    \
+export PYTHONPATH=(..(:A));      \
+$PYTHONPATH/mrcal-stereo         \
   --az-fov-deg 145               \
   --el-fov-deg 135               \
   --el0-deg    5                 \
@@ -241,13 +242,14 @@ mrcal-stereo        \
   splined-[01].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/projects/mrcal/mrcal-stereo                                       \
+export PYTHONPATH=(..(:A));                                         \
+$PYTHONPATH/mrcal--stereo                                           \
   --az-fov-deg 145                                                  \
   --el-fov-deg 135                                                  \
   --el0-deg    5                                                    \
   --set 'view 70,5'                                                 \
   --viz geometry                                                    \
-  --hardcopy $D/figures/stereo/stereo-rectified-system.svg          \
+  --hardcopy ~/projects/mrcal/doc/external/figures/stereo/stereo-rectified-system.svg          \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
   $D1/splined-[01].cameramodel
 #+end_src
@@ -284,15 +286,16 @@ https://www.emporis.com/buildings/116570/beaudry-center-los-angeles-ca-usa
 Command to test all the ranges
 
 #+begin_src sh :exports none :eval no-export
+export PYTHONPATH=(..(:A));      \
 what=opencv8; (
-./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 2874 1231 --range-estimate 566 --search-radius 10
-./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 2968 1767 --range-estimate 870 --search-radius 10
-./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 1885 864  --range-estimate 594 --search-radius 10
-./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 3090 1384 --range-estimate 862 --search-radius 10
-./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg  541  413 --range-estimate 402 --search-radius 10
-./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 4489 1631 --range-estimate 522 --search-radius 10
-./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 5483  930 --range-estimate 311 --search-radius 10
-./mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 5351  964 --range-estimate 311 --search-radius 10
+$PYTHONPATH/mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 2874 1231 --range-estimate 566 --search-radius 10
+$PYTHONPATH/mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 2968 1767 --range-estimate 870 --search-radius 10
+$PYTHONPATH/mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 1885 864  --range-estimate 594 --search-radius 10
+$PYTHONPATH/mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 3090 1384 --range-estimate 862 --search-radius 10
+$PYTHONPATH/mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg  541  413 --range-estimate 402 --search-radius 10
+$PYTHONPATH/mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 4489 1631 --range-estimate 522 --search-radius 10
+$PYTHONPATH/mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 5483  930 --range-estimate 311 --search-radius 10
+$PYTHONPATH/mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 5351  964 --range-estimate 311 --search-radius 10
 ) | egrep 'q1|Range'
 #+end_src
 
@@ -463,7 +466,7 @@ done
 #+end_src
 #+begin_src sh :exports none :eval no-export
 # all the images downsampled for view on the page like this
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 D1=$D/data/figueroa-overpass-looking-S
 for img ( $D1/jplv-stereo-*-scale*.png ) { \
   convert $img -scale 12% ${img:r}.downsampled.${img:e}
@@ -531,10 +534,11 @@ mrcal-stereo                        \
   [01].jpg
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 D1=$D/data/figueroa-overpass-looking-S/
 
-~/projects/mrcal/mrcal-stereo       \
+export PYTHONPATH=(..(:A));         \
+$PYTHONPATH/mrcal-stereo            \
   --rectification LENSMODEL_PINHOLE \
   --az-fov-deg 80                   \
   --el-fov-deg 80                   \
@@ -595,14 +599,15 @@ mrcal-stereo                        \
   splined-[01].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-~/projects/mrcal/mrcal-stereo                                       \
+export PYTHONPATH=(..(:A));                                         \
+$PYTHONPATH/mrcal-stereo                                            \
   --rectification LENSMODEL_PINHOLE                                 \
   --az-fov-deg 80                                                   \
   --el-fov-deg 80                                                   \
   --az0-deg    -45                                                  \
   --set 'view 70,5'                                                 \
   --viz geometry                                                    \
-  --hardcopy $D/figures/stereo/stereo-rectified-system-narrow.svg   \
+  --hardcopy ~/projects/mrcal/doc/external/figures/stereo/stereo-rectified-system-narrow.svg   \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
   $D1/splined-[01].cameramodel
 #+end_src
