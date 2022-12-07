@@ -491,8 +491,8 @@ mrcal-show-geometry      \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-geometry $D/data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy $D/figures/calibration/calibration-chessboards-geometry.svg
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-geometry $D/data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' --hardcopy $D/figures/calibration/calibration-chessboards-geometry.pdf
+export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-geometry $D/data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy $D/figures/calibration/calibration-chessboards-geometry.svg
+export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-geometry $D/data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' --hardcopy $D/figures/calibration/calibration-chessboards-geometry.pdf
 #+end_src
 
 [[file:external/figures/calibration/calibration-chessboards-geometry.svg]]
@@ -519,7 +519,7 @@ mrcal-show-residuals    \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals \
   --histogram  \
   --set 'xrange [-4:4]' \
   --unset key           \
@@ -529,7 +529,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
   $D/data/board/opencv8.cameramodel
 
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals \
   --histogram  \
   --set 'xrange [-4:4]' \
   --unset key           \
@@ -562,7 +562,7 @@ mrcal-show-residuals-board-observation \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board-observation \
+export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals-board-observation \
   --from-worst \
   --vectorscale 100 \
   --circlescale 0.5 \
@@ -626,7 +626,7 @@ D=~/projects/mrcal-doc-external
   --outdir /tmp                                                                     \
   '*.JPG'
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal-noncentral ~/projects/mrcal-noncentral/mrcal-show-residuals-board-observation \
+export PYTHONPATH=(..(:A));-$PYTHONPATHjects/mrcal-noncentral/mrcal-show-residuals-board-observation \
   --vectorscale 100 \
   --circlescale 0.5 \
   --set 'cbrange [0:3]' \
@@ -656,7 +656,7 @@ mrcal-show-residuals-board-observation \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board-observation \
+export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals-board-observation \
   --from-worst \
   --vectorscale 100 \
   --circlescale 0.5 \
@@ -674,7 +674,7 @@ instead of =LENSMODEL_OPENCV8= makes this work, as seen in the [[file:tour-initi
 
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board-observation \
+export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals-board-observation \
   --vectorscale 100 \
   --circlescale 0.5 \
   --set 'cbrange [0:3]' \
@@ -698,7 +698,7 @@ mrcal-show-residuals    \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals \
   --directions \
   --unset key           \
   --set 'pointsize 0.5' \
@@ -707,7 +707,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
   $D/data/board/opencv8.cameramodel
 
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals \
   --directions \
   --unset key           \
   --set 'pointsize 0.25' \
@@ -730,7 +730,7 @@ mrcal]]:
 
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals \
   --directions \
   --unset key           \
   --set 'pointsize 0.5' \
@@ -739,7 +739,7 @@ PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
   $D/data/board/splined.cameramodel
 
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals \
   --directions \
   --unset key           \
   --set 'pointsize 0.25' \

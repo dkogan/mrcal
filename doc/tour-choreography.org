@@ -30,8 +30,8 @@ dance-study.py                   \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal             \
-~/projects/mrcal/analyses/dancing/dance-study.py \
+export PYTHONPATH=(..(:A));                      \
+$PYTHONPATH/analyses/dancing/dance-study.py      \
   --scan Nframes                                 \
   --Ncameras 1                                   \
   --Nframes 20,200                               \
@@ -69,8 +69,8 @@ dance-study.py                   \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal             \
-~/projects/mrcal/analyses/dancing/dance-study.py \
+export PYTHONPATH=(..(:A));                      \
+$PYTHONPATH/analyses/dancing/dance-study.py      \
   --scan range                                   \
   --Ncameras 1                                   \
   --Nframes 100                                  \
@@ -104,8 +104,8 @@ dance-study.py                         \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal \
-~/projects/mrcal/analyses/dancing/dance-study.py \
+export PYTHONPATH=(..(:A));                      \
+$PYTHONPATH/analyses/dancing/dance-study.py      \
   --scan tilt_radius                             \
   --tilt-radius 0,80                             \
   --Ncameras 1                                   \
@@ -166,8 +166,8 @@ dance-study.py                          \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal             \
-~/projects/mrcal/analyses/dancing/dance-study.py \
+export PYTHONPATH=(..(:A));                      \
+$PYTHONPATH/analyses/dancing/dance-study.py      \
   --scan Ncameras                                \
   --Ncameras 1,8                                 \
   --camera-spacing 0                             \
@@ -207,8 +207,8 @@ dance-study.py                          \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal             \
-~/projects/mrcal/analyses/dancing/dance-study.py \
+export PYTHONPATH=(..(:A));                      \
+$PYTHONPATH/analyses/dancing/dance-study.py      \
   --scan object_width_n                          \
   --range 2                                      \
   --Ncameras 1                                   \
@@ -242,8 +242,8 @@ dance-study.py                   \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal \
-~/projects/mrcal/analyses/dancing/dance-study.py \
+export PYTHONPATH=(..(:A));          \
+$PYTHONPATH/analyses/dancing/dance-study.py      \
   --scan object_spacing                          \
   --range 2                                      \
   --Ncameras 1                                   \
@@ -279,8 +279,8 @@ dance-study.py                                     \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal                                                                                 \
-~/projects/mrcal/analyses/dancing/dance-study.py                                                                     \
+export PYTHONPATH=(..(:A));                                                                                          \
+$PYTHONPATH/analyses/dancing/dance-study.py                                                                          \
   --scan object_spacing                                                                                              \
   --scan-object-spacing-compensate-range-from 0.04                                                                   \
   --range 2                                                                                                          \
