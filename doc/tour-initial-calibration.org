@@ -39,13 +39,13 @@ How well did we cover the imager? Did we get the edges and corners?
 #+begin_example
 $ < corners.vnl       \
   vnl-filter -p x,y | \
-  feedgnuplot --domain --square --set 'xrange [:] noextend' --set 'yrange [:] reverse noextend'
+  feedgnuplot --domain --square --set 'xrange [0:6000] noextend' --set 'yrange [3376:0] noextend'
 #+end_example
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 < $D/corners.vnl \
   vnl-filter -p x,y | \
-  feedgnuplot --domain --square  --set 'xrange [:] noextend' --set 'yrange [:] reverse noextend' \
+  feedgnuplot --domain --square --set 'xrange [0:6000] noextend' --set 'yrange [3376:0] noextend' \
     --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
     --hardcopy ~/projects/mrcal-doc-external/figures/calibration/mrgingham-coverage.png
 #+end_src
@@ -296,6 +296,7 @@ mrcal-show-residuals-board-observation \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+cd $D/images
 mrcal-show-residuals-board-observation \
   --from-worst \
   --vectorscale 200 \
@@ -356,6 +357,7 @@ mrcal-show-residuals-board-observation \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+cd $D/images
 mrcal-show-residuals-board-observation \
   --from-worst \
   --vectorscale 200 \
@@ -615,6 +617,7 @@ mrcal-show-residuals-board-observation \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+cd $D/images
 mrcal-show-residuals-board-observation \
   --from-worst \
   --vectorscale 200 \
@@ -670,6 +673,7 @@ mrcal-show-residuals-board-observation \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+cd $D/images
 mrcal-show-residuals-board-observation \
   --vectorscale 200 \
   --circlescale 0.5 \
