@@ -61,17 +61,17 @@ to the map) from the camera. I have a pixel coordinate on the logo: $\vec q =
 triangulate:
 
 #+begin_src sh
-$ mrcal-triangulate                       \
-    --range-estimate 566                  \
-    --q-observation-stdev 0.3             \
-    --q-observation-stdev-correlation 0.1 \
-    --stabilize-coords                    \
-    --template-size 31 17                 \
-    --search-radius 10                    \
-    --viz uncertainty                     \
-    splined-[01].cameramodel              \
-    [01].jpg                              \
-    2874 1231 
+mrcal-triangulate                       \
+  --range-estimate 566                  \
+  --q-observation-stdev 0.3             \
+  --q-observation-stdev-correlation 0.1 \
+  --stabilize-coords                    \
+  --template-size 31 17                 \
+  --search-radius 10                    \
+  --viz uncertainty                     \
+  splined-[01].cameramodel              \
+  [01].jpg                              \
+  2874 1231 
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external
