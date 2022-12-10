@@ -306,6 +306,22 @@ mrcal-show-residuals-board-observation \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/opencv8.cameramodel \
   0
+Dout_worst=~/projects/mrcal-doc-external/figures/calibration/worst
+mkdir -p $Dout_worst
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals-board-observation \
+  --from-worst \
+  --vectorscale 200 \
+  --circlescale 0.5 \
+  --set 'cbrange [0:2]' \
+  --hardcopy "$Dout_worst/00001.png" \
+  --title "Worst observation: LENSMODEL_OPENCV8" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/opencv8.cameramodel \
+  0
 #+end_src
 
 [[file:external/figures/calibration/worst-opencv8.png]]
@@ -627,13 +643,40 @@ mrcal-show-residuals-board-observation \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/splined.cameramodel \
   0
+Dout_worst=~/projects/mrcal-doc-external/figures/calibration/worst
+mkdir -p $Dout_worst
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals-board-observation \
+  --from-worst \
+  --vectorscale 200 \
+  --circlescale 0.5 \
+  --set 'cbrange [0:2]' \
+  --hardcopy "$Dout_worst/00002.png" \
+  --title "Worst observation: LENSMODEL_SPLINED_STEREOGRAPHIC" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/splined.cameramodel \
+  0
+
+ffmpeg \
+  -r 1 \
+  -y \
+  -f image2 \
+  -i "$Dout_worst/%05d.png" \
+  -filter_complex "[0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse" \
+  ~/projects/mrcal-doc-external/figures/calibration/worst-opencv8-splined-animation.gif
 #+end_src
 
 [[file:external/figures/calibration/worst-splined.png]]
 
 Interestingly, the worst observation here is the same one we saw with
 =LENSMODEL_OPENCV8=. But all the errors are significantly smaller than before.
-The previous radial pattern is still there, but is much less pronounced.
+The previous radial pattern is still there, but is much less pronounced. A
+before/after comparison:
+
+[[file:external/figures/calibration/worst-opencv8-splined-animation.gif]]
 
 #+begin_src sh :exports none :eval no-export
 Sometimes noncentral solves clearly fix this, and I can talk about it (notes
