@@ -270,6 +270,22 @@ mrcal-show-residuals \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-opencv8.pdf" \
   --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
   $D/opencv8.cameramodel
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/histogram
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals \
+  --histogram  \
+  --set 'xrange [-2:2]' \
+  --unset key           \
+  --binwidth 0.1 \
+  --hardcopy "$Dout/00001.png" \
+  --title "Residual histogram: LENSMODEL_OPENCV8" \
+  --terminal 'pngcairo size 1024,768 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/opencv8.cameramodel
 #+end_src
 
 [[file:external/figures/calibration/residuals-histogram-opencv8.svg]]
@@ -306,8 +322,8 @@ mrcal-show-residuals-board-observation \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/opencv8.cameramodel \
   0
-Dout_worst=~/projects/mrcal-doc-external/figures/calibration/worst
-mkdir -p $Dout_worst
+Dout=~/projects/mrcal-doc-external/figures/calibration/worst
+mkdir -p $Dout
 echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
 echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
 echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
@@ -317,7 +333,7 @@ mrcal-show-residuals-board-observation \
   --vectorscale 200 \
   --circlescale 0.5 \
   --set 'cbrange [0:2]' \
-  --hardcopy "$Dout_worst/00001.png" \
+  --hardcopy "$Dout/00001.png" \
   --title "Worst observation: LENSMODEL_OPENCV8" \
   --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
   $D/opencv8.cameramodel \
@@ -383,6 +399,23 @@ mrcal-show-residuals-board-observation \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/opencv8.cameramodel \
   10
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/worst-in-corner
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals-board-observation \
+  --from-worst \
+  --vectorscale 200 \
+  --circlescale 0.5 \
+  --set 'cbrange [0:2]' \
+  --hardcopy "$Dout/00001.png" \
+  --title "Observation in the corner: LENSMODEL_OPENCV8" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/opencv8.cameramodel \
+  10
 #+end_src
 
 [[file:external/figures/calibration/worst-incorner-opencv8.png]]
@@ -409,6 +442,21 @@ mrcal-show-residuals \
   --set 'pointsize 0.5' \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/residual-magnitudes-opencv8.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
+  $D/opencv8.cameramodel
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/magnitudes
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals \
+  --magnitudes \
+  --set 'cbrange [0:1.5]' \
+  --set 'pointsize 0.5' \
+  --hardcopy "$Dout/00001.png" \
+  --title "Residual magnitudes: LENSMODEL_OPENCV8" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
   $D/opencv8.cameramodel
 #+end_src
 
@@ -450,6 +498,21 @@ mrcal-show-residuals \
   --set 'pointsize 0.5' \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/directions-opencv8.pdf" \
   --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
+  $D/opencv8.cameramodel
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/directions
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals \
+  --directions \
+  --unset key           \
+  --set 'pointsize 0.5' \
+  --hardcopy "$Dout/00001.png" \
+  --title "Residual directions: LENSMODEL_OPENCV8" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
   $D/opencv8.cameramodel
 #+end_src
 
@@ -584,7 +647,7 @@ solver threw them away as outliers; here we have 28. The RMS reprojection error
 dropped from 0.4 pixels to 0.2 pixels. The estimated chessboard shape stayed
 roughly the same: flat. These are all what we expect and hope to see.
 
-Let's look at the residual distribution in /this/ solve:
+Let's look at the residual distribution in /this/ solve, compared to before:
 
 #+begin_src sh
 mrcal-show-residuals    \
@@ -613,14 +676,37 @@ mrcal-show-residuals \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-splined.pdf" \
   --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
   $D/splined.cameramodel
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/histogram
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals \
+  --histogram  \
+  --set 'xrange [-2:2]' \
+  --unset key           \
+  --binwidth 0.1 \
+  --hardcopy "$Dout/00002.png" \
+  --title "Residual histogram: LENSMODEL_SPLINED_STEREOGRAPHIC" \
+  --terminal 'pngcairo size 1024,768 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/splined.cameramodel
+ffmpeg \
+  -r 1 \
+  -y \
+  -f image2 \
+  -i "$Dout/%05d.png" \
+  -filter_complex "[0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse" \
+  ~/projects/mrcal-doc-external/figures/calibration/histogram-opencv8-splined-animation.gif
 #+end_src
 
-[[file:external/figures/calibration/residuals-histogram-splined.svg]]
+[[file:external/figures/calibration/histogram-opencv8-splined-animation.gif]]
 
 This still has the nice bell curve, but the residuals are lower: the data fits
 better than before.
 
-Let's look at the worst-fitting single image in /this/ solve:
+Let's look at the worst-fitting single image:
 
 #+begin_src sh
 mrcal-show-residuals-board-observation \
@@ -643,8 +729,9 @@ mrcal-show-residuals-board-observation \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/splined.cameramodel \
   0
-Dout_worst=~/projects/mrcal-doc-external/figures/calibration/worst
-mkdir -p $Dout_worst
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/worst
+mkdir -p $Dout
 echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
 echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
 echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
@@ -654,29 +741,27 @@ mrcal-show-residuals-board-observation \
   --vectorscale 200 \
   --circlescale 0.5 \
   --set 'cbrange [0:2]' \
-  --hardcopy "$Dout_worst/00002.png" \
+  --hardcopy "$Dout/00002.png" \
   --title "Worst observation: LENSMODEL_SPLINED_STEREOGRAPHIC" \
   --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
   $D/splined.cameramodel \
   0
-
 ffmpeg \
   -r 1 \
   -y \
   -f image2 \
-  -i "$Dout_worst/%05d.png" \
+  -i "$Dout/%05d.png" \
   -filter_complex "[0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse" \
   ~/projects/mrcal-doc-external/figures/calibration/worst-opencv8-splined-animation.gif
 #+end_src
 
-[[file:external/figures/calibration/worst-splined.png]]
-
 Interestingly, the worst observation here is the same one we saw with
-=LENSMODEL_OPENCV8=. But all the errors are significantly smaller than before.
-The previous radial pattern is still there, but is much less pronounced. A
-before/after comparison:
+=LENSMODEL_OPENCV8=, so we can do a nice side-by-side comparison:
 
 [[file:external/figures/calibration/worst-opencv8-splined-animation.gif]]
+
+All the errors are significantly smaller. The previous radial pattern is still
+there, but is much less pronounced.
 
 #+begin_src sh :exports none :eval no-export
 Sometimes noncentral solves clearly fix this, and I can talk about it (notes
@@ -725,9 +810,32 @@ mrcal-show-residuals-board-observation \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/splined.cameramodel \
   47
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/worst-in-corner
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals-board-observation \
+  --vectorscale 200 \
+  --circlescale 0.5 \
+  --set 'cbrange [0:2]' \
+  --hardcopy "$Dout/00002.png" \
+  --title "Observation in the corner: LENSMODEL_SPLINED_STEREOGRAPHIC" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/splined.cameramodel \
+  47
+ffmpeg \
+  -r 1 \
+  -y \
+  -f image2 \
+  -i "$Dout/%05d.png" \
+  -filter_complex "[0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse" \
+  ~/projects/mrcal-doc-external/figures/calibration/worst-in-corner-opencv8-splined-animation.gif
 #+end_src
 
-[[file:external/figures/calibration/worst-incorner-splined.png]]
+[[file:external/figures/calibration/worst-in-corner-opencv8-splined-animation.gif]]
 
 And the residual magnitudes of all the observations:
 
@@ -746,9 +854,31 @@ mrcal-show-residuals \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/residual-magnitudes-splined.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/splined.cameramodel
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/magnitudes
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals \
+  --magnitudes \
+  --set 'cbrange [0:1.5]' \
+  --set 'pointsize 0.5' \
+  --hardcopy "$Dout/00002.png" \
+  --title "Residual magnitudes: LENSMODEL_SPLINED_STEREOGRAPHIC" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/splined.cameramodel
+ffmpeg \
+  -r 1 \
+  -y \
+  -f image2 \
+  -i "$Dout/%05d.png" \
+  -filter_complex "[0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse" \
+  ~/projects/mrcal-doc-external/figures/calibration/residual-magnitudes-opencv8-splined-animation.gif
 #+end_src
 
-[[file:external/figures/calibration/residual-magnitudes-splined.png]]
+[[file:external/figures/calibration/residual-magnitudes-opencv8-splined-animation.gif]]
 
 Neat! The model fits the data at the edges now. And what about the residual
 directions?
@@ -782,9 +912,31 @@ mrcal-show-residuals \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/directions-splined.pdf" \
   --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
   $D/splined.cameramodel
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/directions
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals \
+  --directions \
+  --unset key           \
+  --set 'pointsize 0.5' \
+  --hardcopy "$Dout/00002.png" \
+  --title "Residual directions: LENSMODEL_SPLINED_STEREOGRAPHIC" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/splined.cameramodel
+ffmpeg \
+  -r 1 \
+  -y \
+  -f image2 \
+  -i "$Dout/%05d.png" \
+  -filter_complex "[0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse" \
+  ~/projects/mrcal-doc-external/figures/calibration/residual-directions-opencv8-splined-animation.gif
 #+end_src
 
-[[file:external/figures/calibration/directions-splined.png]]
+[[file:external/figures/calibration/residual-directions-opencv8-splined-animation.gif]]
 
 /Much/ better than before: the color clustering is /gone/. The poorly-fitting
 ring in the center is still there, but it is being modeled by this splined model
