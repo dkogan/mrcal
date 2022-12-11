@@ -16,7 +16,8 @@ lens in two different ways:
 And we saw evidence that the splined model does a better job of representing
 reality. Can we quantify that? How different are the two models we computed?
 
-Let's compute the difference. Given a pixel $\vec q_0$ we can
+Let's compute that difference. There's an obvious algorithm: given a pixel $\vec
+q_0$ we
 
 1. Unproject $\vec q_0$ to a fixed point $\vec p$ using lens 0
 2. Project $\vec p$ back to pixel coords $\vec q_1$ using lens 1
@@ -36,6 +37,7 @@ mrcal-show-projection-diff \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
+mkdir -p ~/projects/mrcal-doc-external/figures/diff
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 mrcal-show-projection-diff                           \
   --intrinsics-only                                                   \
@@ -49,9 +51,8 @@ mrcal-show-projection-diff                           \
 [[file:external/figures/diff/diff-radius0-heatmap-splined-opencv8.png]]
 
 Well that's strange. The reported differences really do have units of /pixels/.
-Are the two models /that/ different? And is the best-aligned area really where
-this plot indicates? If we ask for the vector field of differences instead of a
-heat map, we get a hint about what's going on:
+Are the two models really /that/ different? If we ask for the vector field of
+differences instead of a heat map, we get a hint about what's going on:
 
 #+begin_src sh
 mrcal-show-projection-diff \
@@ -145,9 +146,9 @@ mrcal-show-projection-diff           \
 [[file:external/figures/diff/diff-splined-opencv8.png]]
 
 /Much/ better. As observed earlier, the Sony Alpha 7 III camera is applying some
-extra image processing that's not modeled by =LENSMODEL_OPENV8=, so we see a
-discrepancy in the center. The models agree well past that, and then the error
-grows as we move towards the edges.
+extra image processing that's not modeled by =LENSMODEL_OPENV8=, so we see an
+anomaly in the center. The models agree well past that, and then the error grows
+fast as we move towards the edges.
 
 This differencing method is very powerful, and has numerous applications. For
 instance:
@@ -155,21 +156,15 @@ instance:
 - evaluating the manufacturing variation of different lenses
 - quantifying intrinsics drift due to mechanical or thermal stresses
 - testing different solution methods
-- underlying a cross-validation scheme
+- underlying a [[file:tour-cross-validation.org][cross-validation scheme]] to gauge the reliability of a calibration
+  result
 
 Many of these analyses immediately raise a question: how much of a difference do
 I expect to get from random noise, and how much is attributable to whatever I'm
-measuring?
+trying to measure?
 
-Furthermore, how do we decide which data to use for the fit of the implied
-transformation? Here I was careful to get chessboard images everywhere in the
-imager, but what if there was occlusion in the space, so I was only able to get
-images in one area? In this case we would want to use only the data in that area
-for the fit of the implied transformation (because we won't expect the data in
-other areas to fit). But what to do if we don't know where that area is?
-
-These questions can be answered conclusively by quantifying the projection
+These questions can be answered conclusively by quantifying a model's projection
 uncertainty, so let's talk about that now.
 
 * Next
-Now [[file:tour-uncertainty.org][we compute the projection uncertainties of the models]]
+Now we [[file:tour-uncertainty.org][compute the projection uncertainties of the models]]
