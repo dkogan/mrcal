@@ -12,9 +12,8 @@ computed by the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/danci
 data, scans a parameter, and produces the uncertainty-vs-range curves at the
 imager center to visualize the effect of that parameter.
 
-I run all of these studies using the =LENSMODEL_OPENCV8= model computed above.
-It computes faster than the splined model, and qualitatively produces similar
-results.
+I run all of these studies using the =LENSMODEL_OPENCV8= model. It computes
+faster than the splined model, and qualitatively produces similar results.
 
 How many chessboard observations should we get?
 
@@ -51,10 +50,10 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
 Here I'm running a monocular solve that looks at chessboards ~ 0.5m away,
 scanning the frame count from 20 to 200.
 
-The horizontal dashed line is the uncertainty of the input noise observations.
-Looks like we can usually do much better than that. The vertical dashed line is
-the mean distance where we observed the chessboards. Looks like the sweet spot
-is a bit past that.
+The horizontal dashed lines in these plots is the uncertainty of the input noise
+observations: 2 pixels. We can usually do much better than that. The vertical
+dashed line is the mean distance where we observed the chessboards. Looks like
+the sweet spot is a bit past that.
 
 And it looks like more observations is always better, but we reach the point of
 diminishing returns at ~ 100 frames.
@@ -131,9 +130,8 @@ more confidence with more board tilt, with diminishing returns at about 45
 degrees.
 
 We now know that we want closeups and we want tilted views. This makes intuitive
-sense: a tilted close-up view is the best-possible view to tell the solver
-whether the size of particular imaged chessboard is caused by the focal length
-of the lens or by the distance of the observation to the camera. The
+sense: a tilted close-up view is the best-possible view for the solver to
+disambiguate focal length effects from the effects of chessboard range. The
 worst-possible observations for this are head-on far-away views. Given such
 observations, moving the board forward/backward and changing the focal length
 have a very similar effect on the observed pixels.
@@ -147,10 +145,10 @@ from imprecise circle detections or getting poor uncertainties from insufficient
 tilt. Extra effort can be expended to improve this situation to make circle
 grids usable, or chessboards can be used.
 
-Moving on. Often we want to calibrate multiple cameras, and we are free to do
-one N-way calibration or N separate monocular calibrations or anything
-in-between. The former has more constraints, so presumably that would produce
-less uncertainty. How much?
+Moving on. Often we want to calibrate multiple cameras, and if we only care
+about the intrinsics we are free to do one N-way calibration or N separate
+monocular calibrations or anything in-between. The former has more constraints,
+so presumably that would produce less uncertainty. How much?
 
 I'm processing the same calibration geometry, varying the number of cameras from
 1 to 8. The cameras are all in the same physical location, so they're all seeing
@@ -307,9 +305,9 @@ $PYTHONPATH/analyses/dancing/dance-study.py                                     
 [[file:external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.svg]]
 
 Looks like the optimal uncertainty is the same in all cases, but tracks the
-moving range. The uncertainty at infinity is better for smaller boards closer to
-the camera. This is expected: tilted /closeups/ span a bigger set of /relative/
-ranges to the camera.
+moving range. The uncertainty at infinity is roughly similar in all cases. This
+is expected: we care about the size of the chessboard relative to its distance
+from the camera, and that is constant here.
 
 Conclusions:
 
@@ -319,8 +317,6 @@ Conclusions:
 - A smaller number of bigger calibration problems is good
 - More chessboard corners is good, as long as the detector can find them
   reliably
-- Tiny chessboards near the camera are better than giant far-off chessboards. As
-  long as the camera can keep the chessboards /and/ the working objects in focus
 
 [[file:figures/observation-usefulness.svg]]
 
