@@ -240,6 +240,11 @@ are a whole lot of them, and they're all sitting right in front of the camera
 with some heavy tilt. This matches with how this chessboard dance was performed:
 I followed the guidelines of the [[file:tour-choreography.org][dance study]].
 
+** Solve diagnostics
+:PROPERTIES:
+:CUSTOM_ID: opencv8-solve-diagnostics
+:END:
+
 Next, let's examine the residuals more closely. We have an overall RMS
 reprojection error value from above, but let's look at the full distribution of
 errors for /all/ the cameras:
@@ -356,7 +361,7 @@ issues such as:
 - out-of focus images
 - images with motion blur
 - [[https://en.wikipedia.org/wiki/Rolling_shutter][rolling shutter]] effects
-- synchronization errors
+- camera synchronization errors
 - chessboard detector failures
 - insufficiently-rich models (of the lens or of the chessboard shape or anything
   else)
