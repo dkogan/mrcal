@@ -314,4 +314,4 @@ and low uncertainties. This is a /very/ common effect, and is the main thing we
 battle as we try to faithfully model the behavior of a lens.
 
 * Next
-Now [[file:tour-effect-of-range.org][we discuss the effect of range in differencing and uncertainty computations]].
+Now [[file:tour-cross-validation.org][we compare results of two different calibrations to gauge solution quality]].

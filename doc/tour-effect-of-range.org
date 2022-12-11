@@ -2,7 +2,7 @@
 #+OPTIONS: toc:nil
 
 * Previous
-We just [[file:tour-uncertainty.org][computed the projection uncertainties of the calibrated models]]
+We just [[file:tour-cross-validation.org][compared results of two different calibrations to gauge solution quality]]
 
 * The effect of range in differencing and uncertainty computations
 Earlier I talked about model [[file:tour-differencing.org][differencing]] and estimation of [[file:tour-uncertainty.org][projection
