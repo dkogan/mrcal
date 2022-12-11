@@ -29,8 +29,11 @@ dance-study.py                   \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
+mkdir -p ~/projects/mrcal-doc-external/figures/dance-study
+
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
-export PYTHONPATH=(..(:A));                      \
+PYTHONPATH=~/projects/mrcal;                     \
+export PYTHONPATH;                               \
 $PYTHONPATH/analyses/dancing/dance-study.py      \
   --scan Nframes                                 \
   --Ncameras 1                                   \
@@ -69,7 +72,8 @@ dance-study.py                   \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
-export PYTHONPATH=(..(:A));                      \
+PYTHONPATH=~/projects/mrcal;                     \
+export PYTHONPATH;                               \
 $PYTHONPATH/analyses/dancing/dance-study.py      \
   --scan range                                   \
   --Ncameras 1                                   \
@@ -104,7 +108,8 @@ dance-study.py                         \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
-export PYTHONPATH=(..(:A));                      \
+PYTHONPATH=~/projects/mrcal;                     \
+export PYTHONPATH;                               \
 $PYTHONPATH/analyses/dancing/dance-study.py      \
   --scan tilt_radius                             \
   --tilt-radius 0,80                             \
@@ -166,7 +171,8 @@ dance-study.py                          \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
-export PYTHONPATH=(..(:A));                      \
+PYTHONPATH=~/projects/mrcal;                     \
+export PYTHONPATH;                               \
 $PYTHONPATH/analyses/dancing/dance-study.py      \
   --scan Ncameras                                \
   --Ncameras 1,8                                 \
@@ -207,7 +213,8 @@ dance-study.py                          \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
-export PYTHONPATH=(..(:A));                      \
+PYTHONPATH=~/projects/mrcal;                     \
+export PYTHONPATH;                               \
 $PYTHONPATH/analyses/dancing/dance-study.py      \
   --scan object_width_n                          \
   --range 2                                      \
@@ -242,7 +249,8 @@ dance-study.py                   \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
-export PYTHONPATH=(..(:A));          \
+PYTHONPATH=~/projects/mrcal;                     \
+export PYTHONPATH;                               \
 $PYTHONPATH/analyses/dancing/dance-study.py      \
   --scan object_spacing                          \
   --range 2                                      \
@@ -279,7 +287,8 @@ dance-study.py                                     \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
-export PYTHONPATH=(..(:A));                                                                                          \
+PYTHONPATH=~/projects/mrcal;                                                                                         \
+export PYTHONPATH;                                                                                                   \
 $PYTHONPATH/analyses/dancing/dance-study.py                                                                          \
   --scan object_spacing                                                                                              \
   --scan-object-spacing-compensate-range-from 0.04                                                                   \
