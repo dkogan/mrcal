@@ -42,6 +42,7 @@ $ < corners.vnl       \
   feedgnuplot --domain --square --set 'xrange [0:6000] noextend' --set 'yrange [3376:0] noextend'
 #+end_example
 #+begin_src sh :exports none :eval no-export
+mkdir -p ~/projects/mrcal-doc-external/figures/calibration/
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 < $D/corners.vnl \
   vnl-filter -p x,y | \
@@ -959,6 +960,7 @@ mrcal-show-splined-model-correction \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
+mkdir -p ~/projects/mrcal-doc-external/figures/splined-models
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 mrcal-show-splined-model-correction \
   --set 'cbrange [0:0.1]' \
@@ -1058,4 +1060,4 @@ This doesn't show anything noteworthy in this solve, but seeing it is often
 informative with other lenses.
 
 * Next
-[[file:tour-differencing.org][We then compare the calibrated models]].
+Now we can [[file:tour-differencing.org][compare the calibrated models]].
