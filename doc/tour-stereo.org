@@ -9,10 +9,11 @@ We just [[file:tour-choreography.org][found the best chessboard-dancing techniqu
 * Stereo
 #+begin_src sh :exports none :eval no-export
 # all the images downsampled for view on the page like this
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
-D1=$D/data/figueroa-overpass-looking-S
-for img ( $D1/{[01].jpg,[01]-reprojected-scale*.jpg,jplv-stereo-*-scale*.png,{rectified[01],disparity,range}-*.png} ) { \
-  convert $img -scale 12% ${img:r}.downsampled.${img:e}
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/stereo
+Dout=~/projects/mrcal-doc-external/figures/stereo
+mkdir -p $Dout
+for img ( $D/[01].jpg ) { \
+  convert $img -scale 12% $Dout/${img:r:t}.downsampled.${img:e}
 }
 #+end_src
 
@@ -25,23 +26,23 @@ ahead and on either side, which makes an interesting stereo scene.
 
 The two images out of the camera look like this:
 
-[[file:external/data/figueroa-overpass-looking-S/0.jpg][file:external/figures/stereo/0.downsampled.jpg]]
-[[file:external/data/figueroa-overpass-looking-S/1.jpg][file:external/figures/stereo/1.downsampled.jpg]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/0.jpg][file:external/figures/stereo/0.downsampled.jpg]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/1.jpg][file:external/figures/stereo/1.downsampled.jpg]]
 
 All the full-size images are available by clicking on an image.
 
-The cameras are 7ft (2.1m) apart. In order to compute stereo images we need an
+The cameras are ~ 2m apart. In order to compute stereo images we need an
 accurate estimate of the relative geometry of the cameras, which we usually get
 as an output of the calibration process. /Here/ I only had one physical camera,
 so I did something different:
 
 - I calibrated the one camera monocularly, to get its intrinsics. This is what
-  we computed so far
+  we computed thus far
 - I used this camera to take a pair of images from slightly different locations.
   This is the "stereo pair"
 - I used a separate tool to estimate the extrinsics from corresponding feature
-  detections in the two images. This tool isn't a part of mrcal today, but will
-  be made available in the future
+  detections in the two images. For the purposes of this document the details of
+  this don't matter
 
 Generating a stereo pair in this way works well to demo the stereo processing
 tools. It does break the [[file:triangulation.org][triangulation uncertainty reporting]], since we lose the
@@ -49,145 +50,59 @@ uncertainty information in the extrinsics, however. Preserving this uncertainty,
 and propagating it through the recomputed extrinsics to triangulation is on the
 [[file:roadmap.org][mrcal roadmap]]. The resulting models we use for stereo processing:
 
-- [[file:external/data/figueroa-overpass-looking-S/splined-0.cameramodel][camera 0]]
-- [[file:external/data/figueroa-overpass-looking-S/splined-1.cameramodel][camera 1]]
+- [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/0.cameramodel][Left camera]]
+- [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/1.cameramodel][Right camera]]
 
 #+begin_src sh :exports none :eval no-export
-
-#### How I made these models
-
-# I reprojected the images to a pinhole model
-
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
-D1=$D/data/figueroa-overpass-looking-S;
-for s (0.6 0.35) { \
-  for what (splined opencv8) { \
-    ~/projects/mrcal/mrcal-reproject-image \
-      -f \
-      --to-pinhole \
-      --scale-focal $s \
-      $D/$what.cameramodel \
-      $D/data/figueroa-overpass-looking-S/[01].jpg | \
-    ~/projects/mrcal/mrcal-to-cahvor > \
-    $D/data/figueroa-overpass-looking-S/$what.pinhole.scale$s.cahvor;
-
-    for c (0 1) { \
-      mv $D/data/figueroa-overpass-looking-S/{$c-reprojected.jpg,$c.$what.pinhole.scale$s.jpg}
-    }
-  }
-}
-
-
-
-# Then I computed a few features on the pavement
-
-# Then I constructed a homography from those features using
-# cv2.findHomography(), and fed that to img-any to find lots of features on the
-# pavement:
-~/img_any/binsrc/feature_track \
-  -L0 -T2200 -C6000 -R1800 -M 2000 \
-  -H $D/data/figueroa-overpass-looking-S/homography.initial.scale0.6.txt \
-  $D/data/figueroa-overpass-looking-S/[01].opencv8.pinhole.scale0.6.jpg | \
-vnl-filter 'Corner1>500' 'Feat1x>1000' 'Feat2x>1000' > \
-$D/data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl
-
-# Then I transformed those features back to the input image coords
-paste \
-  <( < $D/data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl \
-       vnl-filter -p Feat1x,Feat1y | \
-       ~/projects/mrcal/mrcal-reproject-points \
-         --intrinsics-only \
-         $D/data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor \
-         $D/opencv8.cameramodel) \
-  <( < $D/data/figueroa-overpass-looking-S/features.imgany.scale0.6.vnl \
-       vnl-filter -p Feat2x,Feat2y | \
-       ~/projects/mrcal/mrcal-reproject-points \
-         --intrinsics-only \
-         $D/data/figueroa-overpass-looking-S/opencv8.pinhole.scale0.6.cahvor \
-         $D/opencv8.cameramodel) > \
-  data/figueroa-overpass-looking-S/features.imgany.inputimage.vnl
-
-# And THEN I could use deltapose to compute extrinsics
-rm -f $D1/{splined,opencv8}-{0,1}.cameramodel;
-
-for what (splined opencv8) {
-  PYTHONPATH=~/projects/mrcal:~/img_any \
-  LD_LIBRARY_PATH=~/projects/mrcal \
-  ~/deltapose-lite/calibrate-extrinsics \
-    --skip-outlier-rejection \
-    --correspondences <( < $D/data/figueroa-overpass-looking-S/features.imgany.inputimage.vnl \
-                           vnl-filter 'y1<3200 && y2<3200') \
-    --regularization t \
-    --seedrt01 0 0 0 $((7.*12*2.54/100)) 0 0 \
-    --cam0pose identity \
-    --observed-pixel-uncertainty 1 \
-    $D1/$what.cameramodel{,} && \
-  zmv -W \
-    'camera-*.cameramodel' \
-    $D1/$what-\*.cameramodel
-}
+See external/2022-11-05--dtla-overpass--samyang--alpha7/notes.org for
+documentation about how I made these
 #+end_src
 
-I then use the mrcal APIs to compute rectification maps, rectify the images,
-compute disparities and convert them to ranges. This is all done with the
-[[file:mrcal-stereo.html][=mrcal-stereo=]] tool:
+I then use the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool to compute rectification maps, rectify the
+images, compute disparities and convert them to ranges:
 
 #+begin_src sh
 mrcal-stereo                     \
-  --az-fov-deg 145               \
-  --el-fov-deg 135               \
-  --el0-deg    5                 \
-  --disparity-range 0 400        \
+  --az-fov-deg 170               \
+  --az0-deg    10                \
+  --el-fov-deg 95                \
+  --el0-deg    -15               \
+  --disparity-range 0 300        \
   --sgbm-p1 600                  \
   --sgbm-p2 2400                 \
   --sgbm-uniqueness-ratio 5      \
-  --sgbm-disp12-max-diff 1       \
-  --sgbm-speckle-window-size 200 \
+  --sgbm-disp12-max-diff  1      \
+  --sgbm-speckle-window-size 100 \
   --sgbm-speckle-range 2         \
-  --valid-intrinsics-region      \
-  splined-[01].cameramodel       \
-  [01].jpg
+  --force-grayscale              \
+  --clahe                        \
+  [01].cameramodel               \
+  [01].jpg                       \
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
-D1=$D/data/figueroa-overpass-looking-S/
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/stereo;
+Dout=~/projects/mrcal-doc-external/figures/stereo
 
-export PYTHONPATH=(..(:A));      \
-$PYTHONPATH/mrcal-stereo         \
-  --az-fov-deg 145               \
-  --el-fov-deg 135               \
-  --el0-deg    5                 \
-  --disparity-range 0 400        \
+mrcal-stereo                     \
+  --az-fov-deg 170               \
+  --az0-deg    10                \
+  --el-fov-deg 95                \
+  --el0-deg    -15               \
+  --disparity-range 0 300        \
   --sgbm-p1 600                  \
   --sgbm-p2 2400                 \
   --sgbm-uniqueness-ratio 5      \
-  --sgbm-disp12-max-diff 1       \
-  --sgbm-speckle-window-size 200 \
+  --sgbm-disp12-max-diff  1      \
+  --sgbm-speckle-window-size 100 \
   --sgbm-speckle-range 2         \
-  --valid-intrinsics-region      \
-  --outdir /tmp                  \
-  -f                             \
-  $D1/splined-[01].cameramodel   \
-  $D1/[01].jpg
+  --force-grayscale              \
+  --clahe                        \
+  --outdir $D                    \
+  $D/[01].cameramodel            \
+  $D/[01].jpg
 
-zmv -f -W \
-  '/tmp/rectified[01].cameramodel' \
-  "$D/data/figueroa-overpass-looking-S/rectified-[01].cameramodel"
-
-zmv -f -W \
-  '/tmp/[01]-rectified.png' \
-  "$D/figures/stereo/rectified[01]-splined.png"
-
-mv \
-  /tmp/0-disparity.png \
-  $D/figures/stereo/disparity-splined.png
-
-mv \
-  /tmp/0-range.png \
-  $D/figures/stereo/range-splined.png
-
-for img ( $D/figures/stereo/{rectified[01],disparity,range}-splined.png ) { \
-  convert $img -scale 12% ${img:r}.downsampled.${img:e}
+for img ( $D/*-{rectified,disparity,range}.png ) { \
+  convert $img -scale 12% $Dout/${img:r:t}.downsampled.${img:e}
 }
 #+end_src
 
@@ -196,26 +111,26 @@ specifying them uses the OpenCV defaults, which usually produces poor results.
 
 The rectified images look like this:
 
-[[file:external/figures/stereo/rectified0-splined.png][file:external/figures/stereo/rectified0-splined.downsampled.png]]
-[[file:external/figures/stereo/rectified1-splined.png][file:external/figures/stereo/rectified1-splined.downsampled.png]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/0-rectified.png][file:external/figures/stereo/0-rectified.downsampled.png]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/1-rectified.png][file:external/figures/stereo/1-rectified.downsampled.png]]
 
 And the disparity and range images look like this:
 
-[[file:external/figures/stereo/disparity-splined.png][file:external/figures/stereo/disparity-splined.downsampled.png]]
-[[file:external/figures/stereo/range-splined.png][file:external/figures/stereo/range-splined.downsampled.png]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/0-disparity.png][file:external/figures/stereo/0-disparity.downsampled.png]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/0-range.png][file:external/figures/stereo/0-range.downsampled.png]]
 
 On a basic level, this is clearly working well.
 
 If you've used other stereo libraries previously, these rectified images may
 look odd. This is due to using a transverse equirectangular projection for
 rectification instead of the more common pinhole projection (see the [[file:stereo.org][detailed
-stereo-processing documentation]]). This samples the azimuth and elevation angles
-evenly, which minimizes the visual distortion inside each image row. A
+stereo-processing documentation]]). This samples the azimuth and elevation
+angles evenly, which minimizes the visual distortion inside each image row. A
 side-effect is the the vertical expansion in the rectified image at the azimuth
-extremesm but since stereo matching works by correlating the rows independently,
+extremes but since stereo matching works by correlating the rows independently,
 this is a good trade-off.
 
-The generated rectified models are [[file:external/data/figueroa-overpass-looking-S/rectified-0.cameramodel][here]] and [[file:external/data/figueroa-overpass-looking-S/rectified-1.cameramodel][here]]. These define a rectified
+The generated rectified models are [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/rectified0.cameramodel][here]] and [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/rectified1.cameramodel][here]]. These define a rectified
 system with axes
 
 - $x$: the baseline; from the origin of the left camera to the origin of the
@@ -234,24 +149,27 @@ of view, for verification:
 
 #+begin_src sh
 mrcal-stereo        \
-  --az-fov-deg 145  \
-  --el-fov-deg 135  \
-  --el0-deg    5    \
+  --az-fov-deg 170  \
+  --az0-deg    10   \
+  --el-fov-deg 95   \
+  --el0-deg    -15  \
   --set 'view 70,5' \
   --viz geometry    \
   splined-[01].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-export PYTHONPATH=(..(:A));                                         \
-$PYTHONPATH/mrcal--stereo                                           \
-  --az-fov-deg 145                                                  \
-  --el-fov-deg 135                                                  \
-  --el0-deg    5                                                    \
+PYTHONPATH=~/projects/mrcal;
+export PYTHONPATH;
+$PYTHONPATH/mrcal-stereo                                            \
+  --az-fov-deg 170                                                  \
+  --az0-deg    10                                                   \
+  --el-fov-deg 95                                                   \
+  --el0-deg    -15                                                  \
   --set 'view 70,5'                                                 \
   --viz geometry                                                    \
-  --hardcopy ~/projects/mrcal/doc/external/figures/stereo/stereo-rectified-system.svg          \
+  --hardcopy $Dout/stereo-rectified-system.svg                      \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D1/splined-[01].cameramodel
+  $D/[01].cameramodel
 #+end_src
 
 [[file:external/figures/stereo/stereo-rectified-system.svg]]
@@ -286,7 +204,8 @@ https://www.emporis.com/buildings/116570/beaudry-center-los-angeles-ca-usa
 Command to test all the ranges
 
 #+begin_src sh :exports none :eval no-export
-export PYTHONPATH=(..(:A));      \
+PYTHONPATH=~/projects/mrcal;
+export PYTHONPATH
 what=opencv8; (
 $PYTHONPATH/mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 2874 1231 --range-estimate 566 --search-radius 10
 $PYTHONPATH/mrcal-triangulate $D/$what-[01].cameramodel $D/[01].jpg 2968 1767 --range-estimate 870 --search-radius 10
@@ -425,22 +344,22 @@ done
 
 The wider pinhole resampling of the two images:
 
-[[file:external/data/figueroa-overpass-looking-S/0-reprojected-scale0.35.jpg][file:external/figures/stereo/0-reprojected-scale0.35.downsampled.jpg]]
-[[file:external/data/figueroa-overpass-looking-S/1-reprojected-scale0.35.jpg][file:external/figures/stereo/1-reprojected-scale0.35.downsampled.jpg]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/0-reprojected-scale0.35.jpg][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/0-reprojected-scale0.35.downsampled.jpg]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/1-reprojected-scale0.35.jpg][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/1-reprojected-scale0.35.downsampled.jpg]]
 
 The narrower resampling of the two images:
 
-[[file:external/data/figueroa-overpass-looking-S/0-reprojected-scale0.6.jpg][file:external/figures/stereo/0-reprojected-scale0.6.downsampled.jpg]]
-[[file:external/data/figueroa-overpass-looking-S/1-reprojected-scale0.6.jpg][file:external/figures/stereo/1-reprojected-scale0.6.downsampled.jpg]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/0-reprojected-scale0.6.jpg][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/0-reprojected-scale0.6.downsampled.jpg]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/1-reprojected-scale0.6.jpg][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/1-reprojected-scale0.6.downsampled.jpg]]
 
 We will use jplv (a stereo library used at NASA/JPL) to process these pinhole
 images into a disparity map, so I converted the models to the [[file:cameramodels.org::#cameramodel-file-formats][=.cahvor= file
 format]], as that tool expects. The models:
 
-- [[file:external/data/figueroa-overpass-looking-S/splined-0.scale0.35.cahvor][camera 0, wider scaling]]
-- [[file:external/data/figueroa-overpass-looking-S/splined-1.scale0.35.cahvor][camera 1, wider scaling]]
-- [[file:external/data/figueroa-overpass-looking-S/splined-0.scale0.6.cahvor][camera 0, narrower scaling]]
-- [[file:external/data/figueroa-overpass-looking-S/splined-1.scale0.6.cahvor][camera 1, narrower scaling]]
+- [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/splined-0.scale0.35.cahvor][camera 0, wider scaling]]
+- [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/splined-1.scale0.35.cahvor][camera 1, wider scaling]]
+- [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/splined-0.scale0.6.cahvor][camera 0, narrower scaling]]
+- [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/splined-1.scale0.6.cahvor][camera 1, narrower scaling]]
 
 Both clearly show the uneven resolution described above, with the wider image
 being far more extreme. I can now use these images to compute stereo with jplv:
@@ -475,13 +394,13 @@ for img ( $D1/jplv-stereo-*-scale*.png ) { \
 
 The wide rectified images:
 
-[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.35.png][file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.35.downsampled.png]]
-[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.35.png][file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.35.downsampled.png]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/jplv-stereo-rect-left-scale0.35.png][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/jplv-stereo-rect-left-scale0.35.downsampled.png]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/jplv-stereo-rect-right-scale0.35.png][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/jplv-stereo-rect-right-scale0.35.downsampled.png]]
 
 The narrow rectified images:
 
-[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.png][file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-left-scale0.6.downsampled.png]]
-[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.png][file:external/data/figueroa-overpass-looking-S/jplv-stereo-rect-right-scale0.6.downsampled.png]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/jplv-stereo-rect-left-scale0.6.png][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/jplv-stereo-rect-left-scale0.6.downsampled.png]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/jplv-stereo-rect-right-scale0.6.png][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/jplv-stereo-rect-right-scale0.6.downsampled.png]]
 
 As most non-mrcal tools, jplv uses a pinhole model for rectification. So even if
 we gave it wide-angle images and a wide-angle-friendly camera model, we would
@@ -490,11 +409,11 @@ these problems.
 
 The disparities computed by jplv look like this for wide images:
 
-[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-diag-left-scale0.35.png][file:external/data/figueroa-overpass-looking-S/jplv-stereo-diag-left-scale0.35.downsampled.png]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/jplv-stereo-diag-left-scale0.35.png][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/jplv-stereo-diag-left-scale0.35.downsampled.png]]
 
 and for narrow images:
 
-[[file:external/data/figueroa-overpass-looking-S/jplv-stereo-diag-left-scale0.6.png][file:external/data/figueroa-overpass-looking-S/jplv-stereo-diag-left-scale0.6.downsampled.png]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/jplv-stereo-diag-left-scale0.6.png][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/jplv-stereo-diag-left-scale0.6.downsampled.png]]
 
 On a basic level, this is clearly working well also.
 
@@ -530,14 +449,15 @@ mrcal-stereo                        \
   --sgbm-speckle-window-size 200    \
   --sgbm-speckle-range 2            \
   --valid-intrinsics-region         \
-  splined-[01].cameramodel          \
+  [01].cameramodel          \
   [01].jpg
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 D1=$D/data/figueroa-overpass-looking-S/
 
-export PYTHONPATH=(..(:A));         \
+PYTHONPATH=~/projects/mrcal;
+export PYTHONPATH
 $PYTHONPATH/mrcal-stereo            \
   --rectification LENSMODEL_PINHOLE \
   --az-fov-deg 80                   \
@@ -553,8 +473,8 @@ $PYTHONPATH/mrcal-stereo            \
   --valid-intrinsics-region         \
   --outdir /tmp                     \
   -f                                \
-  $D1/splined-[01].cameramodel      \
-  $D1/[01].jpg
+  $D/[01].cameramodel      \
+  $D/[01].jpg
 
 zmv -f -W \
   '/tmp/[01]-rectified.png' \
@@ -575,12 +495,12 @@ for img ( $D/figures/stereo/{rectified[01],disparity,range}-narrow-splined.png )
 
 The pinhole rectified images:
 
-[[file:external/figures/stereo/rectified0-narrow-splined.png][file:external/figures/stereo/rectified0-narrow-splined.downsampled.png]]
-[[file:external/figures/stereo/rectified1-narrow-splined.png][file:external/figures/stereo/rectified1-narrow-splined.downsampled.png]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/rectified0-narrow-splined.png][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/rectified0-narrow-splined.downsampled.png]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/rectified1-narrow-splined.png][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/rectified1-narrow-splined.downsampled.png]]
 
 And the disparity:
 
-[[file:external/figures/stereo/disparity-narrow-splined.png][file:external/figures/stereo/disparity-narrow-splined.downsampled.png]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/disparity-narrow-splined.png][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/disparity-narrow-splined.downsampled.png]]
 
 This looks much better than the pinhole-rectified stereo from the full image.
 The rectified pinhole models and images could be passed to a different tool to
@@ -596,10 +516,11 @@ mrcal-stereo                        \
   --az0-deg    -45                  \
   --set 'view 70,5'                 \
   --viz geometry                    \
-  splined-[01].cameramodel
+  [01].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-export PYTHONPATH=(..(:A));                                         \
+PYTHONPATH=~/projects/mrcal;
+export PYTHONPATH
 $PYTHONPATH/mrcal-stereo                                            \
   --rectification LENSMODEL_PINHOLE                                 \
   --az-fov-deg 80                                                   \
@@ -607,12 +528,12 @@ $PYTHONPATH/mrcal-stereo                                            \
   --az0-deg    -45                                                  \
   --set 'view 70,5'                                                 \
   --viz geometry                                                    \
-  --hardcopy ~/projects/mrcal/doc/external/figures/stereo/stereo-rectified-system-narrow.svg   \
+  --hardcopy $Dout/stereo-rectified-system-narrow.svg               \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D1/splined-[01].cameramodel
+  $D/[01].cameramodel
 #+end_src
 
-[[file:external/figures/stereo/stereo-rectified-system-narrow.svg]]
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/stereo-rectified-system-narrow.svg]]
 
 * Range accuracy
 So far we have looked at the results qualitatively by having a human eyeball the
