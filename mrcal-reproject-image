@@ -485,7 +485,12 @@ model_valid_intrinsics_region = None
 mapxy                         = None
 model_imagersize              = None
 def _transform_this(inout):
-    image = mrcal.load_image(inout[0])
+    try:
+        image = mrcal.load_image(inout[0])
+    except:
+        print(f"Couldn't load '{inout[0]}'",
+              file=sys.stderr)
+        return
 
     if image.shape[0] != model_imagersize[1] or \
        image.shape[1] != model_imagersize[0]:
