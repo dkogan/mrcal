@@ -134,7 +134,7 @@ def parse_args():
                         This is a value in [0,1] scaling the stdev. 0 means
                         "independent" (the default). 1.0 means "100%%
                         correlated".''')
-    parser.add_argument('--stabilize-coords',
+    parser.add_argument('--stabilize-coords', '--stabilize',
                         action = 'store_true',
                         help='''If propagating calibration-time noise
                         (--q-calibration-stdev != 0), we report the uncertainty
