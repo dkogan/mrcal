@@ -201,9 +201,18 @@ which mrcal.optimize() expects
            os.path.isdir(corners_cache_vnl):
             raise Exception(f"Given cache path '{corners_cache_vnl}' is a directory. Must be a file or must not exist")
 
-        if corners_cache_vnl is None or \
-           ( not reading_pipe and \
-             not os.path.isfile(corners_cache_vnl) ):
+        if corners_cache_vnl is not None and \
+           ( reading_pipe or \
+             os.path.isfile(corners_cache_vnl) ):
+
+            # Have an existing cache file. Just read it
+            if reading_pipe:
+                pipe_corners_read = corners_cache_vnl
+            else:
+                pipe_corners_read = open(corners_cache_vnl, 'r', encoding='ascii')
+            corners_output    = None
+
+        else:
 
             if jobs < 0:
                 raise Exception("I was asked to use an existing cache file, but it couldn't be read. jobs<0, so I do not recompute")
@@ -236,13 +245,6 @@ which mrcal.optimize() expects
             corners_output = subprocess.Popen(args_mrgingham, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                               encoding='ascii')
             pipe_corners_read = corners_output.stdout
-        else:
-            # Have an existing cache file. Just read it
-            if reading_pipe:
-                pipe_corners_read = corners_cache_vnl
-            else:
-                pipe_corners_read = open(corners_cache_vnl, 'r', encoding='ascii')
-            corners_output    = None
 
 
         mapping = {}
