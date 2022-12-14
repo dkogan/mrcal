@@ -336,9 +336,9 @@ test/test-triangulation-uncertainty.py  \
 
 # --- a/test/test-triangulation-uncertainty.py
 # +++ b/test/test-triangulation-uncertainty.py
-# @@ -954,7 +954,7 @@ if args.make_documentation_plots is not None:
+# @@ -961,7 +961,7 @@ if args.make_documentation_plots is not None:
 #                  **processoptions)
-# 
+ 
 #          processoptions = copy.deepcopy(processoptions_base)
 # -        binwidth = np.sqrt(Var_distance) / 4.
 # +        binwidth = np.sqrt(Var_distance) / 1.
