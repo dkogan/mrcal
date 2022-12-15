@@ -189,24 +189,24 @@ which mrcal.optimize() expects
         # corners_cache_vnl lives
         corners_dir = None
 
-        reading_pipe = isinstance(corners_cache_vnl, io.IOBase)
+        fd_already_opened = isinstance(corners_cache_vnl, io.IOBase)
 
-        if corners_cache_vnl is not None and not reading_pipe:
+        if corners_cache_vnl is not None and not fd_already_opened:
             corners_dir = os.path.dirname( corners_cache_vnl )
 
         pipe_corners_write_fd          = None
         pipe_corners_write_tmpfilename = None
         if corners_cache_vnl is not None and \
-           not reading_pipe              and \
+           not fd_already_opened         and \
            os.path.isdir(corners_cache_vnl):
             raise Exception(f"Given cache path '{corners_cache_vnl}' is a directory. Must be a file or must not exist")
 
         if corners_cache_vnl is not None and \
-           ( reading_pipe or \
+           ( fd_already_opened or \
              os.path.isfile(corners_cache_vnl) ):
 
             # Have an existing cache file. Just read it
-            if reading_pipe:
+            if fd_already_opened:
                 pipe_corners_read = corners_cache_vnl
             else:
                 pipe_corners_read = open(corners_cache_vnl, 'r', encoding='ascii')
@@ -386,7 +386,7 @@ which mrcal.optimize() expects
             if pipe_corners_write_fd is not None:
                 os.close(pipe_corners_write_fd)
                 shutil.move(pipe_corners_write_tmpfilename, corners_cache_vnl)
-        elif not reading_pipe:
+        elif not fd_already_opened:
             pipe_corners_read.close()
 
         # If I have multiple cameras, I use the filenames to figure out what
