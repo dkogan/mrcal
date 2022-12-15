@@ -136,7 +136,7 @@ if args.write_image:
                   file=sys.stderr)
             sys.exit(1)
         filename_out = f"{base}-{suffix}{extension}"
-        if not args.force and os.path.isfile(filename_out):
+        if not args.force and os.path.exists(filename_out):
             print(f"Target image '{filename_out}' already exists. Doing nothing, and giving up. Pass -f to overwrite",
                   file=sys.stderr)
             sys.exit(1)

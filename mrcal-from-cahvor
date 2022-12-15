@@ -82,7 +82,7 @@ for model in args.model:
         if args.outdir is not None:
             base = args.outdir + '/' + os.path.split(base)[1]
         filename_out = base + '.cameramodel'
-        if not args.force and os.path.isfile(filename_out):
+        if not args.force and os.path.exists(filename_out):
             print(f"Target model '{filename_out}' already exists. Doing nothing with this model. Pass -f to overwrite",
                   file=sys.stderr)
         else:

@@ -2826,7 +2826,7 @@ plot
         elif image_directory is not None:
             imagepath = f"{image_directory}/{os.path.basename(imagepath)}"
 
-        if not os.path.isfile(imagepath):
+        if not os.path.exists(imagepath):
             print(f"WARNING: Couldn't read image at '{imagepath}'", file=sys.stderr)
             imagepath = None
     else:

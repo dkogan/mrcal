@@ -203,7 +203,7 @@ which mrcal.optimize() expects
 
         if corners_cache_vnl is not None and \
            ( fd_already_opened or \
-             os.path.isfile(corners_cache_vnl) ):
+             os.path.exists(corners_cache_vnl) ):
 
             # Have an existing cache file. Just read it
             if fd_already_opened:
@@ -284,7 +284,7 @@ which mrcal.optimize() expects
                     # heuristics to figure this out
                     if corners_dir is None          or \
                        context['f'][0] == '/'       or \
-                       os.path.isfile(context['f']):
+                       os.path.exists(context['f']):
                         filename_canonical = os.path.normpath(context['f'])
                     else:
                         filename_canonical = os.path.join(corners_dir, context['f'])

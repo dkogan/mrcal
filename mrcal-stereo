@@ -542,7 +542,7 @@ def write_output_one(tag, outdir, force,
     f,e = os.path.splitext(filename)
     filename = f"{outdir}/{f}{tag}{e}"
 
-    if os.path.isfile(filename) and not force:
+    if os.path.exists(filename) and not force:
         print(f"WARNING: '{filename}' already exists. Not overwriting this file. Pass -f to overwrite")
         return
 

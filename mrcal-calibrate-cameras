@@ -123,7 +123,7 @@ def parse_args():
                         help='''How much parallelization we want. Like GNU make. Affects only the chessboard
                         corner finder. If we are reading a cache file, this does nothing''')
     parser.add_argument('--corners-cache',
-                        type=lambda f: f if os.path.isfile(f) or not os.path.isdir(f) else \
+                        type=lambda f: f if os.path.exists(f) or not os.path.isdir(f) else \
                                 parser.error(f"--corners-cache requires an existing, readable file as the arg or a non-existing path, but got '{f}'"),
                         required=False,
                         help=r'''Path to the corner-finder results. If this file exists, I use the corners in
