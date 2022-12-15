@@ -84,7 +84,9 @@ mrcal-stereo                     \
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/stereo;
 Dout=~/projects/mrcal-doc-external/figures/stereo
 
-mrcal-stereo                     \
+PYTHONPATH=~/projects/mrcal;
+export PYTHONPATH;
+$PYTHONPATH/mrcal-stereo         \
   --az-fov-deg 170               \
   --az0-deg    10                \
   --el-fov-deg 95                \
