@@ -704,13 +704,17 @@ if not args.skip_intrinsics_solve and \
     distance              = args.valid_intrinsics_region_parameters[4]
 
     for i in range(Ncameras):
-        models[i].valid_intrinsics_region( \
-            mrcal.calibration._compute_valid_intrinsics_region(models[i],
-                                                   threshold_uncertainty,
-                                                   threshold_mean,
-                                                   threshold_stdev,
-                                                   threshold_count,
-                                                   distance))
+        try:
+            models[i].valid_intrinsics_region( \
+                mrcal.calibration._compute_valid_intrinsics_region(models[i],
+                                                       threshold_uncertainty,
+                                                       threshold_mean,
+                                                       threshold_stdev,
+                                                       threshold_count,
+                                                       distance))
+        except Exception as e:
+            print(f"WARNING: Couldn't compute valid-intrinsics region for camera {i}. Will continue without. Error: {e}",
+                  file = sys.stderr)
 
 
 # The note says how we ran this, and contains the commented-out report
