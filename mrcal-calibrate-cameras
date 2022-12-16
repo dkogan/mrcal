@@ -336,7 +336,8 @@ def solve_initial(args, seedmodels, imagersizes,
                  indices_frame_camera[:,(1,)]-1,
                  axis=-1)
 
-    if seedmodels is None:
+
+    def compute_seed():
         # I have no seed. I compute a rough seed, and run a few preliminary,
         # incremental optimizations to get it reasonably-close to the right
         # answer
@@ -379,7 +380,12 @@ def solve_initial(args, seedmodels, imagersizes,
 
         extrinsics_Rt_fromref = mrcal.Rt_from_rt( extrinsics_rt_fromref )
 
-    else:
+        return                     \
+            intrinsics_data,       \
+            extrinsics_Rt_fromref, \
+            frames_rt_toref
+
+    def compute_seed_from_existing_models():
 
         # The caller made sure that all the models use the same lens model
         lensmodel = seedmodels[0].intrinsics()[0]
@@ -423,6 +429,26 @@ def solve_initial(args, seedmodels, imagersizes,
                 indices_frame_camera,
                 args.object_width_n,args.object_height_n,
                 args.object_spacing)
+
+        return                     \
+            intrinsics_data,       \
+            extrinsics_Rt_fromref, \
+            frames_rt_toref,
+
+
+
+    if seedmodels is None:
+
+        intrinsics_data,       \
+        extrinsics_Rt_fromref, \
+        frames_rt_toref        = compute_seed()
+
+    else:
+        intrinsics_data,       \
+        extrinsics_Rt_fromref, \
+        frames_rt_toref        = compute_seed_from_existing_models()
+
+
 
     def expand_intrinsics(lensmodel, intrinsics_data):
         NnewDistortions = \
