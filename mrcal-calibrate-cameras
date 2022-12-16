@@ -510,24 +510,6 @@ if Ncameras > 10:
           file=sys.stderr)
     sys.exit(1)
 
-try:
-    args.focal = [ float(f.strip()) for f in args.focal.split(',') ]
-except:
-    print(f"--focal must be given a positive floating-point value, or a comma-separated list of such values",
-          file=sys.stderr)
-    sys.exit(1)
-if not all(f>0 for f in args.focal):
-    print("--focal must be given a POSITIVE floating-point value, or a comma-separated list of such values. Some weren't positive",
-          file=sys.stderr)
-    sys.exit(1)
-
-if not (len(args.focal) == 1 or \
-        len(args.focal) == Ncameras):
-    print(f"--focal must be a single value, or a comma-separated list of exactly Ncameras such values. Received Ncameras={Ncameras} image globs and {len(args.focal)} focal lengths",
-          file=sys.stderr)
-    sys.exit(1)
-
-
 if args.pairs and Ncameras % 2:
     print(f"With --pairs I must have gotten an even number of cameras, but instead got {Ncameras}",
           file=sys.stderr)
@@ -579,6 +561,24 @@ else:
         print("Exactly one of --focal and --seed MUST be given",
               file=sys.stderr)
         sys.exit(1)
+
+    try:
+        args.focal = [ float(f.strip()) for f in args.focal.split(',') ]
+    except:
+        print(f"--focal must be given a positive floating-point value, or a comma-separated list of such values",
+              file=sys.stderr)
+        sys.exit(1)
+    if not all(f>0 for f in args.focal):
+        print("--focal must be given a POSITIVE floating-point value, or a comma-separated list of such values. Some weren't positive",
+              file=sys.stderr)
+        sys.exit(1)
+
+    if not (len(args.focal) == 1 or \
+            len(args.focal) == Ncameras):
+        print(f"--focal must be a single value, or a comma-separated list of exactly Ncameras such values. Received Ncameras={Ncameras} image globs and {len(args.focal)} focal lengths",
+              file=sys.stderr)
+        sys.exit(1)
+
     if not args.lensmodel:
         print("--lensmodel is required if no --seed",
               file=sys.stderr)
