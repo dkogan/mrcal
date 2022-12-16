@@ -554,7 +554,10 @@ if args.seed:
 
     if args.lensmodel is None:
         args.lensmodel = lensmodel
-
+    elif args.lensmodel != lensmodel:
+        print(f"Error: the lensmodel in --seed ({lensmodel}) does not match the given --lensmodel ({args.lensmodel}). With --seed you can omit --lensmodel",
+              file=sys.stderr)
+        sys.exit(1)
 
 else:
     if args.focal is None:
