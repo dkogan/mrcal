@@ -826,34 +826,34 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
 
         # I traverse my observation list, and pick out observations from frames
         # that had data from both my cameras
-        iframe_last = -1
-        d0  = None
-        d1  = None
-        Rt0 = None
-        Rt1 = None
+        iframe_last   = -1
+        d0            = None
+        d1            = None
+        Rt_cam0_frame = None
+        Rt_cam1_frame = None
         for i_observation in range(Nobservations):
             iframe_this,icam_this = indices_frame_camera[i_observation, ...]
             if iframe_this != iframe_last:
-                d0  = None
-                d1  = None
-                Rt0 = None
-                Rt1 = None
-                iframe_last = iframe_this
+                d0            = None
+                d1            = None
+                Rt_cam0_frame = None
+                Rt_cam1_frame = None
+                iframe_last   = iframe_this
 
             # The cameras appear in order. And above I made sure that icam_from >
             # icam_to, so I take advantage of that here
             if icam_this == icam_to:
-                if Rt0 is not None:
+                if Rt_cam0_frame is not None:
                     raise Exception(f"Saw multiple camera{icam_this} observations in frame {iframe_this}")
-                Rt0 = calobject_poses_local_Rt_cf[i_observation, ...]
+                Rt_cam0_frame = calobject_poses_local_Rt_cf[i_observation, ...]
                 d0  = observations[i_observation, ..., :2]
             elif icam_this == icam_from:
-                if Rt0 is None: # have camera1 observation, but not camera0
+                if Rt_cam0_frame is None: # have camera1 observation, but not camera0
                     continue
 
-                if Rt1 is not None:
+                if Rt_cam1_frame is not None:
                     raise Exception(f"Saw multiple camera{icam_this} observations in frame {iframe_this}")
-                Rt1 = calobject_poses_local_Rt_cf[i_observation, ...]
+                Rt_cam1_frame = calobject_poses_local_Rt_cf[i_observation, ...]
                 d1  = observations[i_observation, ..., :2]
 
 
@@ -891,9 +891,9 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
                 # # ref_object is (N,3)
                 # ref_object = d[:,4:]
 
-                A = nps.glue(A, nps.matmult( ref_object, nps.transpose(Rt0[:3,:])) + Rt0[3,:],
+                A = nps.glue(A, nps.matmult( ref_object, nps.transpose(Rt_cam0_frame[:3,:])) + Rt_cam0_frame[3,:],
                              axis = -2)
-                B = nps.glue(B, nps.matmult( ref_object, nps.transpose(Rt1[:3,:])) + Rt1[3,:],
+                B = nps.glue(B, nps.matmult( ref_object, nps.transpose(Rt_cam1_frame[:3,:])) + Rt_cam1_frame[3,:],
                              axis = -2)
 
         return mrcal.align_procrustes_points_Rt01(A, B)
