@@ -891,9 +891,9 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
                 # # ref_object is (N,3)
                 # ref_object = d[:,4:]
 
-                A = nps.glue(A, nps.matmult( ref_object, nps.transpose(Rt_cam0_frame[:3,:])) + Rt_cam0_frame[3,:],
+                A = nps.glue(A, mrcal.transform_point_Rt(Rt_cam0_frame,ref_object),
                              axis = -2)
-                B = nps.glue(B, nps.matmult( ref_object, nps.transpose(Rt_cam1_frame[:3,:])) + Rt_cam1_frame[3,:],
+                B = nps.glue(B, mrcal.transform_point_Rt(Rt_cam1_frame,ref_object),
                              axis = -2)
 
         return mrcal.align_procrustes_points_Rt01(A, B)
