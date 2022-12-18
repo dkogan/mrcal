@@ -657,6 +657,7 @@ camera coordinate system FROM the calibration object coordinate system.
         # I pick off those rows where the point observation is valid. Result
         # should be (N,6) where N <= object_height_n*object_width_n
         i = \
+            (observation_xyz[..., 2] > 0.0)      * \
             (~np.isnan(observation_xyz[..., 0])) * \
             (~np.isnan(observation_xyz[..., 1])) * \
             (~np.isnan(observation_xyz[..., 2]))

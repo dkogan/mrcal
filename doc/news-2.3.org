@@ -28,4 +28,8 @@ has a callable C implementation
 
 same with mrcal.rectified_system(), rectification_maps
 
+estimate_monocular_calobject_poses_Rt_tocam() ignores invalid input points
+This makes calibrating given incomplete chessboard observations work properly
+
+
 * Migration notes 2.2 -> 2.3
