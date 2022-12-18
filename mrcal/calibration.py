@@ -639,9 +639,9 @@ camera coordinate system FROM the calibration object coordinate system.
 
         # shape (H,W,6); each row is an x,y,weight pixel observation followed
         # by the xyz coord of the point in the calibration object
-        d = np.zeros((object_height_n,object_width_n,6), dtype=float)
-        d[..., 2] = observations[i_observation, ..., 2]
-        d[...,3:] = full_object
+        observation_xyz = np.zeros((object_height_n,object_width_n,6), dtype=float)
+        observation_xyz[..., 2] = observations[i_observation, ..., 2]
+        observation_xyz[...,3:] = full_object
 
         v = mrcal.unproject(observations[i_observation,...,:2],
                             lensmodels[icam],
@@ -649,27 +649,27 @@ camera coordinate system FROM the calibration object coordinate system.
         mrcal.project(v,
                       'LENSMODEL_PINHOLE',
                       intrinsics_data_pinhole_scaled,
-                      out = d[...,:2])
+                      out = observation_xyz[...,:2])
 
         # shape (H*W,6)
-        d = nps.clump( d, n=2)
+        observation_xyz = nps.clump( observation_xyz, n=2)
 
         # I pick off those rows where the point observation is valid. Result
         # should be (N,6) where N <= object_height_n*object_width_n
         i = \
-            (~np.isnan(d[..., 0])) * \
-            (~np.isnan(d[..., 1])) * \
-            (~np.isnan(d[..., 2]))
-        dvalid = d[i,:]
+            (~np.isnan(observation_xyz[..., 0])) * \
+            (~np.isnan(observation_xyz[..., 1])) * \
+            (~np.isnan(observation_xyz[..., 2]))
+        observation_xyz = observation_xyz[i,:]
 
         try:
 
-            if len(dvalid) < 4:
-                raise SolvePnPerror_toofew(f"Insufficient observations; need at least 4; got {len(dvalid)} instead. Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
+            if len(observation_xyz) < 4:
+                raise SolvePnPerror_toofew(f"Insufficient observations; need at least 4; got {len(observation_xyz)} instead. Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
 
             # copying because cv2.solvePnP() requires contiguous memory apparently
-            observations_local = np.array(dvalid[:,:2][..., np.newaxis])
-            ref_object         = np.array(dvalid[:,3:][..., np.newaxis])
+            observations_local = np.array(observation_xyz[:,:2][..., np.newaxis])
+            ref_object         = np.array(observation_xyz[:,3:][..., np.newaxis])
             result,rvec,tvec   = cv2.solvePnP(np.array(ref_object),
                                               np.array(observations_local),
                                               camera_matrix_pinhole_scaled, None)
