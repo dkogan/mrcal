@@ -3670,7 +3670,7 @@ bool markOutliers(// output, input
     // last. Hopefully
     LOOP_FEATURE_BEGIN()
     {
-        if(*weight < 0)
+        if(*weight <= 0.0)
           continue;
 
         double dx = x_measurements[2*i_feature + 0];
