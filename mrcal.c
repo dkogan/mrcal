@@ -3681,11 +3681,17 @@ bool markOutliers(// output, input
     // last. Hopefully
     LOOP_OBSERVATION()
     {
+        int Npt_inlier  = 0;
+        int Npt_outlier = 0;
         LOOP_FEATURE()
         {
             LOOP_FEATURE_HEADER();
             if(*weight <= 0.0)
+            {
+                Npt_outlier++;
                 continue;
+            }
+            Npt_inlier++;
 
             double dx = x_measurements[2*i_feature + 0];
             double dy = x_measurements[2*i_feature + 1];
@@ -3698,7 +3704,17 @@ bool markOutliers(// output, input
                 (*Noutliers)++;
             }
         }
+
+        if(Npt_inlier < 3)
+            MSG("WARNING: Board observation %d (icam_intrinsics=%d, icam_extrinsics=%d, iframe=%d) had almost all of its points thrown out as outliers: only %d/%d remain. CHOLMOD is about to complain about a non-positive-definite JtJ. Something is wrong with this observation",
+                i_observation_board,
+                observation->icam.intrinsics,
+                observation->icam.extrinsics,
+                observation->iframe,
+                Npt_inlier,
+                Npt_inlier + Npt_outlier);
     }
+
     return true;
 
 #undef LOOP_OBSERVATION
