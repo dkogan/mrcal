@@ -388,8 +388,8 @@ def solve_initial(args, seedmodels, imagersizes,
     def compute_seed_from_existing_models():
 
         # The caller made sure that all the models use the same lens model
-        lensmodel = seedmodels[0].intrinsics()[0]
-        intrinsics_data  = nps.cat( *[m.intrinsics()[1] for m in seedmodels])
+        lensmodel       = seedmodels[0].intrinsics()[0]
+        intrinsics_data = nps.cat( *[m.intrinsics()[1] for m in seedmodels])
 
         # I keep the relative camera poses constant, but place camera0 at the
         # origin
@@ -423,11 +423,14 @@ def solve_initial(args, seedmodels, imagersizes,
                                                                observations,
                                                                args.object_spacing,
                                                                seedmodels)
+
         frames_rt_toref = \
             mrcal.estimate_joint_frame_poses(
-                calobject_poses_local_Rt_cf, extrinsics_Rt_fromref,
+                calobject_poses_local_Rt_cf,
+                extrinsics_Rt_fromref,
                 indices_frame_camera,
-                args.object_width_n,args.object_height_n,
+                args.object_width_n,
+                args.object_height_n,
                 args.object_spacing)
 
         return                     \
@@ -447,7 +450,6 @@ def solve_initial(args, seedmodels, imagersizes,
         intrinsics_data,       \
         extrinsics_Rt_fromref, \
         frames_rt_toref        = compute_seed_from_existing_models()
-
 
 
     def expand_intrinsics(lensmodel, intrinsics_data):
