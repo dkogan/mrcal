@@ -755,7 +755,7 @@ camera coordinate system FROM the calibration object coordinate system.
 
 
 def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
-                            observations,
+                            object_width_n, object_height_n,
                             object_spacing):
     r'''Estimate camera poses in respect to each other
 
@@ -775,8 +775,6 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
 
     import heapq
 
-
-    object_height_n,object_width_n = observations.shape[-3:-1]
     Ncameras = np.max(indices_frame_camera[:,1]) + 1
 
     # I need to compute an estimate of the pose of each camera in the coordinate
@@ -816,10 +814,12 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
         # This is a hack. I look at the correspondence of camera0 to camera i for i
         # in 1:N-1. I ignore all correspondences between cameras i,j if i!=0 and
         # j!=0. Good enough for now
-        #
+
         # No calobject_warp. Good-enough for the seeding
-        full_object = mrcal.ref_calibration_object(object_width_n,object_height_n,
-                                                   object_spacing)
+        ref_object = \
+            nps.clump(mrcal.ref_calibration_object(object_width_n,object_height_n,
+                                                   object_spacing),
+                      n = 2)
 
         A = np.array(())
         B = np.array(())
@@ -846,7 +846,7 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
                 if Rt_cam0_frame is not None:
                     raise Exception(f"Saw multiple camera{icam_this} observations in frame {iframe_this}")
                 Rt_cam0_frame = calobject_poses_local_Rt_cf[i_observation, ...]
-                d0  = observations[i_observation, ..., :2]
+
             elif icam_this == icam_from:
                 if Rt_cam0_frame is None: # have camera1 observation, but not camera0
                     continue
@@ -854,46 +854,12 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
                 if Rt_cam1_frame is not None:
                     raise Exception(f"Saw multiple camera{icam_this} observations in frame {iframe_this}")
                 Rt_cam1_frame = calobject_poses_local_Rt_cf[i_observation, ...]
-                d1  = observations[i_observation, ..., :2]
 
-
-
-                # d looks at one frame and has shape (object_height_n,object_width_n,7). Each row is
-                #   xy pixel observation in left camera
-                #   xy pixel observation in right camera
-                #   xyz coord of dot in the calibration object coord system
-                d = nps.glue( d0, d1, full_object, axis=-1 )
-
-                # squash dims so that d is (object_height_n*object_width_n,7)
-                d = nps.clump(d, n=2)
-
-                ref_object = nps.clump(full_object, n=2)
-
-                # # It's possible that I could have incomplete views of the
-                # # calibration object, so I pull out only those point
-                # # observations that have a complete view. In reality, I
-                # # currently don't accept any incomplete views, and much outside
-                # # code would need an update to support that. This doesn't hurt, however
-
-                # # d looks at one frame and has shape (10,10,7). Each row is
-                # #   xy pixel observation in left camera
-                # #   xy pixel observation in right camera
-                # #   xyz coord of dot in the calibration object coord system
-                # d = nps.glue( d0, d1, full_object, axis=-1 )
-
-                # # squash dims so that d is (object_height_n*object_width_n,7)
-                # d = nps.transpose(nps.clump(nps.mv(d, -1, -3), n=2))
-
-                # # I pick out those points that have observations in both frames
-                # i = (d[..., 0] >= 0) * (d[..., 1] >= 0) * (d[..., 2] >= 0) * (d[..., 3] >= 0)
-                # d = d[i,:]
-
-                # # ref_object is (N,3)
-                # ref_object = d[:,4:]
-
-                A = nps.glue(A, mrcal.transform_point_Rt(Rt_cam0_frame,ref_object),
+                A = nps.glue(A, mrcal.transform_point_Rt(Rt_cam0_frame,
+                                                         ref_object),
                              axis = -2)
-                B = nps.glue(B, mrcal.transform_point_Rt(Rt_cam1_frame,ref_object),
+                B = nps.glue(B, mrcal.transform_point_Rt(Rt_cam1_frame,
+                                                         ref_object),
                              axis = -2)
 
         return mrcal.align_procrustes_points_Rt01(A, B)
@@ -1397,6 +1363,8 @@ We return a tuple:
     # these map FROM the coord system of the calibration object TO the coord
     # system of this camera
 
+    object_height_n,object_width_n = observations.shape[-3:-1]
+
     # I now have a rough estimate of calobject poses in the coord system of each
     # camera. One can think of these as two sets of point clouds, each attached
     # to their camera. I can move around the two sets of point clouds to try to
@@ -1409,7 +1377,7 @@ We return a tuple:
     camera_poses_Rt_0_cami = \
         _estimate_camera_poses( calobject_poses_local_Rt_cf,
                                 indices_frame_camera,
-                                observations,
+                                object_width_n, object_height_n,
                                 object_spacing)
 
     if len(camera_poses_Rt_0_cami):
@@ -1420,8 +1388,6 @@ We return a tuple:
                               -3 )
     else:
         extrinsics_Rt_fromref = np.zeros((0,4,3))
-
-    object_height_n,object_width_n = observations.shape[-3:-1]
 
     frames_rt_toref = \
         mrcal.estimate_joint_frame_poses(
