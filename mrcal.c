@@ -3597,70 +3597,81 @@ bool markOutliers(// output, input
 
     int i_pt,i_feature;
 
+#define LOOP_OBSERVATION()                              \
+    i_feature = 0;                                      \
+    for(int i_observation_board=0;                      \
+        i_observation_board<Nobservations_board;        \
+        i_observation_board++)
 
-#define LOOP_FEATURE_BEGIN()                                            \
-    i_feature = 0;                                                      \
-    for(int i_observation_board=0;                                      \
-        i_observation_board<Nobservations_board;                         \
-        i_observation_board++)                                          \
-    {                                                                   \
+#define LOOP_FEATURE()                                                  \
         const mrcal_observation_board_t* observation = &observations_board[i_observation_board]; \
-        const int icam_intrinsics = observation->icam.intrinsics;     \
+        const int icam_intrinsics = observation->icam.intrinsics;       \
         for(i_pt=0;                                                     \
             i_pt < calibration_object_width_n*calibration_object_height_n; \
-            i_pt++, i_feature++)                                        \
-        {                                                               \
+            i_pt++, i_feature++)
+
+#define LOOP_FEATURE_HEADER()                                           \
             const mrcal_point3_t* pt_observed = &observations_board_pool[i_feature]; \
             double* weight = &observations_board_pool[i_feature].z;
 
 
-#define LOOP_FEATURE_END() \
-    }}
+
 
 
     int Ninliers = 0;
     double var = 0.0;
-    LOOP_FEATURE_BEGIN()
-    {
-        if(*weight <= 0.0)
-        {
-            (*Noutliers)++;
-            continue;
-        }
 
-        double dx = x_measurements[2*i_feature + 0];
-        double dy = x_measurements[2*i_feature + 1];
-        var += dx*dx + dy*dy;
-        Ninliers++;
+    LOOP_OBSERVATION()
+    {
+        LOOP_FEATURE()
+        {
+            LOOP_FEATURE_HEADER();
+
+            if(*weight <= 0.0)
+            {
+                (*Noutliers)++;
+                continue;
+            }
+
+            double dx = x_measurements[2*i_feature + 0];
+            double dy = x_measurements[2*i_feature + 1];
+            var += dx*dx + dy*dy;
+            Ninliers++;
+        }
     }
-    LOOP_FEATURE_END();
     var /= (double)(2*Ninliers);
 
     bool markedAny = false;
-    LOOP_FEATURE_BEGIN()
+    LOOP_OBSERVATION()
     {
-        if(*weight <= 0.0)
-          continue;
-
-        double dx = x_measurements[2*i_feature + 0];
-        double dy = x_measurements[2*i_feature + 1];
-        // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
-        // -> x^2 > k^2 var
-        if(dx*dx > k1*k1*var ||
-           dy*dy > k1*k1*var )
+        LOOP_FEATURE()
         {
-            *weight   = -1.0;
-            markedAny = true;
-            (*Noutliers)++;
-            // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean (assumed 0). Observed stdev: %f, limit: %f",
-            //     i_feature,
-            //     dx/sqrt(var),
-            //     dy/sqrt(var),
-            //     sqrt(var),
-            //     k1);
+            LOOP_FEATURE_HEADER();
+
+            {
+                if(*weight <= 0.0)
+                    continue;
+
+                double dx = x_measurements[2*i_feature + 0];
+                double dy = x_measurements[2*i_feature + 1];
+                // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
+                // -> x^2 > k^2 var
+                if(dx*dx > k1*k1*var ||
+                   dy*dy > k1*k1*var )
+                {
+                    *weight   = -1.0;
+                    markedAny = true;
+                    (*Noutliers)++;
+                    // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean (assumed 0). Observed stdev: %f, limit: %f",
+                    //     i_feature,
+                    //     dx/sqrt(var),
+                    //     dy/sqrt(var),
+                    //     sqrt(var),
+                    //     k1);
+                }
+            }
         }
     }
-    LOOP_FEATURE_END();
 
     if(!markedAny)
         return false;
@@ -3668,27 +3679,31 @@ bool markOutliers(// output, input
     // Some measurements were past the worse threshold, so I throw out a bit
     // extra to leave some margin so that the next re-optimization would be the
     // last. Hopefully
-    LOOP_FEATURE_BEGIN()
+    LOOP_OBSERVATION()
     {
-        if(*weight <= 0.0)
-          continue;
-
-        double dx = x_measurements[2*i_feature + 0];
-        double dy = x_measurements[2*i_feature + 1];
-        // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
-        // -> x^2 > k^2 var
-        if(dx*dx > k0*k0*var ||
-           dy*dy > k0*k0*var )
+        LOOP_FEATURE()
         {
-            *weight *= -1.0;
-            (*Noutliers)++;
+            LOOP_FEATURE_HEADER();
+            if(*weight <= 0.0)
+                continue;
+
+            double dx = x_measurements[2*i_feature + 0];
+            double dy = x_measurements[2*i_feature + 1];
+            // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
+            // -> x^2 > k^2 var
+            if(dx*dx > k0*k0*var ||
+               dy*dy > k0*k0*var )
+            {
+                *weight *= -1.0;
+                (*Noutliers)++;
+            }
         }
     }
-    LOOP_FEATURE_END();
     return true;
 
-#undef LOOP_FEATURE_BEGIN
-#undef LOOP_FEATURE_END
+#undef LOOP_OBSERVATION
+#undef LOOP_FEATURE
+#undef LOOP_FEATURE_HEADER
 }
 
 typedef struct
