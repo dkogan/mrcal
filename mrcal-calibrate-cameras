@@ -433,6 +433,45 @@ def solve_initial(args, seedmodels, imagersizes,
                 args.object_height_n,
                 args.object_spacing)
 
+        if 0:
+            # I was seeing an issue with incorrectly-seeded frames_rt_toref, and
+            # I thought that pre-optimizing it would fix it, so I wrote this
+            # code. That issue was actually caused by something else, making
+            # this code unnecessary, but I'm leaving it here, in case it becomes
+            # useful later. For debugging, I'm printing the before/after
+            # frames_rt_toref so that we can see if this pre-optimization does
+            # anything
+
+            print("pre-optimization; before: rt_cf[:2]")
+            print(frames_rt_toref[:2])
+
+            # I have a rough estimate of the geometry. Before it's usable I need
+            # to refine it using the optimizer. I lock down EVERYTHING except
+            # frames_rt_toref, since the seed gives me everything else
+            sys.stderr.write("## reoptimizing frames_rt_toref\n")
+            stats = mrcal.optimize(intrinsics_data,
+                                   mrcal.rt_from_Rt(extrinsics_Rt_fromref),
+                                   frames_rt_toref,
+                                   None,
+                                   observations, indices_frame_camintrinsics_camextrinsics,
+                                   None, None,
+                                   lensmodel,
+                                   imagersizes                       = imagersizes,
+                                   do_optimize_intrinsics_core       = False,
+                                   do_optimize_intrinsics_distortions= False,
+                                   do_optimize_calobject_warp        = False,
+                                   do_optimize_extrinsics            = False,
+                                   do_optimize_frames                = True,
+                                   calibration_object_spacing        = args.object_spacing,
+                                   do_apply_outlier_rejection        = False,
+                                   do_apply_regularization           = False,
+                                   verbose                           = False)
+            sys.stderr.write(f"## RMS error: {stats['rms_reproj_error__pixels']}\n\n")
+
+            print("pre-optimization; after: rt_cf[:2]")
+            print(frames_rt_toref[:2])
+
+
         return                     \
             intrinsics_data,       \
             extrinsics_Rt_fromref, \
