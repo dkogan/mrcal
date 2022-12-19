@@ -9,7 +9,6 @@ not-yet-supported distro, please contribute! You can email me for help.
 :CUSTOM_ID: installing-from-packages
 :END:
 
-** Debian-based
 mrcal is included in recent versions of Debian and Ubuntu. So if you're running
 at least Debian/testing or the not-yet-published Debian 12 (bookworm) or Ubuntu
 22.04 (jammy), you can install with a single command. For instance the

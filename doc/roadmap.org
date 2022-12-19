@@ -189,17 +189,16 @@ whole imager, using the uncertainties as weights. This has two problems:
   configuration parameter) and the spline density (the =Nx= and =Ny=
   parameters). There's some trade-off here: a quadratic spline needs denser
   knots. An initial study of the effects of spline spacings appears [[file:splined-models.org::#splined-models-uncertainty-wiggles][here]]. Can
-  this be used to select the best spline configuration?
-
-- In the [[file:tour-uncertainty.org::#tour-uncertainty-splined-model-uncertainties][tour of mrcal]] we saw that uncertainty oscillates, with peaks at the
-  knots. The causes and implications of this need to be understood better
+  this be used to select the best spline configuration? We see that the
+  uncertainty oscillates, with peaks at the knots. The causes and implications
+  of this need to be understood better
 
 - The current regularization scheme is iffy. More or less mrcal is using simple
   L2 regularization. /Something/ is required to tell the solver what to do in
   regions of no data. The transition between "data" and "no-data" regions is
   currently aphysical, as described in the [[file:splined-models.org::#splined-non-monotonicity][documentation]]. Changing the
   regularization scheme to pull towards the mean, and not towards 0 /could/
-  possibly fix this. An [[https://github.com/dkogan/mrcal/commit/c8f9918023142d7ee463821661dc5bcc8f770b51][earlier attempt]] to do thatwas reverted because any
+  possibly fix this. An [[https://github.com/dkogan/mrcal/commit/c8f9918023142d7ee463821661dc5bcc8f770b51][earlier attempt]] to do that was reverted because any
   planar splined surface would have "perfect" regularization, and that was
   breaking things (crazy focal lengths would be picked). But now that I'm
   locking down the intrinsics core when optimizing splined models, this isn't a

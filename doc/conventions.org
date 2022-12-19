@@ -88,7 +88,7 @@ Here we have
 - $\vec x$ is the vector of /measurements/ describing the error of the solution
   at some hypothesis $\vec b$
 
-- $\vec E$ is the cost function being optimized. $E \equiv \left \Vert \vec x \right \Vert ^2$
+- $E$ is the cost function being optimized. $E \equiv \left \Vert \vec x \right \Vert ^2$
 
 - $\vec J$ is the /jacobian/ matrix. This is the matrix $\frac{ \partial \vec x
   }{ \partial \vec b }$. Usually this is large and sparse.
