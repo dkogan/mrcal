@@ -2,10 +2,11 @@
 
 #include "mrcal-types.h"
 
-// The equivalent function in Python is _rectified_resolution_python() in
+// The reference implementation in Python is _rectified_resolution_python() in
 // stereo.py
 //
-// Documentation is in rectified_resolution.docstring
+// The Python wrapper is mrcal.rectified_resolution(), and the documentation is
+// in the docstring of that function
 bool mrcal_rectified_resolution( // output and input
                                  // > 0: use given value
                                  // < 0: autodetect and scale
@@ -20,9 +21,11 @@ bool mrcal_rectified_resolution( // output and input
                                  const double*                R_cam0_rect0,
                                  const mrcal_lensmodel_type_t rectification_model_type);
 
-// The equivalent function in Python is _rectified_system_python() in stereo.py
+// The reference implementation in Python is _rectified_system_python() in
+// stereo.py
 //
-// Documentation is in the docstring of mrcal.rectified_system()
+// The Python wrapper is mrcal.rectified_system(), and the documentation is in
+// the docstring of that function
 bool mrcal_rectified_system(// output
                             unsigned int*     imagersize_rectified,
                             double*           fxycxy_rectified,
@@ -54,6 +57,11 @@ bool mrcal_rectified_system(// output
                             bool   az_fov_deg_autodetect,
                             bool   el_fov_deg_autodetect);
 
+// The reference implementation in Python is _rectification_maps_python() in
+// stereo.py
+//
+// The Python wrapper is mrcal.rectification_maps(), and the documentation is in
+// the docstring of that function
 bool mrcal_rectification_maps(// output
                               // Dense array of shape (Ncameras=2, Nel, Naz, Nxy=2)
                               float* rectification_maps,
