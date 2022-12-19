@@ -901,7 +901,6 @@ contains corresponding pixel coordinates in the input image
 
     return rectification_maps
 
-
 def _rectification_maps_python(models,
                                models_rectified):
     r'''Reference implementation of mrcal_rectification_maps() in python
