@@ -37,11 +37,12 @@ powerful technique is computing a /cross-validation diff/:
 - We use the [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] tool to compute the difference.
 
 The two separate calibrations sample the input noise /and/ the model noise. If
-the model noise is negligible, as we would like it to be, then the diff should
-be on the order of $\mathrm{difference} \approx \mathrm{uncertainty}_0 +
-\mathrm{uncertainty}_1$. It would be good to define this more rigorously, but in
-my experience, even this loose definition is enough, and this technique works
-quite well.
+the model noise is negligible, as we would like it to be, then the diff contains
+sampling noise only. This is quantified by the uncertainty analysis, and in this
+case the difference should be on the order of $\mathrm{difference} \approx
+\mathrm{uncertainty}_0 + \mathrm{uncertainty}_1$. It would be good to define
+this more rigorously, but in my experience, even this loose definition is
+enough, and this technique works quite well.
 
 I did gather more images in Downtown LA, so let's do this with our data.
 
@@ -103,7 +104,7 @@ And the uncertainty (from before):
 areas, but not all. So this splined model fits /much/ better than
 =LENSMODEL_OPENCV8=, but it's still noticeably not fitting.
 
-Experience tell sme that this is caused by mrcal assuming a central projection
+Experience tells me that this is caused by mrcal assuming a central projection
 in its models (assuming that all rays intersect at a single point). This is an
 assumption made by more or less every calibration tool, and most of the time
 it's reasonable. However, this assumption breaks down when you have a physically
