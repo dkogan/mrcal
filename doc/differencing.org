@@ -1,7 +1,7 @@
 #+TITLE: Model differencing
 #+OPTIONS: toc:t
 
-mrcal provides a [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] tool to compute and display the
+mrcal provides the [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] tool to compute and display
 projection differences between several models (implemented using
 [[file:mrcal-python-api-reference.html#-show_projection_diff][=mrcal.show_projection_diff()=]] and [[file:mrcal-python-api-reference.html#-projection_diff][=mrcal.projection_diff()=]]). This has numerous
 applications. For instance:
@@ -27,26 +27,18 @@ This simple definition is conceptually sound, but isn't applicable in practice.
 In the [[file:tour.org][tour of mrcal]], we calibrated the same lens using the same data, but with
 two different lens models. The models are describing the same lens, so we would
 expect a low difference. However, the above algorithm produces a difference that
-is very high. As a heat map:
+is non-sensically high. As a heat map:
 
 #+begin_src sh
 mrcal-show-projection-diff \
   --intrinsics-only        \
-  --cbmax 200              \
+  --cbmax 15               \
   --unset key              \
   opencv8.cameramodel      \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-# THIS IS ALREADY GENERATED IN tour-differencing.org
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-projection-diff                           \
-  --intrinsics-only                                                   \
-  --cbmax 200                                                         \
-  --unset key                                                         \
-  $D/data/board/{opencv8,splined}.cameramodel                         \
-  --hardcopy $D/figures/diff/diff-radius0-heatmap-splined-opencv8.png \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+# THIS IS GENERATED IN tour-differencing.org
 #+end_src
 
 [[file:external/figures/diff/diff-radius0-heatmap-splined-opencv8.png]]
@@ -59,24 +51,13 @@ mrcal-show-projection-diff \
   --vectorfield            \
   --vectorscale 5          \
   --gridn 30 20            \
-  --cbmax 200              \
+  --cbmax 15               \
   --unset key              \
   opencv8.cameramodel      \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-# THIS IS ALREADY GENERATED IN tour-differencing.org
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-projection-diff                               \
-  --intrinsics-only                                                       \
-  --vectorfield                                                           \
-  --vectorscale 5                                                         \
-  --gridn 30 20                                                           \
-  --cbmax 200                                                             \
-  --unset key                                                             \
-  $D/data/board/{opencv8,splined}.cameramodel                             \
-  --hardcopy $D/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg \
-  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
+# THIS IS GENERATED IN tour-differencing.org
 #+end_src
 
 [[file:external/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg]]
@@ -123,12 +104,7 @@ mrcal-show-projection-diff \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-projection-diff           \
-  --unset key                                         \
-  $D/data/board/{opencv8,splined}.cameramodel         \
-  --hardcopy $D/figures/diff/diff-splined-opencv8.png \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+# THIS IS GENERATED IN tour-differencing.org
 #+end_src
 
 [[file:external/figures/diff/diff-splined-opencv8.png]]
@@ -176,44 +152,11 @@ we expect: the two models would agree in the middle, and diverge at the edges.
 Let's demonstrate this. I re-ran the calibration from the [[file:tour.org][tour of mrcal]] using
 [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV4=]]. This model is not expected to work with wide lenses such as
 this one. But the [[file:formulation.org::#outlier-rejection][outlier rejection]] logic kicks in, makes the solve work as well
-as it can:
-
-#+begin_example
-$ mrcal-calibrate-cameras        \
-  --corners-cache corners.vnl    \
-  --lensmodel LENSMODEL_OPENCV4  \
-  --focal 1700                   \
-  --object-spacing 0.077         \
-  --object-width-n 10            \
-  --explore                      \
-  '*.JPG'
-
-vvvvvvvvvvvvvvvvvvvv initial solve: geometry only
-^^^^^^^^^^^^^^^^^^^^ RMS error: 32.19393243308935
-
-vvvvvvvvvvvvvvvvvvvv initial solve: geometry and intrinsic core only
-^^^^^^^^^^^^^^^^^^^^ RMS error: 12.308083539621906
-=================== optimizing everything except board warp from seeded intrinsics
-mrcal.c(5042): Threw out some outliers (have a total of 491 now); going again
-mrcal.c(5042): Threw out some outliers (have a total of 894 now); going again
-..... a whole lot more of these
-mrcal.c(5042): Threw out some outliers (have a total of 6764 now); going again
-mrcal.c(5042): Threw out some outliers (have a total of 6801 now); going again
-vvvvvvvvvvvvvvvvvvvv final, full re-optimization call to get board warp
-mrcal.c(5042): Threw out some outliers (have a total of 6831 now); going again
-^^^^^^^^^^^^^^^^^^^^ RMS error: 1.6712440499133436
-RMS reprojection error: 1.7 pixels
-Worst residual (by measurement): 8.7 pixels
-Noutliers: 6831 out of 18600 total points: 36.7% of the data
-calobject_warp = [-0.00115528  0.00043701]
-
-Wrote ./camera-0.cameramodel
-#+end_example
-
-The resulting model is available [[file:external/data/board/opencv4.cameramodel][here]]. This illustrates the differencing logic,
-but it isn't a good way to run calibrations in general: the outlier rejection
-will throw away the clearly-ill-fitting measurements, but marginal measurements
-will make it through, which will slightly poison the output.
+as it can. The resulting model is available [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/opencv4.cameramodel][here]]. Using an insufficient model
+like this works well to illustrate the differencing logic, but it isn't a good
+way to run calibrations in general: the outlier rejection will throw away the
+clearly-ill-fitting measurements, but marginal measurements will make it
+through, which will slightly poison the result.
 
 Let's compute the diff between the narrow-only =LENSMODEL_OPENCV4= lens model
 and the mostly-good-everywhere =LENSMODEL_OPENCV8= model, using an expanding
@@ -234,7 +177,7 @@ for r (200 400 600 800 1000) {
 }
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 for r (200 400 600 800 1000) {
   ~/projects/mrcal/mrcal-show-projection-diff                    \
     --no-uncertainties                                           \
@@ -242,8 +185,8 @@ for r (200 400 600 800 1000) {
     --radius $r                                                  \
     --unset key                                                  \
     --extratitle "radius $r"                                     \
-    $D/data/board/opencv[48].cameramodel                         \
-    --hardcopy $D/figures/diff/diff-radius$r-opencv4-opencv8.png \
+    $D/opencv[48].cameramodel                                    \
+    --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-radius$r-opencv4-opencv8.png \
     --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 }
 #+end_src
@@ -266,14 +209,13 @@ for r (200 400 600 800 1000) {
 Clearly the =LENSMODEL_OPENCV4= solve does agree with the =LENSMODEL_OPENCV8=
 solve well, but /only/ in the center of the imager. The issue from a tooling
 standpoint is that in order for the tool to tell us that, *we* needed to tell
-the tool to only look at the center. That is not very useful.
+the tool to only look at the center. That is unideal.
 
 The issue we observed is that some regions of the imager have unreliable
-behavior, and poison the fit. But we know where the fit is reliable: in the
+behavior, which poisons the fit. But we know where the fit is reliable: in the
 areas where the [[file:uncertainty.org][projection uncertainty]] is low. So we can weigh the fit by the
-inverse of the projection uncertainty, and we will then automatically favor the
-"good" regions. Without requiring the user to specify the good-projection
-region.
+inverse of the projection uncertainty, and we will then favor the "good"
+regions. Without requiring the user to specify the good-projection region.
 
 This works, but with a big caveat. As described on the [[file:uncertainty.org][projection uncertainty]]
 page, lean models report overly-optimistic uncertainties. Thus when used as
@@ -292,12 +234,12 @@ mrcal-show-projection-uncertainty \
     opencv4.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 ~/projects/mrcal/mrcal-show-projection-uncertainty               \
     --distance 1                                                 \
     --unset key                                                  \
-    $D/data/board/opencv4.cameramodel                            \
-    --hardcopy $D/figures/uncertainty/uncertainty-opencv4-1m.png \
+    $D/opencv4.cameramodel                                       \
+    --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv4-1m.png \
     --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
 
@@ -313,12 +255,12 @@ mrcal-show-projection-diff \
   opencv[48].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 ~/projects/mrcal/mrcal-show-projection-diff                    \
     --distance 1                                               \
     --unset key                                                \
-    $D/data/board/opencv[48].cameramodel                       \
-  --hardcopy $D/figures/diff/diff-weighted-opencv4-opencv8.png \
+    $D/opencv[48].cameramodel                       \
+  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-weighted-opencv4-opencv8.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
 
@@ -333,7 +275,7 @@ a diff on /those/ results:
 
 #+begin_src sh
 < corners.vnl \
-  mrcal-cull-corners --imagersize 6016 4016 --cull-rad-off-center 1500 \
+  mrcal-cull-corners --imagersize 6000 3376 --cull-rad-off-center 1500 \
 > /tmp/raw.vnl &&
   vnl-join --vnl-sort - -j filename /tmp/raw.vnl \
      <(< /tmp/raw.vnl vnl-filter -p filename --has level |
@@ -341,14 +283,12 @@ a diff on /those/ results:
                        vnl-filter 'count > 20' -p filename ) \
   > corners-rad1500.vnl
 
-
-mrcal-calibrate-cameras               \
-  --corners-cache corners-rad1500.vnl \
-  --lensmodel LENSMODEL_OPENCV4       \
-  --focal 1700                        \
-  --object-spacing 0.077              \
-  --object-width-n 10                 \
-  --explore                           \
+mrcal-calibrate-cameras                                                         \
+  --corners-cache corners-rad1500.vnl                                           \
+  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=18_fov_x_deg=150 \
+  --focal 1900                                                                  \
+  --object-spacing 58.8e-3                                                      \
+  --object-width-n 14                                                           \
   '*.JPG'
 
 mrcal-show-projection-uncertainty \
@@ -362,23 +302,45 @@ mrcal-show-projection-diff \
   splined{,-rad1500}.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+
+< $D/corners.vnl \
+  mrcal-cull-corners --imagersize 6000 3376 --cull-rad-off-center 1500 \
+> /tmp/raw.vnl &&
+  vnl-join --vnl-sort - -j filename /tmp/raw.vnl \
+     <(< /tmp/raw.vnl vnl-filter -p filename --has level |
+                       vnl-uniq -c |
+                       vnl-filter 'count > 20' -p filename ) \
+  > $D/corners-rad1500.vnl
+
+~/projects/mrcal/mrcal-calibrate-cameras               \
+  --corners-cache $D/corners-rad1500.vnl \
+  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=18_fov_x_deg=150 \
+  --imagersize 6000 3376              \
+  --focal 1900                        \
+  --object-spacing 58.8e-3            \
+  --object-width-n 14                 \
+  --out /tmp                          \
+  '*.JPG'
+
+mv /tmp/camera-0.cameramodel $D/splined-rad1500.cameramodel
+
 ~/projects/mrcal/mrcal-show-projection-uncertainty                     \
   --distance 1                                                         \
   --unset key                                                          \
-  $D/data/board/splined-rad1500.cameramodel                            \
-  --hardcopy $D/figures/uncertainty/uncertainty-splined-rad1500-1m.png \
+  $D/splined-rad1500.cameramodel                                       \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined-rad1500-1m.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 
-~/projects/mrcal/mrcal-show-projection-diff                              \
-    --distance 1                                                         \
-    --unset key                                                          \
-    $D/data/board/splined{,-rad1500}.cameramodel                         \
-    --hardcopy $D/figures/diff/diff-weighted-splined-rad1500.png \
-    --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+~/projects/mrcal/mrcal-show-projection-diff                            \
+  --distance 1                                                         \
+  --unset key                                                          \
+  $D/splined{,-rad1500}.cameramodel                                    \
+  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-weighted-splined-rad1500.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 #+end_src
 
-The cut-down corners are [[file:external/data/board/corners-rad1500.vnl][here]] and the resulting model is [[file:external/data/board/splined-rad1500.cameramodel][here]]. The uncertainty
+The cut-down corners are [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/corners-rad1500.vnl][here]] and the resulting model is [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined-rad1500.cameramodel][here]]. The uncertainty
 of this model looks like this:
 
 [[file:external/figures/uncertainty/uncertainty-splined-rad1500-1m.png]]
