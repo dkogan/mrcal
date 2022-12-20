@@ -14,7 +14,7 @@ uncertainty tells us that we're not sensitive to noise in the observed
 chessboard corners. However it says nothing about the effects of model errors.
 
 Anything that makes our model not fit produces a model error. These can be
-caused by
+caused by any of
 
 - out-of focus images
 - images with motion blur

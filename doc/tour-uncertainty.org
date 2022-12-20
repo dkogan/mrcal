@@ -21,18 +21,20 @@ calibration quality:
 
 - *Sampling error*. Our computations are based on fitting a model to
   observations of chessboard corners. These observations aren't perfect, and
-  contain a sample of some noise distribution. We can characterize this
-  distribution and we can predict the effects of that noise. See the [[file:formulation.org::#noise-model][noise model]]
-  documentation for details.
+  contain a sample of some noise distribution. We can [[file:formulation.org::#noise-model][characterize this
+  distribution]] and we can [[file:uncertainty.org][analytically predict the effects of that noise]]
 
-- *Model error*. We're fitting a model to data, so our fit is only as good as
-  the model. If the model is insufficient, then even the best set of parameters
-  wouldn't be able to fit. The resulting errors are unmodeled (by definition),
-  we cannot analytically predict their effects. Instead we try hard to force
-  these errors to zero (by selecting rich-enough models and by gathering clean
-  data), so that we can ignore them. I will talk about this more in
-  [[file:tour-cross-validation.org][the next section of the tour of mrcal
-  (cross-validation diffs)]].
+- *Model error*. These result when the solver's model of the world is
+  insufficient to describe what is actually happening. When model errors are
+  present, even the best set of parameters aren't able to completely fit the
+  data. Examples of model errors are motion blur, unsynchronized cameras,
+  chessboard detector errors, too-simple (or unstable) [[file:lensmodels.org][lens models]] or chessboard
+  deformation models, and so on. Since these errors are unmodeled (by
+  definition), we can't analytically predict their effects. Instead we try hard
+  to force these errors to zero, so that we can ignore them. We do this by using
+  rich-enough models and by gathering clean data. I will talk about detecting
+  model errors in [[file:tour-cross-validation.org][the next section of the tour
+  of mrcal (cross-validation diffs)]].
 
 Let's do as much as we can analytically: let's gauge the effects of sampling
 error by computing a /projection uncertainty/ for a model. Given a

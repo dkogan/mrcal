@@ -3,37 +3,38 @@
 
 After a calibration has been computed, it is essential to get a sense of how
 good the calibration is (how closely it represents reality). Traditional
-calibration routines rely on one metric of calibration quality: the residual fit
-error. This is clearly inadequate because we can always improve this metric by
-throwing away input data, and it doesn't make sense that using less data would
-make a calibration /better/.
+(non-mrcal) calibration routines rely on one metric of calibration quality: the
+residual fit error. This is clearly inadequate because we can always improve
+this metric by throwing away some input data, and it doesn't make sense that
+using less data would make a calibration /better/.
 
 There are two main sources of error in the calibration solve. Without these
-errors, the calibration data would fit perfectly, producing a solve residuals
+errors, the calibration data would fit perfectly, producing a solve residual
 vector that's exactly $\vec 0$. The two sources of error are:
 
-- Model errors. These result when the solver's model of the world is
-  insufficient to describe what is actually happening. Examples of this are
-  motion blur, unsyncronized cameras, too-simple [[file:lensmodels.org][lens models]], imperfect
-  chessboard geometry, chessboard detector errors, instability in lens behavior
-  or chessboard shape, and so on. Since these errors aren't modeled, we can't
-  analytically predict their effects, and these errors cannot be eliminated
-  completely. But we have [[file:how-to-calibrate.org::#interpreting-results][tools to detect and correct some of these issues]]. We
-  can take care when gathering data, and then we can [[file:how-to-calibrate.org::#interpreting-results][check that these errors
-  aren't significant]].
+- *Sampling error*. Our computations are based on fitting a model to
+  observations of chessboard corners. These observations aren't perfect, and
+  contain a sample of some noise distribution. We can [[file:formulation.org::#noise-model][characterize this
+  distribution]] and we can analytically predict the effects of that noise
 
-- Sampling error. This is the error in the input data. We cannot eliminate this
-  completely either, but we can define a reasonable model of the noise, and we
-  can propagate it analytically to gauge its effect.
+- *Model error*. These result when the solver's model of the world is
+  insufficient to describe what is actually happening. When model errors are
+  present, even the best set of parameters aren't able to completely fit the
+  data. Examples of model errors are motion blur, unsynchronized cameras,
+  chessboard detector errors, too-simple (or unstable) [[file:lensmodels.org][lens models]] or chessboard
+  deformation models, and so on. Since these errors are unmodeled (by
+  definition), we can't analytically predict their effects. Instead we try hard
+  to force these errors to zero, so that we can ignore them. We do this by using
+  rich-enough models and by gathering clean data. To detect model errors we
+  [[file:how-to-calibrate.org::#interpreting-results][look at the solve
+  diagnostics]] and we compute [[file:tour-cross-validation.org][cross-validation diffs]].
 
-The mrcal projection uncertainty analysis studies the effect of sampling error.
-Since /only/ the sampling error is evaluated:
+Let's do as much as we can analytically: let's gauge the effects of sampling
+error by computing a /projection uncertainty/ for a model. Since /only/ the
+sampling error is evaluated:
 
 *any promises of a high-quality low-uncertainty calibration are valid only if
 the model errors are small*.
-
-So it's important to run the [[file:how-to-calibrate.org::#interpreting-results][checks]] to make sure that the data fits the model
-well.
 
 The method to estimate the projection uncertainty is accessed via the
 [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function. Here the "uncertainty" is the
@@ -53,11 +54,7 @@ To estimate the projection uncertainty we:
 
 This overall approach is sound, but it implies some limitations:
 
-- Only the response to chessboard observation noise is taken into account. Other
-  sources of error are /not/ included in the reported uncertainty. Issues such
-  as motion blur, out-of-synchronization images, unexpected chessboard shape as
-  not included. It is thus imperative that we try to minimize these errors, and
-  mrcal provides [[file:how-to-calibrate.org::#interpreting-results][tools]] to detect these.
+- Once again, model errors are not included in this uncertainty estimate
 
 - The choice of lens model affects the reported uncertainties. Lean models
   (those with few parameters) are less flexible than rich models, and don't fit
@@ -281,27 +278,7 @@ looking out to infinity:
 mrcal-show-projection-uncertainty splined.cameramodel --cbmax 1 --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
-# THIS IS ALREADY GENERATED IN tour-effect-of-range.org
-D=~/projects/mrcal-doc-external
-
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/splined.cameramodel \
-  --cbmax 1 \
-  --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.svg \
-  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/splined.cameramodel \
-  --cbmax 1 \
-  --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.pdf \
-  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/splined.cameramodel \
-  --cbmax 1 \
-  --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.png \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+# THIS IS GENERATED IN tour-uncertainty.org
 #+end_src
 
 [[file:external/figures/uncertainty/uncertainty-splined.png]]
@@ -334,20 +311,7 @@ mrcal-show-projection-uncertainty \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-# THIS IS ALREADY GENERATED IN tour-effect-of-range.org
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-projection-uncertainty                        \
-  --vs-distance-at center                                                 \
-  --set 'yrange [0:0.1]'                                                  \
-  $D/data/board/opencv8.cameramodel                                       \
-  --hardcopy $D/figures/uncertainty/uncertainty-vs-distance-at-center.svg \
-  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  --vs-distance-at center \
-  --set 'yrange [0:0.1]' \
-  $D/data/board/opencv8.cameramodel \
-  --hardcopy $D/figures/uncertainty/uncertainty-vs-distance-at-center.pdf \
-  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+# THIS IS GENERATED IN tour-effect-of-range.org
 #+end_src
 
 [[file:external/figures/uncertainty/uncertainty-vs-distance-at-center.svg]]
