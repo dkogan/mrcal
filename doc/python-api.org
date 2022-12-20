@@ -122,6 +122,9 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 
 - [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]]: Generate rectified stereo models, which we can use
   to rectify images for stereo matching
+- [[file:mrcal-python-api-reference.html#-rectified_resolution][=mrcal.rectified_resolution()=]]: Compute the resolution to be used for the
+  rectified system. Usually this is called by [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]], but
+  it's available standalone as well
 - [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]]: Construct pixel mappings to transform captured
   images into rectified images
 - [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]]: Compute ranges from observed disparities
@@ -241,3 +244,4 @@ easy for those that don't already have other functions handy.
 - [[file:mrcal-python-api-reference.html#-apply_homography][=mrcal.apply_homography()=]]: Apply a homogeneous-coordinate homography to a set of 2D points
 - [[file:mrcal-python-api-reference.html#-corresponding_icam_extrinsics][=mrcal.corresponding_icam_extrinsics()=]]: Return the icam_extrinsics corresponding to a given icam_intrinsics
 - [[file:mrcal-python-api-reference.html#-residuals_chessboard][=mrcal.residuals_chessboard()=]]: Compute and return the chessboard residuals
+- [[file:mrcal-python-api-reference.html#-residuals_point][=mrcal.residuals_point()=]]: Compute and return the discrete point residuals
