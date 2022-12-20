@@ -23,6 +23,12 @@ many assumptions common in other toolkits: the calibration chessboard isn't
 assumed to be flat, lenses aren't assumed to follow simple parametric models,
 rectified stereo isn't done with a pinhole model, and so on.
 
+mrcal consists of
+
+- a C library for core functionality
+- a Python library for higher-level functions
+- commandline tools for common tasks
+
 * Documentation index
 ** Overview
 Please see [[file:tour.org][a tour of mrcal]] for an overview of the capabilities of the toolkit.
