@@ -20,7 +20,7 @@ vector that's exactly $\vec 0$. The two sources of error are:
 - *Model error*. These result when the solver's model of the world is
   insufficient to describe what is actually happening. When model errors are
   present, even the best set of parameters aren't able to completely fit the
-  data. Examples of model errors are motion blur, unsynchronized cameras,
+  data. Some sources of model errors: motion blur, unsynchronized cameras,
   chessboard detector errors, too-simple (or unstable) [[file:lensmodels.org][lens models]] or chessboard
   deformation models, and so on. Since these errors are unmodeled (by
   definition), we can't analytically predict their effects. Instead we try hard
