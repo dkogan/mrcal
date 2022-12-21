@@ -160,8 +160,8 @@ mrgingham, so I go into more detail describing that approach.
 
 ** Using mrgingham
 Once mrgingham is installed or built from [[https://github.com/dkogan/mrgingham][source]], it can be run by calling the
-=mrgingham= executable. The sample in the [[file:tour-initial-calibration.org][tour of mrcal]] processes [[file:external/data/board][these images]]
-to produce [[file:external/data/board/corners.vnl][these chessboard corners]] like this:
+=mrgingham= executable. The sample in the [[file:tour-initial-calibration.org][tour of mrcal]] processes [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/images][these images]]
+to produce [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/corners.vnl][these chessboard corners]] like this:
 
 #+begin_src sh
 mrgingham -j3 '*.JPG' > corners.vnl 
@@ -271,7 +271,7 @@ hygiene.
 We can visualize individual detections like this:
 
 #+begin_example
-$ f=DSC_7305.JPG
+$ f=DSC06067.JPG
 
 $ < corners.vnl                  \
   vnl-filter                     \
@@ -279,6 +279,7 @@ $ < corners.vnl                  \
     "filename eq \"$f\""         \
     -p x,y,size='2**(1-level)' | \
   feedgnuplot                    \
+    --unset key                  \
     --image $f                   \
     --domain                     \
     --square                     \
@@ -286,22 +287,7 @@ $ < corners.vnl                  \
     --with 'points pt 7 ps variable'
 #+end_example
 #+begin_src sh :exports none :eval no-export
-# THIS IS ALREADY GENERATED IN tour-initial-calibration.org
-D=~/projects/mrcal-doc-external
-f=$D/data/board/DSC_7305.JPG
-< $D/data/board/corners.vnl      \
-  vnl-filter                     \
-    --perl                       \
-    "filename eq \"${f:t}\""     \
-    -p x,y,size='2**(1-level)' | \
-  feedgnuplot                    \
-    --image $f                   \
-    --domain                     \
-    --square                     \
-    --tuplesizeall 3             \
-    --with 'points pt 7 ps variable' \
-    --hardcopy $D/figures/calibration/mrgingham-results.png \
-    --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+# THIS IS GENERATED IN tour-initial-calibration.org
 #+end_src
 
 [[file:external/figures/calibration/mrgingham-results.png]]
@@ -336,19 +322,9 @@ Let's compute the calibration using the [[file:mrcal-calibrate-cameras.html][=mr
 mrcal-calibrate-cameras         \
   --corners-cache corners.vnl   \
   --lensmodel LENSMODEL_OPENCV8 \
-  --focal 1700                  \
-  --object-spacing 0.077        \
-  --object-width-n 10           \
-  '*.JPG'
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-calibrate-cameras    \
-  --corners-cache $D/data/board/corners.vnl \
-  --lensmodel LENSMODEL_OPENCV8             \
-  --focal 1700                              \
-  --object-spacing 0.077                    \
-  --object-width-n 10                       \
+  --focal 1900                  \
+  --object-spacing 0.0588       \
+  --object-width-n 14           \
   '*.JPG'
 #+end_src
 
@@ -442,9 +418,10 @@ calobject_warp = [-0.00104306  0.00051718]
 Wrote ./camera-0.cameramodel
 #+end_example
 
-The resulting model is renamed to =opencv8.cameramodel=, and is available [[file:external/data/board/opencv8.cameramodel][here]].
-This is a [[file:cameramodels.org][mrcal-native =.cameramodel= file]] containing at least the lens
-parameters and the geometry.
+The resulting model is available
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/opencv8.cameramodel][here]].
+This is a [[file:cameramodels.org][mrcal-native =.cameramodel= file]] containing
+at least the lens parameters and the geometry.
 
 Let's sanity-check the results. We want to flag down any issues with the data
 that would violate the [[file:formulation.org::#noise-model][assumptions made by the solver]].
@@ -490,9 +467,7 @@ mrcal-show-geometry      \
   --set 'view 80,30,1.5'
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-geometry $D/data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy $D/figures/calibration/calibration-chessboards-geometry.svg
-export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-geometry $D/data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' --hardcopy $D/figures/calibration/calibration-chessboards-geometry.pdf
+# GENERATED in tour-initial-calibration.org
 #+end_src
 
 [[file:external/figures/calibration/calibration-chessboards-geometry.svg]]
@@ -512,31 +487,13 @@ errors for /all/ the cameras:
 #+begin_src sh
 mrcal-show-residuals    \
   --histogram           \
-  --set 'xrange [-4:4]' \
+  --set 'xrange [-2:2]' \
   --unset key           \
   --binwidth 0.1        \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals \
-  --histogram  \
-  --set 'xrange [-4:4]' \
-  --unset key           \
-  --binwidth 0.1 \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-opencv8.svg' \
-  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D/data/board/opencv8.cameramodel
-
-D=~/projects/mrcal-doc-external
-export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals \
-  --histogram  \
-  --set 'xrange [-4:4]' \
-  --unset key           \
-  --binwidth 0.1 \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-opencv8.pdf' \
-  --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
-  $D/data/board/opencv8.cameramodel
+# GENERATED in tour-initial-calibration.org
 #+end_src
 
 [[file:external/figures/calibration/residuals-histogram-opencv8.svg]]
@@ -554,23 +511,14 @@ one:
 #+begin_src sh
 mrcal-show-residuals-board-observation \
   --from-worst                         \
-  --vectorscale 100                    \
+  --vectorscale 200                    \
   --circlescale 0.5                    \
-  --set 'cbrange [0:3]'                \
+  --set 'cbrange [0:2]'                \
   opencv8.cameramodel                  \
   0
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals-board-observation \
-  --from-worst \
-  --vectorscale 100 \
-  --circlescale 0.5 \
-  --set 'cbrange [0:3]' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/worst-opencv8.png' \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  $D/data/board/opencv8.cameramodel \
-  0
+# GENERATED in tour-initial-calibration.org
 #+end_src
 
 [[file:external/figures/calibration/worst-opencv8.png]]
@@ -616,24 +564,7 @@ mrcal exists]], and works /much/ better. The same frame, fitted with a noncentra
 projection:
 
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal-noncentral/mrcal-calibrate-cameras                             \
-  --corners-cache $D/data/board/corners.vnl                                     \
-  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=150 \
-  --focal 1700                                                                  \
-  --object-spacing 0.077                                                        \
-  --object-width-n 10                                                           \
-  --outdir /tmp                                                                     \
-  '*.JPG'
-D=~/projects/mrcal-doc-external
-export PYTHONPATH=(..(:A));-$PYTHONPATHjects/mrcal-noncentral/mrcal-show-residuals-board-observation \
-  --vectorscale 100 \
-  --circlescale 0.5 \
-  --set 'cbrange [0:3]' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/worst-splined-noncentral.png' \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  /tmp/camera-0.cameramodel \
-  54
+# GENERATED in tour-initial-calibration.org
 #+end_src
 
 [[file:external/figures/calibration/worst-splined-noncentral.png]]
