@@ -16,15 +16,15 @@ function based on splined surfaces. Improved representations could be developed
 in the future.
 
 The idea of using a very rich representation to model lens behavior has been
-described in literature (for instance [[https://ieeexplore.ieee.org/abstract/document/8500466][here]] and [[https://arxiv.org/abs/1912.02908][here]]). However, every paper I've
-seen models unprojection (mapping pixels to observation vectors) instead of
-projection (observation vectors to pixels). Projection is the usual direction,
+described in literature (for instance [[https://ieeexplore.ieee.org/abstract/document/8500466][here]] and [[https://arxiv.org/abs/1912.02908][here]]). However, *every paper I've
+seen models unprojection* (mapping pixels to observation vectors) instead of
+projection (observation vectors to pixels). The usual direction is projection,
 employed by every other lens model in every other toolkit, so following the
-papers would require rewriting lots and lots of code specifically to support
-this one model. mrcal's rich representation models projection, so this new model
-fits into the same framework as all the other models, and all the higher-level
-logic (differencing, uncertainty quantification, etc) continues to work with no
-changes.
+papers would require rewriting lots of code specifically to support this one
+model. *mrcal's rich representation models projection*, so this new model fits
+into the same framework as all the other models, and all the higher-level logic
+(differencing, uncertainty quantification, etc) continues to work with no
+modifications.
 
 * Projection function
 The =LENSMODEL_SPLINED_STEREOGRAPHIC_...= model is a stereographic model with
@@ -53,13 +53,13 @@ and we then define the rest of the projection function:
  f_y \left( u_y + \Delta u_y \right) + c_y
 \end{aligned} \right] \]
 
-The $\Delta \vec u$ are the off-stereographic terms. If $\Delta \vec u = 0$, we
+The $\Delta \vec u$ are the off-stereographic terms: if $\Delta \vec u = 0$, we
 get a plain stereographic projection.
 
 The surfaces $\Delta u_x$ and $\Delta u_y$ are defined as [[https://en.wikipedia.org/wiki/B-spline][B-splines]],
 parametrized by the values of the "knots" (control points). These knots are
 arranged in a fixed grid in the space of $\vec u$, with the grid density and
-extent set by the model configuration (i.e. not subject to optimization). The
+extents set by the model configuration (i.e. not subject to optimization). The
 values at each knot are set in the intrinsics vector, and this controls the
 projection function.
 
@@ -150,10 +150,11 @@ to cover the full field-of-view of the camera. We then wouldn't be querying the
 spline beyond the knots, since those regions in space are out-of-view of the
 lens. =fov_x_deg= should be large enough to cover the field of view, but not so
 wide to waste knots representing invisible space. It is recommended to estimate
-this from the datasheet of the lens, and then to run a calibration. The
-[[file:mrcal-show-splined-model-correction.html][=mrcal-show-splined-model-correction=]] tool can then be used to compare the
+this from the datasheet of the lens, and then to run a test calibration. Running
+the [[file:mrcal-show-splined-model-correction.html][=mrcal-show-splined-model-correction=]] tool then compares the
 valid-intrinsics region (area with sufficient calibration data) against the
-bounds of the spline-in-bounds region.
+bounds of the spline-in-bounds region, letting the user know if the
+field-of-view is too small.
 
 * Fidelity and uncertainties
 This splined model has many more parameters, and is far more flexible than the
@@ -191,26 +192,7 @@ splined-model solve:
 mrcal-show-projection-uncertainty splined.cameramodel --cbmax 1 --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/splined.cameramodel \
-  --cbmax 1 \
-  --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.svg \
-  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/splined.cameramodel \
-  --cbmax 1 \
-  --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.pdf \
-  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/splined.cameramodel \
-  --cbmax 1 \
-  --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.png \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+# THIS WAS COMPUTED IN tour-uncertainty.org
 #+end_src
 
 [[file:external/figures/uncertainty/uncertainty-splined.png]]
@@ -240,7 +222,7 @@ v = mrcal.unproject(q, *m.intrinsics())
 s = mrcal.projection_uncertainty(v, m,
                                  atinfinity = True,
                                  what = 'worstdirection-stdev')
-print(x[argrelextrema(s,np.greater)])
+print(repr(x[argrelextrema(s,np.greater)]))
 
 gp.plot(x, s,
         _with  = 'lines',
@@ -262,7 +244,7 @@ import numpysane as nps
 import gnuplotlib as gp
 from scipy.signal import argrelextrema
 
-m = mrcal.cameramodel('/home/dima/projects/mrcal-doc-external/data/board/splined.cameramodel')
+m = mrcal.cameramodel('/home/dima/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel')
 W,H = m.imagersize()
 
 x = np.linspace(0, W-1, 1000)
@@ -275,7 +257,7 @@ v = mrcal.unproject(q, *m.intrinsics())
 s = mrcal.projection_uncertainty(v, m,
                                  atinfinity = True,
                                  what = 'worstdirection-stdev')
-print(x[argrelextrema(s,np.greater)])
+print(repr(x[argrelextrema(s,np.greater)]))
 
 gp.plot(x, s,
         _with  = 'lines',
@@ -305,13 +287,9 @@ with our spline knot layout, so let's check that. The above script also reports
 the $x$ coordinates of the local maxima of the uncertainties:
 
 #+begin_example
-array([ 258.9039039 ,  439.53453453,  638.22822823,  848.96396396,
-       1059.6996997 , 1276.45645646, 1499.23423423, 1728.03303303,
-       1950.81081081, 2179.60960961, 2414.42942943, 2649.24924925,
-       2890.09009009, 3124.90990991, 3359.72972973, 3594.54954955,
-       3829.36936937, 4064.18918919, 4292.98798799, 4509.74474474,
-       4744.56456456, 4943.25825826, 5153.99399399, 5352.68768769,
-       5846.41141141])
+array([  96.08008008,  378.31531532,  558.46546547, 2089.74174174,
+       2347.95695696, 2582.15215215, 2828.35735736, 3068.55755756,
+       3326.77277277, 3590.99299299, 5716.76476476, 5860.88488488])
 #+end_example
 
 Let's look at the knot layout arbitrarily in the region near the center, marking
@@ -320,36 +298,36 @@ the uncertainty maxima with red lines:
 #+begin_src sh
 mrcal-show-splined-model-correction                                           \
   --imager-domain                                                             \
-  --set 'xrange [2500:3500]'                                                  \
-  --set 'yrange [1500:2500]'                                                  \
-  --set 'arrow from 2649.3, graph 0 to 2649.3, graph 1 nohead lc "red" front' \
-  --set 'arrow from 2890.1, graph 0 to 2890.1, graph 1 nohead lc "red" front' \
-  --set 'arrow from 3124.9, graph 0 to 3124.9, graph 1 nohead lc "red" front' \
-  --set 'arrow from 3359.7, graph 0 to 3359.7, graph 1 nohead lc "red" front' \
+  --set 'xrange [2500:3400]'                                                  \
+  --set "yrange [$((3376/2+500 )):$((3376/2-500 ))]"                          \
+  --set 'arrow from 2582.2, graph 0 to 2582.2, graph 1 nohead lc "red" front' \
+  --set 'arrow from 2828.4, graph 0 to 2828.4, graph 1 nohead lc "red" front' \
+  --set 'arrow from 3068.6, graph 0 to 3068.6, graph 1 nohead lc "red" front' \
+  --set 'arrow from 3326.8, graph 0 to 3326.8, graph 1 nohead lc "red" front' \
   --unset key                                                                 \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 ~/projects/mrcal/mrcal-show-splined-model-correction                          \
   --imager-domain                                                             \
-  --set 'xrange [2500:3500]'                                                  \
-  --set 'yrange [1500:2500]'                                                  \
-  --set 'arrow from 2649.3, graph 0 to 2649.3, graph 1 nohead lc "red" front' \
-  --set 'arrow from 2890.1, graph 0 to 2890.1, graph 1 nohead lc "red" front' \
-  --set 'arrow from 3124.9, graph 0 to 3124.9, graph 1 nohead lc "red" front' \
-  --set 'arrow from 3359.7, graph 0 to 3359.7, graph 1 nohead lc "red" front' \
+  --set 'xrange [2500:3400]'                                                  \
+  --set "yrange [$((3376/2+500 )):$((3376/2-500 ))]"                          \
+  --set 'arrow from 2582.2, graph 0 to 2582.2, graph 1 nohead lc "red" front' \
+  --set 'arrow from 2828.4, graph 0 to 2828.4, graph 1 nohead lc "red" front' \
+  --set 'arrow from 3068.6, graph 0 to 3068.6, graph 1 nohead lc "red" front' \
+  --set 'arrow from 3326.8, graph 0 to 3326.8, graph 1 nohead lc "red" front' \
   --unset key                                                                 \
-  $D/data/board/splined.cameramodel                                           \
-  --hardcopy $D/figures/uncertainty/splined-knots-zoomed.png                  \
+  $D/splined.cameramodel                                           \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/splined-knots-zoomed.png                  \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
 [[file:external/figures/uncertainty/splined-knots-zoomed.png]]
 
-The uncertainty is clearly highest at the knots, so adjusting the spline spacing
-would have an effect here. I haven't yet studied the effect of changing the
-spline spacing, but we can do a quick study here. Let's re-run the splined model
+The uncertainty is highest near the knots, so adjusting the spline spacing would
+have an effect here. I haven't yet studied the effect of changing the spline
+spacing, but we can do a quick study here. Let's re-run the splined model
 optimization in the [[file:tour-uncertainty.org::#tour-uncertainty-splined-model-uncertainties][the tour of mrcal]], but using different spline spacings. And
 let's then reconstruct the uncertainty-across-center plot from above for each
 spacing.
@@ -361,39 +339,38 @@ for Ny (4 6 8 10 15 20 25 30) {
   Nx=$((Ny*3/2))
 
   mrcal-calibrate-cameras                                                               \
-    --corners-cache $D/data/board/corners.vnl                                           \
+    --corners-cache corners.vnl                                                         \
     --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=${Nx}_Ny=${Ny}_fov_x_deg=150 \
-    --focal 1700                                                                        \
-    --object-spacing 0.077                                                              \
-    --object-width-n 10                                                                 \
-    --out /tmp/                                                                         \
-    --imagersize 6016 4016                                                              \
+    --focal 1900                                                                        \
+    --object-spacing 58.8e-3                                                            \
+    --object-width-n 14                                                                 \
+    --imagersize 6000 3376                                                              \
     '*.JPG'
-
-  mv /tmp/camera-0.cameramodel /tmp/splined-Nx=${Nx}-Ny=${Ny}.cameramodel
 }
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+
+mkdir -p $D/splined-models-different-spacings/
 
 for Ny (4 6 8 10 15 20 25 30) {
   Nx=$((Ny*3/2))
 
   ~/projects/mrcal/mrcal-calibrate-cameras                                              \
-    --corners-cache $D/data/board/corners.vnl                                           \
+    --corners-cache $D/corners.vnl                                                      \
     --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=${Nx}_Ny=${Ny}_fov_x_deg=150 \
-    --focal 1700                                                                        \
-    --object-spacing 0.077                                                              \
-    --object-width-n 10                                                                 \
-    --out $D/data/board/                                                                \
-    --imagersize 6016 4016                                                              \
+    --focal 1900                                                                        \
+    --object-spacing 58.8e-3                                                            \
+    --object-width-n 14                                                                 \
+    --out /tmp                                                                          \
+    --imagersize 6000 3376                                                              \
     '*.JPG'
 
-  mv $D/data/board/camera-0.cameramodel $D/data/board/splined-Nx=${Nx}-Ny=${Ny}.cameramodel
+  mv /tmp/camera-0.cameramodel $D/splined-models-different-spacings/splined-Nx=${Nx}-Ny=${Ny}.cameramodel
 }
 #+end_src
 
-Results available [[file:external/data/board/splined-models-different-spacings][here]]. And we write a bit of Python to make our plots:
+Results available [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined-models-different-spacings][here]]. And we write a bit of Python to make our plots:
 
 #+begin_src python
 #!/usr/bin/python3
@@ -455,8 +432,7 @@ import gnuplotlib as gp
 import glob
 import re
 
-#D='/tmp'
-D='/home/dima/projects/mrcal-doc-external/data/board/splined-models-different-spacings'
+D='/home/dima/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined-models-different-spacings'
 
 model_paths = np.array(glob.glob(f'{D}/splined-Nx=*.cameramodel'))
 
@@ -475,7 +451,7 @@ q = np.ascontiguousarray( \
       nps.transpose(      \
         nps.cat(x, H/2*np.ones(x.shape))))
 
-if 0:
+if 1:
     s = np.array([mrcal.projection_uncertainty(mrcal.unproject(q, *m.intrinsics()),
                                                m,
                                                atinfinity = True,
@@ -519,21 +495,22 @@ So we can see that as we pick a denser spline:
 
 - The amplitude of the wiggle increases also. /This/ is interesting. It could be
   due to the fact that a richer spline is better able to squeeze between the
-  gaps between the observed points, or it could be a fundamental property of a
-  B-spline. This needs a deeper investigation
+  gaps between the observed points, or it could be a fundamental property of
+  B-spline-based optimization. This needs a deeper investigation
 
 * Optimization practicalities
 ** Core redundancy
 As can be seen in the projection function above, the splined stereographic model
 parameters contain splined correction factors $\Delta \vec u$ /and/ an
-intrinsics core. The core variables are largely redundant with $\Delta \vec u$:
-for any perturbation in the core, we can achieve a /very/ similar change in
-projection behavior by bumping $\Delta \vec u$ in a specific way. As a result,
-if we allow the optimization algorithm to control all the variables, the system
-will be under-determined, and the optimization routine will fail: complaining
-about a "not positive definite" (singular in this case) Hessian. At best the
-Hessian will be slightly non-singular, but convergence will be slow. To resolve
-this, the recommended sequence for optimizing splined stereographic models is:
+intrinsics core $\left(f_x,f_y,c_x,c_y\right)$. The core variables are largely
+redundant with $\Delta \vec u$: for any perturbation in the core, we can achieve
+a /very/ similar change in projection behavior by bumping $\Delta \vec u$ in a
+specific way. As a result, if we allow the optimization algorithm to control all
+the variables, the system will be under-determined, and the optimization routine
+will fail: complaining about a "not positive definite" (singular in this case)
+Hessian. At best the Hessian will be slightly non-singular, but convergence will
+be slow. To resolve this, the recommended sequence for optimizing splined
+stereographic models is:
 
 1. Fit the best =LENSMODEL_STEREOGRAPHIC= model to compute an estimate of the
    intrinsics core
