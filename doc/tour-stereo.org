@@ -239,7 +239,7 @@ sys.path[:0] = '/home/dima/deltapose-lite',
 sys.path[:0] = '/home/dima/img_any',
 import mrcal
 
-model_intrinsics = mrcal.cameramodel('data/board/splined.cameramodel')
+model_intrinsics = mrcal.cameramodel(2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel')
 t01              = np.array((7.*12*2.54/100, 0, 0))  # 7ft separation on the x
 
 xy_xy_range = \
