@@ -962,6 +962,14 @@ the benefit of the test
     Ncameras = 2
     Nxy      = 2
     var_q = np.eye(Ncameras*Nxy) * sigma*sigma
+
+    # When computing dense stereo we generally assume that q0 is fixed, and we
+    # only think about the effects of Var(q1): Var(q0) = 0, sigma_cross = 0
+    # var_q[0,0]  = 0
+    # var_q[1,1]  = 0
+    # sigma_cross = 0
+
+
     var_q_reshaped = var_q.reshape( Ncameras, Nxy,
                                     Ncameras, Nxy )
 
