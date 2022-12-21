@@ -11,11 +11,6 @@ You may obtain a copy of the License at
 A number of free-software projects are included as source in the toolkit. These
 are:
 
-* [[https://github.com/dkogan/mrbuild][mrbuild]]
-The [[https://www.github.com/dkogan/mrcal/tree/master/mrbuild][build system]] is a copy of the mrbuild project. Included to avoid introducing
-a dependency. Distributed under an MIT-style license. Copyright 2016-2019
-California Institute of Technology.
-
 * [[https://github.com/dkogan/libminimath][libminimath]]
 mrcal uses some tiny-matrix linear algebra routines implemented by this library.
 This is a header-only library, so we're not "linking" to it. I'm not modifying
