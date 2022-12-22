@@ -489,5 +489,10 @@ if not args.intrinsics_only and args.radius != 0 and \
 
     print(f"Transformation cam1 <-- cam0:  rotation: {nps.mag(rt10[:3])*180./np.pi:.03f} degrees, translation: {rt10[3:]} m")
 
+    dist_shift = nps.mag(rt10[3:])
+    if dist_shift > 0.01:
+        msg = f"## WARNING: fitted camera moved by {dist_shift:.03f}m. This is probably aphysically high, and something is wrong. Pass both a high and a low --distance?"
+        print(msg, file=sys.stderr)
+
 if args.hardcopy is None:
     plot.wait()
