@@ -75,8 +75,7 @@ def parse_args():
                         list. If multiple distances are given, we fit the
                         implied-by-the-intrinsics transformation using ALL the
                         distances, but we display the difference for the FIRST
-                        distance given. Only one distance is supported if
-                        --vectorfield. Multiple distances are especially useful
+                        distance given. Multiple distances are especially useful
                         if we have uncertainties: the most confident distance
                         will be found, and displayed.''')
 
@@ -233,11 +232,6 @@ else:
         distance = [float(d) for d in args.distance.split(',')]
     except:
         print("Error: distances must be given a comma-separated list of floats in --distance",
-              file = sys.stderr)
-        sys.exit(1)
-
-    if len(distance) > 1 and args.vectorfield:
-        print("Error: --distance can support at most one value if --vectorfield. Not clear how to plot otherwise",
               file = sys.stderr)
         sys.exit(1)
 

@@ -949,14 +949,6 @@ A tuple:
             raise Exception("I can only plot a vectorfield when looking at exactly 2 models. Instead I have {}". \
                             format(len(models)))
 
-        distance_is_iterable = True
-        try:    len(distance)
-        except: distance_is_iterable = False
-
-        if not (distance is None or \
-                not distance_is_iterable or \
-                len(distance) == 1):
-            raise Exception("I don't know how to plot multiple-distance diff with vectorfields")
     if directions and len(models) > 2:
         raise Exception("I can only color-code by directions when looking at exactly 2 models. Instead I have {}". \
                         format(len(models)))
