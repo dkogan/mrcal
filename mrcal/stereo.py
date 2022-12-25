@@ -634,57 +634,9 @@ mrcal.transform_image() and cv2.remap()). Each array has shape (Nel,Naz,2),
 where (Nel,Naz) is the shape of each rectified image. Each shape-(2,) row
 contains corresponding pixel coordinates in the input image
 
-    '''
-
-    _validate_models_rectified(models_rectified)
-
-    Naz,Nel     = models_rectified[0].imagersize()
-    fxycxy      = models_rectified[0].intrinsics()[1]
-    fx,fy,cx,cy = fxycxy
-
-    R_cam_rect = [ nps.matmult(models          [i].extrinsics_Rt_fromref()[:3,:],
-                               models_rectified[i].extrinsics_Rt_toref  ()[:3,:]) \
-                   for i in range(2) ]
-
-    # This is massively inefficient. I should
-    #
-    # - Not generate any intermediate ARRAYS, but loop through each pixel, and
-    #   perform the full transformation on each pixel. All the way through the
-    #   project(v0, ...) below
-    #
-    # - Not compute full sin/cos separately for each pixel, but take advantage
-    #   of my even angle steps to compute the sin/cos once, and take
-    #   multiplication/addition steps from there
-
-    # shape (Nel,Naz,3)
-    if models_rectified[0].intrinsics()[0] == 'LENSMODEL_LATLON':
-        unproject = mrcal.unproject_latlon
-    else:
-        unproject = mrcal.unproject_pinhole
 
 
-
-
-
-
-
-
-
-
-    qx = np.arange(Naz,dtype=float)
-    qy = np.arange(Nel,dtype=float)
-    # shape (Nel,Naz,3)
-    vrect_nominal = \
-        unproject( np.ascontiguousarray( \
-                     nps.mv( nps.cat(*np.meshgrid(qx, qy)),
-                             0, -1)),
-                   fxycxy )
-
-
-
-    if 1:
-
-        r'''* Adaptive rectification
+* Adaptive rectification
 
 Normally when we're looking far out
 
@@ -725,62 +677,74 @@ rectification routine then computes the predicted range sensitivity to
 correlation errors, and picks a resolution that doesn't give us more range
 robustness than necessary. The current method is general: a different resolution
 is computed for each pixel, not even for each row.
-'''
+
+    '''
+
+    _validate_models_rectified(models_rectified)
+
+    Naz,Nel     = models_rectified[0].imagersize()
+    fxycxy      = models_rectified[0].intrinsics()[1]
+
+    R_cam_rect = [ nps.matmult(models          [i].extrinsics_Rt_fromref()[:3,:],
+                               models_rectified[i].extrinsics_Rt_toref  ()[:3,:]) \
+                   for i in range(2) ]
+
+    baseline = \
+        nps.mag(mrcal.compose_Rt( models_rectified[1].extrinsics_Rt_fromref(),
+                                  models_rectified[0].extrinsics_Rt_toref())[3,:])
+
+    # This is massively inefficient. I should
+    #
+    # - Not generate any intermediate ARRAYS, but loop through each pixel, and
+    #   perform the full transformation on each pixel. All the way through the
+    #   project(v0, ...) below
+    #
+    # - Not compute full sin/cos separately for each pixel, but take advantage
+    #   of my even angle steps to compute the sin/cos once, and take
+    #   multiplication/addition steps from there
+
+    # shape (Nel,Naz,3)
+    if models_rectified[0].intrinsics()[0] == 'LENSMODEL_LATLON':
+        unproject = mrcal.unproject_latlon
+    else:
+        unproject = mrcal.unproject_pinhole
 
 
 
-
-        # initially azel is nominal
-
-        # shape (Nel,Naz,2)
-        azel = np.zeros((Nel,Naz,2), dtype=float)
-
-        # az is nominal
-        azel[..., 0] = (np.arange(Naz, dtype=float) - cx) / fx
-
-        # el is nominal
-        azel[..., 1] = nps.dummy( (np.arange(Nel, dtype=float) - cy) / fy,
-                                  axis = -1)
+    import scipy.interpolate
+    import pickle
 
 
-        n0 = np.array((0.02652536, 0.84598057, 0.53255355))
-        d  = 0.1565642688765455
+    def get_az1expected_maskinf(baseline, vrect_nominal, n0, d):
+
         Rt_rect0_cam0 = \
             mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
                               models          [0].extrinsics_Rt_toref() )
         nrect0 = mrcal.rotate_point_R(Rt_rect0_cam0[:3,:], n0)
 
-        # shape (Nel,Naz,3)
-        vrect0 = vrect_nominal
         # shape (Nel,Naz)
-        k = d / nps.inner(vrect0, nrect0)
-        # shape (Nel,Naz,3)
-        prect0 = nps.dummy(k,-1) * vrect0
+        k = d / nps.inner(vrect_nominal, nrect0)
 
-        # This should be just p1 = p0 - b*xhat
         # shape (Nel,Naz,3)
-        prect1 = \
-            mrcal.transform_point_Rt( mrcal.compose_Rt( models_rectified[1].extrinsics_Rt_fromref(),
-                                                        models_rectified[0].extrinsics_Rt_toref()),
-                                      prect0 )
+        # The rectified system is shifted along the x axis only, so the
+        # T_rect1_rect0 transform is just this shift
+        p_rect1 = \
+            nps.dummy(k,-1) * vrect_nominal - \
+            np.array((baseline,0,0))
 
         # shape (Nel,Naz)
-        az0 = mrcal.project_latlon(prect0)[...,0]
-        az1 = mrcal.project_latlon(prect1)[...,0]
+        az1 = mrcal.project_latlon(p_rect1)[...,0]
 
         # points at infinity have nominal az
         mask_infinity = ~np.isfinite(k) + (k<=0)
-        az0[mask_infinity] = azel[mask_infinity, 0]
-        az1[mask_infinity] = azel[mask_infinity, 0]
+        az1[mask_infinity] = azel_nominal[mask_infinity, 0]
+        return az1, mask_infinity
 
-
-        baseline = \
-            nps.mag(mrcal.compose_Rt( models_rectified[1].extrinsics_Rt_fromref(),
-                                      models_rectified[0].extrinsics_Rt_toref())[3,:])
-
-
-        # Alright. I'm assuming LENSMODEL_LATLON, so I'm inside the epipolar plane (this
-        # is different for pinhole rectification). Law of sines for the figure in
+    def get_dqx_daz_desired(baseline, fxycxy, azel_nominal, az1_expected,
+                            mask_infinity):
+        # Alright. I'm assuming LENSMODEL_LATLON, so my az measurements live
+        # inside the epipolar plane (this is different for pinhole
+        # rectification). Law of sines for the figure in
         # http://mrcal.secretsauce.net/stereo.html
         #
         #   b/sin(180-(90-az0)-(90+az1)) = r/sin(90+az1)
@@ -796,16 +760,20 @@ is computed for each pixel, not even for each row.
         #             = -b cos(az0) d( 1/tan(az1-az0) )/daz1 =
         #             = -b cos(az0) d( cos()/sin() )/daz1 =
         #             = -b cos(az0) (-sin()^2 - cos()^2)/sin()^2 =
-        #             = b cos(az0)/sin(az1-az0)^2
+        #             =  b cos(az0)/sin(az1-az0)^2
+
+        fx = fxycxy[0]
+        cx = fxycxy[2]
 
         # shape (Nel,Naz)
-        ## _range            = -baseline * (np.cos(az0)/np.tan(az1-az0) - np.sin(az0))
-        s                          = np.sin(az1-az0)
-        # take care to not /0. An ugly warning on the console results
-        mask_infinity              = (s==0)
-        s[mask_infinity]           = 1.
-        drange_daz1                = baseline * np.cos(az0)/(s*s)
-        drange_daz1[mask_infinity] = 1e6
+        # shape (Nel,Naz)
+        az0                        = azel_nominal[..., 0]
+        sindiff                    = np.sin(az1_expected - az0)
+        # take care to not /0 to avoid an ugly warning on the console
+        mask_div_zero              = (sindiff==0)
+        sindiff[mask_div_zero]     = 1.
+        drange_daz1                = baseline * np.cos(az0)/(sindiff*sindiff)
+        drange_daz1[mask_div_zero] = 1e6
         drange_ddisparity          = drange_daz1 / fx
 
         # I now have the nominal drange/daz1. For simplicity let's use the same
@@ -815,39 +783,53 @@ is computed for each pixel, not even for each row.
         rangeerr_min = 0.002
 
         # shape (Nel,Naz)
-        daz_dqx = rangeerr_min / drange_daz1 / dqx_expected
-
-        # I want to work with dqx/daz since that's the fx in the nominal model
-        dqx_daz = 1. / daz_dqx
+        dqx_daz_desired = drange_daz1 * dqx_expected / rangeerr_min
 
         # I now have the daz/dqx that give me the desired accuracy. I never want
         # to exceed the nominal pixel resolution. And I want to do the nominal
         # thing above the horizon
-        mask_nominal = (dqx_daz > fx) + (k <= 0)
-        dqx_daz[mask_nominal] = fx
+        mask_nominal = (dqx_daz_desired > fx) + mask_infinity
+        dqx_daz_desired[mask_nominal] = fx
 
+        return dqx_daz_desired
+
+    def get_az_domain(azel_nominal, az1_expected):
 
         if 0:
             # Let's ask for those resolutions at az0. This isn't "right", but
             # probably it's close-enough: the errors should lie within our final
             # margin. This is nice because it makes all rows of the az array
             # identical, which makes interpolation easy
-            az = az0
+            return azel_nominal[..., 0]
 
         else:
             # Let's ask for those resolutions at a mean az. az0 is our linear
             # sample. az1 is the corresponding az on the other camera when observing
             # the plane. az1 is NOT linear. Maybe in a pinhole projection
-            az = (az0 + az1)/2
+            return (azel_nominal[..., 0] + az1_expected)/2
+
+
+    def get_qx_mounted(az_domain,
+                       dqx_daz_desired):
+
+        fx = fxycxy[0]
+        cx = fxycxy[2]
 
         # I now have dqx_daz(az) that don't give me too much accuracy. I capped
         # it at the nominal fx, so this can only squeeze the rectified image,
         # not expand it
         #
-        # I want to resample the qx-vs-az curve, so I integrate
-        daz          = np.diff(az, axis=-1)
-        az_midpoint  = (az[...,:-1] + az[...,1:])/2
-        qx           = np.cumsum( (dqx_daz[..., :-1] + dqx_daz[..., 1:])/2 * daz, axis=-1)
+        # I want to resample the qx-vs-az curve, so I integrate. The samples
+        # could be irregular. I cumulatively sum samples centered at the
+        # midpoints of successive points: at x_i I accumulate
+        #   (y_i + y_(i-1))/2 * (x_i - x_(i-1))
+        qx = \
+            nps.glue(np.zeros((az_domain.shape[0],1)),
+                     np.cumsum( (dqx_daz_desired[..., 1:] + \
+                                 dqx_daz_desired[..., :-1])/2. * \
+                                np.diff(az_domain, axis=-1),
+                                axis=-1),
+                     axis=-1)
 
         # I now have some irregular qx(az). I can add an arbitrary constant term
         # to each integration. Let me line up the center of view. This is the
@@ -861,14 +843,11 @@ is computed for each pixel, not even for each row.
         # I set the center of each row to hit az_center
         az_center = ((Naz-1)/2 - cx)/fx
 
-        import scipy.interpolate
-
         # Python loop. Yuck!
         for i in range(qx.shape[0]):
 
             qx_az_interpolator = \
-                scipy.interpolate.interp1d( az_midpoint[i],
-                                            qx[i],
+                scipy.interpolate.interp1d( az_domain[i], qx[i],
                                             bounds_error  = False,
                                             fill_value    = 0.,
                                             assume_sorted = True,
@@ -876,98 +855,182 @@ is computed for each pixel, not even for each row.
 
             qx[i] += (qx.shape[-1] - 1)/2 - qx_az_interpolator(az_center)
 
+        return qx
 
-        for i in range(qx.shape[0]):
 
-            az_qx_interpolator = \
-                scipy.interpolate.interp1d( qx[i],
-                                            az_midpoint[i],
-                                            bounds_error  = False,
-                                            fill_value    = 'extrapolate',
-                                            assume_sorted = True,
-                                            copy          = False)
+    # shape (Nel,Naz,2)
+    qxy_nominal = \
+        np.ascontiguousarray( \
+            nps.mv( nps.cat(*np.meshgrid(np.arange(Naz,dtype=float),
+                                         np.arange(Nel,dtype=float))),
+                    0, -1 ) )
 
-            azel[i,:,0] = az_qx_interpolator(np.arange(Naz))
+    # shape (Nel,Naz,3)
+    azel_nominal = \
+        (qxy_nominal - fxycxy[2:]) / fxycxy[:2]
 
-        # shape (Nel,Naz,3)
-        v = unproject(azel)
+    vrect_nominal = unproject(qxy_nominal, fxycxy)
 
-        if np.min(np.diff(azel[...,0], axis=-1)) <= 0:
-            raise Exception("az-vs-qx MUST be monotonically increasing. This is important for finding the edges")
-
-        # Fit stuff. Not yet
-        if 0:
-            x = np.arange(Naz)[~mask_nominal[i]]
-            y = dqx_daz[i][~mask_nominal[i]]
-
-            xmean = np.mean(x)
-            xscale = (np.max(x) - np.min(x))/2
-            x = (x-xmean)/xscale
-
+    if 0:
+        # Default path. No adaptive rectification
+        v = vrect_nominal
 
         v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
         v1 = mrcal.rotate_point_R(R_cam_rect[1], v)
 
-        mapxy0 = mrcal.project( v0, *models[0].intrinsics()).astype(np.float32)
-        mapxy1 = mrcal.project( v1, *models[1].intrinsics()).astype(np.float32)
-
-        # In the code above I set the center of the rectified image to sit at the az
-        # center. This is in-bounds. I search in both directions from this center to
-        # find the edge of the image. This is needed because the projection
-        # functions are not well-defined outside of the nominal FOV, and can wrap
-        # around
-        def valid_projection_boundary(mapxy, model):
-            W,H = model.imagersize()
-            jmid = mapxy.shape[1] // 2
-
-            # first in-bounds pixel on the left
-            icol0 = \
-                jmid - \
-                np.argmax( (mapxy[:,:jmid,0][..., ::-1] < 0)  +
-                           (mapxy[:,:jmid,1][..., ::-1] < 0)  +
-                           (mapxy[:,:jmid,0][..., ::-1] > W-1)+
-                           (mapxy[:,:jmid,1][..., ::-1] > H-1),
-                           axis=-1 )
-            # first out-of-bounds pixel on the right
-            icol1 = \
-                jmid + \
-                np.argmax( (mapxy[:,jmid:,0] < 0)  +
-                           (mapxy[:,jmid:,1] < 0)  +
-                           (mapxy[:,jmid:,0] > W-1)+
-                           (mapxy[:,jmid:,1] > H-1),
-                           axis=-1 )
-
-            # In each row (icol0,icol1) now form a python-style range describing the
-            # in-bounds pixels
-            return nps.transpose(nps.cat(icol0, icol1))
-
-
-        # shape (Nel,2)
-        qx01_0 = valid_projection_boundary(mapxy0, models[0])
-        qx01_1 = valid_projection_boundary(mapxy1, models[1])
-
-        # I have the bounds for the two images. I intersect them
-        qx01 = np.zeros(qx01_0.shape, qx01_0.dtype)
-        qx01[:,0] = np.max(nps.cat(qx01_0[:,0], qx01_1[:,0]), axis=0)
-        qx01[:,1] = np.min(nps.cat(qx01_0[:,1], qx01_1[:,1]), axis=0)
-
-        # import IPython
-        # IPython.embed()
-        # sys.exit()
-
-        return mapxy0, mapxy1
+        return                                                                \
+            (mrcal.project( v0, *models[0].intrinsics()).astype(np.float32),  \
+             mrcal.project( v1, *models[1].intrinsics()).astype(np.float32))
 
 
 
 
-    v = vrect_nominal
+    n0 = np.array((0.02652536, 0.84598057, 0.53255355))
+    d  = 0.1565642688765455
+    az1_expected, mask_infinity = \
+        get_az1expected_maskinf(baseline,
+                                vrect_nominal,
+                                n0, d)
+
+    dqx_daz_desired = \
+        get_dqx_daz_desired(baseline,
+                            fxycxy,
+                            azel_nominal, az1_expected,
+                            mask_infinity)
+
+    az_domain = get_az_domain(azel_nominal, az1_expected)
+
+    qx = get_qx_mounted(az_domain,
+                        dqx_daz_desired)
+
+    azel = np.array(azel_nominal)
+    for i in range(qx.shape[0]):
+
+        az_qx_interpolator = \
+            scipy.interpolate.interp1d( qx[i], az_domain[i],
+                                        bounds_error  = False,
+                                        fill_value    = 'extrapolate',
+                                        assume_sorted = True,
+                                        copy          = False)
+
+        azel[i,:,0] = az_qx_interpolator(np.arange(Naz))
+
+
+
+    filename = "/tmp/cookie"
+    with open(filename, "wb") as f:
+        pickle.dump( (qx,
+                      az_domain,
+                      fxycxy[1], fxycxy[3]),
+                     f)
+
+
+
+    # shape (Nel,Naz,3)
+    v = unproject(azel)
+
+    if np.min(np.diff(azel[...,0], axis=-1)) <= 0:
+        raise Exception("az-vs-qx MUST be monotonically increasing. This is important for finding the edges")
+
+    # if 0:
+    #     # I want to compute the range sensitivity to pixel matching:
+    #     #   dr/dqx1 = dr/dth1 dth1/dqx1
+    #     # dr/dth1 comes from the triangulation function
+    #     # dth1/dqx1 is the resolution I integrated. I have that directly
 
     v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
     v1 = mrcal.rotate_point_R(R_cam_rect[1], v)
 
-    return                                                                \
-        (mrcal.project( v0, *models[0].intrinsics()).astype(np.float32),  \
-         mrcal.project( v1, *models[1].intrinsics()).astype(np.float32))
+    mapxy0 = mrcal.project( v0, *models[0].intrinsics()).astype(np.float32)
+    mapxy1 = mrcal.project( v1, *models[1].intrinsics()).astype(np.float32)
+
+    # In the code above I set the center of the rectified image to sit at the az
+    # center. This is in-bounds. I search in both directions from this center to
+    # find the edge of the image. This is needed because the projection
+    # functions are not well-defined outside of the nominal FOV, and can wrap
+    # around
+    def valid_projection_boundary(mapxy, model):
+        W,H = model.imagersize()
+        jmid = mapxy.shape[1] // 2
+
+        # first in-bounds pixel on the left
+        icol0 = \
+            jmid - \
+            np.argmax( (mapxy[:,:jmid,0][..., ::-1] < 0)  +
+                       (mapxy[:,:jmid,1][..., ::-1] < 0)  +
+                       (mapxy[:,:jmid,0][..., ::-1] > W-1)+
+                       (mapxy[:,:jmid,1][..., ::-1] > H-1),
+                       axis=-1 )
+        # first out-of-bounds pixel on the right
+        icol1 = \
+            jmid + \
+            np.argmax( (mapxy[:,jmid:,0] < 0)  +
+                       (mapxy[:,jmid:,1] < 0)  +
+                       (mapxy[:,jmid:,0] > W-1)+
+                       (mapxy[:,jmid:,1] > H-1),
+                       axis=-1 )
+
+        # In each row (icol0,icol1) now form a python-style range describing the
+        # in-bounds pixels
+        return nps.transpose(nps.cat(icol0, icol1))
+
+
+    # shape (Nel,2)
+    qx01_0 = valid_projection_boundary(mapxy0, models[0])
+    qx01_1 = valid_projection_boundary(mapxy1, models[1])
+
+    # I have the bounds for the two images. I intersect them
+    qx01 = np.zeros(qx01_0.shape, qx01_0.dtype)
+    qx01[:,0] = np.max(nps.cat(qx01_0[:,0], qx01_1[:,0]), axis=0)
+    qx01[:,1] = np.min(nps.cat(qx01_0[:,1], qx01_1[:,1]), axis=0)
+
+    # Fit stuff. Not yet
+    if 0:
+
+        i=1000
+        j0 = np.argmax(~mask_nominal[i])
+
+        x,y = az[i,j0:-1],qx[i,j0:]
+        d,c,b,a = np.polyfit(x,y,3)
+        gp.plot( (x,y,dict(_with='points')), (x,a+x*(b+x*(c+x*d)),dict(_with='lines')))
+
+        r'''
+        Alright. Supposed I have fits. What do I do then?
+
+        I can compute drange/dqx1 sensitivities. With a nominal geometry, it
+        should be good. Then I should add extra pitch and/or roll to see if
+        it breaks stuff
+
+        I should also add the disparity bounds into the correlator '''
+
+        r''' I need full bidirectional functions. Need a project/unproject
+        in the weird space
+
+
+        Need lensmodel cookie. Used for the rectification map, range function
+
+        I need a custom q <-> azel, then a normalized
+        (un)project_stereographic() to complete
+
+
+        '''
+
+
+        # x = np.arange(Naz)[~mask_nominal[i]]
+        # y = dqx_daz_desired[i][~mask_nominal[i]]
+
+        # xmean = np.mean(x)
+        # xscale = (np.max(x) - np.min(x))/2
+        # x = (x-xmean)/xscale
+
+        import IPython
+        IPython.embed()
+        sys.exit()
+
+
+    return mapxy0, mapxy1
+
+
 
 
 def stereo_range(disparity,
