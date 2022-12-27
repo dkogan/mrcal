@@ -10,6 +10,7 @@ import sys
 import numpy as np
 import numpysane as nps
 import mrcal
+import mrcal.adaptive_project
 
 def rectified_system(models,
                      *,
@@ -917,12 +918,11 @@ is computed for each pixel, not even for each row.
 
 
 
-    filename = "/tmp/cookie"
-    with open(filename, "wb") as f:
-        pickle.dump( (qx,
-                      az_domain,
-                      fxycxy[1], fxycxy[3]),
-                     f)
+    rectification_maps.cookie_adaptive_rectification = \
+        dict(qx        = qx,
+             az_domain = az_domain,
+             fy        = fxycxy[1],
+             cy        = fxycxy[3])
 
 
 
@@ -1290,6 +1290,34 @@ RETURNED VALUES
     baseline = nps.mag(Rt01[3,:])
 
     if intrinsics[0] == 'LENSMODEL_LATLON':
+
+        v0 = \
+            mrcal.adaptive_project. \
+            unproject_adaptive_rectification( qrect0,
+                                              **mrcal.rectification_maps.cookie_adaptive_rectification)
+
+        v1 = \
+            mrcal.adaptive_project. \
+            unproject_adaptive_rectification( qrect0,
+                                              disparity = disparity/disparity_scale,
+                                              **mrcal.rectification_maps.cookie_adaptive_rectification)
+
+        qrect0 = mrcal.project_latlon(v0, models_rectified[0].intrinsics()[1])
+        qrect1 = mrcal.project_latlon(v1, models_rectified[1].intrinsics()[1])
+        disparity = np.round((qrect0[...,0] - qrect1[...,0])*disparity_scale).astype(int)
+
+        if is_scalar:
+            disparity = np.array((disparity,),)
+
+
+
+
+
+
+
+
+
+
         if qrect0 is None:
             az0 = (np.arange(W, dtype=float) - cx)/fx
         else:
@@ -1299,7 +1327,8 @@ RETURNED VALUES
 
         mask_invalid = (disparity <= 0)
 
-        s = np.sin(disparity_rad)
+        s = np.array(np.sin(disparity_rad))
+
         s[mask_invalid] = 1 # to prevent division by 0
 
         r = baseline * np.cos(az0 - disparity_rad) / s

@@ -1141,7 +1141,7 @@ for i in range(Nimages):
                                            np.array((d/disparity_scale, 0)))
                 widget_result.set_cross_at(q0_rectified)
 
-                delta = 1e-3
+                delta = 1e-1
                 _range   = mrcal.stereo_range( d,
                                                models_rectified,
                                                disparity_scale = disparity_scale,
@@ -1155,13 +1155,20 @@ for i in range(Nimages):
 
                 # mrcal-triangulate tool: guts into a function. Call those
                 # guts here, and display them in the window
+                dqx_expected = 0.3
+
+                set_status(f"Disparity: {d/disparity_scale:.2f}pixels\n" +
+                           f"range: {_range:.2f}m\n" +
+                           f"drange/ddisparity: {drange_ddisparity:.4f}m/pixel\n" + \
+                           f"Expected range error: {drange_ddisparity*dqx_expected:.4f}m\n" \
+                           f"Expected range error: {drange_ddisparity*dqx_expected/_range*100:.1f}%\n")
 
 
 
 
 
 
-
+                r'''
                 # This is range sensitivity when looking at the expected plane.
                 # ASSUMING the usual latlon rectification
                 n0 = np.array((0.02652536, 0.84598057, 0.53255355))
@@ -1209,6 +1216,15 @@ for i in range(Nimages):
                            + f"\n\npredicted range at plane: {range_predicted}" \
                            + f"\n\npredicted drange/ddisparity at plane: {drange_ddisparity_predicted}"
                            )
+                '''
+
+
+
+
+
+
+
+
 
                 if 0:
                     p0_rectified = \
