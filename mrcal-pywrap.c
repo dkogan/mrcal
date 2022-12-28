@@ -2708,7 +2708,7 @@ PyObject* load_image(PyObject* NPY_UNUSED(self),
                          "channels",
                          NULL};
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "s|ii",
+                                     "s|ii:mrcal.load_image",
                                      keywords,
                                      &filename, &bits_per_pixel, &channels ))
         goto done;
@@ -2819,7 +2819,7 @@ PyObject* save_image(PyObject* NPY_UNUSED(self),
                          "array",
                          NULL};
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "sO",
+                                     "sO:mrcal.save_image",
                                      keywords,
                                      &filename, &image_array ))
         goto done;
@@ -2958,7 +2958,7 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
                                      LENSMODEL_ONE_ARGUMENTS(PARSECODE, )
                                      RECTIFIED_RESOLUTION_ARGUMENTS(PARSECODE)
-                                     "dddddds",
+                                     "dddddds:mrcal.rectified_resolution",
 
                                      keywords,
 
@@ -3090,7 +3090,7 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
                                      LENSMODEL_ONE_ARGUMENTS(PARSECODE, 0)
                                      RECTIFIED_SYSTEM_ARGUMENTS(PARSECODE)
-                                     "dddddds",
+                                     "dddddds:mrcal.rectified_system",
 
                                      keywords,
 
@@ -3214,7 +3214,8 @@ PyObject* _rectification_maps(PyObject* NPY_UNUSED(self),
                                      LENSMODEL_ONE_ARGUMENTS(PARSECODE, 0)
                                      LENSMODEL_ONE_ARGUMENTS(PARSECODE, 1)
                                      LENSMODEL_ONE_ARGUMENTS(PARSECODE, _rectified)
-                                     RECTIFICATION_MAPS_ARGUMENTS(PARSECODE),
+                                     RECTIFICATION_MAPS_ARGUMENTS(PARSECODE)
+                                     ":mrcal.rectification_maps",
 
                                      keywords,
 
