@@ -35,4 +35,9 @@ show_projection_diff() can plot vectorfields with multiple distances
 And the mrcal-show-projections-diff tool. Same as with heat maps, we plot the
 diff for the first distance
 
+mrcal.optimize(), mrcal.optimizer_callback(): all arguments are keyword-only,
+most arguments are optional
+
+measurement_index_....() all return <0 if those measurements aren't present
+
 * Migration notes 2.2 -> 2.3
