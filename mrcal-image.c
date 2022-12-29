@@ -40,30 +40,29 @@ bool generic_save(const char* filename,
         goto done;
     }
 
-
-    // I would like to avoid copying the image buffer by reusing the data, and
-    // just make a new header. Like this:
-    //
-    //     FIBITMAP* fib = FreeImage_ConvertFromRawBitsEx(false,
-    //                                                    (BYTE*)image->data,
-    //                                                    FIT_BITMAP,
-    //                                                    image->width, image->height, image->stride,
-    //                                                    bits_per_pixel,
-    //                                                    0,0,0,
-    //                                                    // Top row is stored first
-    //                                                    true);
-    //
-    // But apparently freeimage can't just do this like the user expects: they
-    // actually move the data around in the input image to flip it upside-down.
-    // This function should not be modifying its input, and fighting this isn't
-    // worth my time. So I let freeimage make a copy of the image, and then muck
-    // around with the new buffer however much it likes.
+#if defined HAVE_OLD_LIBFREEIMAGE && HAVE_OLD_LIBFREEIMAGE
+    if(bits_per_pixel == 16)
+        MSG("WARNING: you have an old build of libfreeimage. It has trouble writing 16bpp images, so '%s' will probably be written incorrectly. You should upgrade your libfreeimage and rebuild",
+            filename);
     fib = FreeImage_ConvertFromRawBits( (BYTE*)image->data,
                                         image->width, image->height, image->stride,
                                         bits_per_pixel,
                                         0,0,0,
                                         // Top row is stored first
                                         true);
+#else
+    // I do NOT reuse the input data because this function actually changes the
+    // input buffer to flip it upside-down instead of accessing the bits in the
+    // correct order
+    fib = FreeImage_ConvertFromRawBitsEx(true,
+                                         (BYTE*)image->data,
+                                         (bits_per_pixel == 16) ? FIT_UINT16 : FIT_BITMAP,
+                                         image->width, image->height, image->stride,
+                                         bits_per_pixel,
+                                         0,0,0,
+                                         // Top row is stored first
+                                         true);
+#endif
 
     FREE_IMAGE_FORMAT format = FreeImage_GetFIFFromFilename(filename);
     if(format == FIF_UNKNOWN)
