@@ -30,48 +30,72 @@ mrcal consists of
 - commandline tools for common tasks
 
 * Documentation index
-** Overview
-Please see [[file:tour.org][a tour of mrcal]] for an overview of the capabilities of the toolkit.
-This gives a good sense of what mrcal can do that's better than other tools.
+** Overview, background
+*** [[file:tour.org][The tour of mrcal]]
+If this is your first exposure to mrcal, start here. This goes over the
+high-level capabilities of the toolkit, to give a good sense of what mrcal can
+do that's different and better than other tools.
 
-** Building, installing
-First, the tools should be [[file:install.org][built or installed]].
+*** [[file:conventions.org][Terminology and conventions]]
+These are helpful to go over before reading the documentation
 
-** Background
-Before using the tools, it is helpful to read about the [[file:conventions.org][terminology and
-conventions]] used in the sources and documentation.
+** Details about the internals
+*** [[file:formulation.org][Problem formulation]]
+At the core of a calibration routine is an optimization problem. The details are
+important to be able to interpret the results
 
-At the core of a calibration routine is an optimization problem. Details about
-its [[file:formulation.org][formulation]] are useful to be able to interpret the results.
+*** [[file:lensmodels.org][Lens models supported by mrcal]]
+A projection function can be represented by mrcal in many different ways,
+described on this page
 
-A lens can be represented by any of a number of [[file:lensmodels.org][lens models]], and a model can be
-written to a [[file:cameramodels.org][file on disk]].
+*** [[file:splined-models.org][Splined-stereographic lens model]]
+This very rich lens model is available for high-fidelity modeling of projection
+and quantification of uncertainty.
 
-A separate page describes various details about [[file:splined-models.org][splined models]].
+*** [[file:cameramodels.org][Lens model representation in memory on disk]]
+Describes mrcal model access by the mrcal [[file:python-api.org][APIs]] and [[file:commandline-tools.org][commandline-tools]]
 
-** Applications
-A [[file:how-to-calibrate.org][how-to-calibrate]] page describes this core task.
+*** [[file:differencing.org][Projection differencing]]
+mrcal can compute the intrinsics difference between several models. This is
+useful to evaluate calibration quality and lens stability and a multitude of
+other things.
 
-Given a model, we can compute its [[file:uncertainty.org][projection uncertainties]]. Given more than one
-model, we can [[file:differencing.org][compare their intrinsics (projection behaviors)]].
+*** [[File:uncertainty.org][Projection uncertainties]]
+To evaluate the quality of a model it is crucial to look at its projection
+uncertainty
 
-If we have a calibrated pair of cameras, we can generate a depth map with [[file:stereo.org][dense
-stereo processing]]. Or we can compute sparse ranges by calling a [[file:triangulation.org][triangulation
-routine]].
+*** [[file:stereo.org][Dense stereo processing]]
+Once we have a calibrated pair of cameras, we can generate a dense depth map
 
-** Interfaces
-Many common tasks can be accomplished by invoking one of a number of
-[[file:commandline-tools.org][command-line tools]].
+*** [[file:triangulation.org][Triangulation]]
+Or we can compute ranges of a discrete set of observations
 
-If we need to do something more than what the pre-made tools can do, there're
-two sets programmatic interfaces available:
+** Practical guides
+*** [[file:how-to-calibrate.org][How to calibrate a camera system]]
+The core task of mrcal is calibrating cameras. Practical details are given here
 
-- [[file:c-api.org][The C API to provide a set of core functionality]]
-- [[file:python-api.org][The Python API to do that and a whole lot more]]
+*** [[file:recipes.org][Recipes]]
+Making and using camera models raises a number of common issues and situations.
+I describe a number of them on this page.
 
-** Releases
-A version history, release notes, and the planned roadmap are available on the
-[[file:versions.org][releases]] page.
+** Toolkit usage
+*** [[file:install.org][Installation, build instructions]]
+*** [[file:commandline-tools.org][Command-line tools]]
+Many common tasks can be accomplished without writing any code
+
+*** [[file:python-api.org][The Python API]]
+A Python API is available to go beyond what the pre-made tools can do. The
+pre-made tools themselves are written using the Python API, so their sources are
+themselves are a good guide
+
+*** [[file:c-api.org][The C API]]
+Internally, the Python functions use the mrcal C API. Only core functionality is
+available in the C API (the Python API can do some stuff that the C API cannot),
+but with time more and more stuff will be transitioned to a C-internal
+representation. Today, end-to-end dense stereo processing in C is possible.
+
+** [[file:versions.org][Releases]]
+A version history, release notes, and the planned roadmap
 
 * Citing
 To cite this work in a publication, use this bibtex stanza:
