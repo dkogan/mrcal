@@ -714,6 +714,10 @@ is computed for each pixel, not even for each row.
 
     import scipy.interpolate
 
+    n0 = np.array((0.02652536, 0.84598057, 0.53255355))
+    d = 0.1565642688765455
+    dqx_expected      = 0.3
+    rangeerr_min      = 0.002
 
     def get_az1expected_maskinf(baseline, vrect_nominal, n0, d):
 
@@ -779,8 +783,6 @@ is computed for each pixel, not even for each row.
         # I now have the nominal drange/daz1. For simplicity let's use the same
         # function for the two cameras. So I have the nominal drange_daz. I have
         # drange = drange_daz daz/dqx dqx_expected
-        dqx_expected = 0.3
-        rangeerr_min = 0.002
 
         # shape (Nel,Naz)
         dqx_daz_desired = drange_daz1 * dqx_expected / rangeerr_min
@@ -885,8 +887,6 @@ is computed for each pixel, not even for each row.
 
 
 
-    n0 = np.array((0.02652536, 0.84598057, 0.53255355))
-    d  = 0.1565642688765455
     az1_expected, mask_infinity = \
         get_az1expected_maskinf(baseline,
                                 vrect_nominal,
