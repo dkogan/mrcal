@@ -2,22 +2,22 @@
 #+OPTIONS: toc:t
 
 Calibrating cameras is one of the main applications of mrcal, so I describe this
-process in some detail here. The main front-end tool is
-[[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]], and a demo is shown in the [[file:tour-initial-calibration.org][tour of mrcal]].
+process in some detail here.
 
 * Capturing images
 ** Calibration object
 We need to get images of a [[file:formulation.org::#calibration-object][calibration object]], a board containing an observable
 grid of points. mrcal doesn't care where these observations come from: any tool
-that can produce a table of corner observations can be utilized. See the [[#corner-detector][below]]
-for the format details. Currently the recommended method is to use a classical
-/chessboard/ target, and to employ the [[http://github.com/dkogan/mrgingham][mrgingham]] detector. The mrgingham
-documentation has a [[https://github.com/dkogan/mrgingham/raw/master/chessboard.14x14.pdf][.pdf of a chessboard pattern]] that works well.
+that can produce a table of corner observations can be utilized. Currently the
+recommended method is to use a classical /chessboard/ target, and to employ the
+[[https://github.com/dkogan/mrgingham][mrgingham]] detector. The mrgingham documentation has a [[https://github.com/dkogan/mrgingham/raw/master/chessboard.14x14.pdf][.pdf of a chessboard
+pattern]] that works well. See the [[file:recipes.org::#non-mrgingham-detector][recipes]] to use a non-mrgingham detector.
 
+*** Chessboard shape
 The pattern should be printed and mounted onto a /rigid/ and /flat/ surface to
 produce the calibration object. The [[file:formulation.org][optimization problem]] assumes the board shape
-to be constant over all the calibration images, and any non-rigidity in the
-board breaks that assumption. Depending on the resolution of the camera and the
+to be constant over all the calibration images, and any instability in the board
+shape breaks that assumption. Depending on the resolution of the camera and the
 amount of calibration accuracy required, even a slightly floppy chessboard can
 break things. Don't take this for granted.
 
@@ -28,29 +28,39 @@ the calibration solve. In my experience, if you try to make sure the board is
 flat, this model is enough to fix most of the unavoidable small deflections. If
 care isn't taken to ensure the board is flat, the current simple deformation
 model is often insufficient to fully model the shape. Don't take this for
-granted either.
+granted either. See the [[file:recipes.org::#effect-of-chessboard-shape][recipes]] for notes about how to estimate the magnitude of
+effect.
 
-Calibrating wide lenses generally requires large chessboards, to fill the field
-of view as much as possible. I use a square chessboard roughly 1m per side to
-calibrate my fisheye lenses. A big chessboard such as this is never completely
-rigid or completely flat, so I have a chessboard backed by about 1 inch of
-aluminum honeycomb. This is expensive, but works well. The previous board I was
-using is backed with 2.5cm of foam instead. This is significantly cheaper, and
-still pretty good, but noticeably less flat and rigid. The board does warp with
-variations in temperature and humidity, but this is slow, and the shape is
-usually stable long-enough for a chessboard dance.
+I usually use a square chessboard roughly 1m per side to calibrate my fisheye
+lenses. Such a large chessboard often has issues with its shape. To mitigate
+these my chessboard is backed by about 1 inch of aluminum honeycomb. This is
+expensive, but works well to stabilize the shape. The previous board I was using
+is backed with the same amount of /foam/ instead. This is significantly cheaper,
+and still pretty good, but noticeably less flat and less rigid. This foam-backed
+board does warp with variations in temperature and humidity, but this drift is
+slow, and the shape is /usually/ stable long-enough for a chessboard dance. If
+you can make one, the aluminum honeycomb-backed boards are strongly recommended.
 
-According to the [[file:tour-choreography.org][dance study]], we want close-ups that fill the imager, so we want
-a smaller board next to the camera in favor of a bigger board further away. The
-limiting factor here is the camera's depth of field: we want both the
-calibration-time close-up views and the working-range images to be in focus at
-the same time. If a too-small board is used, the imager-filling close-ups will
-be out of focus. Also, mrcal currently assumes that all projections are
-/central/ ($k \vec v$ projects to the same $\vec q$ for all $k$). This is true
-for far-away observations for all lenses, but for some lenses this projection
-breaks down as we look closer-in. Depending on the lens, close-up observations
-may tickle this effect. Non-central projections will be supported in a future
-release of mrcal, and this effect still needs to be studied.
+*** Chessboard size
+There's a tradeoff to consider between large and small chessboards. According to
+the [[file:tour-choreography.org][dance study]], we want close-ups that fill the imager, so we're choosing
+between small chessboards placed near the camera and large chessboards placed
+away from the camera.
+
+- If the chessboard is too small, we'd need to place it too close to the camera
+  to fill the imager. This will result in the chessboard appearing out of focus.
+  This is OK up to a point (see the [[file:recipes.org::#effect-of-unfocused-corners][recipes]]), but extereme out-of-focus images
+  should probably be avoided
+
+- If the chessboard is too large, we'd need to place it far from the camera to
+  see the whole board, and this would result in worse calibration uncertainties.
+  See the [[file:tour-choreography.org][dance study]].
+
+For wide lenses, you generally need larger chessboards. When calibrating an
+unfamiliar system I usually try running a calibration with whatever chessboard I
+already have, and then analyze the results to see if anything needs to be
+changed. It's also useful to rerun the [[file:tour-choreography.org][dance study]] for the specific geometry
+being calibrated.
 
 ** Image-capturing details
 Now that we have a calibration object, this object needs to be shown to the
@@ -72,25 +82,29 @@ Some capture systems have a "software" trigger mode, but this is usually too
 loose to produce usable results. A similar consideration exists when using
 cameras with a [[https://en.wikipedia.org/wiki/Rolling_shutter][rolling shutter]]. With such cameras it is imperative that
 everything remain stationary during image capture, even when only one camera is
-involved.
+involved. See the [[file:recipes.org::#rolling-shutter-and-sync-errors][recipes]].
 
-If synchronization or rolling shutter effects are in doubt, look at the residual
-plot made by the [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] tool (a sample and a
-description appear below). These errors clearly show up as distinct patterns in
-those plots.
+** Lens settings
+Lens intrinsics are usually very sensitive to any mechanical manipulation of the
+lens. It is thus strongly recommended to set up the lens it its final working
+configuration (focal length, focus distance, aperture), then to mechanically
+lock down the settings, and then to gather the calibration data. This often
+creates dancing challenges, described in the next section.
+
+If you /really/ need to change the lens settings after calibrating or if you're
+concerned about drifting lens mechanics influencing the calibration (you should
+be!), see the [[file:recipes.org::#lens-stability][recipes]] for a discussion.
 
 ** Dancing
 As shown in the [[file:tour-choreography.org][dance study]], the most useful observations to gather are
 
 - close-ups: the chessboard should fill the whole frame as much as possible.
-  Small chessboards next to the camera are preferred to larger chessboards
-  further out; the limit is set by the depth of field.
 
 - oblique views: tilt the board forward/back and left/right. I generally tilt by
-  ~ 45 degrees. At a certain point the corners become indistinct and mrgingham
-  starts having trouble, but depending on the lens, that point could come with
-  quite a bit of tilt. A less dense chessboard eases this also, at the cost of
-  requiring more board observations to get the same number of points.
+  ~ 45 degrees. At a certain point the corners become indistinct and the
+  detector starts having trouble, but depending on the lens, that point could
+  come with quite a bit of tilt. A less dense chessboard eases this also, at the
+  cost of requiring more board observations to get the same number of points.
 
 - If calibrating multiple cameras, it is impossible to place a calibration
   object at a location where it's seen by all the cameras /and/ where it's a
@@ -105,47 +119,45 @@ As shown in the [[file:tour-choreography.org][dance study]], the most useful obs
 A dataset composed primarily of tilted closeups produces good results.
 
 If the model will be used to look at far-away objects, care must be taken to
-produce a reliable calibration /at long ranges/, not just at the short ranges
-where the chessboards were. Close-up chessboard views are the primary data
-needed to get good uncertainties at infinity, but quite often these will produce
-images that aren't in focus if the focus ring is set to the working range
-(infinity). See the [[file:tour-choreography.org][dance study]] for detail. Cameras meant for outdoor stereo
-and/or wide lenses are susceptible to poor uncertainties at range even if the
-uncertainties are good closer in. In such cases, it is /strongly/ recommended to
-re-run the dance study for your particular use case to get a sense of what kind
-of observations are required, and what kind of uncertainties can be expected.
-The current thought is that the best thing to do is to get close-up images even
-if they're out of focus. The blurry images will have a high uncertainty in the
+produce a reliable calibration /at long ranges/, not just at the /short/ ranges
+where the chessboards were. The primary way to do that is to get close-up
+chessboard views. If the close-up range is very different from the working range
+(infinity, possibly), the close-up images could be very out-of-focus. The
+current thought is that the best thing to do is to get close-up images even if
+they're out of focus. The blurry images will have a high uncertainty in the
 corner observatoins (hopefully without bias), but the uncertainty improvement
-that comes from the close-ups more than makes up for it. In these cases you
-usually need to get more observations than you normally would to bring down the
-uncertainties to an acceptable level.
+that comes from the near-range chessboard observations more than makes up for
+it. In these cases you usually need to get more observations than you normally
+would to bring down the uncertainties to an acceptable level. In challenging
+situations it's useful to re-run the [[file:tour-choreography.org][dance study]] for the specific use case to
+get a sense of what kind of observations are required and what kind of
+uncertainties can be expected. See the [[file:tour-choreography.org][dance study]] and the [[file:recipes.org::#effect-of-unfocused-corners][recipes]] for detail.
 
-It is better to have more data rather than less. mrgingham will throw away
-frames where no chessboard can be found, so it is perfectly reasonable to grab
-too many images with the expectation that they won't all end up being used in
-the computation.
-
-I usually aim for about 100 usable frames, but you may get away with fewer,
-depending on your specific scenario. The mrcal uncertainty feedback (see below)
-will tell you if you need more data.
+It is better to have more chessboard data rather than less. mrgingham will throw
+away frames where no chessboard can be found, so it is perfectly reasonable to
+grab too many images with the expectation that they won't all end up being used
+in the computation. I usually aim for about 100 usable frames, but you may get
+away with fewer, depending on your specific scenario. The mrcal uncertainty
+feedback will tell you if you need more data.
 
 Naturally, intrinsics are accurate only in areas where chessboards were
-observed: chessboard observations on the left tell us little about lens behavior
-on the right. Thus it is imperative to cover the whole field of view during the
-chessboard dance. It is often tricky to get good data at the edges and corners
-of the imager, so care must be taken. Some chessboard detectors (mrgingham in
-particular) only report complete chessboards. This makes it extra-challenging to
-obtain good data at the edges: a small motion that pushes one chessboard corner
-barely out of bounds causes the whole observation to be discarded. It is thus
-/very/ helpful to be able to see a live feed of the camera, as the images are
-being captured. In either case, [[*Visualization][visualizing the obtained chessboard detections]]
-is very useful to see if enough coverage was obtained.
+observed: chessboard observations on the left side of the image tell us little
+about lens behavior on the right side. Thus it is imperative to cover the whole
+field of view during the chessboard dance. It is often tricky to get good data
+at the edges and corners of the imager, so care must be taken. Some chessboard
+detectors (mrgingham in particular) only report complete chessboards. This makes
+it extra-challenging to obtain good data at the edges: a small motion that
+pushes one chessboard corner barely out of bounds causes the whole observation
+to be discarded. It is thus /very/ helpful to be able to see a live feed of the
+camera as the images are being captured. In either case, checking the coverage
+is a great thing to do. The usual way to do this is indirectly: [[#uncertainty][by visualizing
+the projection uncertainty]]. Or by [[#Visualization][visualizing the obtained chessboard
+detections]] directly.
 
 ** Image file-naming convention
 With monocular calibrations, there're no requirements on image filenames: use
 whatever you like. If calibrating multiple synchronized cameras, however, the
-image filenames would need to indicate what camera captured each image at which
+image filenames need to indicate which camera captured each image and at which
 time. I generally use =frameFFF-cameraCCC.jpg=. Images with the same =FFF= are
 assumed to have been captured at the same instant in time, and =CCC= identifies
 the camera. Naming images in this way is sufficient to communicate these
@@ -155,16 +167,17 @@ mappings to mrcal.
 :PROPERTIES:
 :CUSTOM_ID: corner-detector
 :END:
-Any chessboard detector may be utilized. Most of my testing was done using
-mrgingham, so I go into more detail describing that approach.
+Most of my testing was done using the [[https://github.com/dkogan/mrgingham][mrgingham]] chessboard corner detector, so I
+go into more detail describing that approach. See the [[file:recipes.org::#non-mrgingham-detector][recipes]] for notes about
+using other detectors.
 
 ** Using mrgingham
-Once mrgingham is installed or built from [[https://github.com/dkogan/mrgingham][source]], it can be run by calling the
+Once mrgingham is [[file:install.org][installed]] or built from [[https://github.com/dkogan/mrgingham][source]], it can be run by calling the
 =mrgingham= executable. The sample in the [[file:tour-initial-calibration.org][tour of mrcal]] processes [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/images][these images]]
 to produce [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/corners.vnl][these chessboard corners]] like this:
 
 #+begin_src sh
-mrgingham -j3 '*.JPG' > corners.vnl 
+mrgingham  --jobs 4 --gridn 14 '*.JPG' > corners.vnl 
 #+end_src
 
 mrgingham tries to handle a variety of lighting conditions, including varying
@@ -182,131 +195,15 @@ usually). mrgingham looks for vertical and horizontal sequences of corners, but
 if the board is rotated diagonally, then none of these sequences are clearly
 "horizontal" or "vertical".
 
-** Using a non-mrgingham detector
-If we use a grid detector other than mrgingham, we need to produce a compatible
-=corners.vnl= file. This is a [[https://www.github.com/dkogan/vnlog][=vnlog=]] (text table) where each row describes a
-single corner detection. This file should contain 3 or 4 columns. The first 3
-columns are:
-
-- =filename=: the path to a chessboard image
-- =x=, =y=: pixel coordinates of a detected corner
-
-If a 4th column is present, it describes the detector's confidence in the
-detection of that particular corner. It may be either
-
-- =level=: the decimation level of the detected corner. If the detector needed
-  to cut down the image resolution to find this corner, we report that
-  resolution here. Level-0 means "full-resolution", level-1 means
-  "half-resolution", level-2 means "quarter-resolution" and so on. A level of
-  "-" or <0 means "skip this point"; this is how incomplete board observations
-  are specified. This "decimation level" interpretation is the
-  [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] default. This column is reported by mrgingham
-
-- =weight=: how strongly to weight that corner. More confident detections take
-  stronger weights. This should be inversely proportional to the standard
-  deviation of the detected pixel coordinates. With decimation levels we have
-  $\mathrm{weight} = 2^{-\mathrm{level}}$. As before, a weight of "-" or <0
-  means "skip this point"; this is how incomplete board observations are
-  specified. Select this "weight" interpretation with =mrcal-calibrate-cameras --corners-cache-has-weights=
-
-If no 4th column is present, we assume an even weight of 1.0 for all the points.
-
-The whole chessboard is described by a sequence of these corner detections,
-listed in a /consistent/ grid order. Each chessboard image is represented by
-either $N_\mathrm{width} N_\mathrm{height}$ observations records or a single
-record
-
-#+begin_example
-FILENAME - - -
-#+end_example
-
-to represent images with no detected corners. An image with incomplete
-detections should /still/ contain $N_\mathrm{width} N_\mathrm{height}$ records
-in the same consistent order. The missing corners should be given with any =x=,
-=y=, but with $\mathrm{weight} \leq 0$ or =-=. The record could be completely
-null:
-
-#+begin_example
-FILENAME - - -
-#+end_example
-
 ** Visualization
-A sample run from the [[file:tour-initial-calibration.org][tour of mrcal]] follows.
-
-Once we have a =corners.vnl= from some chessboard detector, we can visualize it.
-This is a simple [[https://github.com/dkogan/vnlog][=vnlog=]] table:
-
-#+begin_example
-$ < corners.vnl head -n5
-
-## generated with mrgingham -j3 *.JPG
-# filename x y level
-DSC_7305.JPG 3752.349000 168.802000 2
-DSC_7305.JPG 3844.411234 150.264910 0
-DSC_7305.JPG 3950.404000 132.480000 2
-#+end_example
-
-How well did we cover the imager? Did we get the edges and corners?
-
-#+begin_example
-$ < corners.vnl       \
-  vnl-filter -p x,y | \
-  feedgnuplot --domain --square
-#+end_example
-
-[[file:external/figures/calibration/mrgingham-coverage.png]]
-
-Looks like we did OK. It's a bit thin along the bottom edge, but not terrible.
-It is very easy to miss getting usable data at the edges, so checking this is
-highly recommended. If you have multiple cameras, check the coverage separately
-for each one. This can be done by filtering the =corners.vnl= to keep only the
-data for the camera in question. For instance, if we're looking at the left
-camera with images in files =left-XXXXX.jpg=, you can replace the above
-=vnl-filter= command with =vnl-filter 'filename ~ "left"' -p x,y=.
-
-Insufficient coverage will be clearly picked up by the [[file:uncertainty.org][uncertainty reporting]], so
-it's not strictly necessary to explicitly look at it, but doing so is good
-hygiene.
-
-We can visualize individual detections like this:
-
-#+begin_example
-$ f=DSC06067.JPG
-
-$ < corners.vnl                  \
-  vnl-filter                     \
-    --perl                       \
-    "filename eq \"$f\""         \
-    -p x,y,size='2**(1-level)' | \
-  feedgnuplot                    \
-    --unset key                  \
-    --image $f                   \
-    --domain                     \
-    --square                     \
-    --tuplesizeall 3             \
-    --with 'points pt 7 ps variable'
-#+end_example
-#+begin_src sh :exports none :eval no-export
-# THIS IS GENERATED IN tour-initial-calibration.org
-#+end_src
-
-[[file:external/figures/calibration/mrgingham-results.png]]
-
-The size of the circle indicates the detection weight. In this image many of the
-corners were detected at full-resolution (level-0), but some required
-downsampling for the detector to find them. This is indicated by smaller
-circles. The downsampled points have less precision, so they are [[file:formulation.org::#noise-in-measurement-vector][weighed less in
-the optimization]]. How many images produced successful corner detections?
-
-#+begin_example
-$ < corners.vnl vnl-filter --has x -p filename | uniq | grep -v '#' | wc -l
-
-161
-#+end_example
-
-So here we have 161 images with detected corners. Most of the misses are
-probably images where the chessboard wasn't entirely in view, but some could be
-failures of mrgingham. In any case, 161 observations is usually plenty.
+:PROPERTIES:
+:CUSTOM_ID: Visualization
+:END:
+Once we have a =corners.vnl= from some chessboard detector, we can visualize the
+coverage. This is usually unnecessary since the [[file:tour-uncertainty.org][projection uncertainty reporting]]
+shows the coverage (and more!), but it's good to be able to do this in case of
+trouble. A sample sequence of corner gathering and visualization appears in the
+[[file:tour-initial-calibration.org::#gathering-corners][tour of mrcal]].
 
 * Computing a calibration
 :PROPERTIES:
@@ -559,7 +456,7 @@ errors are mostly radial (point to/from the center).
 
 As noted in the [[file:tour-initial-calibration.org][tour of mrcal]], this particular issue is caused by an assumption
 of a central projection (assuming that all rays intersect at a single point). An
-experimental and not-entirely-complete [[https://github.com/dkogan/mrcal/commit/26db52c48eab3d027316a28b210385775601d0cf][support for noncentral projection in
+experimental and not-entirely-complete [[https://github.com/dkogan/mrcal/tree/noncentral][support for noncentral projection in
 mrcal exists]], and works /much/ better. The same frame, fitted with a noncentral
 projection:
 
