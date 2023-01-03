@@ -31,7 +31,7 @@ I gathered some [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22
 [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/corners.vnl][chessboard corners]]:
 
 #+begin_src sh
-mrgingham -j4 '*.JPG' > corners.vnl 
+mrgingham --jobs 4 --gridn 14 '*.JPG' > corners.vnl 
 #+end_src
 
 How well did we cover the imager? Did we get the edges and corners?
@@ -54,7 +54,16 @@ D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22
 [[file:external/figures/calibration/mrgingham-coverage.png]]
 
 We did OK, except maybe at the top center. This is a good quick/dirty
-visualization, but as we'll see later, [[file:tour-uncertainty.org][we can do much better]].
+visualization, but as we'll see later, [[file:tour-uncertainty.org][we can do much better by looking at the
+projection uncertainty]]. If we had multiple cameras, the coverage for each one
+can be visualized by pre-filtering the =corners.vnl= to select specific image
+filenames. For instance:
+
+#+begin_src sh
+< corners.vnl                           \
+vnl-filter -p x,y 'filename ~ "left"' | \
+feedgnuplot ....
+#+end_src
 
 For an arbitrary image we can visualize the corner detections:
 
