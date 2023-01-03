@@ -553,7 +553,14 @@ rectified direction
 
 
 def rectification_maps(models,
-                       models_rectified):
+                       models_rectified,
+                       *,
+                       # adaptive rectification parameters
+                       # The plane, in camera0 coords
+                       n0,
+                       distance_to_plane,
+                       dqx_expected,
+                       rangeerr_min):
 
     r'''Construct image transformation maps to make rectified images
 
@@ -713,12 +720,6 @@ is computed for each pixel, not even for each row.
 
 
     import scipy.interpolate
-
-    # The plane, in camera0 coords
-    n0                = np.array((0.02652536, 0.84598057, 0.53255355))
-    distance_to_plane = 0.1565642688765455
-    dqx_expected      = 0.3
-    rangeerr_min      = 0.002
 
     def get_az1expected_maskinf(baseline, vrect_nominal, n0, distance_to_plane):
 
