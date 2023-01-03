@@ -150,7 +150,7 @@ it extra-challenging to obtain good data at the edges: a small motion that
 pushes one chessboard corner barely out of bounds causes the whole observation
 to be discarded. It is thus /very/ helpful to be able to see a live feed of the
 camera as the images are being captured. In either case, checking the coverage
-is a great thing to do. The usual way to do this is indirectly: [[#uncertainty][by visualizing
+is a great thing to do. The usual way to do this is indirectly: [[file:tour-uncertainty.org][by visualizing
 the projection uncertainty]]. Or by [[#Visualization][visualizing the obtained chessboard
 detections]] directly.
 

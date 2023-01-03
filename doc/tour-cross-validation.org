@@ -14,7 +14,7 @@ uncertainty tells us that we're not sensitive to noise in the observed
 chessboard corners. However it says nothing about the effects of model errors.
 
 Anything that makes our model not fit produces a model error. These can be
-caused by any of
+caused by any of (for instance)
 
 - out-of focus images
 - images with motion blur
@@ -24,11 +24,19 @@ caused by any of
 - insufficiently-rich models (of the lens or of the chessboard shape or anything
   else)
 
-And more! By definition, model errors are unmodeled, so we cannot do anything
-with them analytically. Instead we try hard to force these errors to zero, so
-that we can ignore them. We simply need to detect the presense of model errors.
-The [[file:tour-initial-calibration.org::#opencv8-solve-diagnostics][solve diagnostics we talked about earlier]] are a good start. An even more
-powerful technique is computing a /cross-validation diff/:
+If the model errors were present, then
+
+- the computed projection uncertainty would underestimate the expected errors:
+  the non-negligible model errors would be ignored
+- the residuals $\vec x$ would be heteroscedastic, which would cause bias in the
+  calibration result: the computed optimum would /not/ be a maximum-likelihood
+  estimate of the true calibration
+
+By definition, model errors are unmodeled, so we cannot do anything with them
+analytically. Instead we try hard to force these errors to zero, so that we can
+ignore them. We simply need to detect the presense of model errors. The [[file:tour-initial-calibration.org::#opencv8-solve-diagnostics][solve
+diagnostics we talked about earlier]] are a good start. An even more powerful
+technique is computing a /cross-validation diff/:
 
 - We gather not one, but two sets of chessboard observations for calibrating
   cameras

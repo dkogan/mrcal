@@ -9,8 +9,8 @@ real-world usage scenarios. So let's go through a full calibration sequence
 starting with chessboard images, and eventually finishing with stereo processing
 and triangulation. This page is a high-level overview of all the techniques that
 make mrcal different and better than other tools. For more details, please see
-the links in [[file:index.org][the main documentation]]. For /practical/ details (if you just want
-to calibrate some cameras), please see the [[file:how-to-calibrate.org][how-to-calibrate page]].
+the links in [[file:index.org][the main documentation]]. For /practical/ details, please see the
+[[file:how-to-calibrate.org][how-to-calibrate page]] and the [[file:recipes.org][recipes page]].
 
 All images in these articles have been gathered with a Sony Alpha 7 III SLR. I
 want to stress-test the system, so I'm using the widest lens I can find: a

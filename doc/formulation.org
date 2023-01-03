@@ -407,6 +407,14 @@ error on the solve. This is done by modelling the noise in the input pixel
 observations, and propagating it through the solve. This assumes that model
 errors are insignificant.
 
+If the model errors /were/ significant, then
+
+- the computed projection uncertainty would underestimate the expected errors:
+  the non-negligible model errors would be ignored
+- the residuals $\vec x$ would be heteroscedastic, which would cause bias in the
+  calibration result: the computed optimum would /not/ be a maximum-likelihood
+  estimate of the true calibration
+
 ** Noise on the inputs
 :PROPERTIES:
 :CUSTOM_ID: noise-model-inputs
