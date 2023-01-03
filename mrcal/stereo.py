@@ -555,6 +555,7 @@ rectified direction
 def rectification_maps(models,
                        models_rectified,
                        *,
+                       extra_pitch_deg = None,
                        # adaptive rectification parameters
                        # The plane, in camera0 coords
                        n0,
@@ -941,6 +942,18 @@ is computed for each pixel, not even for each row.
 
     v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
     v1 = mrcal.rotate_point_R(R_cam_rect[1], v)
+
+
+    if extra_pitch_deg is not None:
+        # A pitch is a rotation around the "right" vector. For simplicity I use
+        # the +x vector in cam0 coords
+        v0 = \
+            mrcal.rotate_point_r(np.array((extra_pitch_deg * np.pi/180,0,0)),
+                                 v0)
+        v1 = \
+            mrcal.rotate_point_r(np.array((extra_pitch_deg * np.pi/180,0,0)),
+                                 v1)
+
 
     mapxy0 = mrcal.project( v0, *models[0].intrinsics()).astype(np.float32)
     mapxy1 = mrcal.project( v1, *models[1].intrinsics()).astype(np.float32)

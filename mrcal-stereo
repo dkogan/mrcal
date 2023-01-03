@@ -351,6 +351,13 @@ def parse_args():
                         camera0 image. This is disabled by default because this
                         is potentially a very large file''')
 
+
+    parser.add_argument('--adaptive-rectification-extra-pitch-deg',
+                        type=float)
+
+
+
+
     parser.add_argument('models',
                         type=str,
                         nargs = 2,
@@ -804,6 +811,7 @@ if not args.already_rectified:
     # in cam0 coords
     n0 = np.array((0.02652536, 0.84598057, 0.53255355))
     rectification_maps = mrcal.rectification_maps(models, models_rectified,
+                                                  extra_pitch_deg   = args.adaptive_rectification_extra_pitch_deg,
                                                   n0                = n0,
                                                   distance_to_plane = 0.1565642688765455,
                                                   dqx_expected      = 0.3,
