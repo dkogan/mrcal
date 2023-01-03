@@ -714,6 +714,7 @@ is computed for each pixel, not even for each row.
 
     import scipy.interpolate
 
+    # The plane, in camera0 coords
     n0                = np.array((0.02652536, 0.84598057, 0.53255355))
     distance_to_plane = 0.1565642688765455
     dqx_expected      = 0.3
