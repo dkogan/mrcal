@@ -482,6 +482,7 @@ if args.viz == 'geometry':
                              cameranames      = ( "camera0", "camera1", "camera0-rectified", "camera1-rectified" ),
                              show_calobjects  = False,
                              return_plot_args = True,
+                             axis_scale       = args.axis_scale,
                              **plot_options)
 
     Nside = 8

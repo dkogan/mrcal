@@ -43,4 +43,7 @@ measurement_index_....() all return <0 if those measurements aren't present
 save_image() can write 16bpp grayscale images properly
 This requires a more recent libfreeimage than is available on some OSs
 
+mrcal-stereo respects --axis-scale
+Not doing this was an oversight
+
 * Migration notes 2.2 -> 2.3
