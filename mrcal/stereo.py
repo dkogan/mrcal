@@ -713,7 +713,6 @@ is computed for each pixel, not even for each row.
 
 
     import scipy.interpolate
-    import pickle
 
 
     def get_az1expected_maskinf(baseline, vrect_nominal, n0, d):
