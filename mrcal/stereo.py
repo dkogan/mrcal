@@ -714,12 +714,12 @@ is computed for each pixel, not even for each row.
 
     import scipy.interpolate
 
-    n0 = np.array((0.02652536, 0.84598057, 0.53255355))
-    d = 0.1565642688765455
+    n0                = np.array((0.02652536, 0.84598057, 0.53255355))
+    distance_to_plane = 0.1565642688765455
     dqx_expected      = 0.3
     rangeerr_min      = 0.002
 
-    def get_az1expected_maskinf(baseline, vrect_nominal, n0, d):
+    def get_az1expected_maskinf(baseline, vrect_nominal, n0, distance_to_plane):
 
         Rt_rect0_cam0 = \
             mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
@@ -727,7 +727,7 @@ is computed for each pixel, not even for each row.
         nrect0 = mrcal.rotate_point_R(Rt_rect0_cam0[:3,:], n0)
 
         # shape (Nel,Naz)
-        k = d / nps.inner(vrect_nominal, nrect0)
+        k = distance_to_plane / nps.inner(vrect_nominal, nrect0)
 
         # shape (Nel,Naz,3)
         # The rectified system is shifted along the x axis only, so the
@@ -890,7 +890,7 @@ is computed for each pixel, not even for each row.
     az1_expected, mask_infinity = \
         get_az1expected_maskinf(baseline,
                                 vrect_nominal,
-                                n0, d)
+                                n0, distance_to_plane)
 
     dqx_daz_desired = \
         get_dqx_daz_desired(baseline,
