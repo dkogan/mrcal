@@ -94,6 +94,10 @@ There are several modes of operation:
   display the results. Requires pyFLTK (homepage: https://pyfltk.sourceforge.io)
   and GL_image_display (homepage: https://github.com/dkogan/GL_image_display)
 
+- --viz range-sensitivity: compute the expected range error based on the
+  expected disparity matching error and the range sensitivity to disparity. This
+  currently exists for testing only
+
 '''
 
 import sys
@@ -209,7 +213,7 @@ def parse_args():
 
     ######## --viz
     parser.add_argument('--viz',
-                        choices=('geometry', 'stereo'),
+                        choices=('geometry', 'stereo', 'range-sensitivity'),
                         default='',
                         help='''If given, we visualize either the rectified
                         geometry or the stereo results. If --viz geometry: we
@@ -228,28 +232,32 @@ def parse_args():
     parser.add_argument('--title',
                         type=str,
                         default = None,
-                        help='''Used if --viz geometry. Title string for the plot''')
+                        help='''Used if --viz geometry or --viz
+                        range-sensitivity. Title string for the plot''')
     parser.add_argument('--hardcopy',
                         type=str,
-                        help='''Used if --viz geometry. Write the output to
-                        disk, instead of making an interactive plot. The output
-                        filename is given in the option''')
+                        help='''Used if --viz geometry or --viz
+                        range-sensitivity. Write the output to disk, instead of
+                        making an interactive plot. The output filename is given
+                        in the option''')
     parser.add_argument('--terminal',
                         type=str,
-                        help=r'''Used if --viz geometry. The gnuplotlib
-                        terminal. The default is almost always right, so most
-                        people don't need this option''')
+                        help=r'''Used if --viz geometry or --viz
+                        range-sensitivity. The gnuplotlib terminal. The default
+                        is almost always right, so most people don't need this
+                        option''')
     parser.add_argument('--set',
                         type=str,
                         action='append',
-                        help='''Used if --viz geometry. Extra 'set' directives
-                        to pass to gnuplotlib. May be given multiple times''')
+                        help='''Used if --viz geometry or --viz
+                        range-sensitivity. Extra 'set' directives to pass to
+                        gnuplotlib. May be given multiple times''')
     parser.add_argument('--unset',
                         type=str,
                         action='append',
-                        help='''Used if --viz geometry. Extra 'unset'
-                        directives to pass to gnuplotlib. May be given multiple
-                        times''')
+                        help='''Used if --viz geometry or --viz
+                        range-sensitivity. Extra 'unset' directives to pass to
+                        gnuplotlib. May be given multiple times''')
 
 
     ######## stereo processing
@@ -466,7 +474,8 @@ else:
     models_rectified = models
     mrcal.stereo._validate_models_rectified(models_rectified)
 
-if args.viz == 'geometry':
+if args.viz == 'geometry' or \
+   args.viz == 'range-sensitivity':
     # Display the geometry of the two cameras in the stereo pair, and of the
     # rectified system
     plot_options = dict(terminal = args.terminal,
@@ -477,6 +486,7 @@ if args.viz == 'geometry':
     if args.title is not None:
         plot_options['title'] = args.title
 
+if args.viz == 'geometry':
     data_tuples, plot_options = \
         mrcal.show_geometry( list(models) + list(models_rectified),
                              cameranames      = ( "camera0", "camera1", "camera0-rectified", "camera1-rectified" ),
@@ -960,6 +970,41 @@ for i in range(Nimages):
                                  disparity_scale = disparity_scale)
     ranges_colored = mrcal.apply_color_map(ranges,
                                            *args.range_image_limits)
+
+
+
+    if args.viz == 'range-sensitivity':
+        delta = 0.1
+        r0 = mrcal.stereo_range( disparity,
+                                 models_rectified,
+                                 disparity_scale = disparity_scale)
+        r1 = mrcal.stereo_range( disparity + delta*disparity_scale,
+                                 models_rectified,
+                                 disparity_scale = disparity_scale)
+
+        drange_ddisparity = (r0-r1) / delta
+
+        idx_valid = \
+            (disparity > 0)     * \
+            (disparity < 30000)
+        drange_ddisparity[~idx_valid] = 0
+
+        ddisparity_expected = 0.3
+
+        import gnuplotlib as gp
+
+        gp.add_plot_option( plot_options,
+                            square   = True,
+                            _set = ('xrange noextend',
+                                    'yrange reverse noextend',
+                                    'cblabel "Range error (m)"') )
+        gp.plot( drange_ddisparity * ddisparity_expected,
+                 _with     = 'image',
+                 tuplesize = 3,
+                 **plot_options)
+
+        sys.exit(0)
+
 
     if args.viz != 'stereo':
         write_output_all(args,
