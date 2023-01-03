@@ -800,8 +800,11 @@ if len(args.images) == 0:
 
 
 if not args.already_rectified:
+
+    # in cam0 coords
+    n0 = np.array((0.02652536, 0.84598057, 0.53255355))
     rectification_maps = mrcal.rectification_maps(models, models_rectified,
-                                                  n0                = np.array((0.02652536, 0.84598057, 0.53255355)),
+                                                  n0                = n0,
                                                   distance_to_plane = 0.1565642688765455,
                                                   dqx_expected      = 0.3,
                                                   rangeerr_min      = 0.002)
