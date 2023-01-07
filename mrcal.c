@@ -799,19 +799,20 @@ typedef struct
 
 static
 void project_cahvor( // outputs
-                     mrcal_point2_t* q,
-                     mrcal_point2_t* dq_dfxy, double* dq_dintrinsics_nocore,
+                     mrcal_point2_t* restrict q,
+                     mrcal_point2_t* restrict dq_dfxy,
+                     double*         restrict dq_dintrinsics_nocore,
                      mrcal_point3_t* restrict dq_drcamera,
                      mrcal_point3_t* restrict dq_dtcamera,
                      mrcal_point3_t* restrict dq_drframe,
                      mrcal_point3_t* restrict dq_dtframe,
 
                      // inputs
-                     const mrcal_point3_t* p,
-                     const mrcal_point3_t* dp_drc,
-                     const mrcal_point3_t* dp_dtc,
-                     const mrcal_point3_t* dp_drf,
-                     const mrcal_point3_t* dp_dtf,
+                     const mrcal_point3_t* restrict p,
+                     const mrcal_point3_t* restrict dp_drc,
+                     const mrcal_point3_t* restrict dp_dtc,
+                     const mrcal_point3_t* restrict dp_drf,
+                     const mrcal_point3_t* restrict dp_dtf,
 
                      const double* restrict intrinsics,
                      bool camera_at_identity,
