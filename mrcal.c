@@ -984,68 +984,66 @@ void _project_point_parametric( // outputs
 {
     // u = distort(p, distortions)
     // q = uxy/uz * fxy + cxy
-    if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE ||
-        lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC ||
-        lensmodel->type == MRCAL_LENSMODEL_LONLAT ||
-        lensmodel->type == MRCAL_LENSMODEL_LATLON ||
-        MRCAL_LENSMODEL_IS_OPENCV(lensmodel->type) )
-    {
-        mrcal_point3_t dq_dp[2];
-        if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE )
-            mrcal_project_pinhole(q, dq_dp,
-                                  p, 1, intrinsics);
-        else if(lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC)
-            mrcal_project_stereographic(q, dq_dp,
-                                        p, 1, intrinsics);
-        else if(lensmodel->type == MRCAL_LENSMODEL_LONLAT)
-            mrcal_project_lonlat(q, dq_dp,
-                                 p, 1, intrinsics);
-        else if(lensmodel->type == MRCAL_LENSMODEL_LATLON)
-            mrcal_project_latlon(q, dq_dp,
-                                 p, 1, intrinsics);
-        else
-        {
-            int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
-            _mrcal_project_internal_opencv( q, dq_dp,
-                                            dq_dintrinsics_nocore,
-                                            p, 1, intrinsics, Nintrinsics);
-        }
-
-        // dq/deee = dq/dp dp/deee
-        if(camera_at_identity)
-        {
-            if( dq_drcamera != NULL ) memset(dq_drcamera, 0, 6*sizeof(double));
-            if( dq_dtcamera != NULL ) memset(dq_dtcamera, 0, 6*sizeof(double));
-            if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, (double*)dp_drf, (double*)dq_drframe);
-            if( dq_dtframe  != NULL ) memcpy(dq_dtframe, (double*)dq_dp, 6*sizeof(double));
-        }
-        else
-        {
-            if( dq_drcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, (double*)dp_drc, (double*)dq_drcamera);
-            if( dq_dtcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, (double*)dp_dtc, (double*)dq_dtcamera);
-            if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, (double*)dp_drf, (double*)dq_drframe );
-            if( dq_dtframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, (double*)dp_dtf, (double*)dq_dtframe );
-        }
-
-        // I have the projection, and I now need to propagate the gradients
-        if( dq_dfxy )
-        {
-            const double fx = intrinsics[0];
-            const double fy = intrinsics[1];
-            const double cx = intrinsics[2];
-            const double cy = intrinsics[3];
-
-            // I have the projection, and I now need to propagate the gradients
-            // xy = fxy * distort(xy)/distort(z) + cxy
-            dq_dfxy->x = (q->x - cx)/fx; // dqx/dfx
-            dq_dfxy->y = (q->y - cy)/fy; // dqy/dfy
-        }
-    }
-    else
+    if(!( lensmodel->type == MRCAL_LENSMODEL_PINHOLE ||
+          lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC ||
+          lensmodel->type == MRCAL_LENSMODEL_LONLAT ||
+          lensmodel->type == MRCAL_LENSMODEL_LATLON ||
+          MRCAL_LENSMODEL_IS_OPENCV(lensmodel->type) ))
     {
         MSG("Unhandled lens model: %d (%s)",
             lensmodel->type, mrcal_lensmodel_name_unconfigured(lensmodel));
         assert(0);
+    }
+
+    mrcal_point3_t dq_dp[2];
+    if( lensmodel->type == MRCAL_LENSMODEL_PINHOLE )
+        mrcal_project_pinhole(q, dq_dp,
+                              p, 1, intrinsics);
+    else if(lensmodel->type == MRCAL_LENSMODEL_STEREOGRAPHIC)
+        mrcal_project_stereographic(q, dq_dp,
+                                    p, 1, intrinsics);
+    else if(lensmodel->type == MRCAL_LENSMODEL_LONLAT)
+        mrcal_project_lonlat(q, dq_dp,
+                             p, 1, intrinsics);
+    else if(lensmodel->type == MRCAL_LENSMODEL_LATLON)
+        mrcal_project_latlon(q, dq_dp,
+                             p, 1, intrinsics);
+    else
+    {
+        int Nintrinsics = mrcal_lensmodel_num_params(lensmodel);
+        _mrcal_project_internal_opencv( q, dq_dp,
+                                        dq_dintrinsics_nocore,
+                                        p, 1, intrinsics, Nintrinsics);
+    }
+
+    // dq/deee = dq/dp dp/deee
+    if(camera_at_identity)
+    {
+        if( dq_drcamera != NULL ) memset(dq_drcamera, 0, 6*sizeof(double));
+        if( dq_dtcamera != NULL ) memset(dq_dtcamera, 0, 6*sizeof(double));
+        if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, (double*)dp_drf, (double*)dq_drframe);
+        if( dq_dtframe  != NULL ) memcpy(dq_dtframe, (double*)dq_dp, 6*sizeof(double));
+    }
+    else
+    {
+        if( dq_drcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, (double*)dp_drc, (double*)dq_drcamera);
+        if( dq_dtcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, (double*)dp_dtc, (double*)dq_dtcamera);
+        if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, (double*)dp_drf, (double*)dq_drframe );
+        if( dq_dtframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dp, (double*)dp_dtf, (double*)dq_dtframe );
+    }
+
+    // I have the projection, and I now need to propagate the gradients
+    if( dq_dfxy )
+    {
+        const double fx = intrinsics[0];
+        const double fy = intrinsics[1];
+        const double cx = intrinsics[2];
+        const double cy = intrinsics[3];
+
+        // I have the projection, and I now need to propagate the gradients
+        // xy = fxy * distort(xy)/distort(z) + cxy
+        dq_dfxy->x = (q->x - cx)/fx; // dqx/dfx
+        dq_dfxy->y = (q->y - cy)/fy; // dqy/dfy
     }
 }
 
