@@ -135,10 +135,38 @@ def _read(s, name):
     if 'Model' not in x:
         x['Model'] = ''
 
-    m = re.match('CAHVORE3,([0-9\.e-]+)\s*=\s*general',x['Model'])
+    # One of these:
+    #   CAHVORE1
+    #   CAHVORE2
+    #   CAHVORE3,0.44
+    m = re.match('CAHVORE\s*([0-9]+)(\s*,\s*([0-9\.e-]+))?',x['Model'])
     if m:
+        modelname = x['Model']
         is_cahvore = True
-        cahvore_linearity = float(m.group(1))
+        try:
+            mtype = int(m.group(1))
+            if m.group(3) is None:
+                cahvore_linearity = None
+            else:
+                cahvore_linearity = float(m.group(3))
+        except:
+            raise Exception(f"Cahvor file '{name}' looks like CAHVORE, but the CAHVORE declaration is unparseable: '{modelname}'")
+
+        if mtype == 1:
+            if cahvore_linearity is not None:
+                if cahvore_linearity != 1:
+                    raise Exception(f"Cahvor file '{name}' looks like CAHVORE, but has an unexpected linearity defined. mtype=1 so I expected no linearity at all or linearity=1, but got {cahvore_linearity}. CAHVORE declaration: '{modelname}'")
+            cahvore_linearity = 1
+        elif mtype == 2:
+            if cahvore_linearity is not None:
+                if cahvore_linearity != 0:
+                    raise Exception(f"Cahvor file '{name}' looks like CAHVORE, but has an unexpected linearity defined. mtype=2 so I expected no linearity at all or linearity=0, but got {cahvore_linearity}. CAHVORE declaration: '{modelname}'")
+            cahvore_linearity = 0
+        elif mtype == 3:
+            if cahvore_linearity is None:
+                raise Exception(f"Cahvor file '{name}' looks like CAHVORE, but has a missing linearity. mtype=3 a linearity parameter MUST be defined. CAHVORE declaration: '{modelname}'")
+        else:
+            raise Exception(f"Cahvor file '{name}' looks like CAHVORE, but has mtype={mtype}. I only know about types 1,2,3. CAHVORE declaration: '{modelname}'")
     else:
         is_cahvore = False
 
