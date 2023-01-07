@@ -956,8 +956,8 @@ void project_cahvor( // outputs
     {
         // I have the projection, and I now need to propagate the gradients
         // xy = fxy * distort(xy)/distort(z) + cxy
-        dq_dfxy->x = p_distorted.x*pz_recip; // dx/dfx
-        dq_dfxy->y = p_distorted.y*pz_recip; // dy/dfy
+        dq_dfxy->x = (q->x - cx)/fx; // dqx/dfx
+        dq_dfxy->y = (q->y - cy)/fy; // dqy/dfy
     }
 }
 
