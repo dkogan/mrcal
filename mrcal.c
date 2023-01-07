@@ -797,6 +797,170 @@ typedef struct
 
 } geometric_gradients_t;
 
+static
+void project_cahvor( // outputs
+                     mrcal_point2_t* q,
+                     mrcal_point2_t* dq_dfxy, double* dq_dintrinsics_nocore,
+                     mrcal_point3_t* restrict dq_drcamera,
+                     mrcal_point3_t* restrict dq_dtcamera,
+                     mrcal_point3_t* restrict dq_drframe,
+                     mrcal_point3_t* restrict dq_dtframe,
+
+                     // inputs
+                     const mrcal_point3_t* p,
+                     const mrcal_point3_t* dp_drc,
+                     const mrcal_point3_t* dp_dtc,
+                     const mrcal_point3_t* dp_drf,
+                     const mrcal_point3_t* dp_dtf,
+
+                     const double* restrict intrinsics,
+                     bool camera_at_identity,
+                     const mrcal_lensmodel_t* lensmodel)
+{
+    int NdistortionParams = mrcal_lensmodel_num_params(lensmodel) - 4;
+
+    // I perturb p, and then apply the focal length, center pixel stuff
+    // normally
+    mrcal_point3_t p_distorted;
+
+    // distortion parameter layout:
+    //   alpha
+    //   beta
+    //   r0
+    //   r1
+    //   r2
+    double alpha = intrinsics[4 + 0];
+    double beta  = intrinsics[4 + 1];
+    double r0    = intrinsics[4 + 2];
+    double r1    = intrinsics[4 + 3];
+    double r2    = intrinsics[4 + 4];
+
+    double s_al, c_al, s_be, c_be;
+    sincos(alpha, &s_al, &c_al);
+    sincos(beta,  &s_be, &c_be);
+
+    // I parametrize the optical axis such that
+    // - o(alpha=0, beta=0) = (0,0,1) i.e. the optical axis is at the center
+    //   if both parameters are 0
+    // - The gradients are cartesian. I.e. do/dalpha and do/dbeta are both
+    //   NOT 0 at (alpha=0,beta=0). This would happen at the poles (gimbal
+    //   lock), and that would make my solver unhappy
+    double o     []         = {  s_al*c_be, s_be,  c_al*c_be };
+    double do_dalpha[]      = {  c_al*c_be,    0, -s_al*c_be };
+    double do_dbeta[]       = { -s_al*s_be, c_be, -c_al*s_be };
+
+    double norm2p        = norm2_vec(3, p->xyz);
+    double omega         = dot_vec(3, p->xyz, o);
+    double domega_dalpha = dot_vec(3, p->xyz, do_dalpha);
+    double domega_dbeta  = dot_vec(3, p->xyz, do_dbeta);
+
+    double omega_recip = 1.0 / omega;
+    double tau         = norm2p * omega_recip*omega_recip - 1.0;
+    double s__dtau_dalphabeta__domega_dalphabeta = -2.0*norm2p * omega_recip*omega_recip*omega_recip;
+    double dmu_dtau = r1 + 2.0*tau*r2;
+    double dmu_dxyz[3];
+    for(int i=0; i<3; i++)
+        dmu_dxyz[i] = dmu_dtau *
+            (2.0 * p->xyz[i] * omega_recip*omega_recip + s__dtau_dalphabeta__domega_dalphabeta * o[i]);
+    double mu = r0 + tau*r1 + tau*tau*r2;
+    double s__dmu_dalphabeta__domega_dalphabeta = dmu_dtau * s__dtau_dalphabeta__domega_dalphabeta;
+
+    double  dpdistorted_dpcam[3*3] = {};
+    double  dpdistorted_ddistortion[3*NdistortionParams];
+
+    for(int i=0; i<3; i++)
+    {
+        double dmu_ddist[5] = { s__dmu_dalphabeta__domega_dalphabeta * domega_dalpha,
+                                s__dmu_dalphabeta__domega_dalphabeta * domega_dbeta,
+                                1.0,
+                                tau,
+                                tau * tau };
+
+        dpdistorted_ddistortion[i*NdistortionParams + 0] = p->xyz[i] * dmu_ddist[0];
+        dpdistorted_ddistortion[i*NdistortionParams + 1] = p->xyz[i] * dmu_ddist[1];
+        dpdistorted_ddistortion[i*NdistortionParams + 2] = p->xyz[i] * dmu_ddist[2];
+        dpdistorted_ddistortion[i*NdistortionParams + 3] = p->xyz[i] * dmu_ddist[3];
+        dpdistorted_ddistortion[i*NdistortionParams + 4] = p->xyz[i] * dmu_ddist[4];
+
+        dpdistorted_ddistortion[i*NdistortionParams + 0] -= dmu_ddist[0] * omega*o[i];
+        dpdistorted_ddistortion[i*NdistortionParams + 1] -= dmu_ddist[1] * omega*o[i];
+        dpdistorted_ddistortion[i*NdistortionParams + 2] -= dmu_ddist[2] * omega*o[i];
+        dpdistorted_ddistortion[i*NdistortionParams + 3] -= dmu_ddist[3] * omega*o[i];
+        dpdistorted_ddistortion[i*NdistortionParams + 4] -= dmu_ddist[4] * omega*o[i];
+
+        dpdistorted_ddistortion[i*NdistortionParams + 0] -= mu * domega_dalpha*o[i];
+        dpdistorted_ddistortion[i*NdistortionParams + 1] -= mu * domega_dbeta *o[i];
+
+        dpdistorted_ddistortion[i*NdistortionParams + 0] -= mu * omega * do_dalpha[i];
+        dpdistorted_ddistortion[i*NdistortionParams + 1] -= mu * omega * do_dbeta [i];
+
+        dpdistorted_dpcam[3*i + i] = mu+1.0;
+        for(int j=0; j<3; j++)
+        {
+            dpdistorted_dpcam[3*i + j] += (p->xyz[i] - omega*o[i]) * dmu_dxyz[j];
+            dpdistorted_dpcam[3*i + j] -= mu*o[i]*o[j];
+        }
+
+        p_distorted.xyz[i] = p->xyz[i] + mu * (p->xyz[i] - omega*o[i]);
+    }
+
+    // q = fxy pxy/pz + cxy
+    // dqx/dp = d( fx px/pz + cx ) = fx/pz^2 (pz [1 0 0] - px [0 0 1])
+    // dqy/dp = d( fy py/pz + cy ) = fy/pz^2 (pz [0 1 0] - py [0 0 1])
+    const double fx = intrinsics[0];
+    const double fy = intrinsics[1];
+    const double cx = intrinsics[2];
+    const double cy = intrinsics[3];
+    double pz_recip = 1. / p_distorted.z;
+    q->x = p_distorted.x*pz_recip * fx + cx;
+    q->y = p_distorted.y*pz_recip * fy + cy;
+
+    double dq_dp[2][3] =
+        { { fx * pz_recip,             0, -fx*p_distorted.x*pz_recip*pz_recip},
+          { 0,             fy * pz_recip, -fy*p_distorted.y*pz_recip*pz_recip} };
+    // This is for the DISTORTED p.
+    // dq/deee = dq/dpdistorted dpdistorted/dpundistorted dpundistorted/deee
+
+    double dq_dpundistorted[6];
+    mul_genN3_gen33_vout(2, (double*)dq_dp, dpdistorted_dpcam, dq_dpundistorted);
+
+    // dq/deee = dq/dp dp/deee
+    if(camera_at_identity)
+    {
+        if( dq_drcamera != NULL ) memset(dq_drcamera, 0, 6*sizeof(double));
+        if( dq_dtcamera != NULL ) memset(dq_dtcamera, 0, 6*sizeof(double));
+        if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drf, (double*)dq_drframe);
+        if( dq_dtframe  != NULL ) memcpy(dq_dtframe, dq_dpundistorted, 6*sizeof(double));
+    }
+    else
+    {
+        if( dq_drcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drc, (double*)dq_drcamera);
+        if( dq_dtcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_dtc, (double*)dq_dtcamera);
+        if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drf, (double*)dq_drframe );
+        if( dq_dtframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_dtf, (double*)dq_dtframe );
+    }
+
+    if( dq_dintrinsics_nocore != NULL )
+    {
+        for(int i=0; i<NdistortionParams; i++)
+        {
+            const double dx = dpdistorted_ddistortion[i + 0*NdistortionParams];
+            const double dy = dpdistorted_ddistortion[i + 1*NdistortionParams];
+            const double dz = dpdistorted_ddistortion[i + 2*NdistortionParams];
+            dq_dintrinsics_nocore[0*NdistortionParams + i] = fx * pz_recip * (dx - p_distorted.x*pz_recip*dz);
+            dq_dintrinsics_nocore[1*NdistortionParams + i] = fy * pz_recip * (dy - p_distorted.y*pz_recip*dz);
+        }
+    }
+
+    if( dq_dfxy )
+    {
+        // I have the projection, and I now need to propagate the gradients
+        // xy = fxy * distort(xy)/distort(z) + cxy
+        dq_dfxy->x = p_distorted.x*pz_recip; // dx/dfx
+        dq_dfxy->y = p_distorted.y*pz_recip; // dy/dfy
+    }
+}
+
 // These are all internals for project(). It was getting unwieldy otherwise
 static
 void _project_point_parametric( // outputs
@@ -875,151 +1039,6 @@ void _project_point_parametric( // outputs
             // xy = fxy * distort(xy)/distort(z) + cxy
             dq_dfxy->x = (q->x - cx)/fx; // dqx/dfx
             dq_dfxy->y = (q->y - cy)/fy; // dqy/dfy
-        }
-    }
-    else if( lensmodel->type == MRCAL_LENSMODEL_CAHVOR )
-    {
-        int NdistortionParams = mrcal_lensmodel_num_params(lensmodel) - 4;
-
-        // I perturb p, and then apply the focal length, center pixel stuff
-        // normally
-        mrcal_point3_t p_distorted;
-
-        // distortion parameter layout:
-        //   alpha
-        //   beta
-        //   r0
-        //   r1
-        //   r2
-        double alpha = intrinsics[4 + 0];
-        double beta  = intrinsics[4 + 1];
-        double r0    = intrinsics[4 + 2];
-        double r1    = intrinsics[4 + 3];
-        double r2    = intrinsics[4 + 4];
-
-        double s_al, c_al, s_be, c_be;
-        sincos(alpha, &s_al, &c_al);
-        sincos(beta,  &s_be, &c_be);
-
-        // I parametrize the optical axis such that
-        // - o(alpha=0, beta=0) = (0,0,1) i.e. the optical axis is at the center
-        //   if both parameters are 0
-        // - The gradients are cartesian. I.e. do/dalpha and do/dbeta are both
-        //   NOT 0 at (alpha=0,beta=0). This would happen at the poles (gimbal
-        //   lock), and that would make my solver unhappy
-        double o     []         = {  s_al*c_be, s_be,  c_al*c_be };
-        double do_dalpha[]      = {  c_al*c_be,    0, -s_al*c_be };
-        double do_dbeta[]       = { -s_al*s_be, c_be, -c_al*s_be };
-
-        double norm2p        = norm2_vec(3, p->xyz);
-        double omega         = dot_vec(3, p->xyz, o);
-        double domega_dalpha = dot_vec(3, p->xyz, do_dalpha);
-        double domega_dbeta  = dot_vec(3, p->xyz, do_dbeta);
-
-        double omega_recip = 1.0 / omega;
-        double tau         = norm2p * omega_recip*omega_recip - 1.0;
-        double s__dtau_dalphabeta__domega_dalphabeta = -2.0*norm2p * omega_recip*omega_recip*omega_recip;
-        double dmu_dtau = r1 + 2.0*tau*r2;
-        double dmu_dxyz[3];
-        for(int i=0; i<3; i++)
-            dmu_dxyz[i] = dmu_dtau *
-                (2.0 * p->xyz[i] * omega_recip*omega_recip + s__dtau_dalphabeta__domega_dalphabeta * o[i]);
-        double mu = r0 + tau*r1 + tau*tau*r2;
-        double s__dmu_dalphabeta__domega_dalphabeta = dmu_dtau * s__dtau_dalphabeta__domega_dalphabeta;
-
-        double  dpdistorted_dpcam[3*3] = {};
-        double  dpdistorted_ddistortion[3*NdistortionParams];
-
-        for(int i=0; i<3; i++)
-        {
-            double dmu_ddist[5] = { s__dmu_dalphabeta__domega_dalphabeta * domega_dalpha,
-                s__dmu_dalphabeta__domega_dalphabeta * domega_dbeta,
-                1.0,
-                tau,
-                tau * tau };
-
-            dpdistorted_ddistortion[i*NdistortionParams + 0] = p->xyz[i] * dmu_ddist[0];
-            dpdistorted_ddistortion[i*NdistortionParams + 1] = p->xyz[i] * dmu_ddist[1];
-            dpdistorted_ddistortion[i*NdistortionParams + 2] = p->xyz[i] * dmu_ddist[2];
-            dpdistorted_ddistortion[i*NdistortionParams + 3] = p->xyz[i] * dmu_ddist[3];
-            dpdistorted_ddistortion[i*NdistortionParams + 4] = p->xyz[i] * dmu_ddist[4];
-
-            dpdistorted_ddistortion[i*NdistortionParams + 0] -= dmu_ddist[0] * omega*o[i];
-            dpdistorted_ddistortion[i*NdistortionParams + 1] -= dmu_ddist[1] * omega*o[i];
-            dpdistorted_ddistortion[i*NdistortionParams + 2] -= dmu_ddist[2] * omega*o[i];
-            dpdistorted_ddistortion[i*NdistortionParams + 3] -= dmu_ddist[3] * omega*o[i];
-            dpdistorted_ddistortion[i*NdistortionParams + 4] -= dmu_ddist[4] * omega*o[i];
-
-            dpdistorted_ddistortion[i*NdistortionParams + 0] -= mu * domega_dalpha*o[i];
-            dpdistorted_ddistortion[i*NdistortionParams + 1] -= mu * domega_dbeta *o[i];
-
-            dpdistorted_ddistortion[i*NdistortionParams + 0] -= mu * omega * do_dalpha[i];
-            dpdistorted_ddistortion[i*NdistortionParams + 1] -= mu * omega * do_dbeta [i];
-
-            dpdistorted_dpcam[3*i + i] = mu+1.0;
-            for(int j=0; j<3; j++)
-            {
-                dpdistorted_dpcam[3*i + j] += (p->xyz[i] - omega*o[i]) * dmu_dxyz[j];
-                dpdistorted_dpcam[3*i + j] -= mu*o[i]*o[j];
-            }
-
-            p_distorted.xyz[i] = p->xyz[i] + mu * (p->xyz[i] - omega*o[i]);
-        }
-
-        // q = fxy pxy/pz + cxy
-        // dqx/dp = d( fx px/pz + cx ) = fx/pz^2 (pz [1 0 0] - px [0 0 1])
-        // dqy/dp = d( fy py/pz + cy ) = fy/pz^2 (pz [0 1 0] - py [0 0 1])
-        const double fx = intrinsics[0];
-        const double fy = intrinsics[1];
-        const double cx = intrinsics[2];
-        const double cy = intrinsics[3];
-        double pz_recip = 1. / p_distorted.z;
-        q->x = p_distorted.x*pz_recip * fx + cx;
-        q->y = p_distorted.y*pz_recip * fy + cy;
-
-        double dq_dp[2][3] =
-            { { fx * pz_recip,             0, -fx*p_distorted.x*pz_recip*pz_recip},
-              { 0,             fy * pz_recip, -fy*p_distorted.y*pz_recip*pz_recip} };
-        // This is for the DISTORTED p.
-        // dq/deee = dq/dpdistorted dpdistorted/dpundistorted dpundistorted/deee
-
-        double dq_dpundistorted[6];
-        mul_genN3_gen33_vout(2, (double*)dq_dp, dpdistorted_dpcam, dq_dpundistorted);
-
-        // dq/deee = dq/dp dp/deee
-        if(camera_at_identity)
-        {
-            if( dq_drcamera != NULL ) memset(dq_drcamera, 0, 6*sizeof(double));
-            if( dq_dtcamera != NULL ) memset(dq_dtcamera, 0, 6*sizeof(double));
-            if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drf, (double*)dq_drframe);
-            if( dq_dtframe  != NULL ) memcpy(dq_dtframe, dq_dpundistorted, 6*sizeof(double));
-        }
-        else
-        {
-            if( dq_drcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drc, (double*)dq_drcamera);
-            if( dq_dtcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_dtc, (double*)dq_dtcamera);
-            if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drf, (double*)dq_drframe );
-            if( dq_dtframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_dtf, (double*)dq_dtframe );
-        }
-
-        if( dq_dintrinsics_nocore != NULL )
-        {
-            for(int i=0; i<NdistortionParams; i++)
-            {
-                const double dx = dpdistorted_ddistortion[i + 0*NdistortionParams];
-                const double dy = dpdistorted_ddistortion[i + 1*NdistortionParams];
-                const double dz = dpdistorted_ddistortion[i + 2*NdistortionParams];
-                dq_dintrinsics_nocore[0*NdistortionParams + i] = fx * pz_recip * (dx - p_distorted.x*pz_recip*dz);
-                dq_dintrinsics_nocore[1*NdistortionParams + i] = fy * pz_recip * (dy - p_distorted.y*pz_recip*dz);
-            }
-        }
-
-        if( dq_dfxy )
-        {
-            // I have the projection, and I now need to propagate the gradients
-            // xy = fxy * distort(xy)/distort(z) + cxy
-            dq_dfxy->x = p_distorted.x*pz_recip; // dx/dfx
-            dq_dfxy->y = p_distorted.y*pz_recip; // dy/dfy
         }
     }
     else
@@ -2206,6 +2225,19 @@ void project( // out
                        grad_ABCDx_ABCDy,
                        sizeof(double)*runlen*2);
             }
+        }
+        else if(lensmodel->type == MRCAL_LENSMODEL_CAHVOR)
+        {
+            project_cahvor( // outputs
+                            q,p_dq_dfxy,
+                            p_dq_dintrinsics_nocore,
+                            dq_drcamera,dq_dtcamera,dq_drframe,dq_dtframe,
+                            // inputs
+                            p,
+                            dp_drc, dp_dtc, dp_drf, dp_dtf,
+                            intrinsics,
+                            camera_at_identity,
+                            lensmodel);
         }
         else
         {
