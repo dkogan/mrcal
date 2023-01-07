@@ -46,4 +46,7 @@ This requires a more recent libfreeimage than is available on some OSs
 mrcal-stereo respects --axis-scale
 Not doing this was an oversight
 
+has_gradients -> has_gradients_point,has_gradients_parameters
+
 * Migration notes 2.2 -> 2.3
+has_gradients -> has_gradients_point,has_gradients_parameters

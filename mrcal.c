@@ -277,7 +277,8 @@ mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* le
     case MRCAL_LENSMODEL_LATLON:
         return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
                                               .can_project_behind_camera = true,
-                                              .has_gradients             = true};
+                                              .has_gradients_point       = true,
+                                              .has_gradients_parameters  = true };
     case MRCAL_LENSMODEL_PINHOLE:
     case MRCAL_LENSMODEL_OPENCV4:
     case MRCAL_LENSMODEL_OPENCV5:
@@ -286,12 +287,14 @@ mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* le
     case MRCAL_LENSMODEL_CAHVOR:
         return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
                                               .can_project_behind_camera = false,
-                                              .has_gradients             = true };
+                                              .has_gradients_point       = true,
+                                              .has_gradients_parameters  = true };
 
     case MRCAL_LENSMODEL_CAHVORE:
         return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
                                               .can_project_behind_camera = false,
-                                              .has_gradients             = false };
+                                              .has_gradients_point       = true,
+                                              .has_gradients_parameters  = false };
 
     default: ;
     }
@@ -2712,7 +2715,7 @@ bool mrcal_project( // out
     if(dq_dintrinsics != NULL || dq_dp != NULL)
     {
         mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
-        if(!meta.has_gradients)
+        if(!(meta.has_gradients_point && meta.has_gradients_parameters))
         {
             MSG("mrcal_project(lensmodel='%s') cannot return gradients; this is not yet implemented",
                 mrcal_lensmodel_name_unconfigured(lensmodel));
@@ -2773,7 +2776,7 @@ bool mrcal_unproject( // out
 {
 
     mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
-    if(!meta.has_gradients)
+    if(!meta.has_gradients_point)
     {
         MSG("mrcal_unproject(lensmodel='%s') is not yet implemented: we need gradients",
             mrcal_lensmodel_name_unconfigured(lensmodel));

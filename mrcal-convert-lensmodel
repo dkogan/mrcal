@@ -285,7 +285,7 @@ except:
     print(f"Invalid lens model '{lensmodel_to}': couldn't get the metadata",
           file=sys.stderr)
     sys.exit(1)
-if not meta['has_gradients']:
+if not (meta['has_gradients_point'] and meta['has_gradients_parameters']):
     print(f"lens model {lensmodel_to} is not supported at this time: its gradients aren't implemented",
           file=sys.stderr)
     sys.exit(1)

@@ -57,7 +57,7 @@ def check(intrinsics, p_ref, q_ref):
                             eps = 1e-2)
 
     meta = mrcal.lensmodel_metadata_and_config(intrinsics[0])
-    if meta['has_gradients']:
+    if meta['has_gradients_point'] and meta['has_gradients_parameters']:
         @nps.broadcast_define( ((3,),('N',)) )
         def grad_broadcasted(p_ref, i_ref):
             return grad(lambda pi: mrcal.project(pi[:3], intrinsics[0], pi[3:]),
@@ -127,7 +127,7 @@ def check(intrinsics, p_ref, q_ref):
                                  msg = f"Unprojecting {intrinsics[0]} (normalized)",
                                  eps = 1e-6)
 
-    if not meta['has_gradients']:
+    if not meta['has_gradients_point']:
         # no in-place output for the no-gradients unproject() path
         return
 
