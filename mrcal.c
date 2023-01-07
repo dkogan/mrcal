@@ -2394,23 +2394,26 @@ bool _mrcal_project_internal_cahvore( // out
         // Note: CAHVORE is noncentral: project(p) and project(k*p) do NOT
         // project to the same point
 
-        // cos( angle between p and o ) = inner(p,o) / (norm(o) * norm(p)) =
-        // omega/norm(p)
-        double omega = p[i_pt].x*o[0] + p[i_pt].y*o[1] + p[i_pt].z*o[2];
+        // What is called "omega" in the canonical CAHVOR implementation is
+        // called "zeta" in the canonical CAHVORE implementation. They're the
+        // same thing
 
+        // cos( angle between p and o ) = inner(p,o) / (norm(o) * norm(p)) =
+        // zeta/norm(p)
+        double zeta = p[i_pt].x*o[0] + p[i_pt].y*o[1] + p[i_pt].z*o[2];
 
         // Basic Computations
 
         // Calculate initial terms
         double u[3];
-        for(int i=0; i<3; i++) u[i] = omega*o[i];
+        for(int i=0; i<3; i++) u[i] = zeta*o[i];
 
         double ll[3];
         for(int i=0; i<3; i++) ll[i] = p[i_pt].xyz[i]-u[i];
         double l = sqrt(ll[0]*ll[0] + ll[1]*ll[1] + ll[2]*ll[2]);
 
         // Calculate theta using Newton's Method
-        double theta = atan2(l, omega);
+        double theta = atan2(l, zeta);
 
         int inewton;
         for( inewton = 100; inewton; inewton--)
@@ -2423,14 +2426,14 @@ bool _mrcal_project_internal_cahvore( // out
             double theta3  = theta * theta2;
             double theta4  = theta * theta3;
             double upsilon =
-                omega*cth + l*sth
+                zeta*cth + l*sth
                 - (1.0   - cth) * (e0 +      e1*theta2 +     e2*theta4)
                 - (theta - sth) * (      2.0*e1*theta  + 4.0*e2*theta3);
 
             // Update theta
             double dtheta =
                 (
-                 omega*sth - l*cth
+                 zeta*sth - l*cth
                  - (theta - sth) * (e0 + e1*theta2 + e2*theta4)
                  ) / upsilon;
 
