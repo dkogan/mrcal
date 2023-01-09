@@ -554,9 +554,9 @@ Let's fix it.
 :END:
 
 Usable [[file:uncertainty.org][uncertainty quantification]] and accurate projections are major goals of
-mrcal. To achive these, mrcal supports a /splined stereographic/ model,
-described in detail [[file:splined-models.org][here]], and summarized below. We use this splined
-stereographic model to more precisely model the behavior or this lens.
+mrcal. To achive these, mrcal supports a [[file:splined-models.org][/splined stereographic/ model]], briefly
+summarized below. We use this splined stereographic model to more precisely
+model the behavior or this lens.
 
 ** Splined stereographic model definition
 :PROPERTIES:
