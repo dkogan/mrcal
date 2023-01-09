@@ -278,17 +278,24 @@ mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* le
     case MRCAL_LENSMODEL_LATLON:
         return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
                                               .can_project_behind_camera = true,
-                                              .has_gradients             = true};
+                                              .has_gradients             = true,
+                                              .noncentral                = false};
     case MRCAL_LENSMODEL_PINHOLE:
     case MRCAL_LENSMODEL_OPENCV4:
     case MRCAL_LENSMODEL_OPENCV5:
     case MRCAL_LENSMODEL_OPENCV8:
     case MRCAL_LENSMODEL_OPENCV12:
     case MRCAL_LENSMODEL_CAHVOR:
+        return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
+                                              .can_project_behind_camera = false,
+                                              .has_gradients             = true,
+                                              .noncentral                = false };
+
     case MRCAL_LENSMODEL_CAHVORE:
         return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
                                               .can_project_behind_camera = false,
-                                              .has_gradients             = true };
+                                              .has_gradients             = true,
+                                              .noncentral                = true };
 
     default: ;
     }

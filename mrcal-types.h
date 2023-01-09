@@ -142,7 +142,11 @@ typedef union
                                                                         \
     /* Whether gradients are available for this model. Currently only */ \
     /* CAHVORE does not have gradients                                */ \
-    _(has_gradients,             bool, "i",,, :1, cookie)
+    _(has_gradients,             bool, "i",,, :1, cookie)               \
+                                                                        \
+    /* Whether this is a noncentral model.Currently the only noncentral  */ \
+    /* model we have is CAHVORE. There will be more later.               */ \
+    _(noncentral,                bool, "i",,, :1, cookie)
 
 typedef struct
 {
