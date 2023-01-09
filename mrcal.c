@@ -2360,16 +2360,28 @@ void project( // out
         }
         else if(lensmodel->type == MRCAL_LENSMODEL_CAHVORE)
         {
-            project_cahvore( // outputs
-                             q,p_dq_dfxy,
-                             p_dq_dintrinsics_nocore,
-                             dq_drcamera,dq_dtcamera,dq_drframe,dq_dtframe,
-                             // inputs
-                             p,
-                             dp_drc, dp_dtc, dp_drf, dp_dtf,
-                             intrinsics,
-                             camera_at_identity,
-                             lensmodel);
+            if(!project_cahvore( // outputs
+                                 q,p_dq_dfxy,
+                                 p_dq_dintrinsics_nocore,
+                                 dq_drcamera,dq_dtcamera,dq_drframe,dq_dtframe,
+                                 // inputs
+                                 p,
+                                 dp_drc, dp_dtc, dp_drf, dp_dtf,
+                                 intrinsics,
+                                 camera_at_identity,
+                                 lensmodel))
+            {
+                MSG("CAHVORE PROJECTION OF (%f,%f,%f) FAILED. I don't know what to do. Setting result and all gradients to 0",
+                    p->x, p->y, p->z);
+                memset(q, 0, sizeof(*q));
+                if(p_dq_dfxy)               memset(p_dq_dfxy,               0, sizeof(*p_dq_dfxy));
+                if(p_dq_dintrinsics_nocore) memset(p_dq_dintrinsics_nocore, 0, sizeof(*p_dq_dintrinsics_nocore) * 2 * (Nintrinsics-4));
+                if(dq_drcamera)             memset(dq_drcamera,             0, sizeof(*dq_drcamera));
+                if(dq_dtcamera)             memset(dq_dtcamera,             0, sizeof(*dq_dtcamera));
+                if(dq_drframe)              memset(dq_drframe,              0, sizeof(*dq_drframe));
+                if(dq_dtframe)              memset(dq_dtframe,              0, sizeof(*dq_dtframe));
+
+            }
         }
         else
         {
