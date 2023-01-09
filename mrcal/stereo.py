@@ -412,6 +412,16 @@ else:                   we return this tuple of models, dict of metadata
 
     '''
 
+    for m in models:
+        lensmodel = m.intrinsics()[0]
+        meta = mrcal.lensmodel_metadata_and_config(lensmodel)
+        if meta['noncentral']:
+            if re.match("^LENSMODEL_CAHVORE", lensmodel):
+                if nps.norm2(m.intrinsics()[1][-3:]) > 0:
+                    raise Exception("Stereo rectification is only possible with a central projection. Please centralize your models. This is CAHVORE, so set E=0 to centralize. This will ignore all noncentral effects near the lens")
+            else:
+                raise Exception("Stereo rectification is only possible with a central projection. Please centralize your models")
+
     if rectification_model == 'LENSMODEL_PINHOLE':
         # The pinhole rectification path is not implemented in C yet. Call the
         # Python

@@ -229,6 +229,28 @@ bool mrcal_rectified_system(// output
         return false;
     }
 
+    mrcal_lensmodel_metadata_t meta =
+        mrcal_lensmodel_metadata( lensmodel0 );
+    if(meta.noncentral)
+    {
+        if(lensmodel0->type == MRCAL_LENSMODEL_CAHVORE)
+        {
+            // CAHVORE is generally noncentral, but if E=0, then it is
+            const int Nintrinsics = mrcal_lensmodel_num_params(lensmodel0);
+            for(int i=Nintrinsics-3; i<Nintrinsics; i++)
+                if(intrinsics0[i] != 0)
+                {
+                    MSG("Stereo rectification is only possible with a central projection. Please centralize your models. This is CAHVORE, so set E=0 to centralize. This will ignore all noncentral effects near the lens");
+                    return false;
+                }
+        }
+        else
+        {
+            MSG("Stereo rectification is only possible with a central projection. Please centralize your models");
+            return false;
+        }
+    }
+
     ///// TODAY this C implementation supports MRCAL_LENSMODEL_LATLON only. This
     ///// isn't a design choice, I just don't want to do the extra work yet. The
     ///// API already is general enough to support both rectification schemes.
