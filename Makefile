@@ -28,7 +28,8 @@ LIB_SOURCES +=			\
   poseutils.c			\
   poseutils-opencv.c		\
   poseutils-uses-autodiff.cc	\
-  triangulation.cc
+  triangulation.cc              \
+  cahvore.cc
 
 ifneq (${USE_LIBELAS},) # using libelas
 LIB_SOURCES := $(LIB_SOURCES) stereo-matching-libelas.cc

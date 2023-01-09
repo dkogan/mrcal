@@ -46,16 +46,6 @@ void _mrcal_project_internal_opencv( // outputs
                                     int N,
                                     const double* intrinsics,
                                     int Nintrinsics);
-bool _mrcal_project_internal_cahvore( // out
-                                     mrcal_point2_t* out,
-
-                                     // in
-                                     const mrcal_point3_t* v,
-                                     int N,
-
-                                     // core, distortions concatenated
-                                     const double* intrinsics,
-                                     const double  linearity);
 bool _mrcal_project_internal( // out
                              mrcal_point2_t* q,
 

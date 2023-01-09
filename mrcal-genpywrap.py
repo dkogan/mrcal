@@ -177,14 +177,6 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                  r'''
                  const int N = 1;
 
-                 if(cookie->lensmodel.type == MRCAL_LENSMODEL_CAHVORE)
-                     return _mrcal_project_internal_cahvore(
-                                (mrcal_point2_t*)data_slice__output,
-                                (const mrcal_point3_t*)data_slice__points,
-                                N,
-                                (const double*)data_slice__intrinsics,
-                                cookie->lensmodel.LENSMODEL_CAHVORE__config.linearity);
-
                  if(MRCAL_LENSMODEL_IS_OPENCV(cookie->lensmodel.type) ||
                     cookie->lensmodel.type == MRCAL_LENSMODEL_PINHOLE)
                  {

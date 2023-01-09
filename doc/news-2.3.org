@@ -49,6 +49,8 @@ Not doing this was an oversight
 has_gradients -> has_gradients_point,has_gradients_parameters. Python API still
 has "has_gradients" for compatibility. The C API does not
 
+full CAHVORE gradient support
+
 * Migration notes 2.2 -> 2.3
 has_gradients -> has_gradients_point,has_gradients_parameters. Python API still
 has "has_gradients" for compatibility. The C API does not

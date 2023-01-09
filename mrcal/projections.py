@@ -392,12 +392,13 @@ if get_gradients: we return a tuple:
 
 
     # No projection gradients implemented in C. We should get here approximately
-    # never. At this time, the only projection function that has no gradients
-    # implemented is LENSMODEL_CAHVORE, which nobody is really expected to be
-    # using. If these see use, real gradients should be implemented
+    # never. At this time, there are no longer any projection functions that
+    # have no gradients implemented. If another such model is defined, this path
+    # will be used. If these see use, real gradients should be implemented
     #
     # We compute the gradients numerically. This is a reimplementation of the C
     # code. It's barely maintained, and here for legacy compatibility only
+    raise("should never get here")
 
     if get_gradients:
         raise Exception(f"unproject(..., get_gradients=True) is unsupported for models with no gradients, such as '{lensmodel}'")

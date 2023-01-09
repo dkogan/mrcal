@@ -11,6 +11,7 @@
 
 #include "mrcal.h"
 #include "minimath/minimath.h"
+#include "cahvore.h"
 #include "util.h"
 
 // These are parameter variable scales. They have the units of the parameters
@@ -285,16 +286,11 @@ mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* le
     case MRCAL_LENSMODEL_OPENCV8:
     case MRCAL_LENSMODEL_OPENCV12:
     case MRCAL_LENSMODEL_CAHVOR:
-        return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
-                                              .can_project_behind_camera = false,
-                                              .has_gradients_point       = true,
-                                              .has_gradients_parameters  = true };
-
     case MRCAL_LENSMODEL_CAHVORE:
         return (mrcal_lensmodel_metadata_t) { .has_core                  = true,
                                               .can_project_behind_camera = false,
                                               .has_gradients_point       = true,
-                                              .has_gradients_parameters  = false };
+                                              .has_gradients_parameters  = true };
 
     default: ;
     }
@@ -827,6 +823,12 @@ void project_cahvor( // outputs
     // normally
     mrcal_point3_t p_distorted;
 
+    bool need_any_extrinsics_gradients =
+        ( dq_drcamera != NULL ) ||
+        ( dq_dtcamera != NULL ) ||
+        ( dq_drframe  != NULL ) ||
+        ( dq_dtframe  != NULL );
+
     // distortion parameter layout:
     //   alpha
     //   beta
@@ -919,29 +921,32 @@ void project_cahvor( // outputs
     q->x = p_distorted.x*pz_recip * fx + cx;
     q->y = p_distorted.y*pz_recip * fy + cy;
 
-    double dq_dp[2][3] =
-        { { fx * pz_recip,             0, -fx*p_distorted.x*pz_recip*pz_recip},
-          { 0,             fy * pz_recip, -fy*p_distorted.y*pz_recip*pz_recip} };
-    // This is for the DISTORTED p.
-    // dq/deee = dq/dpdistorted dpdistorted/dpundistorted dpundistorted/deee
-
-    double dq_dpundistorted[6];
-    mul_genN3_gen33_vout(2, (double*)dq_dp, dpdistorted_dpcam, dq_dpundistorted);
-
-    // dq/deee = dq/dp dp/deee
-    if(camera_at_identity)
+    if(need_any_extrinsics_gradients)
     {
-        if( dq_drcamera != NULL ) memset(dq_drcamera, 0, 6*sizeof(double));
-        if( dq_dtcamera != NULL ) memset(dq_dtcamera, 0, 6*sizeof(double));
-        if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drf, (double*)dq_drframe);
-        if( dq_dtframe  != NULL ) memcpy(dq_dtframe, dq_dpundistorted, 6*sizeof(double));
-    }
-    else
-    {
-        if( dq_drcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drc, (double*)dq_drcamera);
-        if( dq_dtcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_dtc, (double*)dq_dtcamera);
-        if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drf, (double*)dq_drframe );
-        if( dq_dtframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_dtf, (double*)dq_dtframe );
+        double dq_dp[2][3] =
+            { { fx * pz_recip,             0, -fx*p_distorted.x*pz_recip*pz_recip},
+              { 0,             fy * pz_recip, -fy*p_distorted.y*pz_recip*pz_recip} };
+        // This is for the DISTORTED p.
+        // dq/deee = dq/dpdistorted dpdistorted/dpundistorted dpundistorted/deee
+
+        double dq_dpundistorted[6];
+        mul_genN3_gen33_vout(2, (double*)dq_dp, dpdistorted_dpcam, dq_dpundistorted);
+
+        // dq/deee = dq/dp dp/deee
+        if(camera_at_identity)
+        {
+            if( dq_drcamera != NULL ) memset(dq_drcamera, 0, 6*sizeof(double));
+            if( dq_dtcamera != NULL ) memset(dq_dtcamera, 0, 6*sizeof(double));
+            if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drf, (double*)dq_drframe);
+            if( dq_dtframe  != NULL ) memcpy(dq_dtframe, dq_dpundistorted, 6*sizeof(double));
+        }
+        else
+        {
+            if( dq_drcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drc, (double*)dq_drcamera);
+            if( dq_dtcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_dtc, (double*)dq_dtcamera);
+            if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drf, (double*)dq_drframe );
+            if( dq_dtframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_dtf, (double*)dq_dtframe );
+        }
     }
 
     if( dq_dintrinsics_nocore != NULL )
@@ -986,263 +991,28 @@ bool project_cahvore( // outputs
                       bool camera_at_identity,
                       const mrcal_lensmodel_t* lensmodel)
 {
-    #warning only compute grads where needed
-    // Apply a CAHVORE warp to an un-distorted point
+    int NdistortionParams = mrcal_lensmodel_num_params(lensmodel) - 4; // This is 8: alpha,beta,R,E
 
-    //  Given intrinsic parameters of a CAHVORE model and a set of
-    //  camera-coordinate points, return the projected point(s)
+    mrcal_point3_t p_distorted;
+    double dpdistorted_ddistortion[8*3]; // 8 intrinsics parameters, nvec(p)=3
+    double dpdistorted_dpcam[3*3];
 
-    // This comes from cmod_cahvore_3d_to_2d_general() in
-    // m-jplv/libcmod/cmod_cahvore.c
-    //
-    // The lack of documentation here comes directly from the lack of
-    // documentation in that function.
+    bool need_any_extrinsics_gradients =
+        ( dq_drcamera != NULL ) ||
+        ( dq_dtcamera != NULL ) ||
+        ( dq_drframe  != NULL ) ||
+        ( dq_dtframe  != NULL );
 
-    // I parametrize the optical axis such that
-    // - o(alpha=0, beta=0) = (0,0,1) i.e. the optical axis is at the center
-    //   if both parameters are 0
-    // - The gradients are cartesian. I.e. do/dalpha and do/dbeta are both
-    //   NOT 0 at (alpha=0,beta=0). This would happen at the poles (gimbal
-    //   lock), and that would make my solver unhappy
-    // So o = { s_al*c_be, s_be,  c_al*c_be }
+    if(!project_cahvore_internals( // outputs
+                                   &p_distorted,
+                                   dq_dintrinsics_nocore         ? dpdistorted_ddistortion : NULL,
+                                   need_any_extrinsics_gradients ? dpdistorted_dpcam       : NULL,
 
-    // I don't have parameter gradients implemented
-    assert(dq_dintrinsics_nocore == NULL);
-
-    // I perturb p, and then apply the focal length, center pixel stuff
-    // normally
-    const mrcal_point3_t* p_distorted;
-    double  dpdistorted_dpcam[3*3] = {};
-
-    const double alpha     = intrinsics[4 + 0];
-    const double beta      = intrinsics[4 + 1];
-    const double r0        = intrinsics[4 + 2];
-    const double r1        = intrinsics[4 + 3];
-    const double r2        = intrinsics[4 + 4];
-    const double e0        = intrinsics[4 + 5];
-    const double e1        = intrinsics[4 + 6];
-    const double e2        = intrinsics[4 + 7];
-
-    double sa,ca;
-    sincos(alpha, &sa, &ca);
-    double sb,cb;
-    sincos(beta, &sb, &cb);
-
-    const double o[] ={ cb * sa, sb, cb * ca };
-
-    // Note: CAHVORE is noncentral: project(p) and project(k*p) do NOT
-    // project to the same point
-
-    // What is called "omega" in the canonical CAHVOR implementation is
-    // called "zeta" in the canonical CAHVORE implementation. They're the
-    // same thing
-
-    // cos( angle between p and o ) = inner(p,o) / (norm(o) * norm(p)) =
-    // zeta/norm(p)
-    double zeta = p->x*o[0] + p->y*o[1] + p->z*o[2];
-
-    // Basic Computations
-
-    // Calculate initial terms
-    double u[3];
-    for(int i=0; i<3; i++) u[i] = zeta*o[i];
-
-    double ll[3];
-    for(int i=0; i<3; i++) ll[i] = p->xyz[i]-u[i];
-    double l = sqrt(ll[0]*ll[0] + ll[1]*ll[1] + ll[2]*ll[2]);
-
-    // dl/dp = llt * (I-o ot) /l
-    double dl_dp[] =
-        { (ll[0]*(1.-o[0]*o[0]) + ll[1]*(0.-o[0]*o[1]) + ll[2]*(0.-o[0]*o[2]))/l,
-          (ll[0]*(0.-o[1]*o[0]) + ll[1]*(1.-o[1]*o[1]) + ll[2]*(0.-o[1]*o[2]))/l,
-          (ll[0]*(0.-o[2]*o[0]) + ll[1]*(0.-o[2]*o[1]) + ll[2]*(1.-o[2]*o[2]))/l };
-
-    // Calculate theta using Newton's Method
-    double theta = atan2(l, zeta);
-
-    // dtheta/dp = ( (dl z - l dz) / (z^2) )/ ( 1 + (l/z)^2 )
-    //           = (dl z - l dz) / ( z^2 + l^2 )
-    //           = (dl*z - l ot) / ( z^2 + l^2 )
-    double z2_l2 = zeta*zeta + ll[0]*ll[0] + ll[1]*ll[1] + ll[2]*ll[2];
-    double dtheta_dp[] =
-        { (dl_dp[0]*zeta - l*o[0]) / z2_l2,
-          (dl_dp[1]*zeta - l*o[1]) / z2_l2,
-          (dl_dp[2]*zeta - l*o[2]) / z2_l2 };
-
-    int inewton;
-    for( inewton = 100; inewton; inewton--)
-    {
-        // Compute terms from the current value of theta
-        double sth,cth;
-        sincos(theta, &sth, &cth);
-
-        double theta2  = theta * theta;
-        double theta3  = theta * theta2;
-        double theta4  = theta * theta3;
-        double upsilon =
-            zeta*cth + l*sth
-            - (1.0   - cth) * (e0 +      e1*theta2 +     e2*theta4)
-            - (theta - sth) * (      2.0*e1*theta  + 4.0*e2*theta3);
-
-        // du/dp = -z sth dth + dz cth + l cth dth + dl sth
-        //         - (sth dth) * (e0 +      e1*theta2 +     e2*theta4)
-        //         - (1.0   - cth) * (2*e1*theta + 4*e2*theta^3) * dth
-        //         - (dth - cth dth) * (      2.0*e1*theta  + 4.0*e2*theta3)
-        //         - (theta - sth)   * ( 2.0*e1  + 4.0*3*e2*theta^2) dth;
-        //
-        // dz = dzeta = ot
-        double dupsilon_dp[3] =
-            {
-                - zeta*sth*dtheta_dp[0] + o[0]*cth + l*cth*dtheta_dp[0] + dl_dp[0]*sth
-                - (sth*dtheta_dp[0]) * (e0 + e1*theta2 + e2*theta4)
-                - (1.0 - cth) * (2.*e1*theta + 4*e2*theta3) * dtheta_dp[0]
-                - (dtheta_dp[0] - cth*dtheta_dp[0]) * (2.0*e1*theta + 4.0*e2*theta3)
-                - (theta - sth)   * ( 2.0*e1  + 4.0*3.*e2*theta2) * dtheta_dp[0],
-
-                - zeta*sth*dtheta_dp[1] + o[1]*cth + l*cth*dtheta_dp[1] + dl_dp[1]*sth
-                - (sth*dtheta_dp[1]) * (e0 + e1*theta2 + e2*theta4)
-                - (1.0 - cth) * (2.*e1*theta + 4*e2*theta3) * dtheta_dp[1]
-                - (dtheta_dp[1] - cth*dtheta_dp[1]) * (2.0*e1*theta + 4.0*e2*theta3)
-                - (theta - sth)   * ( 2.0*e1  + 4.0*3.*e2*theta2) * dtheta_dp[1],
-
-                - zeta*sth*dtheta_dp[2] + o[2]*cth + l*cth*dtheta_dp[2] + dl_dp[2]*sth
-                - (sth*dtheta_dp[2]) * (e0 + e1*theta2 + e2*theta4)
-                - (1.0 - cth) * (2.*e1*theta + 4*e2*theta3) * dtheta_dp[2]
-                - (dtheta_dp[2] - cth*dtheta_dp[2]) * (2.0*e1*theta + 4.0*e2*theta3)
-                - (theta - sth)   * ( 2.0*e1  + 4.0*3.*e2*theta2) * dtheta_dp[2]
-            };
-
-        // Update theta
-        double dtheta_num =
-            zeta*sth - l*cth
-            - (theta - sth) * (e0 + e1*theta2 + e2*theta4);
-        double dtheta = dtheta_num / upsilon;
-
-        // ddth_num/dp = dz sth + z cth dth - dl cth + l sth dth
-        //               - (dth-cth dth)*(e0 + e1*theta2 + e2*theta4)
-        //               - (th - sth)*(2*e1*theta + 4*e2*theta3) dth
-        double ddtheta_num_dp[] =
-            {
-                o[0]*sth + zeta*cth*dtheta_dp[0] - dl_dp[0]*cth + l*sth*dtheta_dp[0]
-                - dtheta_dp[0]*(1.-cth)*(e0 + e1*theta2 + e2*theta4)
-                - (theta - sth)*(2.*e1*theta + 4.*e2*theta3)*dtheta_dp[0],
-
-                o[1]*sth + zeta*cth*dtheta_dp[1] - dl_dp[1]*cth + l*sth*dtheta_dp[1]
-                - dtheta_dp[1]*(1.-cth)*(e0 + e1*theta2 + e2*theta4)
-                - (theta - sth)*(2.*e1*theta + 4.*e2*theta3)*dtheta_dp[1],
-
-                o[2]*sth + zeta*cth*dtheta_dp[2] - dl_dp[2]*cth + l*sth*dtheta_dp[2]
-                - dtheta_dp[2]*(1.-cth)*(e0 + e1*theta2 + e2*theta4)
-                - (theta - sth)*(2.*e1*theta + 4.*e2*theta3)*dtheta_dp[2]
-            };
-
-        // dth = dth_num / u -> ddth/dp = (ddth_num_dp*u - dth_num*du)/(u^2)
-        double ddtheta_dp[] =
-            { (ddtheta_num_dp[0]*upsilon - dtheta_num*dupsilon_dp[0]) / (upsilon*upsilon),
-              (ddtheta_num_dp[1]*upsilon - dtheta_num*dupsilon_dp[1]) / (upsilon*upsilon),
-              (ddtheta_num_dp[2]*upsilon - dtheta_num*dupsilon_dp[2]) / (upsilon*upsilon) };
-
-        theta -= dtheta;
-        dtheta_dp[0] -= ddtheta_dp[0];
-        dtheta_dp[1] -= ddtheta_dp[1];
-        dtheta_dp[2] -= ddtheta_dp[2];
-
-        // Check exit criterion from last update
-        if(fabs(dtheta) < 1e-8)
-            break;
-    }
-    if(inewton == 0)
-    {
-        fprintf(stderr, "%s(): too many iterations\n", __func__);
+                                   // inputs
+                                   p,
+                                   &intrinsics[4],
+                                   lensmodel->LENSMODEL_CAHVORE__config.linearity))
         return false;
-    }
-
-    // got a theta
-
-    const double linearity = lensmodel->LENSMODEL_CAHVORE__config.linearity;
-    // Check the value of theta
-    if(theta * fabs(linearity) > M_PI/2.)
-    {
-        fprintf(stderr, "%s(): theta out of bounds\n", __func__);
-        return false;
-    }
-
-    // If we aren't close enough to use the small-angle approximation ...
-    if (theta > 1e-8)
-    {
-        // ... do more math!
-        double linth = linearity * theta;
-        double chi;
-        double dchi_dp[3];
-        if (linearity < -1e-15)
-        {
-            double slth,clth;
-            sincos(linth, &slth, &clth);
-
-            chi = slth / linearity;
-
-            for(int i=0; i<3; i++)
-                dchi_dp[i] = clth * dtheta_dp[i];
-        }
-        else if (linearity > 1e-15)
-        {
-            chi = tan(linth) / linearity;
-            double clth = cos(linth);
-            for(int i=0; i<3; i++)
-                dchi_dp[i] = dtheta_dp[i] / (clth*clth);
-        }
-        else
-        {
-            chi = theta;
-            for(int i=0; i<3; i++)
-                dchi_dp[i] = dtheta_dp[i];
-        }
-        double chi2 = chi * chi;
-        double chi3 = chi * chi2;
-        double chi4 = chi * chi3;
-
-        double zetap = l / chi;
-
-        double mu = r0 + r1*chi2 + r2*chi4;
-
-        double uu[3];
-        for(int i=0; i<3; i++) uu[i] = zetap*o[i];
-        double vv[3];
-        for(int i=0; i<3; i++) vv[i] = (1. + mu)*ll[i];
-
-        for(int i=0; i<3; i++)
-            u[i] = uu[i] + vv[i];
-        p_distorted = (mrcal_point3_t*)u;
-
-        /*
-          I want
-
-            dpd/dp = duu/dp + dvv/dp
-            duu/dp = o dzetap/dp
-                   = o/(chi^2) (chi dl/dp - l dchi/dp)
-            dchi/dp ~ dth/dp
-
-          Next.
-
-            dvv/dp = (1+mu) dll/dp     + ll dmu/dp
-                   = (1+mu) (I - o ot) + ll (2 r1 chi + 4 r2 chi^3) dchi/dp
-         */
-        for(int i=0; i<3; i++)
-            for(int j=0; j<3; j++)
-                dpdistorted_dpcam[i*3 + j] =
-                    o[i]/chi2*(chi*dl_dp[j] - l*dchi_dp[j])
-                    + (1.+mu)*((double)(!(i-j)) - o[i]*o[j]) +
-                    ll[i]*(2.* r1*chi + 4.*r2*chi3)*dchi_dp[j];
-    }
-    else
-    {
-        p_distorted = p;
-        for(int i=0; i<3; i++)
-            for(int j=0; j<3; j++)
-                dpdistorted_dpcam[i*3 + j] =
-                    (double)(!(i-j));
-    }
-
 
     ////////////// exactly like in project_cahvor() above. Consolidate.
 
@@ -1253,33 +1023,48 @@ bool project_cahvore( // outputs
     const double fy = intrinsics[1];
     const double cx = intrinsics[2];
     const double cy = intrinsics[3];
-    double pz_recip = 1. / p_distorted->z;
-    q->x = p_distorted->x*pz_recip * fx + cx;
-    q->y = p_distorted->y*pz_recip * fy + cy;
+    double pz_recip = 1. / p_distorted.z;
+    q->x = p_distorted.x*pz_recip * fx + cx;
+    q->y = p_distorted.y*pz_recip * fy + cy;
 
-    double dq_dp[2][3] =
-        { { fx * pz_recip,             0, -fx*p_distorted->x*pz_recip*pz_recip},
-          { 0,             fy * pz_recip, -fy*p_distorted->y*pz_recip*pz_recip} };
-    // This is for the DISTORTED p.
-    // dq/deee = dq/dpdistorted dpdistorted/dpundistorted dpundistorted/deee
-
-    double dq_dpundistorted[6];
-    mul_genN3_gen33_vout(2, (double*)dq_dp, dpdistorted_dpcam, dq_dpundistorted);
-
-    // dq/deee = dq/dp dp/deee
-    if(camera_at_identity)
+    if(need_any_extrinsics_gradients)
     {
-        if( dq_drcamera != NULL ) memset(dq_drcamera, 0, 6*sizeof(double));
-        if( dq_dtcamera != NULL ) memset(dq_dtcamera, 0, 6*sizeof(double));
-        if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drf, (double*)dq_drframe);
-        if( dq_dtframe  != NULL ) memcpy(dq_dtframe, dq_dpundistorted, 6*sizeof(double));
+        double dq_dp[2][3] =
+            { { fx * pz_recip,             0, -fx*p_distorted.x*pz_recip*pz_recip},
+              { 0,             fy * pz_recip, -fy*p_distorted.y*pz_recip*pz_recip} };
+        // This is for the DISTORTED p.
+        // dq/deee = dq/dpdistorted dpdistorted/dpundistorted dpundistorted/deee
+
+        double dq_dpundistorted[6];
+        mul_genN3_gen33_vout(2, (double*)dq_dp, dpdistorted_dpcam, dq_dpundistorted);
+
+        // dq/deee = dq/dp dp/deee
+        if(camera_at_identity)
+        {
+            if( dq_drcamera != NULL ) memset(dq_drcamera, 0, 6*sizeof(double));
+            if( dq_dtcamera != NULL ) memset(dq_dtcamera, 0, 6*sizeof(double));
+            if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drf, (double*)dq_drframe);
+            if( dq_dtframe  != NULL ) memcpy(dq_dtframe, dq_dpundistorted, 6*sizeof(double));
+        }
+        else
+        {
+            if( dq_drcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drc, (double*)dq_drcamera);
+            if( dq_dtcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_dtc, (double*)dq_dtcamera);
+            if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drf, (double*)dq_drframe );
+            if( dq_dtframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_dtf, (double*)dq_dtframe );
+        }
     }
-    else
+
+    if( dq_dintrinsics_nocore != NULL )
     {
-        if( dq_drcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drc, (double*)dq_drcamera);
-        if( dq_dtcamera != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_dtc, (double*)dq_dtcamera);
-        if( dq_drframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_drf, (double*)dq_drframe );
-        if( dq_dtframe  != NULL ) mul_genN3_gen33_vout(2, (double*)dq_dpundistorted, (double*)dp_dtf, (double*)dq_dtframe );
+        for(int i=0; i<NdistortionParams; i++)
+        {
+            const double dx = dpdistorted_ddistortion[i + 0*NdistortionParams];
+            const double dy = dpdistorted_ddistortion[i + 1*NdistortionParams];
+            const double dz = dpdistorted_ddistortion[i + 2*NdistortionParams];
+            dq_dintrinsics_nocore[0*NdistortionParams + i] = fx * pz_recip * (dx - p_distorted.x*pz_recip*dz);
+            dq_dintrinsics_nocore[1*NdistortionParams + i] = fy * pz_recip * (dy - p_distorted.y*pz_recip*dz);
+        }
     }
 
     if( dq_dfxy )
@@ -2857,8 +2642,6 @@ bool _mrcal_project_internal( // out
 // supports chessboards). dq_dintrinsics and/or dq_dp are allowed to be NULL if
 // we're not interested in gradients.
 //
-// This function supports CAHVORE distortions if we don't ask for gradients
-//
 // Projecting out-of-bounds points (beyond the field of view) returns undefined
 // values. Generally things remain continuous even as we move off the imager
 // domain. Pinhole-like projections will work normally if projecting a point
@@ -2891,7 +2674,6 @@ bool mrcal_project( // out
     // mrcal_project() and in the python wrapper definition in _project() and
     // _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
 
-    // project() doesn't handle cahvore, so I special-case it here
     if(dq_dintrinsics != NULL || dq_dp != NULL)
     {
         mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
@@ -2938,8 +2720,6 @@ bool mrcal_project( // out
 // mrcal_project. For OpenCV distortions specifically, OpenCV has
 // cvUndistortPoints() (and cv2.undistortPoints()), but these are inaccurate:
 // https://github.com/opencv/opencv/issues/8811
-//
-// This function does NOT support CAHVORE
 bool mrcal_unproject( // out
                      mrcal_point3_t* out,
 
