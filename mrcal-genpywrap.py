@@ -54,10 +54,10 @@ bool validate_lensmodel_un_project(// out; valid if we returned true
     }
 
     mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
-    if( !is_project && !meta.has_gradients_point )
+    if( !is_project && !meta.has_gradients )
     {
         PyErr_Format(PyExc_RuntimeError,
-                     "The internal _unproject() routine requires lens models that have gradients implemented in respect to the projection point. Use the Python mrcal.unproject() as a workaround");
+                     "The internal _unproject() routine requires lens models that have gradients implemented. Use the Python mrcal.unproject() as a workaround");
         return false;
     }
 
@@ -248,10 +248,10 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                   return false;
 
               mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(&cookie->lensmodel);
-              if(!(meta.has_gradients_point && meta.has_gradients_parameters))
+              if(!meta.has_gradients)
               {
                   PyErr_Format(PyExc_RuntimeError,
-                               "_project(get_gradients=True) requires a lens model that has full gradient support");
+                               "_project(get_gradients=True) requires a lens model that has gradient support");
                   return false;
               }
               cookie->Nintrinsics = mrcal_lensmodel_num_params(&cookie->lensmodel);

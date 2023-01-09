@@ -29,8 +29,7 @@ testutils.confirm_equal(uy,
 
 meta = mrcal.lensmodel_metadata_and_config(model_splined.intrinsics()[0])
 meta_ref = {'has_core': 1,
-            'has_gradients_point': 1,
-            'has_gradients_parameters': 1,
+            'has_gradients': 1,
             'can_project_behind_camera': 1,
             'order': 3,
             'Nx': 16,

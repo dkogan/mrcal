@@ -140,13 +140,9 @@ typedef union
     /* can                                                                  */ \
     _(can_project_behind_camera, bool, "i",,, :1, cookie)               \
                                                                         \
-    /* Whether gradients in respect to the projection point are available   */ \
-    /* for this model. Currently all models have these gradients            */ \
-    _(has_gradients_point,       bool, "i",,, :1, cookie)                      \
-                                                                               \
-    /* Whether gradients in respect to the intrinsic parameters are         */ \
-    /* available for this model. Currently only CAHVORE lacks these         */ \
-    _(has_gradients_parameters,  bool, "i",,, :1, cookie)
+    /* Whether gradients are available for this model. Currently only */ \
+    /* CAHVORE does not have gradients                                */ \
+    _(has_gradients,             bool, "i",,, :1, cookie)
 
 typedef struct
 {

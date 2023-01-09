@@ -716,38 +716,25 @@ static PyObject* lensmodel_metadata_and_config(PyObject* NPY_UNUSED(self),
 #define MRCAL_ITEM_BUILDVALUE_DEF(  name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) " s "pybuildvaluecode
 #define MRCAL_ITEM_BUILDVALUE_VALUE(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) , #name, cookie name
 
-    // Add the lensmodel-specific extra configuration parameters (only
-    // MRCAL_LENSMODEL_CAHVORE and MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC have
-    // any of those today).
-    //
-    // And add the "has_gradients" parameter, for backwards compatibility
     if(lensmodel.type == MRCAL_LENSMODEL_CAHVORE )
         result = Py_BuildValue("{"
                                MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_BUILDVALUE_DEF, )
-                               "si"
                                MRCAL_LENSMODEL_CAHVORE_CONFIG_LIST(MRCAL_ITEM_BUILDVALUE_DEF, )
                                "}"
                                MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_BUILDVALUE_VALUE, meta.)
-                               , "has_gradients", meta.has_gradients_point && meta.has_gradients_parameters
                                MRCAL_LENSMODEL_CAHVORE_CONFIG_LIST(MRCAL_ITEM_BUILDVALUE_VALUE, lensmodel.LENSMODEL_CAHVORE__config.));
-
     else if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC )
         result = Py_BuildValue("{"
                                MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_BUILDVALUE_DEF, )
-                               "si"
                                MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(MRCAL_ITEM_BUILDVALUE_DEF, )
                                "}"
                                MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_BUILDVALUE_VALUE, meta.)
-                               , "has_gradients", meta.has_gradients_point && meta.has_gradients_parameters
                                MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC_CONFIG_LIST(MRCAL_ITEM_BUILDVALUE_VALUE, lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.));
-
     else
         result = Py_BuildValue("{"
                                MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_BUILDVALUE_DEF, )
-                               "si"
                                "}"
-                               MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_BUILDVALUE_VALUE, meta.)
-                               , "has_gradients", meta.has_gradients_point && meta.has_gradients_parameters);
+                               MRCAL_LENSMODEL_META_LIST(MRCAL_ITEM_BUILDVALUE_VALUE, meta.));
 
     Py_INCREF(result);
 

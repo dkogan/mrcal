@@ -314,9 +314,9 @@ if get_gradients: we return a tuple:
         meta = mrcal.lensmodel_metadata_and_config(lensmodel)
     except:
         raise Exception(f"Invalid lens model '{lensmodel}': couldn't get the metadata")
-    if meta['has_gradients_point']:
+    if meta['has_gradients']:
 
-        # Main path. We have the necessary gradients.
+        # Main path. We have gradients.
         #
         # Internal function must have a different argument order so
         # that all the broadcasting stuff is in the leading arguments

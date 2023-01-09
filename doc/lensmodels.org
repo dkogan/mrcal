@@ -23,17 +23,14 @@ lens model is fully specified by
 
 Each model family also has some /metadata/ key/value pairs associated with it.
 These are inherent properties of a model family, and are not settable. At the
-time of this writing these metadata keys are defined:
+time of this writing there are 3 metadata keys:
 
 - =has_core=: True if the first 4 optimization values are the "core": $f_x$,
   $f_y$, $c_x$, $c_y$
 - =can_project_behind_camera=: True if this model is able to project vectors
   from behind the camera. If it cannot, then [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] will never
   report =z= < 0
-- =has_gradients_point=: True if this model has gradients implemented in respect
-  to the point being projected
-- =has_gradients_parameters=: True if this model has gradients implemented in
-  respect to the intrinsic parameters
+- =has_gradients=: True if this model has gradients implemented
 
 In Python, the models are identified with a string =LENSMODEL_XXX= where the
 =XXX= selects the specific model family and the configuration, if needed. A

@@ -10,8 +10,7 @@ SYNOPSIS
      'can_project_behind_camera': 1,
      'fov_x_deg': 200,
      'has_core': 1,
-     'has_gradients_point': 1,
-     'has_gradients_parameters': 1,
+     'has_gradients': 1,
      'order': 3}
 
 Each lens model has some metadata (inherent properties of a model family) and
