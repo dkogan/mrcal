@@ -39,6 +39,7 @@ import mrcal
 import testutils
 from test_calibration_helpers import grad
 
+import re
 
 def check(intrinsics, p_ref, q_ref):
     ########## project
@@ -98,6 +99,18 @@ def check(intrinsics, p_ref, q_ref):
                                 msg = f"dq_di in-place",
                                 eps = 1e-2)
 
+
+    if meta['noncentral']:
+        if re.match('LENSMODEL_CAHVORE',intrinsics[0]):
+            # CAHVORE. I set E=0, and the projection becomes central. Then
+            # unproject() is well-defined and I can run the tests
+            intrinsics[1][-3:] = 0
+            q_projected = mrcal.project(p_ref, *intrinsics)
+
+        else:
+            # Some other kind of noncentral model. I don't bother with
+            # unproject()
+            return
 
     ########## unproject
     if 1:
