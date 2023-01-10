@@ -726,7 +726,7 @@ ARGUMENTS
                 return
 
             if type(file_or_model) is str:
-                if re.match(".*\.cahvor$", file_or_model):
+                if re.match(".*\.cahvore?$", file_or_model, re.I):
                     # Read a .cahvor. This is more complicated than it looks. I
                     # want to read the .cahvor file into self, but the current
                     # cahvor interface wants to generate a new model object. So
