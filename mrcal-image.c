@@ -1,6 +1,7 @@
 #include <FreeImage.h>
 #include <malloc.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "mrcal-image.h"
 #include "util.h"
@@ -226,8 +227,7 @@ bool generic_load(// output
     image->stride = (int)FreeImage_GetPitch (fib_converted);
 
     int size = image->stride*image->height;
-    image->data = malloc(size);
-    if(image->data == NULL)
+    if(posix_memalign((void**)&image->data, 16UL, size) != 0)
     {
         MSG("%s('%s') couldn't allocate image: malloc(%d) failed",
             __func__, filename, size);
