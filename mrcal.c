@@ -2799,8 +2799,6 @@ bool _mrcal_unproject_internal( // out
 
     if( lensmodel->type == MRCAL_LENSMODEL_CAHVORE )
     {
-
-
         const int Nintrinsics  = mrcal_lensmodel_num_params(lensmodel);
 
         for(int i = Nintrinsics-3; i<Nintrinsics; i++)
@@ -2809,7 +2807,6 @@ bool _mrcal_unproject_internal( // out
                 MSG("unproject() currently only works with a central projection. So I cannot unproject(CAHVORE,E!=0). Please set E=0 to centralize this model");
                 return false;
             }
-
     }
 
     // I optimize in the space of the stereographic projection. This is a 2D
