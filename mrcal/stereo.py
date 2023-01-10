@@ -10,7 +10,7 @@ import sys
 import numpy as np
 import numpysane as nps
 import mrcal
-
+import re
 
 def rectified_resolution(model,
                          *,
