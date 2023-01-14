@@ -177,7 +177,7 @@ Once mrgingham is [[file:install.org][installed]] or built from [[https://github
 to produce [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/corners.vnl][these chessboard corners]] like this:
 
 #+begin_src sh
-mrgingham  --jobs 4 --gridn 14 '*.JPG' > corners.vnl 
+mrgingham --jobs 4 --gridn 14 '*.JPG' > corners.vnl 
 #+end_src
 
 mrgingham tries to handle a variety of lighting conditions, including varying
@@ -205,23 +205,102 @@ shows the coverage (and more!), but it's good to be able to do this in case of
 trouble. A sample sequence of corner gathering and visualization appears in the
 [[file:tour-initial-calibration.org::#gathering-corners][tour of mrcal]].
 
-* Computing a calibration
+* Processing the data
 :PROPERTIES:
 :CUSTOM_ID: interpreting-results
 :END:
 
-Here I follow the same calibration sequence as in the [[file:tour-initial-calibration.org][tour of mrcal]], but with a
-bit more detail.
+The tour of mrcal shows a very detailed calibration process: [[file:tour-initial-calibration.org::#opencv8-model-solving][a real-world fit
+using =LENSMODEL_OPENCV8=]] and [[file:tour-initial-calibration.org::#splined-model-solving][a real-world fit using
+=LENSMODEL_SPLINED_STEREOGRAPHIC_...=]]. The sequence outlined there is too
+thorough for general everyday use, but it's good to look through those pages to
+get an overall sense of how this should be done. A high-level process is
 
-Let's compute the calibration using the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool:
+- [[#model-choice][Choose a model]]
+- [[calibration][Compute the calibration]]
+- [[residuals][Examine the residuals to make sure the data is good and that we fit the model
+  well-enough]]
+- [[uncertainty][Examine the projection uncertainty to make sure we have enough good data in
+  the right places]]
+- [[cross-validation][Examine the cross-validation diffs to confirm that the model fits and that the
+  reported uncertainty is trustworthy]]
+
+Each of these steps is described here.
+
+** Model choice
+:PROPERTIES:
+:CUSTOM_ID: model-choice
+:END:
+
+Use [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]. These work very well, and are able to
+represent real-world lenses better than the parametric models (all the other
+ones). This is true even for long, near-pinhole lenses. Depending on the
+specific lens and the camera resolution this accuracy improvement may not be
+noteworthy. But even in those cases, the splined model is flexible enough to get
+truthful [[file:uncertainty.org][projection uncertainty estimates]], so it's /still/ worth using. Today I
+use other models only if I'm running quick experiments: splined models have many
+more parameters, so things are slower.
+
+[[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] has several [[file:splined-models.org::#splined-models-configuration-selection][configuration variables]] that need
+to be set. The full implications of these choices still need to be studied, but
+the results appear fairly insensitive to these. I generally choose =order=3= to
+select cubic splines. I generally choose a rich model with fairly dense spline
+spacing. For instance the splined model used in the [[file:tour-initial-calibration.org][tour of mrcal]] has
+=Nx=30_Ny=18=. This has 30 spline knots horizontally and 18 vertically. You
+generally want =Ny=/=Nx= to roughly match the aspect ratio of the imager. The
+=Nx=30_Ny=18= arrangement is probably far denser than it needs to be, but it
+works OK. The cost of such a dense spline is a bit of extra computation time and
+more stringent requirements on calibration data fully covering the imager.
+
+The last configuration parameter is =fov_x_deg=: the horizontal field-of-view of
+the lens. The splined model is defined by /knots/ spread out across space, the
+arrangement of these knots defined by the =fov_x_deg= parameter. We want the
+region in space defined by the knots to roughly match the region visible to the
+lens. A too-large =fov_x_deg= would waste some knots by placing them beyond
+where the lens can see. And a too-small =fov_x_deg= would restrict the
+projection representation on the edge of the image.
+
+An initial estimate of =fov_x_deg= can be computed from the datasheet of the lens.
+Then a test calibration should be computed using that value, and the
+[[file:mrcal-show-splined-model-correction.html][=mrcal-show-splined-model-correction=]] tool can then be used to validate that
+=fov_x_deg= parameter. In the [[file:tour-initial-calibration.org][tour of mrcal]] we get something like this:
 
 #+begin_src sh
-mrcal-calibrate-cameras         \
-  --corners-cache corners.vnl   \
-  --lensmodel LENSMODEL_OPENCV8 \
-  --focal 1900                  \
-  --object-spacing 0.0588       \
-  --object-width-n 14           \
+mrcal-show-splined-model-correction   \
+  --set 'cbrange [0:0.1]'             \
+  --unset grid                        \
+  --set 'xrange [:] noextend'         \
+  --set 'yrange [:] noextend reverse' \
+  --set 'key opaque box'              \
+  splined.cameramodel
+#+end_src
+
+[[file:external/figures/splined-models/splined-magnitude.png]]
+
+This is about what we want. The valid-intrinsics region covers most of the
+spline-in-bounds region without going out-of-bounds anywhere. In the [[file:tour-initial-calibration.org][tour of
+mrcal]] we followed this procedure to end up with
+
+- =LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=18_fov_x_deg=150=
+
+Getting this perfect isn't important, so don't spent a ton of time working on
+it. See [[file:splined-models.org::#splined models field of view selection][the lensmodel documentation]] for more detail.
+
+** Computing the calibration
+:PROPERTIES:
+:CUSTOM_ID: calibration
+:END:
+
+We're ready. Let's compute the calibration using the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]]
+tool. The invocation should look something like this:
+
+#+begin_src sh
+mrcal-calibrate-cameras                                                         \
+  --corners-cache corners.vnl                                                   \
+  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=18_fov_x_deg=150 \
+  --focal 1900                                                                  \
+  --object-spacing 0.0588                                                       \
+  --object-width-n 14                                                           \
   '*.JPG'
 #+end_src
 
@@ -236,36 +315,36 @@ mrcal-calibrate-cameras         \
   detector. If it's a detector that produces a 4th column of /weights/ instead
   of a decimation level, pass in =--corners-cache-has-weights=
 
-- =--lensmodel= specifies which lens model we're using for /all/ the cameras. In
-  this example we're using the =LENSMODEL_OPENCV8= model. This works reasonably
-  well for wide lenses. See the [[file:lensmodels.org][lens-model page]] for a description of the
-  available models. The current recommendation is to use an [[file:lensmodels.org::#lensmodel-opencv][opencv model]]
-  (=LENSMODEL_OPENCV5= for long lenses, =LENSMODEL_OPENCV8= for wide lenses)
-  initially, as a sanity check. And once that looks OK, to move to
-  [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get better accuracy and reliable
-  [[file:uncertainty.org][uncertainty reporting]]. For /very/ wide fisheye lenses,
-  [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] is the only model that will work at all.
+- =--lensmodel= specifies which lens model we're using for /all/ the cameras.
+  See [[#model-choice][the "Model choice" section above]]. Not being able to select different
+  models for different cameras is a current limitation of mrcal. If some very
+  different lenses are present in the same calibration, I use a densely-spaced
+  (high =Nx=, =Ny=) splined model with the =fov_x_deg= of the widest lens in the
+  set. This wastes knots in the too-wide areas of the narrow lenses, but if the
+  spline was dense-enough, there're enough knots remaining to fit the narrower
+  lenses.
 
-- =--focal 1700= provides the initial estimate for the camera focal lengths, in
-  pixels. This doesn't need to be precise, but do try to get this roughly
-  correct if possible. The focal length value to pass to =--focal= ($f_\mathrm{pixels}$) can be derived using the
-  [[file:lensmodels.org::#lensmodel-stereographic][stereographic model]] definition:
+- =--focal 1900= provides the initial estimate for the camera focal lengths, in
+  pixels. This doesn't need to be extremely precise, but do try to get this
+  close if possible. The focal length value to pass to =--focal=
+  ($f_\mathrm{pixels}$) can be derived using the [[file:lensmodels.org::#lensmodel-stereographic][stereographic model]] definition:
 
-\[ f_\mathrm{pixels} = \frac{\mathrm{imager\_width\_pixels}}{4 \tan \frac{\mathrm{field\_of\_view\_horizontal}}{4}} \]
+\[ f_\mathrm{pixels} \approx \frac{\mathrm{imager\_width\_pixels}}{4 \tan \frac{\mathrm{field\_of\_view\_horizontal}}{4}} \]
 
-  With longer lenses, the stereographic model is identical to the [[file:lensmodels.org::#lens-model-pinhole][pinhole model]].
-  With very wide lenses, the stereographic model is the basis for the
-  [[file:lensmodels.org::#splined-stereographic-lens-model][splined-stereographic model]], so this expression should be a good initial
-  estimate in all cases. Note that the manufacturer-specified "field of view" is
-  usually poorly-defined: it's different in all directions, so use your best
-  judgement. If only the focal length is available, keep in mind that the "focal
-  length" of a wide lens is somewhat poorly-defined also. With a longer lens, we
-  can assume pinhole behavior to get
+  This expression is a good initial estimate for both long and wide lenses. Note
+  that the manufacturer-specified "field of view" and "focal length" values are
+  usually poorly-defined: the former is different in all directions, and the
+  latter is meaningless in wide lenses that are nowhere near the pinhole model.
+  With a longer lens, we can assume pinhole behavior to get
 
 \[ f_\mathrm{pixels} = f_\mathrm{mm} \frac{\mathrm{imager\_width\_pixels}}{\mathrm{imager\_width\_mm}} \]
 
-  Again, use your best judgement. This doesn't need to be exact, but getting a
-  value in the ballpark makes life easier for the solver
+  As with the =fov_x_deg= parameter described in [[#model-choice][the "Model
+  choice" section above]], running a test calibration with a rough estimate, and
+  then passing in the much-closer optimized value is a good strategy. The
+  optimized focal length is the first two values of the =intrinsics= vector in
+  the result. Those two values should be similar, and anything around there
+  should work well for =--focal=.
 
 - =--object-spacing= is the distance between neighboring corners in the
   chessboard. Even spacing, identical in both directions is assumed
@@ -287,46 +366,87 @@ Note that these are /globs/, not /filenames/. So they need to be quoted or
 escaped to prevent the shell from expanding them: hence ='*.JPG'= and not
 =*.JPG=.
 
-We could pass =--explore= to drop into a REPL after the computation is done, so
-that we can look around. The most common diagnostic images can be made by
-running the [[file:commandline-tools.org::#commandline-tools-visualization][=mrcal-show-...= commandline tools]] on the generated
-=xxx.cameramodel= files, but =--explore= can be useful to get more sophisticated
-feedback.
+Finally, to compute [[#cross-validation][cross-validation diffs (see below)]] it's necessary to run
+several independent calibrations. I generally split the dataset into even/odd
+chunks, and calibrate them independently. With this =zsh= snippet, for instance:
 
-The [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool reports some high-level diagnostics, writes
-the output model(s) to disk, and exits:
+#+begin_src sh
+for oddeven (odd even) {
 
-#+begin_example
-## initial solve: geometry only
-## RMS error: 31.606057232034026
+    cmd=(mrcal-calibrate-cameras                                                       \
+         --corners-cache corners.vnl                                                   \
+         --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=18_fov_x_deg=150 \
+         --focal 1900                                                                  \
+         --object-spacing 0.0588                                                       \
+         --object-width-n 14)
 
-## initial solve: geometry and LENSMODEL_STEREOGRAPHIC core only
-=================== optimizing everything except board warp from seeded intrinsics
-mrcal.c(5355): Threw out some outliers (have a total of 53 now); going again
-mrcal.c(5355): Threw out some outliers (have a total of 78 now); going again
-## final, full optimization
-mrcal.c(5355): Threw out some outliers (have a total of 155 now); going again
-## RMS error: 0.7086476918204073
-RMS reprojection error: 0.7 pixels
-Worst residual (by measurement): 6.0 pixels
-Noutliers: 155 out of 16100 total points: 1.0% of the data
-calobject_warp = [-0.00104306  0.00051718]
+    if [[ $oddeven = "even" ]] {
+        globs=('frame*[02468]-camera'{0,1}'.png')
+    } else {
+        globs=('frame*[13579]-camera'{0,1}'.png')
+    }
 
-Wrote ./camera-0.cameramodel
-#+end_example
+    cmd=($cmd $globs)
 
-The resulting model is available
-[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/opencv8.cameramodel][here]].
-This is a [[file:cameramodels.org][mrcal-native =.cameramodel= file]] containing
-at least the lens parameters and the geometry.
+    $cmd
 
-Let's sanity-check the results. We want to flag down any issues with the data
-that would violate the [[file:formulation.org::#noise-model][assumptions made by the solver]].
+    for i (0 1) {
+        mv camera-$i.cameramodel camera-$i-$oddeven.cameramodel
+    }
+}
+#+end_src
 
-The tool reports some diagnostics. As we can see, the final RMS reprojection
-error was 0.7 pixels. Of the 16100 corner observations (161 observations of the
-board with 10*10 = 100 points each), 155 didn't fit the model well-enough, and
-were thrown out as [[file:formulation.org::#outlier-rejection][outliers]].
+** Residuals
+:PROPERTIES:
+:CUSTOM_ID: residuals
+:END:
+
+Once we have a calibration, we should evaluate how well it represents reality.
+
+*** Chessboard detector errors
+*** Motion blur
+*** Rolling shutter
+*** Synchronization
+*** Lenses not fitting
+*** Chessboard shape
+
+
+--------------
+
+The few worst-fitting images are great at identifying common data-gathering
+issues. Zooming in at the worst point (easily identifiable by the color) will
+clearly show any motion blur or focus issues. Incorrectly-detected corners will
+be visible: they will be outliers or they will have a high error. Especially
+with lean models, the errors will be higher towards the edge of the imager: the
+lens models fit the worst there.
+
+There should be no discernible pattern to the errors. In a perfect world, the
+model fits the observations, and the residuals display purely random noise. Any
+patterns in the errors indicate that the noise isn't random, and thus the model
+does /not/ fit. This would violate the [[file:formulation.org::#noise-model][noise model]], and would result in a bias
+when we ultimately use this calibration for projection. This bias is an
+unmodeled source of error, so we /really/ want to push this down as far as we
+can. Getting rid of all such errors completely is impossible, but we should do
+our best. Out-of-sync camera observations show up as a systematic error vectors
+pointing in one direction; and the corresponding out-of-sync image would display
+equal and opposite errors. Rolling shutter effects would show a more complex,
+but clearly non-random pattern. An insufficiently-rich model of the world (lens
+behavior, chessboard shape, etc) results in clear patterns too.
+
+
+
+This all might be mentioned directly below
+--------------
+
+
+
+
+
+
+
+
+
+
 
 High outlier counts or high reprojection errors would indicate high model
 errors: the model mrcal is using does not fit the data well. That would suggest
@@ -353,234 +473,30 @@ chessboard images, to rerun the solve, and compare the new flex values to the
 old ones. From experience, if things are working properly, these results are
 usually consistent.
 
-What does the solve think about our geometry? Does it match reality?
 
-#+begin_src sh
-mrcal-show-geometry      \
-  opencv8.cameramodel    \
-  --show-calobjects      \
-  --unset key            \
-  --set 'xyplane 0'      \
-  --set 'view 80,30,1.5'
-#+end_src
-#+begin_src sh :exports none :eval no-export
-# GENERATED in tour-initial-calibration.org
-#+end_src
 
-[[file:external/figures/calibration/calibration-chessboards-geometry.svg]]
+** Projection uncertainty
+:PROPERTIES:
+:CUSTOM_ID: uncertainty
+:END:
 
-Here we see the [[file:formulation.org::#world-geometry][axes of our camera]] (purple) situated at the [[file:formulation.org::#world-geometry][reference coordinate
-system]]. In this solve, the camera coordinate system /is/ the reference
-coordinate system; this would look more interesting with more cameras. In front
-of the camera (along the $z$ axis) we can see the solved chessboard poses. There
-are a whole lot of them, and they're all sitting right in front of the camera
-with some heavy tilt. This matches with how this chessboard dance was performed
-(by following the guidelines set by the [[file:tour-choreography.org][dance study]]).
 
-Next, let's examine the residuals more closely. We have an overall RMS
-reprojection error value from above, but let's look at the full distribution of
-errors for /all/ the cameras:
 
-#+begin_src sh
-mrcal-show-residuals    \
-  --histogram           \
-  --set 'xrange [-2:2]' \
-  --unset key           \
-  --binwidth 0.1        \
-  opencv8.cameramodel
-#+end_src
-#+begin_src sh :exports none :eval no-export
-# GENERATED in tour-initial-calibration.org
-#+end_src
 
-[[file:external/figures/calibration/residuals-histogram-opencv8.svg]]
 
-We would like to see a normal distribution since that's what the [[file:formulation.org::#noise-model][noise model]]
-assumes. We do see this somewhat, but the central cluster is a bit
-over-populated. This is a violation of the noise model, but at this time I don't
-have a good sense of what this means. It's normal-ish, and there isn't a lot to
-do about this, so I will claim this is close-enough.
+file:recipes.org::#non-mrgingham-detector
 
-Let's look deeper. If there's anything really wrong with our data, then we
-should see it in the worst-fitting images. Let's ask the tool to see the worst
-one:
 
-#+begin_src sh
-mrcal-show-residuals-board-observation \
-  --from-worst                         \
-  --vectorscale 200                    \
-  --circlescale 0.5                    \
-  --set 'cbrange [0:2]'                \
-  opencv8.cameramodel                  \
-  0
-#+end_src
-#+begin_src sh :exports none :eval no-export
-# GENERATED in tour-initial-calibration.org
-#+end_src
 
-[[file:external/figures/calibration/worst-opencv8.png]]
 
-The residual vector for each chessboard corner in this observation is shown,
-scaled by a factor of 100 for legibility (the actual errors are tiny!) The
-circle color also indicates the magnitude of the errors. The size of each circle
-represents the weight given to that point. The weight is reduced for points that
-were detected at a lower resolution by the chessboard detector. Points thrown
-out as outliers are not shown at all. Note that we're showing the /measurements/
-which are a weighted pixel error: high pixels errors may be reported as a small
-residual if they had a low weight.
 
-The few worst-fitting images are great at identifying common data-gathering
-issues. Zooming in at the worst point (easily identifiable by the color) will
-clearly show any motion blur or focus issues. Incorrectly-detected corners will
-be visible: they will be outliers or they will have a high error. Especially
-with lean models, the errors will be higher towards the edge of the imager: the
-lens models fit the worst there.
 
-There should be no discernible pattern to the errors. In a perfect world, the
-model fits the observations, and the residuals display purely random noise. Any
-patterns in the errors indicate that the noise isn't random, and thus the model
-does /not/ fit. This would violate the [[file:formulation.org::#noise-model][noise model]], and would result in a bias
-when we ultimately use this calibration for projection. This bias is an
-unmodeled source of error, so we /really/ want to push this down as far as we
-can. Getting rid of all such errors completely is impossible, but we should do
-our best. Out-of-sync camera observations show up as a systematic error vectors
-pointing in one direction; and the corresponding out-of-sync image would display
-equal and opposite errors. Rolling shutter effects would show a more complex,
-but clearly non-random pattern. An insufficiently-rich model of the world (lens
-behavior, chessboard shape, etc) results in clear patterns too.
 
-Back to /this/ image. In absolute terms, even this worst-fitting image fits
-/really/ well. The RMS error of the errors in this image is 1.20 pixels. The
-residuals in this image look mostly reasonable. There is a pattern, however: the
-errors are mostly radial (point to/from the center).
 
-As noted in the [[file:tour-initial-calibration.org][tour of mrcal]], this particular issue is caused by an assumption
-of a central projection (assuming that all rays intersect at a single point). An
-experimental and not-entirely-complete [[https://github.com/dkogan/mrcal/tree/noncentral][support for noncentral projection in
-mrcal exists]], and works /much/ better. The same frame, fitted with a noncentral
-projection:
 
-#+begin_src sh :exports none :eval no-export
-# GENERATED in tour-initial-calibration.org
-#+end_src
 
-[[file:external/figures/calibration/worst-splined-noncentral.png]]
 
-This will be included in a future release of mrcal.
-
-One issue with lean models such as =LENSMODEL_OPENCV8=, which is used here, is
-that the radial distortion is never quite right, especially as we move further
-and further away form the optical axis. We can clearly see this here in the
-3rd-worst image:
-
-#+begin_src sh
-mrcal-show-residuals-board-observation \
-  --from-worst                         \
-  --vectorscale 100                    \
-  --circlescale 0.5                    \
-  --set 'cbrange [0:3]'                \
-  opencv8.cameramodel                  \
-  2
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals-board-observation \
-  --from-worst \
-  --vectorscale 100 \
-  --circlescale 0.5 \
-  --set 'cbrange [0:3]' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/worst-incorner-opencv8.png' \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  $D/data/board/opencv8.cameramodel \
-  2
-#+end_src
-
-[[file:external/figures/calibration/worst-incorner-opencv8.png]]
-
-/This/ is clearly a problem that should be addressed. Using a [[file:splined-models.org][splined lens model]]
-instead of =LENSMODEL_OPENCV8= makes this work, as seen in the [[file:tour-initial-calibration.org::#splined-stereographic-fit][tour of mrcal]]:
-
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals-board-observation \
-  --vectorscale 100 \
-  --circlescale 0.5 \
-  --set 'cbrange [0:3]' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/worst-incorner-splined.png' \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  $D/data/board/splined.cameramodel \
-  79
-#+end_src
-
-[[file:external/figures/calibration/worst-incorner-splined.png]]
-
-Let's look at the systematic errors in another way: let's look at all the
-residuals over all the observations, color-coded by their direction, ignoring
-the magnitudes:
-
-#+begin_src sh
-mrcal-show-residuals    \
-  --directions          \
-  --unset key           \
-  opencv8.cameramodel
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals \
-  --directions \
-  --unset key           \
-  --set 'pointsize 0.5' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/directions-opencv8.svg' \
-  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D/data/board/opencv8.cameramodel
-
-D=~/projects/mrcal-doc-external
-export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals \
-  --directions \
-  --unset key           \
-  --set 'pointsize 0.25' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/directions-opencv8.pdf' \
-  --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
-  $D/data/board/opencv8.cameramodel
-#+end_src
-
-[[file:external/figures/calibration/directions-opencv8.png]]
-
-As before, if the model fit the observations, the errors would represent random
-noise, and no color pattern would be discernible in these dots. Here we can
-clearly see lots of green in the top-right and top and left, lots of blue and
-magenta in the center, yellow at the bottom, and so on. This is not random
-noise, and is a /very/ clear indication that this lens model is not able to fit
-this data.
-
-Once again, a [[file:splined-models.org][splined lens model]] resolves these biases, as seen in the [[file:tour-initial-calibration.org::#splined-stereographic-fit][tour of
-mrcal]]:
-
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals \
-  --directions \
-  --unset key           \
-  --set 'pointsize 0.5' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/directions-splined.svg' \
-  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D/data/board/splined.cameramodel
-
-D=~/projects/mrcal-doc-external
-export PYTHONPATH=(..(:A)); $PYTHONPATH/mrcal-show-residuals \
-  --directions \
-  --unset key           \
-  --set 'pointsize 0.25' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/directions-splined.pdf' \
-  --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
-  $D/data/board/splined.cameramodel
-#+end_src
-
-[[file:external/figures/calibration/directions-splined.png]]
-
-It would be good to have a quantitative measure of these systematic patterns. At
-this time mrcal doesn't provide an automated way to do that. This will be added
-in the future.
+HAVE DATA/BOARD HERE. NEED TO GET RID
 
 Finally it's useful to look at the projection uncertainty of the model. As noted
 in the [[file:uncertainty.org][documentation]], a rich model is necessary to get realistic uncertainty
@@ -646,3 +562,19 @@ low uncertainties.
 In the end, if the residuals look reasonable, and the uncertainties look
 reasonable then we can use the resulting models, and expect to see the accuracy
 predicted by the reported projection uncertainty.
+
+** Cross-validation diffs
+:PROPERTIES:
+:CUSTOM_ID: cross-validation
+:END:
+
+
+
+* todo
+LOOK UP REFERENCES TO interpreting-results. Should I keep them? Should they
+point to anything else?
+
+- hitting the corners
+
+- links to file:lensmodels.org::#splined-stereographic-lens-model should maybe
+  point to [[file:splined-models.org]]
