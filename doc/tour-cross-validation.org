@@ -116,8 +116,8 @@ Prior experience from this particular lens tells me that this is caused by mrcal
 assuming a central projection in its models (assuming that all rays intersect at
 a single point). This is an assumption made by more or less every calibration
 tool, and most of the time it's reasonable. However, this assumption breaks down
-when you have a physically large, wide-angle lens looking at stuff nearby:
-exactly the case we have here.
+when you have a physically large, wide-angle lens looking at objects /very/
+close to the lens: exactly the case we have here.
 
 An experimental and not-entirely-complete [[https://github.com/dkogan/mrcal/tree/noncentral][support for noncentral projections in
 mrcal]] exists, and fits our data /much/ better. The cross-validation diff using
@@ -144,12 +144,23 @@ mrcal-show-projection-diff                                                      
 
 [[file:external/figures/cross-validation/diff-cross-validation-splined-noncentral.png]]
 
-Maybe this still isn't perfect, but it's close.
+This still isn't perfect, but it's close. The noncentral projection support is
+not yet done. Talk to me if you need it.
 
-The noncentral projection support is not yet done. Talk to me if you need it.
+This diff tells us how much we can trust the projections: being conservative,
+I'd say these are good to within 1-1.5 pixels at the edges.
 
-Also, a more rigorous interpretation of these cross-validation results would be
-good, but it's low-priority for me at the moment.
+We gathered close-up calibration images. But if the intended working range of
+the camera system is further out (almost always the case), then we can get a
+better calibration of this lens even without noncentral support in mrcal: we can
+gather calibration data from further out. As we will see [[file:tour-choreography.org][later in the dance
+study]], this would produce results with a much higher [[file:tour-uncertainty.org][projection uncertainty]],
+but we could compensate by gathering many more chessboard images. Doing this
+would dramatically reduce the noncentral lens effects.
+
+A more rigorous interpretation of these cross-validation results would be good,
+but a human interpretation is working well for now, so it's low-priority for me
+at the moment.
 
 * Next
 Now [[file:tour-effect-of-range.org][we discuss the effect of range in differencing and uncertainty computations]].
