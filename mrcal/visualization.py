@@ -2774,7 +2774,8 @@ plot
             i_observations_sorted_from_worst = \
                 list(reversed(np.argsort(err_per_observation)))
 
-        i_observation = i_observations_sorted_from_worst[i_observation]
+        i_observation_from_worst = i_observation
+        i_observation = i_observations_sorted_from_worst[i_observation_from_worst]
 
     # shape (Nh*Nw,2)
     residuals = nps.clump(residuals   [i_observation         ], n=2)
@@ -2793,9 +2794,10 @@ plot
 
     if 'title' not in plot_options:
         title = \
-            '{}: i_observation={}, iframe={}, icam={}, {}RMS_error={:.2f}'. \
+            '{}: i_observation={}{}, iframe={}, icam={}, {}RMS_error={:.2f}'. \
             format( optimization_inputs['lensmodel'],
                     i_observation,
+                    f'({i_observation_from_worst} from worst)' if from_worst else '',
                     *optimization_inputs['indices_frame_camintrinsics_camextrinsics'][i_observation, :2],
                     "" if paths is None else f"path={paths[i_observation]}, ",
                     np.sqrt(np.mean(nps.norm2(residuals))))

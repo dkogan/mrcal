@@ -46,6 +46,10 @@ This requires a more recent libfreeimage than is available on some OSs
 mrcal-stereo respects --axis-scale
 Not doing this was an oversight
 
-full CAHVORE gradient support
+full CAHVORE support
+
+show_residuals_board_observation() reports iobservation_from_worst in its title
+Applies to the mrcal-show-residuals-board-observation tool as well. Makes it
+simple to regenerate specific plots, even if they were displayed out of order
 
 * Migration notes 2.2 -> 2.3
