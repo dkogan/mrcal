@@ -51,7 +51,8 @@ import mrcal
 import numpy as np
 import numpysane as nps
 
-def set_perfect_observations(optimization_inputs):
+
+def set_perfect_observations_and_noise(optimization_inputs, observed_pixel_uncertainty):
 
     # shape (Nobservations, Nheight, Nwidth, 3)
     pcam = mrcal.hypothesis_board_corner_positions(**optimization_inputs)[0]
@@ -69,8 +70,6 @@ def set_perfect_observations(optimization_inputs):
         print("Perfect observations produced nonzero error. This is a bug")
         sys.exit(1)
 
-
-def add_perfect_noise(optimization_inputs, observed_pixel_uncertainty):
     noise_nominal = \
         observed_pixel_uncertainty * \
         np.random.randn(*optimization_inputs['observations_board'][...,:2].shape)
@@ -102,10 +101,7 @@ if args.model_intrinsics is not None:
     optimization_inputs['intrinsics'][model.icam_intrinsics()] = \
         model_intrinsics.intrinsics()[1]
 
-set_perfect_observations(optimization_inputs)
-add_perfect_noise(       optimization_inputs, observed_pixel_uncertainty)
-
-optimization_inputs['observations_board'][0,7,7,0] += 2.0
+set_perfect_observations_and_noise(optimization_inputs, observed_pixel_uncertainty)
 
 ######### Reoptimize
 mrcal.optimize(**optimization_inputs)
