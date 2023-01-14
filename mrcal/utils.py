@@ -1216,7 +1216,8 @@ SYNOPSIS
 
 Given a calibration solve, returns the residuals of chessboard observations,
 throwing out outliers and, optionally, selecting the residuals from a specific
-camera.
+camera. These are the weighted reprojection errors present in the measurement
+vector.
 
 ARGUMENTS
 
@@ -1323,6 +1324,7 @@ SYNOPSIS
 
 Given a calibration solve, returns the residuals of point observations, throwing
 out outliers and, optionally, selecting the residuals from a specific camera.
+These are the weighted reprojection errors present in the measurement vector.
 
 ARGUMENTS
 
