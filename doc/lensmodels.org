@@ -284,13 +284,37 @@ Cameras in Computer Vision, A. Gruen and T.S. Huang (Eds.), Springer-Verlag, pp.
 :END:
 This is an extended flavor of =LENSMODEL_CAHVOR= to support wider lenses. The
 =LENSMODEL_CAHVORE= model has 8 "distortion" parameters in addition to the 4
-core parameters. CAHVORE is only partially supported:
+core parameters. As with =LENSMODEL_CAHVOR= this support exists only for
+compatibility, and there's no reason to use it otherwise.
 
-- the parameter gradients aren't implemented, so it isn't currently possible to
-  solve for a CAHVORE model
-- this is a noncentral projection, so more infrastructure is required to make
-  =unproject()= do something reasonable. Today, a CAHVORE =unproject()= will
-  report a point at an arbitrary range. This model is described in:
+CAHVORE is a noncentral projection, so more infrastructure is required to make
+=unproject()= do something reasonable in all cases. Thus projection uncertainty
+and differencing don't work for this model, and throw an error.
+
+=LENSMODEL_CAHVORE= models have a single configuration parameter: =linearity=.
+
+- =linearity= = 0 is a "fisheye" CAHVORE model. This is referred to as
+  =CAHVORE2= in JPL tools
+- =linearity= = 1 is a "perspective" CAHVORE model. This is referred to as
+  =CAHVORE1= in JPL tools
+- Any other =linearity= is a "general" CAHVORE model. This is referred to as
+  =CAHVORE3= in JPL tools
+
+Some notes:
+
+- The last 3 intrinsic parameters of =LENSMODEL_CAHVORE= are the $\vec E$
+  vector. If these are 0, this becomes a central projection, and
+  [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] is able to work normally. If you want to compute
+  differences you need [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]], so you must "centralize" the model
+  by setting =intrinsics[-3:] = 0=. This ignores any noncentral effects, which
+  could be significant close to the lens. Doing this also invalidates the
+  uncertainty logic. More general noncentral projection logic will be added in a
+  future release of mrcal, and this situation may improve then
+
+- A =LENSMODEL_CAHVORE= projection with $\vec E = 0$ and =linearity= = 1 is
+  equivalent to a =LENSMODEL_CAHVOR= projection
+
+This model is described in:
 
 [[https://link.springer.com/article/10.1007/s11263-006-5168-1][Gennery, D.B. Generalized Camera Calibration Including Fish-Eye Lenses. Int J
 Comput Vision 68, 239–266 (2006)]]

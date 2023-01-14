@@ -111,10 +111,9 @@ nonlinear optimization, it has no gradient reporting. The Python
 [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] routine is higher-level, and it /does/ report gradients.
 
 The gradients of the forward =mrcal_project()= operation are used in this
-nonlinear optimization, so models that have no projection gradients defined
-(CAHVORE only, as of this writing) do not support =mrcal_unproject()=. The
-Python [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] routine still makes this work, using numerical
-differences for the projection gradients.
+nonlinear optimization, so models that have no projection gradients defined do
+not support =mrcal_unproject()=. The Python [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] routine still
+makes this work, using numerical differences for the projection gradients.
 
 Simple, special-case lens models have their own projection and unprojection
 functions defined:
