@@ -52,4 +52,6 @@ show_residuals_board_observation() reports iobservation_from_worst in its title
 Applies to the mrcal-show-residuals-board-observation tool as well. Makes it
 simple to regenerate specific plots, even if they were displayed out of order
 
+mrcal-show-residuals-board-observation has --from-glob
+
 * Migration notes 2.2 -> 2.3

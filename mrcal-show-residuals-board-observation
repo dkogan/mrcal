@@ -57,10 +57,17 @@ def parse_args():
 
     parser.add_argument('--from-worst',
                         action = 'store_true',
-                        help='''If given, the requested observations index from the worst-fitting
-                        observations to the best-fitting (observation 0 is the
-                        worst-fitting observation). By default we index the
+                        help='''If given, the requested observations index from
+                        the worst-fitting observations to the best-fitting
+                        (observation 0 is the worst-fitting observation).
+                        Exclusive with --from-glob. By default we index the
                         observations in the order they appear in the solve''')
+
+    parser.add_argument('--from-glob',
+                        action = 'store_true',
+                        help='''If given, the requested observations are
+                        specified as glob(s) matching the image filenames.
+                        Exclusive with --from-worst''')
 
     parser.add_argument('--image-path-prefix',
                         help='''If given, we prepend the given prefix to the image paths. Exclusive with
@@ -103,17 +110,24 @@ def parse_args():
     parser.add_argument('observations',
                         type=str,
                         nargs='+',
-                        help=r'''The observation indices we're looking at. A
-                        list of integers and/or A-B ranges. By default these
-                        index the board observations in the order they appear in
-                        the solve. If --from-worst, then we index them from the
-                        worst-fitting to the best-fitting instead''')
+                        help=r'''The observations we're looking at. Unless
+                        --from-glob, these are a list of integers A and/or A-B
+                        ranges. By default these index the board observations in
+                        the order they appear in the solve. If --from-worst,
+                        then we index them from the worst-fitting to the
+                        best-fitting instead. If --from-glob then we treat the
+                        strings as globs to match against the image paths''')
 
     args = parser.parse_args()
 
     if args.image_path_prefix is not None and \
        args.image_directory is not None:
         print("--image-path-prefix and --image-directory are mutually exclusive",
+              file=sys.stderr)
+        sys.exit(1)
+
+    if args.from_worst and args.from_glob:
+        print("--from-worst and --from-glob are mutually exclusive",
               file=sys.stderr)
         sys.exit(1)
 
@@ -142,7 +156,8 @@ def parse_args():
             sys.exit(1)
         return list(range(i0,i1+1))
 
-    args.observations = [o for obs in args.observations for o in list_ints_from_range_string(obs)]
+    if not args.from_glob:
+        args.observations = [o for obs in args.observations for o in list_ints_from_range_string(obs)]
 
     if args.hardcopy is not None:
         if len(args.observations) != 1:
@@ -191,13 +206,41 @@ if optimization_inputs is None:
     print(f"Camera model '{args.model}' does not contain optimization inputs. Residuals aren't available", file=sys.stderr)
     sys.exit(1)
 
-residuals = mrcal.optimizer_callback(**optimization_inputs)[1]
-
 try:
     paths = optimization_inputs['imagepaths']
 except:
     # older models don't have this data
     paths = None
+
+
+if args.from_glob:
+    if paths is None:
+        print("--from-glob requires image paths, but the given model doesn't have them",
+              file=sys.stderr)
+        sys.exit(1)
+
+    import fnmatch
+
+    def matching_path_indices(obs):
+        try:
+            r = re.compile( fnmatch.translate(obs) )
+        except:
+            print(f"Error translating, compiling glob '{obs}'",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        m = [i for i in range(len(paths)) if r.match(paths[i])]
+        if not m:
+            print(f"Glob '{obs}' did not match any images",
+                  file=sys.stderr)
+            sys.exit(1)
+        return m
+
+    args.observations = [i for obs in args.observations for i in matching_path_indices(obs)]
+
+
+
+residuals = mrcal.optimizer_callback(**optimization_inputs)[1]
 
 # for --explore
 indices_frame_camintrinsics_camextrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
