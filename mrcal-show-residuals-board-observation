@@ -264,19 +264,24 @@ i_observations_sorted_from_worst = \
 
 
 def show(i_observation):
-    mrcal.show_residuals_board_observation(optimization_inputs,
-                                           i_observation,
-                                           from_worst                       = args.from_worst,
-                                           i_observations_sorted_from_worst = i_observations_sorted_from_worst,
-                                           residuals                        = residuals,
-                                           paths                            = paths,
-                                           image_path_prefix                = args.image_path_prefix,
-                                           image_directory                  = args.image_directory,
-                                           circlescale                      = args.circlescale,
-                                           vectorscale                      = args.vectorscale,
-                                           hardcopy                         = args.hardcopy,
-                                           terminal                         = args.terminal,
-                                           **plotkwargs_extra)
+    try:
+        mrcal.show_residuals_board_observation(optimization_inputs,
+                                               i_observation,
+                                               from_worst                       = args.from_worst,
+                                               i_observations_sorted_from_worst = i_observations_sorted_from_worst,
+                                               residuals                        = residuals,
+                                               paths                            = paths,
+                                               image_path_prefix                = args.image_path_prefix,
+                                               image_directory                  = args.image_directory,
+                                               circlescale                      = args.circlescale,
+                                               vectorscale                      = args.vectorscale,
+                                               hardcopy                         = args.hardcopy,
+                                               terminal                         = args.terminal,
+                                               **plotkwargs_extra)
+    except Exception as e:
+        print(f"Couldn't show_residuals_board_observation(): {e}",
+              file=sys.stderr)
+        sys.exit(1)
 
 
 Nplots = len(args.observations)
