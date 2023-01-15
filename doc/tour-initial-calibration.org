@@ -309,12 +309,12 @@ We would like to see a normal distribution (since that's what the [[file:formula
 assumes), and we roughly do see that here. If the images were captured with
 varying illumination (which happens with different board orientations and a
 directional light source), the center cluster or the tails would get
-over-populated. That would be a violation of the noise model, bit things still
+over-populated. That would be a violation of the noise model, but things still
 appear to work OK even in that case.
 
 Let's look deeper. If there's anything really wrong with our data, then we
 should see it in the worst-fitting images. Let's ask the tool to show us the
-worst image:
+worst one:
 
 #+begin_src sh
 mrcal-show-residuals-board-observation \
@@ -361,8 +361,9 @@ The residual vector for each chessboard corner in this observation is shown,
 scaled by a factor of 200 for legibility (the actual errors are tiny!) The
 circle color also indicates the magnitude of the errors. The size of each circle
 represents the weight given to that point. The weight is reduced for points that
-were detected at a lower resolution by the chessboard detector. Points thrown
-out as outliers are not shown at all.
+were detected at a lower resolution by the chessboard detector. So even high
+reprojection errors (shown as the vectors) could result in low measurements if
+the weight was low. Points thrown out as outliers are not shown at all.
 
 Residual plots such as this one are a good way to identify common data-gathering
 issues such as:
@@ -965,12 +966,12 @@ We can also visualize the [[file:splined-models.org][magnitude of the vector fie
 surfaces]] $\left| \Delta \vec u \right|$:
 
 #+begin_src sh
-mrcal-show-splined-model-correction \
-  --set 'cbrange [0:0.1]'           \
-  --unset grid                      \
-  --set 'xrange [:] noextend' \
+mrcal-show-splined-model-correction   \
+  --set 'cbrange [0:0.1]'             \
+  --unset grid                        \
+  --set 'xrange [:] noextend'         \
   --set 'yrange [:] noextend reverse' \
-  --set 'key opaque box' \
+  --set 'key opaque box'              \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
@@ -1042,13 +1043,13 @@ spline-in-bounds region appears irregular in this view.
 I can /also/ look at the correction vector field:
 #+begin_src sh
 mrcal-show-splined-model-correction \
-  --vectorfield \
-  --imager-domain \
+  --vectorfield                     \
+  --imager-domain                   \
   --unset grid                      \
   --set 'xrange [-300:6300]'        \
   --set 'yrange [3676:-300]'        \
-  --set 'key opaque box' \
-  --gridn 40 30 \
+  --set 'key opaque box'            \
+  --gridn 40 30                     \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export

@@ -59,6 +59,7 @@ cross-validation diff look like?
 
 #+begin_src sh
 mrcal-show-projection-diff           \
+  --cbmax 1                          \
   --unset key                        \
   2-f22-infinity.opencv8.cameramodel \
   3-f22-infinity.opencv8.cameramodel
@@ -67,6 +68,7 @@ mrcal-show-projection-diff           \
 mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/
 mrcal-show-projection-diff                            \
+  --cbmax 1                          \
   --unset key                                         \
   $D/[23]-f22-infinity/opencv8.cameramodel            \
   --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-opencv8.png \
@@ -75,19 +77,20 @@ mrcal-show-projection-diff                            \
 
 [[file:external/figures/cross-validation/diff-cross-validation-opencv8.png]]
 
-A reminder, the computed uncertainty (response to sampling error) looks like
-this:
+A reminder, the computed dance-2 uncertainty (response to sampling error) looks
+like this:
 
 [[file:external/figures/uncertainty/uncertainty-opencv8.png]]
 
-So if we have low model errors, the cross-validation diff whould be within ~0.2
-pixels in most of the image. Clearly this model does /far/ worse than that:
-=LENSMODEL_OPENCV8= doesn't fit well.
+The dance-3 uncertainty looks similar. So if we have low model errors, the
+cross-validation diff whould be within ~0.2 pixels in most of the image. Clearly
+this model does /far/ worse than that: =LENSMODEL_OPENCV8= doesn't fit well.
 
 We expect the splined model to do better. Let's see. The cross-validation diff:
 
 #+begin_src sh
 mrcal-show-projection-diff           \
+  --cbmax 1                          \
   --unset key                        \
   2-f22-infinity.splined.cameramodel \
   3-f22-infinity.splined.cameramodel
@@ -96,6 +99,7 @@ mrcal-show-projection-diff           \
 mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/
 mrcal-show-projection-diff                            \
+  --cbmax 1                                           \
   --unset key                                         \
   $D/[23]-f22-infinity/splined.cameramodel            \
   --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-splined.png \
@@ -104,7 +108,7 @@ mrcal-show-projection-diff                            \
 
 [[file:external/figures/cross-validation/diff-cross-validation-splined.png]]
 
-And the uncertainty (from before):
+And the dance-2 uncertainty (from before):
 
 [[file:external/figures/uncertainty/uncertainty-splined.png]]
 
@@ -134,7 +138,7 @@ function c {
 mrcal-show-projection-diff                                                                                       \
   --no-uncertainties                                                                                             \
   --radius 500                                                                                                   \
-  --cbmax 4                                                                                                      \
+  --cbmax 1                                                                                                      \
   --unset key                                                                                                    \
   <(c $D/2-*/splined-noncentral.cameramodel)                                                                     \
   <(c $D/3-*/splined-noncentral.cameramodel)                                                                     \
