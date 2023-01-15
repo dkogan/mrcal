@@ -147,8 +147,10 @@ mrcal-show-projection-diff                                                      
 This still isn't perfect, but it's close. The noncentral projection support is
 not yet done. Talk to me if you need it.
 
-This diff tells us how much we can trust the projections: being conservative,
-I'd say these are good to within 1-1.5 pixels at the edges.
+Since today's mrcal doesn't have noncentral projections in it, what can we do
+today? The less-good central diff above tells us how much we can trust the
+projections: being conservative, I'd say these are good to within 1-1.5 pixels
+at the edges.
 
 We gathered close-up calibration images. But if the intended working range of
 the camera system is further out (almost always the case), then we can get a
