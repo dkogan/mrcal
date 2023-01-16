@@ -51,38 +51,6 @@ import mrcal
 import numpy as np
 import numpysane as nps
 
-
-def set_perfect_observations_and_noise(optimization_inputs, observed_pixel_uncertainty):
-
-    # shape (Nobservations, Nheight, Nwidth, 3)
-    pcam = mrcal.hypothesis_board_corner_positions(**optimization_inputs)[0]
-    i_intrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,1]
-    # shape (Nobservations,1,1,Nintrinsics)
-    intrinsics = nps.mv(optimization_inputs['intrinsics'][i_intrinsics],-2,-4)
-    optimization_inputs['observations_board'][...,:2] = \
-        mrcal.project( pcam,
-                       optimization_inputs['lensmodel'],
-                       intrinsics )
-
-    x = mrcal.optimizer_callback(**optimization_inputs)[1]
-    err = nps.norm2(x[:mrcal.num_measurements_boards(**optimization_inputs)])
-    if err > 1e-16:
-        print("Perfect observations produced nonzero error. This is a bug")
-        sys.exit(1)
-
-    noise_nominal = \
-        observed_pixel_uncertainty * \
-        np.random.randn(*optimization_inputs['observations_board'][...,:2].shape)
-
-    weight = nps.dummy( optimization_inputs['observations_board'][...,2],
-                        axis = -1 )
-    weight[ weight<=0 ] = 1. # to avoid dividing by 0
-
-    optimization_inputs['observations_board'][...,:2] += \
-        noise_nominal / weight
-
-
-
 model = mrcal.cameramodel(args.model)
 optimization_inputs = model.optimization_inputs()
 if not (optimization_inputs.get('indices_point_camintrinsics_camextrinsics') is None or \
@@ -101,7 +69,7 @@ if args.model_intrinsics is not None:
     optimization_inputs['intrinsics'][model.icam_intrinsics()] = \
         model_intrinsics.intrinsics()[1]
 
-set_perfect_observations_and_noise(optimization_inputs, observed_pixel_uncertainty)
+mrcal.make_perfect_observations(optimization_inputs, observed_pixel_uncertainty)
 
 ######### Reoptimize
 mrcal.optimize(**optimization_inputs)

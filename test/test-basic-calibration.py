@@ -21,6 +21,7 @@ import mrcal
 import testutils
 
 from test_calibration_helpers import sample_dqref
+import copy
 
 # I want the RNG to be deterministic
 np.random.seed(0)
@@ -358,5 +359,17 @@ for icam in range(len(models_ref)):
 # not great. I'm not entirely sure why it's over-reporting the outliers here,
 # but I should investigate that at the same time as I overhaul the outlier
 # rejection scheme (presumably to use one of my flavors of Cook's D factor)
+
+optimization_inputs_perfect = copy.deepcopy(optimization_inputs)
+mrcal.make_perfect_observations(optimization_inputs_perfect,
+                                observed_pixel_uncertainty = 0)
+i_meas0 = mrcal.measurement_index_boards(0, **optimization_inputs_perfect)
+x = mrcal.optimizer_callback(**optimization_inputs_perfect)[1]
+
+testutils.confirm_equal(x[i_meas0:mrcal.num_measurements_boards(**optimization_inputs_perfect)],
+                        0,
+                        worstcase = True,
+                        eps       = 1e-8,
+                        msg = 'make_perfect_observations()')
 
 testutils.finish()

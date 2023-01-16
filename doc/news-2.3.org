@@ -54,4 +54,6 @@ simple to regenerate specific plots, even if they were displayed out of order
 
 mrcal-show-residuals-board-observation has --from-glob
 
+Added mrcal.make_perfect_observations()
+
 * Migration notes 2.2 -> 2.3

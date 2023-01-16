@@ -146,6 +146,8 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 * Synthetic data
 - [[file:mrcal-python-api-reference.html#-ref_calibration_object][=mrcal.ref_calibration_object()=]]: Return the geometry of the calibration object
 - [[file:mrcal-python-api-reference.html#-synthesize_board_observations][=mrcal.synthesize_board_observations()=]]: Produce synthetic chessboard observations
+- [[file:mrcal-python-api-reference.html#-make_perfect_observations][=mrcal.make_perfect_observations()=]]: Write perfect observations with perfect
+  noise into the optimization_inputs
 
 * CHOLMOD interface
 The mrcal solver is an optimization routine based on sparse nonlinear least
