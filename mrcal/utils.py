@@ -453,7 +453,7 @@ RETURNED VALUE
 
     observations_board = optimization_inputs.get('observations_board')
     if observations_board is None:
-        return Exception("No board observations available")
+        raise Exception("No board observations available")
 
     indices_frame_camintrinsics_camextrinsics = \
         optimization_inputs['indices_frame_camintrinsics_camextrinsics']
