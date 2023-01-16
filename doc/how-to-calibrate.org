@@ -1268,7 +1268,7 @@ mrcal-show-projection-diff \
 
 [[file:external/figures/residuals/unstable-chessboard-shape-diff.png]]
 
-So [[#chessboard-shape][take care making your chessboard rigid]]. I can think of better visualizations
+So [[#chessboard-shape][take care to make your chessboard rigid]]. I can think of better visualizations
 to more clearly identify these kinds of issues, so this might improve in the
 future.
 
