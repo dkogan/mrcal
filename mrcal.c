@@ -5358,13 +5358,15 @@ mrcal_optimize( // out
     {
         stats.Noutliers = 0;
 
-        int Nfeatures =
+        const int Nfeatures_board =
             Nobservations_board *
             calibration_object_width_n *
             calibration_object_height_n;
-        for(int i=0; i<Nfeatures; i++)
+        for(int i=0; i<Nfeatures_board; i++)
             if(observations_board_pool[i].z < 0.0)
                 stats.Noutliers++;
+
+        const int Nmeasurements_board = Nfeatures_board*2;
 
         if(verbose)
         {
@@ -5373,7 +5375,6 @@ mrcal_optimize( // out
             //        optimizer_callback(packed_state, NULL, NULL, &ctx);
         }
         ctx.reportFitMsg = NULL;
-
 
         double outliernessScale = -1.0;
         do
@@ -5409,7 +5410,10 @@ mrcal_optimize( // out
                               calibration_object_height_n,
                               solver_context->beforeStep->x,
                               verbose) &&
-                 ({MSG("Threw out some outliers (have a total of %d now); going again", stats.Noutliers); true;}));
+                 ({MSG("Threw out some outliers. New count = %d/%d (%.1f%%). Going again",
+                       stats.Noutliers,
+                       Nmeasurements_board,
+                       (double)(stats.Noutliers * 100) / (double)Nmeasurements_board); true;}));
 
         // Done. I have the final state. I spit it back out
         unpack_solver_state( intrinsics,         // Ncameras_intrinsics of these
