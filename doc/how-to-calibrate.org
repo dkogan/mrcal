@@ -381,6 +381,51 @@ for oddeven (odd even) {
 }
 #+end_src
 
+** Troubleshooting broken solves
+Usually the solver converges, and produces a result. Then we [[#interpreting-results][look at the
+diagnostics to evaluate the quality of this result]] (next section). We can do
+that if the errors are small, and the optimization completed successfully. If
+the data issues are too large, however (pervasive sync errors, completely
+insufficient lens model, etc), the solver will have trouble. It could
+
+- Take a very long time to convert to /some/ solution
+- Produce tool many outliers, possibly incrementally, producing output such as
+  this:
+  #+begin_example
+mrcal.c(5413): Threw out some outliers. New count = 174/35280 (0.5%). Going again
+mrcal.c(5413): Threw out some outliers. New count = 252/35280 (0.7%). Going again
+mrcal.c(5413): Threw out some outliers. New count = 303/35280 (0.9%). Going again
+  #+end_example
+  This will slow down the solve dramatically. Unless the data is known to be
+  funky, more than ~ 3% outliers should raise questions
+
+If the solver has trouble like this, it is usually helpful to turn off the
+outlier rejection by running =mrcal-calibrate-cameras --skip-outlier-rejection
+....=, and then [[#residuals][examine the residuals as described below]]. Hopefully that would
+provide a hint about the issues.
+
+Another common problem is getting messages like this:
+
+#+begin_example
+mrcal.c(3758): WARNING: Board observation 157 (icam_intrinsics=0, icam_extrinsics=-1, iframe=104) had almost all of its points thrown out as outliers: only 0/100 remain. CHOLMOD is about to complain about a non-positive-definite JtJ. Something is wrong with this observation
+mrcal.c(3758): WARNING: Board observation 158 (icam_intrinsics=1, icam_extrinsics=0, iframe=104) had almost all of its points thrown out as outliers: only 0/100 remain. CHOLMOD is about to complain about a non-positive-definite JtJ. Something is wrong with this observation
+mrcal.c(5412): Threw out some outliers (have a total of 861 now); going again
+libdogleg at dogleg.c:1115: CHOLMOD warning:
+libdogleg at dogleg.c:1115:  not positive definite.
+libdogleg at dogleg.c:1115:  file: ../Cholesky/t_cholmod_rowfac.c
+libdogleg at dogleg.c:1115:  line: 430
+libdogleg at dogleg.c:1115: 
+#+end_example
+
+The complaint is about a singular Hessian matrix. Usually this happens if some
+variable in the optimization has no effect at all on the solution, and the
+optimizer thus doesn't know what to do with that variable. Usually heavy outlier
+rejection precedes this, and the missing data is causing the problem. Example:
+all chessboard observations for a given frame were thrown out; thus moving the
+chessboard pose at that time has no effect, and we get a singular Hessian. The
+diagnostic technique is the same: disable the outlier rejection and examine the
+residuals.
+
 * Interpreting the results
 :PROPERTIES:
 :CUSTOM_ID: interpreting-results
@@ -788,11 +833,11 @@ vectors are scaled up 5x less than those in [[file:tour-initial-calibration.org]
 
 *** Synchronization
 What if we're calibrating a multi-camera system, and the image synchronization
-is off? You should have a hardware sync: a physical trigger wire connected to
+is broken? You should have a hardware sync: a physical trigger wire connected to
 each camera, with a pulse on that line telling each camera to begin the image
 capture. If this is missing or doesn't work properly, then a similar issue
 occurs as with a [[#residuals-rolling-shutter][rolling-shutter]]: images captured at allegedly a particular
-instant in time haven't actually been.
+instant in time haven't actually been captured completely at /that/ time.
 
 As expected, this can be readily seen in the residuals. A time sync problem
 means that synced images A and B were supposed to capture a chessboard at some
@@ -802,10 +847,10 @@ told that there was no motion, so it ends up solving for some compromise
 transform $T_\mathrm{mid}$ that splits the difference. So the residuals for
 image A would point from the observation at $T_\mathrm{A}$ towards the
 observation at the compromise pose $T_\mathrm{mid}$. And the residuals for image
-B would point in the opposite direction: from the observation at the compromise
-pose $T_\mathrm{mid}$ towards the observation at $T_\mathrm{B}$.
+B would point in the opposite direction: from the observation at $T_\mathrm{B}$
+towards the observation at the compromise pose $T_\mathrm{mid}$.
 
-Let's show this with a little code. I grab the monocular solve from [[file:tour-initial-calibration.org][the tour of
+Let's demo this with a little code. I grab the monocular solve from [[file:tour-initial-calibration.org][the tour of
 mrcal]], add a second camera with perfect observations and noise, and add the
 flaw: one of the chessboard observations was erroneously reported for two images
 in a row. This happened in only one camera of the pair, so a time-sync error
@@ -1025,7 +1070,8 @@ for i in range(2):
 
 [[file:external/figures/residuals/sync-errors-1.svg]]
 
-We clearly see the tell-tale sign of a time-sync error.
+We're plotting the two worst-residual observations, and we clearly see the
+tell-tale sign of a time-sync error.
 
 As before, we can make these plots from the commandline:
 
@@ -1064,11 +1110,11 @@ The corresponding 10 (iframe, icamintrinsics, icamextrinsics) tuples
  [19  1  0]]
 #+end_example
 
-Since a time-sync error affects sets of images at the same time, we should see
+Since a time-sync error affects multiple images at the same time, we should see
 multiple chessboard observations from the same frame (instant in time) in the
 high-residuals list, and we clearly see that above. We corrupted frame 20 camera
 0, so it's no longer syncronized with frame 20 camera 1. We expect both of those
-observations to fit badly, and we see that above: the
+observations to fit badly, and we do see that: the
 [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] tool says that the worst residual is
 from frame 20 camera 1 and the second-worst is frame 20 camera 0. High errors in
 multiple cameras in the same frame like this are another tell-tale sign of sync
