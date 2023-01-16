@@ -1085,6 +1085,9 @@ mrcal.make_perfect_observations(optimization_inputs,
 add_imperfection(optimization_inputs)
 mrcal.optimize(**optimization_inputs)
 
+mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                  icam_intrinsics     = 0).write('/tmp/unmodeled-chessboard-shape.cameramodel')
+
 mrcal.show_residuals_board_observation(optimization_inputs,
                                        0,
                                        from_worst  = True,
@@ -1268,4 +1271,10 @@ mrcal-show-projection-diff \
 So [[#chessboard-shape][take care making your chessboard rigid]]. I can think of better visualizations
 to more clearly identify these kinds of issues, so this might improve in the
 future.
+
+For both of these chessboard deformation cases it's helpful to look at more than
+just 1 or 2 worst-case residuals. Look at the worst 10. In both cases the most
+tilted chessboard observations usually show very consistent residual vectors
+along the far edge of the chessboard.
+
 
