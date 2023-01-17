@@ -408,6 +408,14 @@ outlier rejection by running =mrcal-calibrate-cameras --skip-outlier-rejection
 ....=, and then [[#residuals][examine the residuals as described below]]. Hopefully that would
 provide a hint about the issues.
 
+It also helps to simplify the problem, which is effective at isolating certain
+issues. For instance, a nonconverging multi-camera solve should be attempted
+monocularly, one camera at a time. If some cameras converge and some don't, that
+points to the issue. If individually the solves converge, but together they
+don't, there's an issue with the [[#residuals-sync][camera synchronization]]. Or the chessboard
+corner indices aren't consistent. Similarly solving with a subset of images is
+often enlightening.
+
 Another common problem is getting messages like this:
 
 #+begin_example
@@ -768,6 +776,10 @@ to that, the magnitude of all the errors is dramatically higher than before: the
 vectors are scaled up 5x less than those in [[file:tour-initial-calibration.org][the tour of mrcal]].
 
 *** Synchronization
+:PROPERTIES:
+:CUSTOM_ID: residuals-sync
+:END:
+
 What if we're calibrating a multi-camera system, and the image synchronization
 is broken? You should have a hardware sync: a physical trigger wire connected to
 each camera, with a pulse on that line telling each camera to begin the image
@@ -775,16 +787,18 @@ capture. If this is missing or doesn't work properly, then a similar issue
 occurs as with a [[#residuals-rolling-shutter][rolling-shutter]]: images captured at allegedly a particular
 instant in time haven't actually been captured completely at /that/ time.
 
-As expected, this can be readily seen in the residuals. A time sync problem
-means that synced images A and B were supposed to capture a chessboard at some
-pose $T$. But since the sync was broken, the chessboard moved, so the chessboard
-was really at two different poses: $T_\mathrm{A}$ and $T_\mathrm{B}$. mrcal was
-told that there was no motion, so it ends up solving for some compromise
-transform $T_\mathrm{mid}$ that splits the difference. So the residuals for
-image A would point from the observation at $T_\mathrm{A}$ towards the
-observation at the compromise pose $T_\mathrm{mid}$. And the residuals for image
-B would point in the opposite direction: from the observation at $T_\mathrm{B}$
-towards the observation at the compromise pose $T_\mathrm{mid}$.
+This can be confirmed by recalibrating monocularly, to see if individually the
+solves converge. And as expected, this can be readily seen in the residuals. A
+time sync problem means that synced images A and B were supposed to capture a
+chessboard at some pose $T$. But since the sync was broken, the chessboard
+moved, so the chessboard was really at two different poses: $T_\mathrm{A}$ and
+$T_\mathrm{B}$. mrcal was told that there was no motion, so it ends up solving
+for some compromise transform $T_\mathrm{mid}$ that splits the difference. So
+the residuals for image A would point from the observation at $T_\mathrm{A}$
+towards the observation at the compromise pose $T_\mathrm{mid}$. And the
+residuals for image B would point in the opposite direction: from the
+observation at $T_\mathrm{B}$ towards the observation at the compromise pose
+$T_\mathrm{mid}$.
 
 Let's demo this with a little code. I grab the monocular solve from [[file:tour-initial-calibration.org][the tour of
 mrcal]], add a second camera with perfect observations and noise, and add the
