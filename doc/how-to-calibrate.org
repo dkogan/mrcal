@@ -654,8 +654,7 @@ mrcal.show_residuals_board_observation(optimization_inputs, 10,
                                        vectorscale =  200,
                                        circlescale =  0.5,
                                        title       =  "Effect of corner detection error at the center",
-                                       paths       = optimization_inputs['imagepaths'],
-                                       image_directory = 'external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/images')
+                                       paths       = optimization_inputs['imagepaths'])
 #+end_src
 #+begin_src python :exports none :eval no-export
 #!/usr/bin/python3
@@ -683,19 +682,17 @@ mrcal.show_residuals_board_observation(optimization_inputs, 10,
                                        hardcopy =  "~/projects/mrcal-doc-external/figures/residuals/chessboard-detection-errors.png",
                                        title =  "Effect of corner detection error at the center",
                                        terminal =  'pngcairo size 1024,550 transparent noenhanced crop          font ",12"',
-                                       paths   = optimization_inputs['imagepaths'],
-                                       image_directory = '/home/dima/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/images')
+                                       paths   = optimization_inputs['imagepaths'])
 #+end_src
 
 With a model on disk, the same could be produced with
 
 #+begin_src sh
-mrcal-show-residuals-board-observation                                                            \
-    --vectorscale 200                                                                             \
-    --circlescale 0.5                                                                             \
-    --title "Effect of corner detection error at the center"                                      \
-    --image_directory 'external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/images' \
-    splined.cameramodel                                                                           \
+mrcal-show-residuals-board-observation                       \
+    --vectorscale 200                                        \
+    --circlescale 0.5                                        \
+    --title "Effect of corner detection error at the center" \
+    splined.cameramodel                                      \
     10
 #+end_src
 
@@ -1253,6 +1250,7 @@ this doesn't affect the solution, here's the resulting difference in projection:
 mrcal-show-projection-diff                   \
   --no-uncertainties                         \
   --radius 500                               \
+  --unset key \
   /tmp/unstable-chessboard-shape.cameramodel \
   splined.cameramodel
 #+end_src
@@ -1260,6 +1258,7 @@ mrcal-show-projection-diff                   \
 mrcal-show-projection-diff \
   --no-uncertainties \
   --radius 500 \
+  --unset key \
   /tmp/unstable-chessboard-shape.cameramodel \
   ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel \
   --hardcopy ~/projects/mrcal-doc-external/figures/residuals/unstable-chessboard-shape-diff.png \
