@@ -984,19 +984,81 @@ is computed for each pixel, not even for each row.
                        (mapxy[:,jmid:,1] > H-1),
                        axis=-1 )
 
-        # In each row (icol0,icol1) now form a python-style range describing the
+        # Elements of (icol0,icol1) form a python-style range describing the
         # in-bounds pixels
-        return nps.transpose(nps.cat(icol0, icol1))
+        return icol0, icol1
 
 
-    # shape (Nel,2)
-    qx01_0 = valid_projection_boundary(mapxy0, models[0])
-    qx01_1 = valid_projection_boundary(mapxy1, models[1])
 
-    # I have the bounds for the two images. I intersect them
-    qx01 = np.zeros(qx01_0.shape, qx01_0.dtype)
-    qx01[:,0] = np.max(nps.cat(qx01_0[:,0], qx01_1[:,0]), axis=0)
-    qx01[:,1] = np.min(nps.cat(qx01_0[:,1], qx01_1[:,1]), axis=0)
+
+    ################# patch selection
+    # I have the bounds. I intersect these with the patches used by
+    # sad5_stereo() to figure out which patches I can ignore entirely. I keep
+    # the partial patches. sad5_stereo() starts at (patch_x0,patch_y0) and then
+    # moves in a regular grid of patches, each one of size (patch_w,patch_h).
+    # Partial patches on the right and on the bottom are added.
+
+    # Each has shape (Ny,)
+
+    # First in-bounds pixel in each row
+    # One past the first out-of-bounds pixel in each row
+    qxmin,qxmax = valid_projection_boundary(mapxy0, models[0])
+
+    # top-left corner, size of each patch
+    patch_x0 = 8
+    patch_y0 = 8
+    patch_w  = 176
+    patch_h  = 128
+
+    # Looking at one point is enough. Each row is the same
+    L = len(qxmin) - patch_y0
+    Npatch_xmin_remaining_rows = np.ceil(L / patch_h).astype(int)*patch_h - L
+
+    # I need to transform qxmin into patchxmin and qxmax into patchxmax
+
+    def make_patch_xmin(qxmin):
+        # For each row of pixels, the index of the patch col containing the first
+        # pixel
+        patch_xmin = (qxmin // patch_w).astype(int)
+
+        if Npatch_xmin_remaining_rows:
+            patch_xmin = nps.glue( patch_xmin,
+                                   10000*np.ones( (Npatch_xmin_remaining_rows,), dtype=int),
+                                   axis = -1)
+        patch_xmin = patch_xmin.reshape(len(patch_xmin)//patch_h,patch_h)
+        patch_xmin = np.min(patch_xmin, axis=-1)
+
+        return patch_xmin
+
+
+    # first patch in each row,
+    # one past the last patch in each row
+    #
+    # The various +1/-1 are to handle the edges correctly. It looks weird, but I
+    # checked all the edges. It's right.
+    patch_xrange = \
+        ( make_patch_xmin(qxmin[patch_y0:]-patch_x0),
+          10000-1 - make_patch_xmin(patch_w*10000-1 - ((qxmax[patch_y0:]-patch_x0)-1))+1 )
+    patch_xrange = nps.cat(*patch_xrange).T
+
+    # I have the patch ranges. I need to check and mark the no-data areas
+    # explicitly
+    mask_empty_row = (qxmax-qxmin <= 0)[patch_y0:]
+    mask_empty_row = nps.glue( mask_empty_row,
+                               np.ones((Npatch_xmin_remaining_rows,), dtype=bool),
+                               axis=-1)
+    mask_empty_row = mask_empty_row.reshape(len(mask_empty_row)//patch_h, patch_h)
+    mask_empty_row = np.min(mask_empty_row, axis=-1)
+
+    # Mark the empty patch rows as empty
+    patch_xrange[mask_empty_row,1] = patch_xrange[mask_empty_row,0]
+
+    print(patch_xrange)
+    # import IPython
+    # IPython.embed()
+    # sys.exit()
+
+
 
     # Fit stuff. Not yet
     if 0:
