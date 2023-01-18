@@ -971,7 +971,15 @@ is computed for each pixel, not even for each row.
             (mapxy[...,0] < 0)  + \
             (mapxy[...,1] < 0)  + \
             (mapxy[...,0] > W-1)+ \
-            (mapxy[...,1] > H-1),
+            (mapxy[...,1] > H-1)
+        # Burn the first,last row and col to make sure that the below logic
+        # finds something that's out of bounds. Doing so doesn't actually lose
+        # anything: the valid regions will be one pixel smaller at the edges,
+        # but since I'm granular to patches, anyway, this will have no effect
+        outofbounds[0, :] = True
+        outofbounds[-1,:] = True
+        outofbounds[:, 0] = True
+        outofbounds[:,-1] = True
 
         # first in-bounds pixel on the left
         arg   = outofbounds[:,imid-1::-1]
@@ -1009,9 +1017,13 @@ is computed for each pixel, not even for each row.
     patch_w  = 176
     patch_h  = 128
 
-    # Looking at one point is enough. Each row is the same
-    L = len(qxmin) - patch_y0
-    Npatch_xmin_remaining_rows = np.ceil(L / patch_h).astype(int)*patch_h - L
+
+    Nrows_past_x0 = mapxy0.shape[1] - patch_x0
+    Npatches_x = int(np.ceil(Nrows_past_x0 / patch_w))
+
+    Nrows_past_y0 = mapxy0.shape[0] - patch_y0
+    Npatches_y = int(np.ceil(Nrows_past_y0 / patch_h))
+    Npatch_xmin_remaining_rows = Npatches_y*patch_h - Nrows_past_y0
 
     # I need to transform qxmin into patchxmin and qxmax into patchxmax
 
@@ -1052,7 +1064,15 @@ is computed for each pixel, not even for each row.
     # Mark the empty patch rows as empty
     patch_xrange[mask_empty_row,1] = patch_xrange[mask_empty_row,0]
 
-    print(patch_xrange)
+    # Since the patches have a margin at the edges, I might have out-of-bounds
+    # patch_xrange values. I clip them here
+    np.clip(patch_xrange, 0, Npatches_x,
+            out = patch_xrange)
+
+    print(f"{patch_xrange=}")
+    print(f"{Npatches_x=}")
+    print(f"{Npatches_y=}")
+
     # import IPython
     # IPython.embed()
     # sys.exit()
