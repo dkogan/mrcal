@@ -967,22 +967,19 @@ is computed for each pixel, not even for each row.
         W,H = model.imagersize()
         jmid = mapxy.shape[1] // 2
 
+        outofbounds =             \
+            (mapxy[...,0] < 0)  + \
+            (mapxy[...,1] < 0)  + \
+            (mapxy[...,0] > W-1)+ \
+            (mapxy[...,1] > H-1),
+
         # first in-bounds pixel on the left
         icol0 = \
-            jmid - \
-            np.argmax( (mapxy[:,:jmid,0][..., ::-1] < 0)  +
-                       (mapxy[:,:jmid,1][..., ::-1] < 0)  +
-                       (mapxy[:,:jmid,0][..., ::-1] > W-1)+
-                       (mapxy[:,:jmid,1][..., ::-1] > H-1),
-                       axis=-1 )
+            jmid - np.argmax( outofbounds[:,jmid-1::-1], axis=-1)
+
         # first out-of-bounds pixel on the right
         icol1 = \
-            jmid + \
-            np.argmax( (mapxy[:,jmid:,0] < 0)  +
-                       (mapxy[:,jmid:,1] < 0)  +
-                       (mapxy[:,jmid:,0] > W-1)+
-                       (mapxy[:,jmid:,1] > H-1),
-                       axis=-1 )
+            jmid + np.argmax( outofbounds[:,jmid:], axis=-1 )
 
         # Elements of (icol0,icol1) form a python-style range describing the
         # in-bounds pixels
