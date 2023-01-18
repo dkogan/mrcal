@@ -974,12 +974,14 @@ is computed for each pixel, not even for each row.
             (mapxy[...,1] > H-1),
 
         # first in-bounds pixel on the left
-        icol0 = \
-            imid - np.argmax( outofbounds[:,imid-1::-1], axis=-1)
+        arg   = outofbounds[:,imid-1::-1]
+        imax  = np.argmax(arg, axis=-1)
+        icol0 = imid - imax
 
         # first out-of-bounds pixel on the right
-        icol1 = \
-            imid + np.argmax( outofbounds[:,imid:], axis=-1 )
+        arg = outofbounds[:,imid:]
+        imax = np.argmax(arg, axis=-1)
+        icol1 = imid + imax
 
         # Elements of (icol0,icol1) form a python-style range describing the
         # in-bounds pixels
