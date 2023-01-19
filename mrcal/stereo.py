@@ -722,9 +722,14 @@ is computed for each pixel, not even for each row.
 
     import scipy.interpolate
 
-    def get_az1expected_maskinf(baseline, azel, n0, distance_to_plane):
+    def get_az1expected_maskinf(baseline, azel, n0, distance_to_plane,
+                                extra_pitch_deg = 0):
 
         v = unproject(azel)
+        if extra_pitch_deg:
+            mrcal.rotate_point_r(np.array((extra_pitch_deg*np.pi/180.,0,0),),
+                                 v,
+                                 out=v)
 
         Rt_rect0_cam0 = \
             mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
@@ -951,10 +956,15 @@ is computed for each pixel, not even for each row.
         # A version of this shift already exists in az1_expected, but that was made
         # using azel_nominal, so I need to recompute it here with our new domain
         # A shift for the expected plane to sit at disparity ~ 0
+        #
+        # I need to be careful to not shift the disparities past disparity=0,
+        # because the correlator will then miss the object. So I apply a margin
+        # of safety by pretending the vehicle pose has an extra pitch
         az1_expected_adaptive, _ = \
             get_az1expected_maskinf(baseline,
                                     azel,
-                                    n0, distance_to_plane)
+                                    n0, distance_to_plane,
+                                    extra_pitch_deg = 20)
 
         H,W = az1_expected_adaptive.shape
         dazel1 = np.zeros((H,W,2))
