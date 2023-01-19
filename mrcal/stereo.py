@@ -960,23 +960,17 @@ is computed for each pixel, not even for each row.
         dazel1 = np.zeros((H,W,2))
         dazel1[:,:,0] = az1_expected_adaptive - azel[...,0]
 
-        v = unproject(azel)
-        v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
-        v1 = mrcal.rotate_point_R(R_cam_rect[1], unproject(azel + dazel1*0.8))
-        return                                                                \
-            (mrcal.project( v0, *models[0].intrinsics()).astype(np.float32),  \
-             mrcal.project( v1, *models[1].intrinsics()).astype(np.float32))
-
-
-
+        # Don't shift all the way towards 0. Need to leave some room for slop
+        dazel1 *= 0.8
+    else:
+        dazel1 = None
 
     rectification_maps.cookie_adaptive_rectification = \
         dict(qx        = qx,
              az_domain = az_domain,
+             daz1      = None if dazel1 is None else dazel1[...,0],
              fy        = fxycxy[1],
              cy        = fxycxy[3])
-
-
 
     # shape (Nel,Naz,3)
     v = unproject(azel)
@@ -991,7 +985,7 @@ is computed for each pixel, not even for each row.
     #     # dth1/dqx1 is the resolution I integrated. I have that directly
 
     v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
-    v1 = mrcal.rotate_point_R(R_cam_rect[1], v)
+    v1 = mrcal.rotate_point_R(R_cam_rect[1], unproject(azel + dazel1))
 
 
     if extra_pitch_deg is not None:
@@ -1045,84 +1039,87 @@ is computed for each pixel, not even for each row.
         # in-bounds pixels
         return icol0, icol1
 
+    def get_patch_limits(qxmin, qxmax,
+                         mapxy):
+
+        ################# patch selection
+        # I have the bounds. I intersect these with the patches used by
+        # sad5_stereo() to figure out which patches I can ignore entirely. I keep
+        # the partial patches. sad5_stereo() starts at (patch_x0,patch_y0) and then
+        # moves in a regular grid of patches, each one of size (patch_w,patch_h).
+        # Partial patches on the right and on the bottom are added.
+
+        # Each has shape (Ny,)
+
+        # top-left corner, size of each patch
+        patch_x0 = 8
+        patch_y0 = 8
+        patch_w  = 176
+        patch_h  = 128
 
 
+        Nrows_past_x0 = mapxy.shape[1] - patch_x0
+        Npatches_x = int(np.ceil(Nrows_past_x0 / patch_w))
 
-    ################# patch selection
-    # I have the bounds. I intersect these with the patches used by
-    # sad5_stereo() to figure out which patches I can ignore entirely. I keep
-    # the partial patches. sad5_stereo() starts at (patch_x0,patch_y0) and then
-    # moves in a regular grid of patches, each one of size (patch_w,patch_h).
-    # Partial patches on the right and on the bottom are added.
+        Nrows_past_y0 = mapxy.shape[0] - patch_y0
+        Npatches_y = int(np.ceil(Nrows_past_y0 / patch_h))
+        Npatch_xmin_remaining_rows = Npatches_y*patch_h - Nrows_past_y0
 
-    # Each has shape (Ny,)
+        # I need to transform qxmin into patchxmin and qxmax into patchxmax
+
+        def make_patch_xmin(qxmin):
+            # For each row of pixels, the index of the patch col containing the first
+            # pixel
+            patch_xmin = (qxmin // patch_w).astype(int)
+
+            if Npatch_xmin_remaining_rows:
+                patch_xmin = nps.glue( patch_xmin,
+                                       10000*np.ones( (Npatch_xmin_remaining_rows,), dtype=int),
+                                       axis = -1)
+            patch_xmin = patch_xmin.reshape(len(patch_xmin)//patch_h,patch_h)
+            patch_xmin = np.min(patch_xmin, axis=-1)
+
+            return patch_xmin
+
+
+        # first patch in each row,
+        # one past the last patch in each row
+        #
+        # The various +1/-1 are to handle the edges correctly. It looks weird, but I
+        # checked all the edges. It's right.
+        patch_xrange = \
+            ( make_patch_xmin(qxmin[patch_y0:]-patch_x0),
+              10000-1 - make_patch_xmin(patch_w*10000-1 - ((qxmax[patch_y0:]-patch_x0)-1))+1 )
+        patch_xrange = nps.cat(*patch_xrange).T
+
+        # I have the patch ranges. I need to check and mark the no-data areas
+        # explicitly
+        mask_empty_row = (qxmax-qxmin <= 0)[patch_y0:]
+        mask_empty_row = nps.glue( mask_empty_row,
+                                   np.ones((Npatch_xmin_remaining_rows,), dtype=bool),
+                                   axis=-1)
+        mask_empty_row = mask_empty_row.reshape(len(mask_empty_row)//patch_h, patch_h)
+        mask_empty_row = np.min(mask_empty_row, axis=-1)
+
+        # Mark the empty patch rows as empty
+        patch_xrange[mask_empty_row,1] = patch_xrange[mask_empty_row,0]
+
+        # Since the patches have a margin at the edges, I might have out-of-bounds
+        # patch_xrange values. I clip them here
+        np.clip(patch_xrange, 0, Npatches_x,
+                out = patch_xrange)
+
+        print(f"{patch_xrange=}")
+        print(f"{Npatches_x=}")
+        print(f"{Npatches_y=}")
+
+        return patch_xrange
 
     # First in-bounds pixel in each row
     # One past the first out-of-bounds pixel in each row
     qxmin,qxmax = valid_projection_boundary(mapxy0, models[0])
-
-    # top-left corner, size of each patch
-    patch_x0 = 8
-    patch_y0 = 8
-    patch_w  = 176
-    patch_h  = 128
-
-
-    Nrows_past_x0 = mapxy0.shape[1] - patch_x0
-    Npatches_x = int(np.ceil(Nrows_past_x0 / patch_w))
-
-    Nrows_past_y0 = mapxy0.shape[0] - patch_y0
-    Npatches_y = int(np.ceil(Nrows_past_y0 / patch_h))
-    Npatch_xmin_remaining_rows = Npatches_y*patch_h - Nrows_past_y0
-
-    # I need to transform qxmin into patchxmin and qxmax into patchxmax
-
-    def make_patch_xmin(qxmin):
-        # For each row of pixels, the index of the patch col containing the first
-        # pixel
-        patch_xmin = (qxmin // patch_w).astype(int)
-
-        if Npatch_xmin_remaining_rows:
-            patch_xmin = nps.glue( patch_xmin,
-                                   10000*np.ones( (Npatch_xmin_remaining_rows,), dtype=int),
-                                   axis = -1)
-        patch_xmin = patch_xmin.reshape(len(patch_xmin)//patch_h,patch_h)
-        patch_xmin = np.min(patch_xmin, axis=-1)
-
-        return patch_xmin
-
-
-    # first patch in each row,
-    # one past the last patch in each row
-    #
-    # The various +1/-1 are to handle the edges correctly. It looks weird, but I
-    # checked all the edges. It's right.
-    patch_xrange = \
-        ( make_patch_xmin(qxmin[patch_y0:]-patch_x0),
-          10000-1 - make_patch_xmin(patch_w*10000-1 - ((qxmax[patch_y0:]-patch_x0)-1))+1 )
-    patch_xrange = nps.cat(*patch_xrange).T
-
-    # I have the patch ranges. I need to check and mark the no-data areas
-    # explicitly
-    mask_empty_row = (qxmax-qxmin <= 0)[patch_y0:]
-    mask_empty_row = nps.glue( mask_empty_row,
-                               np.ones((Npatch_xmin_remaining_rows,), dtype=bool),
-                               axis=-1)
-    mask_empty_row = mask_empty_row.reshape(len(mask_empty_row)//patch_h, patch_h)
-    mask_empty_row = np.min(mask_empty_row, axis=-1)
-
-    # Mark the empty patch rows as empty
-    patch_xrange[mask_empty_row,1] = patch_xrange[mask_empty_row,0]
-
-    # Since the patches have a margin at the edges, I might have out-of-bounds
-    # patch_xrange values. I clip them here
-    np.clip(patch_xrange, 0, Npatches_x,
-            out = patch_xrange)
-
-    print(f"{patch_xrange=}")
-    print(f"{Npatches_x=}")
-    print(f"{Npatches_y=}")
-
+    patch_xrange = get_patch_limits(qxmin, qxmax,
+                                    mapxy0)
 
 
     # Fit stuff. Not yet
@@ -1432,16 +1429,20 @@ RETURNED VALUES
 
     if intrinsics[0] == 'LENSMODEL_LATLON':
 
-        v0 = \
-            mrcal.adaptive_project. \
-            unproject_adaptive_rectification( qrect0,
-                                              **mrcal.rectification_maps.cookie_adaptive_rectification)
+        ########## First we undo the adaptive rectification to create "normal"
+        ########## q0,q1,disparity values
 
         v1 = \
             mrcal.adaptive_project. \
             unproject_adaptive_rectification( qrect0,
                                               disparity = disparity/disparity_scale,
                                               **mrcal.rectification_maps.cookie_adaptive_rectification)
+        cookie = dict(mrcal.rectification_maps.cookie_adaptive_rectification)
+        cookie['daz1'] = None
+        v0 = \
+            mrcal.adaptive_project. \
+            unproject_adaptive_rectification( qrect0, **cookie)
+
 
         qrect0 = mrcal.project_latlon(v0, models_rectified[0].intrinsics()[1])
         qrect1 = mrcal.project_latlon(v1, models_rectified[1].intrinsics()[1])
@@ -1450,14 +1451,7 @@ RETURNED VALUES
         if is_scalar:
             disparity = np.array((disparity,),)
 
-
-
-
-
-
-
-
-
+        ########## Now the normal path
 
         if qrect0 is None:
             az0 = (np.arange(W, dtype=float) - cx)/fx

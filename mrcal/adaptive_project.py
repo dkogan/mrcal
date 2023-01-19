@@ -12,7 +12,11 @@ def project_adaptive_rectification(p,
                                    *, # cookie
                                    qx,
                                    az_domain,
-                                   fy, cy):
+                                   fy, cy,
+                                   daz1):
+
+    if daz1 is not None:
+        raise Exception(f"project_adaptive_rectification(daz1 != 0) not implemented")
 
     # Python loop. Yuck!
     @nps.broadcast_define( ((),),
@@ -48,7 +52,12 @@ def unproject_adaptive_rectification(q,
                                      # cookie
                                      qx,
                                      az_domain,
-                                     fy, cy):
+                                     fy, cy,
+                                     daz1):
+
+    if daz1 is not None:
+        pass
+        #raise Exception(f"unproject_adaptive_rectification(daz1 != 0) not implemented")
 
     if q is None:
         # full imager
@@ -80,7 +89,7 @@ def unproject_adaptive_rectification(q,
 
     # Python loop. Yuck!
     @nps.broadcast_define( ((),(),()), () )
-    def interp_one(qx_here,disparity,qy):
+    def interp_azel_q(qx_here,disparity,qy):
         return \
             np.interp(qx_here - disparity,
                       qx[qy], az_domain[qy])
@@ -97,8 +106,12 @@ def unproject_adaptive_rectification(q,
         disparity = np.zeros(q.shape[:-1])
 
     azel[...,0] = \
-        interp_one(q[...,0], disparity, np.floor(q[...,1]).astype(int)  ) * (1-sy) + \
-        interp_one(q[...,0], disparity, np.floor(q[...,1]).astype(int)+1) * sy
+        interp_azel_q(q[...,0], disparity, np.floor(q[...,1]).astype(int)  ) * (1-sy) + \
+        interp_azel_q(q[...,0], disparity, np.floor(q[...,1]).astype(int)+1) * sy
+
+    # azel[...,0] -= \
+    #     (interp_daz1_q(q[...,0], np.floor(q[...,1]).astype(int)  ) * (1-sy) + \
+    #      interp_daz1_q(q[...,0], np.floor(q[...,1]).astype(int)+1) * sy)
 
     return mrcal.unproject_latlon(azel)
 
@@ -122,13 +135,15 @@ if __name__ == '__main__':
                                        qx          = qx,
                                        az_domain   = az_domain,
                                        fy          = fy,
-                                       cy          = cy)
+                                       cy          = cy,
+                                       daz1      = 0)
     pp = \
         unproject_adaptive_rectification(q,
                                          qx          = qx,
                                          az_domain   = az_domain,
                                          fy          = fy,
-                                         cy          = cy)
+                                         cy          = cy,
+                                         daz1      = 0)
 
     print(p)
     print(pp)
