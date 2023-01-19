@@ -985,7 +985,7 @@ is computed for each pixel, not even for each row.
     #     # dth1/dqx1 is the resolution I integrated. I have that directly
 
     v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
-    v1 = mrcal.rotate_point_R(R_cam_rect[1], unproject(azel + dazel1))
+    v1 = mrcal.rotate_point_R(R_cam_rect[1], unproject(azel + (0 if dazel1 is None else dazel1)))
 
 
     if extra_pitch_deg is not None:
