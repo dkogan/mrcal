@@ -722,7 +722,9 @@ is computed for each pixel, not even for each row.
 
     import scipy.interpolate
 
-    def get_az1expected_maskinf(baseline, vrect_nominal, n0, distance_to_plane):
+    def get_az1expected_maskinf(baseline, azel, n0, distance_to_plane):
+
+        v = unproject(azel)
 
         Rt_rect0_cam0 = \
             mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
@@ -730,13 +732,13 @@ is computed for each pixel, not even for each row.
         nrect0 = mrcal.rotate_point_R(Rt_rect0_cam0[:3,:], n0)
 
         # shape (Nel,Naz)
-        k = distance_to_plane / nps.inner(vrect_nominal, nrect0)
+        k = distance_to_plane / nps.inner(v, nrect0)
 
         # shape (Nel,Naz,3)
         # The rectified system is shifted along the x axis only, so the
         # T_rect1_rect0 transform is just this shift
         p_rect1 = \
-            nps.dummy(k,-1) * vrect_nominal - \
+            nps.dummy(k,-1) * v - \
             np.array((baseline,0,0))
 
         # shape (Nel,Naz)
@@ -874,11 +876,9 @@ is computed for each pixel, not even for each row.
     azel_nominal = \
         (qxy_nominal - fxycxy[2:]) / fxycxy[:2]
 
-    vrect_nominal = unproject(qxy_nominal, fxycxy)
-
     if 0:
         # Default path. No adaptive rectification
-        v = vrect_nominal
+        v = unproject(azel_nominal)
 
         v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
         v1 = mrcal.rotate_point_R(R_cam_rect[1], v)
@@ -892,8 +892,21 @@ is computed for each pixel, not even for each row.
 
     az1_expected, mask_infinity = \
         get_az1expected_maskinf(baseline,
-                                vrect_nominal,
+                                azel_nominal,
                                 n0, distance_to_plane)
+
+    # A shift for the expected plane to sit at disparity ~ 0
+    if 0:
+        H,W = az1_expected.shape
+        dazel1 = np.zeros((H,W,2))
+        dazel1[:,:,0] = az1_expected - azel_nominal[...,0]
+
+        v = unproject(azel_nominal)
+        v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
+        v1 = mrcal.rotate_point_R(R_cam_rect[1], unproject(azel_nominal + dazel1*0.8))
+        return                                                                \
+            (mrcal.project( v0, *models[0].intrinsics()).astype(np.float32),  \
+             mrcal.project( v1, *models[1].intrinsics()).astype(np.float32))
 
     dqx_daz_desired = \
         get_dqx_daz_desired(baseline,
@@ -903,6 +916,8 @@ is computed for each pixel, not even for each row.
 
     az_domain = get_az_domain(azel_nominal, az1_expected)
 
+    # qx is a function of az_domain. This is similar to azel_nominal, but not
+    # identical necessarily. qx is rectified pixels
     qx = get_qx_mounted(az_domain,
                         dqx_daz_desired)
 
@@ -917,6 +932,41 @@ is computed for each pixel, not even for each row.
                                         copy          = False)
 
         azel[i,:,0] = az_qx_interpolator(np.arange(Naz))
+
+    # I now have azel which
+    #
+    # - contains az,el on a grid of rectified pixels
+    # - has exactly the same el values as the ones in azel_nominal[...,1]
+    # - has the az that meet my requested dqx/daz
+    # - the az at the center of each row matches azel_nominal[...,0]
+    #
+    # For "normal" rectification, I'm now done, and I can apply this azel to
+    # both cameras.
+    if 1:
+        # I want to shift everything towards disparity ~ 0. So I need to
+        #
+        # - Apply THIS azel to camera0
+        # - Apply this azel, shifted, to camera1
+        #
+        # A version of this shift already exists in az1_expected, but that was made
+        # using azel_nominal, so I need to recompute it here with our new domain
+        # A shift for the expected plane to sit at disparity ~ 0
+        az1_expected_adaptive, _ = \
+            get_az1expected_maskinf(baseline,
+                                    azel,
+                                    n0, distance_to_plane)
+
+        H,W = az1_expected_adaptive.shape
+        dazel1 = np.zeros((H,W,2))
+        dazel1[:,:,0] = az1_expected_adaptive - azel[...,0]
+
+        v = unproject(azel)
+        v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
+        v1 = mrcal.rotate_point_R(R_cam_rect[1], unproject(azel + dazel1*0.8))
+        return                                                                \
+            (mrcal.project( v0, *models[0].intrinsics()).astype(np.float32),  \
+             mrcal.project( v1, *models[1].intrinsics()).astype(np.float32))
+
 
 
 
