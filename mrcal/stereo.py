@@ -1123,10 +1123,6 @@ is computed for each pixel, not even for each row.
     print(f"{Npatches_x=}")
     print(f"{Npatches_y=}")
 
-    # import IPython
-    # IPython.embed()
-    # sys.exit()
-
 
 
     # Fit stuff. Not yet
