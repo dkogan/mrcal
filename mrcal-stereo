@@ -815,7 +815,9 @@ if not args.already_rectified:
                                                   n0                = n0,
                                                   distance_to_plane = 0.1565642688765455,
                                                   dqx_expected      = 0.3,
-                                                  rangeerr_min      = 0.002)
+                                                  rangeerr_min      = 0.002,
+                                                  disparity_to0_extra_pitch_deg = 20,
+                                                  disparity_to0_ratio = 0.8)
 
 
 

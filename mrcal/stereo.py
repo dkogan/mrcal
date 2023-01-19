@@ -561,7 +561,9 @@ def rectification_maps(models,
                        n0,
                        distance_to_plane,
                        dqx_expected,
-                       rangeerr_min):
+                       rangeerr_min,
+                       disparity_to0_extra_pitch_deg,
+                       disparity_to0_ratio):
 
     r'''Construct image transformation maps to make rectified images
 
@@ -908,7 +910,7 @@ is computed for each pixel, not even for each row.
 
         v = unproject(azel_nominal)
         v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
-        v1 = mrcal.rotate_point_R(R_cam_rect[1], unproject(azel_nominal + dazel1*0.8))
+        v1 = mrcal.rotate_point_R(R_cam_rect[1], unproject(azel_nominal + dazel1*disparity_to0_ratio))
         return                                                                \
             (mrcal.project( v0, *models[0].intrinsics()).astype(np.float32),  \
              mrcal.project( v1, *models[1].intrinsics()).astype(np.float32))
@@ -964,14 +966,14 @@ is computed for each pixel, not even for each row.
             get_az1expected_maskinf(baseline,
                                     azel,
                                     n0, distance_to_plane,
-                                    extra_pitch_deg = 20)
+                                    extra_pitch_deg = disparity_to0_extra_pitch_deg)
 
         H,W = az1_expected_adaptive.shape
         dazel1 = np.zeros((H,W,2))
         dazel1[:,:,0] = az1_expected_adaptive - azel[...,0]
 
         # Don't shift all the way towards 0. Need to leave some room for slop
-        dazel1 *= 0.8
+        dazel1 *= disparity_to0_ratio
     else:
         dazel1 = None
 
