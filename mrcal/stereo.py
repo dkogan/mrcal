@@ -746,7 +746,7 @@ is computed for each pixel, not even for each row.
 
         # points at infinity have nominal az
         mask_infinity = ~np.isfinite(k) + (k<=0)
-        az1[mask_infinity] = azel_nominal[mask_infinity, 0]
+        az1[mask_infinity] = azel[mask_infinity, 0]
         return az1, mask_infinity
 
     def get_dqx_daz_desired(baseline, fxycxy, azel_nominal, az1_expected,
