@@ -1257,6 +1257,21 @@ A tuple
     lensmodels      = [model.intrinsics()[0] for model in models]
     intrinsics_data = [model.intrinsics()[1] for model in models]
 
+    for i in range(len(models)):
+        if mrcal.lensmodel_metadata_and_config(lensmodels[i])['noncentral']:
+            if not atinfinity:
+                raise Exception(f"Model {i} are noncentral, so I can only evaluate the diff at infinity")
+            import re
+            if re.match("LENSMODEL_CAHVORE_",lensmodels[i]):
+                if use_uncertainties:
+                    raise Exception("I have a noncentral model. No usable uncertainties for those yet")
+                # Special-case to centralize CAHVORE. This path will need to be
+                # redone when I do noncentral models "properly", but this will
+                # do in the meantime
+                intrinsics_data[i][-3:] = 0
+            else:
+                raise Exception("I have a non-CAHVORE noncentral model. This isn't supported yet")
+
     # v  shape (Ncameras,Nheight,Nwidth,3)
     # q0 shape (         Nheight,Nwidth,2)
     v,q0 = mrcal.sample_imager_unproject(gridn_width, gridn_height,
