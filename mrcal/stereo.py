@@ -928,6 +928,60 @@ is computed for each pixel, not even for each row.
     qx = get_qx_mounted(az_domain,
                         dqx_daz_desired)
 
+    # Fit stuff. Not yet
+    if 0:
+
+        i=1000
+        j0 = np.argmax(~mask_nominal[i])
+
+        x,y = az[i,j0:-1],qx[i,j0:]
+        d,c,b,a = np.polyfit(x,y,3)
+        gp.plot( (x,y,dict(_with='points')), (x,a+x*(b+x*(c+x*d)),dict(_with='lines')))
+
+        r'''
+        Alright. Supposed I have fits. What do I do then?
+
+        I can compute drange/dqx1 sensitivities. With a nominal geometry, it
+        should be good. Then I should add extra pitch and/or roll to see if
+        it breaks stuff
+
+        I should also add the disparity bounds into the correlator '''
+
+        r''' I need full bidirectional functions. Need a project/unproject
+        in the weird space
+
+
+        Need lensmodel cookie. Used for the rectification map, range function
+
+        I need a custom q <-> azel, then a normalized
+        (un)project_stereographic() to complete
+
+
+        '''
+
+
+        # x = np.arange(Naz)[~mask_nominal[i]]
+        # y = dqx_daz_desired[i][~mask_nominal[i]]
+
+        # xmean = np.mean(x)
+        # xscale = (np.max(x) - np.min(x))/2
+        # x = (x-xmean)/xscale
+
+        import IPython
+        IPython.embed()
+        sys.exit()
+
+
+
+
+
+
+
+
+
+
+
+
     azel = np.array(azel_nominal)
     for i in range(qx.shape[0]):
 
@@ -1132,50 +1186,6 @@ is computed for each pixel, not even for each row.
     qxmin,qxmax = valid_projection_boundary(mapxy0, models[0])
     patch_xrange = get_patch_limits(qxmin, qxmax,
                                     mapxy0)
-
-
-    # Fit stuff. Not yet
-    if 0:
-
-        i=1000
-        j0 = np.argmax(~mask_nominal[i])
-
-        x,y = az[i,j0:-1],qx[i,j0:]
-        d,c,b,a = np.polyfit(x,y,3)
-        gp.plot( (x,y,dict(_with='points')), (x,a+x*(b+x*(c+x*d)),dict(_with='lines')))
-
-        r'''
-        Alright. Supposed I have fits. What do I do then?
-
-        I can compute drange/dqx1 sensitivities. With a nominal geometry, it
-        should be good. Then I should add extra pitch and/or roll to see if
-        it breaks stuff
-
-        I should also add the disparity bounds into the correlator '''
-
-        r''' I need full bidirectional functions. Need a project/unproject
-        in the weird space
-
-
-        Need lensmodel cookie. Used for the rectification map, range function
-
-        I need a custom q <-> azel, then a normalized
-        (un)project_stereographic() to complete
-
-
-        '''
-
-
-        # x = np.arange(Naz)[~mask_nominal[i]]
-        # y = dqx_daz_desired[i][~mask_nominal[i]]
-
-        # xmean = np.mean(x)
-        # xscale = (np.max(x) - np.min(x))/2
-        # x = (x-xmean)/xscale
-
-        import IPython
-        IPython.embed()
-        sys.exit()
 
 
     return mapxy0, mapxy1
