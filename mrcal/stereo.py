@@ -988,7 +988,7 @@ is computed for each pixel, not even for each row.
     v = unproject(azel)
 
     if np.min(np.diff(azel[...,0], axis=-1)) <= 0:
-        raise Exception("az-vs-qx MUST be monotonically increasing. This is important for finding the edges")
+        raise Exception("az-vs-qx MUST be monotonically increasing. This is important for finding the edges and for fitting")
 
     # if 0:
     #     # I want to compute the range sensitivity to pixel matching:
