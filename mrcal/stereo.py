@@ -818,10 +818,9 @@ is computed for each pixel, not even for each row.
 
         else:
             # Let's ask for those resolutions at a mean az. az0 is our linear
-            # sample. az1 is the corresponding az on the other camera when observing
-            # the plane. az1 is NOT linear. Maybe in a pinhole projection
+            # sample. az1 is the corresponding az on the other camera when
+            # observing the plane. az1 is NOT linear
             return (azel_nominal[..., 0] + az1_expected)/2
-
 
     def get_qx_mounted(az_domain,
                        dqx_daz_desired):
@@ -858,7 +857,7 @@ is computed for each pixel, not even for each row.
         az_center = ((Naz-1)/2 - cx)/fx
 
         # Python loop. Yuck!
-        for i in range(qx.shape[0]):
+        for i in range(Nel):
 
             qx_az_interpolator = \
                 scipy.interpolate.interp1d( az_domain[i], qx[i],
@@ -867,7 +866,7 @@ is computed for each pixel, not even for each row.
                                             assume_sorted = True,
                                             copy          = False)
 
-            qx[i] += (qx.shape[-1] - 1)/2 - qx_az_interpolator(az_center)
+            qx[i] += (Naz - 1)/2 - qx_az_interpolator(az_center)
 
         return qx
 
@@ -893,9 +892,6 @@ is computed for each pixel, not even for each row.
         return                                                                \
             (mrcal.project( v0, *models[0].intrinsics()).astype(np.float32),  \
              mrcal.project( v1, *models[1].intrinsics()).astype(np.float32))
-
-
-
 
     az1_expected, mask_infinity = \
         get_az1expected_maskinf(baseline,
@@ -923,8 +919,8 @@ is computed for each pixel, not even for each row.
 
     az_domain = get_az_domain(azel_nominal, az1_expected)
 
-    # qx is a function of az_domain. This is similar to azel_nominal, but not
-    # identical necessarily. qx is rectified pixels
+    # qx is a function of az_domain. This is similar to azel_nominal[...,0], but
+    # not identical necessarily. qx is rectified pixels
     qx = get_qx_mounted(az_domain,
                         dqx_daz_desired)
 
