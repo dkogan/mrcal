@@ -924,71 +924,130 @@ is computed for each pixel, not even for each row.
     qx = get_qx_mounted(az_domain,
                         dqx_daz_desired)
 
-    # Fit stuff. Not yet
+    # I now have a numerical az_domain/qx mapping. I fit a curve into that data
+    # so that I can easily convert between these in the future. I want to use a
+    # parabola. So the forwards direction will be very fast, while the inverse
+    # direction will be a bit slower: it will have a sqrt. At run I will use
+    # pre-canned tables to produce the rectified images. To convert them to
+    # ranges I will want to map qx -> az. So let's do the fit in this direction
+    azelmin = azel_nominal[ 0, 0,:]
+    azelmax = azel_nominal[-1,-1,:]
+
+
+    # I use two different parabolas on the right and left halves of the
+    # image. The curves add odd-ish, but not exactly odd. We can see the
+    # curves like this:
     if 0:
-
-        i=1000
-        j0 = np.argmax(~mask_nominal[i])
-
-        x,y = az[i,j0:-1],qx[i,j0:]
-        d,c,b,a = np.polyfit(x,y,3)
-        gp.plot( (x,y,dict(_with='points')), (x,a+x*(b+x*(c+x*d)),dict(_with='lines')))
-
-        r'''
-        Alright. Supposed I have fits. What do I do then?
-
-        I can compute drange/dqx1 sensitivities. With a nominal geometry, it
-        should be good. Then I should add extra pitch and/or roll to see if
-        it breaks stuff
-
-        I should also add the disparity bounds into the correlator '''
-
-        r''' I need full bidirectional functions. Need a project/unproject
-        in the weird space
-
-
-        Need lensmodel cookie. Used for the rectification map, range function
-
-        I need a custom q <-> azel, then a normalized
-        (un)project_stereographic() to complete
-
-
-        '''
+        i = (400,500,600,700,800,900,1000,1100)
+        az_domain_bounded = np.array(az_domain)
+        az_domain_bounded[az_domain[...] < azelmin[0]] = 0
+        az_domain_bounded[az_domain[...] > azelmax[0]] = 0
+        gp.plot( qx[i,:], az_domain_bounded[i,:],
+                 _with='lines',
+                 xlabel   = 'qx',
+                 ylabel   = 'az',
+                 legend   = np.array(i),
+                 equation = (str(azelmin[0]),str(azelmax[0])))
+    # Note that the curves don't necessarily reach the az bounds. This is
+    # because get_az_domain() uses az1_expected, which is always a bit less
+    # than the nominal az. We can see that the curves aren't exactly odd;
+    # plotting the two halves together
+    if 0:
+        i=700
+        jmid = np.argmin(np.abs(az_domain[i]))
+        gp.plot( (az_domain[i,jmid:],      dict(legend='righthalf')), \
+                 (-az_domain[i,jmid-1::-1], dict(legend='lefthalf')))
+    # I split the parabolas at az=0, which sits at qx = (Naz-1)/2. I can
+    # verify it like this:
+    if 0:
+        i=700
+        jmid = np.argmin(np.abs(az_domain[i]))
+        print(qx[i,jmid])
+        print((Naz-1)/2)
 
 
-        # x = np.arange(Naz)[~mask_nominal[i]]
-        # y = dqx_daz_desired[i][~mask_nominal[i]]
-
-        # xmean = np.mean(x)
-        # xscale = (np.max(x) - np.min(x))/2
-        # x = (x-xmean)/xscale
-
-        import IPython
-        IPython.embed()
-        sys.exit()
+    @nps.broadcast_define(( (int(Naz),), ),
+                          ())
+    def find_jmid(az):
+        return np.argmin(np.abs(az))
+    jmid = find_jmid(az_domain).astype(int)
+    # for all i this prints ~ (Naz-1)/2:   i=1200; print(qx[i,jmid[i]])
 
 
+    scale = Naz/2
+
+    @nps.broadcast_define( ( (int(Naz),), (int(Naz),), ()),
+                           # output of shape (Nleftright=2, Ncoeffs=2)
+                           # Constant term set to set az(jmid)=0
+                           (2,2,))
+    def fit(qx, az, jmid):
+        # I want xs[jmid] = 0
+        xs = (qx - qx[jmid]) / scale
+
+        # left half
+        jmin  = np.argmax(az >= azelmin[0])
+        M = nps.glue( nps.transpose(xs[jmin:jmid]),
+                      nps.transpose(xs[jmin:jmid]*xs[jmin:jmid]),
+                      axis = -1)
+        c12_left = nps.matmult(np.linalg.pinv(M), nps.transpose(az[jmin:jmid])).ravel()
+        # gp.plot( xs[jmin:jmid], az[jmin:jmid], equation = f"x*(({c12_left[0]}) + ({c12_left[1]})*x)")
+
+        # right half
+        jmax  = np.argmax(az > azelmax[0]) # one past the end
+        if jmax == 0: jmax = len(az)
+        M = nps.glue( nps.transpose(xs[jmid:jmax]),
+                      nps.transpose(xs[jmid:jmax]*xs[jmid:jmax]),
+                      axis = -1)
+        c12_right = nps.matmult(np.linalg.pinv(M), nps.transpose(az[jmid:jmax])).ravel()
+        # gp.plot( xs[jmid:jmax], az[jmid:jmax], equation = f"x*(({c12_right[0]}) + ({c12_right[1]})*x)")
+
+        return nps.cat(c12_left,c12_right)
+
+    # shape (Nel, Nleftright=2, Ncoeffs=2)
+    c12 = fit(qx, az_domain, jmid)
+
+    cookie = dict(c12   = c12,
+                  scale = scale)
+
+    def az_from_qx(qx,
+                   *,
+                   # cookie
+                   c12,
+                   scale,
+                   **extra):
+        qxmid = (Naz-1)/2
+        xs = (qx - qxmid) / scale
+        return \
+            (xs * (c12[:,0,0,np.newaxis] + xs*c12[:,0,1,np.newaxis]))*(1 - (np.sign(xs)>0)) + \
+            (xs * (c12[:,1,0,np.newaxis] + xs*c12[:,1,1,np.newaxis]))*(    (np.sign(xs)>0))
+
+    # Fit is done. Let's make sure we can use it
+    if 0:
+        i = 1000
+        azfit = az_from_qx(qx, **cookie)
+        gp.plot( (qx[i],azfit[i], dict(_with  = 'lines',
+                                       legend = 'fit')),
+                 (qx[i],az_domain[i], dict(_with = 'points',
+                                           legend = 'data')))
+
+    azel = np.zeros((Nel,Naz,2), dtype=float)
+    azel[...,1] += nps.dummy(np.arange(Nel,dtype=float),
+                             -1)
+    azel[...,0] = az_from_qx(qxy_nominal[...,0], **cookie)
+
+    # I can visualize the curve for the same i as above:
+    if 0:
+        i = 1000
+        gp.plot(qxy_nominal[1000,:,0],
+                azel[1000,:,0],
+                _xrange=(500,1100),
+                _yrange=(-1,0.8))
+
+    import IPython
+    IPython.embed()
+    sys.exit()
 
 
-
-
-
-
-
-
-
-
-    azel = np.array(azel_nominal)
-    for i in range(qx.shape[0]):
-
-        az_qx_interpolator = \
-            scipy.interpolate.interp1d( qx[i], az_domain[i],
-                                        bounds_error  = False,
-                                        fill_value    = 'extrapolate',
-                                        assume_sorted = True,
-                                        copy          = False)
-
-        azel[i,:,0] = az_qx_interpolator(np.arange(Naz))
 
     # I now have azel which
     #
