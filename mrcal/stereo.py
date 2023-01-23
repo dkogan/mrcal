@@ -1021,33 +1021,27 @@ is computed for each pixel, not even for each row.
             (xs * (c12[:,0,0,np.newaxis] + xs*c12[:,0,1,np.newaxis]))*(1 - (np.sign(xs)>0)) + \
             (xs * (c12[:,1,0,np.newaxis] + xs*c12[:,1,1,np.newaxis]))*(    (np.sign(xs)>0))
 
-    # Fit is done. Let's make sure we can use it
+    azel = np.zeros((Nel,Naz,2), dtype=float)
+    azel[...,1] += (nps.dummy(np.arange(Nel,dtype=float), -1) \
+                    - fxycxy[3]) / fxycxy[1]
+
+    azel[...,0] = az_from_qx(qxy_nominal[...,0], **cookie)
+
+    # Fit is done. Let's make sure we can use it and that the az_from_qx
+    # function works and that the fitted azel is correct
     if 0:
         i = 1000
         azfit = az_from_qx(qx, **cookie)
         gp.plot( (qx[i],azfit[i], dict(_with  = 'lines',
                                        legend = 'fit')),
                  (qx[i],az_domain[i], dict(_with = 'points',
-                                           legend = 'data')))
-
-    azel = np.zeros((Nel,Naz,2), dtype=float)
-    azel[...,1] += nps.dummy(np.arange(Nel,dtype=float),
-                             -1)
-    azel[...,0] = az_from_qx(qxy_nominal[...,0], **cookie)
-
-    # I can visualize the curve for the same i as above:
-    if 0:
-        i = 1000
-        gp.plot(qxy_nominal[1000,:,0],
-                azel[1000,:,0],
-                _xrange=(500,1100),
-                _yrange=(-1,0.8))
-
-    import IPython
-    IPython.embed()
-    sys.exit()
-
-
+                                           legend = 'data')),
+                 (qxy_nominal[i,:,0],
+                  azel[i,:,0],
+                  dict(_with = 'lines',
+                       legend = 'fit applied to regularly-spaced qx')),
+                 xlabel = 'qx',
+                 ylabel = 'az (rad)')
 
     # I now have azel which
     #
@@ -1058,7 +1052,7 @@ is computed for each pixel, not even for each row.
     #
     # For "normal" rectification, I'm now done, and I can apply this azel to
     # both cameras.
-    if 1:
+    if 0:
         # I want to shift everything towards disparity ~ 0. So I need to
         #
         # - Apply THIS azel to camera0
@@ -1095,15 +1089,6 @@ is computed for each pixel, not even for each row.
 
     # shape (Nel,Naz,3)
     v = unproject(azel)
-
-    if np.min(np.diff(azel[...,0], axis=-1)) <= 0:
-        raise Exception("az-vs-qx MUST be monotonically increasing. This is important for finding the edges and for fitting")
-
-    # if 0:
-    #     # I want to compute the range sensitivity to pixel matching:
-    #     #   dr/dqx1 = dr/dth1 dth1/dqx1
-    #     # dr/dth1 comes from the triangulation function
-    #     # dth1/dqx1 is the resolution I integrated. I have that directly
 
     v0 = mrcal.rotate_point_R(R_cam_rect[0], v)
     v1 = mrcal.rotate_point_R(R_cam_rect[1], unproject(azel + (0 if dazel1 is None else dazel1)))
@@ -1241,7 +1226,6 @@ is computed for each pixel, not even for each row.
     qxmin,qxmax = valid_projection_boundary(mapxy0, models[0])
     patch_xrange = get_patch_limits(qxmin, qxmax,
                                     mapxy0)
-
 
     return mapxy0, mapxy1
 
