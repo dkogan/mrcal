@@ -8,25 +8,63 @@ import pickle
 
 
 
-def project_adaptive_rectification(p,
-                                   *, # cookie
-                                   qx,
-                                   az_domain,
-                                   fy, cy,
-                                   daz1):
+def az_from_qx(qx,
+               *,
+               # cookie
+               c12,
+               scale,
+               Naz,
+               **extra):
+    qxmid = (Naz-1)/2
+    xs = (qx - qxmid) / scale
+    c1l = c12[:,0,0,np.newaxis]
+    c2l = c12[:,0,1,np.newaxis]
+    c1r = c12[:,1,0,np.newaxis]
+    c2r = c12[:,1,1,np.newaxis]
+    return \
+        (xs * (c1l + xs*c2l))*(1 - (np.sign(xs)>0)) + \
+        (xs * (c1r + xs*c2r))*(    (np.sign(xs)>0))
 
-    if daz1 is not None:
+
+def qx_from_az(az,
+               *,
+               # cookie
+               c12,
+               scale,
+               Naz,
+               **extra):
+
+    # I have az = c1 xs + c2 xs*xs. Around (xs=0,az=0) I have daz/dxs > 0. So I
+    # can pick which parabola I'm looking at based on xs>0 or az>0. At xs=0
+    # daz/dxs = c1, so c1>0.
+    #
+    #   xs = (-c1 +- sqrt(c1^2 + 4*c2*az)) / 2*c2
+    #
+    # Generally (from empirical plot visualization) with az>0 I have c2<0 and
+    # with az<0 I have c2>0, so 4*c2*az<0. So if a real solution exists, both
+    # will be >0 or both will be <0. Of the two I pick the one that has abs(xs)
+    # closer to 0. This is (-c1 + sqrt(c1^2 + 4*c2*az)) / 2*c2
+    c1l = c12[:,0,0,np.newaxis]
+    c2l = c12[:,0,1,np.newaxis]
+    c1r = c12[:,1,0,np.newaxis]
+    c2r = c12[:,1,1,np.newaxis]
+    xs = \
+        (-c1l + np.sqrt(c1l*c1l + 4.*c2l*az)) / (2.*c2l)*(1 - (np.sign(az)>0)) + \
+        (-c1r + np.sqrt(c1r*c1r + 4.*c2r*az)) / (2.*c2r)*(    (np.sign(az)>0))
+
+    qxmid = (Naz-1)/2
+    qx = xs*scale + qxmid
+    return qx
+
+
+def project_adaptive_rectification(p, cookie):
+
+    fy   = cookie['fy']
+    cy   = cookie['cy']
+    daz1 = cookie['daz1']
+
+    if daz1:
         raise Exception(f"project_adaptive_rectification(daz1 != 0) not implemented")
-
-    # Python loop. Yuck!
-    @nps.broadcast_define( ((),),
-                           ())
-    def interp_one(qy,az):
-        return \
-            np.interp(az,
-                      az_domain[qy], qx[qy])
-
-
 
     azel  = mrcal.project_latlon(p)
     az,el = nps.mv(azel, -1, 0)
@@ -35,83 +73,43 @@ def project_adaptive_rectification(p,
                  dtype=float)
 
     q[...,1] = el * fy + cy
-
-    # sy is in [0,1] between [floor(qy),floor(qy)+1]
-    sy = q[...,1] % 1
-
-    q[...,0] = \
-        interp_one(np.floor(q[...,1]).astype(int),   az) * (1-sy) + \
-        interp_one(np.floor(q[...,1]).astype(int)+1, az) * sy
+    q[...,0] = qx_from_az(az, **cookie)
 
     return q
 
 
 def unproject_adaptive_rectification(q,
-                                     *,
-                                     disparity = None,
-                                     # cookie
-                                     qx,
-                                     az_domain,
-                                     fy, cy,
-                                     daz1):
+                                     cookie,
+                                     disparity = None):
 
-    if daz1 is not None:
-        pass
-        #raise Exception(f"unproject_adaptive_rectification(daz1 != 0) not implemented")
+    fy   = cookie['fy']
+    cy   = cookie['cy']
+    daz1 = cookie['daz1']
+    Naz  = cookie['Naz']
+    Nel  = cookie['Nel']
+
+    if daz1:
+        raise Exception(f"unproject_adaptive_rectification(daz1 != 0) not implemented")
 
     if q is None:
         # full imager
-        H,W = az_domain.shape
-
-        # Python loop. Yuck!
-        @nps.broadcast_define( ((W,),(W,),()), (W,), out_kwarg='out' )
-        def interp_one(qx_here,disparity,qy, *, out):
-            out += \
-                np.interp(qx_here - disparity,
-                          qx[qy], az_domain[qy])
-
-
-        azel = np.zeros((H,W,2),
+        azel = np.zeros((Nel,Naz,2),
                         dtype=float)
-        qy = np.arange(H)
+        qy = np.arange(Nel)
         nps.transpose(azel[...,1])[:] += (qy - cy) / fy
 
-        qx_here = np.arange(W)
-
         if disparity is None:
-            disparity = np.zeros((W,))
-
-        interp_one(qx_here, disparity, qy, out=azel[...,0])
+            disparity = np.zeros((Naz,))
+        azel[...,0] = az_from_qx(np.arange(Naz)-disparity, **cookie)
 
         return mrcal.unproject_latlon(azel)
-
-
-
-    # Python loop. Yuck!
-    @nps.broadcast_define( ((),(),()), () )
-    def interp_azel_q(qx_here,disparity,qy):
-        return \
-            np.interp(qx_here - disparity,
-                      qx[qy], az_domain[qy])
-
-
-    # sy is in [0,1] between [floor(qy),floor(qy)+1]
-    sy = q[...,1] % 1
 
     azel = np.zeros(q.shape,
                     dtype=float)
     azel[...,1] = (q[...,1] - cy) / fy
-
     if disparity is None:
         disparity = np.zeros(q.shape[:-1])
-
-    azel[...,0] = \
-        interp_azel_q(q[...,0], disparity, np.floor(q[...,1]).astype(int)  ) * (1-sy) + \
-        interp_azel_q(q[...,0], disparity, np.floor(q[...,1]).astype(int)+1) * sy
-
-    # azel[...,0] -= \
-    #     (interp_daz1_q(q[...,0], np.floor(q[...,1]).astype(int)  ) * (1-sy) + \
-    #      interp_daz1_q(q[...,0], np.floor(q[...,1]).astype(int)+1) * sy)
+    azel[...,0] = az_from_qx(q[...,0]-disparity, **cookie)
 
     return mrcal.unproject_latlon(azel)
 

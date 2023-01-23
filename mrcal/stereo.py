@@ -1006,42 +1006,31 @@ is computed for each pixel, not even for each row.
     # shape (Nel, Nleftright=2, Ncoeffs=2)
     c12 = fit(qx, az_domain, jmid)
 
-    cookie = dict(c12   = c12,
-                  scale = scale)
-
-
     rectification_maps.cookie_adaptive_rectification = \
-        dict(qx        = qx,
-             az_domain = az_domain,
-             daz1      = None if dazel1 is None else dazel1[...,0],
-             fy        = fxycxy[1],
-             cy        = fxycxy[3])
-
-
-
-    def az_from_qx(qx,
-                   *,
-                   # cookie
-                   c12,
-                   scale,
-                   **extra):
-        qxmid = (Naz-1)/2
-        xs = (qx - qxmid) / scale
-        return \
-            (xs * (c12[:,0,0,np.newaxis] + xs*c12[:,0,1,np.newaxis]))*(1 - (np.sign(xs)>0)) + \
-            (xs * (c12[:,1,0,np.newaxis] + xs*c12[:,1,1,np.newaxis]))*(    (np.sign(xs)>0))
+        dict(c12   = c12,
+             scale = scale,
+             Naz   = Naz,
+             Nel   = Nel,
+             fy    = fxycxy[1],
+             cy    = fxycxy[3],
+             # None for now; will update it in a bit
+             daz1  = None )
 
     azel = np.zeros((Nel,Naz,2), dtype=float)
     azel[...,1] += (nps.dummy(np.arange(Nel,dtype=float), -1) \
                     - fxycxy[3]) / fxycxy[1]
 
-    azel[...,0] = az_from_qx(qxy_nominal[...,0], **cookie)
+    azel[...,0] = \
+        mrcal.adaptive_project.az_from_qx(qxy_nominal[...,0],
+                                          **rectification_maps.cookie_adaptive_rectification)
 
     # Fit is done. Let's make sure we can use it and that the az_from_qx
     # function works and that the fitted azel is correct
     if 0:
         i = 1000
-        azfit = az_from_qx(qx, **cookie)
+        azfit = \
+            mrcal.adaptive_project.az_from_qx(qx,
+                                              **rectification_maps.cookie_adaptive_rectification)
         gp.plot( (qx[i],azfit[i], dict(_with  = 'lines',
                                        legend = 'fit')),
                  (qx[i],az_domain[i], dict(_with = 'points',
@@ -1089,6 +1078,9 @@ is computed for each pixel, not even for each row.
         dazel1 *= disparity_to0_ratio
     else:
         dazel1 = None
+
+    if dazel1 is not None:
+        rectification_maps.cookie_adaptive_rectification['daz1'] = dazel1[...,0]
 
     # shape (Nel,Naz,3)
     v = unproject(azel)
@@ -1231,7 +1223,6 @@ is computed for each pixel, not even for each row.
                                     mapxy0)
 
     return mapxy0, mapxy1
-
 
 
 
@@ -1500,12 +1491,12 @@ RETURNED VALUES
             mrcal.adaptive_project. \
             unproject_adaptive_rectification( qrect0,
                                               disparity = disparity/disparity_scale,
-                                              **mrcal.rectification_maps.cookie_adaptive_rectification)
+                                              cookie    = mrcal.rectification_maps.cookie_adaptive_rectification)
         cookie = dict(mrcal.rectification_maps.cookie_adaptive_rectification)
         cookie['daz1'] = None
         v0 = \
             mrcal.adaptive_project. \
-            unproject_adaptive_rectification( qrect0, **cookie)
+            unproject_adaptive_rectification( qrect0, cookie)
 
 
         qrect0 = mrcal.project_latlon(v0, models_rectified[0].intrinsics()[1])
