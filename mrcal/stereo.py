@@ -1009,6 +1009,16 @@ is computed for each pixel, not even for each row.
     cookie = dict(c12   = c12,
                   scale = scale)
 
+
+    rectification_maps.cookie_adaptive_rectification = \
+        dict(qx        = qx,
+             az_domain = az_domain,
+             daz1      = None if dazel1 is None else dazel1[...,0],
+             fy        = fxycxy[1],
+             cy        = fxycxy[3])
+
+
+
     def az_from_qx(qx,
                    *,
                    # cookie
@@ -1079,13 +1089,6 @@ is computed for each pixel, not even for each row.
         dazel1 *= disparity_to0_ratio
     else:
         dazel1 = None
-
-    rectification_maps.cookie_adaptive_rectification = \
-        dict(qx        = qx,
-             az_domain = az_domain,
-             daz1      = None if dazel1 is None else dazel1[...,0],
-             fy        = fxycxy[1],
-             cy        = fxycxy[3])
 
     # shape (Nel,Naz,3)
     v = unproject(azel)
