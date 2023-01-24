@@ -979,42 +979,52 @@ is computed for each pixel, not even for each row.
     @nps.broadcast_define( ( (int(Naz),), (int(Naz),), ()),
                            # output of shape (Nleftright=2, Ncoeffs=2)
                            # Constant term set to set az(jmid)=0
-                           (2,2,))
+                           (3,))
     def fit(qx, az, jmid):
-        # I want xs[jmid] = 0
+        # I fit az <- qx as two parabolas. I shift and scale qx:
         xs = (qx - qx[jmid]) / scale
 
+        # The two parabolas are c1 continuous  at qx[jmid]:
+        #   az0(qx[jmid])      = az1(qx[jmid])
+        #   daz0/dqx(qx[jmid]) = daz1/dqx(qx[jmid])
+        #
+        # The shift sets xs(qx[jmid]) = 0, so the two parabolas don't have a
+        # constant term: az = C1 xs + C2 xs^2
+        #
+        # To match the derivative I must use the same C1 for the two parabolas.
+        # So my fit has 3 parameters: [C1 C2left C2right]
         # left half
         jmin  = np.argmax(az >= azelmin[0])
-        M = nps.glue( nps.transpose(xs[jmin:jmid]),
-                      nps.transpose(xs[jmin:jmid]*xs[jmin:jmid]),
-                      axis = -1)
-        c12_left = nps.matmult(np.linalg.pinv(M), nps.transpose(az[jmin:jmid])).ravel()
-        # gp.plot( xs[jmin:jmid], az[jmin:jmid], equation = f"x*(({c12_left[0]}) + ({c12_left[1]})*x)")
-
+        Mleft = nps.glue( nps.transpose(xs[jmin:jmid]),
+                          nps.transpose(xs[jmin:jmid]*xs[jmin:jmid]),
+                          np.zeros((jmid-jmin,1), dtype=float),
+                          axis = -1)
         # right half
         jmax  = np.argmax(az > azelmax[0]) # one past the end
         if jmax == 0: jmax = len(az)
-        M = nps.glue( nps.transpose(xs[jmid:jmax]),
-                      nps.transpose(xs[jmid:jmax]*xs[jmid:jmax]),
-                      axis = -1)
-        c12_right = nps.matmult(np.linalg.pinv(M), nps.transpose(az[jmid:jmax])).ravel()
-        # gp.plot( xs[jmid:jmax], az[jmid:jmax], equation = f"x*(({c12_right[0]}) + ({c12_right[1]})*x)")
+        Mright = nps.glue( nps.transpose(xs[jmid:jmax]),
+                           np.zeros((jmax-jmid,1), dtype=float),
+                           nps.transpose(xs[jmid:jmax]*xs[jmid:jmax]),
+                           axis = -1)
 
-        return nps.cat(c12_left,c12_right)
+        c12l2r = nps.matmult(np.linalg.pinv(nps.glue(Mleft,Mright,axis=-2)),
+                             nps.transpose(nps.glue(az[jmin:jmid],
+                                                    az[jmid:jmax],
+                                                    axis=-1))).ravel()
+        return c12l2r
 
-    # shape (Nel, Nleftright=2, Ncoeffs=2)
-    c12 = fit(qx, az_domain, jmid)
+    # shape (Nel, 3)
+    c12l2r = fit(qx, az_domain, jmid)
 
     rectification_maps.cookie_adaptive_rectification = \
-        dict(c12   = c12,
-             scale = scale,
-             Naz   = Naz,
-             Nel   = Nel,
-             fy    = fxycxy[1],
-             cy    = fxycxy[3],
+        dict(c12l2r = c12l2r,
+             scale  = scale,
+             Naz    = Naz,
+             Nel    = Nel,
+             fy     = fxycxy[1],
+             cy     = fxycxy[3],
              # None for now; will update it in a bit
-             daz1  = None )
+             daz1   = None )
 
     azel = np.zeros((Nel,Naz,2), dtype=float)
     azel[...,1] += (nps.dummy(np.arange(Nel,dtype=float), -1) \
@@ -1027,6 +1037,7 @@ is computed for each pixel, not even for each row.
     # Fit is done. Let's make sure we can use it and that the az_from_qx
     # function works and that the fitted azel is correct
     if 0:
+        import gnuplotlib as gp
         i = 1000
         azfit = \
             mrcal.adaptive_project.az_from_qx(qx,
