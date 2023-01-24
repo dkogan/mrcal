@@ -133,16 +133,16 @@ def project_adaptive_rectification(p, cookie):
     azel  = mrcal.project_latlon(p)
     az,el = nps.mv(azel, -1, 0)
 
-    q = np.zeros(azel.shape,
+    qrect = np.zeros(azel.shape,
                  dtype=float)
 
-    q[...,1] = el * fy + cy
-    q[...,0] = qx_from_az(az, **cookie)
+    qrect[...,1] = el * fy + cy
+    qrect[...,0] = qx_from_az(az, **cookie)
 
-    return q
+    return qrect
 
 
-def unproject_adaptive_rectification(q,
+def unproject_adaptive_rectification(qrect,
                                      cookie,
                                      disparity = None):
 
@@ -151,9 +151,6 @@ def unproject_adaptive_rectification(q,
     daz1 = cookie['daz1']
     Naz  = cookie['Naz']
     Nel  = cookie['Nel']
-
-    if daz1:
-        raise Exception(f"unproject_adaptive_rectification(daz1 != 0) not implemented")
 
     if q is None:
         # full imager
@@ -168,21 +165,21 @@ def unproject_adaptive_rectification(q,
 
         return mrcal.unproject_latlon(azel)
 
-    azel = np.zeros(q.shape,
+    azel = np.zeros(qrect.shape,
                     dtype=float)
-    azel[...,1] = (q[...,1] - cy) / fy
+    azel[...,1] = (qrect[...,1] - cy) / fy
     if disparity is None:
-        disparity = np.zeros(q.shape[:-1])
+        disparity = np.zeros(qrect.shape[:-1])
 
-    i0 = q[...,1].astype(int)
-    s  = q[...,1] - i0
+    i0 = qrect[...,1].astype(int)
+    s  = qrect[...,1] - i0
     cookie_c12l2r_floor = dict(cookie)
     cookie_c12l2r_ceil  = dict(cookie)
     cookie_c12l2r_floor['c12l2r'] = cookie['c12l2r'][i0,    ...]
     cookie_c12l2r_ceil ['c12l2r'] = cookie['c12l2r'][i0+1,  ...]
     azel[...,0] = \
-        az_from_qx(q[...,0]-disparity, **cookie_c12l2r_floor) * (1-s) + \
-        az_from_qx(q[...,0]-disparity, **cookie_c12l2r_ceil ) * (  s)
+        az_from_qx(qrect[...,0]-disparity, **cookie_c12l2r_floor) * (1-s) + \
+        az_from_qx(qrect[...,0]-disparity, **cookie_c12l2r_ceil ) * (  s)
 
     return mrcal.unproject_latlon(azel)
 
@@ -202,21 +199,21 @@ if __name__ == '__main__':
     p = np.array([0.57652792, 0.0982791 , 0.81114535])
     # q_adaptive = ((1096.8,855.7))
 
-    q = \
+    qrect = \
         project_adaptive_rectification(p,
                                        qx          = qx,
                                        az_domain   = az_domain,
                                        fy          = fy,
                                        cy          = cy,
-                                       daz1      = 0)
+                                       daz1        = 0)
     pp = \
-        unproject_adaptive_rectification(q,
+        unproject_adaptive_rectification(qrect,
                                          qx          = qx,
                                          az_domain   = az_domain,
                                          fy          = fy,
                                          cy          = cy,
-                                         daz1      = 0)
+                                         daz1        = 0)
 
     print(p)
     print(pp)
-    print(q)
+    print(qrect)
