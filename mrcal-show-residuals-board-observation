@@ -135,7 +135,7 @@ def parse_args():
         try:
             i = int(s)
             if i < 0:
-                print(f"Observations should be a list of positive integers and/or A-B ranges. Invalid observation given: '{s}'",
+                print(f"Observations should be a list of non-negative integers and/or A-B ranges. Invalid observation given: '{s}'",
                       file=sys.stderr)
                 sys.exit(1)
             return [i]
@@ -144,14 +144,14 @@ def parse_args():
 
         m = re.match("^([0-9]+)-([0-9]+)$", s)
         if m is None:
-            print(f"Observations should be a list of positive integers and/or A-B ranges. Invalid observation given: '{s}'",
+            print(f"Observations should be a list of non-negative integers and/or A-B ranges. Invalid observation given: '{s}'",
                   file=sys.stderr)
             sys.exit(1)
         try:
             i0 = int(m.group(1))
             i1 = int(m.group(2))
         except Exception as e:
-            print(f"Observations should be a list of positive integers and/or A-B ranges. Invalid observation given: '{s}'",
+            print(f"Observations should be a list of non-negative integers and/or A-B ranges. Invalid observation given: '{s}'",
                   file=sys.stderr)
             sys.exit(1)
         return list(range(i0,i1+1))
