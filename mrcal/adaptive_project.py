@@ -121,53 +121,27 @@ def qx_from_az(az,
     return _qx_from_az_sparse(az,c12l2r,scale,Naz)
 
 
-def project_adaptive_rectification(p, cookie):
+def undo_adaptive_rectification(cookie,
+                                qrect     = None, # input and output (unless qrect is None)
+                                disparity = None,
+                                daz       = None):
 
-    fy   = cookie['fy']
-    cy   = cookie['cy']
-    daz1 = cookie['daz1']
+    fx,fy,cx,cy = cookie['fxycxy']
+    Naz         = cookie['Naz']
+    Nel         = cookie['Nel']
 
-    if daz1:
-        raise Exception(f"project_adaptive_rectification(daz1 != 0) not implemented")
-
-    azel  = mrcal.project_latlon(p)
-    az,el = nps.mv(azel, -1, 0)
-
-    qrect = np.zeros(azel.shape,
-                 dtype=float)
-
-    qrect[...,1] = el * fy + cy
-    qrect[...,0] = qx_from_az(az, **cookie)
-
-    return qrect
-
-
-def unproject_adaptive_rectification(qrect,
-                                     cookie,
-                                     disparity = None):
-
-    fy   = cookie['fy']
-    cy   = cookie['cy']
-    daz1 = cookie['daz1']
-    Naz  = cookie['Naz']
-    Nel  = cookie['Nel']
-
-    if q is None:
+    if qrect is None:
         # full imager
-        azel = np.zeros((Nel,Naz,2),
-                        dtype=float)
-        qy = np.arange(Nel)
-        nps.transpose(azel[...,1])[:] += (qy - cy) / fy
-
+        qrect = np.zeros((Nel,Naz,2),
+                         dtype=float)
         if disparity is None:
             disparity = np.zeros((Naz,))
-        azel[...,0] = az_from_qx(np.arange(Naz)-disparity, **cookie)
+        # shape (Nel,Naz)
+        az = az_from_qx(np.arange(Naz)-disparity, **cookie)
+        qrect[...,0] = az*fx + cx
+        qrect[...,1] = nps.transpose(np.arange(Nel,dtype=float))
+        return qrect
 
-        return mrcal.unproject_latlon(azel)
-
-    azel = np.zeros(qrect.shape,
-                    dtype=float)
-    azel[...,1] = (qrect[...,1] - cy) / fy
     if disparity is None:
         disparity = np.zeros(qrect.shape[:-1])
 
@@ -177,43 +151,8 @@ def unproject_adaptive_rectification(qrect,
     cookie_c12l2r_ceil  = dict(cookie)
     cookie_c12l2r_floor['c12l2r'] = cookie['c12l2r'][i0,    ...]
     cookie_c12l2r_ceil ['c12l2r'] = cookie['c12l2r'][i0+1,  ...]
-    azel[...,0] = \
+    az = \
         az_from_qx(qrect[...,0]-disparity, **cookie_c12l2r_floor) * (1-s) + \
         az_from_qx(qrect[...,0]-disparity, **cookie_c12l2r_ceil ) * (  s)
-
-    return mrcal.unproject_latlon(azel)
-
-
-if __name__ == '__main__':
-
-    import pickle
-
-    filename = "/tmp/cookie"
-    with open(filename, "rb") as f:
-        (qx,
-         az_domain,
-         fy,cy) = \
-             pickle.load(f)
-
-    # q_nominal = ((1574.738,855.411))
-    p = np.array([0.57652792, 0.0982791 , 0.81114535])
-    # q_adaptive = ((1096.8,855.7))
-
-    qrect = \
-        project_adaptive_rectification(p,
-                                       qx          = qx,
-                                       az_domain   = az_domain,
-                                       fy          = fy,
-                                       cy          = cy,
-                                       daz1        = 0)
-    pp = \
-        unproject_adaptive_rectification(qrect,
-                                         qx          = qx,
-                                         az_domain   = az_domain,
-                                         fy          = fy,
-                                         cy          = cy,
-                                         daz1        = 0)
-
-    print(p)
-    print(pp)
-    print(qrect)
+    qrect[...,0] = az*fx + cx
+    return qrect

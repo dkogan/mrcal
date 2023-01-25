@@ -1021,9 +1021,7 @@ is computed for each pixel, not even for each row.
              scale  = scale,
              Naz    = Naz,
              Nel    = Nel,
-             fy     = fxycxy[1],
-             cy     = fxycxy[3],
-             # None for now; will update it in a bit
+             fxycxy = fxycxy,
              daz1   = None )
 
     azel = np.zeros((Nel,Naz,2), dtype=float)
@@ -1081,8 +1079,7 @@ is computed for each pixel, not even for each row.
                                     n0, distance_to_plane,
                                     extra_pitch_deg = disparity_to0_extra_pitch_deg)
 
-        H,W = az1_expected_adaptive.shape
-        dazel1 = np.zeros((H,W,2))
+        dazel1 = np.zeros((Nel,Naz,2))
         dazel1[:,:,0] = az1_expected_adaptive - azel[...,0]
 
         # Don't shift all the way towards 0. Need to leave some room for slop
@@ -1497,22 +1494,37 @@ RETURNED VALUES
 
         ########## First we undo the adaptive rectification to create "normal"
         ########## q0,q1,disparity values
+        cookie = mrcal.rectification_maps.cookie_adaptive_rectification
+        if qrect0 is None:
+            qrect1 = \
+                mrcal.adaptive_project. \
+                    undo_adaptive_rectification( disparity = disparity/disparity_scale,
+                                                 daz       = cookie['daz1'],
+                                                 cookie    = cookie)
+            qrect0 = \
+                mrcal.adaptive_project. \
+                    undo_adaptive_rectification(cookie)
 
-        v1 = \
+            disparity = np.round((qrect0[...,0] - qrect1[...,0])*disparity_scale).astype(int)
+            qrect0 = None
+        else:
+            qrect1 = np.array(qrect0)
+
             mrcal.adaptive_project. \
-            unproject_adaptive_rectification( qrect0,
-                                              disparity = disparity/disparity_scale,
-                                              cookie    = mrcal.rectification_maps.cookie_adaptive_rectification)
-        cookie = dict(mrcal.rectification_maps.cookie_adaptive_rectification)
-        cookie['daz1'] = None
-        v0 = \
+                undo_adaptive_rectification( qrect     = qrect1, # input and output
+                                             disparity = disparity/disparity_scale,
+                                             daz       = cookie['daz1'],
+                                             cookie    = cookie)
+            qrect0_here = np.array(qrect0)
             mrcal.adaptive_project. \
-            unproject_adaptive_rectification( qrect0, cookie)
+                undo_adaptive_rectification( qrect  = qrect0_here,
+                                             cookie = cookie)
 
+            disparity = np.round((qrect0_here[...,0] - qrect1[...,0])*disparity_scale).astype(int)
 
-        qrect0 = mrcal.project_latlon(v0, models_rectified[0].intrinsics()[1])
-        qrect1 = mrcal.project_latlon(v1, models_rectified[1].intrinsics()[1])
-        disparity = np.round((qrect0[...,0] - qrect1[...,0])*disparity_scale).astype(int)
+            # THIS function will see the modified qrect0 from this point on, but
+            # the callers won't see a change
+            qrect0 = qrect0_here
 
         if is_scalar:
             disparity = np.array((disparity,),)
