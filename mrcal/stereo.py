@@ -1060,7 +1060,7 @@ is computed for each pixel, not even for each row.
     #
     # For "normal" rectification, I'm now done, and I can apply this azel to
     # both cameras.
-    if 0:
+    if 1:
         # I want to shift everything towards disparity ~ 0. So I need to
         #
         # - Apply THIS azel to camera0
