@@ -94,6 +94,11 @@ There are several modes of operation:
   display the results. Requires pyFLTK (homepage: https://pyfltk.sourceforge.io)
   and GL_image_display (homepage: https://github.com/dkogan/GL_image_display)
 
+It is often desired to compute dense stereo for lots of images in bulk. To make
+this go faster, this tool supports the -j JOBS option. This works just like in
+Make: the work will be parallelized among JOBS simultaneous processes. Unlike
+make, the JOBS value must be specified.
+
 '''
 
 import sys
@@ -342,7 +347,14 @@ def parse_args():
                         system, colored with the nearest-neighbor color of the
                         camera0 image. This is disabled by default because this
                         is potentially a very large file''')
-
+    parser.add_argument('--jobs', '-j',
+                        type=int,
+                        required=False,
+                        default=1,
+                        help='''parallelize the processing JOBS-ways. This is
+                        like Make, except you're required to explicitly specify
+                        a job count. This applies when processing multiple sets
+                        of images with the same set of models''')
     parser.add_argument('models',
                         type=str,
                         nargs = 2,
@@ -881,7 +893,10 @@ elif args.stereo_matcher == 'ELAS':
 else:
     raise Exception("Getting here is a bug")
 
-def process(*image_filenames):
+def process(i_image):
+
+    image_filenames=(image_filenames_all[0][i_image],
+                     image_filenames_all[1][i_image])
 
     print(f"Processing {os.path.split(image_filenames[0])[1]} and {os.path.split(image_filenames[1])[1]}")
 
@@ -1289,7 +1304,38 @@ def gui_stereo(images,
 
 
 
+if Nimages == 1 or args.jobs <= 1:
 
-for i in range(Nimages):
-    process(image_filenames_all[0][i],
-            image_filenames_all[1][i])
+    # Serial path. Useful for debugging or if I only have one set of images
+    for i in range(Nimages):
+        process(i)
+    process(0)
+    sys.exit(0)
+
+####### Parallel path
+
+import multiprocessing
+import signal
+
+# I do the same thing in mrcal-reproject-image. Please consolidate
+#
+# weird business to handle weird signal handling in multiprocessing. I want
+# things like the user hitting C-c to work properly. So I ignore SIGINT for the
+# children. And I want the parent's blocking wait for results to respond to
+# signals. Which means map_async() instead of map(), and wait(big number)
+# instead of wait()
+signal_handler_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
+signal.signal(signal.SIGINT, signal_handler_sigint)
+
+pool = multiprocessing.Pool(args.jobs)
+try:
+    mapresult = pool.map_async(process, np.arange(Nimages))
+
+    # like wait(), but will barf if something goes wrong. I don't actually care
+    # about the results
+    mapresult.get(1000000)
+except:
+    pool.terminate()
+
+pool.close()
+pool.join()

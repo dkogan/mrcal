@@ -58,4 +58,6 @@ Added mrcal.make_perfect_observations()
 
 bug fix: mrcal-stereo can process multiple files with one invocation again
 
+mrcal-stereo can rectify images in parallel
+
 * Migration notes 2.2 -> 2.3
