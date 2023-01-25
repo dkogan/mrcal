@@ -974,7 +974,7 @@ for i in range(Nimages):
                          ranges,
                          ranges_colored)
 
-        sys.exit(0)
+        continue
 
 
     # Done with all the processing. Invoke the visualizer!
