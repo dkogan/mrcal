@@ -124,6 +124,7 @@ def qx_from_az(az,
 def undo_adaptive_rectification(cookie,
                                 qrect     = None, # input and output (unless qrect is None)
                                 disparity = None,
+                                # shape (Nel,Naz)
                                 daz       = None):
 
     fx,fy,cx,cy = cookie['fxycxy']
@@ -138,6 +139,8 @@ def undo_adaptive_rectification(cookie,
             disparity = np.zeros((Naz,))
         # shape (Nel,Naz)
         az = az_from_qx(np.arange(Naz)-disparity, **cookie)
+        if daz is not None:
+            az += daz
         qrect[...,0] = az*fx + cx
         qrect[...,1] = nps.transpose(np.arange(Nel,dtype=float))
         return qrect
@@ -146,13 +149,23 @@ def undo_adaptive_rectification(cookie,
         disparity = np.zeros(qrect.shape[:-1])
 
     i0 = qrect[...,1].astype(int)
-    s  = qrect[...,1] - i0
+    si = qrect[...,1] - i0
+
     cookie_c12l2r_floor = dict(cookie)
     cookie_c12l2r_ceil  = dict(cookie)
     cookie_c12l2r_floor['c12l2r'] = cookie['c12l2r'][i0,    ...]
     cookie_c12l2r_ceil ['c12l2r'] = cookie['c12l2r'][i0+1,  ...]
     az = \
-        az_from_qx(qrect[...,0]-disparity, **cookie_c12l2r_floor) * (1-s) + \
-        az_from_qx(qrect[...,0]-disparity, **cookie_c12l2r_ceil ) * (  s)
+        az_from_qx(qrect[...,0]-disparity, **cookie_c12l2r_floor) * (1-si) + \
+        az_from_qx(qrect[...,0]-disparity, **cookie_c12l2r_ceil ) * (  si)
+    if daz is not None:
+        j0 = qrect[...,0].astype(int)
+        sj = qrect[...,0] - j0
+
+        az += \
+            daz[i0,  j0  ]*(1-si)*(1-sj) + \
+            daz[i0+1,j0  ]*   si *(1-sj) + \
+            daz[i0  ,j0+1]*(1-si)*   sj  + \
+            daz[i0+1,j0+1]*si    *   sj
     qrect[...,0] = az*fx + cx
     return qrect

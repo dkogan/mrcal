@@ -1496,6 +1496,7 @@ RETURNED VALUES
         ########## q0,q1,disparity values
         cookie = mrcal.rectification_maps.cookie_adaptive_rectification
         if qrect0 is None:
+            # Process the full imager
             qrect1 = \
                 mrcal.adaptive_project. \
                     undo_adaptive_rectification( disparity = disparity/disparity_scale,
@@ -1508,6 +1509,7 @@ RETURNED VALUES
             disparity = np.round((qrect0[...,0] - qrect1[...,0])*disparity_scale).astype(int)
             qrect0 = None
         else:
+            # Process just the given qrect0
             qrect1 = np.array(qrect0)
 
             mrcal.adaptive_project. \
