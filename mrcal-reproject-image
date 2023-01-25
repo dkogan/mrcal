@@ -470,7 +470,8 @@ if args.plane_n is not None:
     args.plane_n = np.array(args.plane_n, dtype=float)
 
 
-
+# I do the same thing in mrcal-stereo. Please consolidate
+#
 # weird business to handle weird signal handling in multiprocessing. I want
 # things like the user hitting C-c to work properly. So I ignore SIGINT for the
 # children. And I want the parent's blocking wait for results to respond to
