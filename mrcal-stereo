@@ -554,6 +554,7 @@ def write_output_one(tag, outdir, force,
 def write_output_all(args,
                      models,
                      images,
+                     image_filenames_base,
                      models_rectified,
                      images_rectified,
                      disparity,
@@ -824,17 +825,68 @@ if args.clahe:
     clahe.setClipLimit(8)
 
 
-for i in range(Nimages):
+kwargs_load_image = dict()
+if args.force_grayscale:
+    kwargs_load_image['bits_per_pixel'] = 8
+    kwargs_load_image['channels']       = 1
 
-    print(f"Processing {os.path.split(image_filenames_all[0][i])[1]} and {os.path.split(image_filenames_all[1][i])[1]}")
+# Done with all the preliminaries. Run the stereo matching
+disp_min,disp_max = args.disparity_range
 
-    image_filenames = (image_filenames_all[0][i],
-                       image_filenames_all[1][i])
+if args.stereo_matcher == 'SGBM':
 
-    kwargs_load_image = dict()
-    if args.force_grayscale:
-        kwargs_load_image['bits_per_pixel'] = 8
-        kwargs_load_image['channels']       = 1
+    # This is a hard-coded property of the OpenCV StereoSGBM implementation
+    disparity_scale = 16
+
+    # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
+    # implementation requires this
+    disp_max = disparity_scale*round(disp_max/disparity_scale)
+    disp_min = disparity_scale*int  (disp_min/disparity_scale)
+
+    # I only add non-default args. StereoSGBM_create() doesn't like being given
+    # None args
+    kwargs_sgbm = dict()
+    if args.sgbm_p1 is not None:
+        kwargs_sgbm['P1']                = args.sgbm_p1
+    if args.sgbm_p2 is not None:
+        kwargs_sgbm['P2']                = args.sgbm_p2
+    if args.sgbm_disp12_max_diff is not None:
+        kwargs_sgbm['disp12MaxDiff']     = args.sgbm_disp12_max_diff
+    if args.sgbm_uniqueness_ratio is not None:
+        kwargs_sgbm['uniquenessRatio']   = args.sgbm_uniqueness_ratio
+    if args.sgbm_speckle_window_size is not None:
+        kwargs_sgbm['speckleWindowSize'] = args.sgbm_speckle_window_size
+    if args.sgbm_speckle_range is not None:
+        kwargs_sgbm['speckleRange']      = args.sgbm_speckle_range
+    if args.sgbm_mode is not None:
+        if   args.sgbm_mode == 'SGBM':
+            kwargs_sgbm['mode'] = cv2.StereoSGBM_MODE_SGBM
+        elif args.sgbm_mode == 'HH':
+            kwargs_sgbm['mode'] = cv2.StereoSGBM_MODE_HH
+        elif args.sgbm_mode == 'HH4':
+            kwargs_sgbm['mode'] = cv2.StereoSGBM_MODE_HH4
+        elif args.sgbm_mode == 'SGBM_3WAY':
+            kwargs_sgbm['mode'] = cv2.StereoSGBM_MODE_SGBM_3WAY
+        else:
+            raise Exception("arg-parsing error. This is a bug. Please report")
+
+    # blocksize is required, so I always pass it. There's a default set in
+    # the argument parser, so this is never None
+    kwargs_sgbm['blockSize'] = args.sgbm_block_size
+
+    stereo_sgbm = \
+        cv2.StereoSGBM_create(minDisparity      = disp_min,
+                              numDisparities    = disp_max - disp_min,
+                              **kwargs_sgbm)
+elif args.stereo_matcher == 'ELAS':
+    disparity_scale = 1
+else:
+    raise Exception("Getting here is a bug")
+
+def process(*image_filenames):
+
+    print(f"Processing {os.path.split(image_filenames[0])[1]} and {os.path.split(image_filenames[1])[1]}")
+
     images = [mrcal.load_image(f, **kwargs_load_image) for f in image_filenames]
 
 
@@ -844,15 +896,15 @@ for i in range(Nimages):
     imagersize_image = np.array((images[0].shape[1], images[0].shape[0]))
     imagersize_model = models[0].imagersize()
     if np.any(imagersize_image - imagersize_model):
-        print(f"Image '{image_filenames_all[0][i]}' dimensions {imagersize_image} don't match the model '{args.models[0]}' dimensions {imagersize_model}",
+        print(f"Image '{image_filenames[0]}' dimensions {imagersize_image} don't match the model '{args.models[0]}' dimensions {imagersize_model}",
               file=sys.stderr)
-        sys.exit(1)
+        return False
     imagersize_image = np.array((images[1].shape[1], images[1].shape[0]))
     imagersize_model = models[1].imagersize()
     if np.any(imagersize_image - imagersize_model):
-        print(f"Image '{image_filenames_all[1][i]}' dimensions {imagersize_image} don't match the model '{args.models[1]}' dimensions {imagersize_model}",
+        print(f"Image '{image_filenames[1]}' dimensions {imagersize_image} don't match the model '{args.models[1]}' dimensions {imagersize_model}",
               file=sys.stderr)
-        sys.exit(1)
+        return False
 
     if args.clahe:
         images = [ clahe.apply(image) for image in images ]
@@ -861,7 +913,7 @@ for i in range(Nimages):
         if args.stereo_matcher == 'ELAS':
             print("The ELAS matcher requires grayscale images. Pass --force-grayscale",
                   file=sys.stderr)
-            sys.exit(1)
+            return False
 
     if args.valid_intrinsics_region:
         for i in range(2):
@@ -877,69 +929,20 @@ for i in range(Nimages):
     else:
         images_rectified = images
 
-
-    # Done with all the preliminaries. Run the stereo matching
-    disp_min,disp_max = args.disparity_range
-
-
     if args.stereo_matcher == 'SGBM':
-
-        # This is a hard-coded property of the OpenCV StereoSGBM implementation
-        disparity_scale = 16
-
-        # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
-        # implementation requires this
-        disp_max = disparity_scale*round(disp_max/disparity_scale)
-        disp_min = disparity_scale*int  (disp_min/disparity_scale)
-
-        # I only add non-default args. StereoSGBM_create() doesn't like being given
-        # None args
-        kwargs = dict()
-        if args.sgbm_p1 is not None:
-            kwargs['P1']                = args.sgbm_p1
-        if args.sgbm_p2 is not None:
-            kwargs['P2']                = args.sgbm_p2
-        if args.sgbm_disp12_max_diff is not None:
-            kwargs['disp12MaxDiff']     = args.sgbm_disp12_max_diff
-        if args.sgbm_uniqueness_ratio is not None:
-            kwargs['uniquenessRatio']   = args.sgbm_uniqueness_ratio
-        if args.sgbm_speckle_window_size is not None:
-            kwargs['speckleWindowSize'] = args.sgbm_speckle_window_size
-        if args.sgbm_speckle_range is not None:
-            kwargs['speckleRange']      = args.sgbm_speckle_range
-        if args.sgbm_mode is not None:
-            if   args.sgbm_mode == 'SGBM':
-                kwargs['mode'] = cv2.StereoSGBM_MODE_SGBM
-            elif args.sgbm_mode == 'HH':
-                kwargs['mode'] = cv2.StereoSGBM_MODE_HH
-            elif args.sgbm_mode == 'HH4':
-                kwargs['mode'] = cv2.StereoSGBM_MODE_HH4
-            elif args.sgbm_mode == 'SGBM_3WAY':
-                kwargs['mode'] = cv2.StereoSGBM_MODE_SGBM_3WAY
-            else:
-                raise Exception("arg-parsing error. This is a bug. Please report")
-
-        # blocksize is required, so I always pass it. There's a default set in
-        # the argument parser, so this is never None
-        kwargs['blockSize'] = args.sgbm_block_size
-
-        stereo = \
-            cv2.StereoSGBM_create(minDisparity      = disp_min,
-                                  numDisparities    = disp_max - disp_min,
-                                  **kwargs)
 
         # opencv barfs if I give it a color image and a monochrome image, so I
         # convert
         if len(images_rectified[0].shape) == 2 and \
            len(images_rectified[1].shape) == 3:
-            disparity = stereo.compute(images_rectified[0],
-                                       cv2.cvtColor(images_rectified[1], cv2.COLOR_BGR2GRAY))
+            disparity = stereo_sgbm.compute(images_rectified[0],
+                                            cv2.cvtColor(images_rectified[1], cv2.COLOR_BGR2GRAY))
         elif len(images_rectified[0].shape) == 3 and \
              len(images_rectified[1].shape) == 2:
-            disparity = stereo.compute(cv2.cvtColor(images_rectified[0], cv2.COLOR_BGR2GRAY),
-                                       images_rectified[1])
+            disparity = stereo_sgbm.compute(cv2.cvtColor(images_rectified[0], cv2.COLOR_BGR2GRAY),
+                                            images_rectified[1])
         else:
-            disparity = stereo.compute(*images_rectified)
+            disparity = stereo_sgbm.compute(*images_rectified)
 
     elif args.stereo_matcher == 'ELAS':
 
@@ -947,8 +950,7 @@ for i in range(Nimages):
                                                     disp_min = disp_min,
                                                     disp_max = disp_max)
 
-        disparity       = disparities[0]
-        disparity_scale = 1
+        disparity = disparities[0]
 
 
     disparity_colored = mrcal.apply_color_map(disparity,
@@ -962,10 +964,20 @@ for i in range(Nimages):
     ranges_colored = mrcal.apply_color_map(ranges,
                                            *args.range_image_limits)
 
-    if args.viz != 'stereo':
+    if args.viz == 'stereo':
+        # Earlier I confirmed that in this path Nimages==1
+        gui_stereo(images,
+                   image_filenames_base,
+                   images_rectified,
+                   disparity,
+                   disparity_colored,
+                   ranges,
+                   ranges_colored)
+    else:
         write_output_all(args,
                          models,
                          images,
+                         image_filenames_base,
                          models_rectified,
                          images_rectified,
                          disparity,
@@ -973,10 +985,16 @@ for i in range(Nimages):
                          disparity_colored,
                          ranges,
                          ranges_colored)
+    return True
 
-        continue
 
-
+def gui_stereo(images,
+               image_filenames_base,
+               images_rectified,
+               disparity,
+               disparity_colored,
+               ranges,
+               ranges_colored):
     # Done with all the processing. Invoke the visualizer!
 
     UI_usage_message = r'''Usage:
@@ -1015,6 +1033,7 @@ for i in range(Nimages):
         write_output_all(args,
                          models,
                          images,
+                         image_filenames_base,
                          models_rectified,
                          images_rectified,
                          disparity,
@@ -1268,3 +1287,11 @@ for i in range(Nimages):
     Fl.run()
 
     sys.exit(0)
+
+
+
+
+
+for i in range(Nimages):
+    process(image_filenames_all[0][i],
+            image_filenames_all[1][i])
