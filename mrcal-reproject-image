@@ -547,7 +547,7 @@ def process(model_from, model_to, image_globs, suffix,
                                            mask_valid_intrinsics_region_from = \
                                            args.mask_valid_intrinsics_region,)
 
-    if 1:
+    if args.jobs > 1:
         # Normal parallelized path
         pool = multiprocessing.Pool(args.jobs)
         try:
