@@ -37,65 +37,41 @@ high-level capabilities of the toolkit, to give a good sense of what mrcal can
 do that's different and better than other tools.
 
 *** [[file:conventions.org][Terminology and conventions]]
-These are helpful to go over before reading the documentation
-
 ** Details about the internals
 *** [[file:formulation.org][Problem formulation]]
 At the core of a calibration routine is an optimization problem. The details are
-important to be able to interpret the results
+important to interpret the results
 
 *** [[file:lensmodels.org][Lens models supported by mrcal]]
-A projection function can be represented by mrcal in many different ways,
-described on this page
-
 *** [[file:splined-models.org][Splined-stereographic lens model]]
 This very rich lens model is available for high-fidelity modeling of projection
-and quantification of uncertainty.
+and quantification of uncertainty. It is the recommended model, and is novel in
+mrcal, so it's described in detail here.
 
-*** [[file:cameramodels.org][Lens model representation in memory on disk]]
-Describes mrcal model access by the mrcal [[file:python-api.org][APIs]] and [[file:commandline-tools.org][commandline-tools]]
-
+*** [[file:cameramodels.org][Camera model representation in memory on disk]]
 *** [[file:differencing.org][Projection differencing]]
-mrcal can compute the intrinsics difference between several models. This is
+mrcal can compute the projection difference between several models. This is
 useful to evaluate calibration quality and lens stability and a multitude of
 other things.
 
 *** [[File:uncertainty.org][Projection uncertainties]]
-To evaluate the quality of a model it is crucial to look at its projection
-uncertainty
+mrcal can compute the projection uncertainty of a calibration. This quantifies
+the effect of sampling error, and is an excellent gauge of the quality of a
+model.
 
 *** [[file:stereo.org][Dense stereo processing]]
-Once we have a calibrated pair of cameras, we can generate a dense depth map
-
 *** [[file:triangulation.org][Triangulation]]
-Or we can compute ranges of a discrete set of observations
 
 ** Practical guides
-*** [[file:how-to-calibrate.org][How to calibrate a camera system]]
-The core task of mrcal is calibrating cameras. Practical details are given here
-
-*** [[file:recipes.org][Recipes]]
-Making and using camera models raises a number of common issues and situations.
-I describe a number of them on this page.
+*** [[file:how-to-calibrate.org][How to calibrate a camera system: practical details]]
+*** [[file:recipes.org][Recipes: various scenarios that need special attention]]
 
 ** Toolkit usage
 *** [[file:install.org][Installation, build instructions]]
 *** [[file:commandline-tools.org][Command-line tools]]
-Many common tasks can be accomplished without writing any code
-
 *** [[file:python-api.org][The Python API]]
-A Python API is available to go beyond what the pre-made tools can do. The
-pre-made tools themselves are written using the Python API, so their sources are
-themselves are a good guide
-
 *** [[file:c-api.org][The C API]]
-Internally, the Python functions use the mrcal C API. Only core functionality is
-available in the C API (the Python API can do some stuff that the C API cannot),
-but with time more and more stuff will be transitioned to a C-internal
-representation. Today, end-to-end dense stereo processing in C is possible.
-
-** [[file:versions.org][Releases]]
-A version history, release notes, and the planned roadmap
+** [[file:versions.org][Releases: a version history, release notes, and the planned roadmap]]
 
 * Citing
 To cite this work in a publication, use this bibtex stanza:
