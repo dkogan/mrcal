@@ -953,6 +953,26 @@ is computed for each pixel, not even for each row.
         return _rectification_maps_python(models,
                                           models_rectified)
 
+
+
+    # The adaptive rectification logic is implemented in Python only at the
+    # moment
+    return _rectification_maps_python(models,
+                                      models_rectified,
+                                      extra_pitch_deg               = extra_pitch_deg,
+                                      n0                            = n0,
+                                      distance_to_plane             = distance_to_plane,
+                                      dqx_expected                  = dqx_expected,
+                                      rangeerr_min                  = rangeerr_min,
+                                      disparity_to0_extra_pitch_deg = disparity_to0_extra_pitch_deg,
+                                      disparity_to0_ratio           = disparity_to0_ratio)
+
+
+
+
+
+
+
     Naz,Nel = models_rectified[0].imagersize()
     # shape (Ncameras=2, Nel, Naz, Nxy=2)
     rectification_maps = np.zeros((2, Nel, Naz, 2),
@@ -968,7 +988,17 @@ is computed for each pixel, not even for each row.
     return rectification_maps
 
 def _rectification_maps_python(models,
-                               models_rectified):
+                               models_rectified,
+                               *,
+                               extra_pitch_deg = None,
+                               # adaptive rectification parameters
+                               # The plane, in camera0 coords
+                               n0,
+                               distance_to_plane,
+                               dqx_expected,
+                               rangeerr_min,
+                               disparity_to0_extra_pitch_deg,
+                               disparity_to0_ratio):
     r'''Reference implementation of mrcal_rectification_maps() in python
 
 The main implementation is written in C in stereo.c:
