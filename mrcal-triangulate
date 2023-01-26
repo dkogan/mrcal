@@ -134,7 +134,7 @@ def parse_args():
                         This is a value in [0,1] scaling the stdev. 0 means
                         "independent" (the default). 1.0 means "100%%
                         correlated".''')
-    parser.add_argument('--stabilize-coords',
+    parser.add_argument('--stabilize-coords', '--stabilize',
                         action = 'store_true',
                         help='''If propagating calibration-time noise
                         (--q-calibration-stdev != 0), we report the uncertainty
@@ -490,7 +490,13 @@ if images is not None:
         clahe = cv2.createCLAHE()
         clahe.setClipLimit(8)
     def imread(filename):
-        image = mrcal.load_image(filename, bits_per_pixel = 8, channels = 1)
+        try:
+            image = mrcal.load_image(filename, bits_per_pixel = 8, channels = 1)
+        except:
+            print(f"Couldn't load '{filename}'",
+                  file=sys.stderr)
+            sys.exit(1)
+
         if args.clahe:
             image = clahe.apply(image)
         return image

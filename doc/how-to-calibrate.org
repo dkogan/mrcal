@@ -2,22 +2,26 @@
 #+OPTIONS: toc:t
 
 Calibrating cameras is one of the main applications of mrcal, so I describe this
-process in some detail here. The main front-end tool is
-[[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]], and a demo is shown in the [[file:tour-initial-calibration.org][tour of mrcal]].
+process in some detail here.
 
 * Capturing images
 ** Calibration object
 We need to get images of a [[file:formulation.org::#calibration-object][calibration object]], a board containing an observable
 grid of points. mrcal doesn't care where these observations come from: any tool
-that can produce a table of corner observations can be utilized. See the [[#corner-detector][below]]
-for the format details. Currently the recommended method is to use a classical
-/chessboard/ target, and to employ the [[http://github.com/dkogan/mrgingham][mrgingham]] detector. The mrgingham
-documentation has a [[https://github.com/dkogan/mrgingham/raw/master/chessboard.10x10.pdf][.pdf of a chessboard pattern]] that works well.
+that can produce a table of corner observations can be utilized. Currently the
+recommended method is to use a classical /chessboard/ target, and to employ the
+[[https://github.com/dkogan/mrgingham][mrgingham]] detector. The mrgingham documentation has a [[https://github.com/dkogan/mrgingham/raw/master/chessboard.14x14.pdf][.pdf of a chessboard
+pattern]] that works well. See the [[file:recipes.org::#non-mrgingham-detector][recipes]] to use a non-mrgingham detector.
+
+*** Chessboard shape
+:PROPERTIES:
+:CUSTOM_ID: chessboard-shape
+:END:
 
 The pattern should be printed and mounted onto a /rigid/ and /flat/ surface to
 produce the calibration object. The [[file:formulation.org][optimization problem]] assumes the board shape
-to be constant over all the calibration images, and any non-rigidity in the
-board breaks that assumption. Depending on the resolution of the camera and the
+to be constant over all the calibration images, and any instability in the board
+shape breaks that assumption. Depending on the resolution of the camera and the
 amount of calibration accuracy required, even a slightly floppy chessboard can
 break things. Don't take this for granted.
 
@@ -28,29 +32,39 @@ the calibration solve. In my experience, if you try to make sure the board is
 flat, this model is enough to fix most of the unavoidable small deflections. If
 care isn't taken to ensure the board is flat, the current simple deformation
 model is often insufficient to fully model the shape. Don't take this for
-granted either.
+granted either. See the [[file:recipes.org::#effect-of-chessboard-shape][recipes]] for notes about how to estimate the magnitude of
+effect.
 
-Calibrating wide lenses generally requires large chessboards, to fill the field
-of view as much as possible. I use a square chessboard roughly 1m per side to
-calibrate my fisheye lenses. A big chessboard such as this is never completely
-rigid or completely flat, so I have a chessboard backed by about 1 inch of
-aluminum honeycomb. This is expensive, but works well. The previous board I was
-using is backed with 2.5cm of foam instead. This is significantly cheaper, and
-still pretty good, but noticeably less flat and rigid. The board does warp with
-variations in temperature and humidity, but this is slow, and the shape is
-usually stable long-enough for a chessboard dance.
+I usually use a square chessboard roughly 1m per side to calibrate my fisheye
+lenses. Such a large chessboard often has issues with its shape. To mitigate
+these my chessboard is backed by about 1 inch of aluminum honeycomb. This is
+expensive, but works well to stabilize the shape. The previous board I was using
+is backed with the same amount of /foam/ instead. This is significantly cheaper,
+and still pretty good, but noticeably less flat and less rigid. This foam-backed
+board does warp with variations in temperature and humidity, but this drift is
+slow, and the shape is /usually/ stable long-enough for a chessboard dance. If
+you can make one, the aluminum honeycomb-backed boards are strongly recommended.
 
-According to the [[file:tour-choreography.org][dance study]], we want close-ups that fill the imager, so we want
-a smaller board next to the camera in favor of a bigger board further away. The
-limiting factor here is the camera's depth of field: we want both the
-calibration-time close-up views and the working-range images to be in focus at
-the same time. If a too-small board is used, the imager-filling close-ups will
-be out of focus. Also, mrcal currently assumes that all projections are
-/central/ ($k \vec v$ projects to the same $\vec q$ for all $k$). This is true
-for far-away observations for all lenses, but for some lenses this projection
-breaks down as we look closer-in. Depending on the lens, close-up observations
-may tickle this effect. Non-central projections will be supported in a future
-release of mrcal, and this effect still needs to be studied.
+*** Chessboard size
+There's a tradeoff to consider between large and small chessboards. According to
+the [[file:tour-choreography.org][dance study]], we want close-ups that fill the imager, so we're choosing
+between small chessboards placed near the camera and large chessboards placed
+away from the camera.
+
+- If the chessboard is too small, we'd need to place it too close to the camera
+  to fill the imager. This will result in the chessboard appearing out of focus.
+  This is OK up to a point (see the [[file:recipes.org::#effect-of-unfocused-corners][recipes]]), but extereme out-of-focus images
+  should probably be avoided
+
+- If the chessboard is too large, we'd need to place it far from the camera to
+  see the whole board, and this would result in worse calibration uncertainties.
+  See the [[file:tour-choreography.org][dance study]].
+
+For wide lenses, you generally need larger chessboards. When calibrating an
+unfamiliar system I usually try running a calibration with whatever chessboard I
+already have, and then analyze the results to see if anything needs to be
+changed. It's also useful to rerun the [[file:tour-choreography.org][dance study]] for the specific geometry
+being calibrated.
 
 ** Image-capturing details
 Now that we have a calibration object, this object needs to be shown to the
@@ -72,25 +86,33 @@ Some capture systems have a "software" trigger mode, but this is usually too
 loose to produce usable results. A similar consideration exists when using
 cameras with a [[https://en.wikipedia.org/wiki/Rolling_shutter][rolling shutter]]. With such cameras it is imperative that
 everything remain stationary during image capture, even when only one camera is
-involved.
+involved. See the [[file:recipes.org::#rolling-shutter-and-sync-errors][recipes]].
 
-If synchronization or rolling shutter effects are in doubt, look at the residual
-plot made by the [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] tool (a sample and a
-description appear below). These errors clearly show up as distinct patterns in
-those plots.
+** Lens settings
+Lens intrinsics are usually very sensitive to any mechanical manipulation of the
+lens. It is thus strongly recommended to set up the lens it its final working
+configuration (focal length, focus distance, aperture), then to mechanically
+lock down the settings, and then to gather the calibration data. This often
+creates dancing challenges, described in the next section.
+
+If you /really/ need to change the lens settings after calibrating or if you're
+concerned about drifting lens mechanics influencing the calibration (you should
+be!), see the [[file:recipes.org::#lens-stability][recipes]] for a discussion.
 
 ** Dancing
+:PROPERTIES:
+:CUSTOM_ID: dancing
+:END:
+
 As shown in the [[file:tour-choreography.org][dance study]], the most useful observations to gather are
 
 - close-ups: the chessboard should fill the whole frame as much as possible.
-  Small chessboards next to the camera are preferred to larger chessboards
-  further out; the limit is set by the depth of field.
 
 - oblique views: tilt the board forward/back and left/right. I generally tilt by
-  ~ 45 degrees. At a certain point the corners become indistinct and mrgingham
-  starts having trouble, but depending on the lens, that point could come with
-  quite a bit of tilt. A less dense chessboard eases this also, at the cost of
-  requiring more board observations to get the same number of points.
+  ~ 45 degrees. At a certain point the corners become indistinct and the
+  detector starts having trouble, but depending on the lens, that point could
+  come with quite a bit of tilt. A less dense chessboard eases this also, at the
+  cost of requiring more board observations to get the same number of points.
 
 - If calibrating multiple cameras, it is impossible to place a calibration
   object at a location where it's seen by all the cameras /and/ where it's a
@@ -105,47 +127,45 @@ As shown in the [[file:tour-choreography.org][dance study]], the most useful obs
 A dataset composed primarily of tilted closeups produces good results.
 
 If the model will be used to look at far-away objects, care must be taken to
-produce a reliable calibration /at long ranges/, not just at the short ranges
-where the chessboards were. Close-up chessboard views are the primary data
-needed to get good uncertainties at infinity, but quite often these will produce
-images that aren't in focus if the focus ring is set to the working range
-(infinity). See the [[file:tour-choreography.org][dance study]] for detail. Cameras meant for outdoor stereo
-and/or wide lenses are susceptible to poor uncertainties at range even if the
-uncertainties are good closer in. In such cases, it is /strongly/ recommended to
-re-run the dance study for your particular use case to get a sense of what kind
-of observations are required, and what kind of uncertainties can be expected.
-The current thought is that the best thing to do is to get close-up images even
-if they're out of focus. The blurry images will have a high uncertainty in the
+produce a reliable calibration /at long ranges/, not just at the /short/ ranges
+where the chessboards were. The primary way to do that is to get close-up
+chessboard views. If the close-up range is very different from the working range
+(infinity, possibly), the close-up images could be very out-of-focus. The
+current thought is that the best thing to do is to get close-up images even if
+they're out of focus. The blurry images will have a high uncertainty in the
 corner observatoins (hopefully without bias), but the uncertainty improvement
-that comes from the close-ups more than makes up for it. In these cases you
-usually need to get more observations than you normally would to bring down the
-uncertainties to an acceptable level.
+that comes from the near-range chessboard observations more than makes up for
+it. In these cases you usually need to get more observations than you normally
+would to bring down the uncertainties to an acceptable level. In challenging
+situations it's useful to re-run the [[file:tour-choreography.org][dance study]] for the specific use case to
+get a sense of what kind of observations are required and what kind of
+uncertainties can be expected. See the [[file:tour-choreography.org][dance study]] and the [[file:recipes.org::#effect-of-unfocused-corners][recipes]] for detail.
 
-It is better to have more data rather than less. mrgingham will throw away
-frames where no chessboard can be found, so it is perfectly reasonable to grab
-too many images with the expectation that they won't all end up being used in
-the computation.
-
-I usually aim for about 100 usable frames, but you may get away with fewer,
-depending on your specific scenario. The mrcal uncertainty feedback (see below)
-will tell you if you need more data.
+It is better to have more chessboard data rather than less. mrgingham will throw
+away frames where no chessboard can be found, so it is perfectly reasonable to
+grab too many images with the expectation that they won't all end up being used
+in the computation. I usually aim for about 100 usable frames, but you may get
+away with fewer, depending on your specific scenario. The mrcal uncertainty
+feedback will tell you if you need more data.
 
 Naturally, intrinsics are accurate only in areas where chessboards were
-observed: chessboard observations on the left tell us little about lens behavior
-on the right. Thus it is imperative to cover the whole field of view during the
-chessboard dance. It is often tricky to get good data at the edges and corners
-of the imager, so care must be taken. Some chessboard detectors (mrgingham in
-particular) only report complete chessboards. This makes it extra-challenging to
-obtain good data at the edges: a small motion that pushes one chessboard corner
-barely out of bounds causes the whole observation to be discarded. It is thus
-/very/ helpful to be able to see a live feed of the camera, as the images are
-being captured. In either case, [[*Visualization][visualizing the obtained chessboard detections]]
-is very useful to see if enough coverage was obtained.
+observed: chessboard observations on the left side of the image tell us little
+about lens behavior on the right side. Thus it is imperative to cover the whole
+field of view during the chessboard dance. It is often tricky to get good data
+at the edges and corners of the imager, so care must be taken. Some chessboard
+detectors (mrgingham in particular) only report complete chessboards. This makes
+it extra-challenging to obtain good data at the edges: a small motion that
+pushes one chessboard corner barely out of bounds causes the whole observation
+to be discarded. It is thus /very/ helpful to be able to see a live feed of the
+camera as the images are being captured. In either case, checking the coverage
+is a great thing to do. The usual way to do this is indirectly: [[file:tour-uncertainty.org][by visualizing
+the projection uncertainty]]. Or by [[#Visualization][visualizing the obtained chessboard
+detections]] directly.
 
 ** Image file-naming convention
 With monocular calibrations, there're no requirements on image filenames: use
 whatever you like. If calibrating multiple synchronized cameras, however, the
-image filenames would need to indicate what camera captured each image at which
+image filenames need to indicate which camera captured each image and at which
 time. I generally use =frameFFF-cameraCCC.jpg=. Images with the same =FFF= are
 assumed to have been captured at the same instant in time, and =CCC= identifies
 the camera. Naming images in this way is sufficient to communicate these
@@ -155,16 +175,17 @@ mappings to mrcal.
 :PROPERTIES:
 :CUSTOM_ID: corner-detector
 :END:
-Any chessboard detector may be utilized. Most of my testing was done using
-mrgingham, so I go into more detail describing that approach.
+Most of my testing was done using the [[https://github.com/dkogan/mrgingham][mrgingham]] chessboard corner detector, so I
+go into more detail describing that approach. See the [[file:recipes.org::#non-mrgingham-detector][recipes]] for notes about
+using other detectors.
 
 ** Using mrgingham
-Once mrgingham is installed or built from [[https://github.com/dkogan/mrgingham][source]], it can be run by calling the
-=mrgingham= executable. The sample in the [[file:tour-initial-calibration.org][tour of mrcal]] processes [[file:external/data/board][these images]]
-to produce [[file:external/data/board/corners.vnl][these chessboard corners]] like this:
+Once mrgingham is [[file:install.org][installed]] or built from [[https://github.com/dkogan/mrgingham][source]], it can be run by calling the
+=mrgingham= executable. The sample in the [[file:tour-initial-calibration.org][tour of mrcal]] processes [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/images][these images]]
+to produce [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/corners.vnl][these chessboard corners]] like this:
 
 #+begin_src sh
-mrgingham -j3 '*.JPG' > corners.vnl 
+mrgingham --jobs 4 --gridn 14 '*.JPG' > corners.vnl 
 #+end_src
 
 mrgingham tries to handle a variety of lighting conditions, including varying
@@ -182,173 +203,93 @@ usually). mrgingham looks for vertical and horizontal sequences of corners, but
 if the board is rotated diagonally, then none of these sequences are clearly
 "horizontal" or "vertical".
 
-** Using a non-mrgingham detector
-If we use a grid detector other than mrgingham, we need to produce a compatible
-=corners.vnl= file. This is a [[https://www.github.com/dkogan/vnlog][=vnlog=]] (text table) where each row describes a
-single corner detection. This file should contain 3 or 4 columns. The first 3
-columns are:
-
-- =filename=: the path to a chessboard image
-- =x=, =y=: pixel coordinates of a detected corner
-
-If a 4th column is present, it describes the detector's confidence in the
-detection of that particular corner. It may be either
-
-- =level=: the decimation level of the detected corner. If the detector needed
-  to cut down the image resolution to find this corner, we report that
-  resolution here. Level-0 means "full-resolution", level-1 means
-  "half-resolution", level-2 means "quarter-resolution" and so on. A level of
-  "-" or <0 means "skip this point"; this is how incomplete board observations
-  are specified. This "decimation level" interpretation is the
-  [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] default. This column is reported by mrgingham
-
-- =weight=: how strongly to weight that corner. More confident detections take
-  stronger weights. This should be inversely proportional to the standard
-  deviation of the detected pixel coordinates. With decimation levels we have
-  $\mathrm{weight} = 2^{-\mathrm{level}}$. As before, a weight of "-" or <0
-  means "skip this point"; this is how incomplete board observations are
-  specified. Select this "weight" interpretation with =mrcal-calibrate-cameras --corners-cache-has-weights=
-
-If no 4th column is present, we assume an even weight of 1.0 for all the points.
-
-The whole chessboard is described by a sequence of these corner detections,
-listed in a /consistent/ grid order. Each chessboard image is represented by
-either $N_\mathrm{width} N_\mathrm{height}$ observations records or a single
-record
-
-#+begin_example
-FILENAME - - -
-#+end_example
-
-to represent images with no detected corners. An image with incomplete
-detections should /still/ contain $N_\mathrm{width} N_\mathrm{height}$ records
-in the same consistent order. The missing corners should be given with any =x=,
-=y=, but with $\mathrm{weight} \leq 0$ or =-=. The record could be completely
-null:
-
-#+begin_example
-FILENAME - - -
-#+end_example
-
 ** Visualization
-A sample run from the [[file:tour-initial-calibration.org][tour of mrcal]] follows.
-
-Once we have a =corners.vnl= from some chessboard detector, we can visualize it.
-This is a simple [[https://github.com/dkogan/vnlog][=vnlog=]] table:
-
-#+begin_example
-$ < corners.vnl head -n5
-
-## generated with mrgingham -j3 *.JPG
-# filename x y level
-DSC_7305.JPG 3752.349000 168.802000 2
-DSC_7305.JPG 3844.411234 150.264910 0
-DSC_7305.JPG 3950.404000 132.480000 2
-#+end_example
-
-How well did we cover the imager? Did we get the edges and corners?
-
-#+begin_example
-$ < corners.vnl       \
-  vnl-filter -p x,y | \
-  feedgnuplot --domain --square
-#+end_example
-
-[[file:external/figures/calibration/mrgingham-coverage.png]]
-
-Looks like we did OK. It's a bit thin along the bottom edge, but not terrible.
-It is very easy to miss getting usable data at the edges, so checking this is
-highly recommended. If you have multiple cameras, check the coverage separately
-for each one. This can be done by filtering the =corners.vnl= to keep only the
-data for the camera in question. For instance, if we're looking at the left
-camera with images in files =left-XXXXX.jpg=, you can replace the above
-=vnl-filter= command with =vnl-filter 'filename ~ "left"' -p x,y=.
-
-Insufficient coverage will be clearly picked up by the [[file:uncertainty.org][uncertainty reporting]], so
-it's not strictly necessary to explicitly look at it, but doing so is good
-hygiene.
-
-We can visualize individual detections like this:
-
-#+begin_example
-$ f=DSC_7305.JPG
-
-$ < corners.vnl                  \
-  vnl-filter                     \
-    --perl                       \
-    "filename eq \"$f\""         \
-    -p x,y,size='2**(1-level)' | \
-  feedgnuplot                    \
-    --image $f                   \
-    --domain                     \
-    --square                     \
-    --tuplesizeall 3             \
-    --with 'points pt 7 ps variable'
-#+end_example
-#+begin_src sh :exports none :eval no-export
-# THIS IS ALREADY GENERATED IN tour-initial-calibration.org
-D=~/projects/mrcal-doc-external
-f=$D/data/board/DSC_7305.JPG
-< $D/data/board/corners.vnl      \
-  vnl-filter                     \
-    --perl                       \
-    "filename eq \"${f:t}\""     \
-    -p x,y,size='2**(1-level)' | \
-  feedgnuplot                    \
-    --image $f                   \
-    --domain                     \
-    --square                     \
-    --tuplesizeall 3             \
-    --with 'points pt 7 ps variable' \
-    --hardcopy $D/figures/calibration/mrgingham-results.png \
-    --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
-#+end_src
-
-[[file:external/figures/calibration/mrgingham-results.png]]
-
-The size of the circle indicates the detection weight. In this image many of the
-corners were detected at full-resolution (level-0), but some required
-downsampling for the detector to find them. This is indicated by smaller
-circles. The downsampled points have less precision, so they are [[file:formulation.org::#noise-in-measurement-vector][weighed less in
-the optimization]]. How many images produced successful corner detections?
-
-#+begin_example
-$ < corners.vnl vnl-filter --has x -p filename | uniq | grep -v '#' | wc -l
-
-161
-#+end_example
-
-So here we have 161 images with detected corners. Most of the misses are
-probably images where the chessboard wasn't entirely in view, but some could be
-failures of mrgingham. In any case, 161 observations is usually plenty.
-
-* Computing a calibration
 :PROPERTIES:
-:CUSTOM_ID: interpreting-results
+:CUSTOM_ID: Visualization
+:END:
+Once we have a =corners.vnl= from some chessboard detector, we can visualize the
+coverage. This is usually unnecessary since the [[file:tour-uncertainty.org][projection uncertainty reporting]]
+shows the coverage (and more!), but it's good to be able to do this in case of
+trouble. A sample sequence of corner gathering and visualization appears in the
+[[file:tour-initial-calibration.org::#gathering-corners][tour of mrcal]].
+
+* Model choice
+:PROPERTIES:
+:CUSTOM_ID: model-choice
 :END:
 
-Here I follow the same calibration sequence as in the [[file:tour-initial-calibration.org][tour of mrcal]], but with a
-bit more detail.
+Before calibrating we need to choose the model for representing the lenses. Use
+[[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]. This model works very well, and is able to
+represent real-world lenses better than the parametric models (all the other
+ones). This is true even for long, near-pinhole lenses. Depending on the
+specific lens and the camera resolution this accuracy improvement may not be
+noteworthy. But even in those cases, the splined model is flexible enough to get
+truthful [[file:uncertainty.org][projection uncertainty estimates]], so it's /still/ worth using. Today I
+use other models only if I'm running quick experiments: splined models have many
+more parameters, so things are slower.
 
-Let's compute the calibration using the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool:
+[[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] has several [[file:splined-models.org::#splined-models-configuration-selection][configuration variables]] that need
+to be set. The full implications of these choices still need to be studied, but
+the results appear fairly insensitive to these. I generally choose =order=3= to
+select cubic splines. I generally choose a rich model with fairly dense spline
+spacing. For instance the splined model used in the [[file:tour-initial-calibration.org][tour of mrcal]] has
+=Nx=30_Ny=18=. This has 30 spline knots horizontally and 18 vertically. You
+generally want =Ny= / =Nx= to roughly match the aspect ratio of the imager. The
+=Nx=30_Ny=18= arrangement is probably denser than it needs to be, but it works
+OK. The cost of such a dense spline is a bit of extra computation time and more
+stringent requirements on calibration data to fully and densely cover the
+imager.
+
+The last configuration parameter is =fov_x_deg=: the horizontal field-of-view of
+the lens. The splined model is defined by /knots/ spread out across space, the
+arrangement of these knots defined by the =fov_x_deg= parameter. We want the
+region in space defined by the knots to roughly match the region visible to the
+lens. A too-large =fov_x_deg= would waste some knots by placing them beyond
+where the lens can see. And a too-small =fov_x_deg= would restrict the
+projection representation on the edge of the image.
+
+An initial estimate of =fov_x_deg= can be computed from the datasheet of the lens.
+Then a test calibration should be computed using that value, and the
+[[file:mrcal-show-splined-model-correction.html][=mrcal-show-splined-model-correction=]] tool can then be used to validate that
+=fov_x_deg= parameter. In the [[file:tour-initial-calibration.org][tour of mrcal]] we get something like this:
 
 #+begin_src sh
-mrcal-calibrate-cameras         \
-  --corners-cache corners.vnl   \
-  --lensmodel LENSMODEL_OPENCV8 \
-  --focal 1700                  \
-  --object-spacing 0.077        \
-  --object-width-n 10           \
-  '*.JPG'
+mrcal-show-splined-model-correction   \
+  --set 'cbrange [0:0.1]'             \
+  --unset grid                        \
+  --set 'xrange [:] noextend'         \
+  --set 'yrange [:] noextend reverse' \
+  --set 'key opaque box'              \
+  splined.cameramodel
 #+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-calibrate-cameras    \
-  --corners-cache $D/data/board/corners.vnl \
-  --lensmodel LENSMODEL_OPENCV8             \
-  --focal 1700                              \
-  --object-spacing 0.077                    \
-  --object-width-n 10                       \
+
+[[file:external/figures/splined-models/splined-magnitude.png]]
+
+This is about what we want. The valid-intrinsics region covers most of the
+spline-in-bounds region without going out-of-bounds anywhere. In the [[file:tour-initial-calibration.org][tour of
+mrcal]] we followed this procedure to end up with
+
+- =LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=18_fov_x_deg=150=
+
+Getting this perfect isn't important, so don't spent a ton of time working on
+it. See [[file:splined-models.org::#splined models field of view selection][the lensmodel documentation]] for more detail.
+
+* Computing the calibration
+:PROPERTIES:
+:CUSTOM_ID: calibration
+:END:
+
+We have data; we have a lens model; we're ready. Let's compute the calibration
+using the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool. The invocation should look something
+like this:
+
+#+begin_src sh
+mrcal-calibrate-cameras                                                         \
+  --corners-cache corners.vnl                                                   \
+  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=18_fov_x_deg=150 \
+  --focal 1900                                                                  \
+  --object-spacing 0.0588                                                       \
+  --object-width-n 14                                                           \
   '*.JPG'
 #+end_src
 
@@ -363,36 +304,36 @@ D=~/projects/mrcal-doc-external
   detector. If it's a detector that produces a 4th column of /weights/ instead
   of a decimation level, pass in =--corners-cache-has-weights=
 
-- =--lensmodel= specifies which lens model we're using for /all/ the cameras. In
-  this example we're using the =LENSMODEL_OPENCV8= model. This works reasonably
-  well for wide lenses. See the [[file:lensmodels.org][lens-model page]] for a description of the
-  available models. The current recommendation is to use an [[file:lensmodels.org::#lensmodel-opencv][opencv model]]
-  (=LENSMODEL_OPENCV5= for long lenses, =LENSMODEL_OPENCV8= for wide lenses)
-  initially, as a sanity check. And once that looks OK, to move to
-  [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get better accuracy and reliable
-  [[file:uncertainty.org][uncertainty reporting]]. For /very/ wide fisheye lenses,
-  [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] is the only model that will work at all.
+- =--lensmodel= specifies which lens model we're using for /all/ the cameras.
+  See [[#model-choice][the "Model choice" section above]]. Not being able to select different
+  models for different cameras is a current limitation of mrcal. If some very
+  different lenses are present in the same calibration, I use a densely-spaced
+  (high =Nx=, =Ny=) splined model with the =fov_x_deg= of the widest lens in the
+  set. This wastes knots in the too-wide areas of the narrow lenses, but if the
+  spline was dense-enough, there're enough knots remaining to fit the narrower
+  lenses.
 
-- =--focal 1700= provides the initial estimate for the camera focal lengths, in
-  pixels. This doesn't need to be precise, but do try to get this roughly
-  correct if possible. The focal length value to pass to =--focal= ($f_\mathrm{pixels}$) can be derived using the
-  [[file:lensmodels.org::#lensmodel-stereographic][stereographic model]] definition:
+- =--focal 1900= provides the initial estimate for the camera focal lengths, in
+  pixels. This doesn't need to be extremely precise, but do try to get this
+  close if possible. The focal length value to pass to =--focal=
+  ($f_\mathrm{pixels}$) can be derived using the [[file:lensmodels.org::#lensmodel-stereographic][stereographic model]] definition:
 
-\[ f_\mathrm{pixels} = \frac{\mathrm{imager\_width\_pixels}}{4 \tan \frac{\mathrm{field\_of\_view\_horizontal}}{4}} \]
+\[ f_\mathrm{pixels} \approx \frac{\mathrm{imager\_width\_pixels}}{4 \tan \frac{\mathrm{field\_of\_view\_horizontal}}{4}} \]
 
-  With longer lenses, the stereographic model is identical to the [[file:lensmodels.org::#lens-model-pinhole][pinhole model]].
-  With very wide lenses, the stereographic model is the basis for the
-  [[file:lensmodels.org::#splined-stereographic-lens-model][splined-stereographic model]], so this expression should be a good initial
-  estimate in all cases. Note that the manufacturer-specified "field of view" is
-  usually poorly-defined: it's different in all directions, so use your best
-  judgement. If only the focal length is available, keep in mind that the "focal
-  length" of a wide lens is somewhat poorly-defined also. With a longer lens, we
-  can assume pinhole behavior to get
+  This expression is a good initial estimate for both long and wide lenses. Note
+  that the manufacturer-specified "field of view" and "focal length" values are
+  usually poorly-defined: the former is different in all directions, and the
+  latter is meaningless in wide lenses that are nowhere near the pinhole model.
+  With a longer lens, we can assume pinhole behavior to get
 
 \[ f_\mathrm{pixels} = f_\mathrm{mm} \frac{\mathrm{imager\_width\_pixels}}{\mathrm{imager\_width\_mm}} \]
 
-  Again, use your best judgement. This doesn't need to be exact, but getting a
-  value in the ballpark makes life easier for the solver
+  As with the =fov_x_deg= parameter described in [[#model-choice][the "Model
+  choice" section above]], running a test calibration with a rough estimate, and
+  then passing in the much-closer optimized value is a good strategy. The
+  optimized focal length is the first two values of the =intrinsics= vector in
+  the result. Those two values should be similar, and anything around there
+  should work well for =--focal=.
 
 - =--object-spacing= is the distance between neighboring corners in the
   chessboard. Even spacing, identical in both directions is assumed
@@ -414,407 +355,939 @@ Note that these are /globs/, not /filenames/. So they need to be quoted or
 escaped to prevent the shell from expanding them: hence ='*.JPG'= and not
 =*.JPG=.
 
-We could pass =--explore= to drop into a REPL after the computation is done, so
-that we can look around. The most common diagnostic images can be made by
-running the [[file:commandline-tools.org::#commandline-tools-visualization][=mrcal-show-...= commandline tools]] on the generated
-=xxx.cameramodel= files, but =--explore= can be useful to get more sophisticated
-feedback.
+Finally, to compute [[#cross-validation][cross-validation diffs (see below)]] it's necessary to run
+several independent calibrations. I generally split the dataset into even/odd
+chunks, and calibrate them independently. With this =zsh= snippet, for instance:
 
-The [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool reports some high-level diagnostics, writes
-the output model(s) to disk, and exits:
+#+begin_src sh
+for oddeven (odd even) {
+
+    cmd=(mrcal-calibrate-cameras                                                       \
+         --corners-cache corners.vnl                                                   \
+         --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=18_fov_x_deg=150 \
+         --focal 1900                                                                  \
+         --object-spacing 0.0588                                                       \
+         --object-width-n 14)
+
+    if [[ $oddeven = "even" ]] {
+        globs=('frame*[02468]-camera'{0,1}'.png')
+    } else {
+        globs=('frame*[13579]-camera'{0,1}'.png')
+    }
+
+    cmd=($cmd $globs)
+
+    $cmd
+
+    for i (0 1) {
+        mv camera-$i.cameramodel camera-$i-$oddeven.cameramodel
+    }
+}
+#+end_src
+
+** Troubleshooting broken solves
+Usually the solver converges, and produces a result. Then we [[#interpreting-results][look at the
+diagnostics to evaluate the quality of this result]] (next section). We can do
+that if the errors are small, and the optimization completed successfully. If
+the data issues are too large, however (pervasive sync errors, completely
+insufficient lens model, etc), the solver will have trouble. It could
+
+- Take a very long time to convert to /some/ solution
+- Produce tool many outliers, possibly incrementally, producing output such as
+  this:
+  #+begin_example
+mrcal.c(5413): Threw out some outliers. New count = 174/35280 (0.5%). Going again
+mrcal.c(5413): Threw out some outliers. New count = 252/35280 (0.7%). Going again
+mrcal.c(5413): Threw out some outliers. New count = 303/35280 (0.9%). Going again
+  #+end_example
+  This will slow down the solve dramatically. Unless the data is known to be
+  funky, more than ~ 3% outliers should raise questions
+
+If the solver has trouble like this, it is usually helpful to turn off the
+outlier rejection by running =mrcal-calibrate-cameras --skip-outlier-rejection
+....=, and then [[#residuals][examine the residuals as described below]]. Hopefully that would
+provide a hint about the issues.
+
+It also helps to simplify the problem, which is effective at isolating certain
+issues. For instance, a nonconverging multi-camera solve should be attempted
+monocularly, one camera at a time. If some cameras converge and some don't, that
+points to the issue. If individually the solves converge, but together they
+don't, there's an issue with the [[#residuals-sync][camera synchronization]]. Or the chessboard
+corner indices aren't consistent. Similarly solving with a subset of images is
+often enlightening.
+
+Another common problem is getting messages like this:
 
 #+begin_example
-## initial solve: geometry only
-## RMS error: 31.606057232034026
-
-## initial solve: geometry and LENSMODEL_STEREOGRAPHIC core only
-=================== optimizing everything except board warp from seeded intrinsics
-mrcal.c(5355): Threw out some outliers (have a total of 53 now); going again
-mrcal.c(5355): Threw out some outliers (have a total of 78 now); going again
-## final, full optimization
-mrcal.c(5355): Threw out some outliers (have a total of 155 now); going again
-## RMS error: 0.7086476918204073
-RMS reprojection error: 0.7 pixels
-Worst residual (by measurement): 6.0 pixels
-Noutliers: 155 out of 16100 total points: 1.0% of the data
-calobject_warp = [-0.00104306  0.00051718]
-
-Wrote ./camera-0.cameramodel
+mrcal.c(3758): WARNING: Board observation 157 (icam_intrinsics=0, icam_extrinsics=-1, iframe=104) had almost all of its points thrown out as outliers: only 0/100 remain. CHOLMOD is about to complain about a non-positive-definite JtJ. Something is wrong with this observation
+mrcal.c(3758): WARNING: Board observation 158 (icam_intrinsics=1, icam_extrinsics=0, iframe=104) had almost all of its points thrown out as outliers: only 0/100 remain. CHOLMOD is about to complain about a non-positive-definite JtJ. Something is wrong with this observation
+mrcal.c(5412): Threw out some outliers (have a total of 861 now); going again
+libdogleg at dogleg.c:1115: CHOLMOD warning:
+libdogleg at dogleg.c:1115:  not positive definite.
+libdogleg at dogleg.c:1115:  file: ../Cholesky/t_cholmod_rowfac.c
+libdogleg at dogleg.c:1115:  line: 430
+libdogleg at dogleg.c:1115: 
 #+end_example
 
-The resulting model is renamed to =opencv8.cameramodel=, and is available [[file:external/data/board/opencv8.cameramodel][here]].
-This is a [[file:cameramodels.org][mrcal-native =.cameramodel= file]] containing at least the lens
-parameters and the geometry.
+The complaint is about a singular Hessian matrix. Usually this happens if some
+variable in the optimization has no effect at all on the solution, and the
+optimizer thus doesn't know what to do with that variable. Usually heavy outlier
+rejection precedes this, and the missing data is causing the problem. Example:
+all chessboard observations for a given frame were thrown out; thus moving the
+chessboard pose at that time has no effect, and we get a singular Hessian. The
+diagnostic technique is the same: disable the outlier rejection and examine the
+residuals.
 
-Let's sanity-check the results. We want to flag down any issues with the data
-that would violate the [[file:formulation.org::#noise-model][assumptions made by the solver]].
+* Interpreting the results
+:PROPERTIES:
+:CUSTOM_ID: interpreting-results
+:END:
 
-The tool reports some diagnostics. As we can see, the final RMS reprojection
-error was 0.7 pixels. Of the 16100 corner observations (161 observations of the
-board with 10*10 = 100 points each), 155 didn't fit the model well-enough, and
-were thrown out as [[file:formulation.org::#outlier-rejection][outliers]].
+Once we have a calibration, we should evaluate how well it represents reality.
+The tour of mrcal shows a very detailed process: [[file:tour-initial-calibration.org::#opencv8-model-solving][a real-world fit using
+=LENSMODEL_OPENCV8=]] and [[file:tour-initial-calibration.org::#splined-model-solving][a real-world fit using
+=LENSMODEL_SPLINED_STEREOGRAPHIC_...=]]. The analysis sequence outlined there is
+too thorough for everyday use, but it's good to look through those pages to get
+a sense. A high-level process is
 
-High outlier counts or high reprojection errors would indicate high model
-errors: the model mrcal is using does not fit the data well. That would suggest
-some/all of these:
+- [[#uncertainty][Examine the projection uncertainty to make sure we have enough good data in
+  the right places]]
+- [[#cross-validation][Examine the cross-validation diffs to confirm that the model fits and that the
+  reported uncertainty is trustworthy]]
+- [[#residuals][If these diffs are too high, examine the residuals to find out why]]
 
-- Issues in the input data, such as incorrectly-detected chessboard corners,
-  unsynchronized cameras, rolling shutter, motion blur, focus issues, unstable
-  lens, etc.
-- A badly-fitting lens model. For instance =LENSMODEL_OPENCV4= will not fit wide
-  lenses. And only [[file:splined-models.org][splined lens models]] will fit fisheye lenses all the way to
-  the corners
-- A badly-fitting chessboard model: is the chessboard flat? If not, does it
-  follow the [[file:formulation.org::#board-deformation][deformation model]] well?
+This is a /lot/, but you don't need to do all this every time. As noted in [[file:formulation.org::#noise-model][the
+noise model description]], we want homoscedastic noise in our observations of
+the chessboard corners. We will get that if and only if our models faithfully
+describe the world; so the available diagnostics serve to pinpoint areas where
+the models don't fit, so that those issues could be addressed.
 
-Outlier rejection will throw out the worst-fitting data, but these model errors
-will still cause an uncorrectable bias in the results. If at all possible, it is
-strongly recommended to fix whatever is causing the problem, and then to re-run
-the solve.
+I now describe each step.
 
-In this example the [[file:formulation.org::#board-deformation][board deformation]] was computed as 1.0mm horizontally, and
-0.5mm vertically in the opposite direction. That is a small deflection, and
-sounds reasonable. A way to validate this, would be to get another set of
-chessboard images, to rerun the solve, and compare the new flex values to the
-old ones. From experience, if things are working properly, these results are
-usually consistent.
+** Projection uncertainty
+:PROPERTIES:
+:CUSTOM_ID: uncertainty
+:END:
 
-What does the solve think about our geometry? Does it match reality?
+As described in detail in [[file:uncertainty.org][the projection-uncertainty page]], the projection
+uncertainty computed by mrcal gauges the effect of sampling error. Since we
+/always/ have noise in our chessboard observations, it's important that the
+solution be insensitive to this noise. Otherwise a recalibration of the same
+system would produce very different results due to new chessboard observations
+containing new noise.
 
-#+begin_src sh
-mrcal-show-geometry      \
-  opencv8.cameramodel    \
-  --show-calobjects      \
-  --unset key            \
-  --set 'xyplane 0'      \
-  --set 'view 80,30,1.5'
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-geometry $D/data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy $D/figures/calibration/calibration-chessboards-geometry.svg
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-geometry $D/data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' --hardcopy $D/figures/calibration/calibration-chessboards-geometry.pdf
-#+end_src
-
-[[file:external/figures/calibration/calibration-chessboards-geometry.svg]]
-
-Here we see the [[file:formulation.org::#world-geometry][axes of our camera]] (purple) situated at the [[file:formulation.org::#world-geometry][reference coordinate
-system]]. In this solve, the camera coordinate system /is/ the reference
-coordinate system; this would look more interesting with more cameras. In front
-of the camera (along the $z$ axis) we can see the solved chessboard poses. There
-are a whole lot of them, and they're all sitting right in front of the camera
-with some heavy tilt. This matches with how this chessboard dance was performed
-(by following the guidelines set by the [[file:tour-choreography.org][dance study]]).
-
-Next, let's examine the residuals more closely. We have an overall RMS
-reprojection error value from above, but let's look at the full distribution of
-errors for /all/ the cameras:
-
-#+begin_src sh
-mrcal-show-residuals    \
-  --histogram           \
-  --set 'xrange [-4:4]' \
-  --unset key           \
-  --binwidth 0.1        \
-  opencv8.cameramodel
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
-  --histogram  \
-  --set 'xrange [-4:4]' \
-  --unset key           \
-  --binwidth 0.1 \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-opencv8.svg' \
-  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D/data/board/opencv8.cameramodel
-
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
-  --histogram  \
-  --set 'xrange [-4:4]' \
-  --unset key           \
-  --binwidth 0.1 \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-opencv8.pdf' \
-  --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
-  $D/data/board/opencv8.cameramodel
-#+end_src
-
-[[file:external/figures/calibration/residuals-histogram-opencv8.svg]]
-
-We would like to see a normal distribution since that's what the [[file:formulation.org::#noise-model][noise model]]
-assumes. We do see this somewhat, but the central cluster is a bit
-over-populated. This is a violation of the noise model, but at this time I don't
-have a good sense of what this means. It's normal-ish, and there isn't a lot to
-do about this, so I will claim this is close-enough.
-
-Let's look deeper. If there's anything really wrong with our data, then we
-should see it in the worst-fitting images. Let's ask the tool to see the worst
-one:
-
-#+begin_src sh
-mrcal-show-residuals-board-observation \
-  --from-worst                         \
-  --vectorscale 100                    \
-  --circlescale 0.5                    \
-  --set 'cbrange [0:3]'                \
-  opencv8.cameramodel                  \
-  0
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board-observation \
-  --from-worst \
-  --vectorscale 100 \
-  --circlescale 0.5 \
-  --set 'cbrange [0:3]' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/worst-opencv8.png' \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  $D/data/board/opencv8.cameramodel \
-  0
-#+end_src
-
-[[file:external/figures/calibration/worst-opencv8.png]]
-
-The residual vector for each chessboard corner in this observation is shown,
-scaled by a factor of 100 for legibility (the actual errors are tiny!) The
-circle color also indicates the magnitude of the errors. The size of each circle
-represents the weight given to that point. The weight is reduced for points that
-were detected at a lower resolution by the chessboard detector. Points thrown
-out as outliers are not shown at all. Note that we're showing the /measurements/
-which are a weighted pixel error: high pixels errors may be reported as a small
-residual if they had a low weight.
-
-The few worst-fitting images are great at identifying common data-gathering
-issues. Zooming in at the worst point (easily identifiable by the color) will
-clearly show any motion blur or focus issues. Incorrectly-detected corners will
-be visible: they will be outliers or they will have a high error. Especially
-with lean models, the errors will be higher towards the edge of the imager: the
-lens models fit the worst there.
-
-There should be no discernible pattern to the errors. In a perfect world, the
-model fits the observations, and the residuals display purely random noise. Any
-patterns in the errors indicate that the noise isn't random, and thus the model
-does /not/ fit. This would violate the [[file:formulation.org::#noise-model][noise model]], and would result in a bias
-when we ultimately use this calibration for projection. This bias is an
-unmodeled source of error, so we /really/ want to push this down as far as we
-can. Getting rid of all such errors completely is impossible, but we should do
-our best. Out-of-sync camera observations show up as a systematic error vectors
-pointing in one direction; and the corresponding out-of-sync image would display
-equal and opposite errors. Rolling shutter effects would show a more complex,
-but clearly non-random pattern. An insufficiently-rich model of the world (lens
-behavior, chessboard shape, etc) results in clear patterns too.
-
-Back to /this/ image. In absolute terms, even this worst-fitting image fits
-/really/ well. The RMS error of the errors in this image is 1.20 pixels. The
-residuals in this image look mostly reasonable. There is a pattern, however: the
-errors are mostly radial (point to/from the center).
-
-As noted in the [[file:tour-initial-calibration.org][tour of mrcal]], this particular issue is caused by an assumption
-of a central projection (assuming that all rays intersect at a single point). An
-experimental and not-entirely-complete [[https://github.com/dkogan/mrcal/commit/26db52c48eab3d027316a28b210385775601d0cf][support for noncentral projection in
-mrcal exists]], and works /much/ better. The same frame, fitted with a noncentral
-projection:
-
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal-noncentral/mrcal-calibrate-cameras                             \
-  --corners-cache $D/data/board/corners.vnl                                     \
-  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=150 \
-  --focal 1700                                                                  \
-  --object-spacing 0.077                                                        \
-  --object-width-n 10                                                           \
-  --outdir /tmp                                                                     \
-  '*.JPG'
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal-noncentral ~/projects/mrcal-noncentral/mrcal-show-residuals-board-observation \
-  --vectorscale 100 \
-  --circlescale 0.5 \
-  --set 'cbrange [0:3]' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/worst-splined-noncentral.png' \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  /tmp/camera-0.cameramodel \
-  54
-#+end_src
-
-[[file:external/figures/calibration/worst-splined-noncentral.png]]
-
-This will be included in a future release of mrcal.
-
-One issue with lean models such as =LENSMODEL_OPENCV8=, which is used here, is
-that the radial distortion is never quite right, especially as we move further
-and further away form the optical axis. We can clearly see this here in the
-3rd-worst image:
-
-#+begin_src sh
-mrcal-show-residuals-board-observation \
-  --from-worst                         \
-  --vectorscale 100                    \
-  --circlescale 0.5                    \
-  --set 'cbrange [0:3]'                \
-  opencv8.cameramodel                  \
-  2
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board-observation \
-  --from-worst \
-  --vectorscale 100 \
-  --circlescale 0.5 \
-  --set 'cbrange [0:3]' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/worst-incorner-opencv8.png' \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  $D/data/board/opencv8.cameramodel \
-  2
-#+end_src
-
-[[file:external/figures/calibration/worst-incorner-opencv8.png]]
-
-/This/ is clearly a problem that should be addressed. Using a [[file:splined-models.org][splined lens model]]
-instead of =LENSMODEL_OPENCV8= makes this work, as seen in the [[file:tour-initial-calibration.org::#splined-stereographic-fit][tour of mrcal]]:
-
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board-observation \
-  --vectorscale 100 \
-  --circlescale 0.5 \
-  --set 'cbrange [0:3]' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/worst-incorner-splined.png' \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  $D/data/board/splined.cameramodel \
-  79
-#+end_src
-
-[[file:external/figures/calibration/worst-incorner-splined.png]]
-
-Let's look at the systematic errors in another way: let's look at all the
-residuals over all the observations, color-coded by their direction, ignoring
-the magnitudes:
-
-#+begin_src sh
-mrcal-show-residuals    \
-  --directions          \
-  --unset key           \
-  opencv8.cameramodel
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
-  --directions \
-  --unset key           \
-  --set 'pointsize 0.5' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/directions-opencv8.svg' \
-  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D/data/board/opencv8.cameramodel
-
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
-  --directions \
-  --unset key           \
-  --set 'pointsize 0.25' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/directions-opencv8.pdf' \
-  --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
-  $D/data/board/opencv8.cameramodel
-#+end_src
-
-[[file:external/figures/calibration/directions-opencv8.png]]
-
-As before, if the model fit the observations, the errors would represent random
-noise, and no color pattern would be discernible in these dots. Here we can
-clearly see lots of green in the top-right and top and left, lots of blue and
-magenta in the center, yellow at the bottom, and so on. This is not random
-noise, and is a /very/ clear indication that this lens model is not able to fit
-this data.
-
-Once again, a [[file:splined-models.org][splined lens model]] resolves these biases, as seen in the [[file:tour-initial-calibration.org::#splined-stereographic-fit][tour of
-mrcal]]:
-
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
-  --directions \
-  --unset key           \
-  --set 'pointsize 0.5' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/directions-splined.svg' \
-  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D/data/board/splined.cameramodel
-
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
-  --directions \
-  --unset key           \
-  --set 'pointsize 0.25' \
-  --hardcopy '~/projects/mrcal-doc-external/figures/calibration/directions-splined.pdf' \
-  --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
-  $D/data/board/splined.cameramodel
-#+end_src
-
-[[file:external/figures/calibration/directions-splined.png]]
-
-It would be good to have a quantitative measure of these systematic patterns. At
-this time mrcal doesn't provide an automated way to do that. This will be added
-in the future.
-
-Finally it's useful to look at the projection uncertainty of the model. As noted
-in the [[file:uncertainty.org][documentation]], a rich model is necessary to get realistic uncertainty
-estimates, so here we look at the [[file:lensmodels.org::#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] result from
-the [[file:tour.org][tour of mrcal]]:
+Projection uncertainty can be visualized with the
+[[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool. From the [[file:tour-uncertainty.org][tour of mrcal]]:
 
 #+begin_src sh
 mrcal-show-projection-uncertainty splined.cameramodel --cbmax 1 --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/splined.cameramodel \
-  --cbmax 1 \
-  --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.svg \
-  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"'
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/splined.cameramodel \
-  --cbmax 1 \
-  --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.pdf \
-  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  $D/data/board/splined.cameramodel \
-  --cbmax 1 \
-  --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.png \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+# THIS IS GENERATED IN tour-uncertainty.org
 #+end_src
 
 [[file:external/figures/uncertainty/uncertainty-splined.png]]
 
-This is projection uncertainty at infinity. If we care about some other working
-distance, this can be requested with =mrcal-show-projection-uncertainty
---distance ...=.
+This is projection uncertainty at infinity, which is what I'm usually interested
+in. If we care /only/ about the performance at some particular distance, that
+can be requested with =mrcal-show-projection-uncertainty --distance ...=. That
+uncertainty will usually be better than the uncertainty at infinity. Trying hard
+to make things work at infinity will make things work at other ranges also.
 
-The uncertainties are shown as a color-map along with contours. These are the
-expected value of projection errors based on [[file:formulation.org::#noise-model][noise in input corner observations]].
-The lowest uncertainties are at roughly the range and imager locations of the
-the chessboard observations. Gaps in chessboard coverage will manifest as areas
-of high uncertainty.
+The projection uncertainty measures the quality of the chessboard dance. If the
+[[#dancing][guidelines noted above]] were followed, you'll get good uncertainties. If the
+uncertainty is poor in some region, you need more chessboard observations in
+that area. To improve it everywhere, follow the guidelines: more observations,
+more closeups, more tilt.
 
-These uncertainty metrics are complementary to the residual metrics described
-above. If we have too little data, the residuals will be low, but the
-uncertainties will be very high. The more data we gather, the lower the
-uncertainties.
+The projection uncertainties will be overly-optimistic if model errors are
+present or if a too-lean lens model is selected. So we now look at the
+cross-validation diffs to confirm that no model errors are present. If we can
+confirm that, the projection uncertainties can be used as the authoritative
+gauge of the quality of our calibration.
 
-If the residual plots don't show any unexplained errors, then the uncertainty
-plots are the authoritative gauge of calibration quality. If the residuals do
-suggest problems, then the uncertainty predictions will be overly-optimistic:
-the reported uncertainties would not include the extra sources of error.
+Since the uncertainties are largely a function of the chessboard dance, I
+usually don't bother looking at them if I'm recalibrating a system that I have
+calibrated before, with a similar dance. Since the system and the dance didn't
+change, neither would the uncertainty.
 
-A good way to validate the reported projection uncertainty is a
-cross-validation. Multiple sets of chessboard dance images should be gathered
-for the same cameras, and multiple independent calibration solves should be
-made. Then a difference can be computed using the [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=
-tool]]. This difference should be in line with the uncertainty predictions. If any
-unmodeled sources of error are present, the diffs would show high errors despite
-low uncertainties.
+** Cross-validation diffs
+:PROPERTIES:
+:CUSTOM_ID: cross-validation
+:END:
 
-In the end, if the residuals look reasonable, and the uncertainties look
-reasonable then we can use the resulting models, and expect to see the accuracy
-predicted by the reported projection uncertainty.
+If we have an acceptable projection uncertainty, we need to decide if it's a
+good gauge of calibration quality: if we have model errors or not.
+
+A good way to do that is to compute a cross-validation: we calibrate the camera
+system twice with independent input data, and we compare the resulting
+projections. If the models fit, then we only have sampling error affecting the
+solves, and the resulting differences will be in-line with what the
+uncertainties predict: $\mathrm{difference} \approx \mathrm{uncertainty}_0 +
+\mathrm{uncertainty}_1$. Otherwise, we have an extra source of error not present
+in the uncertainty estimates, which would cause the cross-validation diffs to be
+significantly higher. This would suggest a deeper look is necessary.
+
+To get the data we can do two separate dances, or we can split the dataset into
+odd/even images, as described [[#calibration][above]].
+
+In the [[file:tour-cross-validation.org][tour of mrcal]] we computed a cross-validation, and discovered that there
+indeed exists a model error. The cross-validation diff looked like this:
+
+#+begin_src sh
+mrcal-show-projection-diff           \
+  --cbmax 2                          \
+  --unset key                        \
+  2-f22-infinity.splined.cameramodel \
+  3-f22-infinity.splined.cameramodel
+#+end_src
+
+[[file:external/figures/cross-validation/diff-cross-validation-splined.png]]
+
+And the two uncertainties looked roughly like this:
+
+[[file:external/figures/uncertainty/uncertainty-splined.png]]
+
+The diff is more than roughly 2x the uncertainty, so something wasn't fitting:
+the lens had a non-negligible noncentral behavior at the chessboard distance,
+which wasn't fixable with today's mrcal. So we could either
+
+- Accept the results as is, using the diffs as a guideline to how trustworthy
+  the solves are
+- Gather more calibration images from further out, minimizing the unmodeled
+  noncentral effect
+
+Cross-validation diffs are usually /very/ effective at detecting issues, and I
+usually compute these every time I calibrate a lens. In my experience, these are
+the most important diagnostic output.
+
+While these are very good at /detecting/ issues, they're less good at
+pinpointing the root cause. To do that usually requires examining the [[#residuals][solve
+residuals (next section)]] and thinking about them.
+
+** Residuals
+:PROPERTIES:
+:CUSTOM_ID: residuals
+:END:
+
+These are the lowest-level, easiest-to-interpret metrics. Usually I only look at
+the residuals if
+
+- I'm calibrating an unfamiliar system
+- I don't trust something about the way the data was collected; if I have little
+  faith in the camera time-sync for instance
+- Something unknown is causing issues (we're seeing too-high cross-validation
+  diffs), and we need to debug
+
+The residuals in the whole problem can be visualized with the
+[[file:mrcal-show-residuals.html][=mrcal-show-residuals=]] tool. And the residuals of specific chessboard
+observations can be visualized with the [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]]
+tool.
+
+Once again. As noted in [[file:formulation.org::#noise-model][the noise model description]], we want homoscedastic noise
+in our observations of the chessboard corners. So the residuals should all be
+independent and should all have the same dispersion: each residual vector should
+look random, and unrelated to any other residual vector. There should be no
+discernible patterns to the residuals. If model errors are present, the
+residuals will /not/ appear random, and /will/ exhibit patterns. And we can see
+those patterns in the residual plots.
+
+The single most useful invocation to run is
+
+#+begin_example
+mrcal-show-residuals-board-observation \
+  --from-worst                         \
+  --vectorscale 100                    \
+  solved.cameramodel                   \
+  0-5
+#+end_example
+
+This displays the residuals of a few worst-fitting images, with the error
+vectors scaled up 100x for legibility (the "100" often needs to be adjusted for
+each specific case). The most significant issues usually show up in these few
+worst-fitting chessboard observations.
+
+The residual plots are interactive, so it's useful to then zoom in on the worst
+fitting points (easily identifiable by the color) in the worst-fitting
+observations to make sure the observed chessboard corners we're fitting to are
+in the right place. If something was wrong with the chessboard corner detection,
+a zoomed-in residual image would tell us this.
+
+Next the residual plots should be examined for patterns. Let's look at some
+common issues, and the characteristic residual patterns they produce.
+
+*** Poorly-fitting lens model
+We saw this in [[file:tour-initial-calibration.org::#opencv8-solve-diagnostics][the tour of mrcal]]: we tried to calibrate a very wide lens with
+LENSMODEL_OPENCV8, and it showed clear signs of the model not fitting. Read that
+page to get a sense of what that looks like in the various diagnostics. Broadly
+speaking, lens modeling errors increase as you move towards the edges of the
+imager, so we would see higher errors at the edges. This often looks similar to
+an [[#residuals-chessboard-shape][unmodeled deformation in the chessboard shape]].
+
+*** Errors in the chessboard detector
+What if the chessboard detector gets a small number of corners localized
+incorrectly? If the shift is large, those corner observations will be thrown out
+as outliers, and will not affect the solve. But if theyre small, they may cause
+a bias in the solution. What does that look like? Let's simulate it. We
+
+- take the LENSMODEL_SPLINED_STEREOGRAPHIC solve from [[file:tour-initial-calibration.org][the tour of mrcal]]
+- produce perfect observations at the computed optimal geometry
+- add perfect independent gaussian noise to the observations
+
+This data now follows [[file:formulation.org::#noise-model][the noise model]] perfectly. Then I add the flaw: I bump all
+the observed corners on the chessboard diagonal in observation 10 to the right
+by 0.8 pixels, and I look at the residuals. This requires a bit of code:
+
+#+begin_src python
+#!/usr/bin/python3
+
+import sys
+import mrcal
+import numpy as np
+import numpysane as nps
+
+def add_imperfection(optimization_inputs):
+    for i in range(14):
+        optimization_inputs['observations_board'][10,i,i,0] += 0.8
+
+
+model = mrcal.cameramodel('splined.cameramodel')
+optimization_inputs = model.optimization_inputs()
+
+mrcal.make_perfect_observations(optimization_inputs)
+add_imperfection(optimization_inputs)
+mrcal.optimize(**optimization_inputs)
+
+mrcal.show_residuals_board_observation(optimization_inputs, 10,
+                                       vectorscale =  200,
+                                       circlescale =  0.5,
+                                       title       =  "Effect of corner detection error at the center",
+                                       paths       = optimization_inputs['imagepaths'])
+#+end_src
+#+begin_src python :exports none :eval no-export
+#!/usr/bin/python3
+
+import sys
+import mrcal
+import numpy as np
+import numpysane as nps
+
+def add_imperfection(optimization_inputs):
+    for i in range(14):
+        optimization_inputs['observations_board'][10,i,i,0] += 0.8
+
+
+model = mrcal.cameramodel('/home/dima/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel')
+optimization_inputs = model.optimization_inputs()
+
+mrcal.make_perfect_observations(optimization_inputs)
+add_imperfection(optimization_inputs)
+mrcal.optimize(**optimization_inputs)
+
+mrcal.show_residuals_board_observation(optimization_inputs, 10,
+                                       vectorscale =  200,
+                                       circlescale =  0.5,
+                                       hardcopy =  "~/projects/mrcal-doc-external/figures/residuals/chessboard-detection-errors.png",
+                                       title =  "Effect of corner detection error at the center",
+                                       terminal =  'pngcairo size 1024,550 transparent noenhanced crop          font ",12"',
+                                       paths   = optimization_inputs['imagepaths'])
+#+end_src
+
+With a model on disk, the same could be produced with
+
+#+begin_src sh
+mrcal-show-residuals-board-observation                       \
+    --vectorscale 200                                        \
+    --circlescale 0.5                                        \
+    --title "Effect of corner detection error at the center" \
+    splined.cameramodel                                      \
+    10
+#+end_src
+
+[[file:external/figures/residuals/chessboard-detection-errors.png]]
+
+Here we see the residuals on the top-left/bottom-right diagonal be consistently
+larger than the others, and we see them point in a consistent non-random
+direction. This isn't easily noticeable without knowing what to look for. /But/
+the usual method of zooming in to the worst-few points will make the error in
+the detected corners visibly apparent.
+
+*** Rolling shutter
+:PROPERTIES:
+:CUSTOM_ID: residuals-rolling-shutter
+:END:
+
+Many cameras employ a [[https://en.wikipedia.org/wiki/Rolling_shutter][rolling shutter]]: the images aren't captured all at once,
+but are built up over time, capturing different parts of the image at different
+times. If the scene or the camera are moving, this would produce images that
+violate mrcal's view of the world: that at an instant in time I can describe the
+/full/ chessboard pose and its observed corners. mrcal does not model rolling
+shutter effects, so non-static calibration images would cause problems. Today
+the only way to calibrate rolling-shutter cameras with mrcal is to make sure the
+cameras and the chessboard are stationary during each image capture.
+
+How do we make sure that no rolling-shutter effects ended up in our data? We
+look at the residuals. Prior to the dataset used in [[file:tour-initial-calibration.org][the tour of mrcal]] I captured
+images that used the "silent mode" of that Sony Alpha 7 III camera. I didn't
+realize that this mode implied a rolling shutter, so [[file:external/2022-10-17--dtla-overpass--samyang--alpha7][that dataset]] wasn't useful
+to demo anything other than the rolling shutter residuals. Looking at the worst
+few observations:
+
+#+begin_src sh
+mrcal-show-residuals-board-observation \
+  --from-worst                         \
+  --vectorscale 20                     \
+  --circlescale 0.5                    \
+  splined.cameramodel                  \
+  0-3
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal/doc/external/2022-10-17--dtla-overpass--samyang--alpha7/2-f22-infinity/
+for i (`seq 0 3`) {
+  mrcal-show-residuals-board-observation \
+    --from-worst \
+    --vectorscale 40 \
+    --circlescale 0.5 \
+    --hardcopy "~/projects/mrcal-doc-external/figures/residuals/rolling-shutter-$i.png" \
+    --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
+    $D/splined.cameramodel \
+    $i
+  mrcal-show-residuals-board-observation \
+    --from-worst \
+    --vectorscale 40 \
+    --circlescale 0.25 \
+    --hardcopy "~/projects/mrcal-doc-external/figures/residuals/rolling-shutter-$i.svg" \
+    --terminal 'svg size 800,400 noenhanced solid dynamic font ",14"' \
+    $D/splined.cameramodel \
+    $i
+}
+#+end_src
+
+[[file:external/figures/residuals/rolling-shutter-0.svg]]
+
+[[file:external/figures/residuals/rolling-shutter-2.svg]]
+
+[[file:external/figures/residuals/rolling-shutter-3.svg]]
+
+I'm omitting the 2nd image because it qualitatively looks very similar to the
+first. Note the patterns. Clearly something is happening, but it varies from
+image to image, and a warped chessboard isn't likely to explain it. In addition
+to that, the magnitude of all the errors is dramatically higher than before: the
+vectors are scaled up 5x less than those in [[file:tour-initial-calibration.org][the tour of mrcal]].
+
+*** Synchronization
+:PROPERTIES:
+:CUSTOM_ID: residuals-sync
+:END:
+
+What if we're calibrating a multi-camera system, and the image synchronization
+is broken? You should have a hardware sync: a physical trigger wire connected to
+each camera, with a pulse on that line telling each camera to begin the image
+capture. If this is missing or doesn't work properly, then a similar issue
+occurs as with a [[#residuals-rolling-shutter][rolling-shutter]]: images captured at allegedly a particular
+instant in time haven't actually been captured completely at /that/ time.
+
+This can be confirmed by recalibrating monocularly, to see if individually the
+solves converge. And as expected, this can be readily seen in the residuals. A
+time sync problem means that synced images A and B were supposed to capture a
+chessboard at some pose $T$. But since the sync was broken, the chessboard
+moved, so the chessboard was really at two different poses: $T_\mathrm{A}$ and
+$T_\mathrm{B}$. mrcal was told that there was no motion, so it ends up solving
+for some compromise transform $T_\mathrm{mid}$ that splits the difference. So
+the residuals for image A would point from the observation at $T_\mathrm{A}$
+towards the observation at the compromise pose $T_\mathrm{mid}$. And the
+residuals for image B would point in the opposite direction: from the
+observation at $T_\mathrm{B}$ towards the observation at the compromise pose
+$T_\mathrm{mid}$.
+
+Let's demo this with a little code. I grab the monocular solve from [[file:tour-initial-calibration.org][the tour of
+mrcal]], add a second camera with perfect observations and noise, and add the
+flaw: one of the chessboard observations was erroneously reported for two images
+in a row. This happened in only one camera of the pair, so a time-sync error
+resulted. This is a simulation, but as with everything else on this page, I've
+seen such problems in real life. The incorrect observation is observation 40,
+frame 20, camera 0.
+
+#+begin_src python
+#!/usr/bin/python3
+
+import sys
+import mrcal
+import numpy as np
+import numpysane as nps
+
+def binocular_from_monocular(optimization_inputs):
+    # Assuming monocular calibration. Add second identical camera to the right
+    # of the first
+    optimization_inputs['intrinsics'] = \
+        nps.glue( optimization_inputs['intrinsics'],
+                  optimization_inputs['intrinsics'],
+                  axis = -2 )
+    optimization_inputs['imagersizes'] = \
+        nps.glue( optimization_inputs['imagersizes'],
+                  optimization_inputs['imagersizes'],
+                  axis = -2 )
+    optimization_inputs['extrinsics_rt_fromref'] = np.array(((0,0,0, -0.1,0,0),), dtype=float)
+    i = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+    optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = \
+        np.ascontiguousarray( \
+          nps.clump(nps.xchg(nps.cat(i, i + np.array((0,1,1),dtype=np.int32)), 0, 1), n=2))
+
+    # optimization_inputs['observations_board'] needs to have the right shape
+    # and the right weights. So I just duplicate it
+    optimization_inputs['observations_board'] = \
+        np.ascontiguousarray( \
+          nps.clump(nps.xchg(nps.cat(optimization_inputs['observations_board'],
+                                     optimization_inputs['observations_board']),
+                             0,1),
+                    n=2))
+    del optimization_inputs['imagepaths']
+
+def add_imperfection(optimization_inputs):
+    iobservation = 40
+    iframe,icam_intrinsics,icam_extrinsics = \
+        optimization_inputs['indices_frame_camintrinsics_camextrinsics'][iobservation]
+    print(f"observation {iobservation} iframe {iframe} icam_intrinsics {icam_intrinsics} is stuck to the previous observation")
+
+    optimization_inputs    ['observations_board'][iobservation,  ...] = \
+        optimization_inputs['observations_board'][iobservation-2,...]
+
+
+model = mrcal.cameramodel('splined.cameramodel')
+optimization_inputs = model.optimization_inputs()
+
+observed_pixel_uncertainty = np.std(mrcal.residuals_chessboard(optimization_inputs).ravel())
+binocular_from_monocular(optimization_inputs)
+mrcal.make_perfect_observations(optimization_inputs,
+                                observed_pixel_uncertainty = observed_pixel_uncertainty)
+add_imperfection(optimization_inputs)
+
+optimization_inputs['do_apply_outlier_rejection'] = False
+mrcal.optimize(**optimization_inputs)
+
+mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                  icam_intrinsics     = 0).write('/tmp/sync-error.cameramodel')
+
+for i in range(2):
+    mrcal.show_residuals_board_observation(optimization_inputs,
+                                           i,
+                                           from_worst  = True,
+                                           vectorscale = 2,
+                                           circlescale = 0.5)
+#+end_src
+#+begin_src python :exports none :eval no-export
+#!/usr/bin/python3
+
+import sys
+import mrcal
+import numpy as np
+import numpysane as nps
+
+def binocular_from_monocular(optimization_inputs):
+    # Assuming monocular calibration. Add second identical camera to the right
+    # of the first
+    optimization_inputs['intrinsics'] = \
+        nps.glue( optimization_inputs['intrinsics'],
+                  optimization_inputs['intrinsics'],
+                  axis = -2 )
+    optimization_inputs['imagersizes'] = \
+        nps.glue( optimization_inputs['imagersizes'],
+                  optimization_inputs['imagersizes'],
+                  axis = -2 )
+    optimization_inputs['extrinsics_rt_fromref'] = np.array(((0,0,0, -0.1,0,0),), dtype=float)
+    i = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+    optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = \
+        np.ascontiguousarray( \
+          nps.clump(nps.xchg(nps.cat(i, i + np.array((0,1,1),dtype=np.int32)), 0, 1), n=2))
+
+    # optimization_inputs['observations_board'] needs to have the right shape
+    # and the right weights. So I just duplicate it
+    optimization_inputs['observations_board'] = \
+        np.ascontiguousarray( \
+          nps.clump(nps.xchg(nps.cat(optimization_inputs['observations_board'],
+                                     optimization_inputs['observations_board']),
+                             0,1),
+                    n=2))
+    del optimization_inputs['imagepaths']
+
+def add_imperfection(optimization_inputs):
+    iobservation = 40
+    iframe,icam_intrinsics,icam_extrinsics = \
+        optimization_inputs['indices_frame_camintrinsics_camextrinsics'][iobservation]
+    print(f"observation {iobservation} iframe {iframe} icam_intrinsics {icam_intrinsics} is stuck to the previous observation")
+
+    optimization_inputs    ['observations_board'][iobservation,  ...] = \
+        optimization_inputs['observations_board'][iobservation-2,...]
+
+
+model = mrcal.cameramodel('/home/dima/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel')
+optimization_inputs = model.optimization_inputs()
+
+observed_pixel_uncertainty = np.std(mrcal.residuals_chessboard(optimization_inputs).ravel())
+binocular_from_monocular(optimization_inputs)
+mrcal.make_perfect_observations(optimization_inputs,
+                                observed_pixel_uncertainty = observed_pixel_uncertainty)
+add_imperfection(optimization_inputs)
+
+optimization_inputs['do_apply_outlier_rejection'] = False
+mrcal.optimize(**optimization_inputs)
+
+mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                  icam_intrinsics     = 0).write('/tmp/sync-error.cameramodel')
+
+for i in range(2):
+    mrcal.show_residuals_board_observation(optimization_inputs,
+                                           i,
+                                           from_worst  = True,
+                                           vectorscale = 2,
+                                           circlescale = 0.5,
+                                           hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/sync-errors-{i}.png",
+                                           terminal    = 'pngcairo size 1024,550 transparent noenhanced crop          font ",12"')
+    mrcal.show_residuals_board_observation(optimization_inputs,
+                                           i,
+                                           from_worst  = True,
+                                           vectorscale = 2,
+                                           circlescale = 0.25,
+                                           hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/sync-errors-{i}.svg",
+                                           terminal    =  'svg size 800,400 noenhanced solid dynamic font ",14"')
+#+end_src
+
+[[file:external/figures/residuals/sync-errors-0.svg]]
+
+[[file:external/figures/residuals/sync-errors-1.svg]]
+
+We're plotting the two worst-residual observations, and we clearly see the
+tell-tale sign of a time-sync error.
+
+As before, we can make these plots from the commandline:
+
+#+begin_src sh
+mrcal-show-residuals-board-observation \
+    --from-worst                       \
+    --vectorscale 2                    \
+    --circlescale 0.5                  \
+    /tmp/sync-error.cameramodel        \
+    --explore                          \
+    0-1
+#+end_src
+
+Here we passed =--explore= to drop into a REPL to investigate further, which
+gives us another clear indication that we have a time-sync error. The tool
+reports some useful diagnostics at the top of the REPL:
+
+#+begin_example
+The first 10 worst-fitting observations (i_observations_sorted_from_worst[:10])
+
+[41, 40, 97, 94, 95, 38, 99, 96, 98, 39]
+
+
+The corresponding 10 (iframe, icamintrinsics, icamextrinsics) tuples
+(indices_frame_camintrinsics_camextrinsics[i_observations_sorted_from_worst[:10] ]):
+
+[[20  1  0]
+ [20  0 -1]
+ [48  1  0]
+ [47  0 -1]
+ [47  1  0]
+ [19  0 -1]
+ [49  1  0]
+ [48  0 -1]
+ [49  0 -1]
+ [19  1  0]]
+#+end_example
+
+Since a time-sync error affects multiple images at the same time, we should see
+multiple chessboard observations from the same frame (instant in time) in the
+high-residuals list, and we clearly see that above. We corrupted frame 20 camera
+0, so it's no longer syncronized with frame 20 camera 1. We expect both of those
+observations to fit badly, and we do see that: the
+[[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] tool says that the worst residual is
+from frame 20 camera 1 and the second-worst is frame 20 camera 0. High errors in
+multiple cameras in the same frame like this are another tell-tale sign of sync
+errors. We can also query the errors themselves in the REPL:
+
+#+begin_example
+In [1]: err_per_observation[i_observations_sorted_from_worst][:10]
+Out[1]: 
+array([965407.29301702, 864665.95442895,  11840.10373732,   7762.88344105,
+         7759.5509593 ,   7618.23632488,   7190.35449443,   6621.34798572,
+         6499.23173619,   6039.45522539])
+#+end_example
+
+So the two frame-20 sum-of-squares residuals are on the order of $900,000
+\mathrm{pixels}^2$, and the next worst one is ~ 100 times smaller.
+
+*** Chessboard shape
+:PROPERTIES:
+:CUSTOM_ID: residuals-chessboard-shape
+:END:
+
+Since flat chessboards don't exist, mrcal doesn't assume that the observed
+chessboard is flat. Today it uses [[file:formulation.org::#board-deformation][a simple parabolic model]]. It /does/ assume the
+board shape is constant throughout the whole calibration sequence. So let's run
+more simulations to test two scenarios:
+
+1. The chessboard is slightly non-flat, but in a way not modeled by the solver
+2. The chessboard shape changes slightly over the course of the chessboard dance
+
+**** Unmodeled chessboard shape
+As before, we rerun the scenario from [[file:tour-initial-calibration.org][the tour of mrcal]] with perfect
+observations and perfect, but with a flaw: I use the very slightly parabolic
+chessboard, but tell mrcal to assume the chessboard is flat. The script is very
+similar:
+
+#+begin_src python
+#!/usr/bin/python3
+
+import sys
+import mrcal
+import numpy as np
+import numpysane as nps
+
+def add_imperfection(optimization_inputs):
+    H,W = optimization_inputs['observations_board'].shape[1:3]
+    s   = optimization_inputs['calibration_object_spacing']
+    print(f"Chessboard dimensions are {s*(W-1)}m x {s*(H-1)}m")
+    print(f"Chessboard deflection at the center is {optimization_inputs['calobject_warp'][0]*1000:.1f}mm , {optimization_inputs['calobject_warp'][1]*1000:.1f}mm in the x,y direction")
+    optimization_inputs['calobject_warp'] *= 0.
+    optimization_inputs['do_optimize_calobject_warp'] = False
+
+
+model = mrcal.cameramodel('splined.cameramodel')
+optimization_inputs = model.optimization_inputs()
+
+observed_pixel_uncertainty = np.std(mrcal.residuals_chessboard(optimization_inputs).ravel())
+optimization_inputs['calobject_warp'] = np.array((1e-3, -0.5e-3))
+mrcal.make_perfect_observations(optimization_inputs,
+                                observed_pixel_uncertainty = observed_pixel_uncertainty)
+add_imperfection(optimization_inputs)
+mrcal.optimize(**optimization_inputs)
+
+mrcal.show_residuals_board_observation(optimization_inputs,
+                                       0,
+                                       from_worst  = True,
+                                       vectorscale = 100,
+                                       circlescale = 0.5)
+#+end_src
+#+begin_src python :exports none :eval no-export
+#!/usr/bin/python3
+
+import sys
+import mrcal
+import numpy as np
+import numpysane as nps
+
+def add_imperfection(optimization_inputs):
+    H,W = optimization_inputs['observations_board'].shape[1:3]
+    s   = optimization_inputs['calibration_object_spacing']
+    print(f"Chessboard dimensions are {s*(W-1)}m x {s*(H-1)}m")
+    print(f"Chessboard deflection at the center is {optimization_inputs['calobject_warp'][0]*1000:.1f}mm , {optimization_inputs['calobject_warp'][1]*1000:.1f}mm in the x,y direction")
+    optimization_inputs['calobject_warp'] *= 0.
+    optimization_inputs['do_optimize_calobject_warp'] = False
+
+
+model = mrcal.cameramodel('/home/dima/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel')
+optimization_inputs = model.optimization_inputs()
+
+observed_pixel_uncertainty = np.std(mrcal.residuals_chessboard(optimization_inputs).ravel())
+optimization_inputs['calobject_warp'] = np.array((1e-3, -0.5e-3))
+mrcal.make_perfect_observations(optimization_inputs,
+                                observed_pixel_uncertainty = observed_pixel_uncertainty)
+add_imperfection(optimization_inputs)
+mrcal.optimize(**optimization_inputs)
+
+mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                  icam_intrinsics     = 0).write('/tmp/unmodeled-chessboard-shape.cameramodel')
+
+mrcal.show_residuals_board_observation(optimization_inputs,
+                                       0,
+                                       from_worst  = True,
+                                       vectorscale = 100,
+                                       circlescale = 0.5,
+                                       hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unmodeled-chessboard-shape.png",
+                                       terminal    = 'pngcairo size 1024,550 transparent noenhanced crop          font ",12"')
+mrcal.show_residuals_board_observation(optimization_inputs,
+                                       0,
+                                       from_worst  = True,
+                                       vectorscale = 100,
+                                       circlescale = 0.25,
+                                       hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unmodeled-chessboard-shape.svg",
+                                       terminal    =  'svg size 800,400 noenhanced solid dynamic font ",14"')
+#+end_src
+
+It says:
+
+#+begin_example
+Chessboard dimensions are 0.7644m x 0.7644m
+Chessboard deflection at the center is 1.0mm , -0.5mm in the x,y direction
+#+end_example
+
+And the worst residual image looks like this:
+
+[[file:external/figures/residuals/unmodeled-chessboard-shape.svg]]
+
+It usually looks similar to the residuals from a poorly-modeled lens (chessboard
+edges tend to be observed at the edges of the lens). In /this/ solve the
+residuals all look low-ish at the center, much bigger at the edges, and
+consistent at the edges.
+
+**** Unstable chessboard shape
+
+What if the chessboard flexes a little bit? I redo my solve using a small
+parabolic deflection at the first half of the sequence and twice as much
+deformation during the second half.
+
+#+begin_src python
+#!/usr/bin/python3
+
+import sys
+import mrcal
+import numpy as np
+import numpysane as nps
+
+def add_imperfection(optimization_inputs, observed_pixel_uncertainty):
+    Nobservations = len(optimization_inputs['observations_board'])
+    observations_half = np.array(optimization_inputs['observations_board'][:Nobservations//2,...])
+
+    optimization_inputs['calobject_warp'] *= 2.
+    mrcal.make_perfect_observations(optimization_inputs,
+                                    observed_pixel_uncertainty = observed_pixel_uncertainty)
+
+    optimization_inputs['observations_board'][:Nobservations//2,...] = observations_half
+
+    H,W = optimization_inputs['observations_board'].shape[1:3]
+    s   = optimization_inputs['calibration_object_spacing']
+    print(f"Chessboard dimensions are {s*(W-1)}m x {s*(H-1)}m")
+    print(f"Chessboard deflection at the center (second half of dataset) is {optimization_inputs['calobject_warp'][0]*1000:.2f}mm , {optimization_inputs['calobject_warp'][1]*1000:.2f}mm in the x,y direction")
+    print(f"Chessboard deflection at the center at the first half of the dataset is half of that")
+
+
+model = mrcal.cameramodel('splined.cameramodel')
+optimization_inputs = model.optimization_inputs()
+
+observed_pixel_uncertainty = np.std(mrcal.residuals_chessboard(optimization_inputs).ravel())
+
+optimization_inputs['calobject_warp'] = np.array((1e-3, -0.5e-3))
+mrcal.make_perfect_observations(optimization_inputs,
+                                observed_pixel_uncertainty = observed_pixel_uncertainty)
+
+add_imperfection(optimization_inputs, observed_pixel_uncertainty)
+mrcal.optimize(**optimization_inputs)
+
+print(f"Optimized chessboard deflection at the center is {optimization_inputs['calobject_warp'][0]*1000:.2f}mm , {optimization_inputs['calobject_warp'][1]*1000:.2f}mm in the x,y direction")
+
+
+mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                  icam_intrinsics     = 0).write('/tmp/unstable-chessboard-shape.cameramodel')
+
+mrcal.show_residuals_board_observation(optimization_inputs,
+                                       0,
+                                       from_worst  = True,
+                                       vectorscale = 100,
+                                       circlescale = 0.5)
+#+end_src
+#+begin_src python :exports none :eval no-export
+#!/usr/bin/python3
+
+import sys
+import mrcal
+import numpy as np
+import numpysane as nps
+
+def add_imperfection(optimization_inputs, observed_pixel_uncertainty):
+    Nobservations = len(optimization_inputs['observations_board'])
+    observations_half = np.array(optimization_inputs['observations_board'][:Nobservations//2,...])
+
+    optimization_inputs['calobject_warp'] *= 2.
+    mrcal.make_perfect_observations(optimization_inputs,
+                                    observed_pixel_uncertainty = observed_pixel_uncertainty)
+
+    optimization_inputs['observations_board'][:Nobservations//2,...] = observations_half
+
+    H,W = optimization_inputs['observations_board'].shape[1:3]
+    s   = optimization_inputs['calibration_object_spacing']
+    print(f"Chessboard dimensions are {s*(W-1)}m x {s*(H-1)}m")
+    print(f"Chessboard deflection at the center (second half of dataset) is {optimization_inputs['calobject_warp'][0]*1000:.2f}mm , {optimization_inputs['calobject_warp'][1]*1000:.2f}mm in the x,y direction")
+    print(f"Chessboard deflection at the center at the first half of the dataset is half of that")
+
+
+model = mrcal.cameramodel('/home/dima/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel')
+optimization_inputs = model.optimization_inputs()
+
+observed_pixel_uncertainty = np.std(mrcal.residuals_chessboard(optimization_inputs).ravel())
+
+optimization_inputs['calobject_warp'] = np.array((1e-3, -0.5e-3))
+mrcal.make_perfect_observations(optimization_inputs,
+                                observed_pixel_uncertainty = observed_pixel_uncertainty)
+
+add_imperfection(optimization_inputs, observed_pixel_uncertainty)
+mrcal.optimize(**optimization_inputs)
+
+print(f"Optimized chessboard deflection at the center is {optimization_inputs['calobject_warp'][0]*1000:.2f}mm , {optimization_inputs['calobject_warp'][1]*1000:.2f}mm in the x,y direction")
+
+
+mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                  icam_intrinsics     = 0).write('/tmp/unstable-chessboard-shape.cameramodel')
+
+mrcal.show_residuals_board_observation(optimization_inputs,
+                                       0,
+                                       from_worst  = True,
+                                       vectorscale = 100,
+                                       circlescale = 0.5,
+                                       hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unstable-chessboard-shape.png",
+                                       terminal    = 'pngcairo size 1024,550 transparent noenhanced crop          font ",12"')
+mrcal.show_residuals_board_observation(optimization_inputs,
+                                       0,
+                                       from_worst  = True,
+                                       vectorscale = 100,
+                                       circlescale = 0.25,
+                                       hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unstable-chessboard-shape.svg",
+                                       terminal    =  'svg size 800,400 noenhanced solid dynamic font ",14"')
+#+end_src
+
+It says:
+
+#+begin_example
+Chessboard dimensions are 0.7644m x 0.7644m
+Chessboard deflection at the center (second half of dataset) is 2.00mm , -1.00mm in the x,y direction
+Chessboard deflection at the center at the first half of the dataset is half of that
+Optimized chessboard deflection at the center is 1.66mm , -0.79mm in the x,y direction
+#+end_example
+
+[[file:external/figures/residuals/unstable-chessboard-shape.svg]]
+
+It looks a bit like the unmodeled chessboard residuals above, but smaller, and
+more subtle. But lest you think that these small and subtle residuals imply that
+this doesn't affect the solution, here's the resulting difference in projection:
+
+#+begin_src sh
+mrcal-show-projection-diff                   \
+  --no-uncertainties                         \
+  --radius 500                               \
+  --unset key \
+  /tmp/unstable-chessboard-shape.cameramodel \
+  splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+mrcal-show-projection-diff \
+  --no-uncertainties \
+  --radius 500 \
+  --unset key \
+  /tmp/unstable-chessboard-shape.cameramodel \
+  ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel \
+  --hardcopy ~/projects/mrcal-doc-external/figures/residuals/unstable-chessboard-shape-diff.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+#+end_src
+
+[[file:external/figures/residuals/unstable-chessboard-shape-diff.png]]
+
+So [[#chessboard-shape][take care to make your chessboard rigid]]. I can think of better visualizations
+to more clearly identify these kinds of issues, so this might improve in the
+future.
+
+For both of these chessboard deformation cases it's helpful to look at more than
+just 1 or 2 worst-case residuals. Look at the worst 10. In both cases the most
+tilted chessboard observations usually show very consistent residual vectors
+along the far edge of the chessboard.
+
+

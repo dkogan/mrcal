@@ -21,6 +21,7 @@ import mrcal
 import testutils
 
 from test_calibration_helpers import sample_dqref
+import copy
 
 # I want the RNG to be deterministic
 np.random.seed(0)
@@ -86,6 +87,17 @@ observations_ref = nps.clump( nps.glue(q_ref,
 q_noise,observations = sample_dqref(observations_ref,
                                     pixel_uncertainty_stdev,
                                     make_outliers = True)
+
+# Now I make some of the observations bogus, and mark them as input outliers.
+# The solve should be robust to that, but any code that uses the bogus data
+# DESPITE it being marked as bogus will generate a test failure
+#
+# Let's pretend the center of the chessboard has an apriltag, so all those
+# observations are bogus. I block out a 5x5 chunk in the center
+i0 = object_height_n//2
+j0 = object_width_n//2
+observations[..., i0-2:i0+3,j0-2:j0+3, 2] = -1.    # weight<=0: outlier
+observations[..., i0-2:i0+3,j0-2:j0+3,:2] = -100.0 # all the values are bogus
 
 ############# Now I pretend that the noisy observations are all I got, and I run
 ############# a calibration from those
@@ -196,7 +208,6 @@ optimization_inputs['calobject_warp'] = np.array((0.001, 0.001))
 stats = mrcal.optimize(**optimization_inputs,
                        do_apply_outlier_rejection = True)
 
-x      = stats['x']
 rmserr = stats['rms_reproj_error__pixels']
 
 
@@ -241,7 +252,8 @@ testutils.confirm_equal( optimization_inputs['calobject_warp'],
                          eps = 2e-3,
                          msg = "Recovered the calibration object shape" )
 
-testutils.confirm_equal( np.std(x),
+testutils.confirm_equal( np.std( mrcal.residuals_chessboard(optimization_inputs,
+                                                            residuals = stats['x'])),
                          pixel_uncertainty_stdev,
                          eps = pixel_uncertainty_stdev*0.1,
                          msg = "Residual have the expected distribution" )
@@ -347,5 +359,17 @@ for icam in range(len(models_ref)):
 # not great. I'm not entirely sure why it's over-reporting the outliers here,
 # but I should investigate that at the same time as I overhaul the outlier
 # rejection scheme (presumably to use one of my flavors of Cook's D factor)
+
+optimization_inputs_perfect = copy.deepcopy(optimization_inputs)
+mrcal.make_perfect_observations(optimization_inputs_perfect,
+                                observed_pixel_uncertainty = 0)
+i_meas0 = mrcal.measurement_index_boards(0, **optimization_inputs_perfect)
+x = mrcal.optimizer_callback(**optimization_inputs_perfect)[1]
+
+testutils.confirm_equal(x[i_meas0:mrcal.num_measurements_boards(**optimization_inputs_perfect)],
+                        0,
+                        worstcase = True,
+                        eps       = 1e-8,
+                        msg = 'make_perfect_observations()')
 
 testutils.finish()

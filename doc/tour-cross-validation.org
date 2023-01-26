@@ -1,0 +1,173 @@
+#+title: A tour of mrcal: cross-validation
+#+OPTIONS: toc:nil
+
+* Previous
+We just [[file:tour-uncertainty.org][computed the projection uncertainties of the models]]
+
+* Cross-validation
+
+We now have a good method to evaluate the quality of a calibration: the
+[[file:uncertainty.org][projection uncertainty]]. Is that enough? If we run a calibration and see a low
+projection uncertainty, can we assume that the computed model is good, and use
+it moving forward? Once again, unfortunately, we cannot. A low projection
+uncertainty tells us that we're not sensitive to noise in the observed
+chessboard corners. However it says nothing about the effects of model errors.
+
+Anything that makes our model not fit produces a model error. These can be
+caused by any of (for instance)
+
+- out-of focus images
+- images with motion blur
+- [[https://en.wikipedia.org/wiki/Rolling_shutter][rolling shutter]] effects
+- camera synchronization errors
+- chessboard detector failures
+- insufficiently-rich models (of the lens or of the chessboard shape or anything
+  else)
+
+If the model errors were present, then
+
+- the computed projection uncertainty would underestimate the expected errors:
+  the non-negligible model errors would be ignored
+- the residuals $\vec x$ would be heteroscedastic, which would cause bias in the
+  calibration result: the computed optimum would /not/ be a maximum-likelihood
+  estimate of the true calibration
+
+By definition, model errors are unmodeled, so we cannot do anything with them
+analytically. Instead we try hard to force these errors to zero, so that we can
+ignore them. We simply need to detect the presense of model errors. The [[file:tour-initial-calibration.org::#opencv8-solve-diagnostics][solve
+diagnostics we talked about earlier]] are a good start. An even more powerful
+technique is computing a /cross-validation diff/:
+
+- We gather not one, but two sets of chessboard observations for calibrating
+  cameras
+- We compute two completely independent calibrations of these cameras using the
+  two independent sets of observations
+- We use the [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] tool to compute the difference.
+
+The two separate calibrations sample the input noise /and/ the model noise. If
+the model noise is negligible, as we would like it to be, then the diff contains
+sampling noise only. This is quantified by the uncertainty analysis, and in this
+case the difference should be on the order of $\mathrm{difference} \approx
+\mathrm{uncertainty}_0 + \mathrm{uncertainty}_1$. It would be good to define
+this more rigorously, but in my experience, even this loose definition is
+enough, and this technique works quite well.
+
+I did gather more images in Downtown LA, so let's do this with our data.
+
+We already saw evidence that =LENSMODEL_OPENCV8= doesn't fit well. What does its
+cross-validation diff look like?
+
+#+begin_src sh
+mrcal-show-projection-diff           \
+  --cbmax 1                          \
+  --unset key                        \
+  2-f22-infinity.opencv8.cameramodel \
+  3-f22-infinity.opencv8.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/
+mrcal-show-projection-diff                            \
+  --cbmax 1                          \
+  --unset key                                         \
+  $D/[23]-f22-infinity/opencv8.cameramodel            \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-opencv8.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+#+end_src
+
+[[file:external/figures/cross-validation/diff-cross-validation-opencv8.png]]
+
+A reminder, the computed dance-2 uncertainty (response to sampling error) looks
+like this:
+
+[[file:external/figures/uncertainty/uncertainty-opencv8.png]]
+
+The dance-3 uncertainty looks similar. So if we have low model errors, the
+cross-validation diff whould be within ~0.2 pixels in most of the image. Clearly
+this model does /far/ worse than that: =LENSMODEL_OPENCV8= doesn't fit well.
+
+We expect the splined model to do better. Let's see. The cross-validation diff:
+
+#+begin_src sh
+mrcal-show-projection-diff           \
+  --cbmax 1                          \
+  --unset key                        \
+  2-f22-infinity.splined.cameramodel \
+  3-f22-infinity.splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/
+mrcal-show-projection-diff                            \
+  --cbmax 1                                           \
+  --unset key                                         \
+  $D/[23]-f22-infinity/splined.cameramodel            \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-splined.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+#+end_src
+
+[[file:external/figures/cross-validation/diff-cross-validation-splined.png]]
+
+And the dance-2 uncertainty (from before):
+
+[[file:external/figures/uncertainty/uncertainty-splined.png]]
+
+/Much/ better. We want the diff to be within ~0.4 pixels. It does that in many
+areas, but not all. So this splined model fits /much/ better than
+=LENSMODEL_OPENCV8=, but it's still noticeably not fitting.
+
+Prior experience from this particular lens tells me that this is caused by mrcal
+assuming a central projection in its models (assuming that all rays intersect at
+a single point). This is an assumption made by more or less every calibration
+tool, and most of the time it's reasonable. However, this assumption breaks down
+when you have a physically large, wide-angle lens looking at objects /very/
+close to the lens: exactly the case we have here.
+
+An experimental and not-entirely-complete [[https://github.com/dkogan/mrcal/tree/noncentral][support for noncentral projections in
+mrcal]] exists, and fits our data /much/ better. The cross-validation diff using
+a noncentral projection:
+
+#+begin_src sh :exports none :eval no-export
+mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/
+
+function c {
+  < $1 ~/projects/mrcal-noncentral/analyses/noncentral/centralize.py 3
+}
+
+mrcal-show-projection-diff                                                                                       \
+  --no-uncertainties                                                                                             \
+  --radius 500                                                                                                   \
+  --cbmax 1                                                                                                      \
+  --unset key                                                                                                    \
+  <(c $D/2-*/splined-noncentral.cameramodel)                                                                     \
+  <(c $D/3-*/splined-noncentral.cameramodel)                                                                     \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-splined-noncentral.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+#+end_src
+
+[[file:external/figures/cross-validation/diff-cross-validation-splined-noncentral.png]]
+
+This still isn't perfect, but it's close. The noncentral projection support is
+not yet done. Talk to me if you need it.
+
+Since today's mrcal doesn't have noncentral projections in it, what can we do
+today? The less-good central diff above tells us how much we can trust the
+projections: being conservative, I'd say these are good to within 1-1.5 pixels
+at the edges.
+
+We gathered close-up calibration images. But if the intended working range of
+the camera system is further out (almost always the case), then we can get a
+better calibration of this lens even without noncentral support in mrcal: we can
+gather calibration data from further out. As we will see [[file:tour-choreography.org][later in the dance
+study]], this would produce results with a much higher [[file:tour-uncertainty.org][projection uncertainty]],
+but we could compensate by gathering many more chessboard images. Doing this
+would dramatically reduce the noncentral lens effects.
+
+A more rigorous interpretation of these cross-validation results would be good,
+but a human interpretation is working well for now, so it's low-priority for me
+at the moment.
+
+* Next
+Now [[file:tour-effect-of-range.org][we discuss the effect of range in differencing and uncertainty computations]].
+

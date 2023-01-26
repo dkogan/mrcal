@@ -16,4 +16,48 @@ show_residuals_....() displays board AND point residuals
 mrcal_image_..._crop() is now static inline
 This fixes linker errors on some compilers
 
+Commandline tools print errors instead of throwing exceptions
+
+mrcal-stereo writes out a binary disparity image for easy post-processing
+
+show_projection_diff() and mrcal-show-projection-diff handles nan values better:
+no confused plots or ugly warnings on the console
+
+mrcal.rectified_resolution() is now separate from mrcal.rectified_system(), and
+has a callable C implementation
+
+same with mrcal.rectified_system(), rectification_maps
+
+estimate_monocular_calobject_poses_Rt_tocam() ignores invalid input points
+This makes calibrating given incomplete chessboard observations work properly
+
+show_projection_diff() can plot vectorfields with multiple distances
+And the mrcal-show-projections-diff tool. Same as with heat maps, we plot the
+diff for the first distance
+
+mrcal.optimize(), mrcal.optimizer_callback(): all arguments are keyword-only,
+most arguments are optional
+
+measurement_index_....() all return <0 if those measurements aren't present
+
+save_image() can write 16bpp grayscale images properly
+This requires a more recent libfreeimage than is available on some OSs
+
+mrcal-stereo respects --axis-scale
+Not doing this was an oversight
+
+full CAHVORE support
+
+show_residuals_board_observation() reports iobservation_from_worst in its title
+Applies to the mrcal-show-residuals-board-observation tool as well. Makes it
+simple to regenerate specific plots, even if they were displayed out of order
+
+mrcal-show-residuals-board-observation has --from-glob
+
+Added mrcal.make_perfect_observations()
+
+bug fix: mrcal-stereo can process multiple files with one invocation again
+
+mrcal-stereo can rectify images in parallel
+
 * Migration notes 2.2 -> 2.3

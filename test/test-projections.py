@@ -39,6 +39,7 @@ import mrcal
 import testutils
 from test_calibration_helpers import grad
 
+import re
 
 def check(intrinsics, p_ref, q_ref):
     ########## project
@@ -99,6 +100,18 @@ def check(intrinsics, p_ref, q_ref):
                                 eps = 1e-2)
 
 
+    if meta['noncentral']:
+        if re.match('LENSMODEL_CAHVORE',intrinsics[0]):
+            # CAHVORE. I set E=0, and the projection becomes central. Then
+            # unproject() is well-defined and I can run the tests
+            intrinsics[1][-3:] = 0
+            q_projected = mrcal.project(p_ref, *intrinsics)
+
+        else:
+            # Some other kind of noncentral model. I don't bother with
+            # unproject()
+            return
+
     ########## unproject
     if 1:
         ##### Un-normalized
@@ -158,49 +171,53 @@ def check(intrinsics, p_ref, q_ref):
     #                          msg = f"Unproject() should return the same thing whether get_gradients or not",
     #                          eps = 1e-6)
 
-    # Two different gradient computations, to match the two different ways the
-    # internal computation is performed
-    if intrinsics[0] == 'LENSMODEL_PINHOLE'       or \
-       intrinsics[0] == 'LENSMODEL_STEREOGRAPHIC' or \
-       intrinsics[0] == 'LENSMODEL_LATLON'        or \
-       intrinsics[0] == 'LENSMODEL_LONLAT':
-
-        @nps.broadcast_define( ((2,),('N',)) )
-        def grad_broadcasted(q_ref, i_ref):
-            return grad(lambda qi: mrcal.unproject(qi[:2], intrinsics[0], qi[2:]),
-                        nps.glue(q_ref,i_ref, axis=-1))
-
-        dv_dqi_ref = grad_broadcasted(q_projected,intrinsics[1])
-
+    if re.match('^LENSMODEL_CAHVORE',intrinsics[0]):
+        dv_dqi_ref = None
     else:
 
-        @nps.broadcast_define( ((2,),('N',)) )
-        def grad_broadcasted(q_ref, i_ref):
-            return grad(lambda qi: \
-                        mrcal.unproject_stereographic( \
-                        mrcal.project_stereographic(
-                            mrcal.unproject(qi[:2], intrinsics[0], qi[2:]))),
-                        nps.glue(q_ref,i_ref, axis=-1))
+        # Two different gradient computations, to match the two different ways the
+        # internal computation is performed
+        if intrinsics[0] == 'LENSMODEL_PINHOLE'       or \
+           intrinsics[0] == 'LENSMODEL_STEREOGRAPHIC' or \
+           intrinsics[0] == 'LENSMODEL_LATLON'        or \
+           intrinsics[0] == 'LENSMODEL_LONLAT':
 
-        dv_dqi_ref = grad_broadcasted(q_projected,intrinsics[1])
+            @nps.broadcast_define( ((2,),('N',)) )
+            def grad_broadcasted(q_ref, i_ref):
+                return grad(lambda qi: mrcal.unproject(qi[:2], intrinsics[0], qi[2:]),
+                            nps.glue(q_ref,i_ref, axis=-1))
+
+            dv_dqi_ref = grad_broadcasted(q_projected,intrinsics[1])
+
+        else:
+
+            @nps.broadcast_define( ((2,),('N',)) )
+            def grad_broadcasted(q_ref, i_ref):
+                return grad(lambda qi: \
+                            mrcal.unproject_stereographic( \
+                            mrcal.project_stereographic(
+                                mrcal.unproject(qi[:2], intrinsics[0], qi[2:]))),
+                            nps.glue(q_ref,i_ref, axis=-1))
+
+            dv_dqi_ref = grad_broadcasted(q_projected,intrinsics[1])
 
 
-    testutils.confirm_equal(mrcal.project(v_unprojected, *intrinsics),
-                            q_projected,
-                            msg = f"Unprojecting {intrinsics[0]} with grad",
-                            eps = 1e-2)
-    testutils.confirm_equal(dv_dq,
-                            dv_dqi_ref[...,:2],
-                            msg = f"dv_dq: {intrinsics[0]}",
-                            worstcase = True,
-                            relative  = True,
-                            eps = 0.01)
-    testutils.confirm_equal(dv_di,
-                            dv_dqi_ref[...,2:],
-                            msg = f"dv_di {intrinsics[0]}",
-                            worstcase = True,
-                            relative  = True,
-                            eps = 0.01)
+        testutils.confirm_equal(mrcal.project(v_unprojected, *intrinsics),
+                                q_projected,
+                                msg = f"Unprojecting {intrinsics[0]} with grad",
+                                eps = 1e-2)
+        testutils.confirm_equal(dv_dq,
+                                dv_dqi_ref[...,:2],
+                                msg = f"dv_dq: {intrinsics[0]}",
+                                worstcase = True,
+                                relative  = True,
+                                eps = 0.01)
+        testutils.confirm_equal(dv_di,
+                                dv_dqi_ref[...,2:],
+                                msg = f"dv_di {intrinsics[0]}",
+                                worstcase = True,
+                                relative  = True,
+                                eps = 0.01)
 
     # Normalized unprojected gradients
     v_unprojected,dv_dq,dv_di = mrcal.unproject(q_projected,
@@ -218,26 +235,29 @@ def check(intrinsics, p_ref, q_ref):
                              msg = f"Unprojecting (normalized, with gradients) {intrinsics[0]}",
                              eps = 1e-6)
 
-    @nps.broadcast_define( ((2,),('N',)) )
-    def grad_normalized_broadcasted(q_ref, i_ref):
-        return grad(lambda qi: \
-                    mrcal.unproject(qi[:2], intrinsics[0], qi[2:], normalize=True),
-                    nps.glue(q_ref,i_ref, axis=-1))
+    if re.match('^LENSMODEL_CAHVORE',intrinsics[0]):
+        dvnormalized_dqi_ref = None
+    else:
+        @nps.broadcast_define( ((2,),('N',)) )
+        def grad_normalized_broadcasted(q_ref, i_ref):
+            return grad(lambda qi: \
+                        mrcal.unproject(qi[:2], intrinsics[0], qi[2:], normalize=True),
+                        nps.glue(q_ref,i_ref, axis=-1))
 
-    dvnormalized_dqi_ref = grad_normalized_broadcasted(q_projected,intrinsics[1])
+        dvnormalized_dqi_ref = grad_normalized_broadcasted(q_projected,intrinsics[1])
 
-    testutils.confirm_equal(dv_dq,
-                            dvnormalized_dqi_ref[...,:2],
-                            msg = f"dv_dq (normalized v): {intrinsics[0]}",
-                            worstcase = True,
-                            relative  = True,
-                            eps = 0.01)
-    testutils.confirm_equal(dv_di,
-                            dvnormalized_dqi_ref[...,2:],
-                            msg = f"dv_di (normalized v): {intrinsics[0]}",
-                            worstcase = True,
-                            relative  = True,
-                            eps = 0.01)
+        testutils.confirm_equal(dv_dq,
+                                dvnormalized_dqi_ref[...,:2],
+                                msg = f"dv_dq (normalized v): {intrinsics[0]}",
+                                worstcase = True,
+                                relative  = True,
+                                eps = 0.01)
+        testutils.confirm_equal(dv_di,
+                                dvnormalized_dqi_ref[...,2:],
+                                msg = f"dv_di (normalized v): {intrinsics[0]}",
+                                worstcase = True,
+                                relative  = True,
+                                eps = 0.01)
 
     # unproject() with gradients, in-place
     if 1:
@@ -263,18 +283,19 @@ def check(intrinsics, p_ref, q_ref):
                                  msg = f"Unprojecting (normalized, with gradients, in-place) {intrinsics[0]}",
                                  eps = 1e-6)
 
-        testutils.confirm_equal(dv_dq,
-                                dvnormalized_dqi_ref[...,:2],
-                                msg = f"dv_dq (normalized v, in-place): {intrinsics[0]}",
-                                worstcase = True,
-                                relative  = True,
-                                eps = 0.01)
-        testutils.confirm_equal(dv_di,
-                                dvnormalized_dqi_ref[...,2:],
-                                msg = f"dv_di (normalized v, in-place): {intrinsics[0]}",
-                                worstcase = True,
-                                relative  = True,
-                                eps = 0.01)
+        if dvnormalized_dqi_ref is not None:
+            testutils.confirm_equal(dv_dq,
+                                    dvnormalized_dqi_ref[...,:2],
+                                    msg = f"dv_dq (normalized v, in-place): {intrinsics[0]}",
+                                    worstcase = True,
+                                    relative  = True,
+                                    eps = 0.01)
+            testutils.confirm_equal(dv_di,
+                                    dvnormalized_dqi_ref[...,2:],
+                                    msg = f"dv_di (normalized v, in-place): {intrinsics[0]}",
+                                    worstcase = True,
+                                    relative  = True,
+                                    eps = 0.01)
 
     if 1:
         # un-normalized output
@@ -295,18 +316,19 @@ def check(intrinsics, p_ref, q_ref):
                                  msg = f"Unprojecting (non-normalized, with gradients, in-place) {intrinsics[0]}",
                                  eps = 1e-6)
 
-        testutils.confirm_equal(dv_dq,
-                                dv_dqi_ref[...,:2],
-                                msg = f"dv_dq (unnormalized v, in-place): {intrinsics[0]}",
-                                worstcase = True,
-                                relative  = True,
-                                eps = 0.01)
-        testutils.confirm_equal(dv_di,
-                                dv_dqi_ref[...,2:],
-                                msg = f"dv_di (unnormalized v, in-place): {intrinsics[0]}",
-                                worstcase = True,
-                                relative  = True,
-                                eps = 0.01)
+        if dv_dqi_ref is not None:
+            testutils.confirm_equal(dv_dq,
+                                    dv_dqi_ref[...,:2],
+                                    msg = f"dv_dq (unnormalized v, in-place): {intrinsics[0]}",
+                                    worstcase = True,
+                                    relative  = True,
+                                    eps = 0.01)
+            testutils.confirm_equal(dv_di,
+                                    dv_dqi_ref[...,2:],
+                                    msg = f"dv_di (unnormalized v, in-place): {intrinsics[0]}",
+                                    worstcase = True,
+                                    relative  = True,
+                                    eps = 0.01)
 
 
 
@@ -376,26 +398,32 @@ check( ('LENSMODEL_CAHVOR', np.array((4842.918, 4842.771, 1970.528, 1085.302,
                  [  -92.63813066,  1653.09646897],
                  [ -249.83199315, -2606.46477164]]))
 
-check( ('LENSMODEL_CAHVORE_linearity=0.00', np.array((4842.918, 4842.771, 1970.528, 1085.302,
-                                       -0.001, 0.002, -0.637, -0.002, 0.016, 1e-8, 2e-8, 3e-8))),
+# E ~ 0: almost central
+check( ('LENSMODEL_CAHVORE_linearity=0.00',
+        np.array((4842.918, 4842.771, 1970.528, 1085.302,
+                  -0.001, 0.002, -0.637, -0.002, 0.016, 1e-8, 2e-8, 3e-8))),
        p,
-       np.array([[2140.34076919, 1437.37148001],
-                 [ 496.63465931, 1493.31670636],
-                 [ 970.11788123, -568.30114806]]))
+       np.array(([2140.340769278752759, 1437.371480086463635],
+                 [496.634661939782575, 1493.316705796434917],
+                 [970.117888562484495, -568.301135889864668])))
 
-check( ('LENSMODEL_CAHVORE_linearity=0.00', np.array((4842.918, 4842.771, 1970.528, 1085.302,
-                                       -0.001, 0.002, -0.637, -0.002, 0.016, 1e-2, 2e-2, 3e-2))),
+# E != 0: noncentral
+check( ('LENSMODEL_CAHVORE_linearity=0.00',
+        np.array((4842.918, 4842.771, 1970.528, 1085.302,
+                  -0.001, 0.002, -0.637, -0.002, 0.016, 1e-2, 2e-2, 3e-2))),
        p,
-       np.array([[2140.35607966, 1437.40149368],
-                 [ 489.05797783, 1495.37110356],
-                 [ 954.60918375, -594.21144463]]))
+       np.array(([2140.342263050081783, 1437.374408380910836],
+                 [491.682975341940221, 1494.659342555658441],
+                 [962.730552352575160, -580.643118338666000])))
 
-check( ('LENSMODEL_CAHVORE_linearity=0.40', np.array((4842.918, 4842.771, 1970.528, 1085.302,
-                                       -0.001, 0.002, -0.637, -0.002, 0.016, 1e-2, 2e-2, 3e-2))),
+# E != 0: noncentral. AND linearity > 0
+check( ('LENSMODEL_CAHVORE_linearity=0.40',
+        np.array((4842.918, 4842.771, 1970.528, 1085.302,
+                  -0.001, 0.002, -0.637, -0.002, 0.016, 1e-2, 2e-2, 3e-2))),
        p,
-       np.array([[2140.80289923, 1438.2774104 ],
-                 [ 423.27156274, 1513.20891648],
-                 [ 872.53696336, -731.32905711]]))
+       np.array(([2140.788976358770469, 1438.250116781426641],
+                 [426.278593220184689, 1512.393568241352796],
+                 [882.926242407330619, -713.971745152981612])))
 
 
 # Note that some of the projected points are behind the camera (z<0), which is

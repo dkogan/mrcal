@@ -473,3 +473,99 @@ def _noisy_observation_vectors_for_triangulation(p,
     return \
         v0local_noisy, v1local_noisy, v0_noisy,v1_noisy, \
         q0,q1, q0_noisy, q1_noisy
+
+
+def make_perfect_observations(optimization_inputs,
+                              *,
+                              observed_pixel_uncertainty = None):
+
+    r'''Write perfect observations with perfect noise into the optimization_inputs
+
+SYNOPSIS
+
+    model = mrcal.cameramodel("0.cameramodel")
+    optimization_inputs = model.optimization_inputs()
+
+    optimization_inputs['calobject_warp'] = np.array((1e-3, -1e-3))
+    mrcal.make_perfect_observations(optimization_inputs)
+
+    # We now have perfect data assuming a slightly WARPED chessboard. Let's use
+    # this data to compute a calibration assuming a FLAT chessboard
+    optimization_inputs['calobject_warp'] *= 0.
+    optimization_inputs['do_optimize_calobject_warp'] = False
+
+    mrcal.optimize(**optimization_inputs)
+
+    model = mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                              icam_intrinsics     = model.icam_intrinsics())
+    model.write("reoptimized.cameramodel")
+
+    # We can now look at the residuals and diffs to see how much a small
+    # chessboard deformation affects our results
+
+Tracking down all the sources of error in real-world models computed by mrcal is
+challenging: the models never fit perfectly, and the noise never follows the
+assumed distribution exactly. It is thus really useful to be able to run
+idealized experiments where both the models and the noise are perfect. We can
+then vary only one variable to judge its effects. Since everything else is
+perfect, we can be sure that any imperfections in the results are due only to
+the variable we tweaked. In the sample above we evaluated the effect of a small
+chessboard deformation.
+
+This function ingests optimization_inputs from a completed calibration. It then
+assumes that all the geometry and intrinsics are perfect, and sets the
+observations to projections of that perfect geometry. If requested, perfect
+gaussian noise is then added to the observations.
+
+THIS FUNCTION MODIES THE INPUT OPTIMIZATION_INPUTS
+
+ARGUMENTS
+
+- optimization_inputs: the input from a calibrated model. Usually the output of
+  mrcal.cameramodel.optimization_inputs() call. The output is written into
+  optimization_inputs['observations_board']
+
+- observed_pixel_uncertainty: optional standard deviation of the noise to apply.
+  By default the noise applied has same variance as the noise in the input
+  optimization_inputs. If we want to omit the noise, set
+  observed_pixel_uncertainty = 0
+
+RETURNED VALUES
+
+None
+
+    '''
+
+    if optimization_inputs['observations_point'] is not None:
+        raise Exception("This function supports only chessboards, but these optimization_inputs contain points")
+
+    if observed_pixel_uncertainty is None:
+        observed_pixel_uncertainty = \
+            np.std(mrcal.residuals_chessboard(optimization_inputs).ravel())
+
+    # shape (Nobservations, Nheight, Nwidth, 3)
+    pcam = mrcal.hypothesis_board_corner_positions(**optimization_inputs)[0]
+    i_intrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,1]
+    # shape (Nobservations,1,1,Nintrinsics)
+    intrinsics = nps.mv(optimization_inputs['intrinsics'][i_intrinsics],-2,-4)
+    optimization_inputs['observations_board'][...,:2] = \
+        mrcal.project( pcam,
+                       optimization_inputs['lensmodel'],
+                       intrinsics )
+
+    i_meas0 = mrcal.measurement_index_boards(0, **optimization_inputs)
+    x = mrcal.optimizer_callback(**optimization_inputs)[1]
+    err = nps.norm2(x[i_meas0:mrcal.num_measurements_boards(**optimization_inputs)])
+    if err > 1e-16:
+        raise Exception("Perfect observations produced nonzero error. This is a bug")
+
+    noise_nominal = \
+        observed_pixel_uncertainty * \
+        np.random.randn(*optimization_inputs['observations_board'][...,:2].shape)
+
+    weight = nps.dummy( optimization_inputs['observations_board'][...,2],
+                        axis = -1 )
+    weight[ weight<=0 ] = 1. # to avoid dividing by 0
+
+    optimization_inputs['observations_board'][...,:2] += \
+        noise_nominal / weight

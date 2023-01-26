@@ -134,7 +134,7 @@ if not os.path.isdir(f"{testdir}/../../mrcal-doc-external"):
     testutils.print_blue(f"../mrcal-doc-external isn't on this disk. Skipping non-sampled tests")
 else:
 
-    filename_from = f"{testdir}/../../mrcal-doc-external/data/board/splined.cameramodel"
+    filename_from = f"{testdir}/../../mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel"
     model_from = mrcal.cameramodel(filename_from)
 
     check( filename_from, model_from,

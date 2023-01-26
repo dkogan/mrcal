@@ -55,6 +55,14 @@ struct val_withgrad_t
         y.x -= b;
         return y;
     }
+    void operator-=( const val_withgrad_t<NGRAD>& b )
+    {
+        *this = (*this) - b;
+    }
+    val_withgrad_t<NGRAD> operator-() const
+    {
+        return (*this) * (-1);
+    }
     val_withgrad_t<NGRAD> operator*( const val_withgrad_t<NGRAD>& b ) const
     {
         val_withgrad_t<NGRAD> y;
@@ -152,6 +160,23 @@ struct val_withgrad_t
         for(int i=0; i<NGRAD; i++)
             y.j[i] = j[i] / (c*c);
         return y;
+    }
+
+    val_withgrad_t<NGRAD> atan2(val_withgrad_t<NGRAD>& x) const
+    {
+        val_withgrad_t<NGRAD> th;
+        const val_withgrad_t<NGRAD>& y = *this;
+
+        th.x = ::atan2(y.x, x.x);
+        // dth/dv = d/dv atan2(y,x)
+        //        = d/dv atan(y/x)
+        //        = 1 / (1 + y^2/x^2) d/dv (y/x)
+        //        = x^2 / (x^2 + y^2) / x^2 * (dy/dv x - y dx/dv)
+        //        = 1 / (x^2 + y^2) * (dy/dv x - y dx/dv)
+        double norm2 = y.x*y.x + x.x*x.x;
+        for(int i=0; i<NGRAD; i++)
+            th.j[i] = (y.j[i]*x.x - y.x*x.j[i]) / norm2;
+        return th;
     }
 
     val_withgrad_t<NGRAD> acos(void) const

@@ -962,6 +962,14 @@ the benefit of the test
     Ncameras = 2
     Nxy      = 2
     var_q = np.eye(Ncameras*Nxy) * sigma*sigma
+
+    # When computing dense stereo we generally assume that q0 is fixed, and we
+    # only think about the effects of Var(q1): Var(q0) = 0, sigma_cross = 0
+    # var_q[0,0]  = 0
+    # var_q[1,1]  = 0
+    # sigma_cross = 0
+
+
     var_q_reshaped = var_q.reshape( Ncameras, Nxy,
                                     Ncameras, Nxy )
 
@@ -1392,9 +1400,14 @@ if optimization_inputs is None and q_observation_stdev is None:
         icam_extrinsics0 = mrcal.corresponding_icam_extrinsics(icam_intrinsics0, **optimization_inputs)
         icam_extrinsics1 = mrcal.corresponding_icam_extrinsics(icam_intrinsics1, **optimization_inputs)
 
-        # set to None if icam_extrinsics<0 (i.e. when looking at the reference camera)
-        istate_e0 = mrcal.state_index_extrinsics(icam_extrinsics0, **optimization_inputs)
-        istate_e1 = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs)
+        if icam_extrinsics0 >= 0:
+            istate_e0 = mrcal.state_index_extrinsics(icam_extrinsics0, **optimization_inputs)
+        else:
+            istate_e0 = None
+        if icam_extrinsics1 >= 0:
+            istate_e1 = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs)
+        else:
+            istate_e1 = None
 
         if istate_e1 is not None:
             # dp_triangulated_dr_0ref = dp_triangulated_dv1  dv1_dr01 dr01_dr_0ref +

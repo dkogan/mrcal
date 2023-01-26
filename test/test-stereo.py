@@ -66,7 +66,7 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
     Naz,Nel = models_rectified[0].imagersize()
 
     q0 = np.array(((Naz-1.)/2., (Nel-1.)/2.))
-    v0   = mrcal.unproject(q0, *models_rectified[0].intrinsics(), normalize=True)
+    v0 = mrcal.unproject(q0, *models_rectified[0].intrinsics(), normalize=True)
 
     if lensmodel == 'LENSMODEL_LATLON':
         v0_rect = mrcal.unproject_latlon(np.array((az0, el0)))
@@ -101,12 +101,14 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
     testutils.confirm_equal(pixels_per_rad_az_rect * 8.,
                             pixels_per_rad_az_cam0,
                             msg=f'vanilla stereo: az pixel density ({lensmodel})',
-                            eps = 0.1)
+                            relative = True,
+                            eps      = 1e-2)
 
     testutils.confirm_equal(pixels_per_rad_el_rect * 4.,
                             pixels_per_rad_el_cam0,
                             msg=f'vanilla stereo: el pixel density ({lensmodel})',
-                            eps = 0.1)
+                            relative = True,
+                            eps      = 1e-2)
 
 
     v0 = mrcal.unproject(np.array((0,    (Nel-1.)/2.)), *models_rectified[0].intrinsics())
@@ -230,13 +232,13 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
                             pixels_per_rad_az_cam0,
                             msg=f'complex stereo: az pixel density ({lensmodel})',
                             relative = True,
-                            eps = 0.001)
+                            eps = 1e-2)
 
     testutils.confirm_equal(pixels_per_rad_el_rect * 4.,
                             pixels_per_rad_el_cam0,
                             msg=f'complex stereo: el pixel density ({lensmodel})',
                             relative = True,
-                            eps = 0.001)
+                            eps = 1e-2)
 
 
     v0 = mrcal.unproject(np.array((0,    (Nel-1.)/2.)), *models_rectified[0].intrinsics())

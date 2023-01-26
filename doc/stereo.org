@@ -36,7 +36,7 @@ The rectified coordinate system looks like this:
 
 We code and documentation refers to two angles:
 
-- $\theta$ the "azimuth"; the lateral angle inside the epipolar plane. Related
+- $\theta$: the "azimuth"; the lateral angle inside the epipolar plane. Related
   directly to the $x$ pixel coordinate in the rectified images
 - $\phi$: the "elevation"; the tilt of the epipolar plane. Related directly to
   the $y$ pixel coordinate in the rectified images

@@ -189,21 +189,30 @@ which mrcal.optimize() expects
         # corners_cache_vnl lives
         corners_dir = None
 
-        reading_pipe = isinstance(corners_cache_vnl, io.IOBase)
+        fd_already_opened = isinstance(corners_cache_vnl, io.IOBase)
 
-        if corners_cache_vnl is not None and not reading_pipe:
+        if corners_cache_vnl is not None and not fd_already_opened:
             corners_dir = os.path.dirname( corners_cache_vnl )
 
         pipe_corners_write_fd          = None
         pipe_corners_write_tmpfilename = None
         if corners_cache_vnl is not None and \
-           not reading_pipe              and \
+           not fd_already_opened         and \
            os.path.isdir(corners_cache_vnl):
             raise Exception(f"Given cache path '{corners_cache_vnl}' is a directory. Must be a file or must not exist")
 
-        if corners_cache_vnl is None or \
-           ( not reading_pipe and \
-             not os.path.isfile(corners_cache_vnl) ):
+        if corners_cache_vnl is not None and \
+           ( fd_already_opened or \
+             os.path.exists(corners_cache_vnl) ):
+
+            # Have an existing cache file. Just read it
+            if fd_already_opened:
+                pipe_corners_read = corners_cache_vnl
+            else:
+                pipe_corners_read = open(corners_cache_vnl, 'r', encoding='ascii')
+            corners_output    = None
+
+        else:
 
             if jobs < 0:
                 raise Exception("I was asked to use an existing cache file, but it couldn't be read. jobs<0, so I do not recompute")
@@ -236,13 +245,6 @@ which mrcal.optimize() expects
             corners_output = subprocess.Popen(args_mrgingham, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                               encoding='ascii')
             pipe_corners_read = corners_output.stdout
-        else:
-            # Have an existing cache file. Just read it
-            if reading_pipe:
-                pipe_corners_read = corners_cache_vnl
-            else:
-                pipe_corners_read = open(corners_cache_vnl, 'r', encoding='ascii')
-            corners_output    = None
 
 
         mapping = {}
@@ -282,7 +284,7 @@ which mrcal.optimize() expects
                     # heuristics to figure this out
                     if corners_dir is None          or \
                        context['f'][0] == '/'       or \
-                       os.path.isfile(context['f']):
+                       os.path.exists(context['f']):
                         filename_canonical = os.path.normpath(context['f'])
                     else:
                         filename_canonical = os.path.join(corners_dir, context['f'])
@@ -384,7 +386,7 @@ which mrcal.optimize() expects
             if pipe_corners_write_fd is not None:
                 os.close(pipe_corners_write_fd)
                 shutil.move(pipe_corners_write_tmpfilename, corners_cache_vnl)
-        elif not reading_pipe:
+        elif not fd_already_opened:
             pipe_corners_read.close()
 
         # If I have multiple cameras, I use the filenames to figure out what
@@ -637,9 +639,9 @@ camera coordinate system FROM the calibration object coordinate system.
 
         # shape (H,W,6); each row is an x,y,weight pixel observation followed
         # by the xyz coord of the point in the calibration object
-        d = np.zeros((object_height_n,object_width_n,6), dtype=float)
-        d[..., 2] = observations[i_observation, ..., 2]
-        d[...,3:] = full_object
+        observation_xyz = np.zeros((object_height_n,object_width_n,6), dtype=float)
+        observation_xyz[..., 2] = observations[i_observation, ..., 2]
+        observation_xyz[...,3:] = full_object
 
         v = mrcal.unproject(observations[i_observation,...,:2],
                             lensmodels[icam],
@@ -647,27 +649,28 @@ camera coordinate system FROM the calibration object coordinate system.
         mrcal.project(v,
                       'LENSMODEL_PINHOLE',
                       intrinsics_data_pinhole_scaled,
-                      out = d[...,:2])
+                      out = observation_xyz[...,:2])
 
         # shape (H*W,6)
-        d = nps.clump( d, n=2)
+        observation_xyz = nps.clump( observation_xyz, n=2)
 
         # I pick off those rows where the point observation is valid. Result
         # should be (N,6) where N <= object_height_n*object_width_n
         i = \
-            (~np.isnan(d[..., 0])) * \
-            (~np.isnan(d[..., 1])) * \
-            (~np.isnan(d[..., 2]))
-        dvalid = d[i,:]
+            (observation_xyz[..., 2] > 0.0)      * \
+            (~np.isnan(observation_xyz[..., 0])) * \
+            (~np.isnan(observation_xyz[..., 1])) * \
+            (~np.isnan(observation_xyz[..., 2]))
+        observation_xyz = observation_xyz[i,:]
 
         try:
 
-            if len(dvalid) < 4:
-                raise SolvePnPerror_toofew(f"Insufficient observations; need at least 4; got {len(dvalid)} instead. Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
+            if len(observation_xyz) < 4:
+                raise SolvePnPerror_toofew(f"Insufficient observations; need at least 4; got {len(observation_xyz)} instead. Cannot estimate initial extrinsics for observation {i_observation} (camera {icam})")
 
             # copying because cv2.solvePnP() requires contiguous memory apparently
-            observations_local = np.array(dvalid[:,:2][..., np.newaxis])
-            ref_object         = np.array(dvalid[:,3:][..., np.newaxis])
+            observations_local = np.array(observation_xyz[:,:2][..., np.newaxis])
+            ref_object         = np.array(observation_xyz[:,3:][..., np.newaxis])
             result,rvec,tvec   = cv2.solvePnP(np.array(ref_object),
                                               np.array(observations_local),
                                               camera_matrix_pinhole_scaled, None)
@@ -752,7 +755,7 @@ camera coordinate system FROM the calibration object coordinate system.
 
 
 def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
-                            observations,
+                            object_width_n, object_height_n,
                             object_spacing):
     r'''Estimate camera poses in respect to each other
 
@@ -772,8 +775,6 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
 
     import heapq
 
-
-    object_height_n,object_width_n = observations.shape[-3:-1]
     Ncameras = np.max(indices_frame_camera[:,1]) + 1
 
     # I need to compute an estimate of the pose of each camera in the coordinate
@@ -813,84 +814,52 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
         # This is a hack. I look at the correspondence of camera0 to camera i for i
         # in 1:N-1. I ignore all correspondences between cameras i,j if i!=0 and
         # j!=0. Good enough for now
-        #
+
         # No calobject_warp. Good-enough for the seeding
-        full_object = mrcal.ref_calibration_object(object_width_n,object_height_n,
-                                                   object_spacing)
+        ref_object = \
+            nps.clump(mrcal.ref_calibration_object(object_width_n,object_height_n,
+                                                   object_spacing),
+                      n = 2)
 
         A = np.array(())
         B = np.array(())
 
         # I traverse my observation list, and pick out observations from frames
         # that had data from both my cameras
-        iframe_last = -1
-        d0  = None
-        d1  = None
-        Rt0 = None
-        Rt1 = None
+        iframe_last   = -1
+        d0            = None
+        d1            = None
+        Rt_cam0_frame = None
+        Rt_cam1_frame = None
         for i_observation in range(Nobservations):
             iframe_this,icam_this = indices_frame_camera[i_observation, ...]
             if iframe_this != iframe_last:
-                d0  = None
-                d1  = None
-                Rt0 = None
-                Rt1 = None
-                iframe_last = iframe_this
+                d0            = None
+                d1            = None
+                Rt_cam0_frame = None
+                Rt_cam1_frame = None
+                iframe_last   = iframe_this
 
             # The cameras appear in order. And above I made sure that icam_from >
             # icam_to, so I take advantage of that here
             if icam_this == icam_to:
-                if Rt0 is not None:
+                if Rt_cam0_frame is not None:
                     raise Exception(f"Saw multiple camera{icam_this} observations in frame {iframe_this}")
-                Rt0 = calobject_poses_local_Rt_cf[i_observation, ...]
-                d0  = observations[i_observation, ..., :2]
+                Rt_cam0_frame = calobject_poses_local_Rt_cf[i_observation, ...]
+
             elif icam_this == icam_from:
-                if Rt0 is None: # have camera1 observation, but not camera0
+                if Rt_cam0_frame is None: # have camera1 observation, but not camera0
                     continue
 
-                if Rt1 is not None:
+                if Rt_cam1_frame is not None:
                     raise Exception(f"Saw multiple camera{icam_this} observations in frame {iframe_this}")
-                Rt1 = calobject_poses_local_Rt_cf[i_observation, ...]
-                d1  = observations[i_observation, ..., :2]
+                Rt_cam1_frame = calobject_poses_local_Rt_cf[i_observation, ...]
 
-
-
-                # d looks at one frame and has shape (object_height_n,object_width_n,7). Each row is
-                #   xy pixel observation in left camera
-                #   xy pixel observation in right camera
-                #   xyz coord of dot in the calibration object coord system
-                d = nps.glue( d0, d1, full_object, axis=-1 )
-
-                # squash dims so that d is (object_height_n*object_width_n,7)
-                d = nps.clump(d, n=2)
-
-                ref_object = nps.clump(full_object, n=2)
-
-                # # It's possible that I could have incomplete views of the
-                # # calibration object, so I pull out only those point
-                # # observations that have a complete view. In reality, I
-                # # currently don't accept any incomplete views, and much outside
-                # # code would need an update to support that. This doesn't hurt, however
-
-                # # d looks at one frame and has shape (10,10,7). Each row is
-                # #   xy pixel observation in left camera
-                # #   xy pixel observation in right camera
-                # #   xyz coord of dot in the calibration object coord system
-                # d = nps.glue( d0, d1, full_object, axis=-1 )
-
-                # # squash dims so that d is (object_height_n*object_width_n,7)
-                # d = nps.transpose(nps.clump(nps.mv(d, -1, -3), n=2))
-
-                # # I pick out those points that have observations in both frames
-                # i = (d[..., 0] >= 0) * (d[..., 1] >= 0) * (d[..., 2] >= 0) * (d[..., 3] >= 0)
-                # d = d[i,:]
-
-                # # ref_object is (N,3)
-                # ref_object = d[:,4:]
-
-                A = nps.glue(A, nps.matmult( ref_object, nps.transpose(Rt0[:3,:])) + Rt0[3,:],
+                A = nps.glue(A, mrcal.transform_point_Rt(Rt_cam0_frame,
+                                                         ref_object),
                              axis = -2)
-                B = nps.glue(B, nps.matmult( ref_object, nps.transpose(Rt1[:3,:])) + Rt1[3,:],
+                B = nps.glue(B, mrcal.transform_point_Rt(Rt_cam1_frame,
+                                                         ref_object),
                              axis = -2)
 
         return mrcal.align_procrustes_points_Rt01(A, B)
@@ -1262,8 +1231,10 @@ SYNOPSIS
 
     ....
 
-    mrcal.optimize(intrinsics_data, extrinsics_rt_fromref, frames_rt_toref,
-                   lensmodel = 'LENSMODEL_STEREOGRAPHIC',
+    mrcal.optimize(intrinsics            = intrinsics_data,
+                   extrinsics_rt_fromref = extrinsics_rt_fromref,
+                   frames_rt_toref       = frames_rt_toref,
+                   lensmodel             = 'LENSMODEL_STEREOGRAPHIC',
                    ...)
 
 mrcal solves camera calibration problems by iteratively optimizing a nonlinear
@@ -1394,6 +1365,8 @@ We return a tuple:
     # these map FROM the coord system of the calibration object TO the coord
     # system of this camera
 
+    object_height_n,object_width_n = observations.shape[-3:-1]
+
     # I now have a rough estimate of calobject poses in the coord system of each
     # camera. One can think of these as two sets of point clouds, each attached
     # to their camera. I can move around the two sets of point clouds to try to
@@ -1406,7 +1379,7 @@ We return a tuple:
     camera_poses_Rt_0_cami = \
         _estimate_camera_poses( calobject_poses_local_Rt_cf,
                                 indices_frame_camera,
-                                observations,
+                                object_width_n, object_height_n,
                                 object_spacing)
 
     if len(camera_poses_Rt_0_cami):
@@ -1417,8 +1390,6 @@ We return a tuple:
                               -3 )
     else:
         extrinsics_Rt_fromref = np.zeros((0,4,3))
-
-    object_height_n,object_width_n = observations.shape[-3:-1]
 
     frames_rt_toref = \
         mrcal.estimate_joint_frame_poses(

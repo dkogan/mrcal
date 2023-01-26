@@ -24,10 +24,12 @@ LIB_SOURCES +=			\
   mrcal.c			\
   mrcal-opencv.c		\
   mrcal-image.c			\
+  stereo.c			\
   poseutils.c			\
   poseutils-opencv.c		\
   poseutils-uses-autodiff.cc	\
-  triangulation.cc
+  triangulation.cc              \
+  cahvore.cc
 
 ifneq (${USE_LIBELAS},) # using libelas
 LIB_SOURCES := $(LIB_SOURCES) stereo-matching-libelas.cc
@@ -105,7 +107,7 @@ ALL_PY_EXTENSION_MODULES   := _mrcal $(patsubst %,_%_npsp,$(ALL_NPSP_EXTENSION_M
 ######### python stuff
 %-npsp-pywrap-GENERATED.c: %-genpywrap.py
 	python3 $< > $@.tmp && mv $@.tmp $@
-mrcal/_%_npsp$(PY_EXT_SUFFIX): %-npsp-pywrap-GENERATED.o libmrcal.so
+mrcal/_%_npsp$(PY_EXT_SUFFIX): %-npsp-pywrap-GENERATED.o libmrcal.so libmrcal.so.${ABI_VERSION}
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $< -lmrcal -o $@
 
 ALL_NPSP_C  := $(patsubst %,%-npsp-pywrap-GENERATED.c,$(ALL_NPSP_EXTENSION_MODULES))
@@ -118,7 +120,7 @@ EXTRA_CLEAN += $(ALL_NPSP_C)
 $(ALL_NPSP_O): CFLAGS += -Wno-array-bounds
 
 mrcal-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
-mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.so
+mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.so libmrcal.so.${ABI_VERSION}
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $< -lmrcal -o $@
 # Needed on Debian. Unnecessary, but harmless on Arch Linux
 mrcal-pywrap.o: CFLAGS += -I/usr/include/suitesparse

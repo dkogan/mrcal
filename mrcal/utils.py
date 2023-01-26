@@ -453,7 +453,7 @@ RETURNED VALUE
 
     observations_board = optimization_inputs.get('observations_board')
     if observations_board is None:
-        return Exception("No board observations available")
+        raise Exception("No board observations available")
 
     indices_frame_camintrinsics_camextrinsics = \
         optimization_inputs['indices_frame_camintrinsics_camextrinsics']
@@ -1021,7 +1021,7 @@ A list of 'set' directives passable as plot options to gnuplotlib
     except: pass
     try:    imeas0.append(mrcal.measurement_index_points        (0, **optimization_inputs))
     except: pass
-    try:    imeas0.append(mrcal.measurement_index_regularization(0, **optimization_inputs))
+    try:    imeas0.append(mrcal.measurement_index_regularization(**optimization_inputs))
     except: pass
 
     return [f"arrow nohead from {x},graph 0 to {x},graph 1" for x in imeas0]
@@ -1216,7 +1216,8 @@ SYNOPSIS
 
 Given a calibration solve, returns the residuals of chessboard observations,
 throwing out outliers and, optionally, selecting the residuals from a specific
-camera.
+camera. These are the weighted reprojection errors present in the measurement
+vector.
 
 ARGUMENTS
 
@@ -1323,6 +1324,7 @@ SYNOPSIS
 
 Given a calibration solve, returns the residuals of point observations, throwing
 out outliers and, optionally, selecting the residuals from a specific camera.
+These are the weighted reprojection errors present in the measurement vector.
 
 ARGUMENTS
 

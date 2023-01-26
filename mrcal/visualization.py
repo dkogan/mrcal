@@ -43,10 +43,10 @@ SYNOPSIS
     # Solve a calibration problem. Visualize the resulting geometry AND the
     # observed calibration objects and points
     ...
-    mrcal.optimize(intrinsics,
-                   extrinsics_rt_fromref,
-                   frames_rt_toref,
-                   points,
+    mrcal.optimize(intrinsics            = intrinsics,
+                   extrinsics_rt_fromref = extrinsics_rt_fromref,
+                   frames_rt_toref       = frames_rt_toref,
+                   points                = points,
                    ...)
     plot2 = \
       mrcal.show_geometry(extrinsics_rt_fromref,
@@ -949,14 +949,6 @@ A tuple:
             raise Exception("I can only plot a vectorfield when looking at exactly 2 models. Instead I have {}". \
                             format(len(models)))
 
-        distance_is_iterable = True
-        try:    len(distance)
-        except: distance_is_iterable = False
-
-        if not (distance is None or \
-                not distance_is_iterable or \
-                len(distance) == 1):
-            raise Exception("I don't know how to plot multiple-distance diff with vectorfields")
     if directions and len(models) > 2:
         raise Exception("I can only color-code by directions when looking at exactly 2 models. Instead I have {}". \
                         format(len(models)))
@@ -2782,7 +2774,8 @@ plot
             i_observations_sorted_from_worst = \
                 list(reversed(np.argsort(err_per_observation)))
 
-        i_observation = i_observations_sorted_from_worst[i_observation]
+        i_observation_from_worst = i_observation
+        i_observation = i_observations_sorted_from_worst[i_observation_from_worst]
 
     # shape (Nh*Nw,2)
     residuals = nps.clump(residuals   [i_observation         ], n=2)
@@ -2801,9 +2794,10 @@ plot
 
     if 'title' not in plot_options:
         title = \
-            '{}: i_observation={}, iframe={}, icam={}, {}RMS_error={:.2f}'. \
+            '{}: i_observation={}{}, iframe={}, icam={}, {}RMS_error={:.2f}'. \
             format( optimization_inputs['lensmodel'],
                     i_observation,
+                    f'({i_observation_from_worst} from worst)' if from_worst else '',
                     *optimization_inputs['indices_frame_camintrinsics_camextrinsics'][i_observation, :2],
                     "" if paths is None else f"path={paths[i_observation]}, ",
                     np.sqrt(np.mean(nps.norm2(residuals))))
@@ -2826,7 +2820,7 @@ plot
         elif image_directory is not None:
             imagepath = f"{image_directory}/{os.path.basename(imagepath)}"
 
-        if not os.path.isfile(imagepath):
+        if not os.path.exists(imagepath):
             print(f"WARNING: Couldn't read image at '{imagepath}'", file=sys.stderr)
             imagepath = None
     else:

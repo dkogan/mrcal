@@ -470,7 +470,8 @@ if args.plane_n is not None:
     args.plane_n = np.array(args.plane_n, dtype=float)
 
 
-
+# I do the same thing in mrcal-stereo. Please consolidate
+#
 # weird business to handle weird signal handling in multiprocessing. I want
 # things like the user hitting C-c to work properly. So I ignore SIGINT for the
 # children. And I want the parent's blocking wait for results to respond to
@@ -485,7 +486,12 @@ model_valid_intrinsics_region = None
 mapxy                         = None
 model_imagersize              = None
 def _transform_this(inout):
-    image = mrcal.load_image(inout[0])
+    try:
+        image = mrcal.load_image(inout[0])
+    except:
+        print(f"Couldn't load '{inout[0]}'",
+              file=sys.stderr)
+        return
 
     if image.shape[0] != model_imagersize[1] or \
        image.shape[1] != model_imagersize[0]:
@@ -514,7 +520,7 @@ def process(model_from, model_to, image_globs, suffix,
             base = args.outdir + '/' + os.path.split(base)[1]
 
         filename_out = f"{base}-{suffix}{extension}"
-        if not args.force and os.path.isfile(filename_out):
+        if not args.force and os.path.exists(filename_out):
             print(f"Target image '{filename_out}' already exists. Doing nothing, and giving up. Pass -f to overwrite",
                   file=sys.stderr)
             sys.exit(1)
@@ -542,7 +548,7 @@ def process(model_from, model_to, image_globs, suffix,
                                            mask_valid_intrinsics_region_from = \
                                            args.mask_valid_intrinsics_region,)
 
-    if 1:
+    if args.jobs > 1:
         # Normal parallelized path
         pool = multiprocessing.Pool(args.jobs)
         try:
