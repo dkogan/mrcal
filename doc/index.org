@@ -31,46 +31,39 @@ mrcal consists of
 
 * Documentation index
 ** Overview, background
-*** [[file:tour.org][The tour of mrcal]]
-If this is your first exposure to mrcal, start here. This goes over the
-high-level capabilities of the toolkit, to give a good sense of what mrcal can
-do that's different and better than other tools.
+- [[file:tour.org][The tour of mrcal]]: if this is your first exposure to mrcal, start here. This
+  goes over the high-level capabilities of the toolkit, to give a good sense of
+  what mrcal can do that's different and better than other tools.
+- [[file:conventions.org][Terminology and conventions]]
 
-*** [[file:conventions.org][Terminology and conventions]]
 ** Details about the internals
-*** [[file:formulation.org][Problem formulation]]
-At the core of a calibration routine is an optimization problem. The details are
-important to interpret the results
-
-*** [[file:lensmodels.org][Lens models supported by mrcal]]
-*** [[file:splined-models.org][Splined-stereographic lens model]]
-This very rich lens model is available for high-fidelity modeling of projection
-and quantification of uncertainty. It is the recommended model, and is novel in
-mrcal, so it's described in detail here.
-
-*** [[file:cameramodels.org][Camera model representation in memory on disk]]
-*** [[file:differencing.org][Projection differencing]]
-mrcal can compute the projection difference between several models. This is
-useful to evaluate calibration quality and lens stability and a multitude of
-other things.
-
-*** [[File:uncertainty.org][Projection uncertainties]]
-mrcal can compute the projection uncertainty of a calibration. This quantifies
-the effect of sampling error, and is an excellent gauge of the quality of a
-model.
-
-*** [[file:stereo.org][Dense stereo processing]]
-*** [[file:triangulation.org][Triangulation]]
+- [[file:formulation.org][Problem formulation]]: at the core of a calibration routine is an optimization
+  problem. The details are important to interpret the results
+- [[file:lensmodels.org][Lens models supported by mrcal]]
+- [[file:splined-models.org][Splined-stereographic lens model]]: this very rich lens model is available for
+  high-fidelity modeling of projection and quantification of uncertainty. It is
+  the recommended model, and is novel in mrcal, so it's described in detail
+  here.
+- [[file:cameramodels.org][Camera model representation in memory on disk]]
+- [[file:differencing.org][Projection differencing]]: mrcal can compute the projection difference between
+  several models. This is useful to evaluate calibration quality and lens
+  stability and a multitude of other things.
+- [[File:uncertainty.org][Projection uncertainties]]: mrcal can compute the projection uncertainty of a
+  calibration. This quantifies the effect of sampling error, and is an excellent
+  gauge of the quality of a model.
+- [[file:stereo.org][Dense stereo processing]]
+- [[file:triangulation.org][Triangulation]]
 
 ** Practical guides
-*** [[file:how-to-calibrate.org][How to calibrate a camera system: practical details]]
-*** [[file:recipes.org][Recipes: various scenarios that need special attention]]
+- [[file:how-to-calibrate.org][How to calibrate a camera system: practical details]]
+- [[file:recipes.org][Recipes: various scenarios that need special attention]]
 
 ** Toolkit usage
-*** [[file:install.org][Installation, build instructions]]
-*** [[file:commandline-tools.org][Command-line tools]]
-*** [[file:python-api.org][The Python API]]
-*** [[file:c-api.org][The C API]]
+- [[file:install.org][Installation, build instructions]]
+- [[file:commandline-tools.org][Command-line tools]]
+- [[file:python-api.org][The Python API]]
+- [[file:c-api.org][The C API]]
+
 ** [[file:versions.org][Releases: a version history, release notes, and the planned roadmap]]
 
 * Citing
