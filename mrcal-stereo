@@ -355,10 +355,6 @@ def parse_args():
                         system, colored with the nearest-neighbor color of the
                         camera0 image. This is disabled by default because this
                         is potentially a very large file''')
-
-    parser.add_argument('--adaptive-rectification-extra-pitch-deg',
-                        type=float)
-
     parser.add_argument('--jobs', '-j',
                         type=int,
                         required=False,
@@ -379,6 +375,32 @@ def parse_args():
                         help='''The image globs to use for the stereo. If
                         omitted, we only write out the rectified models. If
                         given, exactly two image globs must be given''')
+
+    ######## adaptive rectification
+    parser.add_argument('--adaptive-rectification-extra-pitch-deg',
+                        required = False,
+                        type     = float)
+    parser.add_argument('--adaptive-rectification-plane-pitch-n-deg',
+                        required = False,
+                        default  = 30,
+                        type     = float)
+    parser.add_argument('--adaptive-rectification-plane-distance',
+                        required = False,
+                        default  = 187.55e-3,
+                        type     = float)
+    parser.add_argument('--adaptive-rectification-dqx-expected',
+                        required = False,
+                        default  = 0.3,
+                        type     = float)
+    parser.add_argument('--adaptive-rectification-rangeerr-min',
+                        required = True,
+                        type     = float)
+    parser.add_argument('--disparity-to0-extra-pitch-deg',
+                        required = True,
+                        type     = float)
+    parser.add_argument('--disparity-to0-ratio',
+                        required = True,
+                        type     = float)
 
     args = parser.parse_args()
 
@@ -818,17 +840,19 @@ if len(args.images) == 0:
 if not args.already_rectified:
 
     # in cam0 coords
-    n0                = np.array((0, np.cos(30*np.pi/180), np.sin(30*np.pi/180)))
-    distance_to_plane = 187.55e-3
+    n0 = np.array((0,
+                   np.cos(args.adaptive_rectification_plane_pitch_n_deg*np.pi/180),
+                   np.sin(args.adaptive_rectification_plane_pitch_n_deg*np.pi/180)))
 
-    rectification_maps = mrcal.rectification_maps(models, models_rectified,
-                                                  extra_pitch_deg   = args.adaptive_rectification_extra_pitch_deg,
-                                                  n0                = n0,
-                                                  distance_to_plane = distance_to_plane,
-                                                  dqx_expected      = 0.3,
-                                                  rangeerr_min      = 0.002,
-                                                  disparity_to0_extra_pitch_deg = 20,
-                                                  disparity_to0_ratio = 0.8)
+    rectification_maps = \
+        mrcal.rectification_maps(models, models_rectified,
+                                 extra_pitch_deg               = args.adaptive_rectification_extra_pitch_deg,
+                                 n0                            = n0,
+                                 distance_to_plane             = args.adaptive_rectification_plane_distance,
+                                 dqx_expected                  = args.adaptive_rectification_dqx_expected,
+                                 rangeerr_min                  = args.adaptive_rectification_rangeerr_min,
+                                 disparity_to0_extra_pitch_deg = args.disparity_to0_extra_pitch_deg,
+                                 disparity_to0_ratio           = args.disparity_to0_ratio)
 
 
 
