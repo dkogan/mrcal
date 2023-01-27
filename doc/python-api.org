@@ -1,6 +1,10 @@
 #+TITLE: mrcal Python API
 #+OPTIONS: toc:t
 
+A Python API is available to go beyond what the [[file:commandline-tools.org][pre-made commandline tools]] can
+do. These tools themselves are written using the Python API, so their sources
+are are a good guide.
+
 All the Python functions have complete docstrings, so the =pydoc3= tool is
 effective at displaying the relevant documentation. For convenience, all the
 docstrings have been extracted and formatted into the [[file:mrcal-python-api-reference.html][Python API reference]].

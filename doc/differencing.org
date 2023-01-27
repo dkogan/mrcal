@@ -7,7 +7,8 @@ projection differences between several models (implemented using
 applications. For instance:
 
 - evaluating the manufacturing variation of different lenses
-- quantifying intrinsics drift due to mechanical or thermal stresses
+- quantifying intrinsics or extrinsics drift due to mechanical or thermal
+  stresses
 - testing different solution methods
 - underlying a cross-validation scheme
 
@@ -24,10 +25,10 @@ $\vec q_0$ in camera 0 we need to:
 [[file:figures/diff-notransform.svg]]
 
 This simple definition is conceptually sound, but isn't applicable in practice.
-In the [[file:tour.org][tour of mrcal]], we calibrated the same lens using the same data, but with
+In the [[file:tour-differencing.org][tour of mrcal]] we calibrated the same lens using the same data, but with
 two different lens models. The models are describing the same lens, so we would
-expect a low difference. However, the above algorithm produces a difference that
-is non-sensically high. As a heat map:
+expect a low difference. However, the simple algorithm above produces a
+difference that is non-sensically high. As a heat map:
 
 #+begin_src sh
 mrcal-show-projection-diff \

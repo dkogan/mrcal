@@ -1,6 +1,11 @@
 #+TITLE: mrcal C API
 #+OPTIONS: toc:t
 
+Internally, the [[file:python-api.org][Python functions]] use the mrcal C API. Only core functionality is
+available in the C API (the Python API can do some stuff that the C API cannot),
+but with time more and more stuff will be transitioned to a C-internal
+representation. Today, end-to-end dense stereo processing in C is possible.
+
 The C API consists of several headers:
 - [[https://www.github.com/dkogan/mrcal/blob/master/basic-geometry.h][=basic-geometry.h=]]: /very/ simple geometry structures
 - [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]]: pose and geometry functions

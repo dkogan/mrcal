@@ -208,10 +208,19 @@ if the board is rotated diagonally, then none of these sequences are clearly
 :CUSTOM_ID: Visualization
 :END:
 Once we have a =corners.vnl= from some chessboard detector, we can visualize the
-coverage. This is usually unnecessary since the [[file:tour-uncertainty.org][projection uncertainty reporting]]
-shows the coverage (and more!), but it's good to be able to do this in case of
-trouble. A sample sequence of corner gathering and visualization appears in the
-[[file:tour-initial-calibration.org::#gathering-corners][tour of mrcal]].
+coverage. From the [[file:tour-initial-calibration.org][tour of mrcal]]:
+
+#+begin_example
+$ < corners.vnl       \
+  vnl-filter -p x,y | \
+  feedgnuplot --domain --square --set 'xrange [0:6000] noextend' --set 'yrange [3376:0] noextend'
+#+end_example
+
+[[file:external/figures/calibration/mrgingham-coverage.png]]
+
+Doing this is usually unnecessary since the [[file:tour-uncertainty.org][projection uncertainty reporting]]
+shows the coverage (and more!), but it's good to be able to do this for
+debugging.
 
 * Model choice
 :PROPERTIES:
