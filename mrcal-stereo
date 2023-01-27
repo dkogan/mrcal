@@ -379,7 +379,9 @@ def parse_args():
     ######## adaptive rectification
     parser.add_argument('--adaptive-rectification-extra-pitch-deg',
                         required = False,
-                        type     = float)
+                        type     = float,
+                        help = '''This is used to simulate observations made by
+                        a pitched camera. Usually this option should be omitted''')
     parser.add_argument('--adaptive-rectification-plane-pitch-n-deg',
                         required = False,
                         default  = 30,

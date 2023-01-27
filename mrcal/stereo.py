@@ -1417,6 +1417,7 @@ mrcal.rectification_maps() wrapper above calls THIS function in that case
     v1 = mrcal.rotate_point_R(R_cam_rect[1], unproject(azel + (0 if dazel1 is None else dazel1)))
 
 
+    # This is used to simulate observations made by a pitched camera
     if extra_pitch_deg is not None:
         # A pitch is a rotation around the "right" vector. For simplicity I use
         # the +x vector in cam0 coords
