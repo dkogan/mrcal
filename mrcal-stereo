@@ -1309,7 +1309,6 @@ if Nimages == 1 or args.jobs <= 1:
     # Serial path. Useful for debugging or if I only have one set of images
     for i in range(Nimages):
         process(i)
-    process(0)
     sys.exit(0)
 
 ####### Parallel path
