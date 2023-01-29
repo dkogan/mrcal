@@ -7,8 +7,7 @@ projection differences between several models (implemented using
 applications. For instance:
 
 - evaluating the manufacturing variation of different lenses
-- quantifying intrinsics or extrinsics drift due to mechanical or thermal
-  stresses
+- quantifying intrinsics drift due to mechanical or thermal stresses
 - testing different solution methods
 - underlying a cross-validation scheme
 
