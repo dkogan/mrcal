@@ -1,12 +1,14 @@
 #!/usr/bin/python3
 
-r'''Loads a model, generates perfect chessboard observations, corrupts them with
-nominal noise, and re-solves
+r'''Loads a model, and re-runs the optimization problem used to generate it
 
-This is useful to validate the idea that differences observed with
-mrcal-show-projection-diff should be predictive by the uncertainties reported by
-mrcal-show-projection-uncertainty IF the dominant source of error is
-calibration-time sampling error'''
+This is useful to analyze the solve. We can generate perfect chessboard
+observations, corrupted with perfect nominal noise to validate the idea that
+differences observed with mrcal-show-projection-diff should be predictive by the
+uncertainties reported by mrcal-show-projection-uncertainty IF the dominant
+source of error is calibration-time sampling error
+
+'''
 
 
 import sys
@@ -26,6 +28,20 @@ def parse_args():
                         --model-intrinsics is given, the intrinsics only come
                         from this other model. These are applied only to the ONE
                         model in icam_intrinsics''')
+
+    parser.add_argument('--perfect',
+                        action= 'store_true',
+                        help='''Make perfect observations and add perfect noise''')
+
+    parser.add_argument('--verbose',
+                        action = 'store_true',
+                        help='''If given, reoptimize verbosely''')
+    parser.add_argument('--skip-outlier-rejection',
+                        action='store_true',
+                        help='''Reoptimize with no outlier rejection''')
+    parser.add_argument('--revive-outliers',
+                        action='store_true',
+                        help='''Un-mark the outliers''')
 
     parser.add_argument('model',
                         type=str,
@@ -60,20 +76,36 @@ if not (optimization_inputs.get('indices_point_camintrinsics_camextrinsics') is 
 
 observed_pixel_uncertainty = np.std(mrcal.residuals_chessboard(optimization_inputs).ravel())
 
-if args.model_intrinsics is not None:
-    model_intrinsics = mrcal.cameramodel(args.model_intrinsics)
-    if model_intrinsics.intrinsics()[0] != model.intrinsics()[0]:
-        print("At this time, --model-intrinsics MUST use the same lens model as the reference model",
-              file=sys.stderr)
-        sys.exit(1)
-    optimization_inputs['intrinsics'][model.icam_intrinsics()] = \
-        model_intrinsics.intrinsics()[1]
+if args.perfect:
+    if args.model_intrinsics is not None:
+        model_intrinsics = mrcal.cameramodel(args.model_intrinsics)
+        if model_intrinsics.intrinsics()[0] != model.intrinsics()[0]:
+            print("At this time, --model-intrinsics MUST use the same lens model as the reference model",
+                  file=sys.stderr)
+            sys.exit(1)
+        optimization_inputs['intrinsics'][model.icam_intrinsics()] = \
+            model_intrinsics.intrinsics()[1]
 
-mrcal.make_perfect_observations(optimization_inputs,
-                                observed_pixel_uncertainty = observed_pixel_uncertainty)
+    mrcal.make_perfect_observations(optimization_inputs,
+                                    observed_pixel_uncertainty = observed_pixel_uncertainty)
 
 ######### Reoptimize
+optimization_inputs['verbose']                    = args.verbose
+optimization_inputs['do_apply_outlier_rejection'] = not args.skip_outlier_rejection
+if args.revive_outliers:
+    observations = optimization_inputs['observations_board']
+
+    print(f"Original solve has {np.count_nonzero(observations[...,2] <= 0)} outliers")
+    observations[observations[...,2] <= 0] = 1.
+    print(f"I now have {np.count_nonzero(observations[...,2] <= 0)} outliers")
+
 mrcal.optimize(**optimization_inputs)
+
 model = mrcal.cameramodel(optimization_inputs = optimization_inputs,
                           icam_intrinsics     = model.icam_intrinsics())
-model.write(sys.stdout)
+
+print("Done. The results are in the 'model' and 'optimization_inputs' variables")
+print("")
+
+import IPython
+IPython.embed()
