@@ -69,7 +69,8 @@ if args.model_intrinsics is not None:
     optimization_inputs['intrinsics'][model.icam_intrinsics()] = \
         model_intrinsics.intrinsics()[1]
 
-mrcal.make_perfect_observations(optimization_inputs, observed_pixel_uncertainty)
+mrcal.make_perfect_observations(optimization_inputs,
+                                observed_pixel_uncertainty = observed_pixel_uncertainty)
 
 ######### Reoptimize
 mrcal.optimize(**optimization_inputs)
