@@ -150,7 +150,9 @@ for i in range(len(ifcice)):
         print(f"Couldn't read image at '{imagepath}'", file=sys.stderr)
         sys.exit(1)
 
-    image     = mrcal.load_image(imagepath)
+    image     = mrcal.load_image(imagepath,
+                                 bits_per_pixel = 24,
+                                 channels       = 3)
     image_out = mrcal.transform_image(image,q)
 
     # shape (Ny,Nx)
