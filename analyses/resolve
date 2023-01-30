@@ -95,9 +95,8 @@ optimization_inputs['do_apply_outlier_rejection'] = not args.skip_outlier_reject
 if args.revive_outliers:
     observations = optimization_inputs['observations_board']
 
-    print(f"Original solve has {np.count_nonzero(observations[...,2] <= 0)} outliers")
+    print(f"Original solve has {np.count_nonzero(observations[...,2] <= 0)} outliers. Reviving them")
     observations[observations[...,2] <= 0] = 1.
-    print(f"I now have {np.count_nonzero(observations[...,2] <= 0)} outliers")
 
 mrcal.optimize(**optimization_inputs)
 
