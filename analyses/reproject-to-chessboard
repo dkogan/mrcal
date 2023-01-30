@@ -138,7 +138,7 @@ for i in range(len(ifcice)):
         p_cam = p_ref
 
     # shape (Ny,Nx,2)
-    q = mrcal.project(p_cam, lensmodel, intrinsics_data).astype(np.float32)
+    q = mrcal.project(p_cam, lensmodel, intrinsics_data[icamintrinsics]).astype(np.float32)
 
     imagepath = imagepaths[i]
     if args.image_path_prefix is not None:
