@@ -297,7 +297,11 @@ except:
     sys.exit(1)
 
 
-m = mrcal.cameramodel(args.model)
+try:
+    m = mrcal.cameramodel(args.model)
+except Exception as e:
+    print(f"Couldn't load camera model '{args.model}': {e}", file=sys.stderr)
+    sys.exit(1)
 
 
 if args.model == '-':
