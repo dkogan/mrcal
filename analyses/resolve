@@ -96,7 +96,7 @@ if args.revive_outliers:
     observations = optimization_inputs['observations_board']
 
     print(f"Original solve has {np.count_nonzero(observations[...,2] <= 0)} outliers. Reviving them")
-    observations[observations[...,2] <= 0] = 1.
+    observations[observations[...,2] <= 0, 2] = 1.
 
 mrcal.optimize(**optimization_inputs)
 
