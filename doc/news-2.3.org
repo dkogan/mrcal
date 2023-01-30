@@ -60,4 +60,7 @@ bug fix: mrcal-stereo can process multiple files with one invocation again
 
 mrcal-stereo can rectify images in parallel
 
+ref_calibration_object() can return the position of ANY point on the chessboard
+Not just the chessboard corners.
+
 * Migration notes 2.2 -> 2.3

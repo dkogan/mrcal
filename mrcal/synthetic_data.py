@@ -14,7 +14,15 @@ import numpysane as nps
 import sys
 import mrcal
 
-def ref_calibration_object(W, H, object_spacing, *, calobject_warp=None):
+def ref_calibration_object(W, H, object_spacing,
+                           *,
+                           calobject_warp = None,
+                           x_corner0      = 0,
+                           x_corner1      = None,
+                           Nx             = None,
+                           y_corner0      = 0,
+                           y_corner1      = None,
+                           Ny             = None):
     r'''Return the geometry of the calibration object
 
 SYNOPSIS
@@ -62,11 +70,11 @@ SYNOPSIS
 
 Returns the geometry of a calibration object in its own reference coordinate
 system in a (H,W,3) array. Only a grid-of-points calibration object is
-supported, possibly with some bowing (i.e. what the internal mrcal solver
+supported, possibly with some deformation (i.e. what the internal mrcal solver
 supports). Each row of the output is an (x,y,z) point. The origin is at the
-corner of the grid, so ref_calibration_object(...)[0,0,:] is
-np.array((0,0,0)). The grid spans x and y, with z representing the depth: z=0
-for a flat calibration object.
+corner of the grid, so ref_calibration_object(...)[0,0,:] is np.array((0,0,0)).
+The grid spans x and y, with z representing the depth: z=0 for a flat
+calibration object.
 
 A simple parabolic board warping model is supported by passing a (2,) array in
 calobject_warp. These 2 values describe additive flex along the x axis and along
@@ -81,12 +89,27 @@ The edges we DO have are at (0,N-1), so the equivalent expression is
     xr = x / (N-1)
     z = k*( 1 - 4*xr^2 + 4*xr - 1 ) =
         4*k*(xr - xr^2) =
+        4*k*xr*(1 - xr)
+
+By default we return the coordinates of the chessboard CORNERS only, but this
+function can return the position of ANY point on the chessboard. This can be
+controlled by passing the x_corner0,x_corner1,Nx arguments (and/or their y-axis
+versions). This selects the grid of points we return, in chessboard-corner
+coordinates (0 is the first corner, 1 is the second corner, etc). We use
+np.linspace(x_corner0, x_corner1, Nx). By default we have
+
+- x_corner0 = 0
+- x_corner1 = W-1
+- Nx        = W
+
+So we only return the coordinates of the corners by default. The points returned
+along the y axis work similarly, using their variables.
 
 ARGUMENTS
 
-- W: how many points we have in the horizontal direction
+- W: how many chessboard corners we have in the horizontal direction
 
-- H: how many points we have in the vertical direction
+- H: how many chessboard corners we have in the vertical direction
 
 - object_spacing: the distance between adjacent points in the calibration
   object. If a scalar is given, a square object is assumed, and the vertical and
@@ -99,21 +122,41 @@ ARGUMENTS
   given, the values describe the maximum additive deflection along the x and y
   axes. Extended array can be given for broadcasting
 
+- x_corner0: optional value, defaulting to 0. Selects the first point in the
+  linear horizontal grid we're returning. This indexes the chessboard corners,
+  and we start with the first corner by default
+
+- x_corner1: optional value, defaulting to W-1. Selects the last point in the
+  linear horizontal grid we're returning. This indexes the chessboard corners,
+  and we end with the last corner by default
+
+- Nx: optional value, defaulting to W. Selects the number of points we return in
+  the horizontal direction, between x_corner0 and x_corner1 inclusive.
+
+- y_corner0,y_corner1,Ny: same as x_corner0,x_corner1,Nx but acting in the
+  vertical direction
+
 This function supports broadcasting across object_spacing and calobject_warp
 
 RETURNED VALUES
 
-The calibration object geometry in a (..., H,W,3) array, with the leading
-dimensions set by the broadcasting rules
+The calibration object geometry in a (..., Ny,Nx,3) array, with the leading
+dimensions set by the broadcasting rules. Usually Ny = H and Nx = W
 
     '''
 
-    # shape (H,W)
-    xx,yy = np.meshgrid( np.arange(W,dtype=float), np.arange(H,dtype=float))
+    if Nx        is None: Nx        = W
+    if Ny        is None: Ny        = H
+    if x_corner1 is None: x_corner1 = W-1
+    if y_corner1 is None: y_corner1 = H-1
 
-    # shape (H,W,3)
+    # shape (Ny,Nx)
+    xx,yy = np.meshgrid( np.linspace(x_corner0, x_corner1, Nx),
+                         np.linspace(y_corner0, y_corner1, Ny))
+
+    # shape (Ny,Nx,3)
     full_object = nps.glue(nps.mv( nps.cat(xx,yy), 0, -1),
-                           np.zeros((H,W,1)),
+                           np.zeros(xx.shape + (1,)),
                            axis=-1)
 
     # object_spacing has shape (..., 2)
