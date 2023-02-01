@@ -1,3 +1,6 @@
+include choose_mrbuild.mk
+include $(MRBUILD_MK)/Makefile.common.header
+
 # "0" or undefined means "false"
 # everything else means  "true"
 
@@ -9,9 +12,6 @@ USE_LIBELAS ?= 0
 # convert all USE_XXX:=0 to an empty string
 $(foreach v,$(filter USE_%,$(.VARIABLES)),$(if $(filter 0,${$v}),$(eval undefine $v)))
 # to print them all: $(foreach v,$(filter USE_%,$(.VARIABLES)),$(warning $v = '${$v}'))
-include choose_mrbuild.mk
-include $(MRBUILD_MK)/Makefile.common.header
-
 
 
 PROJECT_NAME := mrcal
