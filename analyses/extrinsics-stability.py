@@ -15,7 +15,7 @@ def compute_Rt_implied_01(*models):
     # q0 shape (...,         Nheight,Nwidth,...)
     v,q0 = \
         mrcal.sample_imager_unproject(60, None,
-                                      ,*models[0].imagersize(),
+                                      *models[0].imagersize(),
                                       lensmodels, intrinsics_data,
                                       normalize = True)
 
