@@ -442,6 +442,12 @@ def parse_args():
               file=sys.stderr)
         sys.exit(1)
 
+    if args.az0_deg:
+        print("Adaptive rectification implementation currently assumes that --az0-deg is 0",
+              file=sys.stderr)
+        sys.exit(1)
+
+
     return args
 
 args = parse_args()
