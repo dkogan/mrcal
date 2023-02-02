@@ -51,11 +51,11 @@ def compute_Rt_implied_01(*models):
 
 
 
-p = sys.argv[1:5]
+models_filenames = sys.argv[1:5]
+models           = [mrcal.cameramodel(f) for f in models_filenames]
 
-
-pairs = ( ( mrcal.cameramodel(p[0]), mrcal.cameramodel(p[1])),
-          ( mrcal.cameramodel(p[2]), mrcal.cameramodel(p[3])) )
+pairs = ( ( models[0],models[1]),
+          ( models[2],models[3]) )
 
 # The "before" extrinsic transformation
 m0,m1 = pairs[0]
@@ -94,4 +94,55 @@ angle_deg        = angle*180./np.pi
 
 np.set_printoptions(precision=2)
 print(f"translation: {magnitude*1000:.2f}mm in the direction {direction}")
-print(f"rotation:    {angle_deg:.2f}deg around the axis {axis}")
+print(f"rotation:    {angle_deg:.3f}deg around the axis {axis}")
+
+
+for i in range(len(models)):
+    m = models[i]
+
+    qcenter,dq_dv,_ = mrcal.project(np.array((0,0,1.)),
+                                    *m.intrinsics(),
+                                    get_gradients=True)
+
+    # I now do a simple thing. I have v=[0,0,1] so dq_dv[:,2]=0. A small pitch
+    # gives me dv = (0,sinth,costh) ~ (0,th,1). So dq = dq_dv[:,1]*th +
+    # dq_dv[:,2] = dq_dv[:,1]*th so for a pitch: mag(dq/dth) = mag(dq_dv[:,1]).
+    # Similarly for a yaw I have mag(dq_dv[:,0]). I find the worst one, and call
+    # it good. I can do that because dq_dv will be diagonally dominant, and the
+    # diagonal elements will be very similar. mrcal.rectified_resolution() does
+    # this
+    resolution__pix_per_rad = np.max(nps.transpose(nps.mag(dq_dv[:,:2])))
+    resolution__pix_per_deg = resolution__pix_per_rad * np.pi/180.
+
+    if 0:
+        # More complicated, but probably not better. And not completed
+        #
+        # As the camera rotates, v shifts: rotate(v,r) ~ v + dv/dr dr, so the
+        # projection shifts to q + dq/dv dv = q + dq/dv dv/dr dr
+        #
+        # Rodrigues rotation formula. th = mag(r), axis = normalize(r) = r/th
+        #
+        #   rotate(r,v) = v cos(th) + cross(axis, v) sin(th) + axis axist v (1 - cos(th))
+        #
+        # If th is small:
+        #
+        #   rotate(r,v) = v + cross(axis, v) th
+        #               = v + [ axis1*v2-axis2*v1  axis2*v0-axis0*v2  axis0*v1-axis1*v0] th
+        #
+        # v = [0,0,1] so
+        #
+        #   rotate(r,v) = v + [ axis1  axis0  0] th
+        #               = v + [ r1 r0 0 ]
+        #
+        # So
+        dv_dr = np.array(((0,1,0),
+                          (1,0,0),
+                          (0,0,0)))
+
+        dq_dr = nps.matmult(dq_dv,dv_dr)
+        # I have dq_dr2 = 0, so lets ignore it
+        dq_dr01 = dq_dr[:,:2]
+
+        # Can finish this now
+
+    print(f"Camera {i} has a resolution of {1./resolution__pix_per_deg:.3f} degrees per pixel at the center")
