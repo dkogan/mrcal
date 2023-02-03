@@ -1101,6 +1101,11 @@ mrcal.rectification_maps() wrapper above calls THIS function in that case
         fx = fxycxy[0]
         cx = fxycxy[2]
 
+        if rangeerr_min <= 0:
+            # I want an infinitely-high resolution everywhere, so I limit myself
+            # to the nominal spacing everywhere
+            return fx * np.ones((Nel,Naz), dtype=float)
+
         # shape (Nel,Naz)
         # shape (Nel,Naz)
         az0                        = azel_nominal[..., 0]
