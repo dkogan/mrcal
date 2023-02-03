@@ -1142,8 +1142,7 @@ mrcal.rectification_maps() wrapper above calls THIS function in that case
             # observing the plane. az1 is NOT linear
             return (azel_nominal[..., 0] + az1_expected)/2
 
-    def get_qx_mounted(az_domain,
-                       dqx_daz_desired):
+    def get_qx_mounted(az_domain, dqx_daz_desired):
 
         fx = fxycxy[0]
         cx = fxycxy[2]
@@ -1241,8 +1240,7 @@ mrcal.rectification_maps() wrapper above calls THIS function in that case
 
     # qx is a function of az_domain. This is similar to azel_nominal[...,0], but
     # not identical necessarily. qx is rectified pixels
-    qx = get_qx_mounted(az_domain,
-                        dqx_daz_desired)
+    qx = get_qx_mounted(az_domain, dqx_daz_desired)
 
     # I now have a numerical az_domain/qx mapping. I fit a curve into that data
     # so that I can easily convert between these in the future. I want to use a
