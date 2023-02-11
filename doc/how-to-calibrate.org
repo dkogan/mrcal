@@ -11,7 +11,8 @@ grid of points. mrcal doesn't care where these observations come from: any tool
 that can produce a table of corner observations can be utilized. Currently the
 recommended method is to use a classical /chessboard/ target, and to employ the
 [[https://github.com/dkogan/mrgingham][mrgingham]] detector. The mrgingham documentation has a [[https://github.com/dkogan/mrgingham/raw/master/chessboard.14x14.pdf][.pdf of a chessboard
-pattern]] that works well. See the [[file:recipes.org::#non-mrgingham-detector][recipes]] to use a non-mrgingham detector.
+pattern]] that works well. See the [[file:recipes.org::#non-mrgingham-detector][recipes]] to use a non-mrgingham detector
+and/or a non-chessboard object.
 
 *** Chessboard shape
 :PROPERTIES:
@@ -32,8 +33,8 @@ the calibration solve. In my experience, if you try to make sure the board is
 flat, this model is enough to fix most of the unavoidable small deflections. If
 care isn't taken to ensure the board is flat, the current simple deformation
 model is often insufficient to fully model the shape. Don't take this for
-granted either. See the [[file:recipes.org::#effect-of-chessboard-shape][recipes]] for notes about how to estimate the magnitude of
-effect.
+granted either. See the [[#residuals-chessboard-shape][residual analysis of chessboard shape]] for notes about
+how to estimate the magnitude of effect.
 
 I usually use a square chessboard roughly 1m per side to calibrate my fisheye
 lenses. Such a large chessboard often has issues with its shape. To mitigate
@@ -53,8 +54,9 @@ away from the camera.
 
 - If the chessboard is too small, we'd need to place it too close to the camera
   to fill the imager. This will result in the chessboard appearing out of focus.
-  This is OK up to a point (see the [[file:recipes.org::#effect-of-unfocused-corners][recipes]]), but extereme out-of-focus images
-  should probably be avoided
+  This is OK up to a point (out-of-focus blur is mostly isotropic, and this
+  noise averages out nicely), but extreme out-of-focus images should probably be
+  avoided
 
 - If the chessboard is too large, we'd need to place it far from the camera to
   see the whole board, and this would result in worse calibration uncertainties.
@@ -86,7 +88,8 @@ Some capture systems have a "software" trigger mode, but this is usually too
 loose to produce usable results. A similar consideration exists when using
 cameras with a [[https://en.wikipedia.org/wiki/Rolling_shutter][rolling shutter]]. With such cameras it is imperative that
 everything remain stationary during image capture, even when only one camera is
-involved. See the [[file:recipes.org::#rolling-shutter-and-sync-errors][recipes]].
+involved. See the [[#residuals-sync][residual analysis of synchronization errors]] and
+[[#residuals-rolling-shutter][of rolling shutter]] for details.
 
 ** Lens settings
 Lens intrinsics are usually very sensitive to any mechanical manipulation of the
@@ -139,7 +142,7 @@ it. In these cases you usually need to get more observations than you normally
 would to bring down the uncertainties to an acceptable level. In challenging
 situations it's useful to re-run the [[file:tour-choreography.org][dance study]] for the specific use case to
 get a sense of what kind of observations are required and what kind of
-uncertainties can be expected. See the [[file:tour-choreography.org][dance study]] and the [[file:recipes.org::#effect-of-unfocused-corners][recipes]] for detail.
+uncertainties can be expected. See the [[file:tour-choreography.org][dance study]] for detail.
 
 It is better to have more chessboard data rather than less. mrgingham will throw
 away frames where no chessboard can be found, so it is perfectly reasonable to

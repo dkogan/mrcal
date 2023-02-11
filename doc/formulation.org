@@ -110,10 +110,10 @@ This is called a "chessboard" or just "board" in some parts of the code. The
 optimization code refers to the chessboard pose array as "frames".
 
 When running a camera calibration, we use observations of a known-geometry
-object. At this time mrcal expects this object to be a planar grid of observable
-points, possibly with a small amount of [[#board-deformation][deformation]]. Usually this object is a
-chessboard-like grid of black and white squares, where the observed points are
-at the corner of each square.
+object. At this time mrcal expects this object to be a planar regular grid of
+observable points, possibly with a small amount of [[#board-deformation][deformation]]. Usually this
+object is a chessboard-like grid of black and white squares, where the observed
+points are at the corner of each square.
 
 ** Chessboard corner detector
 :PROPERTIES:
@@ -127,11 +127,12 @@ detections. mrgingham is fast and is able to find chessboard corners subject to
 very un-pinhole-like projections. At this time it has two limitations that will
 be lifted eventually:
 
-- It more or less assumes a grid of 10x10 corners (i.e. 11x11 squares)
+- It more or less assumes a grid of N-by-N corners (i.e. N+1-by-N+1 squares)
 - It requires /all/ the corners to be observed in order to report the detections
   from an image. Incomplete chessboard observations aren't supported
 
-If these are unacceptable, any other detector may be used instead.
+If these are unacceptable, any other detector may be used instead. See the
+[[file:recipes.org::#non-mrgingham-detector][recipes]].
 
 ** Choice of calibration object
 When given an image of a /chessboard/, the detector is directly observing the
