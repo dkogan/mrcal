@@ -66,7 +66,7 @@ cross-validation diff look like?
 
 #+begin_src sh
 mrcal-show-projection-diff           \
-  --cbmax 1                          \
+  --cbmax 2                          \
   --unset key                        \
   2-f22-infinity.opencv8.cameramodel \
   3-f22-infinity.opencv8.cameramodel
@@ -75,7 +75,7 @@ mrcal-show-projection-diff           \
 mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/
 mrcal-show-projection-diff                            \
-  --cbmax 1                          \
+  --cbmax 2                          \
   --unset key                                         \
   $D/[23]-f22-infinity/opencv8.cameramodel            \
   --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-opencv8.png \
@@ -97,7 +97,7 @@ We expect the splined model to do better. Let's see. The cross-validation diff:
 
 #+begin_src sh
 mrcal-show-projection-diff           \
-  --cbmax 1                          \
+  --cbmax 2                          \
   --unset key                        \
   2-f22-infinity.splined.cameramodel \
   3-f22-infinity.splined.cameramodel
@@ -106,7 +106,7 @@ mrcal-show-projection-diff           \
 mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/
 mrcal-show-projection-diff                            \
-  --cbmax 1                                           \
+  --cbmax 2                                           \
   --unset key                                         \
   $D/[23]-f22-infinity/splined.cameramodel            \
   --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-splined.png \
@@ -148,7 +148,7 @@ function c {
 mrcal-show-projection-diff                                                                                       \
   --no-uncertainties                                                                                             \
   --radius 500                                                                                                   \
-  --cbmax 1                                                                                                      \
+  --cbmax 2                                                                                                      \
   --unset key                                                                                                    \
   <(c $D/2-*/splined-noncentral.cameramodel)                                                                     \
   <(c $D/3-*/splined-noncentral.cameramodel)                                                                     \
