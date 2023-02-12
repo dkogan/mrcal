@@ -1,0 +1,384 @@
+#+TITLE: Recipes
+#+OPTIONS: toc:t
+
+* Using a non-mrgingham corner detector or a non-chessboard
+:PROPERTIES:
+:CUSTOM_ID: non-mrgingham-detector
+:END:
+
+While in my day-to-day work I use /chessboards/ and process images of them using
+the [[https://github.com/dkogan/mrgingham][mrgingham]] chessboard corner detector, this isn't a requirement. In fact,
+mrcal doesn't care at all where its detections come from. The only requirements
+on the calibration object are that
+
+- The calibration object is nominally planar; small amounts of [[file:formulation.org::#board-deformation][deformation]] are
+  allowed
+- The object contains a /regular/ grid of points. Gaps are allowed, but the
+  points that do exist must lie on this grid
+- The grid spacing is identical in the horizontal and vertical directions
+- Each point in the object is uniquely identifiable in each observation of the
+  object
+
+It's /not/ required that all points are observed in every image of the object:
+partial observations of the board are supported by mrcal (mrgingham won't detect
+those, but mrcal has no problem ingesting incomplete views). And boards that
+don't contain a full grid are supported as well. For instance here's [[https://github.com/dkogan/mrcal/issues/4][a bug
+report]] where somebody used a calibration board with an unrelated fiducial in
+the middle.
+
+To use a grid detector other than mrgingham, we need to produce a compatible
+=corners.vnl= file. This is a [[https://www.github.com/dkogan/vnlog][=vnlog=]] (text table) where each row describes a
+single corner detection.  A sample =corners.vnl= describing observations of a toy
+2x2 chessboard:
+
+#+begin_example
+#   filename      x    y  weight
+frame0-cam0.jpg 10.2 12.5 1.0   
+frame0-cam0.jpg 21.2 15.1 1.0   
+frame0-cam0.jpg  9.4 19.5 0.5   
+frame0-cam0.jpg 21.3 23.6 1.0   
+frame0-cam1.jpg -    -    -     
+frame1-cam0.jpg -    -    -     
+frame1-cam1.jpg 30.1 39.6 0.25  
+frame1-cam1.jpg 45.8 38.5 1.0   
+frame1-cam1.jpg -    -    -     
+frame1-cam1.jpg 42.5 47.4 1.0   
+#+end_example
+
+Whitespace added for clarity. Here we have 2 cameras and 2 frames. Only
+=frame0-cam0.jpg= and =frame1-cam1.jpg= have a chessboard detection, with one of
+the corners missing in =frame1-cam1.jpg=.
+
+The =corners.vnl= file contains 3 or 4 columns. The first 3 columns are:
+
+- =filename=: a path to the image on disk
+- =x=, =y=: pixel coordinates of a detected corner in the 
+
+If a 4th column is present, it describes the detector's confidence in the
+detection of that particular corner. It may be either
+
+- =level=: the decimation level of the detected corner. If the detector needed
+  to cut down the image resolution to find this corner, we report that
+  resolution here. Level-0 means "full-resolution", level-1 means
+  "half-resolution", level-2 means "quarter-resolution" and so on. A level of
+  =-= or <0 means "skip this point"; this is how incomplete board observations
+  are specified. This "decimation level" interpretation is the
+  [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] default. This column is reported by mrgingham
+
+- =weight=: how strongly to weight that corner. More confident detections take
+  stronger weights. This should be inversely proportional to the standard
+  deviation of the detected pixel coordinates. With decimation levels we have
+  $\mathrm{weight} = 2^{-\mathrm{level}}$. As before, a weight of =-= or <0
+  means "skip this point"; this is how incomplete board observations are
+  specified. Select this "weight" interpretation with =mrcal-calibrate-cameras
+  --corners-cache-has-weights=
+
+If no 4th column is present, we assume an even weight of 1.0 for all the points.
+
+The whole chessboard is described by a sequence of these corner detections,
+listed in a /consistent/ grid order: the first row is traversed point-by-point
+in order, then the second row, and so on. Each chessboard image is represented
+by either /exactly/ $N_\mathrm{width} N_\mathrm{height}$ corner records or a
+single record
+
+#+begin_example
+FILENAME - - -
+#+end_example
+
+to represent images with no detected corners. An image with incomplete
+detections should /still/ contain $N_\mathrm{width} N_\mathrm{height}$ records
+in the same consistent order. The missing corners should be given with any =x=,
+=y=, but with $\mathrm{weight} \leq 0$ or =-=. The record could be completely
+null:
+
+#+begin_example
+FILENAME - - -
+#+end_example
+
+The missing points are treated as outliers by the solver. Currently the
+diagnostics included these points as outliers as well, although that will likely
+change in the future.
+
+* Using mrgingham with rotated cameras
+:PROPERTIES:
+:CUSTOM_ID: calibrating-upside-down
+:END:
+
+The [[https://github.com/dkogan/mrgingham][mrgingham corner detector]] is the usual tool I use to detect corners in
+images of chessboards (although [[#non-mrgingham-detector][other methods are available]]). mrgingham looks
+for plain chessboards in the images, without any extra fiducials. It reports the
+corners in the top-most horizontal row in order from left to right. Then the
+next row down, and the next row, and so on. Here "top", "left" and "right" are
+the pixel coordinates in the image. The position of each corner in this list
+uniquely identifies the corner. So the corner in row $i$, col $j$ always appears
+at index $i N_\mathrm{width} + j$ in the list. This works well, as long as the
+"horizontal" and "vertical" directions in the image are consistent, which they
+usually are. However, if the camera orientation isn't identical across cameras
+or across time, issues can arise.
+
+Consider a 2-camera calibration where one camera is mounted rightside-up, but
+the other is mounted upside-down. Here the first corner reported in the left
+camera is the top-left corner in the chessboard, but the first corner reported
+in the right camera is the bottom-right corner in the chessboard. The first
+reported corner has index 0, so it must represent the same corner for all
+cameras, but here it does not.
+
+In the very common situation where the cameras are all mounted right-side-up or
+sideways or upside-down we can handle this situation by reordering the corners
+in a mrgingham corners list. This is done by the [[https://github.com/dkogan/mrgingham/mrgingham-rotate-corners][=mrgingham-rotate-corners=
+tool]]. The usage is simple:
+
+#+begin_src sh
+< corners.vnl                        \
+mrgingham-rotate-corners [--gridn N] \
+  --90  REGEX_CAM_90deg              \
+  --180 REGEX_CAM_180deg             \
+  --270 REGEX_CAM_270deg             \
+  [... more rotation selections ...] \
+> corners-rotated.vnl
+#+end_src
+
+We pass in the =corners.vnl= set of detections. Filenames that were captured by
+a camera rotated by 90deg are selected by =REGEX_CAM_90deg= and so on. The
+result is a =corners-rotated.vnl= with reordered corners that meet the
+assumptions of the solver, and can be passed to [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]].
+Another example:
+
+#+begin_src sh
+# camera A is rightside-up
+# camera B is mounted sideways
+# cameras C,D are upside-down
+mrgingham --gridn N                \
+  'frame*-cameraA.jpg'             \
+  'frame*-cameraB.jpg'             \
+  'frame*-cameraC.jpg'             \
+  'frame*-cameraD.jpg' |           \
+mrgingham-rotate-corners           \
+  --gridn N                        \
+  --90 cameraB                     \
+  --180 'camera[CD]'               \
+> corners-rotated.vnl
+#+end_src
+
+* Physical lens stability
+:PROPERTIES:
+:CUSTOM_ID: lens-stability
+:END:
+
+When we calibrate a camera system, we're assuming that the physical properties
+of the system are fixed. If they weren't, then even a very accurate calibration
+isn't very useful: the system may have changed by the time we actually use the
+computed calibration.
+
+As usual, we try to stabilize all parts of the system, and then we check to see
+how well we did. In the [[file:tour.org][tour of mrcal]] we used a Samyang 12mm F2.8 fisheye lens.
+This is not a machine-vision lens; it's intended to be used by human
+photographers operating an SLR camera. As a result, it has moving parts. In
+particular, the human-operated focus ring engages an internal mechanism that
+physically moves the front lens assembly. Immobilizing the external focus ring
+does /not/ immobilize the internal mechanism, so any mechanical backlash will
+show up as an instability in intrinsics.
+
+From experience, I know that this lens is sensitive to mechanical motion, and we
+can clearly see this in the data. For the [[file:tour.org][tour of mrcal]] I gathered two
+independent sets of chessboard images one after another, without moving
+anything. This was used for [[file:tour-cross-validation.org][cross-validation]], and resulted in this diff:
+
+[[file:external/figures/cross-validation/diff-cross-validation-splined-noncentral.png]]
+
+Then I moved the camera and tripod over by 2m or so, and gathered more
+chessboard images. Comparing these with the previous set showed a clear shift in
+the intrinsics:
+
+#+begin_src sh :exports none :eval no-export
+mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/
+
+function c {
+  < $1 ~/projects/mrcal-noncentral/analyses/noncentral/centralize.py 3
+}
+
+mrcal-show-projection-diff                                                                                       \
+  --no-uncertainties                                                                                             \
+  --radius 500                                                                                                   \
+  --cbmax 2                                                                                                      \
+  --unset key                                                                                                    \
+  <(c $D/3-*/splined-noncentral.cameramodel)                                                                     \
+  <(c $D/4-*/splined-noncentral.cameramodel)                                                                     \
+  --hardcopy ~/projects/mrcal-doc-external/figures/lens-stability/diff-dance34-splined-noncentral.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+#+end_src
+
+[[file:external/figures/lens-stability/diff-dance34-splined-noncentral.png]]
+
+To be clear: this isn't a /bad/ lens, it's just not built with high-accuracy
+machine vision in mind. A lens intended for machine vision applications would do
+better. If we had to use /this/ lens, I would gather multiple sets of data
+before and after stressing the system (shaking, flipping, heating, etc). Then
+the resulting diffs would tell us how much to trust the calibration.
+
+* Stability of extrinsics
+:PROPERTIES:
+:CUSTOM_ID: extrinsics-diff
+:END:
+
+Similarly to [[#lens-stability][the above discussion about the stability of lens intrinsics]], we
+sometimes want to consider the stability of the camera-camera geometric
+transformation in a multi-camera system. For instance, it's possible to have a
+multi-camera system composed of very stable lenses mounted on a not-rigid-enough
+mount. Then a mechanical stress wouldn't affect the intrinsics, but the
+extrinsics /would/ shift.
+
+I haven't needed to do this very often, so the technique I developed isn't
+mature yet. The extrinsics diff computation is implemented in the
+[[https://github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=extrinsics-stability.py= tool]]. This isn't stable yet, and only exists in the
+mrcal sources for now. But I used it several times, and it appears to work well.
+
+In this description I will consider 2-camera systems, but the approach is
+general for any number of cameras. Let's say we have two calibrations (0 and 1)
+of a stereo pair ($\mathrm{left}$ and $\mathrm{right}$ cameras). Between the
+calibrations the system was stressed (shaked, flipped, heated, etc), and we want
+to know if the camera geometry shifted as a result. The obvious technique is to
+compare the transformation $T_{0\mathrm{left},0\mathrm{right}}$ and
+$T_{1\mathrm{left},1\mathrm{right}}$. Each of these is available directly in the
+two calibrations, and we can compute the difference
+$T_{0\mathrm{right},1\mathrm{right}} = T_{0\mathrm{right},0\mathrm{left}}
+T_{1\mathrm{left},1\mathrm{right}}$. This is the transform between the right
+cameras in the two calibrations if we line up the two left cameras.
+
+This approach sounds good, but it is incomplete. As described on the
+[[file:differencing.org][differencing page]], each set of camera intrinsics includes some implicit
+geometry. So lining up the two left cameras does not line up their projection
+behavior. And comparing the poses of the right cameras does not compare their
+projection behavior. That page describes how we can compute the implied
+transforms ${T^\mathrm{implied}_{0\mathrm{left},1\mathrm{left}}}$ and
+$T^\mathrm{implied}_{0\mathrm{right},1\mathrm{right}}$, so the final
+transformation describing the shift of the right camera is
+
+\[
+T^\mathrm{implied}_{1\mathrm{right},0\mathrm{right}}
+T_{0\mathrm{right},0\mathrm{left}}
+T^\mathrm{implied}_{0\mathrm{left},1\mathrm{left}}
+T_{1\mathrm{left},1\mathrm{right}}
+\]
+
+The [[https://github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=extrinsics-stability.py= tool]] implements this logic. To compute the implied
+transformations we want the "true" transform, not a transform at any particular
+range, so we use a near and a far range, as suggested on the [[file:differencing.org][differencing page]].
+I tried this out on a set of cameras. I had calibrations before and after a lot
+of mechanical jostling happened. And for each on I had an odd and even set for
+[[file:tour-cross-validation.org][cross-validation]], which reported very low intrinsics differences. I evaluated
+the extrinsics stability, looking at the odd calibrations:
+
+#+begin_example
+$ ~/projects/mrcal/analyses/extrinsics-stability.py \
+  BEFORE/camera-0-odd-SPLINED.cameramodel           \
+  BEFORE/camera-1-odd-SPLINED.cameramodel           \
+  AFTER/camera-0-odd-SPLINED.cameramodel            \
+  AFTER/camera-1-odd-SPLINED.cameramodel
+
+translation: 0.04mm in the direction [0.13 0.06 0.99]
+rotation:    0.01deg around the axis [ 0.93  0.32 -0.18]
+#+end_example
+
+So it claims that the right camera shifted by 0.04mm and yawed by 0.01deg. This
+sounds low-enough to be noise, but what /is/ the noise level? The tool also
+reports the camera resolution for comparison against the reported rotation:
+
+#+begin_example
+Camera 0 has a resolution of 0.056 degrees per pixel at the center
+Camera 1 has a resolution of 0.057 degrees per pixel at the center
+Camera 2 has a resolution of 0.056 degrees per pixel at the center
+Camera 3 has a resolution of 0.057 degrees per pixel at the center
+#+end_example
+
+So this rotation is far smaller than one pixel. What if we look at the
+allegedly-identical "even" calibration:
+
+#+begin_example
+$ ~/projects/mrcal/analyses/extrinsics-stability.py \
+  BEFORE/camera-0-even-SPLINED.cameramodel          \
+  BEFORE/camera-1-even-SPLINED.cameramodel          \
+  AFTER/camera-0-even-SPLINED.cameramodel           \
+  AFTER/camera-1-even-SPLINED.cameramodel
+
+translation: 0.07mm in the direction [ 0.63 -0.73  0.25]
+rotation:    0.00deg around the axis [ 0.55 -0.32  0.77]
+#+end_example
+
+That's similarly close to 0. What if instead of comparing before/after we
+compare odd/even before and then odd/even after? odd/even happened at the same
+time, so there was no actual shift, and the result will be at the noise floor.
+
+#+begin_example
+$ ~/projects/mrcal/analyses/extrinsics-stability.py \
+  BEFORE/camera-0-odd-SPLINED.cameramodel           \
+  BEFORE/camera-1-odd-SPLINED.cameramodel           \
+  BEFORE/camera-0-even-SPLINED.cameramodel          \
+  BEFORE/camera-1-even-SPLINED.cameramodel
+
+translation: 0.07mm in the direction [0.09 0.76 0.64]
+rotation:    0.00deg around the axis [ 0.77 -0.1  -0.63]
+
+
+$ ~/projects/mrcal/analyses/extrinsics-stability.py \
+  AFTER/camera-0-odd-SPLINED.cameramodel            \
+  AFTER/camera-1-odd-SPLINED.cameramodel            \
+  AFTER/camera-0-even-SPLINED.cameramodel           \
+  AFTER/camera-1-even-SPLINED.cameramodel
+
+translation: 0.05mm in the direction [9.69e-01 8.13e-04 2.46e-01]
+rotation:    0.00deg around the axis [-0.43 -0.78  0.44]
+#+end_example
+
+So with these calibrations we have strong evidence that no extrinsics drift has
+occurred.
+
+* Simple IMU-camera calibration
+:PROPERTIES:
+:CUSTOM_ID: simple-imu-camera-calibration
+:END:
+xxx
+
+* more                                                             :noexport:
+** Surveyed calibration
+:PROPERTIES:
+:CUSTOM_ID: surveyed-calibration
+:END:
+
+have emails. sim it. Should show that you want multiple ranges of chessboards.
+Unsurveyed is similar: you want tilted observations, which give you multiple
+ranges at the same time.
+
+** Using models in tools that don't support them
+:PROPERTIES:
+:CUSTOM_ID: unsupported-models
+:END:
+
+Suppose you computed some very accurate calibrations using a [[file:splined-models.org][mrcal splined
+model]], and you want to use them in a non-mrcal-aware tool. This tools cannot
+use the mrcal splined models, so there are several options to take advantage
+
+1. partial mrcal. rectify with mrcal then correlate with something else
+2. fit opencv5 into the splined model, which would lose accuracy
+     http://mrcal.secretsauce.net/mrcal-convert-lensmodel.html
+
+   You can throw out corners. You get a tradeoff between fov/accuracy
+
+3. fit and reproject
+     http://mrcal.secretsauce.net/mrcal-convert-lensmodel.html
+     http://mrcal.secretsauce.net/mrcal-reproject-image.html
+
+** CUSTOM_IDs linked to this document
+Obtained like this:
+#+begin_src sh
+perl -nE  'if(/recipes.org::#(.+?)\]/) {say $1;}' *.org | sort -u
+#+end_src
+
+- [X] effect-of-chessboard-shape
+- [X] effect-of-unfocused-corners
+- [X] lens-stability
+- [X] non-mrgingham-detector
+- [X] rolling-shutter-and-sync-errors
+
+I should look for generic "recipes" links also. grep for "recipes"
