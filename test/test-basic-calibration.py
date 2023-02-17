@@ -126,8 +126,8 @@ intrinsics_data,extrinsics_rt_fromref,frames_rt_toref = \
                              observations         = observations,
                              object_spacing       = object_spacing)
 
-# I have a pinhole intrinsics estimate. Mount it into a full distortiony model,
-# seeded with random numbers
+# I have a stereographic intrinsics estimate. Mount it into a full distortiony
+# model, seeded with random numbers
 intrinsics = np.zeros((Ncameras,Nintrinsics), dtype=float)
 intrinsics[:,:4] = intrinsics_data
 intrinsics[:,4:] = np.random.random( (Ncameras, intrinsics.shape[1]-4) ) * 1e-6
