@@ -334,21 +334,7 @@ rotation:    0.00deg around the axis [-0.43 -0.78  0.44]
 So with these calibrations we have strong evidence that no extrinsics drift has
 occurred.
 
-* Simple IMU-camera calibration
-:PROPERTIES:
-:CUSTOM_ID: simple-imu-camera-calibration
-:END:
-xxx
-
 * more                                                             :noexport:
-** Surveyed calibration
-:PROPERTIES:
-:CUSTOM_ID: surveyed-calibration
-:END:
-
-have emails. sim it. Should show that you want multiple ranges of chessboards.
-Unsurveyed is similar: you want tilted observations, which give you multiple
-ranges at the same time.
 
 ** Using models in tools that don't support them
 :PROPERTIES:
