@@ -581,7 +581,6 @@ camera coordinate system FROM the calibration object coordinate system.
     # I'm given models. I remove the distortion so that I can pass the data
     # on to solvePnP()
     Ncameras      = len(models_or_intrinsics)
-    Nobservations = indices_frame_camera.shape[0]
 
     lensmodels_intrinsics_data = [ m.intrinsics() if isinstance(m,mrcal.cameramodel) else m for m in models_or_intrinsics ]
     lensmodels      = [di[0] for di in lensmodels_intrinsics_data]
@@ -605,14 +604,32 @@ camera coordinate system FROM the calibration object coordinate system.
         camera_matrix_pinhole[icam, 1,2] = cy
     camera_matrix_pinhole[..., 2,2] = 1.0
 
+    if 1:
+        # chessboards
+        object_height_n,object_width_n = observations.shape[-3:-1]
+
+        # No calobject_warp. Good-enough for the seeding
+        # shape (Npoints,3)
+        points_ref = \
+            nps.clump(mrcal.ref_calibration_object(object_width_n, object_height_n, object_spacing),
+                      n = 2)
+        # observations has shape (Nobservations,Nh,Nw,3). I reshape it into
+        # shape (Nobservations,Nh*Nw,3)
+        observations = nps.mv(nps.clump(nps.mv(observations, -1,0),
+                                        n = -2),
+                              0, -1)
+    else:
+        # points
+        points_ref = points
+        # observations has shape (Npoints,3). I reshape it into
+        # shape (Nobservations=1,Npoints,3)
+        observations = nps.dummy(observations, 0)
+
+    Nobservations = len(observations)
+
     # this wastes memory, but makes it easier to keep track of which data goes
     # with what
-    Rt_cf_all = np.zeros( (Nobservations, 4, 3), dtype=float)
-
-    object_height_n,object_width_n = observations.shape[-3:-1]
-
-    # No calobject_warp. Good-enough for the seeding
-    full_object = mrcal.ref_calibration_object(object_width_n, object_height_n, object_spacing)
+    Rt_cam_points_all = np.zeros( (Nobservations, 4, 3), dtype=float)
 
 
     class SolvePnPerror_negz(Exception):
@@ -642,11 +659,11 @@ camera coordinate system FROM the calibration object coordinate system.
         camera_matrix_pinhole_scaled[0,0] *= s
         camera_matrix_pinhole_scaled[1,1] *= s
 
-        # shape (H,W,6); each row is an x,y,weight pixel observation followed
+        # shape (Npoints,6); each row is an x,y,weight pixel observation followed
         # by the xyz coord of the point in the calibration object
-        observation_qxqyw_xyz = np.zeros((object_height_n,object_width_n,6), dtype=float)
+        observation_qxqyw_xyz = np.zeros( points_ref.shape[:-1] + (6,), dtype=float)
         observation_qxqyw_xyz[..., 2] = observation_qxqyw[..., 2]
-        observation_qxqyw_xyz[...,3:] = full_object
+        observation_qxqyw_xyz[...,3:] = points_ref
 
         v = mrcal.unproject(observation_qxqyw[..., :2],
                             lensmodel,
@@ -656,11 +673,7 @@ camera coordinate system FROM the calibration object coordinate system.
                       intrinsics_data_pinhole_scaled,
                       out = observation_qxqyw_xyz[...,:2])
 
-        # shape (H*W,6)
-        observation_qxqyw_xyz = nps.clump( observation_qxqyw_xyz, n=2)
-
-        # I pick off those rows where the point observation is valid. Result
-        # should be (N,6) where N <= object_height_n*object_width_n
+        # I pick off those rows where the point observation is valid
         i = \
             (observation_qxqyw_xyz[..., 2] > 0.0)      * \
             (~np.isnan(observation_qxqyw_xyz[..., 0])) * \
@@ -707,10 +720,10 @@ camera coordinate system FROM the calibration object coordinate system.
             print(e)
             return
 
-        Rt_cf = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
+        Rt_cam_points = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
 
         # visualize the fit
-        # x_cam    = nps.matmult(Rt_cf[:3,:],ref_object)[..., 0] + Rt_cf[3,:]
+        # x_cam    = nps.matmult(Rt_cam_points[:3,:],ref_object)[..., 0] + Rt_cam_points[3,:]
         # x_imager = x_cam[...,:2]/x_cam[...,(2,)] * focal + (imagersize-1)/2
         # import gnuplotlib as gp
         # gp.plot( (x_imager[:,0],x_imager[:,1], dict(legend='solved')),
@@ -721,7 +734,7 @@ camera coordinate system FROM the calibration object coordinate system.
         # IPython.embed()
         # sys.exit()
 
-        return Rt_cf
+        return Rt_cam_points
 
 
     def solvepnp__try_multiple_focal_scales(i_observation):
@@ -738,15 +751,15 @@ camera coordinate system FROM the calibration object coordinate system.
                        what                         = f"observation {i_observation} (camera {icam})" )
 
         try:
-            Rt_cf = solvepnp__try_focal_scale(1., **kwargs)
+            Rt_cam_points = solvepnp__try_focal_scale(1., **kwargs)
         except SolvePnPerror_negz as e:
-            Rt_cf = solvepnp__try_focal_scale(1.5, **kwargs)
+            Rt_cam_points = solvepnp__try_focal_scale(1.5, **kwargs)
         except SolvePnPerror_toofew as e:
-            Rt_cf = solvepnp__try_focal_scale(0.7, **kwargs)
+            Rt_cam_points = solvepnp__try_focal_scale(0.7, **kwargs)
 
         # some scale succeeded
-        nonlocal Rt_cf_all
-        Rt_cf_all[i_observation, :, :] = Rt_cf
+        nonlocal Rt_cam_points_all
+        Rt_cam_points_all[i_observation, :, :] = Rt_cam_points
 
 
 
@@ -762,7 +775,6 @@ camera coordinate system FROM the calibration object coordinate system.
         args_failed_only = \
             ( indices_frame_camera[i_observations_failed],
               observations_in[i_observations_failed],
-              object_spacing,
               models_or_intrinsics )
         import pickle
         if isinstance(store_failures_filename,str):
@@ -773,7 +785,7 @@ camera coordinate system FROM the calibration object coordinate system.
             IPython.embed()
         sys.exit()
 
-    return Rt_cf_all
+    return Rt_cam_points_all
 
 
 def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
