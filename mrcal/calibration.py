@@ -456,10 +456,117 @@ which mrcal.optimize() expects
     return observations, indices_frame_camera, files_sorted
 
 
+def solvepnp__try_multiple_focal_scales(lensmodel,
+                                        intrinsics_data_input_this,
+                                        intrinsics_data_pinhole_this,
+                                        camera_matrix_pinhole_this,
+                                        observation_qxqyw,
+                                        points_ref,
+                                        what):
+    import cv2
+
+    class SolvePnPerror_negz(Exception):
+        def __init__(self, err): self.err = err
+        def __str__(self):       return self.err
+    class SolvePnPerror_toofew(Exception):
+        def __init__(self, err): self.err = err
+        def __str__(self):       return self.err
+
+    def solvepnp__try_focal_scale(scale):
+
+        intrinsics_data_input_scaled = intrinsics_data_input_this.copy()
+        intrinsics_data_input_scaled[..., :2] *= scale
+
+        intrinsics_data_pinhole_scaled = intrinsics_data_pinhole_this.copy()
+        intrinsics_data_pinhole_scaled[..., :2] *= scale
+
+        camera_matrix_pinhole_scaled = camera_matrix_pinhole_this.copy()
+        camera_matrix_pinhole_scaled[0,0] *= scale
+        camera_matrix_pinhole_scaled[1,1] *= scale
+
+        # shape (Npoints,6); each row is an x,y,weight pixel observation followed
+        # by the xyz coord of the point in the calibration object
+        observation_qxqyw_xyz = np.zeros( points_ref.shape[:-1] + (6,), dtype=float)
+        observation_qxqyw_xyz[..., 2] = observation_qxqyw[..., 2]
+        observation_qxqyw_xyz[...,3:] = points_ref
+
+        v = mrcal.unproject(observation_qxqyw[..., :2],
+                            lensmodel,
+                            intrinsics_data_input_scaled)
+        mrcal.project(v,
+                      'LENSMODEL_PINHOLE',
+                      intrinsics_data_pinhole_scaled,
+                      out = observation_qxqyw_xyz[...,:2])
+
+        # I pick off those rows where the point observation is valid
+        i = \
+            (observation_qxqyw_xyz[..., 2] > 0.0)      * \
+            (~np.isnan(observation_qxqyw_xyz[..., 0])) * \
+            (~np.isnan(observation_qxqyw_xyz[..., 1])) * \
+            (~np.isnan(observation_qxqyw_xyz[..., 2]))
+        observation_qxqyw_xyz = observation_qxqyw_xyz[i,:]
+
+        if len(observation_qxqyw_xyz) < 4:
+            raise SolvePnPerror_toofew(f"Insufficient observations; need at least 4; got {len(observation_qxqyw_xyz)} instead. Cannot estimate initial extrinsics for {what}")
+
+        # copying because cv2.solvePnP() requires contiguous memory apparently
+        observations_local = np.array(observation_qxqyw_xyz[:,:2][..., np.newaxis])
+        ref_object         = np.array(observation_qxqyw_xyz[:,3:][..., np.newaxis])
+        result,rvec,tvec   = cv2.solvePnP(np.array(ref_object),
+                                          np.array(observations_local),
+                                          camera_matrix_pinhole_scaled, None)
+        if not result:
+            raise Exception(f"solvePnP() failed! Cannot estimate initial extrinsics for {what}")
+        if tvec[2] <= 0:
+
+            # The object ended up behind the camera. I flip it, and try to solve
+            # again
+            result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
+                                            np.array(observations_local),
+                                            camera_matrix_pinhole_scaled, None,
+                                            rvec, -tvec,
+                                            useExtrinsicGuess = True)
+            if not result:
+                raise Exception(f"Retried solvePnP() failed! Cannot estimate initial extrinsics for {what}")
+            if tvec[2] <= 0:
+                raise SolvePnPerror_negz(f"Retried solvePnP() insists that tvec.z <= 0 (i.e. the chessboard is behind us). Cannot estimate initial extrinsics for {what}")
+
+        Rt_cam_points = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
+
+        # visualize the fit
+        # x_cam    = nps.matmult(Rt_cam_points[:3,:],ref_object)[..., 0] + Rt_cam_points[3,:]
+        # x_imager = x_cam[...,:2]/x_cam[...,(2,)] * focal + (imagersize-1)/2
+        # import gnuplotlib as gp
+        # gp.plot( (x_imager[:,0],x_imager[:,1], dict(legend='solved')),
+        #          (observations_local[:,0,0],observations_local[:,1,0], dict(legend='observed')),
+        #          square=1,xrange=(0,4000),yrange=(4000,0),
+        #          wait=1)
+        # import IPython
+        # IPython.embed()
+        # sys.exit()
+
+        return Rt_cam_points
+
+
+    # if z<0, try again with bigger f
+    # if too few points: try again with smaller f
+    try:
+        return solvepnp__try_focal_scale(1.)
+    except SolvePnPerror_negz as e:
+        return solvepnp__try_focal_scale(1.5)
+    except SolvePnPerror_toofew as e:
+        return solvepnp__try_focal_scale(0.7)
+
+    # unreachable
+    raise Exception("This should be unreachable. This is a bug")
+
+
+
 def estimate_monocular_calobject_poses_Rt_tocam( indices_frame_camera,
                                                  observations,
                                                  object_spacing,
-                                                 models_or_intrinsics ):
+                                                 models_or_intrinsics,
+                                                 points = None):
     r"""Estimate camera-referenced poses of the calibration object from monocular views
 
 SYNOPSIS
@@ -560,14 +667,6 @@ camera coordinate system FROM the calibration object coordinate system.
 
     """
 
-    import cv2
-
-    # None: don't store failures. Throw exception. This is the usual path
-    # string: store failing cases to use in the test suite
-    # True: ipython REPL when failures are gathered
-    store_failures_filename = None
-    #"test/data/solvepnp-wide-focal-too-wide.pickle"
-
     # Ugly hack. opencv solvePnP() function I'm using here assumes a pinhole
     # model. But this function accepts stereographic data, so observations could
     # be really wide; behind the camera even. I can't do much behind the camera,
@@ -604,8 +703,10 @@ camera coordinate system FROM the calibration object coordinate system.
         camera_matrix_pinhole[icam, 1,2] = cy
     camera_matrix_pinhole[..., 2,2] = 1.0
 
-    if 1:
-        # chessboards
+    if observations.ndim == 4:
+        # Chessboards. indices_frame_camera is
+        # indices_frame_camintrinsics_camextrinsics[:,:2]
+
         object_height_n,object_width_n = observations.shape[-3:-1]
 
         # No calobject_warp. Good-enough for the seeding
@@ -618,12 +719,23 @@ camera coordinate system FROM the calibration object coordinate system.
         observations = nps.mv(nps.clump(nps.mv(observations, -1,0),
                                         n = -2),
                               0, -1)
-    else:
-        # points
+    elif observations.ndim == 2:
+        # Points. indices_frame_camera is
+        # indices_point_camintrinsics_camextrinsics[:,:2]
+        #
+        # Here I assume that all point observations were made with a single
+        # camera (stationary or not).
+        indices_frame_camera = np.array(((0,0),), dtype=np.int32)
+
         points_ref = points
         # observations has shape (Npoints,3). I reshape it into
         # shape (Nobservations=1,Npoints,3)
         observations = nps.dummy(observations, 0)
+
+
+
+    else:
+        raise Exception(f"Unexpected {observations.ndim=}. This is a bug.")
 
     Nobservations = len(observations)
 
@@ -632,158 +744,21 @@ camera coordinate system FROM the calibration object coordinate system.
     Rt_cam_points_all = np.zeros( (Nobservations, 4, 3), dtype=float)
 
 
-    class SolvePnPerror_negz(Exception):
-        def __init__(self, err): self.err = err
-        def __str__(self):       return self.err
-    class SolvePnPerror_toofew(Exception):
-        def __init__(self, err): self.err = err
-        def __str__(self):       return self.err
+    for i_observation in range(Nobservations):
 
-    def solvepnp__try_focal_scale(s,
+        icam_intrinsics = indices_frame_camera[i_observation,1]
 
-                                  lensmodel,
-                                  intrinsics_data_input_this,
-                                  intrinsics_data_pinhole_this,
-                                  camera_matrix_pinhole_this,
-                                  observation_qxqyw,
-                                  what,
-                                  i_observation = None):
-
-        intrinsics_data_input_scaled = intrinsics_data_input_this.copy()
-        intrinsics_data_input_scaled[..., :2] *= s
-
-        intrinsics_data_pinhole_scaled = intrinsics_data_pinhole_this.copy()
-        intrinsics_data_pinhole_scaled[..., :2] *= s
-
-        camera_matrix_pinhole_scaled = camera_matrix_pinhole_this.copy()
-        camera_matrix_pinhole_scaled[0,0] *= s
-        camera_matrix_pinhole_scaled[1,1] *= s
-
-        # shape (Npoints,6); each row is an x,y,weight pixel observation followed
-        # by the xyz coord of the point in the calibration object
-        observation_qxqyw_xyz = np.zeros( points_ref.shape[:-1] + (6,), dtype=float)
-        observation_qxqyw_xyz[..., 2] = observation_qxqyw[..., 2]
-        observation_qxqyw_xyz[...,3:] = points_ref
-
-        v = mrcal.unproject(observation_qxqyw[..., :2],
-                            lensmodel,
-                            intrinsics_data_input_scaled)
-        mrcal.project(v,
-                      'LENSMODEL_PINHOLE',
-                      intrinsics_data_pinhole_scaled,
-                      out = observation_qxqyw_xyz[...,:2])
-
-        # I pick off those rows where the point observation is valid
-        i = \
-            (observation_qxqyw_xyz[..., 2] > 0.0)      * \
-            (~np.isnan(observation_qxqyw_xyz[..., 0])) * \
-            (~np.isnan(observation_qxqyw_xyz[..., 1])) * \
-            (~np.isnan(observation_qxqyw_xyz[..., 2]))
-        observation_qxqyw_xyz = observation_qxqyw_xyz[i,:]
-
-        try:
-
-            if len(observation_qxqyw_xyz) < 4:
-                raise SolvePnPerror_toofew(f"Insufficient observations; need at least 4; got {len(observation_qxqyw_xyz)} instead. Cannot estimate initial extrinsics for {what}")
-
-            # copying because cv2.solvePnP() requires contiguous memory apparently
-            observations_local = np.array(observation_qxqyw_xyz[:,:2][..., np.newaxis])
-            ref_object         = np.array(observation_qxqyw_xyz[:,3:][..., np.newaxis])
-            result,rvec,tvec   = cv2.solvePnP(np.array(ref_object),
-                                              np.array(observations_local),
-                                              camera_matrix_pinhole_scaled, None)
-            if not result:
-                raise Exception(f"solvePnP() failed! Cannot estimate initial extrinsics for {what}")
-            if tvec[2] <= 0:
-
-                # The object ended up behind the camera. I flip it, and try to solve
-                # again
-                result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
-                                                np.array(observations_local),
-                                                camera_matrix_pinhole_scaled, None,
-                                                rvec, -tvec,
-                                                useExtrinsicGuess = True)
-                if not result:
-                    raise Exception(f"Retried solvePnP() failed! Cannot estimate initial extrinsics for {what}")
-                if tvec[2] <= 0:
-                    raise SolvePnPerror_negz(f"Retried solvePnP() insists that tvec.z <= 0 (i.e. the chessboard is behind us). Cannot estimate initial extrinsics for {what}")
-
-        except Exception as e:
-            if store_failures_filename is None:
-                raise
-
-            # store_failures_filename is not None is a test-code path
-            if i_observation is None: i_observation = -1
-            try:    i_observations_failed
-            except: i_observations_failed = []
-            i_observations_failed.append(i_observation)
-            print(e)
-            return
-
-        Rt_cam_points = mrcal.Rt_from_rt(nps.glue(rvec.ravel(), tvec.ravel(), axis=-1))
-
-        # visualize the fit
-        # x_cam    = nps.matmult(Rt_cam_points[:3,:],ref_object)[..., 0] + Rt_cam_points[3,:]
-        # x_imager = x_cam[...,:2]/x_cam[...,(2,)] * focal + (imagersize-1)/2
-        # import gnuplotlib as gp
-        # gp.plot( (x_imager[:,0],x_imager[:,1], dict(legend='solved')),
-        #          (observations_local[:,0,0],observations_local[:,1,0], dict(legend='observed')),
-        #          square=1,xrange=(0,4000),yrange=(4000,0),
-        #          wait=1)
-        # import IPython
-        # IPython.embed()
-        # sys.exit()
-
-        return Rt_cam_points
-
-
-    def solvepnp__try_multiple_focal_scales(i_observation):
-        # if z<0, try again with bigger f
-        # if too few points: try again with smaller f
-
-        icam = indices_frame_camera[i_observation,1]
-
-        kwargs = dict( lensmodel                    = lensmodels              [icam],
-                       intrinsics_data_input_this   = intrinsics_data_input   [icam],
-                       intrinsics_data_pinhole_this = intrinsics_data_pinhole [icam],
-                       camera_matrix_pinhole_this   = camera_matrix_pinhole   [icam],
+        kwargs = dict( lensmodel                    = lensmodels              [icam_intrinsics],
+                       intrinsics_data_input_this   = intrinsics_data_input   [icam_intrinsics],
+                       intrinsics_data_pinhole_this = intrinsics_data_pinhole [icam_intrinsics],
+                       camera_matrix_pinhole_this   = camera_matrix_pinhole   [icam_intrinsics],
                        observation_qxqyw            = observations[i_observation],
-                       what                         = f"observation {i_observation} (camera {icam})" )
+                       points_ref                   = points_ref,
+                       what                         = f"observation {i_observation} (camera {icam_intrinsics})" )
 
-        try:
-            Rt_cam_points = solvepnp__try_focal_scale(1., **kwargs)
-        except SolvePnPerror_negz as e:
-            Rt_cam_points = solvepnp__try_focal_scale(1.5, **kwargs)
-        except SolvePnPerror_toofew as e:
-            Rt_cam_points = solvepnp__try_focal_scale(0.7, **kwargs)
-
-        # some scale succeeded
-        nonlocal Rt_cam_points_all
+        Rt_cam_points = solvepnp__try_multiple_focal_scales(**kwargs)
         Rt_cam_points_all[i_observation, :, :] = Rt_cam_points
 
-
-
-
-
-
-    for i_observation in range(Nobservations):
-        solvepnp__try_multiple_focal_scales(i_observation)
-
-
-
-    if store_failures_filename is not None:
-        args_failed_only = \
-            ( indices_frame_camera[i_observations_failed],
-              observations_in[i_observations_failed],
-              models_or_intrinsics )
-        import pickle
-        if isinstance(store_failures_filename,str):
-            with open(store_failures_filename, "wb") as f:
-                pickle.dump(args_failed_only, f)
-        else:
-            import IPython
-            IPython.embed()
-        sys.exit()
 
     return Rt_cam_points_all
 
