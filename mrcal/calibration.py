@@ -458,7 +458,6 @@ which mrcal.optimize() expects
 
 def solvepnp__try_multiple_focal_scales(lensmodel,
                                         intrinsics_data_input,
-                                        intrinsics_data_pinhole,
                                         observation_qxqyw,
                                         points_ref,
                                         what):
@@ -476,10 +475,7 @@ def solvepnp__try_multiple_focal_scales(lensmodel,
         intrinsics_data_input_scaled = intrinsics_data_input.copy()
         intrinsics_data_input_scaled[..., :2] *= scale
 
-        intrinsics_data_pinhole_scaled = intrinsics_data_pinhole.copy()
-        intrinsics_data_pinhole_scaled[..., :2] *= scale
-
-        fx,fy,cx,cy = intrinsics_data_pinhole_scaled
+        fx,fy,cx,cy = intrinsics_data_input_scaled
         camera_matrix_pinhole_scaled = \
             np.array(((fx, 0,cx),
                       ( 0,fy,cy),
@@ -492,7 +488,7 @@ def solvepnp__try_multiple_focal_scales(lensmodel,
         observation_qxqy_pinhole = \
             mrcal.project(v,
                           'LENSMODEL_PINHOLE',
-                          intrinsics_data_pinhole_scaled)
+                          intrinsics_data_input_scaled[:4])
 
         # I pick off those rows where the point observation is valid
         i = \
@@ -682,8 +678,6 @@ camera coordinate system FROM the calibration object coordinate system.
     lensmodels                 = [di[0] for di in lensmodels_intrinsics_data]
     intrinsics_data_input      = np.array([di[1] for di in lensmodels_intrinsics_data])
 
-    intrinsics_data_pinhole = intrinsics_data_input[..., :4].copy()
-
     if not all([mrcal.lensmodel_metadata_and_config(m)['has_core'] for m in lensmodels]):
         raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
 
@@ -734,7 +728,6 @@ camera coordinate system FROM the calibration object coordinate system.
 
         kwargs = dict( lensmodel               = lensmodels              [icam_intrinsics],
                        intrinsics_data_input   = intrinsics_data_input   [icam_intrinsics],
-                       intrinsics_data_pinhole = intrinsics_data_pinhole [icam_intrinsics],
                        observation_qxqyw       = observations[i_observation],
                        points_ref              = points_ref,
                        what                    = f"observation {i_observation} (camera {icam_intrinsics})" )
