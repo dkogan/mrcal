@@ -457,9 +457,8 @@ which mrcal.optimize() expects
 
 
 def solvepnp__try_multiple_focal_scales(lensmodel,
-                                        intrinsics_data_input_this,
-                                        intrinsics_data_pinhole_this,
-                                        camera_matrix_pinhole_this,
+                                        intrinsics_data_input,
+                                        intrinsics_data_pinhole,
                                         observation_qxqyw,
                                         points_ref,
                                         what):
@@ -474,47 +473,45 @@ def solvepnp__try_multiple_focal_scales(lensmodel,
 
     def solvepnp__try_focal_scale(scale):
 
-        intrinsics_data_input_scaled = intrinsics_data_input_this.copy()
+        intrinsics_data_input_scaled = intrinsics_data_input.copy()
         intrinsics_data_input_scaled[..., :2] *= scale
 
-        intrinsics_data_pinhole_scaled = intrinsics_data_pinhole_this.copy()
+        intrinsics_data_pinhole_scaled = intrinsics_data_pinhole.copy()
         intrinsics_data_pinhole_scaled[..., :2] *= scale
 
-        camera_matrix_pinhole_scaled = camera_matrix_pinhole_this.copy()
-        camera_matrix_pinhole_scaled[0,0] *= scale
-        camera_matrix_pinhole_scaled[1,1] *= scale
-
-        # shape (Npoints,6); each row is an x,y,weight pixel observation followed
-        # by the xyz coord of the point in the calibration object
-        observation_qxqyw_xyz = np.zeros( points_ref.shape[:-1] + (6,), dtype=float)
-        observation_qxqyw_xyz[..., 2] = observation_qxqyw[..., 2]
-        observation_qxqyw_xyz[...,3:] = points_ref
+        fx,fy,cx,cy = intrinsics_data_pinhole_scaled
+        camera_matrix_pinhole_scaled = \
+            np.array(((fx, 0,cx),
+                      ( 0,fy,cy),
+                      ( 0, 0, 1)),
+                     dtype=float)
 
         v = mrcal.unproject(observation_qxqyw[..., :2],
                             lensmodel,
                             intrinsics_data_input_scaled)
-        mrcal.project(v,
-                      'LENSMODEL_PINHOLE',
-                      intrinsics_data_pinhole_scaled,
-                      out = observation_qxqyw_xyz[...,:2])
+        observation_qxqy_pinhole = \
+            mrcal.project(v,
+                          'LENSMODEL_PINHOLE',
+                          intrinsics_data_pinhole_scaled)
 
         # I pick off those rows where the point observation is valid
         i = \
-            (observation_qxqyw_xyz[..., 2] > 0.0)      * \
-            (~np.isnan(observation_qxqyw_xyz[..., 0])) * \
-            (~np.isnan(observation_qxqyw_xyz[..., 1])) * \
-            (~np.isnan(observation_qxqyw_xyz[..., 2]))
-        observation_qxqyw_xyz = observation_qxqyw_xyz[i,:]
+            (observation_qxqyw[..., 2] > 0.0)        * \
+            (np.isfinite(v                       [..., 0])) * \
+            (np.isfinite(v                       [..., 1])) * \
+            (np.isfinite(v                       [..., 2])) * \
+            (np.isfinite(observation_qxqy_pinhole[..., 0])) * \
+            (np.isfinite(observation_qxqy_pinhole[..., 1]))
 
-        if len(observation_qxqyw_xyz) < 4:
-            raise SolvePnPerror_toofew(f"Insufficient observations; need at least 4; got {len(observation_qxqyw_xyz)} instead. Cannot estimate initial extrinsics for {what}")
+        if np.count_nonzero(i) < 4:
+            raise SolvePnPerror_toofew(f"Insufficient observations; need at least 4; got {np.count_nonzero(i)} instead. Cannot estimate initial extrinsics for {what}")
 
-        # copying because cv2.solvePnP() requires contiguous memory apparently
-        observations_local = np.array(observation_qxqyw_xyz[:,:2][..., np.newaxis])
-        ref_object         = np.array(observation_qxqyw_xyz[:,3:][..., np.newaxis])
-        result,rvec,tvec   = cv2.solvePnP(np.array(ref_object),
-                                          np.array(observations_local),
-                                          camera_matrix_pinhole_scaled, None)
+        observations_local = observation_qxqy_pinhole[i]
+        ref_object         = points_ref[i]
+        result,rvec,tvec   = cv2.solvePnP(ref_object,
+                                          observations_local,
+                                          camera_matrix_pinhole_scaled,
+                                          None)
         if not result:
             raise Exception(f"solvePnP() failed! Cannot estimate initial extrinsics for {what}")
         if tvec[2] <= 0:
@@ -682,26 +679,13 @@ camera coordinate system FROM the calibration object coordinate system.
     Ncameras      = len(models_or_intrinsics)
 
     lensmodels_intrinsics_data = [ m.intrinsics() if isinstance(m,mrcal.cameramodel) else m for m in models_or_intrinsics ]
-    lensmodels      = [di[0] for di in lensmodels_intrinsics_data]
-    intrinsics_data_input = np.array([di[1] for di in lensmodels_intrinsics_data])
+    lensmodels                 = [di[0] for di in lensmodels_intrinsics_data]
+    intrinsics_data_input      = np.array([di[1] for di in lensmodels_intrinsics_data])
 
     intrinsics_data_pinhole = intrinsics_data_input[..., :4].copy()
 
     if not all([mrcal.lensmodel_metadata_and_config(m)['has_core'] for m in lensmodels]):
         raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
-
-    # Each slice is
-    #   (fx,  0, cx)
-    #   ( 0, fy, cy)
-    #   ( 0,  0,  1)
-    camera_matrix_pinhole = np.zeros((Ncameras,3,3), dtype=float)
-    for icam in range(Ncameras):
-        fx,fy,cx,cy = intrinsics_data_pinhole[icam]
-        camera_matrix_pinhole[icam, 0,0] = fx
-        camera_matrix_pinhole[icam, 1,1] = fy
-        camera_matrix_pinhole[icam, 0,2] = cx
-        camera_matrix_pinhole[icam, 1,2] = cy
-    camera_matrix_pinhole[..., 2,2] = 1.0
 
     if observations.ndim == 4:
         # Chessboards. indices_frame_camera is
@@ -748,13 +732,12 @@ camera coordinate system FROM the calibration object coordinate system.
 
         icam_intrinsics = indices_frame_camera[i_observation,1]
 
-        kwargs = dict( lensmodel                    = lensmodels              [icam_intrinsics],
-                       intrinsics_data_input_this   = intrinsics_data_input   [icam_intrinsics],
-                       intrinsics_data_pinhole_this = intrinsics_data_pinhole [icam_intrinsics],
-                       camera_matrix_pinhole_this   = camera_matrix_pinhole   [icam_intrinsics],
-                       observation_qxqyw            = observations[i_observation],
-                       points_ref                   = points_ref,
-                       what                         = f"observation {i_observation} (camera {icam_intrinsics})" )
+        kwargs = dict( lensmodel               = lensmodels              [icam_intrinsics],
+                       intrinsics_data_input   = intrinsics_data_input   [icam_intrinsics],
+                       intrinsics_data_pinhole = intrinsics_data_pinhole [icam_intrinsics],
+                       observation_qxqyw       = observations[i_observation],
+                       points_ref              = points_ref,
+                       what                    = f"observation {i_observation} (camera {icam_intrinsics})" )
 
         Rt_cam_points = solvepnp__try_multiple_focal_scales(**kwargs)
         Rt_cam_points_all[i_observation, :, :] = Rt_cam_points
