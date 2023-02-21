@@ -456,11 +456,24 @@ which mrcal.optimize() expects
     return observations, indices_frame_camera, files_sorted
 
 
-def estimate_camera_pose_from_fixed_point_observations(lensmodel,
-                                                       intrinsics_data,
-                                                       observation_qxqyw,
-                                                       points_ref,
-                                                       what):
+def _estimate_camera_pose_from_fixed_point_observations(lensmodel,
+                                                        intrinsics_data,
+                                                        observation_qxqyw,
+                                                        points_ref,
+                                                        what):
+    r'''Wrapper around solvePnP that tries out different focal lengths
+
+This is an ugly hack. The opencv solvePnP() function I'm using here assumes a
+pinhole model. But this function accepts stereographic data, so observations
+could be really wide; behind the camera even. I can't do much behind the camera,
+but I can accept wide observations by using a much smaller pinhole focal length
+than the stereographic one the user passed. This really shouldn't be hard-coded,
+and I should only adjust if observations would be thrown away. And REALLY I
+should be using a flavor of solvePnP that uses observation vectors instead of
+pinhole pixel observations. Like opengv
+
+    '''
+
     import cv2
 
     class SolvePnPerror_negz(Exception):
@@ -557,12 +570,10 @@ def estimate_camera_pose_from_fixed_point_observations(lensmodel,
     raise Exception("This should be unreachable. This is a bug")
 
 
-
 def estimate_monocular_calobject_poses_Rt_tocam( indices_frame_camera,
                                                  observations,
                                                  object_spacing,
-                                                 models_or_intrinsics,
-                                                 points = None):
+                                                 models_or_intrinsics):
     r"""Estimate camera-referenced poses of the calibration object from monocular views
 
 SYNOPSIS
@@ -617,10 +628,10 @@ SYNOPSIS
 
 mrcal solves camera calibration problems by iteratively optimizing a nonlinear
 least squares problem to bring the pixel observation predictions in line with
-actual pixel observations. This requires an initial "seed", an initial estimate
-of the solution. This function is a part of that computation. Since this is just
-an initial estimate that will be refined, the results of this function do not
-need to be exact.
+actual pixel observations. This requires an initial "seed", an estimate of the
+solution. This function is a part of that computation. Since this is just an
+initial estimate that will be refined, the results of this function do not need
+to be exact.
 
 We have pixel observations of a known calibration object, and we want to
 estimate the pose of this object in the coordinate system of the camera that
@@ -663,16 +674,6 @@ camera coordinate system FROM the calibration object coordinate system.
 
     """
 
-    # Ugly hack. opencv solvePnP() function I'm using here assumes a pinhole
-    # model. But this function accepts stereographic data, so observations could
-    # be really wide; behind the camera even. I can't do much behind the camera,
-    # but I can accept wide observations by using a much smaller pinhole focal
-    # length than the stereographic one the user passed. This really shouldn't
-    # be hard-coded, and I should only adjust if observations would be thrown
-    # away. And REALLY I should be using a flavor of solvePnP that uses
-    # observation vectors instead of pinhole pixel observations
-
-
     # I'm given models. I remove the distortion so that I can pass the data
     # on to solvePnP()
     Ncameras      = len(models_or_intrinsics)
@@ -684,39 +685,20 @@ camera coordinate system FROM the calibration object coordinate system.
     if not all([mrcal.lensmodel_metadata_and_config(m)['has_core'] for m in lensmodels]):
         raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
 
-    if observations.ndim == 4:
-        # Chessboards. indices_frame_camera is
-        # indices_frame_camintrinsics_camextrinsics[:,:2]
+    # We're looking at chessboards. indices_frame_camera is
+    # indices_frame_camintrinsics_camextrinsics[:,:2]
+    object_height_n,object_width_n = observations.shape[-3:-1]
 
-        object_height_n,object_width_n = observations.shape[-3:-1]
-
-        # No calobject_warp. Good-enough for the seeding
-        # shape (Npoints,3)
-        points_ref = \
-            nps.clump(mrcal.ref_calibration_object(object_width_n, object_height_n, object_spacing),
-                      n = 2)
-        # observations has shape (Nobservations,Nh,Nw,3). I reshape it into
-        # shape (Nobservations,Nh*Nw,3)
-        observations = nps.mv(nps.clump(nps.mv(observations, -1,0),
-                                        n = -2),
-                              0, -1)
-    elif observations.ndim == 2:
-        # Points. indices_frame_camera is
-        # indices_point_camintrinsics_camextrinsics[:,:2]
-        #
-        # Here I assume that all point observations were made with a single
-        # camera (stationary or not).
-        indices_frame_camera = np.array(((0,0),), dtype=np.int32)
-
-        points_ref = points
-        # observations has shape (Npoints,3). I reshape it into
-        # shape (Nobservations=1,Npoints,3)
-        observations = nps.dummy(observations, 0)
-
-
-
-    else:
-        raise Exception(f"Unexpected {observations.ndim=}. This is a bug.")
+    # No calobject_warp. Good-enough for the seeding
+    # shape (Npoints,3)
+    points_ref = \
+        nps.clump(mrcal.ref_calibration_object(object_width_n, object_height_n, object_spacing),
+                  n = 2)
+    # observations has shape (Nobservations,Nh,Nw,3). I reshape it into
+    # shape (Nobservations,Nh*Nw,3)
+    observations = nps.mv(nps.clump(nps.mv(observations, -1,0),
+                                    n = -2),
+                          0, -1)
 
     Nobservations = len(observations)
 
@@ -735,10 +717,152 @@ camera coordinate system FROM the calibration object coordinate system.
                        points_ref        = points_ref,
                        what              = f"observation {i_observation} (camera {icam_intrinsics})" )
 
-        Rt_cam_points = estimate_camera_pose_from_fixed_point_observations(**kwargs)
+        Rt_cam_points = _estimate_camera_pose_from_fixed_point_observations(**kwargs)
         Rt_cam_points_all[i_observation, :, :] = Rt_cam_points
 
 
+    return Rt_cam_points_all
+
+
+def _estimate_camera_pose_from_point_observations( indices_point_camintrinsics_camextrinsics,
+                                                   observations_point,
+                                                   models_or_intrinsics,
+                                                   points,
+                                                   icam_intrinsics):
+    r"""Estimate camera poses from monocular views of fixed points
+
+SYNOPSIS
+
+    # I have a monocular solve observing fixed points
+
+    optimization_inputs = model.optimization_inputs()
+
+    lensmodel                                 = optimization_inputs['lensmodel']
+    intrinsics_data                           = optimization_inputs['intrinsics']
+    indices_point_camintrinsics_camextrinsics = optimization_inputs['indices_point_camintrinsics_camextrinsics']
+    observations_point                        = optimization_inputs['observations_point']
+    points                                    = optimization_inputs['points']
+
+    icam_intrinsics = 0
+
+    Rt_camera_ref_estimate = \
+        mrcal.calibration._estimate_camera_pose_from_point_observations( \
+            indices_point_camintrinsics_camextrinsics,
+            observations_point,
+            ( (lensmodel, intrinsics_data[0]), ),
+            points,
+            icam_intrinsics = icam_intrinsics)
+
+    print( Rt_camera_ref_estimate.shape )
+    ===>
+    (1, 4, 3)
+
+    i = indices_point_camintrinsics_camextrinsics[:,1] == icam_intrinsics
+
+    # The estimated calibration object points in the observing camera coordinate
+    # system
+    pcam = mrcal.transform_point_Rt( Rt_camera_ref_estimate[0], points[i] )
+
+    # The pixel observations we would see if the calibration object pose was
+    # where it was estimated to be
+    q = mrcal.project(pcam, lensmodel, intrinsics_data)
+
+    # The reprojection error, comparing these hypothesis pixel observations from
+    # what we actually observed. We estimated the calibration object pose from
+    # the observations, so this should be small
+    err = q - observations_point[i][...,:2]
+
+    print( np.linalg.norm(err) )
+    ===>
+    [something small]
+
+mrcal solves camera calibration problems by iteratively optimizing a nonlinear
+least squares problem to bring the pixel observation predictions in line with
+actual pixel observations. This requires an initial "seed", an estimate of the
+solution. This function is a part of that computation. Since this is just an
+initial estimate that will be refined, the results of this function do not need
+to be exact.
+
+We have pixel observations of a known points in space, and we want to estimate
+the pose of the camera in the coordinate system of these points. This function
+ingests a number of point observations, and solves this "PnP problem". The
+observations may come from any lens model; everything is reprojected to a
+pinhole model first to work with OpenCV. This function is a wrapper around the
+solvePnP() openCV call, which does all the work.
+
+THIS FUNCTION IS A TEMPORARY PLACEHOLDER, AND IS SUBJECT TO CHANGE. IT CURRENTLY
+WORKS WITH ONLY ONE PHYSICAL CAMERA AT A TIME, AND THIS CAMERA IS ASSUMED
+STATIONARY
+
+ARGUMENTS
+
+- indices_point_camintrinsics_camextrinsics: an array of shape
+  (Npoint_observations,3) and dtype numpy.int32. Each row
+  (ipoint,icam_intrinsics,icam_extrinsics) represents a point observation. This
+  is optimization_inputs['indices_point_camintrinsics_camextrinsics']
+
+- observations_point: an array of shape (Npoint_observations,3). Each
+  observation corresponds to a row in indices_point_camintrinsics_camextrinsics,
+  and contains a row of shape (3,) for each point being observed. Each row is
+  (x,y,weight) where x,y are the observed pixel coordinates. Any point where x<0
+  or y<0 or weight<0 is ignored. This is the only use of the weight in this
+  function. This is optimization_inputs['observations_point']
+
+- models_or_intrinsics: either
+
+  - a list of mrcal.cameramodel objects from which we use the intrinsics
+  - a list of (lensmodel,intrinsics_data) tuples
+
+  These are indexed by indices_point_camintrinsics_camextrinsics[...,1]
+
+- points: an array of shape (Npoints,3). This is indexed by
+  indices_point_camintrinsics_camextrinsics[...,0]. This is
+  optimization_inputs['points']
+
+- icam_intrinsics: the integer representing the physical camera being evaluated.
+  This is compared against indices_point_camintrinsics_camextrinsics[...,1]
+
+RETURNED VALUE
+
+An array of shape (1,4,3). Each slice is an Rt transformation TO the
+camera coordinate system FROM the points coordinate system.
+
+    """
+
+    Nobservations = len(indices_point_camintrinsics_camextrinsics)
+    indices_point = indices_point_camintrinsics_camextrinsics[:,0]
+    indices_cami  = indices_point_camintrinsics_camextrinsics[:,1]
+    indices_came  = indices_point_camintrinsics_camextrinsics[:,2]
+
+    if np.any(indices_came != indices_came[0]):
+        raise Exception("For now this function only works with stationary monocular cameras")
+
+    i = (indices_cami == icam_intrinsics)
+    if np.count_nonzero(i) < 4:
+        raise Exception(f"Requested {icam_intrinsics=} matched too few observations: {np.count_nonzero(i)}")
+
+    # I'm given models. I remove the distortion so that I can pass the data
+    # on to solvePnP()
+    Ncameras = len(models_or_intrinsics)
+    if Ncameras != 1:
+        raise Exception(f"For now this function only works with stationary monocular cameras, but given {Ncameras=}")
+
+    lensmodels_intrinsics_data = [ m.intrinsics() if isinstance(m,mrcal.cameramodel) else m for m in models_or_intrinsics ]
+    lensmodels                 = [di[0] for di in lensmodels_intrinsics_data]
+    intrinsics_data            = np.array([di[1] for di in lensmodels_intrinsics_data])
+
+    if not all([mrcal.lensmodel_metadata_and_config(m)['has_core'] for m in lensmodels]):
+        raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
+
+    Rt_cam_points_all = np.zeros( (1, 4, 3), dtype=float)
+
+    kwargs = dict( lensmodel         = lensmodels     [icam_intrinsics],
+                   intrinsics_data   = intrinsics_data[icam_intrinsics],
+                   observation_qxqyw = observations_point[i],
+                   points_ref        = points[indices_point[i]],
+                   what              = f"point observations (camera {icam_intrinsics})" )
+
+    Rt_cam_points_all[0,...] = _estimate_camera_pose_from_fixed_point_observations(**kwargs)
     return Rt_cam_points_all
 
 
