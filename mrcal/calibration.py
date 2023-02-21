@@ -456,11 +456,11 @@ which mrcal.optimize() expects
     return observations, indices_frame_camera, files_sorted
 
 
-def solvepnp__try_multiple_focal_scales(lensmodel,
-                                        intrinsics_data_input,
-                                        observation_qxqyw,
-                                        points_ref,
-                                        what):
+def estimate_camera_pose_from_fixed_point_observations(lensmodel,
+                                                       intrinsics_data,
+                                                       observation_qxqyw,
+                                                       points_ref,
+                                                       what):
     import cv2
 
     class SolvePnPerror_negz(Exception):
@@ -472,23 +472,25 @@ def solvepnp__try_multiple_focal_scales(lensmodel,
 
     def solvepnp__try_focal_scale(scale):
 
-        intrinsics_data_input_scaled = intrinsics_data_input.copy()
-        intrinsics_data_input_scaled[..., :2] *= scale
-
-        fx,fy,cx,cy = intrinsics_data_input_scaled
-        camera_matrix_pinhole_scaled = \
-            np.array(((fx, 0,cx),
-                      ( 0,fy,cy),
-                      ( 0, 0, 1)),
+        fx,fy,cx,cy = intrinsics_data[:4]
+        fxy         = intrinsics_data[0:2]
+        cxy         = intrinsics_data[2:4]
+        camera_matrix = \
+            np.array(((fx*scale, 0,        cx),
+                      ( 0,       fy*scale, cy),
+                      ( 0,       0,        1)),
                      dtype=float)
 
-        v = mrcal.unproject(observation_qxqyw[..., :2],
+        v = mrcal.unproject((observation_qxqyw[..., :2] - cxy) / scale + cxy,
                             lensmodel,
-                            intrinsics_data_input_scaled)
+                            intrinsics_data)
         observation_qxqy_pinhole = \
             mrcal.project(v,
                           'LENSMODEL_PINHOLE',
-                          intrinsics_data_input_scaled[:4])
+                          intrinsics_data[:4])
+        # observation_qxqy_pinhole = (observation_qxqy_pinhole - cxy)*scale + cxy
+        observation_qxqy_pinhole *= scale
+        observation_qxqy_pinhole += cxy*(1. - scale)
 
         # I pick off those rows where the point observation is valid
         i = \
@@ -506,7 +508,7 @@ def solvepnp__try_multiple_focal_scales(lensmodel,
         ref_object         = points_ref[i]
         result,rvec,tvec   = cv2.solvePnP(ref_object,
                                           observations_local,
-                                          camera_matrix_pinhole_scaled,
+                                          camera_matrix,
                                           None)
         if not result:
             raise Exception(f"solvePnP() failed! Cannot estimate initial extrinsics for {what}")
@@ -516,7 +518,8 @@ def solvepnp__try_multiple_focal_scales(lensmodel,
             # again
             result,rvec,tvec = cv2.solvePnP(np.array(ref_object),
                                             np.array(observations_local),
-                                            camera_matrix_pinhole_scaled, None,
+                                            camera_matrix,
+                                            None,
                                             rvec, -tvec,
                                             useExtrinsicGuess = True)
             if not result:
@@ -676,7 +679,7 @@ camera coordinate system FROM the calibration object coordinate system.
 
     lensmodels_intrinsics_data = [ m.intrinsics() if isinstance(m,mrcal.cameramodel) else m for m in models_or_intrinsics ]
     lensmodels                 = [di[0] for di in lensmodels_intrinsics_data]
-    intrinsics_data_input      = np.array([di[1] for di in lensmodels_intrinsics_data])
+    intrinsics_data            = np.array([di[1] for di in lensmodels_intrinsics_data])
 
     if not all([mrcal.lensmodel_metadata_and_config(m)['has_core'] for m in lensmodels]):
         raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
@@ -726,13 +729,13 @@ camera coordinate system FROM the calibration object coordinate system.
 
         icam_intrinsics = indices_frame_camera[i_observation,1]
 
-        kwargs = dict( lensmodel               = lensmodels              [icam_intrinsics],
-                       intrinsics_data_input   = intrinsics_data_input   [icam_intrinsics],
-                       observation_qxqyw       = observations[i_observation],
-                       points_ref              = points_ref,
-                       what                    = f"observation {i_observation} (camera {icam_intrinsics})" )
+        kwargs = dict( lensmodel         = lensmodels     [icam_intrinsics],
+                       intrinsics_data   = intrinsics_data[icam_intrinsics],
+                       observation_qxqyw = observations[i_observation],
+                       points_ref        = points_ref,
+                       what              = f"observation {i_observation} (camera {icam_intrinsics})" )
 
-        Rt_cam_points = solvepnp__try_multiple_focal_scales(**kwargs)
+        Rt_cam_points = estimate_camera_pose_from_fixed_point_observations(**kwargs)
         Rt_cam_points_all[i_observation, :, :] = Rt_cam_points
 
 
