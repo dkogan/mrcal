@@ -12,7 +12,46 @@ there's no reason to have more than one
 
 '''
 
+
 import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--write-model',
+                        type=str,
+                        help='''If given, we write the resulting model to disk
+                        for further analysis. The filename is given in this
+                        argument''')
+    parser.add_argument('--z-ref-board0',
+                        type=float,
+                        default=2.0,
+                        help='''rt_ref_board[0,5]. Defaults to 2''')
+    parser.add_argument('--seed-rng',
+                        type=int,
+                        default=0,
+                        help='''Value to seed the rng with''')
+
+    args = parser.parse_args()
+
+    return args
+
+
+args = parse_args()
+
+
+
+
+
+
+
+
 import numpy as np
 import numpysane as nps
 import os
@@ -28,7 +67,7 @@ from test_calibration_helpers import sample_dqref
 import copy
 
 # I want the RNG to be deterministic
-np.random.seed(0)
+np.random.seed(args.seed_rng)
 
 ############# Set up my world, and compute all the perfect positions, pixel
 ############# observations of everything
@@ -52,7 +91,7 @@ model_true.extrinsics_rt_fromref(rt_cam_ref_true)
 # We measured this; perfectly, I assume. This it the ground truth AND we have it
 # available in the calibration
 # shape (Nframes=3,6)
-rt_ref_board = np.array((( 0.08,  0.2,   0.02,   -0.8,  0.1,  2.0),
+rt_ref_board = np.array((( 0.08,  0.2,   0.02,   -0.8,  0.1,  args.z_ref_board0),
                          ( 0.01,  0.07,  0.2,     2.1,  0.4, 10.2),
                          (-0.1,   0.08,  0.08,    3.4,  0.2,  8.1), ))
 
@@ -224,8 +263,9 @@ model_solved = \
     mrcal.cameramodel( optimization_inputs = optimization_inputs,
                        icam_intrinsics     = 0 )
 
-# if 0:
-#     model_solved.write(f'/tmp/tst.cameramodel')
+if args.write_model:
+    model_solved.write(args.write_model)
+    print(f"Wrote '{args.write_model}'")
 
 testutils.confirm_equal(rmserr, 0,
                         eps = 2.5,
