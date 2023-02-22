@@ -63,4 +63,7 @@ mrcal-stereo can rectify images in parallel
 ref_calibration_object() can return the position of ANY point on the chessboard
 Not just the chessboard corners.
 
+mrcal-show-... handle --observations better. Both chessboard and point
+observations can be shown
+
 * Migration notes 2.2 -> 2.3

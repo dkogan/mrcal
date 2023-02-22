@@ -723,6 +723,86 @@ String passable to gnuplotlib in the 'equation' or 'equation_above' plot option
         f'{k}*exp(-(x-{mean})*(x-{mean})/(2.*{var})) / sqrt(2.*pi*{var}) {title} with lines lw 2'
 
 
+
+
+def _append_observation_visualizations(plot_data_args,
+                                       model,
+                                       legend_prefix,
+                                       pointtype,
+                                       _2d,
+                                       # for splined models
+                                       reproject_to_stereographic = False):
+    optimization_inputs = model.optimization_inputs()
+    if optimization_inputs is None:
+        raise Exception("mrcal.show_...(observations=True) requires optimization_inputs to be available")
+
+    q_cam_boards_inliers  = None
+    q_cam_boards_outliers = None
+    observations_board = optimization_inputs.get('observations_board')
+    if observations_board is not None:
+        mask_observation = \
+            optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,1] == \
+            model.icam_intrinsics()
+        observations_board = observations_board[mask_observation]
+        # shape (N,3)
+        observations_board = nps.clump(observations_board, n=3)
+        mask_inliers  = observations_board[...,2] > 0
+
+        q_cam_boards_inliers  = observations_board[ mask_inliers,:2]
+        q_cam_boards_outliers = observations_board[~mask_inliers,:2]
+
+    q_cam_points_inliers  = None
+    q_cam_points_outliers = None
+    observations_point = optimization_inputs.get('observations_point')
+    if observations_point is not None:
+        mask_observation = \
+            optimization_inputs['indices_point_camintrinsics_camextrinsics'][:,1] == \
+            model.icam_intrinsics()
+        # shape (N,3)
+        observations_point = observations_point[mask_observation]
+        mask_inliers       = observations_point[...,2] > 0
+
+        q_cam_points_inliers  = observations_point[ mask_inliers,:2]
+        q_cam_points_outliers = observations_point[~mask_inliers,:2]
+
+    # Disabled for now. I see a legend entry for each broadcasted slice,
+    # which isn't what I want
+    #
+    # if len(q_cam_calobjects):
+    #     plot_data_args.append( ( nps.clump(q_cam_calobjects[...,0], n=-2),
+    #                              nps.clump(q_cam_calobjects[...,1], n=-2) ) +
+    #                            ( () if _2d else
+    #                              (np.zeros((q_cam_calobjects.shape[-2]*
+    #                                         q_cam_calobjects.shape[-3],)),)) +
+    #                            ( dict( tuplesize = 2 if _2d else 3,
+    #                                    _with     = f'lines lc "black"' + ("" if _2d else ' nocontour'),
+    #                                    legend    = f"{legend_prefix} board sequences"),))
+
+    for q,color,what in ( (q_cam_boards_inliers,  "black", "board inliers"),
+                          (q_cam_points_inliers,  "black", "point inliers"),
+                          (q_cam_boards_outliers, "red",   "board outliers"),
+                          (q_cam_points_outliers, "red",   "point outliers"), ):
+        if q is not None and len(q) > 0:
+
+            if reproject_to_stereographic:
+                q = mrcal.project_stereographic( \
+                        mrcal.unproject(q,
+                                        *model.intrinsics()))
+
+            if pointtype < 0:
+                _with = f'dots lc "{color}"'
+            else:
+                _with = f'points lc "{color}" pt {pointtype}'
+            if not _2d:
+                _with += ' nocontour'
+            plot_data_args.append( ( q[...,0],
+                                     q[...,1] ) +
+                                   ( () if _2d else ( np.zeros(q.shape[:-1]), )) +
+                                   ( dict( tuplesize = 2 if _2d else 3,
+                                           _with     = _with,
+                                           legend    = f'{legend_prefix}{what}'), ))
+
+
 def show_projection_diff(models,
                          *,
                          implied_Rt10 = None,
@@ -1079,68 +1159,13 @@ A tuple:
                                          legend = "valid region of 2nd camera")) )
 
     if observations:
-
-        _2d = bool(vectorfield)
-
-        optimization_inputs = [ m.optimization_inputs() for m in models ]
-        if any( oi is None for oi in optimization_inputs ):
-            raise Exception("mrcal.show_projection_diff(observations=True) requires optimization_inputs to be available for all models, but this is missing for some models")
-
         for i in range(len(models)):
-
-            m = models[i]
-
-            p_cam_calobjects, \
-            p_cam_calobjects_inliers, \
-            p_cam_calobjects_outliers = \
-                mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
-                                                        **optimization_inputs[i])[-3:]
-            q_cam_calobjects = \
-                mrcal.project( p_cam_calobjects,          *m.intrinsics() )
-            q_cam_calobjects_inliers = \
-                mrcal.project( p_cam_calobjects_inliers,  *m.intrinsics() )
-            q_cam_calobjects_outliers = \
-                mrcal.project( p_cam_calobjects_outliers, *m.intrinsics() )
-
-            # Disabled for now. I see a legend entry for each broadcasted slice,
-            # which isn't what I want
-            #
-            # if len(q_cam_calobjects):
-            #     plot_data_args.append( ( nps.clump(q_cam_calobjects[...,0], n=-2),
-            #                              nps.clump(q_cam_calobjects[...,1], n=-2) ) +
-            #                            ( () if _2d else
-            #                              (np.zeros((q_cam_calobjects.shape[-2]*
-            #                                         q_cam_calobjects.shape[-3],)),)) +
-            #                            ( dict( tuplesize = 2 if _2d else 3,
-            #                                    _with     = f'lines lc "black"' + ("" if _2d else ' nocontour'),
-            #                                    legend    = f"Camera {i} board sequences"),))
-
-            if len(q_cam_calobjects_inliers):
-                if observations == 'dots':
-                    _with = f'dots lc "black"'
-                else:
-                    _with = f'points lc "black" pt {1+i}'
-                if not _2d:
-                    _with += ' nocontour'
-                plot_data_args.append( ( q_cam_calobjects_inliers[...,0],
-                                         q_cam_calobjects_inliers[...,1] ) +
-                                       ( () if _2d else ( np.zeros(q_cam_calobjects_inliers.shape[:-1]), )) +
-                                       ( dict( tuplesize = 2 if _2d else 3,
-                                               _with     = _with,
-                                               legend    = f'Camera {i} inliers'), ))
-            if len(q_cam_calobjects_outliers):
-                if observations == 'dots':
-                    _with = f'dots lc "red"'
-                else:
-                    _with = f'points lc "red" pt {1+i}'
-                if not _2d:
-                    _with += ' nocontour'
-                plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
-                                         q_cam_calobjects_outliers[...,1] ) +
-                                       ( () if _2d else ( np.zeros(q_cam_calobjects_outliers.shape[:-1]), )) +
-                                       ( dict( tuplesize = 2 if _2d else 3,
-                                               _with     = _with,
-                                               legend    = f'Camera {i} outliers'), ))
+            _2d = bool(vectorfield)
+            _append_observation_visualizations(plot_data_args,
+                                               models[i],
+                                               f"Camera {i} ",
+                                               -1 if observations == 'dots' else (1+i),
+                                               _2d)
 
     data_tuples = plot_data_args
 
@@ -1353,54 +1378,11 @@ plot
                                      legend = "Valid-intrinsics region")) )
 
     if observations:
-        p_cam_calobjects, \
-        p_cam_calobjects_inliers, \
-        p_cam_calobjects_outliers = \
-            mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
-                                                    **model.optimization_inputs())[-3:]
-        q_cam_calobjects = \
-            mrcal.project( p_cam_calobjects,          *model.intrinsics() )
-        q_cam_calobjects_inliers = \
-            mrcal.project( p_cam_calobjects_inliers,  *model.intrinsics() )
-        q_cam_calobjects_outliers = \
-            mrcal.project( p_cam_calobjects_outliers, *model.intrinsics() )
-
-        # Disabled for now. I see a legend entry for each broadcasted slice,
-        # which isn't what I want
-        #
-        # if len(q_cam_calobjects):
-        #     plot_data_args.append( ( nps.clump(q_cam_calobjects[...,0], n=-2),
-        #                              nps.clump(q_cam_calobjects[...,1], n=-2),
-        #                              np.zeros((q_cam_calobjects.shape[-2]*
-        #                                        q_cam_calobjects.shape[-3],)),
-        #                              dict( tuplesize = 3,
-        #                                    _with  = 'lines lc "black" nocontour',
-        #                                    legend = "board sequences")))
-
-        if len(q_cam_calobjects_inliers):
-            if observations == 'dots':
-                _with = 'dots lc "black" nocontour'
-            else:
-                _with = 'points lc "black" pt 1 nocontour'
-
-            plot_data_args.append( ( q_cam_calobjects_inliers[...,0],
-                                     q_cam_calobjects_inliers[...,1],
-                                     np.zeros(q_cam_calobjects_inliers.shape[:-1]),
-                                     dict( tuplesize = 3,
-                                           _with  = _with,
-                                           legend = 'inliers')) )
-        if len(q_cam_calobjects_outliers):
-            if observations == 'dots':
-                _with = 'dots lc "red" nocontour'
-            else:
-                _with = 'points lc "red" pt 1 nocontour'
-
-            plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
-                                     q_cam_calobjects_outliers[...,1],
-                                     np.zeros(q_cam_calobjects_outliers.shape[:-1]),
-                                     dict( tuplesize = 3,
-                                           _with  = _with,
-                                           legend = 'outliers')) )
+        _append_observation_visualizations(plot_data_args,
+                                           model,
+                                           '',
+                                           -1 if observations == 'dots' else 1,
+                                           False)
 
     plot_options = kwargs
     data_tuples  = plot_data_args
@@ -2408,62 +2390,15 @@ plot
                  tuplesize = -2,
                  legend    = 'knots')), )
 
-    plot_data_tuples_inliers  = ()
-    plot_data_tuples_outliers = ()
-    plot_data_tuples_zigzag   = ()
+    plot_data_tuples_observations = []
 
     if observations:
-        p_cam_calobjects,           \
-        p_cam_calobjects_inliers,   \
-        p_cam_calobjects_outliers = \
-            mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
-                                                    **model.optimization_inputs())[-3:]
-        if imager_domain:
-            q_cam_calobjects = \
-                mrcal.project( p_cam_calobjects,          *model.intrinsics() )
-            q_cam_calobjects_inliers = \
-                mrcal.project( p_cam_calobjects_inliers,  *model.intrinsics() )
-            q_cam_calobjects_outliers = \
-                mrcal.project( p_cam_calobjects_outliers, *model.intrinsics() )
-        else:
-            q_cam_calobjects = \
-                mrcal.project_stereographic( p_cam_calobjects )
-            q_cam_calobjects_inliers = \
-                mrcal.project_stereographic( p_cam_calobjects_inliers )
-            q_cam_calobjects_outliers = \
-                mrcal.project_stereographic( p_cam_calobjects_outliers )
-
-        # Disabled for now. I see a legend entry for each broadcasted slice,
-        # which isn't what I want
-        #
-        # if len(q_cam_calobjects):
-        #     plot_data_tuples_zigzag = \
-        #         ( ( nps.clump(q_cam_calobjects[..., 0], n=-2),
-        #             nps.clump(q_cam_calobjects[..., 1], n=-2),
-        #             dict( tuplesize = 2,
-        #                   _with  = 'lines lc "black"',
-        #                   legend = "board sequences"),),)
-
-        if len(q_cam_calobjects_inliers):
-            if observations == 'dots':
-                _with = 'dots lc "black"'
-            else:
-                _with = 'points lc "black" pt 1'
-            plot_data_tuples_inliers = \
-                ( ( q_cam_calobjects_inliers,
-                    dict( tuplesize = -2,
-                          _with  = _with,
-                          legend = 'inliers')), )
-        if len(q_cam_calobjects_outliers):
-            if observations == 'dots':
-                _with = 'dots lc "black"'
-            else:
-                _with = 'points lc "red" pt 1'
-            plot_data_tuples_outliers = \
-                ( ( q_cam_calobjects_outliers,
-                    dict( tuplesize = -2,
-                          _with  = _with,
-                          legend = 'outliers')), )
+        _append_observation_visualizations(plot_data_tuples_observations,
+                                           model,
+                                           '',
+                                           -1 if observations == 'dots' else 1,
+                                           True,
+                                           reproject_to_stereographic = not imager_domain)
 
     # Anything outside the valid region contour but inside the imager is an
     # invalid area: the field-of-view of the camera needs to be increased. I
@@ -2498,9 +2433,7 @@ plot
         plot_data_tuples_surface         + \
         plot_data_tuples_boundaries      + \
         plot_data_tuples_invalid_regions + \
-        plot_data_tuples_zigzag          + \
-        plot_data_tuples_inliers         + \
-        plot_data_tuples_outliers        + \
+        tuple(plot_data_tuples_observations) + \
         plot_data_tuples_knots
 
     if not return_plot_args:
