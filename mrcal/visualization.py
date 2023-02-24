@@ -1397,12 +1397,13 @@ plot
 
 def show_projection_uncertainty_vs_distance(model,
                                             *,
-                                            where        = "centroid",
-                                            isotropic    = False,
-                                            distance_min = None,
-                                            distance_max = None,
-                                            extratitle   = None,
-                                            return_plot_args = False,
+                                            where                      = "centroid",
+                                            observed_pixel_uncertainty = None,
+                                            isotropic                  = False,
+                                            distance_min               = None,
+                                            distance_max               = None,
+                                            extratitle                 = None,
+                                            return_plot_args           = False,
                                             **kwargs):
     r'''Visualize the uncertainty in camera projection along one observation ray
 
@@ -1457,6 +1458,11 @@ ARGUMENTS
   - "center": the center of the imager
   - "centroid": the midpoint of all the points observed at calibration time
   - A numpy array (x,y) indicating the pixel
+
+- observed_pixel_uncertainty: optional value, defaulting to None. The
+  uncertainty of the pixel observations being propagated through the solve and
+  projection. If omitted or None, this input uncertainty is inferred from the
+  residuals at the optimum. Most people should omit this
 
 - isotropic: optional boolean, defaulting to False. We compute the full 2x2
   covariance matrix of the projection. The 1-sigma contour implied by this
@@ -1539,7 +1545,8 @@ plot
     uncertainty = \
         mrcal.projection_uncertainty( pcam,
                                       model = model,
-                                      what  = 'rms-stdev' if isotropic else 'worstdirection-stdev')
+                                      what  = 'rms-stdev' if isotropic else 'worstdirection-stdev',
+                                      observed_pixel_uncertainty = observed_pixel_uncertainty)
     if 'title' not in kwargs:
         if not isotropic:
             what_description = "Projection"
