@@ -91,9 +91,9 @@ model_true.extrinsics_rt_fromref(rt_cam_ref_true)
 # We measured this; perfectly, I assume. This it the ground truth AND we have it
 # available in the calibration
 # shape (Nframes=3,6)
-rt_ref_board = np.array((( 0.08,  0.2,   0.02,   -0.8,  0.1,  args.z_ref_board0),
-                         ( 0.01,  0.07,  0.2,     2.1,  0.4, 10.2),
-                         (-0.1,   0.08,  0.08,    3.4,  0.2,  8.1), ))
+rt_ref_board = np.array((( 0.08,  0.2,   0.02,   -1.8,  -0.4,  args.z_ref_board0),
+                         ( 0.01,  0.07,  0.2,    -2.9,  -0.1, 2.2),
+                         (-0.1,   0.08,  0.08,    0.2,  -0.2,  2.5), ))
 
 object_spacing          = 0.1
 object_width_n          = 10
