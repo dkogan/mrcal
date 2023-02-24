@@ -33,7 +33,7 @@ Let's do as much as we can analytically: let's gauge the effects of sampling
 error by computing a /projection uncertainty/ for a model. Since /only/ the
 sampling error is evaluated:
 
-*any promises of a high-quality low-uncertainty calibration are valid only if
+*Any promises of a high-quality low-uncertainty calibration are valid only if
 the model errors are small*.
 
 The method to estimate the projection uncertainty is accessed via the
