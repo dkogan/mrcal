@@ -1395,6 +1395,57 @@ plot
     return (data_tuples, plot_options)
 
 
+
+def _observed_hypothesis_points_and_boards_at_calibration_time(model):
+
+    optimization_inputs = model.optimization_inputs()
+
+    p_cam_observed_at_calibration_time = np.zeros((0,3), dtype=float)
+
+    try:
+        # [-2] means "inliers"
+        p_cam_observed_at_calibration_time = \
+            mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
+                                                    **optimization_inputs)[-2]
+    except:
+        # no chessboards perhaps
+        pass
+
+    points = optimization_inputs.get('points')
+    if points is not None:
+        indices_point_camintrinsics_camextrinsics = \
+            optimization_inputs['indices_point_camintrinsics_camextrinsics']
+        mask_thiscam = \
+            indices_point_camintrinsics_camextrinsics[...,1] == model.icam_intrinsics()
+
+        ipoint             = indices_point_camintrinsics_camextrinsics[mask_thiscam,0]
+        icame              = indices_point_camintrinsics_camextrinsics[mask_thiscam,2]
+        observations_point = optimization_inputs['observations_point'][mask_thiscam]
+
+        mask_inliers       = observations_point[...,2] > 0
+        ipoint             = ipoint[mask_inliers]
+        icame              = icame [mask_inliers]
+
+        icame[icame<0] = -1
+        rt_cam_ref = \
+            nps.glue( mrcal.identity_rt(),
+                      optimization_inputs['extrinsics_rt_fromref'],
+                      axis = -2 ) \
+                      [ icame+1 ]
+
+        rt_cam_ref = optimization_inputs['extrinsics_rt_fromref'][icame]
+
+        p_ref_points = points[ipoint]
+        p_cam_points = mrcal.transform_point_rt(rt_cam_ref, p_ref_points)
+
+        p_cam_observed_at_calibration_time = \
+            nps.glue(p_cam_observed_at_calibration_time,
+                     p_cam_points,
+                     axis = -2)
+
+    return p_cam_observed_at_calibration_time
+
+
 def show_projection_uncertainty_vs_distance(model,
                                             *,
                                             where                      = "centroid",
@@ -1499,8 +1550,10 @@ plot
     import gnuplotlib as gp
 
     p_cam_observed_at_calibration_time = \
-        mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
-                                                **model.optimization_inputs())[-2]
+        _observed_hypothesis_points_and_boards_at_calibration_time(model)
+
+    if p_cam_observed_at_calibration_time.size == 0:
+        raise Exception("No inlier chessboards or points observed at calibration time")
 
     if isinstance(where, str):
         if   where == 'center':
