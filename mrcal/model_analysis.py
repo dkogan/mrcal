@@ -791,10 +791,10 @@ SYNOPSIS
     # pixel obsevation is 0.5 pixels, in the worst direction
 
 After a camera model is computed via a calibration process, the model is
-ultimately used in projection/unprojection operations to map between world
-coordinates and projected pixel coordinates. We never know the parameters of the
-model perfectly, and it is VERY useful to know the resulting uncertainty of
-projection. This can be used, among other things, to
+ultimately used in projection/unprojection operations to map between 3D
+camera-referenced coordinates and projected pixel coordinates. We never know the
+parameters of the model perfectly, and it is VERY useful to have the resulting
+uncertainty of projection. This can be used, among other things, to
 
 - propagate the projection noise down to whatever is using the observed pixels
   to do stuff
@@ -804,19 +804,24 @@ projection. This can be used, among other things, to
 
 - evaluate the stability of a computed model
 
-I quantify uncertainty by propagating expected noise on observed chessboard
-corners through the optimization problem we're solving during calibration time
-to the solved parameters. And then propagating the noise on the parameters
-through projection.
+I quantify uncertainty by propagating the expected pixel observation noise
+through the optimization problem. This gives us the uncertainty of the solved
+optimization parameters. And then we propagate this parameter noise through
+projection to produce the projected pixel uncertainty.
+
+As noted in the docs (http://mrcal.secretsauce.net/uncertainty.html), this
+measures the SAMPLING error, which is a direct function of the quality of the
+gathered calibration data. It does NOT measure model errors, which arise from
+inappropriate lens models, for instance.
 
 The uncertainties can be visualized with the mrcal-show-projection-uncertainty
 tool.
 
 ARGUMENTS
 
-This function accepts an array of camera-referenced points p_cam, a
-mrcal.cameramodel object and a few meta-parameters that describe details of the
-behavior. This function broadcasts on p_cam only. We accept
+This function accepts an array of camera-referenced points p_cam, a model and a
+few meta-parameters that describe details of the behavior. This function
+broadcasts on p_cam only. We accept
 
 - p_cam: a numpy array of shape (..., 3). This is the set of camera-coordinate
   points where we're querying uncertainty. if not atinfinity: then the full 3D
@@ -842,8 +847,8 @@ behavior. This function broadcasts on p_cam only. We accept
                             standard deviations
 
 - observed_pixel_uncertainty: optional value, defaulting to None. The
-  uncertainty of the observed chessboard corners being propagated through the
-  solve and projection. If omitted or None, this input uncertainty is inferred
+  uncertainty of the pixel observations being propagated through the solve and
+  through projection. If omitted or None, this input uncertainty is inferred
   from the residuals at the optimum. Most people should omit this
 
 RETURN VALUE
@@ -856,12 +861,17 @@ else:                    we return an array of shape (...)
     '''
 
 
+    # This is a summary of the full derivation in the docs:
+    #
+    #   http://mrcal.secretsauce.net/uncertainty.html
+    #
     # I computed Var(b) earlier, which contains the variance of ALL the optimization
     # parameters together. The noise on the chessboard poses is coupled to the noise
     # on the extrinsics and to the noise on the intrinsics. And we can apply all these
     # together to propagate the uncertainty.
 
-    # Let's define some variables:
+    # Let's define some variables (these are all subsets of the big optimization
+    # vector):
 
     # - b_i: the intrinsics of a camera
     # - b_e: the extrinsics of that camera (T_cr)
@@ -882,15 +892,15 @@ else:                    we return an array of shape (...)
 
     #     dq/db_f = dq/dpcam dpcam/dpref dpref/db_f / Nframes
 
-    # dq/db_i and all the constituent expressions comes directly from the project()
-    # and transform calls above. Depending on the details of the optimization problem,
-    # some of these may not exist. For instance, if we're looking at a camera that is
-    # sitting at the reference coordinate system, then there is no b_e, and Var_ief is
-    # smaller: it's just Var_if. If we somehow know the poses of the frames, then
-    # there's no Var_f. If we want to know the uncertainty at distance=infinity, then
-    # we ignore all the translation components of b_e and b_f.
-
-
+    # dq/db_i and all the constituent expressions comes directly from the
+    # project() and transform calls above. Depending on the details of the
+    # optimization problem, some of these may not exist. For instance, if we're
+    # looking at a camera that is sitting at the reference coordinate system,
+    # then there is no b_e, and Var_ief is smaller: it's just Var_if. If we
+    # somehow know the poses of the frames, then there's no Var_f. In this case
+    # both fixed frames and fixed discrete points can be processed with the same
+    # code. If we want to know the uncertainty at distance=infinity, then we
+    # ignore all the translation components of b_e and b_f.
 
     # Alright, so we have Var(q). We could claim victory at that point. But it'd be
     # nice to convert Var(q) into a single number that describes my projection
@@ -919,8 +929,6 @@ else:                    we return an array of shape (...)
         raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
 
 
-    lensmodel = model.intrinsics()[0]
-
     optimization_inputs = model.optimization_inputs()
     if optimization_inputs is None:
         raise Exception("optimization_inputs are unavailable in this model. Uncertainty cannot be computed")
@@ -944,15 +952,20 @@ else:                    we return an array of shape (...)
 
     # which calibration-time camera we're looking at
     icam_intrinsics = model.icam_intrinsics()
+
+    # This will raise an exception if the cameras are not stationary
     icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics, **optimization_inputs)
 
-    intrinsics_data   = optimization_inputs['intrinsics'][icam_intrinsics]
+    lensmodel       = optimization_inputs['lensmodel']
+    intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
 
     if not optimization_inputs.get('do_optimize_intrinsics_core') and \
        not optimization_inputs.get('do_optimize_intrinsics_distortions'):
+        # Not optimizing ANY of the intrinsics
         istate_intrinsics          = None
         slice_optimized_intrinsics = None
     else:
+        # Optimizing SOME of the intrinsics
         istate_intrinsics = mrcal.state_index_intrinsics(icam_intrinsics, **optimization_inputs)
 
         i0,i1 = None,None # everything by default
@@ -968,8 +981,6 @@ else:                    we return an array of shape (...)
 
         slice_optimized_intrinsics  = slice(i0,i1)
 
-    istate_frames = mrcal.state_index_frames(0, **optimization_inputs)
-
     if icam_extrinsics < 0:
         extrinsics_rt_fromref = None
         istate_extrinsics     = None
@@ -978,9 +989,13 @@ else:                    we return an array of shape (...)
         istate_extrinsics     = mrcal.state_index_extrinsics (icam_extrinsics, **optimization_inputs)
 
     frames_rt_toref = None
+    istate_frames   = None
     if optimization_inputs.get('do_optimize_frames'):
         frames_rt_toref = optimization_inputs.get('frames_rt_toref')
-
+        if frames_rt_toref is not None:
+            # None if we're not optimizing chessboard poses, but I just checked,
+            # and we ARE
+            istate_frames = mrcal.state_index_frames(0, **optimization_inputs)
 
     Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs)
     if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs):
@@ -994,28 +1009,17 @@ else:                    we return an array of shape (...)
 
     # Two distinct paths here that are very similar, but different-enough to not
     # share any code. If atinfinity, I ignore all translations
-    if not atinfinity:
-        return \
-            _projection_uncertainty(p_cam,
-                                    lensmodel, intrinsics_data,
-                                    extrinsics_rt_fromref, frames_rt_toref,
-                                    factorization, Jpacked, optimization_inputs,
-                                    istate_intrinsics, istate_extrinsics, istate_frames,
-                                    slice_optimized_intrinsics,
-                                    Nmeasurements_observations,
-                                    observed_pixel_uncertainty,
-                                    what)
-    else:
-        return \
-            _projection_uncertainty_rotationonly(p_cam,
-                                                 lensmodel, intrinsics_data,
-                                                 extrinsics_rt_fromref, frames_rt_toref,
-                                                 factorization, Jpacked, optimization_inputs,
-                                                 istate_intrinsics, istate_extrinsics, istate_frames,
-                                                 slice_optimized_intrinsics,
-                                                 Nmeasurements_observations,
-                                                 observed_pixel_uncertainty,
-                                                 what)
+    args = (p_cam,
+            lensmodel, intrinsics_data,
+            extrinsics_rt_fromref, frames_rt_toref,
+            factorization, Jpacked, optimization_inputs,
+            istate_intrinsics, istate_extrinsics, istate_frames,
+            slice_optimized_intrinsics,
+            Nmeasurements_observations,
+            observed_pixel_uncertainty,
+            what)
+    if not atinfinity: return _projection_uncertainty(*args)
+    else:              return _projection_uncertainty_rotationonly(*args)
 
 
 def projection_diff(models,
