@@ -1206,13 +1206,14 @@ SYNOPSIS
     ... imager
 
 This function uses the expected noise of the calibration-time observations to
-estimate the uncertainty of projection of the final model. At calibration time we estimate
+estimate the uncertainty of projection of the final model. At calibration time
+we estimate
 
 - The intrinsics (lens paramaters) of a number of cameras
 - The extrinsics (geometry) of a number of cameras in respect to some reference
   coordinate system
-- The poses of observed chessboards, also in respect to some reference
-  coordinate system
+- The poses of observed chessboards and/or the coordinates of the discrete
+  points, also in respect to some reference coordinate system
 
 All the coordinate systems move around, and all 3 of these sets of data have
 some uncertainty. This tool takes into account all the uncertainties to report
@@ -1250,9 +1251,9 @@ ARGUMENTS
   gridn_height/gridn_width ~ imager_height/imager_width
 
 - observed_pixel_uncertainty: optional value, defaulting to None. The
-  uncertainty of the observed chessboard corners being propagated through the
-  solve and projection. If omitted or None, this input uncertainty is inferred
-  from the residuals at the optimum. Most people should omit this
+  uncertainty of the pixel observations being propagated through the solve and
+  projection. If omitted or None, this input uncertainty is inferred from the
+  residuals at the optimum. Most people should omit this
 
 - observations: optional value, defaulting to False. If observatoins:, we
   overlay calibration-time observations on top of the uncertainty plot. We
@@ -1426,8 +1427,8 @@ we estimate
 - The intrinsics (lens paramaters) of a number of cameras
 - The extrinsics (geometry) of a number of cameras in respect to some reference
   coordinate system
-- The poses of observed chessboards, also in respect to some reference
-  coordinate system
+- The poses of observed chessboards and/or the coordinates of the discrete
+  points, also in respect to some reference coordinate system
 
 All the coordinate systems move around, and all 3 of these sets of data have
 some uncertainty. This tool takes into account all the uncertainties to report
@@ -1454,8 +1455,7 @@ ARGUMENTS
   imager we're examining. May be one of
 
   - "center": the center of the imager
-  - "centroid": the midpoint of all the chessboard corners observed at
-    calibration time
+  - "centroid": the midpoint of all the points observed at calibration time
   - A numpy array (x,y) indicating the pixel
 
 - isotropic: optional boolean, defaulting to False. We compute the full 2x2
