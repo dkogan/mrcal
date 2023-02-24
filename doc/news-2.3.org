@@ -66,4 +66,8 @@ Not just the chessboard corners.
 mrcal-show-... handle --observations better. Both chessboard and point
 observations can be shown
 
+show_projection_uncertainty_vs_distance() has distance_min, distance_max args
+To control the plot better. The defaults are None, autodetecting the ranges, so
+the default behavior does not change
+
 * Migration notes 2.2 -> 2.3

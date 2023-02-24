@@ -1394,11 +1394,12 @@ plot
     return (data_tuples, plot_options)
 
 
-# should be able to control the distance range here
 def show_projection_uncertainty_vs_distance(model,
                                             *,
                                             where        = "centroid",
                                             isotropic    = False,
+                                            distance_min = None,
+                                            distance_max = None,
                                             extratitle   = None,
                                             return_plot_args = False,
                                             **kwargs):
@@ -1517,13 +1518,18 @@ plot
         raise Exception("'where' should be 'center' or an array specifying a pixel")
 
     # shape (Ndistances)
-    distance_observed_at_calibration_time = \
-        nps.mag(p_cam_observed_at_calibration_time)
-    distance_min = np.min(distance_observed_at_calibration_time)
-    distance_max = np.max(distance_observed_at_calibration_time)
+    if distance_min is None or distance_max is None:
+        distance_observed_at_calibration_time = \
+            nps.mag(p_cam_observed_at_calibration_time)
+        if distance_min is None:
+            # / 5 for a bit of extra margin
+            distance_min = np.min(distance_observed_at_calibration_time) / 5.
+        if distance_max is None:
+            # * 10 for a bit of extra margin
+            distance_max = np.max(distance_observed_at_calibration_time) * 10.
 
-    distances = np.logspace( np.log10(distance_min/5.),
-                             np.log10(distance_max*10.),
+    distances = np.logspace( np.log10(distance_min),
+                             np.log10(distance_max),
                              80 )
 
     # shape (Ndistances, 3)
