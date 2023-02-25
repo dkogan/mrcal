@@ -933,6 +933,25 @@ else:                    we return an array of shape (...)
     if not optimization_inputs.get('do_optimize_extrinsics'):
         raise Exception("Computing uncertainty if !do_optimize_extrinsics not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for fixed extrinsics like they already do for fixed frames")
 
+    frames_rt_toref = None
+    istate_frames   = None
+    if optimization_inputs.get('do_optimize_frames'):
+        frames_rt_toref = optimization_inputs.get('frames_rt_toref')
+        points          = optimization_inputs.get('points')
+
+        if frames_rt_toref is not None and frames_rt_toref.size == 0:
+            frames_rt_toref = None
+        if points          is not None and points         .size == 0:
+            points          = None
+
+        if points is not None:
+            raise Exception("Uncertainty computation not yet implemented if I have non-fixed points")
+
+        if frames_rt_toref is not None:
+            # None if we're not optimizing chessboard poses, but I just checked,
+            # and we ARE
+            istate_frames = mrcal.state_index_frames(0, **optimization_inputs)
+
     bpacked,x,Jpacked,factorization = \
         mrcal.optimizer_callback( **optimization_inputs )
 
@@ -985,24 +1004,37 @@ else:                    we return an array of shape (...)
         extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
         istate_extrinsics     = mrcal.state_index_extrinsics (icam_extrinsics, **optimization_inputs)
 
-    frames_rt_toref = None
-    istate_frames   = None
-    if optimization_inputs.get('do_optimize_frames'):
-        frames_rt_toref = optimization_inputs.get('frames_rt_toref')
-        if frames_rt_toref is not None:
-            # None if we're not optimizing chessboard poses, but I just checked,
-            # and we ARE
-            istate_frames = mrcal.state_index_frames(0, **optimization_inputs)
-
-    Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs)
-    if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs):
-        # Note the special-case where I'm using all the observations
+    Nmeasurements_boards = mrcal.num_measurements_boards(**optimization_inputs)
+    Nmeasurements_points = mrcal.num_measurements_points(**optimization_inputs)
+    Nmeasurements_all    = mrcal.num_measurements(**optimization_inputs)
+    if Nmeasurements_boards == Nmeasurements_all:
+        # Note the special-case where I'm using all the observations. No other
+        # measurements are present other than the chessboard observations
         Nmeasurements_observations = None
+    else:
+        if Nmeasurements_points > 0:
+            print("WARNING: I'm currently treating the point range normalization (penalty) terms as following the same noise model as other measurements. This will bias the uncertainty estimate",
+                  file=sys.stderr)
+        Nmeasurements_observations = \
+            Nmeasurements_boards + \
+            Nmeasurements_points
+        if Nmeasurements_observations + \
+           mrcal.num_measurements_regularization(**optimization_inputs) != \
+               Nmeasurements_all:
+            raise Exception("Some measurements other than boards, points and regularization are present. Don't know what to do")
 
     if observed_pixel_uncertainty is None:
-        observed_pixel_uncertainty = \
-            np.std(mrcal.residuals_chessboard(optimization_inputs,
-                                              residuals = x).ravel())
+        # mrcal.residuals_point() ignores the range normalization (penalty)
+        var_residuals = 0
+        if Nmeasurements_boards:
+            var_residuals += \
+                np.var(mrcal.residuals_chessboard(optimization_inputs,
+                                                  residuals = x).ravel())
+        if Nmeasurements_points:
+            var_residuals += \
+                np.var(mrcal.residuals_point     (optimization_inputs,
+                                                  residuals = x).ravel())
+        observed_pixel_uncertainty = np.sqrt(var_residuals)
 
     # Two distinct paths here that are very similar, but different-enough to not
     # share any code. If atinfinity, I ignore all translations
