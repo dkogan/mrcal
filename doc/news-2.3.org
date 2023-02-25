@@ -9,6 +9,9 @@ residuals_chessboard() has new return_observations argument
 The default return_observations=False produces the original behavior. if
 return_observations: we return residuals,observations
 
+mrcal.residuals_chessboard() returns size-0 arrays if no
+chessboard or point observations respectively are present
+
 added residuals_point()
 
 show_residuals_....() displays board AND point residuals
@@ -70,9 +73,6 @@ show_projection_uncertainty_vs_distance() has distance_min, distance_max,
 observed_pixel_uncertainty args. To control the plot better. The defaults are
 None, autodetecting the ranges, input uncertainty, so the default behavior does
 not change
-
-mrcal.residuals_chessboard(), residuals_point() return size-0 arrays if no
-chessboard or point observations respectively are present
 
 Projection uncertainty can be computed with fixed points, such as with a
 surveyed calibration
