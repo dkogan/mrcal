@@ -1238,6 +1238,9 @@ ARGUMENTS
   return_observations: we return a tuple (residuals,observations) instead of
   just residuals
 
+If no chessboards are present in the solve I return arrays of appropriate shape
+with N = 0
+
 RETURNED VALUES
 
 if return_observations:
@@ -1257,6 +1260,22 @@ else:
 
     '''
 
+    # shape (Nobservations, object_height_n, object_width_n, 3)
+    observations_board = optimization_inputs.get('observations_board')
+    if observations_board is None or observations_board.size == 0:
+        # no board observations
+        if not return_observations:
+            # shape (N,2)
+            return \
+                np.zeros((0,2), dtype=float)
+        else:
+            # shape (N,2), (N,2)
+            return \
+                np.zeros((0,2), dtype=float), \
+                np.zeros((0,2), dtype=float)
+
+
+
     # for backwards compatibility
     if i_cam is not None:
         icam_intrinsics = i_cam
@@ -1269,8 +1288,6 @@ else:
                                      no_jacobian      = True,
                                      no_factorization = True)[1]
 
-    # shape (Nobservations, object_height_n, object_width_n, 3)
-    observations_board = optimization_inputs['observations_board']
     residuals_shape = observations_board.shape[:-1] + (2,)
 
     # shape (Nobservations, object_height_n, object_width_n, 2)
@@ -1326,6 +1343,9 @@ Given a calibration solve, returns the residuals of point observations, throwing
 out outliers and, optionally, selecting the residuals from a specific camera.
 These are the weighted reprojection errors present in the measurement vector.
 
+If no points are present in the solve I return arrays of appropriate shape with
+N = 0
+
 ARGUMENTS
 
 - optimization_inputs: the optimization inputs dict passed into and returned
@@ -1364,6 +1384,20 @@ else:
 
     '''
 
+    # shape (Nobservations, 3)
+    observations_point = optimization_inputs.get('observations_point')
+    if observations_point is None or observations_point.size == 0:
+        # no point observations
+        if not return_observations:
+            # shape (N,2)
+            return \
+                np.zeros((0,2), dtype=float)
+        else:
+            # shape (N,2), (N,2)
+            return \
+                np.zeros((0,2), dtype=float), \
+                np.zeros((0,2), dtype=float)
+
     if residuals is None:
         # Flattened residuals. This is ALL the measurements: chessboard, point,
         # regularization...
@@ -1372,8 +1406,6 @@ else:
                                      no_jacobian      = True,
                                      no_factorization = True)[1]
 
-    # shape (Nobservations, 3)
-    observations_point = optimization_inputs['observations_point']
     Nobservations = len(observations_point)
 
     imeas0 = mrcal.measurement_index_points(0, **optimization_inputs)
