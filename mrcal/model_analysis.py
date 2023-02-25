@@ -585,9 +585,6 @@ def _projection_uncertainty( p_cam,
     Nstate = Jpacked.shape[-1]
     dq_dbief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
-    if frames_rt_toref is not None:
-        Nframes = len(frames_rt_toref)
-
     if extrinsics_rt_fromref is not None:
         p_ref = \
             mrcal.transform_point_rt( mrcal.invert_rt(extrinsics_rt_fromref),
@@ -596,6 +593,8 @@ def _projection_uncertainty( p_cam,
         p_ref = p_cam
 
     if frames_rt_toref is not None:
+        Nframes = len(frames_rt_toref)
+
         # The point in the coord system of all the frames. I index the frames on
         # axis -2
         # shape (..., Nframes, 3)
@@ -683,9 +682,6 @@ def _projection_uncertainty_rotationonly( p_cam,
     Nstate = Jpacked.shape[-1]
     dq_dbief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
-    if frames_rt_toref is not None:
-        Nframes = len(frames_rt_toref)
-
     if extrinsics_rt_fromref is not None:
         p_ref = \
             mrcal.rotate_point_r( -extrinsics_rt_fromref[..., :3], p_cam )
@@ -693,6 +689,8 @@ def _projection_uncertainty_rotationonly( p_cam,
         p_ref = p_cam
 
     if frames_rt_toref is not None:
+        Nframes = len(frames_rt_toref)
+
         # The point in the coord system of all the frames. I index the frames on
         # axis -2
         # shape (..., Nframes, 3)
@@ -735,7 +733,6 @@ def _projection_uncertainty_rotationonly( p_cam,
             nps.matmult(dq_dpcam, dpcam_dr)
 
         if frames_rt_toref is not None:
-
             dq_dpref = nps.matmult(dq_dpcam, dpcam_dpref)
 
             # dprefallframes_dframesr has shape (..., Nframes,3,3)
