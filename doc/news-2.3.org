@@ -66,8 +66,15 @@ Not just the chessboard corners.
 mrcal-show-... handle --observations better. Both chessboard and point
 observations can be shown
 
-show_projection_uncertainty_vs_distance() has distance_min, distance_max args
-To control the plot better. The defaults are None, autodetecting the ranges, so
-the default behavior does not change
+show_projection_uncertainty_vs_distance() has distance_min, distance_max,
+observed_pixel_uncertainty args. To control the plot better. The defaults are
+None, autodetecting the ranges, input uncertainty, so the default behavior does
+not change
+
+mrcal.residuals_chessboard(), residuals_point() return size-0 arrays if no
+chessboard or point observations respectively are present
+
+Projection uncertainty can be computed with fixed points, such as with a
+surveyed calibration
 
 * Migration notes 2.2 -> 2.3
