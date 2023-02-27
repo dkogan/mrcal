@@ -77,4 +77,6 @@ not change
 Projection uncertainty can be computed with fixed points, such as with a
 surveyed calibration
 
+mrcal.show_geometry() can plot calibration-time points
+
 * Migration notes 2.2 -> 2.3

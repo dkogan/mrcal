@@ -22,10 +22,11 @@ def show_geometry(models_or_extrinsics_rt_fromref,
                   points                      = None,
 
                   show_calobjects    = 'all',
+                  show_points        = 'all',
                   axis_scale         = None,
                   object_width_n     = None,
                   object_height_n    = None,
-                  object_spacing     = 0,
+                  object_spacing     = None,
                   calobject_warp     = None,
                   point_labels       = None,
                   extratitle         = None,
@@ -61,22 +62,21 @@ This function visualizes the world described by a set of camera models. It shows
 - The geometry of the cameras themselves. Each one is represented by the axes of
   its coordinate system
 
-- The geometry of the calibration objects used to compute these models. These
-  are shown only if available and requested
+- The geometry of the observed objects used to compute these models (calibration
+  boards and/or points).
 
-  - Available: The data comes either from the frames_rt_toref argument or from
-    the first model.optimization_inputs() that is given. If we have both, we use
-    the frames_rt_toref
+The geometry is shown only if requested and available
 
-  - Requested: if we're using frames_rt_toref then we show the calibration
-    objects if show_calobjects. I.e. show_calobjects is treated as a boolean.
+- Requested: we show the calibration boards if show_calobjects, and the points
+  if show_points. If the data comes from model.optimization_inputs(), then we
+  can have a bit more control. if show_calobjects == 'all': we show ALL the
+  calibration objects, observed by ANY camera. elif show_calobjects ==
+  'thiscamera': we only show the calibration objects that were observed by the
+  given camera at calibration time. Similarly with show_points.
 
-    If we're using a model.optimization_inputs() then we can have finer-grained
-    control. if show_calobjects == 'all': we show ALL the calibration objects,
-    observed by ANY camera. elif show_calobjects == 'thiscamera': we only show
-    the calibration objects that were observed by the given camera at
-    calibration time. As before, if we have multiple camera models with multiple
-    optimization_inputs, we use the first one
+- Available: The data comes either from the frames_rt_toref and/or points
+  arguments or from the first model.optimization_inputs() that is given. If we
+  have both, we use the frames_rt_toref/points
 
 This function can also be used to visualize the output (or input) of
 mrcal.optimize(); the relevant parameters are all identical to those
@@ -92,21 +92,21 @@ ARGUMENTS
 
 - models_or_extrinsics_rt_fromref: an iterable of mrcal.cameramodel objects or
   (6,) rt arrays. A array of shape (N,6) works to represent N cameras. If
-  mrcal.cameramodel objects are given here and frames_rt_toref is omitted, we
-  get the frames_rt_toref from the first model that provides
-  optimization_inputs().
+  mrcal.cameramodel objects are given here and frames_rt_toref (or points) are
+  omitted, we get the frames_rt_toref (or points) from the first model that
+  provides optimization_inputs().
 
 - cameranames: optional array of strings of labels for the cameras. If omitted,
   we use generic labels. If given, the array must have the same length as
   models_or_extrinsics_rt_fromref
 
-- cameras_Rt_plot_ref: optional transformation(s). If omitted, we plot
-  everything in the camera reference coordinate system. If given, we use a
-  "plot" coordinate system with the transformation TO plot coordinates FROM the
-  reference coordinates given in this argument. This argument can be given as an
-  iterable of Rt transformations to use a different one for each camera (None
-  means "identity"). Or a single Rt transformation can be given to use that one
-  for ALL the cameras
+- cameras_Rt_plot_ref: optional transformation(s). If omitted or None, we plot
+  everything in the reference coordinate system. If given, we use a "plot"
+  coordinate system with the transformation TO plot coordinates FROM the
+  reference coordinates given in this argument. This argument can be given as
+  single Rt transformation to apply to ALL the cameras, or an iterable of Rt
+  transformations to use a different one for each camera (the number of
+  transforms must match the number of cameras exactly)
 
 - frames_rt_toref: optional array of shape (N,6). If given, each row of shape
   (6,) is an rt transformation representing the transformation TO the reference
@@ -149,6 +149,9 @@ ARGUMENTS
   show_calobjects == 'all': we display the objects observed by ANY camera. elif
   show_calobjects == 'thiscamera': we only show those observed by THIS camera.
 
+- show_points: same as show_calobjects, but applying to discrete points, not
+  chessboard poses
+
 - axis_scale: optional scale factor for the size of the axes used to represent
   the cameras. Can be omitted to use some reasonable default size, but tweaking
   it might be necessary to make the plot look right. If less than 1 camera is
@@ -183,6 +186,60 @@ plot
 
     import gnuplotlib as gp
 
+    # First one with optimization_inputs. If we're not given frames and/or
+    # points, we get them from the optimization inputs in this model
+    i_model_with_optimization_inputs = \
+        next((i for i in range(len(models_or_extrinsics_rt_fromref)) \
+              if isinstance(models_or_extrinsics_rt_fromref[i], mrcal.cameramodel) and \
+                  models_or_extrinsics_rt_fromref[i].optimization_inputs() is not None),
+             None)
+
+    Ncameras = len(models_or_extrinsics_rt_fromref)
+
+    if cameras_Rt_plot_ref is not None:
+        # have cameras_Rt_plot_ref. It can be
+        # - a list of transforms
+        # - a single transform
+        # If we're given frames_rt_toref or points, then a different transform
+        # per camera doesn't make sense, and I barf
+        if not isinstance(cameras_Rt_plot_ref, np.ndarray):
+            # cameras_Rt_plot_ref must be an iterable with each slice being an
+            # array of shape (4,3)
+            try:
+                cameras_Rt_plot_ref = np.array(cameras_Rt_plot_ref, dtype=float)
+            except:
+                raise Exception("cameras_Rt_plot_ref must be a transform or a list of transforms")
+
+        # cameras_Rt_plot_ref is now an array. Does it have the right shape?
+        if cameras_Rt_plot_ref.shape[-2:] != (4,3):
+            raise Exception("cameras_Rt_plot_ref must be a transform or a list of Rt transforms. Got an array that looks like neither")
+        # shape is (....,4,3)
+        if cameras_Rt_plot_ref.ndim == 2:
+            # shape is (4,3). I extend it to
+            # shape (N,4,3)
+            cameras_Rt_plot_ref = \
+                np.repeat(nps.atleast_dims(cameras_Rt_plot_ref,-3),
+                          Ncameras,
+                          axis=-3)
+        elif cameras_Rt_plot_ref.ndim == 3:
+            # shape is (N,4,3).
+            if len(cameras_Rt_plot_ref) != Ncameras:
+                raise Exception("cameras_Rt_plot_ref must be a transform or a list of transforms, exactly one per camera. Got mismatched number of transforms")
+            # have an array of transforms with the right shape
+            if frames_rt_toref is not None or points is not None:
+                raise Exception("Got multiple transforms in cameras_Rt_plot_ref AND frames_rt_toref or points. This makes no sense: I can't tell which transform to use")
+            pass
+        else:
+            raise Exception("cameras_Rt_plot_ref must be a transform or a list of transforms, exactly one per camera. Got mismatched number of transforms")
+    # cameras_Rt_plot_ref is now either None or an array of shape (N,4,3)
+
+    if frames_rt_toref is not None:
+        if object_width_n  is None or \
+           object_height_n is None or \
+           object_spacing  is None:
+            raise Exception("frames_rt_toref is given, so object_width_n and object_height_n and object_spacing must be given as well")
+
+
     def get_extrinsics_Rt_toref_one(m):
         if isinstance(m, mrcal.cameramodel):
             return m.extrinsics_Rt_toref()
@@ -199,7 +256,7 @@ plot
                                      n = extrinsics_Rt_toref.ndim-3 )
 
     if axis_scale is None:
-        if len(extrinsics_Rt_toref) <= 1:
+        if Ncameras <= 1:
             axis_scale = 1.0
         else:
             # This is intended to work with the behavior in the mrcal-stereo
@@ -210,94 +267,154 @@ plot
             d = nps.mag(Rt01[3,:])
             axis_scale = d/3.
 
-    if not show_calobjects:
-        frames_rt_toref = None
-    elif frames_rt_toref is None:
+    def get_boards_to_plot():
+        r'''get the chessboard poses to plot'''
 
-        if show_calobjects is True:
-            show_calobjects = 'all'
+        if not show_calobjects:
+            # Not requested
+            return None
 
-        if not (show_calobjects == 'all' or
+        if frames_rt_toref is not None:
+            # We have explicit poses given. Use them
+            return \
+                nps.atleast_dims(frames_rt_toref, -2), \
+                object_width_n,     \
+                object_height_n,    \
+                object_spacing,     \
+                calobject_warp
+
+        # Poses aren't given. Grab them from the model
+        if not (show_calobjects is True  or
+                show_calobjects == 'all' or
                 show_calobjects == 'thiscamera'):
             raise Exception("show_calobjects must be 'all' or 'thiscamera' or True or False")
 
-        # No frames were given. I grab them from the first .cameramodel that has
-        # them. If none of the models have this data, I don't plot any frames at
-        # all
-        for i_model_frames in range(len(extrinsics_Rt_toref)):
-            m = models_or_extrinsics_rt_fromref[i_model_frames]
+        if i_model_with_optimization_inputs is None:
+            return None
 
-            _frames_rt_toref = None
-            _object_spacing  = None
-            _object_width_n  = None
-            _object_height_n = None
-            _calobject_warp  = None
-            if not isinstance(m, mrcal.cameramodel):
-                continue
-            try:
-                optimization_inputs = m.optimization_inputs()
-                _frames_rt_toref = optimization_inputs['frames_rt_toref']
-                _object_spacing  = optimization_inputs['calibration_object_spacing']
-                _object_width_n  = optimization_inputs['observations_board'].shape[-2]
-                _object_height_n = optimization_inputs['observations_board'].shape[-3]
-                _calobject_warp  = optimization_inputs['calobject_warp']
+        m = models_or_extrinsics_rt_fromref[i_model_with_optimization_inputs]
+        optimization_inputs = m.optimization_inputs()
 
-                icam_intrinsics = m.icam_intrinsics()
+        if not ('observations_board' in optimization_inputs and \
+                optimization_inputs['observations_board'] is not None and \
+                optimization_inputs['observations_board'].size ):
+            return None;
 
-                if show_calobjects == 'thiscamera':
-                    indices_frame_camintrinsics_camextrinsics = \
-                        optimization_inputs['indices_frame_camintrinsics_camextrinsics']
-                    mask_observations = \
-                        indices_frame_camintrinsics_camextrinsics[:,1] == icam_intrinsics
-                    idx_frames = indices_frame_camintrinsics_camextrinsics[mask_observations,0]
-                    _frames_rt_toref = _frames_rt_toref[idx_frames]
+        _frames_rt_toref = optimization_inputs['frames_rt_toref']
+        _object_spacing  = optimization_inputs['calibration_object_spacing']
+        _object_width_n  = optimization_inputs['observations_board'].shape[-2]
+        _object_height_n = optimization_inputs['observations_board'].shape[-3]
+        _calobject_warp  = optimization_inputs['calobject_warp']
 
-                # The current frames_rt_toref uses the calibration-time ref, NOT
-                # the current ref. I transform. frames_rt_toref = T_rcal_f
-                # I want T_rnow_rcal T_rcal_f
-                icam_extrinsics = \
-                    mrcal.corresponding_icam_extrinsics(icam_intrinsics,
-                                                        **optimization_inputs)
-                if icam_extrinsics >= 0:
-                    _frames_rt_toref = \
-                        mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model_frames]),
-                                          optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics],
-                                          _frames_rt_toref )
-                else:
-                    _frames_rt_toref = \
-                        mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model_frames]),
-                                          _frames_rt_toref )
+        icam_intrinsics = m.icam_intrinsics()
 
-            except:
-                _frames_rt_toref = None
-                _object_spacing  = None
-                _object_width_n  = None
-                _object_height_n = None
-                _calobject_warp  = None
-                continue
-            break
+        if show_calobjects == 'thiscamera':
+            indices_frame_camintrinsics_camextrinsics = \
+                optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+            mask_observations = \
+                indices_frame_camintrinsics_camextrinsics[:,1] == icam_intrinsics
+            idx_frames = indices_frame_camintrinsics_camextrinsics[mask_observations,0]
+            _frames_rt_toref = _frames_rt_toref[idx_frames]
 
-        # Use the data from the model if everything I need was valid
-        if _frames_rt_toref is not None:
-            frames_rt_toref = _frames_rt_toref
-            object_width_n  = _object_width_n
-            object_height_n = _object_height_n
-            object_spacing  = _object_spacing
-            calobject_warp  = _calobject_warp
+        # The current frames_rt_toref uses the calibration-time ref, NOT
+        # the current ref. I transform. frames_rt_toref = T_rcal_f
+        # I want T_rnow_rcal T_rcal_f
+        icam_extrinsics = \
+            mrcal.corresponding_icam_extrinsics(icam_intrinsics,
+                                                **optimization_inputs)
+        if icam_extrinsics >= 0:
+            _frames_rt_toref = \
+                mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model_with_optimization_inputs]),
+                                  optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics],
+                                  _frames_rt_toref )
+        else:
+            _frames_rt_toref = \
+                mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model_with_optimization_inputs]),
+                                  _frames_rt_toref )
 
-    if frames_rt_toref is not None:
-        frames_rt_toref = nps.atleast_dims(frames_rt_toref, -2)
-    if points          is not None:
-        points          = nps.atleast_dims(points,          -2)
+        # All good. Done
+        return \
+            nps.atleast_dims(_frames_rt_toref, -2), \
+            _object_width_n,     \
+            _object_height_n,    \
+            _object_spacing,     \
+            _calobject_warp
 
-    try:
-        if cameras_Rt_plot_ref.shape == (4,3):
-            cameras_Rt_plot_ref = \
-                np.repeat(nps.atleast_dims(cameras_Rt_plot_ref,-3),
-                          len(extrinsics_Rt_toref),
-                          axis=-3)
-    except:
-        pass
+    def get_points_to_plot():
+        r'''get the discrete points to plot'''
+
+        if not show_points:
+            # Not requested
+            return None
+
+        if points is not None:
+            # We have explicit points given. Use them
+            return \
+                nps.atleast_dims(points, -2)
+
+        # Points aren't given. Grab them from the model
+        if not (show_points is True  or
+                show_points == 'all' or
+                show_points == 'thiscamera'):
+            raise Exception("show_points must be 'all' or 'thiscamera' or True or False")
+
+        if i_model_with_optimization_inputs is None:
+            return None
+
+        m = models_or_extrinsics_rt_fromref[i_model_with_optimization_inputs]
+        optimization_inputs = m.optimization_inputs()
+
+        if not ('points' in optimization_inputs and \
+                optimization_inputs['points'] is not None and \
+                optimization_inputs['points'].size ):
+            return None;
+
+        _points = optimization_inputs['points']
+
+        icam_intrinsics = m.icam_intrinsics()
+
+        if show_points == 'thiscamera':
+            indices_point_camintrinsics_camextrinsics = \
+                optimization_inputs['indices_point_camintrinsics_camextrinsics']
+            mask_observations = \
+                indices_point_camintrinsics_camextrinsics[:,1] == icam_intrinsics
+            idx_points = indices_point_camintrinsics_camextrinsics[mask_observations,0]
+            _points = _points[idx_points]
+
+        # The current points uses the calibration-time ref, NOT
+        # the current ref. I transform.
+        icam_extrinsics = \
+            mrcal.corresponding_icam_extrinsics(icam_intrinsics,
+                                                **optimization_inputs)
+
+        if icam_extrinsics >= 0:
+            _points = \
+                mrcal.transform_point_rt( optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics],
+                                          _points )
+            _points = \
+                mrcal.transform_point_Rt( extrinsics_Rt_toref[i_model_with_optimization_inputs],
+                                          _points )
+        else:
+            _points = \
+                mrcal.transform_point_Rt( extrinsics_Rt_toref[i_model_with_optimization_inputs],
+                                          _points )
+        # All good. Done
+        return \
+            nps.atleast_dims(_points, -2)
+
+
+    boards_to_plot_list = get_boards_to_plot()
+    if boards_to_plot_list is not None:
+        frames_rt_toref, \
+        object_width_n,  \
+        object_height_n, \
+        object_spacing,  \
+        calobject_warp = boards_to_plot_list
+    else:
+        frames_rt_toref = None
+        # the others will not be referenced if frames_rt_toref is None
+
+    points = get_points_to_plot()
 
     def extend_axes_for_plotting(axes):
         r'''Input is a 4x3 axes array: center, center+x, center+y, center+z. I transform
@@ -362,12 +479,9 @@ plot
 
         def camera_Rt_toplotcoords(i):
             Rt_ref_cam = extrinsics_Rt_toref[i]
-            try:
-                Rt_plot_ref = cameras_Rt_plot_ref[i]
-                return mrcal.compose_Rt(Rt_plot_ref,
-                                        Rt_ref_cam)
-            except:
+            if cameras_Rt_plot_ref is None:
                 return Rt_ref_cam
+            return mrcal.compose_Rt(cameras_Rt_plot_ref[i], Rt_ref_cam)
 
         def camera_name(i):
             try:
@@ -378,18 +492,18 @@ plot
         cam_axes  = \
             [gen_plot_axes( ( camera_Rt_toplotcoords(i), ),
                             legend = camera_name(i),
-                            scale=axis_scale) for i in range(0,len(extrinsics_Rt_toref))]
+                            scale=axis_scale) for i in range(0,Ncameras)]
         cam_axes_labels = \
             [gen_plot_axes( ( camera_Rt_toplotcoords(i), ),
                             legend = None,
-                            scale=axis_scale) for i in range(0,len(extrinsics_Rt_toref))]
+                            scale=axis_scale) for i in range(0,Ncameras)]
 
         # I collapse all the labels into one gnuplotlib dataset. Thus I'll be
         # able to turn them all on/off together
         return cam_axes + [(np.ravel(nps.cat(*[l[0] for l in cam_axes_labels])),
                             np.ravel(nps.cat(*[l[1] for l in cam_axes_labels])),
                             np.ravel(nps.cat(*[l[2] for l in cam_axes_labels])),
-                            np.tile(cam_axes_labels[0][3], len(extrinsics_Rt_toref))) + \
+                            np.tile(cam_axes_labels[0][3], Ncameras)) + \
                             cam_axes_labels[0][4:]]
 
 
@@ -428,11 +542,13 @@ plot
         calobject_ref = mrcal.transform_point_rt(nps.mv(frames_rt_toref, -2, -4),
                                                  calobject_ref)
 
-        try:
-            Rt_plot_ref = cameras_Rt_plot_ref[i_model_frames]
-            calobject_ref = mrcal.transform_point_Rt(Rt_plot_ref, calobject_ref)
-        except:
-            pass
+        if cameras_Rt_plot_ref is not None:
+            # I checked earlier that if separate frames_rt_toref or points are
+            # given, then only a single cameras_Rt_plot_ref may be given.
+            # They're all the same, so I use 0 here arbitrarily
+            calobject_ref = \
+                mrcal.transform_point_Rt(cameras_Rt_plot_ref[i_model_with_optimization_inputs if i_model_with_optimization_inputs is not None else 0],
+                                         calobject_ref)
 
 
         # if icam_highlight is not None:
@@ -464,9 +580,17 @@ plot
         return [tuple(list(calobject_ref) + [calobject_curveopts,])]
 
 
-    def gen_curves_points():
+    def gen_curves_points(points):
         if points is None or len(points) == 0:
             return []
+
+        if cameras_Rt_plot_ref is not None:
+            # I checked earlier that if separate frames_rt_toref or points are
+            # given, then only a single cameras_Rt_plot_ref may be given.
+            # They're all the same, so I use 0 here arbitrarily
+            points = \
+                mrcal.transform_point_Rt(cameras_Rt_plot_ref[i_model_with_optimization_inputs if i_model_with_optimization_inputs is not None else 0],
+                                         points)
 
         if point_labels is not None:
 
@@ -492,7 +616,7 @@ plot
 
     curves_cameras    = gen_curves_cameras()
     curves_calobjects = gen_curves_calobjects()
-    curves_points     = gen_curves_points()
+    curves_points     = gen_curves_points(points)
 
     kwargs = dict(kwargs)
     gp.add_plot_option(kwargs,
