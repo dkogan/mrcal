@@ -79,4 +79,6 @@ surveyed calibration
 
 mrcal.show_geometry(), mrcal-show-geometry can plot calibration-time points
 
+mrcal-convert-lensmodel has --cbmax
+
 * Migration notes 2.2 -> 2.3

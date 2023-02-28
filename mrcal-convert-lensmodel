@@ -184,6 +184,10 @@ def parse_args():
                         help='''Visualize the differences between the input and
                         output models. If we have --distance, the FIRST given
                         distance is used to display the fit error''')
+    parser.add_argument('--cbmax',
+                        type=float,
+                        default=4,
+                        help='''Maximum range of the colorbar''')
     parser.add_argument('--title',
                         type=str,
                         default = None,
@@ -831,7 +835,7 @@ if args.viz:
     plot,_ = mrcal.show_projection_diff( (m, m_to),
                                          implied_Rt10      = implied_Rt10,
                                          distance          = distance_for_diff,
-                                         cbmax             = 4,
+                                         cbmax             = args.cbmax,
                                          gridn_width       = None if args.gridn is None else args.gridn[0],
                                          gridn_height      = None if args.gridn is None else args.gridn[1],
                                          use_uncertainties = use_uncertainties,
