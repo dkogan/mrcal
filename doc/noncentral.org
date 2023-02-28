@@ -1,0 +1,9 @@
+#+TITLE: Noncentral projection
+#+OPTIONS: toc:t
+
+CAHVORE
+
+work-in-progress implementation
+
+[[file:figures/noncentral.svg]]
+
