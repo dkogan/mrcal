@@ -76,7 +76,7 @@ mrcal-show-projection-diff                               \
   --unset key                                                             \
   $D/{opencv8,splined}.cameramodel                             \
   --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg \
-  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
+  --terminal 'svg size 800,450 noenhanced solid dynamic font ",14"'
 mrcal-show-projection-diff                               \
   --intrinsics-only                                                       \
   --vectorfield                                                           \
