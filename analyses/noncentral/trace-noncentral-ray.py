@@ -45,6 +45,42 @@ v_at_infinity = \
                     lensmodel, intrinsics_data_centralized,
                     normalize = True)
 
+
+
+if 0:
+    # another thing to do is to compute deltaz
+
+    # dz is a function of th
+
+    # pc = p - [0,0,dz]
+    # tan(th) = pxy / (pz - dz)
+    # q = project_central(pc)
+
+    # At infinity pz >> dz -> tan(th) = pxy/pz
+
+    # At p I have q = project_central(pc)
+
+    # unproject_central(q) = k*pc
+
+    # p - k*pc = [0,0,dz]
+
+
+    d  = 0.2
+    p  = v_at_infinity*d
+    q  = mrcal.project  (p, lensmodel, intrinsics_data)
+    vc = mrcal.unproject(q, lensmodel, intrinsics_data_centralized, normalize = True)
+
+    k01 = p[:2]/vc[:2]
+    dz  = p[2] - k01*vc[2]
+
+    import IPython
+    IPython.embed()
+    sys.exit()
+
+
+
+
+
 Ndistances = 100
 d = np.linspace(0.01, 10., Ndistances)
 
