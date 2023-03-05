@@ -305,25 +305,24 @@ model1.write('/tmp/1.cameramodel')
 #+end_src
 
 * Ranging
+:PROPERTIES:
+:CUSTOM_ID: tour-stereo-ranging
+:END:
+
 The [[file:mrcal-stereo.html][=mrcal-stereo=]] tool contains a visualizer that allows the user to quickly
 examine the stereo scene, evaluating the epipolar line alignment, disparities,
-ranges, etc. It can be invoked by passing =--viz stereo= to the =mrcal-stereo=
-command. After panning/zooming, and clicking on the [[https://en.wikipedia.org/wiki/Wilshire_Grand_Center][Wilshire Grand building]] we
-get this:
+ranges, etc. It can be invoked by runnung =mrcal-stereo --viz stereo ...=. After
+panning/zooming, pressing =r= to display ranges (not disparities), and clicking
+on the [[https://en.wikipedia.org/wiki/Wilshire_Grand_Center][Wilshire Grand building]] we get this:
 
 [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/mrcal-stereo-viz.png]]
 
-The computed range at that pixel is 965.51m. My estimated ground truth range is
+The computed range at that pixel is 965.52m. My estimated ground truth range is
 873m. According to the linearized sensitivity reported by the tool, this
 corresponds to an error of
 $\frac{966\mathrm{m}-873\mathrm{m}}{241.3\frac{\mathrm{m}}{\mathrm{pixel}}} =
 0.39 \mathrm{pixels}$. Usually, stereo matching errors are in the 1/2 - 1/3
-pixel range, but the result here is /plenty/ close-enough because:
-
-- These images were captured at dusk with limited light and a very high ISO, so
-  there's a lot of image noise
-- This wasn't a real stereo pair, and the computation to estimate the extrinsics
-  was crude, and could easily have been very slightly off.
+pixel range, so this is in-line with expectations.
 
 Here we used dense stereo processing to compute a range map over the whole
 image. This is slow, and a lot of the time you can get away with computing
