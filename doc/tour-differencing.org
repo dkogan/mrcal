@@ -1,12 +1,12 @@
 #+title: A tour of mrcal: differencing
 #+OPTIONS: toc:nil
 
-An overview follows; see the [[file:differencing.org][differencing page]] for details.
-
 * Previous
 We just [[file:tour-initial-calibration.org][gathered calibration images and computed some calibrations]].
 
 * Differencing
+An overview follows; see the [[file:differencing.org][differencing page]] for details.
+
 We just used the same chessboard observations to compute the intrinsics of a
 lens in two different ways:
 

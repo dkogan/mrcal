@@ -1,13 +1,12 @@
 #+title: A tour of mrcal: quantifying uncertainty
 #+OPTIONS: toc:t
 
-An overview follows; see the [[file:formulation.org::#noise-model][noise model]] and [[file:uncertainty.org][projection uncertainty]] pages for
-details.
-
 * Previous
 We just [[file:tour-differencing.org][compared the calibrated models]].
 
 * Projection uncertainty
+An overview follows; see the [[file:formulation.org::#noise-model][noise model]] and [[file:uncertainty.org][projection uncertainty]] pages for
+details.
 
 We calibrated this camera using two different models, and we have strong
 evidence that the =LENSMODEL_SPLINED_STEREOGRAPHIC= solve is better than the

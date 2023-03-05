@@ -11,13 +11,13 @@
 \)
 #+END_HTML
 
-This is an overview of a more detailed discussion about [[file:triangulation.org][triangulation methods
-and uncertainty]].
-
 * Previous
 We just looked at [[file:tour-stereo.org][dense stereo processing]]
 
 * Overview
+This is an overview of a more detailed discussion about [[file:triangulation.org][triangulation methods
+and uncertainty]].
+
 We just looked at [[file:tour-stereo.org][dense stereo processing]], where we generated a range map: an
 image where each pixel encodes a range along each corresponding observation
 vector. This is computed relatively efficiently, but computing a range value for
