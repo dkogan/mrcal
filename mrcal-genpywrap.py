@@ -700,4 +700,68 @@ applied
                   np.float32: apply_homography_body },
 )
 
+m.function( "_clip_float_into_bgr_colormap_functions_15_5_7",
+            """Writes a 2D array into a color heatmap
+
+This is used in the internals of apply_color_map().
+
+This is equivalent to this Python code:
+
+  x = np.clip( (array.astype(float) - a_min) / (a_max - a_min),
+                0, 1 )
+  def clip_and_convert(x):
+      return np.clip(x*255, 0, 255).round().astype(np.uint8)
+  out[..., 0] = clip_and_convert(np.sin(x * 2.*np.pi)) # B: function 15
+  out[..., 1] = clip_and_convert(np.sin(x*x*x))        # G: function 5
+  out[..., 2] = clip_and_convert(np.sqrt(x))           # R: function 7
+ """,
+
+            args_input       = ('array',),
+            prototype_input  = (('H','W'),),
+            prototype_output = ('H','W', 3),
+            extra_args = (("double", "a_min", "0.0", "d"),
+                          ("double", "a_max", "1.0", "d"),),
+
+            Ccode_validate = r'''
+            return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = \
+                { (np.float64, np.uint8):
+                 r'''
+                 int32_t H = dims_slice__array[0];
+                 int32_t W = dims_slice__array[1];
+                 const double*  array = (const double* )data_slice__array;
+                 uint8_t*       out   = (      uint8_t*)data_slice__output;
+
+                 // assuming contiguous storage
+                 for(int32_t i=0; i<H*W; i++)
+                 {
+                     const double x =
+                       fmin(fmax( (*array - *a_min) / (*a_max - *a_min),
+                                  0), 1);
+
+                     double v;
+
+                     v = sin(x * 2.0 * M_PI);
+                     if(     v <= 0.0) out[0] = 0;
+                     else if(v >= 1.0) out[0] = 255;
+                     else              out[0] = (uint8_t)(255.*v + 0.5);
+
+                     v = x*x*x;
+                     if(     v <= 0.0) out[1] = 0;
+                     else if(v >= 1.0) out[1] = 255;
+                     else              out[1] = (uint8_t)(255.*v + 0.5);
+
+                     v = sqrt(x);
+                     if(     v <= 0.0) out[2] = 0;
+                     else if(v >= 1.0) out[2] = 255;
+                     else              out[2] = (uint8_t)(255.*v + 0.5);
+
+                     array = &array[1];
+                     out   = &out  [3];
+                 }
+                 return true;
+'''},
+)
+
 m.write()

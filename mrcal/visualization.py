@@ -3778,17 +3778,48 @@ unsigned integers. The last row is the BGR color-mapped values.
     if a_min is None: a_min = array.min()
     if a_max is None: a_max = array.max()
 
-    out = np.zeros(array.shape + (3,), dtype=np.uint8)
-
-    x = np.clip( (array.astype(float) - a_min) / (a_max - a_min),
-                 0, 1 )
-
-    def clip_and_convert(x):
-        np.clip(x*255, 0, 255, x)
-        return x.round().astype(np.uint8)
-
-    out[..., 2] = clip_and_convert(np.sqrt(x))           # R: function 7
-    out[..., 1] = clip_and_convert(x*x*x)                # G: function 5
-    out[..., 0] = clip_and_convert(np.sin(x * 2.*np.pi)) # B: function 15
-
-    return out
+    # write each slice into out[...,0], out[...,1], out[...,2]
+    # I can do this with this Python code intead:
+    #
+    #   x = np.clip( (array.astype(float) - a_min) / (a_max - a_min),
+    #            0, 1 )
+    #   def clip_and_convert(x):
+    #       return np.clip(x*255, 0, 255).round().astype(np.uint8)
+    #   out[..., 0] = clip_and_convert(np.sin(x * 2.*np.pi)) # B: function 15
+    #   out[..., 1] = clip_and_convert(np.sin(x*x*x))        # G: function 5
+    #   out[..., 2] = clip_and_convert(np.sqrt(x))           # R: function 7
+    #
+    # This this is slower (creates more temporaries), and currently (Sun Mar 5
+    # 14:48:28 PST 2023, python3-numpy=1:1.24.1-2) the np.clip() call in
+    # clip_and_convert() spin my CPU, and never exit when I do this:
+    #
+    #   D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/stereo;
+    #   Dout=~/projects/mrcal-doc-external/figures/stereo
+    #   PYTHONPATH=~/projects/mrcal;
+    #   export PYTHONPATH;
+    #   $PYTHONPATH/mrcal-stereo         \
+    #     --az-fov-deg 170               \
+    #     --az0-deg    10                \
+    #     --el-fov-deg 95                \
+    #     --el0-deg    -15               \
+    #     --disparity-range 0 30         \
+    #     --sgbm-p1 600                  \
+    #     --sgbm-p2 2400                 \
+    #     --sgbm-uniqueness-ratio 5      \
+    #     --sgbm-disp12-max-diff  1      \
+    #     --sgbm-speckle-window-size 100 \
+    #     --sgbm-speckle-range 2         \
+    #     --force-grayscale              \
+    #     --clahe                        \
+    #     --outdir /tmp \
+    #     $D/[01].cameramodel            \
+    #     $D/[01].jpg
+    #
+    # I don't care enough to debug it, so I make it work and more efficient in
+    # the same time by doing this in C
+    return \
+        mrcal._mrcal_npsp._clip_float_into_bgr_colormap_functions_15_5_7(
+          # no copies made if not needed
+          np.ascontiguousarray(array.astype(float, copy=False)),
+          a_min = a_min,
+          a_max = a_max)
