@@ -218,124 +218,16 @@ before and after stressing the system (shaking, flipping, heating, etc). Then
 the resulting diffs would tell us how much to trust the calibration.
 
 * Stability of extrinsics
-:PROPERTIES:
-:CUSTOM_ID: extrinsics-diff
-:END:
-
 Similarly to [[#lens-stability][the above discussion about the stability of lens intrinsics]], we
 sometimes want to consider the stability of the camera-camera geometric
 transformation in a multi-camera system. For instance, it's possible to have a
 multi-camera system composed of very stable lenses mounted on a not-rigid-enough
-mount. Then a mechanical stress wouldn't affect the intrinsics, but the
-extrinsics /would/ shift.
+mount. Any mechanical stresses wouldn't affect the intrinsics, but the
+extrinsics /would/ shift. Evaluation of this motion is described on the [[file:differencing.org::*Extrinsics
+differences][differencing page]].
 
-I haven't needed to do this very often, so the technique I developed isn't
-mature yet. The extrinsics diff computation is implemented in the
-[[https://github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=extrinsics-stability.py= tool]]. This isn't stable yet, and only exists in the
-mrcal sources for now. But I used it several times, and it appears to work well.
-
-In this description I will consider 2-camera systems, but the approach is
-general for any number of cameras. Let's say we have two calibrations (0 and 1)
-of a stereo pair ($\mathrm{left}$ and $\mathrm{right}$ cameras). Between the
-calibrations the system was stressed (shaked, flipped, heated, etc), and we want
-to know if the camera geometry shifted as a result. The obvious technique is to
-compare the transformation $T_{0\mathrm{left},0\mathrm{right}}$ and
-$T_{1\mathrm{left},1\mathrm{right}}$. Each of these is available directly in the
-two calibrations, and we can compute the difference
-$T_{0\mathrm{right},1\mathrm{right}} = T_{0\mathrm{right},0\mathrm{left}}
-T_{1\mathrm{left},1\mathrm{right}}$. This is the transform between the right
-cameras in the two calibrations if we line up the two left cameras.
-
-This approach sounds good, but it is incomplete. As described on the
-[[file:differencing.org][differencing page]], each set of camera intrinsics includes some implicit
-geometry. So lining up the two left cameras does not line up their projection
-behavior. And comparing the poses of the right cameras does not compare their
-projection behavior. That page describes how we can compute the implied
-transforms ${T^\mathrm{implied}_{0\mathrm{left},1\mathrm{left}}}$ and
-$T^\mathrm{implied}_{0\mathrm{right},1\mathrm{right}}$, so the final
-transformation describing the shift of the right camera is
-
-\[
-T^\mathrm{implied}_{1\mathrm{right},0\mathrm{right}}
-T_{0\mathrm{right},0\mathrm{left}}
-T^\mathrm{implied}_{0\mathrm{left},1\mathrm{left}}
-T_{1\mathrm{left},1\mathrm{right}}
-\]
-
-The [[https://github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=extrinsics-stability.py= tool]] implements this logic. To compute the implied
-transformations we want the "true" transform, not a transform at any particular
-range, so we use a near and a far range, as suggested on the [[file:differencing.org][differencing page]].
-I tried this out on a set of cameras. I had calibrations before and after a lot
-of mechanical jostling happened. And for each on I had an odd and even set for
-[[file:tour-cross-validation.org][cross-validation]], which reported very low intrinsics differences. I evaluated
-the extrinsics stability, looking at the odd calibrations:
-
-#+begin_example
-$ ~/projects/mrcal/analyses/extrinsics-stability.py \
-  BEFORE/camera-0-odd-SPLINED.cameramodel           \
-  BEFORE/camera-1-odd-SPLINED.cameramodel           \
-  AFTER/camera-0-odd-SPLINED.cameramodel            \
-  AFTER/camera-1-odd-SPLINED.cameramodel
-
-translation: 0.04mm in the direction [0.13 0.06 0.99]
-rotation:    0.01deg around the axis [ 0.93  0.32 -0.18]
-#+end_example
-
-So it claims that the right camera shifted by 0.04mm and yawed by 0.01deg. This
-sounds low-enough to be noise, but what /is/ the noise level? The tool also
-reports the camera resolution for comparison against the reported rotation:
-
-#+begin_example
-Camera 0 has a resolution of 0.056 degrees per pixel at the center
-Camera 1 has a resolution of 0.057 degrees per pixel at the center
-Camera 2 has a resolution of 0.056 degrees per pixel at the center
-Camera 3 has a resolution of 0.057 degrees per pixel at the center
-#+end_example
-
-So this rotation is far smaller than one pixel. What if we look at the
-allegedly-identical "even" calibration:
-
-#+begin_example
-$ ~/projects/mrcal/analyses/extrinsics-stability.py \
-  BEFORE/camera-0-even-SPLINED.cameramodel          \
-  BEFORE/camera-1-even-SPLINED.cameramodel          \
-  AFTER/camera-0-even-SPLINED.cameramodel           \
-  AFTER/camera-1-even-SPLINED.cameramodel
-
-translation: 0.07mm in the direction [ 0.63 -0.73  0.25]
-rotation:    0.00deg around the axis [ 0.55 -0.32  0.77]
-#+end_example
-
-That's similarly close to 0. What if instead of comparing before/after we
-compare odd/even before and then odd/even after? odd/even happened at the same
-time, so there was no actual shift, and the result will be at the noise floor.
-
-#+begin_example
-$ ~/projects/mrcal/analyses/extrinsics-stability.py \
-  BEFORE/camera-0-odd-SPLINED.cameramodel           \
-  BEFORE/camera-1-odd-SPLINED.cameramodel           \
-  BEFORE/camera-0-even-SPLINED.cameramodel          \
-  BEFORE/camera-1-even-SPLINED.cameramodel
-
-translation: 0.07mm in the direction [0.09 0.76 0.64]
-rotation:    0.00deg around the axis [ 0.77 -0.1  -0.63]
-
-
-$ ~/projects/mrcal/analyses/extrinsics-stability.py \
-  AFTER/camera-0-odd-SPLINED.cameramodel            \
-  AFTER/camera-1-odd-SPLINED.cameramodel            \
-  AFTER/camera-0-even-SPLINED.cameramodel           \
-  AFTER/camera-1-even-SPLINED.cameramodel
-
-translation: 0.05mm in the direction [9.69e-01 8.13e-04 2.46e-01]
-rotation:    0.00deg around the axis [-0.43 -0.78  0.44]
-#+end_example
-
-So with these calibrations we have strong evidence that no extrinsics drift has
-occurred.
 
 * more                                                             :noexport:
-
 ** Using models in tools that don't support them
 :PROPERTIES:
 :CUSTOM_ID: unsupported-models

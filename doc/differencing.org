@@ -1,6 +1,7 @@
 #+TITLE: Model differencing
 #+OPTIONS: toc:t
 
+* Intrinsics differences
 mrcal provides the [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] tool to compute and display
 projection differences between several models (implemented using
 [[file:mrcal-python-api-reference.html#-show_projection_diff][=mrcal.show_projection_diff()=]] and [[file:mrcal-python-api-reference.html#-projection_diff][=mrcal.projection_diff()=]]). This has numerous
@@ -11,11 +12,10 @@ applications. For instance:
 - testing different solution methods
 - underlying a cross-validation scheme
 
-* What is being computed?
-What is meant by a "difference" here? Here we want to compare different
-representations of the same lens, so we're /not/ interested in extrinsics. At a
-very high level, to evaluate the projection difference at a pixel coordinate
-$\vec q_0$ in camera 0 we need to:
+** What is meant by a "difference"?
+We want to compare different representations of the same lens, so we're /not/
+interested in extrinsics. At a very high level, to evaluate the projection
+difference at a pixel coordinate $\vec q_0$ in camera 0 we need to:
 
 1. Unproject $\vec q_0$ to a fixed point $\vec p$ using lens 0
 2. Project $\vec p$ back to pixel coords $\vec q_1$ using lens 1
@@ -71,9 +71,9 @@ the coordinate transformations:
 [[file:figures/uncertainty.svg]]
 
 The above plots projected the same $\vec p$ in the camera coordinate system, but
-that coordinate system has shifted between the two models we're comparing. So in
-the /fixed/ coordinate system attached to the camera housing, we weren't in fact
-projecting the same point.
+that coordinate system shifts with each model computation. So in the /fixed/
+coordinate system attached to the camera housing, we weren't in fact projecting
+the same point.
 
 There exists some transformation between the camera coordinate system from the
 solution and the coordinate system defined by the physical camera housing. It is
@@ -109,7 +109,7 @@ mrcal-show-projection-diff \
 
 [[file:external/figures/diff/diff-splined-opencv8.png]]
 
-* Implied transformation details
+** Implied transformation details
 As with [[file:uncertainty.org::#effect-of-range][projection uncertainty]], the difference computations are not invariant to
 range. So we always compute "the projection difference when looking out to $r$
 meters" for some possibly-infinite $r$. The procedure we implement is:
@@ -135,7 +135,61 @@ rotation-only optimization.
 This is the logic behind [[file:mrcal-python-api-reference.html#-implied_Rt10__from_unprojections][=mrcal.implied_Rt10__from_unprojections()=]] and
 [[file:mrcal-python-api-reference.html#-projection_diff][=mrcal.projection_diff()=]].
 
-** Selection of fitting data
+*** Which transform is "right"?
+We just described a differencing method that computes a different implied
+transformation for each range $r$. But in reality, there's only a single /right/
+transformation, and the solutions at different ranges are different estimates of
+it.
+
+If we just need to compare two different representations of the same lens, then
+we don't care about the implied transformation itself. The correct thing to do
+here would be to set $r$ to the intended working distance of the system: for me
+this is generally infinity. Looking at a single $r$, these
+implied-transformation fits will always overfit a little bit, but from
+experience, this doesn't appear to affect the resulting model-difference output.
+
+However, in some applications ([[#extrinsics-diff][extrinsics differencing]] for instance), we /do/
+want the true implied transform. And when we look at this computed transform
+more deeply, we see that with some $r$ we get a result that is clearly wrong.
+For instance:
+
+#+begin_example
+$ mrcal-show-projection-diff \
+    --no-uncertainties       \
+    --unset key              \
+    --radius 500             \
+    --distance 1000          \
+    opencv8.cameramodel      \
+    splined.cameramodel
+
+Transformation cam1 <-- cam0:  rotation: 0.298 degrees, translation: [-3.11445189 -1.52726445  2.24187423] m
+## WARNING: fitted camera moved by 4.130m. This is probably aphysically high, and something is wrong. Pass both a high and a low --distance?
+#+end_example
+
+We asked for a diff at 1000m out, and the solver said that the optimal transform
+moves the camera coordinate system back by 2.2m and to the right by 3m. This is
+looking at the same data as before: comparing two solves from the same data from
+the [[file:tour-differencing.org][tour of mrcal]]. Nothing moved. The camera coordinate system could have
+shifted inside the camera housing a tiny bit, but shifts > 1m are clearly not
+inside the housing anymore. This needs a deeper investigation on how to do it
+"properly", but for practical use I have a working solution: solve using points
+at two ranges at the same time, a near range and a far range:
+
+#+begin_example
+$ mrcal-show-projection-diff \
+    --no-uncertainties       \
+    --unset key              \
+    --radius 500             \
+    --distance 1,1000        \
+    opencv8.cameramodel      \
+    splined.cameramodel
+
+Transformation cam1 <-- cam0:  rotation: 0.316 degrees, translation: [3.41779937e-05 7.37890232e-06 2.20416317e-03] m
+#+end_example
+
+Much better.
+
+*** Selection of fitting data
 The idea of using a fit to compute the implied transformation only works when
 the differences we're seeking are relatively small: once the $\left(R,t\right)$
 are found, the projection differences should be small, and all the fit residuals
@@ -143,20 +197,22 @@ should be low. In many cases this is not a valid assumption. Example: we're
 comparing two calibrations of a wide lens, but one of the lens models is
 intended for a long lens, so it doesn't fit wide lenses well, and the
 projections agree only near the center. In this case, fitting observations
-everywhere in the imager will include poisoned data off center, and the optimal
-$\left(R,t\right)$ will fit badly. And as a result, the reported diff will be
-high everywhere. However, if the dataset used for the fit is cut down to contain
-/only/ observations near the center of the imager, then we will see the effect
-we expect: the two models would agree in the middle, and diverge at the edges.
+everywhere in the imager will include poisoned data off center, and even the
+optimal $\left(R,t\right)$ will fit badly. As a result, the reported diff would
+be high everywhere. However, if the dataset used for the fit is cut down to
+contain /only/ observations near the center of the imager, then we /would/ see a
+good fit with an optimal $\left(R,t\right)$, and we could then use it to
+quantify the projection difference.
 
 Let's demonstrate this. I re-ran the calibration from the [[file:tour.org][tour of mrcal]] using
-[[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV4=]]. This model is not expected to work with wide lenses such as
-this one. But the [[file:formulation.org::#outlier-rejection][outlier rejection]] logic kicks in, makes the solve work as well
-as it can. The resulting model is available [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/opencv4.cameramodel][here]]. Using an insufficient model
-like this works well to illustrate the differencing logic, but it isn't a good
-way to run calibrations in general: the outlier rejection will throw away the
-clearly-ill-fitting measurements, but marginal measurements will make it
-through, which will slightly poison the result.
+[[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV4=]]. This model fits the wide lens even worse than the
+[[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]] fits we studied, and is not expected to work at all. If we
+run this solve, the [[file:formulation.org::#outlier-rejection][outlier rejection]] logic kicks in, and makes the solve
+functional, somewhat. The resulting model is available [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/opencv4.cameramodel][here]]. Using an
+insufficient model like this works well to illustrate the differencing logic,
+but it isn't a good way to run calibrations in general: the outlier rejection
+will throw away the clearly-ill-fitting measurements, but marginal measurements
+will make it through, which will slightly poison the result.
 
 Let's compute the diff between the narrow-only =LENSMODEL_OPENCV4= lens model
 and the mostly-good-everywhere =LENSMODEL_OPENCV8= model, using an expanding
@@ -201,7 +257,11 @@ for r (200 400 600 800 1000) {
 
 [[file:external/figures/diff/diff-radius1000-opencv4-opencv8.png]]
 
-** Fit weighting
+All of these radii are equally "right": the models agree very well in a small
+region at the center; and they also agree in a larger region at the center, if
+we are willing to accept a higher level of error.
+
+*** Fit weighting
 :PROPERTIES:
 :CUSTOM_ID: fit-weighting
 :END:
@@ -351,3 +411,123 @@ and the diff like this:
 
 This is yet another reason to use only splined models for real-world lens
 modeling.
+
+* Extrinsics differences
+:PROPERTIES:
+:CUSTOM_ID: extrinsics-diff
+:END:
+
+The above technique can be used to quantify intrinsics differences between two
+representations of the same lens. This is useful, for instance, to detect any
+intrinsics calibration drift over time. This doesn't tell us anything about
+extrinsics drift, however. It's possible to have a multi-camera system composed
+of very stable lenses mounted on a not-rigid-enough mount. Any mechanical stress
+wouldn't affect the intrinsics, but the extrinsics /would/ shift. And we want a
+method to quantify this shift .
+
+I haven't needed to do this very often, so the technique I'm using isn't mature
+yet. The extrinsics diff computation is implemented in the
+[[https://github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=extrinsics-stability.py= tool]]. This isn't stable yet, and only exists in the
+mrcal sources for now. But I used it several times, and it appears to work well.
+
+In this description I will consider 2-camera systems, but the approach is
+general for any number of cameras. Let's say we have two calibrations (0 and 1)
+of a stereo pair ($\mathrm{left}$ and $\mathrm{right}$ cameras). Between the
+calibrations the system was stressed (shaked, flipped, heated, etc), and we want
+to know if the camera geometry shifted as a result. The obvious technique is to
+compare the transformation $T_{0\mathrm{left},0\mathrm{right}}$ and
+$T_{1\mathrm{left},1\mathrm{right}}$. Each of these is available directly in the
+two calibrations, and we can compute the difference
+$T_{0\mathrm{right},1\mathrm{right}} = T_{0\mathrm{right},0\mathrm{left}}
+T_{1\mathrm{left},1\mathrm{right}}$. This is the transform between the right
+cameras in the two calibrations if we line up the two left cameras.
+
+This approach sounds good, but it is incomplete because it ignores the
+transformation implied by the different intrinsics, as described above. So
+lining up the two left cameras does not line up their projection behavior. And
+comparing the poses of the right cameras does not compare their projection
+behavior.
+
+We just talked about how to compute the implied transforms
+${T^\mathrm{implied}_{0\mathrm{left},1\mathrm{left}}}$ and
+$T^\mathrm{implied}_{0\mathrm{right},1\mathrm{right}}$. So the final
+transformation describing the shift of the right camera is
+
+\[
+T^\mathrm{implied}_{1\mathrm{right},0\mathrm{right}}
+T_{0\mathrm{right},0\mathrm{left}}
+T^\mathrm{implied}_{0\mathrm{left},1\mathrm{left}}
+T_{1\mathrm{left},1\mathrm{right}}
+\]
+
+The [[https://github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=extrinsics-stability.py= tool]] implements this logic. To compute the implied
+transformations we want the "true" transform, not a transform at any particular
+range, so we use a near and a far range. I tried this out on a set of cameras. I
+had calibrations before and after a lot of mechanical jostling happened. And for
+each one I had an odd and even set for [[file:tour-cross-validation.org][cross-validation]], which reported very low
+intrinsics differences: the intrinsics were "correct". I evaluated the
+extrinsics stability, looking at the odd calibrations:
+
+#+begin_example
+$ ~/projects/mrcal/analyses/extrinsics-stability.py \
+  BEFORE/camera-0-odd-SPLINED.cameramodel           \
+  BEFORE/camera-1-odd-SPLINED.cameramodel           \
+  AFTER/camera-0-odd-SPLINED.cameramodel            \
+  AFTER/camera-1-odd-SPLINED.cameramodel
+
+translation: 0.04mm in the direction [0.13 0.06 0.99]
+rotation:    0.01deg around the axis [ 0.93  0.32 -0.18]
+#+end_example
+
+So it claims that the right camera shifted by 0.04mm and yawed by 0.01deg. This
+sounds low-enough to be noise, but what /is/ the noise level? The tool also
+reports the camera resolution for comparison against the reported rotation:
+
+#+begin_example
+Camera 0 has a resolution of 0.056 degrees per pixel at the center
+Camera 1 has a resolution of 0.057 degrees per pixel at the center
+Camera 2 has a resolution of 0.056 degrees per pixel at the center
+Camera 3 has a resolution of 0.057 degrees per pixel at the center
+#+end_example
+
+So this rotation is far smaller than one pixel. What if we look at the
+allegedly-identical "even" calibration:
+
+#+begin_example
+$ ~/projects/mrcal/analyses/extrinsics-stability.py \
+  BEFORE/camera-0-even-SPLINED.cameramodel          \
+  BEFORE/camera-1-even-SPLINED.cameramodel          \
+  AFTER/camera-0-even-SPLINED.cameramodel           \
+  AFTER/camera-1-even-SPLINED.cameramodel
+
+translation: 0.07mm in the direction [ 0.63 -0.73  0.25]
+rotation:    0.00deg around the axis [ 0.55 -0.32  0.77]
+#+end_example
+
+That's similarly close to 0. What if instead of comparing before/after we
+compare odd/even before and then odd/even after? odd/even happened at the same
+time, so there was no actual shift, and the result will be at the noise floor.
+
+#+begin_example
+$ ~/projects/mrcal/analyses/extrinsics-stability.py \
+  BEFORE/camera-0-odd-SPLINED.cameramodel           \
+  BEFORE/camera-1-odd-SPLINED.cameramodel           \
+  BEFORE/camera-0-even-SPLINED.cameramodel          \
+  BEFORE/camera-1-even-SPLINED.cameramodel
+
+translation: 0.07mm in the direction [0.09 0.76 0.64]
+rotation:    0.00deg around the axis [ 0.77 -0.1  -0.63]
+
+
+$ ~/projects/mrcal/analyses/extrinsics-stability.py \
+  AFTER/camera-0-odd-SPLINED.cameramodel            \
+  AFTER/camera-1-odd-SPLINED.cameramodel            \
+  AFTER/camera-0-even-SPLINED.cameramodel           \
+  AFTER/camera-1-even-SPLINED.cameramodel
+
+translation: 0.05mm in the direction [9.69e-01 8.13e-04 2.46e-01]
+rotation:    0.00deg around the axis [-0.43 -0.78  0.44]
+#+end_example
+
+So with these calibrations we have strong evidence that no extrinsics drift has
+occurred.
