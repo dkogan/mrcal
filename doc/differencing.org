@@ -412,6 +412,17 @@ and the diff like this:
 This is yet another reason to use only splined models for real-world lens
 modeling.
 
+We just demonstrated that projection uncertainties provide a working method for
+selecting the points used to fit the implied transformation. From a practical
+standpoint, there's a downside though: computing uncertainties makes the
+differencing method much slower. So while the uncertainty-aware method is
+available in [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]], most of the time I run something like
+=mrcal-show-projection-diff --no-uncertainties --radius 500=. This falls back on
+simply using the points in a 500-pixel-radius circle at the center. This
+computes much faster, and with good-coverage-low-error calibrations usually
+produces a very similar result. If something looks odd, I will run the
+uncertainty-aware diff to debug. But my usual default is =--no-uncertainties=.
+
 * Extrinsics differences
 :PROPERTIES:
 :CUSTOM_ID: extrinsics-diff
