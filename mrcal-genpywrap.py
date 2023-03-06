@@ -498,8 +498,8 @@ scipy.sparse.csr_matrix respectively.
  """,
 
             args_input       = ('A', 'Jp', 'Ji', 'Jx'),
-            prototype_input  = (('Nx','Nstate'), ('Np',), ('Nix',), ('Nix',)),
-            prototype_output = ('Nx','Nx'),
+            prototype_input  = ((2,'Nstate'), ('Np',), ('Nix',), ('Nix',)),
+            prototype_output = (2,2),
 
             extra_args = (("int", "Nleading_rows_J", "-1", "i"),),
 
@@ -525,8 +525,8 @@ scipy.sparse.csr_matrix respectively.
                  //     accumulate( outer(jta,jta) )
 
 
-                 int32_t Nx     = dims_slice__A[0];
-                 int32_t Nstate = dims_slice__A[1];
+                 const int32_t Nx     = 2; // dims_slice__A[0] will always be 2
+                 const int32_t Nstate = dims_slice__A[1];
 
                  const double*   A = (const double* )data_slice__A;
                  const int32_t* Jp = (const int32_t*)data_slice__Jp;
@@ -539,28 +539,24 @@ scipy.sparse.csr_matrix respectively.
 
                  for(int irow=0; irow<*Nleading_rows_J; irow++)
                  {
-                     double jta[Nx];
-                     for(int i=0; i<Nx; i++)
-                         jta[i] = 0.0;
+                     double jta[2] = {};
 
                      for(int32_t i = Jp[irow]; i < Jp[irow+1]; i++)
                      {
                          int32_t icol = Ji[i];
                          double x     = Jx[i];
 
-                         for(int j=0; j<Nx; j++)
-                             jta[j] += A[icol + j*Nstate] * x;
+                         jta[0] += A[icol         ] * x;
+                         jta[1] += A[icol + Nstate] * x;
                      }
-                     for(int i=0; i<Nx; i++)
-                     {
-                         out[i*Nx + i] += jta[i]*jta[i];
-                         for(int j=i+1; j<Nx; j++)
-                         {
-                             out[i*Nx + j] += jta[i]*jta[j];
-                             out[j*Nx + i] += jta[i]*jta[j];
-                         }
-                     }
+
+                     out[0] += jta[0]*jta[0];
+                     out[1] += jta[0]*jta[1];
+                     out[3] += jta[1]*jta[1];
                  }
+
+                 out[2] = out[1];
+
                  return true;
 '''},
 )
