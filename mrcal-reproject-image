@@ -331,7 +331,7 @@ def parse_args():
     # It can be model-to or it can be the first image glob
     def looks_like_cameramodel(m):
         return m=="-" or \
-            re.match(".*\.(cameramodel|cahvor)$", m, re.I)
+            re.match(".*\.(cameramodel|cahv[ore]*)$", m, re.I)
     mi = getattr(args, 'model-to-and-image-globs')
     model_to   = [ m for m in mi if looks_like_cameramodel(m) ]
     imageglobs = [ m for m in mi if not looks_like_cameramodel(m) ]
