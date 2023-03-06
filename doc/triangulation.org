@@ -219,11 +219,11 @@ test/test-triangulation-uncertainty.py  \
 [[file:external/figures/triangulation/sample--ellipses.svg]]
 
 Here we have *two* cameras arranged in the usual left/right stereo
-configuration, looking at *two* points somewhere ahead. We generate calibration
-and observation noise, and display the results in the horizontal plane. The
-vertical dimension is insignificant here, so it is not shown, even though all
-the computations are performed in full 3D. For each of the two observed points
-we display:
+configuration, looking at *two* points at (-2,10)m and (2,10)m. We generate
+calibration and observation noise, and display the results in the horizontal
+plane. The vertical dimension is insignificant here, so it is not shown, even
+though all the computations are performed in full 3D. For each of the two
+observed points we display:
 
 - The empirical noise samples, and the 1-sigma ellipse they represent
 - The predicted 1-sigma ellipse for the calibration-time noise
