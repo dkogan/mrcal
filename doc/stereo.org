@@ -34,7 +34,7 @@ The rectified coordinate system looks like this:
 
 [[file:figures/rectification.svg]]
 
-We code and documentation refers to two angles:
+The code and documentatio refers to two angles:
 
 - $\theta$: the "azimuth"; the lateral angle inside the epipolar plane. Related
   directly to the $x$ pixel coordinate in the rectified images
