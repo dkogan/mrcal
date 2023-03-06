@@ -163,8 +163,8 @@ We want to capture the effect of two different sources of error:
   stdev of -1. See the relevant interface documentation (just-mentioned links)
   for details.
 - /Observation-time/ noise. Each triangulation processes observations $\vec q$
-  of a feature in space. These are noisy, and we propagate the noise. As with
-  the calibration-time noise, this noise is assumed to be normally distributed,
+  of a feature in space. These are noisy, and we propagate that noise. As with
+  calibration-time noise, this noise is assumed to be normally distributed and
   independent in $x$ and $y$. This is specified in the =--q-observation-stdev=
   argument to [[file:mrcal-triangulate.html][=mrcal-triangulate=]] or in the =q_observation_stdev= argument to
   [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]]. A common source of these pixel observations is a pixel
@@ -175,6 +175,12 @@ We want to capture the effect of two different sources of error:
   propagate such an estimate: using the =--q-observation-stdev-correlation=
   commandline option to [[file:mrcal-triangulate.html][=mrcal-triangulate=]] or the
   =q_observation_stdev_correlation= argument to [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]].
+
+  Note that when thinking about observation-time noise in /dense/ stereo
+  processing, we generally assume that $\vec q_0$ is known perfectly and that
+  there is no correlation at all between the $\vec q_0$ and $\vec q_1$
+  observations. A bit more thought is needed to figure out how to talk about
+  this noise propagation properly.
 
 A big point to note here is that repeated observations of the same feature have
 independent observation-time noise. So these observation-time errors average out
