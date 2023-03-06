@@ -16,7 +16,8 @@ SYNOPSIS
   ... a plot pops up showing how these two models differ in their projections
 
 The operation of this tool is documented at
-http://mrcal.secretsauce.net/differencing.html
+
+  http://mrcal.secretsauce.net/differencing.html
 
 This tool visualizes the results of mrcal.projection_diff()
 
@@ -83,9 +84,7 @@ def parse_args():
                         list. If multiple distances are given, we fit the
                         implied-by-the-intrinsics transformation using ALL the
                         distances, but we display the difference for the FIRST
-                        distance given. Multiple distances are especially useful
-                        if we have uncertainties: the most confident distance
-                        will be found, and displayed.''')
+                        distance given.''')
 
     parser.add_argument('--intrinsics-only',
                         action='store_true',
@@ -499,7 +498,7 @@ if not args.intrinsics_only and args.radius != 0 and \
 
     dist_shift = nps.mag(rt10[3:])
     if dist_shift > 0.01:
-        msg = f"## WARNING: fitted camera moved by {dist_shift:.03f}m. This is probably aphysically high, and something is wrong. Pass both a high and a low --distance?"
+        msg = f"## WARNING: fitted camera moved by {dist_shift:.03f}m. This is probably aphysically high, and something is wrong. Pass both a high and a low --distance? See the docs at http://mrcal.secretsauce.net/differencing.html"
         print(msg, file=sys.stderr)
 
 if args.hardcopy is None:
