@@ -263,8 +263,6 @@ def _write(f, m, note=None):
     if note is not None:
         for l in note.splitlines():
             f.write('# ' + l + '\n')
-    d = m.imagersize()
-    f.write('Dimensions = {} {}\n'.format(int(d[0]), int(d[1])))
 
     lensmodel,intrinsics = m.intrinsics()
     if lensmodel == 'LENSMODEL_CAHVOR':
@@ -278,6 +276,8 @@ def _write(f, m, note=None):
         else:
             raise Exception("Don't know how to handle lens model '{}'".format(lensmodel))
 
+    d = m.imagersize()
+    f.write('Dimensions = {} {}\n'.format(int(d[0]), int(d[1])))
 
     fx,fy,cx,cy = intrinsics[:4]
     Rt_toref = m.extrinsics_Rt_toref()
@@ -325,12 +325,26 @@ def _write(f, m, note=None):
         np.savetxt(f, c.ravel(), fmt='%.2f', newline=' ')
         f.write('\n')
 
+    # Write covariance matrix. Old jplv parser requires that this exists, even
+    # if the actual values don't matter
+    S_size = 12
+    if   re.match('^LENSMODEL_CAHVORE', lensmodel): S_size = 21
+    elif re.match('^LENSMODEL_CAHVOR',  lensmodel): S_size = 18
+    f.write("S =\n" + ((" 0.0" * S_size) + "\n") * S_size)
+
+    # Extra spaces before "=" are significant. Old jplv parser gets confused if
+    # they don't exist
     Hs,Vs,Hc,Vc = intrinsics[:4]
-    f.write("Hs = {}\n".format(Hs))
-    f.write("Hc = {}\n".format(Hc))
-    f.write("Vs = {}\n".format(Vs))
-    f.write("Vc = {}\n".format(Vc))
+    f.write("Hs    = {}\n".format(Hs))
+    f.write("Hc    = {}\n".format(Hc))
+    f.write("Vs    = {}\n".format(Vs))
+    f.write("Vc    = {}\n".format(Vc))
     f.write("# this is hard-coded\nTheta = {} (-90.0 deg)\n".format(-np.pi/2))
+
+    # Write internal covariance matrix. Again, the old jplv parser requires that
+    # this exists, even if the actual values don't matter
+    S_internal_size = 5
+    f.write("S internal =\n" + ((" 0.0" * S_internal_size) + "\n") * S_internal_size)
 
     return True
 
