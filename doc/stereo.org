@@ -52,7 +52,7 @@ argument to [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rec
 argument to [[file:mrcal-stereo.html][=mrcal-stereo=]].
 
 - [[file:lensmodels.org::#lensmodel-pinhole][=LENSMODEL_PINHOLE=]]: this is the traditional rectification model, used in most
-  existing tools. This works decently well for small fields of view (as with a
+  existing tools. It works decently well for small fields of view (as with a
   long lens), but fails with large fields of view (as with a wide lens). The
   issues stem from the uneven angular resolution across the image, which shoots
   out to $\infty \frac{\mathrm{pixels}}{\mathrm{deg}}$ as $\theta \rightarrow
@@ -71,10 +71,9 @@ argument to [[file:mrcal-stereo.html][=mrcal-stereo=]].
 
 Let's demonstrate the two rectification models. In the [[file:tour-stereo.org][tour of mrcal]] we showed a
 dense stereo processing sequence. Let's re-rectify those same images and models
-with =LENSMODEL_PINHOLE= and =LENSMODEL_LATLON=. This is just a demo of
-rectification, so I ask for the same pixels/angle resolution at the center of
-the image in both cases: 1/20 of the resolution of the original image. I do
-this:
+with =LENSMODEL_PINHOLE= and =LENSMODEL_LATLON=. This is a demo, so I ask for
+the same pixels/angle resolution at the center of the image in both cases, and
+demonstrate how this affects the resolution at other parts of the image.
 
 #+begin_src sh
 for model (LENSMODEL_PINHOLE LENSMODEL_LATLON) {
@@ -107,34 +106,40 @@ $PYTHONPATH/mrcal-stereo         \
 }
 #+end_src
 
-The left image rectified with =LENSMODEL_LATLON=:
+The left image rectified with =LENSMODEL_LATLON= (resolution at the center is
+1/20 of the resolution of the original image):
 
 [[file:external/figures/stereo/rectified-demo-lowres-latlon.png]]
 
-The left image rectified with =LENSMODEL_PINHOLE=:
+The left image rectified with =LENSMODEL_PINHOLE= (resolution at the center is
+still 1/20 of the resolution of the original image):
 
 [[file:external/figures/stereo/rectified-demo-lowres-pinhole.png]]
 
 These are the actual, unscaled rectified images. Note the identical resolution
 at the center of the image. And note how =LENSMODEL_PINHOLE= rectification
-causes the image to expand dramatically as we approach the edges, which
-=LENSMODEL_LATLON= does not do.
+causes the image to expand dramatically as we approach the edges.
 
 Using =LENSMODEL_PINHOLE= with wide lenses like this introduces an unwinnable
 trade-off. If you choose the pixels/angle resolution to keep all your
 information at the center, you'll get a huge image, with large low-information
-pixels at the edges. But if you want to control this expansion by reducing the
-resolution, you'll lose data at the center. Cutting off the edges works too, so
-all methods entail throwing out information, in some form.
+pixels at the edges. But if you want to reduce this expansion by lowering the
+resolution, you'll lose data at the center. Or you can cutting off data at the
+edges. No matter what you do, you either lose information or you're stuck with a
+huge image.
 
-Or you can use =LENSMODEL_LATLON=.
+And even if this was all fine, with =LENSMODEL_PINHOLE= the stereo-matching
+algorithm has to match image patches with widely different resolutions.
+=LENSMODEL_LATLON= solves all these issues with no down sides, and is thus the
+recommended rectification function.
 
 * Interfaces
 Currently stereo processing is available via the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool. This tool
 implements the usual stereo processing for a single frame.
 
-More complex usages are available via Python APIs. A sequence of images captured
-with a stereo pair can be processed like this:
+More complex usages are available via Python APIs (or the C functions in
+[[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.h=]]). A sequence of images captured with a stereo pair can be processed
+like this:
 
 1. [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] to construct the rectified system defined by the
    stereo pair
@@ -160,22 +165,16 @@ some of which require mrcal-specific logic. Specifically:
 
 1. For successful long-range stereo we need maximum precision in our lens
    models. mrcal supports [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]: a rich model that
-   is able to describe the behavior of real-world lenses more precisely than the
-   parametric models used by other tools. This is good, but today, a calibration
-   based on this model cannot be used in any tool other than mrcal.
+   fits real-world lenses better than the lean models used by other tools. This
+   is great, but today, a calibration based on this model cannot be used in any
+   tool other than mrcal.
 
-2. Furthermore, mrcal can use a [[#stereo-rectification-models][transverse
-   equirectangular rectification function]] to describe the rectified system
-   instead of the more traditional pinhole rectification function. This allows
-   nice stereo matching even with wide lenses, but once again: these rectified
-   models and images can only be consumed with mrcal.
+2. Furthermore, mrcal can use a [[#stereo-rectification-models][=LENSMODEL_LATLON=]] to describe the rectified
+   system instead of the more traditional pinhole rectification function. This
+   allows nice stereo matching even with wide lenses, but once again: these
+   rectified models and images can only be processed with mrcal.
 
-
-
-
-Suppose you computed some very accurate calibrations using a [[file:splined-models.org][mrcal splined
-model]], and you want to use them in a non-mrcal-aware tool. This tools cannot
-use the mrcal splined models, so there are several options to take advantage
+There are several options:
 
 1. partial mrcal. rectify with mrcal then correlate with something else
 2. fit opencv5 into the splined model, which would lose accuracy
