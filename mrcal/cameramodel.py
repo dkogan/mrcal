@@ -860,8 +860,9 @@ SYNOPSIS
     model.write('left.cameramodel')
 
 We write the contents of the given mrcal.cameramodel object to the given
-filename or a given pre-opened file. If the filename is 'xxx.cahvor' or if
-cahvor: we use the legacy cahvor file format for output
+filename or a given pre-opened file. If the filename is 'xxx.cahv' or
+'xxx.cahvor' or 'xxx.cahvore' or if cahvor: we use the legacy cahvor file format
+for output
 
 ARGUMENTS
 
@@ -885,7 +886,7 @@ None
             return
 
         if type(f) is str:
-            if re.match(".*\.cahvor$", f):
+            if re.match(".*\.cahv(or(e)?)?$", f):
                 from . import cahvor
                 cahvor.write(f, self, note)
 
