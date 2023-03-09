@@ -332,21 +332,28 @@ def parse_args():
     delattr(args, 'model-to-and-image-globs')
     delattr(args, 'model-from')
 
-    # I have to manually process this because the first model-to-and-image-globs
-    # element's identity is ambiguous in a way I can't communicate to argparse.
-    # It can be model-to or it can be the first image glob
-    def looks_like_cameramodel(m):
-        return m=="-" or \
-            re.match(".*\.(cameramodel|cahv[ore]*)$", m, re.I)
-    mi = args.model_to_and_image_globs
-    args.model_to   = [ m for m in mi if looks_like_cameramodel(m) ]
-    args.imageglobs = [ m for m in mi if not looks_like_cameramodel(m) ]
-    delattr(args, 'model_to_and_image_globs')
-
     return args
 
 
 args = parse_args()
+
+import mrcal
+
+# I have to manually process this because the first model-to-and-image-globs
+# element's identity is ambiguous in a way I can't communicate to argparse.
+# It can be model-to or it can be the first image glob
+def load_model_or_keep_filename(filename):
+    try:
+        m = mrcal.cameramodel(filename)
+    except:
+        m = filename
+    return m
+mi = [load_model_or_keep_filename(f) for f in args.model_to_and_image_globs]
+
+args.model_to   = [ m for m in mi if     isinstance(m,mrcal.cameramodel) ]
+args.imageglobs = [ m for m in mi if not isinstance(m,mrcal.cameramodel) ]
+delattr(args, 'model_to_and_image_globs')
+
 
 
 if   len(args.model_to) == 0: args.model_to = None
@@ -430,7 +437,6 @@ import glob
 import multiprocessing
 import signal
 
-import mrcal
 import time
 
 model_from = mrcal.cameramodel(args.model_from)
@@ -443,7 +449,7 @@ if not args.to_pinhole:
         print("No --to-pinhole with both TO and FROM models given: must have at least one set of image globs. Giving up", file=sys.stderr)
         sys.exit(1)
 
-    model_to = mrcal.cameramodel(args.model_to)
+    model_to = args.model_to
 
 else:
     if not args.model_to:
@@ -465,7 +471,7 @@ else:
             print("--to-pinhole with both the TO and FROM models given: must have EXACTLY two image globs. Giving up", file=sys.stderr)
             sys.exit(1)
 
-        model_to     = mrcal.cameramodel(args.model_to)
+        model_to     = args.model_to
         model_target = mrcal.pinhole_model_for_reprojection(model_to, args.fit,
                                                             scale_focal = args.scale_focal,
                                                             scale_image = args.scale_image)
