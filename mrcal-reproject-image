@@ -326,18 +326,22 @@ def parse_args():
 
     args = parser.parse_args()
 
+    # use _ instead of - in attribute names so that I can access them easier
+    args.model_to_and_image_globs = getattr(args, 'model-to-and-image-globs')
+    args.model_from               = getattr(args, 'model-from')
+    delattr(args, 'model-to-and-image-globs')
+    delattr(args, 'model-from')
+
     # I have to manually process this because the first model-to-and-image-globs
     # element's identity is ambiguous in a way I can't communicate to argparse.
     # It can be model-to or it can be the first image glob
     def looks_like_cameramodel(m):
         return m=="-" or \
             re.match(".*\.(cameramodel|cahv[ore]*)$", m, re.I)
-    mi = getattr(args, 'model-to-and-image-globs')
-    model_to   = [ m for m in mi if looks_like_cameramodel(m) ]
-    imageglobs = [ m for m in mi if not looks_like_cameramodel(m) ]
-    setattr(args, "model-to",    model_to)
-    setattr(args, "imageglobs", imageglobs)
-    delattr(args, 'model-to-and-image-globs')
+    mi = args.model_to_and_image_globs
+    args.model_to   = [ m for m in mi if looks_like_cameramodel(m) ]
+    args.imageglobs = [ m for m in mi if not looks_like_cameramodel(m) ]
+    delattr(args, 'model_to_and_image_globs')
 
     return args
 
@@ -345,14 +349,14 @@ def parse_args():
 args = parse_args()
 
 
-if   len(getattr(args, 'model-to')) == 0: setattr(args, 'model-to', None)
-elif len(getattr(args, 'model-to')) == 1: setattr(args, 'model-to', getattr(args, 'model-to')[0])
+if   len(args.model_to) == 0: args.model_to = None
+elif len(args.model_to) == 1: args.model_to = args.model_to[0]
 else:
-    print(f"At most one model-to can be given. Instead got {len(getattr(args, 'model-to'))} of them. Giving up.", file=sys.stderr)
+    print(f"At most one model-to can be given. Instead got {len(args.model_to)} of them. Giving up.", file=sys.stderr)
     sys.exit(1)
 
-if getattr(args, 'model-from') == '-' and \
-   getattr(args, 'model-to')   == '-':
+if args.model_from == '-' and \
+   args.model_to   == '-':
     print("At most one model can be given at '-' to read standard input. Giving up.", file=sys.stderr)
     sys.exit(1)
 
@@ -369,7 +373,7 @@ else:
         print("--fit and --scale-focal are mutually exclusive", file=sys.stderr)
         sys.exit(1)
 
-if getattr(args, 'model-to') is None and \
+if args.model_to is None and \
    args.intrinsics_only:
     print("--intrinsics-only makes sense ONLY when both the FROM and TO camera models are given",
           file=sys.stderr)
@@ -429,21 +433,21 @@ import signal
 import mrcal
 import time
 
-model_from = mrcal.cameramodel(getattr(args, 'model-from'))
+model_from = mrcal.cameramodel(args.model_from)
 
 if not args.to_pinhole:
-    if not getattr(args, 'model-to'):
+    if not args.model_to:
         print("Either --to-pinhole or the TO camera model MUST be given. Giving up", file=sys.stderr)
         sys.exit(1)
-    if len(getattr(args, 'imageglobs')) < 1:
+    if len(args.imageglobs) < 1:
         print("No --to-pinhole with both TO and FROM models given: must have at least one set of image globs. Giving up", file=sys.stderr)
         sys.exit(1)
 
-    model_to = mrcal.cameramodel(getattr(args, 'model-to'))
+    model_to = mrcal.cameramodel(args.model_to)
 
 else:
-    if not getattr(args, 'model-to'):
-        if len(getattr(args, 'imageglobs')) < 1:
+    if not args.model_to:
+        if len(args.imageglobs) < 1:
             print("--to-pinhole with only the FROM models given: must have at least one set of image globs. Giving up", file=sys.stderr)
             sys.exit(1)
 
@@ -457,11 +461,11 @@ else:
         model_to.write(sys.stdout)
 
     else:
-        if len(getattr(args, 'imageglobs')) != 2:
+        if len(args.imageglobs) != 2:
             print("--to-pinhole with both the TO and FROM models given: must have EXACTLY two image globs. Giving up", file=sys.stderr)
             sys.exit(1)
 
-        model_to     = mrcal.cameramodel(getattr(args, 'model-to'))
+        model_to     = mrcal.cameramodel(args.model_to)
         model_target = mrcal.pinhole_model_for_reprojection(model_to, args.fit,
                                                             scale_focal = args.scale_focal,
                                                             scale_image = args.scale_image)
@@ -471,7 +475,7 @@ else:
         model_target.write(sys.stdout)
 
 if args.plane_n is not None:
-    if getattr(args, 'model-to') is None:
+    if args.model_to is None:
        print("Plane remapping requires BOTH camera models to be given", file=sys.stderr)
        sys.exit(1)
 
@@ -579,14 +583,14 @@ def process(model_from, model_to, image_globs, suffix,
 
 
 
-if args.to_pinhole and getattr(args, 'model-to'):
+if args.to_pinhole and args.model_to:
     # I'm reprojecting each of my sets of images to a pinhole model (a DIFFERENT
     # model from TO and FROM)
-    process(model_from, model_target, (getattr(args, 'imageglobs')[0],), "pinhole-remapped",
+    process(model_from, model_target, (args.imageglobs[0],), "pinhole-remapped",
             args.intrinsics_only, args.distance, args.plane_n, args.plane_d)
-    process(model_to,   model_target, (getattr(args, 'imageglobs')[1],), "pinhole",
+    process(model_to,   model_target, (args.imageglobs[1],), "pinhole",
             args.intrinsics_only, args.distance, None, None)
 else:
     # Simple case. I have my two models, and I reproject all the images
-    process(model_from, model_to, getattr(args, 'imageglobs'), "reprojected",
+    process(model_from, model_to, args.imageglobs, "reprojected",
             args.intrinsics_only, args.distance, args.plane_n, args.plane_d)
