@@ -125,8 +125,8 @@ And the disparity and range images look like this:
 From a glance, this is clearly working well.
 
 If you've used other stereo libraries previously, these rectified images may
-look odd: these are fisheye images, so the usual pinhole rectification would
-pull the corners out towards infinity. We don't see that here because
+look odd: these are fisheye images, so [[file:stereo.org::#stereo-rectification-models][the usual pinhole rectification would
+pull the corners out towards infinity]]. We don't see that here because
 [[file:mrcal-stereo.html][=mrcal-stereo=]] uses the [[file:lensmodels.org::#lensmodel-latlon][transverse equirectangular projection]] for rectification
 by default. This scheme samples the azimuth and elevation angles evenly, which
 minimizes the visual distortion inside each image row. Rectified models for this
