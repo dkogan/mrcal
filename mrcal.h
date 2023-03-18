@@ -13,6 +13,7 @@
 
 #include "mrcal-types.h"
 #include "poseutils.h"
+#include "stereo.h"
 #include "triangulation.h"
 
 ////////////////////////////////////////////////////////////////////////////////

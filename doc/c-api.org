@@ -395,9 +395,8 @@ functions you may have already. The declarations are in [[https://www.github.com
 documentation lives there.
 
 * Dense stereo
-A number of dense stereo routines are available in [[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.h=]]. These make it
-possible to implement a full mrcal dense stereo pipeline in C. The available
-functions are:
+A number of dense stereo routines are available. These make it possible to
+implement a full mrcal dense stereo pipeline in C. The available functions are:
 
 - =mrcal_rectified_resolution()= computes the resolution of the rectified system
   from the resolution of the input. Usually =mrcal_rectified_system()= does this
