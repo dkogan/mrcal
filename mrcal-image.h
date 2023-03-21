@@ -83,10 +83,10 @@ mrcal_image_ ## Tname ## _crop(mrcal_image_ ## Tname ## _t* image,      \
                               int x0, int y0,                           \
                               int w,  int h)                            \
 {                                                                       \
-    return (mrcal_image_ ## Tname ## _t){ .data   = mrcal_image_ ## Tname ## _at(image,x0,y0), \
+    return (mrcal_image_ ## Tname ## _t){ .w      = w,                  \
+                                          .h      = h,                  \
                                           .stride = image->stride,      \
-                                          .w      = w,                  \
-                                          .h      = h };                \
+                                          .data   = mrcal_image_ ## Tname ## _at(image,x0,y0) }; \
 }                                                                       \
                                                                         \
 bool mrcal_image_ ## Tname ## _save (const char* filename, const mrcal_image_ ## Tname ## _t*  image); \
