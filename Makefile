@@ -51,7 +51,7 @@ endif
 CFLAGS    += --std=gnu99
 CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
 
-mrcal.o test/test-cahvor.o: minimath/minimath_generated.h
+$(patsubst %.c,%.o,$(shell grep -l '#include .*minimath\.h' *.c */*.c)): minimath/minimath_generated.h
 minimath/minimath_generated.h: minimath/minimath_generate.pl
 	./$< > $@.tmp && mv $@.tmp $@
 EXTRA_CLEAN += minimath/minimath_generated.h
