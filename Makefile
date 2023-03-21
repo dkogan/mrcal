@@ -56,13 +56,18 @@ minimath/minimath_generated.h: minimath/minimath_generate.pl
 	./$< > $@.tmp && mv $@.tmp $@
 EXTRA_CLEAN += minimath/minimath_generated.h
 
-DIST_INCLUDE += \
-	mrcal.h \
-	mrcal-image.h \
-	mrcal-internal.h \
-	basic-geometry.h \
-	poseutils.h \
-	triangulation.h
+DIST_INCLUDE +=			\
+	mrcal.h			\
+	mrcal-image.h		\
+	mrcal-internal.h	\
+	basic-geometry.h	\
+	poseutils.h		\
+	triangulation.h		\
+	mrcal-types.h		\
+	stereo.h
+
+
+
 DIST_BIN :=					\
 	mrcal-calibrate-cameras			\
 	mrcal-convert-lensmodel			\
