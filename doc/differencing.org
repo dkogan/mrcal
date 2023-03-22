@@ -157,62 +157,120 @@ For instance:
 $ mrcal-show-projection-diff \
     --no-uncertainties       \
     --unset key              \
-    --radius 500             \
     --distance 1000          \
     opencv8.cameramodel      \
     splined.cameramodel
 
-Transformation cam1 <-- cam0:  rotation: 0.298 degrees, translation: [-3.11445189 -1.52726445  2.24187423] m
-## WARNING: fitted camera moved by 4.130m. This is probably aphysically high, and something is wrong. Pass both a high and a low --distance?
+Transformation cam1 <-- cam0:  rotation: 0.316 degrees, translation: [-2.67878241 -0.832383    1.8063095 ] m
+## WARNING: fitted camera moved by 3.336m. This is probably aphysically high, and something is wrong. Pass both a high and a low --distance?
 #+end_example
 
-We asked for a diff at 1000m out, and the solver said that the optimal transform
-moves the camera coordinate system back by 2.2m and to the right by 3m. This is
-looking at the same data as before: comparing two solves from the same data from
-the [[file:tour-differencing.org][tour of mrcal]]. Nothing moved. The camera coordinate system could have
-shifted inside the camera housing a tiny bit, but shifts > 1m are clearly not
-inside the housing anymore. This needs a deeper investigation on how to do it
-"properly", but for practical use I have a working solution: solve using points
-at two ranges at the same time, a near range and a far range:
+More on =--no-uncertainties= later; it's here to speed things up, and isn't
+significant. We asked for a diff at 1000m out, and the solver said that the
+optimal transform moves the camera coordinate system back by 1.8m and to the
+right by 2.7m. This is looking at the same data as before: comparing two solves
+from the [[file:tour-differencing.org][tour of mrcal]]. Nothing moved. The camera coordinate system could have
+shifted inside the camera housing a tiny bit, but the solved shifts are huge,
+and clearly aren't inside the housing anymore. This needs a deeper investigation
+on how to do it "properly", but for practical use I have a working solution:
+solve using points at two ranges at the same time, a near range and a far range:
 
 #+begin_example
 $ mrcal-show-projection-diff \
     --no-uncertainties       \
     --unset key              \
-    --radius 500             \
     --distance 1,1000        \
     opencv8.cameramodel      \
     splined.cameramodel
 
-Transformation cam1 <-- cam0:  rotation: 0.316 degrees, translation: [3.41779937e-05 7.37890232e-06 2.20416317e-03] m
+Transformation cam1 <-- cam0:  rotation: 0.316 degrees, translation: [2.90213542e-05 2.59871714e-06 1.73397909e-03] m
 #+end_example
 
 Much better.
 
 *** Selection of fitting data
-The idea of using a fit to compute the implied transformation only works when
-the differences we're seeking are relatively small: once the $\left(R,t\right)$
-are found, the projection differences should be small, and all the fit residuals
-should be low. In many cases this is not a valid assumption. Example: we're
-comparing two calibrations of a wide lens, but one of the lens models is
-intended for a long lens, so it doesn't fit wide lenses well, and the
-projections agree only near the center. In this case, fitting observations
-everywhere in the imager will include poisoned data off center, and even the
-optimal $\left(R,t\right)$ will fit badly. As a result, the reported diff would
-be high everywhere. However, if the dataset used for the fit is cut down to
-contain /only/ observations near the center of the imager, then we /would/ see a
-good fit with an optimal $\left(R,t\right)$, and we could then use it to
-quantify the projection difference.
+:PROPERTIES:
+:CUSTOM_ID: fitting-data-selection
+:END:
 
-Let's demonstrate this. I re-ran the calibration from the [[file:tour.org][tour of mrcal]] using
-[[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV4=]]. This model fits the wide lens even worse than the
-[[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]] fits we studied, and is not expected to work at all. If we
-run this solve, the [[file:formulation.org::#outlier-rejection][outlier rejection]] logic kicks in, and makes the solve
-functional, somewhat. The resulting model is available [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/opencv4.cameramodel][here]]. Using an
-insufficient model like this works well to illustrate the differencing logic,
-but it isn't a good way to run calibrations in general: the outlier rejection
-will throw away the clearly-ill-fitting measurements, but marginal measurements
-will make it through, which will slightly poison the result.
+When we use a fit to compute the implied transformation, we minimize the
+reprojection error. We hope that the main contributions to this error come from
+geometric misalignment. If this was the case, minimizing this reprojection error
+would produce the correct implied $\left(R,t\right)$. Applying this
+transformation would correct the misalignment, leaving a very small residual. It
+is possible to have other error contributions though, which would break this
+method of finding the implied $\left(R,t\right)$. This is common when intrinsics
+differences are significant; let's demonstrate that.
+
+We just saw a difference result from the [[file:tour-differencing.org][tour of mrcal]], showing that the two
+models are similar but not identical. Once again:
+
+#+begin_src sh
+mrcal-show-projection-diff \
+  --unset key              \
+  opencv8.cameramodel      \
+  splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+# THIS IS GENERATED IN tour-differencing.org
+#+end_src
+
+[[file:external/figures/diff/diff-splined-opencv8.png]]
+
+This uses the default data-selection behavior of [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]]:
+
+- [[#fit-weighting][uncertainties are used to weight the sampled points]]
+- points are sampled from the /whole/ imager (without uncertainties the default
+  behavior is to use a limited region in the center instead)
+
+What if we used all the data in the imager, but weighed them all equally?
+
+#+begin_src sh
+mrcal-show-projection-diff \
+  --unset key              \
+  --no-uncertainties       \
+  --radius 1e6             \
+  --cbmax 50               \
+  opencv8.cameramodel      \
+  splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+mrcal-show-projection-diff           \
+  --unset key                                         \
+  --no-uncertainties       \
+  --radius 1e6             \
+  --cbmax 50               \
+  $D/{opencv8,splined}.cameramodel         \
+  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-splined-opencv8--all-data.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+#+end_src
+
+[[file:external/figures/diff/diff-splined-opencv8--all-data.png]]
+
+Note the completely different color-bar scaling: this difference is huge! The
+reason is that projections of the two models don't just differ due to an implied
+transformation: there's also a significant difference in intrinsics. This
+difference is small near the center, and huge in the corners, so even the
+optimal $\left(R,t\right)$ fits badly. We can solve this problem by either
+
+- [[#fit-weighting][Giving the bad points low weights during the solve]] by using the default
+  behavior, without =--no-uncertainties=. This is described in the next section
+- Excluding the bad points entirely by passing a =--radius=
+
+Let's demonstrate the effect of =--radius=. I re-ran the calibration from the
+[[file:tour.org][tour of mrcal]] using [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV4=]]. This model fits the wide lens even
+worse than the [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]] fits we studied, and is not expected to work
+at all. But it is very good for this demo. If we run this solve, the [[file:formulation.org::#outlier-rejection][outlier
+rejection]] logic kicks in, and makes the solve converge despite the model not
+fitting the data well. The resulting model is available [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/opencv4.cameramodel][here]]. Using an
+insufficient model like this isn't a good way to run calibrations: the outlier
+rejection will throw away the clearly-ill-fitting measurements, but marginal
+measurements will make it through, which will slightly poison the result. I'm
+only doing this for this demo. If you really do want to use an insufficient
+model, and you really do care only about points near the center, you should use
+the [[file:mrcal-cull-corners.html][=mrcal-cull-corners=]] tool to throw away the data you don't care about, prior
+to calibrating.
 
 Let's compute the diff between the narrow-only =LENSMODEL_OPENCV4= lens model
 and the mostly-good-everywhere =LENSMODEL_OPENCV8= model, using an expanding
@@ -227,7 +285,7 @@ for r (200 600 800 1000) {
     --no-uncertainties       \
     --distance 1             \
     --radius $r              \
-    --cbmax 10               \
+    --cbmax 15               \
     --unset key              \
     --extratitle "radius $r" \
     opencv[48].cameramodel
@@ -240,7 +298,7 @@ for r (200 600 800 1000) {
     --no-uncertainties                                           \
     --distance 1                                                 \
     --radius $r                                                  \
-    --cbmax 10                                                   \
+    --cbmax 15                                                   \
     --unset key                                                  \
     --extratitle "radius $r"                                     \
     $D/opencv[48].cameramodel                                    \
@@ -257,9 +315,15 @@ for r (200 600 800 1000) {
 
 [[file:external/figures/diff/diff-radius1000-opencv4-opencv8.png]]
 
-All of these radii are equally "right": the models agree very well in a small
-region at the center; and they also agree in a larger region at the center, if
-we are willing to accept a higher level of error.
+All of these radii are equally "right", and there's a trade-off in picking one.
+The models agree very well in a small region at the center, but they can also
+agree decently well in a much larger region, if we are willing to accept a
+higher level of error in the middle.
+
+For the purposes of computing the implied transform you don't need a lot of
+data, so I generally use a small region in the center, where I have reasonable
+confidence that the intrinsics match. For a camera like this one =--radius 500=
+is usually plenty.
 
 *** Fit weighting
 :PROPERTIES:
@@ -414,9 +478,9 @@ modeling.
 
 We just demonstrated that projection uncertainties provide a working method for
 selecting the points used to fit the implied transformation. From a practical
-standpoint, there's a downside though: computing uncertainties makes the
-differencing method much slower. So while the uncertainty-aware method is
-available in [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]], most of the time I run something like
+standpoint, there's a downside: computing uncertainties makes the differencing
+method much slower. So while the uncertainty-aware method is available in
+[[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]], most of the time I run something like
 =mrcal-show-projection-diff --no-uncertainties --radius 500=. This falls back on
 simply using the points in a 500-pixel-radius circle at the center. This
 computes much faster, and with good-coverage-low-error calibrations usually
