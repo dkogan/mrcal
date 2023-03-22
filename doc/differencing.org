@@ -222,11 +222,12 @@ center.
 
 #+begin_src sh
 # This is a zsh loop
-for r (200 400 600 800 1000) {
+for r (200 600 800 1000) {
   mrcal-show-projection-diff \
     --no-uncertainties       \
     --distance 1             \
     --radius $r              \
+    --cbmax 10               \
     --unset key              \
     --extratitle "radius $r" \
     opencv[48].cameramodel
@@ -234,11 +235,12 @@ for r (200 400 600 800 1000) {
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
-for r (200 400 600 800 1000) {
+for r (200 600 800 1000) {
   ~/projects/mrcal/mrcal-show-projection-diff                    \
     --no-uncertainties                                           \
     --distance 1                                                 \
     --radius $r                                                  \
+    --cbmax 10                                                   \
     --unset key                                                  \
     --extratitle "radius $r"                                     \
     $D/opencv[48].cameramodel                                    \
@@ -248,8 +250,6 @@ for r (200 400 600 800 1000) {
 #+end_src
 
 [[file:external/figures/diff/diff-radius200-opencv4-opencv8.png]]
-
-[[file:external/figures/diff/diff-radius400-opencv4-opencv8.png]]
 
 [[file:external/figures/diff/diff-radius600-opencv4-opencv8.png]]
 
