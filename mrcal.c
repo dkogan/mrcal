@@ -68,14 +68,6 @@
 
 
 
-#define CHECK_CONFIG_NPARAM_NOCONFIG(s,n) \
-    static_assert(n > 0, "no-config implies known-at-compile-time param count");
-#define CHECK_CONFIG_NPARAM_WITHCONFIG(s,n) \
-    static_assert(n <= 0, "Models with a configuration define their parameter counts in LENSMODEL_XXX__lensmodel_num_params(); their compile-time-defined counts are ignored");
-MRCAL_LENSMODEL_NOCONFIG_LIST(  CHECK_CONFIG_NPARAM_NOCONFIG)
-MRCAL_LENSMODEL_WITHCONFIG_LIST(CHECK_CONFIG_NPARAM_WITHCONFIG)
-
-
 // Returns a static string, using "..." as a placeholder for any configuration
 // values
 #define LENSMODEL_PRINT_CFG_ELEMENT_TEMPLATE(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) \
@@ -100,8 +92,9 @@ const char* mrcal_lensmodel_name_unconfigured( const mrcal_lensmodel_t* lensmode
         return #s s_CONFIG_LIST(LENSMODEL_PRINT_CFG_ELEMENT_TEMPLATE, );
 #define CASE_STRING_WITHCONFIG(s,n) _CASE_STRING_WITHCONFIG(s,n,MRCAL_ ## s ## _CONFIG_LIST)
 
-        MRCAL_LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
-        MRCAL_LENSMODEL_WITHCONFIG_LIST( CASE_STRING_WITHCONFIG )
+        MRCAL_LENSMODEL_NOCONFIG_LIST(                   CASE_STRING_NOCONFIG )
+        MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(  CASE_STRING_WITHCONFIG )
+        MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( CASE_STRING_WITHCONFIG )
 
     default:
         assert(0);
@@ -144,8 +137,9 @@ bool mrcal_lensmodel_name( char* out, int size, const mrcal_lensmodel_t* lensmod
 #define CASE_STRING_WITHCONFIG(s,n) case MRCAL_##s: \
         return size > s##__snprintf_model(out, size, &lensmodel->s##__config);
 
-        MRCAL_LENSMODEL_NOCONFIG_LIST(   CASE_STRING_NOCONFIG )
-        MRCAL_LENSMODEL_WITHCONFIG_LIST( CASE_STRING_WITHCONFIG )
+        MRCAL_LENSMODEL_NOCONFIG_LIST(                   CASE_STRING_NOCONFIG )
+        MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(  CASE_STRING_WITHCONFIG )
+        MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( CASE_STRING_WITHCONFIG )
 
     default:
         assert(0);
@@ -190,8 +184,9 @@ const char* const* mrcal_supported_lensmodel_names( void )
 #define NAMESTRING_WITHCONFIG(s,n) _NAMESTRING_WITHCONFIG(s,n,MRCAL_ ## s ## _CONFIG_LIST)
 
     static const char* names[] = {
-        MRCAL_LENSMODEL_NOCONFIG_LIST(  NAMESTRING_NOCONFIG)
-        MRCAL_LENSMODEL_WITHCONFIG_LIST(NAMESTRING_WITHCONFIG)
+        MRCAL_LENSMODEL_NOCONFIG_LIST(                  NAMESTRING_NOCONFIG)
+        MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST( NAMESTRING_WITHCONFIG)
+        MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST(NAMESTRING_WITHCONFIG)
         NULL };
     return names;
 }
@@ -245,8 +240,9 @@ bool mrcal_lensmodel_from_name( // output
         }                                                               \
     }
 
-    MRCAL_LENSMODEL_NOCONFIG_LIST(   CHECK_AND_RETURN_NOCONFIG );
-    MRCAL_LENSMODEL_WITHCONFIG_LIST( CHECK_AND_RETURN_WITHCONFIG );
+    MRCAL_LENSMODEL_NOCONFIG_LIST(                   CHECK_AND_RETURN_NOCONFIG );
+    MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(  CHECK_AND_RETURN_WITHCONFIG );
+    MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( CHECK_AND_RETURN_WITHCONFIG );
 
     *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID};
     return false;
@@ -267,8 +263,9 @@ mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name )
     if( 0 == strcmp( name, #s) ) return MRCAL_##s;                      \
     if( 0 == strncmp( name, #s"_", strlen(#s)+1) ) return MRCAL_##s;
 
-    MRCAL_LENSMODEL_NOCONFIG_LIST(   CHECK_AND_RETURN_NOCONFIG );
-    MRCAL_LENSMODEL_WITHCONFIG_LIST( CHECK_AND_RETURN_WITHCONFIG );
+    MRCAL_LENSMODEL_NOCONFIG_LIST(                   CHECK_AND_RETURN_NOCONFIG );
+    MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(  CHECK_AND_RETURN_WITHCONFIG );
+    MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( CHECK_AND_RETURN_WITHCONFIG );
 
     return MRCAL_LENSMODEL_INVALID;
 
@@ -324,14 +321,6 @@ bool model_supports_projection_behind_camera( const mrcal_lensmodel_t* lensmodel
     return meta.can_project_behind_camera;
 }
 
-static int LENSMODEL_CAHVORE__lensmodel_num_params(const mrcal_LENSMODEL_CAHVORE__config_t* config)
-{
-    /* CAHVORE is CAHVOR + E */
-    return
-        4 + // core
-        5 + // CAHVOR distortion
-        3;  // E
-}
 static int LENSMODEL_SPLINED_STEREOGRAPHIC__lensmodel_num_params(const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config)
 {
     return
@@ -343,16 +332,20 @@ static int LENSMODEL_SPLINED_STEREOGRAPHIC__lensmodel_num_params(const mrcal_LEN
 }
 int mrcal_lensmodel_num_params(const mrcal_lensmodel_t* lensmodel)
 {
+#define CHECK_CONFIG_NPARAM_NOCONFIG(s,n) \
+    static_assert(n >= 0, "no-config implies known-at-compile-time param count");
+
     switch(lensmodel->type)
     {
-#define CASE_NUM_NOCONFIG(s,n)                                          \
+#define CASE_NUM_STATIC(s,n)                                          \
         case MRCAL_##s: return n;
 
-#define CASE_NUM_WITHCONFIG(s,n)                                        \
+#define CASE_NUM_DYNAMIC(s,n)                                         \
         case MRCAL_##s: return s##__lensmodel_num_params(&lensmodel->s##__config);
 
-        MRCAL_LENSMODEL_NOCONFIG_LIST(   CASE_NUM_NOCONFIG )
-        MRCAL_LENSMODEL_WITHCONFIG_LIST( CASE_NUM_WITHCONFIG )
+        MRCAL_LENSMODEL_NOCONFIG_LIST(                   CASE_NUM_STATIC )
+        MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(  CASE_NUM_STATIC )
+        MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( CASE_NUM_DYNAMIC )
 
     default: ;
     }

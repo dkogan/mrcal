@@ -45,7 +45,8 @@ static bool eq_lensmodel(const mrcal_lensmodel_t* a, const mrcal_lensmodel_t* b)
             return false;                                               \
     }
 
-    MRCAL_LENSMODEL_WITHCONFIG_LIST( COMPARE_CONFIG_RETURN_FALSE_IF_NEQ );
+    MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(  COMPARE_CONFIG_RETURN_FALSE_IF_NEQ );
+    MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( COMPARE_CONFIG_RETURN_FALSE_IF_NEQ );
 
     return true;
 }

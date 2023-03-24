@@ -81,4 +81,8 @@ mrcal.show_geometry(), mrcal-show-geometry can plot calibration-time points
 
 mrcal-convert-lensmodel has --cbmax
 
+C API supports mrcal_cameramodel_LENSMODEL_XXXX_t structures
+For models that allow it, these have the right known-at-compile-time size. Makes
+it possible to allocate on the stack, and is generally convenient.
+
 * Migration notes 2.2 -> 2.3

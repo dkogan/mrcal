@@ -20,9 +20,10 @@
 // These are an "X macro": https://en.wikipedia.org/wiki/X_Macro
 //
 // The supported lens models and their parameter counts. Models with a
-// configuration report their parameter counts in the
+// configuration may have a dynamic parameter count; this is indicated here with
+// a <0 value. These models report their parameter counts in the
 // LENSMODEL_XXX__lensmodel_num_params() function, called by
-// mrcal_lensmodel_num_params(). So their parameter counts here are ignored.
+// mrcal_lensmodel_num_params().
 #define MRCAL_LENSMODEL_NOCONFIG_LIST(_)                                         \
     _(LENSMODEL_PINHOLE,               4)                                        \
     _(LENSMODEL_STEREOGRAPHIC,         4)  /* Simple stereographic-only model */ \
@@ -33,12 +34,14 @@
     _(LENSMODEL_OPENCV8,               12)                                       \
     _(LENSMODEL_OPENCV12,              16) /* available in OpenCV >= 3.0.0) */   \
     _(LENSMODEL_CAHVOR,                9)
-#define MRCAL_LENSMODEL_WITHCONFIG_LIST(_)                                       \
-    _(LENSMODEL_CAHVORE,               0)                                        \
-    _(LENSMODEL_SPLINED_STEREOGRAPHIC, 0)
-#define MRCAL_LENSMODEL_LIST(_)                                                  \
-    MRCAL_LENSMODEL_NOCONFIG_LIST(_)                                             \
-    MRCAL_LENSMODEL_WITHCONFIG_LIST(_)
+#define MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(_)                        \
+    _(LENSMODEL_CAHVORE,               12)
+#define MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST(_)                       \
+    _(LENSMODEL_SPLINED_STEREOGRAPHIC, -1)
+#define MRCAL_LENSMODEL_LIST(_)                         \
+    MRCAL_LENSMODEL_NOCONFIG_LIST(_)                    \
+    MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(_)   \
+    MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST(_)
 
 
 // parametric models have no extra configuration
@@ -304,10 +307,29 @@ typedef struct
 
 // structure containing a camera pose + lens model. Used for .cameramodel
 // input/output
+#define MRCAL_CAMERAMODEL_ELEMENTS_NO_INTRINSICS        \
+    double            rt_cam_ref[6];                    \
+    unsigned int      imagersize[2];                    \
+    mrcal_lensmodel_t lensmodel                         \
+
 typedef struct
 {
-    double            rt_cam_ref[6];
-    unsigned int      imagersize[2];
-    mrcal_lensmodel_t lensmodel;
+    MRCAL_CAMERAMODEL_ELEMENTS_NO_INTRINSICS;
     double            intrinsics[];
 } mrcal_cameramodel_t;
+
+
+#define DEFINE_mrcal_cameramodel_MODEL_t(s,n)           \
+typedef union                                           \
+{                                                       \
+    mrcal_cameramodel_t m;                              \
+    struct                                              \
+    {                                                   \
+        MRCAL_CAMERAMODEL_ELEMENTS_NO_INTRINSICS;       \
+        double intrinsics[n];                           \
+    };                                                  \
+} mrcal_cameramodel_ ## s ## _t;
+
+
+MRCAL_LENSMODEL_NOCONFIG_LIST(                 DEFINE_mrcal_cameramodel_MODEL_t)
+MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(DEFINE_mrcal_cameramodel_MODEL_t)
