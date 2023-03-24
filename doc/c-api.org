@@ -81,11 +81,6 @@ These all have direct Python bindings. For instance the Python
 
 The [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]] header serves as the listing of available functions.
 
-* Triangulation
-A number of triangulation routines are available in [[https://www.github.com/dkogan/mrcal/blob/master/triangulation.h][=triangulation.h=]]. These
-estimate the position of the 3D point that produced a given pair of
-observations.
-
 * Lens models
 The lens model structures are defined here:
 
@@ -443,4 +438,9 @@ implement a full mrcal dense stereo pipeline in C. The available functions are:
   compute the rectified images. To apply the maps, and actually remap the
   images, [[https://docs.opencv.org/4.6.0/da/d54/group__imgproc__transform.html#gab75ef31ce5cdfb5c44b6da5f3b908ea4][the OpenCV =cv::remap()= function]] can be used. The Python wrapper is
   [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]], and further documentation is in its docstring
+
+* Triangulation
+A number of triangulation routines are available in [[https://www.github.com/dkogan/mrcal/blob/master/triangulation.h][=triangulation.h=]]. These
+estimate the position of the 3D point that produced a given pair of
+observations.
 
