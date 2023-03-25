@@ -6,7 +6,10 @@ This is useful to analyze the solve. We can generate perfect chessboard
 observations, corrupted with perfect nominal noise to validate the idea that
 differences observed with mrcal-show-projection-diff should be predictive by the
 uncertainties reported by mrcal-show-projection-uncertainty IF the dominant
-source of error is calibration-time sampling error
+source of error is calibration-time sampling error.
+
+By default we write the resulting model to disk into a file
+INPUTMODEL-reoptimized.cameramodel. If --explore, we instead drop into a REPL.
 
 '''
 
@@ -43,12 +46,29 @@ def parse_args():
                         action='store_true',
                         help='''Un-mark the outliers''')
 
+    parser.add_argument('--force', '-f',
+                        action='store_true',
+                        default=False,
+                        help='''By default existing models on disk are not
+                        overwritten. Pass --force to overwrite them without
+                        complaint''')
+    parser.add_argument('--outdir',
+                        type=lambda d: d if os.path.isdir(d) else \
+                        parser.error(f"--outdir requires an existing directory as the arg, but got '{d}'"),
+                        help='''Directory to write the output into. If omitted,
+                        we use the directory of the input model''')
+    parser.add_argument('--explore',
+                        action = 'store_true',
+                        help='''If given, we don't write the reoptimized model
+                        to disk, but drop into a REPL instead ''')
+
     parser.add_argument('model',
                         type=str,
-                        help='''The camera model we read to make the perfect
-                        observations. We get the frame poses and extrinsics from
-                        this model. If --model-intrinsics isn't given, we get
-                        the intrinsics from this model as well''')
+                        help='''The input camera model. If "-", we read standard
+                        input and write to standard output. We get the frame
+                        poses and extrinsics from this model. If
+                        --model-intrinsics isn't given, we get the intrinsics
+                        from this model as well''')
 
     args = parser.parse_args()
 
@@ -62,12 +82,35 @@ args = parse_args()
 
 
 
+# I import the LOCAL mrcal
+sys.path[:0] = f"{os.path.dirname(os.path.realpath(__file__))}/..",
 
 import mrcal
 import numpy as np
 import numpysane as nps
+import time
 
 model = mrcal.cameramodel(args.model)
+
+if args.model == '-':
+    # Input read from stdin. Write output to stdout
+    file_output = sys.stdout
+else:
+    if args.outdir is None:
+        filename_base,extension = os.path.splitext(args.model)
+        file_output = f"{filename_base}-reoptimized{extension}"
+    else:
+        f,extension             = os.path.splitext(args.model)
+        directory,filename_base = os.path.split(f)
+        file_output = f"{args.outdir}/{filename_base}-reoptimized{extension}"
+
+    if os.path.exists(file_output) and not args.force:
+        print(f"ERROR: '{file_output}' already exists. Not overwriting this file. Pass -f to overwrite",
+              file=sys.stderr)
+        sys.exit(1)
+
+
+
 optimization_inputs = model.optimization_inputs()
 if not (optimization_inputs.get('indices_point_camintrinsics_camextrinsics') is None or \
         optimization_inputs['indices_point_camintrinsics_camextrinsics'].size == 0):
@@ -103,6 +146,20 @@ mrcal.optimize(**optimization_inputs)
 
 model = mrcal.cameramodel(optimization_inputs = optimization_inputs,
                           icam_intrinsics     = model.icam_intrinsics())
+
+if not args.explore:
+    note = \
+        "generated on {} with   {}\n". \
+        format(time.strftime("%Y-%m-%d %H:%M:%S"),
+               ' '.join(mrcal.shellquote(s) for s in sys.argv))
+
+    model.write(file_output, note=note)
+    if isinstance(file_output, str):
+        print(f"Wrote '{file_output}'",
+              file=sys.stderr)
+
+    sys.exit(0)
+
 
 print("")
 print("Done. The results are in the 'model' and 'optimization_inputs' variables")
