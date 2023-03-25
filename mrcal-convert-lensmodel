@@ -318,18 +318,18 @@ except Exception as e:
 
 if args.model == '-':
     # Input read from stdin. Write output to stdout
-    filename_output = sys.stdout
+    file_output = sys.stdout
 else:
     if args.outdir is None:
         filename_base,extension = os.path.splitext(args.model)
-        filename_output = f"{filename_base}-{lensmodel_to}{extension}"
+        file_output = f"{filename_base}-{lensmodel_to}{extension}"
     else:
         f,extension             = os.path.splitext(args.model)
         directory,filename_base = os.path.split(f)
-        filename_output = f"{args.outdir}/{filename_base}-{lensmodel_to}{extension}"
+        file_output = f"{args.outdir}/{filename_base}-{lensmodel_to}{extension}"
 
-    if os.path.exists(filename_output) and not args.force:
-        print(f"ERROR: '{filename_output}' already exists. Not overwriting this file. Pass -f to overwrite",
+    if os.path.exists(file_output) and not args.force:
+        print(f"ERROR: '{file_output}' already exists. Not overwriting this file. Pass -f to overwrite",
               file=sys.stderr)
         sys.exit(1)
 
@@ -807,9 +807,9 @@ note = \
     format(time.strftime("%Y-%m-%d %H:%M:%S"),
            ' '.join(mrcal.shellquote(s) for s in sys.argv))
 
-m_to.write(filename_output, note=note)
-if isinstance(filename_output, str):
-    print(f"Wrote '{filename_output}'",
+m_to.write(file_output, note=note)
+if isinstance(file_output, str):
+    print(f"Wrote '{file_output}'",
           file=sys.stderr)
 
 
