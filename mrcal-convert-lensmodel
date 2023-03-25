@@ -256,7 +256,7 @@ def parse_args():
                         nargs='?',
                         type=str,
                         help='''Input camera model. If omitted or "-", we read
-                        standard input''')
+                        standard input and write to standard output''')
 
     args = parser.parse_args()
 
