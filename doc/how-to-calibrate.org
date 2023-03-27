@@ -1348,7 +1348,7 @@ In [8]: model_warped = mrcal.cameramodel(optimization_inputs = optimization_inpu
 In [9]: mrcal.show_projection_diff( (model_perfect_flat,model_warped), )
 #+end_src
 #+begin_src text :exports none :eval no-export
-$ ~/projects/mrcal/mrcal/analyses/mrcal-reoptimize \
+$ ~/projects/mrcal/analyses/mrcal-reoptimize \
     --explore \
     --perfect \
     ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel
@@ -1357,23 +1357,23 @@ Done. The results are in the 'model' and 'optimization_inputs' variables
 
 ...
 
-In [1]: optimization_inputs['do_optimize_calobject_warp'] = False
+optimization_inputs['do_optimize_calobject_warp'] = False
+optimization_inputs['calobject_warp'] = np.array((0.0, 0.0))
+mrcal.make_perfect_observations(optimization_inputs,
+                                observed_pixel_uncertainty = observed_pixel_uncertainty)
+mrcal.optimize(**optimization_inputs)
+model_perfect_flat = mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                                       icam_intrinsics = 0)
 
-In [2]: optimization_inputs['calobject_warp'] = np.array((0.0, 0.0))
-In [3]: mrcal.make_perfect_observations(optimization_inputs,
-                                        observed_pixel_uncertainty = observed_pixel_uncertainty)
-In [4]: mrcal.optimize(**optimization_inputs)
-In [5]: model_perfect_flat = mrcal.cameramodel(optimization_inputs = optimization_inputs,
-                                               icam_intrinsics = 0)
+optimization_inputs['calobject_warp'] = np.array((0.5e-3, -0.5e-3))
+mrcal.optimize(**optimization_inputs)
+model_warped = mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                                 icam_intrinsics = 0)
 
-In [6]: optimization_inputs['calobject_warp'] = np.array((0.5e-3, -0.5e-3))
-In [7]: mrcal.optimize(**optimization_inputs)
-In [8]: model_warped = mrcal.cameramodel(optimization_inputs = optimization_inputs,
-                                         icam_intrinsics = 0)
-
-In [9]: mrcal.show_projection_diff( (model_perfect_flat,model_warped),
-                                    terminal='pngcairo size 1024,768 transparent noenhanced crop font ",12"',
-                                    hardcopy='~/projects/mrcal-doc-external/figures/synthetic-effect-of-boardwarp.png')
+mrcal.show_projection_diff( (model_perfect_flat,model_warped),
+                            unset   ='key',
+                            terminal='pngcairo size 1024,768 transparent noenhanced crop font ",12"',
+                            hardcopy='~/projects/mrcal-doc-external/figures/synthetic-effect-of-boardwarp.png')
 #+end_src
 
 [[file:external/figures/synthetic-effect-of-boardwarp.png]]
