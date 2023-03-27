@@ -137,8 +137,8 @@ recommended rectification function.
 Currently stereo processing is available via the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool. This tool
 implements the usual stereo processing for a single frame.
 
-More complex usages are available via Python APIs (or the C functions in
-[[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.h=]]). A sequence of images captured with a stereo pair can be processed
+More complex usages are available via the Python APIs and the C functions in
+[[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.h=]]. A sequence of images captured with a stereo pair can be processed
 like this:
 
 1. [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] to construct the rectified system defined by the
@@ -166,27 +166,56 @@ some of which require mrcal-specific logic. Specifically:
 1. For successful long-range stereo we need maximum precision in our lens
    models. mrcal supports [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]: a rich model that
    fits real-world lenses better than the lean models used by other tools. This
-   is great, but today, a calibration based on this model cannot be used in any
-   tool other than mrcal.
+   is great, but as of today, mrcal is the only library that knows how to use
+   these models.
 
-2. Furthermore, mrcal can use a [[#stereo-rectification-models][=LENSMODEL_LATLON=]] to describe the rectified
-   system instead of the more traditional pinhole rectification function. This
-   allows nice stereo matching even with wide lenses, but once again: these
-   rectified models and images can only be processed with mrcal.
+2. Furthermore, mrcal can use [[#stereo-rectification-models][=LENSMODEL_LATLON=]] to describe the rectified
+   system instead of the more traditional [[#stereo-rectification-models][=LENSMODEL_PINHOLE=]] rectification
+   function. This allows nice stereo matching even with wide lenses, but once
+   again: these rectified models and images can only be processed with mrcal.
 
-There are several options:
+A common need is to use mrcal's improved methods in projects built around legacy
+stereo processing. This usually means selecting specific chunks of mrcal to
+utilize, and making sure they can function as part of the existing framework.
+Some relevant notes follow.
 
-1. partial mrcal. rectify with mrcal then correlate with something else
-2. fit opencv5 into the splined model, which would lose accuracy
+In my experience, you can usually create /very/ accurate models with
+[[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]: these have very low [[file:uncertainty.org][projection uncertainty]]
+and [[file:tour-cross-validation.org][cross-validation diffs]]. Even if these models are not supported in the
+production system, it is worth solving with them to serve as a ground truth. An
+additional solve can be done to calibrate using whatever model is supported, and
+a [[file:differencing.org][difference]] can be computed to estimate the projection errors we expect from
+the insufficient lens model. The models usually fit OK near the center, with the
+errors [[file:differencing.org::#fitting-data-selection\]\[file:~/projects/mrcal/doc/differencing.org::#fitting-data-selection][increasing as we include more and more of the imager towards the corners]].
+Keep in mind that these errors are correlated with each other, and are present
+with each observation, so they will not average out, and will produce a bias.
+
+To be certain about how much error results from the insufficient lens model,
+[[file:how-to-calibrate.org::#simulating-perfect-data][generate perfect data using the splined solve, and reoptimize it with the
+production model]]. This will tell you unambiguously how much error you get due
+to the lens-model-fitting issues alone.
+
+
+
+** Work with a lean model, using the splined model as ground truth
+fit opencv5 into the splined model, which would lose accuracy
      http://mrcal.secretsauce.net/mrcal-convert-lensmodel.html
 
-   You can throw out corners. You get a tradeoff between fov/accuracy
+   You can throw out corners. You get a tradeoff between fov/accuracy. See the
+   differencing page.
 
-3. fit and reproject
+** Fit, reproject to a lean model
      http://mrcal.secretsauce.net/mrcal-convert-lensmodel.html
      http://mrcal.secretsauce.net/mrcal-reproject-image.html
 
-* Stereo rectification outside of mrcal
+** Rectify with mrcal, correlate with the legacy tool
+Calibrate using the accurate [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] models. Use
+   the undistorted [[#stereo-rectification-models][=LENSMODEL_LATLON=]] rectification. Then the rectified images
+   can be processed with any correlator, and the resulting disparities would be
+   processed by mrcal to convert to ranges
+
+** other
+
 As a toolkit, mrcal is fairly flexible, so I want to show how one could perform
 stereo processing using other tools a part of the pipeline, rather than letting
 [[file:mrcal-stereo.html][=mrcal-stereo=]] do all the work.

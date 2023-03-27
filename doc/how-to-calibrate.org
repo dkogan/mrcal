@@ -1303,6 +1303,9 @@ tilted chessboard observations usually show very consistent residual vectors
 along the far edge of the chessboard.
 
 ** Identifying sources of calibration error through simulation
+:PROPERTIES:
+:CUSTOM_ID: simulating-perfect-data
+:END:
 We talked about how to infer causes of calibration errors by looking at
 residuals. This is a heuristic process that is usually effective at identifying
 issues. Other useful techniques are available as well: we can quantify the
