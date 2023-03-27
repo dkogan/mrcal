@@ -315,7 +315,13 @@ typedef struct
 typedef struct
 {
     MRCAL_CAMERAMODEL_ELEMENTS_NO_INTRINSICS;
-    double            intrinsics[];
+    // mrcal_cameramodel_t works for all lensmodels, so its intrinsics count is
+    // not known at compile time. mrcal_cameramodel_t is thus usable only as
+    // part of a larger structure or as a mrcal_cameramodel_t* argument to
+    // functions. To allocate new mrcal_cameramodel_t objects, use
+    // mrcal_cameramodel_LENSMODEL_XXX_t or malloc() with the proper intrinsics
+    // size taken into account
+    double            intrinsics[0];
 } mrcal_cameramodel_t;
 
 
