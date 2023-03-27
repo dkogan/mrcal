@@ -85,4 +85,6 @@ C API supports mrcal_cameramodel_LENSMODEL_XXXX_t structures
 For models that allow it, these have the right known-at-compile-time size. Makes
 it possible to allocate on the stack, and is generally convenient.
 
+mrcal-stereo gui displays both the rectified and input coordinates
+
 * Migration notes 2.2 -> 2.3
