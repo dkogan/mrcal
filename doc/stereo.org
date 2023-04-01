@@ -182,31 +182,48 @@ Some relevant notes follow.
 In my experience, you can usually create /very/ accurate models with
 [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]: these have very low [[file:uncertainty.org][projection uncertainty]]
 and [[file:tour-cross-validation.org][cross-validation diffs]]. Even if these models are not supported in the
-production system, it is worth solving with them to serve as a ground truth. An
-additional solve can be done to calibrate using whatever model is supported, and
-a [[file:differencing.org][difference]] can be computed to estimate the projection errors we expect from
-the insufficient lens model. The models usually fit OK near the center, with the
-errors [[file:differencing.org::#fitting-data-selection][increasing as we include more and more of the imager towards the corners]].
-Keep in mind that these errors are correlated with each other, and are present
-with each observation, so they will not average out, and will produce a bias.
+production system, it is worth solving with them to serve as a ground truth.
 
-To be certain about how much error results from the insufficient lens model,
-[[file:how-to-calibrate.org::#simulating-perfect-data][generate perfect data using the splined solve, and reoptimize it with the
-production model]]. This will tell you unambiguously how much error you get due
-to the lens-model-fitting issues alone.
+** Utilizing a too-lean production model
+If we calibrated with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get a ground truth,
+we can recalibrate using the same data for whatever model is supported. And a
+[[file:differencing.org][difference]] can be computed to estimate the projection errors we expect from this
+production lens model. There's a trade-off between how well the production model
+fits and how much data is included in the calibration: the fit is usually good
+near the center, with the errors [[file:differencing.org::#fitting-data-selection][increasing as we include more and more of the
+imager towards the corners]]. If we only care about a region in the center, we
+should cull out the unneeded with, for instance, the [[file:mrcal-cull-corners.html][=mrcal-cull-corners=]] tool.
+This would make the production model fit better in the area we care about.
 
+Keep in mind that these lens-model errors are correlated with each other when we
+look at observations across the imager. And these errors are present in each
+observation, so they will not average out, and they will produce a bias in
+whatever these observations are ultimately used for.
 
+To be certain about how much error results from the production lens model alone,
+you can [[file:how-to-calibrate.org::#simulating-perfect-data][generate perfect data using the splined solve, and reoptimize it with
+the production model]]. This reports unambiguously the error due to the
+lens-model-fitting issues in isolation.
 
-** Work with a lean model, using the splined model as ground truth
-fit opencv5 into the splined model, which would lose accuracy
-     http://mrcal.secretsauce.net/mrcal-convert-lensmodel.html
+** Reprojecting to a lean production model
+It is possible to use a lean camera model /and/ get the full accuracy of
+[[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] if we spend a bit of computation time:
 
-   You can throw out corners. You get a tradeoff between fov/accuracy. See the
-   differencing page.
+1. Calibrate with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get the ground truth
+2. Compute an acceptable production model that is close-ish to the ground truth.
+   This doesn't need to be perfect
+3. During operation of the system, reproject each captured image from the
+   splined model to the production model using, for instance, the
+   [[file:mrcal-reproject-image.html][=mrcal-reproject-image=]] tool.
+4. Everything downstream of the image capture should be given the production
+   model and the reprojected image
 
-** Fit, reproject to a lean model
-     http://mrcal.secretsauce.net/mrcal-convert-lensmodel.html
-     http://mrcal.secretsauce.net/mrcal-reproject-image.html
+The (production model, reprojected image) pair describes the same scene as the
+(splined model, captured image) pair. The downsides of doing this are the
+quantization errors that result from resampling the input image and the
+computation time. If we don't care about computation time, the production model
+we resample to can use a higher resolution than the original image, which would
+reduce the quantization errors.
 
 ** Rectify with mrcal, correlate with the legacy tool
 Calibrate using the accurate [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] models. Use
