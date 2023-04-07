@@ -87,4 +87,6 @@ it possible to allocate on the stack, and is generally convenient.
 
 mrcal-stereo gui displays both the rectified and input coordinates
 
+demo mrcal-show-model-resolution.py tool
+
 * Migration notes 2.2 -> 2.3
