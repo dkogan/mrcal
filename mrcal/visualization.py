@@ -653,12 +653,16 @@ plot
     return (data_tuples, plot_options)
 
 
-def _options_heatmap_with_contours( # update these
-                                    plotoptions,
+def _options_heatmap_with_contours( plotoptions, # we update this on output
 
-                                    contour_max, contour_increment,
-                                    imagersize, gridn_width, gridn_height,
-                                    contours              = True,
+                                    *,
+                                    contour_min           = 0,
+                                    contour_max,
+                                    contour_increment     = None,
+                                    imagersize,
+                                    gridn_width,
+                                    gridn_height,
+                                    do_contours           = True,
                                     contour_labels_styles = 'boxed',
                                     contour_labels_font   = None):
     r'''Update plotoptions, return curveoptions for a contoured heat map'''
@@ -670,13 +674,13 @@ def _options_heatmap_with_contours( # update these
                        ('view equal xy',
                         'view map'))
 
-    if contours:
+    if do_contours:
         if contour_increment is None:
             # Compute a "nice" contour increment. I pick a round number that gives
             # me a reasonable number of contours
 
             Nwant = 10
-            increment = contour_max/Nwant
+            increment = (contour_max - contour_min)/Nwant
 
             # I find the nearest 1eX or 2eX or 5eX
             base10_floor = np.power(10., np.floor(np.log10(increment)))
@@ -691,14 +695,14 @@ def _options_heatmap_with_contours( # update these
                            ('key box opaque',
                             'style textbox opaque',
                             'contour base',
-                            f'cntrparam levels incremental {contour_max},{contour_increment},0'))
+                            f'cntrparam levels incremental {contour_max},{contour_increment},{contour_min}'))
 
         if contour_labels_font is not None:
             gp.add_plot_option(plotoptions,
                                'set',
                                f'cntrlabel font "{contour_labels_font}"' )
 
-        plotoptions['cbrange'] = [0, contour_max]
+        plotoptions['cbrange'] = [contour_min, contour_max]
 
         # I plot 3 times:
         # - to make the heat map
@@ -1232,10 +1236,11 @@ A tuple:
                 # update these plot options
                 kwargs,
 
-                cbmax, None,
-                models[0].imagersize(),
-                gridn_width, gridn_height,
-                contours = not directions)
+                contour_max  = cbmax,
+                imagersize   = models[0].imagersize(),
+                gridn_width  = gridn_width,
+                gridn_height = gridn_height,
+                do_contours  = not directions)
 
         plot_data_args = [ (color, curve_options) ]
 
@@ -1488,12 +1493,15 @@ plot
         kwargs['title'] = title
 
     curveoptions = \
-        _options_heatmap_with_contours( # update these plot options
+        _options_heatmap_with_contours(
+            # update these plot options
             kwargs,
 
-            cbmax, contour_increment,
-            model.imagersize(),
-            gridn_width, gridn_height,
+            contour_max           = cbmax,
+            contour_increment     = contour_increment,
+            imagersize            = model.imagersize(),
+            gridn_width           = gridn_width,
+            gridn_height          = gridn_height,
             contour_labels_styles = contour_labels_styles,
             contour_labels_font   = contour_labels_font)
 
@@ -2053,12 +2061,14 @@ plot
 
     if not vectorfield:
         curveoptions = \
-            _options_heatmap_with_contours( # update these plot options
+            _options_heatmap_with_contours(
+                # update these plot options
                 kwargs,
 
-                cbmax, None,
-                imagersize,
-                gridn_width, gridn_height)
+                contour_max  = cbmax,
+                imagersize   = imagersize,
+                gridn_width  = gridn_width,
+                gridn_height = gridn_height)
         delta = dgrid-grid
 
         # shape: gridn_height,gridn_width. Because numpy (and thus gnuplotlib) want it that
