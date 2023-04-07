@@ -190,12 +190,12 @@ should catch any differences.
         #     # independently for the az and el directions
         #     def rotation_any_v_to_z(v):
         #         r'''Return any rotation matrix that maps the given unit vector v to [0,0,1]'''
-        #         z = v
-        #         if np.abs(v[0]) < .9:
+        #         z = v/nps.mag(v)
+        #         if np.abs(z[0]) < .9:
         #             x = np.array((1,0,0))
         #         else:
         #             x = np.array((0,1,0))
-        #         x -= nps.inner(x,v)*v
+        #         x -= nps.inner(x,z)*z
         #         x /= nps.mag(x)
         #         y = np.cross(z,x)
         #         return nps.cat(x,y,z)
