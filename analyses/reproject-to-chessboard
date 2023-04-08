@@ -182,7 +182,7 @@ for i in range(len(ifcice)):
                    color     = red,
                    thickness = 2)
 
-    imagepath_out = f"{args.outdir}/chessboard-{os.path.basename(imagepath)}"
+    imagepath_out = f"{args.outdir}/{os.path.basename(imagepath)}"
     if not args.force and os.path.exists(imagepath_out):
         print("File already exists: '{imagepath_out}'. Not overwriting; pass --force to overwrite. Giving up.",
               file=sys.stderr)
