@@ -54,6 +54,12 @@ def parse_args():
                         help='''The resolution of the output image in pixels/m.
                         Defaults to 1000''')
 
+    parser.add_argument('--force', '-f',
+                        action='store_true',
+                        default=False,
+                        help='''By default existing files are not overwritten. Pass --force to overwrite them
+                        without complaint''')
+
     parser.add_argument('model',
                         type=str,
                         help='''The input camera model. We use its
@@ -175,6 +181,10 @@ for i in range(len(ifcice)):
                    color     = red,
                    thickness = 2)
 
-    imagepath_out = f"{args.outdir}/{i:05d}.jpg"
+    imagepath_out = f"{args.outdir}/chessboard-{os.path.basename(imagepath)}"
+    if not args.force and os.path.exists(imagepath_out):
+        print("File already exists: '{imagepath_out}'. Not overwriting; pass --force to overwrite. Giving up.",
+              file=sys.stderr)
+        sys.exit(1)
     mrcal.save_image(imagepath_out, image_out)
     print(f"Wrote '{imagepath_out}'")
