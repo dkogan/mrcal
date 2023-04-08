@@ -226,26 +226,141 @@ mount. Any mechanical stresses wouldn't affect the intrinsics, but the
 extrinsics /would/ shift. Evaluation of this motion is described on the [[file:differencing.org::*Extrinsics
 differences][differencing page]].
 
+* Interoperating with other tools
+Any application that uses camera models is composed of multiple steps, some of
+which would benefit from mrcal-specific logic. Specifically:
 
-* more                                                             :noexport:
-** Using models in tools that don't support them
+1. For successful long-range triangulation or stereo we need maximum precision
+   in our lens models. mrcal supports [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]: a rich
+   model that fits real-world lenses better than the lean models used by other
+   tools. This is great, but as of today, mrcal is the only library that knows
+   how to use these models.
+
+2. Furthermore, mrcal can use [[file:stereo.org::#stereo-rectification-models][=LENSMODEL_LATLON=]] to describe the rectified
+   system instead of the more traditional [[file:stereo.org::#stereo-rectification-models][=LENSMODEL_PINHOLE= rectification
+   function]]. This allows nice stereo matching even with wide lenses, but once
+   again: these rectified models and images can only be processed with mrcal.
+
+A common need is to use mrcal's improved methods in projects built around legacy
+stereo processing. This usually means selecting specific chunks of mrcal to
+utilize, and making sure they can function as part of the existing framework.
+Some relevant notes follow.
+
+You can create /very/ accurate models with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]:
+these have very low [[file:uncertainty.org][projection uncertainty]] and [[file:tour-cross-validation.org][cross-validation diffs]]. Even if
+these models are not supported in the production system, it is worth solving
+with them to serve as a ground truth.
+
+** Utilizing a too-lean production model
+If we calibrated with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get a ground truth,
+we can recalibrate using the same data for whatever model is supported. A
+[[file:differencing.org][difference]] can be computed to estimate the projection errors we expect from this
+production lens model. There's a trade-off between how well the production model
+fits and how much data is included in the calibration: the fit is usually good
+near the center, with the errors [[file:differencing.org::#fitting-data-selection][increasing as we include more and more of the
+imager towards the corners]]. If we only care about a region in the center, we
+should cull the unneeded points with, for instance, the [[file:mrcal-cull-corners.html][=mrcal-cull-corners=]]
+tool. This would make the production model fit better in the area we care about.
+
+Keep in mind that these lens-model errors are correlated with each other when we
+look at observations across the imager. And these errors are present in each
+observation, so they're correlated across time as well. So these errors will
+/not/ average out, and they will produce a bias in whatever these observations
+are ultimately used for.
+
+To be certain about how much error results from the production lens model alone,
+you can [[file:how-to-calibrate.org::#simulating-perfect-data][generate perfect data using the splined solve, and reoptimize it with
+the production model]]. This reports unambiguously the error due to the
+lens-model-fitting issues in isolation.
+
+** Reprojecting to a lean production model
+It is possible to use a lean camera model /and/ get the full accuracy of
+[[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] if we spend a bit of computation time:
+
+1. Calibrate with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get the ground truth
+2. Compute an acceptable production model that is close-ish to the ground truth.
+   This doesn't need to be perfect
+3. During operation of the system, reproject each captured image from the
+   splined model to the production model using, for instance, the
+   [[file:mrcal-reproject-image.html][=mrcal-reproject-image=]] tool.
+4. Everything downstream of the image capture should be given the production
+   model and the reprojected image
+
+The (production model, reprojected image) pair describes the same scene as the
+(splined model, captured image) pair. The downsides of doing this are the
+quantization errors that result from resampling the input image and the
+computation time. If we don't care about computation time at all, the production
+model can use a higher resolution than the original image, which would reduce
+the quantization errors.
+
+** Using the [[file:stereo.org::#stereo-rectification-models][=LENSMODEL_LATLON= rectification model]]
+To utilize the wide-lens-friendly [[file:stereo.org::#stereo-rectification-models][=LENSMODEL_LATLON= rectification model]], mrcal
+must be involved in computing the rectified system and in converting disparity
+values to ranges. There's usually little reason for the application to use the
+rectified models and disparities for anything other than computing ranges, so
+swapping in the mrcal logic here usually isn't effortful.
+
+* Surveyed calibration
 :PROPERTIES:
-:CUSTOM_ID: unsupported-models
+:CUSTOM_ID: surveyed-calibration
 :END:
 
-Suppose you computed some very accurate calibrations using a [[file:splined-models.org][mrcal splined
-model]], and you want to use them in a non-mrcal-aware tool. This tools cannot
-use the mrcal splined models, so there are several options to take advantage
+Usually cameras are calibrated by observing a moving calibration object with
+stationary cameras. This is not the only possible scheme, and mrcal supports
+others. A /surveyed/ calibration is one where the poses of the objects being
+observed are pre-determined (by surveying them, for instance). Then we get a
+simplified calibration problem:
 
-1. partial mrcal. rectify with mrcal then correlate with something else
-2. fit opencv5 into the splined model, which would lose accuracy
-     http://mrcal.secretsauce.net/mrcal-convert-lensmodel.html
+- Camera is stationary, with a non-fixed pose: we solve for it
+- Each point in space being observed has a fixed position. This is assumed to be
+  known perfectly
 
-   You can throw out corners. You get a tradeoff between fov/accuracy
+Note that since the objects being observed are fixed, there is no interaction
+between the multiple cameras being calibrated. So a multi-camera surveyed
+calibration can be solved by computing several independent monocular
+calibrations.
 
-3. fit and reproject
-     http://mrcal.secretsauce.net/mrcal-convert-lensmodel.html
-     http://mrcal.secretsauce.net/mrcal-reproject-image.html
+Furthermore, it doesn't matter if we're observing chessboards or discrete points
+or both: everything being observed has a known, fixed position. So when solving
+these problems we call =mrcal.optimize(...)= with
+
+- =frames_rt_toref= and =points= placing the observed objects
+- =do_optimize_frames = True= to tell the optimization to fix them in space
+  instead of optimizing
+
+uncertainty poor. not enough data.
+
+This
+
+m-c-c
+
+Should show that you want multiple ranges of chessboards.
+Unsurveyed is similar: you want tilted observations, which give you multiple
+ranges at the same time.
+
+#+begin_src sh
+for z (2 8) { for seed (0 1) {
+  test/test-surveyed-calibration.py \
+    --seed-rng $seed \
+    --z-ref-board0 $z \
+    --write-model /tmp/surveyed-solve-z$z-seed$seed.cameramodel
+} }
+#+end_src
+
+* [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]
+xxx
+
+* reproject-to-board
+
+useful to find chessboard detection issues. circles.
+
+* more                                                             :noexport:
+
+chessboard video
+
+show scene range error due to calibration
+
+resolution tool
 
 ** CUSTOM_IDs linked to this document
 Obtained like this:
