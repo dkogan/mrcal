@@ -7,9 +7,9 @@ SYNOPSIS
 
   D=../mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity;
 
-  analyses/reproject-to-chessboard \
-    --image-directory $D/images    \
-    --outdir /tmp/frames-splined   \
+  analyses/mrcal-reproject-to-chessboard \
+    --image-directory $D/images          \
+    --outdir /tmp/frames-splined         \
     $D/splined.cameramodel
 
 Outliers are highlighted. This is useful to visualize calibration errors. A
