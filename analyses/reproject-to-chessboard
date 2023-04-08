@@ -152,13 +152,14 @@ for i in range(len(ifcice)):
     elif args.image_directory is not None:
         imagepath = f"{args.image_directory}/{os.path.basename(imagepath)}"
 
-    if not os.path.exists(imagepath):
+    try:
+        image = mrcal.load_image(imagepath,
+                                 bits_per_pixel = 24,
+                                 channels       = 3)
+    except:
         print(f"Couldn't read image at '{imagepath}'", file=sys.stderr)
         sys.exit(1)
 
-    image     = mrcal.load_image(imagepath,
-                                 bits_per_pixel = 24,
-                                 channels       = 3)
     image_out = mrcal.transform_image(image,q)
 
     # shape (Ny,Nx)
