@@ -133,133 +133,29 @@ algorithm has to match image patches with widely different resolutions.
 =LENSMODEL_LATLON= solves all these issues with no down sides, and is thus the
 recommended rectification function.
 
-* Interfaces
-Currently stereo processing is available via the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool. This tool
-implements the usual stereo processing for a single frame.
-
-More complex usages are available via the Python APIs and the C functions in
-[[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.h=]]. A sequence of images captured with a stereo pair can be processed
-like this:
-
-1. [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] to construct the rectified system defined by the
-   stereo pair
-2. [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]] to construct the pixel mappings needed to
-   transform captured images into rectified images. This is relatively slow, but
-   it depends on the relative stereo geometry only, so this can be computed
-   once, and applied to /all/ the subsequent images captured by the stereo pair
-3. For each pair of captured images
-   - [[file:mrcal-python-api-reference.html#-transform_image][=mrcal.transform_image()=]] to generate rectified images
-   - stereo matching to compute disparities. mrcal does not provide its own
-     method, and the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool uses the [[https://docs.opencv.org/4.5.3/d2/d85/classcv_1_1StereoSGBM.html][OpenCV SGBM stereo matcher]].
-     Any stereo matcher can be used. The result is a /disparity/ image, where
-     each pixel in the first rectified image is mapped to a corresponding pixel
-     offset from the same feature in the second rectified image
-   - [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]] to convert the disparities to ranges, which can then
-     be used to produce a point cloud
-
-A demo of the process if shown in the [[file:tour-stereo.org][tour of mrcal]].
-
-* Interoperating with other tools
-As described above, the full dense-stereo sequence is composed of many steps,
-some of which require mrcal-specific logic. Specifically:
-
-1. For successful long-range stereo we need maximum precision in our lens
-   models. mrcal supports [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]: a rich model that
-   fits real-world lenses better than the lean models used by other tools. This
-   is great, but as of today, mrcal is the only library that knows how to use
-   these models.
-
-2. Furthermore, mrcal can use [[#stereo-rectification-models][=LENSMODEL_LATLON=]] to describe the rectified
-   system instead of the more traditional [[#stereo-rectification-models][=LENSMODEL_PINHOLE=]] rectification
-   function. This allows nice stereo matching even with wide lenses, but once
-   again: these rectified models and images can only be processed with mrcal.
-
-A common need is to use mrcal's improved methods in projects built around legacy
-stereo processing. This usually means selecting specific chunks of mrcal to
-utilize, and making sure they can function as part of the existing framework.
-Some relevant notes follow.
-
-You can create /very/ accurate models with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]:
-these have very low [[file:uncertainty.org][projection uncertainty]] and [[file:tour-cross-validation.org][cross-validation diffs]]. Even if
-these models are not supported in the production system, it is worth solving
-with them to serve as a ground truth.
-
-** Utilizing a too-lean production model
-If we calibrated with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get a ground truth,
-we can recalibrate using the same data for whatever model is supported. A
-[[file:differencing.org][difference]] can be computed to estimate the projection errors we expect from this
-production lens model. There's a trade-off between how well the production model
-fits and how much data is included in the calibration: the fit is usually good
-near the center, with the errors [[file:differencing.org::#fitting-data-selection][increasing as we include more and more of the
-imager towards the corners]]. If we only care about a region in the center, we
-should cull the unneeded points with, for instance, the [[file:mrcal-cull-corners.html][=mrcal-cull-corners=]]
-tool. This would make the production model fit better in the area we care about.
-
-Keep in mind that these lens-model errors are correlated with each other when we
-look at observations across the imager. And these errors are present in each
-observation, so they're correlated across time as well. So these errors will
-/not/ average out, and they will produce a bias in whatever these observations
-are ultimately used for.
-
-To be certain about how much error results from the production lens model alone,
-you can [[file:how-to-calibrate.org::#simulating-perfect-data][generate perfect data using the splined solve, and reoptimize it with
-the production model]]. This reports unambiguously the error due to the
-lens-model-fitting issues in isolation.
-
-** Reprojecting to a lean production model
-It is possible to use a lean camera model /and/ get the full accuracy of
-[[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] if we spend a bit of computation time:
-
-1. Calibrate with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get the ground truth
-2. Compute an acceptable production model that is close-ish to the ground truth.
-   This doesn't need to be perfect
-3. During operation of the system, reproject each captured image from the
-   splined model to the production model using, for instance, the
-   [[file:mrcal-reproject-image.html][=mrcal-reproject-image=]] tool.
-4. Everything downstream of the image capture should be given the production
-   model and the reprojected image
-
-The (production model, reprojected image) pair describes the same scene as the
-(splined model, captured image) pair. The downsides of doing this are the
-quantization errors that result from resampling the input image and the
-computation time. If we don't care about computation time at all, the production
-model can use a higher resolution than the original image, which would reduce
-the quantization errors.
-
-** Rectify with mrcal, correlate with the legacy tool
-Calibrate using the accurate [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] models. Use
-   the undistorted [[#stereo-rectification-models][=LENSMODEL_LATLON=]] rectification. Then the rectified images
-   can be processed with any correlator, and the resulting disparities would be
-   processed by mrcal to convert to ranges
-
-** other
-
-As a toolkit, mrcal is fairly flexible, so I want to show how one could perform
-stereo processing using other tools a part of the pipeline, rather than letting
-[[file:mrcal-stereo.html][=mrcal-stereo=]] do all the work.
-
-What if we want to do our stereo processing with some other tool, and what if
-that tool doesn't support the splined model we want to use? We can use mrcal to
-reproject the image to whatever model we like, and then hand off the processed
-image and new models to that tool. Let's demonstrate with a pinhole model.
-
-
 * Splitting a wide view into multiple narrow views
-We just showed one way to use jplv to handle mrcal lenses, but we had to pay a
-price of degraded feature-matching accuracy due to unevenly-scaled rectified
-images. A way to do pinhole-rectified stereo while handling the geometric
-challenges of wide-angle lenses is to subdivide the wide field of view into
-multiple narrower virtual views. Then we'd have several narrow-angle stereo
-pairs instead of a single wide stereo pair, and each narrow pair can be
-processed with pinhole rectification. [[file:mrcal-stereo.html][=mrcal-stereo=]] can do all the work. Let's
-look 45 degrees to the left:
+We just showed that [[file:lensmodels.org::#lensmodel-pinhole][=LENSMODEL_PINHOLE=]] isn't great at rectifying wide lenses.
+But what if we really must use [[file:lensmodels.org::#lensmodel-pinhole][=LENSMODEL_PINHOLE=]] rectification and we really
+don't want to suffer the resulting distortions? One solution is to subdivide the
+wide field of view into multiple narrower virtual views. Then we'd have several
+narrow-angle stereo pairs instead of a single wide stereo pair, and each narrow
+pair can be processed with pinhole rectification. [[file:mrcal-stereo.html][=mrcal-stereo=]] can do all the
+work. Let's look 45 degrees to the left:
+
+
+
+
+xxxxxxxxxx
+
+LOOK AT HOW DISTORTED THE PINHOLE STEREO WAS. I CAN SUBDIVIDE IT, AND IT WORKS
+
 
 #+begin_src sh
 mrcal-stereo                        \
   --rectification LENSMODEL_PINHOLE \
   --az-fov-deg 80                   \
   --el-fov-deg 80                   \
-  --az0-deg    -45                  \
+  --az0-deg   -45                   \
   --disparity-range 0 200           \
   --sgbm-p1 600                     \
   --sgbm-p2 2400                    \
@@ -353,4 +249,30 @@ $PYTHONPATH/mrcal-stereo                                            \
 #+end_src
 
 [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/stereo-rectified-system-narrow.svg]]
+
+* Interfaces
+Currently stereo processing is available via the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool. This tool
+implements the usual stereo processing for a single frame.
+
+More complex usages are available via the Python APIs and the C functions in
+[[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.h=]]. A sequence of images captured with a stereo pair can be processed
+like this:
+
+1. [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] to construct the rectified system defined by the
+   stereo pair
+2. [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]] to construct the pixel mappings needed to
+   transform captured images into rectified images. This is relatively slow, but
+   it depends on the relative stereo geometry only, so this can be computed
+   once, and applied to /all/ the subsequent images captured by the stereo pair
+3. For each pair of captured images
+   - [[file:mrcal-python-api-reference.html#-transform_image][=mrcal.transform_image()=]] to generate rectified images
+   - stereo matching to compute disparities. mrcal does not provide its own
+     method, and the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool uses the [[https://docs.opencv.org/4.5.3/d2/d85/classcv_1_1StereoSGBM.html][OpenCV SGBM stereo matcher]].
+     Any stereo matcher can be used. The result is a /disparity/ image, where
+     each pixel in the first rectified image is mapped to a corresponding pixel
+     offset from the same feature in the second rectified image
+   - [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]] to convert the disparities to ranges, which can then
+     be used to produce a point cloud
+
+A demo of the process if shown in the [[file:tour-stereo.org][tour of mrcal]].
 
