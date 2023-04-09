@@ -178,9 +178,20 @@ mappings to mrcal.
 :PROPERTIES:
 :CUSTOM_ID: corner-detector
 :END:
-Most of my testing was done using the [[https://github.com/dkogan/mrgingham][mrgingham]] chessboard corner detector, so I
-go into more detail describing that approach. See the [[file:recipes.org::#non-mrgingham-detector][recipes]] for notes about
-using other detectors.
+
+[[https://en.wikipedia.org/wiki/Chessboard_detection][A number of tools]] are available to detect chessboard corners. These did not work
+well for my use cases, so I recommend [[https://github.com/dkogan/mrgingham/][=mrgingham=]] for all corner detections.
+mrgingham is fast and is able to find chessboard corners subject to very
+un-pinhole-like projections. At this time it has two limitations that will be
+lifted eventually:
+
+- It more or less assumes a regular grid of N-by-N corners (i.e. N+1-by-N+1
+  squares)
+- It requires /all/ the corners to be observed in order to report the detections
+  from an image. Incomplete chessboard observations aren't supported
+
+If these are unacceptable, any other detector may be used instead. See the
+[[file:recipes.org::#non-mrgingham-detector][recipes]].
 
 ** Using mrgingham
 Once mrgingham is [[file:install.org][installed]] or built from [[https://github.com/dkogan/mrgingham][source]], it can be run by calling the
@@ -205,6 +216,34 @@ held with a flat edge parallel to the camera xz plane (parallel to the ground,
 usually). mrgingham looks for vertical and horizontal sequences of corners, but
 if the board is rotated diagonally, then none of these sequences are clearly
 "horizontal" or "vertical".
+
+** Choice of calibration object
+When given an image of a /chessboard/, the detector is directly observing the
+feature we actually care about: the corner. Another common calibration board
+style is a grid of circles, where the feature of interest is the center of each
+circle. When given an image of such a grid of circles, the detector either
+
+- detects the contour at the edge of each circle
+- finds the pixel blob comprising each circle observation
+
+and from either of these, the detector infers the circle center. This can work
+when looking at head-on images, but when given tilted images subjected to
+non-pinhole lens behaviors, getting accurate circle centers from outer contours
+or blobs is /hard/. The resulting inaccuracies in the detections of circle
+centers will introduce biases into the solve that aren't modeled by the
+[[file:uncertainty.org::#noise-model][projection uncertainty routine]], so chessboards are /strongly/ recommended in
+favor of circle grids.
+
+Some other calibration objects use [[https://april.eecs.umich.edu/software/apriltag][AprilTags]]. mrcal [[#noise-model][assumes independent noise]] on
+each point observation, so correlated sources of point observations are also not
+appropriate sources of data. Thus using individual corners of AprilTags will be
+un-ideal: their noise is correlated. Using the /center/ of an AprilTag would
+eliminate this correlated noise, but maybe would have a similar inaccuracy
+problem that a grid of circles would have.
+
+If using a possibly-problematic calibration object such as a grid of circles or
+AprilTags, double-check the detections by [[file:recipes.org::#reproject-to-chessboard][reprojecting to calibration-object
+space]] after a solve has completed.
 
 ** Visualization
 :PROPERTIES:
@@ -1321,7 +1360,7 @@ you placed a straight edge across your chessboard, and you see a deflection at
 the center of ~ 3mm. mrcal doesn't assume a flat chessboard, but its deformation
 model is simple, and even in this case it can be off by 1mm. Let's hypothesize
 that the board deflection is 0.5mm horizontally and 0.5mm vertically, in the
-other direction. We can then use the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-reoptimize][=mrcal-reoptimize=]] tool to quantify the
+other direction. We can then use the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-reoptimize][=mrcal-reoptimize= tool]] to quantify the
 resulting error (let's look at the solve from [[file:tour-initial-calibration.org][the tour of mrcal]]):
 
 #+begin_src text
@@ -1380,7 +1419,6 @@ mrcal.show_projection_diff( (model_perfect_flat,model_warped),
 #+end_src
 
 [[file:external/figures/synthetic-effect-of-boardwarp.png]]
-
 
 This tool is still experimental, so it's not included in a mrcal installation,
 and currently has to be invoked from source. It is useful because it allows us

@@ -115,44 +115,9 @@ observable points, possibly with a small amount of [[#board-deformation][deforma
 object is a chessboard-like grid of black and white squares, where the observed
 points are at the corner of each square.
 
-** Chessboard corner detector
-:PROPERTIES:
-:CUSTOM_ID: detector
-:END:
 Detections of these corners serve as the input features to mrcal. mrcal is a
-purely geometrical toolkit, and this vision problem must be handled by another
-library. [[https://en.wikipedia.org/wiki/Chessboard_detection][A number of tools]] are available to detect chessboard corners. These did
-not work well for my use cases, so I recommend [[https://github.com/dkogan/mrgingham/][=mrgingham=]] for all corner
-detections. mrgingham is fast and is able to find chessboard corners subject to
-very un-pinhole-like projections. At this time it has two limitations that will
-be lifted eventually:
-
-- It more or less assumes a grid of N-by-N corners (i.e. N+1-by-N+1 squares)
-- It requires /all/ the corners to be observed in order to report the detections
-  from an image. Incomplete chessboard observations aren't supported
-
-If these are unacceptable, any other detector may be used instead. See the
-[[file:recipes.org::#non-mrgingham-detector][recipes]].
-
-** Choice of calibration object
-When given an image of a /chessboard/, the detector is directly observing the
-feature we actually care about: the corner. Another common calibration board
-style is a grid of circles, where the feature of interest is the center of each
-circle. When given an image of such a grid of circles, the detector either
-
-- detects the contour at the edge of each circle
-- finds the pixel blob comprising each circle observation
-
-and from either of these, the detector infers the circle center. This can work
-when looking at head-on images, but when given tilted images subjected to
-non-pinhole lens behaviors, getting accurate circle centers from outer contours
-or blobs is /hard/. The resulting inaccuracies in the detections of circle
-centers will introduce biases into the solve that aren't modeled by the [[file:uncertainty.org::#noise-model][projection uncertainty routine]], so chessboards are /strongly/ recommended in
-favor of circle grids.
-
-mrcal [[#noise-model][assumes independent noise]] on each point observation, so correlated sources
-of point observations (such as corners of an apriltag) are also not appropriate
-sources of data. Apriltag centers would work, however.
+purely geometrical toolkit, and this vision problem must be [[file:how-to-calibrate.org::#corner-detector][handled by another
+library]].
 
 ** Board deformation
 :PROPERTIES:

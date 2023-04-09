@@ -191,7 +191,7 @@ chessboard images. Comparing these with the previous set showed a clear shift in
 the intrinsics:
 
 #+begin_src sh :exports none :eval no-export
-mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
+mkdir -p ~/projects/mrcal-doc-external/figures/lens-stability/
 D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/
 
 function c {
@@ -300,6 +300,60 @@ values to ranges. There's usually little reason for the application to use the
 rectified models and disparities for anything other than computing ranges, so
 swapping in the mrcal logic here usually isn't effortful.
 
+* Visualizing post-solve chessboard observations
+:PROPERTIES:
+:CUSTOM_ID: reproject-to-chessboard
+:END:
+
+mrcal is primarily a geometric toolkit: after we [[file:how-to-calibrate.org::#corner-detector][detect the chessboard corners]],
+we never look at the chessboard images again, and do /everything/ with the
+detected corner coordinates. This assumes the chessboard detector works
+perfectly. At least for [[https://github.com/dkogan/mrgingham/][=mrgingham=]], this is a close-enough assumption; but it's
+nice to be able to double-check. To do that the mrcal sources include the
+[[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-reproject-to-chessboard][=mrcal-reproject-to-chessboard= tool]]; this is still experimental, so it's not
+included in a mrcal installation, and currently has to be invoked from source.
+This tool takes in completed calibration, and reprojects each chessboard image
+to a chessboard-referenced space: each resulting image shows just the
+chessboard, with each chessboard corner appearing at exactly the same pixel in
+each image. Example from the [[file:tour.org][tour of mrcal]]:
+
+#+begin_src sh
+analyses/mrcal-reproject-to-chessboard \
+  --image-path-prefix images           \
+  splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+Dout=~/projects/mrcal-doc-external/figures/reprojected-to-chessboard
+mkdir -p $Dout
+
+D=/home/dima/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity/;
+analyses/mrcal-reproject-to-chessboard \
+  --image-path-prefix $D/images        \
+  --outdir $Dout \
+  $D/splined.cameramodel
+
+ffmpeg \
+  -r 5 -f image2 -export_path_metadata 1 \
+  -pattern_type glob -i "$Dout/DSC*.JPG" \
+  -filter:v "drawtext=text='%{metadata\\:lavf.image2dec.source_basename}':fontcolor=yellow:fontsize=48" \
+  -y \
+  $Dout/reprojected-to-chessboard.mp4
+#+end_src
+
+[[file:external/figures/reprojected-to-chessboard/DSC06155.JPG]]
+
+The red circles indicate the corner observations classified as outliers by the
+solver. This tool useful to look at the reprojected images in a quick
+succession. Ideally every reprojected image should be very similar, with each
+chessboard corner randomly, and independently jumping around a tiny bit (this is
+reported in the [[file:tour-initial-calibration.org::#opencv8-solve-diagnostics][fit residuals]]). If the detector had issues or an image was
+faulty in some way, this would be clearly seen by eyeballing the sequence of
+images. The whole image would shift; or a single non-outlier corner would jump.
+It's good to eyeball these animations as a final sanity check before accepting a
+calibration. In this dataset, we have [[file:external/figures/reprojected-to-chessboard/reprojected-to-chessboard.mp4][this all-corner animation]] from ([[file:external/figures/reprojected-to-chessboard/][these
+images]]). No issues here. For questionable calibration objects (such as grids
+of circles), checking this is /essential/.
+
 * Surveyed calibration
 :PROPERTIES:
 :CUSTOM_ID: surveyed-calibration
@@ -349,10 +403,6 @@ for z (2 8) { for seed (0 1) {
 
 * [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]
 xxx
-
-* reproject-to-board
-
-useful to find chessboard detection issues. circles.
 
 * more                                                             :noexport:
 
