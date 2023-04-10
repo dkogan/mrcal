@@ -31,8 +31,8 @@ def parse_args():
                         argument''')
     parser.add_argument('--z-board-mid',
                         type=float,
-                        help='''rt_ref_board[0,5]. If omitted, we use the same
-                        scheme as the other observations''')
+                        help='''Distance to the middle chessboard. If omitted,
+                        we use the same scheme as the other observations''')
     parser.add_argument('--seed-rng',
                         type=int,
                         default=0,
@@ -148,7 +148,7 @@ rt_ref_board_true = mrcal.compose_rt( mrcal.invert_rt(rt_cam_ref_true),
 cal_object = mrcal.ref_calibration_object(object_width_n,
                                           object_height_n,
                                           object_spacing)
-# shape (Nframes=3,Nh,Nw,3)
+# shape (Nframes,Nh,Nw,3)
 pcam_calobjects = \
     mrcal.transform_point_rt(nps.mv(rt_cam_board_true,-2,-4), cal_object)
 
@@ -159,15 +159,17 @@ pref_true = mrcal.transform_point_rt(mrcal.invert_rt(rt_cam_ref_true),
 # shape (N,2)
 q_true    = mrcal.project(pcam_true, lensmodel, intrinsics_data_true)
 
-# import gnuplotlib as gp
-# p = pcam_true / nps.dummy(nps.mag(pcam_true),-1)
-# c = p[...,2]
-# th = np.arccos(c).ravel()
-# gp.plot(th.ravel()*180./np.pi, yrange=(45,90))
+if False:
+    # show the angles off the optical axis
+    import gnuplotlib as gp
+    p = pcam_true / nps.dummy(nps.mag(pcam_true),-1)
+    c = p[...,2]
+    th = np.arccos(c).ravel() * 180./np.pi
+    gp.plot(th, yrange=(45,90))
 
-# import IPython
-# IPython.embed()
-# sys.exit()
+    import IPython
+    IPython.embed()
+    sys.exit()
 
 
 
@@ -226,11 +228,14 @@ Rt_camera_ref_estimate = \
         pref_true,
         icam_intrinsics = 0)
 
+rt_camera_ref_estimate = mrcal.rt_from_Rt(Rt_camera_ref_estimate)
+
 if False:
-    plot = mrcal.show_geometry( (mrcal.rt_from_Rt(Rt_camera_ref_estimate),),
-                                points                = pref_true, # known. fixed. perfect.
+    plot = mrcal.show_geometry( (rt_camera_ref_estimate,),
+                                points      = pref_true, # known. fixed. perfect.
                                 show_points = True,
                                 wait = True)
+    sys.exit()
 
 intrinsics_data = np.zeros((1,Nintrinsics), dtype=float)
 intrinsics_data[:,:4] = intrinsics_core_estimate[1]
@@ -239,7 +244,7 @@ intrinsics_data[:,4:] = np.random.random( (1, intrinsics_data.shape[1]-4) ) * 1e
 optimization_inputs                                 = \
     dict( lensmodel                                 = lensmodel,
           intrinsics                                = intrinsics_data,
-          extrinsics_rt_fromref                     = mrcal.rt_from_Rt(Rt_camera_ref_estimate),
+          extrinsics_rt_fromref                     = rt_camera_ref_estimate,
           frames_rt_toref                           = None,
           points                                    = pref_true, # known. fixed. perfect.
           observations_board                        = None,
@@ -392,10 +397,13 @@ def projection_diff(models, max_dist_from_center):
     # zero-out everything too far from the center
     center = (imagersizes[0] - 1.) / 2.
     diff[ nps.norm2(q0 - center) > max_dist_from_center*max_dist_from_center ] = 0
-    # gp.plot(diff,
-    #         ascii = True,
-    #         using = mrcal.imagergrid_using(imagersizes[0], Nw),
-    #         square=1, _with='image', tuplesize=3, hardcopy='/tmp/yes.gp', cbmax=3)
+
+    if False:
+        import gnuplotlib as gp
+        gp.plot(diff,
+                ascii = True,
+                using = mrcal.imagergrid_using(imagersizes[0], Nw),
+                square=1, _with='image', tuplesize=3, hardcopy='/tmp/yes.gp', cbmax=3)
 
     return diff
 
