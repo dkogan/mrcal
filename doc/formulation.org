@@ -368,7 +368,7 @@ provides a helper function to help with this:
 :CUSTOM_ID: noise-model
 :END:
 
-The [[file:uncertainty.org::#noise-model][projection uncertainty routine]] is used to gauge the effects of sampling
+The [[file:uncertainty.org][projection uncertainty routine]] is used to gauge the effects of sampling
 error on the solve. This is done by modelling the noise in the input pixel
 observations, and propagating it through the solve. This assumes that model
 errors are insignificant.

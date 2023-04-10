@@ -231,10 +231,10 @@ when looking at head-on images, but when given tilted images subjected to
 non-pinhole lens behaviors, getting accurate circle centers from outer contours
 or blobs is /hard/. The resulting inaccuracies in the detections of circle
 centers will introduce biases into the solve that aren't modeled by the
-[[file:uncertainty.org::#noise-model][projection uncertainty routine]], so chessboards are /strongly/ recommended in
+[[file:uncertainty.org][projection uncertainty routine]], so chessboards are /strongly/ recommended in
 favor of circle grids.
 
-Some other calibration objects use [[https://april.eecs.umich.edu/software/apriltag][AprilTags]]. mrcal [[#noise-model][assumes independent noise]] on
+Some other calibration objects use [[https://april.eecs.umich.edu/software/apriltag][AprilTags]]. mrcal [[file:formulation.org::#noise-model][assumes independent noise]] on
 each point observation, so correlated sources of point observations are also not
 appropriate sources of data. Thus using individual corners of AprilTags will be
 un-ideal: their noise is correlated. Using the /center/ of an AprilTag would
