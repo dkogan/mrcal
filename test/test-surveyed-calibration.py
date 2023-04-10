@@ -29,10 +29,10 @@ def parse_args():
                         help='''If given, we write the resulting model to disk
                         for further analysis. The filename is given in this
                         argument''')
-    parser.add_argument('--z-ref-board0',
+    parser.add_argument('--z-board-mid',
                         type=float,
-                        default=2.0,
-                        help='''rt_ref_board[0,5]. Defaults to 2''')
+                        help='''rt_ref_board[0,5]. If omitted, we use the same
+                        scheme as the other observations''')
     parser.add_argument('--seed-rng',
                         type=int,
                         default=0,
@@ -79,35 +79,75 @@ imagersize_true = model_true.imagersize()
 lensmodel = 'LENSMODEL_OPENCV4'
 Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
 
-intrinsics_data_true = model_true.intrinsics()[1]
-intrinsics_data_true = intrinsics_data_true[:Nintrinsics]
-
-
-# We try to recover this in the calibration process
-# shape (6,)
-rt_cam_ref_true   = np.array((-0.04,  0.05,  -0.1,     1.2, -0.1,  0.1),)
-model_true.extrinsics_rt_fromref(rt_cam_ref_true)
-
-# We measured this; perfectly, I assume. This it the ground truth AND we have it
-# available in the calibration
-# shape (Nframes=3,6)
-rt_ref_board = np.array((( 0.08,  0.2,   0.02,   -1.8,  -0.4,  args.z_ref_board0),
-                         ( 0.01,  0.07,  0.2,    -2.9,  -0.1, 2.2),
-                         (-0.1,   0.08,  0.08,    0.2,  -0.2,  2.5), ))
+intrinsics_data_true = model_true.intrinsics()[1][:Nintrinsics]
 
 object_spacing          = 0.1
 object_width_n          = 10
 object_height_n         = 9
 pixel_uncertainty_stdev = 0.5
 
+# We try to recover this in the calibration process
+# shape (6,)
+rt_cam_ref_true   = np.array((-0.04,  0.05,  -0.1,     1.2, -0.1,  0.1),)
+model_true.extrinsics_rt_fromref(rt_cam_ref_true)
+
+# I want to space out the chessboards across the whole imager. To make this
+# simpler I define it in terms of the "boardcentered" coordinate system, whose
+# origin is at the center of the chessboard, not in a corner
+board_center                  = \
+    np.array(( (object_width_n -1)*object_spacing/2.,
+               (object_height_n-1)*object_spacing/2.,
+               0 ))
+rt_boardcentered_board_true     = mrcal.identity_rt()
+rt_boardcentered_board_true[3:] = -board_center
+
+NboardgridX = 4
+NboardgridY = 3
+radx = 2.
+rady = radx / imagersize_true[0]*imagersize_true[1]
+z    = 2.5
+
+# shape (NboardgridY,NboardgridX,2); each row is (x,y)
+c = \
+    nps.mv( \
+        nps.cat(*np.meshgrid(np.arange(NboardgridX)/(NboardgridX-1)*radx*2 - radx,
+                             np.arange(NboardgridY)/(NboardgridY-1)*rady*2 - rady)),
+        0, -1)
+
+# shape (NboardgridY,NboardgridX,6)
+rt_cam_boardcentered_true = np.zeros(c.shape[:-1] + (6,), dtype=float)
+rt_cam_boardcentered_true[...,3:5] = c
+rt_cam_boardcentered_true[...,  5] = z
+
+# shape (NboardgridY,NboardgridX,6)
+rt_cam_board_true = mrcal.compose_rt(rt_cam_boardcentered_true,
+                                     rt_boardcentered_board_true)
+random_radius_r = 0.1
+random_radius_t = 0.2
+rt_cam_board_true[...,:3] += (np.random.rand(*rt_cam_board_true[...,:3].shape)*2. - 1.) * random_radius_r
+rt_cam_board_true[...,3:] += (np.random.rand(*rt_cam_board_true[...,3:].shape)*2. - 1.) * random_radius_t
+
+if args.z_board_mid is not None:
+    rt_cam_board_true[NboardgridY//2, NboardgridX//2, 5] = args.z_board_mid
+
+# Nboards = NboardgridX*NboardgridY
+# shape (Nboards,6)
+rt_cam_board_true = nps.clump(rt_cam_board_true, n=2)
+
+
+rt_ref_board_true = mrcal.compose_rt( mrcal.invert_rt(rt_cam_ref_true),
+                                      rt_cam_board_true)
+
+# We assume that the chessboard poses rt_ref_board_true, rt_cam_board_true were
+# measured. Perfectly. This it the ground truth AND we have it available in the
+# calibration
+
+
+
 # shape (Nh,Nw,3)
 cal_object = mrcal.ref_calibration_object(object_width_n,
                                           object_height_n,
                                           object_spacing)
-# shape (Nframes=3,6)
-rt_cam_board_true = mrcal.compose_rt(rt_cam_ref_true,
-                                     rt_ref_board)
-
 # shape (Nframes=3,Nh,Nw,3)
 pcam_calobjects = \
     mrcal.transform_point_rt(nps.mv(rt_cam_board_true,-2,-4), cal_object)
@@ -145,6 +185,12 @@ q = \
     * pixel_uncertainty_stdev \
     / nps.mv(nps.cat(weight,weight),0,-1)
 
+# out-of-bounds observations are outliers
+weight[(q[:,0] < 0) + \
+       (q[:,1] < 0) + \
+       (q[:,0] > imagersize_true[0]-1) + \
+       (q[:,1] > imagersize_true[1]-1)] = -1.
+
 ############# Now I pretend that the noisy observations are all I got, and I run
 ############# a calibration from those
 # shape (N, 3)
@@ -159,13 +205,32 @@ indices_point_camintrinsics_camextrinsics = np.zeros( (Npoints, 3), dtype=np.int
 indices_point_camintrinsics_camextrinsics[:,0] = np.arange(Npoints)
 
 focal_estimate = 2000
+cxy = np.array(( (imagersize_true[0]-1.)/2,
+                 (imagersize_true[1]-1.)/2, ), )
 intrinsics_core_estimate = \
     ('LENSMODEL_STEREOGRAPHIC',
      np.array((focal_estimate,
                focal_estimate,
-               (imagersize_true[0]-1.)/2,
-               (imagersize_true[1]-1.)/2,
+               *cxy
                )))
+# I select data just at the center for seeding. Eventually should move this to
+# the general logic in calibration.py
+i = nps.norm2( observations_point[...,:2] - cxy ) < 1000**2.
+observations_point_center = np.array(observations_point)
+observations_point_center[~i,2] = -1.
+Rt_camera_ref_estimate = \
+    mrcal.calibration._estimate_camera_pose_from_point_observations( \
+        indices_point_camintrinsics_camextrinsics,
+        observations_point_center,
+        (intrinsics_core_estimate,),
+        pref_true,
+        icam_intrinsics = 0)
+
+if False:
+    plot = mrcal.show_geometry( (mrcal.rt_from_Rt(Rt_camera_ref_estimate),),
+                                points                = pref_true, # known. fixed. perfect.
+                                show_points = True,
+                                wait = True)
 
 intrinsics_data = np.zeros((1,Nintrinsics), dtype=float)
 intrinsics_data[:,:4] = intrinsics_core_estimate[1]
@@ -174,7 +239,7 @@ intrinsics_data[:,4:] = np.random.random( (1, intrinsics_data.shape[1]-4) ) * 1e
 optimization_inputs                                 = \
     dict( lensmodel                                 = lensmodel,
           intrinsics                                = intrinsics_data,
-          extrinsics_rt_fromref                     = None, # will fill in shortly
+          extrinsics_rt_fromref                     = mrcal.rt_from_Rt(Rt_camera_ref_estimate),
           frames_rt_toref                           = None,
           points                                    = pref_true, # known. fixed. perfect.
           observations_board                        = None,
@@ -191,17 +256,6 @@ optimization_inputs                                 = \
           do_optimize_calobject_warp                = False,
           do_optimize_frames                        = False)
 
-Rt_camera_ref_estimate = \
-    mrcal.calibration._estimate_camera_pose_from_point_observations( \
-        optimization_inputs['indices_point_camintrinsics_camextrinsics'],
-        optimization_inputs['observations_point'],
-        (intrinsics_core_estimate,),
-        optimization_inputs['points'],
-        icam_intrinsics = 0)
-
-optimization_inputs['extrinsics_rt_fromref'] = mrcal.rt_from_Rt(Rt_camera_ref_estimate)
-
-
 optimization_inputs['do_optimize_intrinsics_core']        = False
 optimization_inputs['do_optimize_intrinsics_distortions'] = False
 optimization_inputs['do_optimize_extrinsics']             = True
@@ -212,7 +266,11 @@ optimization_inputs['do_optimize_intrinsics_distortions'] = True
 optimization_inputs['do_optimize_extrinsics']             = True
 stats = mrcal.optimize(**optimization_inputs)
 
-rmserr = stats['rms_reproj_error__pixels']
+# Grab the residuals. residuals_point() reports ONLY the point reprojection
+# errors: no range normalization (penalty) terms, no board observations, no
+# regularization. Also, no outliers
+rmserr_point = np.std(mrcal.residuals_point(optimization_inputs,
+                                            residuals = stats['x']).ravel())
 
 # verify problem layout
 testutils.confirm_equal( mrcal.num_states(**optimization_inputs),
@@ -267,15 +325,15 @@ if args.write_model:
     model_solved.write(args.write_model)
     print(f"Wrote '{args.write_model}'")
 
-testutils.confirm_equal(rmserr, 0,
+testutils.confirm_equal(rmserr_point, 0,
                         eps = 2.5,
                         msg = "Converged to a low RMS error")
 
-# I expect the fitted error (rmserr) to be a bit lower than
+# I expect the fitted error (rmserr_point) to be a bit lower than
 # pixel_uncertainty_stdev because this solve is going to overfit: I don't have
 # enough data to uniquely define this model. And this isn't even a flexible
 # splined model!
-testutils.confirm_equal( rmserr,
+testutils.confirm_equal( rmserr_point,
                          pixel_uncertainty_stdev - pixel_uncertainty_stdev*0.12,
                          eps = pixel_uncertainty_stdev*0.12,
                          msg = "Residual have the expected distribution" )
