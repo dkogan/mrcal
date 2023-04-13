@@ -88,7 +88,7 @@ The lens model structures are defined here:
   [[file:lensmodels.org::#representation][configuration]] is stored here.
 - =mrcal_lensmodel_t=: a lens model type /and/ the [[file:lensmodels.org::#representation][configuration]] parameters. The
   configuration lives in a =union= supporting all the known lens models
-- =mrcal_lensmodel_metadata_t=: some metadata that decribes a model type. These
+- =mrcal_lensmodel_metadata_t=: some [[file:lensmodels.org::#representation][metadata that decribes a model type]]. These
   are inherent properties of a particular model type; answers questions like:
   Can this model project behind the camera? Does it have an [[file:lensmodels.org::#core][intrinsics core]]?
   Does it have gradients implemented?

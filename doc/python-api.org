@@ -47,7 +47,7 @@ Routines for manipulating [[file:lensmodels.org][lens models]].
 
 - [[file:mrcal-python-api-reference.html#-supported_lensmodels][=mrcal.supported_lensmodels()=]]: Returns a tuple of strings for the various lens models we support
 - [[file:mrcal-python-api-reference.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]]: Get the number of lens parameters for a particular model type
-- [[file:mrcal-python-api-reference.html#-lensmodel_metadata_and_config][=mrcal.lensmodel_metadata_and_config()=]]: Returns meta-information about a model
+- [[file:mrcal-python-api-reference.html#-lensmodel_metadata_and_config][=mrcal.lensmodel_metadata_and_config()=]]: Returns [[file:lensmodels.org::#representation][meta-information about a model]]
 - [[file:mrcal-python-api-reference.html#-knots_for_splined_models][=mrcal.knots_for_splined_models()=]]: Return a tuple of locations of x and y spline knots
 
 * Projections

@@ -132,7 +132,8 @@ typedef union
 
 #define MRCAL_NSTATE_CALOBJECT_WARP ((int)((sizeof(mrcal_calobject_warp_t)/sizeof(double))))
 
-
+//// ADD CHANGES TO THE DOCS IN lensmodels.org
+////
 // An X-macro-generated mrcal_lensmodel_metadata_t. Each lens model type has
 // some metadata that describes its inherent properties. These properties can be
 // queried by calling mrcal_lensmodel_metadata() in C and

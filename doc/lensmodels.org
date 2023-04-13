@@ -26,11 +26,18 @@ These are inherent properties of a model family, and are not settable. At the
 time of this writing there are 3 metadata keys:
 
 - =has_core=: True if the first 4 optimization values are the "core": $f_x$,
-  $f_y$, $c_x$, $c_y$
+  $f_y$, $c_x$, $c_y$. As of mrcal 2.3 this is True for all models.
 - =can_project_behind_camera=: True if this model is able to project vectors
   from behind the camera. If it cannot, then [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] will never
-  report =z= < 0
-- =has_gradients=: True if this model has gradients implemented
+  report =z= < 0. As of mrcal 2.3 this is True only for models based on a
+  stereographic projection, for instance [[#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]. It
+  is False for models based on a pinhole projection, for instance
+  =LENSMODEL_OPENCV...= and =LENSMODEL_CAHVOR...=.
+- =has_gradients=: True if this model has gradients implemented. As of mrcal 2.3
+  all models have this.
+- =noncentral=: True if projection is /not/ invariant to scaling; i.e. if every
+  observation ray does /not/ intersect at the same point. As of mrcal 2.3 only
+  [[#lensmodel-cahvore][=LENSMODEL_CAHVORE=]] does this.
 
 In Python, the models are identified with a string =LENSMODEL_XXX= where the
 =XXX= selects the specific model family and the configuration, if needed. A
