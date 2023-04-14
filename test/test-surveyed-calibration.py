@@ -73,6 +73,7 @@ np.random.seed(args.seed_rng)
 ############# observations of everything
 model_true      = mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel")
 imagersize_true = model_true.imagersize()
+W,H             = imagersize_true
 
 # I have opencv8 model_true, but I truncate to opencv4 to keep this simple and
 # fast
@@ -104,7 +105,7 @@ rt_boardcentered_board_true[3:] = -board_center
 NboardgridX = 4
 NboardgridY = 3
 radx = 2.
-rady = radx / imagersize_true[0]*imagersize_true[1]
+rady = radx / W*H
 z    = 2.5
 
 # shape (NboardgridY,NboardgridX,2); each row is (x,y)
@@ -190,8 +191,8 @@ q = \
 # out-of-bounds observations are outliers
 weight[(q[:,0] < 0) + \
        (q[:,1] < 0) + \
-       (q[:,0] > imagersize_true[0]-1) + \
-       (q[:,1] > imagersize_true[1]-1)] = -1.
+       (q[:,0] > W-1) + \
+       (q[:,1] > H-1)] = -1.
 
 ############# Now I pretend that the noisy observations are all I got, and I run
 ############# a calibration from those
@@ -207,8 +208,8 @@ indices_point_camintrinsics_camextrinsics = np.zeros( (Npoints, 3), dtype=np.int
 indices_point_camintrinsics_camextrinsics[:,0] = np.arange(Npoints)
 
 focal_estimate = 2000
-cxy = np.array(( (imagersize_true[0]-1.)/2,
-                 (imagersize_true[1]-1.)/2, ), )
+cxy = np.array(( (W-1.)/2,
+                 (H-1.)/2, ), )
 intrinsics_core_estimate = \
     ('LENSMODEL_STEREOGRAPHIC',
      np.array((focal_estimate,
@@ -376,7 +377,6 @@ def projection_diff(models, max_dist_from_center):
                                       lensmodels, intrinsics_data,
                                       normalize = True)
 
-    W,H = imagersizes[0]
     focus_center = None
     focus_radius = -1
     if focus_center is None: focus_center = ((W-1.)/2., (H-1.)/2.)
