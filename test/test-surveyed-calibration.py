@@ -238,6 +238,19 @@ if False:
                                 wait = True)
     sys.exit()
 
+if False:
+    import gnuplotlib as gp
+    gp.plot(observations_point,
+            _with='points palette',
+            tuplesize=-3,
+            square=1,
+            # The rectangle plot needs a later gnuplot to work with the x11
+            # terminal. So I use the 'qt' terminal here
+            _set = f'object rectangle from 0,0 to {W-1},{H-1} fs empty border rgb "black"',
+            terminal = 'qt',
+            wait = True)
+    sys.exit()
+
 intrinsics_data = np.zeros((1,Nintrinsics), dtype=float)
 intrinsics_data[:,:4] = intrinsics_core_estimate[1]
 intrinsics_data[:,4:] = np.random.random( (1, intrinsics_data.shape[1]-4) ) * 1e-6
