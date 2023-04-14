@@ -236,24 +236,29 @@ Rt_camera_ref_estimate = \
 rt_camera_ref_estimate = mrcal.rt_from_Rt(Rt_camera_ref_estimate)
 
 if False:
-    plot = mrcal.show_geometry( (rt_camera_ref_estimate,),
-                                points      = pref_true, # known. fixed. perfect.
-                                show_points = True,
-                                wait = True)
+    import gnuplotlib as gp
+
+    plot1 = mrcal.show_geometry( (rt_camera_ref_estimate,),
+                                 points      = pref_true, # known. fixed. perfect.
+                                 show_points = True)
+
+    plot2 = \
+        gp.gnuplotlib( square=1,
+                       # The rectangle plot needs a later gnuplot to work with
+                       # the x11 terminal. So I use the 'qt' terminal here
+                       _set = f'object rectangle from 0,0 to {W-1},{H-1} fs empty border rgb "black"',
+                       terminal = 'qt')
+    plot2.plot( (observations_point,
+                 dict(_with     = 'points palette',
+                      tuplesize = -3),),)
+    import threading
+    threads = [ threading.Thread( target = lambda p: p.wait(),
+                                  args   = (plot,)) \
+                for plot in (plot1, plot2) ]
+    for t in threads: t.start()
+    for t in threads: t.join()
     sys.exit()
 
-if False:
-    import gnuplotlib as gp
-    gp.plot(observations_point,
-            _with='points palette',
-            tuplesize=-3,
-            square=1,
-            # The rectangle plot needs a later gnuplot to work with the x11
-            # terminal. So I use the 'qt' terminal here
-            _set = f'object rectangle from 0,0 to {W-1},{H-1} fs empty border rgb "black"',
-            terminal = 'qt',
-            wait = True)
-    sys.exit()
 
 intrinsics_data = np.zeros((1,Nintrinsics), dtype=float)
 intrinsics_data[:,:4] = intrinsics_core_estimate[1]
