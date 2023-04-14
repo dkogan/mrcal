@@ -92,6 +92,10 @@ pixel_uncertainty_stdev = 0.5
 rt_cam_ref_true   = np.array((-0.04,  0.05,  -0.1,     1.2, -0.1,  0.1),)
 model_true.extrinsics_rt_fromref(rt_cam_ref_true)
 
+if False:
+    model_true.write("/tmp/true.cameramodel")
+    print("wrote /tmp/true.cameramodel")
+
 # I want to space out the chessboards across the whole imager. To make this
 # simpler I define it in terms of the "boardcentered" coordinate system, whose
 # origin is at the center of the chessboard, not in a corner
