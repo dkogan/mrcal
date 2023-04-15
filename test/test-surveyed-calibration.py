@@ -48,6 +48,10 @@ def parse_args():
     parser.add_argument('--viz-observations',
                         action='store_true',
                         help='''Show the observations''')
+    parser.add_argument('--say-errz',
+                        action='store_true',
+                        help='''If given, report ONLY the extrinsics error in z.
+                        Do not run tests or print anything else''')
 
     args = parser.parse_args()
 
@@ -311,6 +315,22 @@ stats = mrcal.optimize(**optimization_inputs)
 rmserr_point = np.std(mrcal.residuals_point(optimization_inputs,
                                             residuals = stats['x']).ravel())
 
+############# Calibration computed. Now I see how well I did
+model_solved = \
+    mrcal.cameramodel( optimization_inputs = optimization_inputs,
+                       icam_intrinsics     = 0 )
+# Checking the extrinsics.
+Rt_extrinsics_err = \
+    mrcal.compose_Rt( model_solved.extrinsics_Rt_fromref(),
+                      model_true  .extrinsics_Rt_toref() )
+
+if args.say_errz:
+    print(Rt_extrinsics_err[3,2])
+sys.exit()
+
+
+
+
 # verify problem layout
 testutils.confirm_equal( mrcal.num_states(**optimization_inputs),
                          Nintrinsics + 6,
@@ -355,11 +375,6 @@ testutils.confirm_equal( mrcal.measurement_index_regularization(**optimization_i
                          3*Npoints,
                          "measurement_index_regularization()")
 
-############# Calibration computed. Now I see how well I did
-model_solved = \
-    mrcal.cameramodel( optimization_inputs = optimization_inputs,
-                       icam_intrinsics     = 0 )
-
 if args.write_model:
     model_solved.write(args.write_model)
     print(f"Wrote '{args.write_model}'")
@@ -377,10 +392,6 @@ testutils.confirm_equal( rmserr_point,
                          eps = pixel_uncertainty_stdev*0.12,
                          msg = "Residual have the expected distribution" )
 
-# Checking the extrinsics.
-Rt_extrinsics_err = \
-    mrcal.compose_Rt( model_solved.extrinsics_Rt_fromref(),
-                      model_true  .extrinsics_Rt_toref() )
 testutils.confirm_equal( nps.mag(Rt_extrinsics_err[3,:]),
                          0.0,
                          eps = 0.05,
