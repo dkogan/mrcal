@@ -29,10 +29,15 @@ def parse_args():
                         help='''If given, we write the resulting model to disk
                         for further analysis. The filename is given in this
                         argument''')
-    parser.add_argument('--z-board-mid',
+    parser.add_argument('--range-board',
                         type=float,
-                        help='''Distance to the middle chessboard. If omitted,
-                        we use the same scheme as the other observations''')
+                        default = 2.5,
+                        help='''Distance from the camera to the center of each
+                        chessboard. If omitted, we default to 2.5''')
+    parser.add_argument('--range-board-center',
+                        type=float,
+                        help='''Distance from the camera to the center of the
+                        MIDDLE chessboard. If omitted, we use --range-board''')
     parser.add_argument('--seed-rng',
                         type=int,
                         default=0,
@@ -106,23 +111,29 @@ board_center                  = \
 rt_boardcentered_board_true     = mrcal.identity_rt()
 rt_boardcentered_board_true[3:] = -board_center
 
-NboardgridX = 4
-NboardgridY = 3
-radx = 2.
-rady = radx / W*H
-z    = 2.5
+# I have a 3x3 grid of chessboards
+NboardgridX,NboardgridY = 3,1
 
-# shape (NboardgridY,NboardgridX,2); each row is (x,y)
-c = \
+# The chessboard centers are arranged in an even grid on the imager
+#
+# shape (NboardgridY,NboardgridX,2); each row is (qx,qy): the center of each
+# chessboard
+q_center = \
     nps.mv( \
-        nps.cat(*np.meshgrid(np.arange(NboardgridX)/(NboardgridX-1)*radx*2 - radx,
-                             np.arange(NboardgridY)/(NboardgridY-1)*rady*2 - rady)),
+        nps.cat(*np.meshgrid(np.linspace(0.5, NboardgridX-0.5, NboardgridX, endpoint=True)/NboardgridX * W,
+                             np.linspace(0.5, NboardgridY-0.5, NboardgridY, endpoint=True)/NboardgridY * H)),
         0, -1)
+v_center = mrcal.unproject(np.ascontiguousarray(q_center),
+                           *model_true.intrinsics(),
+                           normalize = True)
 
 # shape (NboardgridY,NboardgridX,6)
-rt_cam_boardcentered_true = np.zeros(c.shape[:-1] + (6,), dtype=float)
-rt_cam_boardcentered_true[...,3:5] = c
-rt_cam_boardcentered_true[...,  5] = z
+rt_cam_boardcentered_true = np.zeros(v_center.shape[:-1] + (6,), dtype=float)
+rt_cam_boardcentered_true[...,3:] = v_center*args.range_board
+
+if args.range_board_center is not None:
+    rt_cam_boardcentered_true[NboardgridY//2, NboardgridX//2,3:] = \
+        v_center[NboardgridY//2, NboardgridX//2,:]*args.range_board_center
 
 # shape (NboardgridY,NboardgridX,6)
 rt_cam_board_true = mrcal.compose_rt(rt_cam_boardcentered_true,
@@ -131,9 +142,6 @@ random_radius_r = 0.1
 random_radius_t = 0.2
 rt_cam_board_true[...,:3] += (np.random.rand(*rt_cam_board_true[...,:3].shape)*2. - 1.) * random_radius_r
 rt_cam_board_true[...,3:] += (np.random.rand(*rt_cam_board_true[...,3:].shape)*2. - 1.) * random_radius_t
-
-if args.z_board_mid is not None:
-    rt_cam_board_true[NboardgridY//2, NboardgridX//2, 5] = args.z_board_mid
 
 # Nboards = NboardgridX*NboardgridY
 # shape (Nboards,6)
@@ -211,7 +219,7 @@ Npoints = q.shape[0]
 indices_point_camintrinsics_camextrinsics = np.zeros( (Npoints, 3), dtype=np.int32)
 indices_point_camintrinsics_camextrinsics[:,0] = np.arange(Npoints)
 
-focal_estimate = 2000
+focal_estimate = 2000 * focal_length_scale_from_true
 cxy = np.array(( (W-1.)/2,
                  (H-1.)/2, ), )
 intrinsics_core_estimate = \
@@ -240,6 +248,7 @@ if False:
 
     plot1 = mrcal.show_geometry( (rt_camera_ref_estimate,),
                                  points      = pref_true, # known. fixed. perfect.
+                                 title       = "Seed geometry",
                                  show_points = True)
 
     plot2 = \
