@@ -81,6 +81,28 @@ import testutils
 from test_calibration_helpers import sample_dqref
 import copy
 
+# I Reduce FOV to make it clear that you need data from different ranges
+focal_length_scale_from_true = 10.
+
+object_spacing          = 0.03
+object_width_n          = 8
+object_height_n         = 8
+pixel_uncertainty_stdev = 0.5
+
+# I have a 3x3 grid of chessboards
+NboardgridX,NboardgridY = 3,1
+
+# We try to recover this in the calibration process
+# shape (6,)
+rt_cam_ref_true   = np.array((-0.04,  0.05,  -0.1,     1.2, -0.1,  0.1),)
+
+random_radius__r_cam_board_true = 0.1
+random_radius__t_cam_board_true = 1.0e-1
+
+
+
+
+
 # I want the RNG to be deterministic
 np.random.seed(args.seed_rng)
 
@@ -94,17 +116,11 @@ W,H             = imagersize_true
 # fast
 lensmodel = 'LENSMODEL_OPENCV4'
 Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
-
 intrinsics_data_true = model_true.intrinsics()[1][:Nintrinsics]
+intrinsics_data_true[:2] *= focal_length_scale_from_true
+model_true.intrinsics( (lensmodel, intrinsics_data_true), )
 
-object_spacing          = 0.1
-object_width_n          = 10
-object_height_n         = 9
-pixel_uncertainty_stdev = 0.5
 
-# We try to recover this in the calibration process
-# shape (6,)
-rt_cam_ref_true   = np.array((-0.04,  0.05,  -0.1,     1.2, -0.1,  0.1),)
 model_true.extrinsics_rt_fromref(rt_cam_ref_true)
 
 if False:
@@ -121,8 +137,6 @@ board_center                  = \
 rt_boardcentered_board_true     = mrcal.identity_rt()
 rt_boardcentered_board_true[3:] = -board_center
 
-# I have a 3x3 grid of chessboards
-NboardgridX,NboardgridY = 3,1
 
 # The chessboard centers are arranged in an even grid on the imager
 #
@@ -148,10 +162,8 @@ if args.range_board_center is not None:
 # shape (NboardgridY,NboardgridX,6)
 rt_cam_board_true = mrcal.compose_rt(rt_cam_boardcentered_true,
                                      rt_boardcentered_board_true)
-random_radius_r = 0.1
-random_radius_t = 0.2
-rt_cam_board_true[...,:3] += (np.random.rand(*rt_cam_board_true[...,:3].shape)*2. - 1.) * random_radius_r
-rt_cam_board_true[...,3:] += (np.random.rand(*rt_cam_board_true[...,3:].shape)*2. - 1.) * random_radius_t
+rt_cam_board_true[...,:3] += (np.random.rand(*rt_cam_board_true[...,:3].shape)*2. - 1.) * random_radius__r_cam_board_true
+rt_cam_board_true[...,3:] += (np.random.rand(*rt_cam_board_true[...,3:].shape)*2. - 1.) * random_radius__t_cam_board_true
 
 # Nboards = NboardgridX*NboardgridY
 # shape (Nboards,6)
@@ -471,3 +483,4 @@ testutils.confirm_equal(diff, 0,
                         msg = "Recovered intrinsics")
 
 testutils.finish()
+
