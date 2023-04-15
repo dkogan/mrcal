@@ -42,6 +42,12 @@ def parse_args():
                         type=int,
                         default=0,
                         help='''Value to seed the rng with''')
+    parser.add_argument('--viz-seed-geometry',
+                        action='store_true',
+                        help='''Show the seed geometry''')
+    parser.add_argument('--viz-observations',
+                        action='store_true',
+                        help='''Show the observations''')
 
     args = parser.parse_args()
 
@@ -243,29 +249,25 @@ Rt_camera_ref_estimate = \
 
 rt_camera_ref_estimate = mrcal.rt_from_Rt(Rt_camera_ref_estimate)
 
-if False:
+if args.viz_seed_geometry:
+    mrcal.show_geometry( (rt_camera_ref_estimate,),
+                         points      = pref_true, # known. fixed. perfect.
+                         title       = "Seed geometry",
+                         show_points = True,
+                         wait        = True)
+    sys.exit()
+
+if args.viz_observations:
     import gnuplotlib as gp
-
-    plot1 = mrcal.show_geometry( (rt_camera_ref_estimate,),
-                                 points      = pref_true, # known. fixed. perfect.
-                                 title       = "Seed geometry",
-                                 show_points = True)
-
-    plot2 = \
-        gp.gnuplotlib( square=1,
-                       # The rectangle plot needs a later gnuplot to work with
-                       # the x11 terminal. So I use the 'qt' terminal here
-                       _set = f'object rectangle from 0,0 to {W-1},{H-1} fs empty border rgb "black"',
-                       terminal = 'qt')
-    plot2.plot( (observations_point,
-                 dict(_with     = 'points palette',
-                      tuplesize = -3),),)
-    import threading
-    threads = [ threading.Thread( target = lambda p: p.wait(),
-                                  args   = (plot,)) \
-                for plot in (plot1, plot2) ]
-    for t in threads: t.start()
-    for t in threads: t.join()
+    gp.plot( observations_point,
+             _with     = 'points palette',
+             tuplesize = -3,
+             square=1,
+             # The rectangle plot needs a later gnuplot to work with
+             # the x11 terminal. So I use the 'qt' terminal here
+             _set = f'object rectangle from 0,0 to {W-1},{H-1} fs empty border rgb "black"',
+             terminal = 'qt',
+             wait = True)
     sys.exit()
 
 
