@@ -229,29 +229,46 @@ Npoints = q.shape[0]
 indices_point_camintrinsics_camextrinsics = np.zeros( (Npoints, 3), dtype=np.int32)
 indices_point_camintrinsics_camextrinsics[:,0] = np.arange(Npoints)
 
-focal_estimate = 2000 * focal_length_scale_from_true
-cxy = np.array(( (W-1.)/2,
-                 (H-1.)/2, ), )
-intrinsics_core_estimate = \
-    ('LENSMODEL_STEREOGRAPHIC',
-     np.array((focal_estimate,
-               focal_estimate,
-               *cxy
-               )))
-# I select data just at the center for seeding. Eventually should move this to
-# the general logic in calibration.py
-i = nps.norm2( observations_point[...,:2] - cxy ) < 1000**2.
-observations_point_center = np.array(observations_point)
-observations_point_center[~i,2] = -1.
-Rt_camera_ref_estimate = \
-    mrcal.calibration._estimate_camera_pose_from_point_observations( \
-        indices_point_camintrinsics_camextrinsics,
-        observations_point_center,
-        (intrinsics_core_estimate,),
-        pref_true,
-        icam_intrinsics = 0)
+if False:
+    # Compute the seed using the seeding algorithm
+    focal_estimate = 2000 * focal_length_scale_from_true
+    cxy = np.array(( (W-1.)/2,
+                     (H-1.)/2, ), )
+    intrinsics_core_estimate = \
+        ('LENSMODEL_STEREOGRAPHIC',
+         np.array((focal_estimate,
+                   focal_estimate,
+                   *cxy
+                   )))
+    # I select data just at the center for seeding. Eventually should move this to
+    # the general logic in calibration.py
+    i = nps.norm2( observations_point[...,:2] - cxy ) < 1000**2.
+    observations_point_center = np.array(observations_point)
+    observations_point_center[~i,2] = -1.
+    Rt_camera_ref_estimate = \
+        mrcal.calibration._estimate_camera_pose_from_point_observations( \
+            indices_point_camintrinsics_camextrinsics,
+            observations_point_center,
+            (intrinsics_core_estimate,),
+            pref_true,
+            icam_intrinsics = 0)
 
-rt_camera_ref_estimate = mrcal.rt_from_Rt(Rt_camera_ref_estimate)
+    rt_camera_ref_estimate = mrcal.rt_from_Rt(Rt_camera_ref_estimate)
+
+    intrinsics_data = np.zeros((1,Nintrinsics), dtype=float)
+    intrinsics_data[:,:4] = intrinsics_core_estimate[1]
+    intrinsics_data[:,4:] = np.random.random( (1, intrinsics_data.shape[1]-4) ) * 1e-6
+
+else:
+    # Use a nearby value to the true seed
+    rt_camera_ref_estimate = nps.atleast_dims(np.array(rt_cam_ref_true), -2)
+    rt_camera_ref_estimate[..., :3] += np.random.randn(3) * 1e-2 # r
+    rt_camera_ref_estimate[..., 3:] += np.random.randn(3) * 0.1  # t
+
+    intrinsics_data = nps.atleast_dims(np.array(intrinsics_data_true), -2)
+    intrinsics_data += np.random.randn(*intrinsics_data.shape) * 1e-2
+
+
 
 if args.viz_seed_geometry:
     mrcal.show_geometry( (rt_camera_ref_estimate,),
@@ -273,11 +290,6 @@ if args.viz_observations:
              terminal = 'qt',
              wait = True)
     sys.exit()
-
-
-intrinsics_data = np.zeros((1,Nintrinsics), dtype=float)
-intrinsics_data[:,:4] = intrinsics_core_estimate[1]
-intrinsics_data[:,4:] = np.random.random( (1, intrinsics_data.shape[1]-4) ) * 1e-6
 
 optimization_inputs                                 = \
     dict( lensmodel                                 = lensmodel,
