@@ -350,7 +350,7 @@ Rt_extrinsics_err = \
 
 if args.say_errz:
     print(Rt_extrinsics_err[3,2])
-sys.exit()
+    sys.exit()
 
 
 
