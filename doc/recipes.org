@@ -365,43 +365,47 @@ others. A /surveyed/ calibration is one where the poses of the objects being
 observed are pre-determined (by surveying them, for instance). Then we get a
 simplified calibration problem:
 
-- The camera is stationary, with a non-fixed pose: we solve for it
 - Each point in space being observed has a fixed position. This is assumed to be
   known perfectly
-
-Note that since the objects being observed are fixed, there is no interaction
-between the multiple cameras being calibrated. So a multi-camera surveyed
-calibration can be solved by computing several independent monocular
-calibrations.
+- The camera is stationary, with a non-fixed pose: we solve for it
+- Only monocular solves are necessary. Since the objects being observed are
+  fixed, there is no interaction between the multiple cameras being calibrated,
+  and a multi-camera surveyed calibration can be solved by computing several
+  independent monocular calibrations.
 
 Furthermore, it doesn't matter if we're observing chessboards or discrete points
 or both: everything being observed has a known, fixed position. So when solving
 these problems we call =mrcal.optimize(...)= with
 
-- =frames_rt_toref= and =points= placing the observed objects
+- /Fixed/ =frames_rt_toref= and =points= arrays localizing the observed objects
 - =do_optimize_frames = True= to tell the optimization to fix them in space
   instead of optimizing
 
-uncertainty poor. not enough data.
+Calibrating in this way is uncommon, so the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras= tool]] does
+not support this directly. But this kind of solve is readily available via the
+[[file:python-api.org][Python APIs]], as demonstrated by the [[https://www.github.com/dkogan/mrcal/blob/master/test/test-surveyed-calibration.py][=test/test-surveyed-calibration.py=]] script.
 
-This
-
-m-c-c
-
-Should show that you want multiple ranges of chessboards.
-Unsurveyed is similar: you want tilted observations, which give you multiple
-ranges at the same time.
+These kinds of solves usually work off far less data than moving-chessboard
+solves, so they are more susceptible to [[file:uncertainty.org][sampling error causing high projection
+uncertainty]]. The usual rule-of-thumb is to gather calibration data at multiple
+ranges because it is otherwise difficult to disentangle the effects of camera
+position from the effects of intrinsics. We can demonstrate this using the
+[[https://www.github.com/dkogan/mrcal/blob/master/test/test-surveyed-calibration.py][=test/test-surveyed-calibration.py=]] script. Let's solve a calibration problem,
+calibrating a long lens looking at 3 chessboards 10m out, with the range to the
+center chessboard varying. We solve at each qualitative configuration multiple
+times, and plot the mean and standard deviation of the error in the camera
+forward direction. The standard deviation is an analogue of solve uncertainty,
+which is not yet implemented for this kind of solve.
 
 #+begin_src sh
 echo '# z errz';
 for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
   for seed (`seq 0 8`) {
-    test/test-surveyed-calibration.py                                           \
-      --seed-rng $seed                                                          \
-      --range-board 10                                                          \
-      --range-board-center $z                                                   \
-      --say-errz                                                                \
-      --write-model /tmp/surveyed-solve-z`printf %02d $z`-seed$seed.cameramodel \
+    test/test-surveyed-calibration.py \
+      --seed-rng $seed                \
+      --range-board 10                \
+      --range-board-center $z         \
+      --say-errz                      \
     | while {read errz} { echo $z $errz }
   }
 } \
@@ -413,10 +417,50 @@ for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
     --points  \
     --domain  \
     --vnl     \
-    --autolegend
+    --autolegend \
+    --style 'mean(errz)' 'with linespoints lw 2' \
+    --xlabel 'Distance to the middle chessboard (m)' \
+    --ylabel 'Error and standard deviation of the error in camera z' \
+    --legend 'mean(errz)'  'Mean error in camera z' \
+    --legend 'stdev(errz)' 'Standard deviation in the error in camera z' \
+    --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable'
 #+end_src
+#+begin_src sh :exports none :eval no-export
+echo '# z errz';
+for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
+  for seed (`seq 0 8`) {
+    test/test-surveyed-calibration.py \
+      --seed-rng $seed                \
+      --range-board 10                \
+      --range-board-center $z         \
+      --say-errz                      \
+    | while {read errz} { echo $z $errz }
+  }
+} > /tmp/tst.vnl
 
-#+begin_example
+D=~/projects/mrcal-doc-external/figures/surveyed-calibration
+mkdir -p $D
+< /tmp/tst.vnl \
+{ echo '# z mean(errz) stdev(errz)';
+  datamash -W -C -g 1 mean 2 pstdev 2
+} \
+| feedgnuplot \
+    --lines   \
+    --points  \
+    --domain  \
+    --vnl     \
+    --autolegend \
+    --style 'mean(errz)' 'with linespoints lw 2' \
+    --xlabel 'Distance to the middle chessboard (m)' \
+    --ylabel 'Error and standard deviation of the error in camera z' \
+    --legend 'mean(errz)'  'Mean error in camera z' \
+    --legend 'stdev(errz)' 'Standard deviation in the error in camera z' \
+    --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable' \
+    --hardcopy $D/errz.svg \
+    --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+#+end_src
+#+begin_src sh :exports none :eval no-export
+## results
 # z errz
 4 0.002472854724814469
 4 -0.0016655827894708347
@@ -517,7 +561,16 @@ for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
 30 0.00729143257052671
 30 0.013523992327740805
 30 -0.01126432766913972
-#+end_example
+#+end_src
+
+[[file:external/figures/surveyed-calibration/errz.svg]]
+
+So when all 3 chessboards sit at 10m out, we see a very high uncertainty in
+camera position (and by extension, camera intrinsics). When running the standard
+moving-chessboard calibration we have an [[file:tour-choreography.org::#tilt][analogous effect when we consider
+tilting the chessboard to the camera]]: the chessboard tilt creates the variable
+ranges required for a well-defined solve.
+
 * [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]
 xxx
 

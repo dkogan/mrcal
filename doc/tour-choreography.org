@@ -92,6 +92,9 @@ ranges I'm scanning. And we can see that the sweet spot moves further back as we
 move the chessboards back.
 
 ** Should the chessboards be shown head-on, or should they be tilted?
+:PROPERTIES:
+:CUSTOM_ID: tilt
+:END:
 
 #+begin_src sh
 dance-study.py                         \
