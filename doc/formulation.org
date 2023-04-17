@@ -151,8 +151,19 @@ mrcal supports [[file:lensmodels.org][multiple methods]] to model the behavior o
 particular note is that at this time, mrcal assumes that all projections are
 /central/: all rays of light are assumed to intersect at a single point (the
 origin of the camera coordinate system). So $k \vec v$ projects to the same
-$\vec q$ for any $k$. This is very convenient, but not completely realistic.
-Support for /non-central/ lenses is coming in a future release of mrcal.
+$\vec q$ for any $k$. This is very convenient, mostly true, and almost every
+camera library assumes this. This assumption breaks down when projecting
+observations /very/ close to the lens, with "close" being judged relative to the
+physical size of the lens. These extreme close-ups exhibit /non-central/
+behavior:
+
+[[file:figures/noncentral.svg]]
+
+While [[file:tour-choreography.org::#choreography-distance][extreme close-ups are very good for calibration quality]], the working
+distance is usually past the range where non-central effects are observable. So
+it is recommended to avoid the non-central regime by keeping the chessboard
+far-enough out ([[file:tour-cross-validation.org][cross-validation]] can be used to verify). That said, support for
+/non-central/ lenses is coming in a future release of mrcal.
 
 * Optimization details
 The mrcal solver is an optimization routine based on sparse nonlinear least
