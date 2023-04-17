@@ -571,9 +571,6 @@ moving-chessboard calibration we have an [[file:tour-choreography.org::#tilt][an
 tilting the chessboard to the camera]]: the chessboard tilt creates the variable
 ranges required for a well-defined solve.
 
-* [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]
-xxx
-
 * Camera resolution visualization
 :PROPERTIES:
 :CUSTOM_ID: visualizing-resolution
@@ -617,16 +614,5 @@ different if looking in different directions. The current implementation of the
 tool /does/ assume isotropic behavior, however, and it displays the mean
 resolution.
 
-** CUSTOM_IDs linked to this document
-Obtained like this:
-#+begin_src sh
-perl -nE  'if(/recipes.org::#(.+?)\]/) {say $1;}' *.org | sort -u
-#+end_src
-
-- [X] effect-of-chessboard-shape
-- [X] effect-of-unfocused-corners
-- [X] lens-stability
-- [X] non-mrgingham-detector
-- [X] rolling-shutter-and-sync-errors
-
-I should look for generic "recipes" links also. grep for "recipes"
+* [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]
+xxx
