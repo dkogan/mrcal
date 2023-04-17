@@ -59,6 +59,9 @@ And it looks like more observations is always better, but we reach the point of
 diminishing returns at ~ 100 frames.
 
 ** How close should the chessboards be?
+:PROPERTIES:
+:CUSTOM_ID: choreography-distance
+:END:
 
 #+begin_src sh
 dance-study.py                   \
@@ -318,7 +321,7 @@ from the camera, and that is constant here.
 Conclusions:
 
 - More frames are good
-- Closeups are /extremely/ important
+- Closeups are /extremely/ important (up to some [[file:how-to-calibrate.org::#dancing][practical limits]])
 - Tilted views are good
 - A smaller number of bigger calibration problems is good
 - More chessboard corners is good, as long as the detector can find them

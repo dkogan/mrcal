@@ -35,8 +35,8 @@ time of this writing there are 3 metadata keys:
   =LENSMODEL_OPENCV...= and =LENSMODEL_CAHVOR...=.
 - =has_gradients=: True if this model has gradients implemented. As of mrcal 2.3
   all models have this.
-- =noncentral=: True if projection is /not/ invariant to scaling; i.e. if every
-  observation ray does /not/ intersect at the same point. As of mrcal 2.3 only
+- =noncentral=: True if [[file:formulation.org::#lens-behavior][projection is /not/ invariant to scaling; i.e. if every
+  observation ray does /not/ intersect at the same point]]. As of mrcal 2.3 only
   [[#lensmodel-cahvore][=LENSMODEL_CAHVORE=]] does this.
 
 In Python, the models are identified with a string =LENSMODEL_XXX= where the
@@ -88,7 +88,7 @@ At this time all models contain a core.
 Currently all models represent a /central/ projection: all observation rays
 intersect at a single point (the camera origin). So $k \vec v$ projects to the
 same $\vec q$ for all $k$. This isn't strictly true for real-world lenses, so
-non-central projections will be supported in a future release of mrcal.
+[[file:formulation.org::#lens-behavior][non-central projections]] will be supported in a future release of mrcal.
 
 ** =LENSMODEL_PINHOLE=
 :PROPERTIES:
@@ -294,7 +294,7 @@ This is an extended flavor of =LENSMODEL_CAHVOR= to support wider lenses. The
 core parameters. As with =LENSMODEL_CAHVOR= this support exists only for
 compatibility, and there's no reason to use it otherwise.
 
-CAHVORE is a noncentral projection, so more infrastructure is required to make
+CAHVORE is a [[file:formulation.org::#lens-behavior][noncentral projection]], so more infrastructure is required to make
 =unproject()= do something reasonable in all cases. Thus projection uncertainty
 and differencing don't work for this model, and throw an error.
 

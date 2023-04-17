@@ -576,7 +576,7 @@ ranges required for a well-defined solve.
 :CUSTOM_ID: visualizing-resolution
 :END:
 
-Ignoring noncentral effects very close to the lens, a camera model maps
+Ignoring [[file:formulation.org::#lens-behavior][noncentral effects]] very close to the lens, a camera model maps
 directions in space to pixel coordinates, with each pixel covering a solid angle
 of some size. As sensor resolutions increase, the pixels become finer, covering
 smaller solid angles. For various processing it is often useful to visualize

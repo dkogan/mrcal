@@ -47,22 +47,30 @@ slow, and the shape is /usually/ stable long-enough for a chessboard dance. If
 you can make one, the aluminum honeycomb-backed boards are strongly recommended.
 
 *** Chessboard size
+:PROPERTIES:
+:CUSTOM_ID: chessboard-size
+:END:
 There's a tradeoff to consider between large and small chessboards. According to
 the [[file:tour-choreography.org][dance study]], we want close-ups that fill the imager, so we're choosing
 between small chessboards placed near the camera and large chessboards placed
 away from the camera.
 
-- If the chessboard is too small, we'd need to place it too close to the camera
-  to fill the imager. This will result in the chessboard appearing out of focus.
-  This is OK up to a point (out-of-focus blur is mostly isotropic, and this
-  noise averages out nicely), but extreme out-of-focus images should probably be
-  avoided
+- Small chessboards placed close to the camera produce two issues:
 
-- If the chessboard is too large, we'd need to place it far from the camera to
-  see the whole board, and this would result in worse calibration uncertainties.
-  See the [[file:tour-choreography.org][dance study]].
+  1. the chessboard would appear out of focus. This is OK up to a point
+     (out-of-focus blur is mostly isotropic, and this noise averages out
+     nicely), but extreme out-of-focus images should probably be avoided
+  2. Extreme close-ups exhibit [[file:formulation.org::#lens-behavior][noncentral projection behavior]]: observation rays
+     don't all intersect at the same point. Today's mrcal cannot model this
+     behavior, so extreme close-ups should be avoided to allow the central-only
+     models to fit. The [[file:tour-cross-validation.org][cross-validation page]] shows how to detect errors caused
+     by noncentral projection
 
-For wide lenses, you generally need larger chessboards. When calibrating an
+- Large chessboards are better, but are difficult to manufacture, to keep them
+  flat and stiff, and to move them around. Currently I use a 1m x 1m square
+  board, which seems to be near the limit of what is reasonable.
+
+For wide lenses especially, you want a larger chessboard. When calibrating an
 unfamiliar system I usually try running a calibration with whatever chessboard I
 already have, and then analyze the results to see if anything needs to be
 changed. It's also useful to rerun the [[file:tour-choreography.org][dance study]] for the specific geometry
@@ -129,6 +137,9 @@ As shown in the [[file:tour-choreography.org][dance study]], the most useful obs
 
 A dataset composed primarily of tilted closeups produces good results.
 
+As described [[#chessboard-size][above]], you want a large chessboard placed as close to the camera as
+possible, before the out-of-focus and noncentral effects kick in.
+
 If the model will be used to look at far-away objects, care must be taken to
 produce a reliable calibration /at long ranges/, not just at the /short/ ranges
 where the chessboards were. The primary way to do that is to get close-up
@@ -143,6 +154,13 @@ would to bring down the uncertainties to an acceptable level. In challenging
 situations it's useful to re-run the [[file:tour-choreography.org][dance study]] for the specific use case to
 get a sense of what kind of observations are required and what kind of
 uncertainties can be expected. See the [[file:tour-choreography.org][dance study]] for detail.
+
+Another issue that could be caused by extreme close-ups is a
+[[file:formulation.org::#lens-behavior][noncentral projection behavior]]:
+observation rays don't all intersect at the same point. Today's mrcal cannot
+model this behavior, and the [[file:tour-cross-validation.org][cross-validation]] would show higher-than-expected
+errors. In this case it is recommended to gather calibration data from further
+out.
 
 It is better to have more chessboard data rather than less. mrgingham will throw
 away frames where no chessboard can be found, so it is perfectly reasonable to

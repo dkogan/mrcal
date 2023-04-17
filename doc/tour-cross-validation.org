@@ -125,17 +125,17 @@ not fitting. So we can explain ~0.2-0.4 pixels of the error away from the edges
 considering the data at the edges) is unexplained. Thus any application that
 requires an accuracy of <1 pixel would have problems with this calibration.
 
-I have worked extensively with this lens in the past, and this experience tells
-me that the biggest problem here is caused by mrcal assuming a central
-projection in its models (assuming that all rays intersect at a single point).
-This is an assumption made by more or less every calibration tool, and most of
-the time it's reasonable. However, this assumption breaks down when you have a
-physically large, wide-angle lens looking at objects /very/ close to the lens:
-exactly the case we have here.
+I know from past experience with this lens that the biggest problem here is
+caused by [[file:formulation.org::#lens-behavior][mrcal assuming a central projection in its models]] (assuming that all
+rays intersect at a single point). This is an assumption made by more or less
+every calibration tool, and most of the time it's reasonable. However, this
+assumption breaks down when you have a physically large, wide-angle lens looking
+at objects /very/ close to the lens: exactly the case we have here.
 
-An experimental and not-entirely-complete [[https://github.com/dkogan/mrcal/tree/noncentral][support for noncentral projections in
-mrcal]] exists, and fits our data /much/ better. The cross-validation diff from
-the same data using a noncentral projection:
+With the data we have, we have to model the noncentrality. An experimental and
+not-entirely-complete [[https://github.com/dkogan/mrcal/tree/noncentral][support for noncentral projections in mrcal]] exists, and
+fits our data /much/ better. The cross-validation diff from the same data using
+a noncentral projection:
 
 #+begin_src sh :exports none :eval no-export
 mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
@@ -164,14 +164,12 @@ not yet done. Talk to me if you need it.
 Since today's mrcal doesn't support noncentral projections, what can we do in
 this situation? If the accuracy requirements are within the error reported by
 the cross-validation diff, then we can simply accept this result, with
-reasonable confidence. If not, we can try to gather better calibration data.
-
-Here we gathered close-up calibration images to maximize the [[file:tour-uncertainty.org][projection
-uncertainty]] (explained [[file:tour-choreography.org][later in the dance study]]). Getting images from further
-out would produce a higher-uncertainty calibration, but would exhibit a weaker
-noncentral behavior. So getting a larger number of further-out chessboard
-observation in lieu of the close-ups would make the existing central models work
-much better.
+reasonable confidence. If not, we need to gather new calibration data. The
+current calibration images were [[file:tour-choreography.org::#choreography-distance][gathered from very close-in]] to maximize the
+[[file:tour-uncertainty.org][projection uncertainty]]. Getting images from further out would produce a
+higher-uncertainty calibration, but would exhibit a weaker noncentral behavior.
+So getting a larger number of further-out chessboard observation in lieu of the
+close-ups would make the existing central models work much better.
 
 A more rigorous interpretation of these cross-validation results would be good,
 but a human interpretation is working well for now, so it's low-priority for me

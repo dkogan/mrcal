@@ -145,6 +145,9 @@ appears to work even for asymmetric deflections. This needs more testing, and
 has not yet been released. Talk to Dima if you want to play with it.
 
 * Lens behavior
+:PROPERTIES:
+:CUSTOM_ID: lens-behavior
+:END:
 The fundamental operation to map a point in the camera coordinate system to a
 pixel where that point would be observed by the camera is called /projection/.
 mrcal supports [[file:lensmodels.org][multiple methods]] to model the behavior of different lenses. Of
