@@ -1,5 +1,5 @@
 #+title: A tour of mrcal: optimal choreography
-#+OPTIONS: toc:nil
+#+OPTIONS: toc:t
 
 * Previous
 We just [[file:tour-effect-of-range.org][discussed the effect of range in differencing and uncertainty
