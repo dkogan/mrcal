@@ -98,8 +98,15 @@ listed in chronological order:
 
 The last paper compares the available methods from /all/ the papers. A
 [[https://github.com/dkogan/mrcal/blob/master/analyses/triangulation/study.py][triangulation study]] is available to evaluate the precision and accuracy of the
-existing methods. Currently =leecivera_mid2= is recommended for most usages. The
-triangulation methods available in mrcal:
+existing methods. Currently =leecivera_mid2= is recommended for most usages.
+
+Note that all of the Lee-Civera methods work geometrically, off observation
+vectors, /not/ pixel coordinates directly. This carries an implicit assumption
+that the angular resolution is constant across the whole imager. This is usually
+somewhat true, but the extent depends on the specific lens and camera. Use the
+[[file:recipes.org::#visualizing-resolution][resolution-visualization tool]] to check.
+
+The triangulation methods available in mrcal:
 
 ** =geometric=
 This is the basic [[https://en.wikipedia.org/wiki/Triangulation_(computer_vision)#Mid-point_method][midpoint method]]: it computes the point in space that minimizes

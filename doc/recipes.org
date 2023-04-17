@@ -574,13 +574,48 @@ ranges required for a well-defined solve.
 * [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]
 xxx
 
-* more                                                             :noexport:
+* Camera resolution visualization
+:PROPERTIES:
+:CUSTOM_ID: visualizing-resolution
+:END:
 
-chessboard video
+Ignoring noncentral effects very close to the lens, a camera model maps
+directions in space to pixel coordinates, with each pixel covering a solid angle
+of some size. As sensor resolutions increase, the pixels become finer, covering
+smaller solid angles. For various processing it is often useful to visualize
+this angular resolution of a camera. For instance to justify using
+geometric-only techniques, such as the [[file:triangulation.org][triangulation methods]] do.
 
-show scene range error due to calibration
+mrcal provides the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-show-model-resolution.py][=analyses/mrcal-show-model-resolution.py=]] tool to do this.
+This tool isn't yet "released", so it is not yet part of the installed set, and
+must be run from the source tree. A sample visualization of the lens from the
+[[file:tour.org][tour of mrcal]]:
 
-resolution tool
+#+begin_src sh
+analyses/mrcal-show-model-resolution.py                        \
+  --title "Mean angular resolution (deg/pixel) over the imager" \
+  splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external/figures/resolution
+mkdir -p $D
+
+PYTHONPATH=$PWD \
+analyses/mrcal-show-model-resolution.py \
+  --title "Mean angular resolution (deg/pixel) over the imager" \
+  --unset key \
+  --hardcopy $D/splined-resolution.png                          \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"' \
+  doc/external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity/splined.cameramodel
+#+end_src
+
+[[file:external/figures/resolution/splined-resolution.png]]
+
+So as we move outwards, each pixel covers less space. Note that at each pixel
+the projection behavior isn't necessarily isotropic: the resolution may be
+different if looking in different directions. The current implementation of the
+tool /does/ assume isotropic behavior, however, and it displays the mean
+resolution.
 
 ** CUSTOM_IDs linked to this document
 Obtained like this:
