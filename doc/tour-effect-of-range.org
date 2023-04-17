@@ -127,7 +127,7 @@ for dance ($D/[23]-*) {
 }
 
 $PYTHONPATH/mrcal-show-projection-diff                                                          \
-  --cbmax 2                                                                                     \
+  --cbmax 1                                                                                     \
   --no-uncertainties --radius 800                                                               \
   --unset key                                                                                   \
   --hardcopy ~/projects/mrcal/doc/external/figures/cross-validation/diff-culled-at-infinity.png \
@@ -136,7 +136,7 @@ $PYTHONPATH/mrcal-show-projection-diff                                          
 
 $PYTHONPATH/mrcal-show-projection-diff                                                    \
   --distance 1                                                                            \
-  --cbmax 2                                                                               \
+  --cbmax 1                                                                               \
   --no-uncertainties --radius 800                                                         \
   --unset key                                                                             \
   --hardcopy ~/projects/mrcal/doc/external/figures/cross-validation/diff-culled-at-1m.png \
