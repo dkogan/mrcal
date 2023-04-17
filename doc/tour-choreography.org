@@ -15,7 +15,7 @@ imager center to visualize the effect of that parameter.
 I run all of these studies using the =LENSMODEL_OPENCV8= model. It computes
 faster than the splined model, and qualitatively produces similar results.
 
-How many chessboard observations should we get?
+** How many chessboard observations should we get?
 
 #+begin_src sh
 dance-study.py                   \
@@ -58,7 +58,7 @@ the sweet spot is a bit past that.
 And it looks like more observations is always better, but we reach the point of
 diminishing returns at ~ 100 frames.
 
-OK. How close should the chessboards be?
+** How close should the chessboards be?
 
 #+begin_src sh
 dance-study.py                   \
@@ -91,7 +91,7 @@ Here we have two vertical dashed lines, indicating the minimum and maximum
 ranges I'm scanning. And we can see that the sweet spot moves further back as we
 move the chessboards back.
 
-Alrighty. Should the chessboards be shown head-on, or should they be tilted?
+** Should the chessboards be shown head-on, or should they be tilted?
 
 #+begin_src sh
 dance-study.py                         \
@@ -145,6 +145,7 @@ from imprecise circle detections or getting poor uncertainties from insufficient
 tilt. Extra effort can be expended to improve this situation to make circle
 grids usable, or chessboards can be used.
 
+** How many cameras should observe the chessboard?
 Moving on. Often we want to calibrate multiple cameras, and if we only care
 about the intrinsics we are free to do one N-way calibration or N separate
 monocular calibrations or anything in-between. The former has more constraints,
@@ -194,6 +195,7 @@ That's great. We now know how to dance given a particular chessboard. But what
 kind of chessboard do we want? mrcal assumes a chessboard being an evenly-spaced planar grid with any number of
 points and any spacing.
 
+** How dense should the chessboard pattern be?
 Let's examine the point counts. We expect that adding more points to a
 chessboard of the same size would produce better results, since we would have
 strictly more data to work with. This expectation is correct:
@@ -231,6 +233,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
 Here we varied =object-width-n=, but also adjusted =object-spacing= to keep the
 chessboard size the same.
 
+** How big should the chessboard be?
 What if we leave the point counts alone, but vary the spacing? As we increase
 the point spacing, the board grows in size, spanning more and more of the
 imager. We expect this would improve things:
@@ -304,7 +307,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py                                     
 
 [[file:external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.svg]]
 
-Looks like the optimal uncertainty is the same in all cases, but tracks the
+Looks like the optimal uncertainty is similar in all cases, but tracks the
 moving range. The uncertainty at infinity is roughly similar in all cases. This
 is expected: we care about the size of the chessboard relative to its distance
 from the camera, and that is constant here.
