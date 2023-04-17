@@ -131,10 +131,19 @@ def mean_resolution__rad_pixel(q, model):
     a = nps.inner(M[...,:,0], M[...,:,0])
     b = nps.inner(M[...,:,0], M[...,:,1])
     c = nps.inner(M[...,:,1], M[...,:,1])
-    l0 = (a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b)
-    l1 = (a+c)/2 - np.sqrt( (a-c)*(a-c)/4 + b*b)
+    sqrt_discriminant = np.sqrt( (a-c)*(a-c)/4 + b*b)
+    l0 = (a+c)/2 + sqrt_discriminant
+    l1 = (a+c)/2 - sqrt_discriminant
+    resolution_pix_rad_max = np.sqrt(l0)
 
-    return (1./np.real(np.sqrt(l0)) + 1./np.real(np.sqrt(l1))) / 2
+    # real in case roundoff error makes l1<0
+    resolution_pix_rad_min = np.real(np.sqrt(l1))
+
+    # The resolution is an ellipse (different directions could have different
+    # resolutions). Here I assume it's a circle, and take the average of the
+    # axis lengths
+    resolution_pix_rad = (resolution_pix_rad_min + resolution_pix_rad_max)/2
+    return 1./resolution_pix_rad
 
 
 
