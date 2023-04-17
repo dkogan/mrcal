@@ -191,7 +191,6 @@ curve_options = \
         plot_options,
         contour_min  = args.cbmin,
         contour_max  = args.cbmax,
-        contour_increment = -0.001,
         imagersize   = model.imagersize(),
         gridn_width  = args.gridn[0],
         gridn_height = args.gridn[1])
