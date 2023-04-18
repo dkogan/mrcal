@@ -252,6 +252,10 @@ these models are not supported in the production system, it is worth solving
 with them to serve as a ground truth.
 
 ** Utilizing a too-lean production model
+:PROPERTIES:
+:CUSTOM_ID: interoperating-with-too-lean-model
+:END:
+
 If we calibrated with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get a ground truth,
 we can recalibrate using the same data for whatever model is supported. A
 [[file:differencing.org][difference]] can be computed to estimate the projection errors we expect from this
@@ -614,5 +618,61 @@ different if looking in different directions. The current implementation of the
 tool /does/ assume isotropic behavior, however, and it displays the mean
 resolution.
 
-* [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]
-xxx
+* Converting lens models
+:PROPERTIES:
+:CUSTOM_ID: convert-lensmodel
+:END:
+
+It is often useful to convert a camera model utilizing one lens model to use
+another one. For instance when [[#interoperating-with-too-lean-model][using a calibration in an existing system that
+doesn't support the model we have]]. This is a common need, so a standalone tool
+is available for this task: [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]. Two modes are available:
+
+1. If the given cameramodel file contains =optimization_inputs=, then we have
+   all the data that was used to compute this model in the first place, and we
+   can re-run the original optimization, using the new lens model. This is the
+   default behavior, and is the preferred choice. However it can only work with
+   models that were computed by mrcal originally.
+
+2. We can sample a grid of points on the imager, unproject them to observation
+   vectors in the camera coordinate system, and then fit a new camera model that
+   reprojects these vectors as closely to the original pixel coordinates as
+   possible. This can be applied to models that didn't come from mrcal. Select
+   this mode by passing =--sampled=.
+
+Since camera models (lens parameters /and/ geometry) are computed off real pixel
+observations, the confidence of the projections varies greatly across the imager
+and across observation distances. The first method uses the original data, so it
+implicitly respects these uncertainties: uncertain areas in the original model
+will be uncertain in the new model as well. The second method, however, doesn't
+have this information: it doesn't know which parts of the imager and space are
+reliable, so the results suffer.
+
+As always, the [[file:differencing.org::#implied-transformation][intrinsics have some baked-in geometry information]]. Both methods
+optimize intrinsics /and/ extrinsics, and output cameramodels with updated
+versions of both. If =--sampled=: we can request that only the intrinsics be
+optimized by passing =--intrinsics-only=.
+
+Also, if =--sampled= and not =--intrinsics=-only: we fit the extrinsics off 3D
+points, not just observation directions. The distance from the camera to the
+points is set by =--distance=. This can take a comma-separated list of distances
+to use. It's /strongly/ recommended to ask for two different distances:
+
+- A "near" distance: where we expect the intrinsics to have the most accuracy.
+  At the range of the chessboards, usually
+
+- A "far" distance: at "infinity". A few km is good usually.
+
+The reason for this is that =--sampled= solves at a single distance aren't
+sufficiently constrained, similar to the issues that result from a [[#surveyed-calibration][surveyed
+calibration]] of chessboards all at the same range. If we ask for a single far
+distance: =--distance 1000= for instance, we can easily get an extrinsics
+shift of 100m. This is aphysical: changing the intrinsics could shift the camera
+origin by a few mm, but not 100m. Conceptually we want to perform a
+rotation-only extrinsics solve, but this isn't yet implemented. Passing both a
+near and far distance appears to constrain the extrinsics well in practice. The
+computed extrinsics transform is printed on the console, with a warning if an
+aphysical shift was computed. Do pay attention to the console output.
+
+Some more tool-specific documentation are available in the documentation in
+[[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]].

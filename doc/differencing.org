@@ -110,6 +110,10 @@ mrcal-show-projection-diff \
 [[file:external/figures/diff/diff-splined-opencv8.png]]
 
 ** Implied transformation details
+:PROPERTIES:
+:CUSTOM_ID: implied-transformation
+:END:
+
 As with [[file:uncertainty.org::#effect-of-range][projection uncertainty]], the difference computations are not invariant to
 range. So we always compute "the projection difference when looking out to $r$
 meters" for some possibly-infinite $r$. The procedure we implement is:

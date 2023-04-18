@@ -22,11 +22,11 @@ SYNOPSIS
 
   ... a plot pops up showing the differences ...
 
-Given a camera model, this tool computes another model that represents the same
-lens, but uses a different lens model. While lens models all exist to solve the
-same problem, the different representations don't map to one another perfectly,
-and this tool finds the best-fitting parameters of the target lens model. Two
-different methods are implemented:
+Given one camera model, this tool computes another camera model that represents
+the same camera, but utilizes a different lens model. While lens models all
+exist to solve the same problem, the different representations don't map to one
+another perfectly, and this tool finds the best-fitting parameters of the target
+lens model. Two different methods are implemented:
 
 1. If the given cameramodel file contains optimization_inputs, then we have all
    the data that was used to compute this model in the first place, and we can
@@ -44,12 +44,12 @@ different methods are implemented:
    this mode by passing --sampled.
 
 Since camera models (lens parameters AND geometry) are computed off real pixel
-observations, the confidence of the projections varies greatly across the
-imager. The first method uses the original data, so it implicitly respects these
-uncertainties: uncertain areas in the original model will be uncertain areas in
-the new model too. The second method, however, doesn't have this information: it
-doesn't know which parts of the imager are reliable and which aren't, so the
-results could suffer.
+observations, the confidence of the projections varies greatly across the imager
+and across observation distances. The first method uses the original data, so it
+implicitly respects these uncertainties: uncertain areas in the original model
+will be uncertain in the new model as well. The second method, however, doesn't
+have this information: it doesn't know which parts of the imager and space are
+reliable, so the results suffer.
 
 As always, the intrinsics have some baked-in geometry information. Both methods
 optimize intrinsics AND extrinsics, and output cameramodels with updated
