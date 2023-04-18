@@ -2,6 +2,90 @@
 #+OPTIONS: toc:nil
 
 * New in mrcal 2.3
+** better discrete point support
+added residuals_point()
+
+show_residuals_....() displays board AND point residuals
+
+mrcal.show_geometry(), mrcal-show-geometry can plot calibration-time points
+
+Projection uncertainty can be computed with fixed points, such as with a
+
+surveyed calibration
+mrcal-show-... handle --observations better. Both chessboard and point
+observations can be shown
+
+** full CAHVORE support
+
+** C API
+
+mrcal_image_..._crop() is now static inline
+This fixes linker errors on some compilers
+
+C API supports mrcal_cameramodel_LENSMODEL_XXXX_t structures
+For models that allow it, these have the right known-at-compile-time size. Makes
+it possible to allocate on the stack, and is generally convenient.
+
+*** stereo in C
+mrcal.rectified_resolution() is now separate from mrcal.rectified_system(), and
+has a callable C implementation
+
+same with mrcal.rectified_system(), rectification_maps
+
+** Commandline tools
+Commandline tools print errors instead of throwing exceptions
+
+** mrcal-stereo
+mrcal-stereo writes out a binary disparity image (16-bpp png) for easy post-processing
+
+bug fix: mrcal-stereo respects --axis-scale
+
+bug fix: mrcal-stereo can process multiple files with one invocation again
+
+mrcal-stereo gui displays both the rectified and input coordinates
+
+mrcal-stereo can rectify images in parallel
+
+** generic viz updates
+show_projection_diff() and mrcal-show-projection-diff handles nan values better:
+no confused plots or ugly warnings on the console
+
+show_projection_diff() can plot vectorfields with multiple distances
+And the mrcal-show-projections-diff tool. Same as with heat maps, we plot the
+diff for the first distance
+
+show_projection_uncertainty_vs_distance() has distance_min, distance_max,
+observed_pixel_uncertainty args. To control the plot better. The defaults are
+None, autodetecting the ranges, input uncertainty, so the default behavior does
+not change
+
+show_residuals_board_observation() reports iobservation_from_worst in its title
+Applies to the mrcal-show-residuals-board-observation tool as well. Makes it
+simple to regenerate specific plots, even if they were displayed out of order
+
+mrcal-show-residuals-board-observation has --from-glob
+
+** Image i/o
+save_image() can write 16bpp grayscale images properly
+This requires a more recent libfreeimage than is available on some OSs
+
+** calibration seed bug fix
+estimate_monocular_calobject_poses_Rt_tocam() ignores invalid input points
+This makes calibrating given incomplete chessboard observations work properly
+
+** generic API updates
+mrcal.optimize(), mrcal.optimizer_callback(): all arguments are keyword-only,
+most arguments are optional
+
+measurement_index_....() all return <0 if those measurements aren't present
+
+Added mrcal.make_perfect_observations()
+
+ref_calibration_object() can return the position of ANY point on the chessboard
+Not just the chessboard corners.
+
+mrcal-convert-lensmodel has --cbmax
+
 residuals_chessboard() argument rename: i_cam -> icam_intrinsics
 For consistency. Old argument still accepted for compatibility
 
@@ -12,81 +96,6 @@ return_observations: we return residuals,observations
 mrcal.residuals_chessboard() returns size-0 arrays if no
 chessboard or point observations respectively are present
 
-added residuals_point()
-
-show_residuals_....() displays board AND point residuals
-
-mrcal_image_..._crop() is now static inline
-This fixes linker errors on some compilers
-
-Commandline tools print errors instead of throwing exceptions
-
-mrcal-stereo writes out a binary disparity image for easy post-processing
-
-show_projection_diff() and mrcal-show-projection-diff handles nan values better:
-no confused plots or ugly warnings on the console
-
-mrcal.rectified_resolution() is now separate from mrcal.rectified_system(), and
-has a callable C implementation
-
-same with mrcal.rectified_system(), rectification_maps
-
-estimate_monocular_calobject_poses_Rt_tocam() ignores invalid input points
-This makes calibrating given incomplete chessboard observations work properly
-
-show_projection_diff() can plot vectorfields with multiple distances
-And the mrcal-show-projections-diff tool. Same as with heat maps, we plot the
-diff for the first distance
-
-mrcal.optimize(), mrcal.optimizer_callback(): all arguments are keyword-only,
-most arguments are optional
-
-measurement_index_....() all return <0 if those measurements aren't present
-
-save_image() can write 16bpp grayscale images properly
-This requires a more recent libfreeimage than is available on some OSs
-
-mrcal-stereo respects --axis-scale
-Not doing this was an oversight
-
-full CAHVORE support
-
-show_residuals_board_observation() reports iobservation_from_worst in its title
-Applies to the mrcal-show-residuals-board-observation tool as well. Makes it
-simple to regenerate specific plots, even if they were displayed out of order
-
-mrcal-show-residuals-board-observation has --from-glob
-
-Added mrcal.make_perfect_observations()
-
-bug fix: mrcal-stereo can process multiple files with one invocation again
-
-mrcal-stereo can rectify images in parallel
-
-ref_calibration_object() can return the position of ANY point on the chessboard
-Not just the chessboard corners.
-
-mrcal-show-... handle --observations better. Both chessboard and point
-observations can be shown
-
-show_projection_uncertainty_vs_distance() has distance_min, distance_max,
-observed_pixel_uncertainty args. To control the plot better. The defaults are
-None, autodetecting the ranges, input uncertainty, so the default behavior does
-not change
-
-Projection uncertainty can be computed with fixed points, such as with a
-surveyed calibration
-
-mrcal.show_geometry(), mrcal-show-geometry can plot calibration-time points
-
-mrcal-convert-lensmodel has --cbmax
-
-C API supports mrcal_cameramodel_LENSMODEL_XXXX_t structures
-For models that allow it, these have the right known-at-compile-time size. Makes
-it possible to allocate on the stack, and is generally convenient.
-
-mrcal-stereo gui displays both the rectified and input coordinates
-
-demo mrcal-show-model-resolution.py tool
+** demo mrcal-show-model-resolution.py tool
 
 * Migration notes 2.2 -> 2.3
