@@ -76,6 +76,11 @@ extrinsics well in practice. The computed extrinsics transform is printed on the
 console, with a warning if an aphysical shift was computed. Do pay attention to
 the console output.
 
+Sampled solves are sometimes sensitive to the optimization seed. To control for
+this, pass --num-trials to evaluate the solve multiple times from different
+random seeds, and to pick the best one. These solves are usually quick, so
+there's no harm in passing something like "--num-trials 10".
+
 We need to consider that the model we're trying to fit may not fit the original
 model in all parts of the imager. Usually this is a factor when converting
 wide-angle cameramodels to use a leaner model: a decent fit will be possible at
