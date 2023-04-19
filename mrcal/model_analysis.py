@@ -596,7 +596,7 @@ def _projection_uncertainty( *,
     '''
 
     Nstate = Jpacked.shape[-1]
-    dq_dbief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
+    dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
     if extrinsics_rt_fromref is not None:
         p_ref = \
@@ -644,7 +644,7 @@ def _projection_uncertainty( *,
     if istate_intrinsics is not None:
         dq_dintrinsics_optimized = dq_dintrinsics[..., slice_optimized_intrinsics]
         Nintrinsics = dq_dintrinsics_optimized.shape[-1]
-        dq_dbief[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
+        dq_db[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
             dq_dintrinsics_optimized
 
     if extrinsics_rt_fromref is not None:
@@ -652,22 +652,22 @@ def _projection_uncertainty( *,
             mrcal.transform_point_rt(extrinsics_rt_fromref, p_ref,
                                      get_gradients = True)
 
-        dq_dbief[..., istate_extrinsics:istate_extrinsics+6] = \
+        dq_db[..., istate_extrinsics:istate_extrinsics+6] = \
             nps.matmult(dq_dpcam, dpcam_drt)
 
         if frames_rt_toref is not None:
-            dq_dbief[..., istate_frames:istate_frames+Nframes*6] = \
+            dq_db[..., istate_frames:istate_frames+Nframes*6] = \
                 nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
     else:
         if frames_rt_toref is not None:
-            dq_dbief[..., istate_frames:istate_frames+Nframes*6] = \
+            dq_db[..., istate_frames:istate_frames+Nframes*6] = \
                 nps.matmult(dq_dpcam, dpref_dframes)
 
-    # Make dq_dbief use the packed state. I call "unpack_state" because the
+    # Make dq_db use the packed state. I call "unpack_state" because the
     # state is in the denominator
-    mrcal.unpack_state(dq_dbief, **optimization_inputs)
+    mrcal.unpack_state(dq_db, **optimization_inputs)
     return \
-        _propagate_calibration_uncertainty( dq_dbief,
+        _propagate_calibration_uncertainty( dq_db,
                                             factorization, Jpacked,
                                             Nmeasurements_observations,
                                             observed_pixel_uncertainty,
@@ -694,7 +694,7 @@ def _projection_uncertainty_rotationonly( *,
     '''
 
     Nstate = Jpacked.shape[-1]
-    dq_dbief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
+    dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
     if extrinsics_rt_fromref is not None:
         p_ref = \
@@ -736,14 +736,14 @@ def _projection_uncertainty_rotationonly( *,
     if istate_intrinsics is not None:
         dq_dintrinsics_optimized = dq_dintrinsics[..., slice_optimized_intrinsics]
         Nintrinsics = dq_dintrinsics_optimized.shape[-1]
-        dq_dbief[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
+        dq_db[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
             dq_dintrinsics_optimized
 
     if extrinsics_rt_fromref is not None:
         _, dpcam_dr, dpcam_dpref = \
             mrcal.rotate_point_r(extrinsics_rt_fromref[...,:3], p_ref,
                                  get_gradients = True)
-        dq_dbief[..., istate_extrinsics:istate_extrinsics+3] = \
+        dq_db[..., istate_extrinsics:istate_extrinsics+3] = \
             nps.matmult(dq_dpcam, dpcam_dr)
 
         if frames_rt_toref is not None:
@@ -751,20 +751,20 @@ def _projection_uncertainty_rotationonly( *,
 
             # dprefallframes_dframesr has shape (..., Nframes,3,3)
             for i in range(Nframes):
-                dq_dbief[..., istate_frames+6*i:istate_frames+6*i+3] = \
+                dq_db[..., istate_frames+6*i:istate_frames+6*i+3] = \
                     nps.matmult(dq_dpref, dprefallframes_dframesr[...,i,:,:]) / Nframes
     else:
         if frames_rt_toref is not None:
             # dprefallframes_dframesr has shape (..., Nframes,3,3)
             for i in range(Nframes):
-                dq_dbief[..., istate_frames+6*i:istate_frames+6*i+3] = \
+                dq_db[..., istate_frames+6*i:istate_frames+6*i+3] = \
                     nps.matmult(dq_dpcam, dprefallframes_dframesr[...,i,:,:]) / Nframes
 
-    # Make dq_dbief use the packed state. I call "unpack_state" because the
+    # Make dq_db use the packed state. I call "unpack_state" because the
     # state is in the denominator
-    mrcal.unpack_state(dq_dbief, **optimization_inputs)
+    mrcal.unpack_state(dq_db, **optimization_inputs)
     return \
-        _propagate_calibration_uncertainty( dq_dbief,
+        _propagate_calibration_uncertainty( dq_db,
                                             factorization, Jpacked,
                                             Nmeasurements_observations,
                                             observed_pixel_uncertainty,
