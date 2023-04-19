@@ -552,6 +552,10 @@ In the regularized case:
 
     '''
 
+    what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev'))
+    if not what in what_known:
+        raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
+
     # shape (2,Nstate)
     A = factorization.solve_xt_JtJ_bt( dF_dbpacked )
     if Nmeasurements_observations is not None:
@@ -572,7 +576,8 @@ In the regularized case:
     else: raise Exception("Shouldn't have gotten here. There's a bug")
 
 
-def _projection_uncertainty( p_cam,
+def _projection_uncertainty( *,
+                             p_cam = None,
                              lensmodel, intrinsics_data,
                              extrinsics_rt_fromref, frames_rt_toref,
                              factorization, Jpacked, optimization_inputs,
@@ -669,7 +674,8 @@ def _projection_uncertainty( p_cam,
                                             what)
 
 
-def _projection_uncertainty_rotationonly( p_cam,
+def _projection_uncertainty_rotationonly( *,
+                                          p_cam = None,
                                           lensmodel, intrinsics_data,
                                           extrinsics_rt_fromref, frames_rt_toref,
                                           factorization, Jpacked, optimization_inputs,
@@ -929,11 +935,6 @@ else:                    we return an array of shape (...)
 
 
 
-    what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev'))
-    if not what in what_known:
-        raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
-
-
     optimization_inputs = model.optimization_inputs()
     if optimization_inputs is None:
         raise Exception("optimization_inputs are unavailable in this model. Uncertainty cannot be computed")
@@ -1046,17 +1047,23 @@ else:                    we return an array of shape (...)
 
     # Two distinct paths here that are very similar, but different-enough to not
     # share any code. If atinfinity, I ignore all translations
-    args = (p_cam,
-            lensmodel, intrinsics_data,
-            extrinsics_rt_fromref, frames_rt_toref,
-            factorization, Jpacked, optimization_inputs,
-            istate_intrinsics, istate_extrinsics, istate_frames,
-            slice_optimized_intrinsics,
-            Nmeasurements_observations,
-            observed_pixel_uncertainty,
-            what)
-    if not atinfinity: return _projection_uncertainty(*args)
-    else:              return _projection_uncertainty_rotationonly(*args)
+    kwargs = dict(p_cam                      = p_cam,
+                  lensmodel                  = lensmodel,
+                  intrinsics_data            = intrinsics_data,
+                  extrinsics_rt_fromref      = extrinsics_rt_fromref,
+                  frames_rt_toref            = frames_rt_toref,
+                  factorization              = factorization,
+                  Jpacked                    = Jpacked,
+                  optimization_inputs        = optimization_inputs,
+                  istate_intrinsics          = istate_intrinsics,
+                  istate_extrinsics          = istate_extrinsics,
+                  istate_frames              = istate_frames,
+                  slice_optimized_intrinsics = slice_optimized_intrinsics,
+                  Nmeasurements_observations = Nmeasurements_observations,
+                  observed_pixel_uncertainty = observed_pixel_uncertainty,
+                  what                       = what)
+    if not atinfinity: return _projection_uncertainty             (**kwargs)
+    else:              return _projection_uncertainty_rotationonly(**kwargs)
 
 
 def projection_diff(models,
