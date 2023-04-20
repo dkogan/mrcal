@@ -16,6 +16,45 @@ NchecksFailed = 0
 # we're running a test harness. This is fine
 np.set_printoptions(linewidth=1e10, suppress=True)
 
+
+
+def percentile_compat(*args, **kwargs):
+    r'''Wrapper for np.percentile() to handle their API change
+
+In numpy 1.24 the "interpolation" kwarg was renamed to "method". I need to pass
+the right thing to work with both old and new numpy. This function tries the
+newer method, and if that fails, uses the old one. The test is only done the
+first time.
+
+It is assumed that this is called with the old 'interpolation' key.
+
+    '''
+
+    if not 'interpolation' in kwargs or \
+       percentile_compat.which == 'interpolation':
+        return np.percentile(*args, **kwargs)
+
+    kwargs_no_interpolation = dict(kwargs)
+    del kwargs_no_interpolation['interpolation']
+
+    if percentile_compat.which == 'method':
+        return np.percentile(*args, **kwargs_no_interpolation,
+                             method = kwargs['interpolation'])
+
+    # Need to detect
+
+    try:
+        result = np.percentile(*args, **kwargs_no_interpolation,
+                               method = kwargs['interpolation'])
+        percentile_compat.which = 'method'
+        return result
+    except:
+        percentile_compat.which = 'interpolation'
+        return np.percentile(*args, **kwargs)
+
+percentile_compat.which = None
+
+
 def test_location():
     r'''Reports string describing current location in the test'''
 
@@ -81,7 +120,7 @@ def confirm_equal(x, xref, msg='',
     if worstcase: I look at the worst-case error
                   error = np.max(np.abs(err))
     elif percentile is not None: I look at the given point in the error distribution
-                  error = np.percentile(np.abs(err), percentile)
+                  error = percentile_compat(np.abs(err), percentile)
     else:         RMS error
                   error = np.sqrt(nps.norm2(err) / len(err))
     '''
@@ -149,7 +188,7 @@ def confirm_equal(x, xref, msg='',
                 err  = np.max(np.abs(diff))
             elif percentile is not None:
                 what = f'{percentile}%-percentile'
-                err  = np.percentile(np.abs(diff), percentile, interpolation='higher')
+                err  = percentile_compat(np.abs(diff), percentile, interpolation='higher')
             else:
                 what = 'RMS'
                 err  = np.sqrt(nps.norm2(diff) / len(diff))
