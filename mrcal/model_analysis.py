@@ -771,6 +771,139 @@ def _projection_uncertainty_rotationonly( p_cam,
                                             what)
 
 
+def _uncertainty_intermediates( model,
+                                *,
+                                observed_pixel_uncertainty = None):
+
+    r'''Return intermediate values needed for the uncertainty computation
+
+See projection_uncertaint() for the docs'''
+
+    optimization_inputs = model.optimization_inputs()
+    if optimization_inputs is None:
+        raise Exception("optimization_inputs are unavailable in this model. Uncertainty cannot be computed")
+
+    if not optimization_inputs.get('do_optimize_extrinsics'):
+        raise Exception("Computing uncertainty if !do_optimize_extrinsics not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for fixed extrinsics like they already do for fixed frames")
+
+    frames_rt_toref = None
+    istate_frames   = None
+    if optimization_inputs.get('do_optimize_frames'):
+        frames_rt_toref = optimization_inputs.get('frames_rt_toref')
+        points          = optimization_inputs.get('points')
+
+        if frames_rt_toref is not None and frames_rt_toref.size == 0:
+            frames_rt_toref = None
+        if points          is not None and points         .size == 0:
+            points          = None
+
+        if points is not None:
+            raise Exception("Uncertainty computation not yet implemented if I have non-fixed points")
+
+        if frames_rt_toref is not None:
+            # None if we're not optimizing chessboard poses, but I just checked,
+            # and we ARE
+            istate_frames = mrcal.state_index_frames(0, **optimization_inputs)
+
+    bpacked,x,Jpacked,factorization = \
+        mrcal.optimizer_callback( **optimization_inputs )
+
+    if factorization is None:
+        raise Exception("Cannot compute the uncertainty: factorization computation failed")
+
+    # The intrinsics,extrinsics,frames MUST come from the solve when
+    # evaluating the uncertainties. The user is allowed to update the
+    # extrinsics in the model after the solve, as long as I use the
+    # solve-time ones for the uncertainty computation. Updating the
+    # intrinsics invalidates the uncertainty stuff so I COULD grab those
+    # from the model. But for good hygiene I get them from the solve as
+    # well
+
+    # which calibration-time camera we're looking at
+    icam_intrinsics = model.icam_intrinsics()
+
+    # This will raise an exception if the cameras are not stationary
+    icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics, **optimization_inputs)
+
+    lensmodel       = optimization_inputs['lensmodel']
+    intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
+
+    if not optimization_inputs.get('do_optimize_intrinsics_core') and \
+       not optimization_inputs.get('do_optimize_intrinsics_distortions'):
+        # Not optimizing ANY of the intrinsics
+        istate_intrinsics          = None
+        slice_optimized_intrinsics = None
+    else:
+        # Optimizing SOME of the intrinsics
+        istate_intrinsics = mrcal.state_index_intrinsics(icam_intrinsics, **optimization_inputs)
+
+        i0,i1 = None,None # everything by default
+
+        has_core     = mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']
+        Ncore        = 4 if has_core else 0
+        Ndistortions = mrcal.lensmodel_num_params(lensmodel) - Ncore
+
+        if not optimization_inputs.get('do_optimize_intrinsics_core'):
+            i0 = Ncore
+        if not optimization_inputs.get('do_optimize_intrinsics_distortions'):
+            i1 = -Ndistortions
+
+        slice_optimized_intrinsics  = slice(i0,i1)
+
+    if icam_extrinsics < 0:
+        extrinsics_rt_fromref = None
+        istate_extrinsics     = None
+    else:
+        extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
+        istate_extrinsics     = mrcal.state_index_extrinsics (icam_extrinsics, **optimization_inputs)
+
+    Nmeasurements_boards = mrcal.num_measurements_boards(**optimization_inputs)
+    Nmeasurements_points = mrcal.num_measurements_points(**optimization_inputs)
+    Nmeasurements_all    = mrcal.num_measurements(**optimization_inputs)
+    if Nmeasurements_boards == Nmeasurements_all:
+        # Note the special-case where I'm using all the observations. No other
+        # measurements are present other than the chessboard observations
+        Nmeasurements_observations = None
+    else:
+        if Nmeasurements_points > 0:
+            print("WARNING: I'm currently treating the point range normalization (penalty) terms as following the same noise model as other measurements. This will bias the uncertainty estimate",
+                  file=sys.stderr)
+        Nmeasurements_observations = \
+            Nmeasurements_boards + \
+            Nmeasurements_points
+        if Nmeasurements_observations + \
+           mrcal.num_measurements_regularization(**optimization_inputs) != \
+               Nmeasurements_all:
+            raise Exception("Some measurements other than boards, points and regularization are present. Don't know what to do")
+
+    if observed_pixel_uncertainty is None:
+        # mrcal.residuals_point() ignores the range normalization (penalty)
+        var_residuals = 0
+        if Nmeasurements_boards:
+            var_residuals += \
+                np.var(mrcal.residuals_chessboard(optimization_inputs,
+                                                  residuals = x).ravel())
+        if Nmeasurements_points:
+            var_residuals += \
+                np.var(mrcal.residuals_point     (optimization_inputs,
+                                                  residuals = x).ravel())
+        observed_pixel_uncertainty = np.sqrt(var_residuals)
+
+    return dict(lensmodel                  = lensmodel,
+                intrinsics_data            = intrinsics_data,
+                extrinsics_rt_fromref      = extrinsics_rt_fromref,
+                frames_rt_toref            = frames_rt_toref,
+                factorization              = factorization,
+                Jpacked                    = Jpacked,
+                optimization_inputs        = optimization_inputs,
+                istate_intrinsics          = istate_intrinsics,
+                istate_extrinsics          = istate_extrinsics,
+                istate_frames              = istate_frames,
+                slice_optimized_intrinsics = slice_optimized_intrinsics,
+                Nmeasurements_observations = Nmeasurements_observations,
+                observed_pixel_uncertainty = observed_pixel_uncertainty)
+
+
 def projection_uncertainty( p_cam, model,
                             *,
                             atinfinity = False,
@@ -930,138 +1063,15 @@ else:                    we return an array of shape (...)
 
     #     sqrt((a+c)/2 + sqrt( (a-c)^2/4 + b^2))
 
+    kwargs = \
+        _uncertainty_intermediates(model,
+                                   observed_pixel_uncertainty = observed_pixel_uncertainty)
 
-
-
-
-
-    optimization_inputs = model.optimization_inputs()
-    if optimization_inputs is None:
-        raise Exception("optimization_inputs are unavailable in this model. Uncertainty cannot be computed")
-
-    if not optimization_inputs.get('do_optimize_extrinsics'):
-        raise Exception("Computing uncertainty if !do_optimize_extrinsics not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for fixed extrinsics like they already do for fixed frames")
-
-    frames_rt_toref = None
-    istate_frames   = None
-    if optimization_inputs.get('do_optimize_frames'):
-        frames_rt_toref = optimization_inputs.get('frames_rt_toref')
-        points          = optimization_inputs.get('points')
-
-        if frames_rt_toref is not None and frames_rt_toref.size == 0:
-            frames_rt_toref = None
-        if points          is not None and points         .size == 0:
-            points          = None
-
-        if points is not None:
-            raise Exception("Uncertainty computation not yet implemented if I have non-fixed points")
-
-        if frames_rt_toref is not None:
-            # None if we're not optimizing chessboard poses, but I just checked,
-            # and we ARE
-            istate_frames = mrcal.state_index_frames(0, **optimization_inputs)
-
-    bpacked,x,Jpacked,factorization = \
-        mrcal.optimizer_callback( **optimization_inputs )
-
-    if factorization is None:
-        raise Exception("Cannot compute the uncertainty: factorization computation failed")
-
-    # The intrinsics,extrinsics,frames MUST come from the solve when
-    # evaluating the uncertainties. The user is allowed to update the
-    # extrinsics in the model after the solve, as long as I use the
-    # solve-time ones for the uncertainty computation. Updating the
-    # intrinsics invalidates the uncertainty stuff so I COULD grab those
-    # from the model. But for good hygiene I get them from the solve as
-    # well
-
-    # which calibration-time camera we're looking at
-    icam_intrinsics = model.icam_intrinsics()
-
-    # This will raise an exception if the cameras are not stationary
-    icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics, **optimization_inputs)
-
-    lensmodel       = optimization_inputs['lensmodel']
-    intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
-
-    if not optimization_inputs.get('do_optimize_intrinsics_core') and \
-       not optimization_inputs.get('do_optimize_intrinsics_distortions'):
-        # Not optimizing ANY of the intrinsics
-        istate_intrinsics          = None
-        slice_optimized_intrinsics = None
-    else:
-        # Optimizing SOME of the intrinsics
-        istate_intrinsics = mrcal.state_index_intrinsics(icam_intrinsics, **optimization_inputs)
-
-        i0,i1 = None,None # everything by default
-
-        has_core     = mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']
-        Ncore        = 4 if has_core else 0
-        Ndistortions = mrcal.lensmodel_num_params(lensmodel) - Ncore
-
-        if not optimization_inputs.get('do_optimize_intrinsics_core'):
-            i0 = Ncore
-        if not optimization_inputs.get('do_optimize_intrinsics_distortions'):
-            i1 = -Ndistortions
-
-        slice_optimized_intrinsics  = slice(i0,i1)
-
-    if icam_extrinsics < 0:
-        extrinsics_rt_fromref = None
-        istate_extrinsics     = None
-    else:
-        extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
-        istate_extrinsics     = mrcal.state_index_extrinsics (icam_extrinsics, **optimization_inputs)
-
-    Nmeasurements_boards = mrcal.num_measurements_boards(**optimization_inputs)
-    Nmeasurements_points = mrcal.num_measurements_points(**optimization_inputs)
-    Nmeasurements_all    = mrcal.num_measurements(**optimization_inputs)
-    if Nmeasurements_boards == Nmeasurements_all:
-        # Note the special-case where I'm using all the observations. No other
-        # measurements are present other than the chessboard observations
-        Nmeasurements_observations = None
-    else:
-        if Nmeasurements_points > 0:
-            print("WARNING: I'm currently treating the point range normalization (penalty) terms as following the same noise model as other measurements. This will bias the uncertainty estimate",
-                  file=sys.stderr)
-        Nmeasurements_observations = \
-            Nmeasurements_boards + \
-            Nmeasurements_points
-        if Nmeasurements_observations + \
-           mrcal.num_measurements_regularization(**optimization_inputs) != \
-               Nmeasurements_all:
-            raise Exception("Some measurements other than boards, points and regularization are present. Don't know what to do")
-
-    if observed_pixel_uncertainty is None:
-        # mrcal.residuals_point() ignores the range normalization (penalty)
-        var_residuals = 0
-        if Nmeasurements_boards:
-            var_residuals += \
-                np.var(mrcal.residuals_chessboard(optimization_inputs,
-                                                  residuals = x).ravel())
-        if Nmeasurements_points:
-            var_residuals += \
-                np.var(mrcal.residuals_point     (optimization_inputs,
-                                                  residuals = x).ravel())
-        observed_pixel_uncertainty = np.sqrt(var_residuals)
+    kwargs.update(p_cam = p_cam,
+                  what  = what)
 
     # Two distinct paths here that are very similar, but different-enough to not
     # share any code. If atinfinity, I ignore all translations
-    kwargs = dict(p_cam                      = p_cam,
-                  lensmodel                  = lensmodel,
-                  intrinsics_data            = intrinsics_data,
-                  extrinsics_rt_fromref      = extrinsics_rt_fromref,
-                  frames_rt_toref            = frames_rt_toref,
-                  factorization              = factorization,
-                  Jpacked                    = Jpacked,
-                  optimization_inputs        = optimization_inputs,
-                  istate_intrinsics          = istate_intrinsics,
-                  istate_extrinsics          = istate_extrinsics,
-                  istate_frames              = istate_frames,
-                  slice_optimized_intrinsics = slice_optimized_intrinsics,
-                  Nmeasurements_observations = Nmeasurements_observations,
-                  observed_pixel_uncertainty = observed_pixel_uncertainty,
-                  what                       = what)
     if not atinfinity: return _projection_uncertainty             (**kwargs)
     else:              return _projection_uncertainty_rotationonly(**kwargs)
 
