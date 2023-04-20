@@ -576,8 +576,8 @@ In the regularized case:
     else: raise Exception("Shouldn't have gotten here. There's a bug")
 
 
-def _projection_uncertainty( *,
-                             p_cam = None,
+def _projection_uncertainty( p_cam,
+                             *,
                              lensmodel, intrinsics_data,
                              extrinsics_rt_fromref, frames_rt_toref,
                              factorization, Jpacked, optimization_inputs,
@@ -674,8 +674,8 @@ def _projection_uncertainty( *,
                                             what)
 
 
-def _projection_uncertainty_rotationonly( *,
-                                          p_cam = None,
+def _projection_uncertainty_rotationonly( p_cam,
+                                          *,
                                           lensmodel, intrinsics_data,
                                           extrinsics_rt_fromref, frames_rt_toref,
                                           factorization, Jpacked, optimization_inputs,
