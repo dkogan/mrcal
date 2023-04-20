@@ -847,13 +847,13 @@ camera coordinate system FROM the points coordinate system.
 
     i = (indices_cami == icam_intrinsics)
     if np.count_nonzero(i) < 4:
-        raise Exception(f"Requested {icam_intrinsics=} matched too few observations: {np.count_nonzero(i)}")
+        raise Exception(f"Requested icam_intrinsics{icam_intrinsics} matched too few observations: {np.count_nonzero(i)}")
 
     # I'm given models. I remove the distortion so that I can pass the data
     # on to solvePnP()
     Ncameras = len(models_or_intrinsics)
     if Ncameras != 1:
-        raise Exception(f"For now this function only works with stationary monocular cameras, but given {Ncameras=}")
+        raise Exception(f"For now this function only works with stationary monocular cameras, but given Ncameras={Ncameras}")
 
     lensmodels_intrinsics_data = [ m.intrinsics() if isinstance(m,mrcal.cameramodel) else m for m in models_or_intrinsics ]
     lensmodels                 = [di[0] for di in lensmodels_intrinsics_data]
