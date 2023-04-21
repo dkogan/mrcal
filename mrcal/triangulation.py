@@ -1831,17 +1831,17 @@ Complete logic:
         # So the Var(p) will end up with shape (Npoints*3, Npoints*3)
         dp_triangulated_dbstate = nps.clump(dp_triangulated_dbstate,n=2)
 
-        Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs)
-        if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs):
+        Nmeasurements_observations_leading = mrcal.num_measurements_boards(**optimization_inputs)
+        if Nmeasurements_observations_leading == mrcal.num_measurements(**optimization_inputs):
             # Note the special-case where I'm using all the observations
-            Nmeasurements_observations = None
+            Nmeasurements_observations_leading = None
 
         # Var_p_calibration_flat has shape (Npoints*3,Npoints*3)
         Var_p_calibration_flat = \
             mrcal.model_analysis._propagate_calibration_uncertainty(
                                                dp_triangulated_dbstate,
                                                factorization, Jpacked,
-                                               Nmeasurements_observations,
+                                               Nmeasurements_observations_leading,
                                                q_calibration_stdev,
                                                what = 'covariance')
 

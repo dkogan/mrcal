@@ -465,7 +465,7 @@ broadcasting
 
 def _propagate_calibration_uncertainty( dF_dbpacked,
                                         factorization, Jpacked,
-                                        Nmeasurements_observations,
+                                        Nmeasurements_observations_leading,
                                         observed_pixel_uncertainty, what ):
     r'''Helper for uncertainty propagation functions
 
@@ -477,10 +477,10 @@ from the dimensions of the given dF/db gradient.
 The given factorization uses the packed, unitless state: b*.
 
 The given Jpacked uses the packed, unitless state: b*. Jpacked applies to all
-observations. The leading Nmeasurements_observations rows apply to the
+observations. The leading Nmeasurements_observations_leading rows apply to the
 observations of the calibration object, and we use just those for the input
-noise propagation. if Nmeasurements_observations is None: assume that ALL the
-measurements come from the calibration object observations; a simplifed
+noise propagation. if Nmeasurements_observations_leading is None: assume that
+ALL the measurements come from the calibration object observations; a simplifed
 expression can be used in this case
 
 The given dF_dbpacked uses the packed, unitless state b*, so it already includes
@@ -544,7 +544,7 @@ In the regularized case:
      The result has shape (Nstate,2)
 
   2. Pre-multiply by J*[observations]
-     The result has shape (Nmeasurements_observations,2)
+     The result has shape (Nmeasurements_observations_leading,2)
 
   3. Compute the sum of the outer products of each row
 
@@ -558,7 +558,7 @@ In the regularized case:
 
     # shape (N,Nstate) where N=2 usually
     A = factorization.solve_xt_JtJ_bt( dF_dbpacked )
-    if Nmeasurements_observations is not None:
+    if Nmeasurements_observations_leading is not None:
         # I have regularization. Use the more complicated expression
 
         # I see no python way to do matrix multiplication with sparse matrices,
@@ -569,7 +569,7 @@ In the regularized case:
         else:
             f = mrcal._mrcal_npsp._A_Jt_J_At
         Var_dF = f(A, Jpacked.indptr, Jpacked.indices, Jpacked.data,
-                   Nleading_rows_J = Nmeasurements_observations)
+                   Nleading_rows_J = Nmeasurements_observations_leading)
     else:
         # No regularization. Use the simplified expression
         Var_dF = nps.matmult(dF_dbpacked, nps.transpose(A))
@@ -587,7 +587,7 @@ def _projection_uncertainty( p_cam,
                              factorization, Jpacked, optimization_inputs,
                              istate_intrinsics, istate_extrinsics, istate_frames,
                              slice_optimized_intrinsics,
-                             Nmeasurements_observations,
+                             Nmeasurements_observations_leading,
                              observed_pixel_uncertainty,
                              what):
     r'''Helper for projection_uncertainty()
@@ -673,7 +673,7 @@ def _projection_uncertainty( p_cam,
     return \
         _propagate_calibration_uncertainty( dq_db,
                                             factorization, Jpacked,
-                                            Nmeasurements_observations,
+                                            Nmeasurements_observations_leading,
                                             observed_pixel_uncertainty,
                                             what)
 
@@ -685,7 +685,7 @@ def _projection_uncertainty_rotationonly( p_cam,
                                           factorization, Jpacked, optimization_inputs,
                                           istate_intrinsics, istate_extrinsics, istate_frames,
                                           slice_optimized_intrinsics,
-                                          Nmeasurements_observations,
+                                          Nmeasurements_observations_leading,
                                           observed_pixel_uncertainty,
                                           what):
     r'''Helper for projection_uncertainty()
@@ -770,7 +770,7 @@ def _projection_uncertainty_rotationonly( p_cam,
     return \
         _propagate_calibration_uncertainty( dq_db,
                                             factorization, Jpacked,
-                                            Nmeasurements_observations,
+                                            Nmeasurements_observations_leading,
                                             observed_pixel_uncertainty,
                                             what)
 
@@ -867,15 +867,15 @@ See projection_uncertaint() for the docs'''
     if Nmeasurements_boards == Nmeasurements_all:
         # Note the special-case where I'm using all the observations. No other
         # measurements are present other than the chessboard observations
-        Nmeasurements_observations = None
+        Nmeasurements_observations_leading = None
     else:
         if Nmeasurements_points > 0:
             print("WARNING: I'm currently treating the point range normalization (penalty) terms as following the same noise model as other measurements. This will bias the uncertainty estimate",
                   file=sys.stderr)
-        Nmeasurements_observations = \
+        Nmeasurements_observations_leading = \
             Nmeasurements_boards + \
             Nmeasurements_points
-        if Nmeasurements_observations + \
+        if Nmeasurements_observations_leading + \
            mrcal.num_measurements_regularization(**optimization_inputs) != \
                Nmeasurements_all:
             raise Exception("Some measurements other than boards, points and regularization are present. Don't know what to do")
@@ -893,19 +893,19 @@ See projection_uncertaint() for the docs'''
                                                   residuals = x).ravel())
         observed_pixel_uncertainty = np.sqrt(var_residuals)
 
-    return dict(lensmodel                  = lensmodel,
-                intrinsics_data            = intrinsics_data,
-                extrinsics_rt_fromref      = extrinsics_rt_fromref,
-                frames_rt_toref            = frames_rt_toref,
-                factorization              = factorization,
-                Jpacked                    = Jpacked,
-                optimization_inputs        = optimization_inputs,
-                istate_intrinsics          = istate_intrinsics,
-                istate_extrinsics          = istate_extrinsics,
-                istate_frames              = istate_frames,
-                slice_optimized_intrinsics = slice_optimized_intrinsics,
-                Nmeasurements_observations = Nmeasurements_observations,
-                observed_pixel_uncertainty = observed_pixel_uncertainty)
+    return dict(lensmodel                          = lensmodel,
+                intrinsics_data                    = intrinsics_data,
+                extrinsics_rt_fromref              = extrinsics_rt_fromref,
+                frames_rt_toref                    = frames_rt_toref,
+                factorization                      = factorization,
+                Jpacked                            = Jpacked,
+                optimization_inputs                = optimization_inputs,
+                istate_intrinsics                  = istate_intrinsics,
+                istate_extrinsics                  = istate_extrinsics,
+                istate_frames                      = istate_frames,
+                slice_optimized_intrinsics         = slice_optimized_intrinsics,
+                Nmeasurements_observations_leading = Nmeasurements_observations_leading,
+                observed_pixel_uncertainty         = observed_pixel_uncertainty)
 
 
 def projection_uncertainty( p_cam, model,
