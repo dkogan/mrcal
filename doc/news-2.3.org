@@ -99,3 +99,5 @@ chessboard or point observations respectively are present
 ** demo mrcal-show-model-resolution.py tool
 
 * Migration notes 2.2 -> 2.3
+
+mrcal_measurement_index_regularization() api changed
