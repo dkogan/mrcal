@@ -861,10 +861,21 @@ See projection_uncertaint() for the docs'''
         extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
         istate_extrinsics     = mrcal.state_index_extrinsics (icam_extrinsics, **optimization_inputs)
 
-    Nmeasurements_boards = mrcal.num_measurements_boards(**optimization_inputs)
-    Nmeasurements_points = mrcal.num_measurements_points(**optimization_inputs)
-    Nmeasurements_all    = mrcal.num_measurements(**optimization_inputs)
-    if Nmeasurements_boards == Nmeasurements_all:
+    ############ get Nmeasurements_observations_leading
+    Nmeasurements_boards         = mrcal.num_measurements_boards(**optimization_inputs)
+    Nmeasurements_points         = mrcal.num_measurements_points(**optimization_inputs)
+    Nmeasurements_regularization = mrcal.num_measurements_regularization(**optimization_inputs)
+    Nmeasurements_all            = mrcal.num_measurements(**optimization_inputs)
+    imeas_regularization         = mrcal.measurement_index_regularization(**optimization_inputs)
+    if Nmeasurements_boards + \
+       Nmeasurements_points + \
+       Nmeasurements_regularization != \
+           Nmeasurements_all:
+        raise Exception("Some measurements other than boards, points and regularization are present. Don't know what to do")
+    if imeas_regularization + Nmeasurements_regularization != Nmeasurements_all:
+        raise Exception("Regularization measurements are NOT at the end. Don't know what to do")
+
+    if Nmeasurements_regularization == 0:
         # Note the special-case where I'm using all the observations. No other
         # measurements are present other than the chessboard observations
         Nmeasurements_observations_leading = None
@@ -873,13 +884,9 @@ See projection_uncertaint() for the docs'''
             print("WARNING: I'm currently treating the point range normalization (penalty) terms as following the same noise model as other measurements. This will bias the uncertainty estimate",
                   file=sys.stderr)
         Nmeasurements_observations_leading = \
-            Nmeasurements_boards + \
-            Nmeasurements_points
-        if Nmeasurements_observations_leading + \
-           mrcal.num_measurements_regularization(**optimization_inputs) != \
-               Nmeasurements_all:
-            raise Exception("Some measurements other than boards, points and regularization are present. Don't know what to do")
+            Nmeasurements_all - Nmeasurements_regularization
 
+    ############ get observed_pixel_uncertainty
     if observed_pixel_uncertainty is None:
         # mrcal.residuals_point() ignores the range normalization (penalty)
         var_residuals = 0
