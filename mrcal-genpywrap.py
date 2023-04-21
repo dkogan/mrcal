@@ -498,6 +498,81 @@ scipy.sparse.csr_matrix respectively.
  """,
 
             args_input       = ('A', 'Jp', 'Ji', 'Jx'),
+            prototype_input  = (('Nx','Nstate'), ('Np',), ('Nix',), ('Nix',)),
+            prototype_output = ('Nx','Nx'),
+
+            extra_args = (("int", "Nleading_rows_J", "-1", "i"),),
+
+            Ccode_validate = r'''
+            if(*Nleading_rows_J <= 0)
+            {
+                PyErr_Format(PyExc_RuntimeError,
+                             "Nleading_rows_J must be passed, and must be > 0");
+                return false;
+            }
+            return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = \
+                { (np.float64, np.int32, np.int32, np.float64, np.float64):
+                 r'''
+
+                 // I'm computing A Jt J At = sum(outer(ja,ja)) where ja is each
+                 // row of matmult(J,At). Rows of matmult(J,At) are
+                 // matmult(jt,At) where jt are rows of J. So the logic is:
+                 //
+                 //   For each row jt of J:
+                 //     jta = matmult(jt,At); // jta has shape (Nx,)
+                 //     accumulate( outer(jta,jta) )
+
+
+                 int32_t Nx     = dims_slice__A[0];
+                 int32_t Nstate = dims_slice__A[1];
+
+                 const double*   A = (const double* )data_slice__A;
+                 const int32_t* Jp = (const int32_t*)data_slice__Jp;
+                 const int32_t* Ji = (const int32_t*)data_slice__Ji;
+                 const double*  Jx = (const double* )data_slice__Jx;
+                 double* out       = (      double* )data_slice__output;
+
+                 for(int i=0; i<Nx*Nx; i++)
+                     out[i] = 0.0;
+
+                 for(int irow=0; irow<*Nleading_rows_J; irow++)
+                 {
+                     double jta[Nx];
+                     for(int i=0; i<Nx; i++)
+                         jta[i] = 0.0;
+
+                     for(int32_t i = Jp[irow]; i < Jp[irow+1]; i++)
+                     {
+                         int32_t icol = Ji[i];
+                         double x     = Jx[i];
+
+                         for(int j=0; j<Nx; j++)
+                             jta[j] += A[icol + j*Nstate] * x;
+                     }
+                     for(int i=0; i<Nx; i++)
+                     {
+                         out[i*Nx + i] += jta[i]*jta[i];
+                         for(int j=i+1; j<Nx; j++)
+                         {
+                             out[i*Nx + j] += jta[i]*jta[j];
+                             out[j*Nx + i] += jta[i]*jta[j];
+                         }
+                     }
+                 }
+                 return true;
+'''},
+)
+
+m.function( "_A_Jt_J_At__2",
+            """Computes matmult(A,Jt,J,At) for a sparse J where A.shape=(2,N)
+
+Exactly the same as _A_Jt_J_At(), but assumes that A.shape=(2,N) for efficiency.
+See the docs of _A_Jt_J_At() for details.
+ """,
+
+            args_input       = ('A', 'Jp', 'Ji', 'Jx'),
             prototype_input  = ((2,'Nstate'), ('Np',), ('Nix',), ('Nix',)),
             prototype_output = (2,2),
 

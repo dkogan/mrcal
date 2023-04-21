@@ -556,7 +556,7 @@ In the regularized case:
     if not what in what_known:
         raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
 
-    # shape (2,Nstate)
+    # shape (N,Nstate) where N=2 usually
     A = factorization.solve_xt_JtJ_bt( dF_dbpacked )
     if Nmeasurements_observations is not None:
         # I have regularization. Use the more complicated expression
@@ -564,8 +564,12 @@ In the regularized case:
         # I see no python way to do matrix multiplication with sparse matrices,
         # so I have my own routine in C. AND the C routine does the outer
         # product, so there's no big temporary expression. It's much faster
-        Var_dF = mrcal._mrcal_npsp._A_Jt_J_At(A, Jpacked.indptr, Jpacked.indices, Jpacked.data,
-                                              Nleading_rows_J = Nmeasurements_observations)
+        if len(A.shape) == 2 and A.shape[0] == 2:
+            f = mrcal._mrcal_npsp._A_Jt_J_At__2
+        else:
+            f = mrcal._mrcal_npsp._A_Jt_J_At
+        Var_dF = f(A, Jpacked.indptr, Jpacked.indices, Jpacked.data,
+                   Nleading_rows_J = Nmeasurements_observations)
     else:
         # No regularization. Use the simplified expression
         Var_dF = nps.matmult(dF_dbpacked, nps.transpose(A))
