@@ -1793,13 +1793,6 @@ Complete logic:
             if models_flat[i0]._extrinsics_moved_since_calibration():
                 raise Exception(f"The given models must have been fixed inside the initial calibration. Model {i0} has been moved")
 
-        bpacked,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs)
-
-        if q_calibration_stdev < 0:
-            q_calibration_stdev = \
-                np.std(mrcal.residuals_chessboard(optimization_inputs,
-                                                  residuals = x).ravel())
-
     else:
         optimization_inputs = None
 
@@ -1831,19 +1824,20 @@ Complete logic:
         # So the Var(p) will end up with shape (Npoints*3, Npoints*3)
         dp_triangulated_dbstate = nps.clump(dp_triangulated_dbstate,n=2)
 
-        Nmeasurements_observations_leading = mrcal.num_measurements_boards(**optimization_inputs)
-        if Nmeasurements_observations_leading == mrcal.num_measurements(**optimization_inputs):
-            # Note the special-case where I'm using all the observations
-            Nmeasurements_observations_leading = None
+        if q_calibration_stdev > 0:
+            # Calibration-time noise is given. Use it.
+            observed_pixel_uncertainty = q_calibration_stdev
+        else:
+            # Infer the expected calibration-time noise from the calibration data
+            observed_pixel_uncertainty = None
 
         # Var_p_calibration_flat has shape (Npoints*3,Npoints*3)
         Var_p_calibration_flat = \
             mrcal.model_analysis._propagate_calibration_uncertainty(
                                                dp_triangulated_dbstate,
-                                               factorization, Jpacked,
-                                               Nmeasurements_observations_leading,
-                                               q_calibration_stdev,
-                                               what = 'covariance')
+                                               'covariance',
+                                               observed_pixel_uncertainty = observed_pixel_uncertainty,
+                                               optimization_inputs        = optimization_inputs)
 
     else:
         Var_p_calibration_flat = None
