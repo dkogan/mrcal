@@ -15,8 +15,8 @@ $(foreach v,$(filter USE_%,$(.VARIABLES)),$(if $(filter 0,${$v}),$(eval undefine
 
 
 PROJECT_NAME := mrcal
-ABI_VERSION  := 2
-TAIL_VERSION := 2
+ABI_VERSION  := 3
+TAIL_VERSION := 0
 
 VERSION := $(VERSION_FROM_PROJECT)
 
