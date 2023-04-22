@@ -1817,8 +1817,6 @@ Complete logic:
     # the gradients in dp_triangulated_db
 
     if optimization_inputs is not None:
-        # pack the denominator by unpacking the numerator
-        mrcal.unpack_state(dp_triangulated_db, **optimization_inputs)
 
         # reshape dp_triangulated_db to (Npoints*3, Nstate)
         # So the Var(p) will end up with shape (Npoints*3, Npoints*3)
@@ -1834,8 +1832,8 @@ Complete logic:
         # Var_p_calibration_flat has shape (Npoints*3,Npoints*3)
         Var_p_calibration_flat = \
             mrcal.model_analysis._propagate_calibration_uncertainty(
-                                               dp_triangulated_db,
                                                'covariance',
+                                               dF_db                      = dp_triangulated_db,
                                                observed_pixel_uncertainty = observed_pixel_uncertainty,
                                                optimization_inputs        = optimization_inputs)
 

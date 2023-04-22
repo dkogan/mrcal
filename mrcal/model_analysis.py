@@ -463,10 +463,14 @@ broadcasting
     return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
 
 
-def _propagate_calibration_uncertainty( # These must be given
-                                        dF_dbpacked,
-                                        what,
+def _propagate_calibration_uncertainty( what,
                                         *,
+
+                                        # One of these must be given. If it's
+                                        # dF_db, then optimization_inputs must
+                                        # be given too
+                                        dF_dbpacked                        = None,
+                                        dF_db                              = None,
                                         # These are partly optional. I need
                                         # everything except optimization_inputs.
                                         # If any of the non-optimization_inputs
@@ -567,6 +571,22 @@ In the regularized case:
     what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev'))
     if not what in what_known:
         raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
+
+    if dF_dbpacked is None and \
+       dF_db       is None:
+        raise Exception("Exactly one of dF_dbpacked,dF_db must be given")
+    if dF_dbpacked is not None and \
+       dF_db       is not None:
+        raise Exception("Exactly one of dF_dbpacked,dF_db must be given")
+
+    if dF_db is not None:
+        if optimization_inputs is None:
+            raise Exception('dF_db is given but optimization_inputs is not. Either pass dF_dbpacked or pass optimization_inputs in as well')
+
+        # Make dF_db use the packed state. I call "unpack_state" because the
+        # state is in the denominator
+        dF_dbpacked = np.array(dF_db) # make a copy
+        mrcal.unpack_state(dF_dbpacked, **optimization_inputs)
 
     if \
        x                                  is None or \
@@ -1061,12 +1081,8 @@ else:                    we return an array of shape (...)
     else:              f = _dq_db__projection_uncertainty_rotationonly
     dq_db = f(*args)
 
-    # Make dq_db use the packed state. I call "unpack_state" because the
-    # state is in the denominator
-    mrcal.unpack_state(dq_db, **optimization_inputs)
-
-    return _propagate_calibration_uncertainty(dq_db,
-                                              what,
+    return _propagate_calibration_uncertainty(what,
+                                              dF_db                      = dq_db,
                                               observed_pixel_uncertainty = observed_pixel_uncertainty,
                                               optimization_inputs        = optimization_inputs)
 
