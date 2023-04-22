@@ -343,13 +343,46 @@ rmserr_point = np.std(mrcal.residuals_point(optimization_inputs,
 model_solved = \
     mrcal.cameramodel( optimization_inputs = optimization_inputs,
                        icam_intrinsics     = 0 )
+
+b,x = mrcal.optimizer_callback(**optimization_inputs,
+                               no_jacobian      = True,
+                               no_factorization = True)[:2]
+mrcal.unpack_state(b, **optimization_inputs)
+icam_extrinsics = 0
+i_state = mrcal.state_index_extrinsics(icam_extrinsics,
+                                       **optimization_inputs)
+rt_cam_ref__solved = b[i_state:i_state+6]
+
+
 # Checking the extrinsics.
-Rt_extrinsics_err = \
-    mrcal.compose_Rt( model_solved.extrinsics_Rt_fromref(),
-                      model_true  .extrinsics_Rt_toref() )
+rt_extrinsics_err,                    \
+drt_extrinsics_err_drtsolved,         \
+_                                   = \
+    mrcal.compose_rt( model_solved.extrinsics_rt_fromref(),
+                      model_true  .extrinsics_rt_toref(),
+                      get_gradients = True)
+
+errz            = rt_extrinsics_err[5]
+derrz_drtsolved = drt_extrinsics_err_drtsolved[5,:]
+
+derrz_db = np.zeros( b.shape, dtype=float)
+derrz_db[i_state:i_state+6] = derrz_drtsolved
+
+
+v = mrcal.model_analysis._propagate_calibration_uncertainty( \
+        'covariance',
+        dF_db = derrz_db,
+        optimization_inputs = optimization_inputs)[0,0]
+print(np.sqrt(v))
+sys.exit()
+import IPython
+IPython.embed()
+sys.exit()
+
+
 
 if args.say_errz:
-    print(Rt_extrinsics_err[3,2])
+    print(errz)
     sys.exit()
 
 
