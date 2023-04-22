@@ -13,6 +13,9 @@
 
 #include "mrcal.h"
 
+#define SPLINED_NX 11
+#define SPLINED_NY 8
+
 static
 bool modelHasCore_fxfycxcy( const mrcal_lensmodel_t* lensmodel )
 {
@@ -198,8 +201,8 @@ int main(int argc, char* argv[] )
     if(lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC )
     {
         // the order was already set above
-        lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx           = 11;
-        lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny           = 8;
+        lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx           = SPLINED_NX;
+        lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny           = SPLINED_NY;
         lensmodel.LENSMODEL_SPLINED_STEREOGRAPHIC__config.fov_x_deg    = 200;
     }
 
@@ -213,17 +216,31 @@ int main(int argc, char* argv[] )
         Ndistortion -= 4;
     double intrinsics[Ncameras_intrinsics * Nintrinsics];
 
-    mrcal_intrinsics_core_t* intrinsics_core = (mrcal_intrinsics_core_t*)intrinsics;
+    mrcal_intrinsics_core_t* intrinsics_core;
+
+    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[0*Nintrinsics]);
     intrinsics_core->focal_xy [0] = 2000.3;
     intrinsics_core->focal_xy [1] = 1900.5;
     intrinsics_core->center_xy[0] = 1800.3;
     intrinsics_core->center_xy[1] = 1790.2;
 
-    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[Nintrinsics]);
+    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[1*Nintrinsics]);
     intrinsics_core->focal_xy [0] = 2100.2;
     intrinsics_core->focal_xy [1] = 2130.4;
     intrinsics_core->center_xy[0] = 1830.3;
     intrinsics_core->center_xy[1] = 1810.2;
+
+    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[2*Nintrinsics]);
+    intrinsics_core->focal_xy [0] = 2503.8;
+    intrinsics_core->focal_xy [1] = 2730.4;
+    intrinsics_core->center_xy[0] = 1730.3;
+    intrinsics_core->center_xy[1] = 1610.2;
+
+    if(Ncameras_intrinsics != 3)
+    {
+        fprintf(stderr, "Unexpected Ncameras_intrinsics=%d; should be 3\n", Ncameras_intrinsics);
+        return 1;
+    }
 
     if(lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC )
         for(int i=0; i<Ncameras_intrinsics; i++)
@@ -231,8 +248,8 @@ int main(int argc, char* argv[] )
                 intrinsics[Nintrinsics * i + 4 + j] = 0.1 + 0.05 * (double)(i + Ncameras_intrinsics*j);
     else
     {
-        const double intrinsics_cam0[] =
-            { 2.017284705,1.242204557,2.053514381,1.214368063,2.0379067,1.212609628,
+        const double intrinsics_cam[3][SPLINED_NX*SPLINED_NY*2] =
+            { { 2.017284705,1.242204557,2.053514381,1.214368063,2.0379067,1.212609628,
               2.033278227,1.183689487,2.040018023,1.188554431,2.069146825,1.196304649,
               2.085708658,1.186478238,2.065787617,1.163377825,2.086372192,1.138856716,
               2.131609155,1.125678279,2.128812604,1.120525061,2.00841491,1.21864154,
@@ -261,8 +278,7 @@ int main(int argc, char* argv[] )
               2.051238803,1.201855728,2.043256406,1.216674722,2.035286046,1.178380907,
               2.08028318,1.178783085,2.051214271,1.173560417,2.059298121,1.182414688,
               2.094607679,1.177960959,2.086998287,1.147371259,2.12029442,1.138197348,
-              2.138994213, 1.114846113};
-        const double intrinsics_cam1[] =
+              2.138994213, 1.114846113},
             { 1.06737740498, 1.6278468389,  1.04927724765, 1.51277313216, 1.140998713,
               1.64403651896, 1.13541712362, 1.58101290967, 1.01718000045, 1.64287620869,
               1.11361588299, 1.58562781834, 1.1249749456,  1.51358613443, 1.14154450187,
@@ -298,11 +314,48 @@ int main(int argc, char* argv[] )
               1.13733800215, 1.63824382463, 1.07916158505, 1.57074686246, 1.14380502334,
               1.51865523259, 1.06073374227, 1.55309119673, 1.04795568165, 1.60213038148,
               1.032439757,   1.50002407206, 1.00882762874, 1.58048933908, 1.15745735978,
-              1.60724228971};
-        memcpy(&intrinsics[Nintrinsics*0+4], intrinsics_cam0, sizeof(intrinsics_cam0));
-        memcpy(&intrinsics[Nintrinsics*1+4], intrinsics_cam1, sizeof(intrinsics_cam1));
+              1.60724228971},
+            { 1.02850179, 1.39745551, 0.73726311, 1.69722052, 0.7550817 ,
+              1.59747822, 1.29574076, 1.93030849, 1.14721218, 1.71520154,
+              1.03597672, 1.51389362, 0.77656641, 1.48857032, 1.21088787,
+              1.64292209, 0.72150304, 1.5549714 , 1.25738621, 1.5156016 ,
+              1.22164819, 1.69169524, 1.07892812, 1.40699013, 1.09403431,
+              1.27118646, 0.57935248, 1.63232869, 1.38704362, 1.44397763,
+              1.12014003, 1.58924238, 0.99272589, 1.6468557 , 1.14345147,
+              1.52400491, 0.97436734, 1.52800453, 1.01705856, 1.37970847,
+              1.27534043, 1.5610139 , 1.00825577, 1.4588616 , 1.24044827,
+              1.55950213, 1.01063005, 1.43452465, 1.00472963, 1.62935646,
+              1.11358954, 1.62786706, 1.11417026, 1.82755386, 1.21462754,
+              1.53690111, 1.27958452, 1.37424464, 0.87862022, 1.7159569 ,
+              1.34872155, 1.59497626, 0.61519145, 1.83481903, 1.28818211,
+              2.06814798, 0.82880808, 1.69984126, 1.02371652, 1.64751215,
+              1.58595348, 1.44365259, 1.10533183, 1.32605266, 1.10303567,
+              1.30063005, 1.04169354, 1.90731939, 1.27847707, 1.8069966 ,
+              1.0023919 , 1.30377844, 1.40248959, 1.52355389, 1.12024891,
+              1.43681461, 1.16362021, 1.40156562, 1.00476566, 1.54506525,
+              1.03704937, 1.71558348, 1.36660295, 1.43759866, 1.02229004,
+              1.70653186, 1.08695356, 1.5366513 , 1.15967137, 1.582927  ,
+              0.62855878, 1.51186917, 0.98216024, 1.64983457, 0.83781813,
+              1.52653551, 1.06465434, 1.89579514, 0.82618455, 1.95597482,
+              0.69156817, 1.51465488, 0.88425426, 1.52009533, 1.19902578,
+              1.73166606, 1.22977288, 1.32246789, 1.00377336, 1.64651133,
+              1.13926565, 1.38873322, 1.09961382, 1.67929291, 1.20107604,
+              1.92667805, 0.8847579 , 1.75747935, 1.10356075, 1.50637047,
+              1.45764175, 1.78125187, 1.26161492, 1.48525964, 1.05666625,
+              1.46772942, 1.48943231, 1.4739409 , 1.00178741, 1.9376378 ,
+              1.20700385, 1.48035217, 1.10464828, 1.83603468, 1.38030157,
+              1.31444212, 1.06362372, 1.31788033, 1.12020553, 1.78206147,
+              1.25868741, 1.22631558, 1.02886757, 1.80444816, 0.9465482 ,
+              1.4809315 , 1.35208411, 1.95717077, 1.42476196, 1.23148041,
+              1.21363688, 1.32485208, 1.0595888 , 1.76879512, 1.13493746,
+              1.08887589, 0.9687434 , 1.57496242, 0.94266393, 1.53375802,
+              0.98972987, 1.86917315, 1.15851243, 1.8772311 , 0.99256034,
+              1.50009109 } };
+        for(int i=0; i<Ncameras_intrinsics; i++)
+            memcpy(&intrinsics[Nintrinsics*i+4],
+                   intrinsics_cam[i],
+                   sizeof(intrinsics_cam[i]));
     }
-
 
     printf("## Ncameras_intrinsics = %d\n", Ncameras_intrinsics);
     printf("## Ncameras_extrinsics = %d\n", Ncameras_extrinsics);
