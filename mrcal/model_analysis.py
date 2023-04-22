@@ -595,6 +595,8 @@ In the regularized case:
         dF_dbpacked = np.array(dF_db) # make a copy
         mrcal.unpack_state(dF_dbpacked, **optimization_inputs)
 
+    dF_dbpacked = nps.atleast_dims(dF_dbpacked, -2)
+
     if \
        x                                  is None or \
        factorization                      is None or \
