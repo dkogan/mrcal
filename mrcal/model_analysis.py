@@ -457,10 +457,17 @@ broadcasting
 
     '''
 
-    a = cov[..., 0,0]
-    b = cov[..., 1,0]
-    c = cov[..., 1,1]
-    return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
+    cov = nps.atleast_dims(cov,-2)
+
+    if cov.shape[-2:] == (1,1):
+        return cov[...,0,0]
+    if cov.shape[-2:] == (2,2):
+        a = cov[..., 0,0]
+        b = cov[..., 1,0]
+        c = cov[..., 1,1]
+        return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
+
+    raise Exception("cov must be either 1x1 or 2x2 in the innermost dimension")
 
 
 def _propagate_calibration_uncertainty( what,
