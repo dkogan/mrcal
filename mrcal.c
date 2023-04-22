@@ -4805,7 +4805,7 @@ void optimizer_callback(// input state
                             {
                                 double scale = scale_regularization_distortion;
 
-                                int ivar = 2*( iy*Nx + ix );
+                                const int ivar = 2*( iy*Nx + ix );
                                 const double deltauxy[] =
                                     { intrinsics_all[icam_intrinsics][Ncore + ivar + 0],
                                       intrinsics_all[icam_intrinsics][Ncore + ivar + 1] };
