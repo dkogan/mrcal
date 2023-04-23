@@ -40,6 +40,12 @@ def parse_args():
                         MIDDLE chessboard. If omitted, we use --range-board * 2.
                         Everything at one range causes poor calibrations, and I
                         don't want that to be the default case here''')
+    parser.add_argument('--oversample',
+                        type=int,
+                        default = 1,
+                        help='''How many times we observe the stationary scene.
+                        Observing multiple times gives us more samples of the
+                        noise, resulting in lower uncertainties''')
     parser.add_argument('--seed-rng',
                         type=int,
                         default=0,
@@ -252,6 +258,8 @@ pref_true = mrcal.transform_point_rt(mrcal.invert_rt(rt_cam_ref_true),
 # shape (N,2)
 q_true    = mrcal.project(pcam_true, lensmodel, intrinsics_data_true)
 
+Npoints = q_true.shape[0]
+
 if False:
     # show the angles off the optical axis
     import gnuplotlib as gp
@@ -281,16 +289,19 @@ weight[(q_true[:,0] < 0) + \
 
 ############# Now I pretend that the noisy observations are all I got, and I run
 ############# a calibration from those
-# shape (N, 3)
-observations_point = nps.glue(q_true,
-                              nps.dummy(weight,-1),
-                              axis=-1)
-
-Npoints = q_true.shape[0]
+# shape (Noversample, N, 3)
+observations_point = np.zeros((args.oversample,Npoints,3), dtype=float)
+# write the same perfect data into each oversampled slice
+observations_point += nps.glue(q_true,
+                               nps.dummy(weight,-1),
+                               axis=-1)
+# shape (Noversample*N, 3)
+observations_point = nps.clump(observations_point,n=2)
 
 # Dense observations. The cameras see all the boards
-indices_point_camintrinsics_camextrinsics = np.zeros( (Npoints, 3), dtype=np.int32)
-indices_point_camintrinsics_camextrinsics[:,0] = np.arange(Npoints)
+indices_point_camintrinsics_camextrinsics = np.zeros( (args.oversample,Npoints, 3), dtype=np.int32)
+indices_point_camintrinsics_camextrinsics[...,0] += np.arange(Npoints)
+indices_point_camintrinsics_camextrinsics = nps.clump(indices_point_camintrinsics_camextrinsics,n=2)
 
 if False:
     # Compute the seed using the seeding algorithm
@@ -305,12 +316,12 @@ if False:
                    )))
     # I select data just at the center for seeding. Eventually should move this to
     # the general logic in calibration.py
-    i = nps.norm2( observations_point[...,:2] - cxy ) < 1000**2.
-    observations_point_center = np.array(observations_point)
+    i = nps.norm2( observations_point[:Npoints,:2] - cxy ) < 1000**2.
+    observations_point_center = np.array(observations_point[:Npoints])
     observations_point_center[~i,2] = -1.
     Rt_camera_ref_estimate = \
         mrcal.calibration._estimate_camera_pose_from_point_observations( \
-            indices_point_camintrinsics_camextrinsics,
+            indices_point_camintrinsics_camextrinsics[:Npoints,:],
             observations_point_center,
             (intrinsics_core_estimate,),
             pref_true,
@@ -473,7 +484,7 @@ testutils.confirm_equal( mrcal.num_measurements_boards(**optimization_inputs),
                          0,
                          msg="num_measurements_boards()")
 testutils.confirm_equal( mrcal.num_measurements_points(**optimization_inputs),
-                         Npoints*3,
+                         Npoints*args.oversample*3,
                          msg="num_measurements_points()")
 testutils.confirm_equal( mrcal.num_measurements_regularization(**optimization_inputs),
                          6,
@@ -488,7 +499,7 @@ testutils.confirm_equal( mrcal.measurement_index_points(2, **optimization_inputs
                          3*2,
                          msg="measurement_index_points()")
 testutils.confirm_equal( mrcal.measurement_index_regularization(**optimization_inputs),
-                         3*Npoints,
+                         3*args.oversample*Npoints,
                          msg="measurement_index_regularization()")
 
 if args.write_model:
