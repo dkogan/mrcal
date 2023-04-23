@@ -100,7 +100,9 @@ def relative_scale(a,b, eps = 1e-6):
 def relative_diff(a,b, eps = 1e-6):
     return (a - b) / relative_scale(a,b, eps)
 
-def confirm_equal(x, xref, msg='',
+def confirm_equal(x, xref,
+                  *,
+                  msg='',
                   eps=1e-6,
                   reldiff_eps = 1e-6,
                   relative=False,
@@ -266,6 +268,7 @@ def confirm_does_not_raise(f, msg=''):
 
 
 def confirm_covariances_equal(var, var_ref,
+                              *,
                               what,
                               # scalar float to use for all the eigenvalues, of
                               # a list of length 3, to use in order from largest

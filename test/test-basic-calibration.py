@@ -167,35 +167,35 @@ mrcal.optimize(**optimization_inputs,
 
 testutils.confirm_equal( mrcal.num_states(**optimization_inputs),
                          4*Ncameras + 6*(Ncameras-1) + 6*Nframes,
-                         "num_states()")
+                         msg="num_states()")
 testutils.confirm_equal( mrcal.num_states_intrinsics(**optimization_inputs),
                          4*Ncameras,
-                         "num_states_intrinsics()")
+                         msg="num_states_intrinsics()")
 testutils.confirm_equal( mrcal.num_intrinsics_optimization_params(**optimization_inputs),
                          4,
-                         "num_intrinsics_optimization_params()")
+                         msg="num_intrinsics_optimization_params()")
 testutils.confirm_equal( mrcal.num_states_extrinsics(**optimization_inputs),
                          6*(Ncameras-1),
-                         "num_states_extrinsics()")
+                         msg="num_states_extrinsics()")
 testutils.confirm_equal( mrcal.num_states_frames(**optimization_inputs),
                          6*Nframes,
-                         "num_states_frames()")
+                         msg="num_states_frames()")
 testutils.confirm_equal( mrcal.num_states_points(**optimization_inputs),
                          0,
-                         "num_states_points()")
+                         msg="num_states_points()")
 testutils.confirm_equal( mrcal.num_states_calobject_warp(**optimization_inputs),
                          0,
-                         "num_states_calobject_warp()")
+                         msg="num_states_calobject_warp()")
 
 testutils.confirm_equal( mrcal.num_measurements_boards(**optimization_inputs),
                          object_width_n*object_height_n*2*Nframes*Ncameras,
-                         "num_measurements_boards()")
+                         msg="num_measurements_boards()")
 testutils.confirm_equal( mrcal.num_measurements_points(**optimization_inputs),
                          0,
-                         "num_measurements_points()")
+                         msg="num_measurements_points()")
 testutils.confirm_equal( mrcal.num_measurements_regularization(**optimization_inputs),
                          Ncameras * 2,
-                         "num_measurements_regularization()")
+                         msg="num_measurements_regularization()")
 
 
 optimization_inputs['do_optimize_intrinsics_core']        = True
@@ -213,23 +213,23 @@ rmserr = stats['rms_reproj_error__pixels']
 
 testutils.confirm_equal( mrcal.state_index_intrinsics(2, **optimization_inputs),
                          8*2,
-                         "state_index_intrinsics()")
+                         msg="state_index_intrinsics()")
 testutils.confirm_equal( mrcal.state_index_extrinsics(2, **optimization_inputs),
                          8*Ncameras + 6*2,
-                         "state_index_extrinsics()")
+                         msg="state_index_extrinsics()")
 testutils.confirm_equal( mrcal.state_index_frames(2, **optimization_inputs),
                          8*Ncameras + 6*(Ncameras-1) + 6*2,
-                         "state_index_frames()")
+                         msg="state_index_frames()")
 testutils.confirm_equal( mrcal.state_index_calobject_warp(**optimization_inputs),
                          8*Ncameras + 6*(Ncameras-1) + 6*Nframes,
-                         "state_index_calobject_warp()")
+                         msg="state_index_calobject_warp()")
 
 testutils.confirm_equal( mrcal.measurement_index_boards(2, **optimization_inputs),
                          object_width_n*object_height_n*2* 2,
-                         "measurement_index_boards()")
+                         msg="measurement_index_boards()")
 testutils.confirm_equal( mrcal.measurement_index_regularization(**optimization_inputs),
                          object_width_n*object_height_n*2*Nframes*Ncameras,
-                         "measurement_index_regularization()")
+                         msg="measurement_index_regularization()")
 
 
 ############# Calibration computed. Now I see how well I did

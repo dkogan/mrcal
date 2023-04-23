@@ -358,46 +358,46 @@ Rt_extrinsics_err = \
 # verify problem layout
 testutils.confirm_equal( mrcal.num_states(**optimization_inputs),
                          Nintrinsics + 6,
-                         "num_states()")
+                         msg="num_states()")
 testutils.confirm_equal( mrcal.num_states_intrinsics(**optimization_inputs),
                          Nintrinsics,
-                         "num_states_intrinsics()")
+                         msg="num_states_intrinsics()")
 testutils.confirm_equal( mrcal.num_intrinsics_optimization_params(**optimization_inputs),
                          Nintrinsics,
-                         "num_intrinsics_optimization_params()")
+                         msg="num_intrinsics_optimization_params()")
 testutils.confirm_equal( mrcal.num_states_extrinsics(**optimization_inputs),
                          6,
-                         "num_states_extrinsics()")
+                         msg="num_states_extrinsics()")
 testutils.confirm_equal( mrcal.num_states_frames(**optimization_inputs),
                          0,
-                         "num_states_frames()")
+                         msg="num_states_frames()")
 testutils.confirm_equal( mrcal.num_states_points(**optimization_inputs),
                          0,
-                         "num_states_points()")
+                         msg="num_states_points()")
 testutils.confirm_equal( mrcal.num_states_calobject_warp(**optimization_inputs),
                          0,
-                         "num_states_calobject_warp()")
+                         msg="num_states_calobject_warp()")
 testutils.confirm_equal( mrcal.num_measurements_boards(**optimization_inputs),
                          0,
-                         "num_measurements_boards()")
+                         msg="num_measurements_boards()")
 testutils.confirm_equal( mrcal.num_measurements_points(**optimization_inputs),
                          Npoints*3,
-                         "num_measurements_points()")
+                         msg="num_measurements_points()")
 testutils.confirm_equal( mrcal.num_measurements_regularization(**optimization_inputs),
                          6,
-                         "num_measurements_regularization()")
+                         msg="num_measurements_regularization()")
 testutils.confirm_equal( mrcal.state_index_intrinsics(0, **optimization_inputs),
                          0,
-                         "state_index_intrinsics()")
+                         msg="state_index_intrinsics()")
 testutils.confirm_equal( mrcal.state_index_extrinsics(0, **optimization_inputs),
                          8,
-                         "state_index_extrinsics()")
+                         msg="state_index_extrinsics()")
 testutils.confirm_equal( mrcal.measurement_index_points(2, **optimization_inputs),
                          3*2,
-                         "measurement_index_points()")
+                         msg="measurement_index_points()")
 testutils.confirm_equal( mrcal.measurement_index_regularization(**optimization_inputs),
                          3*Npoints,
-                         "measurement_index_regularization()")
+                         msg="measurement_index_regularization()")
 
 if args.write_model:
     model_solved.write(args.write_model)
