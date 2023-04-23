@@ -179,6 +179,9 @@ if False:
     model_true.write("/tmp/true.cameramodel")
     print("wrote /tmp/true.cameramodel")
 
+# Test point. On the left, centered vertically
+q_query = np.array((W/4, H/2))
+
 # I want to space out the chessboards across the whole imager. To make this
 # simpler I define it in terms of the "boardcentered" coordinate system, whose
 # origin is at the center of the chessboard, not in a corner
@@ -530,6 +533,35 @@ testutils.confirm_equal(diff, 0,
                         eps = 6.,
                         msg = "Recovered intrinsics")
 
+p_query_cam = mrcal.unproject(q_query, *model_solved.intrinsics())
+p_query_ref = mrcal.transform_point_Rt(model_solved.extrinsics_Rt_toref(),p_query_cam)
+
+
+def get_variances():
+
+    icam = 0
+    i_state = mrcal.state_index_extrinsics(icam, **optimization_inputs)
+    rt_extrinsics_err,                    \
+    drt_extrinsics_err_drtsolved,         \
+    _                                   = \
+        mrcal.compose_rt( model_solved.extrinsics_rt_fromref(),
+                          model_solved.extrinsics_rt_toref(),
+                          get_gradients = True)
+    derrz_db = np.zeros( (1,Nstate), dtype=float)
+    derrz_db[...,i_state:i_state+6] = drt_extrinsics_err_drtsolved[5:,:]
+    Var_errz = mrcal.model_analysis._propagate_calibration_uncertainty( \
+                 'covariance',
+                 dF_db = derrz_db,
+                 optimization_inputs = optimization_inputs)
+    Var_errz = Var_errz[0,0]
+
+    Var_q = \
+        mrcal.projection_uncertainty( p_query_cam, model_solved,
+                                      what = 'covariance' )
+
+    return Var_errz,Var_q
+
+
 if not args.do_sample:
     testutils.finish()
     sys.exit()
@@ -555,33 +587,16 @@ calibration_sample(args.Nsamples,
                    function_optimize = optimize)
 
 
+Var_errz,Var_q = get_variances()
+
 ####### check errz
 if 1:
-
-    icam = 0
-    i_state = mrcal.state_index_extrinsics(icam, **optimization_inputs)
-    rt_extrinsics_err,                    \
-    drt_extrinsics_err_drtsolved,         \
-    _                                   = \
-        mrcal.compose_rt( model_solved.extrinsics_rt_fromref(),
-                          model_solved.extrinsics_rt_toref(),
-                          get_gradients = True)
-
-    variable_range = (5,6)
-    derrz_db = np.zeros( (variable_range[1]-variable_range[0],Nstate), dtype=float)
-    derrz_db[...,i_state:i_state+6] = drt_extrinsics_err_drtsolved[variable_range[0]:variable_range[1],:]
-    Var_errz = mrcal.model_analysis._propagate_calibration_uncertainty( \
-                 'covariance',
-                 dF_db = derrz_db,
-                 optimization_inputs = optimization_inputs)
-
-    Var_errz = Var_errz[0,0]
 
     rt_extrinsics_sampled_err = \
         mrcal.compose_rt( rt_cam_ref_sampled_mounted,
                           model_solved.extrinsics_rt_toref())
 
-    errz_sampled = rt_extrinsics_sampled_err[:,0,variable_range[0]:variable_range[1]]
+    errz_sampled = rt_extrinsics_sampled_err[:,0,5:]
 
     testutils.confirm_equal( np.mean(errz_sampled),
                              0,
@@ -638,14 +653,6 @@ if 1:
 ####### check projection of a point
 if 1:
 
-    # Test point. On the left, centered vertically
-    q_query = np.array((W/4, H/2))
-
-    p_query_cam = mrcal.unproject(q_query, *model_solved.intrinsics())
-    p_query_ref = mrcal.transform_point_Rt(model_solved.extrinsics_Rt_toref(),p_query_cam)
-    Var_q = \
-        mrcal.projection_uncertainty( p_query_cam, model_solved,
-                                      what = 'covariance' )
     if 1:
         # Code check. Computing this directly should mimic the
         # mrcal.projection_uncertainty() result exactly since it should be 100% the
