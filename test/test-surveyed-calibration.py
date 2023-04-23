@@ -56,6 +56,9 @@ def parse_args():
                         samples of the calibration solves. This runs a very
                         limited set of tests, and exits. To perform the full set
                         of tests, pass --do-sample''')
+    parser.add_argument('--only-report-uncertainty',
+                        action='store_true',
+                        help='''If given, I ONLY report the uncertainty in projection and errz''')
     parser.add_argument('--Nsamples',
                         type=int,
                         default=500,
@@ -371,6 +374,8 @@ optimization_inputs_baseline                        = \
           do_optimize_calobject_warp                = False,
           do_optimize_frames                        = False)
 
+Nstate = mrcal.num_states(**optimization_inputs_baseline)
+
 
 def optimize(optimization_inputs):
     optimization_inputs['do_optimize_intrinsics_core']        = False
@@ -403,9 +408,46 @@ Rt_extrinsics_err = \
     mrcal.compose_Rt( model_solved.extrinsics_Rt_fromref(),
                       model_true  .extrinsics_Rt_toref() )
 
+p_query_cam = mrcal.unproject(q_query, *model_solved.intrinsics())
+p_query_ref = mrcal.transform_point_Rt(model_solved.extrinsics_Rt_toref(),p_query_cam)
+
+def get_variances():
+
+    icam = 0
+    i_state = mrcal.state_index_extrinsics(icam, **optimization_inputs)
+    rt_extrinsics_err,                    \
+    drt_extrinsics_err_drtsolved,         \
+    _                                   = \
+        mrcal.compose_rt( model_solved.extrinsics_rt_fromref(),
+                          model_solved.extrinsics_rt_toref(),
+                          get_gradients = True)
+    derrz_db = np.zeros( (1,Nstate), dtype=float)
+    derrz_db[...,i_state:i_state+6] = drt_extrinsics_err_drtsolved[5:,:]
+    Var_errz = mrcal.model_analysis._propagate_calibration_uncertainty( \
+                 'covariance',
+                 dF_db = derrz_db,
+                 optimization_inputs = optimization_inputs)
+    Var_errz = Var_errz[0,0]
+
+    Var_q = \
+        mrcal.projection_uncertainty( p_query_cam, model_solved,
+                                      what = 'covariance' )
+
+    return Var_errz,Var_q
+
+
+if args.only_report_uncertainty:
+
+    Var_errz,Var_q = get_variances()
+    print("# z-bulk z-center stdev(q) stdev(errz)")
+
+    # using the 'rms-stdev' expression from _propagate_calibration_uncertainty()
+    print(f"{args.range_board} {args.range_board_center} {np.sqrt(nps.trace(Var_q)/2.):.4f} {np.sqrt(Var_errz):.4f}")
+    sys.exit()
+
+
 
 # verify problem layout
-Nstate = mrcal.num_states(**optimization_inputs)
 testutils.confirm_equal( Nstate,
                          Nintrinsics + 6,
                          msg="num_states()")
@@ -532,35 +574,6 @@ testutils.confirm_equal(diff, 0,
                         worstcase = True,
                         eps = 6.,
                         msg = "Recovered intrinsics")
-
-p_query_cam = mrcal.unproject(q_query, *model_solved.intrinsics())
-p_query_ref = mrcal.transform_point_Rt(model_solved.extrinsics_Rt_toref(),p_query_cam)
-
-
-def get_variances():
-
-    icam = 0
-    i_state = mrcal.state_index_extrinsics(icam, **optimization_inputs)
-    rt_extrinsics_err,                    \
-    drt_extrinsics_err_drtsolved,         \
-    _                                   = \
-        mrcal.compose_rt( model_solved.extrinsics_rt_fromref(),
-                          model_solved.extrinsics_rt_toref(),
-                          get_gradients = True)
-    derrz_db = np.zeros( (1,Nstate), dtype=float)
-    derrz_db[...,i_state:i_state+6] = drt_extrinsics_err_drtsolved[5:,:]
-    Var_errz = mrcal.model_analysis._propagate_calibration_uncertainty( \
-                 'covariance',
-                 dF_db = derrz_db,
-                 optimization_inputs = optimization_inputs)
-    Var_errz = Var_errz[0,0]
-
-    Var_q = \
-        mrcal.projection_uncertainty( p_query_cam, model_solved,
-                                      what = 'covariance' )
-
-    return Var_errz,Var_q
-
 
 if not args.do_sample:
     testutils.finish()
