@@ -31,13 +31,15 @@ def parse_args():
                         argument''')
     parser.add_argument('--range-board',
                         type=float,
-                        default = 2.5,
+                        default = 10,
                         help='''Distance from the camera to the center of each
-                        chessboard. If omitted, we default to 2.5''')
+                        chessboard. If omitted, we default to 10''')
     parser.add_argument('--range-board-center',
                         type=float,
                         help='''Distance from the camera to the center of the
-                        MIDDLE chessboard. If omitted, we use --range-board''')
+                        MIDDLE chessboard. If omitted, we use --range-board * 2.
+                        Everything at one range causes poor calibrations, and I
+                        don't want that to be the default case here''')
     parser.add_argument('--seed-rng',
                         type=int,
                         default=0,
@@ -58,9 +60,29 @@ def parse_args():
                         type=int,
                         default=500,
                         help='''How many random samples to evaluate''')
+    parser.add_argument('--make-documentation-plots',
+                        type=str,
+                        help='''If given, we produce plots for the
+                        documentation. Takes one argument: a string describing
+                        this test. This will be used in the filenames of the
+                        resulting plots. To make interactive plots, pass ""''')
+    parser.add_argument('--terminal-pdf',
+                        type=str,
+                        help='''The gnuplotlib terminal for --make-documentation-plots .PDFs. Omit this
+                        unless you know what you're doing''')
+    parser.add_argument('--terminal-svg',
+                        type=str,
+                        help='''The gnuplotlib terminal for --make-documentation-plots .SVGs. Omit this
+                        unless you know what you're doing''')
+    parser.add_argument('--terminal-png',
+                        type=str,
+                        help='''The gnuplotlib terminal for --make-documentation-plots .PNGs. Omit this
+                        unless you know what you're doing''')
 
     args = parser.parse_args()
 
+    if args.range_board_center is None:
+        args.range_board_center = args.range_board * 2.
     return args
 
 
@@ -106,6 +128,30 @@ random_radius__r_cam_board_true = 0.1
 random_radius__t_cam_board_true = 1.0e-1
 
 
+
+
+
+############# Plot setup. Very similar to test-projection-uncertainty.py
+if args.make_documentation_plots is not None:
+    import gnuplotlib as gp
+
+terminal = dict(pdf = args.terminal_pdf,
+                svg = args.terminal_svg,
+                png = args.terminal_png,
+                gp  = 'gp')
+pointscale = dict(pdf = 1,
+                  svg = 1,
+                  png = 1,
+                  gp  = 1)
+pointscale[""] = 1.
+if args.make_documentation_plots:
+    print(f"Will write documentation plots to {args.make_documentation_plots}-xxxx.pdf and .svg")
+    if terminal['svg'] is None: terminal['svg'] = 'svg size 800,600       noenhanced solid dynamic    font ",14"'
+    if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color      font ",12"'
+    if terminal['png'] is None: terminal['png'] = 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+extraset = dict()
+for k in pointscale.keys():
+    extraset[k] = f'pointsize {pointscale[k]}'
 
 
 
@@ -356,7 +402,8 @@ Rt_extrinsics_err = \
 
 
 # verify problem layout
-testutils.confirm_equal( mrcal.num_states(**optimization_inputs),
+Nstate = mrcal.num_states(**optimization_inputs)
+testutils.confirm_equal( Nstate,
                          Nintrinsics + 6,
                          msg="num_states()")
 testutils.confirm_equal( mrcal.num_states_intrinsics(**optimization_inputs),
@@ -426,11 +473,6 @@ testutils.confirm_equal( (np.trace(Rt_extrinsics_err[:3,:]) - 1) / 2.,
                          eps = np.cos(1. * np.pi/180.0), # 1 deg
                          msg = "Recovered extrinsic rotation")
 
-# plot = mrcal.show_projection_uncertainty(model_solved, cbmax=20)
-# plot.wait()
-# sys.exit()
-
-
 
 
 # Checking the intrinsics. Each intrinsics vector encodes an implicit
@@ -493,36 +535,13 @@ if not args.do_sample:
     sys.exit()
 
 
-############# Predict rt_extrinsics_err analytically
-b,x = mrcal.optimizer_callback(**optimization_inputs,
-                               no_jacobian      = True,
-                               no_factorization = True)[:2]
-mrcal.unpack_state(b, **optimization_inputs)
-icam_extrinsics = 0
-i_state = mrcal.state_index_extrinsics(icam_extrinsics,
-                                       **optimization_inputs)
-rt_cam_ref__solved = b[i_state:i_state+6]
-rt_extrinsics_err,                    \
-drt_extrinsics_err_drtsolved,         \
-_                                   = \
-    mrcal.compose_rt( model_solved.extrinsics_rt_fromref(),
-                      model_true  .extrinsics_rt_toref(),
-                      get_gradients = True)
-
-
-xy = rt_extrinsics_err[3:5]
-dxy_drtsolved = drt_extrinsics_err_drtsolved[3:5,:]
-
-dxy_db = np.zeros( xy.shape + b.shape, dtype=float)
-dxy_db[...,i_state:i_state+6] = dxy_drtsolved
-
-
-Var_xy = mrcal.model_analysis._propagate_calibration_uncertainty( \
-             'covariance',
-             dF_db = dxy_db,
-             optimization_inputs = optimization_inputs)
-
-############# Sample rt_extrinsics_sampled_err
+#### We're going to computed a bunch of noisy calibrations, and gather
+#### statistics. I look at:
+#### - the projection of one point
+#### - the error in the z coordinate of the camera position
+####
+#### For each one I compute the predicted uncertainty and the empirical one,
+#### from the samples, and make sure they match
 ( intrinsics_sampled,         \
   rt_cam_ref_sampled_mounted, \
   frames_sampled,             \
@@ -534,35 +553,202 @@ calibration_sample(args.Nsamples,
                    pixel_uncertainty_stdev,
                    fixedframes       = True,
                    function_optimize = optimize)
-rt_extrinsics_sampled_err = \
-    mrcal.compose_rt( rt_cam_ref_sampled_mounted,
-                      model_true.extrinsics_rt_toref())
 
 
-xy_sampled = rt_extrinsics_sampled_err[:,0,3:5]
+####### check errz
+if 1:
 
-import gnuplotlib as gp
-# gp.plot( rt_extrinsics_sampled_err[:,0,5],
-#          histogram=1,
-#          binwidth=0.005)
+    icam = 0
+    i_state = mrcal.state_index_extrinsics(icam, **optimization_inputs)
+    rt_extrinsics_err,                    \
+    drt_extrinsics_err_drtsolved,         \
+    _                                   = \
+        mrcal.compose_rt( model_solved.extrinsics_rt_fromref(),
+                          model_solved.extrinsics_rt_toref(),
+                          get_gradients = True)
+
+    variable_range = (5,6)
+    derrz_db = np.zeros( (variable_range[1]-variable_range[0],Nstate), dtype=float)
+    derrz_db[...,i_state:i_state+6] = drt_extrinsics_err_drtsolved[variable_range[0]:variable_range[1],:]
+    Var_errz = mrcal.model_analysis._propagate_calibration_uncertainty( \
+                 'covariance',
+                 dF_db = derrz_db,
+                 optimization_inputs = optimization_inputs)
+
+    Var_errz = Var_errz[0,0]
+
+    rt_extrinsics_sampled_err = \
+        mrcal.compose_rt( rt_cam_ref_sampled_mounted,
+                          model_solved.extrinsics_rt_toref())
+
+    errz_sampled = rt_extrinsics_sampled_err[:,0,variable_range[0]:variable_range[1]]
+
+    testutils.confirm_equal( np.mean(errz_sampled),
+                             0,
+                             eps = 0.01,
+                             msg = f"errz distribution has mean=0")
+
+    testutils.confirm_equal( np.std(errz_sampled),
+                             np.sqrt(Var_errz),
+                             eps=0.02,
+                             relative = True,
+                             msg = f"Predicted Var(errz) correct")
 
 
-gp.plot(*mrcal.utils._plot_args_points_and_covariance_ellipse( \
-            xy_sampled,
-            "Observed xy uncertainty"),
-        mrcal.utils._plot_arg_covariance_ellipse( \
-            np.mean(xy_sampled, axis=0),
-            Var_xy,
-            "Predicted xy uncertainty"),
-        square = 1)
+    if args.make_documentation_plots is not None:
 
-import IPython
-IPython.embed()
-sys.exit()
+        errz_sampled = rt_extrinsics_sampled_err[...,0,5]
+        binwidth = 0.01
+        equation_observed = \
+            mrcal.fitted_gaussian_equation(x = errz_sampled,
+                                           binwidth = binwidth,
+                                           legend   = f'Observed')
+        equation_predicted = \
+            mrcal.fitted_gaussian_equation(mean     = np.mean(errz_sampled),
+                                           sigma    = np.sqrt(Var_errz),
+                                           N        = len(errz_sampled),
+                                           binwidth = binwidth,
+                                           legend   = "Predicted")
+
+        if args.make_documentation_plots:
+            for extension in ('pdf','svg','png','gp'):
+                plotoptions = dict(wait     = False,
+                                   terminal = terminal[extension],
+                                   _set     = extraset[extension],
+                                   hardcopy = f'{args.make_documentation_plots}--surveyed-calibration-var-errz.{extension}')
+
+                gp.plot(errz_sampled,
+                        histogram = True,
+                        binwidth = binwidth,
+                        equation_above = (equation_observed,
+                                          equation_predicted),
+                        **plotoptions)
+
+        else:
+            plotoptions = dict(wait = True)
+
+            gp.plot(errz_sampled,
+                    histogram = True,
+                    binwidth = binwidth,
+                    equation_above = (equation_observed,
+                                      equation_predicted),
+                    **plotoptions)
 
 
+####### check projection of a point
+if 1:
+
+    # Test point. On the left, centered vertically
+    q_query = np.array((W/4, H/2))
+
+    p_query_cam = mrcal.unproject(q_query, *model_solved.intrinsics())
+    p_query_ref = mrcal.transform_point_Rt(model_solved.extrinsics_Rt_toref(),p_query_cam)
+    Var_q = \
+        mrcal.projection_uncertainty( p_query_cam, model_solved,
+                                      what = 'covariance' )
+    if 1:
+        # Code check. Computing this directly should mimic the
+        # mrcal.projection_uncertainty() result exactly since it should be 100% the
+        # same computation
+        p,dp_drt_cam_ref,_ = \
+            mrcal.transform_point_rt(model_solved.extrinsics_rt_fromref(),
+                                     p_query_ref,
+                                     get_gradients = True)
+        q,dq_dp,dq_di = \
+            mrcal.project( p,
+                           model_solved.intrinsics()[0],
+                           model_solved.intrinsics()[1],
+                           get_gradients = True)
+        dq_drt_cam_ref = nps.matmult(dq_dp, dp_drt_cam_ref)
+
+        dq_db = np.zeros( (2,Nstate), dtype=float)
+
+        icam = 0
+        i_state = mrcal.state_index_extrinsics(icam, **optimization_inputs)
+        dq_db[...,i_state:i_state+6] = dq_drt_cam_ref
+        i_state = mrcal.state_index_intrinsics(icam, **optimization_inputs)
+        dq_db[...,i_state:i_state+Nintrinsics] = dq_di
+
+        Var_q2 = mrcal.model_analysis._propagate_calibration_uncertainty( \
+                     'covariance',
+                     dF_db = dq_db,
+                     optimization_inputs = optimization_inputs)
+        testutils.confirm_equal(Var_q, Var_q2,
+                                relative=True,
+                                worstcase=True,
+                                eps=1e-6,
+                                msg="projection_uncertainty() should do the same thing s caling _propagate_calibration_uncertainty() directly")
+
+    p_query_cam_sampled = \
+        mrcal.transform_point_rt(rt_cam_ref_sampled_mounted[:,0,:],
+                                 p_query_ref)
+    q_query_sampled = \
+        mrcal.project( p_query_cam_sampled,
+                       model_solved.intrinsics()[0],
+                       intrinsics_sampled[:,0,:] )
+
+    q_query_sampled_mean = np.mean(q_query_sampled, axis=0)
+
+    # shape (2,2)
+    Var_q_observed = np.mean( nps.outer(q_query_sampled-q_query_sampled_mean,
+                                        q_query_sampled-q_query_sampled_mean),
+                              axis=0 )
+
+    worst_direction_stdev_observed  = mrcal.worst_direction_stdev(Var_q_observed)
+    worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_q)
+
+    testutils.confirm_equal( nps.mag(q_query_sampled_mean - q_query),
+                             0,
+                             eps = 5,
+                             worstcase = True,
+                             msg = "Sampled projections cluster around the sample point")
+
+    testutils.confirm_equal(worst_direction_stdev_observed,
+                            worst_direction_stdev_predicted,
+                            eps = 0.1,
+                            worstcase = True,
+                            relative  = True,
+                            msg = f"Predicted worst-case projections match sampled observations")
+
+    # I now compare the variances. The cross terms have lots of apparent error,
+    # but it's more meaningful to compare the eigenvectors and eigenvalues, so I
+    # just do that
+    testutils.confirm_covariances_equal(Var_q,
+                                        Var_q_observed,
+                                        what = "Var_q",
+                                        eps_eigenvalues               = 0.05,
+                                        eps_eigenvectors_deg          = 10,
+                                        check_biggest_eigenvalue_only = True)
+
+    if args.make_documentation_plots is not None:
+
+        if args.make_documentation_plots:
+            for extension in ('pdf','svg','png','gp'):
+                plotoptions = dict(wait     = False,
+                                   terminal = terminal[extension],
+                                   _set     = extraset[extension],
+                                   hardcopy = f'{args.make_documentation_plots}--surveyed-calibration-var-q.{extension}')
+
+                gp.plot(*mrcal.utils._plot_args_points_and_covariance_ellipse( \
+                            q_query_sampled,
+                            "Observed projection uncertainty"),
+                        mrcal.utils._plot_arg_covariance_ellipse( \
+                            np.mean(q_query_sampled, axis=0),
+                            Var_q,
+                            "Predicted projection uncertainty"),
+                        square = 1,
+                        **plotoptions)
+        else:
+            plotoptions = dict(wait = True)
+
+            gp.plot(*mrcal.utils._plot_args_points_and_covariance_ellipse( \
+                        q_query_sampled,
+                        "Observed projection uncertainty"),
+                    mrcal.utils._plot_arg_covariance_ellipse( \
+                        np.mean(q_query_sampled, axis=0),
+                        Var_q,
+                        "Predicted projection uncertainty"),
+                    square = 1,
+                    **plotoptions)
 
 testutils.finish()
-
-
-# oversample
