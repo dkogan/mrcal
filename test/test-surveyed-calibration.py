@@ -48,10 +48,16 @@ def parse_args():
     parser.add_argument('--viz-observations',
                         action='store_true',
                         help='''Show the observations''')
-    parser.add_argument('--say-errz',
+    parser.add_argument('--do-sample',
                         action='store_true',
-                        help='''If given, report ONLY the extrinsics error in z.
-                        Do not run tests or print anything else''')
+                        help='''By default we don't run the time-intensive
+                        samples of the calibration solves. This runs a very
+                        limited set of tests, and exits. To perform the full set
+                        of tests, pass --do-sample''')
+    parser.add_argument('--Nsamples',
+                        type=int,
+                        default=500,
+                        help='''How many random samples to evaluate''')
 
     args = parser.parse_args()
 
@@ -78,7 +84,7 @@ sys.path[:0] = f"{testdir}/..",
 import mrcal
 import testutils
 
-from test_calibration_helpers import sample_dqref
+from test_calibration_helpers import sample_dqref,calibration_sample
 import copy
 
 # I Reduce FOV to make it clear that you need data from different ranges
@@ -215,27 +221,20 @@ weight0 = 0.2
 weight1 = 1.0
 weight = weight0 + (weight1-weight0)*weight01
 
-q = \
-    q_true \
-    +      \
-    np.random.randn(*q_true.shape) \
-    * pixel_uncertainty_stdev \
-    / nps.mv(nps.cat(weight,weight),0,-1)
-
 # out-of-bounds observations are outliers
-weight[(q[:,0] < 0) + \
-       (q[:,1] < 0) + \
-       (q[:,0] > W-1) + \
-       (q[:,1] > H-1)] = -1.
+weight[(q_true[:,0] < 0) + \
+       (q_true[:,1] < 0) + \
+       (q_true[:,0] > W-1) + \
+       (q_true[:,1] > H-1)] = -1.
 
 ############# Now I pretend that the noisy observations are all I got, and I run
 ############# a calibration from those
 # shape (N, 3)
-observations_point = nps.glue(q,
+observations_point = nps.glue(q_true,
                               nps.dummy(weight,-1),
                               axis=-1)
 
-Npoints = q.shape[0]
+Npoints = q_true.shape[0]
 
 # Dense observations. The cameras see all the boards
 indices_point_camintrinsics_camextrinsics = np.zeros( (Npoints, 3), dtype=np.int32)
@@ -303,7 +302,7 @@ if args.viz_observations:
              wait = True)
     sys.exit()
 
-optimization_inputs                                 = \
+optimization_inputs_baseline                        = \
     dict( lensmodel                                 = lensmodel,
           intrinsics                                = intrinsics_data,
           extrinsics_rt_fromref                     = rt_camera_ref_estimate,
@@ -323,69 +322,37 @@ optimization_inputs                                 = \
           do_optimize_calobject_warp                = False,
           do_optimize_frames                        = False)
 
-optimization_inputs['do_optimize_intrinsics_core']        = False
-optimization_inputs['do_optimize_intrinsics_distortions'] = False
-optimization_inputs['do_optimize_extrinsics']             = True
-stats = mrcal.optimize(**optimization_inputs)
 
-optimization_inputs['do_optimize_intrinsics_core']        = True
-optimization_inputs['do_optimize_intrinsics_distortions'] = True
-optimization_inputs['do_optimize_extrinsics']             = True
-stats = mrcal.optimize(**optimization_inputs)
+def optimize(optimization_inputs):
+    optimization_inputs['do_optimize_intrinsics_core']        = False
+    optimization_inputs['do_optimize_intrinsics_distortions'] = False
+    optimization_inputs['do_optimize_extrinsics']             = True
+    mrcal.optimize(**optimization_inputs)
+
+    optimization_inputs['do_optimize_intrinsics_core']        = True
+    optimization_inputs['do_optimize_intrinsics_distortions'] = True
+    optimization_inputs['do_optimize_extrinsics']             = True
+    mrcal.optimize(**optimization_inputs)
+
+# Take one solve sample
+optimization_inputs = copy.deepcopy(optimization_inputs_baseline)
+_,optimization_inputs['observations_point'] = \
+    sample_dqref(optimization_inputs['observations_point'], pixel_uncertainty_stdev)
+optimize(optimization_inputs)
 
 # Grab the residuals. residuals_point() reports ONLY the point reprojection
 # errors: no range normalization (penalty) terms, no board observations, no
 # regularization. Also, no outliers
-rmserr_point = np.std(mrcal.residuals_point(optimization_inputs,
-                                            residuals = stats['x']).ravel())
+rmserr_point = np.std(mrcal.residuals_point(optimization_inputs).ravel())
 
 ############# Calibration computed. Now I see how well I did
 model_solved = \
     mrcal.cameramodel( optimization_inputs = optimization_inputs,
                        icam_intrinsics     = 0 )
 
-b,x = mrcal.optimizer_callback(**optimization_inputs,
-                               no_jacobian      = True,
-                               no_factorization = True)[:2]
-mrcal.unpack_state(b, **optimization_inputs)
-icam_extrinsics = 0
-i_state = mrcal.state_index_extrinsics(icam_extrinsics,
-                                       **optimization_inputs)
-rt_cam_ref__solved = b[i_state:i_state+6]
-
-
-# Checking the extrinsics.
-rt_extrinsics_err,                    \
-drt_extrinsics_err_drtsolved,         \
-_                                   = \
-    mrcal.compose_rt( model_solved.extrinsics_rt_fromref(),
-                      model_true  .extrinsics_rt_toref(),
-                      get_gradients = True)
-
-errz            = rt_extrinsics_err[5]
-derrz_drtsolved = drt_extrinsics_err_drtsolved[5,:]
-
-derrz_db = np.zeros( b.shape, dtype=float)
-derrz_db[i_state:i_state+6] = derrz_drtsolved
-
-
-v = mrcal.model_analysis._propagate_calibration_uncertainty( \
-        'covariance',
-        dF_db = derrz_db,
-        optimization_inputs = optimization_inputs)[0,0]
-print(np.sqrt(v))
-sys.exit()
-import IPython
-IPython.embed()
-sys.exit()
-
-
-
-if args.say_errz:
-    print(errz)
-    sys.exit()
-
-
+Rt_extrinsics_err = \
+    mrcal.compose_Rt( model_solved.extrinsics_Rt_fromref(),
+                      model_true  .extrinsics_Rt_toref() )
 
 
 # verify problem layout
@@ -459,6 +426,12 @@ testutils.confirm_equal( (np.trace(Rt_extrinsics_err[:3,:]) - 1) / 2.,
                          eps = np.cos(1. * np.pi/180.0), # 1 deg
                          msg = "Recovered extrinsic rotation")
 
+# plot = mrcal.show_projection_uncertainty(model_solved, cbmax=20)
+# plot.wait()
+# sys.exit()
+
+
+
 
 # Checking the intrinsics. Each intrinsics vector encodes an implicit
 # transformation. I compute and apply this transformation when making my
@@ -515,5 +488,81 @@ testutils.confirm_equal(diff, 0,
                         eps = 6.,
                         msg = "Recovered intrinsics")
 
+if not args.do_sample:
+    testutils.finish()
+    sys.exit()
+
+
+############# Predict rt_extrinsics_err analytically
+b,x = mrcal.optimizer_callback(**optimization_inputs,
+                               no_jacobian      = True,
+                               no_factorization = True)[:2]
+mrcal.unpack_state(b, **optimization_inputs)
+icam_extrinsics = 0
+i_state = mrcal.state_index_extrinsics(icam_extrinsics,
+                                       **optimization_inputs)
+rt_cam_ref__solved = b[i_state:i_state+6]
+rt_extrinsics_err,                    \
+drt_extrinsics_err_drtsolved,         \
+_                                   = \
+    mrcal.compose_rt( model_solved.extrinsics_rt_fromref(),
+                      model_true  .extrinsics_rt_toref(),
+                      get_gradients = True)
+
+
+xy = rt_extrinsics_err[3:5]
+dxy_drtsolved = drt_extrinsics_err_drtsolved[3:5,:]
+
+dxy_db = np.zeros( xy.shape + b.shape, dtype=float)
+dxy_db[...,i_state:i_state+6] = dxy_drtsolved
+
+
+Var_xy = mrcal.model_analysis._propagate_calibration_uncertainty( \
+             'covariance',
+             dF_db = dxy_db,
+             optimization_inputs = optimization_inputs)
+
+############# Sample rt_extrinsics_sampled_err
+( intrinsics_sampled,         \
+  rt_cam_ref_sampled_mounted, \
+  frames_sampled,             \
+  points_sampled,             \
+  calobject_warp_sampled,     \
+  optimization_inputs_sampled ) = \
+calibration_sample(args.Nsamples,
+                   optimization_inputs_baseline,
+                   pixel_uncertainty_stdev,
+                   fixedframes       = True,
+                   function_optimize = optimize)
+rt_extrinsics_sampled_err = \
+    mrcal.compose_rt( rt_cam_ref_sampled_mounted,
+                      model_true.extrinsics_rt_toref())
+
+
+xy_sampled = rt_extrinsics_sampled_err[:,0,3:5]
+
+import gnuplotlib as gp
+# gp.plot( rt_extrinsics_sampled_err[:,0,5],
+#          histogram=1,
+#          binwidth=0.005)
+
+
+gp.plot(*mrcal.utils._plot_args_points_and_covariance_ellipse( \
+            xy_sampled,
+            "Observed xy uncertainty"),
+        mrcal.utils._plot_arg_covariance_ellipse( \
+            np.mean(xy_sampled, axis=0),
+            Var_xy,
+            "Predicted xy uncertainty"),
+        square = 1)
+
+import IPython
+IPython.embed()
+sys.exit()
+
+
+
 testutils.finish()
 
+
+# oversample
