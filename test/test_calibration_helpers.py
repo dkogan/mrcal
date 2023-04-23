@@ -274,18 +274,30 @@ ARGUMENTS
         Nframes
 
 
-def calibration_sample(Nsamples, Ncameras, Nframes,
-                       Nintrinsics,
+def calibration_sample(Nsamples,
                        optimization_inputs_baseline,
-                       observations_true,
                        pixel_uncertainty_stdev,
-                       fixedframes):
+                       fixedframes,
+                       function_optimize = None):
 
-    intrinsics_sampled         = np.zeros((Nsamples,Ncameras,Nintrinsics), dtype=float)
-    extrinsics_sampled_mounted = np.zeros((Nsamples,Ncameras,6),           dtype=float)
-    frames_sampled             = np.zeros((Nsamples,Nframes, 6),           dtype=float)
-    calobject_warp_sampled     = np.zeros((Nsamples,2),                    dtype=float)
+    r'''Sample calibrations subject to random noise on the input observations
+
+optimization_inputs_baseline['observations_board'] and
+optimization_inputs_baseline['observations_point'] are assumed to contain
+perfect observations
+
+    '''
+
+    intrinsics_sampled         = np.zeros((Nsamples,) + optimization_inputs_baseline['intrinsics']        .shape, dtype=float)
+    frames_sampled             = np.zeros((Nsamples,) + optimization_inputs_baseline['frames_rt_toref']   .shape, dtype=float)
+    calobject_warp_sampled     = np.zeros((Nsamples,) + optimization_inputs_baseline['calobject_warp']    .shape, dtype=float)
     optimization_inputs_sampled = [None] * Nsamples
+
+    Ncameras_extrinsics = optimization_inputs_baseline['extrinsics_rt_fromref'].shape[0]
+    if not fixedframes:
+        # the first row is fixed at 0
+        Ncameras_extrinsics += 1
+    extrinsics_sampled_mounted = np.zeros((Nsamples,Ncameras_extrinsics,6), dtype=float)
 
     for isample in range(Nsamples):
         if (isample+1) % 20 == 0:
@@ -293,9 +305,22 @@ def calibration_sample(Nsamples, Ncameras, Nframes,
 
         optimization_inputs_sampled[isample] = copy.deepcopy(optimization_inputs_baseline)
         optimization_inputs = optimization_inputs_sampled[isample]
-        optimization_inputs['observations_board'] = \
-            sample_dqref(observations_true, pixel_uncertainty_stdev)[1]
-        mrcal.optimize(**optimization_inputs)
+
+        if 'observations_board' in optimization_inputs and \
+           optimization_inputs['observations_board'] is not None:
+            optimization_inputs['observations_board'] = \
+                sample_dqref(optimization_inputs['observations_board'],
+                             pixel_uncertainty_stdev)[1]
+        if 'observations_point' in optimization_inputs and \
+           optimization_inputs['observations_point'] is not None:
+            optimization_inputs['observations_point'] = \
+                sample_dqref(optimization_inputs['observations_point'],
+                             pixel_uncertainty_stdev)[1]
+
+        if function_optimize is None:
+            mrcal.optimize(**optimization_inputs)
+        else:
+            function_optimize(optimization_inputs)
 
         intrinsics_sampled    [isample,...] = optimization_inputs['intrinsics']
         frames_sampled        [isample,...] = optimization_inputs['frames_rt_toref']
