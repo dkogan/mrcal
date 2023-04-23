@@ -649,29 +649,23 @@ if 1:
                                            binwidth = binwidth,
                                            legend   = "Predicted")
 
-        if args.make_documentation_plots:
-            for extension in ('pdf','svg','png','gp'):
-                plotoptions = dict(wait     = False,
-                                   terminal = terminal[extension],
-                                   _set     = extraset[extension],
-                                   hardcopy = f'{args.make_documentation_plots}--surveyed-calibration-var-errz.{extension}')
-
-                gp.plot(errz_sampled,
-                        histogram = True,
-                        binwidth = binwidth,
-                        equation_above = (equation_observed,
-                                          equation_predicted),
-                        **plotoptions)
-
-        else:
-            plotoptions = dict(wait = True)
-
+        def makeplot(**plotoptions):
             gp.plot(errz_sampled,
                     histogram = True,
                     binwidth = binwidth,
                     equation_above = (equation_observed,
                                       equation_predicted),
                     **plotoptions)
+
+        if args.make_documentation_plots:
+            for extension in ('pdf','svg','png','gp'):
+                makeplot(wait     = False,
+                         terminal = terminal[extension],
+                         _set     = extraset[extension],
+                         hardcopy = f'{args.make_documentation_plots}--surveyed-calibration-var-errz.{extension}')
+
+        else:
+            makeplot(wait = True)
 
 
 ####### check projection of a point
@@ -753,25 +747,7 @@ if 1:
 
     if args.make_documentation_plots is not None:
 
-        if args.make_documentation_plots:
-            for extension in ('pdf','svg','png','gp'):
-                plotoptions = dict(wait     = False,
-                                   terminal = terminal[extension],
-                                   _set     = extraset[extension],
-                                   hardcopy = f'{args.make_documentation_plots}--surveyed-calibration-var-q.{extension}')
-
-                gp.plot(*mrcal.utils._plot_args_points_and_covariance_ellipse( \
-                            q_query_sampled,
-                            "Observed projection uncertainty"),
-                        mrcal.utils._plot_arg_covariance_ellipse( \
-                            np.mean(q_query_sampled, axis=0),
-                            Var_q,
-                            "Predicted projection uncertainty"),
-                        square = 1,
-                        **plotoptions)
-        else:
-            plotoptions = dict(wait = True)
-
+        def makeplot(**plotoptions):
             gp.plot(*mrcal.utils._plot_args_points_and_covariance_ellipse( \
                         q_query_sampled,
                         "Observed projection uncertainty"),
@@ -781,5 +757,16 @@ if 1:
                         "Predicted projection uncertainty"),
                     square = 1,
                     **plotoptions)
+
+        if args.make_documentation_plots:
+            for extension in ('pdf','svg','png','gp'):
+                makeplot(wait     = False,
+                         terminal = terminal[extension],
+                         _set     = extraset[extension],
+                         hardcopy = f'{args.make_documentation_plots}--surveyed-calibration-var-q.{extension}')
+
+        else:
+            makeplot(wait = True)
+
 
 testutils.finish()
