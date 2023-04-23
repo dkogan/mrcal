@@ -288,10 +288,28 @@ perfect observations
 
     '''
 
-    intrinsics_sampled         = np.zeros((Nsamples,) + optimization_inputs_baseline['intrinsics']        .shape, dtype=float)
-    frames_sampled             = np.zeros((Nsamples,) + optimization_inputs_baseline['frames_rt_toref']   .shape, dtype=float)
-    calobject_warp_sampled     = np.zeros((Nsamples,) + optimization_inputs_baseline['calobject_warp']    .shape, dtype=float)
+    def have(k):
+        return k in optimization_inputs_baseline and \
+            optimization_inputs_baseline[k] is not None
+
+    intrinsics_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['intrinsics']    .shape, dtype=float)
+
+    if have('frames_rt_toref'):
+        frames_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['frames_rt_toref'].shape, dtype=float)
+    else:
+        frames_sampled = None
+    if have('points'):
+        points_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['points'].shape, dtype=float)
+    else:
+        points_sampled = None
+    if have('calobject_warp'):
+        calobject_warp_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['calobject_warp'].shape, dtype=float)
+    else:
+        calobject_warp_sampled = None
+
     optimization_inputs_sampled = [None] * Nsamples
+
+
 
     Ncameras_extrinsics = optimization_inputs_baseline['extrinsics_rt_fromref'].shape[0]
     if not fixedframes:
@@ -306,13 +324,11 @@ perfect observations
         optimization_inputs_sampled[isample] = copy.deepcopy(optimization_inputs_baseline)
         optimization_inputs = optimization_inputs_sampled[isample]
 
-        if 'observations_board' in optimization_inputs and \
-           optimization_inputs['observations_board'] is not None:
+        if have('observations_board'):
             optimization_inputs['observations_board'] = \
                 sample_dqref(optimization_inputs['observations_board'],
                              pixel_uncertainty_stdev)[1]
-        if 'observations_point' in optimization_inputs and \
-           optimization_inputs['observations_point'] is not None:
+        if have('observations_point'):
             optimization_inputs['observations_point'] = \
                 sample_dqref(optimization_inputs['observations_point'],
                              pixel_uncertainty_stdev)[1]
@@ -323,17 +339,24 @@ perfect observations
             function_optimize(optimization_inputs)
 
         intrinsics_sampled    [isample,...] = optimization_inputs['intrinsics']
-        frames_sampled        [isample,...] = optimization_inputs['frames_rt_toref']
-        calobject_warp_sampled[isample,...] = optimization_inputs['calobject_warp']
         if fixedframes:
             extrinsics_sampled_mounted[isample,   ...] = optimization_inputs['extrinsics_rt_fromref']
         else:
             # the remaining row is already 0
             extrinsics_sampled_mounted[isample,1:,...] = optimization_inputs['extrinsics_rt_fromref']
 
+        if frames_sampled is not None:
+            frames_sampled[isample,...] = optimization_inputs['frames_rt_toref']
+        if points_sampled is not None:
+            points_sampled[isample,...] = optimization_inputs['points']
+        if calobject_warp_sampled is not None:
+            calobject_warp_sampled[isample,...] = optimization_inputs['calobject_warp']
+
+
     return                            \
-        ( intrinsics_sampled,         \
-          extrinsics_sampled_mounted, \
-          frames_sampled,             \
+        ( intrinsics_sampled,
+          extrinsics_sampled_mounted,
+          frames_sampled,
+          points_sampled,
           calobject_warp_sampled,
           optimization_inputs_sampled)

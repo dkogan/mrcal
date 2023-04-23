@@ -656,6 +656,7 @@ if not did_sample:
     ( intrinsics_sampled,         \
       extrinsics_sampled_mounted, \
       frames_sampled,             \
+      points_sampled,             \
       calobject_warp_sampled,     \
       optimization_inputs_sampled ) = \
           calibration_sample( args.Nsamples,
