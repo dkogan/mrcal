@@ -274,7 +274,8 @@ def confirm_covariances_equal(var, var_ref,
                               # a list of length 3, to use in order from largest
                               # to smallest. None to skip that axis
                               eps_eigenvalues,
-                              eps_eigenvectors_deg):
+                              eps_eigenvectors_deg,
+                              check_biggest_eigenvalue_only = False):
 
     # First, the thing is symmetric, right?
     confirm_equal(nps.transpose(var),
@@ -303,6 +304,8 @@ def confirm_covariances_equal(var, var_ref,
                       worstcase = True,
                       relative  = True,
                       msg = f"Var(dq) worst[{i}] eigenvalue match for {what}")
+        if check_biggest_eigenvalue_only:
+            break
 
     # I only check the eigenvector directions if the ellipse is sufficiently
     # non-circular. A circular ellipse has poorly-defined eigenvector directions
