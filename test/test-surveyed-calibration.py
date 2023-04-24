@@ -140,6 +140,12 @@ random_radius__t_cam_board_true = 1.0e-1
 
 ############# Plot setup. Very similar to test-projection-uncertainty.py
 if args.make_documentation_plots is not None:
+    def shorter_terminal(t):
+        # Adjust the terminal string to be less tall. Reduces wasted space in
+        # some of the plots
+        m = re.match("(.*)( size.*?,)([0-9.]+)(.*?)$", t)
+        if m is None: return t
+        return m.group(1) + m.group(2) + str(float(m.group(3))*0.8) + m.group(4)
 
     import gnuplotlib as gp
 
@@ -354,7 +360,7 @@ if args.make_documentation_plots is not None:
     if args.make_documentation_plots:
         for extension in ('pdf','svg','png','gp'):
             makeplot(wait     = False,
-                     terminal = terminal[extension],
+                     terminal = shorter_terminal(terminal[extension]),
                      _set     = extraset[extension],
                      hardcopy = f'{args.make_documentation_plots}/geometry.{extension}')
     else:
@@ -799,7 +805,7 @@ if 1:
         if args.make_documentation_plots:
             for extension in ('pdf','svg','png','gp'):
                 makeplot(wait     = False,
-                         terminal = terminal[extension],
+                         terminal = shorter_terminal(terminal[extension]),
                          _set     = extraset[extension],
                          hardcopy = f'{args.make_documentation_plots}/var-q.{extension}')
 
