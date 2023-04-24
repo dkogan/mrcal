@@ -352,7 +352,7 @@ if args.make_documentation_plots is not None:
             makeplot(wait     = False,
                      terminal = terminal[extension],
                      _set     = extraset[extension],
-                     hardcopy = f'{args.make_documentation_plots}--surveyed-calibration-geometry.{extension}')
+                     hardcopy = f'{args.make_documentation_plots}/geometry.{extension}')
     else:
         makeplot(wait = True)
 
@@ -372,7 +372,7 @@ if args.make_documentation_plots is not None:
             makeplot(wait     = False,
                      terminal = terminal[extension],
                      _set     = extraset[extension],
-                     hardcopy = f'{args.make_documentation_plots}--surveyed-calibration-observations.{extension}')
+                     hardcopy = f'{args.make_documentation_plots}/observations.{extension}')
     else:
         makeplot(wait = True)
 
@@ -677,7 +677,7 @@ if 1:
                 makeplot(wait     = False,
                          terminal = terminal[extension],
                          _set     = extraset[extension],
-                         hardcopy = f'{args.make_documentation_plots}--surveyed-calibration-var-errz.{extension}')
+                         hardcopy = f'{args.make_documentation_plots}/var-errz.{extension}')
 
         else:
             makeplot(wait = True)
@@ -781,7 +781,7 @@ if 1:
                 makeplot(wait     = False,
                          terminal = terminal[extension],
                          _set     = extraset[extension],
-                         hardcopy = f'{args.make_documentation_plots}--surveyed-calibration-var-q.{extension}')
+                         hardcopy = f'{args.make_documentation_plots}/var-q.{extension}')
 
         else:
             makeplot(wait = True)
