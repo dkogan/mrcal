@@ -50,12 +50,6 @@ def parse_args():
                         type=int,
                         default=0,
                         help='''Value to seed the rng with''')
-    parser.add_argument('--viz-seed-geometry',
-                        action='store_true',
-                        help='''Show the seed geometry''')
-    parser.add_argument('--viz-observations',
-                        action='store_true',
-                        help='''Show the observations''')
     parser.add_argument('--do-sample',
                         action='store_true',
                         help='''By default we don't run the time-intensive
@@ -142,25 +136,26 @@ random_radius__t_cam_board_true = 1.0e-1
 
 ############# Plot setup. Very similar to test-projection-uncertainty.py
 if args.make_documentation_plots is not None:
+
     import gnuplotlib as gp
 
-terminal = dict(pdf = args.terminal_pdf,
-                svg = args.terminal_svg,
-                png = args.terminal_png,
-                gp  = 'gp')
-pointscale = dict(pdf = 1,
-                  svg = 1,
-                  png = 1,
-                  gp  = 1)
-pointscale[""] = 1.
-if args.make_documentation_plots:
-    print(f"Will write documentation plots to {args.make_documentation_plots}-xxxx.pdf and .svg")
-    if terminal['svg'] is None: terminal['svg'] = 'svg size 800,600       noenhanced solid dynamic    font ",14"'
-    if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color      font ",12"'
-    if terminal['png'] is None: terminal['png'] = 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
-extraset = dict()
-for k in pointscale.keys():
-    extraset[k] = f'pointsize {pointscale[k]}'
+    terminal = dict(pdf = args.terminal_pdf,
+                    svg = args.terminal_svg,
+                    png = args.terminal_png,
+                    gp  = 'gp')
+    pointscale = dict(pdf = 1,
+                      svg = 1,
+                      png = 1,
+                      gp  = 1)
+    pointscale[""] = 1.
+    if args.make_documentation_plots:
+        print(f"Will write documentation plots to {args.make_documentation_plots}-xxxx.pdf and .svg")
+        if terminal['svg'] is None: terminal['svg'] = 'svg size 800,600       noenhanced solid dynamic    font ",14"'
+        if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color      font ",12"'
+        if terminal['png'] is None: terminal['png'] = 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+    extraset = dict()
+    for k in pointscale.keys():
+        extraset[k] = f'pointsize {pointscale[k]}'
 
 
 
@@ -344,26 +339,43 @@ else:
 
 
 
-if args.viz_seed_geometry:
-    mrcal.show_geometry( (rt_camera_ref_estimate,),
-                         points      = pref_true, # known. fixed. perfect.
-                         title       = "Seed geometry",
-                         show_points = True,
-                         wait        = True)
-    sys.exit()
+if args.make_documentation_plots is not None:
+    def makeplot(**plotoptions):
+        mrcal.show_geometry( (rt_camera_ref_estimate,),
+                             points      = pref_true, # known. fixed. perfect.
+                             show_points = True,
+                             title       = 'Surveyed calibration: nominal geometry',
+                             **plotoptions)
 
-if args.viz_observations:
-    import gnuplotlib as gp
-    gp.plot( observations_point,
-             _with     = 'points palette',
-             tuplesize = -3,
-             square=1,
-             # The rectangle plot needs a later gnuplot to work with
-             # the x11 terminal. So I use the 'qt' terminal here
-             _set = f'object rectangle from 0,0 to {W-1},{H-1} fs empty border rgb "black"',
-             terminal = 'qt',
-             wait = True)
-    sys.exit()
+    if args.make_documentation_plots:
+        for extension in ('pdf','svg','png','gp'):
+            makeplot(wait     = False,
+                     terminal = terminal[extension],
+                     _set     = extraset[extension],
+                     hardcopy = f'{args.make_documentation_plots}--surveyed-calibration-geometry.{extension}')
+    else:
+        makeplot(wait = True)
+
+if args.make_documentation_plots is not None:
+    def makeplot(**plotoptions):
+        gp.plot( observations_point[:,:2],
+                     _with     = f'points ps {pointscale[extension]}',
+                     tuplesize = -2,
+                     square=1,
+                 _xrange     = f'0:{W-1}',
+                 _yrange     = f'{H-1}:0',
+                 title       = 'Surveyed calibration: observations',
+                     **plotoptions)
+
+    if args.make_documentation_plots:
+        for extension in ('pdf','svg','png','gp'):
+            makeplot(wait     = False,
+                     terminal = terminal[extension],
+                     _set     = extraset[extension],
+                     hardcopy = f'{args.make_documentation_plots}--surveyed-calibration-observations.{extension}')
+    else:
+        makeplot(wait = True)
+
 
 optimization_inputs_baseline                        = \
     dict( lensmodel                                 = lensmodel,
@@ -641,13 +653,13 @@ if 1:
         equation_observed = \
             mrcal.fitted_gaussian_equation(x = errz_sampled,
                                            binwidth = binwidth,
-                                           legend   = f'Observed')
+                                           legend   = f'Observed in simulation')
         equation_predicted = \
             mrcal.fitted_gaussian_equation(mean     = np.mean(errz_sampled),
                                            sigma    = np.sqrt(Var_errz),
                                            N        = len(errz_sampled),
                                            binwidth = binwidth,
-                                           legend   = "Predicted")
+                                           legend   = "Predicted by mrcal")
 
         def makeplot(**plotoptions):
             gp.plot(errz_sampled,
@@ -655,6 +667,9 @@ if 1:
                     binwidth = binwidth,
                     equation_above = (equation_observed,
                                       equation_predicted),
+                    xlabel = "Error in z (m)",
+                    ylabel = "Count",
+                    title  = "Surveyed calibration: distribution of error-in-z due to calibration-time noise",
                     **plotoptions)
 
         if args.make_documentation_plots:
@@ -750,12 +765,15 @@ if 1:
         def makeplot(**plotoptions):
             gp.plot(*mrcal.utils._plot_args_points_and_covariance_ellipse( \
                         q_query_sampled,
-                        "Observed projection uncertainty"),
+                        "Observed in simulation"),
                     mrcal.utils._plot_arg_covariance_ellipse( \
                         np.mean(q_query_sampled, axis=0),
                         Var_q,
-                        "Predicted projection uncertainty"),
+                        "Predicted by mrcal"),
                     square = 1,
+                    xlabel = "x (pixels)",
+                    ylabel = "y (pixels)",
+                    title  = "Surveyed calibration: distribution of point projections due to calibration-time noise",
                     **plotoptions)
 
         if args.make_documentation_plots:
