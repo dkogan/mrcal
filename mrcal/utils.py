@@ -1251,7 +1251,7 @@ with N = 0
 
 RETURNED VALUES
 
-if return_observations:
+if not return_observations:
 
   we return a numpy array of shape (N,2) of all the residuals. N is the number
   of pixel observations remaining after outliers and other cameras are thrown
@@ -1375,7 +1375,7 @@ ARGUMENTS
 
 RETURNED VALUES
 
-if return_observations:
+if not return_observations:
 
   we return a numpy array of shape (N,2) of all the residuals. N is the number
   of pixel observations remaining after outliers and other cameras are thrown
