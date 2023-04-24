@@ -641,15 +641,23 @@ In the regularized case:
 
     if observed_pixel_uncertainty is None:
         # mrcal.residuals_point() ignores the range normalization (penalty)
-        var_residuals = 0
+        sum_of_squares_residuals = 0
+        Nobservations            = 0
 
-        var = mrcal.residuals_chessboard(optimization_inputs, residuals = x)
-        if var.size: var_residuals += np.var(var.ravel())
+        # shape (Nobservations*2)
+        residuals = mrcal.residuals_chessboard(optimization_inputs, residuals = x).ravel()
+        if residuals.size:
+            sum_of_squares_residuals += np.var(residuals) * residuals.size
+            Nobservations += residuals.size
 
-        var = mrcal.residuals_point     (optimization_inputs, residuals = x)
-        if var.size: var_residuals += np.var(var.ravel())
+        residuals = mrcal.residuals_point     (optimization_inputs, residuals = x).ravel()
+        if residuals.size:
+            sum_of_squares_residuals += np.var(residuals) * residuals.size
+            Nobservations += residuals.size
 
-        observed_pixel_uncertainty = np.sqrt(var_residuals)
+        if Nobservations == 0:
+            raise Exception("observed_pixel_uncertainty cannot be computed because we don't have any board or point observations")
+        observed_pixel_uncertainty = np.sqrt(sum_of_squares_residuals / Nobservations)
 
 
     # shape (N,Nstate) where N=2 usually
