@@ -46,6 +46,10 @@ def parse_args():
                         help='''How many times we observe the stationary scene.
                         Observing multiple times gives us more samples of the
                         noise, resulting in lower uncertainties''')
+    parser.add_argument('--distance',
+                        type=float,
+                        help='''distance for uncertainty computations. If
+                        omitted, we use infinity''')
     parser.add_argument('--seed-rng',
                         type=int,
                         default=0,
@@ -431,7 +435,11 @@ Rt_extrinsics_err = \
     mrcal.compose_Rt( model_solved.extrinsics_Rt_fromref(),
                       model_true  .extrinsics_Rt_toref() )
 
-p_query_cam = mrcal.unproject(q_query, *model_solved.intrinsics())
+v_query_cam = mrcal.unproject(q_query, *model_solved.intrinsics(), normalize = True)
+if args.distance is not None:
+    p_query_cam = v_query_cam * args.distance
+else:
+    p_query_cam = v_query_cam * 1e5 # large distance
 p_query_ref = mrcal.transform_point_Rt(model_solved.extrinsics_Rt_toref(),p_query_cam)
 
 def get_variances():
@@ -452,9 +460,16 @@ def get_variances():
                  optimization_inputs = optimization_inputs)
     Var_errz = Var_errz[0,0]
 
-    Var_q = \
-        mrcal.projection_uncertainty( p_query_cam, model_solved,
-                                      what = 'covariance' )
+    if args.distance is not None:
+        Var_q = \
+            mrcal.projection_uncertainty( p_query_cam, model_solved,
+                                          atinfinity = False,
+                                          what = 'covariance' )
+    else:
+        Var_q = \
+            mrcal.projection_uncertainty( v_query_cam, model_solved,
+                                          atinfinity = True,
+                                          what       = 'covariance' )
 
     return Var_errz,Var_q
 
@@ -689,7 +704,12 @@ if 1:
     if 1:
         # Code check. Computing this directly should mimic the
         # mrcal.projection_uncertainty() result exactly since it should be 100% the
-        # same computation
+        # same computation.
+        #
+        # EXCEPT when looking at infinity. The projection_uncertainty() path
+        # uses atinfinity=True, so it ignores translations completely. THIS path
+        # uses a high distance, so the result will be close, but not identical.
+        # I use a sloppier bound in that case
         p,dp_drt_cam_ref,_ = \
             mrcal.transform_point_rt(model_solved.extrinsics_rt_fromref(),
                                      p_query_ref,
@@ -716,7 +736,7 @@ if 1:
         testutils.confirm_equal(Var_q, Var_q2,
                                 relative=True,
                                 worstcase=True,
-                                eps=1e-6,
+                                eps=1e-6 if args.distance is not None else 1e-2,
                                 msg="projection_uncertainty() should do the same thing s caling _propagate_calibration_uncertainty() directly")
 
     p_query_cam_sampled = \
