@@ -618,10 +618,12 @@ vnl-filter -p z-center,stdev \
 
 [[file:external/figures/surveyed-calibration/moving-range-oversampled.svg]]
 
-And it works as expected. Note that this works if the input noise is truly
-gaussian and independent. Empirically, this is mostly true, but may not be 100%
-true. Techniques that rely heavily on this assumption, such as this one, may not
-work perfectly in the real world. Take the results with a grain of salt.
+And it works as expected: we still see the spike, but all the uncertainties are
+roughly a factor or $\sqrt(10) = 3.2$ smaller. Note that this works if the input
+noise is truly gaussian and independent. Empirically, this is mostly true, but
+may not be 100% true. Techniques that rely heavily on this assumption, such as
+this one, may not work perfectly in the real world. Take the results with a
+grain of salt.
 
 * Camera resolution visualization
 :PROPERTIES:
