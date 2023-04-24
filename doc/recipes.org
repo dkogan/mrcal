@@ -389,191 +389,239 @@ Calibrating in this way is uncommon, so the [[file:mrcal-calibrate-cameras.html]
 not support this directly. But this kind of solve is readily available via the
 [[file:python-api.org][Python APIs]], as demonstrated by the [[https://www.github.com/dkogan/mrcal/blob/master/test/test-surveyed-calibration.py][=test/test-surveyed-calibration.py=]] script.
 
-These kinds of solves usually work off far less data than moving-chessboard
-solves, so they are more susceptible to [[file:uncertainty.org][sampling error causing high projection
-uncertainty]]. The usual rule-of-thumb is to gather calibration data at multiple
-ranges because it is otherwise difficult to disentangle the effects of camera
-position from the effects of intrinsics. We can demonstrate this using the
-[[https://www.github.com/dkogan/mrcal/blob/master/test/test-surveyed-calibration.py][=test/test-surveyed-calibration.py=]] script. Let's solve a calibration problem,
-calibrating a long lens looking at 3 chessboards 10m out, with the range to the
-center chessboard varying. We solve at each qualitative configuration multiple
-times, and plot the mean and standard deviation of the error in the camera
-forward direction. The standard deviation is an analogue of solve uncertainty,
-which is not yet implemented for this kind of solve.
+#+begin_src sh
+test/test-surveyed-calibration.py \
+  --do-sample                     \
+  --make-documentation-plots ''
+#+end_src
+#+begin_src sh :exports none :eval no-export
+## The below figures made like this
+D=../mrcal-doc-external/figures/surveyed-calibration/
+mkdir -p $D
+test/test-surveyed-calibration.py \
+  --do-sample                     \
+  --make-documentation-plots $D
+#+end_src
+
+This script simulates 3 observed chessboards in front of the camera. A long lens
+is used with a lean lens model ([[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV4=]]). We capture a single frame.
+The observed image looks like this:
+
+[[file:external/figures/surveyed-calibration/observations.svg]]
+
+Here we're looking at chessboards, but the observations are given to mrcal as
+discrete points for flexibility; we could use fixed chessboards identically.
+
+This setup is clearly violating the [[file:how-to-calibrate.org::#dancing][usual guidelines for capturing calibration
+data]]: we have a too-lean lens model, and we're not covering the imager with
+data. This is still useful to illustrate the processing, however. And this isn't
+far off from how somebody might capture data for a surveyed calibration.
+
+These kinds of solves usually work off far less data than the usual
+moving-chessboard calibrations, so they are more susceptible to [[file:uncertainty.org][sampling error
+causing high projection uncertainty]]. Fortunately, the techniques that we have
+for analyzing calibration quality ([[file:uncertainty.org][projection uncertainty quantification]] and
+[[file:tour-cross-validation.org][cross-validation differencing]]) are available here, so we can see how good or bad
+the results are. Note: today mrcal supports computing the uncertainty of a
+chessboard-less calibration /only/ if the points are fixed, as they are here;
+this will be implemented fully in the future.
+
+Similarly to the simulations in the [[file:tour-uncertainty.org][tour of mrcal]], we show that the predicted
+projection uncertainty matches what we get from sampling the input noise
+multiple times:
+
+[[file:external/figures/surveyed-calibration/var-q.svg]]
+
+We also looked at the effect of input noise on the extrinsics. The error in
+solved $z$ in camera coordinates:
+
+[[file:external/figures/surveyed-calibration/var-errz.svg]]
+
+Clearly the uncertainty propagation logic is working. Note: today's discrete
+point handling in mrcal has extra factors that generate this warning when
+computing an uncertainty:
+
+#+begin_example
+WARNING: I'm currently treating the point range normalization (penalty) terms as following the same noise model as other measurements. This will bias the uncertainty estimate
+#+end_example
+
+This is benign, and the related logic is likely to change in the future.
+
+The usual rule-of-thumb is to gather calibration data at multiple ranges because
+it is otherwise difficult to disentangle the effects of camera position from the
+effects of intrinsics. We can demonstrate this explicitly using the same test
+script: we solve the same calibration problem, with the range to the center
+chessboard varying.
 
 #+begin_src sh
-echo '# z errz';
 for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
-  for seed (`seq 0 8`) {
     test/test-surveyed-calibration.py \
-      --seed-rng $seed                \
+      --only-report-uncertainty       \
       --range-board 10                \
-      --range-board-center $z         \
-      --say-errz                      \
-    | while {read errz} { echo $z $errz }
-  }
-} \
-| { echo '# z mean(errz) stdev(errz)';
-    datamash -W -C -g 1 mean 2 pstdev 2
+      --range-board-center $z 2>/dev/null
   } \
-| feedgnuplot \
-    --lines   \
-    --points  \
-    --domain  \
-    --vnl     \
-    --autolegend \
-    --style 'mean(errz)' 'with linespoints lw 2' \
-    --xlabel 'Distance to the middle chessboard (m)' \
-    --ylabel 'Error and standard deviation of the error in camera z' \
-    --legend 'mean(errz)'  'Mean error in camera z' \
-    --legend 'stdev(errz)' 'Standard deviation in the error in camera z' \
+| vnl-filter -p z-center,stdev \
+| feedgnuplot                \
+    --domain                 \
+    --vnl                    \
+    --autolegend             \
+    --y2 'stdev(errz)'       \
+    --ymin  0                \
+    --y2min 0                \
+    --lines                  \
+    --points                 \
+    --xlabel  'Distance to the middle chessboard (m)' \
+    --ylabel  'Reprojection error (pixels)' \
+    --y2label 'Position error in z (m)' \
+    --legend 'stdev(q)'    'Standard deviation of reprojection at infinity' \
+    --legend 'stdev(errz)' 'Standard deviation of the error in z' \
     --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable'
 #+end_src
 #+begin_src sh :exports none :eval no-export
-echo '# z errz';
 for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
-  for seed (`seq 0 8`) {
     test/test-surveyed-calibration.py \
-      --seed-rng $seed                \
+      --only-report-uncertainty       \
       --range-board 10                \
-      --range-board-center $z         \
-      --say-errz                      \
-    | while {read errz} { echo $z $errz }
-  }
-} > /tmp/tst.vnl
+      --range-board-center $z 2>/dev/null
+  } \
+| awk '/#/ && !legend {print; legend=1;} !/#/ {print}' \
+| vnl-align \
+| tee /tmp/surveyed-calibration-single.vnl
 
 D=~/projects/mrcal-doc-external/figures/surveyed-calibration
 mkdir -p $D
-< /tmp/tst.vnl \
-{ echo '# z mean(errz) stdev(errz)';
-  datamash -W -C -g 1 mean 2 pstdev 2
-} \
-| feedgnuplot \
-    --lines   \
-    --points  \
-    --domain  \
-    --vnl     \
-    --autolegend \
-    --style 'mean(errz)' 'with linespoints lw 2' \
-    --xlabel 'Distance to the middle chessboard (m)' \
-    --ylabel 'Error and standard deviation of the error in camera z' \
-    --legend 'mean(errz)'  'Mean error in camera z' \
-    --legend 'stdev(errz)' 'Standard deviation in the error in camera z' \
+< /tmp/surveyed-calibration-single.vnl \
+vnl-filter -p z-center,stdev \
+| feedgnuplot                \
+    --domain                 \
+    --vnl                    \
+    --autolegend             \
+    --y2 'stdev(errz)'       \
+    --ymin  0                \
+    --y2min 0                \
+    --lines                  \
+    --points                 \
+    --xlabel  'Distance to the middle chessboard (m)' \
+    --ylabel  'Reprojection error (pixels)' \
+    --y2label 'Position error in z (m)' \
+    --legend 'stdev(q)'    'Standard deviation of reprojection at infinity' \
+    --legend 'stdev(errz)' 'Standard deviation of the error in z' \
     --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable' \
-    --hardcopy $D/errz.svg \
+    --hardcopy $D/moving-range-single.svg \
     --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
 #+end_src
 #+begin_src sh :exports none :eval no-export
-## results
-# z errz
-4 0.002472854724814469
-4 -0.0016655827894708347
-4 0.002073437200643055
-4 -0.002256822675696865
-4 0.0019676322440347754
-4 -0.0007485677972169785
-4 -0.0016137404251841125
-4 -0.00018387366488280266
-4 0.0013209806728716605
-5 0.003858339480048101
-5 -0.0034957361282966365
-5 0.0027248220923405814
-5 -0.004339809145505982
-5 0.003892845891225988
-5 -0.0010599774937614104
-5 -0.0022653183740264787
-5 -0.0006474226442432646
-5 0.002334163747530635
-8 0.017466332461257533
-8 -0.02228603099102748
-8 0.006795453024892692
-8 -0.02775976088633307
-8 0.025186709923847445
-8 -0.004825208705236839
-8 -0.008282324235389951
-8 -0.006913249940968272
-8 0.012619044009159641
-9 0.03975071251233797
-9 -0.05292971906534418
-9 0.012128148828696159
-9 -0.07258215932644882
-9 0.06378280315117528
-9 -0.012669338225586316
-9 -0.020578448552104736
-9 -0.018896095921400055
-9 0.03280690681767322
-9.5 0.08009357146700019
-9.5 -0.1071016460175624
-9.5 0.020061551449251064
-9.5 -0.17810877088819743
-9.5 0.14283051200764227
-9.5 -0.03498010120501152
-9.5 -0.053430947963150247
-9.5 -0.04394576163600713
-9.5 0.08249326580214168
-10 0.6429722468599651
-10 -0.4896809616481316
-10 -0.2684819037077644
-10 0.5328237928704571
-10 0.8714064225583259
-10 0.01923241496835039
-10 -0.7881299270688663
-10 -0.4752270816459705
-10 1.3874475752785003
-10.5 -0.1246225710159054
-10.5 0.17529968287788122
-10.5 -0.0375741258787713
-10.5 0.1449068773845349
-10.5 -0.16672000475362556
-10.5 0.017382296187793106
-10.5 0.02081009954153773
-10.5 0.05287987379967479
-10.5 -0.05028619117728225
-11 -0.06148398123909704
-11 0.08802395271232236
-11 -0.015126926005424673
-11 0.08611623736768616
-11 -0.0926219013687815
-11 0.011181972718103103
-11 0.015692041430348497
-11 0.02994008029262385
-11 -0.03271039515793461
-15 -0.018039724592897113
-15 0.029450734949824003
-15 -0.0013472487470871097
-15 0.03234399083360191
-15 -0.03437202567451543
-15 0.00440249662952269
-15 0.006474999866041498
-15 0.01234077125183683
-15 -0.012711075848941433
-20 -0.01362591075453852
-20 0.02500394302540314
-20 0.0006920361813660542
-20 0.027289247463636535
-20 -0.03027128624766974
-20 0.003839051035918889
-20 0.00592365476354785
-20 0.01155160593785201
-20 -0.010725583951338005
-30 -0.012533440864119977
-30 0.026734478170168885
-30 0.0026242511501775173
-30 0.028476448032084115
-30 -0.03365355124885068
-30 0.004343953212238613
-30 0.00729143257052671
-30 0.013523992327740805
-30 -0.01126432766913972
+## results: one observation
+# z-bulk z-center stdev(q) stdev(errz)
+10.0      4.0      0.3537  0.0021
+10.0      5.0      0.4851  0.0035
+10.0      8.0      1.7751  0.0176
+10.0      9.0      3.9342  0.0412
+10.0      9.5      7.9519  0.0839
+10.0     10.0     76.4639  0.6743
+10.0     10.5     11.3296  0.1387
+10.0     11.0      5.6793  0.0684
+10.0     15.0      1.7219  0.0222
+10.0     20.0      1.3979  0.0189
+10.0     30.0      1.4779  0.0205
 #+end_src
 
-[[file:external/figures/surveyed-calibration/errz.svg]]
+[[file:external/figures/surveyed-calibration/moving-range-single.svg]]
 
-So when all 3 chessboards sit at 10m out, we see a very high uncertainty in
-camera position (and by extension, camera intrinsics). When running the standard
-moving-chessboard calibration we have an [[file:tour-choreography.org::#tilt][analogous effect when we consider
-tilting the chessboard to the camera]]: the chessboard tilt creates the variable
-ranges required for a well-defined solve.
+So when all 3 chessboards sit at 10m out, we get far worse uncertainties in both
+the projection behavior and position estimates defined by the calibration. When
+running the standard moving-chessboard calibration we have an [[file:tour-choreography.org::#tilt][analogous effect
+when we consider tilting the chessboard to the camera]]: chessboard tilt creates
+the variable ranges required for a well-defined solve.
+
+In our scenario here, the issue is high sampling error causing a high projection
+uncertainty. One way to mitigate this problem is by gathering more data. Even if
+everything is stationary, and we capture multiple images of the same stationary
+scene, we are still capturing multiple samples of the input noise. In theory. If
+we capture $N$ times more data, the expected uncertainty improvement is
+$\sqrt{N}$. Let's try it by passing the =--oversample 10= option:
+
+#+begin_src sh
+for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
+    test/test-surveyed-calibration.py \
+      --oversample 10                 \
+      --only-report-uncertainty       \
+      --range-board 10                \
+      --range-board-center $z 2>/dev/null
+  } \
+| vnl-filter -p z-center,stdev \
+| feedgnuplot                \
+    --domain                 \
+    --vnl                    \
+    --autolegend             \
+    --y2 'stdev(errz)'       \
+    --ymin  0                \
+    --y2min 0                \
+    --lines                  \
+    --points                 \
+    --xlabel  'Distance to the middle chessboard (m)' \
+    --ylabel  'Reprojection error (pixels)' \
+    --y2label 'Position error in z (m)' \
+    --legend 'stdev(q)'    'Standard deviation of reprojection at infinity' \
+    --legend 'stdev(errz)' 'Standard deviation of the error in z' \
+    --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable; 10x oversampling'
+#+end_src
+#+begin_src sh :exports none :eval no-export
+for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
+    test/test-surveyed-calibration.py \
+      --oversample 10                 \
+      --only-report-uncertainty       \
+      --range-board 10                \
+      --range-board-center $z 2>/dev/null
+  } \
+| awk '/#/ && !legend {print; legend=1;} !/#/ {print}' \
+| vnl-align \
+| tee /tmp/surveyed-calibration-oversampled.vnl
+
+D=~/projects/mrcal-doc-external/figures/surveyed-calibration
+mkdir -p $D
+< /tmp/surveyed-calibration-oversampled.vnl \
+vnl-filter -p z-center,stdev \
+| feedgnuplot                \
+    --domain                 \
+    --vnl                    \
+    --autolegend             \
+    --y2 'stdev(errz)'       \
+    --ymin  0                \
+    --y2min 0                \
+    --lines                  \
+    --points                 \
+    --xlabel  'Distance to the middle chessboard (m)' \
+    --ylabel  'Reprojection error (pixels)' \
+    --y2label 'Position error in z (m)' \
+    --legend 'stdev(q)'    'Standard deviation of reprojection at infinity' \
+    --legend 'stdev(errz)' 'Standard deviation of the error in z' \
+    --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable; 10x oversampling' \
+    --hardcopy $D/moving-range-oversampled.svg \
+    --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+#+end_src
+#+begin_src sh :exports none :eval no-export
+## results: 10 observations
+# z-bulk z-center stdev(q) stdev(errz)
+10.0      4.0      0.1158  0.0006
+10.0      5.0      0.1593  0.0011
+10.0      8.0      0.5708  0.0055
+10.0      9.0      1.2551  0.0128
+10.0      9.5      2.5246  0.0259
+10.0     10.0     24.5037  0.2080
+10.0     10.5      3.6249  0.0442
+10.0     11.0      1.8052  0.0215
+10.0     15.0      0.5407  0.0069
+10.0     20.0      0.4369  0.0059
+10.0     30.0      0.4607  0.0064
+#+end_src
+
+[[file:external/figures/surveyed-calibration/moving-range-oversampled.svg]]
+
+And it works as expected. Note that this works if the input noise is truly
+gaussian and independent. Empirically, this is mostly true, but may not be 100%
+true. Techniques that rely heavily on this assumption, such as this one, may not
+work perfectly in the real world. Take the results with a grain of salt.
 
 * Camera resolution visualization
 :PROPERTIES:
