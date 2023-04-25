@@ -334,7 +334,7 @@ report a full Rt transformation with the t component set to 0
 
         # This is similar to a basic procrustes fit, but here we're using an L1
         # cost function
-        r = np.random.random(3) * 1e-3
+        r = np.random.random(3) * 1e-5
 
         res = scipy.optimize.least_squares(residual,
                                            r,
@@ -366,7 +366,7 @@ report a full Rt transformation with the t component set to 0
 
     else:
 
-        rt = np.random.random(6) * 1e-3
+        rt = np.random.random(6) * 1e-5
 
         res = scipy.optimize.least_squares(residual,
                                            rt,
