@@ -162,9 +162,8 @@ ARGUMENTS
 
 - axis_scale: optional scale factor for the size of the axes used to represent
   the cameras. Can be omitted to use some reasonable default size, but tweaking
-  it might be necessary to make the plot look right. If less than 1 camera is
-  given, this defaults to 1.0. If at least 2 cameras are given, we default to
-  1/4 the distance between the FIRST pair of cameras
+  it might be necessary to make the plot look right. If 1 or fewer cameras are
+  given, this defaults to 1.0
 
 - extratitle: optional string to include in the title of the resulting plot.
   Used to extend the default title string. If kwargs['title'] is given, it is
@@ -264,16 +263,38 @@ plot
                                      n = extrinsics_Rt_toref.ndim-3 )
 
     if axis_scale is None:
-        if Ncameras <= 1:
+        # This is intended to work with the behavior in the mrcal-stereo
+        # tool. That tool sets the fov-indicating hair lengths to
+        # baseline/4. Here I default to a bit more: baseline/3
+
+        # I want this routine to work with any N cameras. I need to compute a
+        # "characteristic distance" for them to serve as a "baseline". I do this
+        # by first computing a "geometric median" that minimizes the variance
+        # of the distances from each point to this median. Then the
+        # characteristic radius is this constant-ish distance.
+
+        # shape (N,3); the position of each camera in the ref coord system
+        p = extrinsics_Rt_toref[:,3,:]
+
+        if len(p) <= 1:
             axis_scale = 1.0
         else:
-            # This is intended to work with the behavior in the mrcal-stereo
-            # tool. That tool sets the fov-indicating hair lengths to
-            # baseline/4. Here I default to a bit more: baseline/3
-            Rt01 = mrcal.compose_Rt( mrcal.invert_Rt(extrinsics_Rt_toref[0]),
-                                     extrinsics_Rt_toref[1] )
-            d = nps.mag(Rt01[3,:])
-            axis_scale = d/3.
+            import scipy.optimize
+            res = scipy.optimize.least_squares(# cost function
+                                               lambda c: np.var(nps.mag(p-c)),
+
+                                               # seed
+                                               np.mean(p,axis=-2),
+                                               method='trf',
+                                               verbose=False)
+            center = res.x
+            baseline = np.mean(nps.mag(p-center)) * 2.
+            axis_scale = baseline/3.
+
+            if axis_scale == 0.:
+                # All the cameras are at exactly the same spot
+                axis_scale = 1.0
+
 
     def get_boards_to_plot():
         r'''get the chessboard poses to plot'''

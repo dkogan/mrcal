@@ -96,6 +96,9 @@ return_observations: we return residuals,observations
 mrcal.residuals_chessboard() returns size-0 arrays if no
 chessboard or point observations respectively are present
 
+show_geometry() has smarter logic when given > 2 cameras
+
+
 ** demo mrcal-show-model-resolution.py tool
 
 * Migration notes 2.2 -> 2.3
