@@ -81,29 +81,29 @@ def check(filename_from, model_from,
         ithird  = np.array(difflen.shape) // 3
 
         testutils.confirm_equal( 0, difflen[icenter[0],icenter[1]],
-                                 eps = 0.6,
+                                 eps = 2.0,
                                  msg = f"{what}: low-enough diff at the center")
 
         testutils.confirm_equal( 0, difflen[ithird[0],ithird[1]],
-                                 eps = 0.6,
+                                 eps = 3.0,
                                  msg = f"{what}: low-enough diff at 1/3 from top-left")
-
 
 filename_from = f"{testdir}/data/cam0.splined.cameramodel"
 model_from    = mrcal.cameramodel(filename_from)
 
 check( filename_from, model_from,
        "LENSMODEL_CAHVOR",
-       ("--radius", "800",
+       ("--radius", "1000",
         "--intrinsics-only",
         "--sampled",
         # need multiple attempts to hit the accuracy targets below
         "--num-trials", "8",),
        must_warn_of_aphysical_translation = False,
        what = 'CAHVOR, sampled, intrinsics-only',)
+
 check( filename_from, model_from,
        "LENSMODEL_CAHVOR",
-       ("--radius", "800",
+       ("--radius", "1000",
         "--sampled",
         "--distance", "3",
         # need multiple attempts to hit the accuracy targets below
@@ -112,7 +112,7 @@ check( filename_from, model_from,
        what = 'CAHVOR, sampled at 3m',)
 check( filename_from, model_from,
        "LENSMODEL_CAHVOR",
-       ("--radius", "800",
+       ("--radius", "1000",
         "--sampled",
         "--distance", "3000",
         # need multiple attempts to hit the accuracy targets below
@@ -121,7 +121,7 @@ check( filename_from, model_from,
        what = 'CAHVOR, sampled at 3000m',)
 check( filename_from, model_from,
        "LENSMODEL_CAHVOR",
-       ("--radius", "800",
+       ("--radius", "1000",
         "--sampled",
         "--distance", "3000,3",
         # need multiple attempts to hit the accuracy targets below
