@@ -43,19 +43,19 @@ mrcal-show-projection-uncertainty \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 export PYTHONPATH=(..(:A));                                               \
 $PYTHONPATH/mrcal-show-projection-uncertainty                             \
   --vs-distance-at center                                                 \
   --set 'yrange [0:0.1]'                                                  \
   $D/opencv8.cameramodel                                                  \
-  --hardcopy ~/projects/mrcal/doc/external/figures/uncertainty/uncertainty-vs-distance-at-center.svg \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-vs-distance-at-center.svg \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
 $PYTHONPATH/mrcal-show-projection-uncertainty                             \
   --vs-distance-at center                                                 \
   --set 'yrange [0:0.1]'                                                  \
   $D/opencv8.cameramodel                                                  \
-  --hardcopy ~/projects/mrcal/doc/external/figures/uncertainty/uncertainty-vs-distance-at-center.pdf \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-vs-distance-at-center.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
 #+end_src
 
@@ -130,7 +130,7 @@ $PYTHONPATH/mrcal-show-projection-diff                                          
   --cbmax 1                                                                                     \
   --no-uncertainties --radius 800                                                               \
   --unset key                                                                                   \
-  --hardcopy ~/projects/mrcal/doc/external/figures/cross-validation/diff-culled-at-infinity.png \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-culled-at-infinity.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'           \
   /tmp/[23]-f22-infinity-culled.cameramodel
 
@@ -139,7 +139,7 @@ $PYTHONPATH/mrcal-show-projection-diff                                          
   --cbmax 1                                                                               \
   --no-uncertainties --radius 800                                                         \
   --unset key                                                                             \
-  --hardcopy ~/projects/mrcal/doc/external/figures/cross-validation/diff-culled-at-1m.png \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-culled-at-1m.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'     \
   /tmp/[23]-f22-infinity-culled.cameramodel
 #+end_src

@@ -168,7 +168,7 @@ mrcal-stereo                        \
   [01].jpg
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 D1=$D/data/figueroa-overpass-looking-S/
 
 PYTHONPATH=~/projects/mrcal;

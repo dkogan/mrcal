@@ -30,7 +30,7 @@ dance-study.py                   \
 #+begin_src sh :exports none :eval no-export
 mkdir -p ~/projects/mrcal-doc-external/figures/dance-study
 
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 PYTHONPATH=~/projects/mrcal;                     \
 export PYTHONPATH;                               \
 $PYTHONPATH/analyses/dancing/dance-study.py      \
@@ -73,7 +73,7 @@ dance-study.py                   \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 PYTHONPATH=~/projects/mrcal;                     \
 export PYTHONPATH;                               \
 $PYTHONPATH/analyses/dancing/dance-study.py      \
@@ -112,7 +112,7 @@ dance-study.py                         \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 PYTHONPATH=~/projects/mrcal;                     \
 export PYTHONPATH;                               \
 $PYTHONPATH/analyses/dancing/dance-study.py      \
@@ -175,7 +175,7 @@ dance-study.py                          \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 PYTHONPATH=~/projects/mrcal;                     \
 export PYTHONPATH;                               \
 $PYTHONPATH/analyses/dancing/dance-study.py      \
@@ -218,7 +218,7 @@ dance-study.py                          \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 PYTHONPATH=~/projects/mrcal;                     \
 export PYTHONPATH;                               \
 $PYTHONPATH/analyses/dancing/dance-study.py      \
@@ -255,7 +255,7 @@ dance-study.py                   \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 PYTHONPATH=~/projects/mrcal;                     \
 export PYTHONPATH;                               \
 $PYTHONPATH/analyses/dancing/dance-study.py      \
@@ -293,7 +293,7 @@ dance-study.py                                     \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
 PYTHONPATH=~/projects/mrcal;                                                                                         \
 export PYTHONPATH;                                                                                                   \
 $PYTHONPATH/analyses/dancing/dance-study.py                                                                          \

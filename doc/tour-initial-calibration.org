@@ -43,7 +43,7 @@ $ < corners.vnl       \
 #+end_example
 #+begin_src sh :exports none :eval no-export
 mkdir -p ~/projects/mrcal-doc-external/figures/calibration/
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 < $D/corners.vnl \
   vnl-filter -p x,y | \
   feedgnuplot --domain --square --set 'xrange [0:6000] noextend' --set 'yrange [3376:0] noextend' \
@@ -93,7 +93,7 @@ $ < corners.vnl                  \
     --with 'points pt 7 ps variable'
 #+end_example
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 f=$D/images/DSC06067.JPG
 < $D/corners.vnl      \
   vnl-filter                     \
@@ -234,7 +234,7 @@ mrcal-show-geometry      \
   --set 'view 80,30,1.5'
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 mrcal-show-geometry $D/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy ~/projects/mrcal-doc-external/figures/calibration/calibration-chessboards-geometry.svg
 mrcal-show-geometry $D/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' --hardcopy ~/projects/mrcal-doc-external/figures/calibration/calibration-chessboards-geometry.pdf
 #+end_src
@@ -267,7 +267,7 @@ mrcal-show-residuals    \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 mrcal-show-residuals \
   --histogram  \
   --set 'xrange [-2:2]' \
@@ -326,7 +326,7 @@ mrcal-show-residuals-board-observation \
   0
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 cd $D/images
 mrcal-show-residuals-board-observation \
   --from-worst \
@@ -404,7 +404,7 @@ mrcal-show-residuals-board-observation \
   10
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 cd $D/images
 mrcal-show-residuals-board-observation \
   --from-worst \
@@ -451,7 +451,7 @@ mrcal-show-residuals                   \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 mrcal-show-residuals \
   --magnitudes \
   --set 'cbrange [0:1.5]' \
@@ -493,7 +493,7 @@ mrcal-show-residuals    \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 mrcal-show-residuals \
   --directions \
   --unset key           \
@@ -674,7 +674,7 @@ mrcal-show-residuals    \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 mrcal-show-residuals \
   --histogram  \
   --set 'xrange [-2:2]' \
@@ -734,7 +734,7 @@ mrcal-show-residuals-board-observation \
   0
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 cd $D/images
 mrcal-show-residuals-board-observation \
   --from-worst \
@@ -789,7 +789,7 @@ not-entirely-complete [[https://github.com/dkogan/mrcal/tree/noncentral][support
 for noncentral projection in mrcal]] exists, and works /much/ better. The same
 frame, fitted with a noncentral projection:
 
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 PYTHONPATH=/home/dima/projects/mrcal-noncentral
 ~/projects/mrcal-noncentral/mrcal-show-residuals-board-observation \
 --vectorscale 200 \ --circlescale 0.5 \ --set 'cbrange [0:2]' \ --hardcopy
@@ -816,7 +816,7 @@ mrcal-show-residuals-board-observation \
   47
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 cd $D/images
 mrcal-show-residuals-board-observation \
   --vectorscale 200 \
@@ -862,7 +862,7 @@ mrcal-show-residuals                   \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 mrcal-show-residuals \
   --magnitudes \
   --set 'cbrange [0:1.5]' \
@@ -906,7 +906,7 @@ mrcal-show-residuals    \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 mrcal-show-residuals \
   --directions \
   --unset key           \
@@ -977,7 +977,7 @@ mrcal-show-splined-model-correction   \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 mkdir -p ~/projects/mrcal-doc-external/figures/splined-models
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 mrcal-show-splined-model-correction \
   --set 'cbrange [0:0.1]' \
   --unset grid                      \
@@ -1022,7 +1022,7 @@ mrcal-show-splined-model-correction   \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 mrcal-show-splined-model-correction \
   --set 'cbrange [0:0.1]' \
   --imager-domain          \
@@ -1056,7 +1056,7 @@ mrcal-show-splined-model-correction \
 #+begin_src sh :exports none :eval no-export
 ### needed manual tweak in show_splined_model_correction(): "ps 2" -> "ps 1"
 ### gnuplot makes svg points too big
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 ~/projects/mrcal/mrcal-show-splined-model-correction \
   --vectorfield \
   --imager-domain \

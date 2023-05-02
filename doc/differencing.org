@@ -239,7 +239,7 @@ mrcal-show-projection-diff \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 mrcal-show-projection-diff           \
   --unset key                                         \
   --no-uncertainties       \
@@ -296,7 +296,7 @@ for r (200 600 800 1000) {
 }
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 for r (200 600 800 1000) {
   ~/projects/mrcal/mrcal-show-projection-diff                    \
     --no-uncertainties                                           \
@@ -362,7 +362,7 @@ mrcal-show-projection-uncertainty \
     opencv4.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 ~/projects/mrcal/mrcal-show-projection-uncertainty               \
     --distance 1                                                 \
     --unset key                                                  \
@@ -383,7 +383,7 @@ mrcal-show-projection-diff \
   opencv[48].cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 ~/projects/mrcal/mrcal-show-projection-diff                    \
     --distance 1                                               \
     --unset key                                                \
@@ -430,7 +430,7 @@ mrcal-show-projection-diff \
   splined{,-rad1500}.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 
 < $D/corners.vnl \
   mrcal-cull-corners --imagersize 6000 3376 --cull-rad-off-center 1500 \

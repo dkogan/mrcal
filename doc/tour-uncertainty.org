@@ -273,7 +273,7 @@ First, the =LENSMODEL_OPENCV8= solve:
 mrcal-show-projection-uncertainty opencv8.cameramodel --cbmax 1 --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 
 mrcal-show-projection-uncertainty \
   $D/opencv8.cameramodel \
@@ -303,7 +303,7 @@ And the splined solve:
 mrcal-show-projection-uncertainty splined.cameramodel --cbmax 1 --unset key
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 
 mrcal-show-projection-uncertainty \
   $D/splined.cameramodel \

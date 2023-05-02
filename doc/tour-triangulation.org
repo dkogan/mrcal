@@ -67,7 +67,7 @@ $ echo "2836.4 2045.7" |
 2722.289377 1472.947733
 #+end_example
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/stereo;
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/stereo;
 echo "2836.4 2045.7" | ./mrcal-reproject-points $D/rectified0.cameramodel $D/0.cameramodel
 #+end_src
 

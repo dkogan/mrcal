@@ -192,7 +192,7 @@ the intrinsics:
 
 #+begin_src sh :exports none :eval no-export
 mkdir -p ~/projects/mrcal-doc-external/figures/lens-stability/
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/
 
 function c {
   < $1 ~/projects/mrcal-noncentral/analyses/noncentral/centralize.py 3
@@ -657,7 +657,7 @@ analyses/mrcal-show-model-resolution.py \
   --unset key \
   --hardcopy $D/splined-resolution.png                          \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"' \
-  doc/external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity/splined.cameramodel
+  mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity/splined.cameramodel
 #+end_src
 
 [[file:external/figures/resolution/splined-resolution.png]]

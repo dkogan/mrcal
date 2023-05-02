@@ -3832,7 +3832,7 @@ unsigned integers. The last row is the BGR color-mapped values.
     # 14:48:28 PST 2023, python3-numpy=1:1.24.1-2) the np.clip() call in
     # clip_and_convert() spin my CPU, and never exit when I do this:
     #
-    #   D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/stereo;
+    #   D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/stereo;
     #   Dout=~/projects/mrcal-doc-external/figures/stereo
     #   PYTHONPATH=~/projects/mrcal;
     #   export PYTHONPATH;

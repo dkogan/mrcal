@@ -811,7 +811,7 @@ mrcal-show-residuals-board-observation \
   0-3
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal/doc/external/2022-10-17--dtla-overpass--samyang--alpha7/2-f22-infinity/
+D=~/projects/mrcal-doc-external/2022-10-17--dtla-overpass--samyang--alpha7/2-f22-infinity/
 for i (`seq 0 3`) {
   mrcal-show-residuals-board-observation \
     --from-worst \

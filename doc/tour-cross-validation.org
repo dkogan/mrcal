@@ -73,7 +73,7 @@ mrcal-show-projection-diff           \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/
 mrcal-show-projection-diff                            \
   --cbmax 2                          \
   --unset key                                         \
@@ -104,7 +104,7 @@ mrcal-show-projection-diff           \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/
 mrcal-show-projection-diff                            \
   --cbmax 2                                           \
   --unset key                                         \
@@ -139,7 +139,7 @@ a noncentral projection:
 
 #+begin_src sh :exports none :eval no-export
 mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
-D=~/projects/mrcal/doc/external/2022-11-05--dtla-overpass--samyang--alpha7/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/
 
 function c {
   < $1 ~/projects/mrcal-noncentral/analyses/noncentral/centralize.py 3
