@@ -14,9 +14,9 @@ lens in two different ways:
 - Using a rich splined-stereographic lens model
 
 And we saw evidence that the splined model does a better job of representing
-reality. Can we quantify that? How different are the two models we computed?
+reality. Can we quantify that?
 
-Let's compute that difference. There's an obvious algorithm: given a pixel $\vec
+Let's compute the difference. There's an obvious algorithm: given a pixel $\vec
 q_0$ we
 
 1. Unproject $\vec q_0$ to a fixed point $\vec p$ using lens 0
@@ -147,8 +147,8 @@ mrcal-show-projection-diff           \
 
 /Much/ better. As observed earlier, the Sony Alpha 7 III camera is applying some
 extra image processing that's not modeled by =LENSMODEL_OPENV8=, so we see an
-anomaly in the center. The models agree well past that, and then the error grows
-fast as we move towards the edges.
+anomaly in the center. The models agree decently well past that, and then the
+error grows quickly as we move towards the edges.
 
 This differencing method is very powerful, and has numerous applications. For
 instance:

@@ -1,5 +1,5 @@
 #+title: A tour of mrcal: stereo processing
-#+OPTIONS: toc:t
+#+OPTIONS: toc:nil
 
 * Previous
 We just [[file:tour-choreography.org][found the best chessboard-dancing technique]]
@@ -147,8 +147,8 @@ not match the idealized rectified geometry (the "forward" view direction may not
 be orthogonal to the baseline), the usual expectations that $c_x \approx
 \frac{\mathrm{imagerwidth}}{2}$ and $c_y \approx
 \frac{\mathrm{imagerheight}}{2}$ are not necessarily true in the rectified
-system. Thus [[file:mrcal-stereo.html][=mrcal-stereo=]] can visualize the models /and/ the rectified field
-of view, for verification:
+system. Thus it's valuable to visualize the models /and/ the rectified field of
+view, for verification. [[file:mrcal-stereo.html][=mrcal-stereo=]] can do that:
 
 #+begin_src sh
 mrcal-stereo        \

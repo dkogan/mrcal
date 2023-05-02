@@ -101,7 +101,7 @@ parameters that aren't subject to optimization. These define the high-level
 behavior of the spline. We have:
 
 - =order=: the degree of each 1D polynomial. This is either 2 (quadratic
-  splines, C1 continuous) or 3 (cubic splines, C2 continuous). At this time, =3=
+  splines, C1 continuous) or 3 (cubic splines, C2 continuous). At this time, 3
   (cubic splines) is recommended. I haven't yet done a thorough study on this,
   but empirical results tell me that quadratic splines are noticeably less
   flexible, and require a denser spline to fit as well as a comparable cubic
@@ -115,8 +115,9 @@ behavior of the spline. We have:
   Choosing a denser spacing results in more parameters and a more flexible model
   at the cost of needing more data and slower computations. No data-driven
   method of choosing =Nx= or =Ny= is available at this time, but =Nx=30_Ny=20=
-  appears to work well for some /very/ wide lenses I tested with. An initial
-  study of the effects of different spacings appears [[#splined-models-uncertainty-wiggles][below]].
+  appears to work well for some /very/ wide lenses I tested with; this is
+  probably overkill. An initial study of the effects of different spacings
+  appears [[#splined-models-uncertainty-wiggles][below]].
 
 - =fov_x_deg=: The horizontal field of view, in degrees. Selects the region in
   the space of $\vec u$ where the spline is well-defined. =fov_y_deg= is not
@@ -170,13 +171,13 @@ splined model fits the data better.
 
 The higher parameter counts do result in higher reported uncertainties (see the
 [[file:tour-uncertainty.org::#splined-model-uncertainties][tour of mrcal]] for examples). This is a good thing: the lean models report
-uncertainty estimates that are low, but do not match reality. The higher
-uncertainty estimates from the splined models are truthful, however. This is
-because the [[file:uncertainty.org][uncertainty estimate algorithm]] constrains the lenses to the space
-that's representable by a given lens model, which is a constraint that only
-exists on paper. Since mrcal reports the covariance matrix of any projection
-operation, the uncertainty can be used to pass/fail a calibration /or/ the
-covariance can be propagated to whatever is using the model.
+uncertainty estimates that are low, but do not match reality. While the higher
+uncertainty estimates from the splined models are truthful. This is because the
+[[file:uncertainty.org][uncertainty estimate algorithm]] constrains the lenses to the space that's
+representable by a given lens model, which is a constraint that only exists on
+paper. Since mrcal reports the covariance matrix of any projection operation,
+the uncertainty can be used to pass/fail a calibration /or/ the covariance can
+be propagated to whatever is using the model.
 
 It is thus recommended to use splined models even for long lenses, which do fit
 the pinhole model more or less.
@@ -496,8 +497,10 @@ So we can see that as we pick a denser spline:
 
 - The amplitude of the wiggle increases also. /This/ is interesting. It could be
   due to the fact that a richer spline is better able to squeeze between the
-  gaps between the observed points, or it could be a fundamental property of
-  B-spline-based optimization. This needs a deeper investigation
+  gaps between the observed points. Or it could be because dense splines imply
+  smaller spline patches, which means fewer observations are available in any
+  given patch. Or it could be some fundamental property of B-spline-based
+  optimization. This needs a deeper investigation
 
 * Optimization practicalities
 ** Core redundancy

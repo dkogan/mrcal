@@ -3,8 +3,8 @@
 mrcal is a toolkit that provides improved methods for making and using camera
 models (calibration, tracking, mapping, photogrammetry, etc). It was originally
 built at NASA/JPL to generate the high-accuracy calibrations demanded by
-long-range stereo, so it provides facilities to calibrate cameras, analyze the
-accuracy of the result, and to propagate and report uncertainties.
+long-range stereo, so it provides facilities to calibrate cameras, thoroughly
+analyze the accuracy of the result, and to propagate and report uncertainties.
 
 * Why mrcal?
 Because all other tools are terrible if you care about accuracy. They make basic
@@ -27,7 +27,7 @@ mrcal consists of
 
 - a C library for core functionality
 - a Python library for higher-level functions
-- commandline tools for common tasks
+- pre-made commandline tools to handle common tasks
 
 * Documentation index
 ** Overview, background
@@ -44,7 +44,7 @@ mrcal consists of
   high-fidelity modeling of projection and quantification of uncertainty. It is
   the recommended model, and is novel in mrcal, so it's described in detail
   here.
-- [[file:cameramodels.org][Camera model representation in memory on disk]]
+- [[file:cameramodels.org][Camera model representation in memory and on disk]]
 - [[file:differencing.org][Projection differencing]]: mrcal can compute the projection difference between
   several models. This is useful to evaluate calibration quality and lens
   stability and a multitude of other things.

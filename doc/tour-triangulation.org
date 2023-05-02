@@ -1,5 +1,5 @@
 #+title: A tour of mrcal: triangulation
-#+OPTIONS: toc:t
+#+OPTIONS: toc:nil
 
 #+LATEX_HEADER: \DeclareMathOperator*{\argmin}{argmin}
 #+LATEX_HEADER: \DeclareMathOperator*{\Var}{Var}

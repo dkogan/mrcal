@@ -124,14 +124,17 @@ meters" for some possibly-infinite $r$. The procedure we implement is:
 2. Unproject the camera-0 pixel coordinates to a set of points $\left\{\vec
    p_{0_i}\right\}$ in the camera-0 coordinate system. The range is given with
    =--distance=. [[file:mrcal-python-api-reference.html#-sample_imager_unproject][=mrcal.sample_imager_unproject()=]] function does this exactly
-3. Compute corresponding unit observation vectors $\left\{\vec v_{1_i}\right\}$ in the camera-1 coordinate
-   system
+3. Unproject the camera-1 pixel coordiantes to a set of normalized unit
+   observation vectors $\left\{\vec v_{1_i}\right\}$ in the camera-1 coordinate
+   system. These correspond to $\left\{\vec p_{0_i}\right\}$, except they're
+   unit vectors instead of points in space.
 4. Compute the implied transformation $\left(R,t\right)$ as the one to maximize
    \[ \sum_i w_i \vec v_{1_i}^T \frac{R \vec p_{0_i} + t}{\left|R \vec p_{0_i} +
    t\right|} \] where $\left\{w_i\right\}$ is a set of [[#fit-weighting][weights]]. As with main
-   calibration optimization, this one is unconstrained, using the [[file:conventions.org::#pose-representation][=rt=
-   transformation representation]]. The inner product above is $\cos \theta$ where
-   $\theta$ is the angle between the two observation vectors.
+   calibration optimization, this one is unconstrained, using the
+   [[file:conventions.org::#pose-representation][=rt= transformation
+   representation]]. The inner product above is $\cos \theta$ where $\theta$ is
+   the angle between the two observation vectors in the camera-1 coord system.
 
 When looking out to infinity the $t$ becomes insignificant, and we do a
 rotation-only optimization.
@@ -140,17 +143,17 @@ This is the logic behind [[file:mrcal-python-api-reference.html#-implied_Rt10__f
 [[file:mrcal-python-api-reference.html#-projection_diff][=mrcal.projection_diff()=]].
 
 *** Which transform is "right"?
-We just described a differencing method that computes a different implied
-transformation for each range $r$. But in reality, there's only a single /right/
-transformation, and the solutions at different ranges are different estimates of
-it.
+We just described a differencing method that computes an implied transformation
+given a range $r$. This will produce a different result for each $r$, but in
+reality, there's only a single /true/ transformation, and the solutions at
+different ranges are different estimates of it.
 
 If we just need to compare two different representations of the same lens, then
 we don't care about the implied transformation itself. The correct thing to do
 here would be to set $r$ to the intended working distance of the system: for me
 this is generally infinity. Looking at a single $r$, these
 implied-transformation fits will always overfit a little bit, but from
-experience, this doesn't appear to affect the resulting model-difference output.
+experience, this doesn't affect the resulting model-difference output.
 
 However, in some applications ([[#extrinsics-diff][extrinsics differencing]] for instance), we /do/
 want the true implied transform. And when we look at this computed transform
@@ -170,7 +173,7 @@ Transformation cam1 <-- cam0:  rotation: 0.316 degrees, translation: [-2.6787824
 #+end_example
 
 More on =--no-uncertainties= later; it's here to speed things up, and isn't
-significant. We asked for a diff at 1000m out, and the solver said that the
+important. We asked for a diff at 1000m out, and the solver said that the
 optimal transform moves the camera coordinate system back by 1.8m and to the
 right by 2.7m. This is looking at the same data as before: comparing two solves
 from the [[file:tour-differencing.org][tour of mrcal]]. Nothing moved. The camera coordinate system could have
@@ -190,7 +193,9 @@ $ mrcal-show-projection-diff \
 Transformation cam1 <-- cam0:  rotation: 0.316 degrees, translation: [2.90213542e-05 2.59871714e-06 1.73397909e-03] m
 #+end_example
 
-Much better.
+Much better. This is analogous to the multiple ranges-to-the camera we need when
+we compute a [[file:recipes.org::#surveyed-calibration][surveyed calibration]] and the multiple ranges we get when we [[file:tour-choreography.org::#tilt][tilt
+the chessboard during calibration]].
 
 *** Selection of fitting data
 :PROPERTIES:
@@ -253,10 +258,11 @@ mrcal-show-projection-diff           \
 [[file:external/figures/diff/diff-splined-opencv8--all-data.png]]
 
 Note the completely different color-bar scaling: this difference is huge! The
-reason is that projections of the two models don't just differ due to an implied
-transformation: there's also a significant difference in intrinsics. This
-difference is small near the center, and huge in the corners, so even the
-optimal $\left(R,t\right)$ fits badly. We can solve this problem by either
+reason this doesn't work is that projections of the two models don't just differ
+due to an implied transformation: there's also a significant difference in
+intrinsics. This difference is small near the center, and huge in the corners,
+so even the optimal $\left(R,t\right)$ fits badly. We can solve this problem by
+either
 
 - [[#fit-weighting][Giving the bad points low weights during the solve]] by using the default
   behavior, without =--no-uncertainties=. This is described in the next section
@@ -541,9 +547,11 @@ T_{1\mathrm{left},1\mathrm{right}}
 
 The [[https://github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=extrinsics-stability.py= tool]] implements this logic. To compute the implied
 transformations we want the "true" transform, not a transform at any particular
-range, so we use a near and a far range. I tried this out on a set of cameras. I
-had calibrations before and after a lot of mechanical jostling happened. And for
-each one I had an odd and even set for [[file:tour-cross-validation.org][cross-validation]], which reported very low
+range, so we use a near and a far range.
+
+I tried this out in practice on a physical camera pair. I had calibrations
+before and after a lot of mechanical jostling happened. And for each calibration
+I had an odd and even set for [[file:tour-cross-validation.org][cross-validation]], which reported very low
 intrinsics differences: the intrinsics were "correct". I evaluated the
 extrinsics stability, looking at the odd calibrations:
 
@@ -609,4 +617,5 @@ rotation:    0.00deg around the axis [-0.43 -0.78  0.44]
 #+end_example
 
 So with these calibrations we have strong evidence that no extrinsics drift has
-occurred.
+occurred. More testing and development of this method are planned, and this tool
+will be further documented and released.

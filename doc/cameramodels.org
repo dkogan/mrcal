@@ -1,18 +1,18 @@
 #+TITLE: Camera model representation in memory and on disk
 
-Reading/writing camera models is done in Python with the [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]]
-class. The class and its representation on disk describe /one/ camera; a
-calibrated set of cameras is represented by multiple instances. Each instance
-always contains
+* Python interface
+Interfacing with camera models is done in Python with the [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]]
+class. This describes /one/ camera; a calibrated set of cameras is represented
+by multiple objects. Each object always contains
 
 - The =intrinsics=: lens parameters describing one of the [[file:lensmodels.org][lens models]]
 - The =extrinsics=: a pose of the camera in space. This pose is represented as a
-  transformation between some common /reference/ coordinate system and the
+  transformation between [[file:formulation.org::#world-geometry][some common /reference/ coordinate system]] and the
   camera coordinate system. The specific meaning of the reference coordinate
   system is arbitrary, but all the cameras in a calibrated set must be defined
-  in respect to it.
+  in respect to the one common reference.
 
-Each instance also /may/ contain
+Each camera model object /may/ also contain:
 
 - The =optimization_inputs=: all the data used to compute the model initially.
   Used for the [[file:uncertainty.org][uncertainty computations]] and any after-the-fact analysis.
@@ -21,30 +21,75 @@ Each instance also /may/ contain
   used as a shorthand. It isn't as informative as the uncertainty plot, but such
   a valid-intrinsics contour is often convenient to have and to visualize.
 
+* C interface
+The [[file:c-api.org::#cameramodel-io-in-c][C API]] uses the [[https://github.com/dkogan/mrcal/blob/88e4c1df1c8cf535516719c5d4257ef49c9df1da/mrcal-types.h#L326][=mrcal_cameramodel_t= structure]] to represent a model. This
+contains just the bare minimum:
+
+- intrinsics (=mrcal_lensmodel_t lensmodel=, =double intrinsics[0]=)
+- extrinsics (=double rt_cam_ref[6]=)
+- imager size (=unsigned int imagersize[2]=)
+
+Note that the intrinsics data has size 0 because the size of this array depends
+on the specific lens model being used, and is unknown at compile time.
+
+So it is an error to define this on the stack. *Do not do this*:
+
+#+begin_src c
+void f(void)
+{
+    mrcal_cameramodel_t model; // ERROR
+}
+#+end_src
+
+If you need to define a known-at-compile-time model on the stack you can use the
+[[https://github.com/dkogan/mrcal/blob/88e4c1df1c8cf535516719c5d4257ef49c9df1da/mrcal-types.h#L338][lensmodel-specific cameramodel types]]:
+
+#+begin_src c
+void f(void)
+{
+    mrcal_cameramodel_LENSMODEL_OPENCV8_t model; // OK
+}
+#+end_src
+
+This only exists for models that have a constant number of parameters; notably
+there is no =mrcal_cameramodel_LENSMODEL_SPLINED_STEREOGRAPHIC_t=. When reading
+a model from disk, mrcal dynamically allocates the right amount of memory, and
+returns a =mrcal_cameramodel_t*=.
+
+The [[file:c-api.org::#cameramodel-io-in-c][C API]] has a simple interface for reading/writing =.cameramodel= data:
+
+#+begin_src c
+mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char* string, int len);
+mrcal_cameramodel_t* mrcal_read_cameramodel_file  (const char* filename);
+void                 mrcal_free_cameramodel(mrcal_cameramodel_t** cameramodel);
+
+bool mrcal_write_cameramodel_file(const char* filename,
+                                  const mrcal_cameramodel_t* cameramodel);
+#+end_src
+
 * File formats
 :PROPERTIES:
 :CUSTOM_ID: cameramodel-file-formats
 :END:
-The =mrcal.cameramodel= class supports reading and writing two different file
-formats:
+Two different file formats are available:
 
 - =.cameramodel=: the mrcal-native format. This is a plain text representation
-  of a Python =dict= describing all the fields. This is the preferred format.
+  of a Python =dict= describing all the fields. This is the preferred format,
+  and the /only/ format supported by the [[file:c-api.org::#cameramodel-io-in-c][C API]]
 
 - =.cahvor=: the legacy format available for compatibility with existing JPL
   tools. If you don't need to interoperate with tools that require this format,
-  there's little reason to use it. This format cannot store [[file:splined-models.org][splined models]] or
-  =optimization_inputs=, so it cannot be used for the [[file:uncertainty.org][uncertainty computations]].
+  there's little reason to use it. This format cannot store
+  [[file:splined-models.org][splined models]] or =optimization_inputs=, so it
+  cannot be used for the [[file:uncertainty.org][uncertainty computations]]. Not supported in C
 
 Note that both file formats can describe lenses using the [[file:lensmodels.org::#cahvor-lens-model][=LENSMODEL_CAHVOR=]]
 model.
 
 The [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format
-based on the filename being read/written. If the filename is unknown when
-reading (if we're reading a pipe, say) then both formats will be tried. If the
-filename is unknown when writing, the =.cameramodel= format will be used. The
-[[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]] and [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]] tools can be used to convert
-between the two file formats.
+based on the data (if reading) and the filename (if writing). The
+[[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]] and [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]] tools can be used to convert between
+the two file formats.
 
 * Sample usages
 See the [[file:mrcal-python-api-reference.html#cameramodel][API documentation]] for usage details.
@@ -95,16 +140,3 @@ one. But we could tweak optimization problem before reoptimizing, and this would
 give us an nice way to observe the effects of those changes. We can add input
 noise or change the lens model or [[file:formulation.org::#Regularization][regularization terms]] or anything else.
 
-* C interface
-The [[file:c-api.org::#cameramodel-io-in-c][C API]] has a simple interface for reading/writing =.cameramodel= data:
-
-#+begin_src c
-mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char* string, int len);
-mrcal_cameramodel_t* mrcal_read_cameramodel_file  (const char* filename);
-void                 mrcal_free_cameramodel(mrcal_cameramodel_t** cameramodel);
-
-bool mrcal_write_cameramodel_file(const char* filename,
-                                  const mrcal_cameramodel_t* cameramodel);
-#+end_src
-
-The =.cahvor= file format is not supported in C.

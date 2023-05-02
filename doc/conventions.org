@@ -5,8 +5,8 @@ Some terms in the documentation and sources can have ambiguous meanings, so I
 explicitly define them here
 
 - *calibration*: the procedure used to compute the lens parameters and geometry
-  of a set of cameras. Usually this involves a stationary set of cameras
-  observing a moving object.
+  of a set of cameras; or the result of this procedure. Usually this involves a
+  stationary set of cameras observing a moving object.
 
 - [[file:formulation.org::#calibration-object][*calibration object*]] or *chessboard* or *board*: these are used more or less
   interchangeably. They refer to the known-geometry object observed by the

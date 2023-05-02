@@ -53,16 +53,16 @@ dict containing the metadata and configuration for a particular model string.
 
 In C, the model family is selected with the [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h#mrcal_lensmodel_type_t][=mrcal_lensmodel_type_t=]] enum. The
 elements are the same as the Python model names, but with =MRCAL_= prepended. So
-sample model from above has type =MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC=. In C
-the [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]] structure contains the type /and/ configuration. This
+the sample model from above has type =MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC=. In
+C the [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]] structure contains the type /and/ configuration. This
 structure is thus an analogue the the model strings, as Python sees them. So a
 number of C functions accepting [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]] arguments are analogous to
 Python functions taking model strings. For instance, the number of parameters
 needed to fully describe a given model can be obtained by calling
 [[file:mrcal-python-api-reference.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h#mrcal_lensmodel_num_params][=mrcal_lensmodel_num_params()=]] in C.
 Given a [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t lensmodel=]] structure of type =XXX= (i.e. if
-=lensmodel.type == MRCAL_LENSMODEL_XXX=) then the configuration is available in
-=lensmodel.LENSMODEL_XXX__config=, which has type
+=lensmodel.type= is =MRCAL_LENSMODEL_XXX=) then the configuration is available
+in =lensmodel.LENSMODEL_XXX__config=, which has type
 =mrcal_LENSMODEL_XXX__config_t=. The metadata is requestable by calling this
 function:
 
@@ -85,10 +85,11 @@ start of the parameter vector:
 At this time all models contain a core.
 
 * Models
-Currently all models represent a /central/ projection: all observation rays
-intersect at a single point (the camera origin). So $k \vec v$ projects to the
-same $\vec q$ for all $k$. This isn't strictly true for real-world lenses, so
-[[file:formulation.org::#lens-behavior][non-central projections]] will be supported in a future release of mrcal.
+Currently all models except [[#lensmodel-cahvore][=LENSMODEL_CAHVORE=]] represent a /central/
+projection: all observation rays intersect at a single point (the camera
+origin). So $k \vec v$ projects to the same $\vec q$ for all $k$. This isn't
+strictly true for real-world lenses, so [[file:formulation.org::#lens-behavior][non-central projections]] will be
+supported in a future release of mrcal.
 
 ** =LENSMODEL_PINHOLE=
 :PROPERTIES:

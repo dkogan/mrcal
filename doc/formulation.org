@@ -157,16 +157,17 @@ origin of the camera coordinate system). So $k \vec v$ projects to the same
 $\vec q$ for any $k$. This is very convenient, mostly true, and almost every
 camera library assumes this. This assumption breaks down when projecting
 observations /very/ close to the lens, with "close" being judged relative to the
-physical size of the lens. These extreme close-ups exhibit /non-central/
-behavior:
+physical size of the lens. Extreme close-ups exhibit /non-central/ behavior:
 
 [[file:figures/noncentral.svg]]
 
 While [[file:tour-choreography.org::#choreography-distance][extreme close-ups are very good for calibration quality]], the working
 distance is usually past the range where non-central effects are observable. So
 it is recommended to avoid the non-central regime by keeping the chessboard
-far-enough out ([[file:tour-cross-validation.org][cross-validation]] can be used to verify). That said, support for
-/non-central/ lenses is coming in a future release of mrcal.
+far-enough out to make the central model work well. [[File:tour-cross-validation.org][Cross-validation]] can be used
+to verify whether noncentral effects are present. That said, support for
+/non-central/ lenses is coming in a future release of mrcal, which will allow us
+to model the noncentral behavior.
 
 * Optimization details
 The mrcal solver is an optimization routine based on sparse nonlinear least
@@ -391,8 +392,8 @@ If the model errors /were/ significant, then
 
 - the computed projection uncertainty would underestimate the expected errors:
   the non-negligible model errors would be ignored
-- the residuals $\vec x$ would be heteroscedastic, which would cause bias in the
-  calibration result: the computed optimum would /not/ be a maximum-likelihood
+- the computed calibration would be biased: the residuals $\vec x$ would be
+  heteroscedastic, so the computed optimum would /not/ be a maximum-likelihood
   estimate of the true calibration
 
 ** Noise on the inputs
@@ -405,11 +406,11 @@ discrepancies between pixel observations and their predictions. The pixel
 observations $\vec q_\mathrm{ref}$ are noisy, and I assume that they are
 zero-mean, independent and normally-distributed. In particular, I treat the 2
 values in each observation ($x$ and $y$) as two independent measurements. I have
-no prior proof that the noise truly meets all those criteria, but empirical
-evidence suggests that these are all reasonable assumptions. And they simplify
-lots of analyses that we want to do. In order to propagate the input noise, we
-need to quantify it: for the $i$ -th observed point, what is
-$\mathrm{Var}\left(\vec q_{\mathrm{ref}_i}\right)$?
+no proof that the noise truly meets all those criteria, but empirical evidence
+suggests that these are all reasonable assumptions. And they simplify lots of
+analyses that we want to do. In order to propagate the input noise, we need to
+quantify it: for the $i$ -th observed point, what is $\mathrm{Var}\left(\vec
+q_{\mathrm{ref}_i}\right)$?
 
 Chessboard corner detectors often make it easy to infer the /relative/ accuracy
 levels between the different corners, as opposed to an /absolute/ noise level
@@ -443,7 +444,7 @@ Thus the current method is to estimate $\sigma$ from the solve residuals:
 
 where $\vec x^*$ is the measurement vector at the optimum. If all the
 assumptions are satisfied and we have enough data, then the input noise is the
-only source of error, and the only thing at affects the optimal $\vec x$, and
+only source of error, and the only thing that affects the optimal $\vec x$, and
 this way of evaluating $\sigma$ is reasonable. If we have too little data, we're
 going to be overfitting, and the $\sigma$ computed using the above method will
 be too low. The current thought is that this will be hard to do with chessboards

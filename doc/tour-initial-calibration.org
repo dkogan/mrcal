@@ -8,13 +8,14 @@ The is the first stage in the [[file:tour.org][tour of mrcal]].
 :CUSTOM_ID: gathering-corners
 :END:
 
-We start by gathering images of a [[file:formulation.org::#calibration-object][chessboard]]. This is a wide lens, so I use a
-large chessboard in order to fill the imager (details about why are on the
-[[file:tour-choreography.org][choreography page]]). My chessboard has 14x14 internal corners with a
-corner-corner spacing of 5.88cm. A big chessboard such as this is never
-completely rigid or completely flat. I'm using a board backed with 1in of
-aluminum honeycomb, which is both flat and stable. It took several iterations to
-settle on this material. See the [[file:how-to-calibrate.org][how-to-calibrate page]] for details.
+We start by gathering images of a [[file:formulation.org::#calibration-object][chessboard]]. I use a large chessboard in order
+to fill the imager (details about why are on the [[file:tour-choreography.org][choreography page]]). My
+chessboard has 14x14 internal corners with a corner-corner spacing of 5.88cm.
+The whole thing is roughly 1m x 1m. A big chessboard such as this is often not
+completely rigid or completely flat. So I'm using a board backed with 1in of
+aluminum honeycomb, which addresses these issues: this board is both flat and
+stable. It took several iterations to settle on this material; see the
+[[file:how-to-calibrate.org::#chessboard-shape][how-to-calibrate page]] for details.
 
 An important consideration when gathering calibration images is keeping them in
 focus. As we shall see [[file:tour-choreography.org][later]], we want to gather as many close-up images as we
@@ -24,8 +25,8 @@ both the calibration-time closeups and the working distance (presumably much
 further out). So for these tests I set the focus to infinity, and gather all my
 images at F22 to maximize the depth-of-field. To also avoid motion blur I need
 fast exposures, so I did all the image gathering outside, with bright natural
-lighting. When gathering real-world calibration data, compromises have to be
-made; see the [[file:how-to-calibrate.org][how-to-calibrate page]] for details.
+lighting. When gathering real-world calibration data, compromises are often
+necessary; see the [[file:how-to-calibrate.org][how-to-calibrate page]] for details.
 
 I gathered some [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/images][calibration images]], and used [[https://github.com/dkogan/mrgingham/][mrgingham]] 1.22 to detect the
 [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/corners.vnl][chessboard corners]]:
@@ -54,10 +55,10 @@ D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22
 [[file:external/figures/calibration/mrgingham-coverage.png]]
 
 We did OK, except maybe at the top center. This is a good quick/dirty
-visualization, but as we'll see later, [[file:tour-uncertainty.org][we can do much better by looking at the
-projection uncertainty]]. If we had multiple cameras, the coverage for each one
-can be visualized by pre-filtering the =corners.vnl= to select specific image
-filenames. For instance:
+visualization of calibration data coverage, but as we'll see later, [[file:tour-uncertainty.org][we can do
+much better by looking at the projection uncertainty]]. If we had multiple
+cameras, the coverage for each one can be visualized by pre-filtering the
+=corners.vnl= to select specific image filenames. For instance:
 
 #+begin_src sh
 < corners.vnl                           \
@@ -134,16 +135,16 @@ If I had more that one camera, the image filenames would need to indicate what
 camera captured each image at which time. I usually name my images
 =frameFFF-cameraCCC.jpg=. Images with the same =FFF= are assumed to have been
 captured at the same instant in time. The exact pattern doesn't matter, but a
-constant pattern with a changing =FFF= and =CCC= are required.
+constant pattern with a variable =FFF= and =CCC= is required.
 
 * Monocular calibration with the 8-parameter opencv model
 :PROPERTIES:
 :CUSTOM_ID: opencv8-model-solving
 :END:
 
-Let's calibrate! We begin with a lean model used commonly for wide lenses in
-other tools: [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]]. Primarily this works via a rational radial
-"distortion" model. Projecting $\vec p$ in the camera coordinate system:
+We have data. Let's calibrate. We begin with a lean model used commonly for wide
+lenses in other tools: [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]]. Primarily this works via a rational
+radial "distortion" model. Projecting $\vec p$ in the camera coordinate system:
 
 \begin{aligned}
 \vec P &\equiv \frac{\vec p_{xy}}{p_z} \\
@@ -208,7 +209,7 @@ made by the solver]]. Let's start by sanity-checking the results.
 As we can see in the console output, the final RMS reprojection error was 0.4
 pixels. Of the 16464 corner observations (84 observations of the board with
 14*14 points each), 564 didn't fit the model well-enough, and were thrown out as
-[[file:formulation.org::#outlier-rejection][outliers]]. The [[file:formulation.org::#board-deformation][board flex]] was computed as .13mm horizontally, and 0.14mm
+[[file:formulation.org::#outlier-rejection][outliers]]. The [[file:formulation.org::#board-deformation][board flex]] was computed as 0.13mm horizontally, and 0.14mm
 vertically. That all sounds reasonable.
 
 Let's examine the solution further. We can either
@@ -256,7 +257,7 @@ I followed the guidelines of the [[file:tour-choreography.org][dance study]].
 
 Next, let's examine the residuals more closely. We have an overall RMS
 reprojection error value from above, but let's look at the full distribution of
-errors for /all/ the cameras:
+errors for /all/ the images and cameras:
 
 #+begin_src sh
 mrcal-show-residuals    \
@@ -377,14 +378,15 @@ issues such as:
   else)
 
 See the [[file:how-to-calibrate.org][how-to-calibrate page]] for practical details. Back to /this/ image. In
-absolute terms, even this worst-fitting image fits /really/ well. The RMS error
-of the errors in this image is 0.70 pixels. The residuals in this image look
-mostly reasonable. There is an issue, however: if the model fit this data, the
-residuals would sample independent, random noise, and would be uncorrelated.
-/Here/ there's a pattern: the errors are mostly radial in the chessboard (point
-to/from the center). A unmodeled chessboard flex could cause this kind of
-problem, for instance. This is a source of bias in his solution. Let's keep
-going, keeping this in mind.
+absolute terms, even this worst-fitting image fits /really/ well. The RMS
+reprojection error in this image is 0.70 pixels. The residuals in this image
+look /mostly/ reasonable, but there is an issue: if the model fit this data
+well, the residuals would sample independent, random noise. Thus the residuals
+would all be uncorrelated with each other, but /here/ there's a pattern: we can
+see that the errors are mostly radial in the chessboard (they point to/from the
+center). A unmodeled chessboard flex could cause this kind of problem, for
+instance. This is a source of bias in this solution. Let's keep going, keeping
+this in mind.
 
 One issue with lean models such as =LENSMODEL_OPENCV8= (used here) is that the
 radial distortion is never quite right, especially as we move further and
@@ -535,7 +537,7 @@ mrcal-show-residuals \
 [[file:external/figures/calibration/directions-opencv8.png]]
 
 As before, if the model fit the observations, the errors would represent random
-noise, and no color pattern would be discernible in these dots. Here we can
+noise, and no color pattern would be discernible in these dots. But here we can
 clearly see the colors clustered together. This is not random noise, and is a
 /very/ clear indication that this lens model is not able to fit this data.
 
@@ -564,9 +566,9 @@ model the behavior or this lens.
 :CUSTOM_ID: splined-model-definition
 :END:
 
-The basis of a splined stereographic model is a [[file:lensmodels.org::#lensmodel-stereographic][stereographic projection]]. In
-this projection, a point that lies an angle $\theta$ off the camera's optical
-axis projects to $\left|\vec q - \vec q_\mathrm{center}\right| = 2 f \tan
+The base of a splined stereographic model is a [[file:lensmodels.org::#lensmodel-stereographic][stereographic projection]]. In this
+projection, a point that lies an angle $\theta$ off the camera's optical axis
+projects to $\left|\vec q - \vec q_\mathrm{center}\right| = 2 f \tan
 \frac{\theta}{2}$ pixels from the imager center, where $f$ is the focal length.
 Note that this representation supports projections behind the camera ($\theta >
 90^\circ$) with a single singularity directly behind the camera. This is unlike
@@ -658,10 +660,10 @@ optimization.
 There're over 1000 lens parameters here, but the problem is sparse, so we can
 still process this in a reasonable amount of time.
 
-The =LENSMODEL_OPENCV8= solve above had 564 points that fit so poorly, the
-solver threw them away as outliers; here we have 28. The RMS reprojection error
-dropped from 0.4 pixels to 0.2 pixels. The estimated chessboard shape stayed
-roughly the same: flat. These are all what we expect and hope to see.
+The previous =LENSMODEL_OPENCV8= solve had 564 points that fit so poorly, the
+solver threw them away as outliers; here we have only 28. The RMS reprojection
+error dropped from 0.4 pixels to 0.2 pixels. The estimated chessboard shape
+stayed roughly the same: flat. These are all what we expect and hope to see.
 
 Let's look at the residual distribution in /this/ solve, compared to before:
 
@@ -1072,7 +1074,7 @@ D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22
 
 [[file:external/figures/splined-models/splined-vectorfield-imager-domain.svg]]
 
-This doesn't show anything noteworthy in this solve, but seeing it is often
+This doesn't show anything noteworthy in this solve, but seeing it can be
 informative with other lenses.
 
 * Next

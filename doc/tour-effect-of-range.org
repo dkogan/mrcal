@@ -74,7 +74,7 @@ position dominates the projection, and the uncertainty shoots to infinity.
 
 What controls the range where we see the lowest uncertainty? The range where we
 observed the chessboards. I will prove this conclusively in the next section. It
-makes sense: the lowest uncertainty corresponds to the region where we have the
+makes sense: the best uncertainty corresponds to the region where we have the
 most information.
 
 What controls the uncertainty at infinity? The empirical studies in the [[file:tour-choreography.org][next
@@ -150,14 +150,14 @@ are here; we expect this to be low):
 
 [[file:external/figures/cross-validation/diff-culled-at-1m.png]]
 
-And at infinity (uncertainty plot tells us that this should be worse):
+And at infinity (uncertainty plot tells us that this should be ~ 3x worse):
 
 [[file:external/figures/cross-validation/diff-culled-at-infinity.png]]
 
 Clearly the prediction that uncertainties are lowest at the chessboard distance,
-and increase as we move away is borne out here by just looking at diffs,
-/without/ computing the uncertainty curves. This effect is universal, and is
-especially clear when the uncertainties at the chessboard distance and at
+and increase as we move away is borne out here empirically, by just looking at
+diffs. /Without/ computing the uncertainty curves. This effect is universal, and
+is especially clear when the uncertainties at the chessboard distance and at
 infinity are very different. How do we make sure that the uncertainty at
 infinity is still low, despite the fact that no chessboards were observed there?
 Read on.

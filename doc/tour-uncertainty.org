@@ -21,7 +21,8 @@ calibration quality:
 - *Sampling error*. Our computations are based on fitting a model to
   observations of chessboard corners. These observations aren't perfect, and
   contain a sample of some noise distribution. We can [[file:formulation.org::#noise-model][characterize this
-  distribution]] and we can [[file:uncertainty.org][analytically predict the effects of that noise]]
+  distribution]] and we can then analytically predict the effects of that noise.
+  We do that here.
 
 - *Model error*. These result when the solver's model of the world is
   insufficient to describe what is actually happening. When model errors are
@@ -39,8 +40,9 @@ Let's do as much as we can analytically: let's gauge the effects of sampling
 error by computing a /projection uncertainty/ for a model. Given a
 camera-coordinate point $\vec p$ we compute the projected pixel coordinate $\vec
 q$ (a "projection"), along with the covariance $\mathrm{Var} \left(\vec
-q\right)$ to represent the uncertainty due to the noise in the observations of
-the chessboard corners. With $\mathrm{Var} \left(\vec q\right)$ we can
+q\right)$ to represent the uncertainty due to the calibration-time noise in the
+observations of the chessboard corners. With $\mathrm{Var} \left(\vec q\right)$
+we can
 
 - Propagate this uncertainty downstream to whatever uses the projection
   operation, for example to get the uncertainty of ranges from a triangulation
@@ -91,8 +93,8 @@ the optimization state $\vec b$:
 \frac{\partial \vec q}{\partial \vec b}^T
 \]
 
-There lots and lots of details here, so please read the [[file:uncertainty.org][documentation]] if
-interested.
+There lots and lots of omitted details here, so please read the [[file:uncertainty.org][full
+documentation]] if interested.
 
 ** Simulation
 Let's run some synthetic-data analysis to validate this approach. This all comes
@@ -193,20 +195,20 @@ $\color{red}{\ast}$?
 
 Unfortunately, we cannot. We didn't observe any chessboards there, so we don't
 know how the lens behaves in that area. The optimistic result reported by the
-uncertainty algorithm isn't wrong, but in this case it's not answering the
-question we really want answered. We're computing how observation noise affects
-the whole optimizer state, including the lens parameters (=LENSMODEL_OPENCV4= in
-this case). And then we compute how the noise in those lens parameters and
-geometry affects projection. The =LENSMODEL_OPENCV4= model is very lean (has few
-parameters). This gives it stiffness, which prevents the projection $\vec q$
-from moving very far in response to noise, which we then interpret as a
-relatively-low uncertainty of 0.8 pixels. If we used a model with more
-parameters, the extra flexibility would allow the projection to move much
-further in response to noise, and we'd see a higher uncertainty. So here our
-choice of lens model itself is giving us low uncertainties. If we knew for a
-fact that the true lens is 100% representable by a =LENSMODEL_OPENCV4= model,
-then this would be be correct, but that never happens in reality. So *lean
-models always produce overly-optimistic uncertainty estimates*.
+uncertainty algorithm isn't wrong, but it's not answering the question we're
+asking. We're computing how observation noise affects the whole optimizer state,
+including the lens parameters (=LENSMODEL_OPENCV4= in this case). And then we
+compute how the noise in those lens parameters and geometry affects projection.
+The =LENSMODEL_OPENCV4= model is very lean (has few parameters). This gives it
+stiffness, which prevents the projection $\vec q$ from moving very far in
+response to noise, which we then interpret as a relatively-low uncertainty of
+0.8 pixels. If we used a model with more parameters, the extra flexibility would
+allow the projection to move much further in response to noise, and we'd see a
+higher uncertainty. So here our choice of lens model itself is giving us low
+uncertainties. If we knew for a fact that the true lens is 100% representable by
+a =LENSMODEL_OPENCV4= model, then this would be be correct, but that never
+happens in reality. So *lean models always produce overly-optimistic uncertainty
+estimates*.
 
 This is yet another advantage of splined models: they're flexible, so the model
 itself has little effect on the reported uncertainty. And we get the behavior we
