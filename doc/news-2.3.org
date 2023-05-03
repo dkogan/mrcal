@@ -3,8 +3,9 @@
 
 * New in mrcal 2.3
 This is once again a mostly-maintenance release. Many medium-important but
-significant improvements and fixes are present here. Exciting new features are
-coming.
+significant improvements and fixes are present here. The big update in this
+release is extended documentation, especially practical notes in the
+[[file:how-to-calibrate.org][how-to-calibrate page]] and the [[file:recipes.org][recipes]]. Exciting new features are coming.
 
 ** Improved discrete point support
 Calibrations are still implemented primarily off chessboard observations, but
