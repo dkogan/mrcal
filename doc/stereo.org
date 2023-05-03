@@ -2,6 +2,9 @@
 #+OPTIONS: toc:t
 
 * Overview
+The [[file:tour-stereo.org][tour of mrcal]] shows an example of dense stereo processing done with mrcal;
+details about that computation appear here.
+
 Given a pair of calibrated (both intrinsics and extrinsics) cameras, mrcal can
 perform stereo processing to produce a dense stereo map. This is relatively
 slow, and is often overkill for what is actually needed. But sometimes it is
@@ -122,9 +125,9 @@ causes the image to expand dramatically as we approach the edges.
 
 Using =LENSMODEL_PINHOLE= with wide lenses like this introduces an unwinnable
 trade-off. If you choose the pixels/angle resolution to keep all your
-information at the center, you'll get a huge image, with large low-information
-pixels at the edges. But if you want to reduce this expansion by lowering the
-resolution, you'll lose data at the center. Or you can cutting off data at the
+information at the center, you'll get a huge image, with low-information pixels
+at the edges. But if you want to reduce this expansion by lowering the
+resolution, you'll lose data at the center. Or you can cut off data at the
 edges. No matter what you do, you either lose information or you're stuck with a
 huge image.
 
@@ -132,123 +135,6 @@ And even if this was all fine, with =LENSMODEL_PINHOLE= the stereo-matching
 algorithm has to match image patches with widely different resolutions.
 =LENSMODEL_LATLON= solves all these issues with no down sides, and is thus the
 recommended rectification function.
-
-* Splitting a wide view into multiple narrow views
-We just showed that [[file:lensmodels.org::#lensmodel-pinhole][=LENSMODEL_PINHOLE=]] isn't great at rectifying wide lenses.
-But what if we really must use [[file:lensmodels.org::#lensmodel-pinhole][=LENSMODEL_PINHOLE=]] rectification and we really
-don't want to suffer the resulting distortions? One solution is to subdivide the
-wide field of view into multiple narrower virtual views. Then we'd have several
-narrow-angle stereo pairs instead of a single wide stereo pair, and each narrow
-pair can be processed with pinhole rectification. [[file:mrcal-stereo.html][=mrcal-stereo=]] can do all the
-work. Let's look 45 degrees to the left:
-
-
-
-
-xxxxxxxxxx
-
-LOOK AT HOW DISTORTED THE PINHOLE STEREO WAS. I CAN SUBDIVIDE IT, AND IT WORKS
-
-
-#+begin_src sh
-mrcal-stereo                        \
-  --rectification LENSMODEL_PINHOLE \
-  --az-fov-deg 80                   \
-  --el-fov-deg 80                   \
-  --az0-deg   -45                   \
-  --disparity-range 0 200           \
-  --sgbm-p1 600                     \
-  --sgbm-p2 2400                    \
-  --sgbm-uniqueness-ratio 5         \
-  --sgbm-disp12-max-diff 1          \
-  --sgbm-speckle-window-size 200    \
-  --sgbm-speckle-range 2            \
-  --valid-intrinsics-region         \
-  [01].cameramodel          \
-  [01].jpg
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
-D1=$D/data/figueroa-overpass-looking-S/
-
-PYTHONPATH=~/projects/mrcal;
-export PYTHONPATH
-$PYTHONPATH/mrcal-stereo            \
-  --rectification LENSMODEL_PINHOLE \
-  --az-fov-deg 80                   \
-  --el-fov-deg 80                   \
-  --az0-deg    -45                  \
-  --disparity-range 0 200           \
-  --sgbm-p1 600                     \
-  --sgbm-p2 2400                    \
-  --sgbm-uniqueness-ratio 5         \
-  --sgbm-disp12-max-diff 1          \
-  --sgbm-speckle-window-size 200    \
-  --sgbm-speckle-range 2            \
-  --valid-intrinsics-region         \
-  --outdir /tmp                     \
-  -f                                \
-  $D/[01].cameramodel      \
-  $D/[01].jpg
-
-zmv -f -W \
-  '/tmp/[01]-rectified.png' \
-  "$D/figures/stereo/rectified[01]-narrow-splined.png"
-
-mv \
-  /tmp/0-disparity.png \
-  $D/figures/stereo/disparity-narrow-splined.png
-
-mv \
-  /tmp/0-range.png \
-  $D/figures/stereo/range-narrow-splined.png
-
-for img ( $D/figures/stereo/{rectified[01],disparity,range}-narrow-splined.png ) { \
-  convert $img -scale 12% ${img:r}.downsampled.${img:e}
-}
-#+end_src
-
-The pinhole rectified images:
-
-[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/rectified0-narrow-splined.png][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/rectified0-narrow-splined.downsampled.png]]
-[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/rectified1-narrow-splined.png][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/rectified1-narrow-splined.downsampled.png]]
-
-And the disparity:
-
-[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/disparity-narrow-splined.png][file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/disparity-narrow-splined.downsampled.png]]
-
-This looks much better than the pinhole-rectified stereo from the full image.
-The rectified pinhole models and images could be passed to a different tool to
-complete the processing, if desired.
-
-And we can see the rotated field of view when we visualize the rectified system:
-
-#+begin_src sh
-mrcal-stereo                        \
-  --rectification LENSMODEL_PINHOLE \
-  --az-fov-deg 80                   \
-  --el-fov-deg 80                   \
-  --az0-deg    -45                  \
-  --set 'view 70,5'                 \
-  --viz geometry                    \
-  [01].cameramodel
-#+end_src
-#+begin_src sh :exports none :eval no-export
-PYTHONPATH=~/projects/mrcal;
-export PYTHONPATH
-$PYTHONPATH/mrcal-stereo                                            \
-  --rectification LENSMODEL_PINHOLE                                 \
-  --az-fov-deg 80                                                   \
-  --el-fov-deg 80                                                   \
-  --az0-deg    -45                                                  \
-  --set 'view 70,5'                                                 \
-  --viz geometry                                                    \
-  --hardcopy $Dout/stereo-rectified-system-narrow.svg               \
-  --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D/[01].cameramodel
-#+end_src
-
-[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/stereo/stereo-rectified-system-narrow.svg]]
 
 * Interfaces
 Currently stereo processing is available via the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool. This tool
