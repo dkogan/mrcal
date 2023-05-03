@@ -83,7 +83,7 @@ communication in general. At some point I will probably set up a mailing list as
 well.
 
 * Author
-Dima Kogan =dima@secretsauce.net=
+Dima Kogan =<dima@secretsauce.net>=
 
 * License and copyright
 These are listed on [[file:copyrights.org][their own page]].

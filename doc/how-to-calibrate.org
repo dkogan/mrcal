@@ -24,7 +24,8 @@ produce the calibration object. The [[file:formulation.org][optimization problem
 to be constant over all the calibration images, and any instability in the board
 shape breaks that assumption. Depending on the resolution of the camera and the
 amount of calibration accuracy required, even a slightly floppy chessboard can
-break things. Don't take this for granted.
+break things. Don't take this for granted. A method for quantifying this effect
+appears [[#residuals-chessboard-shape][below]].
 
 Similarly, the optimization problem assumes that the calibration object is
 mostly flat. Some amount of deformation is inevitable, so mrcal /does/ support a
@@ -33,12 +34,11 @@ the calibration solve. In my experience, if you try to make sure the board is
 flat, this model is enough to fix most of the unavoidable small deflections. If
 care isn't taken to ensure the board is flat, the current simple deformation
 model is often insufficient to fully model the shape. Don't take this for
-granted either. See the [[#residuals-chessboard-shape][residual analysis of chessboard shape]] for notes about
-how to estimate the magnitude of effect.
+granted either. A method for quantifying this effect appears [[#residuals-chessboard-shape][below]] as well.
 
 I usually use a square chessboard roughly 1m per side to calibrate my fisheye
 lenses. Such a large chessboard often has issues with its shape. To mitigate
-these my chessboard is backed by about 1 inch of aluminum honeycomb. This is
+these, my chessboard is backed by about 1 inch of aluminum honeycomb. This is
 expensive, but works well to stabilize the shape. The previous board I was using
 is backed with the same amount of /foam/ instead. This is significantly cheaper,
 and still pretty good, but noticeably less flat and less rigid. This foam-backed
@@ -51,7 +51,7 @@ you can make one, the aluminum honeycomb-backed boards are strongly recommended.
 :CUSTOM_ID: chessboard-size
 :END:
 There's a tradeoff to consider between large and small chessboards. According to
-the [[file:tour-choreography.org][dance study]], we want close-ups that fill the imager, so we're choosing
+the [[file:tour-choreography.org::#choreography-distance][dance study]], we want close-ups that fill the imager, so we're choosing
 between small chessboards placed near the camera and large chessboards placed
 away from the camera.
 
@@ -147,7 +147,7 @@ chessboard views. If the close-up range is very different from the working range
 (infinity, possibly), the close-up images could be very out-of-focus. The
 current thought is that the best thing to do is to get close-up images even if
 they're out of focus. The blurry images will have a high uncertainty in the
-corner observatoins (hopefully without bias), but the uncertainty improvement
+corner observations (hopefully without bias), but the uncertainty improvement
 that comes from the near-range chessboard observations more than makes up for
 it. In these cases you usually need to get more observations than you normally
 would to bring down the uncertainties to an acceptable level. In challenging
@@ -197,11 +197,12 @@ mappings to mrcal.
 :CUSTOM_ID: corner-detector
 :END:
 
-[[https://en.wikipedia.org/wiki/Chessboard_detection][A number of tools]] are available to detect chessboard corners. These did not work
-well for my use cases, so I recommend [[https://github.com/dkogan/mrgingham/][=mrgingham=]] for all corner detections.
-mrgingham is fast and is able to find chessboard corners subject to very
-un-pinhole-like projections. At this time it has two limitations that will be
-lifted eventually:
+A number of tools are available to detect chessboard corners (OpenCV is commonly
+used, and different organizations have their own in-house versions). None of the
+available ones worked well for my use cases, so I had to write my own, and I
+recommend it for all corner detections: [[https://github.com/dkogan/mrgingham/][=mrgingham=]]. mrgingham is fast and is
+able to find chessboard corners subject to very un-pinhole-like projections. At
+this time it has two limitations that will be lifted eventually:
 
 - It more or less assumes a regular grid of N-by-N corners (i.e. N+1-by-N+1
   squares)
@@ -461,7 +462,7 @@ that if the errors are small, and the optimization completed successfully. If
 the data issues are too large, however (pervasive sync errors, completely
 insufficient lens model, etc), the solver will have trouble. It could
 
-- Take a very long time to convert to /some/ solution
+- Take a very long time to converge to /some/ solution
 - Produce tool many outliers, possibly incrementally, producing output such as
   this:
   #+begin_example
@@ -481,9 +482,9 @@ It also helps to simplify the problem, which is effective at isolating certain
 issues. For instance, a nonconverging multi-camera solve should be attempted
 monocularly, one camera at a time. If some cameras converge and some don't, that
 points to the issue. If individually the solves converge, but together they
-don't, there's an issue with the [[#residuals-sync][camera synchronization]]. Or the chessboard
-corner indices aren't consistent. Similarly solving with a subset of images is
-often enlightening.
+don't, there could be an issue with the [[#residuals-sync][camera synchronization]], or the
+chessboard corner indices aren't consistent. Similarly solving with a subset of
+images is often enlightening.
 
 Another common problem is getting messages like this:
 
@@ -560,8 +561,8 @@ mrcal-show-projection-uncertainty splined.cameramodel --cbmax 1 --unset key
 This is projection uncertainty at infinity, which is what I'm usually interested
 in. If we care /only/ about the performance at some particular distance, that
 can be requested with =mrcal-show-projection-uncertainty --distance ...=. That
-uncertainty will usually be better than the uncertainty at infinity. Trying hard
-to make things work at infinity will make things work at other ranges also.
+uncertainty will usually be better than the uncertainty at infinity. Making sure
+things work at infinity will make things work at other ranges also.
 
 The projection uncertainty measures the quality of the chessboard dance. If the
 [[#dancing][guidelines noted above]] were followed, you'll get good uncertainties. If the
@@ -595,10 +596,15 @@ solves, and the resulting differences will be in-line with what the
 uncertainties predict: $\mathrm{difference} \approx \mathrm{uncertainty}_0 +
 \mathrm{uncertainty}_1$. Otherwise, we have an extra source of error not present
 in the uncertainty estimates, which would cause the cross-validation diffs to be
-significantly higher. This would suggest a deeper look is necessary.
+significantly higher. That would suggest a deeper look is necessary.
 
-To get the data we can do two separate dances, or we can split the dataset into
-odd/even images, as described [[#calibration][above]].
+To get the data, we can do two separate dances, or we can split the dataset into
+odd/even images, as described [[#calibration][above]]. Note: if the chessboard is moved very
+slowly, the even and odd datasets will be very qualitatively similar, and it's
+possible to get a low cross-validation diff even in the presence of model
+errors: the two samples of the model error distribution would be similar to each
+other. This usually doesn't happen, but keep in mind that it /could/, so you
+should move at a reasonable speed to make the odd/even datasets non-identical.
 
 In the [[file:tour-cross-validation.org][tour of mrcal]] we computed a cross-validation, and discovered that there
 indeed exists a model error. The cross-validation diff looked like this:
@@ -628,19 +634,19 @@ which wasn't fixable with today's mrcal. So we could either
 
 Cross-validation diffs are usually /very/ effective at detecting issues, and I
 usually compute these every time I calibrate a lens. In my experience, these are
-the most important diagnostic output.
+the single most important diagnostic output.
 
 While these are very good at /detecting/ issues, they're less good at
-pinpointing the root cause. To do that usually requires examining the [[#residuals][solve
-residuals (next section)]] and thinking about them.
+pinpointing the root cause. To do that usually requires thinking about the
+[[#residuals][solve residuals (next section)]].
 
 ** Residuals
 :PROPERTIES:
 :CUSTOM_ID: residuals
 :END:
 
-These are the lowest-level, easiest-to-interpret metrics. Usually I only look at
-the residuals if
+We usually have a /lot/ of images and a /lot/ of residuals. Usually I only look
+at the residuals if
 
 - I'm calibrating an unfamiliar system
 - I don't trust something about the way the data was collected; if I have little
@@ -658,8 +664,8 @@ in our observations of the chessboard corners. So the residuals should all be
 independent and should all have the same dispersion: each residual vector should
 look random, and unrelated to any other residual vector. There should be no
 discernible patterns to the residuals. If model errors are present, the
-residuals will /not/ appear random, and /will/ exhibit patterns. And we can see
-those patterns in the residual plots.
+residuals will /not/ appear random, and /will/ exhibit patterns. And we will
+then see those patterns in the residual plots.
 
 The single most useful invocation to run is
 
@@ -687,19 +693,19 @@ common issues, and the characteristic residual patterns they produce.
 
 *** Poorly-fitting lens model
 We saw this in [[file:tour-initial-calibration.org::#opencv8-solve-diagnostics][the tour of mrcal]]: we tried to calibrate a very wide lens with
-LENSMODEL_OPENCV8, and it showed clear signs of the model not fitting. Read that
-page to get a sense of what that looks like in the various diagnostics. Broadly
-speaking, lens modeling errors increase as you move towards the edges of the
-imager, so we would see higher errors at the edges. This often looks similar to
-an [[#residuals-chessboard-shape][unmodeled deformation in the chessboard shape]].
+=LENSMODEL_OPENCV8=, and it showed clear signs of the model not fitting. Read
+that page to get a sense of what that looks like in the various diagnostics.
+Broadly speaking, lens modeling errors increase as you move towards the edges of
+the imager, so we would see higher errors at the edges. This often looks similar
+to an [[#residuals-chessboard-shape][unmodeled deformation in the chessboard shape]].
 
 *** Errors in the chessboard detector
 What if the chessboard detector gets a small number of corners localized
 incorrectly? If the shift is large, those corner observations will be thrown out
-as outliers, and will not affect the solve. But if theyre small, they may cause
+as outliers, and will not affect the solve. But if they're small, they may cause
 a bias in the solution. What does that look like? Let's simulate it. We
 
-- take the LENSMODEL_SPLINED_STEREOGRAPHIC solve from [[file:tour-initial-calibration.org][the tour of mrcal]]
+- take the =LENSMODEL_SPLINED_STEREOGRAPHIC= solve from [[file:tour-initial-calibration.org][the tour of mrcal]]
 - produce perfect observations at the computed optimal geometry
 - add perfect independent gaussian noise to the observations
 
@@ -797,7 +803,7 @@ cameras and the chessboard are stationary during each image capture.
 
 How do we make sure that no rolling-shutter effects ended up in our data? We
 look at the residuals. Prior to the dataset used in [[file:tour-initial-calibration.org][the tour of mrcal]] I captured
-images that used the "silent mode" of that Sony Alpha 7 III camera. I didn't
+images that used the "silent mode" of the Sony Alpha 7 III camera. I didn't
 realize that this mode implied a rolling shutter, so [[file:external/2022-10-17--dtla-overpass--samyang--alpha7][that dataset]] wasn't useful
 to demo anything other than the rolling shutter residuals. Looking at the worst
 few observations:
