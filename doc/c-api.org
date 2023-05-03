@@ -112,7 +112,7 @@ typedef struct
     double            rt_cam_ref[6];
     unsigned int      imagersize[2];
     mrcal_lensmodel_t lensmodel;
-    double            intrinsics[];
+    double            intrinsics[0];
 } mrcal_cameramodel_t;
 
 typedef union
@@ -127,14 +127,37 @@ typedef union
     };
 } mrcal_cameramodel_LENSMODEL_LATLON_t;
 
-//// And versions for all the other lens models with statically-known
-//// intrinsics-array sizes. Today LENSMODEL_SPLINED_STEREOGRAPHIC is the only
-//// one that has a dynamic intrinsics size, and thus
-//// mrcal_cameramodel_LENSMODEL_SPLINED_STEREOGRAPHIC_t does not exist
+...
+
 #+end_src
 
-If we know the lensmodel, we can use the lensmodel-specific structures.
-Otherwise we must allocate the memory dynamically, and void using =sizeof()=.
+Note that =mrcal_cameramodel_t.intrinsics= has size 0 because the size of this
+array depends on the specific lens model being used, and is unknown at compile
+time.
+
+So it is an error to define this on the stack. *Do not do this*:
+
+#+begin_src c
+void f(void)
+{
+    mrcal_cameramodel_t model; // ERROR
+}
+#+end_src
+
+If you need to define a known-at-compile-time model on the stack you can use the
+[[https://github.com/dkogan/mrcal/blob/88e4c1df1c8cf535516719c5d4257ef49c9df1da/mrcal-types.h#L338][lensmodel-specific cameramodel types]]:
+
+#+begin_src c
+void f(void)
+{
+    mrcal_cameramodel_LENSMODEL_OPENCV8_t model; // OK
+}
+#+end_src
+
+This only exists for models that have a constant number of parameters; notably
+there is no =mrcal_cameramodel_LENSMODEL_SPLINED_STEREOGRAPHIC_t=. When reading
+a model from disk, mrcal dynamically allocates the right amount of memory, and
+returns a =mrcal_cameramodel_t*=.
 
 * Projections
 The fundamental functions for projection and unprojection are defined here.
@@ -422,8 +445,10 @@ functions you may have already. The declarations are in [[https://www.github.com
 documentation lives there.
 
 * Dense stereo
+
 A number of dense stereo routines are available. These make it possible to
-implement a full mrcal dense stereo pipeline in C. The available functions are:
+implement a full mrcal dense stereo pipeline in C. The available functions are
+declared in [[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.h=]]:
 
 - =mrcal_rectified_resolution()= computes the resolution of the rectified system
   from the resolution of the input. Usually =mrcal_rectified_system()= does this
