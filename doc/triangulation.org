@@ -100,8 +100,8 @@ The last paper compares the available methods from /all/ the papers. A
 [[https://github.com/dkogan/mrcal/blob/master/analyses/triangulation/study.py][triangulation study]] is available to evaluate the precision and accuracy of the
 existing methods. Currently =leecivera_mid2= is recommended for most usages.
 
-Note that all of the Lee-Civera methods work geometrically, off observation
-vectors, /not/ pixel coordinates directly. This carries an implicit assumption
+Note that all of the Lee-Civera methods work geometrically off observation
+vectors, not pixel coordinates directly. This carries an implicit assumption
 that the angular resolution is constant across the whole imager. This is usually
 somewhat true, but the extent depends on the specific lens and camera. Use the
 [[file:recipes.org::#visualizing-resolution][resolution-visualization tool]] to check.
@@ -197,7 +197,7 @@ produce correlated triangulation results. So calibration-time noise is biased,
 and it is thus essential to make and use low-uncertainty calibrations to
 minimize this effect.
 
-** Sample uncertainties
+** Example uncertainties
 The [[https://github.com/dkogan/mrcal/blob/master/test/test-triangulation-uncertainty.py][=test-triangulation-uncertainty.py=]] test generates synthetic models and
 triangulation scenarios. It can be used to produce an illustrative diagram:
 
