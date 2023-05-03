@@ -10,19 +10,20 @@ not-yet-supported distro, please contribute! You can email me for help.
 :END:
 
 mrcal is included in recent versions of Debian and Ubuntu. So if you're running
-at least Debian/testing or the not-yet-published Debian 12 (bookworm) or Ubuntu
-22.04 (jammy), you can install with a single command. For instance the
-commandline tools and the C development library and the Python library can be
-installed with
+at least Debian 12 (bookworm) or Ubuntu 22.04 (jammy), you can install with a
+single command. For instance the commandline tools and the C development library
+and the Python library can be installed with
 
 #+begin_src sh
 apt install mrcal libmrcal-dev python3-mrcal
 #+end_src
 
-For older distros I currently distribute packages for
+For older distros or if you want to get the latest release of mrcal, you can use
+the mrcal APT repository. I currently distribute packages for
 
 - Debian/buster (10)
 - Debian/bullseye (11)
+- Debian/bookworm (12)
 - Ubuntu/bionic (18.04 LTS)
 - Ubuntu/focal (20.04 LTS)
 - Ubuntu/jammy (22.04 LTS)
@@ -37,6 +38,7 @@ where =DISTRO= is one of
 
 - =buster=
 - =bulleye=
+- =bookworm=
 - =bionic=
 - =focal=
 - =jammy=
