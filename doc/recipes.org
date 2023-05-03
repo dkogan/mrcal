@@ -88,8 +88,8 @@ FILENAME - - -
 to represent images with no detected corners. An image with incomplete
 detections should /still/ contain $N_\mathrm{width} N_\mathrm{height}$ records
 in the same consistent order. The missing corners should be given with any =x=,
-=y=, but with $\mathrm{weight} \leq 0$ or =-=. The record could be completely
-null:
+=y=, but with $\mathrm{weight} \leq 0$ or =-=. The record could also be
+completely null:
 
 #+begin_example
 FILENAME - - -
@@ -160,7 +160,7 @@ mrgingham-rotate-corners           \
 > corners-rotated.vnl
 #+end_src
 
-* Physical lens stability
+* Stability of intrinsics
 :PROPERTIES:
 :CUSTOM_ID: lens-stability
 :END:
@@ -175,7 +175,7 @@ how well we did. In the [[file:tour.org][tour of mrcal]] we used a Samyang 12mm 
 This is not a machine-vision lens; it's intended to be used by human
 photographers operating an SLR camera. As a result, it has moving parts. In
 particular, the human-operated focus ring engages an internal mechanism that
-physically moves the front lens assembly. Immobilizing the external focus ring
+physically moves the front lens element. Immobilizing the external focus ring
 does /not/ immobilize the internal mechanism, so any mechanical backlash will
 show up as an instability in intrinsics.
 
@@ -319,7 +319,7 @@ included in a mrcal installation, and currently has to be invoked from source.
 This tool takes in completed calibration, and reprojects each chessboard image
 to a chessboard-referenced space: each resulting image shows just the
 chessboard, with each chessboard corner appearing at exactly the same pixel in
-each image. Example from the [[file:tour.org][tour of mrcal]]:
+each image. Example frame from the [[file:tour.org][tour of mrcal]]:
 
 #+begin_src sh
 analyses/mrcal-reproject-to-chessboard \
@@ -382,8 +382,7 @@ or both: everything being observed has a known, fixed position. So when solving
 these problems we call =mrcal.optimize(...)= with
 
 - /Fixed/ =frames_rt_toref= and =points= arrays localizing the observed objects
-- =do_optimize_frames = True= to tell the optimization to fix them in space
-  instead of optimizing
+- =do_optimize_frames = False= to tell the optimization to fix them in space
 
 Calibrating in this way is uncommon, so the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras= tool]] does
 not support this directly. But this kind of solve is readily available via the
@@ -619,10 +618,10 @@ vnl-filter -p z-center,stdev \
 [[file:external/figures/surveyed-calibration/moving-range-oversampled.svg]]
 
 And it works as expected: we still see the spike, but all the uncertainties are
-roughly a factor or $\sqrt(10) = 3.2$ smaller. Note that this works if the input
+roughly a factor or $\sqrt{10} = 3.2$ smaller. Note that this works if the input
 noise is truly gaussian and independent. Empirically, this is mostly true, but
 may not be 100% true. Techniques that rely heavily on this assumption, such as
-this one, may not work perfectly in the real world. Take the results with a
+this one, may not work perfectly in the real world. Take these results with a
 grain of salt.
 
 * Camera resolution visualization
@@ -635,7 +634,7 @@ directions in space to pixel coordinates, with each pixel covering a solid angle
 of some size. As sensor resolutions increase, the pixels become finer, covering
 smaller solid angles. For various processing it is often useful to visualize
 this angular resolution of a camera. For instance to justify using
-geometric-only techniques, such as the [[file:triangulation.org][triangulation methods]] do.
+geometric-only techniques, such as the [[file:triangulation.org][triangulation methods]].
 
 mrcal provides the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-show-model-resolution.py][=analyses/mrcal-show-model-resolution.py=]] tool to do this.
 This tool isn't yet "released", so it is not yet part of the installed set, and
@@ -703,7 +702,7 @@ optimize intrinsics /and/ extrinsics, and output cameramodels with updated
 versions of both. If =--sampled=: we can request that only the intrinsics be
 optimized by passing =--intrinsics-only=.
 
-Also, if =--sampled= and not =--intrinsics=-only: we fit the extrinsics off 3D
+Also, if =--sampled= and not =--intrinsics-only=: we fit the extrinsics off 3D
 points, not just observation directions. The distance from the camera to the
 points is set by =--distance=. This can take a comma-separated list of distances
 to use. It's /strongly/ recommended to ask for two different distances:
