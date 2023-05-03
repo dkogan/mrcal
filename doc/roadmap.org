@@ -59,7 +59,7 @@
 
 
   Some experimental fixes are implemented in
-  =test/test-projection-uncertainty.py=]]. For instance:
+  [[https://www.github.com/dkogan/mrcal/blob/master/test/test-projection-uncertainty.py][=test/test-projection-uncertainty.py=]]. For instance:
 
   #+begin_src sh
   test/test-projection-uncertainty.py \
