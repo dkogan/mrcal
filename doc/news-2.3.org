@@ -2,105 +2,131 @@
 #+OPTIONS: toc:nil
 
 * New in mrcal 2.3
-** better discrete point support
-added residuals_point()
+This is once again a mostly-maintenance release. Many medium-important but
+significant improvements and fixes are present here. Exciting new features are
+coming.
 
-show_residuals_....() displays board AND point residuals
+** Improved discrete point support
+Calibrations are still implemented primarily off chessboard observations, but
+support for discrete points is being added bit by bit:
 
-mrcal.show_geometry(), mrcal-show-geometry can plot calibration-time points
+- Added [[file:mrcal-python-api-reference.html#-residuals_point][=mrcal.residuals_point()=]], an analogue to [[file:mrcal-python-api-reference.html#-residuals_chessboard][=mrcal.residuals_chessboard()=]]
 
-Projection uncertainty can be computed with fixed points, such as with a
+- The [[file:mrcal-python-api-reference.html#-show_residuals_vectorfield][=mrcal.show_residuals_...()=]] functions now display residuals from
+  chessboard /and/ point observations
 
-surveyed calibration
-mrcal-show-... handle --observations better. Both chessboard and point
-observations can be shown
+- [[file:mrcal-python-api-reference.html#-show_geometry][=mrcal.show_geometry()=]] and [[file:mrcal-show-geometry.html][=mrcal-show-geometry=]] and [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-...
+  --observations=]] can display calibration-time points
 
-** full CAHVORE support
+- Projection uncertainty can be computed with calibrations from point
+  observations /if/ the points were fixed
+
+** Full CAHVORE support
+CAHVORE models now have gradients implemented, so all the normal functionality
+now works with these models. We can solve for a CAHVORE model.
+
+This model is noncentral, so unprojection only works if $E = 0$: when this model
+behaves centrally
 
 ** C API
+- =mrcal_image_..._crop()= is now =static inline=. This fixes linker errors on
+  some compilers
 
-mrcal_image_..._crop() is now static inline
-This fixes linker errors on some compilers
+- =mrcal_cameramodel_t= now has =double intrinsics[0]= instead of =double
+  intrinsics[]=. This allows =#include <mrcal.h>= to work inside C++ code
 
-C API supports mrcal_cameramodel_LENSMODEL_XXXX_t structures
-For models that allow it, these have the right known-at-compile-time size. Makes
-it possible to allocate on the stack, and is generally convenient.
+- =mrcal_cameramodel_t= has a size unknown at compile time, so it cannot be
+  allocated on the stack. To resolve this we now have
+  [[https://github.com/dkogan/mrcal/blob/88e4c1df1c8cf535516719c5d4257ef49c9df1da/mrcal-types.h#L338][=mrcal_cameramodel_LENSMODEL_XXXX_t= structures]] for models that have
+  known-at-compile-time size. These can be allocated on the stack, so they are
+  easier to use
 
-*** stereo in C
-mrcal.rectified_resolution() is now separate from mrcal.rectified_system(), and
-has a callable C implementation
+- Dense stereo processing in C is now possible. [[https://github.com/dkogan/mrcal/blob/88e4c1df1c8cf535516719c5d4257ef49c9df1da/stereo.h][=stereo.h=]] contains:
 
-same with mrcal.rectified_system(), rectification_maps
+  - =mrcal_rectified_resolution()=
+  - =mrcal_rectified_system()=
+  - =mrcal_rectification_maps()=
 
-** Commandline tools
-Commandline tools print errors instead of throwing exceptions
+** [[file:mrcal-stereo.html][=mrcal-stereo=]]
+- [[file:mrcal-stereo.html][=mrcal-stereo=]] writes out a binary disparity image as a 16-bpp .png file. This
+  allows lossless post-processing of the stereo result
 
-** mrcal-stereo
-mrcal-stereo writes out a binary disparity image (16-bpp png) for easy post-processing
+- [[file:mrcal-stereo.html][=mrcal-stereo --viz stereo=]] displays both the rectified and input coordinates
+  under the mouse cursor
 
-bug fix: mrcal-stereo respects --axis-scale
+- [[file:mrcal-stereo.html][=mrcal-stereo=]] can process multiple images in parallel
 
-bug fix: mrcal-stereo can process multiple files with one invocation again
+- bug fix: [[file:mrcal-stereo.html][=mrcal-stereo=]] respects =--axis-scale=
 
-mrcal-stereo gui displays both the rectified and input coordinates
+- bug fix: [[file:mrcal-stereo.html][=mrcal-stereo=]] can once again process multiple files with a single
+  invocation
 
-mrcal-stereo can rectify images in parallel
+** Generic visualization updates
+- [[file:mrcal-python-api-reference.html#-show_projection_diff][=mrcal.show_projection_diff()=]] and [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] handle =nan=
+  values better: no confused plots or ugly warnings on the console
 
-** generic viz updates
-show_projection_diff() and mrcal-show-projection-diff handles nan values better:
-no confused plots or ugly warnings on the console
+- [[file:mrcal-python-api-reference.html#-show_projection_diff][=mrcal.show_projection_diff()=]] and [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] can plot
+  vectorfields with multiple distances
 
-show_projection_diff() can plot vectorfields with multiple distances
-And the mrcal-show-projections-diff tool. Same as with heat maps, we plot the
-diff for the first distance
+- [[file:mrcal-python-api-reference.html#-show_projection_uncertainty_vs_distance][=mrcal.show_projection_uncertainty_vs_distance()=]] now has =distance_min=,
+  =distance_max=, =observed_pixel_uncertainty= arguments to better control the
+  plot. The defaults autodetect the values, so the default behavior does not
+  change
 
-show_projection_uncertainty_vs_distance() has distance_min, distance_max,
-observed_pixel_uncertainty args. To control the plot better. The defaults are
-None, autodetecting the ranges, input uncertainty, so the default behavior does
-not change
+- [[file:mrcal-python-api-reference.html#-show_residuals_board_observation][=mrcal.show_residuals_board_observation()=]] and
+  [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] reports =iobservation_from_worst= in
+  its title. This makes it simple to regenerate specific plots, even if they
+  were displayed out of order
 
-show_residuals_board_observation() reports iobservation_from_worst in its title
-Applies to the mrcal-show-residuals-board-observation tool as well. Makes it
-simple to regenerate specific plots, even if they were displayed out of order
+- [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] has =--from-glob=
 
-mrcal-show-residuals-board-observation has --from-glob
+** Image I/O
+- [[file:mrcal-python-api-reference.html#-save_image][=mrcal.save_image()=]] can write 16-bit-per-pixel grayscale images properly.
+  This requires a more recent =libfreeimage= than is available on some OSs. The
+  tests make sure it works.
 
-** Image i/o
-save_image() can write 16bpp grayscale images properly
-This requires a more recent libfreeimage than is available on some OSs
+** Calibration seed bug fix
+[[file:mrcal-python-api-reference.html#-estimate_monocular_calobject_poses_Rt_tocam][=mrcal.estimate_monocular_calobject_poses_Rt_tocam()=]] ignores invalid input
+points. This makes calibrating with incomplete chessboard observations work
+properly
 
-** calibration seed bug fix
-estimate_monocular_calobject_poses_Rt_tocam() ignores invalid input points
-This makes calibrating given incomplete chessboard observations work properly
+** Generic API updates
 
-** generic API updates
-mrcal.optimize(), mrcal.optimizer_callback(): all arguments are keyword-only,
-most arguments are optional
+- Commandline tools now print errors to standard error instead of throwing
+  exceptions
 
-measurement_index_....() all return <0 if those measurements aren't present
+- [[file:mrcal-python-api-reference.html#-rectified_resolution][=mrcal.rectified_resolution()=]] has been split from [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]]
 
-Added mrcal.make_perfect_observations()
+- [[file:mrcal-python-api-reference.html#-optimize][=mrcal.optimize()=]] and [[file:mrcal-python-api-reference.html#-optimizer_callback][=mrcal.optimizer_callback()=]]: all arguments are
+  keyword-only, most arguments are optional
 
-ref_calibration_object() can return the position of ANY point on the chessboard
-Not just the chessboard corners.
+- [[file:mrcal-python-api-reference.html#-measurement_index_boards][=mrcal.measurement_index_...()=]] all return <0 if those particular measurements
+  aren't present
 
-mrcal-convert-lensmodel has --cbmax
+- Added [[file:mrcal-python-api-reference.html#-make_perfect_observations][=mrcal.make_perfect_observations()=]] to produce perfect observations with
+  perfect noise. Very useful for error analysis
 
-residuals_chessboard() argument rename: i_cam -> icam_intrinsics
-For consistency. Old argument still accepted for compatibility
+- [[file:mrcal-python-api-reference.html#-ref_calibration_object][=mrcal.ref_calibration_object()=]] can return the position of /any/ point on the
+  chessboard, /not/ just the chessboard corners
 
-residuals_chessboard() has new return_observations argument
-The default return_observations=False produces the original behavior. if
-return_observations: we return residuals,observations
+- [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] has =--cbmax=
 
-mrcal.residuals_chessboard() returns size-0 arrays if no
-chessboard or point observations respectively are present
+- [[file:mrcal-python-api-reference.html#-residuals_chessboard][=mrcal.residuals_chessboard()=]] argument rename: =i_cam= $\rightarrow$
+  =icam_intrinsics= for consistency. The old argument is still accepted for
+  backwards compatibility
 
-show_geometry() has smarter logic when given > 2 cameras
+- [[file:mrcal-python-api-reference.html#-residuals_chessboard][=mrcal.residuals_chessboard()=]]() has a new =return_observations= argument The
+  default =return_observations=False= produces the original behavior. =if
+  return_observations:= we return =residuals,observations=
 
+- [[file:mrcal-python-api-reference.html#-residuals_chessboard][=mrcal.residuals_chessboard()=]] returns size-0 arrays if no observations are
+  present
 
-** demo mrcal-show-model-resolution.py tool
+- [[file:mrcal-python-api-reference.html#-show_geometry][=mrcal.show_geometry()=]] has smarter logic when given > 2 cameras: the
+  =axis_scale= has a reasonable default size
 
 * Migration notes 2.2 -> 2.3
 
-mrcal_measurement_index_regularization() api changed
+The [[https://github.com/dkogan/mrcal/blob/88e4c1df1c8cf535516719c5d4257ef49c9df1da/mrcal.h#L671][mrcal_measurement_index_regularization()]] C function has an extended
+prototype. To migrate, pass the extra requested arguments.
+
