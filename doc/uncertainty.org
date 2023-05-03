@@ -39,9 +39,9 @@ the model errors are small*.
 The method to estimate the projection uncertainty is accessed via the
 [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]] function. Here the "uncertainty" is the
 sensitivity to sampling error: the calibration-time pixel noise. This tells us
-how good a calibration is (we aim for low projection uncertainties), and it
-tells us how good the downstream results are (by allowing the user to propagate
-projection uncertainties through their data pipeline).
+how good a calibration is (we aim for low projection uncertainties), and it can
+tell us how good the downstream results are as well (by propagating projection
+uncertainties through the downstream computation).
 
 To estimate the projection uncertainty we:
 
