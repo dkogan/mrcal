@@ -470,6 +470,37 @@ broadcasting
     raise Exception("cov must be either 1x1 or 2x2 in the innermost dimension")
 
 
+def _observed_pixel_uncertainty_from_inputs(optimization_inputs,
+                                            x = None):
+
+    if x is None:
+        x = mrcal.optimizer_callback(**optimization_inputs,
+                                     no_jacobian      = True,
+                                     no_factorization = True)[1]
+
+
+    # mrcal.residuals_point() ignores the range normalization (penalty)
+    sum_of_squares_residuals = 0
+    Nobservations            = 0
+
+    # shape (Nobservations*2)
+    residuals = mrcal.residuals_chessboard(optimization_inputs, residuals = x).ravel()
+    if residuals.size:
+        sum_of_squares_residuals += np.var(residuals) * residuals.size
+        Nobservations += residuals.size
+
+    residuals = mrcal.residuals_point     (optimization_inputs, residuals = x).ravel()
+    if residuals.size:
+        sum_of_squares_residuals += np.var(residuals) * residuals.size
+        Nobservations += residuals.size
+
+    if Nobservations == 0:
+        raise Exception("observed_pixel_uncertainty cannot be computed because we don't have any board or point observations")
+    observed_pixel_uncertainty = np.sqrt(sum_of_squares_residuals / Nobservations)
+
+    return observed_pixel_uncertainty
+
+
 def _propagate_calibration_uncertainty( what,
                                         *,
 
@@ -640,25 +671,8 @@ In the regularized case:
                 raise Exception("No non-regularization measurements. Don't know what to do")
 
     if observed_pixel_uncertainty is None:
-        # mrcal.residuals_point() ignores the range normalization (penalty)
-        sum_of_squares_residuals = 0
-        Nobservations            = 0
-
-        # shape (Nobservations*2)
-        residuals = mrcal.residuals_chessboard(optimization_inputs, residuals = x).ravel()
-        if residuals.size:
-            sum_of_squares_residuals += np.var(residuals) * residuals.size
-            Nobservations += residuals.size
-
-        residuals = mrcal.residuals_point     (optimization_inputs, residuals = x).ravel()
-        if residuals.size:
-            sum_of_squares_residuals += np.var(residuals) * residuals.size
-            Nobservations += residuals.size
-
-        if Nobservations == 0:
-            raise Exception("observed_pixel_uncertainty cannot be computed because we don't have any board or point observations")
-        observed_pixel_uncertainty = np.sqrt(sum_of_squares_residuals / Nobservations)
-
+        observed_pixel_uncertainty = _observed_pixel_uncertainty_from_inputs(optimization_inputs,
+                                                                             x = x)
 
     # shape (N,Nstate) where N=2 usually
     A = factorization.solve_xt_JtJ_bt( dF_dbpacked )
