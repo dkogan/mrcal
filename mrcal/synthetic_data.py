@@ -574,11 +574,12 @@ ARGUMENTS
 
 - optimization_inputs: the input from a calibrated model. Usually the output of
   mrcal.cameramodel.optimization_inputs() call. The output is written into
-  optimization_inputs['observations_board']
+  optimization_inputs['observations_board'] and
+  optimization_inputs['observations_point']
 
 - observed_pixel_uncertainty: optional standard deviation of the noise to apply.
   By default the noise applied has same variance as the noise in the input
-  optimization_inputs. If we want to omit the noise, set
+  optimization_inputs. If we want to omit the noise, pass
   observed_pixel_uncertainty = 0
 
 RETURNED VALUES
@@ -587,36 +588,98 @@ None
 
     '''
 
-    if optimization_inputs['observations_point'] is not None:
-        raise Exception("This function supports only chessboards, but these optimization_inputs contain points")
+    import mrcal.model_analysis
+
+    x = mrcal.optimizer_callback(**optimization_inputs,
+                                 no_jacobian      = True,
+                                 no_factorization = True)[1]
 
     if observed_pixel_uncertainty is None:
         observed_pixel_uncertainty = \
-            np.std(mrcal.residuals_chessboard(optimization_inputs).ravel())
+            mrcal.model_analysis._observed_pixel_uncertainty_from_inputs(optimization_inputs,
+                                                                         x = x)
 
-    # shape (Nobservations, Nheight, Nwidth, 3)
-    pcam = mrcal.hypothesis_board_corner_positions(**optimization_inputs)[0]
-    i_intrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,1]
-    # shape (Nobservations,1,1,Nintrinsics)
-    intrinsics = nps.mv(optimization_inputs['intrinsics'][i_intrinsics],-2,-4)
-    optimization_inputs['observations_board'][...,:2] = \
-        mrcal.project( pcam,
-                       optimization_inputs['lensmodel'],
-                       intrinsics )
+    if 'indices_frame_camintrinsics_camextrinsics' in optimization_inputs and \
+       optimization_inputs['indices_frame_camintrinsics_camextrinsics'] is not None and \
+       optimization_inputs['indices_frame_camintrinsics_camextrinsics'].size:
 
-    i_meas0 = mrcal.measurement_index_boards(0, **optimization_inputs)
-    x = mrcal.optimizer_callback(**optimization_inputs)[1]
-    err = nps.norm2(x[i_meas0:mrcal.num_measurements_boards(**optimization_inputs)])
-    if err > 1e-16:
-        raise Exception("Perfect observations produced nonzero error. This is a bug")
+        # shape (Nobservations, Nheight, Nwidth, 3)
+        pcam = mrcal.hypothesis_board_corner_positions(**optimization_inputs)[0]
+        i_intrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,1]
+        # shape (Nobservations,1,1,Nintrinsics)
+        intrinsics = nps.mv(optimization_inputs['intrinsics'][i_intrinsics],-2,-4)
+        optimization_inputs['observations_board'][...,:2] = \
+            mrcal.project( pcam,
+                           optimization_inputs['lensmodel'],
+                           intrinsics )
 
-    noise_nominal = \
-        observed_pixel_uncertainty * \
-        np.random.randn(*optimization_inputs['observations_board'][...,:2].shape)
+    if 'indices_point_camintrinsics_camextrinsics' in optimization_inputs and \
+       optimization_inputs['indices_point_camintrinsics_camextrinsics'] is not None and \
+       optimization_inputs['indices_point_camintrinsics_camextrinsics'].size:
 
-    weight = nps.dummy( optimization_inputs['observations_board'][...,2],
-                        axis = -1 )
-    weight[ weight<=0 ] = 1. # to avoid dividing by 0
+        indices_point_camintrinsics_camextrinsics = \
+            optimization_inputs['indices_point_camintrinsics_camextrinsics']
 
-    optimization_inputs['observations_board'][...,:2] += \
-        noise_nominal / weight
+        # shape (Nobservations,3)
+        pref = optimization_inputs['points'][ indices_point_camintrinsics_camextrinsics[:,0] ]
+
+        # shape (Nobservations,4,3)
+        Rt_cam_ref = \
+            nps.glue( mrcal.identity_Rt(),
+                      mrcal.Rt_from_rt(optimization_inputs['extrinsics_rt_fromref']),
+                      axis = -3 ) \
+            [ indices_point_camintrinsics_camextrinsics[:,2]+1 ]
+
+        # shape (Nobservations,3)
+        pcam = mrcal.transform_point_Rt(Rt_cam_ref, pref)
+
+        # shape (Nobservations,Nintrinsics)
+        intrinsics = optimization_inputs['intrinsics'][ indices_point_camintrinsics_camextrinsics[:,1] ]
+        optimization_inputs['observations_point'][...,:2] = \
+            mrcal.project( pcam,
+                           optimization_inputs['lensmodel'],
+                           intrinsics )
+
+    ########### The perfect observations have been written. Make sure we get
+    ########### perfect residuals
+    # I don't actually do that here, and rely on the tests to make sure it works properly
+    if False:
+        x = mrcal.optimizer_callback(**optimization_inputs,
+                                     no_jacobian      = True,
+                                     no_factorization = True)[1]
+
+        Nmeas = mrcal.num_measurements_boards(**optimization_inputs)
+        if Nmeas > 0:
+            i_meas0 = mrcal.measurement_index_boards(0, **optimization_inputs)
+            err = nps.norm2(x[i_meas0:i_meas0+Nmeas])
+            if err > 1e-16:
+                raise Exception("Perfect observations produced nonzero error for boards. This is a bug")
+
+        Nmeas = mrcal.num_measurements_points(**optimization_inputs)
+        if Nmeas > 0:
+            i_meas0 = mrcal.measurement_index_points(0, **optimization_inputs)
+            err = nps.norm2(x[i_meas0:i_meas0+Nmeas])
+            if err > 1e-16:
+                raise Exception("Perfect observations produced nonzero error for points. This is a bug")
+
+
+    ########### I have perfect data. Now add perfect noise
+    if observed_pixel_uncertainty == 0:
+        return
+
+    for what in ('observations_board','observations_point'):
+
+        if what in optimization_inputs and \
+           optimization_inputs[what] is not None and \
+           optimization_inputs[what].size:
+
+            noise_nominal = \
+                observed_pixel_uncertainty * \
+                np.random.randn(*optimization_inputs[what][...,:2].shape)
+
+            weight = nps.dummy( optimization_inputs[what][...,2],
+                                axis = -1 )
+            weight[ weight<=0 ] = 1. # to avoid dividing by 0
+
+            optimization_inputs[what][...,:2] += \
+                noise_nominal / weight
