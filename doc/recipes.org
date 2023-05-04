@@ -305,7 +305,15 @@ To utilize the wide-lens-friendly [[file:stereo.org::#stereo-rectification-model
 must be involved in computing the rectified system and in converting disparity
 values to ranges. There's usually little reason for the application to use the
 rectified models and disparities for anything other than computing ranges, so
-swapping in the mrcal logic here usually isn't effortful.
+swapping in the mrcal logic here usually isn't effortful. So the sequence would
+be:
+
+1. mrcal computes the rectified system
+2. Camera images reprojected to the rectified models. This could be done by any tool
+3. Stereo matching to produce disparities. This could be done by any tool
+4. mrcal converts disparities to ranges and to a point cloud
+5. The point cloud is ingested the the system to continue processing
+
 
 * Visualizing post-solve chessboard observations
 :PROPERTIES:
