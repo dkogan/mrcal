@@ -112,10 +112,6 @@ else:
 
 
 optimization_inputs = model.optimization_inputs()
-if not (optimization_inputs.get('indices_point_camintrinsics_camextrinsics') is None or \
-        optimization_inputs['indices_point_camintrinsics_camextrinsics'].size == 0):
-    print("Point observations not supported", file=sys.stderr)
-    sys.exit()
 
 if args.perfect:
     if args.model_intrinsics is not None:
@@ -133,11 +129,12 @@ if args.perfect:
 optimization_inputs['verbose']                    = args.verbose
 optimization_inputs['do_apply_outlier_rejection'] = not args.skip_outlier_rejection
 if args.revive_outliers:
-    observations = optimization_inputs['observations_board']
+    for what in ('observations_board','observations_point'):
+        observations = optimization_inputs[what]
 
-    print(f"Original solve has {np.count_nonzero(observations[...,2] <= 0)} outliers. Reviving them")
-    print("")
-    observations[observations[...,2] <= 0, 2] = 1.
+        print(f"Original solve has {np.count_nonzero(observations[...,2] <= 0)} outliers in {what}. Reviving them")
+        print("")
+        observations[observations[...,2] <= 0, 2] = 1.
 
 mrcal.optimize(**optimization_inputs)
 
