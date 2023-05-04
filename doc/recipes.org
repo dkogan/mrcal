@@ -273,7 +273,7 @@ observation, so they're correlated across time as well. So these errors will
 are ultimately used for.
 
 To be certain about how much error results from the production lens model alone,
-you can [[file:how-to-calibrate.org::#simulating-perfect-data][generate perfect data using the splined solve, and reoptimize it with
+you can [[file:how-to-calibrate.org::#residuals][generate perfect data using the splined solve, and reoptimize it with
 the production model]]. This reports unambiguously the error due to the
 lens-model-fitting issues in isolation.
 

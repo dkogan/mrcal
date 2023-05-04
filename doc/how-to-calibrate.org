@@ -691,6 +691,45 @@ a zoomed-in residual image would tell us this.
 Next the residual plots should be examined for patterns. Let's look at some
 common issues, and the characteristic residual patterns they produce.
 
+For most of the below I'm going to show the usual calibration residuals we would
+expect to see if we had some particular kind of issue. We do this by simulating
+/perfect/ calibration data, corrupting it with the kind of problem we're
+demonstrating, recalibrating, and visualizing the result. Below I do this in
+Python using the [[file:mrcal-python-api-reference.html#-make_perfect_observations][=mrcal.make_perfect_observations()=]] function. These could
+equivalently have been made using the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-reoptimize][=mrcal-reoptimize=]] tool:
+
+#+begin_example
+$ mrcal/analyses/mrcal-reoptimize \
+    --explore                     \
+    --perfect                     \
+    splined.cameramodel
+
+... Have REPL looking at perfect data. Add flaw, repotimize, visualize here. 
+#+end_example
+
+This technique is powerful and is useful for more than just making plots for
+this documentation. We can also use it to quantify the errors that would result
+from problems that we suspect exist. We can compare those to the
+[[file:tour-cross-validation.org][cross-validation errors]] that we observe to get a hint about what is causing the
+problem.
+
+For instance, you might have a system where you're not confident that your
+chessboard is flat or that your lens model fits or that your camera sync works
+right. You probably see high [[file:tour-cross-validation.org][cross-validation diffs]], but don't have a sense of
+which factor is most responsible for the issues. We can simulate this, to see if
+the suspected issues would cause errors as high as what is observed. Let's say
+you placed a straight edge across your chessboard, and you see a deflection at
+the center of ~ 3mm. mrcal doesn't assume a flat chessboard, but its deformation
+model is simple, and even in this case it can be off by 1mm. Let's hypothesize
+that the board deflection is 0.5mm horizontally and 0.5mm vertically, in the
+other direction. We can then use the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-reoptimize][=mrcal-reoptimize= tool]] to quantify the
+resulting error, and we can compare the simulated cross-validation diff to the
+one we observe. We might discover that the expected chessboard deformation
+produces cross-validation errors that are smaller than what we observe. In that
+case, we should keep looking. But if we see the simulated cross-validation diff
+of the same order of magnitude that we observe, then we know it's time to fix
+the chessboard.
+
 *** Poorly-fitting lens model
 We saw this in [[file:tour-initial-calibration.org::#opencv8-solve-diagnostics][the tour of mrcal]]: we tried to calibrate a very wide lens with
 =LENSMODEL_OPENCV8=, and it showed clear signs of the model not fitting. Read
@@ -1357,91 +1396,3 @@ just 1 or 2 worst-case residuals. Look at the worst 10. In both cases the most
 tilted chessboard observations usually show very consistent residual vectors
 along the far edge of the chessboard.
 
-** Identifying sources of calibration error through simulation
-:PROPERTIES:
-:CUSTOM_ID: simulating-perfect-data
-:END:
-We talked about how to infer causes of calibration errors by looking at
-residuals. This is a heuristic process that is usually effective at identifying
-issues. Other useful techniques are available as well: we can quantify the
-magnitude of projection errors that would result from problems that we suspect
-exist. And we can compare that to the [[file:tour-cross-validation.org][cross-validation errors]] that we observe.
-
-For instance, you might have a system where you're not confident that your
-chessboard is flat or that your lens model fits or that your camera sync works
-right. You probably see high [[file:tour-cross-validation.org][cross-validation diffs]], but don't have a sense of
-which factor is most responsible for the issues. We can simulate this, to see if
-the suspected issues would cause errors as high as what is observed. Let's say
-you placed a straight edge across your chessboard, and you see a deflection at
-the center of ~ 3mm. mrcal doesn't assume a flat chessboard, but its deformation
-model is simple, and even in this case it can be off by 1mm. Let's hypothesize
-that the board deflection is 0.5mm horizontally and 0.5mm vertically, in the
-other direction. We can then use the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-reoptimize][=mrcal-reoptimize= tool]] to quantify the
-resulting error (let's look at the solve from [[file:tour-initial-calibration.org][the tour of mrcal]]):
-
-#+begin_src text
-$ mrcal/analyses/mrcal-reoptimize \
-    --explore                     \
-    --perfect                     \
-    splined.cameramodel
-
-Done. The results are in the 'model' and 'optimization_inputs' variables
-
-...
-
-In [1]: optimization_inputs['do_optimize_calobject_warp'] = False
-
-In [2]: optimization_inputs['calobject_warp'] = np.array((0.0, 0.0))
-In [3]: mrcal.make_perfect_observations(optimization_inputs,
-                                        observed_pixel_uncertainty = observed_pixel_uncertainty)
-In [4]: mrcal.optimize(**optimization_inputs)
-In [5]: model_perfect_flat = mrcal.cameramodel(optimization_inputs = optimization_inputs,
-                                               icam_intrinsics = 0)
-
-In [6]: optimization_inputs['calobject_warp'] = np.array((0.5e-3, -0.5e-3))
-In [7]: mrcal.optimize(**optimization_inputs)
-In [8]: model_warped = mrcal.cameramodel(optimization_inputs = optimization_inputs,
-                                         icam_intrinsics = 0)
-
-In [9]: mrcal.show_projection_diff( (model_perfect_flat,model_warped), )
-#+end_src
-#+begin_src text :exports none :eval no-export
-$ ~/projects/mrcal/analyses/mrcal-reoptimize \
-    --explore \
-    --perfect \
-    ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel
-
-Done. The results are in the 'model' and 'optimization_inputs' variables
-
-...
-
-optimization_inputs['do_optimize_calobject_warp'] = False
-optimization_inputs['calobject_warp'] = np.array((0.0, 0.0))
-mrcal.make_perfect_observations(optimization_inputs,
-                                observed_pixel_uncertainty = observed_pixel_uncertainty)
-mrcal.optimize(**optimization_inputs)
-model_perfect_flat = mrcal.cameramodel(optimization_inputs = optimization_inputs,
-                                       icam_intrinsics = 0)
-
-optimization_inputs['calobject_warp'] = np.array((0.5e-3, -0.5e-3))
-mrcal.optimize(**optimization_inputs)
-model_warped = mrcal.cameramodel(optimization_inputs = optimization_inputs,
-                                 icam_intrinsics = 0)
-
-mrcal.show_projection_diff( (model_perfect_flat,model_warped),
-                            unset   ='key',
-                            terminal='pngcairo size 1024,768 transparent noenhanced crop font ",12"',
-                            hardcopy='~/projects/mrcal-doc-external/figures/synthetic-effect-of-boardwarp.png')
-#+end_src
-
-[[file:external/figures/synthetic-effect-of-boardwarp.png]]
-
-This tool is still experimental, so it's not included in a mrcal installation,
-and currently has to be invoked from source. It is useful because it allows us
-to corrupt the solve data with exactly /one/ kind of error. In the above example
-we know that the lens model fits perfectly, and that the /only/ reason the solve
-has any error at all is that it assumes the chessboard is flat, but it actually
-has the specified deformation. We clearly see that this amount of chessboard
-shape error could easily introduce the [[file:tour-cross-validation.org][cross-validation errors]] we observe. So if
-we really did see such a chessboard deformation, we need to fix the chessboard
-to have a hope of reducing the observed errors.
