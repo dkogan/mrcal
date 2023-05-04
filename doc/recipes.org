@@ -236,25 +236,28 @@ which would benefit from mrcal-specific logic. Specifically:
    tools. This is great, but as of today, mrcal is the only library that knows
    how to use these models.
 
-2. Furthermore, mrcal can use [[file:stereo.org::#stereo-rectification-models][=LENSMODEL_LATLON=]] to describe the rectified
-   system instead of the more traditional [[file:stereo.org::#stereo-rectification-models][=LENSMODEL_PINHOLE= rectification
-   function]]. This allows nice stereo matching even with wide lenses, but once
-   again: these rectified models and images can only be processed with mrcal.
+2. Furthermore, mrcal can use
+   [[file:stereo.org::#stereo-rectification-models][=LENSMODEL_LATLON=]] to
+   describe the rectified system instead of the more traditional
+   [[file:stereo.org::#stereo-rectification-models][=LENSMODEL_PINHOLE=
+   rectification function]]. This allows for nice stereo matching even with wide
+   lenses, but once again: these rectified models and images can only be
+   processed with mrcal.
 
 A common need is to use mrcal's improved methods in projects built around legacy
 stereo processing. This usually means selecting specific chunks of mrcal to
 utilize, and making sure they can function as part of the existing framework.
 Some relevant notes follow.
 
-You can create /very/ accurate models with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]:
-these have very low [[file:uncertainty.org][projection uncertainty]] and [[file:tour-cross-validation.org][cross-validation diffs]]. Even if
-these models are not supported in the production system, it is worth solving
-with them to serve as a ground truth.
-
 ** Utilizing a too-lean production model
 :PROPERTIES:
 :CUSTOM_ID: interoperating-with-too-lean-model
 :END:
+
+You can create /very/ accurate models with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]:
+these have very low [[file:uncertainty.org][projection uncertainty]] and [[file:tour-cross-validation.org][cross-validation diffs]]. Even if
+these models are not supported in the production system, it is worth solving
+with them to serve as a ground truth.
 
 If we calibrated with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get a ground truth,
 we can recalibrate using the same data for whatever model is supported. A
@@ -269,8 +272,8 @@ tool. This would make the production model fit better in the area we care about.
 Keep in mind that these lens-model errors are correlated with each other when we
 look at observations across the imager. And these errors are present in each
 observation, so they're correlated across time as well. So these errors will
-/not/ average out, and they will produce a bias in whatever these observations
-are ultimately used for.
+/not/ average out, and they will produce a bias in whatever ultimately uses
+these observations.
 
 To be certain about how much error results from the production lens model alone,
 you can [[file:how-to-calibrate.org::#residuals][generate perfect data using the splined solve, and reoptimize it with
