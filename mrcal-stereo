@@ -477,8 +477,8 @@ if not args.already_rectified:
         mrcal.rectified_system(models,
                                az_fov_deg          = args.az_fov_deg,
                                el_fov_deg          = args.el_fov_deg,
-                               el0_deg             = args.el0_deg,
                                az0_deg             = args.az0_deg,
+                               el0_deg             = args.el0_deg,
                                pixels_per_deg_az   = pixels_per_deg_az,
                                pixels_per_deg_el   = pixels_per_deg_el,
                                rectification_model = args.rectification)
