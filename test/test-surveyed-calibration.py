@@ -619,6 +619,34 @@ testutils.confirm_equal(diff, 0,
                         eps = 6.,
                         msg = "Recovered intrinsics")
 
+
+# I test make_perfect_observations(). Doing it here is easy; doing it elsewhere
+# it much more work
+if True:
+    optimization_inputs_perfect = copy.deepcopy(optimization_inputs)
+
+    mrcal.make_perfect_observations(optimization_inputs_perfect,
+                                    observed_pixel_uncertainty=0)
+    x = mrcal.optimizer_callback(**optimization_inputs_perfect,
+                                 no_jacobian      = True,
+                                 no_factorization = True)[1]
+
+    Nmeas = mrcal.num_measurements_points(**optimization_inputs_perfect)
+    if Nmeas > 0:
+        i_meas0 = mrcal.measurement_index_points(0, **optimization_inputs_perfect)
+        testutils.confirm_equal( x[i_meas0:i_meas0+Nmeas],
+                                 0,
+                                 worstcase = True,
+                                 eps = 1e-8,
+                                 msg = f"make_perfect_observations() works for points")
+    else:
+        testutils.confirm( False,
+                           msg = f"Nmeasurements_points <= 0")
+
+
+
+
+
 if not args.do_sample:
     testutils.finish()
     sys.exit()

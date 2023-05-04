@@ -360,16 +360,26 @@ for icam in range(len(models_ref)):
 # but I should investigate that at the same time as I overhaul the outlier
 # rejection scheme (presumably to use one of my flavors of Cook's D factor)
 
-optimization_inputs_perfect = copy.deepcopy(optimization_inputs)
-mrcal.make_perfect_observations(optimization_inputs_perfect,
-                                observed_pixel_uncertainty = 0)
-i_meas0 = mrcal.measurement_index_boards(0, **optimization_inputs_perfect)
-x = mrcal.optimizer_callback(**optimization_inputs_perfect)[1]
+# I test make_perfect_observations(). Doing it here is easy; doing it elsewhere
+# it much more work
+if True:
+    optimization_inputs_perfect = copy.deepcopy(optimization_inputs)
 
-testutils.confirm_equal(x[i_meas0:mrcal.num_measurements_boards(**optimization_inputs_perfect)],
-                        0,
-                        worstcase = True,
-                        eps       = 1e-8,
-                        msg = 'make_perfect_observations()')
+    mrcal.make_perfect_observations(optimization_inputs_perfect,
+                                    observed_pixel_uncertainty=0)
+    x = mrcal.optimizer_callback(**optimization_inputs_perfect,
+                                 no_jacobian      = True,
+                                 no_factorization = True)[1]
 
+    Nmeas = mrcal.num_measurements_boards(**optimization_inputs_perfect)
+    if Nmeas > 0:
+        i_meas0 = mrcal.measurement_index_boards(0, **optimization_inputs_perfect)
+        testutils.confirm_equal( x[i_meas0:i_meas0+Nmeas],
+                                 0,
+                                 worstcase = True,
+                                 eps = 1e-8,
+                                 msg = f"make_perfect_observations() works for boards")
+    else:
+        testutils.confirm( False,
+                           msg = f"Nmeasurements_boards <= 0")
 testutils.finish()
