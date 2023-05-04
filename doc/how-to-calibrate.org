@@ -704,7 +704,7 @@ $ mrcal/analyses/mrcal-reoptimize \
     --perfect                     \
     splined.cameramodel
 
-... Have REPL looking at perfect data. Add flaw, repotimize, visualize here. 
+... Have REPL looking at perfect data. Add flaw, reoptimize, visualize here. 
 #+end_example
 
 This technique is powerful and is useful for more than just making plots for
