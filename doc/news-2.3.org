@@ -49,8 +49,8 @@ behaves centrally
   - =mrcal_rectification_maps()=
 
 ** [[file:mrcal-stereo.html][=mrcal-stereo=]]
-- [[file:mrcal-stereo.html][=mrcal-stereo=]] writes out a binary disparity image as a 16-bpp .png file. This
-  allows lossless post-processing of the stereo result
+- [[file:mrcal-stereo.html][=mrcal-stereo=]] writes out a binary disparity image as a 16-bpp =.png= file.
+  This allows lossless post-processing of the stereo result
 
 - [[file:mrcal-stereo.html][=mrcal-stereo --viz stereo=]] displays both the rectified and input coordinates
   under the mouse cursor

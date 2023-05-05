@@ -26,10 +26,14 @@ don't contain a full grid are supported as well. For instance here's [[https://g
 report]] where somebody used a calibration board with an unrelated fiducial in
 the middle.
 
-To use a grid detector other than mrgingham, we need to produce a compatible
-=corners.vnl= file. This is a [[https://www.github.com/dkogan/vnlog][=vnlog=]] (text table) where each row describes a
-single corner detection.  A sample =corners.vnl= describing observations of a toy
-2x2 chessboard:
+To use a grid detector other than mrgingham, we need to
+
+- produce a compatible =corners.vnl= file. This is a [[https://www.github.com/dkogan/vnlog][=vnlog=]] (text table) where each row describes a
+  single corner detection
+
+- feed this file to [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras --corners-cache=]]
+
+A sample =corners.vnl= describing observations of a toy 2x2 chessboard:
 
 #+begin_example
 #   filename      x    y  weight
@@ -104,14 +108,14 @@ change in the future.
 :CUSTOM_ID: calibrating-upside-down
 :END:
 
-The [[https://github.com/dkogan/mrgingham][mrgingham corner detector]] is the usual tool I use to detect corners in
-images of chessboards (although [[#non-mrgingham-detector][other methods are available]]). mrgingham looks
-for plain chessboards in the images, without any extra fiducials. It reports the
-corners in the top-most horizontal row in order from left to right. Then the
-next row down, and the next row, and so on. Here "top", "left" and "right" are
-the pixel coordinates in the image. The position of each corner in this list
-uniquely identifies the corner. So the corner in row $i$, col $j$ always appears
-at index $i N_\mathrm{width} + j$ in the list. This works well, as long as the
+The [[https://github.com/dkogan/mrgingham][mrgingham corner detector]] is the tool I use to detect corners in images of
+chessboards (although [[#non-mrgingham-detector][other methods are available]]). mrgingham looks for plain
+chessboards in the images, without any extra fiducials. It reports the corners
+in the top-most horizontal row in order from left to right. Then the next row
+down, and the next row, and so on. Here "top", "left" and "right" are the pixel
+coordinates in the image. The position of each corner in this list uniquely
+identifies the corner. So the corner in row $i$, col $j$ always appears at index
+$i N_\mathrm{width} + j$ in the list. This works well, as long as the
 "horizontal" and "vertical" directions in the image are consistent, which they
 usually are. However, if the camera orientation isn't identical across cameras
 or across time, issues can arise.
@@ -188,7 +192,7 @@ these problems we call =mrcal.optimize(...)= with
 
 Calibrating in this way is uncommon, so the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras= tool]] does
 not support this directly. But this kind of solve is readily available via the
-[[file:python-api.org][Python APIs]], as demonstrated by the [[https://www.github.com/dkogan/mrcal/blob/master/test/test-surveyed-calibration.py][=test/test-surveyed-calibration.py=]] script.
+[[file:python-api.org][Python APIs]], as demonstrated by the [[https://www.github.com/dkogan/mrcal/blob/master/test/test-surveyed-calibration.py][=test/test-surveyed-calibration.py=]] script:
 
 #+begin_src sh
 test/test-surveyed-calibration.py \
@@ -433,17 +437,17 @@ grain of salt.
 
 When we calibrate a camera system, we're assuming that the physical properties
 of the system are fixed. If they weren't, then even a very accurate calibration
-isn't very useful: the system may have changed by the time we actually use the
-computed calibration.
+isn't useful: the system may have changed by the time we actually use the
+computed calibration. We must try to stabilize all parts of the system prior to
+calibrating, and then we can check to see how well we did.
 
-As usual, we try to stabilize all parts of the system, and then we check to see
-how well we did. In the [[file:tour.org][tour of mrcal]] we used a Samyang 12mm F2.8 fisheye lens.
-This is not a machine-vision lens; it's intended to be used by human
-photographers operating an SLR camera. As a result, it has moving parts. In
-particular, the human-operated focus ring engages an internal mechanism that
-physically moves the front lens element. Immobilizing the external focus ring
-does /not/ immobilize the internal mechanism, so any mechanical backlash will
-show up as an instability in intrinsics.
+In the [[file:tour.org][tour of mrcal]] we used a Samyang 12mm F2.8 fisheye lens. This is not a
+machine-vision lens; it's intended to be used by human photographers operating
+an SLR camera. As a result, it has moving parts. In particular, the
+human-operated focus ring engages an internal mechanism that physically moves
+the front lens element. Immobilizing the external focus ring does /not/
+immobilize the internal mechanism, so any mechanical backlash shows up as an
+instability in intrinsics.
 
 From experience, I know that this lens is sensitive to mechanical motion, and we
 can clearly see this in the data. For the [[file:tour.org][tour of mrcal]] I gathered two
@@ -476,6 +480,8 @@ mrcal-show-projection-diff                                                      
 #+end_src
 
 [[file:external/figures/lens-stability/diff-dance34-splined-noncentral.png]]
+
+This was from just carefully moving the tripod.
 
 To be clear: this isn't a /bad/ lens, it's just not built with high-accuracy
 machine vision in mind. A lens intended for machine vision applications would do
@@ -608,7 +614,8 @@ lens-model-fitting issues in isolation.
 It is possible to use a lean camera model /and/ get the full accuracy of
 [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] if we spend a bit of computation time:
 
-1. Calibrate with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get the ground truth
+1. Calibrate with [[file:splined-models.org][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] to get a high-fidelity
+   result
 2. Compute an acceptable production model that is close-ish to the ground truth.
    This doesn't need to be perfect
 3. During operation of the system, reproject each captured image from the
@@ -618,11 +625,12 @@ It is possible to use a lean camera model /and/ get the full accuracy of
    model and the reprojected image
 
 The (production model, reprojected image) pair describes the same scene as the
-(splined model, captured image) pair. The downsides of doing this are the
-quantization errors that result from resampling the input image and the
-computation time. If we don't care about computation time at all, the production
-model can use a higher resolution than the original image, which would reduce
-the quantization errors.
+(splined model, captured image) pair. So we can use a simple production model
+/and/ get a high-quality calibration produced with the splined model. The
+downsides of doing this are the quantization errors that result from resampling
+the input image and the computation time. If we don't care about computation
+time at all, the production model can use a higher resolution than the original
+image, which would reduce the quantization errors.
 
 ** Using the [[file:stereo.org::#stereo-rectification-models][=LENSMODEL_LATLON= rectification model]]
 To utilize the wide-lens-friendly [[file:stereo.org::#stereo-rectification-models][=LENSMODEL_LATLON= rectification model]], mrcal
@@ -680,17 +688,18 @@ ffmpeg \
 
 [[file:external/figures/reprojected-to-chessboard/DSC06155.JPG]]
 
-The red circles indicate the corner observations classified as outliers by the
-solver. This tool useful to look at the reprojected images in a quick
-succession. Ideally every reprojected image should be very similar, with each
-chessboard corner randomly, and independently jumping around a tiny bit (this is
-reported in the [[file:tour-initial-calibration.org::#opencv8-solve-diagnostics][fit residuals]]). If the detector had issues or an image was
-faulty in some way, this would be clearly seen by eyeballing the sequence of
-images. The whole image would shift; or a single non-outlier corner would jump.
-It's good to eyeball these animations as a final sanity check before accepting a
-calibration. In this dataset, we have [[file:external/figures/reprojected-to-chessboard/reprojected-to-chessboard.mp4][this all-corner animation]] from ([[file:external/figures/reprojected-to-chessboard/][these
-images]]). No issues here. For questionable calibration objects (such as grids
-of circles), checking this is /essential/.
+This is a sample frame from [[file:external/figures/reprojected-to-chessboard/reprojected-to-chessboard.mp4][the full animation]] of [[file:external/figures/reprojected-to-chessboard/][these images]].
+
+The red circles indicate corner observations classified as outliers by the
+solver. Ideally every reprojected image should be very similar, with each
+chessboard corner randomly, and independently jumping around a tiny bit (by the
+amount reported in the [[file:tour-initial-calibration.org::#opencv8-solve-diagnostics][fit residuals]]). If the detector had any issues or an
+image was faulty in some way, this would be clearly seen by eyeballing the
+sequence of images. The whole image would shift; or a single non-outlier corner
+would jump. It's good to eyeball these animations as a final sanity check before
+accepting a calibration. For questionable calibration objects (such as grids of
+circles or AprilTags), checking this is /essential/ to discover biases in these
+implicit detectors.
 
 * Visualizing camera resolution
 :PROPERTIES:
@@ -761,11 +770,10 @@ median of the plots). So at worst, two cameras give us double that: 1.0 pixel
 error. At worst this applies to disparity directly, so let's assume that.
 
 Noise in stereo matching is usually on the order of 0.3 pixels, so we're going
-to have on the order of 1.0 + 0.3 = 1.3 pixels of disparity error.
-
-Let's see how significant this is. Let's once again go back to [[file:tour-stereo.org][tour of mrcal,
-this time to its stereo matching page]]. How would 1.3 pixels of disparity error
-affect that scene? Let's find out.
+to have on the order of 1.0 + 0.3 = 1.3 pixels of disparity error. Let's see how
+significant this is. Let's once again go back to [[file:tour-stereo.org][tour of mrcal, this time to its
+stereo matching page]]. How would 1.3 pixels of disparity error affect that
+scene? Let's find out.
 
 We write a little bit of Python code to rerun the stereo processing, focusing on
 a section of the scene, for clarity.
