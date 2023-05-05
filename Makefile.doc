@@ -1,5 +1,9 @@
 # -*- Makefile -*-
 
+# To use the latest tag in the documentation, run
+#
+# VERSION_USE_LATEST_TAG=1 make
+
 ## I generate a single mrcal-python-api-reference.html for ALL the Python code.
 ## This is large
 DOC_HTML += doc/out/mrcal-python-api-reference.html
