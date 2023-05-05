@@ -1829,9 +1829,16 @@ data_tuples, plot_options. The plot can then be made with gp.plot(*data_tuples,
                                 x, y, x*x, x*y, y*y ))
     z = matchoutput[ q1_cut[1]-1:q1_cut[1]+2,
                      q1_cut[0]-1:q1_cut[0]+2 ].ravel()
-    try:
-        lsqsq_result = np.linalg.lstsq( M, z, rcond = None)
-    except:
+
+    # I try rcond = -1 to work in an old numpy
+    lsqsq_result = None
+    if True:
+        try: lsqsq_result = np.linalg.lstsq( M, z, rcond = None)
+        except: pass
+    if lsqsq_result is None:
+        try: lsqsq_result = np.linalg.lstsq( M, z, rcond = -1)
+        except: pass
+    if lsqsq_result is None:
         return (None, diagnostics) + default_plot_args
 
     c = lsqsq_result[0]
