@@ -314,6 +314,317 @@ be:
 4. mrcal converts disparities to ranges and to a point cloud
 5. The point cloud is ingested the the system to continue processing
 
+* Estimating ranging errors caused by calibration errors
+Any particular application has requirements for how accurate the mapping and/or
+localization need to be. [[file:triangulation.org][Triangulation accuracy scales with the square of range]],
+so performance will be strongly scene-dependent. But we can use mrcal to quickly
+get a ballpark estimate of how well we can hope to do.
+
+Let's look back at the [[file:tour-initial-calibration.org][tour of mrcal]]. We saw that using [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]] was
+insufficient, and resulted in these projection errors:
+
+#+begin_src sh
+mrcal-show-projection-diff \
+  --unset key              \
+  opencv8.cameramodel      \
+  splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+# THIS IS GENERATED IN tour-differencing.org
+#+end_src
+
+[[file:external/figures/diff/diff-splined-opencv8.png]]
+
+Let's say the lens model error is 0.5 pixels per camera (I'm looking at a rough
+median of the plots). So at worst, two cameras give us double that: 1.0 pixel
+error. At worst this applies to disparity directly, so let's assume that.
+
+Noise in stereo matching is usually on the order of 0.3 pixels, so we're going
+to have on the order of 1.0 + 0.3 = 1.3 pixels of disparity error.
+
+Let's see how significant this is. Let's once again go back to [[file:tour-stereo.org][tour of mrcal,
+this time to its stereo matching page]]. How would 1.3 pixels of disparity error
+affect that scene? Let's find out.
+
+We write a little bit of Python code to rerun the stereo processing, focusing on
+a section of the scene, for clarity.
+
+#+begin_src python
+#!/usr/bin/python3
+
+import sys
+import os
+import numpy as np
+import numpysane as nps
+import mrcal
+import cv2
+import gnuplotlib as gp
+
+model_filenames = [ f"{i}.cameramodel" for i in (0,1) ]
+image_filenames = [ f"{i}.jpg"         for i in (0,1) ]
+
+az_fov_deg = 32.4
+el_fov_deg = 24.9
+az0_deg    = -20.2
+el0_deg    = 6.6
+
+pixels_per_deg                  = -1.
+rectification                   = 'LENSMODEL_LATLON'
+disp_min,disp_max               = 0,150
+range_image_min,range_image_max = 1,1000
+
+disparity_error_expected        = 1.3
+
+models = [mrcal.cameramodel(modelfilename) for modelfilename in model_filenames]
+
+models_rectified = \
+    mrcal.rectified_system(models,
+                           az_fov_deg          = az_fov_deg,
+                           el_fov_deg          = el_fov_deg,
+                           az0_deg             = az0_deg,
+                           el0_deg             = el0_deg,
+                           pixels_per_deg_az   = pixels_per_deg,
+                           pixels_per_deg_el   = pixels_per_deg,
+                           rectification_model = rectification)
+
+rectification_maps = mrcal.rectification_maps(models, models_rectified)
+
+# This is a hard-coded property of the OpenCV StereoSGBM implementation
+disparity_scale = 16
+
+# round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
+# implementation requires this
+disp_max = disparity_scale*round(disp_max/disparity_scale)
+disp_min = disparity_scale*int  (disp_min/disparity_scale)
+
+stereo_sgbm = \
+    cv2.StereoSGBM_create(minDisparity      = disp_min,
+                          numDisparities    = disp_max - disp_min,
+                          blockSize         = 5,
+                          P1                = 600,
+                          P2                = 2400,
+                          disp12MaxDiff     = 1,
+                          uniquenessRatio   = 5,
+                          speckleWindowSize = 100,
+                          speckleRange      = 2 )
+
+images = [mrcal.load_image(f,
+                           bits_per_pixel = 24,
+                           channels       = 3) for f in image_filenames]
+
+images_rectified = [mrcal.transform_image(images[i],
+                                          rectification_maps[i]) \
+                    for i in range(2)]
+
+disparity = stereo_sgbm.compute(*images_rectified)
+
+ranges0 = mrcal.stereo_range( disparity,
+                              models_rectified,
+                              disparity_scale = disparity_scale)
+
+delta = 0.1
+ranges1 = mrcal.stereo_range( disparity + delta*disparity_scale,
+                              models_rectified,
+                              disparity_scale = disparity_scale)
+
+drange_ddisparity = (ranges0-ranges1) / delta
+
+idx_valid = (disparity > 0) * (disparity < 30000)
+drange_ddisparity[~idx_valid] = 0
+
+filename_plot = f"{Dout}/sensitivity.png"
+title = f"Expected range error assuming disparity error of {disparity_error_expected} pixels"
+gp.plot( drange_ddisparity * disparity_error_expected,
+         square   = True,
+         _set = ('xrange noextend',
+                 'yrange reverse noextend',
+                 'logscale cb',
+                 'cblabel "Expected range error (m)"',
+                 'cbtics (.3, 1, 10, 100, 500)'),
+         cbrange = [0.3,500],
+         _with = 'image',
+         tuplesize = 3,
+         title     = title)
+#+end_src
+#+begin_src python :exports none :eval no-export
+#!/usr/bin/python3
+
+import sys
+import os
+import numpy as np
+import numpysane as nps
+import mrcal
+import cv2
+import gnuplotlib as gp
+
+
+D    = "/home/dima/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/stereo"
+Dout = "/home/dima/projects/mrcal-doc-external/figures/stereo-range-sensitivity"
+try:
+    os.mkdir(Dout)
+except FileExistsError:
+    pass
+
+
+model_filenames = [ f"{D}/{i}.cameramodel" for i in (0,1) ]
+image_filenames = [ f"{D}/{i}.jpg"         for i in (0,1) ]
+
+find_crop_from_original = False
+
+if find_crop_from_original:
+    az_fov_deg = 170
+    el_fov_deg = 95
+    az0_deg    = -15
+    el0_deg    = 10
+else:
+    az_fov_deg = 32.4
+    el_fov_deg = 24.9
+    az0_deg    = -20.2
+    el0_deg    = 6.6
+
+
+pixels_per_deg                  = -1.
+rectification                   = 'LENSMODEL_LATLON'
+disp_min,disp_max               = 0,150
+range_image_min,range_image_max = 1,1000
+
+disparity_error_expected        = 1.3
+
+models = [mrcal.cameramodel(modelfilename) for modelfilename in model_filenames]
+
+models_rectified = \
+    mrcal.rectified_system(models,
+                           az_fov_deg          = az_fov_deg,
+                           el_fov_deg          = el_fov_deg,
+                           az0_deg             = az0_deg,
+                           el0_deg             = el0_deg,
+                           pixels_per_deg_az   = pixels_per_deg,
+                           pixels_per_deg_el   = pixels_per_deg,
+                           rectification_model = rectification)
+
+if find_crop_from_original:
+    q00 = np.array((2378,1157))
+    q11 = np.array((3592,2068))
+
+    fxy = models_rectified[0].intrinsics()[1][0:2]
+    cxy = models_rectified[0].intrinsics()[1][2:4]
+    azel0 = (q00 - cxy) / fxy
+    azel1 = (q11 - cxy) / fxy
+
+    print(f"    az_fov_deg = {(azel1 - azel0)[0]   * 180./np.pi:.1f}")
+    print(f"    el_fov_deg = {(azel1 - azel0)[1]   * 180./np.pi:.1f}")
+    print(f"    az0_deg    = {(azel1 + azel0)[0]/2 * 180./np.pi:.1f}")
+    print(f"    el0_deg    = {(azel1 + azel0)[1]/2 * 180./np.pi:.1f}")
+
+    sys.exit(0)
+
+rectification_maps = mrcal.rectification_maps(models, models_rectified)
+
+
+# This is a hard-coded property of the OpenCV StereoSGBM implementation
+disparity_scale = 16
+
+# round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
+# implementation requires this
+disp_max = disparity_scale*round(disp_max/disparity_scale)
+disp_min = disparity_scale*int  (disp_min/disparity_scale)
+
+stereo_sgbm = \
+    cv2.StereoSGBM_create(minDisparity      = disp_min,
+                          numDisparities    = disp_max - disp_min,
+                          blockSize         = 5,
+                          P1                = 600,
+                          P2                = 2400,
+                          disp12MaxDiff     = 1,
+                          uniquenessRatio   = 5,
+                          speckleWindowSize = 100,
+                          speckleRange      = 2 )
+
+images = [mrcal.load_image(f,
+                           bits_per_pixel = 24,
+                           channels       = 3) for f in image_filenames]
+
+images_rectified = [mrcal.transform_image(images[i],
+                                          rectification_maps[i]) \
+                    for i in range(2)]
+
+disparity = stereo_sgbm.compute(*images_rectified)
+
+disparity_colored = mrcal.apply_color_map(disparity,
+                                          disp_min*disparity_scale,
+                                          disp_max*disparity_scale)
+
+image_filenames_base = \
+    [os.path.splitext(os.path.split(f)[1])[0] for f in image_filenames]
+
+def write_output_one(func, filename):
+    func(filename)
+    print(f"Wrote '{filename}'")
+
+    f,e = os.path.splitext(filename)
+    filename_downsampled = f"{f}.downsampled{e}"
+    os.system(f"convert {filename} -scale 50% {filename_downsampled}")
+    print(f"Wrote '{filename_downsampled}'")
+
+write_output_one(lambda filename: mrcal.save_image(filename, images_rectified[0]),
+                 f"{Dout}/{image_filenames_base[0]}-rectified.png")
+write_output_one(lambda filename: mrcal.save_image(filename, images_rectified[1]),
+                 f"{Dout}/{image_filenames_base[1]}-rectified.png")
+write_output_one(lambda filename: mrcal.save_image(filename, disparity_colored),
+                 f"{Dout}/{image_filenames_base[0]}-disparity.png")
+
+
+ranges0 = mrcal.stereo_range( disparity,
+                              models_rectified,
+                              disparity_scale = disparity_scale)
+
+delta = 0.1
+ranges1 = mrcal.stereo_range( disparity + delta*disparity_scale,
+                              models_rectified,
+                              disparity_scale = disparity_scale)
+
+drange_ddisparity = (ranges0-ranges1) / delta
+
+idx_valid = (disparity > 0) * (disparity < 30000)
+drange_ddisparity[~idx_valid] = 0
+
+filename_plot = f"{Dout}/sensitivity.png"
+title = f"Expected range error assuming disparity error of {disparity_error_expected} pixels"
+gp.plot( drange_ddisparity * disparity_error_expected,
+         square   = True,
+         _set = ('xrange noextend',
+                 'yrange reverse noextend',
+                 'logscale cb',
+                 'cblabel "Expected range error (m)"',
+                 'cbtics (.3, 1, 10, 100, 500)'),
+         cbrange = [0.3,500],
+         _with = 'image',
+         tuplesize = 3,
+         title     = title,
+         hardcopy  = filename_plot,
+         terminal =  'pngcairo size 1024,768 transparent noenhanced crop font ",12"')
+print(f"Wrote '{filename_plot}'")
+#+end_src
+
+The rectified images look like this:
+
+[[file:external/figures/stereo-range-sensitivity/0-rectified.png][file:external/figures/stereo-range-sensitivity/0-rectified.downsampled.png]]
+[[file:external/figures/stereo-range-sensitivity/1-rectified.png][file:external/figures/stereo-range-sensitivity/1-rectified.downsampled.png]]
+
+And the disparity image looks like this:
+
+[[file:external/figures/stereo-range-sensitivity/0-disparity.png][file:external/figures/stereo-range-sensitivity/0-disparity.downsampled.png]]
+
+And we compute the range sensitivity. And we plot it:
+
+file:external/figures/stereo-range-sensitivity/sensitivity.png
+
+Since [[file:triangulation.org][triangulation accuracy scales with the /square/ of range]], this is a
+log-scale plot; otherwise it would be illegible. As expected we see that the
+relatively-nearby tree has an expected range error of < 1m, while the
+furthest-away building has an expected range error that approaches 500m. Clearly
+these are rough estimates, but they allow us to quickly gauge the ranging
+capabilities of a system for a particular scene.
 
 * Visualizing post-solve chessboard observations
 :PROPERTIES:
