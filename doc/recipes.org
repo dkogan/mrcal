@@ -160,6 +160,272 @@ mrgingham-rotate-corners           \
 > corners-rotated.vnl
 #+end_src
 
+* Chessboard-less calibration with surveyed chessboards
+:PROPERTIES:
+:CUSTOM_ID: surveyed-calibration
+:END:
+
+Usually cameras are calibrated by observing a moving calibration object with
+stationary cameras. This is not the only possible scheme, and mrcal supports
+others. A /surveyed/ calibration is one where the poses of the objects being
+observed are pre-determined (by surveying them, for instance). Then we get a
+simplified calibration problem:
+
+- Each point in space being observed has a fixed position. This is assumed to be
+  known perfectly
+- The camera is stationary, with a non-fixed pose: we solve for it
+- Only monocular solves are necessary. Since the objects being observed are
+  fixed, there is no interaction between the multiple cameras being calibrated,
+  and a multi-camera surveyed calibration can be solved by computing several
+  independent monocular calibrations.
+
+Furthermore, it doesn't matter if we're observing chessboards or discrete points
+or both: everything being observed has a known, fixed position. So when solving
+these problems we call =mrcal.optimize(...)= with
+
+- /Fixed/ =frames_rt_toref= and =points= arrays localizing the observed objects
+- =do_optimize_frames = False= to tell the optimization to fix them in space
+
+Calibrating in this way is uncommon, so the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras= tool]] does
+not support this directly. But this kind of solve is readily available via the
+[[file:python-api.org][Python APIs]], as demonstrated by the [[https://www.github.com/dkogan/mrcal/blob/master/test/test-surveyed-calibration.py][=test/test-surveyed-calibration.py=]] script.
+
+#+begin_src sh
+test/test-surveyed-calibration.py \
+  --do-sample                     \
+  --make-documentation-plots ''
+#+end_src
+#+begin_src sh :exports none :eval no-export
+## The below figures made like this
+D=../mrcal-doc-external/figures/surveyed-calibration/
+mkdir -p $D
+test/test-surveyed-calibration.py \
+  --do-sample                     \
+  --make-documentation-plots $D
+#+end_src
+
+This script simulates 3 observed chessboards in front of the camera. A long lens
+is used with a lean lens model ([[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV4=]]). We capture a single frame.
+The observed image looks like this:
+
+[[file:external/figures/surveyed-calibration/observations.svg]]
+
+Here we're looking at chessboards, but the observations are given to mrcal as
+discrete points for flexibility; we could use fixed chessboards identically.
+
+This setup is clearly violating the [[file:how-to-calibrate.org::#dancing][usual guidelines for capturing calibration
+data]]: we have a too-lean lens model, and we're not covering the imager with
+data. This is still useful to illustrate the processing, however. And this isn't
+far off from how somebody might capture data for a surveyed calibration.
+
+These kinds of solves usually work off far less data than the usual
+moving-chessboard calibrations, so they are more susceptible to [[file:uncertainty.org][sampling error
+causing high projection uncertainty]]. Fortunately, the techniques that we have
+for analyzing calibration quality ([[file:uncertainty.org][projection uncertainty quantification]] and
+[[file:tour-cross-validation.org][cross-validation differencing]]) are available here, so we can see how good or bad
+the results are. Note: today mrcal supports computing the uncertainty of a
+chessboard-less calibration /only/ if the points are fixed, as they are here;
+this will be implemented fully in the future.
+
+Similarly to the simulations in the [[file:tour-uncertainty.org][tour of mrcal]], we show that the predicted
+projection uncertainty matches what we get from sampling the input noise
+multiple times:
+
+[[file:external/figures/surveyed-calibration/var-q.svg]]
+
+We also looked at the effect of input noise on the extrinsics. The error in
+solved $z$ in camera coordinates:
+
+[[file:external/figures/surveyed-calibration/var-errz.svg]]
+
+Clearly the uncertainty propagation logic is working. Note: today's discrete
+point handling in mrcal has extra factors that generate this warning when
+computing an uncertainty:
+
+#+begin_example
+WARNING: I'm currently treating the point range normalization (penalty) terms as following the same noise model as other measurements. This will bias the uncertainty estimate
+#+end_example
+
+This is benign, and the related logic is likely to change in the future.
+
+The usual rule-of-thumb is to gather calibration data at multiple ranges because
+it is otherwise difficult to disentangle the effects of camera position from the
+effects of intrinsics. We can demonstrate this explicitly using the same test
+script: we solve the same calibration problem, with the range to the center
+chessboard varying.
+
+#+begin_src sh
+for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
+    test/test-surveyed-calibration.py \
+      --only-report-uncertainty       \
+      --range-board 10                \
+      --range-board-center $z 2>/dev/null
+  } \
+| vnl-filter -p z-center,stdev \
+| feedgnuplot                \
+    --domain                 \
+    --vnl                    \
+    --autolegend             \
+    --y2 'stdev(errz)'       \
+    --ymin  0                \
+    --y2min 0                \
+    --lines                  \
+    --points                 \
+    --xlabel  'Distance to the middle chessboard (m)' \
+    --ylabel  'Reprojection error (pixels)' \
+    --y2label 'Position error in z (m)' \
+    --legend 'stdev(q)'    'Standard deviation of reprojection at infinity' \
+    --legend 'stdev(errz)' 'Standard deviation of the error in z' \
+    --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable'
+#+end_src
+#+begin_src sh :exports none :eval no-export
+for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
+    test/test-surveyed-calibration.py \
+      --only-report-uncertainty       \
+      --range-board 10                \
+      --range-board-center $z 2>/dev/null
+  } \
+| awk '/#/ && !legend {print; legend=1;} !/#/ {print}' \
+| vnl-align \
+| tee /tmp/surveyed-calibration-single.vnl
+
+D=~/projects/mrcal-doc-external/figures/surveyed-calibration
+mkdir -p $D
+< /tmp/surveyed-calibration-single.vnl \
+vnl-filter -p z-center,stdev \
+| feedgnuplot                \
+    --domain                 \
+    --vnl                    \
+    --autolegend             \
+    --y2 'stdev(errz)'       \
+    --ymin  0                \
+    --y2min 0                \
+    --lines                  \
+    --points                 \
+    --xlabel  'Distance to the middle chessboard (m)' \
+    --ylabel  'Reprojection error (pixels)' \
+    --y2label 'Position error in z (m)' \
+    --legend 'stdev(q)'    'Standard deviation of reprojection at infinity' \
+    --legend 'stdev(errz)' 'Standard deviation of the error in z' \
+    --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable' \
+    --hardcopy $D/moving-range-single.svg \
+    --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+#+end_src
+#+begin_src sh :exports none :eval no-export
+## results: one observation
+# z-bulk z-center stdev(q) stdev(errz)
+10.0      4.0      0.3537  0.0021
+10.0      5.0      0.4851  0.0035
+10.0      8.0      1.7751  0.0176
+10.0      9.0      3.9342  0.0412
+10.0      9.5      7.9519  0.0839
+10.0     10.0     76.4639  0.6743
+10.0     10.5     11.3296  0.1387
+10.0     11.0      5.6793  0.0684
+10.0     15.0      1.7219  0.0222
+10.0     20.0      1.3979  0.0189
+10.0     30.0      1.4779  0.0205
+#+end_src
+
+[[file:external/figures/surveyed-calibration/moving-range-single.svg]]
+
+So when all 3 chessboards sit at 10m out, we get far worse uncertainties in both
+the projection behavior and position estimates defined by the calibration. When
+running the standard moving-chessboard calibration we have an [[file:tour-choreography.org::#tilt][analogous effect
+when we consider tilting the chessboard to the camera]]: chessboard tilt creates
+the variable ranges required for a well-defined solve.
+
+In our scenario here, the issue is high sampling error causing a high projection
+uncertainty. One way to mitigate this problem is by gathering more data. Even if
+everything is stationary, and we capture multiple images of the same stationary
+scene, we are still capturing multiple samples of the input noise. In theory. If
+we capture $N$ times more data, the expected uncertainty improvement is
+$\sqrt{N}$. Let's try it by passing the =--oversample 10= option:
+
+#+begin_src sh
+for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
+    test/test-surveyed-calibration.py \
+      --oversample 10                 \
+      --only-report-uncertainty       \
+      --range-board 10                \
+      --range-board-center $z 2>/dev/null
+  } \
+| vnl-filter -p z-center,stdev \
+| feedgnuplot                \
+    --domain                 \
+    --vnl                    \
+    --autolegend             \
+    --y2 'stdev(errz)'       \
+    --ymin  0                \
+    --y2min 0                \
+    --lines                  \
+    --points                 \
+    --xlabel  'Distance to the middle chessboard (m)' \
+    --ylabel  'Reprojection error (pixels)' \
+    --y2label 'Position error in z (m)' \
+    --legend 'stdev(q)'    'Standard deviation of reprojection at infinity' \
+    --legend 'stdev(errz)' 'Standard deviation of the error in z' \
+    --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable; 10x oversampling'
+#+end_src
+#+begin_src sh :exports none :eval no-export
+for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
+    test/test-surveyed-calibration.py \
+      --oversample 10                 \
+      --only-report-uncertainty       \
+      --range-board 10                \
+      --range-board-center $z 2>/dev/null
+  } \
+| awk '/#/ && !legend {print; legend=1;} !/#/ {print}' \
+| vnl-align \
+| tee /tmp/surveyed-calibration-oversampled.vnl
+
+D=~/projects/mrcal-doc-external/figures/surveyed-calibration
+mkdir -p $D
+< /tmp/surveyed-calibration-oversampled.vnl \
+vnl-filter -p z-center,stdev \
+| feedgnuplot                \
+    --domain                 \
+    --vnl                    \
+    --autolegend             \
+    --y2 'stdev(errz)'       \
+    --ymin  0                \
+    --y2min 0                \
+    --lines                  \
+    --points                 \
+    --xlabel  'Distance to the middle chessboard (m)' \
+    --ylabel  'Reprojection error (pixels)' \
+    --y2label 'Position error in z (m)' \
+    --legend 'stdev(q)'    'Standard deviation of reprojection at infinity' \
+    --legend 'stdev(errz)' 'Standard deviation of the error in z' \
+    --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable; 10x oversampling' \
+    --hardcopy $D/moving-range-oversampled.svg \
+    --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+#+end_src
+#+begin_src sh :exports none :eval no-export
+## results: 10 observations
+# z-bulk z-center stdev(q) stdev(errz)
+10.0      4.0      0.1158  0.0006
+10.0      5.0      0.1593  0.0011
+10.0      8.0      0.5708  0.0055
+10.0      9.0      1.2551  0.0128
+10.0      9.5      2.5246  0.0259
+10.0     10.0     24.5037  0.2080
+10.0     10.5      3.6249  0.0442
+10.0     11.0      1.8052  0.0215
+10.0     15.0      0.5407  0.0069
+10.0     20.0      0.4369  0.0059
+10.0     30.0      0.4607  0.0064
+#+end_src
+
+[[file:external/figures/surveyed-calibration/moving-range-oversampled.svg]]
+
+And it works as expected: we still see the spike, but all the uncertainties are
+roughly a factor or $\sqrt{10} = 3.2$ smaller. Note that this works if the input
+noise is truly gaussian and independent. Empirically, this is mostly true, but
+may not be 100% true. Techniques that rely heavily on this assumption, such as
+this one, may not work perfectly in the real world. Take these results with a
+grain of salt.
+
 * Stability of intrinsics
 :PROPERTIES:
 :CUSTOM_ID: lens-stability
@@ -226,6 +492,64 @@ mount. Any mechanical stresses wouldn't affect the intrinsics, but the
 extrinsics /would/ shift. Evaluation of this motion is described on the [[file:differencing.org::*Extrinsics
 differences][differencing page]].
 
+* Converting lens models
+:PROPERTIES:
+:CUSTOM_ID: convert-lensmodel
+:END:
+
+It is often useful to convert a camera model utilizing one lens model to use
+another one. For instance when [[#interoperating-with-too-lean-model][using a calibration in an existing system that
+doesn't support the model we have]]. This is a common need, so a standalone tool
+is available for this task: [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]. Two modes are available:
+
+1. If the given cameramodel file contains =optimization_inputs=, then we have
+   all the data that was used to compute this model in the first place, and we
+   can re-run the original optimization, using the new lens model. This is the
+   default behavior, and is the preferred choice. However it can only work with
+   models that were computed by mrcal originally.
+
+2. We can sample a grid of points on the imager, unproject them to observation
+   vectors in the camera coordinate system, and then fit a new camera model that
+   reprojects these vectors as closely to the original pixel coordinates as
+   possible. This can be applied to models that didn't come from mrcal. Select
+   this mode by passing =--sampled=.
+
+Since camera models (lens parameters /and/ geometry) are computed off real pixel
+observations, the confidence of the projections varies greatly across the imager
+and across observation distances. The first method uses the original data, so it
+implicitly respects these uncertainties: uncertain areas in the original model
+will be uncertain in the new model as well. The second method, however, doesn't
+have this information: it doesn't know which parts of the imager and space are
+reliable, so the results suffer.
+
+As always, the [[file:differencing.org::#implied-transformation][intrinsics have some baked-in geometry information]]. Both methods
+optimize intrinsics /and/ extrinsics, and output cameramodels with updated
+versions of both. If =--sampled=: we can request that only the intrinsics be
+optimized by passing =--intrinsics-only=.
+
+Also, if =--sampled= and not =--intrinsics-only=: we fit the extrinsics off 3D
+points, not just observation directions. The distance from the camera to the
+points is set by =--distance=. This can take a comma-separated list of distances
+to use. It's /strongly/ recommended to ask for two different distances:
+
+- A "near" distance: where we expect the intrinsics to have the most accuracy.
+  At the range of the chessboards, usually
+
+- A "far" distance: at "infinity". A few km is good usually.
+
+The reason for this is that =--sampled= solves at a single distance aren't
+sufficiently constrained, similar to the issues that result from a [[#surveyed-calibration][surveyed
+calibration]] of chessboards all at the same range. If we ask for a single far
+distance: =--distance 1000= for instance, we can easily get an extrinsics
+shift of 100m. This is aphysical: changing the intrinsics could shift the camera
+origin by a few mm, but not 100m. Conceptually we want to perform a
+rotation-only extrinsics solve, but this isn't yet implemented. Passing both a
+near and far distance appears to constrain the extrinsics well in practice. The
+computed extrinsics transform is printed on the console, with a warning if an
+aphysical shift was computed. Do pay attention to the console output.
+
+Some more tool-specific documentation are available in the documentation in
+[[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]].
 * Interoperating with other tools
 Any application that uses camera models is composed of multiple steps, some of
 which would benefit from mrcal-specific logic. Specifically:
@@ -313,6 +637,103 @@ be:
 3. Stereo matching to produce disparities. This could be done by any tool
 4. mrcal converts disparities to ranges and to a point cloud
 5. The point cloud is ingested the the system to continue processing
+
+* Visualizing post-solve chessboard observations
+:PROPERTIES:
+:CUSTOM_ID: reproject-to-chessboard
+:END:
+
+mrcal is primarily a geometric toolkit: after we [[file:how-to-calibrate.org::#corner-detector][detect the chessboard corners]],
+we never look at the chessboard images again, and do /everything/ with the
+detected corner coordinates. This assumes the chessboard detector works
+perfectly. At least for [[https://github.com/dkogan/mrgingham/][=mrgingham=]], this is a close-enough assumption; but it's
+nice to be able to double-check. To do that the mrcal sources include the
+[[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-reproject-to-chessboard][=mrcal-reproject-to-chessboard= tool]]; this is still experimental, so it's not
+included in a mrcal installation, and currently has to be invoked from source.
+This tool takes in completed calibration, and reprojects each chessboard image
+to a chessboard-referenced space: each resulting image shows just the
+chessboard, with each chessboard corner appearing at exactly the same pixel in
+each image. Example frame from the [[file:tour.org][tour of mrcal]]:
+
+#+begin_src sh
+analyses/mrcal-reproject-to-chessboard \
+  --image-path-prefix images           \
+  splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+Dout=~/projects/mrcal-doc-external/figures/reprojected-to-chessboard
+mkdir -p $Dout
+
+D=/home/dima/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity/;
+analyses/mrcal-reproject-to-chessboard \
+  --image-path-prefix $D/images        \
+  --outdir $Dout \
+  $D/splined.cameramodel
+
+ffmpeg \
+  -r 5 -f image2 -export_path_metadata 1 \
+  -pattern_type glob -i "$Dout/DSC*.JPG" \
+  -filter:v "drawtext=text='%{metadata\\:lavf.image2dec.source_basename}':fontcolor=yellow:fontsize=48" \
+  -y \
+  $Dout/reprojected-to-chessboard.mp4
+#+end_src
+
+[[file:external/figures/reprojected-to-chessboard/DSC06155.JPG]]
+
+The red circles indicate the corner observations classified as outliers by the
+solver. This tool useful to look at the reprojected images in a quick
+succession. Ideally every reprojected image should be very similar, with each
+chessboard corner randomly, and independently jumping around a tiny bit (this is
+reported in the [[file:tour-initial-calibration.org::#opencv8-solve-diagnostics][fit residuals]]). If the detector had issues or an image was
+faulty in some way, this would be clearly seen by eyeballing the sequence of
+images. The whole image would shift; or a single non-outlier corner would jump.
+It's good to eyeball these animations as a final sanity check before accepting a
+calibration. In this dataset, we have [[file:external/figures/reprojected-to-chessboard/reprojected-to-chessboard.mp4][this all-corner animation]] from ([[file:external/figures/reprojected-to-chessboard/][these
+images]]). No issues here. For questionable calibration objects (such as grids
+of circles), checking this is /essential/.
+
+* Visualizing camera resolution
+:PROPERTIES:
+:CUSTOM_ID: visualizing-resolution
+:END:
+
+Ignoring [[file:formulation.org::#lens-behavior][noncentral effects]] very close to the lens, a camera model maps
+directions in space to pixel coordinates, with each pixel covering a solid angle
+of some size. As sensor resolutions increase, the pixels become finer, covering
+smaller solid angles. For various processing it is often useful to visualize
+this angular resolution of a camera. For instance to justify using
+geometric-only techniques, such as the [[file:triangulation.org][triangulation methods]].
+
+mrcal provides the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-show-model-resolution.py][=analyses/mrcal-show-model-resolution.py=]] tool to do this.
+This tool isn't yet "released", so it is not yet part of the installed set, and
+must be run from the source tree. A sample visualization of the lens from the
+[[file:tour.org][tour of mrcal]]:
+
+#+begin_src sh
+analyses/mrcal-show-model-resolution.py                        \
+  --title "Mean angular resolution (deg/pixel) over the imager" \
+  splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external/figures/resolution
+mkdir -p $D
+
+PYTHONPATH=$PWD \
+analyses/mrcal-show-model-resolution.py \
+  --title "Mean angular resolution (deg/pixel) over the imager" \
+  --unset key \
+  --hardcopy $D/splined-resolution.png                          \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"' \
+  mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity/splined.cameramodel
+#+end_src
+
+[[file:external/figures/resolution/splined-resolution.png]]
+
+So as we move outwards, each pixel covers less space. Note that at each pixel
+the projection behavior isn't necessarily isotropic: the resolution may be
+different if looking in different directions. The current implementation of the
+tool /does/ assume isotropic behavior, however, and it displays the mean
+resolution.
 
 * Estimating ranging errors caused by calibration errors
 Any particular application has requirements for how accurate the mapping and/or
@@ -626,424 +1047,3 @@ furthest-away building has an expected range error that approaches 500m. Clearly
 these are rough estimates, but they allow us to quickly gauge the ranging
 capabilities of a system for a particular scene.
 
-* Visualizing post-solve chessboard observations
-:PROPERTIES:
-:CUSTOM_ID: reproject-to-chessboard
-:END:
-
-mrcal is primarily a geometric toolkit: after we [[file:how-to-calibrate.org::#corner-detector][detect the chessboard corners]],
-we never look at the chessboard images again, and do /everything/ with the
-detected corner coordinates. This assumes the chessboard detector works
-perfectly. At least for [[https://github.com/dkogan/mrgingham/][=mrgingham=]], this is a close-enough assumption; but it's
-nice to be able to double-check. To do that the mrcal sources include the
-[[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-reproject-to-chessboard][=mrcal-reproject-to-chessboard= tool]]; this is still experimental, so it's not
-included in a mrcal installation, and currently has to be invoked from source.
-This tool takes in completed calibration, and reprojects each chessboard image
-to a chessboard-referenced space: each resulting image shows just the
-chessboard, with each chessboard corner appearing at exactly the same pixel in
-each image. Example frame from the [[file:tour.org][tour of mrcal]]:
-
-#+begin_src sh
-analyses/mrcal-reproject-to-chessboard \
-  --image-path-prefix images           \
-  splined.cameramodel
-#+end_src
-#+begin_src sh :exports none :eval no-export
-Dout=~/projects/mrcal-doc-external/figures/reprojected-to-chessboard
-mkdir -p $Dout
-
-D=/home/dima/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity/;
-analyses/mrcal-reproject-to-chessboard \
-  --image-path-prefix $D/images        \
-  --outdir $Dout \
-  $D/splined.cameramodel
-
-ffmpeg \
-  -r 5 -f image2 -export_path_metadata 1 \
-  -pattern_type glob -i "$Dout/DSC*.JPG" \
-  -filter:v "drawtext=text='%{metadata\\:lavf.image2dec.source_basename}':fontcolor=yellow:fontsize=48" \
-  -y \
-  $Dout/reprojected-to-chessboard.mp4
-#+end_src
-
-[[file:external/figures/reprojected-to-chessboard/DSC06155.JPG]]
-
-The red circles indicate the corner observations classified as outliers by the
-solver. This tool useful to look at the reprojected images in a quick
-succession. Ideally every reprojected image should be very similar, with each
-chessboard corner randomly, and independently jumping around a tiny bit (this is
-reported in the [[file:tour-initial-calibration.org::#opencv8-solve-diagnostics][fit residuals]]). If the detector had issues or an image was
-faulty in some way, this would be clearly seen by eyeballing the sequence of
-images. The whole image would shift; or a single non-outlier corner would jump.
-It's good to eyeball these animations as a final sanity check before accepting a
-calibration. In this dataset, we have [[file:external/figures/reprojected-to-chessboard/reprojected-to-chessboard.mp4][this all-corner animation]] from ([[file:external/figures/reprojected-to-chessboard/][these
-images]]). No issues here. For questionable calibration objects (such as grids
-of circles), checking this is /essential/.
-
-* Chessboard-less calibration with surveyed chessboards
-:PROPERTIES:
-:CUSTOM_ID: surveyed-calibration
-:END:
-
-Usually cameras are calibrated by observing a moving calibration object with
-stationary cameras. This is not the only possible scheme, and mrcal supports
-others. A /surveyed/ calibration is one where the poses of the objects being
-observed are pre-determined (by surveying them, for instance). Then we get a
-simplified calibration problem:
-
-- Each point in space being observed has a fixed position. This is assumed to be
-  known perfectly
-- The camera is stationary, with a non-fixed pose: we solve for it
-- Only monocular solves are necessary. Since the objects being observed are
-  fixed, there is no interaction between the multiple cameras being calibrated,
-  and a multi-camera surveyed calibration can be solved by computing several
-  independent monocular calibrations.
-
-Furthermore, it doesn't matter if we're observing chessboards or discrete points
-or both: everything being observed has a known, fixed position. So when solving
-these problems we call =mrcal.optimize(...)= with
-
-- /Fixed/ =frames_rt_toref= and =points= arrays localizing the observed objects
-- =do_optimize_frames = False= to tell the optimization to fix them in space
-
-Calibrating in this way is uncommon, so the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras= tool]] does
-not support this directly. But this kind of solve is readily available via the
-[[file:python-api.org][Python APIs]], as demonstrated by the [[https://www.github.com/dkogan/mrcal/blob/master/test/test-surveyed-calibration.py][=test/test-surveyed-calibration.py=]] script.
-
-#+begin_src sh
-test/test-surveyed-calibration.py \
-  --do-sample                     \
-  --make-documentation-plots ''
-#+end_src
-#+begin_src sh :exports none :eval no-export
-## The below figures made like this
-D=../mrcal-doc-external/figures/surveyed-calibration/
-mkdir -p $D
-test/test-surveyed-calibration.py \
-  --do-sample                     \
-  --make-documentation-plots $D
-#+end_src
-
-This script simulates 3 observed chessboards in front of the camera. A long lens
-is used with a lean lens model ([[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV4=]]). We capture a single frame.
-The observed image looks like this:
-
-[[file:external/figures/surveyed-calibration/observations.svg]]
-
-Here we're looking at chessboards, but the observations are given to mrcal as
-discrete points for flexibility; we could use fixed chessboards identically.
-
-This setup is clearly violating the [[file:how-to-calibrate.org::#dancing][usual guidelines for capturing calibration
-data]]: we have a too-lean lens model, and we're not covering the imager with
-data. This is still useful to illustrate the processing, however. And this isn't
-far off from how somebody might capture data for a surveyed calibration.
-
-These kinds of solves usually work off far less data than the usual
-moving-chessboard calibrations, so they are more susceptible to [[file:uncertainty.org][sampling error
-causing high projection uncertainty]]. Fortunately, the techniques that we have
-for analyzing calibration quality ([[file:uncertainty.org][projection uncertainty quantification]] and
-[[file:tour-cross-validation.org][cross-validation differencing]]) are available here, so we can see how good or bad
-the results are. Note: today mrcal supports computing the uncertainty of a
-chessboard-less calibration /only/ if the points are fixed, as they are here;
-this will be implemented fully in the future.
-
-Similarly to the simulations in the [[file:tour-uncertainty.org][tour of mrcal]], we show that the predicted
-projection uncertainty matches what we get from sampling the input noise
-multiple times:
-
-[[file:external/figures/surveyed-calibration/var-q.svg]]
-
-We also looked at the effect of input noise on the extrinsics. The error in
-solved $z$ in camera coordinates:
-
-[[file:external/figures/surveyed-calibration/var-errz.svg]]
-
-Clearly the uncertainty propagation logic is working. Note: today's discrete
-point handling in mrcal has extra factors that generate this warning when
-computing an uncertainty:
-
-#+begin_example
-WARNING: I'm currently treating the point range normalization (penalty) terms as following the same noise model as other measurements. This will bias the uncertainty estimate
-#+end_example
-
-This is benign, and the related logic is likely to change in the future.
-
-The usual rule-of-thumb is to gather calibration data at multiple ranges because
-it is otherwise difficult to disentangle the effects of camera position from the
-effects of intrinsics. We can demonstrate this explicitly using the same test
-script: we solve the same calibration problem, with the range to the center
-chessboard varying.
-
-#+begin_src sh
-for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
-    test/test-surveyed-calibration.py \
-      --only-report-uncertainty       \
-      --range-board 10                \
-      --range-board-center $z 2>/dev/null
-  } \
-| vnl-filter -p z-center,stdev \
-| feedgnuplot                \
-    --domain                 \
-    --vnl                    \
-    --autolegend             \
-    --y2 'stdev(errz)'       \
-    --ymin  0                \
-    --y2min 0                \
-    --lines                  \
-    --points                 \
-    --xlabel  'Distance to the middle chessboard (m)' \
-    --ylabel  'Reprojection error (pixels)' \
-    --y2label 'Position error in z (m)' \
-    --legend 'stdev(q)'    'Standard deviation of reprojection at infinity' \
-    --legend 'stdev(errz)' 'Standard deviation of the error in z' \
-    --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable'
-#+end_src
-#+begin_src sh :exports none :eval no-export
-for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
-    test/test-surveyed-calibration.py \
-      --only-report-uncertainty       \
-      --range-board 10                \
-      --range-board-center $z 2>/dev/null
-  } \
-| awk '/#/ && !legend {print; legend=1;} !/#/ {print}' \
-| vnl-align \
-| tee /tmp/surveyed-calibration-single.vnl
-
-D=~/projects/mrcal-doc-external/figures/surveyed-calibration
-mkdir -p $D
-< /tmp/surveyed-calibration-single.vnl \
-vnl-filter -p z-center,stdev \
-| feedgnuplot                \
-    --domain                 \
-    --vnl                    \
-    --autolegend             \
-    --y2 'stdev(errz)'       \
-    --ymin  0                \
-    --y2min 0                \
-    --lines                  \
-    --points                 \
-    --xlabel  'Distance to the middle chessboard (m)' \
-    --ylabel  'Reprojection error (pixels)' \
-    --y2label 'Position error in z (m)' \
-    --legend 'stdev(q)'    'Standard deviation of reprojection at infinity' \
-    --legend 'stdev(errz)' 'Standard deviation of the error in z' \
-    --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable' \
-    --hardcopy $D/moving-range-single.svg \
-    --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
-#+end_src
-#+begin_src sh :exports none :eval no-export
-## results: one observation
-# z-bulk z-center stdev(q) stdev(errz)
-10.0      4.0      0.3537  0.0021
-10.0      5.0      0.4851  0.0035
-10.0      8.0      1.7751  0.0176
-10.0      9.0      3.9342  0.0412
-10.0      9.5      7.9519  0.0839
-10.0     10.0     76.4639  0.6743
-10.0     10.5     11.3296  0.1387
-10.0     11.0      5.6793  0.0684
-10.0     15.0      1.7219  0.0222
-10.0     20.0      1.3979  0.0189
-10.0     30.0      1.4779  0.0205
-#+end_src
-
-[[file:external/figures/surveyed-calibration/moving-range-single.svg]]
-
-So when all 3 chessboards sit at 10m out, we get far worse uncertainties in both
-the projection behavior and position estimates defined by the calibration. When
-running the standard moving-chessboard calibration we have an [[file:tour-choreography.org::#tilt][analogous effect
-when we consider tilting the chessboard to the camera]]: chessboard tilt creates
-the variable ranges required for a well-defined solve.
-
-In our scenario here, the issue is high sampling error causing a high projection
-uncertainty. One way to mitigate this problem is by gathering more data. Even if
-everything is stationary, and we capture multiple images of the same stationary
-scene, we are still capturing multiple samples of the input noise. In theory. If
-we capture $N$ times more data, the expected uncertainty improvement is
-$\sqrt{N}$. Let's try it by passing the =--oversample 10= option:
-
-#+begin_src sh
-for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
-    test/test-surveyed-calibration.py \
-      --oversample 10                 \
-      --only-report-uncertainty       \
-      --range-board 10                \
-      --range-board-center $z 2>/dev/null
-  } \
-| vnl-filter -p z-center,stdev \
-| feedgnuplot                \
-    --domain                 \
-    --vnl                    \
-    --autolegend             \
-    --y2 'stdev(errz)'       \
-    --ymin  0                \
-    --y2min 0                \
-    --lines                  \
-    --points                 \
-    --xlabel  'Distance to the middle chessboard (m)' \
-    --ylabel  'Reprojection error (pixels)' \
-    --y2label 'Position error in z (m)' \
-    --legend 'stdev(q)'    'Standard deviation of reprojection at infinity' \
-    --legend 'stdev(errz)' 'Standard deviation of the error in z' \
-    --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable; 10x oversampling'
-#+end_src
-#+begin_src sh :exports none :eval no-export
-for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
-    test/test-surveyed-calibration.py \
-      --oversample 10                 \
-      --only-report-uncertainty       \
-      --range-board 10                \
-      --range-board-center $z 2>/dev/null
-  } \
-| awk '/#/ && !legend {print; legend=1;} !/#/ {print}' \
-| vnl-align \
-| tee /tmp/surveyed-calibration-oversampled.vnl
-
-D=~/projects/mrcal-doc-external/figures/surveyed-calibration
-mkdir -p $D
-< /tmp/surveyed-calibration-oversampled.vnl \
-vnl-filter -p z-center,stdev \
-| feedgnuplot                \
-    --domain                 \
-    --vnl                    \
-    --autolegend             \
-    --y2 'stdev(errz)'       \
-    --ymin  0                \
-    --y2min 0                \
-    --lines                  \
-    --points                 \
-    --xlabel  'Distance to the middle chessboard (m)' \
-    --ylabel  'Reprojection error (pixels)' \
-    --y2label 'Position error in z (m)' \
-    --legend 'stdev(q)'    'Standard deviation of reprojection at infinity' \
-    --legend 'stdev(errz)' 'Standard deviation of the error in z' \
-    --title 'Surveyed calibration: effect of camera range variability; 2 cameras at 10m, one variable; 10x oversampling' \
-    --hardcopy $D/moving-range-oversampled.svg \
-    --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
-#+end_src
-#+begin_src sh :exports none :eval no-export
-## results: 10 observations
-# z-bulk z-center stdev(q) stdev(errz)
-10.0      4.0      0.1158  0.0006
-10.0      5.0      0.1593  0.0011
-10.0      8.0      0.5708  0.0055
-10.0      9.0      1.2551  0.0128
-10.0      9.5      2.5246  0.0259
-10.0     10.0     24.5037  0.2080
-10.0     10.5      3.6249  0.0442
-10.0     11.0      1.8052  0.0215
-10.0     15.0      0.5407  0.0069
-10.0     20.0      0.4369  0.0059
-10.0     30.0      0.4607  0.0064
-#+end_src
-
-[[file:external/figures/surveyed-calibration/moving-range-oversampled.svg]]
-
-And it works as expected: we still see the spike, but all the uncertainties are
-roughly a factor or $\sqrt{10} = 3.2$ smaller. Note that this works if the input
-noise is truly gaussian and independent. Empirically, this is mostly true, but
-may not be 100% true. Techniques that rely heavily on this assumption, such as
-this one, may not work perfectly in the real world. Take these results with a
-grain of salt.
-
-* Camera resolution visualization
-:PROPERTIES:
-:CUSTOM_ID: visualizing-resolution
-:END:
-
-Ignoring [[file:formulation.org::#lens-behavior][noncentral effects]] very close to the lens, a camera model maps
-directions in space to pixel coordinates, with each pixel covering a solid angle
-of some size. As sensor resolutions increase, the pixels become finer, covering
-smaller solid angles. For various processing it is often useful to visualize
-this angular resolution of a camera. For instance to justify using
-geometric-only techniques, such as the [[file:triangulation.org][triangulation methods]].
-
-mrcal provides the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-show-model-resolution.py][=analyses/mrcal-show-model-resolution.py=]] tool to do this.
-This tool isn't yet "released", so it is not yet part of the installed set, and
-must be run from the source tree. A sample visualization of the lens from the
-[[file:tour.org][tour of mrcal]]:
-
-#+begin_src sh
-analyses/mrcal-show-model-resolution.py                        \
-  --title "Mean angular resolution (deg/pixel) over the imager" \
-  splined.cameramodel
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external/figures/resolution
-mkdir -p $D
-
-PYTHONPATH=$PWD \
-analyses/mrcal-show-model-resolution.py \
-  --title "Mean angular resolution (deg/pixel) over the imager" \
-  --unset key \
-  --hardcopy $D/splined-resolution.png                          \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"' \
-  mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity/splined.cameramodel
-#+end_src
-
-[[file:external/figures/resolution/splined-resolution.png]]
-
-So as we move outwards, each pixel covers less space. Note that at each pixel
-the projection behavior isn't necessarily isotropic: the resolution may be
-different if looking in different directions. The current implementation of the
-tool /does/ assume isotropic behavior, however, and it displays the mean
-resolution.
-
-* Converting lens models
-:PROPERTIES:
-:CUSTOM_ID: convert-lensmodel
-:END:
-
-It is often useful to convert a camera model utilizing one lens model to use
-another one. For instance when [[#interoperating-with-too-lean-model][using a calibration in an existing system that
-doesn't support the model we have]]. This is a common need, so a standalone tool
-is available for this task: [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]. Two modes are available:
-
-1. If the given cameramodel file contains =optimization_inputs=, then we have
-   all the data that was used to compute this model in the first place, and we
-   can re-run the original optimization, using the new lens model. This is the
-   default behavior, and is the preferred choice. However it can only work with
-   models that were computed by mrcal originally.
-
-2. We can sample a grid of points on the imager, unproject them to observation
-   vectors in the camera coordinate system, and then fit a new camera model that
-   reprojects these vectors as closely to the original pixel coordinates as
-   possible. This can be applied to models that didn't come from mrcal. Select
-   this mode by passing =--sampled=.
-
-Since camera models (lens parameters /and/ geometry) are computed off real pixel
-observations, the confidence of the projections varies greatly across the imager
-and across observation distances. The first method uses the original data, so it
-implicitly respects these uncertainties: uncertain areas in the original model
-will be uncertain in the new model as well. The second method, however, doesn't
-have this information: it doesn't know which parts of the imager and space are
-reliable, so the results suffer.
-
-As always, the [[file:differencing.org::#implied-transformation][intrinsics have some baked-in geometry information]]. Both methods
-optimize intrinsics /and/ extrinsics, and output cameramodels with updated
-versions of both. If =--sampled=: we can request that only the intrinsics be
-optimized by passing =--intrinsics-only=.
-
-Also, if =--sampled= and not =--intrinsics-only=: we fit the extrinsics off 3D
-points, not just observation directions. The distance from the camera to the
-points is set by =--distance=. This can take a comma-separated list of distances
-to use. It's /strongly/ recommended to ask for two different distances:
-
-- A "near" distance: where we expect the intrinsics to have the most accuracy.
-  At the range of the chessboards, usually
-
-- A "far" distance: at "infinity". A few km is good usually.
-
-The reason for this is that =--sampled= solves at a single distance aren't
-sufficiently constrained, similar to the issues that result from a [[#surveyed-calibration][surveyed
-calibration]] of chessboards all at the same range. If we ask for a single far
-distance: =--distance 1000= for instance, we can easily get an extrinsics
-shift of 100m. This is aphysical: changing the intrinsics could shift the camera
-origin by a few mm, but not 100m. Conceptually we want to perform a
-rotation-only extrinsics solve, but this isn't yet implemented. Passing both a
-near and far distance appears to constrain the extrinsics well in practice. The
-computed extrinsics transform is printed on the console, with a warning if an
-aphysical shift was computed. Do pay attention to the console output.
-
-Some more tool-specific documentation are available in the documentation in
-[[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]].
