@@ -2,7 +2,7 @@
 #+OPTIONS: toc:nil
 
 Latest release is mrcal 2.3 (2023/05/04): [[http://mrcal.secretsauce.net/docs-2.3][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.3][code]] and
-[[file:news-2.2.org][release and migration notes]]
+[[file:news-2.3.org][release and migration notes]]
 
 * Releases
 - mrcal 1.0.1 (2021/02/23): [[http://mrcal.secretsauce.net/docs-1.0][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v1.0.1][code]]
