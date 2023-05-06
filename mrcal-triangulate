@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 r'''Triangulate a feature in a pair of images to report a range
 
 SYNOPSIS
@@ -15,7 +23,7 @@ SYNOPSIS
   ## q1 - q1_perfect_at_range = [-1.43873946 -0.76196924]
   ## Range: 677.699 m (error: -192.301 m)
   ## Reprojection error between triangulated point and q0: [5.62522473e-10 3.59364094e-09]pixels
-  ## Observed-pixel sensitivity: 103.641m/pixel (q1). Worst direction: [1. 0.]. Linearized correction: 1.855 pixels
+  ## Observed-pixel range sensitivity: 103.641m/pixel (q1). Worst direction: [1. 0.]. Linearized correction: 1.855 pixels
   ## Calibration yaw sensitivity: -3760.702m/deg. Linearized correction: -0.051 degrees of yaw
   ## Calibration pitch sensitivity: 0.059m/deg.
   ## Calibration translation sensitivity: 319.484m/m. Worst direction: [1 0 0].
@@ -43,17 +51,25 @@ def parse_args():
         try:
             value = float(string)
         except:
-            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+            print(f"argument MUST be a positive floating-point number. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         if value <= 0:
-            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+            print(f"argument MUST be a positive floating-point number. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         return value
     def positive_int(string):
         try:
             value = int(string)
         except:
-            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+            print(f"argument MUST be a positive integer. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         if value <= 0 or abs(value-float(string)) > 1e-6:
-            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+            print(f"argument MUST be a positive integer. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         return value
 
     parser = \
@@ -126,7 +142,7 @@ def parse_args():
                         This is a value in [0,1] scaling the stdev. 0 means
                         "independent" (the default). 1.0 means "100%%
                         correlated".''')
-    parser.add_argument('--stabilize-coords',
+    parser.add_argument('--stabilize-coords', '--stabilize',
                         action = 'store_true',
                         help='''If propagating calibration-time noise
                         (--q-calibration-stdev != 0), we report the uncertainty
@@ -482,13 +498,27 @@ if images is not None:
         clahe = cv2.createCLAHE()
         clahe.setClipLimit(8)
     def imread(filename):
-        image = mrcal.load_image(filename, bits_per_pixel = 8, channels = 1)
+        try:
+            image = mrcal.load_image(filename, bits_per_pixel = 8, channels = 1)
+        except:
+            print(f"Couldn't load '{filename}'",
+                  file=sys.stderr)
+            sys.exit(1)
+
         if args.clahe:
             image = clahe.apply(image)
         return image
     images = [imread(f) for f in images]
 
-models = [mrcal.cameramodel(m) for m in args.models]
+def openmodel(f):
+    try:
+        return mrcal.cameramodel(f)
+    except Exception as e:
+        print(f"Couldn't load camera model '{f}': {e}",
+              file=sys.stderr)
+        sys.exit(1)
+
+models = [openmodel(modelfilename) for modelfilename in args.models]
 
 if args.q_calibration_stdev is not None and \
    args.q_calibration_stdev != 0:
@@ -515,6 +545,8 @@ print("## generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S")
                                               ' '.join(mrcal.shellquote(s) for s in sys.argv)))
 
 v0 = mrcal.unproject(q0, *models[0].intrinsics(), normalize = True)
+
+Rtr0 = models[0].extrinsics_Rt_toref()
 
 Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                          models[1].extrinsics_Rt_toref() )
@@ -713,7 +745,10 @@ else:
 
     range_err_have = range0 - args.range_estimate
 
-    print(f"## Triangulated point at {p0}; direction: {v0}")
+    p0_ref = mrcal.transform_point_Rt(Rtr0, p0)
+    v0_ref = mrcal.rotate_point_R(Rtr0[:3,:], v0)
+    print(f"## Triangulated point at {p0}; direction: {v0} [camera coordinates]")
+    print(f"## Triangulated point at {p0_ref}; direction: {v0_ref} [reference coordinates]")
     print("## Range: {:.2f} m (error: {:.2f} m)".format(range0, range_err_have))
     print(f"## q0 - q0_triangulation = {q0 - mrcal.project(p0, *models[0].intrinsics())}")
 
@@ -727,7 +762,7 @@ else:
             # look at the least-confident direction
             sigma = np.sqrt(l[-1])
             v     = v[:,-1]
-            print(f"## Uncertainty propagation: {what} noise suggests worst confidence of sigma={sigma:.2f}m along {v}")
+            print(f"## Uncertainty propagation: {what} noise suggests worst confidence of sigma={sigma:.3f}m along {v}")
 
 
 
@@ -745,7 +780,7 @@ else:
         if rangeerr > rangeerr_worst_qerr:
             rangeerr_worst_qerr = rangeerr
             vq_worst_err        = vq
-    print("## Observed-pixel sensitivity: {:.2f}m/pixel (q1). Worst direction: {}. Linearized correction: {:.2f} pixels". \
+    print("## Observed-pixel range sensitivity: {:.3f}m/pixel (q1). Worst direction: {}. Linearized correction: {:.3f} pixels". \
           format(rangeerr_worst_qerr/delta,
                  vq_worst_err,
                  -range_err_have/rangeerr_worst_qerr*delta ))

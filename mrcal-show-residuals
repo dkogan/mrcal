@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 r'''Visualize calibration residuals in an imager
 
 SYNOPSIS
@@ -210,7 +218,7 @@ elif args.directions:
 
 elif args.histogram:
     mrcal.show_residuals_histogram(optimization_inputs,
-                                   i_cam    = model.icam_intrinsics() if args.histogram_this_camera else None,
+                                   icam_intrinsics = model.icam_intrinsics() if args.histogram_this_camera else None,
                                    binwidth = args.binwidth,
                                    **kwargs)
 
@@ -252,4 +260,6 @@ elif args.regional:
 
 
 else:
-    raise Exception("Unknown mode. Exactly one of the mutually-exclusive variables should have gotten through the argument parser. Is this an argparse bug?")
+    print("Unknown mode. Exactly one of the mutually-exclusive variables should have gotten through the argument parser. Is this an argparse bug?",
+          file=sys.stderr)
+    sys.exit(1)

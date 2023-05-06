@@ -1367,12 +1367,11 @@ if not args.do_sample:
 ( intrinsics_sampled,         \
   extrinsics_sampled_mounted, \
   frames_sampled,             \
+  points_sampled,             \
   calobject_warp_sampled,     \
   optimization_inputs_sampled ) = \
-      calibration_sample( args.Nsamples, args.Ncameras, args.Nframes,
-                          Nintrinsics,
+      calibration_sample( args.Nsamples,
                           optimization_inputs_baseline,
-                          observations_true,
                           pixel_uncertainty_stdev,
                           fixedframes)
 

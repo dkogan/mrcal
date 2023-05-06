@@ -2,7 +2,7 @@
 #+OPTIONS: toc:nil
 
 * Previous
-We just [[file:tour-uncertainty.org][computed the projection uncertainties of the calibrated models]]
+We just [[file:tour-cross-validation.org][compared results of two different calibrations to gauge solution quality]]
 
 * The effect of range in differencing and uncertainty computations
 Earlier I talked about model [[file:tour-differencing.org][differencing]] and estimation of [[file:tour-uncertainty.org][projection
@@ -28,7 +28,7 @@ uncertainties. It only makes sense to talk about a "diff when looking at points
 $r$ meters away" or "the projection uncertainty when looking out to $r$ meters".
 
 A surprising consequence of this is that while /projection/ is invariant to
-scaling ($k \vec v$ projects to the same $\vec q$ for any $k$), the uncertainty
+scaling ($k \vec v$ projects to the same $\vec q$ for all $k$), the uncertainty
 of this projection is /not/:
 
 [[file:figures/projection-scale-invariance.svg]]
@@ -43,18 +43,19 @@ mrcal-show-projection-uncertainty \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-projection-uncertainty                        \
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
+export PYTHONPATH=(..(:A));                                               \
+$PYTHONPATH/mrcal-show-projection-uncertainty                             \
   --vs-distance-at center                                                 \
   --set 'yrange [0:0.1]'                                                  \
-  $D/data/board/opencv8.cameramodel                                       \
-  --hardcopy $D/figures/uncertainty/uncertainty-vs-distance-at-center.svg \
+  $D/opencv8.cameramodel                                                  \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-vs-distance-at-center.svg \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"'
-~/projects/mrcal/mrcal-show-projection-uncertainty \
-  --vs-distance-at center \
-  --set 'yrange [0:0.1]' \
-  $D/data/board/opencv8.cameramodel \
-  --hardcopy $D/figures/uncertainty/uncertainty-vs-distance-at-center.pdf \
+$PYTHONPATH/mrcal-show-projection-uncertainty                             \
+  --vs-distance-at center                                                 \
+  --set 'yrange [0:0.1]'                                                  \
+  $D/opencv8.cameramodel                                                  \
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-vs-distance-at-center.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
 #+end_src
 
@@ -73,62 +74,93 @@ position dominates the projection, and the uncertainty shoots to infinity.
 
 What controls the range where we see the lowest uncertainty? The range where we
 observed the chessboards. I will prove this conclusively in the next section. It
-makes sense: the lowest uncertainty corresponds to the region where we have the
+makes sense: the best uncertainty corresponds to the region where we have the
 most information.
 
 What controls the uncertainty at infinity? The empirical studies in the [[file:tour-choreography.org][next
 section]] answer that conclusively.
 
-This is a very important effect to characterize. In many applications the range
-of observations at calibration time varies significantly from the working range
-post-calibration. For instance, any application involving wide lenses will use
-closeup calibration images, but working images from further out. We don't want
-to compute a calibration where the calibration-time uncertainty is great, but
-the working-range uncertainty is poor.
+This is a very important effect to characterize. In many applications the
+distance of observations at calibration time varies significantly from the
+working distance post-calibration. For instance, any application involving wide
+lenses will use closeup calibration images, but working images from much further
+out. We don't want to compute a calibration where the calibration-range
+uncertainty is great, but the working-range uncertainty is poor.
 
 I should emphasize that while unintuitive, this uncertainty-depends-on-range
 effect is very real. It isn't just something that you get out of some opaque
-equations, but it's observable in the field. Here're two real-world diffs of two
-calibrations computed from different observations made by the same camera a few
-minutes apart. Everything is the same, so I should be getting identical
-calibrations. A diff at infinity:
+equations, but it's observable in the field. We can't see it in [[file:tour-cross-validation.org][the cross
+validation diffs we just computed]] because the noncentral model errors
+dominate, but if we throw out all the observations away from the center, the
+noncentral errors disappear, and the effect is clearly seen empirically.
 
-#+begin_src sh
-mrcal-show-projection-diff --unset key camera[01].cameramodel
-#+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-projection-diff \
-  --unset key \
-  ~/projects/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel \
-  --hardcopy $D/figures/diff/diff-l2-dance68-joint1-camera11-infinity.png \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+D=/home/dima/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/
+
+PYTHONPATH=~/projects/mrcal
+export PYTHONPATH
+
+for dance ($D/[23]-*) {
+  < $dance/corners.vnl           \
+    mrcal-cull-corners           \
+      --imagersize 6000 3376     \
+      --cull-rad-off-center 1500 \
+  > /tmp/${dance:t}-corners-culled.vnl
+}
+
+
+lensmodel=LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=18_fov_x_deg=150;
+
+for dance ($D/[23]-*) {
+
+  $PYTHONPATH/mrcal-calibrate-cameras                  \
+    --corners-cache /tmp/${dance:t}-corners-culled.vnl \
+    --lensmodel $lensmodel                             \
+    --focal 1900                                       \
+    --object-spacing 58.8e-3                           \
+    --object-width-n 14                                \
+    --outdir /tmp                                      \
+    --imagersize 6000 3376                             \
+    "*.JPG"
+
+  mv /tmp/camera-0.cameramodel /tmp/${dance:t}-culled.cameramodel;
+}
+
+$PYTHONPATH/mrcal-show-projection-diff                                                          \
+  --cbmax 1                                                                                     \
+  --no-uncertainties --radius 800                                                               \
+  --unset key                                                                                   \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-culled-at-infinity.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'           \
+  /tmp/[23]-f22-infinity-culled.cameramodel
+
+$PYTHONPATH/mrcal-show-projection-diff                                                    \
+  --distance 1                                                                            \
+  --cbmax 1                                                                               \
+  --no-uncertainties --radius 800                                                         \
+  --unset key                                                                             \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-culled-at-1m.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'     \
+  /tmp/[23]-f22-infinity-culled.cameramodel
 #+end_src
 
-[[file:external/figures/diff/diff-l2-dance68-joint1-camera11-infinity.png]]
+I threw out all points outside of a circle in the center with radius 1500 pixels
+(using the [[file:mrcal-cull-corners.html][=mrcal-cull-corners=]] tool). Cross-validation diff at 1m (chessboards
+are here; we expect this to be low):
 
-And again at 0.5m (close to the range to the chessboards)
+[[file:external/figures/cross-validation/diff-culled-at-1m.png]]
 
-#+begin_src sh
-mrcal-show-projection-diff --distance 0.5 --unset key camera[01].cameramodel
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-projection-diff \
-  --distance 0.5 \
-  --unset key \
-  ~/projects/mrcal/l2/dance[68]/joint1/camera1-1.cameramodel \
-  --hardcopy $D/figures/diff/diff-l2-dance68-joint1-camera11-0.5m.png \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
-#+end_src
+And at infinity (uncertainty plot tells us that this should be ~ 3x worse):
 
-[[file:external/figures/diff/diff-l2-dance68-joint1-camera11-0.5m.png]]
+[[file:external/figures/cross-validation/diff-culled-at-infinity.png]]
 
-Clearly the prediction that uncertainties are lowest at the chessboard range,
-and increase as we move away to infinity is borne out here by just looking at
-diffs, /without/ computing the uncertainty curves. I didn't have to look very
-hard to find calibrations that showed this. Any calibration from suboptimal
-chessboard images (see next section) shows this effect.
+Clearly the prediction that uncertainties are lowest at the chessboard distance,
+and increase as we move away is borne out here empirically, by just looking at
+diffs. /Without/ computing the uncertainty curves. This effect is universal, and
+is especially clear when the uncertainties at the chessboard distance and at
+infinity are very different. How do we make sure that the uncertainty at
+infinity is still low, despite the fact that no chessboards were observed there?
+Read on.
 
 * Next
 We're now ready to [[file:tour-choreography.org][find the best chessboard-dancing technique]].

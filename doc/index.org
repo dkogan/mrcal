@@ -1,17 +1,18 @@
 #+title: mrcal - camera calibrations and more!
 
-mrcal is a photogrammetry toolkit that provides improved methods for making and
-using camera models (calibration, tracking, mapping, etc). Currently the focus
-is on calibration and uncertainty propagation, but more methods will be added
-with time. It was originally built at NASA/JPL to generate the high-accuracy
-calibrations demanded by long-range stereo, so it provides facilities to analyze
-calibration accuracy and to propagate and report uncertainties.
+mrcal is a toolkit that provides improved methods for making and using camera
+models (calibration, tracking, mapping, photogrammetry, etc). It was originally
+built at NASA/JPL to generate the high-accuracy calibrations demanded by
+long-range stereo, so it provides facilities to calibrate cameras, thoroughly
+analyze the accuracy of the result, and to propagate and report uncertainties.
 
 * Why mrcal?
 Because all other tools are terrible if you care about accuracy. They make basic
 questions like "how much data should I gather for a calibration?" and "how good
 is this calibration I just computed?" and "how different are these two models?"
-unanswerable.
+unanswerable. The previous state-of-the-art was good-enough for low-resolution
+cameras and long-focal-length lenses and low-range stereo. But today, the
+existing tools are often insufficient.
 
 This toolkit allows the user to confidently produce calibrations that are as
 good as possible. It provides lots of visualization capabilities to evaluate
@@ -22,49 +23,48 @@ many assumptions common in other toolkits: the calibration chessboard isn't
 assumed to be flat, lenses aren't assumed to follow simple parametric models,
 rectified stereo isn't done with a pinhole model, and so on.
 
+mrcal consists of
+
+- a C library for core functionality
+- a Python library for higher-level functions
+- pre-made commandline tools to handle common tasks
+
 * Documentation index
-** Overview
-Please see [[file:tour.org][a tour of mrcal]] for a high-level overview of the capabilities of the
-toolkit.
+** Overview, background
+- [[file:tour.org][The tour of mrcal]]: if this is your first exposure to mrcal, start here. This
+  goes over the high-level capabilities of the toolkit, to give a good sense of
+  what mrcal can do that's different and better than other tools.
+- [[file:conventions.org][Terminology and conventions]]
 
-** Building, installing
-First, the tools should be [[file:install.org][built or installed]].
+** Details about the internals
+- [[file:formulation.org][Problem formulation]]: at the core of a calibration routine is an optimization
+  problem. The details are important to interpret the results
+- [[file:lensmodels.org][Lens models supported by mrcal]]
+- [[file:splined-models.org][Splined-stereographic lens model]]: this very rich lens model is available for
+  high-fidelity modeling of projection and quantification of uncertainty. It is
+  the recommended model, and is novel in mrcal, so it's described in detail
+  here.
+- [[file:cameramodels.org][Camera model representation in memory and on disk]]
+- [[file:differencing.org][Projection differencing]]: mrcal can compute the projection difference between
+  several models. This is useful to evaluate calibration quality and lens
+  stability and a multitude of other things.
+- [[File:uncertainty.org][Projection uncertainties]]: mrcal can compute the projection uncertainty of a
+  calibration. This quantifies the effect of sampling error, and is an excellent
+  gauge of the quality of a model.
+- [[file:stereo.org][Dense stereo processing]]
+- [[file:triangulation.org][Triangulation]]
 
-** Background
-Before using the tools, it is helpful to read about the [[file:conventions.org][terminology and
-conventions]] used in the sources and documentation.
+** Practical guides
+- [[file:how-to-calibrate.org][How to calibrate a camera system: practical details]]
+- [[file:recipes.org][Recipes: various scenarios that need special attention]]
 
-At the core of a calibration routine is an optimization problem. Details about
-its [[file:formulation.org][formulation]] are useful to be able to interpret the results.
+** Toolkit usage
+- [[file:install.org][Installation, build instructions]]
+- [[file:commandline-tools.org][Command-line tools]]
+- [[file:python-api.org][The Python API]]
+- [[file:c-api.org][The C API]]
 
-A lens can be represented by any of a number of [[file:lensmodels.org][lens models]], and a model can be
-written to a [[file:cameramodels.org][file on disk]].
-
-A separate page describes various details about [[file:splined-models.org][splined models]].
-
-** Applications
-A [[file:how-to-calibrate.org][how-to-calibrate]] page describes this very common task.
-
-Given a model, we can compute its [[file:uncertainty.org][projection uncertainties]]. Given more than one
-model, we can [[file:differencing.org][compare their intrinsics (projection behaviors)]].
-
-If we have a calibrated pair of cameras, we can generate a depth map with [[file:stereo.org][dense
-stereo processing]]. Or we can compute sparse ranges by calling a [[file:triangulation.org][triangulation
-routine]].
-
-** Interfaces
-Many common tasks can be accomplished by invoking one of a number of
-[[file:commandline-tools.org][command-line tools]].
-
-If we need to do something more than what the pre-made tools can do, there're
-two sets programmatic interfaces available:
-
-- [[file:c-api.org][The C API to provide a set of core functionality]]
-- [[file:python-api.org][The Python API to do that and a whole lot more]]
-
-** Releases
-A version history, release notes, and the planned roadmap are available on the
-[[file:versions.org][releases]] page.
+** [[file:versions.org][Releases: a version history, release notes, and the planned roadmap]]
 
 * Citing
 To cite this work in a publication, use this bibtex stanza:
@@ -83,7 +83,7 @@ communication in general. At some point I will probably set up a mailing list as
 well.
 
 * Author
-Dima Kogan =dima@secretsauce.net=
+Dima Kogan =<dima@secretsauce.net>=
 
 * License and copyright
 These are listed on [[file:copyrights.org][their own page]].

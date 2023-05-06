@@ -16,6 +16,45 @@ NchecksFailed = 0
 # we're running a test harness. This is fine
 np.set_printoptions(linewidth=1e10, suppress=True)
 
+
+
+def percentile_compat(*args, **kwargs):
+    r'''Wrapper for np.percentile() to handle their API change
+
+In numpy 1.24 the "interpolation" kwarg was renamed to "method". I need to pass
+the right thing to work with both old and new numpy. This function tries the
+newer method, and if that fails, uses the old one. The test is only done the
+first time.
+
+It is assumed that this is called with the old 'interpolation' key.
+
+    '''
+
+    if not 'interpolation' in kwargs or \
+       percentile_compat.which == 'interpolation':
+        return np.percentile(*args, **kwargs)
+
+    kwargs_no_interpolation = dict(kwargs)
+    del kwargs_no_interpolation['interpolation']
+
+    if percentile_compat.which == 'method':
+        return np.percentile(*args, **kwargs_no_interpolation,
+                             method = kwargs['interpolation'])
+
+    # Need to detect
+
+    try:
+        result = np.percentile(*args, **kwargs_no_interpolation,
+                               method = kwargs['interpolation'])
+        percentile_compat.which = 'method'
+        return result
+    except:
+        percentile_compat.which = 'interpolation'
+        return np.percentile(*args, **kwargs)
+
+percentile_compat.which = None
+
+
 def test_location():
     r'''Reports string describing current location in the test'''
 
@@ -61,7 +100,9 @@ def relative_scale(a,b, eps = 1e-6):
 def relative_diff(a,b, eps = 1e-6):
     return (a - b) / relative_scale(a,b, eps)
 
-def confirm_equal(x, xref, msg='',
+def confirm_equal(x, xref,
+                  *,
+                  msg='',
                   eps=1e-6,
                   reldiff_eps = 1e-6,
                   relative=False,
@@ -81,7 +122,7 @@ def confirm_equal(x, xref, msg='',
     if worstcase: I look at the worst-case error
                   error = np.max(np.abs(err))
     elif percentile is not None: I look at the given point in the error distribution
-                  error = np.percentile(np.abs(err), percentile)
+                  error = percentile_compat(np.abs(err), percentile)
     else:         RMS error
                   error = np.sqrt(nps.norm2(err) / len(err))
     '''
@@ -149,7 +190,7 @@ def confirm_equal(x, xref, msg='',
                 err  = np.max(np.abs(diff))
             elif percentile is not None:
                 what = f'{percentile}%-percentile'
-                err  = np.percentile(np.abs(diff), percentile, interpolation='higher')
+                err  = percentile_compat(np.abs(diff), percentile, interpolation='higher')
             else:
                 what = 'RMS'
                 err  = np.sqrt(nps.norm2(diff) / len(diff))
@@ -227,12 +268,14 @@ def confirm_does_not_raise(f, msg=''):
 
 
 def confirm_covariances_equal(var, var_ref,
+                              *,
                               what,
                               # scalar float to use for all the eigenvalues, of
                               # a list of length 3, to use in order from largest
                               # to smallest. None to skip that axis
                               eps_eigenvalues,
-                              eps_eigenvectors_deg):
+                              eps_eigenvectors_deg,
+                              check_biggest_eigenvalue_only = False):
 
     # First, the thing is symmetric, right?
     confirm_equal(nps.transpose(var),
@@ -261,6 +304,8 @@ def confirm_covariances_equal(var, var_ref,
                       worstcase = True,
                       relative  = True,
                       msg = f"Var(dq) worst[{i}] eigenvalue match for {what}")
+        if check_biggest_eigenvalue_only:
+            break
 
     # I only check the eigenvector directions if the ellipse is sufficiently
     # non-circular. A circular ellipse has poorly-defined eigenvector directions

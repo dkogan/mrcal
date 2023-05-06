@@ -26,11 +26,18 @@ These are inherent properties of a model family, and are not settable. At the
 time of this writing there are 3 metadata keys:
 
 - =has_core=: True if the first 4 optimization values are the "core": $f_x$,
-  $f_y$, $c_x$, $c_y$
+  $f_y$, $c_x$, $c_y$. As of mrcal 2.3 this is True for all models.
 - =can_project_behind_camera=: True if this model is able to project vectors
   from behind the camera. If it cannot, then [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] will never
-  report =z= < 0
-- =has_gradients=: True if this model has gradients implemented
+  report =z= < 0. As of mrcal 2.3 this is True only for models based on a
+  stereographic projection, for instance [[#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]]. It
+  is False for models based on a pinhole projection, for instance
+  =LENSMODEL_OPENCV...= and =LENSMODEL_CAHVOR...=.
+- =has_gradients=: True if this model has gradients implemented. As of mrcal 2.3
+  all models have this.
+- =noncentral=: True if [[file:formulation.org::#lens-behavior][projection is /not/ invariant to scaling; i.e. if every
+  observation ray does /not/ intersect at the same point]]. As of mrcal 2.3 only
+  [[#lensmodel-cahvore][=LENSMODEL_CAHVORE=]] does this.
 
 In Python, the models are identified with a string =LENSMODEL_XXX= where the
 =XXX= selects the specific model family and the configuration, if needed. A
@@ -46,16 +53,16 @@ dict containing the metadata and configuration for a particular model string.
 
 In C, the model family is selected with the [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h#mrcal_lensmodel_type_t][=mrcal_lensmodel_type_t=]] enum. The
 elements are the same as the Python model names, but with =MRCAL_= prepended. So
-sample model from above has type =MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC=. In C
-the [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]] structure contains the type /and/ configuration. This
+the sample model from above has type =MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC=. In
+C the [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]] structure contains the type /and/ configuration. This
 structure is thus an analogue the the model strings, as Python sees them. So a
 number of C functions accepting [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t=]] arguments are analogous to
 Python functions taking model strings. For instance, the number of parameters
 needed to fully describe a given model can be obtained by calling
 [[file:mrcal-python-api-reference.html#-lensmodel_num_params][=mrcal.lensmodel_num_params()=]] in Python or [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h#mrcal_lensmodel_num_params][=mrcal_lensmodel_num_params()=]] in C.
 Given a [[https://www.github.com/dkogan/mrcal/blob/master/mrcal.h##mrcal_lensmodel_t][=mrcal_lensmodel_t lensmodel=]] structure of type =XXX= (i.e. if
-=lensmodel.type == MRCAL_LENSMODEL_XXX=) then the configuration is available in
-=lensmodel.LENSMODEL_XXX__config=, which has type
+=lensmodel.type= is =MRCAL_LENSMODEL_XXX=) then the configuration is available
+in =lensmodel.LENSMODEL_XXX__config=, which has type
 =mrcal_LENSMODEL_XXX__config_t=. The metadata is requestable by calling this
 function:
 
@@ -78,10 +85,11 @@ start of the parameter vector:
 At this time all models contain a core.
 
 * Models
-Currently all models represent a /central/ projection: all observation rays
-intersect at a single point (the camera origin). So $k \vec v$ projects to the
-same $\vec q$ for all $k$. This isn't strictly true for real-world lenses, so
-non-central projections will be supported in a future release of mrcal.
+Currently all models except [[#lensmodel-cahvore][=LENSMODEL_CAHVORE=]] represent a /central/
+projection: all observation rays intersect at a single point (the camera
+origin). So $k \vec v$ projects to the same $\vec q$ for all $k$. This isn't
+strictly true for real-world lenses, so [[file:formulation.org::#lens-behavior][non-central projections]] will be
+supported in a future release of mrcal.
 
 ** =LENSMODEL_PINHOLE=
 :PROPERTIES:
@@ -271,8 +279,12 @@ come across them.
 mrcal supports =LENSMODEL_CAHVOR=, a lens model used in a number of tools at
 JPL. The =LENSMODEL_CAHVOR= model has 5 "distortion" parameters in addition to
 the 4 core parameters. This support exists only for compatibility, and there's
-no reason to use it otherwise. If you don't know what this is, you don't need
-it.
+no reason to use it otherwise. This model is described in:
+
+[[https://trs.jpl.nasa.gov/bitstream/handle/2014/20686/98-1739.pdf][Gennery, D.B. 2001. Least-squares camera calibration including lens distortion
+and automatic editing of calibration points. In Calibration and Orientation of
+Cameras in Computer Vision, A. Gruen and T.S. Huang (Eds.), Springer-Verlag, pp.
+123–136]]
 
 ** =LENSMODEL_CAHVORE=
 :PROPERTIES:
@@ -280,13 +292,40 @@ it.
 :END:
 This is an extended flavor of =LENSMODEL_CAHVOR= to support wider lenses. The
 =LENSMODEL_CAHVORE= model has 8 "distortion" parameters in addition to the 4
-core parameters. CAHVORE is only partially supported:
+core parameters. As with =LENSMODEL_CAHVOR= this support exists only for
+compatibility, and there's no reason to use it otherwise.
 
-- the parameter gradients aren't implemented, so it isn't currently possible to
-  solve for a CAHVORE model
-- there're questions about whether CAHVORE projections are invariant to scaling
-  and whether they /should/ be invariant to scaling. These need to be answered
-  conclusively before using the CAHVORE implementation in mrcal. Talk to Dima.
+CAHVORE is a [[file:formulation.org::#lens-behavior][noncentral projection]], so more infrastructure is required to make
+=unproject()= do something reasonable in all cases. Thus projection uncertainty
+and differencing don't work for this model, and throw an error.
+
+=LENSMODEL_CAHVORE= models have a single configuration parameter: =linearity=.
+
+- =linearity= = 0 is a "fisheye" CAHVORE model. This is referred to as
+  =CAHVORE2= in JPL tools
+- =linearity= = 1 is a "perspective" CAHVORE model. This is referred to as
+  =CAHVORE1= in JPL tools
+- Any other =linearity= is a "general" CAHVORE model. This is referred to as
+  =CAHVORE3= in JPL tools
+
+Some notes:
+
+- The last 3 intrinsic parameters of =LENSMODEL_CAHVORE= are the $\vec E$
+  vector. If these are 0, this becomes a central projection, and
+  [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] is able to work normally. If you want to compute
+  differences you need [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]], so you must "centralize" the model
+  by setting =intrinsics[-3:] = 0=. This ignores any noncentral effects, which
+  could be significant close to the lens. Doing this also invalidates the
+  uncertainty logic. More general noncentral projection logic will be added in a
+  future release of mrcal, and this situation may improve then
+
+- A =LENSMODEL_CAHVORE= projection with $\vec E = 0$ and =linearity= = 1 is
+  equivalent to a =LENSMODEL_CAHVOR= projection
+
+This model is described in:
+
+[[https://link.springer.com/article/10.1007/s11263-006-5168-1][Gennery, D.B. Generalized Camera Calibration Including Fish-Eye Lenses. Int J
+Comput Vision 68, 239–266 (2006)]]
 
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC_...=
 :PROPERTIES:

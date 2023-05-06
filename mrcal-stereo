@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 r'''Stereo processing
 
 SYNOPSIS
@@ -94,6 +102,11 @@ There are several modes of operation:
   display the results. Requires pyFLTK (homepage: https://pyfltk.sourceforge.io)
   and GL_image_display (homepage: https://github.com/dkogan/GL_image_display)
 
+It is often desired to compute dense stereo for lots of images in bulk. To make
+this go faster, this tool supports the -j JOBS option. This works just like in
+Make: the work will be parallelized among JOBS simultaneous processes. Unlike
+make, the JOBS value must be specified.
+
 '''
 
 import sys
@@ -107,17 +120,25 @@ def parse_args():
         try:
             value = float(string)
         except:
-            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+            print(f"argument MUST be a positive floating-point number. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         if value <= 0:
-            raise argparse.ArgumentTypeError("argument MUST be a positive floating-point number. Got '{}'".format(string))
+            print(f"argument MUST be a positive floating-point number. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         return value
     def positive_int(string):
         try:
             value = int(string)
         except:
-            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+            print(f"argument MUST be a positive integer. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         if value <= 0 or abs(value-float(string)) > 1e-6:
-            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+            print(f"argument MUST be a positive integer. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
         return value
 
 
@@ -334,7 +355,14 @@ def parse_args():
                         system, colored with the nearest-neighbor color of the
                         camera0 image. This is disabled by default because this
                         is potentially a very large file''')
-
+    parser.add_argument('--jobs', '-j',
+                        type=int,
+                        required=False,
+                        default=1,
+                        help='''parallelize the processing JOBS-ways. This is
+                        like Make, except you're required to explicitly specify
+                        a job count. This applies when processing multiple sets
+                        of images with the same set of models''')
     parser.add_argument('models',
                         type=str,
                         nargs = 2,
@@ -434,21 +462,37 @@ if args.tag is not None:
     args.tag = re.sub('[^a-zA-Z0-9_+-]+', '_', args.tag)
 
 
-models = [mrcal.cameramodel(m) for m in args.models]
+def openmodel(f):
+    try:
+        return mrcal.cameramodel(f)
+    except Exception as e:
+        print(f"Couldn't load camera model '{f}': {e}",
+              file=sys.stderr)
+        sys.exit(1)
+
+models = [openmodel(modelfilename) for modelfilename in args.models]
 
 if not args.already_rectified:
     models_rectified = \
         mrcal.rectified_system(models,
                                az_fov_deg          = args.az_fov_deg,
                                el_fov_deg          = args.el_fov_deg,
-                               el0_deg             = args.el0_deg,
                                az0_deg             = args.az0_deg,
+                               el0_deg             = args.el0_deg,
                                pixels_per_deg_az   = pixels_per_deg_az,
                                pixels_per_deg_el   = pixels_per_deg_el,
                                rectification_model = args.rectification)
 else:
     models_rectified = models
     mrcal.stereo._validate_models_rectified(models_rectified)
+
+Rt_cam0_rect0 = \
+    mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
+                      models_rectified[0].extrinsics_Rt_toref() )
+Rt_cam1_rect1 = \
+    mrcal.compose_Rt( models          [1].extrinsics_Rt_fromref(),
+                      models_rectified[1].extrinsics_Rt_toref() )
+
 
 if args.viz == 'geometry':
     # Display the geometry of the two cameras in the stereo pair, and of the
@@ -466,6 +510,7 @@ if args.viz == 'geometry':
                              cameranames      = ( "camera0", "camera1", "camera0-rectified", "camera1-rectified" ),
                              show_calobjects  = False,
                              return_plot_args = True,
+                             axis_scale       = args.axis_scale,
                              **plot_options)
 
     Nside = 8
@@ -526,7 +571,7 @@ def write_output_one(tag, outdir, force,
     f,e = os.path.splitext(filename)
     filename = f"{outdir}/{f}{tag}{e}"
 
-    if os.path.isfile(filename) and not force:
+    if os.path.exists(filename) and not force:
         print(f"WARNING: '{filename}' already exists. Not overwriting this file. Pass -f to overwrite")
         return
 
@@ -537,6 +582,7 @@ def write_output_one(tag, outdir, force,
 def write_output_all(args,
                      models,
                      images,
+                     image_filenames_base,
                      models_rectified,
                      images_rectified,
                      disparity,
@@ -575,6 +621,12 @@ def write_output_all(args,
                      lambda filename: \
                      mrcal.save_image(filename, disparity_colored),
                      image_filenames_base[0] + '-disparity.png')
+    write_output_one(args.tag,
+                     args.outdir,
+                     args.force or force_override,
+                     lambda filename: \
+                     mrcal.save_image(filename, disparity.astype(np.uint16)),
+                     image_filenames_base[0] + f'-disparity-uint16-scale{disparity_scale}.png')
     write_output_one(args.tag,
                      args.outdir,
                      args.force or force_override,
@@ -799,17 +851,71 @@ if args.clahe:
     clahe.setClipLimit(8)
 
 
-for i in range(Nimages):
+kwargs_load_image = dict()
+if args.force_grayscale:
+    kwargs_load_image['bits_per_pixel'] = 8
+    kwargs_load_image['channels']       = 1
 
-    print(f"Processing {os.path.split(image_filenames_all[0][i])[1]} and {os.path.split(image_filenames_all[1][i])[1]}")
+# Done with all the preliminaries. Run the stereo matching
+disp_min,disp_max = args.disparity_range
 
-    image_filenames = (image_filenames_all[0][i],
-                       image_filenames_all[1][i])
+if args.stereo_matcher == 'SGBM':
 
-    kwargs_load_image = dict()
-    if args.force_grayscale:
-        kwargs_load_image['bits_per_pixel'] = 8
-        kwargs_load_image['channels']       = 1
+    # This is a hard-coded property of the OpenCV StereoSGBM implementation
+    disparity_scale = 16
+
+    # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
+    # implementation requires this
+    disp_max = disparity_scale*round(disp_max/disparity_scale)
+    disp_min = disparity_scale*int  (disp_min/disparity_scale)
+
+    # I only add non-default args. StereoSGBM_create() doesn't like being given
+    # None args
+    kwargs_sgbm = dict()
+    if args.sgbm_p1 is not None:
+        kwargs_sgbm['P1']                = args.sgbm_p1
+    if args.sgbm_p2 is not None:
+        kwargs_sgbm['P2']                = args.sgbm_p2
+    if args.sgbm_disp12_max_diff is not None:
+        kwargs_sgbm['disp12MaxDiff']     = args.sgbm_disp12_max_diff
+    if args.sgbm_uniqueness_ratio is not None:
+        kwargs_sgbm['uniquenessRatio']   = args.sgbm_uniqueness_ratio
+    if args.sgbm_speckle_window_size is not None:
+        kwargs_sgbm['speckleWindowSize'] = args.sgbm_speckle_window_size
+    if args.sgbm_speckle_range is not None:
+        kwargs_sgbm['speckleRange']      = args.sgbm_speckle_range
+    if args.sgbm_mode is not None:
+        if   args.sgbm_mode == 'SGBM':
+            kwargs_sgbm['mode'] = cv2.StereoSGBM_MODE_SGBM
+        elif args.sgbm_mode == 'HH':
+            kwargs_sgbm['mode'] = cv2.StereoSGBM_MODE_HH
+        elif args.sgbm_mode == 'HH4':
+            kwargs_sgbm['mode'] = cv2.StereoSGBM_MODE_HH4
+        elif args.sgbm_mode == 'SGBM_3WAY':
+            kwargs_sgbm['mode'] = cv2.StereoSGBM_MODE_SGBM_3WAY
+        else:
+            raise Exception("arg-parsing error. This is a bug. Please report")
+
+    # blocksize is required, so I always pass it. There's a default set in
+    # the argument parser, so this is never None
+    kwargs_sgbm['blockSize'] = args.sgbm_block_size
+
+    stereo_sgbm = \
+        cv2.StereoSGBM_create(minDisparity      = disp_min,
+                              numDisparities    = disp_max - disp_min,
+                              **kwargs_sgbm)
+elif args.stereo_matcher == 'ELAS':
+    disparity_scale = 1
+else:
+    raise Exception("Getting here is a bug")
+
+def process(i_image):
+
+    image_filenames=(image_filenames_all[0][i_image],
+                     image_filenames_all[1][i_image])
+
+    print(f"Processing {os.path.split(image_filenames[0])[1]} and {os.path.split(image_filenames[1])[1]}")
+
     images = [mrcal.load_image(f, **kwargs_load_image) for f in image_filenames]
 
 
@@ -819,11 +925,15 @@ for i in range(Nimages):
     imagersize_image = np.array((images[0].shape[1], images[0].shape[0]))
     imagersize_model = models[0].imagersize()
     if np.any(imagersize_image - imagersize_model):
-        raise Exception(f"Image '{image_filenames_all[0][i]}' dimensions {imagersize_image} don't match the model '{args.models[0]}' dimensions {imagersize_model}")
+        print(f"Image '{image_filenames[0]}' dimensions {imagersize_image} don't match the model '{args.models[0]}' dimensions {imagersize_model}",
+              file=sys.stderr)
+        return False
     imagersize_image = np.array((images[1].shape[1], images[1].shape[0]))
     imagersize_model = models[1].imagersize()
     if np.any(imagersize_image - imagersize_model):
-        raise Exception(f"Image '{image_filenames_all[1][i]}' dimensions {imagersize_image} don't match the model '{args.models[1]}' dimensions {imagersize_model}")
+        print(f"Image '{image_filenames[1]}' dimensions {imagersize_image} don't match the model '{args.models[1]}' dimensions {imagersize_model}",
+              file=sys.stderr)
+        return False
 
     if args.clahe:
         images = [ clahe.apply(image) for image in images ]
@@ -832,7 +942,7 @@ for i in range(Nimages):
         if args.stereo_matcher == 'ELAS':
             print("The ELAS matcher requires grayscale images. Pass --force-grayscale",
                   file=sys.stderr)
-            sys.exit(1)
+            return False
 
     if args.valid_intrinsics_region:
         for i in range(2):
@@ -848,69 +958,20 @@ for i in range(Nimages):
     else:
         images_rectified = images
 
-
-    # Done with all the preliminaries. Run the stereo matching
-    disp_min,disp_max = args.disparity_range
-
-
     if args.stereo_matcher == 'SGBM':
-
-        # This is a hard-coded property of the OpenCV StereoSGBM implementation
-        disparity_scale = 16
-
-        # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
-        # implementation requires this
-        disp_max = disparity_scale*round(disp_max/disparity_scale)
-        disp_min = disparity_scale*int  (disp_min/disparity_scale)
-
-        # I only add non-default args. StereoSGBM_create() doesn't like being given
-        # None args
-        kwargs = dict()
-        if args.sgbm_p1 is not None:
-            kwargs['P1']                = args.sgbm_p1
-        if args.sgbm_p2 is not None:
-            kwargs['P2']                = args.sgbm_p2
-        if args.sgbm_disp12_max_diff is not None:
-            kwargs['disp12MaxDiff']     = args.sgbm_disp12_max_diff
-        if args.sgbm_uniqueness_ratio is not None:
-            kwargs['uniquenessRatio']   = args.sgbm_uniqueness_ratio
-        if args.sgbm_speckle_window_size is not None:
-            kwargs['speckleWindowSize'] = args.sgbm_speckle_window_size
-        if args.sgbm_speckle_range is not None:
-            kwargs['speckleRange']      = args.sgbm_speckle_range
-        if args.sgbm_mode is not None:
-            if   args.sgbm_mode == 'SGBM':
-                kwargs['mode'] = cv2.StereoSGBM_MODE_SGBM
-            elif args.sgbm_mode == 'HH':
-                kwargs['mode'] = cv2.StereoSGBM_MODE_HH
-            elif args.sgbm_mode == 'HH4':
-                kwargs['mode'] = cv2.StereoSGBM_MODE_HH4
-            elif args.sgbm_mode == 'SGBM_3WAY':
-                kwargs['mode'] = cv2.StereoSGBM_MODE_SGBM_3WAY
-            else:
-                raise Exception("arg-parsing error. This is a bug. Please report")
-
-        # blocksize is required, so I always pass it. There's a default set in
-        # the argument parser, so this is never None
-        kwargs['blockSize'] = args.sgbm_block_size
-
-        stereo = \
-            cv2.StereoSGBM_create(minDisparity      = disp_min,
-                                  numDisparities    = disp_max - disp_min,
-                                  **kwargs)
 
         # opencv barfs if I give it a color image and a monochrome image, so I
         # convert
         if len(images_rectified[0].shape) == 2 and \
            len(images_rectified[1].shape) == 3:
-            disparity = stereo.compute(images_rectified[0],
-                                       cv2.cvtColor(images_rectified[1], cv2.COLOR_BGR2GRAY))
+            disparity = stereo_sgbm.compute(images_rectified[0],
+                                            cv2.cvtColor(images_rectified[1], cv2.COLOR_BGR2GRAY))
         elif len(images_rectified[0].shape) == 3 and \
              len(images_rectified[1].shape) == 2:
-            disparity = stereo.compute(cv2.cvtColor(images_rectified[0], cv2.COLOR_BGR2GRAY),
-                                       images_rectified[1])
+            disparity = stereo_sgbm.compute(cv2.cvtColor(images_rectified[0], cv2.COLOR_BGR2GRAY),
+                                            images_rectified[1])
         else:
-            disparity = stereo.compute(*images_rectified)
+            disparity = stereo_sgbm.compute(*images_rectified)
 
     elif args.stereo_matcher == 'ELAS':
 
@@ -918,8 +979,7 @@ for i in range(Nimages):
                                                     disp_min = disp_min,
                                                     disp_max = disp_max)
 
-        disparity       = disparities[0]
-        disparity_scale = 1
+        disparity = disparities[0]
 
 
     disparity_colored = mrcal.apply_color_map(disparity,
@@ -933,10 +993,20 @@ for i in range(Nimages):
     ranges_colored = mrcal.apply_color_map(ranges,
                                            *args.range_image_limits)
 
-    if args.viz != 'stereo':
+    if args.viz == 'stereo':
+        # Earlier I confirmed that in this path Nimages==1
+        gui_stereo(images,
+                   image_filenames_base,
+                   images_rectified,
+                   disparity,
+                   disparity_colored,
+                   ranges,
+                   ranges_colored)
+    else:
         write_output_all(args,
                          models,
                          images,
+                         image_filenames_base,
                          models_rectified,
                          images_rectified,
                          disparity,
@@ -944,10 +1014,16 @@ for i in range(Nimages):
                          disparity_colored,
                          ranges,
                          ranges_colored)
+    return True
 
-        sys.exit(0)
 
-
+def gui_stereo(images,
+               image_filenames_base,
+               images_rectified,
+               disparity,
+               disparity_colored,
+               ranges,
+               ranges_colored):
     # Done with all the processing. Invoke the visualizer!
 
     UI_usage_message = r'''Usage:
@@ -963,7 +1039,10 @@ for i in range(Nimages):
     TAB: transpose windows
 '''
 
-    def set_status(string, q = None):
+    def set_status(string,
+                   q_rect   = None,
+                   q_input0 = None,
+                   q_input1 = None):
         # None means "use previous"
         if string is not None:
             set_status.string = string
@@ -971,8 +1050,14 @@ for i in range(Nimages):
             if not hasattr(set_status, 'string'):
                 set_status.string = ''
 
-        if q is not None:
-            set_status.qstring = f"q = {q[0]:.1f},{q[1]:.1f}\n\n"
+        if q_rect is not None:
+            set_status.qstring = \
+                f"q_rectified = {q_rect[0]:.1f},{q_rect[1]:.1f}\n"
+            if q_input0 is not None:
+                set_status.qstring += f"q_input_cam0 = {q_input0[0]:.1f},{q_input0[1]:.1f}\n"
+            if q_input1 is not None:
+                set_status.qstring += f"q_input_cam1 = {q_input1[0]:.1f},{q_input1[1]:.1f}\n"
+            set_status.qstring += "\n"
         else:
             if not hasattr(set_status, 'qstring'):
                 set_status.qstring = 'No current pixel\n\n'
@@ -986,6 +1071,7 @@ for i in range(Nimages):
         write_output_all(args,
                          models,
                          images,
+                         image_filenames_base,
                          models_rectified,
                          images_rectified,
                          disparity,
@@ -1092,8 +1178,8 @@ for i in range(Nimages):
                     widget_result.set_cross_at(q0_rectified, no_vertical = True)
                     return super().handle(event)
 
-                d = disparity[round(q0_rectified[-1]),
-                              round(q0_rectified[-2])]
+                d = disparity[int(round(q0_rectified[-1])),
+                              int(round(q0_rectified[-2]))]
                 if d < 0:
                     set_status("No valid disparity at the clicked location")
                     widget_image0.set_cross_at(q0_rectified)
@@ -1129,15 +1215,14 @@ for i in range(Nimages):
                 # guts here, and display them in the window
                 set_status(f"Disparity: {d/disparity_scale:.2f}pixels\n" +
                            f"range: {_range:.2f}m\n" +
-                           f"drange/ddisparity: {drange_ddisparity:.1f}m/pixel")
+                           f"drange/ddisparity: {drange_ddisparity:.3f}m/pixel")
 
                 if 0:
                     p0_rectified = \
                         mrcal.unproject(q0_rectified,
                                         *models_rectified[0].intrinsics(),
                                         normalize = True) * _range
-                    p0 = mrcal.transform_point_Rt( mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
-                                                                     models_rectified[0].extrinsics_Rt_toref()),
+                    p0 = mrcal.transform_point_Rt( Rt_cam0_rect0,
                                                    p0_rectified )
                     p1 = mrcal.transform_point_Rt( mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
                                                                      models[0].extrinsics_Rt_toref()),
@@ -1173,12 +1258,31 @@ for i in range(Nimages):
                     return 1
 
             if event == FL_MOVE:
+                q_rect   = None
+                q_input0 = None
+                q_input1 = None
+
                 try:
-                    q = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
+                    q_rect = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
                 except:
-                    q = None
-                set_status(string = None, # keep old string
-                           q      = q)
+                    pass
+
+                if q_rect is not None:
+                    if self is not widget_image1:
+                        q_input0 = \
+                            mrcal.project( mrcal.transform_point_Rt( Rt_cam0_rect0,
+                                                                     mrcal.unproject(q_rect, *models_rectified[0].intrinsics())),
+                                           *models[0].intrinsics())
+                    else:
+                        q_input1 = \
+                            mrcal.project( mrcal.transform_point_Rt( Rt_cam1_rect1,
+                                                                     mrcal.unproject(q_rect, *models_rectified[1].intrinsics())),
+                                           *models[1].intrinsics())
+
+                set_status(string  = None, # keep old string
+                           q_rect   = q_rect,
+                           q_input0 = q_input0,
+                           q_input1 = q_input1)
                 # fall through to let parent handlers run
 
             return super().handle(event)
@@ -1239,3 +1343,41 @@ for i in range(Nimages):
     Fl.run()
 
     sys.exit(0)
+
+
+
+
+if Nimages == 1 or args.jobs <= 1:
+
+    # Serial path. Useful for debugging or if I only have one set of images
+    for i in range(Nimages):
+        process(i)
+    sys.exit(0)
+
+####### Parallel path
+
+import multiprocessing
+import signal
+
+# I do the same thing in mrcal-reproject-image. Please consolidate
+#
+# weird business to handle weird signal handling in multiprocessing. I want
+# things like the user hitting C-c to work properly. So I ignore SIGINT for the
+# children. And I want the parent's blocking wait for results to respond to
+# signals. Which means map_async() instead of map(), and wait(big number)
+# instead of wait()
+signal_handler_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
+signal.signal(signal.SIGINT, signal_handler_sigint)
+
+pool = multiprocessing.Pool(args.jobs)
+try:
+    mapresult = pool.map_async(process, np.arange(Nimages))
+
+    # like wait(), but will barf if something goes wrong. I don't actually care
+    # about the results
+    mapresult.get(1000000)
+except:
+    pool.terminate()
+
+pool.close()
+pool.join()

@@ -21,6 +21,7 @@ import mrcal
 import testutils
 
 from test_calibration_helpers import sample_dqref
+import copy
 
 # I want the RNG to be deterministic
 np.random.seed(0)
@@ -87,6 +88,17 @@ q_noise,observations = sample_dqref(observations_ref,
                                     pixel_uncertainty_stdev,
                                     make_outliers = True)
 
+# Now I make some of the observations bogus, and mark them as input outliers.
+# The solve should be robust to that, but any code that uses the bogus data
+# DESPITE it being marked as bogus will generate a test failure
+#
+# Let's pretend the center of the chessboard has an apriltag, so all those
+# observations are bogus. I block out a 5x5 chunk in the center
+i0 = object_height_n//2
+j0 = object_width_n//2
+observations[..., i0-2:i0+3,j0-2:j0+3, 2] = -1.    # weight<=0: outlier
+observations[..., i0-2:i0+3,j0-2:j0+3,:2] = -100.0 # all the values are bogus
+
 ############# Now I pretend that the noisy observations are all I got, and I run
 ############# a calibration from those
 
@@ -114,8 +126,8 @@ intrinsics_data,extrinsics_rt_fromref,frames_rt_toref = \
                              observations         = observations,
                              object_spacing       = object_spacing)
 
-# I have a pinhole intrinsics estimate. Mount it into a full distortiony model,
-# seeded with random numbers
+# I have a stereographic intrinsics estimate. Mount it into a full distortiony
+# model, seeded with random numbers
 intrinsics = np.zeros((Ncameras,Nintrinsics), dtype=float)
 intrinsics[:,:4] = intrinsics_data
 intrinsics[:,4:] = np.random.random( (Ncameras, intrinsics.shape[1]-4) ) * 1e-6
@@ -155,35 +167,35 @@ mrcal.optimize(**optimization_inputs,
 
 testutils.confirm_equal( mrcal.num_states(**optimization_inputs),
                          4*Ncameras + 6*(Ncameras-1) + 6*Nframes,
-                         "num_states()")
+                         msg="num_states()")
 testutils.confirm_equal( mrcal.num_states_intrinsics(**optimization_inputs),
                          4*Ncameras,
-                         "num_states_intrinsics()")
+                         msg="num_states_intrinsics()")
 testutils.confirm_equal( mrcal.num_intrinsics_optimization_params(**optimization_inputs),
                          4,
-                         "num_intrinsics_optimization_params()")
+                         msg="num_intrinsics_optimization_params()")
 testutils.confirm_equal( mrcal.num_states_extrinsics(**optimization_inputs),
                          6*(Ncameras-1),
-                         "num_states_extrinsics()")
+                         msg="num_states_extrinsics()")
 testutils.confirm_equal( mrcal.num_states_frames(**optimization_inputs),
                          6*Nframes,
-                         "num_states_frames()")
+                         msg="num_states_frames()")
 testutils.confirm_equal( mrcal.num_states_points(**optimization_inputs),
                          0,
-                         "num_states_points()")
+                         msg="num_states_points()")
 testutils.confirm_equal( mrcal.num_states_calobject_warp(**optimization_inputs),
                          0,
-                         "num_states_calobject_warp()")
+                         msg="num_states_calobject_warp()")
 
 testutils.confirm_equal( mrcal.num_measurements_boards(**optimization_inputs),
                          object_width_n*object_height_n*2*Nframes*Ncameras,
-                         "num_measurements_boards()")
+                         msg="num_measurements_boards()")
 testutils.confirm_equal( mrcal.num_measurements_points(**optimization_inputs),
                          0,
-                         "num_measurements_points()")
+                         msg="num_measurements_points()")
 testutils.confirm_equal( mrcal.num_measurements_regularization(**optimization_inputs),
                          Ncameras * 2,
-                         "num_measurements_regularization()")
+                         msg="num_measurements_regularization()")
 
 
 optimization_inputs['do_optimize_intrinsics_core']        = True
@@ -196,29 +208,28 @@ optimization_inputs['calobject_warp'] = np.array((0.001, 0.001))
 stats = mrcal.optimize(**optimization_inputs,
                        do_apply_outlier_rejection = True)
 
-x      = stats['x']
 rmserr = stats['rms_reproj_error__pixels']
 
 
 testutils.confirm_equal( mrcal.state_index_intrinsics(2, **optimization_inputs),
                          8*2,
-                         "state_index_intrinsics()")
+                         msg="state_index_intrinsics()")
 testutils.confirm_equal( mrcal.state_index_extrinsics(2, **optimization_inputs),
                          8*Ncameras + 6*2,
-                         "state_index_extrinsics()")
+                         msg="state_index_extrinsics()")
 testutils.confirm_equal( mrcal.state_index_frames(2, **optimization_inputs),
                          8*Ncameras + 6*(Ncameras-1) + 6*2,
-                         "state_index_frames()")
+                         msg="state_index_frames()")
 testutils.confirm_equal( mrcal.state_index_calobject_warp(**optimization_inputs),
                          8*Ncameras + 6*(Ncameras-1) + 6*Nframes,
-                         "state_index_calobject_warp()")
+                         msg="state_index_calobject_warp()")
 
 testutils.confirm_equal( mrcal.measurement_index_boards(2, **optimization_inputs),
                          object_width_n*object_height_n*2* 2,
-                         "measurement_index_boards()")
+                         msg="measurement_index_boards()")
 testutils.confirm_equal( mrcal.measurement_index_regularization(**optimization_inputs),
                          object_width_n*object_height_n*2*Nframes*Ncameras,
-                         "measurement_index_regularization()")
+                         msg="measurement_index_regularization()")
 
 
 ############# Calibration computed. Now I see how well I did
@@ -241,7 +252,8 @@ testutils.confirm_equal( optimization_inputs['calobject_warp'],
                          eps = 2e-3,
                          msg = "Recovered the calibration object shape" )
 
-testutils.confirm_equal( np.std(x),
+testutils.confirm_equal( np.std( mrcal.residuals_chessboard(optimization_inputs,
+                                                            residuals = stats['x'])),
                          pixel_uncertainty_stdev,
                          eps = pixel_uncertainty_stdev*0.1,
                          msg = "Residual have the expected distribution" )
@@ -348,4 +360,26 @@ for icam in range(len(models_ref)):
 # but I should investigate that at the same time as I overhaul the outlier
 # rejection scheme (presumably to use one of my flavors of Cook's D factor)
 
+# I test make_perfect_observations(). Doing it here is easy; doing it elsewhere
+# it much more work
+if True:
+    optimization_inputs_perfect = copy.deepcopy(optimization_inputs)
+
+    mrcal.make_perfect_observations(optimization_inputs_perfect,
+                                    observed_pixel_uncertainty=0)
+    x = mrcal.optimizer_callback(**optimization_inputs_perfect,
+                                 no_jacobian      = True,
+                                 no_factorization = True)[1]
+
+    Nmeas = mrcal.num_measurements_boards(**optimization_inputs_perfect)
+    if Nmeas > 0:
+        i_meas0 = mrcal.measurement_index_boards(0, **optimization_inputs_perfect)
+        testutils.confirm_equal( x[i_meas0:i_meas0+Nmeas],
+                                 0,
+                                 worstcase = True,
+                                 eps = 1e-8,
+                                 msg = f"make_perfect_observations() works for boards")
+    else:
+        testutils.confirm( False,
+                           msg = f"Nmeasurements_boards <= 0")
 testutils.finish()

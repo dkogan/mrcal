@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 r'''Read/write camera models using the legacy .cahvor file format
 
 The .cahvor functionality is available via the mrcal.cameramodel class. There's
@@ -23,6 +31,7 @@ reason to use this module.
 '''
 
 
+import sys
 import re
 
 import numpy     as np
@@ -71,10 +80,7 @@ def _read(s, name):
         m = re.match('\s*(\w+)\s*=\s*(.+?)\s*\n?$',
                      l, flags=re.I)
         if m:
-            key = m.group(1)
-            if key in x:
-                raise Exception("Reading '{}': key '{}' seen more than once".format(name,
-                                                                                    m.group(1)))
+            key   = m.group(1)
             value = m.group(2)
 
             # for compatibility
@@ -137,14 +143,57 @@ def _read(s, name):
     if 'Model' not in x:
         x['Model'] = ''
 
-    m = re.match('CAHVORE3,([0-9\.e-]+)\s*=\s*general',x['Model'])
+    # One of these:
+    #   CAHVORE1
+    #   CAHVORE2
+    #   CAHVORE3,0.44
+    m = re.match('CAHVORE\s*([0-9]+)(\s*,\s*([0-9\.e-]+))?',x['Model'])
     if m:
+        modelname = x['Model']
         is_cahvore = True
-        cahvore_linearity = float(m.group(1))
+        try:
+            mtype = int(m.group(1))
+            if m.group(3) is None:
+                cahvore_linearity = None
+            else:
+                cahvore_linearity = float(m.group(3))
+        except:
+            raise Exception(f"Cahvor file '{name}' looks like CAHVORE, but the CAHVORE declaration is unparseable: '{modelname}'")
+
+        if mtype == 1:
+            if cahvore_linearity is not None:
+                if cahvore_linearity != 1:
+                    raise Exception(f"Cahvor file '{name}' looks like CAHVORE, but has an unexpected linearity defined. mtype=1 so I expected no linearity at all or linearity=1, but got {cahvore_linearity}. CAHVORE declaration: '{modelname}'")
+            cahvore_linearity = 1
+        elif mtype == 2:
+            if cahvore_linearity is not None:
+                if cahvore_linearity != 0:
+                    raise Exception(f"Cahvor file '{name}' looks like CAHVORE, but has an unexpected linearity defined. mtype=2 so I expected no linearity at all or linearity=0, but got {cahvore_linearity}. CAHVORE declaration: '{modelname}'")
+            cahvore_linearity = 0
+        elif mtype == 3:
+            if cahvore_linearity is None:
+                raise Exception(f"Cahvor file '{name}' looks like CAHVORE, but has a missing linearity. mtype=3 a linearity parameter MUST be defined. CAHVORE declaration: '{modelname}'")
+        else:
+            raise Exception(f"Cahvor file '{name}' looks like CAHVORE, but has mtype={mtype}. I only know about types 1,2,3. CAHVORE declaration: '{modelname}'")
     else:
         is_cahvore = False
 
+    # normalize optical axis. Mostly this is here to smooth out ASCII roundoff
+    # errors
+    x['A'] /= nps.mag(x['A'])
     Hp,Vp = _HVs_HVc_HVp(x)[-2:]
+
+    # By construction Hp and Vp will both be orthogonal to A. But CAHVOR allows
+    # non-orthogonal Hp,Vp. MY implementation does not support this, so I check,
+    # and barf if I encounter non-orthogonal Hp,Vp
+    Vp_expected = np.cross(x['A'], Hp)
+    th = np.arccos(np.clip( nps.inner(Vp,Vp_expected),
+                            -1, 1)) *180./np.pi
+    if th > 1e-3:
+        print(f"WARNING: parsed .cahvor file has non-orthogonal Hp,Vp. Skew of {th:.3f} degrees. I'm using an orthogonal Vp, so the resulting model will work slightly differently",
+              file=sys.stderr)
+    Vp = Vp_expected
+
     R_toref = nps.transpose( nps.cat( Hp,
                                       Vp,
                                       x['A'] ))
@@ -183,7 +232,7 @@ def _read(s, name):
                 distortions = np.array((alpha,beta,R0,R1,R2), dtype=float)
                 lensmodel = 'LENSMODEL_CAHVOR'
 
-    m = mrcal.cameramodel(imagersize = x['Dimensions'].astype(np.int32),
+    m = mrcal.cameramodel(imagersize = x['Dimensions'][:2].astype(np.int32),
                           intrinsics = (lensmodel, nps.glue( np.array(_fxy_cxy(x), dtype=float),
                                                                     distortions,
                                                                     axis = -1)),
@@ -214,8 +263,6 @@ def _write(f, m, note=None):
     if note is not None:
         for l in note.splitlines():
             f.write('# ' + l + '\n')
-    d = m.imagersize()
-    f.write('Dimensions = {} {}\n'.format(int(d[0]), int(d[1])))
 
     lensmodel,intrinsics = m.intrinsics()
     if lensmodel == 'LENSMODEL_CAHVOR':
@@ -229,6 +276,8 @@ def _write(f, m, note=None):
         else:
             raise Exception("Don't know how to handle lens model '{}'".format(lensmodel))
 
+    d = m.imagersize()
+    f.write('Dimensions = {} {}\n'.format(int(d[0]), int(d[1])))
 
     fx,fy,cx,cy = intrinsics[:4]
     Rt_toref = m.extrinsics_Rt_toref()
@@ -276,12 +325,26 @@ def _write(f, m, note=None):
         np.savetxt(f, c.ravel(), fmt='%.2f', newline=' ')
         f.write('\n')
 
+    # Write covariance matrix. Old jplv parser requires that this exists, even
+    # if the actual values don't matter
+    S_size = 12
+    if   re.match('^LENSMODEL_CAHVORE', lensmodel): S_size = 21
+    elif re.match('^LENSMODEL_CAHVOR',  lensmodel): S_size = 18
+    f.write("S =\n" + ((" 0.0" * S_size) + "\n") * S_size)
+
+    # Extra spaces before "=" are significant. Old jplv parser gets confused if
+    # they don't exist
     Hs,Vs,Hc,Vc = intrinsics[:4]
-    f.write("Hs = {}\n".format(Hs))
-    f.write("Hc = {}\n".format(Hc))
-    f.write("Vs = {}\n".format(Vs))
-    f.write("Vc = {}\n".format(Vc))
+    f.write("Hs    = {}\n".format(Hs))
+    f.write("Hc    = {}\n".format(Hc))
+    f.write("Vs    = {}\n".format(Vs))
+    f.write("Vc    = {}\n".format(Vc))
     f.write("# this is hard-coded\nTheta = {} (-90.0 deg)\n".format(-np.pi/2))
+
+    # Write internal covariance matrix. Again, the old jplv parser requires that
+    # this exists, even if the actual values don't matter
+    S_internal_size = 5
+    f.write("S internal =\n" + ((" 0.0" * S_internal_size) + "\n") * S_internal_size)
 
     return True
 

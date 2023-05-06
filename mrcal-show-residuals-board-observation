@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 r'''Visualize calibration residuals for one or more observations of a board
 
 SYNOPSIS
@@ -57,10 +65,17 @@ def parse_args():
 
     parser.add_argument('--from-worst',
                         action = 'store_true',
-                        help='''If given, the requested observations index from the worst-fitting
-                        observations to the best-fitting (observation 0 is the
-                        worst-fitting observation). By default we index the
+                        help='''If given, the requested observations index from
+                        the worst-fitting observations to the best-fitting
+                        (observation 0 is the worst-fitting observation).
+                        Exclusive with --from-glob. By default we index the
                         observations in the order they appear in the solve''')
+
+    parser.add_argument('--from-glob',
+                        action = 'store_true',
+                        help='''If given, the requested observations are
+                        specified as glob(s) matching the image filenames.
+                        Exclusive with --from-worst''')
 
     parser.add_argument('--image-path-prefix',
                         help='''If given, we prepend the given prefix to the image paths. Exclusive with
@@ -103,23 +118,32 @@ def parse_args():
     parser.add_argument('observations',
                         type=str,
                         nargs='+',
-                        help=r'''The observation indices we're looking at. A
-                        list of integers and/or A-B ranges. By default these
-                        index the board observations in the order they appear in
-                        the solve. If --from-worst, then we index them from the
-                        worst-fitting to the best-fitting instead''')
+                        help=r'''The observations we're looking at. Unless
+                        --from-glob, these are a list of integers A and/or A-B
+                        ranges. By default these index the board observations in
+                        the order they appear in the solve. If --from-worst,
+                        then we index them from the worst-fitting to the
+                        best-fitting instead. If --from-glob then we treat the
+                        strings as globs to match against the image paths''')
 
     args = parser.parse_args()
 
     if args.image_path_prefix is not None and \
        args.image_directory is not None:
-        raise Exception("--image-path-prefix and --image-directory are mutually exclusive")
+        print("--image-path-prefix and --image-directory are mutually exclusive",
+              file=sys.stderr)
+        sys.exit(1)
+
+    if args.from_worst and args.from_glob:
+        print("--from-worst and --from-glob are mutually exclusive",
+              file=sys.stderr)
+        sys.exit(1)
 
     def list_ints_from_range_string(s):
         try:
             i = int(s)
             if i < 0:
-                print(f"Observations should be a list of positive integers and/or A-B ranges. Invalid observation given: '{s}'",
+                print(f"Observations should be a list of non-negative integers and/or A-B ranges. Invalid observation given: '{s}'",
                       file=sys.stderr)
                 sys.exit(1)
             return [i]
@@ -128,19 +152,20 @@ def parse_args():
 
         m = re.match("^([0-9]+)-([0-9]+)$", s)
         if m is None:
-            print(f"Observations should be a list of positive integers and/or A-B ranges. Invalid observation given: '{s}'",
+            print(f"Observations should be a list of non-negative integers and/or A-B ranges. Invalid observation given: '{s}'",
                   file=sys.stderr)
             sys.exit(1)
         try:
             i0 = int(m.group(1))
             i1 = int(m.group(2))
         except Exception as e:
-            print(f"Observations should be a list of positive integers and/or A-B ranges. Invalid observation given: '{s}'",
+            print(f"Observations should be a list of non-negative integers and/or A-B ranges. Invalid observation given: '{s}'",
                   file=sys.stderr)
             sys.exit(1)
         return list(range(i0,i1+1))
 
-    args.observations = [o for obs in args.observations for o in list_ints_from_range_string(obs)]
+    if not args.from_glob:
+        args.observations = [o for obs in args.observations for o in list_ints_from_range_string(obs)]
 
     if args.hardcopy is not None:
         if len(args.observations) != 1:
@@ -189,13 +214,44 @@ if optimization_inputs is None:
     print(f"Camera model '{args.model}' does not contain optimization inputs. Residuals aren't available", file=sys.stderr)
     sys.exit(1)
 
-residuals = mrcal.optimizer_callback(**optimization_inputs)[1]
-
 try:
     paths = optimization_inputs['imagepaths']
 except:
     # older models don't have this data
     paths = None
+
+
+if args.from_glob:
+    if paths is None:
+        print("--from-glob requires image paths, but the given model doesn't have them",
+              file=sys.stderr)
+        sys.exit(1)
+
+    import fnmatch
+
+    def matching_path_indices(obs):
+        try:
+            r = re.compile( fnmatch.translate(obs) )
+        except:
+            print(f"Error translating, compiling glob '{obs}'",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        m = [i for i in range(len(paths)) if r.match(paths[i])]
+        if not m:
+            print(f"Glob '{obs}' did not match any images",
+                  file=sys.stderr)
+            sys.exit(1)
+        return m
+
+    args.observations = [i for obs in args.observations for i in matching_path_indices(obs)]
+
+
+
+residuals = mrcal.optimizer_callback(**optimization_inputs)[1]
+
+# for --explore
+indices_frame_camintrinsics_camextrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
 
 # i_observations_sorted_from_worst is available even if I don't need it.
 # --explore might want to look at it
@@ -215,23 +271,25 @@ i_observations_sorted_from_worst = \
 
 
 
-if not args.hardcopy:
-    plotkwargs_extra['wait'] = True
-
 def show(i_observation):
-    mrcal.show_residuals_board_observation(optimization_inputs,
-                                           i_observation,
-                                           from_worst                       = args.from_worst,
-                                           i_observations_sorted_from_worst = i_observations_sorted_from_worst,
-                                           residuals                        = residuals,
-                                           paths                            = paths,
-                                           image_path_prefix                = args.image_path_prefix,
-                                           image_directory                  = args.image_directory,
-                                           circlescale                      = args.circlescale,
-                                           vectorscale                      = args.vectorscale,
-                                           hardcopy                         = args.hardcopy,
-                                           terminal                         = args.terminal,
-                                           **plotkwargs_extra)
+    try:
+        mrcal.show_residuals_board_observation(optimization_inputs,
+                                               i_observation,
+                                               from_worst                       = args.from_worst,
+                                               i_observations_sorted_from_worst = i_observations_sorted_from_worst,
+                                               residuals                        = residuals,
+                                               paths                            = paths,
+                                               image_path_prefix                = args.image_path_prefix,
+                                               image_directory                  = args.image_directory,
+                                               circlescale                      = args.circlescale,
+                                               vectorscale                      = args.vectorscale,
+                                               hardcopy                         = args.hardcopy,
+                                               terminal                         = args.terminal,
+                                               **plotkwargs_extra)
+    except Exception as e:
+        print(f"Couldn't show_residuals_board_observation(): {e}",
+              file=sys.stderr)
+        sys.exit(1)
 
 
 Nplots = len(args.observations)
@@ -242,6 +300,7 @@ if args.hardcopy:
     print(f"Wrote {args.hardcopy}")
     sys.exit(0)
 
+plotkwargs_extra['wait'] = True
 pids = [0] * Nplots
 for i in range(Nplots):
     pid = os.fork()
@@ -257,7 +316,8 @@ for i in range(Nplots):
 
 if args.explore:
 
-    print(f'''We're exploring. The first plot being shown can be re-created with:
+    explore_message = \
+f'''We're exploring. The first plot being shown can be re-created with:
 
 mrcal.show_residuals_board_observation(optimization_inputs,
                                        {args.observations[0]},
@@ -274,16 +334,30 @@ mrcal.show_residuals_board_observation(optimization_inputs,
 This is available via a shorthand function call show({args.observations[0]})
 
 
-The first 10 worst-fitting observations:
+The first 10 worst-fitting observations (i_observations_sorted_from_worst[:10])
 
 {i_observations_sorted_from_worst[:10]}
 
 
-The corresponding 10 indices_frame_camintrinsics_camextrinsics:
+The corresponding 10 (iframe, icamintrinsics, icamextrinsics) tuples
+(indices_frame_camintrinsics_camextrinsics[i_observations_sorted_from_worst[:10] ]):
 
-{optimization_inputs['indices_frame_camintrinsics_camextrinsics'][ i_observations_sorted_from_worst[:10] ]}
+{indices_frame_camintrinsics_camextrinsics[ i_observations_sorted_from_worst[:10] ]}
 
-''')
+'''
+    if paths is not None:
+        explore_message += \
+f'''The corresponding image paths (paths[i_observations_sorted_from_worst[:10]]):
+
+{paths[i_observations_sorted_from_worst[:10]]}
+'''
+
+    explore_message += \
+        r"""
+The optimization inputs are available in the optimization_inputs dict
+"""
+
+    print(explore_message)
     import IPython
     IPython.embed()
 

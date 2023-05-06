@@ -1,3 +1,11 @@
+// Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+// Government sponsorship acknowledged. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+
 #pragma once
 
 // mrcal images. These are completely uninteresting, and don't do anything
@@ -69,15 +77,16 @@ const T* mrcal_image_ ## Tname ## _at_const(const mrcal_image_ ## Tname ## _t* i
     return &image->data[x + y*image->stride / sizeof(T)];               \
 }                                                                       \
                                                                         \
+static inline                                                           \
 mrcal_image_ ## Tname ## _t                                             \
 mrcal_image_ ## Tname ## _crop(mrcal_image_ ## Tname ## _t* image,      \
                               int x0, int y0,                           \
                               int w,  int h)                            \
 {                                                                       \
-    return (mrcal_image_ ## Tname ## _t){ .data   = mrcal_image_ ## Tname ## _at(image,x0,y0), \
+    return (mrcal_image_ ## Tname ## _t){ .w      = w,                  \
+                                          .h      = h,                  \
                                           .stride = image->stride,      \
-                                          .w      = w,                  \
-                                          .h      = h };                \
+                                          .data   = mrcal_image_ ## Tname ## _at(image,x0,y0) }; \
 }                                                                       \
                                                                         \
 bool mrcal_image_ ## Tname ## _save (const char* filename, const mrcal_image_ ## Tname ## _t*  image); \

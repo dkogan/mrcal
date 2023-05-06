@@ -1,11 +1,3 @@
-#define _GNU_SOURCE
-
-#include <math.h>
-#include <float.h>
-
-#include "poseutils.h"
-#include "strides.h"
-
 // The implementation of mrcal_R_from_r is based on opencv.
 // The sources have been heavily modified, but the opencv logic remains.
 //
@@ -37,6 +29,15 @@
 // loss of use, data, or profits; or business interruption) however caused
 // and on any theory of liability, whether in contract, strict liability,
 // or tort (including negligence or otherwise) arising in any way out of
+
+#define _GNU_SOURCE
+
+#include <math.h>
+#include <float.h>
+
+#include "poseutils.h"
+#include "strides.h"
+
 void mrcal_R_from_r_full( // outputs
                          double* R,       // (3,3) array
                          int R_stride0,   // in bytes. <= 0 means "contiguous"

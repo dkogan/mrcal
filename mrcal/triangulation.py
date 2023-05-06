@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 '''Triangulation routines
 
 Various ways to convert two rays in 3D into a 3D point those rays represent
@@ -962,6 +970,14 @@ the benefit of the test
     Ncameras = 2
     Nxy      = 2
     var_q = np.eye(Ncameras*Nxy) * sigma*sigma
+
+    # When computing dense stereo we generally assume that q0 is fixed, and we
+    # only think about the effects of Var(q1): Var(q0) = 0, sigma_cross = 0
+    # var_q[0,0]  = 0
+    # var_q[1,1]  = 0
+    # sigma_cross = 0
+
+
     var_q_reshaped = var_q.reshape( Ncameras, Nxy,
                                     Ncameras, Nxy )
 
@@ -1256,7 +1272,7 @@ if optimization_inputs is None and q_observation_stdev is None:
 
     # Output goes here. This function fills in the observation-time stuff.
     # Otherwise this function just returns the array of 0s, which the callers
-    # will fill using the dp_triangulated_dbstate data this function returns
+    # will fill using the dp_triangulated_db data this function returns
     p = np.zeros((Npoints,3), dtype=float)
 
     if optimization_inputs is not None:
@@ -1264,9 +1280,9 @@ if optimization_inputs is None and q_observation_stdev is None:
         Nintrinsics = mrcal.num_intrinsics_optimization_params(**optimization_inputs)
         Nstate      = mrcal.num_states(**optimization_inputs)
 
-        # I store dp_triangulated_dbstate initially, without worrying about the "packed"
-        # part. I'll scale the thing when done to pack it
-        dp_triangulated_dbstate = np.zeros((Npoints,3,Nstate), dtype=float)
+        # I store dp_triangulated_db initially, without worrying about the
+        # "packed" part. I'll scale the thing when done to pack it
+        dp_triangulated_db = np.zeros((Npoints,3,Nstate), dtype=float)
 
         if stabilize_coords and optimization_inputs.get('do_optimize_frames'):
             # We're re-optimizing (looking at calibration uncertainty) AND we
@@ -1282,13 +1298,13 @@ if optimization_inputs is None and q_observation_stdev is None:
 
     else:
         # We don't need to evaluate the calibration-time noise.
-        dp_triangulated_dbstate = None
-        istate_i0               = None
-        istate_i1               = None
-        icam_extrinsics0        = None
-        icam_extrinsics1        = None
-        istate_e1               = None
-        istate_e0               = None
+        dp_triangulated_db = None
+        istate_i0          = None
+        istate_i1          = None
+        icam_extrinsics0   = None
+        icam_extrinsics1   = None
+        istate_e1          = None
+        istate_e0          = None
 
     if q_observation_stdev is not None:
         # observation-time variance of each observed pair of points
@@ -1381,20 +1397,25 @@ if optimization_inputs is None and q_observation_stdev is None:
             # dp_triangulated_di1 = dp_triangulated_dv1 dv1_dvlocal1 dvlocal1_di1
             nps.matmult( dp_triangulated_dv0,
                          dvlocal0_dintrinsics0,
-                         out = dp_triangulated_dbstate[ipt, :, istate_i0:istate_i0+Nintrinsics])
+                         out = dp_triangulated_db[ipt, :, istate_i0:istate_i0+Nintrinsics])
         if istate_i1 is not None:
             nps.matmult( dp_triangulated_dv1,
                          dv1_dvlocal1,
                          dvlocal1_dintrinsics1,
-                         out = dp_triangulated_dbstate[ipt, :, istate_i1:istate_i1+Nintrinsics])
+                         out = dp_triangulated_db[ipt, :, istate_i1:istate_i1+Nintrinsics])
 
 
         icam_extrinsics0 = mrcal.corresponding_icam_extrinsics(icam_intrinsics0, **optimization_inputs)
         icam_extrinsics1 = mrcal.corresponding_icam_extrinsics(icam_intrinsics1, **optimization_inputs)
 
-        # set to None if icam_extrinsics<0 (i.e. when looking at the reference camera)
-        istate_e0 = mrcal.state_index_extrinsics(icam_extrinsics0, **optimization_inputs)
-        istate_e1 = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs)
+        if icam_extrinsics0 >= 0:
+            istate_e0 = mrcal.state_index_extrinsics(icam_extrinsics0, **optimization_inputs)
+        else:
+            istate_e0 = None
+        if icam_extrinsics1 >= 0:
+            istate_e1 = mrcal.state_index_extrinsics(icam_extrinsics1, **optimization_inputs)
+        else:
+            istate_e1 = None
 
         if istate_e1 is not None:
             # dp_triangulated_dr_0ref = dp_triangulated_dv1  dv1_dr01 dr01_dr_0ref +
@@ -1414,13 +1435,13 @@ if optimization_inputs is None and q_observation_stdev is None:
             nps.matmult( dp_triangulated_dv1,
                          dv1_dr01,
                          dr01_dr_1ref,
-                         out = dp_triangulated_dbstate[ipt, :, istate_e1:istate_e1+3])
-            dp_triangulated_dbstate[ipt, :, istate_e1:istate_e1+3] += \
+                         out = dp_triangulated_db[ipt, :, istate_e1:istate_e1+3])
+            dp_triangulated_db[ipt, :, istate_e1:istate_e1+3] += \
                 nps.matmult(dp_triangulated_dt01, dt01_dr_1ref)
 
             nps.matmult( dp_triangulated_dt01,
                          dt01_dt_1ref,
-                         out = dp_triangulated_dbstate[ipt, :, istate_e1+3:istate_e1+6])
+                         out = dp_triangulated_db[ipt, :, istate_e1+3:istate_e1+6])
 
         if istate_e0 is not None:
             dr01_dr_0ref = drt01_drt_0ref[:3,:3]
@@ -1430,16 +1451,16 @@ if optimization_inputs is None and q_observation_stdev is None:
             nps.matmult( dp_triangulated_dv1,
                          dv1_dr01,
                          dr01_dr_0ref,
-                         out = dp_triangulated_dbstate[ipt, :, istate_e0:istate_e0+3])
-            dp_triangulated_dbstate[ipt, :, istate_e0:istate_e0+3] += \
+                         out = dp_triangulated_db[ipt, :, istate_e0:istate_e0+3])
+            dp_triangulated_db[ipt, :, istate_e0:istate_e0+3] += \
                 nps.matmult(dp_triangulated_dt01, dt01_dr_0ref)
 
             nps.matmult( dp_triangulated_dt01,
                          dt01_dt_0ref,
-                         out = dp_triangulated_dbstate[ipt, :, istate_e0+3:istate_e0+6])
+                         out = dp_triangulated_db[ipt, :, istate_e0+3:istate_e0+6])
 
             if dp_triangulated_drt_0ref is not None:
-                dp_triangulated_dbstate[ipt, :, istate_e0:istate_e0+6] += dp_triangulated_drt_0ref
+                dp_triangulated_db[ipt, :, istate_e0:istate_e0+6] += dp_triangulated_drt_0ref
 
         if dp_triangulated_drtrf is not None:
             # We're re-optimizing (looking at calibration uncertainty) AND we
@@ -1447,13 +1468,13 @@ if optimization_inputs is None and q_observation_stdev is None:
             # Without stabilization, there's no dependence on rt_ref_frame
 
             # dp_triangulated_drtrf has shape (Npoints,Nframes,3,6). I reshape to (Npoints,3,Nframes*6)
-            dp_triangulated_dbstate[ipt, :, istate_f0:istate_f0+Nstate_frames] = \
+            dp_triangulated_db[ipt, :, istate_f0:istate_f0+Nstate_frames] = \
                 nps.clump(nps.xchg(dp_triangulated_drtrf,-2,-3), n=-2)
 
     # Returning the istate stuff for the test suite. These are the istate_...
     # and icam_... for the last slice only. This is good-enough for the test
     # suite
-    return p, Var_p_observation, dp_triangulated_dbstate, \
+    return p, Var_p_observation, dp_triangulated_db, \
         istate_i0,                            \
         istate_i1,                            \
         icam_extrinsics0,                     \
@@ -1772,13 +1793,6 @@ Complete logic:
             if models_flat[i0]._extrinsics_moved_since_calibration():
                 raise Exception(f"The given models must have been fixed inside the initial calibration. Model {i0} has been moved")
 
-        bpacked,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs)
-
-        if q_calibration_stdev < 0:
-            q_calibration_stdev = \
-                np.std(mrcal.residuals_chessboard(optimization_inputs,
-                                                  residuals = x).ravel())
-
     else:
         optimization_inputs = None
 
@@ -1786,10 +1800,10 @@ Complete logic:
 
     # p has shape (Npoints + (3,))
     # Var_p_observation_flat has shape (Npoints + (3,3))
-    # dp_triangulated_dbstate has shape (Npoints*3 + (Nstate,))
+    # dp_triangulated_db has shape (Npoints*3 + (Nstate,))
     p,                      \
     Var_p_observation_flat, \
-    dp_triangulated_dbstate = \
+    dp_triangulated_db = \
         _triangulation_uncertainty_internal(
                         slices,
                         optimization_inputs,
@@ -1800,29 +1814,28 @@ Complete logic:
 
     # Done looping through all the triangulated points. I have computed the
     # observation-time noise contributions in Var_p_observation. And I have all
-    # the gradients in dp_triangulated_dbstate
+    # the gradients in dp_triangulated_db
 
     if optimization_inputs is not None:
-        # pack the denominator by unpacking the numerator
-        mrcal.unpack_state(dp_triangulated_dbstate, **optimization_inputs)
 
-        # reshape dp_triangulated_dbstate to (Npoints*3, Nstate)
+        # reshape dp_triangulated_db to (Npoints*3, Nstate)
         # So the Var(p) will end up with shape (Npoints*3, Npoints*3)
-        dp_triangulated_dbstate = nps.clump(dp_triangulated_dbstate,n=2)
+        dp_triangulated_db = nps.clump(dp_triangulated_db,n=2)
 
-        Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs)
-        if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs):
-            # Note the special-case where I'm using all the observations
-            Nmeasurements_observations = None
+        if q_calibration_stdev > 0:
+            # Calibration-time noise is given. Use it.
+            observed_pixel_uncertainty = q_calibration_stdev
+        else:
+            # Infer the expected calibration-time noise from the calibration data
+            observed_pixel_uncertainty = None
 
         # Var_p_calibration_flat has shape (Npoints*3,Npoints*3)
         Var_p_calibration_flat = \
             mrcal.model_analysis._propagate_calibration_uncertainty(
-                                               dp_triangulated_dbstate,
-                                               factorization, Jpacked,
-                                               Nmeasurements_observations,
-                                               q_calibration_stdev,
-                                               what = 'covariance')
+                                               'covariance',
+                                               dF_db                      = dp_triangulated_db,
+                                               observed_pixel_uncertainty = observed_pixel_uncertainty,
+                                               optimization_inputs        = optimization_inputs)
 
     else:
         Var_p_calibration_flat = None

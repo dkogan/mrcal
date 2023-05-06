@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 r'''Visualize the behavior or a lens model
 
 SYNOPSIS
@@ -141,12 +149,16 @@ if args.extratitle is not None:
     plotkwargs['extratitle'] = args.extratitle
 
 if   args.radial:
-    plot = mrcal.show_distortion_off_pinhole_radial(model,
-
-                                                    show_fisheye_projections = args.show_fisheye_projections,
-                                                    hardcopy     = args.hardcopy,
-                                                    terminal     = args.terminal,
-                                                    **plotkwargs)
+    try:
+        plot = \
+            mrcal.show_distortion_off_pinhole_radial(model,
+                                                     show_fisheye_projections = args.show_fisheye_projections,
+                                                     hardcopy     = args.hardcopy,
+                                                     terminal     = args.terminal,
+                                                     **plotkwargs)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 else:
     plot = mrcal.show_distortion_off_pinhole(model,
                                              vectorfield  = args.vectorfield,

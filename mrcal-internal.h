@@ -1,3 +1,11 @@
+// Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+// Government sponsorship acknowledged. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+
 #pragma once
 
 // THESE ARE NOT A PART OF THE EXTERNAL API. Exported for the mrcal python
@@ -46,16 +54,6 @@ void _mrcal_project_internal_opencv( // outputs
                                     int N,
                                     const double* intrinsics,
                                     int Nintrinsics);
-bool _mrcal_project_internal_cahvore( // out
-                                     mrcal_point2_t* out,
-
-                                     // in
-                                     const mrcal_point3_t* v,
-                                     int N,
-
-                                     // core, distortions concatenated
-                                     const double* intrinsics,
-                                     const double  linearity);
 bool _mrcal_project_internal( // out
                              mrcal_point2_t* q,
 

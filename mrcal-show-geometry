@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 r'''Displays the calibration-time geometry: the cameras and the observed objects
 
 SYNOPSIS
@@ -63,11 +71,29 @@ def parse_args():
                         objects observed ONLY by the FIRST camera at calibration
                         time. Exclusive with --show-calobjects''')
 
+    parser.add_argument('--show-points',
+                        action='store_true',
+                        help='''If given, draw the point observations from the
+                        FIRST given camera model that contains the
+                        optimization_inputs. Unlike --show-points-thiscamera,
+                        this option displays the points observed by ALL cameras
+                        at calibration time. Exclusive with
+                        --show-points-thiscamera''')
+
+    parser.add_argument('--show-points-thiscamera',
+                        action='store_true',
+                        help='''If given, draw the point observations from the
+                        FIRST given camera model that contains the
+                        optimization_inputs. Unlike --show-points, this option
+                        displays the calibration objects observed ONLY by the
+                        FIRST camera at calibration time. Exclusive with
+                        --show-points''')
+
     parser.add_argument('--transforms',
                         type=str,
                         help='''Optional transforms.txt. This is a legacy file
-                        representing an extra transformation for each camera. If
-                        you need this, you know what it is''')
+                        representing an extra transformation for each camera
+                        pair. If you need this, you know what it is''')
 
     parser.add_argument('--set',
                         type=str,
@@ -94,6 +120,10 @@ if args.show_calobjects and args.show_calobjects_thiscamera:
     print("--show-calobjects and --show-calobjects-thiscamera are exclusive",
           file=sys.stderr)
     sys.exit(1)
+if args.show_points and args.show_points_thiscamera:
+    print("--show-points and --show-points-thiscamera are exclusive",
+          file=sys.stderr)
+    sys.exit(1)
 
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
@@ -108,7 +138,15 @@ import mrcal
 
 
 
-models = [mrcal.cameramodel(m) for m in args.models]
+def openmodel(f):
+    try:
+        return mrcal.cameramodel(f)
+    except Exception as e:
+        print(f"Couldn't load camera model '{f}': {e}",
+              file=sys.stderr)
+        sys.exit(1)
+
+models = [openmodel(modelfilename) for modelfilename in args.models]
 
 cameras_Rt_plot_ref = None
 if args.transforms is not None:
@@ -138,17 +176,18 @@ if args.set   is not None:
 if args.unset is not None:
     gp.add_plot_option( plotkwargs, 'unset', args.unset)
 
-if args.show_calobjects:
-    show_calobjects = 'all'
-elif args.show_calobjects_thiscamera:
-    show_calobjects = 'thiscamera'
-else:
-    show_calobjects = False
+if args.show_calobjects:              show_calobjects = 'all'
+elif args.show_calobjects_thiscamera: show_calobjects = 'thiscamera'
+else:                                 show_calobjects = False
+if args.show_points:                  show_points     = 'all'
+elif args.show_points_thiscamera:     show_points     = 'thiscamera'
+else:                                 show_points     = False
 
 plot = mrcal.show_geometry(models,
                            cameranames         = args.models,
                            cameras_Rt_plot_ref = cameras_Rt_plot_ref,
                            show_calobjects     = show_calobjects,
+                           show_points         = show_points,
                            axis_scale          = args.axis_scale,
                            **plotkwargs)
 

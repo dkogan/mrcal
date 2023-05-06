@@ -1,5 +1,9 @@
 # -*- Makefile -*-
 
+# To use the latest tag in the documentation, run
+#
+# VERSION_USE_LATEST_TAG=1 make
+
 ## I generate a single mrcal-python-api-reference.html for ALL the Python code.
 ## This is large
 DOC_HTML += doc/out/mrcal-python-api-reference.html
@@ -97,5 +101,5 @@ EXTRA_CLEAN += doc/out
 publish-doc: doc
 	rsync --exclude '*~' --exclude external -avu doc/out/ mrcal.secretsauce.net:/var/www/mrcal/docs-latest-release
 publish-doc-external:
-	rsync -avu ../mrcal-doc-external/ mrcal.secretsauce.net:/var/www/mrcal/docs-2.0/external
+	rsync -avu ../mrcal-doc-external/ mrcal.secretsauce.net:/var/www/mrcal/docs-2.3/external
 .PHONY: publish-doc publish-doc-external

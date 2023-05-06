@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 r'''Visualize the difference in projection between N models
 
 SYNOPSIS
@@ -8,7 +16,8 @@ SYNOPSIS
   ... a plot pops up showing how these two models differ in their projections
 
 The operation of this tool is documented at
-http://mrcal.secretsauce.net/differencing.html
+
+  http://mrcal.secretsauce.net/differencing.html
 
 This tool visualizes the results of mrcal.projection_diff()
 
@@ -75,10 +84,7 @@ def parse_args():
                         list. If multiple distances are given, we fit the
                         implied-by-the-intrinsics transformation using ALL the
                         distances, but we display the difference for the FIRST
-                        distance given. Only one distance is supported if
-                        --vectorfield. Multiple distances are especially useful
-                        if we have uncertainties: the most confident distance
-                        will be found, and displayed.''')
+                        distance given.''')
 
     parser.add_argument('--intrinsics-only',
                         action='store_true',
@@ -233,11 +239,6 @@ else:
         distance = [float(d) for d in args.distance.split(',')]
     except:
         print("Error: distances must be given a comma-separated list of floats in --distance",
-              file = sys.stderr)
-        sys.exit(1)
-
-    if len(distance) > 1 and args.vectorfield:
-        print("Error: --distance can support at most one value if --vectorfield. Not clear how to plot otherwise",
               file = sys.stderr)
         sys.exit(1)
 
@@ -494,6 +495,11 @@ if not args.intrinsics_only and args.radius != 0 and \
     rt10 = mrcal.rt_from_Rt(Rt10)
 
     print(f"Transformation cam1 <-- cam0:  rotation: {nps.mag(rt10[:3])*180./np.pi:.03f} degrees, translation: {rt10[3:]} m")
+
+    dist_shift = nps.mag(rt10[3:])
+    if dist_shift > 0.01:
+        msg = f"## WARNING: fitted camera moved by {dist_shift:.03f}m. This is probably aphysically high, and something is wrong. Pass both a high and a low --distance? See the docs at http://mrcal.secretsauce.net/differencing.html"
+        print(msg, file=sys.stderr)
 
 if args.hardcopy is None:
     plot.wait()

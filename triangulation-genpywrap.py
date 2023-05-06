@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 r'''Python-wrap the triangulation routines
 
 '''
@@ -46,9 +54,6 @@ differences:
 - This is just the no-gradients function. The internal function that returns
   gradients is _triangulate_{WHAT}_withgrad
 
-- This function is wrapped with numpysane_pywrap, so the arguments broadcast as
-  expected
-
 A higher-level function mrcal.triangulate() is also available for higher-level
 analysis.
 
@@ -61,9 +66,6 @@ differences:
 
 - This is just the gradients-returning function. The internal function that
   skips those is _triangulate_{WHAT}
-
-- This function is wrapped with numpysane_pywrap, so the arguments broadcast as
-  expected
 
 A higher-level function mrcal.triangulate() is also available for higher-level
 analysis.
@@ -142,9 +144,6 @@ THAT function, and see the docs for that function. The differences:
 - This is just the no-gradients function. The internal function that returns
   gradients is _triangulate_lindstrom_withgrad
 
-- This function is wrapped with numpysane_pywrap, so the arguments broadcast as
-  expected
-
 """,
 
             args_input       = ('v0_local', 'v1_local', 'Rt01'),
@@ -176,9 +175,6 @@ THAT function, and see the docs for that function. The differences:
 
 - This is just the gradient-returning function. The internal function that skips those
   is _triangulate_lindstrom
-
-- This function is wrapped with numpysane_pywrap, so the arguments broadcast as
-  expected
 
 """,
 

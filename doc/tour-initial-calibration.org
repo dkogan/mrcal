@@ -8,31 +8,31 @@ The is the first stage in the [[file:tour.org][tour of mrcal]].
 :CUSTOM_ID: gathering-corners
 :END:
 
-We start by gathering images of a [[file:formulation.org::#calibration-object][chessboard]]. This is a wide lens, so I need a
-large chessboard in order to fill the imager. My chessboard has 10x10 internal
-corners with a corner-corner spacing of 7.7cm. A big chessboard such as this is
-never completely rigid or completely flat. I'm using a board backed with 2cm of
-foam, which keeps the shape stable over short periods of time, long-enough to
-complete a board dance. But the shape still drifts with changes in temperature
-and humidity, so mrcal estimates the [[file:formulation.org::#board-deformation][board shape]] as part of its calibration
-solve.
+We start by gathering images of a [[file:formulation.org::#calibration-object][chessboard]]. I use a large chessboard in order
+to fill the imager (details about why are on the [[file:tour-choreography.org][choreography page]]). My
+chessboard has 14x14 internal corners with a corner-corner spacing of 5.88cm.
+The whole thing is roughly 1m x 1m. A big chessboard such as this is often not
+completely rigid or completely flat. So I'm using a board backed with 1in of
+aluminum honeycomb, which addresses these issues: this board is both flat and
+stable. It took several iterations to settle on this material; see the
+[[file:how-to-calibrate.org::#chessboard-shape][how-to-calibrate page]] for details.
 
 An important consideration when gathering calibration images is keeping them in
-focus. As we shall see [[file:tour-choreography.org][later]], we want to gather close-up images as much as
-possible, so depth-of-field is the limiting factor. Moving the focus ring or the
-aperture ring on the lens /may/ affect the intrinsics, so ideally a single lens
-setting can cover both the calibration-time closeups and the working distance
-(presumably much further out).
+focus. As we shall see [[file:tour-choreography.org][later]], we want to gather as many close-up images as we
+can, so depth-of-field is the limiting factor. Moving the focus ring or the
+aperture ring affects the intrinsics, so ideally a single lens setting can cover
+both the calibration-time closeups and the working distance (presumably much
+further out). So for these tests I set the focus to infinity, and gather all my
+images at F22 to maximize the depth-of-field. To also avoid motion blur I need
+fast exposures, so I did all the image gathering outside, with bright natural
+lighting. When gathering real-world calibration data, compromises are often
+necessary; see the [[file:how-to-calibrate.org][how-to-calibrate page]] for details.
 
-So for these tests I set the focus to infinity, and gather all my images at F22
-to increase the depth-of-field as much as I can. To also avoid motion blur I
-need fast exposures, so I did all the image gathering outside, with bright
-natural lighting.
-
-The images live [[file:external/data/board][here]]. I'm using [[https://github.com/dkogan/mrgingham/][mrgingham]] 1.19 to detect the [[file:external/data/board/corners.vnl][chessboard corners]]:
+I gathered some [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/images][calibration images]], and used [[https://github.com/dkogan/mrgingham/][mrgingham]] 1.22 to detect the
+[[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/corners.vnl][chessboard corners]]:
 
 #+begin_src sh
-mrgingham -j3 '*.JPG' > corners.vnl 
+mrgingham --jobs 4 --gridn 14 '*.JPG' > corners.vnl 
 #+end_src
 
 How well did we cover the imager? Did we get the edges and corners?
@@ -40,36 +40,45 @@ How well did we cover the imager? Did we get the edges and corners?
 #+begin_example
 $ < corners.vnl       \
   vnl-filter -p x,y | \
-  feedgnuplot --domain --square --set 'xrange [0:6016]' --set 'yrange [4016:0]'
+  feedgnuplot --domain --square --set 'xrange [0:6000] noextend' --set 'yrange [3376:0] noextend'
 #+end_example
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-< $D/data/board/corners.vnl \
+mkdir -p ~/projects/mrcal-doc-external/figures/calibration/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+< $D/corners.vnl \
   vnl-filter -p x,y | \
-  feedgnuplot --domain --square --set 'xrange [0:6016]' --set 'yrange [4016:0]' \
+  feedgnuplot --domain --square --set 'xrange [0:6000] noextend' --set 'yrange [3376:0] noextend' \
+    --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
     --hardcopy ~/projects/mrcal-doc-external/figures/calibration/mrgingham-coverage.png
 #+end_src
 
 [[file:external/figures/calibration/mrgingham-coverage.png]]
 
-Looks like we did OK. It's a bit thin along the bottom edge, but not terrible.
-Visualizing the observations in this way is useful, but not completely
-necessary, since thing observations will clearly result in poor projection
-uncertainty; [[file:tour-uncertainty.org][much more on that later]].
+We did OK, except maybe at the top center. This is a good quick/dirty
+visualization of calibration data coverage, but as we'll see later, [[file:tour-uncertainty.org][we can do
+much better by looking at the projection uncertainty]]. If we had multiple
+cameras, the coverage for each one can be visualized by pre-filtering the
+=corners.vnl= to select specific image filenames. For instance:
 
-For an arbitrary image we can visualize at the corner detections:
+#+begin_src sh
+< corners.vnl                           \
+vnl-filter -p x,y 'filename ~ "left"' | \
+feedgnuplot ....
+#+end_src
+
+For an arbitrary image we can visualize the corner detections:
 
 #+begin_example
 $ < corners.vnl head -n5
 
-## generated with mrgingham -j3 *.JPG
+## generated with mrgingham --jobs 4 --gridn 14 *.JPG
 # filename x y level
-DSC_7305.JPG 3752.349000 168.802000 2
-DSC_7305.JPG 3844.411234 150.264910 0
-DSC_7305.JPG 3950.404000 132.480000 2
+DSC06041.JPG 781.481013 1476.287623 0
+DSC06041.JPG 847.070319 1444.378775 0
+DSC06041.JPG 917.514046 1410.696402 0
 
 
-$ f=DSC_7305.JPG
+$ f=DSC06067.JPG
 
 $ < corners.vnl                  \
   vnl-filter                     \
@@ -77,6 +86,7 @@ $ < corners.vnl                  \
     "filename eq \"$f\""         \
     -p x,y,size='2**(1-level)' | \
   feedgnuplot                    \
+    --unset key                  \
     --image $f                   \
     --domain                     \
     --square                     \
@@ -84,20 +94,21 @@ $ < corners.vnl                  \
     --with 'points pt 7 ps variable'
 #+end_example
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-f=$D/data/board/DSC_7305.JPG
-< $D/data/board/corners.vnl      \
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+f=$D/images/DSC06067.JPG
+< $D/corners.vnl      \
   vnl-filter                     \
     --perl                       \
     "filename eq \"${f:t}\""     \
     -p x,y,size='2**(1-level)' | \
   feedgnuplot                    \
+    --unset key                  \
     --image $f                   \
     --domain                     \
     --square                     \
     --tuplesizeall 3             \
     --with 'points pt 7 ps variable' \
-    --hardcopy $D/figures/calibration/mrgingham-results.png \
+    --hardcopy ~/projects/mrcal-doc-external/figures/calibration/mrgingham-results.png \
     --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 #+end_src
 
@@ -112,25 +123,27 @@ detections?
 #+begin_example
 $ < corners.vnl vnl-filter --has x -p filename | uniq | grep -v '#' | wc -l
 
-161
+84
 #+end_example
 
-So we have 161 images with detected corners. Most of the misses are probably
-images where the chessboard wasn't entirely in view, but some could be failures
-of mrgingham. In any case, 161 observations is usually plenty.
+So we have 84 images with detected corners even though we captured 115 images.
+Most of the misses were probably images where the chessboard wasn't entirely in
+view, but some could be failures of mrgingham. In any case, 84 observations is
+usually plenty.
 
 If I had more that one camera, the image filenames would need to indicate what
-camera captured each image at which time. I generally use
+camera captured each image at which time. I usually name my images
 =frameFFF-cameraCCC.jpg=. Images with the same =FFF= are assumed to have been
-captured at the same instant in time.
+captured at the same instant in time. The exact pattern doesn't matter, but a
+constant pattern with a variable =FFF= and =CCC= is required.
 
 * Monocular calibration with the 8-parameter opencv model
 :PROPERTIES:
 :CUSTOM_ID: opencv8-model-solving
 :END:
 
-Let's calibrate the intrinsics! We begin with [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]], a lean model
-that supports wide lenses decently well. Primarily it does this with a rational
+We have data. Let's calibrate. We begin with a lean model used commonly for wide
+lenses in other tools: [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]]. Primarily this works via a rational
 radial "distortion" model. Projecting $\vec p$ in the camera coordinate system:
 
 \begin{aligned}
@@ -140,8 +153,9 @@ r &\equiv \left|\vec P\right|            \\
 \vec q &= \vec f_{xy} \left( \vec P_\mathrm{radial} + \cdots \right) + \vec c_{xy}
 \end{aligned}
 
-Where $\vec q$ is the resulting projected pixel, $\vec f_{xy}$
-is the focal lengths and $\vec c_{xy}$ is the center pixel of the imager.
+where $\vec q$ is the resulting projected pixel, $k_i$ are the distortion
+parameters, $\vec f_{xy}$ is the focal lengths and $\vec c_{xy}$ is the center
+pixel of the imager.
 
 Let's compute the calibration using the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool:
 
@@ -149,70 +163,66 @@ Let's compute the calibration using the [[file:mrcal-calibrate-cameras.html][=mr
 mrcal-calibrate-cameras         \
   --corners-cache corners.vnl   \
   --lensmodel LENSMODEL_OPENCV8 \
-  --focal 1700                  \
-  --object-spacing 0.077        \
-  --object-width-n 10           \
-  '*.JPG'
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-calibrate-cameras    \
-  --corners-cache $D/data/board/corners.vnl \
-  --lensmodel LENSMODEL_OPENCV8             \
-  --focal 1700                              \
-  --object-spacing 0.077                    \
-  --object-width-n 10                       \
+  --focal 1900                  \
+  --object-spacing 0.0588       \
+  --object-width-n 14           \
   '*.JPG'
 #+end_src
 
-I'm specifying the initial very rough estimate of the focal length (in pixels),
-the geometry of my chessboard (10x10 board with 0.077m spacing between corners),
-the lens model I want to use, chessboard corners we just detected, the estimated
-uncertainty of the corner detections (more on this later) and the image globs. I
-have just one camera, so I have one glob: =*.JPG=. With more cameras you'd have
-something like ='*-camera0.jpg' '*-camera1.jpg' '*-camera2.jpg'=.
-
-We could pass =--explore= to drop into a REPL after the computation is done, so
-that we can look around. The most common diagnostic images can be made by
-running the [[file:commandline-tools.org][=mrcal-show-...= commandline tools]] on the generated
-=xxx.cameramodel= files, but =--explore= can be useful to get more sophisticated
-feedback.
+I'm specifying the initial rough estimate of the focal length (in pixels), the
+geometry of my chessboard, the lens model I want to use, chessboard corners we
+just detected and the image globs. I have just one camera, so I have one glob:
+=*.JPG=. With more cameras you'd have something like ='*-camera0.jpg'
+'*-camera1.jpg' '*-camera2.jpg'=.
 
 The [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] tool reports some high-level diagnostics, writes
 the output model(s) to disk, and exits:
 
 #+begin_example
 ## initial solve: geometry only
-## RMS error: 31.606057232034026
+## RMS error: 9.523144801739077
 
 ## initial solve: geometry and LENSMODEL_STEREOGRAPHIC core only
 =================== optimizing everything except board warp from seeded intrinsics
-mrcal.c(5355): Threw out some outliers (have a total of 53 now); going again
-mrcal.c(5355): Threw out some outliers (have a total of 78 now); going again
+mrcal.c(5351): Threw out some outliers (have a total of 129 now); going again
+...
+mrcal.c(5351): Threw out some outliers (have a total of 511 now); going again
 ## final, full optimization
-mrcal.c(5355): Threw out some outliers (have a total of 155 now); going again
-## RMS error: 0.7086476918204073
-RMS reprojection error: 0.7 pixels
-Worst residual (by measurement): 6.0 pixels
-Noutliers: 155 out of 16100 total points: 1.0% of the data
-calobject_warp = [-0.00104306  0.00051718]
+mrcal.c(5351): Threw out some outliers (have a total of 534 now); going again
+mrcal.c(5351): Threw out some outliers (have a total of 553 now); going again
+mrcal.c(5351): Threw out some outliers (have a total of 564 now); going again
+## RMS error: 0.4120879883977674
+RMS reprojection error: 0.4 pixels
+Worst residual (by measurement): 1.8 pixels
+Noutliers: 564 out of 16464 total points: 3.4% of the data
+calobject_warp = [-0.00012726 -0.00014325]
 
-Wrote ./camera-0.cameramodel
+Wrote /tmp/camera-0.cameramodel
 #+end_example
 
-The resulting model is renamed to =opencv8.cameramodel=, and is available [[file:external/data/board/opencv8.cameramodel][here]].
-This is a [[file:cameramodels.org][mrcal-native =.cameramodel= file]] containing at least the lens
-parameters and the geometry.
+The resulting model is available [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/opencv8.cameramodel][here]]. This is a [[file:cameramodels.org][mrcal-native =.cameramodel=
+file]] containing at least the lens parameters and the geometry.
 
-Let's sanity-check the results. We want to flag down any issues with the data
-that would violate the [[file:formulation.org::#noise-model][assumptions made by the solver]].
+We want to flag down any issues with the data that would violate the [[file:formulation.org::#noise-model][assumptions
+made by the solver]]. Let's start by sanity-checking the results.
 
-The tool reports some diagnostics. As we can see, the final RMS reprojection
-error was 0.7 pixels. Of the 16100 corner observations (161 observations of the
-board with 10*10 = 100 points each), 155 didn't fit the model well-enough, and
-were thrown out as [[file:formulation.org::#outlier-rejection][outliers]]. And the [[file:formulation.org::#board-deformation][board flex]] was computed as 1.0mm
-horizontally, and 0.5mm vertically in the opposite direction. That all sounds
-reasonable.
+As we can see in the console output, the final RMS reprojection error was 0.4
+pixels. Of the 16464 corner observations (84 observations of the board with
+14*14 points each), 564 didn't fit the model well-enough, and were thrown out as
+[[file:formulation.org::#outlier-rejection][outliers]]. The [[file:formulation.org::#board-deformation][board flex]] was computed as 0.13mm horizontally, and 0.14mm
+vertically. That all sounds reasonable.
+
+Let's examine the solution further. We can either
+
+- =mrcal-calibrate-cameras --explore ...= to drop into a REPL after the
+  computation is done. This allows us to look around in the Python session where
+  the solution was computed.
+
+- Use the [[file:commandline-tools.org][=mrcal-show-...= commandline tools]] on the generated =xxx.cameramodel=
+  files
+
+The =--explore= REPL can produce deeper feedback, but the commandline tools are
+more convenient, so I here I talk about those.
 
 What does the solve think about our geometry? Does it match reality?
 
@@ -225,9 +235,9 @@ mrcal-show-geometry      \
   --set 'view 80,30,1.5'
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-geometry $D/data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy $D/figures/calibration/calibration-chessboards-geometry.svg
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-geometry $D/data/board/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' --hardcopy $D/figures/calibration/calibration-chessboards-geometry.pdf
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+mrcal-show-geometry $D/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy ~/projects/mrcal-doc-external/figures/calibration/calibration-chessboards-geometry.svg
+mrcal-show-geometry $D/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' --hardcopy ~/projects/mrcal-doc-external/figures/calibration/calibration-chessboards-geometry.pdf
 #+end_src
 
 [[file:external/figures/calibration/calibration-chessboards-geometry.svg]]
@@ -237,85 +247,124 @@ system]]. In this solve, the camera coordinate system /is/ the reference
 coordinate system; this would look more interesting with more cameras. In front
 of the camera (along the $z$ axis) we can see the solved chessboard poses. There
 are a whole lot of them, and they're all sitting right in front of the camera
-with some heavy tilt. This matches with how this chessboard dance was performed
-(by following the guidelines set by the [[file:tour-choreography.org][dance study]]).
+with some heavy tilt. This matches with how this chessboard dance was performed:
+I followed the guidelines of the [[file:tour-choreography.org][dance study]].
+
+** Solve diagnostics
+:PROPERTIES:
+:CUSTOM_ID: opencv8-solve-diagnostics
+:END:
 
 Next, let's examine the residuals more closely. We have an overall RMS
 reprojection error value from above, but let's look at the full distribution of
-errors for /all/ the cameras:
+errors for /all/ the images and cameras:
 
 #+begin_src sh
 mrcal-show-residuals    \
   --histogram           \
-  --set 'xrange [-4:4]' \
+  --set 'xrange [-2:2]' \
   --unset key           \
   --binwidth 0.1        \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+mrcal-show-residuals \
   --histogram  \
-  --set 'xrange [-4:4]' \
+  --set 'xrange [-2:2]' \
   --unset key           \
   --binwidth 0.1 \
-  --hardcopy "$D/figures/calibration/residuals-histogram-opencv8.svg" \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-opencv8.svg" \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D/data/board/opencv8.cameramodel
+  $D/opencv8.cameramodel
 
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+mrcal-show-residuals \
   --histogram  \
-  --set 'xrange [-4:4]' \
+  --set 'xrange [-2:2]' \
   --unset key           \
   --binwidth 0.1 \
-  --hardcopy "$D/figures/calibration/residuals-histogram-opencv8.pdf" \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-opencv8.pdf" \
   --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
-  $D/data/board/opencv8.cameramodel
+  $D/opencv8.cameramodel
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/histogram
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals \
+  --histogram  \
+  --set 'xrange [-2:2]' \
+  --unset key           \
+  --binwidth 0.1 \
+  --hardcopy "$Dout/00001.png" \
+  --title "Residual histogram: LENSMODEL_OPENCV8" \
+  --terminal 'pngcairo size 1024,768 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/opencv8.cameramodel
 #+end_src
 
 [[file:external/figures/calibration/residuals-histogram-opencv8.svg]]
 
-We would like to see a normal distribution since that's what the [[file:formulation.org::#noise-model][noise model]]
-assumes. We do see this somewhat, but the central cluster is a bit
-over-populated. This is a violation of the noise model, but at this time I don't
-have a good sense of what this means. It's normal-ish, and there isn't a lot to
-do about this, so I will claim this is close-enough.
+We would like to see a normal distribution (since that's what the [[file:formulation.org::#noise-model][noise model]]
+assumes), and we roughly do see that here. If the images were captured with
+varying illumination (which happens with different board orientations and a
+directional light source), the center cluster or the tails would get
+over-populated. That would be a violation of the noise model, but things still
+appear to work OK even in that case.
 
 Let's look deeper. If there's anything really wrong with our data, then we
-should see it in the worst-fitting images. Let's ask the tool to see the worst
-one:
+should see it in the worst-fitting images. Let's ask the tool to show us the
+worst one:
 
 #+begin_src sh
 mrcal-show-residuals-board-observation \
   --from-worst                         \
-  --vectorscale 100                    \
+  --vectorscale 200                    \
   --circlescale 0.5                    \
-  --set 'cbrange [0:3]'                \
+  --set 'cbrange [0:2]'                \
   opencv8.cameramodel                  \
   0
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board-observation \
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+cd $D/images
+mrcal-show-residuals-board-observation \
   --from-worst \
-  --vectorscale 100 \
+  --vectorscale 200 \
   --circlescale 0.5 \
-  --set 'cbrange [0:3]' \
-  --hardcopy "$D/figures/calibration/worst-opencv8.png" \
+  --set 'cbrange [0:2]' \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/worst-opencv8.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  $D/data/board/opencv8.cameramodel \
+  $D/opencv8.cameramodel \
+  0
+Dout=~/projects/mrcal-doc-external/figures/calibration/worst
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals-board-observation \
+  --from-worst \
+  --vectorscale 200 \
+  --circlescale 0.5 \
+  --set 'cbrange [0:2]' \
+  --hardcopy "$Dout/00001.png" \
+  --title "Worst observation: LENSMODEL_OPENCV8" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/opencv8.cameramodel \
   0
 #+end_src
 
 [[file:external/figures/calibration/worst-opencv8.png]]
 
 The residual vector for each chessboard corner in this observation is shown,
-scaled by a factor of 100 for legibility (the actual errors are tiny!) The
+scaled by a factor of 200 for legibility (the actual errors are tiny!) The
 circle color also indicates the magnitude of the errors. The size of each circle
 represents the weight given to that point. The weight is reduced for points that
-were detected at a lower resolution by the chessboard detector. Points thrown
-out as outliers are not shown at all.
+were detected at a lower resolution by the chessboard detector. So even high
+reprojection errors (shown as the vectors) could result in low measurements if
+the weight was low. Points thrown out as outliers are not shown at all.
 
 Residual plots such as this one are a good way to identify common data-gathering
 issues such as:
@@ -323,75 +372,121 @@ issues such as:
 - out-of focus images
 - images with motion blur
 - [[https://en.wikipedia.org/wiki/Rolling_shutter][rolling shutter]] effects
-- synchronization errors
+- camera synchronization errors
 - chessboard detector failures
 - insufficiently-rich models (of the lens or of the chessboard shape or anything
   else)
 
-Back to /this/ image. In absolute terms, even this worst-fitting image fits
-/really/ well. The RMS error of the errors in this image is 1.20 pixels. The
-residuals in this image look mostly reasonable. There is a pattern, however: the
-errors are mostly radial (point to/from the center). This could cause biases
-later on. Let's keep going, keeping this in mind as something we should address
-later.
+See the [[file:how-to-calibrate.org][how-to-calibrate page]] for practical details. Back to /this/ image. In
+absolute terms, even this worst-fitting image fits /really/ well. The RMS
+reprojection error in this image is 0.70 pixels. The residuals in this image
+look /mostly/ reasonable, but there is an issue: if the model fit this data
+well, the residuals would sample independent, random noise. Thus the residuals
+would all be uncorrelated with each other, but /here/ there's a pattern: we can
+see that the errors are mostly radial in the chessboard (they point to/from the
+center). A unmodeled chessboard flex could cause this kind of problem, for
+instance. This is a source of bias in this solution. Let's keep going, keeping
+this in mind.
 
-One issue with lean models such as =LENSMODEL_OPENCV8=, which is used here, is
-that the radial distortion is never quite right, especially as we move further
-and further away form the optical axis: this is the last point in the
-common-errors list above. The result of these radial distortion errors is high
-residuals in the corners of the image. We can clearly see this here in the
-3rd-worst image:
+One issue with lean models such as =LENSMODEL_OPENCV8= (used here) is that the
+radial distortion is never quite right, especially as we move further and
+further away from the optical axis: this is the last point in the common-errors
+list above. The result of these radial distortion errors is high residuals in
+the corners and near the edges of the image. We can clearly see this here in the
+10th-worst image (10th worst and not /the/ worst because the /really/
+poor-fitting points are thrown out as outliers):
 
 #+begin_src sh
 mrcal-show-residuals-board-observation \
   --from-worst                         \
-  --vectorscale 100                    \
+  --vectorscale 200                    \
   --circlescale 0.5                    \
-  --set 'cbrange [0:3]'                \
+  --set 'cbrange [0:2]'                \
   opencv8.cameramodel                  \
-  2
+  10
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board-observation \
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+cd $D/images
+mrcal-show-residuals-board-observation \
   --from-worst \
-  --vectorscale 100 \
+  --vectorscale 200 \
   --circlescale 0.5 \
-  --set 'cbrange [0:3]' \
-  --hardcopy "$D/figures/calibration/worst-incorner-opencv8.png" \
+  --set 'cbrange [0:2]' \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/worst-incorner-opencv8.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  $D/data/board/opencv8.cameramodel \
-  2
+  $D/opencv8.cameramodel \
+  10
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/worst-in-corner
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals-board-observation \
+  --from-worst \
+  --vectorscale 200 \
+  --circlescale 0.5 \
+  --set 'cbrange [0:2]' \
+  --hardcopy "$Dout/00001.png" \
+  --title "Observation in the corner: LENSMODEL_OPENCV8" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/opencv8.cameramodel \
+  10
 #+end_src
 
 [[file:external/figures/calibration/worst-incorner-opencv8.png]]
 
-And we can see this in the residual magnitudes of all the observations:
+Clearly /this/ image is a problem: the points near the corners have poor
+residuals, and the entire column of points at the edge was thrown out as
+outliers. We note that this is observation 47, so that we can come back to it
+later.
+
+And we can see this same high-error-in-the-corners effect in the residual
+magnitudes of all the observations:
 
 #+begin_src sh
 mrcal-show-residuals                   \
   --magnitudes                         \
-  --set 'cbrange [0:3.5]'              \
+  --set 'cbrange [0:1.5]'              \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+mrcal-show-residuals \
   --magnitudes \
-  --set 'cbrange [0:3.5]' \
-  --hardcopy "$D/figures/calibration/residual-magnitudes-opencv8.png" \
+  --set 'cbrange [0:1.5]' \
+  --set 'pointsize 0.5' \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/residual-magnitudes-opencv8.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  $D/data/board/opencv8.cameramodel
+  $D/opencv8.cameramodel
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/magnitudes
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals \
+  --magnitudes \
+  --set 'cbrange [0:1.5]' \
+  --set 'pointsize 0.5' \
+  --hardcopy "$Dout/00001.png" \
+  --title "Residual magnitudes: LENSMODEL_OPENCV8" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/opencv8.cameramodel
 #+end_src
 
 [[file:external/figures/calibration/residual-magnitudes-opencv8.png]]
 
-/This/ is clearly a problem. We note that we looked at observation 79, so that
-we can come back to it later.
-
-Let's look at the systematic errors in another way: let's look at all the
-residuals over all the observations, color-coded by their direction, ignoring
-the magnitudes:
+In addition to the expected high errors at the edges, this plot also shows an
+anomalous ring of poorly-fitting observations at the center. This could maybe be
+caused by the solver sacrificing accuracy at the center of the image to get a
+better fit in the much larger areas further out? We shall see in a bit. Let's
+look at the systematic errors in another way: let's look at all the residuals
+over all the observations, color-coded by their direction, ignoring the
+magnitudes:
 
 #+begin_src sh
 mrcal-show-residuals    \
@@ -400,41 +495,59 @@ mrcal-show-residuals    \
   opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+mrcal-show-residuals \
   --directions \
   --unset key           \
   --set 'pointsize 0.5' \
-  --hardcopy "$D/figures/calibration/directions-opencv8.svg" \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/directions-opencv8.svg" \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D/data/board/opencv8.cameramodel
-
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+  $D/opencv8.cameramodel
+mrcal-show-residuals \
   --directions \
   --unset key           \
-  --set 'pointsize 0.25' \
-  --hardcopy "$D/figures/calibration/directions-opencv8.pdf" \
+  --set 'pointsize 0.5' \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/directions-opencv8.png" \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
+  $D/opencv8.cameramodel
+mrcal-show-residuals \
+  --directions \
+  --unset key           \
+  --set 'pointsize 0.5' \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/directions-opencv8.pdf" \
   --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
-  $D/data/board/opencv8.cameramodel
+  $D/opencv8.cameramodel
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/directions
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals \
+  --directions \
+  --unset key           \
+  --set 'pointsize 0.5' \
+  --hardcopy "$Dout/00001.png" \
+  --title "Residual directions: LENSMODEL_OPENCV8" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/opencv8.cameramodel
 #+end_src
 
 [[file:external/figures/calibration/directions-opencv8.png]]
 
 As before, if the model fit the observations, the errors would represent random
-noise, and no color pattern would be discernible in these dots. Here we can
-clearly see lots of green in the top-right and top and left, lots of blue and
-magenta in the center, yellow at the bottom, and so on. This is not random
-noise, and is a /very/ clear indication that this lens model is not able to fit
-this data.
+noise, and no color pattern would be discernible in these dots. But here we can
+clearly see the colors clustered together. This is not random noise, and is a
+/very/ clear indication that this lens model is not able to fit this data.
 
 It would be good to have a quantitative measure of these systematic patterns. At
 this time mrcal doesn't provide an automated way to do that. This will be added
 in the future.
 
 Clearly there're unmodeled errors in this solve. As we have seen, the errors
-here are all fairly small, but they become very important when doing precision
-work like, for instance, long-range stereo.
+here are all fairly small, but they become important when doing precision work
+like, for instance, long-range stereo.
 
 Let's fix it.
 
@@ -444,28 +557,27 @@ Let's fix it.
 :END:
 
 Usable [[file:uncertainty.org][uncertainty quantification]] and accurate projections are major goals of
-mrcal. To achive these, mrcal supports /splined/ models. At this time there's
-only one representation supported: a /splined stereographic/ model, described in
-detail [[file:splined-models.org][here]].
+mrcal. To achive these, mrcal supports a [[file:splined-models.org][/splined stereographic/ model]], briefly
+summarized below. We use this splined stereographic model to more precisely
+model the behavior or this lens.
 
 ** Splined stereographic model definition
 :PROPERTIES:
 :CUSTOM_ID: splined-model-definition
 :END:
 
-The basis of a splined stereographic model is a [[file:lensmodels.org::#lensmodel-stereographic][stereographic projection]]. In
-this projection, a point that lies an angle $\theta$ off the camera's optical
-axis projects to $\left|\vec q - \vec q_\mathrm{center}\right| = 2 f \tan \frac{\theta}{2}$
-pixels from the imager center, where $f$ is the focal length. Note that this
-representation supports projections behind the camera ($\theta > 90^\circ$) with
-a single singularity directly behind the camera. This is unlike the pinhole
-model, which has $\left|\vec q - \vec q_\mathrm{center}\right| = f \tan \theta$, and projects
-to infinity as $\theta \rightarrow 90^\circ$.
+The base of a splined stereographic model is a [[file:lensmodels.org::#lensmodel-stereographic][stereographic projection]]. In this
+projection, a point that lies an angle $\theta$ off the camera's optical axis
+projects to $\left|\vec q - \vec q_\mathrm{center}\right| = 2 f \tan
+\frac{\theta}{2}$ pixels from the imager center, where $f$ is the focal length.
+Note that this representation supports projections behind the camera ($\theta >
+90^\circ$) with a single singularity directly behind the camera. This is unlike
+the pinhole model, which has $\left|\vec q - \vec q_\mathrm{center}\right| = f
+\tan \theta$, and projects to infinity as $\theta \rightarrow 90^\circ$. The
+pinhole model can /not/ represent projections behind the imager.
 
 Basing the new model on a stereographic projection lifts the inherent
-forward-view-only limitation of =LENSMODEL_OPENCV8=. To give the model enough
-flexibility to be able to represent any projection function, I define two
-correction surfaces.
+forward-view-only limitation of =LENSMODEL_OPENCV8=.
 
 Let $\vec p$ be the camera-coordinate system point being projected. The angle
 off the optical axis is
@@ -477,9 +589,8 @@ The /normalized/ stereographic projection is
 \[ \vec u \equiv \frac{\vec p_{xy}}{\left| \vec p_{xy} \right|} 2 \tan\frac{\theta}{2} \]
 
 This initial projection operation unambiguously collapses the 3D point $\vec p$
-into a 2D point $\vec u$. We then use $\vec u$ to look-up an
-adjustment factor $\Delta \vec u$ using two splined surfaces: one for each of
-the two elements of
+into a 2D vector $\vec u$. We then use $\vec u$ to look-up an adjustment factor
+$\Delta \vec u$ using two splined surfaces: one for each of the two elements:
 
 \[ \Delta \vec u \equiv
 \left[ \begin{aligned}
@@ -509,21 +620,10 @@ specify the lens:
 #+begin_src sh
 mrcal-calibrate-cameras                                                         \
   --corners-cache corners.vnl                                                   \
-  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=150 \
-  --focal 1700                                                                  \
-  --object-spacing 0.077                                                        \
-  --object-width-n 10                                                           \
-  '*.JPG'
-#+end_src
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-calibrate-cameras                                        \
-  --corners-cache $D/data/board/corners.vnl                                     \
-  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=150 \
-  --focal 1700                                                                  \
-  --object-spacing 0.077                                                        \
-  --object-width-n 10                                                           \
-  --explore                                                                     \
+  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=18_fov_x_deg=150 \
+  --focal 1900                                                                  \
+  --object-spacing 0.0588                                                       \
+  --object-width-n 14                                                           \
   '*.JPG'
 #+end_src
 
@@ -531,187 +631,275 @@ Reported diagnostics:
 
 #+begin_example
 ## initial solve: geometry only
-## RMS error: 31.606057232034026
+## RMS error: 9.523144801739077
 
 ## initial solve: geometry and LENSMODEL_STEREOGRAPHIC core only
 =================== optimizing everything except board warp from seeded intrinsics
-mrcal.c(5355): Threw out some outliers (have a total of 66 now); going again
-mrcal.c(5355): Threw out some outliers (have a total of 95 now); going again
+mrcal.c(5351): Threw out some outliers (have a total of 28 now); going again
 ## final, full optimization
-mrcal.c(5355): Threw out some outliers (have a total of 182 now); going again
-mrcal.c(5355): Threw out some outliers (have a total of 219 now); going again
-mrcal.c(5411): WARNING: regularization ratio for lens distortion exceeds 1%. Is the scale factor too high? Ratio = 65.293/4650.113 = 0.014
-## RMS error: 0.5276835270927116
-RMS reprojection error: 0.5 pixels
-Worst residual (by measurement): 3.3 pixels
-Noutliers: 219 out of 16100 total points: 1.4% of the data
-calobject_warp = [-0.00095958  0.00051596]
+## RMS error: 0.24540598163794722
+RMS reprojection error: 0.2 pixels
+Worst residual (by measurement): 1.3 pixels
+Noutliers: 28 out of 16464 total points: 0.2% of the data
+calobject_warp = [-1.26851438e-04 -8.03269701e-05]
+
+Wrote /tmp/camera-0.cameramodel
 #+end_example
 
-The resulting model is renamed to =splined.cameramodel=, and is available [[file:external/data/board/splined.cameramodel][here]].
+The resulting model is available [[file:external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel][here]].
 
-The lens model
-=LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=150= is the only
+The requested lens model
+=LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=18_fov_x_deg=150= is the only
 difference in the command. Unlike =LENSMODEL_OPENCV8=, /this/ model has some
 /configuration/ parameters: the spline order (we use cubic splines here), the
-spline density (here each spline surface has 30 x 20 knots), and the rough
+spline density (here each spline surface has 30 x 18 knots), and the rough
 horizontal field-of-view we support (we specify about 150 degrees horizontal
-field of view).
+field of view). These parameters are fixed in the model, and are not subject to
+optimization.
 
-There're over 1000 lens parameters here, but the problem is very sparse, so we
-can still process this in a reasonable amount of time.
+There're over 1000 lens parameters here, but the problem is sparse, so we can
+still process this in a reasonable amount of time.
 
-The =LENSMODEL_OPENCV8= solve had 155 points that fit so poorly, the solver
-threw them away as outliers; here we have 219. The difference is a tighter fit,
-which resulted in a lower outlier threshold: the RMS reprojection error dropped
-from 0.71 pixels to 0.53 pixels. The estimated chessboard shape stayed roughly
-the same. These are all what we expect and hope to see.
+The previous =LENSMODEL_OPENCV8= solve had 564 points that fit so poorly, the
+solver threw them away as outliers; here we have only 28. The RMS reprojection
+error dropped from 0.4 pixels to 0.2 pixels. The estimated chessboard shape
+stayed roughly the same: flat. These are all what we expect and hope to see.
 
-Let's look at the residual distribution in /this/ solve:
+Let's look at the residual distribution in /this/ solve, compared to before:
 
 #+begin_src sh
 mrcal-show-residuals    \
   --histogram           \
-  --set 'xrange [-4:4]' \
+  --set 'xrange [-2:2]' \
   --unset key           \
   --binwidth 0.1        \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+mrcal-show-residuals \
   --histogram  \
-  --set 'xrange [-4:4]' \
+  --set 'xrange [-2:2]' \
   --unset key           \
   --binwidth 0.1 \
-  --hardcopy "$D/figures/calibration/residuals-histogram-splined.svg" \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-splined.svg" \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D/data/board/splined.cameramodel
+  $D/splined.cameramodel
 
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+mrcal-show-residuals \
   --histogram  \
-  --set 'xrange [-4:4]' \
+  --set 'xrange [-2:2]' \
   --unset key           \
   --binwidth 0.1 \
-  --hardcopy "$D/figures/calibration/residuals-histogram-splined.pdf" \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-splined.pdf" \
   --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
-  $D/data/board/splined.cameramodel
+  $D/splined.cameramodel
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/histogram
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals \
+  --histogram  \
+  --set 'xrange [-2:2]' \
+  --unset key           \
+  --binwidth 0.1 \
+  --hardcopy "$Dout/00002.png" \
+  --title "Residual histogram: LENSMODEL_SPLINED_STEREOGRAPHIC" \
+  --terminal 'pngcairo size 1024,768 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/splined.cameramodel
+ffmpeg \
+  -r 1 \
+  -y \
+  -f image2 \
+  -i "$Dout/%05d.png" \
+  -filter_complex "[0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse" \
+  ~/projects/mrcal-doc-external/figures/calibration/histogram-opencv8-splined-animation.gif
 #+end_src
 
-[[file:external/figures/calibration/residuals-histogram-splined.svg]]
+[[file:external/figures/calibration/histogram-opencv8-splined-animation.gif]]
 
 This still has the nice bell curve, but the residuals are lower: the data fits
 better than before.
 
-Let's look at the worst-fitting single image in /this/ solve:
+Let's look at the worst-fitting single image:
 
 #+begin_src sh
 mrcal-show-residuals-board-observation \
   --from-worst                         \
-  --vectorscale 100                    \
+  --vectorscale 200                    \
   --circlescale 0.5                    \
-  --set 'cbrange [0:3]'                \
+  --set 'cbrange [0:2]'                \
   splined.cameramodel                  \
   0
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board-observation \
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+cd $D/images
+mrcal-show-residuals-board-observation \
   --from-worst \
-  --vectorscale 100 \
+  --vectorscale 200 \
   --circlescale 0.5 \
-  --set 'cbrange [0:3]' \
-  --hardcopy "$D/figures/calibration/worst-splined.png" \
+  --set 'cbrange [0:2]' \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/worst-splined.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  $D/data/board/splined.cameramodel \
+  $D/splined.cameramodel \
   0
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/worst
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals-board-observation \
+  --from-worst \
+  --vectorscale 200 \
+  --circlescale 0.5 \
+  --set 'cbrange [0:2]' \
+  --hardcopy "$Dout/00002.png" \
+  --title "Worst observation: LENSMODEL_SPLINED_STEREOGRAPHIC" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/splined.cameramodel \
+  0
+ffmpeg \
+  -r 1 \
+  -y \
+  -f image2 \
+  -i "$Dout/%05d.png" \
+  -filter_complex "[0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse" \
+  ~/projects/mrcal-doc-external/figures/calibration/worst-opencv8-splined-animation.gif
 #+end_src
 
-[[file:external/figures/calibration/worst-splined.png]]
-
 Interestingly, the worst observation here is the same one we saw with
-=LENSMODEL_OPENCV8=. But all the errors are significantly smaller than before.
-The previous radial pattern is much less pronounced, but it still there.
+=LENSMODEL_OPENCV8=, so we can do a nice side-by-side comparison:
+
+[[file:external/figures/calibration/worst-opencv8-splined-animation.gif]]
+
+All the errors are significantly smaller. The previous radial pattern is still
+there, but is much less pronounced.
+
+#+begin_src sh :exports none :eval no-export
+Sometimes noncentral solves clearly fix this, and I can talk about it (notes
+here). Cross-validation is a better place to talk about it, anyway.
 
 A sneak peek: this is caused by an assumption of a central projection (assuming
 that all rays intersect at a single point). An experimental and
-not-entirely-complete [[https://github.com/dkogan/mrcal/tree/noncentral][support for noncentral projection in mrcal]] exists, and
-works /much/ better. The same frame, fitted with a noncentral projection:
+not-entirely-complete [[https://github.com/dkogan/mrcal/tree/noncentral][support
+for noncentral projection in mrcal]] exists, and works /much/ better. The same
+frame, fitted with a noncentral projection:
 
-#+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal-noncentral/mrcal-calibrate-cameras                             \
-  --corners-cache $D/data/board/corners.vnl                                     \
-  --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=150 \
-  --focal 1700                                                                  \
-  --object-spacing 0.077                                                        \
-  --object-width-n 10                                                           \
-  --outdir /tmp                                                                     \
-  '*.JPG'
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal-noncentral ~/projects/mrcal-noncentral/mrcal-show-residuals-board-observation \
-  --vectorscale 100 \
-  --circlescale 0.5 \
-  --set 'cbrange [0:3]' \
-  --hardcopy "$D/figures/calibration/worst-splined-noncentral.png" \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  /tmp/camera-0.cameramodel \
-  54
-#+end_src
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+PYTHONPATH=/home/dima/projects/mrcal-noncentral
+~/projects/mrcal-noncentral/mrcal-show-residuals-board-observation \
+--vectorscale 200 \ --circlescale 0.5 \ --set 'cbrange [0:2]' \ --hardcopy
+"~/projects/mrcal-doc-external/figures/calibration/worst-splined-noncentral.png"
+\ --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"' \
+$D/splined-noncentral.cameramodel \ 40
 
 [[file:external/figures/calibration/worst-splined-noncentral.png]]
 
 This will be included in a future release of mrcal.
 
 In any case, these errors are small, so let's proceed.
+#+end_src
 
 What happens when we look at the image that showed a poor fit in the corner
-previously? It was observation 79.
+previously? It was observation 47.
 
 #+begin_src sh
 mrcal-show-residuals-board-observation \
-  --vectorscale 100                    \
+  --vectorscale 200                    \
   --circlescale 0.5                    \
-  --set 'cbrange [0:3]'                \
+  --set 'cbrange [0:2]'                \
   splined.cameramodel                  \
-  79
+  47
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals-board-observation \
-  --vectorscale 100 \
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+cd $D/images
+mrcal-show-residuals-board-observation \
+  --vectorscale 200 \
   --circlescale 0.5 \
-  --set 'cbrange [0:3]' \
-  --hardcopy "$D/figures/calibration/worst-incorner-splined.png" \
+  --set 'cbrange [0:2]' \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/worst-incorner-splined.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  $D/data/board/splined.cameramodel \
-  79
+  $D/splined.cameramodel \
+  47
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/worst-in-corner
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals-board-observation \
+  --vectorscale 200 \
+  --circlescale 0.5 \
+  --set 'cbrange [0:2]' \
+  --hardcopy "$Dout/00002.png" \
+  --title "Observation in the corner: LENSMODEL_SPLINED_STEREOGRAPHIC" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/splined.cameramodel \
+  47
+ffmpeg \
+  -r 1 \
+  -y \
+  -f image2 \
+  -i "$Dout/%05d.png" \
+  -filter_complex "[0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse" \
+  ~/projects/mrcal-doc-external/figures/calibration/worst-in-corner-opencv8-splined-animation.gif
 #+end_src
 
-[[file:external/figures/calibration/worst-incorner-splined.png]]
+[[file:external/figures/calibration/worst-in-corner-opencv8-splined-animation.gif]]
 
 And the residual magnitudes of all the observations:
 
 #+begin_src sh
 mrcal-show-residuals                   \
   --magnitudes                         \
-  --set 'cbrange [0:3.5]'              \
+  --set 'cbrange [0:1.5]'              \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+mrcal-show-residuals \
   --magnitudes \
-  --set 'cbrange [0:3.5]' \
-  --hardcopy "$D/figures/calibration/residual-magnitudes-splined.png" \
+  --set 'cbrange [0:1.5]' \
+  --set 'pointsize 0.5' \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/residual-magnitudes-splined.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  $D/data/board/splined.cameramodel
+  $D/splined.cameramodel
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/magnitudes
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals \
+  --magnitudes \
+  --set 'cbrange [0:1.5]' \
+  --set 'pointsize 0.5' \
+  --hardcopy "$Dout/00002.png" \
+  --title "Residual magnitudes: LENSMODEL_SPLINED_STEREOGRAPHIC" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/splined.cameramodel
+ffmpeg \
+  -r 1 \
+  -y \
+  -f image2 \
+  -i "$Dout/%05d.png" \
+  -filter_complex "[0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse" \
+  ~/projects/mrcal-doc-external/figures/calibration/residual-magnitudes-opencv8-splined-animation.gif
 #+end_src
 
-[[file:external/figures/calibration/residual-magnitudes-splined.png]]
+[[file:external/figures/calibration/residual-magnitudes-opencv8-splined-animation.gif]]
 
-Neat! The model fits the data in the corners now. And what about the residual directions?
+Neat! The model fits the data at the edges now. And what about the residual
+directions?
 
 #+begin_src sh
 mrcal-show-residuals    \
@@ -720,47 +908,87 @@ mrcal-show-residuals    \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+mrcal-show-residuals \
   --directions \
   --unset key           \
   --set 'pointsize 0.5' \
-  --hardcopy "$D/figures/calibration/directions-splined.svg" \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/directions-splined.svg" \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D/data/board/splined.cameramodel
-
-D=~/projects/mrcal-doc-external
-PYTHONPATH=/home/dima/projects/mrcal ~/projects/mrcal/mrcal-show-residuals \
+  $D/splined.cameramodel
+mrcal-show-residuals \
   --directions \
   --unset key           \
-  --set 'pointsize 0.25' \
-  --hardcopy "$D/figures/calibration/directions-splined.pdf" \
+  --set 'pointsize 0.5' \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/directions-splined.png" \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
+  $D/splined.cameramodel
+mrcal-show-residuals \
+  --directions \
+  --unset key           \
+  --set 'pointsize 0.5' \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/directions-splined.pdf" \
   --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
-  $D/data/board/splined.cameramodel
+  $D/splined.cameramodel
+
+Dout=~/projects/mrcal-doc-external/figures/calibration/directions
+mkdir -p $Dout
+echo "The background color below must match mrcal.css. Adjust them together"                                                                                             > /dev/null
+echo "I'm hardcoding the image dimensions because of a gnuplot bug. Already fixed in git, but not released yet"                                                          > /dev/null
+echo "git: https://sourceforge.net/p/gnuplot/gnuplot-main/ci/b387dbedf38268c09df258e649fd8ec301c8e1c6/tree/term/cairo.trm?diff=660d60f022c48defaa140ba12d6a1fd931b4bfe5" > /dev/null
+echo "mailing list: https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/874juhf80v.fsf%40dima.secretsauce.net/#msg37741736"                                    > /dev/null
+mrcal-show-residuals \
+  --directions \
+  --unset key           \
+  --set 'pointsize 0.5' \
+  --hardcopy "$Dout/00002.png" \
+  --title "Residual directions: LENSMODEL_SPLINED_STEREOGRAPHIC" \
+  --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
+  $D/splined.cameramodel
+ffmpeg \
+  -r 1 \
+  -y \
+  -f image2 \
+  -i "$Dout/%05d.png" \
+  -filter_complex "[0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse" \
+  ~/projects/mrcal-doc-external/figures/calibration/residual-directions-opencv8-splined-animation.gif
 #+end_src
 
-[[file:external/figures/calibration/directions-splined.png]]
+[[file:external/figures/calibration/residual-directions-opencv8-splined-animation.gif]]
 
-/Much/ better than before. Maybe there's still a pattern, but it's not clearly
-discernible.
+/Much/ better than before: the color clustering is /gone/. The poorly-fitting
+ring in the center is still there, but it is being modeled by this splined model
+far better than how =LENSMODEL_OPENCV8= did (error magnitudes are much better).
+We /do/ still see a clear pattern in the directions inside the ring, so it could
+still be improved: a denser spline spacing would do better. This is a peculiar
+image processing artifact of the Sony Alpha 7 III camera: from experience, other
+cameras using this lens do not exhibit this effect. See [[http://mrcal.secretsauce.net/docs-2.2/tour-initial-calibration.html][the tour of mrcal 2.2]]
+for instance; this used the same lens with a different camera.
 
 We can also visualize the [[file:splined-models.org][magnitude of the vector field defined by the splined
 surfaces]] $\left| \Delta \vec u \right|$:
 
 #+begin_src sh
-mrcal-show-splined-model-correction \
-  --set 'cbrange [0:0.1]'           \
-  --unset grid                      \
+mrcal-show-splined-model-correction   \
+  --set 'cbrange [0:0.1]'             \
+  --unset grid                        \
+  --set 'xrange [:] noextend'         \
+  --set 'yrange [:] noextend reverse' \
+  --set 'key opaque box'              \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-splined-model-correction \
+mkdir -p ~/projects/mrcal-doc-external/figures/splined-models
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+mrcal-show-splined-model-correction \
   --set 'cbrange [0:0.1]' \
   --unset grid                      \
-  --hardcopy "$D/figures/splined-models/splined-magnitude.png" \
+  --set 'xrange [:] noextend' \
+  --set 'yrange [:] noextend reverse' \
+  --set 'key opaque box' \
+  --hardcopy "~/projects/mrcal-doc-external/figures/splined-models/splined-magnitude.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
-  $D/data/board/splined.cameramodel
+  $D/splined.cameramodel
 #+end_src
 
 [[file:external/figures/splined-models/splined-magnitude.png]]
@@ -772,79 +1000,82 @@ and the knots are arranged in a regular grid. The region where the spline
 surface is well-defined begins at the 2nd knot from the edges; its boundary is
 shown as a thin green line. The valid-intrinsics region (the area where the
 intrinsics are confident because we had sufficient chessboard observations
-there) is shown as a thick, purple curve. Since each $\vec u$ projects to a
-pixel coordinate $\vec q$ in some very nonlinear way, this curve is not
-straight.
+there) is shown as a thick, green curve. Since each $\vec u$ projects to a pixel
+coordinate $\vec q$ in some nonlinear way, this curve is not straight.
 
 We want the valid-intrinsics region to lie entirely within the spline-in-bounds
-region, and that happens here everywhere, except for a tiny sliver at the
-bottom-right. If some observations lie outside the spline-in-bounds regions, the
-projection behavior there will be less flexible than the rest of the model,
-resulting in less realistic uncertainties. See [[file:splined-models.org::#splined models field of view selection][the lensmodel documentation]] for
-more detail.
+region, and we get that here nicely. If some observations did lie outside the
+spline-in-bounds regions, the projection behavior there would be less flexible
+than the rest of the model, resulting in less realistic uncertainties, and a
+larger-fov splined model would be more appropriate. See [[file:splined-models.org::#splined models field of view selection][the lensmodel
+documentation]] for more detail.
 
 Alternately, I can look at the spline surface as a function of the pixel
-coordinates. Just for $\Delta u_x$:
+coordinates:
 
 #+begin_src sh
-mrcal-show-splined-model-correction \
-  --set 'cbrange [0:0.1]'           \
-  --imager-domain                   \
-  --set 'xrange [-300:6300]'        \
-  --set 'yrange [4300:-300]'        \
-  --unset grid                      \
+mrcal-show-splined-model-correction   \
+  --set 'cbrange [0:0.1]'             \
+  --imager-domain                     \
+  --unset grid                        \
+  --set 'xrange [:] noextend'         \
+  --set 'yrange [:] noextend reverse' \
+  --set 'key opaque box'              \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
-D=~/projects/mrcal-doc-external
-~/projects/mrcal/mrcal-show-splined-model-correction \
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
+mrcal-show-splined-model-correction \
   --set 'cbrange [0:0.1]' \
   --imager-domain          \
-  --set 'xrange [-300:6300]'        \
-  --set 'yrange [4300:-300]'        \
   --unset grid                      \
-  --hardcopy "$D/figures/splined-models/splined-magnitude-imager-domain.png" \
+  --set 'xrange [:] noextend' \
+  --set 'yrange [:] noextend reverse' \
+  --set 'key opaque box' \
+  --hardcopy "~/projects/mrcal-doc-external/figures/splined-models/splined-magnitude-imager-domain.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"' \
-  $D/data/board/splined.cameramodel
+  $D/splined.cameramodel
 #+end_src
 
 [[file:external/figures/splined-models/splined-magnitude-imager-domain.png]]
 
-Now the valid-intrinsics region is a nice rectangle, but the spline-in-bounds
-region is complex curve. Projection at the edges is poorly-defined, so the
-boundary of the spline-in-bounds region appears irregular in this view.
+Now the valid-intrinsics region is straight, but the spline-in-bounds region is
+a curve. Projection at the edges is poorly-defined, so the boundary of the
+spline-in-bounds region appears irregular in this view.
 
 I can /also/ look at the correction vector field:
 #+begin_src sh
 mrcal-show-splined-model-correction \
-  --vectorfield \
-  --imager-domain \
+  --vectorfield                     \
+  --imager-domain                   \
   --unset grid                      \
   --set 'xrange [-300:6300]'        \
-  --set 'yrange [4300:-300]'        \
-  --gridn 40 30 \
+  --set 'yrange [3676:-300]'        \
+  --set 'key opaque box'            \
+  --gridn 40 30                     \
   splined.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
 ### needed manual tweak in show_splined_model_correction(): "ps 2" -> "ps 1"
 ### gnuplot makes svg points too big
-D=~/projects/mrcal-doc-external
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 ~/projects/mrcal/mrcal-show-splined-model-correction \
   --vectorfield \
   --imager-domain \
   --unset grid                      \
   --set 'xrange [-300:6300]'        \
-  --set 'yrange [4300:-300]'        \
+  --set 'yrange [3676:-300]'        \
+  --set 'key opaque box' \
   --gridn 40 30 \
-  --hardcopy "$D/figures/splined-models/splined-vectorfield-imager-domain.svg" \
+  --hardcopy "~/projects/mrcal-doc-external/figures/splined-models/splined-vectorfield-imager-domain.svg" \
   --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
-  $D/data/board/splined.cameramodel
+  $D/splined.cameramodel
 #+end_src
 
 [[file:external/figures/splined-models/splined-vectorfield-imager-domain.svg]]
 
-This doesn't show anything noteworthy in this solve, but seeing this is often
+This doesn't show anything noteworthy in this solve, but seeing it can be
 informative with other lenses.
 
 * Next
-[[file:tour-differencing.org][We then compare the calibrated models]].
+Now we can [[file:tour-differencing.org][compare the calibrated models]].

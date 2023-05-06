@@ -20,7 +20,7 @@ geometry and all the lens models. For any hypothesis $\vec b$, the solver can
 predict the pixel coordinates where the hypothetical cameras would observe their
 hypothetical world. The differences between these predicted pixel observations
 and the actual pixel observations we gathered from looking at chessboards are
-stored in a /measurement/ vector $\vec x$. The solver then tries to find the set
+stored in a /measurement/ vector $\vec x$.  The solver then tries to find the set
 of geometry and lens parameters to best explain the observed pixel coordinates,
 so it seeks the $\vec b$ to minimize the cost function $E \equiv \left \Vert \vec x
 \left(\vec b\right)\right \Vert ^2$.
@@ -110,48 +110,14 @@ This is called a "chessboard" or just "board" in some parts of the code. The
 optimization code refers to the chessboard pose array as "frames".
 
 When running a camera calibration, we use observations of a known-geometry
-object. At this time mrcal expects this object to be a planar grid of observable
-points, possibly with a small amount of [[#board-deformation][deformation]]. Usually this object is a
-chessboard-like grid of black and white squares, where the observed points are
-at the corner of each square.
+object. At this time mrcal expects this object to be a planar regular grid of
+observable points, possibly with a small amount of [[#board-deformation][deformation]]. Usually this
+object is a chessboard-like grid of black and white squares, where the observed
+points are at the corner of each square.
 
-** Chessboard corner detector
-:PROPERTIES:
-:CUSTOM_ID: detector
-:END:
 Detections of these corners serve as the input features to mrcal. mrcal is a
-purely geometrical toolkit, and this vision problem must be handled by another
-library. [[https://en.wikipedia.org/wiki/Chessboard_detection][A number of tools]] are available to detect chessboard corners. These did
-not work well for my use cases, so I recommend [[https://github.com/dkogan/mrgingham/][=mrgingham=]] for all corner
-detections. mrgingham is fast and is able to find chessboard corners subject to
-very un-pinhole-like projections. At this time it has two limitations that will
-be lifted eventually:
-
-- It more or less assumes a grid of 10x10 corners (i.e. 11x11 squares)
-- It requires /all/ the corners to be observed in order to report the detections
-  from an image. Incomplete chessboard observations aren't supported
-
-If these are unacceptable, any other detector may be used instead.
-
-** Choice of calibration object
-When given an image of a /chessboard/, the detector is directly observing the
-feature we actually care about: the corner. Another common calibration board
-style is a grid of circles, where the feature of interest is the center of each
-circle. When given an image of such a grid of circles, the detector either
-
-- detects the contour at the edge of each circle
-- finds the pixel blob comprising each circle observation
-
-and from either of these, the detector infers the circle center. This can work
-when looking at head-on images, but when given tilted images subjected to
-non-pinhole lens behaviors, getting accurate circle centers from outer contours
-or blobs is /hard/. The resulting inaccuracies in the detections of circle
-centers will introduce biases into the solve that aren't modeled by the [[file:uncertainty.org::#noise-model][projection uncertainty routine]], so chessboards are /strongly/ recommended in
-favor of circle grids.
-
-mrcal [[#noise-model][assumes independent noise]] on each point observation, so correlated sources
-of point observations (such as corners of an apriltag) are also not appropriate
-sources of data. Apriltag centers would work, however.
+purely geometrical toolkit, and this vision problem must be [[file:how-to-calibrate.org::#corner-detector][handled by another
+library]].
 
 ** Board deformation
 :PROPERTIES:
@@ -179,14 +145,29 @@ appears to work even for asymmetric deflections. This needs more testing, and
 has not yet been released. Talk to Dima if you want to play with it.
 
 * Lens behavior
+:PROPERTIES:
+:CUSTOM_ID: lens-behavior
+:END:
 The fundamental operation to map a point in the camera coordinate system to a
 pixel where that point would be observed by the camera is called /projection/.
 mrcal supports [[file:lensmodels.org][multiple methods]] to model the behavior of different lenses. Of
 particular note is that at this time, mrcal assumes that all projections are
 /central/: all rays of light are assumed to intersect at a single point (the
 origin of the camera coordinate system). So $k \vec v$ projects to the same
-$\vec q$ for any $k$. This is very convenient, but not completely realistic.
-Support for /non-central/ lenses is coming in a future release of mrcal.
+$\vec q$ for any $k$. This is very convenient, mostly true, and almost every
+camera library assumes this. This assumption breaks down when projecting
+observations /very/ close to the lens, with "close" being judged relative to the
+physical size of the lens. Extreme close-ups exhibit /non-central/ behavior:
+
+[[file:figures/noncentral.svg]]
+
+While [[file:tour-choreography.org::#choreography-distance][extreme close-ups are very good for calibration quality]], the working
+distance is usually past the range where non-central effects are observable. So
+it is recommended to avoid the non-central regime by keeping the chessboard
+far-enough out to make the central model work well. [[File:tour-cross-validation.org][Cross-validation]] can be used
+to verify whether noncentral effects are present. That said, support for
+/non-central/ lenses is coming in a future release of mrcal, which will allow us
+to model the noncentral behavior.
 
 * Optimization details
 The mrcal solver is an optimization routine based on sparse nonlinear least
@@ -291,13 +272,11 @@ And in Python:
 
 - [[file:mrcal-python-api-reference.html#-num_states][=mrcal.num_states()=]]: Get the full length of the optimization vector
 
-If plotting a whole vector of state (or a vector of measurements), it is really
-helpful to annotate the plot to make it clear which variables correspond to each
-block of state (or measurements). mrcal provides helper functions to help with
-this:
+If plotting a whole vector of state, it is helpful to annotate the plot to make
+it clear which variables correspond to each block of state. mrcal provides a
+helper function to help with this:
 
 - [[file:mrcal-python-api-reference.html#-plotoptions_state_boundaries][=mrcal.plotoptions_state_boundaries()=]]: Return the =set= plot options for gnuplotlib to show the state boundaries
-- [[file:mrcal-python-api-reference.html#-plotoptions_measurement_boundaries][=mrcal.plotoptions_measurement_boundaries()=]]: Return the =set= plot options for gnuplotlib to show the measurement boundaries
 
 ** State vector scaling
 :PROPERTIES:
@@ -393,15 +372,29 @@ And in Python:
 - [[file:mrcal-python-api-reference.html#-num_measurements_regularization][=mrcal.num_measurements_regularization()=]]: Return how many measurements we have from regularization
 - [[file:mrcal-python-api-reference.html#-num_measurements][=mrcal.num_measurements()=]]: Return how many measurements we have in the full optimization problem
 
+If plotting a whole vector of measurements, it is helpful to annotate the plot
+to make it clear which values correspond to each block of measurements. mrcal
+provides a helper function to help with this:
+
+- [[file:mrcal-python-api-reference.html#-plotoptions_measurement_boundaries][=mrcal.plotoptions_measurement_boundaries()=]]: Return the =set= plot options for gnuplotlib to show the measurement boundaries
+
 * Noise modeling
 :PROPERTIES:
 :CUSTOM_ID: noise-model
 :END:
 
-The [[file:uncertainty.org::#noise-model][projection uncertainty routine]] is used to gauge the effects of sampling
+The [[file:uncertainty.org][projection uncertainty routine]] is used to gauge the effects of sampling
 error on the solve. This is done by modelling the noise in the input pixel
 observations, and propagating it through the solve. This assumes that model
 errors are insignificant.
+
+If the model errors /were/ significant, then
+
+- the computed projection uncertainty would underestimate the expected errors:
+  the non-negligible model errors would be ignored
+- the computed calibration would be biased: the residuals $\vec x$ would be
+  heteroscedastic, so the computed optimum would /not/ be a maximum-likelihood
+  estimate of the true calibration
 
 ** Noise on the inputs
 :PROPERTIES:
@@ -413,11 +406,11 @@ discrepancies between pixel observations and their predictions. The pixel
 observations $\vec q_\mathrm{ref}$ are noisy, and I assume that they are
 zero-mean, independent and normally-distributed. In particular, I treat the 2
 values in each observation ($x$ and $y$) as two independent measurements. I have
-no prior proof that the noise truly meets all those criteria, but empirical
-evidence suggests that these are all reasonable assumptions. And they simplify
-lots of analyses that we want to do. In order to propagate the input noise, we
-need to quantify it: for the $i$ -th observed point, what is
-$\mathrm{Var}\left(\vec q_{\mathrm{ref}_i}\right)$?
+no proof that the noise truly meets all those criteria, but empirical evidence
+suggests that these are all reasonable assumptions. And they simplify lots of
+analyses that we want to do. In order to propagate the input noise, we need to
+quantify it: for the $i$ -th observed point, what is $\mathrm{Var}\left(\vec
+q_{\mathrm{ref}_i}\right)$?
 
 Chessboard corner detectors often make it easy to infer the /relative/ accuracy
 levels between the different corners, as opposed to an /absolute/ noise level
@@ -451,11 +444,11 @@ Thus the current method is to estimate $\sigma$ from the solve residuals:
 
 where $\vec x^*$ is the measurement vector at the optimum. If all the
 assumptions are satisfied and we have enough data, then the input noise is the
-only source of error, and the only thing at affects the optimal $\vec x$, and
+only source of error, and the only thing that affects the optimal $\vec x$, and
 this way of evaluating $\sigma$ is reasonable. If we have too little data, we're
 going to be overfitting, and the $\sigma$ computed using the above method will
 be too low. The current thought is that this will be hard to do with chessboards
-and even a half-hearted calibration (we'll always have enough data), so mrcal
+and even a half-hearted calibration will always have enough data. So mrcal
 currently doesn't try to catch this case. This might be added in the future.
 
 ** Noise in the measurement vector $\vec x$

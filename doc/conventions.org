@@ -5,8 +5,8 @@ Some terms in the documentation and sources can have ambiguous meanings, so I
 explicitly define them here
 
 - *calibration*: the procedure used to compute the lens parameters and geometry
-  of a set of cameras. Usually this involves a stationary set of cameras
-  observing a moving object.
+  of a set of cameras; or the result of this procedure. Usually this involves a
+  stationary set of cameras observing a moving object.
 
 - [[file:formulation.org::#calibration-object][*calibration object*]] or *chessboard* or *board*: these are used more or less
   interchangeably. They refer to the known-geometry object observed by the
@@ -88,7 +88,7 @@ Here we have
 - $\vec x$ is the vector of /measurements/ describing the error of the solution
   at some hypothesis $\vec b$
 
-- $\vec E$ is the cost function being optimized. $E \equiv \left \Vert \vec x \right \Vert ^2$
+- $E$ is the cost function being optimized. $E \equiv \left \Vert \vec x \right \Vert ^2$
 
 - $\vec J$ is the /jacobian/ matrix. This is the matrix $\frac{ \partial \vec x
   }{ \partial \vec b }$. Usually this is large and sparse.

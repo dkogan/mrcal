@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 r'''Remaps a captured image into another camera model
 
 SYNOPSIS
@@ -318,33 +326,44 @@ def parse_args():
 
     args = parser.parse_args()
 
-    # I have to manually process this because the first model-to-and-image-globs
-    # element's identity is ambiguous in a way I can't communicate to argparse.
-    # It can be model-to or it can be the first image glob
-    def looks_like_cameramodel(m):
-        return m=="-" or \
-            re.match(".*\.(cameramodel|cahvor)$", m, re.I)
-    mi = getattr(args, 'model-to-and-image-globs')
-    model_to   = [ m for m in mi if looks_like_cameramodel(m) ]
-    imageglobs = [ m for m in mi if not looks_like_cameramodel(m) ]
-    setattr(args, "model-to",    model_to)
-    setattr(args, "imageglobs", imageglobs)
+    # use _ instead of - in attribute names so that I can access them easier
+    args.model_to_and_image_globs = getattr(args, 'model-to-and-image-globs')
+    args.model_from               = getattr(args, 'model-from')
     delattr(args, 'model-to-and-image-globs')
+    delattr(args, 'model-from')
 
     return args
 
 
 args = parse_args()
 
+import mrcal
 
-if   len(getattr(args, 'model-to')) == 0: setattr(args, 'model-to', None)
-elif len(getattr(args, 'model-to')) == 1: setattr(args, 'model-to', getattr(args, 'model-to')[0])
+# I have to manually process this because the first model-to-and-image-globs
+# element's identity is ambiguous in a way I can't communicate to argparse.
+# It can be model-to or it can be the first image glob
+def load_model_or_keep_filename(filename):
+    try:
+        m = mrcal.cameramodel(filename)
+    except:
+        m = filename
+    return m
+mi = [load_model_or_keep_filename(f) for f in args.model_to_and_image_globs]
+
+args.model_to   = [ m for m in mi if     isinstance(m,mrcal.cameramodel) ]
+args.imageglobs = [ m for m in mi if not isinstance(m,mrcal.cameramodel) ]
+delattr(args, 'model_to_and_image_globs')
+
+
+
+if   len(args.model_to) == 0: args.model_to = None
+elif len(args.model_to) == 1: args.model_to = args.model_to[0]
 else:
-    print(f"At most one model-to can be given. Instead got {len(getattr(args, 'model-to'))} of them. Giving up.", file=sys.stderr)
+    print(f"At most one model-to can be given. Instead got {len(args.model_to)} of them. Giving up.", file=sys.stderr)
     sys.exit(1)
 
-if getattr(args, 'model-from') == '-' and \
-   getattr(args, 'model-to')   == '-':
+if args.model_from == '-' and \
+   args.model_to   == '-':
     print("At most one model can be given at '-' to read standard input. Giving up.", file=sys.stderr)
     sys.exit(1)
 
@@ -361,7 +380,7 @@ else:
         print("--fit and --scale-focal are mutually exclusive", file=sys.stderr)
         sys.exit(1)
 
-if getattr(args, 'model-to') is None and \
+if args.model_to is None and \
    args.intrinsics_only:
     print("--intrinsics-only makes sense ONLY when both the FROM and TO camera models are given",
           file=sys.stderr)
@@ -418,24 +437,23 @@ import glob
 import multiprocessing
 import signal
 
-import mrcal
 import time
 
-model_from = mrcal.cameramodel(getattr(args, 'model-from'))
+model_from = mrcal.cameramodel(args.model_from)
 
 if not args.to_pinhole:
-    if not getattr(args, 'model-to'):
+    if not args.model_to:
         print("Either --to-pinhole or the TO camera model MUST be given. Giving up", file=sys.stderr)
         sys.exit(1)
-    if len(getattr(args, 'imageglobs')) < 1:
+    if len(args.imageglobs) < 1:
         print("No --to-pinhole with both TO and FROM models given: must have at least one set of image globs. Giving up", file=sys.stderr)
         sys.exit(1)
 
-    model_to = mrcal.cameramodel(getattr(args, 'model-to'))
+    model_to = args.model_to
 
 else:
-    if not getattr(args, 'model-to'):
-        if len(getattr(args, 'imageglobs')) < 1:
+    if not args.model_to:
+        if len(args.imageglobs) < 1:
             print("--to-pinhole with only the FROM models given: must have at least one set of image globs. Giving up", file=sys.stderr)
             sys.exit(1)
 
@@ -449,11 +467,11 @@ else:
         model_to.write(sys.stdout)
 
     else:
-        if len(getattr(args, 'imageglobs')) != 2:
+        if len(args.imageglobs) != 2:
             print("--to-pinhole with both the TO and FROM models given: must have EXACTLY two image globs. Giving up", file=sys.stderr)
             sys.exit(1)
 
-        model_to     = mrcal.cameramodel(getattr(args, 'model-to'))
+        model_to     = args.model_to
         model_target = mrcal.pinhole_model_for_reprojection(model_to, args.fit,
                                                             scale_focal = args.scale_focal,
                                                             scale_image = args.scale_image)
@@ -463,14 +481,15 @@ else:
         model_target.write(sys.stdout)
 
 if args.plane_n is not None:
-    if getattr(args, 'model-to') is None:
+    if args.model_to is None:
        print("Plane remapping requires BOTH camera models to be given", file=sys.stderr)
        sys.exit(1)
 
     args.plane_n = np.array(args.plane_n, dtype=float)
 
 
-
+# I do the same thing in mrcal-stereo. Please consolidate
+#
 # weird business to handle weird signal handling in multiprocessing. I want
 # things like the user hitting C-c to work properly. So I ignore SIGINT for the
 # children. And I want the parent's blocking wait for results to respond to
@@ -485,7 +504,12 @@ model_valid_intrinsics_region = None
 mapxy                         = None
 model_imagersize              = None
 def _transform_this(inout):
-    image = mrcal.load_image(inout[0])
+    try:
+        image = mrcal.load_image(inout[0])
+    except:
+        print(f"Couldn't load '{inout[0]}'",
+              file=sys.stderr)
+        return
 
     if image.shape[0] != model_imagersize[1] or \
        image.shape[1] != model_imagersize[0]:
@@ -506,13 +530,15 @@ def process(model_from, model_to, image_globs, suffix,
 
         base,extension = os.path.splitext(filename_in)
         if len(extension) != 4:
-            raise Exception(f"imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{filename_in}'")
+            print(f"imagefile must end in .xxx where 'xxx' is some image extension. Instead got '{filename_in}'",
+                  file=sys.stderr)
+            sys.exit(1)
 
         if args.outdir is not None:
             base = args.outdir + '/' + os.path.split(base)[1]
 
         filename_out = f"{base}-{suffix}{extension}"
-        if not args.force and os.path.isfile(filename_out):
+        if not args.force and os.path.exists(filename_out):
             print(f"Target image '{filename_out}' already exists. Doing nothing, and giving up. Pass -f to overwrite",
                   file=sys.stderr)
             sys.exit(1)
@@ -540,7 +566,7 @@ def process(model_from, model_to, image_globs, suffix,
                                            mask_valid_intrinsics_region_from = \
                                            args.mask_valid_intrinsics_region,)
 
-    if 1:
+    if args.jobs > 1:
         # Normal parallelized path
         pool = multiprocessing.Pool(args.jobs)
         try:
@@ -563,14 +589,14 @@ def process(model_from, model_to, image_globs, suffix,
 
 
 
-if args.to_pinhole and getattr(args, 'model-to'):
+if args.to_pinhole and args.model_to:
     # I'm reprojecting each of my sets of images to a pinhole model (a DIFFERENT
     # model from TO and FROM)
-    process(model_from, model_target, (getattr(args, 'imageglobs')[0],), "pinhole-remapped",
+    process(model_from, model_target, (args.imageglobs[0],), "pinhole-remapped",
             args.intrinsics_only, args.distance, args.plane_n, args.plane_d)
-    process(model_to,   model_target, (getattr(args, 'imageglobs')[1],), "pinhole",
+    process(model_to,   model_target, (args.imageglobs[1],), "pinhole",
             args.intrinsics_only, args.distance, None, None)
 else:
     # Simple case. I have my two models, and I reproject all the images
-    process(model_from, model_to, getattr(args, 'imageglobs'), "reprojected",
+    process(model_from, model_to, args.imageglobs, "reprojected",
             args.intrinsics_only, args.distance, args.plane_n, args.plane_d)

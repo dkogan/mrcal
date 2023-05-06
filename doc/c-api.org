@@ -1,6 +1,11 @@
 #+TITLE: mrcal C API
 #+OPTIONS: toc:t
 
+Internally, the [[file:python-api.org][Python functions]] use the mrcal C API. Only core functionality is
+available in the C API (the Python API can do some stuff that the C API cannot),
+but with time more and more stuff will be transitioned to a C-internal
+representation. Today, end-to-end dense stereo processing in C is possible.
+
 The C API consists of several headers:
 - [[https://www.github.com/dkogan/mrcal/blob/master/basic-geometry.h][=basic-geometry.h=]]: /very/ simple geometry structures
 - [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]]: pose and geometry functions
@@ -76,11 +81,6 @@ These all have direct Python bindings. For instance the Python
 
 The [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]] header serves as the listing of available functions.
 
-* Triangulation
-A number of triangulation routines are available in [[https://www.github.com/dkogan/mrcal/blob/master/triangulation.h][=triangulation.h=]]. These
-estimate the position of the 3D point that produced a given pair of
-observations.
-
 * Lens models
 The lens model structures are defined here:
 
@@ -88,7 +88,7 @@ The lens model structures are defined here:
   [[file:lensmodels.org::#representation][configuration]] is stored here.
 - =mrcal_lensmodel_t=: a lens model type /and/ the [[file:lensmodels.org::#representation][configuration]] parameters. The
   configuration lives in a =union= supporting all the known lens models
-- =mrcal_lensmodel_metadata_t=: some metadata that decribes a model type. These
+- =mrcal_lensmodel_metadata_t=: some [[file:lensmodels.org::#representation][metadata that decribes a model type]]. These
   are inherent properties of a particular model type; answers questions like:
   Can this model project behind the camera? Does it have an [[file:lensmodels.org::#core][intrinsics core]]?
   Does it have gradients implemented?
@@ -96,6 +96,68 @@ The lens model structures are defined here:
 The Python API describes a lens model with a [[file:lensmodels.org::#representation][string that contains the model type
 and the configuration]], while the C API stores the same information in a
 =mrcal_lensmodel_t=.
+
+* Camera models
+:PROPERTIES:
+:CUSTOM_ID: cameramodel-in-c
+:END:
+
+We can also represent a full camera model in C. This is a lens model with a pose
+and imager dimension: the full set of things in a [[file:cameramodels.org][=.cameramodel= file]]. The
+definitions appear in [[https://www.github.com/dkogan/mrcal/blob/master/mrcal-types.h][=mrcal-types.h=]]:
+
+#+begin_src c
+typedef struct
+{
+    double            rt_cam_ref[6];
+    unsigned int      imagersize[2];
+    mrcal_lensmodel_t lensmodel;
+    double            intrinsics[0];
+} mrcal_cameramodel_t;
+
+typedef union
+{
+    mrcal_cameramodel_t m;
+    struct
+    {
+        double            rt_cam_ref[6];
+        unsigned int      imagersize[2];
+        mrcal_lensmodel_t lensmodel;
+        double intrinsics[4];
+    };
+} mrcal_cameramodel_LENSMODEL_LATLON_t;
+
+...
+
+#+end_src
+
+Note that =mrcal_cameramodel_t.intrinsics= has size 0 because the size of this
+array depends on the specific lens model being used, and is unknown at compile
+time.
+
+So it is an error to define this on the stack. *Do not do this*:
+
+#+begin_src c
+void f(void)
+{
+    mrcal_cameramodel_t model; // ERROR
+}
+#+end_src
+
+If you need to define a known-at-compile-time model on the stack you can use the
+[[https://github.com/dkogan/mrcal/blob/88e4c1df1c8cf535516719c5d4257ef49c9df1da/mrcal-types.h#L338][lensmodel-specific cameramodel types]]:
+
+#+begin_src c
+void f(void)
+{
+    mrcal_cameramodel_LENSMODEL_OPENCV8_t model; // OK
+}
+#+end_src
+
+This only exists for models that have a constant number of parameters; notably
+there is no =mrcal_cameramodel_LENSMODEL_SPLINED_STEREOGRAPHIC_t=. When reading
+a model from disk, mrcal dynamically allocates the right amount of memory, and
+returns a =mrcal_cameramodel_t*=.
 
 * Projections
 The fundamental functions for projection and unprojection are defined here.
@@ -111,10 +173,9 @@ nonlinear optimization, it has no gradient reporting. The Python
 [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] routine is higher-level, and it /does/ report gradients.
 
 The gradients of the forward =mrcal_project()= operation are used in this
-nonlinear optimization, so models that have no projection gradients defined
-(CAHVORE only, as of this writing) do not support =mrcal_unproject()=. The
-Python [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] routine still makes this work, using numerical
-differences for the projection gradients.
+nonlinear optimization, so models that have no projection gradients defined do
+not support =mrcal_unproject()=. The Python [[file:mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] routine still
+makes this work, using numerical differences for the projection gradients.
 
 Simple, special-case lens models have their own projection and unprojection
 functions defined:
@@ -363,16 +424,8 @@ This contains some statistics describing the discovered optimal solution.
 A simple interface for reading/writing [[file:cameramodels.org][=.cameramodel=]] data from C is available:
 
 #+begin_src c
-typedef struct
-{
-    double            rt_cam_ref[6];
-    unsigned int      imagersize[2];
-    mrcal_lensmodel_t lensmodel;
-    double            intrinsics_data[];
-} mrcal_cameramodel_t;
-
 // if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
-// the buffer IS indicated by a 0 bytes
+// the buffer IS indicated by a '\0' byte
 mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char* string, int len);
 mrcal_cameramodel_t* mrcal_read_cameramodel_file  (const char* filename);
 void                 mrcal_free_cameramodel(mrcal_cameramodel_t** cameramodel);
@@ -381,12 +434,38 @@ bool mrcal_write_cameramodel_file(const char* filename,
                                   const mrcal_cameramodel_t* cameramodel);
 #+end_src
 
-Only the =.cameramodel= file format is supported by these C functions. The
-Python API supports more formats.
+This reads and write the [[#cameramodel-in-c][=mrcal_cameramodel_t= structures]]. Only the
+=.cameramodel= file format is supported by these C functions. The Python API
+supports more formats.
 
 * Image reading/writing
 mrcal includes simple functions for reading/writing images. These use the
 [[https://freeimage.sourceforge.io/][freeimage library]]. These functions aren't interesting, or better than any other
 functions you may have already. The declarations are in [[https://www.github.com/dkogan/mrcal/blob/master/mrcal-image.h][=mrcal-image.h=]], and the
 documentation lives there.
+
+* Dense stereo
+
+A number of dense stereo routines are available. These make it possible to
+implement a full mrcal dense stereo pipeline in C. The available functions are
+declared in [[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.h=]]:
+
+- =mrcal_rectified_resolution()= computes the resolution of the rectified system
+  from the resolution of the input. Usually =mrcal_rectified_system()= does this
+  internally, and there's no reason to call it directly. The Python wrapper is
+  [[file:mrcal-python-api-reference.html#-rectified_resolution][=mrcal.rectified_resolution()=]], and further documentation is in its docstring
+
+- =mrcal_rectified_system()= computes the geometry of the rectified system. The
+  Python wrapper is [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]], and further documentation is in
+  its docstring.
+
+- =mrcal_rectification_maps()= computes the image transformation maps used to
+  compute the rectified images. To apply the maps, and actually remap the
+  images, [[https://docs.opencv.org/4.6.0/da/d54/group__imgproc__transform.html#gab75ef31ce5cdfb5c44b6da5f3b908ea4][the OpenCV =cv::remap()= function]] can be used. The Python wrapper is
+  [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]], and further documentation is in its docstring
+
+* Triangulation
+A number of triangulation routines are available in [[https://www.github.com/dkogan/mrcal/blob/master/triangulation.h][=triangulation.h=]]. These
+estimate the position of the 3D point that produced a given pair of
+observations.
 

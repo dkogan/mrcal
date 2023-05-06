@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 '''Routines useful in generation and processing of synthetic data
 
 These are very useful in analyzing the behavior or cameras and lenses.
@@ -14,7 +22,15 @@ import numpysane as nps
 import sys
 import mrcal
 
-def ref_calibration_object(W, H, object_spacing, *, calobject_warp=None):
+def ref_calibration_object(W, H, object_spacing,
+                           *,
+                           calobject_warp = None,
+                           x_corner0      = 0,
+                           x_corner1      = None,
+                           Nx             = None,
+                           y_corner0      = 0,
+                           y_corner1      = None,
+                           Ny             = None):
     r'''Return the geometry of the calibration object
 
 SYNOPSIS
@@ -62,11 +78,11 @@ SYNOPSIS
 
 Returns the geometry of a calibration object in its own reference coordinate
 system in a (H,W,3) array. Only a grid-of-points calibration object is
-supported, possibly with some bowing (i.e. what the internal mrcal solver
+supported, possibly with some deformation (i.e. what the internal mrcal solver
 supports). Each row of the output is an (x,y,z) point. The origin is at the
-corner of the grid, so ref_calibration_object(...)[0,0,:] is
-np.array((0,0,0)). The grid spans x and y, with z representing the depth: z=0
-for a flat calibration object.
+corner of the grid, so ref_calibration_object(...)[0,0,:] is np.array((0,0,0)).
+The grid spans x and y, with z representing the depth: z=0 for a flat
+calibration object.
 
 A simple parabolic board warping model is supported by passing a (2,) array in
 calobject_warp. These 2 values describe additive flex along the x axis and along
@@ -81,12 +97,27 @@ The edges we DO have are at (0,N-1), so the equivalent expression is
     xr = x / (N-1)
     z = k*( 1 - 4*xr^2 + 4*xr - 1 ) =
         4*k*(xr - xr^2) =
+        4*k*xr*(1 - xr)
+
+By default we return the coordinates of the chessboard CORNERS only, but this
+function can return the position of ANY point on the chessboard. This can be
+controlled by passing the x_corner0,x_corner1,Nx arguments (and/or their y-axis
+versions). This selects the grid of points we return, in chessboard-corner
+coordinates (0 is the first corner, 1 is the second corner, etc). We use
+np.linspace(x_corner0, x_corner1, Nx). By default we have
+
+- x_corner0 = 0
+- x_corner1 = W-1
+- Nx        = W
+
+So we only return the coordinates of the corners by default. The points returned
+along the y axis work similarly, using their variables.
 
 ARGUMENTS
 
-- W: how many points we have in the horizontal direction
+- W: how many chessboard corners we have in the horizontal direction
 
-- H: how many points we have in the vertical direction
+- H: how many chessboard corners we have in the vertical direction
 
 - object_spacing: the distance between adjacent points in the calibration
   object. If a scalar is given, a square object is assumed, and the vertical and
@@ -99,21 +130,41 @@ ARGUMENTS
   given, the values describe the maximum additive deflection along the x and y
   axes. Extended array can be given for broadcasting
 
+- x_corner0: optional value, defaulting to 0. Selects the first point in the
+  linear horizontal grid we're returning. This indexes the chessboard corners,
+  and we start with the first corner by default
+
+- x_corner1: optional value, defaulting to W-1. Selects the last point in the
+  linear horizontal grid we're returning. This indexes the chessboard corners,
+  and we end with the last corner by default
+
+- Nx: optional value, defaulting to W. Selects the number of points we return in
+  the horizontal direction, between x_corner0 and x_corner1 inclusive.
+
+- y_corner0,y_corner1,Ny: same as x_corner0,x_corner1,Nx but acting in the
+  vertical direction
+
 This function supports broadcasting across object_spacing and calobject_warp
 
 RETURNED VALUES
 
-The calibration object geometry in a (..., H,W,3) array, with the leading
-dimensions set by the broadcasting rules
+The calibration object geometry in a (..., Ny,Nx,3) array, with the leading
+dimensions set by the broadcasting rules. Usually Ny = H and Nx = W
 
     '''
 
-    # shape (H,W)
-    xx,yy = np.meshgrid( np.arange(W,dtype=float), np.arange(H,dtype=float))
+    if Nx        is None: Nx        = W
+    if Ny        is None: Ny        = H
+    if x_corner1 is None: x_corner1 = W-1
+    if y_corner1 is None: y_corner1 = H-1
 
-    # shape (H,W,3)
+    # shape (Ny,Nx)
+    xx,yy = np.meshgrid( np.linspace(x_corner0, x_corner1, Nx),
+                         np.linspace(y_corner0, y_corner1, Ny))
+
+    # shape (Ny,Nx,3)
     full_object = nps.glue(nps.mv( nps.cat(xx,yy), 0, -1),
-                           np.zeros((H,W,1)),
+                           np.zeros(xx.shape + (1,)),
                            axis=-1)
 
     # object_spacing has shape (..., 2)
@@ -473,3 +524,162 @@ def _noisy_observation_vectors_for_triangulation(p,
     return \
         v0local_noisy, v1local_noisy, v0_noisy,v1_noisy, \
         q0,q1, q0_noisy, q1_noisy
+
+
+def make_perfect_observations(optimization_inputs,
+                              *,
+                              observed_pixel_uncertainty = None):
+
+    r'''Write perfect observations with perfect noise into the optimization_inputs
+
+SYNOPSIS
+
+    model = mrcal.cameramodel("0.cameramodel")
+    optimization_inputs = model.optimization_inputs()
+
+    optimization_inputs['calobject_warp'] = np.array((1e-3, -1e-3))
+    mrcal.make_perfect_observations(optimization_inputs)
+
+    # We now have perfect data assuming a slightly WARPED chessboard. Let's use
+    # this data to compute a calibration assuming a FLAT chessboard
+    optimization_inputs['calobject_warp'] *= 0.
+    optimization_inputs['do_optimize_calobject_warp'] = False
+
+    mrcal.optimize(**optimization_inputs)
+
+    model = mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                              icam_intrinsics     = model.icam_intrinsics())
+    model.write("reoptimized.cameramodel")
+
+    # We can now look at the residuals and diffs to see how much a small
+    # chessboard deformation affects our results
+
+Tracking down all the sources of error in real-world models computed by mrcal is
+challenging: the models never fit perfectly, and the noise never follows the
+assumed distribution exactly. It is thus really useful to be able to run
+idealized experiments where both the models and the noise are perfect. We can
+then vary only one variable to judge its effects. Since everything else is
+perfect, we can be sure that any imperfections in the results are due only to
+the variable we tweaked. In the sample above we evaluated the effect of a small
+chessboard deformation.
+
+This function ingests optimization_inputs from a completed calibration. It then
+assumes that all the geometry and intrinsics are perfect, and sets the
+observations to projections of that perfect geometry. If requested, perfect
+gaussian noise is then added to the observations.
+
+THIS FUNCTION MODIES THE INPUT OPTIMIZATION_INPUTS
+
+ARGUMENTS
+
+- optimization_inputs: the input from a calibrated model. Usually the output of
+  mrcal.cameramodel.optimization_inputs() call. The output is written into
+  optimization_inputs['observations_board'] and
+  optimization_inputs['observations_point']
+
+- observed_pixel_uncertainty: optional standard deviation of the noise to apply.
+  By default the noise applied has same variance as the noise in the input
+  optimization_inputs. If we want to omit the noise, pass
+  observed_pixel_uncertainty = 0
+
+RETURNED VALUES
+
+None
+
+    '''
+
+    import mrcal.model_analysis
+
+    x = mrcal.optimizer_callback(**optimization_inputs,
+                                 no_jacobian      = True,
+                                 no_factorization = True)[1]
+
+    if observed_pixel_uncertainty is None:
+        observed_pixel_uncertainty = \
+            mrcal.model_analysis._observed_pixel_uncertainty_from_inputs(optimization_inputs,
+                                                                         x = x)
+
+    if 'indices_frame_camintrinsics_camextrinsics' in optimization_inputs and \
+       optimization_inputs['indices_frame_camintrinsics_camextrinsics'] is not None and \
+       optimization_inputs['indices_frame_camintrinsics_camextrinsics'].size:
+
+        # shape (Nobservations, Nheight, Nwidth, 3)
+        pcam = mrcal.hypothesis_board_corner_positions(**optimization_inputs)[0]
+        i_intrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,1]
+        # shape (Nobservations,1,1,Nintrinsics)
+        intrinsics = nps.mv(optimization_inputs['intrinsics'][i_intrinsics],-2,-4)
+        optimization_inputs['observations_board'][...,:2] = \
+            mrcal.project( pcam,
+                           optimization_inputs['lensmodel'],
+                           intrinsics )
+
+    if 'indices_point_camintrinsics_camextrinsics' in optimization_inputs and \
+       optimization_inputs['indices_point_camintrinsics_camextrinsics'] is not None and \
+       optimization_inputs['indices_point_camintrinsics_camextrinsics'].size:
+
+        indices_point_camintrinsics_camextrinsics = \
+            optimization_inputs['indices_point_camintrinsics_camextrinsics']
+
+        # shape (Nobservations,3)
+        pref = optimization_inputs['points'][ indices_point_camintrinsics_camextrinsics[:,0] ]
+
+        # shape (Nobservations,4,3)
+        Rt_cam_ref = \
+            nps.glue( mrcal.identity_Rt(),
+                      mrcal.Rt_from_rt(optimization_inputs['extrinsics_rt_fromref']),
+                      axis = -3 ) \
+            [ indices_point_camintrinsics_camextrinsics[:,2]+1 ]
+
+        # shape (Nobservations,3)
+        pcam = mrcal.transform_point_Rt(Rt_cam_ref, pref)
+
+        # shape (Nobservations,Nintrinsics)
+        intrinsics = optimization_inputs['intrinsics'][ indices_point_camintrinsics_camextrinsics[:,1] ]
+        optimization_inputs['observations_point'][...,:2] = \
+            mrcal.project( pcam,
+                           optimization_inputs['lensmodel'],
+                           intrinsics )
+
+    ########### The perfect observations have been written. Make sure we get
+    ########### perfect residuals
+    # I don't actually do that here, and rely on the tests to make sure it works properly
+    if False:
+        x = mrcal.optimizer_callback(**optimization_inputs,
+                                     no_jacobian      = True,
+                                     no_factorization = True)[1]
+
+        Nmeas = mrcal.num_measurements_boards(**optimization_inputs)
+        if Nmeas > 0:
+            i_meas0 = mrcal.measurement_index_boards(0, **optimization_inputs)
+            err = nps.norm2(x[i_meas0:i_meas0+Nmeas])
+            if err > 1e-16:
+                raise Exception("Perfect observations produced nonzero error for boards. This is a bug")
+
+        Nmeas = mrcal.num_measurements_points(**optimization_inputs)
+        if Nmeas > 0:
+            i_meas0 = mrcal.measurement_index_points(0, **optimization_inputs)
+            err = nps.norm2(x[i_meas0:i_meas0+Nmeas])
+            if err > 1e-16:
+                raise Exception("Perfect observations produced nonzero error for points. This is a bug")
+
+
+    ########### I have perfect data. Now add perfect noise
+    if observed_pixel_uncertainty == 0:
+        return
+
+    for what in ('observations_board','observations_point'):
+
+        if what in optimization_inputs and \
+           optimization_inputs[what] is not None and \
+           optimization_inputs[what].size:
+
+            noise_nominal = \
+                observed_pixel_uncertainty * \
+                np.random.randn(*optimization_inputs[what][...,:2].shape)
+
+            weight = nps.dummy( optimization_inputs[what][...,2],
+                                axis = -1 )
+            weight[ weight<=0 ] = 1. # to avoid dividing by 0
+
+            optimization_inputs[what][...,:2] += \
+                noise_nominal / weight

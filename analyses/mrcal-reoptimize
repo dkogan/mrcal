@@ -1,0 +1,163 @@
+#!/usr/bin/python3
+
+r'''Loads a model, and re-runs the optimization problem used to generate it
+
+This is useful to analyze the solve. We can generate perfect chessboard
+observations, corrupted with perfect nominal noise to validate the idea that
+differences observed with mrcal-show-projection-diff should be predictive by the
+uncertainties reported by mrcal-show-projection-uncertainty IF the dominant
+source of error is calibration-time sampling error.
+
+By default we write the resulting model to disk into a file
+INPUTMODEL-reoptimized.cameramodel. If --explore, we instead drop into a REPL.
+
+'''
+
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--model-intrinsics',
+                        help='''By default, all the nominal data comes from the
+                        MODEL given in the positional argument. If
+                        --model-intrinsics is given, the intrinsics only come
+                        from this other model. These are applied only to the ONE
+                        model in icam_intrinsics''')
+
+    parser.add_argument('--perfect',
+                        action= 'store_true',
+                        help='''Make perfect observations and add perfect noise''')
+
+    parser.add_argument('--verbose',
+                        action = 'store_true',
+                        help='''If given, reoptimize verbosely''')
+    parser.add_argument('--skip-outlier-rejection',
+                        action='store_true',
+                        help='''Reoptimize with no outlier rejection''')
+    parser.add_argument('--revive-outliers',
+                        action='store_true',
+                        help='''Un-mark the outliers''')
+
+    parser.add_argument('--force', '-f',
+                        action='store_true',
+                        default=False,
+                        help='''By default existing models on disk are not
+                        overwritten. Pass --force to overwrite them without
+                        complaint''')
+    parser.add_argument('--outdir',
+                        type=lambda d: d if os.path.isdir(d) else \
+                        parser.error(f"--outdir requires an existing directory as the arg, but got '{d}'"),
+                        help='''Directory to write the output into. If omitted,
+                        we use the directory of the input model''')
+    parser.add_argument('--explore',
+                        action = 'store_true',
+                        help='''If given, we don't write the reoptimized model
+                        to disk, but drop into a REPL instead ''')
+
+    parser.add_argument('model',
+                        type=str,
+                        help='''The input camera model. If "-", we read standard
+                        input and write to standard output. We get the frame
+                        poses and extrinsics from this model. If
+                        --model-intrinsics isn't given, we get the intrinsics
+                        from this model as well''')
+
+    args = parser.parse_args()
+
+    return args
+
+args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+
+
+# I import the LOCAL mrcal
+sys.path[:0] = f"{os.path.dirname(os.path.realpath(__file__))}/..",
+
+import mrcal
+import numpy as np
+import numpysane as nps
+import time
+
+model = mrcal.cameramodel(args.model)
+
+if args.model == '-':
+    # Input read from stdin. Write output to stdout
+    file_output = sys.stdout
+else:
+    if args.outdir is None:
+        filename_base,extension = os.path.splitext(args.model)
+        file_output = f"{filename_base}-reoptimized{extension}"
+    else:
+        f,extension             = os.path.splitext(args.model)
+        directory,filename_base = os.path.split(f)
+        file_output = f"{args.outdir}/{filename_base}-reoptimized{extension}"
+
+    if os.path.exists(file_output) and not args.force:
+        print(f"ERROR: '{file_output}' already exists. Not overwriting this file. Pass -f to overwrite",
+              file=sys.stderr)
+        sys.exit(1)
+
+
+
+optimization_inputs = model.optimization_inputs()
+
+if args.perfect:
+    if args.model_intrinsics is not None:
+        model_intrinsics = mrcal.cameramodel(args.model_intrinsics)
+        if model_intrinsics.intrinsics()[0] != model.intrinsics()[0]:
+            print("At this time, --model-intrinsics MUST use the same lens model as the reference model",
+                  file=sys.stderr)
+            sys.exit(1)
+        optimization_inputs['intrinsics'][model.icam_intrinsics()] = \
+            model_intrinsics.intrinsics()[1]
+
+    mrcal.make_perfect_observations(optimization_inputs)
+
+######### Reoptimize
+optimization_inputs['verbose']                    = args.verbose
+optimization_inputs['do_apply_outlier_rejection'] = not args.skip_outlier_rejection
+if args.revive_outliers:
+    for what in ('observations_board','observations_point'):
+        observations = optimization_inputs[what]
+
+        print(f"Original solve has {np.count_nonzero(observations[...,2] <= 0)} outliers in {what}. Reviving them")
+        print("")
+        observations[observations[...,2] <= 0, 2] = 1.
+
+mrcal.optimize(**optimization_inputs)
+
+model = mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                          icam_intrinsics     = model.icam_intrinsics())
+
+if not args.explore:
+    note = \
+        "generated on {} with   {}\n". \
+        format(time.strftime("%Y-%m-%d %H:%M:%S"),
+               ' '.join(mrcal.shellquote(s) for s in sys.argv))
+
+    model.write(file_output, note=note)
+    if isinstance(file_output, str):
+        print(f"Wrote '{file_output}'",
+              file=sys.stderr)
+
+    sys.exit(0)
+
+
+print("")
+print("Done. The results are in the 'model' and 'optimization_inputs' variables")
+print("")
+
+import IPython
+IPython.embed()

@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 r'''Python-wrap the mrcal routines that can be done with numpysane_pywrap
 
 '''
@@ -131,9 +139,6 @@ and see the docs for that function. The differences:
 - This is just the no-gradients function. The internal function that reports the
   gradients also is _project_withgrad
 
-- This function is wrapped with numpysane_pywrap, so the points and the
-  intrinsics broadcast as expected
-
 - To make the broadcasting work, the argument order in this function is
   different. numpysane_pywrap broadcasts the leading arguments, so this function
   takes the lensmodel (the one argument that does not broadcast) last
@@ -142,6 +147,9 @@ and see the docs for that function. The differences:
   the _mrcal_project_internal...() functions instead. That allows as much as
   possible of the outer init stuff to be moved outside of the slice computation
   loop
+
+This function is wrapped with numpysane_pywrap, so the points and the intrinsics
+broadcast as expected
 
 The outer logic (outside the loop-over-N-points) is duplicated in
 mrcal_project() and in the python wrapper definition in _project() and
@@ -177,14 +185,6 @@ _project_withgrad() in mrcal-genpywrap.py. Please keep them in sync
                  r'''
                  const int N = 1;
 
-                 if(cookie->lensmodel.type == MRCAL_LENSMODEL_CAHVORE)
-                     return _mrcal_project_internal_cahvore(
-                                (mrcal_point2_t*)data_slice__output,
-                                (const mrcal_point3_t*)data_slice__points,
-                                N,
-                                (const double*)data_slice__intrinsics,
-                                cookie->lensmodel.LENSMODEL_CAHVORE__config.linearity);
-
                  if(MRCAL_LENSMODEL_IS_OPENCV(cookie->lensmodel.type) ||
                     cookie->lensmodel.type == MRCAL_LENSMODEL_PINHOLE)
                  {
@@ -219,9 +219,6 @@ and see the docs for that function. The differences:
 - This is just the gradients-returning function. The internal function that
   skips those is _project
 
-- This function is wrapped with numpysane_pywrap, so the points and the
-  intrinsics broadcast as expected
-
 - To make the broadcasting work, the argument order in this function is
   different. numpysane_pywrap broadcasts the leading arguments, so this function
   takes the lensmodel (the one argument that does not broadcast) last
@@ -230,6 +227,9 @@ and see the docs for that function. The differences:
   the _mrcal_project_internal...() functions instead. That allows as much as
   possible of the outer init stuff to be moved outside of the slice computation
   loop
+
+This function is wrapped with numpysane_pywrap, so the points and the intrinsics
+broadcast as expected
 
 The outer logic (outside the loop-over-N-points) is duplicated in
 mrcal_project() and in the python wrapper definition in _project() and
@@ -291,9 +291,6 @@ m.function( "_unproject",
 This is the internals for mrcal.unproject(). As a user, please call THAT
 function, and see the docs for that function. The differences:
 
-- This function is wrapped with numpysane_pywrap, so the points and the
-  intrinsics broadcast as expected
-
 - To make the broadcasting work, the argument order in this function is
   different. numpysane_pywrap broadcasts the leading arguments, so this function
   takes the lensmodel (the one argument that does not broadcast) last
@@ -305,6 +302,9 @@ function, and see the docs for that function. The differences:
   uses the _mrcal_unproject_internal...() functions instead. That allows as much
   as possible of the outer init stuff to be moved outside of the slice
   computation loop
+
+This function is wrapped with numpysane_pywrap, so the points and the intrinsics
+broadcast as expected
 
 The outer logic (outside the loop-over-N-points) is duplicated in
 mrcal_unproject() and in the python wrapper definition in _unproject()
@@ -354,8 +354,8 @@ THAT function, and see the docs for that function. The differences:
 - This is just the no-gradients function. The internal function that reports the
   gradients also is _project_{what}_withgrad()
 
-- This function is wrapped with numpysane_pywrap, so the points broadcast as
-  expected
+This function is wrapped with numpysane_pywrap, so the points broadcast as
+expected
 
 """
 
@@ -367,8 +367,8 @@ THAT function, and see the docs for that function. The differences:
 - This is just the gradient-reporting function. The internal function that
   does not report the gradients is _project_{what}()
 
-- This function is wrapped with numpysane_pywrap, so the points broadcast as
-  expected
+This function is wrapped with numpysane_pywrap, so the points broadcast as
+expected
 
 """
 
@@ -380,8 +380,8 @@ call THAT function, and see the docs for that function. The differences:
 - This is just the no-gradients function. The internal function that reports the
   gradients also is _unproject_{what}_withgrad()
 
-- This function is wrapped with numpysane_pywrap, so the points broadcast as
-  expected
+This function is wrapped with numpysane_pywrap, so the points broadcast as
+expected
 
 """
 
@@ -393,8 +393,8 @@ call THAT function, and see the docs for that function. The differences:
 - This is just the gradient-reporting function. The internal function that does
   not report the gradients is _unproject_{what}()
 
-- This function is wrapped with numpysane_pywrap, so the points broadcast as
-  expected
+This function is wrapped with numpysane_pywrap, so the points broadcast as
+expected
 
 """
 
@@ -565,6 +565,77 @@ scipy.sparse.csr_matrix respectively.
 '''},
 )
 
+m.function( "_A_Jt_J_At__2",
+            """Computes matmult(A,Jt,J,At) for a sparse J where A.shape=(2,N)
+
+Exactly the same as _A_Jt_J_At(), but assumes that A.shape=(2,N) for efficiency.
+See the docs of _A_Jt_J_At() for details.
+ """,
+
+            args_input       = ('A', 'Jp', 'Ji', 'Jx'),
+            prototype_input  = ((2,'Nstate'), ('Np',), ('Nix',), ('Nix',)),
+            prototype_output = (2,2),
+
+            extra_args = (("int", "Nleading_rows_J", "-1", "i"),),
+
+            Ccode_validate = r'''
+            if(*Nleading_rows_J <= 0)
+            {
+                PyErr_Format(PyExc_RuntimeError,
+                             "Nleading_rows_J must be passed, and must be > 0");
+                return false;
+            }
+            return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = \
+                { (np.float64, np.int32, np.int32, np.float64, np.float64):
+                 r'''
+
+                 // I'm computing A Jt J At = sum(outer(ja,ja)) where ja is each
+                 // row of matmult(J,At). Rows of matmult(J,At) are
+                 // matmult(jt,At) where jt are rows of J. So the logic is:
+                 //
+                 //   For each row jt of J:
+                 //     jta = matmult(jt,At); // jta has shape (Nx,)
+                 //     accumulate( outer(jta,jta) )
+
+
+                 const int32_t Nx     = 2; // dims_slice__A[0] will always be 2
+                 const int32_t Nstate = dims_slice__A[1];
+
+                 const double*   A = (const double* )data_slice__A;
+                 const int32_t* Jp = (const int32_t*)data_slice__Jp;
+                 const int32_t* Ji = (const int32_t*)data_slice__Ji;
+                 const double*  Jx = (const double* )data_slice__Jx;
+                 double* out       = (      double* )data_slice__output;
+
+                 for(int i=0; i<Nx*Nx; i++)
+                     out[i] = 0.0;
+
+                 for(int irow=0; irow<*Nleading_rows_J; irow++)
+                 {
+                     double jta[2] = {};
+
+                     for(int32_t i = Jp[irow]; i < Jp[irow+1]; i++)
+                     {
+                         int32_t icol = Ji[i];
+                         double x     = Jx[i];
+
+                         jta[0] += A[icol         ] * x;
+                         jta[1] += A[icol + Nstate] * x;
+                     }
+
+                     out[0] += jta[0]*jta[0];
+                     out[1] += jta[0]*jta[1];
+                     out[3] += jta[1]*jta[1];
+                 }
+
+                 out[2] = out[1];
+
+                 return true;
+'''},
+)
+
 m.function( "_Jt_x",
             """Computes matrix-vector multiplication Jt*xt
 
@@ -706,6 +777,70 @@ applied
             Ccode_slice_eval = \
                 { np.float64: apply_homography_body,
                   np.float32: apply_homography_body },
+)
+
+m.function( "_clip_float_into_bgr_colormap_functions_15_5_7",
+            """Writes a 2D array into a color heatmap
+
+This is used in the internals of apply_color_map().
+
+This is equivalent to this Python code:
+
+  x = np.clip( (array.astype(float) - a_min) / (a_max - a_min),
+                0, 1 )
+  def clip_and_convert(x):
+      return np.clip(x*255, 0, 255).round().astype(np.uint8)
+  out[..., 0] = clip_and_convert(np.sin(x * 2.*np.pi)) # B: function 15
+  out[..., 1] = clip_and_convert(np.sin(x*x*x))        # G: function 5
+  out[..., 2] = clip_and_convert(np.sqrt(x))           # R: function 7
+ """,
+
+            args_input       = ('array',),
+            prototype_input  = (('H','W'),),
+            prototype_output = ('H','W', 3),
+            extra_args = (("double", "a_min", "0.0", "d"),
+                          ("double", "a_max", "1.0", "d"),),
+
+            Ccode_validate = r'''
+            return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = \
+                { (np.float64, np.uint8):
+                 r'''
+                 int32_t H = dims_slice__array[0];
+                 int32_t W = dims_slice__array[1];
+                 const double*  array = (const double* )data_slice__array;
+                 uint8_t*       out   = (      uint8_t*)data_slice__output;
+
+                 // assuming contiguous storage
+                 for(int32_t i=0; i<H*W; i++)
+                 {
+                     const double x =
+                       fmin(fmax( (*array - *a_min) / (*a_max - *a_min),
+                                  0), 1);
+
+                     double v;
+
+                     v = sin(x * 2.0 * M_PI);
+                     if(     v <= 0.0) out[0] = 0;
+                     else if(v >= 1.0) out[0] = 255;
+                     else              out[0] = (uint8_t)(255.*v + 0.5);
+
+                     v = x*x*x;
+                     if(     v <= 0.0) out[1] = 0;
+                     else if(v >= 1.0) out[1] = 255;
+                     else              out[1] = (uint8_t)(255.*v + 0.5);
+
+                     v = sqrt(x);
+                     if(     v <= 0.0) out[2] = 0;
+                     else if(v >= 1.0) out[2] = 255;
+                     else              out[2] = (uint8_t)(255.*v + 0.5);
+
+                     array = &array[1];
+                     out   = &out  [3];
+                 }
+                 return true;
+'''},
 )
 
 m.write()

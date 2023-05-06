@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 
 r'''Converts a cameramodel to the cahvor file format
 
@@ -82,7 +90,7 @@ for model in args.model:
         if args.outdir is not None:
             base = args.outdir + '/' + os.path.split(base)[1]
         filename_out = base + '.cahvor'
-        if not args.force and os.path.isfile(filename_out):
+        if not args.force and os.path.exists(filename_out):
             print(f"Target model '{filename_out}' already exists. Doing nothing with this model. Pass -f to overwrite",
                   file=sys.stderr)
         else:

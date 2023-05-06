@@ -114,7 +114,7 @@ difflen, diff, q0, implied_Rt10 = \
                            gridn_width       = gridn_width,
                            distance          = 50000,
                            use_uncertainties = False,
-                           focus_radius      = 1000)
+                           focus_radius      = 1500)
 
 testutils.confirm_equal( 0, difflen[icenter[0],icenter[1]],
                          eps = 5e-3,

@@ -274,18 +274,48 @@ ARGUMENTS
         Nframes
 
 
-def calibration_sample(Nsamples, Ncameras, Nframes,
-                       Nintrinsics,
+def calibration_sample(Nsamples,
                        optimization_inputs_baseline,
-                       observations_true,
                        pixel_uncertainty_stdev,
-                       fixedframes):
+                       fixedframes,
+                       function_optimize = None):
 
-    intrinsics_sampled         = np.zeros((Nsamples,Ncameras,Nintrinsics), dtype=float)
-    extrinsics_sampled_mounted = np.zeros((Nsamples,Ncameras,6),           dtype=float)
-    frames_sampled             = np.zeros((Nsamples,Nframes, 6),           dtype=float)
-    calobject_warp_sampled     = np.zeros((Nsamples,2),                    dtype=float)
+    r'''Sample calibrations subject to random noise on the input observations
+
+optimization_inputs_baseline['observations_board'] and
+optimization_inputs_baseline['observations_point'] are assumed to contain
+perfect observations
+
+    '''
+
+    def have(k):
+        return k in optimization_inputs_baseline and \
+            optimization_inputs_baseline[k] is not None
+
+    intrinsics_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['intrinsics']    .shape, dtype=float)
+
+    if have('frames_rt_toref'):
+        frames_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['frames_rt_toref'].shape, dtype=float)
+    else:
+        frames_sampled = None
+    if have('points'):
+        points_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['points'].shape, dtype=float)
+    else:
+        points_sampled = None
+    if have('calobject_warp'):
+        calobject_warp_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['calobject_warp'].shape, dtype=float)
+    else:
+        calobject_warp_sampled = None
+
     optimization_inputs_sampled = [None] * Nsamples
+
+
+
+    Ncameras_extrinsics = optimization_inputs_baseline['extrinsics_rt_fromref'].shape[0]
+    if not fixedframes:
+        # the first row is fixed at 0
+        Ncameras_extrinsics += 1
+    extrinsics_sampled_mounted = np.zeros((Nsamples,Ncameras_extrinsics,6), dtype=float)
 
     for isample in range(Nsamples):
         if (isample+1) % 20 == 0:
@@ -293,22 +323,40 @@ def calibration_sample(Nsamples, Ncameras, Nframes,
 
         optimization_inputs_sampled[isample] = copy.deepcopy(optimization_inputs_baseline)
         optimization_inputs = optimization_inputs_sampled[isample]
-        optimization_inputs['observations_board'] = \
-            sample_dqref(observations_true, pixel_uncertainty_stdev)[1]
-        mrcal.optimize(**optimization_inputs)
+
+        if have('observations_board'):
+            optimization_inputs['observations_board'] = \
+                sample_dqref(optimization_inputs['observations_board'],
+                             pixel_uncertainty_stdev)[1]
+        if have('observations_point'):
+            optimization_inputs['observations_point'] = \
+                sample_dqref(optimization_inputs['observations_point'],
+                             pixel_uncertainty_stdev)[1]
+
+        if function_optimize is None:
+            mrcal.optimize(**optimization_inputs)
+        else:
+            function_optimize(optimization_inputs)
 
         intrinsics_sampled    [isample,...] = optimization_inputs['intrinsics']
-        frames_sampled        [isample,...] = optimization_inputs['frames_rt_toref']
-        calobject_warp_sampled[isample,...] = optimization_inputs['calobject_warp']
         if fixedframes:
             extrinsics_sampled_mounted[isample,   ...] = optimization_inputs['extrinsics_rt_fromref']
         else:
             # the remaining row is already 0
             extrinsics_sampled_mounted[isample,1:,...] = optimization_inputs['extrinsics_rt_fromref']
 
+        if frames_sampled is not None:
+            frames_sampled[isample,...] = optimization_inputs['frames_rt_toref']
+        if points_sampled is not None:
+            points_sampled[isample,...] = optimization_inputs['points']
+        if calobject_warp_sampled is not None:
+            calobject_warp_sampled[isample,...] = optimization_inputs['calobject_warp']
+
+
     return                            \
-        ( intrinsics_sampled,         \
-          extrinsics_sampled_mounted, \
-          frames_sampled,             \
+        ( intrinsics_sampled,
+          extrinsics_sampled_mounted,
+          frames_sampled,
+          points_sampled,
           calobject_warp_sampled,
           optimization_inputs_sampled)

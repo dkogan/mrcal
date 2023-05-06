@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 '''Routines for analysis of camera projection
 
 This is largely dealing with uncertainty and projection diff operations.
@@ -326,7 +334,7 @@ report a full Rt transformation with the t component set to 0
 
         # This is similar to a basic procrustes fit, but here we're using an L1
         # cost function
-        r = np.random.random(3) * 1e-3
+        r = np.random.random(3) * 1e-5
 
         res = scipy.optimize.least_squares(residual,
                                            r,
@@ -358,7 +366,7 @@ report a full Rt transformation with the t component set to 0
 
     else:
 
-        rt = np.random.random(6) * 1e-3
+        rt = np.random.random(6) * 1e-5
 
         res = scipy.optimize.least_squares(residual,
                                            rt,
@@ -449,16 +457,70 @@ broadcasting
 
     '''
 
-    a = cov[..., 0,0]
-    b = cov[..., 1,0]
-    c = cov[..., 1,1]
-    return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
+    cov = nps.atleast_dims(cov,-2)
+
+    if cov.shape[-2:] == (1,1):
+        return cov[...,0,0]
+    if cov.shape[-2:] == (2,2):
+        a = cov[..., 0,0]
+        b = cov[..., 1,0]
+        c = cov[..., 1,1]
+        return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
+
+    raise Exception("cov must be either 1x1 or 2x2 in the innermost dimension")
 
 
-def _propagate_calibration_uncertainty( dF_dbpacked,
-                                        factorization, Jpacked,
-                                        Nmeasurements_observations,
-                                        observed_pixel_uncertainty, what ):
+def _observed_pixel_uncertainty_from_inputs(optimization_inputs,
+                                            x = None):
+
+    if x is None:
+        x = mrcal.optimizer_callback(**optimization_inputs,
+                                     no_jacobian      = True,
+                                     no_factorization = True)[1]
+
+
+    # mrcal.residuals_point() ignores the range normalization (penalty)
+    sum_of_squares_residuals = 0
+    Nobservations            = 0
+
+    # shape (Nobservations*2)
+    residuals = mrcal.residuals_chessboard(optimization_inputs, residuals = x).ravel()
+    if residuals.size:
+        sum_of_squares_residuals += np.var(residuals) * residuals.size
+        Nobservations += residuals.size
+
+    residuals = mrcal.residuals_point     (optimization_inputs, residuals = x).ravel()
+    if residuals.size:
+        sum_of_squares_residuals += np.var(residuals) * residuals.size
+        Nobservations += residuals.size
+
+    if Nobservations == 0:
+        raise Exception("observed_pixel_uncertainty cannot be computed because we don't have any board or point observations")
+    observed_pixel_uncertainty = np.sqrt(sum_of_squares_residuals / Nobservations)
+
+    return observed_pixel_uncertainty
+
+
+def _propagate_calibration_uncertainty( what,
+                                        *,
+
+                                        # One of these must be given. If it's
+                                        # dF_db, then optimization_inputs must
+                                        # be given too
+                                        dF_dbpacked                        = None,
+                                        dF_db                              = None,
+                                        # These are partly optional. I need
+                                        # everything except optimization_inputs.
+                                        # If any of the non-optimization_inputs
+                                        # arguments are missing I need
+                                        # optimization_inputs to compute them.
+                                        x                                  = None,
+                                        factorization                      = None,
+                                        Jpacked                            = None,
+                                        Nmeasurements_observations_leading = None,
+                                        observed_pixel_uncertainty         = None,
+                                        # can compute each of the above
+                                        optimization_inputs                = None):
     r'''Helper for uncertainty propagation functions
 
 Propagates the calibration-time uncertainty to compute Var(F) for some arbitrary
@@ -469,9 +531,9 @@ from the dimensions of the given dF/db gradient.
 The given factorization uses the packed, unitless state: b*.
 
 The given Jpacked uses the packed, unitless state: b*. Jpacked applies to all
-observations. The leading Nmeasurements_observations rows apply to the
+observations. The leading Nmeasurements_observations_leading rows apply to the
 observations of the calibration object, and we use just those for the input
-noise propagation. if Nmeasurements_observations is None: assume that ALL the
+noise propagation. if Nmeasurements_observations_leading==0: assume that ALL the
 measurements come from the calibration object observations; a simplifed
 expression can be used in this case
 
@@ -536,7 +598,7 @@ In the regularized case:
      The result has shape (Nstate,2)
 
   2. Pre-multiply by J*[observations]
-     The result has shape (Nmeasurements_observations,2)
+     The result has shape (Nmeasurements_observations_leading,2)
 
   3. Compute the sum of the outer products of each row
 
@@ -544,16 +606,88 @@ In the regularized case:
 
     '''
 
-    # shape (2,Nstate)
+    what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev'))
+    if not what in what_known:
+        raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
+
+    if dF_dbpacked is None and \
+       dF_db       is None:
+        raise Exception("Exactly one of dF_dbpacked,dF_db must be given")
+    if dF_dbpacked is not None and \
+       dF_db       is not None:
+        raise Exception("Exactly one of dF_dbpacked,dF_db must be given")
+
+    if dF_db is not None:
+        if optimization_inputs is None:
+            raise Exception('dF_db is given but optimization_inputs is not. Either pass dF_dbpacked or pass optimization_inputs in as well')
+
+        # Make dF_db use the packed state. I call "unpack_state" because the
+        # state is in the denominator
+        dF_dbpacked = np.array(dF_db) # make a copy
+        mrcal.unpack_state(dF_dbpacked, **optimization_inputs)
+
+    dF_dbpacked = nps.atleast_dims(dF_dbpacked, -2)
+
+    if \
+       x                                  is None or \
+       factorization                      is None or \
+       Jpacked                            is None or \
+       Nmeasurements_observations_leading is None or \
+       observed_pixel_uncertainty         is None:
+        if optimization_inputs is None:
+            raise Exception("At least one of (factorization,Jpacked,Nmeasurements_observations_leading,observed_pixel_uncertainty) are None, so optimization_inputs MUST have been given to compute them")
+
+    if factorization is None or Jpacked is None or x is None:
+        _,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs)
+        if factorization is None:
+            raise Exception("Cannot compute the uncertainty: factorization computation failed")
+
+
+    if Nmeasurements_observations_leading is None:
+        Nmeasurements_boards         = mrcal.num_measurements_boards(**optimization_inputs)
+        Nmeasurements_points         = mrcal.num_measurements_points(**optimization_inputs)
+        Nmeasurements_regularization = mrcal.num_measurements_regularization(**optimization_inputs)
+        Nmeasurements_all            = mrcal.num_measurements(**optimization_inputs)
+        imeas_regularization         = mrcal.measurement_index_regularization(**optimization_inputs)
+        if Nmeasurements_boards + \
+           Nmeasurements_points + \
+           Nmeasurements_regularization != \
+               Nmeasurements_all:
+            raise Exception("Some measurements other than boards, points and regularization are present. Don't know what to do")
+        if imeas_regularization + Nmeasurements_regularization != Nmeasurements_all:
+            raise Exception("Regularization measurements are NOT at the end. Don't know what to do")
+
+        if Nmeasurements_regularization == 0:
+            # Note the special-case where I'm using all the observations. No other
+            # measurements are present other than the chessboard observations
+            Nmeasurements_observations_leading = 0
+        else:
+            if Nmeasurements_points > 0:
+                print("WARNING: I'm currently treating the point range normalization (penalty) terms as following the same noise model as other measurements. This will bias the uncertainty estimate",
+                      file=sys.stderr)
+            Nmeasurements_observations_leading = \
+                Nmeasurements_all - Nmeasurements_regularization
+            if Nmeasurements_observations_leading == 0:
+                raise Exception("No non-regularization measurements. Don't know what to do")
+
+    if observed_pixel_uncertainty is None:
+        observed_pixel_uncertainty = _observed_pixel_uncertainty_from_inputs(optimization_inputs,
+                                                                             x = x)
+
+    # shape (N,Nstate) where N=2 usually
     A = factorization.solve_xt_JtJ_bt( dF_dbpacked )
-    if Nmeasurements_observations is not None:
+    if Nmeasurements_observations_leading > 0:
         # I have regularization. Use the more complicated expression
 
         # I see no python way to do matrix multiplication with sparse matrices,
         # so I have my own routine in C. AND the C routine does the outer
         # product, so there's no big temporary expression. It's much faster
-        Var_dF = mrcal._mrcal_npsp._A_Jt_J_At(A, Jpacked.indptr, Jpacked.indices, Jpacked.data,
-                                              Nleading_rows_J = Nmeasurements_observations)
+        if len(A.shape) == 2 and A.shape[0] == 2:
+            f = mrcal._mrcal_npsp._A_Jt_J_At__2
+        else:
+            f = mrcal._mrcal_npsp._A_Jt_J_At
+        Var_dF = f(A, Jpacked.indptr, Jpacked.indices, Jpacked.data,
+                   Nleading_rows_J = Nmeasurements_observations_leading)
     else:
         # No regularization. Use the simplified expression
         Var_dF = nps.matmult(dF_dbpacked, nps.transpose(A))
@@ -564,15 +698,12 @@ In the regularized case:
     else: raise Exception("Shouldn't have gotten here. There's a bug")
 
 
-def _projection_uncertainty( p_cam,
-                             lensmodel, intrinsics_data,
-                             extrinsics_rt_fromref, frames_rt_toref,
-                             factorization, Jpacked, optimization_inputs,
-                             istate_intrinsics, istate_extrinsics, istate_frames,
-                             slice_optimized_intrinsics,
-                             Nmeasurements_observations,
-                             observed_pixel_uncertainty,
-                             what):
+def _dq_db__projection_uncertainty( p_cam,
+                                    lensmodel, intrinsics_data,
+                                    extrinsics_rt_fromref, frames_rt_toref,
+                                    Nstate,
+                                    istate_intrinsics, istate_extrinsics, istate_frames,
+                                    slice_optimized_intrinsics):
     r'''Helper for projection_uncertainty()
 
     See docs for _propagate_calibration_uncertainty() and
@@ -582,11 +713,7 @@ def _projection_uncertainty( p_cam,
 
     '''
 
-    Nstate = Jpacked.shape[-1]
-    dq_dbief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
-
-    if frames_rt_toref is not None:
-        Nframes = len(frames_rt_toref)
+    dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
     if extrinsics_rt_fromref is not None:
         p_ref = \
@@ -596,6 +723,8 @@ def _projection_uncertainty( p_cam,
         p_ref = p_cam
 
     if frames_rt_toref is not None:
+        Nframes = len(frames_rt_toref)
+
         # The point in the coord system of all the frames. I index the frames on
         # axis -2
         # shape (..., Nframes, 3)
@@ -632,7 +761,7 @@ def _projection_uncertainty( p_cam,
     if istate_intrinsics is not None:
         dq_dintrinsics_optimized = dq_dintrinsics[..., slice_optimized_intrinsics]
         Nintrinsics = dq_dintrinsics_optimized.shape[-1]
-        dq_dbief[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
+        dq_db[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
             dq_dintrinsics_optimized
 
     if extrinsics_rt_fromref is not None:
@@ -640,37 +769,26 @@ def _projection_uncertainty( p_cam,
             mrcal.transform_point_rt(extrinsics_rt_fromref, p_ref,
                                      get_gradients = True)
 
-        dq_dbief[..., istate_extrinsics:istate_extrinsics+6] = \
+        dq_db[..., istate_extrinsics:istate_extrinsics+6] = \
             nps.matmult(dq_dpcam, dpcam_drt)
 
         if frames_rt_toref is not None:
-            dq_dbief[..., istate_frames:istate_frames+Nframes*6] = \
+            dq_db[..., istate_frames:istate_frames+Nframes*6] = \
                 nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
     else:
         if frames_rt_toref is not None:
-            dq_dbief[..., istate_frames:istate_frames+Nframes*6] = \
+            dq_db[..., istate_frames:istate_frames+Nframes*6] = \
                 nps.matmult(dq_dpcam, dpref_dframes)
 
-    # Make dq_dbief use the packed state. I call "unpack_state" because the
-    # state is in the denominator
-    mrcal.unpack_state(dq_dbief, **optimization_inputs)
-    return \
-        _propagate_calibration_uncertainty( dq_dbief,
-                                            factorization, Jpacked,
-                                            Nmeasurements_observations,
-                                            observed_pixel_uncertainty,
-                                            what)
+    return dq_db
 
 
-def _projection_uncertainty_rotationonly( p_cam,
-                                          lensmodel, intrinsics_data,
-                                          extrinsics_rt_fromref, frames_rt_toref,
-                                          factorization, Jpacked, optimization_inputs,
-                                          istate_intrinsics, istate_extrinsics, istate_frames,
-                                          slice_optimized_intrinsics,
-                                          Nmeasurements_observations,
-                                          observed_pixel_uncertainty,
-                                          what):
+def _dq_db__projection_uncertainty_rotationonly( p_cam,
+                                                 lensmodel, intrinsics_data,
+                                                 extrinsics_rt_fromref, frames_rt_toref,
+                                                 Nstate,
+                                                 istate_intrinsics, istate_extrinsics, istate_frames,
+                                                 slice_optimized_intrinsics):
     r'''Helper for projection_uncertainty()
 
     See docs for _propagate_calibration_uncertainty() and
@@ -680,11 +798,7 @@ def _projection_uncertainty_rotationonly( p_cam,
 
     '''
 
-    Nstate = Jpacked.shape[-1]
-    dq_dbief = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
-
-    if frames_rt_toref is not None:
-        Nframes = len(frames_rt_toref)
+    dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
     if extrinsics_rt_fromref is not None:
         p_ref = \
@@ -693,6 +807,8 @@ def _projection_uncertainty_rotationonly( p_cam,
         p_ref = p_cam
 
     if frames_rt_toref is not None:
+        Nframes = len(frames_rt_toref)
+
         # The point in the coord system of all the frames. I index the frames on
         # axis -2
         # shape (..., Nframes, 3)
@@ -724,40 +840,31 @@ def _projection_uncertainty_rotationonly( p_cam,
     if istate_intrinsics is not None:
         dq_dintrinsics_optimized = dq_dintrinsics[..., slice_optimized_intrinsics]
         Nintrinsics = dq_dintrinsics_optimized.shape[-1]
-        dq_dbief[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
+        dq_db[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
             dq_dintrinsics_optimized
 
     if extrinsics_rt_fromref is not None:
         _, dpcam_dr, dpcam_dpref = \
             mrcal.rotate_point_r(extrinsics_rt_fromref[...,:3], p_ref,
                                  get_gradients = True)
-        dq_dbief[..., istate_extrinsics:istate_extrinsics+3] = \
+        dq_db[..., istate_extrinsics:istate_extrinsics+3] = \
             nps.matmult(dq_dpcam, dpcam_dr)
 
         if frames_rt_toref is not None:
-
             dq_dpref = nps.matmult(dq_dpcam, dpcam_dpref)
 
             # dprefallframes_dframesr has shape (..., Nframes,3,3)
             for i in range(Nframes):
-                dq_dbief[..., istate_frames+6*i:istate_frames+6*i+3] = \
+                dq_db[..., istate_frames+6*i:istate_frames+6*i+3] = \
                     nps.matmult(dq_dpref, dprefallframes_dframesr[...,i,:,:]) / Nframes
     else:
         if frames_rt_toref is not None:
             # dprefallframes_dframesr has shape (..., Nframes,3,3)
             for i in range(Nframes):
-                dq_dbief[..., istate_frames+6*i:istate_frames+6*i+3] = \
+                dq_db[..., istate_frames+6*i:istate_frames+6*i+3] = \
                     nps.matmult(dq_dpcam, dprefallframes_dframesr[...,i,:,:]) / Nframes
 
-    # Make dq_dbief use the packed state. I call "unpack_state" because the
-    # state is in the denominator
-    mrcal.unpack_state(dq_dbief, **optimization_inputs)
-    return \
-        _propagate_calibration_uncertainty( dq_dbief,
-                                            factorization, Jpacked,
-                                            Nmeasurements_observations,
-                                            observed_pixel_uncertainty,
-                                            what)
+    return dq_db
 
 
 def projection_uncertainty( p_cam, model,
@@ -791,10 +898,10 @@ SYNOPSIS
     # pixel obsevation is 0.5 pixels, in the worst direction
 
 After a camera model is computed via a calibration process, the model is
-ultimately used in projection/unprojection operations to map between world
-coordinates and projected pixel coordinates. We never know the parameters of the
-model perfectly, and it is VERY useful to know the resulting uncertainty of
-projection. This can be used, among other things, to
+ultimately used in projection/unprojection operations to map between 3D
+camera-referenced coordinates and projected pixel coordinates. We never know the
+parameters of the model perfectly, and it is VERY useful to have the resulting
+uncertainty of projection. This can be used, among other things, to
 
 - propagate the projection noise down to whatever is using the observed pixels
   to do stuff
@@ -804,19 +911,24 @@ projection. This can be used, among other things, to
 
 - evaluate the stability of a computed model
 
-I quantify uncertainty by propagating expected noise on observed chessboard
-corners through the optimization problem we're solving during calibration time
-to the solved parameters. And then propagating the noise on the parameters
-through projection.
+I quantify uncertainty by propagating the expected pixel observation noise
+through the optimization problem. This gives us the uncertainty of the solved
+optimization parameters. And then we propagate this parameter noise through
+projection to produce the projected pixel uncertainty.
+
+As noted in the docs (http://mrcal.secretsauce.net/uncertainty.html), this
+measures the SAMPLING error, which is a direct function of the quality of the
+gathered calibration data. It does NOT measure model errors, which arise from
+inappropriate lens models, for instance.
 
 The uncertainties can be visualized with the mrcal-show-projection-uncertainty
 tool.
 
 ARGUMENTS
 
-This function accepts an array of camera-referenced points p_cam, a
-mrcal.cameramodel object and a few meta-parameters that describe details of the
-behavior. This function broadcasts on p_cam only. We accept
+This function accepts an array of camera-referenced points p_cam, a model and a
+few meta-parameters that describe details of the behavior. This function
+broadcasts on p_cam only. We accept
 
 - p_cam: a numpy array of shape (..., 3). This is the set of camera-coordinate
   points where we're querying uncertainty. if not atinfinity: then the full 3D
@@ -842,8 +954,8 @@ behavior. This function broadcasts on p_cam only. We accept
                             standard deviations
 
 - observed_pixel_uncertainty: optional value, defaulting to None. The
-  uncertainty of the observed chessboard corners being propagated through the
-  solve and projection. If omitted or None, this input uncertainty is inferred
+  uncertainty of the pixel observations being propagated through the solve and
+  through projection. If omitted or None, this input uncertainty is inferred
   from the residuals at the optimum. Most people should omit this
 
 RETURN VALUE
@@ -856,12 +968,17 @@ else:                    we return an array of shape (...)
     '''
 
 
+    # This is a summary of the full derivation in the docs:
+    #
+    #   http://mrcal.secretsauce.net/uncertainty.html
+    #
     # I computed Var(b) earlier, which contains the variance of ALL the optimization
     # parameters together. The noise on the chessboard poses is coupled to the noise
     # on the extrinsics and to the noise on the intrinsics. And we can apply all these
     # together to propagate the uncertainty.
 
-    # Let's define some variables:
+    # Let's define some variables (these are all subsets of the big optimization
+    # vector):
 
     # - b_i: the intrinsics of a camera
     # - b_e: the extrinsics of that camera (T_cr)
@@ -882,15 +999,15 @@ else:                    we return an array of shape (...)
 
     #     dq/db_f = dq/dpcam dpcam/dpref dpref/db_f / Nframes
 
-    # dq/db_i and all the constituent expressions comes directly from the project()
-    # and transform calls above. Depending on the details of the optimization problem,
-    # some of these may not exist. For instance, if we're looking at a camera that is
-    # sitting at the reference coordinate system, then there is no b_e, and Var_ief is
-    # smaller: it's just Var_if. If we somehow know the poses of the frames, then
-    # there's no Var_f. If we want to know the uncertainty at distance=infinity, then
-    # we ignore all the translation components of b_e and b_f.
-
-
+    # dq/db_i and all the constituent expressions comes directly from the
+    # project() and transform calls above. Depending on the details of the
+    # optimization problem, some of these may not exist. For instance, if we're
+    # looking at a camera that is sitting at the reference coordinate system,
+    # then there is no b_e, and Var_ief is smaller: it's just Var_if. If we
+    # somehow know the poses of the frames, then there's no Var_f. In this case
+    # both fixed frames and fixed discrete points can be processed with the same
+    # code. If we want to know the uncertainty at distance=infinity, then we
+    # ignore all the translation components of b_e and b_f.
 
     # Alright, so we have Var(q). We could claim victory at that point. But it'd be
     # nice to convert Var(q) into a single number that describes my projection
@@ -909,17 +1026,8 @@ else:                    we return an array of shape (...)
 
     #     sqrt((a+c)/2 + sqrt( (a-c)^2/4 + b^2))
 
-
-
-
-
-
-    what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev'))
-    if not what in what_known:
-        raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
-
-
-    lensmodel = model.intrinsics()[0]
+    # which calibration-time camera we're looking at
+    icam_intrinsics = model.icam_intrinsics()
 
     optimization_inputs = model.optimization_inputs()
     if optimization_inputs is None:
@@ -928,11 +1036,24 @@ else:                    we return an array of shape (...)
     if not optimization_inputs.get('do_optimize_extrinsics'):
         raise Exception("Computing uncertainty if !do_optimize_extrinsics not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for fixed extrinsics like they already do for fixed frames")
 
-    bpacked,x,Jpacked,factorization = \
-        mrcal.optimizer_callback( **optimization_inputs )
+    frames_rt_toref = None
+    istate_frames   = None
+    if optimization_inputs.get('do_optimize_frames'):
+        frames_rt_toref = optimization_inputs.get('frames_rt_toref')
+        points          = optimization_inputs.get('points')
 
-    if factorization is None:
-        raise Exception("Cannot compute the uncertainty: factorization computation failed")
+        if frames_rt_toref is not None and frames_rt_toref.size == 0:
+            frames_rt_toref = None
+        if points          is not None and points         .size == 0:
+            points          = None
+
+        if points is not None:
+            raise Exception("Uncertainty computation not yet implemented if I have non-fixed points")
+
+        if frames_rt_toref is not None:
+            # None if we're not optimizing chessboard poses, but I just checked,
+            # and we ARE
+            istate_frames = mrcal.state_index_frames(0, **optimization_inputs)
 
     # The intrinsics,extrinsics,frames MUST come from the solve when
     # evaluating the uncertainties. The user is allowed to update the
@@ -942,17 +1063,19 @@ else:                    we return an array of shape (...)
     # from the model. But for good hygiene I get them from the solve as
     # well
 
-    # which calibration-time camera we're looking at
-    icam_intrinsics = model.icam_intrinsics()
+    # This will raise an exception if the cameras are not stationary
     icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics, **optimization_inputs)
 
-    intrinsics_data   = optimization_inputs['intrinsics'][icam_intrinsics]
+    lensmodel       = optimization_inputs['lensmodel']
+    intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
 
     if not optimization_inputs.get('do_optimize_intrinsics_core') and \
        not optimization_inputs.get('do_optimize_intrinsics_distortions'):
+        # Not optimizing ANY of the intrinsics
         istate_intrinsics          = None
         slice_optimized_intrinsics = None
     else:
+        # Optimizing SOME of the intrinsics
         istate_intrinsics = mrcal.state_index_intrinsics(icam_intrinsics, **optimization_inputs)
 
         i0,i1 = None,None # everything by default
@@ -968,8 +1091,6 @@ else:                    we return an array of shape (...)
 
         slice_optimized_intrinsics  = slice(i0,i1)
 
-    istate_frames = mrcal.state_index_frames(0, **optimization_inputs)
-
     if icam_extrinsics < 0:
         extrinsics_rt_fromref = None
         istate_extrinsics     = None
@@ -977,45 +1098,24 @@ else:                    we return an array of shape (...)
         extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
         istate_extrinsics     = mrcal.state_index_extrinsics (icam_extrinsics, **optimization_inputs)
 
-    frames_rt_toref = None
-    if optimization_inputs.get('do_optimize_frames'):
-        frames_rt_toref = optimization_inputs.get('frames_rt_toref')
-
-
-    Nmeasurements_observations = mrcal.num_measurements_boards(**optimization_inputs)
-    if Nmeasurements_observations == mrcal.num_measurements(**optimization_inputs):
-        # Note the special-case where I'm using all the observations
-        Nmeasurements_observations = None
-
-    if observed_pixel_uncertainty is None:
-        observed_pixel_uncertainty = \
-            np.std(mrcal.residuals_chessboard(optimization_inputs,
-                                              residuals = x).ravel())
+    Nstate = mrcal.num_states(**optimization_inputs)
 
     # Two distinct paths here that are very similar, but different-enough to not
     # share any code. If atinfinity, I ignore all translations
-    if not atinfinity:
-        return \
-            _projection_uncertainty(p_cam,
-                                    lensmodel, intrinsics_data,
-                                    extrinsics_rt_fromref, frames_rt_toref,
-                                    factorization, Jpacked, optimization_inputs,
-                                    istate_intrinsics, istate_extrinsics, istate_frames,
-                                    slice_optimized_intrinsics,
-                                    Nmeasurements_observations,
-                                    observed_pixel_uncertainty,
-                                    what)
-    else:
-        return \
-            _projection_uncertainty_rotationonly(p_cam,
-                                                 lensmodel, intrinsics_data,
-                                                 extrinsics_rt_fromref, frames_rt_toref,
-                                                 factorization, Jpacked, optimization_inputs,
-                                                 istate_intrinsics, istate_extrinsics, istate_frames,
-                                                 slice_optimized_intrinsics,
-                                                 Nmeasurements_observations,
-                                                 observed_pixel_uncertainty,
-                                                 what)
+    args = ( p_cam,
+             lensmodel, intrinsics_data,
+             extrinsics_rt_fromref, frames_rt_toref,
+             Nstate,
+             istate_intrinsics, istate_extrinsics, istate_frames,
+             slice_optimized_intrinsics )
+    if not atinfinity: f = _dq_db__projection_uncertainty
+    else:              f = _dq_db__projection_uncertainty_rotationonly
+    dq_db = f(*args)
+
+    return _propagate_calibration_uncertainty(what,
+                                              dF_db                      = dq_db,
+                                              observed_pixel_uncertainty = observed_pixel_uncertainty,
+                                              optimization_inputs        = optimization_inputs)
 
 
 def projection_diff(models,
@@ -1257,6 +1357,21 @@ A tuple
     lensmodels      = [model.intrinsics()[0] for model in models]
     intrinsics_data = [model.intrinsics()[1] for model in models]
 
+    for i in range(len(models)):
+        if mrcal.lensmodel_metadata_and_config(lensmodels[i])['noncentral']:
+            if not atinfinity:
+                raise Exception(f"Model {i} are noncentral, so I can only evaluate the diff at infinity")
+            import re
+            if re.match("LENSMODEL_CAHVORE_",lensmodels[i]):
+                if use_uncertainties:
+                    raise Exception("I have a noncentral model. No usable uncertainties for those yet")
+                # Special-case to centralize CAHVORE. This path will need to be
+                # redone when I do noncentral models "properly", but this will
+                # do in the meantime
+                intrinsics_data[i][-3:] = 0
+            else:
+                raise Exception("I have a non-CAHVORE noncentral model. This isn't supported yet")
+
     # v  shape (Ncameras,Nheight,Nwidth,3)
     # q0 shape (         Nheight,Nwidth,2)
     v,q0 = mrcal.sample_imager_unproject(gridn_width, gridn_height,
@@ -1278,7 +1393,7 @@ A tuple
                                                what       = 'worstdirection-stdev') \
                   for i in range(len(models)) ]
         except Exception as e:
-            print(f"WARNING: projection_diff() was asked to use uncertainties, but they aren't available/couldn't be computed. Falling back on the region-based-only logic\nException: {e}",
+            print(f"WARNING: projection_diff() was asked to use uncertainties, but they aren't available/couldn't be computed. Falling back on the region-based-only logic. Caught exception: {e}",
                   file = sys.stderr)
 
     if focus_center is None:

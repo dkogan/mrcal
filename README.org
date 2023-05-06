@@ -17,7 +17,14 @@ And now we have a calibration!
 =mrcal= is a generic toolkit built to solve the calibration and SFM-like
 problems we encounter at NASA/JPL. Functionality related to these problems is
 exposed as a set of C and Python libraries and some commandline tools.
-Documentation is available at http://mrcal.secretsauce.net/
+
+* DESCRIPTION
+
+Extensive documentation is available at http://mrcal.secretsauce.net/
+
+* INSTALLATION
+
+Install and/or building instructions are on the [[http://mrcal.secretsauce.net/install.html]["Building or installing" page]].
 
 * REPOSITORY
 
@@ -29,7 +36,7 @@ Dima Kogan (=dima@secretsauce.net=)
 
 * LICENSE AND COPYRIGHT
 
-Copyright (c) 2017-2021 California Institute of Technology ("Caltech"). U.S.
+Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
 Government sponsorship acknowledged. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");

@@ -1,21 +1,21 @@
 #+title: A tour of mrcal
 #+OPTIONS: toc:nil
 
-mrcal is a photogrammetry toolkit that provides improved methods for making and
-using camera models (calibration, tracking, mapping, etc). Currently the focus
-is on calibration and uncertainty propagation, but more methods will be added
-with time.
+mrcal is a toolkit that provides improved methods for making and using camera
+models (calibration, tracking, mapping, photogrammetry, etc).
 
 The best way to convey a sense of the capabilities is to demonstrate some
 real-world usage scenarios. So let's go through a full calibration sequence
-starting with chessboard images, and eventually finishing with stereo
-processing. This page is a high-level overview; for more details, please see [[file:index.org][the
-main documentation]].
+starting with chessboard images, and eventually finishing with stereo processing
+and triangulation. This page is a high-level overview of all the techniques that
+make mrcal different and better than other tools. For more details, please see
+the links in [[file:index.org][the main documentation]]. For /practical/ details, please see the
+[[file:how-to-calibrate.org][how-to-calibrate page]] and the [[file:recipes.org][recipes page]].
 
-All images have been gathered with a Nikon D750 SLR. I want to stress-test the
-system, so I'm using the widest lens I can find: a Samyang 12mm F2.8 fisheye
-lens. This lens has a ~ 180deg field of view corner to corner, and about 150deg
-field of view horizontally.
+All images in these articles have been gathered with a Sony Alpha 7 III SLR. I
+want to stress-test the system, so I'm using the widest lens I can find: a
+Samyang 12mm F2.8 fisheye lens. This lens has a ~ 180deg field of view corner to
+corner, and about 160deg field of view horizontally.
 
 In these demos I'm using only one camera, so I'm going to run a /monocular/
 calibration to compute the intrinsics (the lens parameters). mrcal is fully able
@@ -24,9 +24,11 @@ to calibrate any N cameras at a time, I'm just using the one camera /here/.
 The tour is split over a number of pages:
 
 1. [[file:tour-initial-calibration.org][We gather calibration images, and perform some initial calibrations]]
-2. [[file:tour-differencing.org][We compare the calibrated models]]
-3. [[file:tour-uncertainty.org][We compute the projection uncertainties of the models]]
-4. [[file:tour-effect-of-range.org][We discuss the effect of range in differencing and uncertainty computations]]
-5. [[file:tour-choreography.org][We find the best chessboard-dancing technique]]
-6. [[file:tour-stereo.org][We use the models for stereo processing]]
-7. [[file:tour-triangulation.org][We use the models for triangulation]]
+2. [[file:tour-differencing.org][Differencing: we compare several of the calibrated models]]
+3. [[file:tour-uncertainty.org][Uncertainty estimation: we compute the projection uncertainties of the models]]
+4. [[file:tour-cross-validation.org][Cross-validation: we compare results of two
+   different calibrations to gauge solution quality]]
+5. [[file:tour-effect-of-range.org][We discuss the effect of range in differencing and uncertainty computations]]
+6. [[file:tour-choreography.org][We use the uncertainty analysis to find the best chessboard-dancing technique]]
+7. [[file:tour-stereo.org][Stereo processing]]
+8. [[file:tour-triangulation.org][Triangulation]]

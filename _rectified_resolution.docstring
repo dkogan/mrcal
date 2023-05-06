@@ -1,0 +1,4 @@
+Compute the resolution to be used for the rectified system
+
+This is an internal function. You probably want mrcal.rectified_resolution(). See the
+docs for that function for details.

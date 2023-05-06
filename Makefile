@@ -1,3 +1,6 @@
+include choose_mrbuild.mk
+include $(MRBUILD_MK)/Makefile.common.header
+
 # "0" or undefined means "false"
 # everything else means  "true"
 
@@ -9,14 +12,11 @@ USE_LIBELAS ?= 0
 # convert all USE_XXX:=0 to an empty string
 $(foreach v,$(filter USE_%,$(.VARIABLES)),$(if $(filter 0,${$v}),$(eval undefine $v)))
 # to print them all: $(foreach v,$(filter USE_%,$(.VARIABLES)),$(warning $v = '${$v}'))
-include choose_mrbuild.mk
-include $(MRBUILD_MK)/Makefile.common.header
-
 
 
 PROJECT_NAME := mrcal
-ABI_VERSION  := 2
-TAIL_VERSION := 2
+ABI_VERSION  := 3
+TAIL_VERSION := 0
 
 VERSION := $(VERSION_FROM_PROJECT)
 
@@ -25,10 +25,12 @@ LIB_SOURCES +=			\
   mrcal-opencv.c		\
   mrcal-uncertainty.c		\
   mrcal-image.c			\
+  stereo.c			\
   poseutils.c			\
   poseutils-opencv.c		\
   poseutils-uses-autodiff.cc	\
-  triangulation.cc
+  triangulation.cc              \
+  cahvore.cc
 
 ifneq (${USE_LIBELAS},) # using libelas
 LIB_SOURCES := $(LIB_SOURCES) stereo-matching-libelas.cc
@@ -50,18 +52,23 @@ endif
 CFLAGS    += --std=gnu99
 CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
 
-mrcal.o test/test-cahvor.o: minimath/minimath_generated.h
+$(patsubst %.c,%.o,$(shell grep -l '#include .*minimath\.h' *.c */*.c)): minimath/minimath_generated.h
 minimath/minimath_generated.h: minimath/minimath_generate.pl
 	./$< > $@.tmp && mv $@.tmp $@
 EXTRA_CLEAN += minimath/minimath_generated.h
 
-DIST_INCLUDE += \
-	mrcal.h \
-	mrcal-image.h \
-	mrcal-internal.h \
-	basic-geometry.h \
-	poseutils.h \
-	triangulation.h
+DIST_INCLUDE +=			\
+	mrcal.h			\
+	mrcal-image.h		\
+	mrcal-internal.h	\
+	basic-geometry.h	\
+	poseutils.h		\
+	triangulation.h		\
+	mrcal-types.h		\
+	stereo.h
+
+
+
 DIST_BIN :=					\
 	mrcal-calibrate-cameras			\
 	mrcal-convert-lensmodel			\
@@ -106,7 +113,7 @@ ALL_PY_EXTENSION_MODULES   := _mrcal $(patsubst %,_%_npsp,$(ALL_NPSP_EXTENSION_M
 ######### python stuff
 %-npsp-pywrap-GENERATED.c: %-genpywrap.py
 	python3 $< > $@.tmp && mv $@.tmp $@
-mrcal/_%_npsp$(PY_EXT_SUFFIX): %-npsp-pywrap-GENERATED.o libmrcal.so
+mrcal/_%_npsp$(PY_EXT_SUFFIX): %-npsp-pywrap-GENERATED.o libmrcal.so libmrcal.so.${ABI_VERSION}
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $< -lmrcal -o $@
 
 ALL_NPSP_C  := $(patsubst %,%-npsp-pywrap-GENERATED.c,$(ALL_NPSP_EXTENSION_MODULES))
@@ -119,7 +126,7 @@ EXTRA_CLEAN += $(ALL_NPSP_C)
 $(ALL_NPSP_O): CFLAGS += -Wno-array-bounds
 
 mrcal-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
-mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.so
+mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.so libmrcal.so.${ABI_VERSION}
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $< -lmrcal -o $@
 # Needed on Debian. Unnecessary, but harmless on Arch Linux
 mrcal-pywrap.o: CFLAGS += -I/usr/include/suitesparse

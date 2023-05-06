@@ -753,7 +753,7 @@ def eval_one_rangenear_tilt(models_true,
         if args.write_models_first_solve:
             for i in range(len(models_out)):
                 f = f"/tmp/camera{i}.cameramodel"
-                if os.path.isfile(f):
+                if os.path.exists(f):
                     input(f"File {f} already exists, and I want to overwrite it. Press enter to overwrite. Ctrl-c to exit")
                 models_out[i].write(f)
                 print(f"Wrote {f}")

@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 '''Visualization routines
 
 All functions are exported into the mrcal module. So you can call these via
@@ -22,10 +30,11 @@ def show_geometry(models_or_extrinsics_rt_fromref,
                   points                      = None,
 
                   show_calobjects    = 'all',
+                  show_points        = 'all',
                   axis_scale         = None,
                   object_width_n     = None,
                   object_height_n    = None,
-                  object_spacing     = 0,
+                  object_spacing     = None,
                   calobject_warp     = None,
                   point_labels       = None,
                   extratitle         = None,
@@ -43,10 +52,10 @@ SYNOPSIS
     # Solve a calibration problem. Visualize the resulting geometry AND the
     # observed calibration objects and points
     ...
-    mrcal.optimize(intrinsics,
-                   extrinsics_rt_fromref,
-                   frames_rt_toref,
-                   points,
+    mrcal.optimize(intrinsics            = intrinsics,
+                   extrinsics_rt_fromref = extrinsics_rt_fromref,
+                   frames_rt_toref       = frames_rt_toref,
+                   points                = points,
                    ...)
     plot2 = \
       mrcal.show_geometry(extrinsics_rt_fromref,
@@ -61,22 +70,21 @@ This function visualizes the world described by a set of camera models. It shows
 - The geometry of the cameras themselves. Each one is represented by the axes of
   its coordinate system
 
-- The geometry of the calibration objects used to compute these models. These
-  are shown only if available and requested
+- The geometry of the observed objects used to compute these models (calibration
+  boards and/or points).
 
-  - Available: The data comes either from the frames_rt_toref argument or from
-    the first model.optimization_inputs() that is given. If we have both, we use
-    the frames_rt_toref
+The geometry is shown only if requested and available
 
-  - Requested: if we're using frames_rt_toref then we show the calibration
-    objects if show_calobjects. I.e. show_calobjects is treated as a boolean.
+- Requested: we show the calibration boards if show_calobjects, and the points
+  if show_points. If the data comes from model.optimization_inputs(), then we
+  can have a bit more control. if show_calobjects == 'all': we show ALL the
+  calibration objects, observed by ANY camera. elif show_calobjects ==
+  'thiscamera': we only show the calibration objects that were observed by the
+  given camera at calibration time. Similarly with show_points.
 
-    If we're using a model.optimization_inputs() then we can have finer-grained
-    control. if show_calobjects == 'all': we show ALL the calibration objects,
-    observed by ANY camera. elif show_calobjects == 'thiscamera': we only show
-    the calibration objects that were observed by the given camera at
-    calibration time. As before, if we have multiple camera models with multiple
-    optimization_inputs, we use the first one
+- Available: The data comes either from the frames_rt_toref and/or points
+  arguments or from the first model.optimization_inputs() that is given. If we
+  have both, we use the frames_rt_toref/points
 
 This function can also be used to visualize the output (or input) of
 mrcal.optimize(); the relevant parameters are all identical to those
@@ -92,21 +100,21 @@ ARGUMENTS
 
 - models_or_extrinsics_rt_fromref: an iterable of mrcal.cameramodel objects or
   (6,) rt arrays. A array of shape (N,6) works to represent N cameras. If
-  mrcal.cameramodel objects are given here and frames_rt_toref is omitted, we
-  get the frames_rt_toref from the first model that provides
-  optimization_inputs().
+  mrcal.cameramodel objects are given here and frames_rt_toref (or points) are
+  omitted, we get the frames_rt_toref (or points) from the first model that
+  provides optimization_inputs().
 
 - cameranames: optional array of strings of labels for the cameras. If omitted,
   we use generic labels. If given, the array must have the same length as
   models_or_extrinsics_rt_fromref
 
-- cameras_Rt_plot_ref: optional transformation(s). If omitted, we plot
-  everything in the camera reference coordinate system. If given, we use a
-  "plot" coordinate system with the transformation TO plot coordinates FROM the
-  reference coordinates given in this argument. This argument can be given as an
-  iterable of Rt transformations to use a different one for each camera (None
-  means "identity"). Or a single Rt transformation can be given to use that one
-  for ALL the cameras
+- cameras_Rt_plot_ref: optional transformation(s). If omitted or None, we plot
+  everything in the reference coordinate system. If given, we use a "plot"
+  coordinate system with the transformation TO plot coordinates FROM the
+  reference coordinates given in this argument. This argument can be given as
+  single Rt transformation to apply to ALL the cameras, or an iterable of Rt
+  transformations to use a different one for each camera (the number of
+  transforms must match the number of cameras exactly)
 
 - frames_rt_toref: optional array of shape (N,6). If given, each row of shape
   (6,) is an rt transformation representing the transformation TO the reference
@@ -149,11 +157,13 @@ ARGUMENTS
   show_calobjects == 'all': we display the objects observed by ANY camera. elif
   show_calobjects == 'thiscamera': we only show those observed by THIS camera.
 
+- show_points: same as show_calobjects, but applying to discrete points, not
+  chessboard poses
+
 - axis_scale: optional scale factor for the size of the axes used to represent
   the cameras. Can be omitted to use some reasonable default size, but tweaking
-  it might be necessary to make the plot look right. If less than 1 camera is
-  given, this defaults to 1.0. If at least 2 cameras are given, we default to
-  1/4 the distance between the FIRST pair of cameras
+  it might be necessary to make the plot look right. If 1 or fewer cameras are
+  given, this defaults to 1.0
 
 - extratitle: optional string to include in the title of the resulting plot.
   Used to extend the default title string. If kwargs['title'] is given, it is
@@ -183,6 +193,60 @@ plot
 
     import gnuplotlib as gp
 
+    # First one with optimization_inputs. If we're not given frames and/or
+    # points, we get them from the optimization inputs in this model
+    i_model_with_optimization_inputs = \
+        next((i for i in range(len(models_or_extrinsics_rt_fromref)) \
+              if isinstance(models_or_extrinsics_rt_fromref[i], mrcal.cameramodel) and \
+                  models_or_extrinsics_rt_fromref[i].optimization_inputs() is not None),
+             None)
+
+    Ncameras = len(models_or_extrinsics_rt_fromref)
+
+    if cameras_Rt_plot_ref is not None:
+        # have cameras_Rt_plot_ref. It can be
+        # - a list of transforms
+        # - a single transform
+        # If we're given frames_rt_toref or points, then a different transform
+        # per camera doesn't make sense, and I barf
+        if not isinstance(cameras_Rt_plot_ref, np.ndarray):
+            # cameras_Rt_plot_ref must be an iterable with each slice being an
+            # array of shape (4,3)
+            try:
+                cameras_Rt_plot_ref = np.array(cameras_Rt_plot_ref, dtype=float)
+            except:
+                raise Exception("cameras_Rt_plot_ref must be a transform or a list of transforms")
+
+        # cameras_Rt_plot_ref is now an array. Does it have the right shape?
+        if cameras_Rt_plot_ref.shape[-2:] != (4,3):
+            raise Exception("cameras_Rt_plot_ref must be a transform or a list of Rt transforms. Got an array that looks like neither")
+        # shape is (....,4,3)
+        if cameras_Rt_plot_ref.ndim == 2:
+            # shape is (4,3). I extend it to
+            # shape (N,4,3)
+            cameras_Rt_plot_ref = \
+                np.repeat(nps.atleast_dims(cameras_Rt_plot_ref,-3),
+                          Ncameras,
+                          axis=-3)
+        elif cameras_Rt_plot_ref.ndim == 3:
+            # shape is (N,4,3).
+            if len(cameras_Rt_plot_ref) != Ncameras:
+                raise Exception("cameras_Rt_plot_ref must be a transform or a list of transforms, exactly one per camera. Got mismatched number of transforms")
+            # have an array of transforms with the right shape
+            if frames_rt_toref is not None or points is not None:
+                raise Exception("Got multiple transforms in cameras_Rt_plot_ref AND frames_rt_toref or points. This makes no sense: I can't tell which transform to use")
+            pass
+        else:
+            raise Exception("cameras_Rt_plot_ref must be a transform or a list of transforms, exactly one per camera. Got mismatched number of transforms")
+    # cameras_Rt_plot_ref is now either None or an array of shape (N,4,3)
+
+    if frames_rt_toref is not None:
+        if object_width_n  is None or \
+           object_height_n is None or \
+           object_spacing  is None:
+            raise Exception("frames_rt_toref is given, so object_width_n and object_height_n and object_spacing must be given as well")
+
+
     def get_extrinsics_Rt_toref_one(m):
         if isinstance(m, mrcal.cameramodel):
             return m.extrinsics_Rt_toref()
@@ -199,105 +263,187 @@ plot
                                      n = extrinsics_Rt_toref.ndim-3 )
 
     if axis_scale is None:
-        if len(extrinsics_Rt_toref) <= 1:
+        # This is intended to work with the behavior in the mrcal-stereo
+        # tool. That tool sets the fov-indicating hair lengths to
+        # baseline/4. Here I default to a bit more: baseline/3
+
+        # I want this routine to work with any N cameras. I need to compute a
+        # "characteristic distance" for them to serve as a "baseline". I do this
+        # by first computing a "geometric median" that minimizes the variance
+        # of the distances from each point to this median. Then the
+        # characteristic radius is this constant-ish distance.
+
+        # shape (N,3); the position of each camera in the ref coord system
+        p = extrinsics_Rt_toref[:,3,:]
+
+        if len(p) <= 1:
             axis_scale = 1.0
         else:
-            # This is intended to work with the behavior in the mrcal-stereo
-            # tool. That tool sets the fov-indicating hair lengths to
-            # baseline/4. Here I default to a bit more: baseline/3
-            Rt01 = mrcal.compose_Rt( mrcal.invert_Rt(extrinsics_Rt_toref[0]),
-                                     extrinsics_Rt_toref[1] )
-            d = nps.mag(Rt01[3,:])
-            axis_scale = d/3.
+            import scipy.optimize
+            res = scipy.optimize.least_squares(# cost function
+                                               lambda c: np.var(nps.mag(p-c)),
 
-    if not show_calobjects:
-        frames_rt_toref = None
-    elif frames_rt_toref is None:
+                                               # seed
+                                               np.mean(p,axis=-2),
+                                               method='trf',
+                                               verbose=False)
+            center = res.x
+            baseline = np.mean(nps.mag(p-center)) * 2.
+            axis_scale = baseline/3.
 
-        if show_calobjects is True:
-            show_calobjects = 'all'
+            if axis_scale == 0.:
+                # All the cameras are at exactly the same spot
+                axis_scale = 1.0
 
-        if not (show_calobjects == 'all' or
+
+    def get_boards_to_plot():
+        r'''get the chessboard poses to plot'''
+
+        if not show_calobjects:
+            # Not requested
+            return None
+
+        if frames_rt_toref is not None:
+            # We have explicit poses given. Use them
+            return \
+                nps.atleast_dims(frames_rt_toref, -2), \
+                object_width_n,     \
+                object_height_n,    \
+                object_spacing,     \
+                calobject_warp
+
+        # Poses aren't given. Grab them from the model
+        if not (show_calobjects is True  or
+                show_calobjects == 'all' or
                 show_calobjects == 'thiscamera'):
             raise Exception("show_calobjects must be 'all' or 'thiscamera' or True or False")
 
-        # No frames were given. I grab them from the first .cameramodel that has
-        # them. If none of the models have this data, I don't plot any frames at
-        # all
-        for i_model_frames in range(len(extrinsics_Rt_toref)):
-            m = models_or_extrinsics_rt_fromref[i_model_frames]
+        if i_model_with_optimization_inputs is None:
+            return None
 
-            _frames_rt_toref = None
-            _object_spacing  = None
-            _object_width_n  = None
-            _object_height_n = None
-            _calobject_warp  = None
-            if not isinstance(m, mrcal.cameramodel):
-                continue
-            try:
-                optimization_inputs = m.optimization_inputs()
-                _frames_rt_toref = optimization_inputs['frames_rt_toref']
-                _object_spacing  = optimization_inputs['calibration_object_spacing']
-                _object_width_n  = optimization_inputs['observations_board'].shape[-2]
-                _object_height_n = optimization_inputs['observations_board'].shape[-3]
-                _calobject_warp  = optimization_inputs['calobject_warp']
+        m = models_or_extrinsics_rt_fromref[i_model_with_optimization_inputs]
+        optimization_inputs = m.optimization_inputs()
 
-                icam_intrinsics = m.icam_intrinsics()
+        if not ('observations_board' in optimization_inputs and \
+                optimization_inputs['observations_board'] is not None and \
+                optimization_inputs['observations_board'].size ):
+            return None;
 
-                if show_calobjects == 'thiscamera':
-                    indices_frame_camintrinsics_camextrinsics = \
-                        optimization_inputs['indices_frame_camintrinsics_camextrinsics']
-                    mask_observations = \
-                        indices_frame_camintrinsics_camextrinsics[:,1] == icam_intrinsics
-                    idx_frames = indices_frame_camintrinsics_camextrinsics[mask_observations,0]
-                    _frames_rt_toref = _frames_rt_toref[idx_frames]
+        _frames_rt_toref = optimization_inputs['frames_rt_toref']
+        _object_spacing  = optimization_inputs['calibration_object_spacing']
+        _object_width_n  = optimization_inputs['observations_board'].shape[-2]
+        _object_height_n = optimization_inputs['observations_board'].shape[-3]
+        _calobject_warp  = optimization_inputs['calobject_warp']
 
-                # The current frames_rt_toref uses the calibration-time ref, NOT
-                # the current ref. I transform. frames_rt_toref = T_rcal_f
-                # I want T_rnow_rcal T_rcal_f
-                icam_extrinsics = \
-                    mrcal.corresponding_icam_extrinsics(icam_intrinsics,
-                                                        **optimization_inputs)
-                if icam_extrinsics >= 0:
-                    _frames_rt_toref = \
-                        mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model_frames]),
-                                          optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics],
-                                          _frames_rt_toref )
-                else:
-                    _frames_rt_toref = \
-                        mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model_frames]),
-                                          _frames_rt_toref )
+        icam_intrinsics = m.icam_intrinsics()
 
-            except:
-                _frames_rt_toref = None
-                _object_spacing  = None
-                _object_width_n  = None
-                _object_height_n = None
-                _calobject_warp  = None
-                continue
-            break
+        if show_calobjects == 'thiscamera':
+            indices_frame_camintrinsics_camextrinsics = \
+                optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+            mask_observations = \
+                indices_frame_camintrinsics_camextrinsics[:,1] == icam_intrinsics
+            idx_frames = indices_frame_camintrinsics_camextrinsics[mask_observations,0]
+            _frames_rt_toref = _frames_rt_toref[idx_frames]
 
-        # Use the data from the model if everything I need was valid
-        if _frames_rt_toref is not None:
-            frames_rt_toref = _frames_rt_toref
-            object_width_n  = _object_width_n
-            object_height_n = _object_height_n
-            object_spacing  = _object_spacing
-            calobject_warp  = _calobject_warp
+        # The current frames_rt_toref uses the calibration-time ref, NOT
+        # the current ref. I transform. frames_rt_toref = T_rcal_f
+        # I want T_rnow_rcal T_rcal_f
+        icam_extrinsics = \
+            mrcal.corresponding_icam_extrinsics(icam_intrinsics,
+                                                **optimization_inputs)
+        if icam_extrinsics >= 0:
+            _frames_rt_toref = \
+                mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model_with_optimization_inputs]),
+                                  optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics],
+                                  _frames_rt_toref )
+        else:
+            _frames_rt_toref = \
+                mrcal.compose_rt( mrcal.rt_from_Rt(extrinsics_Rt_toref[i_model_with_optimization_inputs]),
+                                  _frames_rt_toref )
 
-    if frames_rt_toref is not None:
-        frames_rt_toref = nps.atleast_dims(frames_rt_toref, -2)
-    if points          is not None:
-        points          = nps.atleast_dims(points,          -2)
+        # All good. Done
+        return \
+            nps.atleast_dims(_frames_rt_toref, -2), \
+            _object_width_n,     \
+            _object_height_n,    \
+            _object_spacing,     \
+            _calobject_warp
 
-    try:
-        if cameras_Rt_plot_ref.shape == (4,3):
-            cameras_Rt_plot_ref = \
-                np.repeat(nps.atleast_dims(cameras_Rt_plot_ref,-3),
-                          len(extrinsics_Rt_toref),
-                          axis=-3)
-    except:
-        pass
+    def get_points_to_plot():
+        r'''get the discrete points to plot'''
+
+        if not show_points:
+            # Not requested
+            return None
+
+        if points is not None:
+            # We have explicit points given. Use them
+            return \
+                nps.atleast_dims(points, -2)
+
+        # Points aren't given. Grab them from the model
+        if not (show_points is True  or
+                show_points == 'all' or
+                show_points == 'thiscamera'):
+            raise Exception("show_points must be 'all' or 'thiscamera' or True or False")
+
+        if i_model_with_optimization_inputs is None:
+            return None
+
+        m = models_or_extrinsics_rt_fromref[i_model_with_optimization_inputs]
+        optimization_inputs = m.optimization_inputs()
+
+        if not ('points' in optimization_inputs and \
+                optimization_inputs['points'] is not None and \
+                optimization_inputs['points'].size ):
+            return None;
+
+        _points = optimization_inputs['points']
+
+        icam_intrinsics = m.icam_intrinsics()
+
+        if show_points == 'thiscamera':
+            indices_point_camintrinsics_camextrinsics = \
+                optimization_inputs['indices_point_camintrinsics_camextrinsics']
+            mask_observations = \
+                indices_point_camintrinsics_camextrinsics[:,1] == icam_intrinsics
+            idx_points = indices_point_camintrinsics_camextrinsics[mask_observations,0]
+            _points = _points[idx_points]
+
+        # The current points uses the calibration-time ref, NOT
+        # the current ref. I transform.
+        icam_extrinsics = \
+            mrcal.corresponding_icam_extrinsics(icam_intrinsics,
+                                                **optimization_inputs)
+
+        if icam_extrinsics >= 0:
+            _points = \
+                mrcal.transform_point_rt( optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics],
+                                          _points )
+            _points = \
+                mrcal.transform_point_Rt( extrinsics_Rt_toref[i_model_with_optimization_inputs],
+                                          _points )
+        else:
+            _points = \
+                mrcal.transform_point_Rt( extrinsics_Rt_toref[i_model_with_optimization_inputs],
+                                          _points )
+        # All good. Done
+        return \
+            nps.atleast_dims(_points, -2)
+
+
+    boards_to_plot_list = get_boards_to_plot()
+    if boards_to_plot_list is not None:
+        frames_rt_toref, \
+        object_width_n,  \
+        object_height_n, \
+        object_spacing,  \
+        calobject_warp = boards_to_plot_list
+    else:
+        frames_rt_toref = None
+        # the others will not be referenced if frames_rt_toref is None
+
+    points = get_points_to_plot()
 
     def extend_axes_for_plotting(axes):
         r'''Input is a 4x3 axes array: center, center+x, center+y, center+z. I transform
@@ -362,12 +508,9 @@ plot
 
         def camera_Rt_toplotcoords(i):
             Rt_ref_cam = extrinsics_Rt_toref[i]
-            try:
-                Rt_plot_ref = cameras_Rt_plot_ref[i]
-                return mrcal.compose_Rt(Rt_plot_ref,
-                                        Rt_ref_cam)
-            except:
+            if cameras_Rt_plot_ref is None:
                 return Rt_ref_cam
+            return mrcal.compose_Rt(cameras_Rt_plot_ref[i], Rt_ref_cam)
 
         def camera_name(i):
             try:
@@ -378,18 +521,18 @@ plot
         cam_axes  = \
             [gen_plot_axes( ( camera_Rt_toplotcoords(i), ),
                             legend = camera_name(i),
-                            scale=axis_scale) for i in range(0,len(extrinsics_Rt_toref))]
+                            scale=axis_scale) for i in range(0,Ncameras)]
         cam_axes_labels = \
             [gen_plot_axes( ( camera_Rt_toplotcoords(i), ),
                             legend = None,
-                            scale=axis_scale) for i in range(0,len(extrinsics_Rt_toref))]
+                            scale=axis_scale) for i in range(0,Ncameras)]
 
         # I collapse all the labels into one gnuplotlib dataset. Thus I'll be
         # able to turn them all on/off together
         return cam_axes + [(np.ravel(nps.cat(*[l[0] for l in cam_axes_labels])),
                             np.ravel(nps.cat(*[l[1] for l in cam_axes_labels])),
                             np.ravel(nps.cat(*[l[2] for l in cam_axes_labels])),
-                            np.tile(cam_axes_labels[0][3], len(extrinsics_Rt_toref))) + \
+                            np.tile(cam_axes_labels[0][3], Ncameras)) + \
                             cam_axes_labels[0][4:]]
 
 
@@ -428,11 +571,13 @@ plot
         calobject_ref = mrcal.transform_point_rt(nps.mv(frames_rt_toref, -2, -4),
                                                  calobject_ref)
 
-        try:
-            Rt_plot_ref = cameras_Rt_plot_ref[i_model_frames]
-            calobject_ref = mrcal.transform_point_Rt(Rt_plot_ref, calobject_ref)
-        except:
-            pass
+        if cameras_Rt_plot_ref is not None:
+            # I checked earlier that if separate frames_rt_toref or points are
+            # given, then only a single cameras_Rt_plot_ref may be given.
+            # They're all the same, so I use 0 here arbitrarily
+            calobject_ref = \
+                mrcal.transform_point_Rt(cameras_Rt_plot_ref[i_model_with_optimization_inputs if i_model_with_optimization_inputs is not None else 0],
+                                         calobject_ref)
 
 
         # if icam_highlight is not None:
@@ -464,9 +609,17 @@ plot
         return [tuple(list(calobject_ref) + [calobject_curveopts,])]
 
 
-    def gen_curves_points():
+    def gen_curves_points(points):
         if points is None or len(points) == 0:
             return []
+
+        if cameras_Rt_plot_ref is not None:
+            # I checked earlier that if separate frames_rt_toref or points are
+            # given, then only a single cameras_Rt_plot_ref may be given.
+            # They're all the same, so I use 0 here arbitrarily
+            points = \
+                mrcal.transform_point_Rt(cameras_Rt_plot_ref[i_model_with_optimization_inputs if i_model_with_optimization_inputs is not None else 0],
+                                         points)
 
         if point_labels is not None:
 
@@ -492,7 +645,7 @@ plot
 
     curves_cameras    = gen_curves_cameras()
     curves_calobjects = gen_curves_calobjects()
-    curves_points     = gen_curves_points()
+    curves_points     = gen_curves_points(points)
 
     kwargs = dict(kwargs)
     gp.add_plot_option(kwargs,
@@ -521,12 +674,16 @@ plot
     return (data_tuples, plot_options)
 
 
-def _options_heatmap_with_contours( # update these
-                                    plotoptions,
+def _options_heatmap_with_contours( plotoptions, # we update this on output
 
-                                    contour_max, contour_increment,
-                                    imagersize, gridn_width, gridn_height,
-                                    contours              = True,
+                                    *,
+                                    contour_min           = 0,
+                                    contour_max,
+                                    contour_increment     = None,
+                                    imagersize,
+                                    gridn_width,
+                                    gridn_height,
+                                    do_contours           = True,
                                     contour_labels_styles = 'boxed',
                                     contour_labels_font   = None):
     r'''Update plotoptions, return curveoptions for a contoured heat map'''
@@ -538,13 +695,13 @@ def _options_heatmap_with_contours( # update these
                        ('view equal xy',
                         'view map'))
 
-    if contours:
+    if do_contours:
         if contour_increment is None:
             # Compute a "nice" contour increment. I pick a round number that gives
             # me a reasonable number of contours
 
             Nwant = 10
-            increment = contour_max/Nwant
+            increment = (contour_max - contour_min)/Nwant
 
             # I find the nearest 1eX or 2eX or 5eX
             base10_floor = np.power(10., np.floor(np.log10(increment)))
@@ -559,14 +716,14 @@ def _options_heatmap_with_contours( # update these
                            ('key box opaque',
                             'style textbox opaque',
                             'contour base',
-                            f'cntrparam levels incremental {contour_max},{contour_increment},0'))
+                            f'cntrparam levels incremental {contour_max},{contour_increment},{contour_min}'))
 
         if contour_labels_font is not None:
             gp.add_plot_option(plotoptions,
                                'set',
                                f'cntrlabel font "{contour_labels_font}"' )
 
-        plotoptions['cbrange'] = [0, contour_max]
+        plotoptions['cbrange'] = [contour_min, contour_max]
 
         # I plot 3 times:
         # - to make the heat map
@@ -721,6 +878,86 @@ String passable to gnuplotlib in the 'equation' or 'equation_above' plot option
         title = f'title "{legend}"'
     return \
         f'{k}*exp(-(x-{mean})*(x-{mean})/(2.*{var})) / sqrt(2.*pi*{var}) {title} with lines lw 2'
+
+
+
+
+def _append_observation_visualizations(plot_data_args,
+                                       model,
+                                       legend_prefix,
+                                       pointtype,
+                                       _2d,
+                                       # for splined models
+                                       reproject_to_stereographic = False):
+    optimization_inputs = model.optimization_inputs()
+    if optimization_inputs is None:
+        raise Exception("mrcal.show_...(observations=True) requires optimization_inputs to be available")
+
+    q_cam_boards_inliers  = None
+    q_cam_boards_outliers = None
+    observations_board = optimization_inputs.get('observations_board')
+    if observations_board is not None:
+        mask_observation = \
+            optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,1] == \
+            model.icam_intrinsics()
+        observations_board = observations_board[mask_observation]
+        # shape (N,3)
+        observations_board = nps.clump(observations_board, n=3)
+        mask_inliers  = observations_board[...,2] > 0
+
+        q_cam_boards_inliers  = observations_board[ mask_inliers,:2]
+        q_cam_boards_outliers = observations_board[~mask_inliers,:2]
+
+    q_cam_points_inliers  = None
+    q_cam_points_outliers = None
+    observations_point = optimization_inputs.get('observations_point')
+    if observations_point is not None:
+        mask_observation = \
+            optimization_inputs['indices_point_camintrinsics_camextrinsics'][:,1] == \
+            model.icam_intrinsics()
+        # shape (N,3)
+        observations_point = observations_point[mask_observation]
+        mask_inliers       = observations_point[...,2] > 0
+
+        q_cam_points_inliers  = observations_point[ mask_inliers,:2]
+        q_cam_points_outliers = observations_point[~mask_inliers,:2]
+
+    # Disabled for now. I see a legend entry for each broadcasted slice,
+    # which isn't what I want
+    #
+    # if len(q_cam_calobjects):
+    #     plot_data_args.append( ( nps.clump(q_cam_calobjects[...,0], n=-2),
+    #                              nps.clump(q_cam_calobjects[...,1], n=-2) ) +
+    #                            ( () if _2d else
+    #                              (np.zeros((q_cam_calobjects.shape[-2]*
+    #                                         q_cam_calobjects.shape[-3],)),)) +
+    #                            ( dict( tuplesize = 2 if _2d else 3,
+    #                                    _with     = f'lines lc "black"' + ("" if _2d else ' nocontour'),
+    #                                    legend    = f"{legend_prefix} board sequences"),))
+
+    for q,color,what in ( (q_cam_boards_inliers,  "black", "board inliers"),
+                          (q_cam_points_inliers,  "black", "point inliers"),
+                          (q_cam_boards_outliers, "red",   "board outliers"),
+                          (q_cam_points_outliers, "red",   "point outliers"), ):
+        if q is not None and len(q) > 0:
+
+            if reproject_to_stereographic:
+                q = mrcal.project_stereographic( \
+                        mrcal.unproject(q,
+                                        *model.intrinsics()))
+
+            if pointtype < 0:
+                _with = f'dots lc "{color}"'
+            else:
+                _with = f'points lc "{color}" pt {pointtype}'
+            if not _2d:
+                _with += ' nocontour'
+            plot_data_args.append( ( q[...,0],
+                                     q[...,1] ) +
+                                   ( () if _2d else ( np.zeros(q.shape[:-1]), )) +
+                                   ( dict( tuplesize = 2 if _2d else 3,
+                                           _with     = _with,
+                                           legend    = f'{legend_prefix}{what}'), ))
 
 
 def show_projection_diff(models,
@@ -949,14 +1186,6 @@ A tuple:
             raise Exception("I can only plot a vectorfield when looking at exactly 2 models. Instead I have {}". \
                             format(len(models)))
 
-        distance_is_iterable = True
-        try:    len(distance)
-        except: distance_is_iterable = False
-
-        if not (distance is None or \
-                not distance_is_iterable or \
-                len(distance) == 1):
-            raise Exception("I don't know how to plot multiple-distance diff with vectorfields")
     if directions and len(models) > 2:
         raise Exception("I can only color-code by directions when looking at exactly 2 models. Instead I have {}". \
                         format(len(models)))
@@ -1001,6 +1230,10 @@ A tuple:
                            cbrange = [0,cbmax])
         color = difflen
 
+    # Any invalid values (nan or inf) are set to an effectively infinite
+    # difference
+    color[~np.isfinite(color)] = 1e6
+
     if vectorfield:
         # The mrcal.projection_diff() call made sure they're the same for all
         # the models
@@ -1024,10 +1257,11 @@ A tuple:
                 # update these plot options
                 kwargs,
 
-                cbmax, None,
-                models[0].imagersize(),
-                gridn_width, gridn_height,
-                contours = not directions)
+                contour_max  = cbmax,
+                imagersize   = models[0].imagersize(),
+                gridn_width  = gridn_width,
+                gridn_height = gridn_height,
+                do_contours  = not directions)
 
         plot_data_args = [ (color, curve_options) ]
 
@@ -1083,68 +1317,13 @@ A tuple:
                                          legend = "valid region of 2nd camera")) )
 
     if observations:
-
-        _2d = bool(vectorfield)
-
-        optimization_inputs = [ m.optimization_inputs() for m in models ]
-        if any( oi is None for oi in optimization_inputs ):
-            raise Exception("mrcal.show_projection_diff(observations=True) requires optimization_inputs to be available for all models, but this is missing for some models")
-
         for i in range(len(models)):
-
-            m = models[i]
-
-            p_cam_calobjects, \
-            p_cam_calobjects_inliers, \
-            p_cam_calobjects_outliers = \
-                mrcal.hypothesis_board_corner_positions(m.icam_intrinsics(),
-                                                        **optimization_inputs[i])[-3:]
-            q_cam_calobjects = \
-                mrcal.project( p_cam_calobjects,          *m.intrinsics() )
-            q_cam_calobjects_inliers = \
-                mrcal.project( p_cam_calobjects_inliers,  *m.intrinsics() )
-            q_cam_calobjects_outliers = \
-                mrcal.project( p_cam_calobjects_outliers, *m.intrinsics() )
-
-            # Disabled for now. I see a legend entry for each broadcasted slice,
-            # which isn't what I want
-            #
-            # if len(q_cam_calobjects):
-            #     plot_data_args.append( ( nps.clump(q_cam_calobjects[...,0], n=-2),
-            #                              nps.clump(q_cam_calobjects[...,1], n=-2) ) +
-            #                            ( () if _2d else
-            #                              (np.zeros((q_cam_calobjects.shape[-2]*
-            #                                         q_cam_calobjects.shape[-3],)),)) +
-            #                            ( dict( tuplesize = 2 if _2d else 3,
-            #                                    _with     = f'lines lc "black"' + ("" if _2d else ' nocontour'),
-            #                                    legend    = f"Camera {i} board sequences"),))
-
-            if len(q_cam_calobjects_inliers):
-                if observations == 'dots':
-                    _with = f'dots lc "black"'
-                else:
-                    _with = f'points lc "black" pt {1+i}'
-                if not _2d:
-                    _with += ' nocontour'
-                plot_data_args.append( ( q_cam_calobjects_inliers[...,0],
-                                         q_cam_calobjects_inliers[...,1] ) +
-                                       ( () if _2d else ( np.zeros(q_cam_calobjects_inliers.shape[:-1]), )) +
-                                       ( dict( tuplesize = 2 if _2d else 3,
-                                               _with     = _with,
-                                               legend    = f'Camera {i} inliers'), ))
-            if len(q_cam_calobjects_outliers):
-                if observations == 'dots':
-                    _with = f'dots lc "red"'
-                else:
-                    _with = f'points lc "red" pt {1+i}'
-                if not _2d:
-                    _with += ' nocontour'
-                plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
-                                         q_cam_calobjects_outliers[...,1] ) +
-                                       ( () if _2d else ( np.zeros(q_cam_calobjects_outliers.shape[:-1]), )) +
-                                       ( dict( tuplesize = 2 if _2d else 3,
-                                               _with     = _with,
-                                               legend    = f'Camera {i} outliers'), ))
+            _2d = bool(vectorfield)
+            _append_observation_visualizations(plot_data_args,
+                                               models[i],
+                                               f"Camera {i} ",
+                                               -1 if observations == 'dots' else (1+i),
+                                               _2d)
 
     data_tuples = plot_data_args
 
@@ -1185,13 +1364,14 @@ SYNOPSIS
     ... imager
 
 This function uses the expected noise of the calibration-time observations to
-estimate the uncertainty of projection of the final model. At calibration time we estimate
+estimate the uncertainty of projection of the final model. At calibration time
+we estimate
 
 - The intrinsics (lens paramaters) of a number of cameras
 - The extrinsics (geometry) of a number of cameras in respect to some reference
   coordinate system
-- The poses of observed chessboards, also in respect to some reference
-  coordinate system
+- The poses of observed chessboards and/or the coordinates of the discrete
+  points, also in respect to some reference coordinate system
 
 All the coordinate systems move around, and all 3 of these sets of data have
 some uncertainty. This tool takes into account all the uncertainties to report
@@ -1229,9 +1409,9 @@ ARGUMENTS
   gridn_height/gridn_width ~ imager_height/imager_width
 
 - observed_pixel_uncertainty: optional value, defaulting to None. The
-  uncertainty of the observed chessboard corners being propagated through the
-  solve and projection. If omitted or None, this input uncertainty is inferred
-  from the residuals at the optimum. Most people should omit this
+  uncertainty of the pixel observations being propagated through the solve and
+  projection. If omitted or None, this input uncertainty is inferred from the
+  residuals at the optimum. Most people should omit this
 
 - observations: optional value, defaulting to False. If observatoins:, we
   overlay calibration-time observations on top of the uncertainty plot. We
@@ -1334,12 +1514,15 @@ plot
         kwargs['title'] = title
 
     curveoptions = \
-        _options_heatmap_with_contours( # update these plot options
+        _options_heatmap_with_contours(
+            # update these plot options
             kwargs,
 
-            cbmax, contour_increment,
-            model.imagersize(),
-            gridn_width, gridn_height,
+            contour_max           = cbmax,
+            contour_increment     = contour_increment,
+            imagersize            = model.imagersize(),
+            gridn_width           = gridn_width,
+            gridn_height          = gridn_height,
             contour_labels_styles = contour_labels_styles,
             contour_labels_font   = contour_labels_font)
 
@@ -1357,54 +1540,11 @@ plot
                                      legend = "Valid-intrinsics region")) )
 
     if observations:
-        p_cam_calobjects, \
-        p_cam_calobjects_inliers, \
-        p_cam_calobjects_outliers = \
-            mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
-                                                    **model.optimization_inputs())[-3:]
-        q_cam_calobjects = \
-            mrcal.project( p_cam_calobjects,          *model.intrinsics() )
-        q_cam_calobjects_inliers = \
-            mrcal.project( p_cam_calobjects_inliers,  *model.intrinsics() )
-        q_cam_calobjects_outliers = \
-            mrcal.project( p_cam_calobjects_outliers, *model.intrinsics() )
-
-        # Disabled for now. I see a legend entry for each broadcasted slice,
-        # which isn't what I want
-        #
-        # if len(q_cam_calobjects):
-        #     plot_data_args.append( ( nps.clump(q_cam_calobjects[...,0], n=-2),
-        #                              nps.clump(q_cam_calobjects[...,1], n=-2),
-        #                              np.zeros((q_cam_calobjects.shape[-2]*
-        #                                        q_cam_calobjects.shape[-3],)),
-        #                              dict( tuplesize = 3,
-        #                                    _with  = 'lines lc "black" nocontour',
-        #                                    legend = "board sequences")))
-
-        if len(q_cam_calobjects_inliers):
-            if observations == 'dots':
-                _with = 'dots lc "black" nocontour'
-            else:
-                _with = 'points lc "black" pt 1 nocontour'
-
-            plot_data_args.append( ( q_cam_calobjects_inliers[...,0],
-                                     q_cam_calobjects_inliers[...,1],
-                                     np.zeros(q_cam_calobjects_inliers.shape[:-1]),
-                                     dict( tuplesize = 3,
-                                           _with  = _with,
-                                           legend = 'inliers')) )
-        if len(q_cam_calobjects_outliers):
-            if observations == 'dots':
-                _with = 'dots lc "red" nocontour'
-            else:
-                _with = 'points lc "red" pt 1 nocontour'
-
-            plot_data_args.append( ( q_cam_calobjects_outliers[...,0],
-                                     q_cam_calobjects_outliers[...,1],
-                                     np.zeros(q_cam_calobjects_outliers.shape[:-1]),
-                                     dict( tuplesize = 3,
-                                           _with  = _with,
-                                           legend = 'outliers')) )
+        _append_observation_visualizations(plot_data_args,
+                                           model,
+                                           '',
+                                           -1 if observations == 'dots' else 1,
+                                           False)
 
     plot_options = kwargs
     data_tuples  = plot_data_args
@@ -1416,13 +1556,66 @@ plot
     return (data_tuples, plot_options)
 
 
-# should be able to control the distance range here
+
+def _observed_hypothesis_points_and_boards_at_calibration_time(model):
+
+    optimization_inputs = model.optimization_inputs()
+
+    p_cam_observed_at_calibration_time = np.zeros((0,3), dtype=float)
+
+    try:
+        # [-2] means "inliers"
+        p_cam_observed_at_calibration_time = \
+            mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
+                                                    **optimization_inputs)[-2]
+    except:
+        # no chessboards perhaps
+        pass
+
+    points = optimization_inputs.get('points')
+    if points is not None:
+        indices_point_camintrinsics_camextrinsics = \
+            optimization_inputs['indices_point_camintrinsics_camextrinsics']
+        mask_thiscam = \
+            indices_point_camintrinsics_camextrinsics[...,1] == model.icam_intrinsics()
+
+        ipoint             = indices_point_camintrinsics_camextrinsics[mask_thiscam,0]
+        icame              = indices_point_camintrinsics_camextrinsics[mask_thiscam,2]
+        observations_point = optimization_inputs['observations_point'][mask_thiscam]
+
+        mask_inliers       = observations_point[...,2] > 0
+        ipoint             = ipoint[mask_inliers]
+        icame              = icame [mask_inliers]
+
+        icame[icame<0] = -1
+        rt_cam_ref = \
+            nps.glue( mrcal.identity_rt(),
+                      optimization_inputs['extrinsics_rt_fromref'],
+                      axis = -2 ) \
+                      [ icame+1 ]
+
+        rt_cam_ref = optimization_inputs['extrinsics_rt_fromref'][icame]
+
+        p_ref_points = points[ipoint]
+        p_cam_points = mrcal.transform_point_rt(rt_cam_ref, p_ref_points)
+
+        p_cam_observed_at_calibration_time = \
+            nps.glue(p_cam_observed_at_calibration_time,
+                     p_cam_points,
+                     axis = -2)
+
+    return p_cam_observed_at_calibration_time
+
+
 def show_projection_uncertainty_vs_distance(model,
                                             *,
-                                            where        = "centroid",
-                                            isotropic    = False,
-                                            extratitle   = None,
-                                            return_plot_args = False,
+                                            where                      = "centroid",
+                                            observed_pixel_uncertainty = None,
+                                            isotropic                  = False,
+                                            distance_min               = None,
+                                            distance_max               = None,
+                                            extratitle                 = None,
+                                            return_plot_args           = False,
                                             **kwargs):
     r'''Visualize the uncertainty in camera projection along one observation ray
 
@@ -1447,8 +1640,8 @@ we estimate
 - The intrinsics (lens paramaters) of a number of cameras
 - The extrinsics (geometry) of a number of cameras in respect to some reference
   coordinate system
-- The poses of observed chessboards, also in respect to some reference
-  coordinate system
+- The poses of observed chessboards and/or the coordinates of the discrete
+  points, also in respect to some reference coordinate system
 
 All the coordinate systems move around, and all 3 of these sets of data have
 some uncertainty. This tool takes into account all the uncertainties to report
@@ -1475,9 +1668,13 @@ ARGUMENTS
   imager we're examining. May be one of
 
   - "center": the center of the imager
-  - "centroid": the midpoint of all the chessboard corners observed at
-    calibration time
+  - "centroid": the midpoint of all the points observed at calibration time
   - A numpy array (x,y) indicating the pixel
+
+- observed_pixel_uncertainty: optional value, defaulting to None. The
+  uncertainty of the pixel observations being propagated through the solve and
+  projection. If omitted or None, this input uncertainty is inferred from the
+  residuals at the optimum. Most people should omit this
 
 - isotropic: optional boolean, defaulting to False. We compute the full 2x2
   covariance matrix of the projection. The 1-sigma contour implied by this
@@ -1514,8 +1711,10 @@ plot
     import gnuplotlib as gp
 
     p_cam_observed_at_calibration_time = \
-        mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
-                                                **model.optimization_inputs())[-2]
+        _observed_hypothesis_points_and_boards_at_calibration_time(model)
+
+    if p_cam_observed_at_calibration_time.size == 0:
+        raise Exception("No inlier chessboards or points observed at calibration time")
 
     if isinstance(where, str):
         if   where == 'center':
@@ -1539,13 +1738,18 @@ plot
         raise Exception("'where' should be 'center' or an array specifying a pixel")
 
     # shape (Ndistances)
-    distance_observed_at_calibration_time = \
-        nps.mag(p_cam_observed_at_calibration_time)
-    distance_min = np.min(distance_observed_at_calibration_time)
-    distance_max = np.max(distance_observed_at_calibration_time)
+    if distance_min is None or distance_max is None:
+        distance_observed_at_calibration_time = \
+            nps.mag(p_cam_observed_at_calibration_time)
+        if distance_min is None:
+            # / 5 for a bit of extra margin
+            distance_min = np.min(distance_observed_at_calibration_time) / 5.
+        if distance_max is None:
+            # * 10 for a bit of extra margin
+            distance_max = np.max(distance_observed_at_calibration_time) * 10.
 
-    distances = np.logspace( np.log10(distance_min/5.),
-                             np.log10(distance_max*10.),
+    distances = np.logspace( np.log10(distance_min),
+                             np.log10(distance_max),
                              80 )
 
     # shape (Ndistances, 3)
@@ -1555,7 +1759,8 @@ plot
     uncertainty = \
         mrcal.projection_uncertainty( pcam,
                                       model = model,
-                                      what  = 'rms-stdev' if isotropic else 'worstdirection-stdev')
+                                      what  = 'rms-stdev' if isotropic else 'worstdirection-stdev',
+                                      observed_pixel_uncertainty = observed_pixel_uncertainty)
     if 'title' not in kwargs:
         if not isotropic:
             what_description = "Projection"
@@ -1877,12 +2082,14 @@ plot
 
     if not vectorfield:
         curveoptions = \
-            _options_heatmap_with_contours( # update these plot options
+            _options_heatmap_with_contours(
+                # update these plot options
                 kwargs,
 
-                cbmax, None,
-                imagersize,
-                gridn_width, gridn_height)
+                contour_max  = cbmax,
+                imagersize   = imagersize,
+                gridn_width  = gridn_width,
+                gridn_height = gridn_height)
         delta = dgrid-grid
 
         # shape: gridn_height,gridn_width. Because numpy (and thus gnuplotlib) want it that
@@ -2412,62 +2619,15 @@ plot
                  tuplesize = -2,
                  legend    = 'knots')), )
 
-    plot_data_tuples_inliers  = ()
-    plot_data_tuples_outliers = ()
-    plot_data_tuples_zigzag   = ()
+    plot_data_tuples_observations = []
 
     if observations:
-        p_cam_calobjects,           \
-        p_cam_calobjects_inliers,   \
-        p_cam_calobjects_outliers = \
-            mrcal.hypothesis_board_corner_positions(model.icam_intrinsics(),
-                                                    **model.optimization_inputs())[-3:]
-        if imager_domain:
-            q_cam_calobjects = \
-                mrcal.project( p_cam_calobjects,          *model.intrinsics() )
-            q_cam_calobjects_inliers = \
-                mrcal.project( p_cam_calobjects_inliers,  *model.intrinsics() )
-            q_cam_calobjects_outliers = \
-                mrcal.project( p_cam_calobjects_outliers, *model.intrinsics() )
-        else:
-            q_cam_calobjects = \
-                mrcal.project_stereographic( p_cam_calobjects )
-            q_cam_calobjects_inliers = \
-                mrcal.project_stereographic( p_cam_calobjects_inliers )
-            q_cam_calobjects_outliers = \
-                mrcal.project_stereographic( p_cam_calobjects_outliers )
-
-        # Disabled for now. I see a legend entry for each broadcasted slice,
-        # which isn't what I want
-        #
-        # if len(q_cam_calobjects):
-        #     plot_data_tuples_zigzag = \
-        #         ( ( nps.clump(q_cam_calobjects[..., 0], n=-2),
-        #             nps.clump(q_cam_calobjects[..., 1], n=-2),
-        #             dict( tuplesize = 2,
-        #                   _with  = 'lines lc "black"',
-        #                   legend = "board sequences"),),)
-
-        if len(q_cam_calobjects_inliers):
-            if observations == 'dots':
-                _with = 'dots lc "black"'
-            else:
-                _with = 'points lc "black" pt 1'
-            plot_data_tuples_inliers = \
-                ( ( q_cam_calobjects_inliers,
-                    dict( tuplesize = -2,
-                          _with  = _with,
-                          legend = 'inliers')), )
-        if len(q_cam_calobjects_outliers):
-            if observations == 'dots':
-                _with = 'dots lc "black"'
-            else:
-                _with = 'points lc "red" pt 1'
-            plot_data_tuples_outliers = \
-                ( ( q_cam_calobjects_outliers,
-                    dict( tuplesize = -2,
-                          _with  = _with,
-                          legend = 'outliers')), )
+        _append_observation_visualizations(plot_data_tuples_observations,
+                                           model,
+                                           '',
+                                           -1 if observations == 'dots' else 1,
+                                           True,
+                                           reproject_to_stereographic = not imager_domain)
 
     # Anything outside the valid region contour but inside the imager is an
     # invalid area: the field-of-view of the camera needs to be increased. I
@@ -2502,9 +2662,7 @@ plot
         plot_data_tuples_surface         + \
         plot_data_tuples_boundaries      + \
         plot_data_tuples_invalid_regions + \
-        plot_data_tuples_zigzag          + \
-        plot_data_tuples_inliers         + \
-        plot_data_tuples_outliers        + \
+        tuple(plot_data_tuples_observations) + \
         plot_data_tuples_knots
 
     if not return_plot_args:
@@ -2778,7 +2936,8 @@ plot
             i_observations_sorted_from_worst = \
                 list(reversed(np.argsort(err_per_observation)))
 
-        i_observation = i_observations_sorted_from_worst[i_observation]
+        i_observation_from_worst = i_observation
+        i_observation = i_observations_sorted_from_worst[i_observation_from_worst]
 
     # shape (Nh*Nw,2)
     residuals = nps.clump(residuals   [i_observation         ], n=2)
@@ -2797,9 +2956,10 @@ plot
 
     if 'title' not in plot_options:
         title = \
-            '{}: i_observation={}, iframe={}, icam={}, {}RMS_error={:.2f}'. \
+            '{}: i_observation={}{}, iframe={}, icam={}, {}RMS_error={:.2f}'. \
             format( optimization_inputs['lensmodel'],
                     i_observation,
+                    f'({i_observation_from_worst} from worst)' if from_worst else '',
                     *optimization_inputs['indices_frame_camintrinsics_camextrinsics'][i_observation, :2],
                     "" if paths is None else f"path={paths[i_observation]}, ",
                     np.sqrt(np.mean(nps.norm2(residuals))))
@@ -2822,7 +2982,7 @@ plot
         elif image_directory is not None:
             imagepath = f"{image_directory}/{os.path.basename(imagepath)}"
 
-        if not os.path.isfile(imagepath):
+        if not os.path.exists(imagepath):
             print(f"WARNING: Couldn't read image at '{imagepath}'", file=sys.stderr)
             imagepath = None
     else:
@@ -2875,7 +3035,7 @@ plot
 
 
 def show_residuals_histogram(optimization_inputs,
-                             i_cam            = None,
+                             icam_intrinsics  = None,
                              residuals        = None,
                              *,
                              binwidth         = 0.02,
@@ -2904,8 +3064,9 @@ ARGUMENTS
   from mrcal.optimize(). This describes the solved optimization problem that
   we're visualizing
 
-- i_cam: optional integer to select the camera whose residuals we're visualizing
-  If omitted or None, we display the residuals for ALL the cameras together.
+- icam_intrinsics: optional integer to select the camera whose residuals we're
+  visualizing If omitted or None, we display the residuals for ALL the cameras
+  together.
 
 - residuals: optional numpy array of shape (Nmeasurements,) containing the
   optimization residuals. If omitted or None, this will be recomputed. To use a
@@ -2943,10 +3104,33 @@ plot
 
     import gnuplotlib as gp
 
-    x = \
-        mrcal.residuals_chessboard(optimization_inputs = optimization_inputs,
-                                   i_cam               = i_cam,
-                                   residuals           = residuals).ravel()
+    if 'observations_board' in optimization_inputs and \
+       optimization_inputs['observations_board'] is not None:
+        x_chessboard = \
+            mrcal.residuals_chessboard(optimization_inputs = optimization_inputs,
+                                       icam_intrinsics     = icam_intrinsics,
+                                       residuals           = residuals).ravel()
+    else:
+        x_chessboard = np.array(())
+
+    if 'observations_point' in optimization_inputs and \
+       optimization_inputs['observations_point'] is not None:
+        x_point = \
+            mrcal.residuals_point(optimization_inputs = optimization_inputs,
+                                  icam_intrinsics     = icam_intrinsics,
+                                  residuals           = residuals).ravel()
+    else:
+        x_point = np.array(())
+
+    # I just pool all the observations together for now. I could display them
+    # separately...
+    x = nps.glue(x_chessboard,
+                 x_point,
+                 axis=-1)
+
+    if x.size == 0:
+        raise Exception("No board or point observations in this solve!")
+
     sigma_observed = np.std(x)
 
     equation = fitted_gaussian_equation(sigma    = sigma_observed,
@@ -2955,15 +3139,15 @@ plot
                                         binwidth = binwidth,
                                         legend   = f'Normal distribution of residuals with observed stdev: {sigma_observed:.02f} pixels')
 
-    if i_cam is None:
+    if icam_intrinsics is None:
         what = 'all the cameras'
     else:
-        what = f"camera {i_cam}"
+        what = f"camera {icam_intrinsics}"
 
     plot_options = dict(kwargs)
 
     if 'title' not in plot_options:
-        title = f'Observed and expected distribution of fitted residuals for {what}'
+        title = f'Distribution of fitted residuals and a gaussian fit for {what}'
         if extratitle is not None:
             title += ": " + extratitle
         plot_options['title'] = title
@@ -2993,38 +3177,47 @@ def _get_show_residuals_data_onecam(model,
     icam is the camera in question, or None for ALL the cameras'''
 
     optimization_inputs = model.optimization_inputs()
-    icam                = model.icam_intrinsics()
+    icam_intrinsics     = model.icam_intrinsics()
 
-    if residuals is None:
-        # Flattened residuals. The board measurements are at the start of the
-        # array
-        residuals = \
-            mrcal.optimizer_callback(**optimization_inputs,
-                                     no_jacobian      = True,
-                                     no_factorization = True)[1]
 
-    # shape (Nobservations, object_height_n, object_width_n, 3)
-    observations = optimization_inputs['observations_board']
-    residuals_shape = observations.shape[:-1] + (2,)
 
-    # shape (Nobservations, object_height_n, object_width_n, 2)
-    residuals = residuals[:np.product(residuals_shape)].reshape(*residuals_shape)
 
-    indices_frame_camera = optimization_inputs['indices_frame_camintrinsics_camextrinsics'][...,:2]
 
-    # shape (Nobservations, object_height_n, object_width_n)
-    idx = np.ones( observations.shape[:-1], dtype=bool)
 
-    # select residuals from THIS camera
-    idx[indices_frame_camera[:,1] != icam, ...] = False
-    # select non-outliers
-    idx[ observations[...,2] <= 0.0 ] = False
+    if 'observations_board' in optimization_inputs and \
+       optimization_inputs['observations_board'] is not None:
+        # shape (N,2), (N,2)
+        err_chessboard,obs_chessboard = \
+            mrcal.residuals_chessboard(optimization_inputs = optimization_inputs,
+                                       icam_intrinsics     = icam_intrinsics,
+                                       residuals           = residuals,
+                                       return_observations = True)
+    else:
+        err_chessboard,obs_chessboard = \
+            np.array(()),np.array(())
 
-    # shape (N,2)
-    err = residuals   [idx, ...    ]
-    obs = observations[idx, ..., :2]
+    if 'observations_point' in optimization_inputs and \
+       optimization_inputs['observations_point'] is not None:
+        # shape (N,2), (N,2)
+        err_point,obs_point = \
+            mrcal.residuals_point(optimization_inputs = optimization_inputs,
+                                  icam_intrinsics     = icam_intrinsics,
+                                  residuals           = residuals,
+                                  return_observations = True)
+    else:
+        err_point,obs_point = \
+            np.array(()),np.array(())
 
-    if valid_intrinsics_region and icam is not None:
+    # I just pool all the observations together for now. I could display them
+    # separately...
+    err = nps.glue(err_chessboard,
+                   err_point,
+                   axis=-1)
+    obs = nps.glue(obs_chessboard,
+                   obs_point,
+                   axis=-1)
+
+    if valid_intrinsics_region and icam_intrinsics is not None:
         legend = "Valid-intrinsics region"
         valid_region = model.valid_intrinsics_region()
 
@@ -3336,16 +3529,6 @@ plot
 
     '''
 
-    r'''Visualize the optimized residuals as color-coded directions
-
-    We plot each observed point, but instead of showing an error vector, we show
-    the color-coded direction of the error. The error magnitude is ignored. This
-    is useful to see systematic patterns in the error surface
-
-    icam is the camera in question. First camera by default
-
-    '''
-
     import gnuplotlib as gp
 
     err,obs, \
@@ -3634,17 +3817,48 @@ unsigned integers. The last row is the BGR color-mapped values.
     if a_min is None: a_min = array.min()
     if a_max is None: a_max = array.max()
 
-    out = np.zeros(array.shape + (3,), dtype=np.uint8)
-
-    x = np.clip( (array.astype(float) - a_min) / (a_max - a_min),
-                 0, 1 )
-
-    def clip_and_convert(x):
-        np.clip(x*255, 0, 255, x)
-        return x.round().astype(np.uint8)
-
-    out[..., 2] = clip_and_convert(np.sqrt(x))           # R: function 7
-    out[..., 1] = clip_and_convert(x*x*x)                # G: function 5
-    out[..., 0] = clip_and_convert(np.sin(x * 2.*np.pi)) # B: function 15
-
-    return out
+    # write each slice into out[...,0], out[...,1], out[...,2]
+    # I can do this with this Python code intead:
+    #
+    #   x = np.clip( (array.astype(float) - a_min) / (a_max - a_min),
+    #            0, 1 )
+    #   def clip_and_convert(x):
+    #       return np.clip(x*255, 0, 255).round().astype(np.uint8)
+    #   out[..., 0] = clip_and_convert(np.sin(x * 2.*np.pi)) # B: function 15
+    #   out[..., 1] = clip_and_convert(np.sin(x*x*x))        # G: function 5
+    #   out[..., 2] = clip_and_convert(np.sqrt(x))           # R: function 7
+    #
+    # This this is slower (creates more temporaries), and currently (Sun Mar 5
+    # 14:48:28 PST 2023, python3-numpy=1:1.24.1-2) the np.clip() call in
+    # clip_and_convert() spin my CPU, and never exit when I do this:
+    #
+    #   D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/stereo;
+    #   Dout=~/projects/mrcal-doc-external/figures/stereo
+    #   PYTHONPATH=~/projects/mrcal;
+    #   export PYTHONPATH;
+    #   $PYTHONPATH/mrcal-stereo         \
+    #     --az-fov-deg 170               \
+    #     --az0-deg    10                \
+    #     --el-fov-deg 95                \
+    #     --el0-deg    -15               \
+    #     --disparity-range 0 30         \
+    #     --sgbm-p1 600                  \
+    #     --sgbm-p2 2400                 \
+    #     --sgbm-uniqueness-ratio 5      \
+    #     --sgbm-disp12-max-diff  1      \
+    #     --sgbm-speckle-window-size 100 \
+    #     --sgbm-speckle-range 2         \
+    #     --force-grayscale              \
+    #     --clahe                        \
+    #     --outdir /tmp \
+    #     $D/[01].cameramodel            \
+    #     $D/[01].jpg
+    #
+    # I don't care enough to debug it, so I make it work and more efficient in
+    # the same time by doing this in C
+    return \
+        mrcal._mrcal_npsp._clip_float_into_bgr_colormap_functions_15_5_7(
+          # no copies made if not needed
+          np.ascontiguousarray(array.astype(float, copy=False)),
+          a_min = a_min,
+          a_max = a_max)

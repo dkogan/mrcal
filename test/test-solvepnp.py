@@ -39,11 +39,11 @@ test_cases = (
               'solvepnp-ultrawide-focal-too-long',
 
               # ./mrcal-calibrate-cameras                               \
-              # --corners-cache doc/out/external/data/board/corners.vnl \
+              # --corners-cache doc/out/external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/corners.vnl \
               # --lensmodel LENSMODEL_OPENCV8                           \
-              # --focal 1700                                            \
-              # --object-spacing 0.077                                  \
-              # --object-width-n 10                                     \
+              # --focal 1900                                            \
+              # --object-spacing 0.0588                                 \
+              # --object-width-n 14                                     \
               # --observed-pixel-uncertainty 2                          \
               # '*.JPG'
               'solvepnp-wide-focal-too-wide')

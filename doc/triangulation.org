@@ -98,8 +98,15 @@ listed in chronological order:
 
 The last paper compares the available methods from /all/ the papers. A
 [[https://github.com/dkogan/mrcal/blob/master/analyses/triangulation/study.py][triangulation study]] is available to evaluate the precision and accuracy of the
-existing methods. Currently =leecivera_mid2= is recommended for most usages. The
-triangulation methods available in mrcal:
+existing methods. Currently =leecivera_mid2= is recommended for most usages.
+
+Note that all of the Lee-Civera methods work geometrically off observation
+vectors, not pixel coordinates directly. This carries an implicit assumption
+that the angular resolution is constant across the whole imager. This is usually
+somewhat true, but the extent depends on the specific lens and camera. Use the
+[[file:recipes.org::#visualizing-resolution][resolution-visualization tool]] to check.
+
+The triangulation methods available in mrcal:
 
 ** =geometric=
 This is the basic [[https://en.wikipedia.org/wiki/Triangulation_(computer_vision)#Mid-point_method][midpoint method]]: it computes the point in space that minimizes
@@ -163,8 +170,8 @@ We want to capture the effect of two different sources of error:
   stdev of -1. See the relevant interface documentation (just-mentioned links)
   for details.
 - /Observation-time/ noise. Each triangulation processes observations $\vec q$
-  of a feature in space. These are noisy, and we propagate the noise. As with
-  the calibration-time noise, this noise is assumed to be normally distributed,
+  of a feature in space. These are noisy, and we propagate that noise. As with
+  calibration-time noise, this noise is assumed to be normally distributed and
   independent in $x$ and $y$. This is specified in the =--q-observation-stdev=
   argument to [[file:mrcal-triangulate.html][=mrcal-triangulate=]] or in the =q_observation_stdev= argument to
   [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]]. A common source of these pixel observations is a pixel
@@ -176,6 +183,12 @@ We want to capture the effect of two different sources of error:
   commandline option to [[file:mrcal-triangulate.html][=mrcal-triangulate=]] or the
   =q_observation_stdev_correlation= argument to [[file:mrcal-python-api-reference.html#-triangulate][=mrcal.triangulate()=]].
 
+  Note that when thinking about observation-time noise in /dense/ stereo
+  processing, we generally assume that $\vec q_0$ is known perfectly and that
+  there is no correlation at all between the $\vec q_0$ and $\vec q_1$
+  observations. A bit more thought is needed to figure out how to talk about
+  this noise propagation properly.
+
 A big point to note here is that repeated observations of the same feature have
 independent observation-time noise. So these observation-time errors average out
 with multiple observations. This is /not/ true of the calibration-time noise
@@ -184,7 +197,7 @@ produce correlated triangulation results. So calibration-time noise is biased,
 and it is thus essential to make and use low-uncertainty calibrations to
 minimize this effect.
 
-** Sample uncertainties
+** Example uncertainties
 The [[https://github.com/dkogan/mrcal/blob/master/test/test-triangulation-uncertainty.py][=test-triangulation-uncertainty.py=]] test generates synthetic models and
 triangulation scenarios. It can be used to produce an illustrative diagram:
 
@@ -219,11 +232,11 @@ test/test-triangulation-uncertainty.py  \
 [[file:external/figures/triangulation/sample--ellipses.svg]]
 
 Here we have *two* cameras arranged in the usual left/right stereo
-configuration, looking at *two* points somewhere ahead. We generate calibration
-and observation noise, and display the results in the horizontal plane. The
-vertical dimension is insignificant here, so it is not shown, even though all
-the computations are performed in full 3D. For each of the two observed points
-we display:
+configuration, looking at *two* points at (-2,10)m and (2,10)m. We generate
+calibration and observation noise, and display the results in the horizontal
+plane. The vertical dimension is insignificant here, so it is not shown, even
+though all the computations are performed in full 3D. For each of the two
+observed points we display:
 
 - The empirical noise samples, and the 1-sigma ellipse they represent
 - The predicted 1-sigma ellipse for the calibration-time noise
@@ -336,9 +349,9 @@ test/test-triangulation-uncertainty.py  \
 
 # --- a/test/test-triangulation-uncertainty.py
 # +++ b/test/test-triangulation-uncertainty.py
-# @@ -954,7 +954,7 @@ if args.make_documentation_plots is not None:
+# @@ -961,7 +961,7 @@ if args.make_documentation_plots is not None:
 #                  **processoptions)
-# 
+ 
 #          processoptions = copy.deepcopy(processoptions_base)
 # -        binwidth = np.sqrt(Var_distance) / 4.
 # +        binwidth = np.sqrt(Var_distance) / 1.

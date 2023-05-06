@@ -2,6 +2,9 @@
 #+OPTIONS: toc:t
 
 * Overview
+The [[file:tour-stereo.org][tour of mrcal]] shows an example of dense stereo processing done with mrcal;
+details about that computation appear here.
+
 Given a pair of calibrated (both intrinsics and extrinsics) cameras, mrcal can
 perform stereo processing to produce a dense stereo map. This is relatively
 slow, and is often overkill for what is actually needed. But sometimes it is
@@ -34,21 +37,25 @@ The rectified coordinate system looks like this:
 
 [[file:figures/rectification.svg]]
 
-We code and documentation refers to two angles:
+The code and documentatio refers to two angles:
 
-- $\theta$ the "azimuth"; the lateral angle inside the epipolar plane. Related
+- $\theta$: the "azimuth"; the lateral angle inside the epipolar plane. Related
   directly to the $x$ pixel coordinate in the rectified images
 - $\phi$: the "elevation"; the tilt of the epipolar plane. Related directly to
   the $y$ pixel coordinate in the rectified images
 
 * Rectification models
+:PROPERTIES:
+:CUSTOM_ID: stereo-rectification-models
+:END:
+
 A rectified system satisfies the epipolar constraint (see above). mrcal supports
 two models that can have this property, selected with the =rectification_model=
 argument to [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] or with the =--rectification= commandline
 argument to [[file:mrcal-stereo.html][=mrcal-stereo=]].
 
 - [[file:lensmodels.org::#lensmodel-pinhole][=LENSMODEL_PINHOLE=]]: this is the traditional rectification model, used in most
-  existing tools. This works decently well for small fields of view (as with a
+  existing tools. It works decently well for small fields of view (as with a
   long lens), but fails with large fields of view (as with a wide lens). The
   issues stem from the uneven angular resolution across the image, which shoots
   out to $\infty \frac{\mathrm{pixels}}{\mathrm{deg}}$ as $\theta \rightarrow
@@ -65,12 +72,77 @@ argument to [[file:mrcal-stereo.html][=mrcal-stereo=]].
   directions. This is the recommended rectification model, and is the default in
   mrcal
 
+Let's demonstrate the two rectification models. In the [[file:tour-stereo.org][tour of mrcal]] we showed a
+dense stereo processing sequence. Let's re-rectify those same images and models
+with =LENSMODEL_PINHOLE= and =LENSMODEL_LATLON=. This is a demo, so I ask for
+the same pixels/angle resolution at the center of the image in both cases, and
+demonstrate how this affects the resolution at other parts of the image.
+
+#+begin_src sh
+for model (LENSMODEL_PINHOLE LENSMODEL_LATLON) {
+  mrcal-stereo                     \
+    --az-fov-deg 160               \
+    --el-fov-deg 140               \
+    --pixels-per-deg -0.05         \
+    --rectification $model         \
+    [01].cameramodel               \
+    [01].jpg
+}
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/stereo
+Dout=~/projects/mrcal-doc-external/figures/stereo
+mkdir -p $Dout
+
+for model (LENSMODEL_PINHOLE LENSMODEL_LATLON) {
+$PYTHONPATH/mrcal-stereo         \
+  --az-fov-deg 160               \
+  --el-fov-deg 140               \
+  --pixels-per-deg -0.05         \
+  --rectification $model         \
+  --outdir /tmp                  \
+  --force                        \
+  $D/[01].cameramodel            \
+  $D/[01].jpg
+
+  mv /tmp/0-rectified.png $Dout/rectified-demo-lowres-${${model/LENSMODEL_/}:l}.png
+}
+#+end_src
+
+The left image rectified with =LENSMODEL_LATLON= (resolution at the center is
+1/20 of the resolution of the original image):
+
+[[file:external/figures/stereo/rectified-demo-lowres-latlon.png]]
+
+The left image rectified with =LENSMODEL_PINHOLE= (resolution at the center is
+still 1/20 of the resolution of the original image):
+
+[[file:external/figures/stereo/rectified-demo-lowres-pinhole.png]]
+
+These are the actual, unscaled rectified images. Note the identical resolution
+at the center of the image. And note how =LENSMODEL_PINHOLE= rectification
+causes the image to expand dramatically as we approach the edges.
+
+Using =LENSMODEL_PINHOLE= with wide lenses like this introduces an unwinnable
+trade-off. If you choose the pixels/angle resolution to keep all your
+information at the center, you'll get a huge image, with low-information pixels
+at the edges. But if you want to reduce this expansion by lowering the
+resolution, you'll lose data at the center. Or you can cut off data at the
+edges. No matter what you do, you either lose information or you're stuck with a
+huge image.
+
+And even if this was all fine, with =LENSMODEL_PINHOLE= the stereo-matching
+algorithm has to match image patches with widely different resolutions.
+=LENSMODEL_LATLON= solves all these issues with no down sides, and is thus the
+recommended rectification function.
+
 * Interfaces
 Currently stereo processing is available via the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool. This tool
 implements the usual stereo processing for a single frame.
 
-More complex usages are available via Python APIs. A sequence of images captured
-with a stereo pair can be processed like this:
+More complex usages are available via the Python APIs and the C functions in
+[[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.h=]]. A sequence of images captured with a stereo pair can be processed
+like this:
 
 1. [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] to construct the rectified system defined by the
    stereo pair
@@ -89,3 +161,4 @@ with a stereo pair can be processed like this:
      be used to produce a point cloud
 
 A demo of the process if shown in the [[file:tour-stereo.org][tour of mrcal]].
+

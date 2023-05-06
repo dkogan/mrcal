@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 
 r'''Converts a camera model from one lens model to another
 
@@ -14,11 +22,11 @@ SYNOPSIS
 
   ... a plot pops up showing the differences ...
 
-Given a camera model, this tool computes another model that represents the same
-lens, but uses a different lens model. While lens models all exist to solve the
-same problem, the different representations don't map to one another perfectly,
-and this tool finds the best-fitting parameters of the target lens model. Two
-different methods are implemented:
+Given one camera model, this tool computes another camera model that represents
+the same camera, but utilizes a different lens model. While lens models all
+exist to solve the same problem, the different representations don't map to one
+another perfectly, and this tool finds the best-fitting parameters of the target
+lens model. Two different methods are implemented:
 
 1. If the given cameramodel file contains optimization_inputs, then we have all
    the data that was used to compute this model in the first place, and we can
@@ -36,12 +44,12 @@ different methods are implemented:
    this mode by passing --sampled.
 
 Since camera models (lens parameters AND geometry) are computed off real pixel
-observations, the confidence of the projections varies greatly across the
-imager. The first method uses the original data, so it implicitly respects these
-uncertainties: uncertain areas in the original model will be uncertain areas in
-the new model too. The second method, however, doesn't have this information: it
-doesn't know which parts of the imager are reliable and which aren't, so the
-results could suffer.
+observations, the confidence of the projections varies greatly across the imager
+and across observation distances. The first method uses the original data, so it
+implicitly respects these uncertainties: uncertain areas in the original model
+will be uncertain in the new model as well. The second method, however, doesn't
+have this information: it doesn't know which parts of the imager and space are
+reliable, so the results suffer.
 
 As always, the intrinsics have some baked-in geometry information. Both methods
 optimize intrinsics AND extrinsics, and output cameramodels with updated
@@ -67,6 +75,11 @@ yet implemented. Passing both a near and far distance appears to constrain the
 extrinsics well in practice. The computed extrinsics transform is printed on the
 console, with a warning if an aphysical shift was computed. Do pay attention to
 the console output.
+
+Sampled solves are sometimes sensitive to the optimization seed. To control for
+this, pass --num-trials to evaluate the solve multiple times from different
+random seeds, and to pick the best one. These solves are usually quick, so
+there's no harm in passing something like "--num-trials 10".
 
 We need to consider that the model we're trying to fit may not fit the original
 model in all parts of the imager. Usually this is a factor when converting
@@ -184,6 +197,10 @@ def parse_args():
                         help='''Visualize the differences between the input and
                         output models. If we have --distance, the FIRST given
                         distance is used to display the fit error''')
+    parser.add_argument('--cbmax',
+                        type=float,
+                        default=4,
+                        help='''Maximum range of the colorbar''')
     parser.add_argument('--title',
                         type=str,
                         default = None,
@@ -244,7 +261,7 @@ def parse_args():
                         nargs='?',
                         type=str,
                         help='''Input camera model. If omitted or "-", we read
-                        standard input''')
+                        standard input and write to standard output''')
 
     args = parser.parse_args()
 
@@ -297,23 +314,27 @@ except:
     sys.exit(1)
 
 
-m = mrcal.cameramodel(args.model)
+try:
+    m = mrcal.cameramodel(args.model)
+except Exception as e:
+    print(f"Couldn't load camera model '{args.model}': {e}", file=sys.stderr)
+    sys.exit(1)
 
 
 if args.model == '-':
     # Input read from stdin. Write output to stdout
-    filename_output = sys.stdout
+    file_output = sys.stdout
 else:
     if args.outdir is None:
         filename_base,extension = os.path.splitext(args.model)
-        filename_output = f"{filename_base}-{lensmodel_to}{extension}"
+        file_output = f"{filename_base}-{lensmodel_to}{extension}"
     else:
         f,extension             = os.path.splitext(args.model)
         directory,filename_base = os.path.split(f)
-        filename_output = f"{args.outdir}/{filename_base}-{lensmodel_to}{extension}"
+        file_output = f"{args.outdir}/{filename_base}-{lensmodel_to}{extension}"
 
-    if os.path.isfile(filename_output) and not args.force:
-        print(f"ERROR: '{filename_output}' already exists. Not overwriting this file. Pass -f to overwrite",
+    if os.path.exists(file_output) and not args.force:
+        print(f"ERROR: '{file_output}' already exists. Not overwriting this file. Pass -f to overwrite",
               file=sys.stderr)
         sys.exit(1)
 
@@ -681,14 +702,14 @@ else:
         observations_points = np.ascontiguousarray(observations_points) # must be contiguous. mrcal.optimize() should really be more lax here
 
         # Which points we're observing. This is dense and kinda silly for this
-        # application. Each slice is (i_point,i_camera)
+        # application. Each slice is (i_point,i_camera,i_camera-1). Initially O
+        # do everything in camera-0 coordinates, and I do not move the
+        # extrinsics
         indices_point_camintrinsics_camextrinsics = np.zeros((Npoints,3), dtype=np.int32)
         indices_point_camintrinsics_camextrinsics[:,0] = \
             np.arange(Npoints,    dtype=np.int32)
-        indices_point_camintrinsics_camextrinsics[:,1] = \
-            np.zeros ((Npoints,), dtype=np.int32)
-        indices_point_camintrinsics_camextrinsics[:,2] = \
-            np.zeros ((Npoints,), dtype=np.int32) - 1
+        indices_point_camintrinsics_camextrinsics[:,1] = 0
+        indices_point_camintrinsics_camextrinsics[:,2] = -1
 
         optimization_inputs = \
             dict(intrinsics                                = intrinsics_to_values,
@@ -791,9 +812,9 @@ note = \
     format(time.strftime("%Y-%m-%d %H:%M:%S"),
            ' '.join(mrcal.shellquote(s) for s in sys.argv))
 
-m_to.write(filename_output, note=note)
-if isinstance(filename_output, str):
-    print(f"Wrote '{filename_output}'",
+m_to.write(file_output, note=note)
+if isinstance(file_output, str):
+    print(f"Wrote '{file_output}'",
           file=sys.stderr)
 
 
@@ -827,7 +848,7 @@ if args.viz:
     plot,_ = mrcal.show_projection_diff( (m, m_to),
                                          implied_Rt10      = implied_Rt10,
                                          distance          = distance_for_diff,
-                                         cbmax             = 4,
+                                         cbmax             = args.cbmax,
                                          gridn_width       = None if args.gridn is None else args.gridn[0],
                                          gridn_height      = None if args.gridn is None else args.gridn[1],
                                          use_uncertainties = use_uncertainties,

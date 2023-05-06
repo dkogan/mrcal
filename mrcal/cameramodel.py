@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
 '''A class to read/write/manipulate camera models
 
 SYNOPSIS
@@ -612,11 +620,9 @@ given. The arguments for the methods we're not using MUST all be None. Methods:
 ARGUMENTS
 
 - file_or_model: we read the camera model from a filename or a pre-opened file
-  object or from an existing cameramodel object to copy. If reading a filename,
-  and the filename is xxx.cahvor, then we assume the legacy cahvor file format
-  instead of the usual .cameramodel. If the filename is '-' we read standard
-  input (both .cahvor and .cameramodel supported). This may be given as a
-  positional argument. Everything else may be given only as keyword arguments.
+  object or from an existing cameramodel object to copy. Both .cameramodel and
+  the legacy .cahvor formats are supported. This may be given as a positional
+  argument. Everything else may be given only as keyword arguments.
 
 - intrinsics: a tuple (lensmodel, intrinsics_data). If given, 'imagersize' is
   also required. This may be given only as a keyword argument.
@@ -726,22 +732,9 @@ ARGUMENTS
                 return
 
             if type(file_or_model) is str:
-                if re.match(".*\.cahvor$", file_or_model):
-                    # Read a .cahvor. This is more complicated than it looks. I
-                    # want to read the .cahvor file into self, but the current
-                    # cahvor interface wants to generate a new model object. So
-                    # I do that, write it as a .cameramodel-formatted string,
-                    # and then read that back into self. Inefficient, but this
-                    # is far from a hot path
-                    from . import cahvor
-                    model = cahvor.read(file_or_model)
-                    modelfile = io.StringIO()
-                    model.write(modelfile)
-                    self._read_into_self(modelfile.getvalue())
-                    return
 
                 # Some readable file. Read it!
-                def tryread(f):
+                def tryread(f, what):
                     modelstring = f.read()
                     try:
                         self._read_into_self(modelstring)
@@ -751,20 +744,27 @@ ARGUMENTS
 
                     # Couldn't read the file as a .cameramodel. Does a .cahvor
                     # work?
+
+                    # This is more complicated than it looks. I want to read the
+                    # .cahvor file into self, but the current cahvor interface
+                    # wants to generate a new model object. So I do that, write
+                    # it as a .cameramodel-formatted string, and then read that
+                    # back into self. Inefficient, but this is far from a hot
+                    # path
                     from . import cahvor
                     try:
                         model = cahvor.read_from_string(modelstring)
                     except:
-                        raise Exception("Couldn't parse data as a camera model (.cameramodel or .cahvor)") from None
+                        raise Exception(f"Couldn't parse {what} as a camera model (.cameramodel or .cahvor)") from None
                     modelfile = io.StringIO()
                     model.write(modelfile)
                     self._read_into_self(modelfile.getvalue())
 
                 if file_or_model == '-':
-                    tryread(sys.stdin)
+                    tryread(sys.stdin, "STDIN")
                 else:
                     with open(file_or_model, 'r') as openedfile:
-                        tryread(openedfile)
+                        tryread(openedfile, f"file '{file_or_model}'")
                 return
 
             self._read_into_self(file_or_model)
@@ -860,8 +860,9 @@ SYNOPSIS
     model.write('left.cameramodel')
 
 We write the contents of the given mrcal.cameramodel object to the given
-filename or a given pre-opened file. If the filename is 'xxx.cahvor' or if
-cahvor: we use the legacy cahvor file format for output
+filename or a given pre-opened file. If the filename is 'xxx.cahv' or
+'xxx.cahvor' or 'xxx.cahvore' or if cahvor: we use the legacy cahvor file format
+for output
 
 ARGUMENTS
 
@@ -885,7 +886,7 @@ None
             return
 
         if type(f) is str:
-            if re.match(".*\.cahvor$", f):
+            if re.match(".*\.cahv(or(e)?)?$", f):
                 from . import cahvor
                 cahvor.write(f, self, note)
 

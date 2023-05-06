@@ -9,28 +9,26 @@ not-yet-supported distro, please contribute! You can email me for help.
 :CUSTOM_ID: installing-from-packages
 :END:
 
-** Debian-based
-As of today (2022-02-27), mrcal is included in the bleeding-edge versions of
-Debian and Ubuntu. So if you're running at least Debian/testing or the
-not-yet-published Debian 12 (bookworm) or Ubuntu 22.04 (jammy), you can
-simply
+mrcal is included in recent versions of Debian and Ubuntu. So if you're running
+at least Debian 12 (bookworm) or Ubuntu 22.04 (jammy), you can install with a
+single command. For instance the commandline tools and the C development library
+and the Python library can be installed with
 
 #+begin_src sh
 apt install mrcal libmrcal-dev python3-mrcal
 #+end_src
 
-to install the commandline tools and the C development library and the Python
-library respectively.
+For older distros or if you want to get the latest release of mrcal, you can use
+the mrcal APT repository. I currently distribute packages for
 
-For older distros I currently distribute packages for
-
-- Debian/buster
-- Debian/bullseye
-- Ubuntu/jammy (22.04 LTS)
-- Ubuntu/focal (20.04 LTS)
+- Debian/buster (10)
+- Debian/bullseye (11)
+- Debian/bookworm (12)
 - Ubuntu/bionic (18.04 LTS)
+- Ubuntu/focal (20.04 LTS)
+- Ubuntu/jammy (22.04 LTS)
 
-To use these, add to your =/etc/apt/sources.list=:
+=amd64= architecture only. To use these, add to your =/etc/apt/sources.list=:
 
 #+begin_example
 deb [trusted=yes] http://mrcal.secretsauce.net/packages/DISTRO/public/ DISTRO main
@@ -40,9 +38,10 @@ where =DISTRO= is one of
 
 - =buster=
 - =bulleye=
-- =jammy=
-- =focal=
+- =bookworm=
 - =bionic=
+- =focal=
+- =jammy=
 
 Then, =apt update && apt install mrcal=. The chessboard corner finder, while not
 strictly required, is needed if you're doing chessboard-based calibrations. =apt
@@ -53,6 +52,10 @@ If you cannot use the packages for whatever reason, you must build from source.
 This isn't /difficult/, but requires you to obtain all the dependencies. They're
 listed in the =Build-Depends= section of the [[https://salsa.debian.org/science-team/mrcal/-/blob/master/debian/control][debian package definition]]. Most of
 these are available in most distros. Things that may not be:
+
+- [[https://www.github.com/dkogan/mrbuild][=mrbuild=]]: the build system. If you can't get it from the package manager,
+  just run =make=, and follow the printed message to get a local copy of
+  =mrbuild=.
 
 - [[https://github.com/dkogan/libdogleg/][=libdogleg-dev=]]: the optimization library. You need at least version 0.15.3.
 
