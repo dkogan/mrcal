@@ -609,7 +609,6 @@ bool mrcal_var_rt_ref_refperturbed(// output
                                    // used only to confirm that the user passed-in the buffer they
                                    // should have passed-in. The size must match exactly
                                    int buffer_size_b_packed,
-#warning "use buffer_size_b_packed"
 
                                    // The unitless Jacobian, used by the internal
                                    // optimization routines
