@@ -87,6 +87,12 @@ doc/mrcal-preamble-GENERATED.html: doc/mrcal-preamble-TEMPLATE.html $(and $(wild
 	< $< sed s/@@VERSION@@/$(VERSION)/g > $@.tmp && mv $@.tmp $@
 EXTRA_CLEAN += doc/mrcal-preamble-GENERATED.html
 
+# Documentation uses the latest tag only to denote the version. This will only
+# work properly after a 'make clean' (If you "make", everything is built without
+# VERSION_USE_LATEST_TAG=1; then when you "make doc", the products built without
+# VERSION_USE_LATEST_TAG=1 are used). Beware
+doc: VERSION_USE_LATEST_TAG=1
+
 doc: $(DOC_HTML)
 
 .PHONY: doc
