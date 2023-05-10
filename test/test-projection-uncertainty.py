@@ -781,7 +781,7 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
         mrcal.ref_calibration_object(object_width_n,
                                      object_height_n,
                                      object_spacing,
-                                     query_calobject_warp)
+                                     calobject_warp = query_calobject_warp)
 
     weight = observations_board[...,2]
 
