@@ -870,7 +870,7 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
             # strange-looking implementation to make broadcasting work
             dprot_drt = np.zeros(p.shape[:-1] + (3,6), dtype=float)
 
-            mrcal.utils._skew_symmetric(p, out = dprot_drt[..., :3])
+            mrcal.skew_symmetric(p, out = dprot_drt[..., :3])
             dprot_drt *= -1.
 
             dprot_drt[...,0,0+3] = 1.
@@ -900,8 +900,8 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
             '''
             drt01_drt0 = np.zeros(rt1.shape + (6,), dtype=float)
 
-            mrcal.utils._skew_symmetric(rt1[..., 3:],
-                                        out = drt01_drt0[..., 3:, :3])
+            mrcal.skew_symmetric(rt1[..., 3:],
+                                 out = drt01_drt0[..., 3:, :3])
             drt01_drt0 *= -1
 
             drt01_drt0[..., 0+3, 0+3] = 1.
