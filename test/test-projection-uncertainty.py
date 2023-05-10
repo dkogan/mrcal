@@ -1218,8 +1218,9 @@ M[frame] delta_qref
                                      normalize = True) * distance
     # shape (Ncameras, 3)
     p_ref_baseline = \
-        mrcal.transform_point_rt( mrcal.invert_rt(baseline_rt_cam_ref),
-                                  p_cam_baseline )
+        mrcal.transform_point_rt( baseline_rt_cam_ref,
+                                  p_cam_baseline,
+                                  inverted = True)
     # shape (...,Ncameras, 3)
     p_ref_query = \
         mrcal.transform_point_rt( nps.dummy(rt_ref_refperturbed, -2),
