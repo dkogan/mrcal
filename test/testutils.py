@@ -315,7 +315,7 @@ def confirm_covariances_equal(var, var_ref,
         v0_predicted = v_predicted[:,-1]
         v0_observed  = v_observed [:,-1]
 
-        confirm_equal(np.arcsin(nps.mag(np.cross(v0_observed,v0_predicted))) * 180./np.pi,
+        confirm_equal(np.arccos(np.abs(nps.inner(v0_observed,v0_predicted))) * 180./np.pi,
                       0,
                       eps = eps_eigenvectors_deg,
                       worstcase = True,
