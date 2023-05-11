@@ -8,7 +8,7 @@ else ifneq (,$(wildcard /usr/include/mrbuild/Makefile.common.header))
   MRBUILD_MK=/usr/include/mrbuild
   MRBUILD_BIN=/usr/bin
 else
-  MRBUILD_VER := 1.2
+  MRBUILD_VER := 1.3
   URL         := https://github.com/dkogan/mrbuild/archive/refs/tags/v${MRBUILD_VER}.tar.gz
 
   cmd := wget -O v${MRBUILD_VER}.tar.gz ${URL} && sha512sum --ignore-missing --quiet --strict -c mrbuild.checksums && tar xvfz v${MRBUILD_VER}.tar.gz && mv mrbuild-${MRBUILD_VER} mrbuild
