@@ -661,76 +661,117 @@ Then
 I have M from the usual uncertainty propagation logic, so I just need L =
 dqperturbed/dbperturbed
 
-In my usual least squares solve each chessboard point produces two elements of
-the measurements x:
+In my usual least squares solve each chessboard point produces two elements
+(error(x), error(y)) of the measurements x:
 
   x_point =
-    qref - project(intrinsics,
-                   T_cam_ref T_ref_frame p)
+    project(intrinsics,
+           T_cam_ref T_ref_frame p)
+    - qref
 
-Here I optimize the reprojection error looking at the PERTURBED
-chessboard,frames,points and the UNPERTURBED camera intrinsics, extrinsics. This
-requires computing a ref transformation to take into account the shifting
+Here I optimize the "cross reprojection error": I look at the PERTURBED
+chessboard,frames,points and the UNPERTURBED camera intrinsics, extrinsics. The
+data flows from the top-right to the bottom-left:
+
+  ORIGINAL SOLVE                   PERTURBED SOLVE
+
+  point in                         point in
+  chessboard                       chessboard
+  frame                            frame
+
+    |                                |
+    | Trf                            | Tr+f+
+    v                                v
+
+  point in                         point in
+  ref frame     <-- Trr+ -->       ref frame
+
+    |                                |
+    | Tcr                            | Tc+r+
+    v                                v
+
+  point in                         point in
+  cam frame                        cam frame
+
+    |                                |
+    | project                        | project
+    v                                v
+
+  pixel                            pixel
+
+This requires computing a ref transformation to take into account the shifting
 reference frame that results when re-optimizing:
 
-  x_cross_point =
-    qref - project(intrinsics,
-                   T_cam_ref T_ref_refperturbed T_refperturbed_frameperturbed p_perturbed)
+  x_cross_perturbed =
+    project(intrinsics,
+            T_cam_ref T_ref_refperturbed T_refperturbed_frameperturbed p_perturbed)
+    - qref
 
-And I reoptimize norm2(x_cross_point) by varying T_ref_refperturbed. This is
-parametrized as rt_ref_refperturbed. Let J_cross =
-dx_cross_point/drt_ref_refperturbed. I assume everything is locally linear, as
-defined by J_cross, and I take a single Newton step. I minimize
+For a given perturbation of the input observations I want to compute
+T_ref_refperturbed. So here I look at an operating point T_ref_refperturbed = 0.
+At the operating point I have x_cross_perturbed0: affected by the input
+perturbation, but not any reference transform.
 
-  E = norm2(x_cross_point0 + dx_cross_point)
+I reoptimize norm2(x_cross_perturbed) by varying T_ref_refperturbed
+(parametrized as rt_ref_refperturbed). Let J_cross_perturbed =
+dx_cross_perturbed/drt_ref_refperturbed. I assume everything is locally linear,
+as defined by J_cross_perturbed. I minimize
+
+  E = norm2(x_cross_perturbed0 + dx_cross_perturbed)
 
 I set the derivative to 0:
 
-  0 = dE/drt_ref_refperturbed ~ (x_cross_point0 + dx_cross_point)t J_cross
+  0 = dE/drt_ref_refperturbed ~ (x_cross_perturbed0 + dx_cross_perturbed)t J_cross_perturbed
 
--> J_cross_t x_cross_point0 = -J_cross_t dx_cross_point
+-> J_cross_perturbed_t x_cross_perturbed0 = -J_cross_perturbed_t dx_cross_perturbed
 
-Furthermore, dx_cross_point = J_cross drt_ref_refperturbed, so
+Furthermore, dx_cross_perturbed = J_cross_perturbed drt_ref_refperturbed, so
 
-  J_cross_t x_cross_point0 = -J_cross_t J_cross drt_ref_refperturbed
+  J_cross_perturbed_t x_cross_perturbed0 = -J_cross_perturbed_t J_cross_perturbed drt_ref_refperturbed
 
 and
 
-  drt_ref_refperturbed = -inv(J_cross_t J_cross) J_cross_t x_cross_point0
+  drt_ref_refperturbed = -inv(J_cross_perturbed_t J_cross_perturbed) J_cross_perturbed_t x_cross_perturbed0
+                       = -pinv(J_cross_perturbed_t) x_cross_perturbed0
 
-Everything I'm looking at implies small deviations, so I use
-T_ref_refperturbed=identity (rt_ref_refperturbed = 0) as the operating point,
-and
+The operating point is at rt_ref_refperturbed=0, so the shift is off 0:
 
-  rt_ref_refperturbed = -inv(J_cross_t J_cross) J_cross_t x_cross_point0
+  rt_ref_refperturbed = 0 + drt_ref_refperturbed
+                      = -pinv(J_cross_perturbed_t) x_cross_perturbed0
 
-This is good, but implies that J_cross needs to be computed directly by
-propagating gradients from the projection and the transform composition. We can
-do better.
+This is good, but implies that J_cross_perturbed needs to be computed directly
+by propagating gradients from the projection and the transform composition. We
+can do better.
 
 Since everything I'm looking at is near the original solution to the main
 optimization problem, I can look at EVERYTHING in the linear space defined by
-the optimal measurements x and their gradient J. The x_cross_point expression
-can be simplified:
+the optimal measurements x and their gradient J:
 
-  x_cross_point =
-    x0 +
-    J_intrinsics     dintrinsics +
-    J_extrinsics     drt_cam_ref +
-    J_frame          drt_ref_frame +
-    J_calobject_warp dcalobject_warp
+  x = x0 +
+      J_intrinsics     dintrinsics +
+      J_extrinsics     drt_cam_ref +
+      J_frame          drt_ref_frame +
+      J_calobject_warp dcalobject_warp
 
-In the expression above we use the unperturbed intrinsics and extrinsics, so
-dintrinsics = 0 and drt_cam_ref = 0. The shift in the calibration object warp
-comes directly from the shift in parameters: dcalobject_warp = M[calobject_warp]
-delta_qref. That leaves drt_ref_frame. This represents a shift from the
-optimized rt_ref_frame to rt_ref_frameperturbed =
-compose_rt(rt_ref_refperturbed, rt_refperturbed_frameperturbed). For
-x_cross_point0, I have rt_ref_refperturbed = 0, so there I have drt_ref_frame =
-M[frame] delta_qref. And for the gradient I have:
+Once again, we have this expression:
 
-  J_cross = dx_cross_point/drt_ref_refperturbed
-          = J_frame drt_ref_frame/drt_ref_refperturbed
+  x_cross_perturbed =
+    project(intrinsics,
+            T_cam_ref T_ref_refperturbed T_refperturbed_frameperturbed p_perturbed)
+    - qref
+
+Here we use the unperturbed intrinsics and extrinsics, so dintrinsics = 0 and
+drt_cam_ref = 0. The shift in the calibration object warp comes directly from
+the shift in parameters: dcalobject_warp = M[calobject_warp] delta_qref. That
+leaves drt_ref_frame. This represents a shift from the optimized rt_ref_frame to
+
+  rt_ref_frameperturbed = compose_rt(rt_ref_refperturbed,rt_refperturbed_frameperturbed).
+
+For x_cross_perturbed0, I have rt_ref_refperturbed = 0, so there I have
+drt_ref_frame = M[frame] delta_qref. And for the gradient I have:
+
+  J_cross_perturbed = dx_cross_perturbed/drt_ref_refperturbed
+                    = J_frame drt_ref_frameperturbed/drt_ref_refperturbed
 
 which I can obtain from the transform composition functions.
 
@@ -853,7 +894,7 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
 
     So dprot/dr = dcross/dr + d(r*inner / 2)/dr =
                   [  0  p2 -p1]
-                = [-p2   0  p0] + (inner I + outer(r,p))/2
+                = [-p2   0  p0] + (inner(r,p) I + outer(r,p))/2
                   [ p1 -p0   0]
 
     At r=identity I have r = 0, so
