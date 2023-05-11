@@ -954,16 +954,7 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
 
             return drt01_drt0
 
-        def get_cross_operating_point__compose_grad():
-            # shape (..., Nobservations,Nh,Nw,3),
-            #       (..., Nobservations,Nh,Nw,3,6)
-            pcam, dpcam_drt_ref_refperturbed = \
-                transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
-                                                  mrcal.identity_rt(),
-                                                  nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
-                                                  nps.mv(calibration_object_query,-4,-5))
-
-            ############# common
+        def get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed):
 
             # shape (..., Nobservations,Nh,Nw,2)
             #       (..., Nobservations,Nh,Nw,2,3)
@@ -972,10 +963,11 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
                               baseline_optimization_inputs['lensmodel'],
                               nps.dummy(intrinsics_all, -2,-2),
                               get_gradients = True)
-            x_cross = (q_cross - observations_board[...,:2])*nps.dummy(weight,-1)
-            x_cross[...,weight<=0,:] = 0 # outliers
+            q_ref = observations_board[...,:2]
+            x_cross0 = (q_cross - q_ref)*nps.dummy(weight,-1)
+            x_cross0[...,weight<=0,:] = 0 # outliers
             # shape (..., Nobservations*Nh*Nw*2)
-            x_cross = nps.clump(x_cross, n=-4)
+            x_cross0 = nps.clump(x_cross0, n=-4)
 
 
             dx_dpcam = dq_dpcam*nps.dummy(weight,-1,-1)
@@ -988,48 +980,8 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
                                  n = -4),
                        -2, -1)
             J_cross = dx_drt_ref_refperturbed
-            return x_cross, J_cross
+            return x_cross0, J_cross
 
-        def get_cross_operating_point__transform_grad():
-            # shape (..., Nobservations,Nh,Nw,3),
-            pref = mrcal.transform_point_rt( nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
-                                             nps.mv(calibration_object_query,-4,-5))
-            dpref_drt_ref_refperturbed = transform_point_identity_gradient(pref)
-            # shape (..., Nobservations,Nh,Nw,3),
-            #       (..., Nobservations,Nh,Nw,3,6)
-            pcam, _, dpcam_dpref = \
-                mrcal.transform_point_rt(nps.dummy(rt_cam_ref_all, -2,-2),
-                                         pref,
-                                         get_gradients = True)
-            dpcam_drt_ref_refperturbed = \
-                nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
-
-            ############# common
-
-            # shape (..., Nobservations,Nh,Nw,2)
-            #       (..., Nobservations,Nh,Nw,2,3)
-            q_cross,dq_dpcam,_ = \
-                mrcal.project(pcam,
-                              baseline_optimization_inputs['lensmodel'],
-                              nps.dummy(intrinsics_all, -2,-2),
-                              get_gradients = True)
-            x_cross = (q_cross - observations_board[...,:2])*nps.dummy(weight,-1)
-            x_cross[...,weight<=0,:] = 0 # outliers
-            # shape (..., Nobservations*Nh*Nw*2)
-            x_cross = nps.clump(x_cross, n=-4)
-
-
-            dx_dpcam = dq_dpcam*nps.dummy(weight,-1,-1)
-            dx_dpcam[...,weight<=0,:,:] = 0 # outliers
-            dx_drt_ref_refperturbed = nps.matmult(dx_dpcam, dpcam_drt_ref_refperturbed)
-            # shape (...,Nobservations,Nh,Nw,2,6) ->
-            #       (...,Nobservations*Nh*Nw*2,6) ->
-            dx_drt_ref_refperturbed = \
-                nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
-                                 n = -4),
-                       -2, -1)
-            J_cross = dx_drt_ref_refperturbed
-            return x_cross, J_cross
 
         # I broadcast over each sample
         @nps.broadcast_define( ((),),
@@ -1189,9 +1141,32 @@ M[frame] delta_qref
         # Can select the other get_cross_operating_point__...() implementations
         # here
         if 0:
-            x_cross, J_cross = get_cross_operating_point__compose_grad()
-        elif 0:
-            x_cross, J_cross = get_cross_operating_point__transform_grad()
+            # shape (..., Nobservations,Nh,Nw,3),
+            #       (..., Nobservations,Nh,Nw,3,6)
+            pcam, dpcam_drt_ref_refperturbed = \
+                transform_point_rt3_withgrad_drt1(nps.dummy(rt_cam_ref_all, -2,-2),
+                                                  mrcal.identity_rt(),
+                                                  nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
+                                                  nps.mv(calibration_object_query,-4,-5))
+
+            x_cross, J_cross = get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed)
+
+        elif 1:
+            # shape (..., Nobservations,Nh,Nw,3),
+            pref = mrcal.transform_point_rt( nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
+                                             nps.mv(calibration_object_query,-4,-5))
+            dpref_drt_ref_refperturbed = transform_point_identity_gradient(pref)
+            # shape (..., Nobservations,Nh,Nw,3),
+            #       (..., Nobservations,Nh,Nw,3,6)
+            pcam, _, dpcam_dpref = \
+                mrcal.transform_point_rt(nps.dummy(rt_cam_ref_all, -2,-2),
+                                         pref,
+                                         get_gradients = True)
+            dpcam_drt_ref_refperturbed = \
+                nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
+
+            x_cross, J_cross = get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed)
+
         else:
             xJ_cross = np.empty( (len(query_optimization_inputs),2), dtype=object)
             get_cross_operating_point__internal_compose_and_linearization( np.array(query_optimization_inputs,
