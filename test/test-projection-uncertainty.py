@@ -1029,8 +1029,10 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
             '''
 
-            Nmeas_observations = mrcal.num_measurements_boards(**optimization_inputs_baseline)
-            J_packed_baseline_observations = J_packed_baseline[:Nmeas_observations, :]
+            imeas0_observations = mrcal.measurement_index_boards(0, **optimization_inputs_baseline)
+            Nmeas_observations  = mrcal.num_measurements_boards(**optimization_inputs_baseline)
+            J_packed_baseline_observations = J_packed_baseline[imeas0_observations:imeas0_observations+Nmeas_observations,
+                                                               :]
 
             query_qref    = query_optimization_inputs   ['observations_board'][...,:2].ravel()
             baseline_qref = baseline_optimization_inputs['observations_board'][...,:2].ravel()
@@ -1071,7 +1073,7 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
                 gp.plot( nps.cat(db_predicted, db_observed) )
 
-            x_cross = np.array(x_baseline[:Nmeas_observations])
+            x_cross = np.array(x_baseline[imeas0_observations:imeas0_observations+Nmeas_observations])
             x_cross_point = x_cross.reshape(len(x_cross)//2, 2)
             if x_cross_point.base is not x_cross:
                 raise Exception("reshape() made new array. This is a bug")
