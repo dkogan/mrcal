@@ -768,12 +768,15 @@ leaves drt_ref_frame. This represents a shift from the optimized rt_ref_frame to
   rt_ref_frameperturbed = compose_rt(rt_ref_refperturbed,rt_refperturbed_frameperturbed).
 
 For x_cross_perturbed0, I have rt_ref_refperturbed = 0, so there I have
-drt_ref_frame = M[frame] delta_qref. And for the gradient I have:
+drt_ref_frame = M[frame] delta_qref. So I have
+
+  x_cross_perturbed0 =
+              x0 +
+              J_frame          M[frame]          delta_qref +
+              J_calobject_warp M[calobject_warp] delta_qref
 
   J_cross_perturbed = dx_cross_perturbed/drt_ref_refperturbed
                     = J_frame drt_ref_frameperturbed/drt_ref_refperturbed
-
-which I can obtain from the transform composition functions.
 
 Now that I have rt_ref_refperturbed, I can use it to compute qperturbed. This
 can accept arbitrary q, not just those in the solve, so I actually need to
@@ -988,32 +991,41 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
                                (2,),
                                out_kwarg='out')
         def get_cross_operating_point__internal_compose_and_linearization(query_optimization_inputs, out):
-            r'''The big docstring above says
+            r'''The docstring above says
 
-x_cross_point =
+x_cross_perturbed0 =
             x0 +
             J_frame          M[frame]          delta_qref +
             J_calobject_warp M[calobject_warp] delta_qref
 
-J_cross =   J_frame drt_ref_frame/drt_ref_refperturbed
-
+J_cross_perturbed = dx_cross_perturbed/drt_ref_refperturbed
+                  = J_frame drt_ref_frameperturbed/drt_ref_refperturbed
 
 The uncertainty computation in
-http://mrcal.secretsauce.net/uncertainty.html concludes that
+            http://mrcal.secretsauce.net/uncertainty.html concludes that
 
   M = inv(JtJ) J[observations]t W
 
-What I actually have is b* and J*: the UNITLESS state and the jacobian
-respectively, where
+What I actually have is b* and J*: the packed, UNITLESS state and the jacobian
+            respectively, where
 
   b = D b*
-  J = J* inv(D)
+            J = J* inv(D)
 
 So
 
   M = D inv(J*tJ*) J*[observations]t W
 
-M[frame] delta_qref
+To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
+            S*b. So
+
+  M[frame] = S D inv(J*tJ*) J*[observations]t W
+
+  J_frame = J* inv(D) St
+
+  J_frame M[frame] = J* inv(D) St S D inv(J*tJ*) J*[observations]t W
+
+  St S = diag([0,0,0,... 1,1,1..., 0,0,0,0])
 
             '''
 
