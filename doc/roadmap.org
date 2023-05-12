@@ -57,7 +57,6 @@
     --explore
   #+end_src
 
-
   Some experimental fixes are implemented in
   [[https://www.github.com/dkogan/mrcal/blob/master/test/test-projection-uncertainty.py][=test/test-projection-uncertainty.py=]]. For instance:
 
@@ -66,8 +65,10 @@
     --fixed cam0                      \
     --model opencv4                   \
     --show-distribution               \
-    --explore                         \
+    --range-to-boards 4               \
+    --extra-observation-at 40         \
     --do-sample                       \
+    --explore                         \
     --reproject-perturbed mean-frames-using-meanq-penalize-big-shifts
   #+end_src
 
