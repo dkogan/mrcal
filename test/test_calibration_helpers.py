@@ -296,12 +296,16 @@ perfect observations
 
     if have('frames_rt_toref'):
         frames_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['frames_rt_toref'].shape, dtype=float)
+        q_noise_board_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['observations_board'].shape[:-1] + (2,), dtype=float)
     else:
-        frames_sampled = None
+        frames_sampled        = None
+        q_noise_board_sampled = None
     if have('points'):
         points_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['points'].shape, dtype=float)
+        q_noise_point_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['observations_point'].shape[:-1] + (2,), dtype=float)
     else:
-        points_sampled = None
+        points_sampled        = None
+        q_noise_point_sampled = None
     if have('calobject_warp'):
         calobject_warp_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['calobject_warp'].shape, dtype=float)
     else:
@@ -325,13 +329,17 @@ perfect observations
         optimization_inputs = optimization_inputs_sampled[isample]
 
         if have('observations_board'):
-            optimization_inputs['observations_board'] = \
+            q_noise_board_sampled[isample],optimization_inputs['observations_board'] = \
                 sample_dqref(optimization_inputs['observations_board'],
-                             pixel_uncertainty_stdev)[1]
+                             pixel_uncertainty_stdev)
+        else:
+            q_noise_board = None
         if have('observations_point'):
-            optimization_inputs['observations_point'] = \
+            q_noise_point_sampled[isample],optimization_inputs['observations_point'] = \
                 sample_dqref(optimization_inputs['observations_point'],
-                             pixel_uncertainty_stdev)[1]
+                             pixel_uncertainty_stdev)
+        else:
+            q_noise_point = None
 
         if function_optimize is None:
             mrcal.optimize(**optimization_inputs)
@@ -359,4 +367,6 @@ perfect observations
           frames_sampled,
           points_sampled,
           calobject_warp_sampled,
+          q_noise_board_sampled,
+          q_noise_point_sampled,
           optimization_inputs_sampled)
