@@ -1376,6 +1376,50 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
 
 
+    if rt_ref_refperturbed.shape[0] > 10:
+
+        print("not yet done. finish this")
+
+        rt_ref_refperturbed__mean0 = rt_ref_refperturbed - np.mean(rt_ref_refperturbed, axis=-2)
+
+        var_empirical__rt_ref_refperturbed = np.mean(nps.outer(rt_ref_refperturbed__mean0,rt_ref_refperturbed__mean0), axis=0)
+        var_predicted__rt_ref_refperturbed = mrcal.var_rt_ref_refperturbed(**optimization_inputs_baseline)
+
+        l0,v0 = mrcal.utils._sorted_eig(var_empirical__rt_ref_refperturbed)
+        l1,v1 = mrcal.utils._sorted_eig(var_predicted__rt_ref_refperturbed)
+
+        # Ideally the predicted and observed Var(rt_ref_refperturbed) will match
+        # exactly. I can check by looking at the eigendecomposition of the two
+        # covariance matrices. The eigenvalues are the axis lengths of the
+        # ellipse and the eigenvectors are the orientation. Especially the
+        # bigger eigenvalues/vectors (towards the end of the sorted list) should
+        # match
+
+        # eigenvalues: gp.plot(nps.cat(l0,l1)) should match. Instead I see that
+        # gp.plot(nps.cat(l0,l1*2)) matches ok
+
+        # eigenvectors:
+        #
+        #   np.arccos(np.abs(np.diag(nps.matmult(v0.T,v1))))*180./np.pi
+        #
+        # should all be close to 0 degrees. I more or less see that today.
+
+        # I can check with a function:
+
+        # testutils.confirm_covariances_equal(
+        #     var_empirical__rt_ref_refperturbed,
+        #     var_predicted__rt_ref_refperturbed*2,
+        #     what='rtrr',
+        #     eps_eigenvalues      = 0.15,
+        #     eps_eigenvectors_deg = 15.0)
+
+        # Here the "*2" is needed to make it match. There's a bug somewhere.
+        # With "--Nsamples 500" this passes with the above: 15% relative error
+        # on each eigenvalue, 15deg max deviation on each eigenvector
+
+
+
+
 
     # shape (Ncameras, 3)
     p_cam_baseline = mrcal.unproject(q, lensmodel, baseline_intrinsics,
