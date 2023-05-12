@@ -1444,6 +1444,7 @@ if not args.do_sample:
   calobject_warp_sampled,     \
   q_noise_board_sampled,      \
   q_noise_point_sampled,      \
+  b_sampled,
   optimization_inputs_sampled ) = \
       calibration_sample( args.Nsamples,
                           optimization_inputs_baseline,
