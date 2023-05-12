@@ -1330,7 +1330,10 @@ PyObject* _optimize(optimizemode_t optimizemode,
         goto done;
 
     // Can't compute a factorization without a jacobian. That's what we're factoring
-    if(!no_factorization) no_jacobian = false;
+    if(!no_factorization)
+        no_jacobian = false;
+
+
 
     {
         int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
