@@ -987,7 +987,7 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
         @nps.broadcast_define( ((),),
                                (2,),
                                out_kwarg='out')
-        def get_cross_operating_point__internal_compose_and_linearization(query_optimization_input, out):
+        def get_cross_operating_point__internal_compose_and_linearization(query_optimization_inputs, out):
             r'''The big docstring above says
 
 x_cross_point =
@@ -1020,7 +1020,7 @@ M[frame] delta_qref
             Nmeas_observations = mrcal.num_measurements_boards(**optimization_inputs_baseline)
             J_packed_baseline_observations = J_packed_baseline[:Nmeas_observations, :]
 
-            query_qref    = query_optimization_input    ['observations_board'][...,:2].ravel()
+            query_qref    = query_optimization_inputs   ['observations_board'][...,:2].ravel()
             baseline_qref = baseline_optimization_inputs['observations_board'][...,:2].ravel()
             delta_qref = query_qref - baseline_qref
             if len(delta_qref) != Nmeas_observations:
@@ -1052,7 +1052,7 @@ M[frame] delta_qref
             if 0:
                 ############### compare db_observed, db_predicted
                 b_packed_query, x_query, J_packed_query, _ = \
-                    mrcal.optimizer_callback(**query_optimization_input,
+                    mrcal.optimizer_callback(**query_optimization_inputs,
                                              no_factorization = True)
                 db_observed = b_packed_query - b_packed_baseline
                 mrcal.unpack_state(db_observed, **baseline_optimization_inputs)
