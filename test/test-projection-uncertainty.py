@@ -1182,12 +1182,19 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
             x_cross, J_cross = get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed)
 
         else:
-            xJ_cross = np.empty( (len(query_optimization_inputs),2), dtype=object)
-            get_cross_operating_point__internal_compose_and_linearization( np.array(query_optimization_inputs,
-                                                                                    dtype=object),
-                                                                           out = xJ_cross)
-            x_cross = np.array(tuple(xJ_cross[:,0]))
-            J_cross = np.array(tuple(xJ_cross[:,1]))
+            if query_optimization_inputs is not None:
+
+                xJ_cross = np.empty( (len(query_optimization_inputs),2), dtype=object)
+                get_cross_operating_point__internal_compose_and_linearization( np.array(query_optimization_inputs,
+                                                                                        dtype=object),
+                                                                               out = xJ_cross)
+                x_cross = np.array(tuple(xJ_cross[:,0]))
+                J_cross = np.array(tuple(xJ_cross[:,1]))
+
+            else:
+                print("No query_optimization_inputs available. Cannot compute rt_ref_refperturbed")
+                return None
+
 
             # These should all match. They do (manual testing), but that should be
             # automated. I'm moving on.
@@ -1292,7 +1299,7 @@ q0_true = dict()
 for distance in args.distances:
 
     # shape (Ncameras, 2)
-    q0_true[distance] = \
+    q0_true_here = \
         reproject_perturbed(q0_baseline,
                             1e5 if distance is None else distance,
 
@@ -1308,8 +1315,18 @@ for distance in args.distances:
                             calobject_warp_true,
                             # optimization_inputs_sampled not available here:
                             # the "true" values aren't the result of an
-                            # optimization
+                            # optimization. Subsequent calls to
+                            # reproject_perturbed() will have
+                            # optimization_inputs_sampled available
                             None)
+
+    if q0_true_here is not None:
+        q0_true[distance] = q0_true_here
+    else:
+        # Couldn't compute. Probably because we needed
+        # optimization_inputs_sampled
+        q0_true = None
+        break
 
     # I check the bias for cameras 0,1. Cameras 2,3 have q0 outside of the
     # chessboard region, or right on its edge, so regularization DOES affect
@@ -1518,19 +1535,27 @@ def make_plot(icam, report_center_points = True, **kwargs):
                    mrcal.utils._plot_arg_covariance_ellipse(q_sampled_mean, Var_dq[icam], "Predicted uncertainty"),)
 
     if report_center_points:
+
+        if q0_true is not None:
+            data_tuple_true_center_point = \
+                ( (q0_true[args.distances[0]][icam],
+                   dict(tuplesize = -2,
+                        _with     = 'points pt 3 ps 3',
+                        legend    = 'True center point')), )
+        else:
+            print("q0_true is None; not plotting the true center point")
+            data_tuple_true_center_point = ()
+
         data_tuples += \
             ( (q0_baseline,
                dict(tuplesize = -2,
                     _with     = 'points pt 3 ps 3',
                     legend    = 'Baseline center point')),
-              (q0_true[args.distances[0]][icam],
-               dict(tuplesize = -2,
-                    _with     = 'points pt 3 ps 3',
-                    legend    = 'True center point')),
               (q_sampled_mean,
                dict(tuplesize = -2,
                     _with     = 'points pt 3 ps 3',
-                    legend    = 'Sampled mean')))
+                    legend    = 'Sampled mean')) ) \
+            + data_tuple_true_center_point
 
     plot_options = \
         dict(square=1,
