@@ -1040,7 +1040,7 @@ The operating point as T_ref_refperturbed = identity: rt_ref_refperturbed = 0. S
                                 ('Nstate',),),
                                (2,),
                                out_kwarg='out')
-        def get_cross_operating_point__internal_compose_and_linearization(delta_qref, b_query, out):
+        def get_cross_operating_point__linearization(delta_qref, b_query, out):
             r'''Compute (dx_cross0,J_cross) directly, from the optimized linearization
 
 This function computes the operating point by looking at the baseline gradients
@@ -1056,8 +1056,12 @@ x_cross_perturbed0 =
           = x0 +
             J[frame,calobject_warp] db[frame,calobject_warp]
 
+dx_cross_perturbed0 = J[frame,calobject_warp] db[frame,calobject_warp]
+
 J_cross_perturbed = dx_cross_perturbed/drt_ref_refperturbed
                   = J_frame drt_ref_frameperturbed/drt_ref_refperturbed
+
+
 
 The uncertainty computation in
             http://mrcal.secretsauce.net/uncertainty.html concludes that
@@ -1118,9 +1122,9 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
             mrcal.unpack_state(db_predicted, **baseline_optimization_inputs)
 
             #### I just computed db = M dqref
-            if not hasattr(get_cross_operating_point__internal_compose_and_linearization,
+            if not hasattr(get_cross_operating_point__linearization,
                            'did_already_compare_b'):
-                get_cross_operating_point__internal_compose_and_linearization.did_already_compare_b = True
+                get_cross_operating_point__linearization.did_already_compare_b = True
 
                 db_observed = b_query - b_baseline
 
@@ -1155,20 +1159,26 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
             # db_cross_packed now contains only state from frames,
             # calobject_warp. All other state is 0
+
             dx_cross0 = J_packed_baseline_observations.dot(db_cross_packed)
 
+
             #### Now J_cross = J_frame drt_ref_frame/drt_ref_refperturbed
+            Nstate = len(b_query)
+            b = np.ones( (Nstate,), dtype=float)
+            mrcal.unpack_state(b, **baseline_optimization_inputs)
+            scale_frames = b[istate_frame0:istate_frame0+6]
+
             Nframes = Nstates_frame//6
             rt_ref_frame = b_baseline[istate_frame0 : istate_frame0+Nstates_frame].reshape(Nframes,6)
+
+            # shape (Nframes,6,6)
             drt_ref_frame__drt_ref_refperturbed = compose_rt_tinyr0_gradr0(rt_ref_frame)
 
-            ##### I MANULLY PACK. GOOD-ENOUGH ONLY AS A TEST. HARD-CODES THESE FROM mrcal.c:
-            #define SCALE_ROTATION_FRAME          (15.0 * M_PI/180.0)
-            #define SCALE_TRANSLATION_FRAME       1.0
-            drt_ref_frame__drt_ref_refperturbed[:, :3, :] /= (15.0 * np.pi/180.0)
-            drt_ref_frame__drt_ref_refperturbed[:, 3:, :] /= (1.0)
+            # Pack. rt_ref_frame is now packed
+            drt_ref_frame__drt_ref_refperturbed /= nps.dummy(scale_frames, -1)
 
-            ##### I ASSUME ONE FRAME POSE PER SET OF OBSERVATIONS. WORKS WITH ONE CAMERA ONLY
+            # shape (Nframes*6,6) = (Nstates_frame,6)
             drt_ref_frame__drt_ref_refperturbed = nps.clump(drt_ref_frame__drt_ref_refperturbed, n=2)
 
             J_cross = J_packed_baseline_observations[:, istate_frame0:istate_frame0+Nstates_frame].dot(drt_ref_frame__drt_ref_refperturbed)
@@ -1244,12 +1254,12 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
             dxJ_results[method] = dx_cross0,J_cross
 
         if 1:
-            method = 'internal_compose_and_linearization'
+            method = 'linearization'
 
             if query_q_noise_board is not None:
 
                 dxJ_cross = np.empty( (len(query_q_noise_board),2), dtype=object)
-                get_cross_operating_point__internal_compose_and_linearization( query_q_noise_board,
+                get_cross_operating_point__linearization( query_q_noise_board,
                                                                                query_b, # only for plotting and checking
                                                                                out = dxJ_cross)
                 dx_cross0 = np.array(tuple(dxJ_cross[:,0]))
@@ -1266,32 +1276,62 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
 
 
-        if 'internal_compose_and_linearization' in dxJ_results:
+        if 'linearization' in dxJ_results:
 
             # compose-grad and transform-grad should be exactly the same, modulo numerical fuzz
             testutils.confirm_equal(dxJ_results['compose-grad'  ][0],
                                     dxJ_results['transform-grad'][0],
                                     eps       = 1e-6,
                                     worstcase = True,
-                                    msg = f"dx_cross0 is identical as computd by compose-grad and transform-grad")
+                                    msg = f"dx_cross0 is identical as computed by compose-grad and transform-grad")
             testutils.confirm_equal(dxJ_results['compose-grad'][1],
                                     dxJ_results['transform-grad'][1],
                                     eps       = 1e-6,
                                     worstcase = True,
-                                    msg = f"J_cross is identical as computd by compose-grad and transform-grad")
+                                    msg = f"J_cross is identical as computed by compose-grad and transform-grad")
 
-            testutils.confirm_equal(dxJ_results['compose-grad'  ][0],
-                                    dxJ_results['internal_compose_and_linearization'][0],
-                                    eps       = 1e-6,
-                                    worstcase = True,
-                                    msg = f"dx_cross0 is identical as computd by compose-grad and internal_compose_and_linearization")
-            testutils.confirm_equal(dxJ_results['compose-grad'][1],
-                                    dxJ_results['internal_compose_and_linearization'][1],
-                                    eps       = 1e-6,
-                                    worstcase = True,
-                                    msg = f"J_cross is identical as computd by compose-grad and internal_compose_and_linearization")
+            # The linearized operating point was computed only by looking at the
+            # gradients of the original solution WITHOUT reoptimizing anything.
+            # So this should be close, but will not be exact. This threshold and
+            # reldiff_eps look high, but I'm pretty sure this is correct. Enable
+            # the plot immediatly below to see
+            testutils.confirm_equal(dxJ_results['compose-grad' ][0],
+                                    dxJ_results['linearization'][0],
+                                    eps = 0.1,
+                                    percentile = 90,
+                                    msg = f"linearized dx_cross0 is correct")
+            testutils.confirm_equal(dxJ_results['compose-grad' ][1][...,:3],
+                                    dxJ_results['linearization'][1][...,:3],
+                                    eps = 3,
+                                    percentile = 90,
+                                    msg = f"linearized J_cross (/dr) is correct")
+            testutils.confirm_equal(dxJ_results['compose-grad' ][1][...,3:],
+                                    dxJ_results['linearization'][1][...,3:],
+                                    eps = 1,
+                                    percentile = 90,
+                                    msg = f"linearized J_cross (/dt) is correct")
 
-        dx_cross0,J_cross = dxJ_results['compose-grad']
+
+            if 0:
+                import gnuplotlib as gp
+                gp.plot( nps.cat(dxJ_results['compose-grad' ][0][0],
+                                 dxJ_results['linearization'][0][0]),
+                         wait = True )
+                # dx/dr
+                gp.plot( nps.cat(np.ravel(dxJ_results['compose-grad' ][1][0,:1000,:3]),
+                                 np.ravel(dxJ_results['linearization'][1][0,:1000,:3])),
+                         wait = True)
+                # dx/dt
+                gp.plot( nps.cat(np.ravel(dxJ_results['compose-grad' ][1][0,:1000,3:]),
+                                 np.ravel(dxJ_results['linearization'][1][0,:1000,3:])),
+                         wait = True)
+
+
+
+        if 'linearization' in dxJ_results:
+            dx_cross0,J_cross = dxJ_results['linearization']
+        else:
+            dx_cross0,J_cross = dxJ_results['compose-grad']
 
         E_cross_ref0        = nps.norm2(dx_cross0 + x_baseline_boards)
         rt_ref_refperturbed = -lstsq(J_cross, dx_cross0)
