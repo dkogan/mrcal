@@ -287,6 +287,7 @@ def confirm_covariances_equal(var, var_ref,
     l_predicted,v_predicted = mrcal.utils._sorted_eig(var)
     l_observed,v_observed   = mrcal.utils._sorted_eig(var_ref)
 
+    # This look at JUST the most dominant modes
     eccentricity_predicted = l_predicted[-1] / l_predicted[-2]
 
     for i in range(var.shape[-1]):
