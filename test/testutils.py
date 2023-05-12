@@ -304,7 +304,7 @@ def confirm_covariances_equal(var, var_ref,
                       eps = eps,
                       worstcase = True,
                       relative  = True,
-                      msg = f"Var(dq) worst[{i}] eigenvalue match for {what}")
+                      msg = f"Var(dq) largest[{i}] eigenvalue match for {what}")
         if check_biggest_eigenvalue_only:
             break
 
