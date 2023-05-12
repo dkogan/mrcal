@@ -363,8 +363,10 @@ def reproject_perturbed__mean_frames(q, distance,
                                      query_rt_ref_frame,
                                      # shape (..., 2)
                                      query_calobject_warp,
-                                     # list of dicts of length ...
-                                     query_optimization_inputs):
+                                     # shape (..., Nstate)
+                                     query_b,
+                                     # shape (..., Nobservations,Nheight,Nwidth, 2)
+                                     query_q_noise_board):
     r'''Reproject by computing the mean in the space of frames
 
 This is what the uncertainty computation does (as of 2020/10/26). The implied
@@ -461,8 +463,10 @@ def reproject_perturbed__fit_boards_ref(q, distance,
                                         query_rt_ref_frame,
                                         # shape (..., 2)
                                         query_calobject_warp,
-                                        # list of dicts of length ...
-                                        query_optimization_inputs):
+                                        # shape (..., Nstate)
+                                        query_b,
+                                        # shape (..., Nobservations,Nheight,Nwidth, 2)
+                                        query_q_noise_board):
 
     r'''Reproject by explicitly computing a procrustes fit to align the reference
     coordinate systems of the two solves. We match up the two sets of chessboard
@@ -576,8 +580,10 @@ def reproject_perturbed__diff(q, distance,
                               query_rt_ref_frame,
                               # shape (2)
                               query_calobject_warp,
-                              # dict
-                              query_optimization_inputs):
+                              # shape (..., Nstate)
+                              query_b,
+                              # shape (..., Nobservations,Nheight,Nwidth, 2)
+                              query_q_noise_board):
 
     r'''Reproject by using the "diff" method to compute a rotation
 
@@ -634,8 +640,10 @@ def reproject_perturbed__optimize_cross_reprojection_error(q, distance,
                                                            query_rt_ref_frame,
                                                            # shape (..., 2)
                                                            query_calobject_warp,
-                                                           # list of dicts of length ...
-                                                           query_optimization_inputs):
+                                                           # shape (..., Nstate)
+                                                           query_b,
+                                                           # shape (..., Nobservations,Nheight,Nwidth, 2)
+                                                           query_q_noise_board):
 
     r'''Reproject by explicitly computing a ref-refperturbed transformation
 
@@ -802,8 +810,10 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
         raise Exception("reproject_perturbed__optimize_cross_reprojection_error(fixedframes = True) is not yet implemented")
 
 
-    b_packed_baseline, x_baseline, J_packed_baseline, factorization = \
+    b_baseline, x_baseline, J_packed_baseline, factorization = \
         mrcal.optimizer_callback(**baseline_optimization_inputs)
+    mrcal.unpack_state(b_baseline, **baseline_optimization_inputs)
+
 
     observations_board = \
         baseline_optimization_inputs.get('observations_board')
@@ -961,6 +971,9 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
 
             r'''Compute (x_cross0,J_cross) directly, from a projection
 
+This function computes the operating point after explicitly evaluating qref
+noise, and reoptimizing
+
 The expression above is
 
   x_cross_perturbed =
@@ -974,8 +987,7 @@ The operating point as T_ref_refperturbed = identity: rt_ref_refperturbed = 0. S
     project(intrinsics,
             T_cam_ref T_refperturbed_frameperturbed p_perturbed)
     - qref
-
-'''
+            '''
             # shape (..., Nobservations,Nh,Nw,2)
             #       (..., Nobservations,Nh,Nw,2,3)
             q_cross,dq_dpcam,_ = \
@@ -1003,11 +1015,16 @@ The operating point as T_ref_refperturbed = identity: rt_ref_refperturbed = 0. S
             return x_cross0, J_cross
 
         # I broadcast over each sample
-        @nps.broadcast_define( ((),),
+        @nps.broadcast_define( (('Nobservations','Nh','Nw',2),
+                                ('Nstate',),),
                                (2,),
                                out_kwarg='out')
-        def get_cross_operating_point__internal_compose_and_linearization(query_optimization_inputs, out):
+        def get_cross_operating_point__internal_compose_and_linearization(delta_qref, b_query, out):
             r'''Compute (x_cross0,J_cross) directly, from the optimized linearization
+
+This function computes the operating point by looking at the baseline gradients
+only. WITHOUT reoptimizing
+
 
 The docstring above says
 
@@ -1052,19 +1069,17 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
             J_packed_baseline_observations = J_packed_baseline[imeas0_observations:imeas0_observations+Nmeas_observations,
                                                                :]
 
-            query_qref    = query_optimization_inputs   ['observations_board'][...,:2].ravel()
             baseline_qref = baseline_optimization_inputs['observations_board'][...,:2].ravel()
-            delta_qref = query_qref - baseline_qref
-            if len(delta_qref) != Nmeas_observations:
+
+            if delta_qref.size != Nmeas_observations:
                 raise Exception("Mismatched observation counts. This is a bug")
             if mrcal.num_measurements_points(**optimization_inputs_baseline) != 0:
                 raise Exception("Uncertainty propagation with points not implemented yet")
 
             # mask out outliers
             weight = baseline_optimization_inputs['observations_board'][...,2].ravel()
-            delta_qref_xy = delta_qref.reshape(len(delta_qref)//2, 2)
-            if delta_qref_xy.base is not delta_qref:
-                raise Exception("reshape() made new array. This is a bug")
+            delta_qref_xy = nps.clump(delta_qref, n=3)
+            if delta_qref_xy.base is not delta_qref.base: raise Exception("clump() made new array. This is a bug")
             delta_qref_xy[weight <= 0, :] = 0
 
             # delta_qref <- W delta_qref
@@ -1075,7 +1090,7 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
             mrcal._mrcal_npsp._Jt_x(J_packed_baseline_observations.indptr,
                                     J_packed_baseline_observations.indices,
                                     J_packed_baseline_observations.data,
-                                    delta_qref,
+                                    delta_qref.ravel(),
                                     out = Jt_W_qref)
 
             db_predicted = factorization.solve_xt_JtJ_bt( Jt_W_qref )
@@ -1083,14 +1098,9 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
             if 0:
                 ############### compare db_observed, db_predicted
-                b_packed_query, _, _, _ = \
-                    mrcal.optimizer_callback(**query_optimization_inputs,
-                                             no_jacobian      = True,
-                                             no_factorization = True)
-                db_observed = b_packed_query - b_packed_baseline
-                mrcal.unpack_state(db_observed, **baseline_optimization_inputs)
-
-                gp.plot( nps.cat(db_predicted, db_observed) )
+                import gnuplotlib as gp
+                db_observed = b_query - b_baseline
+                gp.plot( nps.cat(db_predicted, db_observed), wait = True )
 
             x_cross0 = np.array(x_baseline[imeas0_observations:imeas0_observations+Nmeas_observations])
             x_cross_point = x_cross0.reshape(len(x_cross0)//2, 2)
@@ -1120,9 +1130,6 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
 
             #### Now J_cross = J_frame drt_ref_frame/drt_ref_refperturbed
-            b_baseline = np.array(b_packed_baseline)
-            mrcal.unpack_state(b_baseline, **baseline_optimization_inputs)
-
             Nframes = Nstates_frame//6
             rt_ref_frame = b_baseline[istate_frame0 : istate_frame0+Nstates_frame].reshape(Nframes,6)
             drt_ref_frame__drt_ref_refperturbed = compose_rt_tinyr0_gradr0(rt_ref_frame)
@@ -1211,11 +1218,11 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
         if 1:
             method = 'internal_compose_and_linearization'
 
-            if query_optimization_inputs is not None:
+            if query_q_noise_board is not None:
 
-                xJ_cross = np.empty( (len(query_optimization_inputs),2), dtype=object)
-                get_cross_operating_point__internal_compose_and_linearization( np.array(query_optimization_inputs,
-                                                                                        dtype=object),
+                xJ_cross = np.empty( (len(query_q_noise_board),2), dtype=object)
+                get_cross_operating_point__internal_compose_and_linearization( query_q_noise_board,
+                                                                               query_b, # used for plotting only
                                                                                out = xJ_cross)
                 x_cross0 = np.array(tuple(xJ_cross[:,0]))
                 J_cross = np.array(tuple(xJ_cross[:,1]))
@@ -1229,6 +1236,32 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
             # inv(JtJ)Jt x0
             return np.linalg.lstsq(J, x, rcond = None)[0]
 
+
+
+        if 'internal_compose_and_linearization' in xJ_results:
+
+            # compose-grad and transform-grad should be exactly the same, modulo numerical fuzz
+            testutils.confirm_equal(xJ_results['compose-grad'  ][0],
+                                    xJ_results['transform-grad'][0],
+                                    eps       = 1e-6,
+                                    worstcase = True,
+                                    msg = f"x_cross0 is identical as computd by compose-grad and transform-grad")
+            testutils.confirm_equal(xJ_results['compose-grad'][1],
+                                    xJ_results['transform-grad'][1],
+                                    eps       = 1e-6,
+                                    worstcase = True,
+                                    msg = f"J_cross is identical as computd by compose-grad and transform-grad")
+
+            testutils.confirm_equal(xJ_results['compose-grad'  ][0],
+                                    xJ_results['internal_compose_and_linearization'][0],
+                                    eps       = 1e-6,
+                                    worstcase = True,
+                                    msg = f"x_cross0 is identical as computd by compose-grad and internal_compose_and_linearization")
+            testutils.confirm_equal(xJ_results['compose-grad'][1],
+                                    xJ_results['internal_compose_and_linearization'][1],
+                                    eps       = 1e-6,
+                                    worstcase = True,
+                                    msg = f"J_cross is identical as computd by compose-grad and internal_compose_and_linearization")
         x_cross0,J_cross = xJ_results['compose-grad']
 
         E_cross_ref0        = nps.norm2(x_cross0)
@@ -1338,18 +1371,17 @@ for distance in args.distances:
                             extrinsics_true_mounted,
                             frames_true,
                             calobject_warp_true,
-                            # optimization_inputs_sampled not available here:
-                            # the "true" values aren't the result of an
-                            # optimization. Subsequent calls to
+                            # q_noise_board_sampled not available here: We
+                            # haven't sampled any noise yet. Subsequent calls to
                             # reproject_perturbed() will have
-                            # optimization_inputs_sampled available
-                            None)
+                            # q_noise_board_sampled available
+                            None,None)
 
     if q0_true_here is not None:
         q0_true[distance] = q0_true_here
     else:
         # Couldn't compute. Probably because we needed
-        # optimization_inputs_sampled
+        # q_noise_board_sampled
         q0_true = None
         break
 
@@ -1444,12 +1476,11 @@ if not args.do_sample:
   calobject_warp_sampled,     \
   q_noise_board_sampled,      \
   q_noise_point_sampled,      \
-  b_sampled,
-  optimization_inputs_sampled ) = \
+  b_sampled) =                \
       calibration_sample( args.Nsamples,
                           optimization_inputs_baseline,
                           pixel_uncertainty_stdev,
-                          fixedframes)
+                          fixedframes)[:-1]
 
 
 def check_uncertainties_at(q0_baseline, idistance):
@@ -1485,7 +1516,8 @@ def check_uncertainties_at(q0_baseline, idistance):
                             extrinsics_sampled_mounted,
                             frames_sampled,
                             calobject_warp_sampled,
-                            optimization_inputs_sampled)
+                            b_sampled,
+                            q_noise_board_sampled)
 
     # shape (Ncameras, 2)
     q_sampled_mean = np.mean(q_sampled, axis=-3)
