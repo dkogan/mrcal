@@ -798,7 +798,7 @@ ARGUMENTS
   identity, so it's not given
 
 - out: optional argument specifying the destination. By default, a new numpy
-  array(s) is created and returned. To write the results into an existing (and
+  array is created and returned. To write the results into an existing (and
   possibly non-contiguous) array, specify it with the 'out' kwarg. 'out' is the
   one numpy array we will write into
 
