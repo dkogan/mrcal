@@ -826,6 +826,64 @@ We return a single array: dr01/dr0
 '''},
 )
 
+m.function( "compose_r_tinyr1_gradientr1",
+    r"""Special-case rotation composition for the uncertainty computation
+
+SYNOPSIS
+
+    r0 = rotation_axis0 * rotation_magnitude0
+
+    dr01_dr1 = compose_r_tinyr1_gradientr1(r0)
+
+    ### Another way to get the same thing (but possibly less efficiently)
+     _,_,dr01_dr1 = compose_r(r0,
+                              np.zeros((3,),),
+                              get_gradients=True)
+
+This is a special-case subset of compose_r(). It is the same, except:
+
+- r1 is assumed to be 0, so we don't ingest it, and we don't report the
+  composition result
+- we ONLY report the dr01/dr1 gradient
+
+This special-case function is a part of the projection uncertainty computation,
+so it exists by itself. See the documentation for compose_r() for all the
+details.
+
+ARGUMENTS
+
+- r0: the first of the two rotations being composed. The second rotation is an
+  identity, so it's not given
+
+- out: optional argument specifying the destination. By default, a new numpy
+  array is created and returned. To write the results into an existing (and
+  possibly non-contiguous) array, specify it with the 'out' kwarg. 'out' is the
+  one numpy array we will write into
+
+RETURNED VALUE
+
+We return a single array: dr01/dr1
+
+""",
+
+            args_input       = ('r0',),
+            prototype_input  = ((3,),),
+            prototype_output = (3,3),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_compose_r_tinyr1_gradientr1_full(
+        // dr/dr1
+        &item__output(0,0),
+        strides_slice__output[0], strides_slice__output[1],
+        (const double*)data_slice__r0,
+        strides_slice__r0[0] );
+
+    return true;
+'''},
+)
+
 m.function( "_compose_rt",
             """Compose two rt transformations
 

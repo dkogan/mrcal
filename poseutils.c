@@ -682,6 +682,13 @@ void mrcal_compose_r_tinyr0_gradientr0_full( // output
         return;
     }
 
+    // I'm computing
+    //   R(angle=gamma, axis=n) =
+    //   compose( R(angle=alpha, axis=l), R(angle=beta, axis=m) )
+    // where
+    //   A = alpha/2
+    //   B = beta /2
+
     // I have
     // r01 = r1
     //     - inner(r0,r1) (B/tanB - 1) / 4B^2 r1
@@ -711,4 +718,72 @@ void mrcal_compose_r_tinyr0_gradientr0_full( // output
     P2(dr_dr0,1,2) -= -P1(r_1,0)/2.;
     P2(dr_dr0,2,0) -= -P1(r_1,1)/2.;
     P2(dr_dr0,2,1) -=  P1(r_1,0)/2.;
+}
+
+void mrcal_compose_r_tinyr1_gradientr1_full( // output
+                           double* dr_dr1,      // (3,3) array; may be NULL
+                           int dr_dr1_stride0,  // in bytes. <= 0 means "contiguous"
+                           int dr_dr1_stride1,  // in bytes. <= 0 means "contiguous"
+
+                           // input
+                           const double* r_0,   // (3,) array
+                           int r_0_stride0      // in bytes. <= 0 means "contiguous"
+                           )
+{
+    init_stride_2D(dr_dr1, 3, 3);
+    init_stride_1D(r_0, 3);
+
+    // All the comments and logic appear in compose_r_core() in
+    // poseutils-uses-autodiff.cc. This is a special-case function with
+    // manually-computed gradients (because I want to make sure they're fast)
+    double norm2_r0 = 0.0;
+    for(int i=0; i<3; i++)
+        norm2_r0 += P1(r_0,i)*P1(r_0,i);
+
+    if(norm2_r0 < 2e-8*2e-8)
+    {
+        // Both vectors are tiny, so I have r01 = r0 + r1, and the gradient is
+        // an identity matrix
+        for(int i=0; i<3; i++)
+            for(int j=0; j<3; j++)
+                P2(dr_dr1,i,j) = i==j ? 1.0 : 0.0;
+        return;
+    }
+
+    // I'm computing
+    //   R(angle=gamma, axis=n) =
+    //   compose( R(angle=alpha, axis=l), R(angle=beta, axis=m) )
+    // where
+    //   A = alpha/2
+    //   B = beta /2
+
+    // I have
+    // r01 = r0
+    //     - inner(r0,r1) (A/tanA - 1) / 4A^2 r0
+    //     + A/tanA r1
+    //     + cross(r0,r1) / 2
+    //
+    // I differentiate:
+    //
+    //   dr01/dr1 =
+    //     - outer(r0,r0) (A/tanA - 1) / 4A^2
+    //     + A/tanA I
+    //     + skew_symmetric(r0) / 2
+    double A    = sqrt(norm2_r0) / 2.;
+    double A_over_tanA = A / tan(A);
+
+    for(int i=0; i<3; i++)
+        for(int j=0; j<3; j++)
+            P2(dr_dr1,i,j) =
+                - P1(r_0,i)*P1(r_0,j) * (A_over_tanA - 1.) / (4.*A*A);
+    for(int i=0; i<3; i++)
+        P2(dr_dr1,i,i) +=
+            A_over_tanA;
+
+    P2(dr_dr1,0,1) += -P1(r_0,2)/2.;
+    P2(dr_dr1,0,2) +=  P1(r_0,1)/2.;
+    P2(dr_dr1,1,0) +=  P1(r_0,2)/2.;
+    P2(dr_dr1,1,2) += -P1(r_0,0)/2.;
+    P2(dr_dr1,2,0) += -P1(r_0,1)/2.;
+    P2(dr_dr1,2,1) +=  P1(r_0,0)/2.;
 }
