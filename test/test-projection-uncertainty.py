@@ -1183,9 +1183,9 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
                                                   nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
                                                   nps.mv(calibration_object_query,-4,-5))
 
-            x_cross, J_cross = get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed)
+            x_cross0, J_cross = get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed)
 
-            xJ_results[method] = x_cross,J_cross
+            xJ_results[method] = x_cross0,J_cross
 
         if 1:
             method = 'transform-grad'
@@ -1203,9 +1203,9 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
             dpcam_drt_ref_refperturbed = \
                 nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
 
-            x_cross, J_cross = get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed)
+            x_cross0, J_cross = get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed)
 
-            xJ_results[method] = x_cross,J_cross
+            xJ_results[method] = x_cross0,J_cross
 
         if 1:
             method = 'internal_compose_and_linearization'
@@ -1216,10 +1216,10 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
                 get_cross_operating_point__internal_compose_and_linearization( np.array(query_optimization_inputs,
                                                                                         dtype=object),
                                                                                out = xJ_cross)
-                x_cross = np.array(tuple(xJ_cross[:,0]))
+                x_cross0 = np.array(tuple(xJ_cross[:,0]))
                 J_cross = np.array(tuple(xJ_cross[:,1]))
 
-                xJ_results[method] = x_cross,J_cross
+                xJ_results[method] = x_cross0,J_cross
 
 
         @nps.broadcast_define((('N',6),('N',)),
@@ -1227,10 +1227,11 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
         def lstsq(J,x):
             # inv(JtJ)Jt x0
             return np.linalg.lstsq(J, x, rcond = None)[0]
-        x_cross,J_cross = xJ_results['compose-grad']
 
-        E_cross_ref0        = nps.norm2(x_cross)
-        rt_ref_refperturbed = -lstsq(J_cross, x_cross)
+        x_cross0,J_cross = xJ_results['compose-grad']
+
+        E_cross_ref0        = nps.norm2(x_cross0)
+        rt_ref_refperturbed = -lstsq(J_cross, x_cross0)
 
 
         # I have a 1-step solve. Let's look at the error to confirm that it's
@@ -1249,16 +1250,16 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
                               baseline_optimization_inputs['lensmodel'],
                               nps.dummy(intrinsics_all, -2,-2),
                               get_gradients = False)
-            x_cross = (q_cross - observations_board[...,:2])*nps.dummy(weight,-1)
-            x_cross[...,weight<=0,:] = 0 # outliers
+            x_cross0 = (q_cross - observations_board[...,:2])*nps.dummy(weight,-1)
+            x_cross0[...,weight<=0,:] = 0 # outliers
             # shape (..., Nobservations*Nh*Nw*2)
-            x_cross = nps.clump(x_cross, n=-4)
+            x_cross0 = nps.clump(x_cross0, n=-4)
 
-            E_cross_solvedref = nps.norm2(x_cross)
+            E_cross_solvedref = nps.norm2(x_cross0)
 
-            print(f"RMS error baseline            = {np.sqrt(E_baseline        / (x_cross.shape[-1]/2))} pixels")
-            print(f"RMS error perturbed           = {np.sqrt(E_cross_ref0      / (x_cross.shape[-1]/2))} pixels")
-            print(f"RMS error perturbed_solvedref = {np.sqrt(E_cross_solvedref / (x_cross.shape[-1]/2))} pixels")
+            print(f"RMS error baseline            = {np.sqrt(E_baseline        / (x_cross0.shape[-1]/2))} pixels")
+            print(f"RMS error perturbed           = {np.sqrt(E_cross_ref0      / (x_cross0.shape[-1]/2))} pixels")
+            print(f"RMS error perturbed_solvedref = {np.sqrt(E_cross_solvedref / (x_cross0.shape[-1]/2))} pixels")
 
 
         return rt_ref_refperturbed
