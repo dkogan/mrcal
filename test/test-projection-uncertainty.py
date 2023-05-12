@@ -740,12 +740,12 @@ Furthermore, dx_cross_perturbed = J_cross_perturbed drt_ref_refperturbed, so
 and
 
   drt_ref_refperturbed = -inv(J_cross_perturbed_t J_cross_perturbed) J_cross_perturbed_t x_cross_perturbed0
-                       = -pinv(J_cross_perturbed_t) x_cross_perturbed0
+                       = -pinv(J_cross_perturbed) x_cross_perturbed0
 
 The operating point is at rt_ref_refperturbed=0, so the shift is off 0:
 
   rt_ref_refperturbed = 0 + drt_ref_refperturbed
-                      = -pinv(J_cross_perturbed_t) x_cross_perturbed0
+                      = -pinv(J_cross_perturbed) x_cross_perturbed0
 
 This is good, but implies that J_cross_perturbed needs to be computed directly
 by propagating gradients from the projection and the transform composition. We
