@@ -959,6 +959,23 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
 
         def get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed):
 
+            r'''Compute (x_cross0,J_cross) directly, from a projection
+
+The expression above is
+
+  x_cross_perturbed =
+    project(intrinsics,
+            T_cam_ref T_ref_refperturbed T_refperturbed_frameperturbed p_perturbed)
+    - qref
+
+The operating point as T_ref_refperturbed = identity: rt_ref_refperturbed = 0. So
+
+  x_cross_perturbed0 =
+    project(intrinsics,
+            T_cam_ref T_refperturbed_frameperturbed p_perturbed)
+    - qref
+
+'''
             # shape (..., Nobservations,Nh,Nw,2)
             #       (..., Nobservations,Nh,Nw,2,3)
             q_cross,dq_dpcam,_ = \
@@ -985,13 +1002,14 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
             J_cross = dx_drt_ref_refperturbed
             return x_cross0, J_cross
 
-
         # I broadcast over each sample
         @nps.broadcast_define( ((),),
                                (2,),
                                out_kwarg='out')
         def get_cross_operating_point__internal_compose_and_linearization(query_optimization_inputs, out):
-            r'''The docstring above says
+            r'''Compute (x_cross0,J_cross) directly, from the optimized linearization
+
+The docstring above says
 
 x_cross_perturbed0 =
             x0 +
