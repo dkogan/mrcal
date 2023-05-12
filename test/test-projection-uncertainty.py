@@ -788,6 +788,17 @@ drt_ref_frame = M[frame] delta_qref. So I have
   J_cross_perturbed = dx_cross_perturbed/drt_ref_refperturbed
                     = J_frame drt_ref_frameperturbed/drt_ref_refperturbed
 
+There's one more simplification available. From above:
+
+  rt_ref_refperturbed = -pinv(J_cross_perturbed) x_cross_perturbed0
+                      = -inv() J_cross_perturbed_t x_cross_perturbed0
+                      = ... J_frame_t (x0 + ...)
+
+The original optimization problem has d/dx (x0_t x0) = 0 -> Jt x0 = 0. So
+J_frame_t x0 = 0 as well, and thus instead of x_cross_perturbed0 we can use
+
+  dx_cross_perturbed0 = J[frame,calobject_warp] db[frame,calobject_warp]
+
 Now that I have rt_ref_refperturbed, I can use it to compute qperturbed. This
 can accept arbitrary q, not just those in the solve, so I actually need to
 compute projections, rather than looking at a linearized space defined by J
@@ -810,12 +821,6 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
 
     if fixedframes:
         raise Exception("reproject_perturbed__optimize_cross_reprojection_error(fixedframes = True) is not yet implemented")
-
-
-    b_baseline, x_baseline, J_packed_baseline, factorization = \
-        mrcal.optimizer_callback(**baseline_optimization_inputs)
-    mrcal.unpack_state(b_baseline, **baseline_optimization_inputs)
-
 
     observations_board = \
         baseline_optimization_inputs.get('observations_board')
@@ -840,6 +845,20 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
                                      calobject_warp = query_calobject_warp)
 
     weight = observations_board[...,2]
+
+
+    b_baseline, x_baseline, J_packed_baseline, factorization = \
+        mrcal.optimizer_callback(**baseline_optimization_inputs)
+    mrcal.unpack_state(b_baseline, **baseline_optimization_inputs)
+
+    imeas0_observations = mrcal.measurement_index_boards(0, **optimization_inputs_baseline)
+    Nmeas_observations  = mrcal.num_measurements_boards(**optimization_inputs_baseline)
+    x_baseline_boards = x_baseline[imeas0_observations:imeas0_observations+Nmeas_observations]
+    if mrcal.num_measurements_points(**optimization_inputs_baseline) != 0:
+        raise Exception("Uncertainty propagation with points not implemented yet. Looking only at boards right here")
+
+    x_baseline_boards.reshape(Nmeas_observations//2,2)[(weight.ravel())<=0,:] = 0 # outliers
+
 
     # shape (Nobservations, 6)
     rt_ref_frame_all = \
@@ -971,7 +990,7 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
 
         def get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed):
 
-            r'''Compute (x_cross0,J_cross) directly, from a projection
+            r'''Compute (dx_cross0,J_cross) directly, from a projection
 
 This function computes the operating point after explicitly evaluating qref
 noise, and reoptimizing
@@ -1014,7 +1033,7 @@ The operating point as T_ref_refperturbed = identity: rt_ref_refperturbed = 0. S
                                  n = -4),
                        -2, -1)
             J_cross = dx_drt_ref_refperturbed
-            return x_cross0, J_cross
+            return x_cross0 - x_baseline_boards, J_cross
 
         # I broadcast over each sample
         @nps.broadcast_define( (('Nobservations','Nh','Nw',2),
@@ -1022,7 +1041,7 @@ The operating point as T_ref_refperturbed = identity: rt_ref_refperturbed = 0. S
                                (2,),
                                out_kwarg='out')
         def get_cross_operating_point__internal_compose_and_linearization(delta_qref, b_query, out):
-            r'''Compute (x_cross0,J_cross) directly, from the optimized linearization
+            r'''Compute (dx_cross0,J_cross) directly, from the optimized linearization
 
 This function computes the operating point by looking at the baseline gradients
 only. WITHOUT reoptimizing
@@ -1034,6 +1053,8 @@ x_cross_perturbed0 =
             x0 +
             J_frame          M[frame]          delta_qref +
             J_calobject_warp M[calobject_warp] delta_qref
+          = x0 +
+            J[frame,calobject_warp] db[frame,calobject_warp]
 
 J_cross_perturbed = dx_cross_perturbed/drt_ref_refperturbed
                   = J_frame drt_ref_frameperturbed/drt_ref_refperturbed
@@ -1066,8 +1087,6 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
             '''
 
-            imeas0_observations = mrcal.measurement_index_boards(0, **optimization_inputs_baseline)
-            Nmeas_observations  = mrcal.num_measurements_boards(**optimization_inputs_baseline)
             J_packed_baseline_observations = J_packed_baseline[imeas0_observations:imeas0_observations+Nmeas_observations,
                                                                :]
 
@@ -1098,25 +1117,28 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
             db_predicted = factorization.solve_xt_JtJ_bt( Jt_W_qref )
             mrcal.unpack_state(db_predicted, **baseline_optimization_inputs)
 
-            if 0:
-                ############### compare db_observed, db_predicted
-                import gnuplotlib as gp
-                db_observed = b_query - b_baseline
-                gp.plot( nps.cat(db_predicted, db_observed), wait = True )
+            #### I just computed db = M dqref
+            if not hasattr(get_cross_operating_point__internal_compose_and_linearization,
+                           'did_already_compare_b'):
+                get_cross_operating_point__internal_compose_and_linearization.did_already_compare_b = True
 
-            x_cross0 = np.array(x_baseline[imeas0_observations:imeas0_observations+Nmeas_observations])
-            x_cross_point = x_cross0.reshape(len(x_cross0)//2, 2)
-            if x_cross_point.base is not x_cross0:
-                raise Exception("reshape() made new array. This is a bug")
-            Ny,Nx = baseline_optimization_inputs['observations_board'].shape[1:3]
-            if len(x_cross_point) != len(baseline_optimization_inputs['indices_frame_camintrinsics_camextrinsics'])*Nx*Ny:
-                raise Exception("mismatched lengths. This is a bug")
+                db_observed = b_query - b_baseline
+
+                # This threshold and reldiff_eps look high, but I'm pretty sure
+                # this is correct. Enable the plot immediatly below to see
+                testutils.confirm_equal(db_predicted,
+                                        db_observed,
+                                        eps = 0.1,
+                                        reldiff_eps = 1e-3,
+                                        percentile = 90,
+                                        relative  = True,
+                                        msg = f"db_predicted is db_observed")
+                if 0:
+                    import gnuplotlib as gp
+                    gp.plot( nps.cat(db_predicted, db_observed), wait = True )
 
             #### Look only at the effects of frames and calobject_warp when
-            #### computing the initial x_cross0 value
-            db_cross = np.array(db_predicted)
-            mrcal.pack_state(db_cross, **baseline_optimization_inputs)
-
+            #### computing the initial dx_cross0 value
             state_mask = np.ones( db_predicted.shape, dtype=bool )
 
             istate_frame0 = mrcal.state_index_frames(0, **baseline_optimization_inputs)
@@ -1127,9 +1149,13 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
             Nstates_calobject_warp = mrcal.num_states_calobject_warp(**baseline_optimization_inputs)
             state_mask[istate_calobject_warp0 : istate_calobject_warp0+Nstates_calobject_warp] = 0
 
-            db_cross[state_mask] = 0
-            x_cross0 += J_packed_baseline_observations.dot(db_cross)
+            db_cross_packed = np.array(db_predicted)
+            mrcal.pack_state(db_cross_packed, **baseline_optimization_inputs)
+            db_cross_packed[state_mask] = 0
 
+            # db_cross_packed now contains only state from frames,
+            # calobject_warp. All other state is 0
+            dx_cross0 = J_packed_baseline_observations.dot(db_cross_packed)
 
             #### Now J_cross = J_frame drt_ref_frame/drt_ref_refperturbed
             Nframes = Nstates_frame//6
@@ -1149,7 +1175,7 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
             # Workaround for a numpy bug:
             # https://github.com/numpy/numpy/issues/19470
-            out[:] = (x_cross0, J_cross)
+            out[:] = (dx_cross0, J_cross)
             return out
 
 
@@ -1180,7 +1206,7 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
             E_baseline = nps.norm2(x)
 
-        xJ_results = dict()
+        dxJ_results = dict()
 
         if 1:
             method = 'compose-grad'
@@ -1193,9 +1219,9 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
                                                   nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
                                                   nps.mv(calibration_object_query,-4,-5))
 
-            x_cross0, J_cross = get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed)
+            dx_cross0, J_cross = get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed)
 
-            xJ_results[method] = x_cross0,J_cross
+            dxJ_results[method] = dx_cross0,J_cross
 
         if 1:
             method = 'transform-grad'
@@ -1213,23 +1239,23 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
             dpcam_drt_ref_refperturbed = \
                 nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
 
-            x_cross0, J_cross = get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed)
+            dx_cross0, J_cross = get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed)
 
-            xJ_results[method] = x_cross0,J_cross
+            dxJ_results[method] = dx_cross0,J_cross
 
         if 1:
             method = 'internal_compose_and_linearization'
 
             if query_q_noise_board is not None:
 
-                xJ_cross = np.empty( (len(query_q_noise_board),2), dtype=object)
+                dxJ_cross = np.empty( (len(query_q_noise_board),2), dtype=object)
                 get_cross_operating_point__internal_compose_and_linearization( query_q_noise_board,
-                                                                               query_b, # used for plotting only
-                                                                               out = xJ_cross)
-                x_cross0 = np.array(tuple(xJ_cross[:,0]))
-                J_cross = np.array(tuple(xJ_cross[:,1]))
+                                                                               query_b, # only for plotting and checking
+                                                                               out = dxJ_cross)
+                dx_cross0 = np.array(tuple(dxJ_cross[:,0]))
+                J_cross = np.array(tuple(dxJ_cross[:,1]))
 
-                xJ_results[method] = x_cross0,J_cross
+                dxJ_results[method] = dx_cross0,J_cross
 
 
         @nps.broadcast_define((('N',6),('N',)),
@@ -1240,34 +1266,35 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
 
 
-        if 'internal_compose_and_linearization' in xJ_results:
+        if 'internal_compose_and_linearization' in dxJ_results:
 
             # compose-grad and transform-grad should be exactly the same, modulo numerical fuzz
-            testutils.confirm_equal(xJ_results['compose-grad'  ][0],
-                                    xJ_results['transform-grad'][0],
+            testutils.confirm_equal(dxJ_results['compose-grad'  ][0],
+                                    dxJ_results['transform-grad'][0],
                                     eps       = 1e-6,
                                     worstcase = True,
-                                    msg = f"x_cross0 is identical as computd by compose-grad and transform-grad")
-            testutils.confirm_equal(xJ_results['compose-grad'][1],
-                                    xJ_results['transform-grad'][1],
+                                    msg = f"dx_cross0 is identical as computd by compose-grad and transform-grad")
+            testutils.confirm_equal(dxJ_results['compose-grad'][1],
+                                    dxJ_results['transform-grad'][1],
                                     eps       = 1e-6,
                                     worstcase = True,
                                     msg = f"J_cross is identical as computd by compose-grad and transform-grad")
 
-            testutils.confirm_equal(xJ_results['compose-grad'  ][0],
-                                    xJ_results['internal_compose_and_linearization'][0],
+            testutils.confirm_equal(dxJ_results['compose-grad'  ][0],
+                                    dxJ_results['internal_compose_and_linearization'][0],
                                     eps       = 1e-6,
                                     worstcase = True,
-                                    msg = f"x_cross0 is identical as computd by compose-grad and internal_compose_and_linearization")
-            testutils.confirm_equal(xJ_results['compose-grad'][1],
-                                    xJ_results['internal_compose_and_linearization'][1],
+                                    msg = f"dx_cross0 is identical as computd by compose-grad and internal_compose_and_linearization")
+            testutils.confirm_equal(dxJ_results['compose-grad'][1],
+                                    dxJ_results['internal_compose_and_linearization'][1],
                                     eps       = 1e-6,
                                     worstcase = True,
                                     msg = f"J_cross is identical as computd by compose-grad and internal_compose_and_linearization")
-        x_cross0,J_cross = xJ_results['compose-grad']
 
-        E_cross_ref0        = nps.norm2(x_cross0)
-        rt_ref_refperturbed = -lstsq(J_cross, x_cross0)
+        dx_cross0,J_cross = dxJ_results['compose-grad']
+
+        E_cross_ref0        = nps.norm2(dx_cross0 + x_baseline_boards)
+        rt_ref_refperturbed = -lstsq(J_cross, dx_cross0)
 
 
         # I have a 1-step solve. Let's look at the error to confirm that it's
