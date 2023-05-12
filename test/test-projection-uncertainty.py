@@ -1091,16 +1091,16 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
                 gp.plot( nps.cat(db_predicted, db_observed) )
 
-            x_cross = np.array(x_baseline[imeas0_observations:imeas0_observations+Nmeas_observations])
-            x_cross_point = x_cross.reshape(len(x_cross)//2, 2)
-            if x_cross_point.base is not x_cross:
+            x_cross0 = np.array(x_baseline[imeas0_observations:imeas0_observations+Nmeas_observations])
+            x_cross_point = x_cross0.reshape(len(x_cross0)//2, 2)
+            if x_cross_point.base is not x_cross0:
                 raise Exception("reshape() made new array. This is a bug")
             Ny,Nx = baseline_optimization_inputs['observations_board'].shape[1:3]
             if len(x_cross_point) != len(baseline_optimization_inputs['indices_frame_camintrinsics_camextrinsics'])*Nx*Ny:
                 raise Exception("mismatched lengths. This is a bug")
 
             #### Look only at the effects of frames and calobject_warp when
-            #### computing the initial x_cross value
+            #### computing the initial x_cross0 value
             db_cross = np.array(db_predicted)
             mrcal.pack_state(db_cross, **baseline_optimization_inputs)
 
@@ -1115,7 +1115,7 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
             state_mask[istate_calobject_warp0 : istate_calobject_warp0+Nstates_calobject_warp] = 0
 
             db_cross[state_mask] = 0
-            x_cross += J_packed_baseline_observations.dot(db_cross)
+            x_cross0 += J_packed_baseline_observations.dot(db_cross)
 
 
             #### Now J_cross = J_frame drt_ref_frame/drt_ref_refperturbed
@@ -1139,7 +1139,7 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
             # Workaround for a numpy bug:
             # https://github.com/numpy/numpy/issues/19470
-            out[:] = (x_cross, J_cross)
+            out[:] = (x_cross0, J_cross)
             return out
 
 
