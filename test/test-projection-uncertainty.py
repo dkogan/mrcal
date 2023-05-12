@@ -1083,8 +1083,9 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
             if 0:
                 ############### compare db_observed, db_predicted
-                b_packed_query, x_query, J_packed_query, _ = \
+                b_packed_query, _, _, _ = \
                     mrcal.optimizer_callback(**query_optimization_inputs,
+                                             no_jacobian      = True,
                                              no_factorization = True)
                 db_observed = b_packed_query - b_packed_baseline
                 mrcal.unpack_state(db_observed, **baseline_optimization_inputs)
