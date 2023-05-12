@@ -1170,9 +1170,11 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
             E_baseline = nps.norm2(x)
 
-        # Can select the other get_cross_operating_point__...() implementations
-        # here
-        if 0:
+        xJ_results = dict()
+
+        if 1:
+            method = 'compose-grad'
+
             # shape (..., Nobservations,Nh,Nw,3),
             #       (..., Nobservations,Nh,Nw,3,6)
             pcam, dpcam_drt_ref_refperturbed = \
@@ -1183,7 +1185,11 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
             x_cross, J_cross = get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed)
 
-        elif 1:
+            xJ_results[method] = x_cross,J_cross
+
+        if 1:
+            method = 'transform-grad'
+
             # shape (..., Nobservations,Nh,Nw,3),
             pref = mrcal.transform_point_rt( nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
                                              nps.mv(calibration_object_query,-4,-5))
@@ -1199,7 +1205,11 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
 
             x_cross, J_cross = get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed)
 
-        else:
+            xJ_results[method] = x_cross,J_cross
+
+        if 1:
+            method = 'internal_compose_and_linearization'
+
             if query_optimization_inputs is not None:
 
                 xJ_cross = np.empty( (len(query_optimization_inputs),2), dtype=object)
@@ -1209,22 +1219,17 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
                 x_cross = np.array(tuple(xJ_cross[:,0]))
                 J_cross = np.array(tuple(xJ_cross[:,1]))
 
-            else:
-                print("No query_optimization_inputs available. Cannot compute rt_ref_refperturbed")
-                return None
+                xJ_results[method] = x_cross,J_cross
 
 
-            # These should all match. They do (manual testing), but that should be
-            # automated. I'm moving on.
-
-
-        # need to define the broadcasted function myself
         @nps.broadcast_define((('N',6),('N',)),
                               (6,))
         def lstsq(J,x):
             # inv(JtJ)Jt x0
             return np.linalg.lstsq(J, x, rcond = None)[0]
-        E_cross_ref0 = nps.norm2(x_cross)
+        x_cross,J_cross = xJ_results['compose-grad']
+
+        E_cross_ref0        = nps.norm2(x_cross)
         rt_ref_refperturbed = -lstsq(J_cross, x_cross)
 
 
