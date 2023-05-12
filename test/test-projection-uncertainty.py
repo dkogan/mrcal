@@ -782,6 +782,8 @@ drt_ref_frame = M[frame] delta_qref. So I have
               x0 +
               J_frame          M[frame]          delta_qref +
               J_calobject_warp M[calobject_warp] delta_qref
+            = x0 +
+              J[frame,calobject_warp] db[frame,calobject_warp]
 
   J_cross_perturbed = dx_cross_perturbed/drt_ref_refperturbed
                     = J_frame drt_ref_frameperturbed/drt_ref_refperturbed
