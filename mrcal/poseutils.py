@@ -811,6 +811,117 @@ drt/drt0,drt/drt1):
     rt1onwards = reduce( _poseutils_npsp._compose_rt, rt[1:] )
     return _poseutils_npsp._compose_rt(rt[0], rt1onwards, out=out)
 
+def compose_rt_tinyrt0_gradientrt0(rt1, out=None):
+    r"""Special-case composition for the uncertainty computation
+
+SYNOPSIS
+
+    r1  = rotation_axis1 * rotation_magnitude1
+    rt1 = nps.glue(r1, t1,  axis=-1)
+
+    drt01_drt0 = compose_rt_tinyrt0_gradientrt0(rt1)
+
+    ### Another way to get the same thing (but possibly less efficiently)
+     _,drt01_drt0,_ = compose_rt(np.zeros((6,),),
+                                 rt1,
+                                 get_gradients=True)
+
+This is a special-case subset of compose_rt(). It is the same, except:
+
+- rt0 is assumed to be 0, so we don't ingest it, and we don't report the
+  composition result
+- we ONLY report the drt01/drt0 gradient
+
+This special-case function is a part of the projection uncertainty computation,
+so it exists separate from compose_rt(). See the documentation for compose_rt()
+for all the details.
+
+This function supports broadcasting fully
+
+ARGUMENTS
+
+- rt1: the second of the two transformations being composed. The first is an
+  identity, so it's not given as an argument
+
+- out: optional argument specifying the destination. By default, a new numpy
+  array is created and returned. To write the results into an existing (and
+  possibly non-contiguous) array, specify it with the 'out' kwarg
+
+RETURNED VALUE
+
+We return a single array of shape (..., 6,6): drt01/drt0
+
+    """
+
+    # R0 (R1 p + t1) + t0 = R0 R1 p + (R0 t1 + t0)
+    # -> R01 = R0 R1
+    # -> t01 = R0 t1 + t0
+
+    # At rt0 ~ identity we have:
+
+    #   dt01/dr0 = d(R0 t1)/dr0
+
+    # rotate_point_r_core() says that
+
+    #   const val_withgrad_t<N> cross[3] =
+    #       {
+    #           (rg[1]*x_ing[2] - rg[2]*x_ing[1])*sign,
+    #           (rg[2]*x_ing[0] - rg[0]*x_ing[2])*sign,
+    #           (rg[0]*x_ing[1] - rg[1]*x_ing[0])*sign
+    #       };
+    #   const val_withgrad_t<N> inner =
+    #       rg[0]*x_ing[0] +
+    #       rg[1]*x_ing[1] +
+    #       rg[2]*x_ing[2];
+
+    #   // Small rotation. I don't want to divide by 0, so I take the limit
+    #   //   lim(th->0, xrot) =
+    #   //     = x + cross(r, x) + r rt x lim(th->0, (1 - cos(th)) / (th*th))
+    #   //     = x + cross(r, x) + r rt x lim(th->0, sin(th) / (2*th))
+    #   //     = x + cross(r, x) + r rt x/2
+    #   for(int i=0; i<3; i++)
+    #       x_outg[i] =
+    #           x_ing[i] +
+    #           cross[i] +
+    #           rg[i]*inner / 2.;
+
+    # So t01 = t0 + t1 + linear(r0) + quadratic(r0)
+
+    # r0 ~ 0 so I ignore the quadratic term:
+
+    #   dt01/dr0 = d(cross(r0,t1))/dr0
+    #            = -d(cross(t1,r0))/dr0
+    #            = -d(skew_symmetric(t1) r0))/dr0
+    #            = -skew_symmetric(t1)
+
+    # Thus
+
+    #   drt01/drt0 = [ dr01/dr0  dr01/dt0  ] = [ dr01/dr0              0 ]
+    #                [ dt01/dr0  dt01/dt0  ] = [ -skew_symmetric(t1)   I ]
+
+    # I call a function to get dr01_dr0
+
+    out_shape = rt1.shape + (6,)
+    if out is None:
+        out = np.zeros(out_shape, dtype=float)
+    else:
+        if not out.shape == out_shape:
+            raise Exception(f"The given 'out' array has shape {out.shape} but rt1 has shape {rt1.shape}, so 'out' should have shape {out_shape}")
+        out[:] = 0
+
+    _poseutils_npsp.skew_symmetric(rt1[..., 3:],
+                                   out = out[..., 3:, :3])
+    out[..., 3:, :3] *= -1
+
+    out[..., 0+3, 0+3] = 1.
+    out[..., 1+3, 1+3] = 1.
+    out[..., 2+3, 2+3] = 1.
+
+    _poseutils_npsp.compose_r_tinyr0_gradientr0(rt1[..., :3],
+                                                out = out[..., :3, :3])
+
+    return out
+
 def rotate_point_r(r, x, *, get_gradients=False, out=None, inverted=False):
     r"""Rotate point(s) using a Rodrigues vector
 
