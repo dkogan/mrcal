@@ -981,34 +981,6 @@ So I need gradients of rt_ref_refperturbed in respect to p_perturbed
 
             return dprot_drt
 
-        def compose_rt_tinyr0_gradr0(rt1):
-            '''
-            R0 (R1 p + t1) + t0 = R0 R1 p + (R0 t1 + t0)
-            -> R01 = R0 R1
-            -> t01 = R0 t1 + t0
-
-            At rt0 = identity we have
-
-               drt01/drt0 = [ dr01/dr0  dr01/dt0  ] = [ dr01/dr0              0 ]
-                            [ dt01/dr0  dt01/dt0  ] = [ -skew_symmetric(t1)   I ]
-
-            I call a function to get dr01_dr0
-            '''
-            drt01_drt0 = np.zeros(rt1.shape + (6,), dtype=float)
-
-            mrcal.skew_symmetric(rt1[..., 3:],
-                                 out = drt01_drt0[..., 3:, :3])
-            drt01_drt0 *= -1
-
-            drt01_drt0[..., 0+3, 0+3] = 1.
-            drt01_drt0[..., 1+3, 1+3] = 1.
-            drt01_drt0[..., 2+3, 2+3] = 1.
-
-            mrcal.compose_r_tinyr0_gradientr0(rt1[..., :3],
-                                              out = drt01_drt0[..., :3, :3])
-
-            return drt01_drt0
-
         def get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed):
 
             r'''Compute (dx_cross0,J_cross) directly, from a projection
@@ -1194,7 +1166,7 @@ To select a subset of b I define the matrix S = [0 eye() 0] and the subset is
             rt_ref_frame = b_baseline[istate_frame0 : istate_frame0+Nstates_frame].reshape(Nframes,6)
 
             # shape (Nframes,6,6)
-            drt_ref_frame__drt_ref_refperturbed = compose_rt_tinyr0_gradr0(rt_ref_frame)
+            drt_ref_frame__drt_ref_refperturbed = mrcal.compose_rt_tinyrt0_gradientrt0(rt_ref_frame)
 
             # Pack. rt_ref_frame is now packed
             drt_ref_frame__drt_ref_refperturbed /= nps.dummy(scale_frames, -1)
