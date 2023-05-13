@@ -33,6 +33,8 @@ Functions to manipulate [[file:conventions.org::#pose-representation][rotations 
   assuming the first rotation is near identity
 - [[file:mrcal-python-api-reference.html#-compose_r_tinyr1_gradientr1][=mrcal.compose_r_tinyr1_gradientr1()=:]] Special-case rotation composition,
   assuming the second rotation is near identity
+- [[file:mrcal-python-api-reference.html#-compose_rt_tinyrt0_gradientrt0][=mrcal.compose_rt_tinyrt0_gradientrt0()=]]: Special-case composition assuming
+  the first transform is near identity
 - [[file:mrcal-python-api-reference.html#-rotate_point_r][=mrcal.rotate_point_r()=]]: Rotate point(s) using a Rodrigues vector
 - [[file:mrcal-python-api-reference.html#-rotate_point_R][=mrcal.rotate_point_R()=]]: Rotate point(s) using a rotation matrix
 - [[file:mrcal-python-api-reference.html#-transform_point_rt][=mrcal.transform_point_rt()=]]: Transform point(s) using an rt transformation
