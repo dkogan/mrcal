@@ -799,15 +799,36 @@ J_frame_t x0 = 0 as well, and thus instead of x_cross_perturbed0 we can use
 
   dx_cross_perturbed0 = J[frame,calobject_warp] db[frame,calobject_warp]
 
+So we have rt_ref_refperturbed = A delta_qref for some A that depends on the
+various J matrices that are constant for each solve
+
 Now that I have rt_ref_refperturbed, I can use it to compute qperturbed. This
 can accept arbitrary q, not just those in the solve, so I actually need to
 compute projections, rather than looking at a linearized space defined by J
 
-I have
+I have without any perturbations:
 
-  pcam = unproject(intrinsics, q)
-  pcam_perturbed = T_camperturbed_refperturbed T_refperturbed_ref T_ref_cam pcam
-  qperturbed = project(intrinsics_perturbed, pcam_perturbed)
+  pref = T_ref_cam unproject(intrinsics, q)
+
+For a given perturbation I have
+
+  T_camperturbed_ref = T_camperturbed_refperturbed T_refperturbed_ref
+  pcam_perturbed     = T_camperturbed_ref pref
+  qperturbed         = project(intrinsics_perturbed, pcam_perturbed)
+
+I linearize each of these.
+
+T_refperturbed_ref ~ identity, so
+
+    rt_camperturbed_ref =
+      rt_cam_ref +
+      compose_rt_tinyr1_gradrt1(rt_camperturbed_refperturbed) rt_refperturbed_ref
+    = rt_cam_ref +
+      compose_rt_tinyr1_gradrt1(rt_cam_ref + M[extrinsics]) rt_refperturbed_ref
+
+
+    
+  pref_perturbed = 
 
   dqperturbed/dbperturbed[intrinsics] comes directly from this project()
 
