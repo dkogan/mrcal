@@ -1191,7 +1191,6 @@ gradients (u=Rt(x),du/dRt,du/dx):
     return _poseutils_npsp._transform_point_Rt_withgrad(Rt,x, out=out, inverted=inverted)
 
 
-from . import _poseutils_scipy
 quat_from_R = _poseutils_scipy.quat_from_R
 
 def qt_from_Rt(Rt, *, out=None):
