@@ -812,31 +812,57 @@ I have without any perturbations:
 
 For a given perturbation I have
 
-  T_camperturbed_ref = T_camperturbed_refperturbed T_refperturbed_ref
-  pcam_perturbed     = T_camperturbed_ref pref
-  qperturbed         = project(intrinsics_perturbed, pcam_perturbed)
+  p_refperturbed = T_refperturbed_ref pref
+  p_camperturbed = T_camperturbed_refperturbed p_refperturbed
+  qperturbed     = project(intrinsics_perturbed, pcam_perturbed)
 
-I linearize each of these.
+T_refperturbed_ref ~ identity so
 
-T_refperturbed_ref ~ identity, so
+_, dp_refperturbed__drt_ref_refperturbed,_ \
+  mrcal.transform_point_rt( mrcal.identity_rt(),
+                            pref,
+                            inverted = True,
+                            get_gradients = True )
 
-    rt_camperturbed_ref =
-      rt_cam_ref +
-      compose_rt_tinyr1_gradrt1(rt_camperturbed_refperturbed) rt_refperturbed_ref
-    = rt_cam_ref +
-      compose_rt_tinyr1_gradrt1(rt_cam_ref + M[extrinsics]) rt_refperturbed_ref
+And now p_refperturbed ~ p_ref + dp_refperturbed__drt_ref_refperturbed rt_ref_refperturbed
 
+_, dpcam__drt_cam_ref, dpcam__dpref \
+  mrcal.transform_point_rt( baseline_rt_cam_ref,
+                            pref,
+                            get_gradients = True )
 
-    
-  pref_perturbed = 
+And now p_camperturbed ~ p_cam + dpcam__drt_cam_ref M[extrinsics] delta_qref + dpcam__dpref * (p_refperturbed - p_ref)
 
-  dqperturbed/dbperturbed[intrinsics] comes directly from this project()
+_,dq_dpcam,dq_dintrinsics = \
+  mrcal.project( pcam, *baseline_intrinsics,
+                 get_gradients = True )
 
-  dqperturbed/dbperturbed[extrinsics] = dqperturbed/dpcam_perturbed
-                                        (dpcam_perturbed/dextrinsics + dpcam_perturbed/drt_ref_refperturbed drt_ref_refperturbed/dextrinsics)
+And now qperturbed ~ q + dpcam (p_camperturbed - pcam) + dq_dintrinsics M[intrinsics] delta_qref
 
+Let's put it all together.
 
-So I need gradients of rt_ref_refperturbed in respect to p_perturbed
+  qperturbed - q
+
+~   dq_dpcam (p_camperturbed - pcam)
+  + dq_dintrinsics M[intrinsics] delta_qref
+
+~   dq_dpcam (p_cam + dpcam__drt_cam_ref M[extrinsics] delta_qref
+  + dpcam__dpref (p_refperturbed - p_ref)  - pcam)
+  + dq_dintrinsics M[intrinsics] delta_qref
+
+~   dq_dpcam (  dpcam__drt_cam_ref M[extrinsics] delta_qref
+              + dpcam__dpref dp_refperturbed__drt_ref_refperturbed rt_ref_refperturbed)
+  + dq_dintrinsics M[intrinsics] delta_qref
+
+~   dq_dpcam (  dpcam__drt_cam_ref M[extrinsics] delta_qref
+              + dpcam__dpref dp_refperturbed__drt_ref_refperturbed A delta_qref)
+  + dq_dintrinsics M[intrinsics] delta_qref
+
+~ delta_qref *
+  (   dq_dpcam (  dpcam__drt_cam_ref M[extrinsics]
+                + dpcam__dpref dp_refperturbed__drt_ref_refperturbed A)
+    + dq_dintrinsics M[intrinsics]
+  )
 
     '''
 
