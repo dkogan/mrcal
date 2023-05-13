@@ -789,8 +789,10 @@ This is a special-case subset of compose_r(). It is the same, except:
 - we ONLY report the dr01/dr0 gradient
 
 This special-case function is a part of the projection uncertainty computation,
-so it exists by itself. See the documentation for compose_r() for all the
-details.
+so it exists separate from compose_r(). See the documentation for compose_r()
+for all the details.
+
+This function supports broadcasting fully.
 
 ARGUMENTS
 
@@ -799,12 +801,11 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, a new numpy
   array is created and returned. To write the results into an existing (and
-  possibly non-contiguous) array, specify it with the 'out' kwarg. 'out' is the
-  one numpy array we will write into
+  possibly non-contiguous) array, specify it with the 'out' kwarg
 
 RETURNED VALUE
 
-We return a single array: dr01/dr0
+We return a single array of shape (...,3,3): dr01/dr0
 
 """,
 
@@ -847,8 +848,10 @@ This is a special-case subset of compose_r(). It is the same, except:
 - we ONLY report the dr01/dr1 gradient
 
 This special-case function is a part of the projection uncertainty computation,
-so it exists by itself. See the documentation for compose_r() for all the
-details.
+so it exists separate from compose_r(). See the documentation for compose_r()
+for all the details.
+
+This function supports broadcasting fully.
 
 ARGUMENTS
 
@@ -857,12 +860,11 @@ ARGUMENTS
 
 - out: optional argument specifying the destination. By default, a new numpy
   array is created and returned. To write the results into an existing (and
-  possibly non-contiguous) array, specify it with the 'out' kwarg. 'out' is the
-  one numpy array we will write into
+  possibly non-contiguous) array, specify it with the 'out' kwarg
 
 RETURNED VALUE
 
-We return a single array: dr01/dr1
+We return a single array of shape (...,3,3): dr01/dr1
 
 """,
 
