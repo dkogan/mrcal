@@ -1254,36 +1254,35 @@ confirm_equal( dr01_dr0,
                dr01_dr0_ref,
                msg='compose_r_tinyr0_gradientr0 in-place -r0zero gradients: dr01_dr0')
 
-# And the other way: the SECOND argument is assumed tiny
-r10        = base[:3,6,0,0]
-dr10_dr1   = base[3:6,:3,0,0]
+################# compose_r_tinyr1_gradientr1()
+dr01_dr1   = base[3:6,:3,0,0]
 
 r0big      = r1big
 r0nearzero = r1nearzero
 
 
-mrcal.compose_r_tinyr1_gradientr1(r0big, out = dr10_dr1)
-dr10_dr1_ref = grad(lambda r1: compose_r( r0big, r1), r1zero, step=1e-5)
-confirm_equal( dr10_dr1,
-               dr10_dr1_ref,
-               msg='compose_r_tinyr1_gradientr1 in-place r0big gradients: dr10_dr1')
+mrcal.compose_r_tinyr1_gradientr1(r0big, out = dr01_dr1)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0big, r1), r1zero, step=1e-5)
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r_tinyr1_gradientr1 in-place r0big gradients: dr01_dr1')
 
-mrcal.compose_r_tinyr1_gradientr1(r0nearzero, out = dr10_dr1)
-dr10_dr1_ref = grad(lambda r1: compose_r( r0nearzero, r1), r1zero, step=1e-5)
-confirm_equal( dr10_dr1,
-               dr10_dr1_ref,
-               msg='compose_r_tinyr1_gradientr1 in-place r0nearzero gradients: dr10_dr1')
+mrcal.compose_r_tinyr1_gradientr1(r0nearzero, out = dr01_dr1)
+dr01_dr1_ref = grad(lambda r1: compose_r( r0nearzero, r1), r1zero, step=1e-5)
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r_tinyr1_gradientr1 in-place r0nearzero gradients: dr01_dr1')
 
-mrcal.compose_r_tinyr1_gradientr1(r1zero, out = dr10_dr1)
-dr10_dr1_ref = grad(lambda r1: compose_r( r1zero, r1), r1zero, step=1e-5)
-confirm_equal( dr10_dr1,
-               dr10_dr1_ref,
-               msg='compose_r_tinyr1_gradientr1 in-place r1zero gradients: dr10_dr1')
+mrcal.compose_r_tinyr1_gradientr1(r1zero, out = dr01_dr1)
+dr01_dr1_ref = grad(lambda r1: compose_r( r1zero, r1), r1zero, step=1e-5)
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r_tinyr1_gradientr1 in-place r1zero gradients: dr01_dr1')
 
-mrcal.compose_r_tinyr1_gradientr1(-r0zero, out = dr10_dr1)
-dr10_dr1_ref = grad(lambda r1: compose_r( -r0zero, r1), r1zero, step=1e-5)
-confirm_equal( dr10_dr1,
-               dr10_dr1_ref,
-               msg='compose_r_tinyr1_gradientr1 in-place -r0zero gradients: dr10_dr1')
+mrcal.compose_r_tinyr1_gradientr1(-r0zero, out = dr01_dr1)
+dr01_dr1_ref = grad(lambda r1: compose_r( -r0zero, r1), r1zero, step=1e-5)
+confirm_equal( dr01_dr1,
+               dr01_dr1_ref,
+               msg='compose_r_tinyr1_gradientr1 in-place -r0zero gradients: dr01_dr1')
 
 finish()
