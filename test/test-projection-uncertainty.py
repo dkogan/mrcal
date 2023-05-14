@@ -647,27 +647,29 @@ def reproject_perturbed__optimize_cross_reprojection_error(q, distance,
 
     r'''Reproject by explicitly computing a ref-refperturbed transformation
 
+Throughout this page I will refer to the "perturbed" version of x with "x*".
+
 I have a baseline solve (parameter vector b) and a perturbed solve (parameter
-vector bperturbed) obtained from perturbing the observations qref and
-re-optimizing. I also have an arbitrary baseline query pixel q and distance d
-from which I compute the perturbed reprojection qperturbed.
+vector b*) obtained from perturbing the observations qref and re-optimizing. I
+also have an arbitrary baseline query pixel q and distance d from which I
+compute the perturbed reprojection q*.
 
-I need to eventually compute Var(qperturbed). I linearize everything to get
-delta_qperturbed ~ dqperturbed/dbperturbed dbperturbed/dqref delta_qref. Let
+I need to eventually compute Var(q*). I linearize everything to get delta_q* ~
+dq*/db* db*/dqref delta_qref. Let
 
-  L = dqperturbed/dbperturbed
-  M = dbperturbed/dqref
+  L = dq*/db*
+  M = db*/dqref
 
 so
 
-  delta_qperturbed = L M delta_qref
+  delta_q* = L M delta_qref
 
 Then
 
-  Var(qperturbed) = L M Var(qref) Mt Lt.
+  Var(q*) = L M Var(qref) Mt Lt.
 
 I have M from the usual uncertainty propagation logic, so I just need L =
-dqperturbed/dbperturbed
+dq*/db*
 
 In my usual least squares solve each chessboard point produces two elements
 (error(x), error(y)) of the measurements x:
@@ -710,44 +712,44 @@ data flows from the top-right to the bottom-left:
 This requires computing a ref transformation to take into account the shifting
 reference frame that results when re-optimizing:
 
-  x_cross_perturbed =
+  x_cross =
     project(intrinsics,
-            T_cam_ref T_ref_refperturbed T_refperturbed_frameperturbed p_perturbed)
+            T_cam_ref T_ref_ref* T_ref*_frame* p*)
     - qref
 
 For a given perturbation of the input observations I want to compute
 T_ref_refperturbed. So here I look at an operating point T_ref_refperturbed = 0.
-At the operating point I have x_cross_perturbed0: affected by the input
+At the operating point I have x_cross0: affected by the input
 perturbation, but not any reference transform.
 
-I reoptimize norm2(x_cross_perturbed) by varying T_ref_refperturbed
-(parametrized as rt_ref_refperturbed). Let J_cross_perturbed =
-dx_cross_perturbed/drt_ref_refperturbed. I assume everything is locally linear,
-as defined by J_cross_perturbed. I minimize
+I reoptimize norm2(x_cross) by varying T_ref_refperturbed
+(parametrized as rt_ref_refperturbed). Let J_cross =
+dx_cross/drt_ref_refperturbed. I assume everything is locally linear,
+as defined by J_cross. I minimize
 
-  E = norm2(x_cross_perturbed0 + dx_cross_perturbed)
+  E = norm2(x_cross0 + dx_cross)
 
 I set the derivative to 0:
 
-  0 = dE/drt_ref_refperturbed ~ (x_cross_perturbed0 + dx_cross_perturbed)t J_cross_perturbed
+  0 = dE/drt_ref_ref* ~ (x_cross0 + dx_cross)t J_cross
 
--> J_cross_perturbed_t x_cross_perturbed0 = -J_cross_perturbed_t dx_cross_perturbed
+-> J_cross_t x_cross0 = -J_cross_t dx_cross
 
-Furthermore, dx_cross_perturbed = J_cross_perturbed drt_ref_refperturbed, so
+Furthermore, dx_cross = J_cross drt_ref_ref*, so
 
-  J_cross_perturbed_t x_cross_perturbed0 = -J_cross_perturbed_t J_cross_perturbed drt_ref_refperturbed
+  J_cross_t x_cross0 = -J_cross_t J_cross drt_ref_ref*
 
 and
 
-  drt_ref_refperturbed = -inv(J_cross_perturbed_t J_cross_perturbed) J_cross_perturbed_t x_cross_perturbed0
-                       = -pinv(J_cross_perturbed) x_cross_perturbed0
+  drt_ref_ref* = -inv(J_cross_t J_cross) J_cross_t x_cross0
+               = -pinv(J_cross) x_cross0
 
-The operating point is at rt_ref_refperturbed=0, so the shift is off 0:
+The operating point is at rt_ref_ref*=0, so the shift is off 0:
 
-  rt_ref_refperturbed = 0 + drt_ref_refperturbed
-                      = -pinv(J_cross_perturbed) x_cross_perturbed0
+  rt_ref_ref* = 0 + drt_ref_ref*
+              = -pinv(J_cross) x_cross0
 
-This is good, but implies that J_cross_perturbed needs to be computed directly
+This is good, but implies that J_cross needs to be computed directly
 by propagating gradients from the projection and the transform composition. We
 can do better.
 
@@ -763,9 +765,9 @@ the optimal measurements x and their gradient J:
 
 Once again, we have this expression:
 
-  x_cross_perturbed =
+  x_cross =
     project(intrinsics,
-            T_cam_ref T_ref_refperturbed T_refperturbed_frameperturbed p_perturbed)
+            T_cam_ref T_ref_ref* T_ref*_frame* p*)
     - qref
 
 Here we use the unperturbed intrinsics and extrinsics, so dintrinsics = 0 and
@@ -773,36 +775,36 @@ drt_cam_ref = 0. The shift in the calibration object warp comes directly from
 the shift in parameters: dcalobject_warp = M[calobject_warp] delta_qref. That
 leaves drt_ref_frame. This represents a shift from the optimized rt_ref_frame to
 
-  rt_ref_frameperturbed = compose_rt(rt_ref_refperturbed,rt_refperturbed_frameperturbed).
+  rt_ref_frame* = compose_rt(rt_ref_ref*,rt_ref*_frame*).
 
-For x_cross_perturbed0, I have rt_ref_refperturbed = 0, so there I have
+For x_cross0, I have rt_ref_ref* = 0, so there I have
 drt_ref_frame = M[frame] delta_qref. So I have
 
-  x_cross_perturbed0 =
+  x_cross0 =
               x0 +
               J_frame          M[frame]          delta_qref +
               J_calobject_warp M[calobject_warp] delta_qref
             = x0 +
               J[frame,calobject_warp] db[frame,calobject_warp]
 
-  J_cross_perturbed = dx_cross_perturbed/drt_ref_refperturbed
-                    = J_frame drt_ref_frameperturbed/drt_ref_refperturbed
+  J_cross = dx_cross/drt_ref_ref*
+          = J_frame drt_ref_frame*/drt_ref_ref*
 
 There's one more simplification available. From above:
 
-  rt_ref_refperturbed = -pinv(J_cross_perturbed) x_cross_perturbed0
-                      = -inv() J_cross_perturbed_t x_cross_perturbed0
-                      = ... J_frame_t (x0 + ...)
+  rt_ref_ref* = -pinv(J_cross) x_cross0
+              = -inv() J_cross_t x_cross0
+              = ... J_frame_t (x0 + ...)
 
 The original optimization problem has d/dx (x0_t x0) = 0 -> Jt x0 = 0. So
-J_frame_t x0 = 0 as well, and thus instead of x_cross_perturbed0 we can use
+J_frame_t x0 = 0 as well, and thus instead of x_cross0 we can use
 
-  dx_cross_perturbed0 = J[frame,calobject_warp] db[frame,calobject_warp]
+  dx_cross0 = J[frame,calobject_warp] db[frame,calobject_warp]
 
-So we have rt_ref_refperturbed = A delta_qref for some A that depends on the
+So we have rt_ref_ref* = A delta_qref for some A that depends on the
 various J matrices that are constant for each solve
 
-Now that I have rt_ref_refperturbed, I can use it to compute qperturbed. This
+Now that I have rt_ref_ref*, I can use it to compute q*. This
 can accept arbitrary q, not just those in the solve, so I actually need to
 compute projections, rather than looking at a linearized space defined by J
 
@@ -812,64 +814,64 @@ I have without any perturbations:
 
 For a given perturbation I have
 
-  prefperturbed = T_refperturbed_ref pref
-  pcamperturbed = T_camperturbed_refperturbed prefperturbed
-  qperturbed    = project(intrinsics_perturbed, pcam_perturbed)
+  pref* = T_ref*_ref pref
+  pcam* = T_cam*_ref* pref*
+  q*    = project(intrinsics*, pcam*)
 
-T_refperturbed_ref ~ identity so
+T_ref*_ref ~ identity so
 
-_, dprefperturbed__drt_ref_refperturbed,_ \
+_, dpref*__drt_ref_ref*,_ \
   mrcal.transform_point_rt( mrcal.identity_rt(),
                             pref,
                             inverted = True,
                             get_gradients = True )
 
-And now prefperturbed ~ pref + dprefperturbed__drt_ref_refperturbed rt_ref_refperturbed
+And now pref* ~ pref + dpref*__drt_ref_ref* rt_ref_ref*
 
 _, dpcam__drt_cam_ref, dpcam__dpref \
   mrcal.transform_point_rt( baseline_rt_cam_ref,
                             pref,
                             get_gradients = True )
 
-And now pcamperturbed ~ pcam + dpcam__drt_cam_ref M[extrinsics] delta_qref + dpcam__dpref * (prefperturbed - pref)
+And now pcam* ~ pcam + dpcam__drt_cam_ref M[extrinsics] delta_qref + dpcam__dpref (pref* - pref)
 
 _,dq_dpcam,dq_dintrinsics = \
   mrcal.project( pcam, *baseline_intrinsics,
                  get_gradients = True )
 
-And now qperturbed ~ q + dpcam (pcamperturbed - pcam) + dq_dintrinsics M[intrinsics] delta_qref
+And now q* ~ q + dpcam (pcam* - pcam) + dq_dintrinsics M[intrinsics] delta_qref
 
 Let's put it all together.
 
-qperturbed - q
+q* - q
 
-~   dq_dpcam (pcamperturbed - pcam)
+~   dq_dpcam (pcam* - pcam)
   + dq_dintrinsics M[intrinsics] delta_qref
 
 ~   dq_dpcam (pcam + dpcam__drt_cam_ref M[extrinsics] delta_qref
-  + dpcam__dpref (prefperturbed - pref)  - pcam)
+  + dpcam__dpref (pref* - pref)  - pcam)
   + dq_dintrinsics M[intrinsics] delta_qref
 
 ~   dq_dpcam (  dpcam__drt_cam_ref M[extrinsics] delta_qref
-              + dpcam__dpref dprefperturbed__drt_ref_refperturbed rt_ref_refperturbed)
+              + dpcam__dpref dpref*__drt_ref_ref* rt_ref_ref*)
   + dq_dintrinsics M[intrinsics] delta_qref
 
 ~   dq_dpcam (  dpcam__drt_cam_ref M[extrinsics] delta_qref
-              + dpcam__dpref dprefperturbed__drt_ref_refperturbed A delta_qref)
+              + dpcam__dpref dpref*__drt_ref_ref* A delta_qref)
   + dq_dintrinsics M[intrinsics] delta_qref
 
 ~   dq_dpcam (  dpcam__drt_cam_ref M[extrinsics] delta_qref
-              - dpcam__dpref dprefperturbed__drt_ref_refperturbed pinv(J_cross_perturbed) dx_cross_perturbed0)
+              - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) dx_cross0)
   + dq_dintrinsics M[intrinsics] delta_qref
 
 ~   dq_dpcam (  dpcam__drt_cam_ref M[extrinsics] delta_qref
-              - dpcam__dpref dprefperturbed__drt_ref_refperturbed pinv(J_cross_perturbed) J[frame,calobject_warp] M[frame,calobject_warp] delta_qref)
+              - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frame,calobject_warp] M[frame,calobject_warp] delta_qref)
   + dq_dintrinsics M[intrinsics] delta_qref
 
 ~ delta_qref *
   (
     + dq_dpcam dpcam__drt_cam_ref M[extrinsics]
-    - dq_dpcam dpcam__dpref dprefperturbed__drt_ref_refperturbed pinv(J_cross_perturbed) J[frame,calobject_warp] M[frame,calobject_warp]
+    - dq_dpcam dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frame,calobject_warp] M[frame,calobject_warp]
     + dq_dintrinsics M[intrinsics]
   )
 
