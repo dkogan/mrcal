@@ -142,7 +142,7 @@ them
 #+ATTR_LATEX: :width \linewidth
 [[file:../out/external/figures/calibration/worst-opencv8.png]]
 
-** =LENSMODEL_OPENCV8=: the 3rd-worst image
+** =LENSMODEL_OPENCV8=: the 10th-worst image
 #+ATTR_LATEX: :width \linewidth
 [[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
 
@@ -205,22 +205,40 @@ calobject_warp = [-0.00096895  0.00052931]
 #+end_example
 
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC= residuals histogram
-This is promising. What does the histogram look like?
+This is promising. The new residual histogram:
 
 #+ATTR_LATEX: :width 0.9\linewidth
 [[file:../out/external/figures/calibration/residuals-histogram-splined.pdf]]
+
+** =LENSMODEL_OPENCV8= residuals histogram
+Here's what it looked like before:
+
+#+ATTR_LATEX: :width 0.9\linewidth
+[[file:../out/external/figures/calibration/residuals-histogram-opencv8.pdf]]
 
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC=: the worst image
 #+ATTR_LATEX: :width \linewidth
 [[file:../out/external/figures/calibration/worst-splined.png]]
 
-** =LENSMODEL_SPLINED_STEREOGRAPHIC=: 3rd-worst image
+** =LENSMODEL_OPENCV8=: the worst image
+#+ATTR_LATEX: :width \linewidth
+[[file:../out/external/figures/calibration/worst-opencv8.png]]
+
+** =LENSMODEL_SPLINED_STEREOGRAPHIC=: previously 10th-worst image
 #+ATTR_LATEX: :width \linewidth
 [[file:../out/external/figures/calibration/worst-incorner-splined.png]]
+
+** =LENSMODEL_OPENCV8=: 10th-worst image
+#+ATTR_LATEX: :width \linewidth
+[[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
 
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC=: residual directions
 #+ATTR_LATEX: :width \linewidth
 [[file:../out/external/figures/calibration/directions-splined.png]]
+
+** =LENSMODEL_OPENCV8=: residual directions
+#+ATTR_LATEX: :width \linewidth
+[[file:../out/external/figures/calibration/directions-opencv8.png]]
 
 * Differencing
 ** Differencing
@@ -236,7 +254,7 @@ Given a pixel $\vec q_0$,
 - Report the reprojection difference $\vec q_1 - \vec q_0$
 
 #+ATTR_LATEX: :width 0.8\linewidth
-[[file:../figures/diff-notransform.pdf]]
+[[file:../out/figures/diff-notransform.pdf]]
 
 ** Differencing
 #+ATTR_LATEX: :width \linewidth
@@ -252,7 +270,7 @@ So with a motion of the camera, we can make the errors disappear.
 The issue is that each calibration produces noisy estimates of all the
 intrinsics and all the coordinate transformations:
 
-[[file:../figures/uncertainty.pdf]]
+[[file:../out/figures/uncertainty.pdf]]
 
 And the point $\vec p$ we were projecting wasn't truly fixed.
 
@@ -265,7 +283,7 @@ We want to add a step:
 - Project $\vec p_1$ back to pixel coords $\vec q_1$ using lens 1
 - Report the reprojection difference $\vec q_1 - \vec q_0$
 
-[[file:../figures/diff-yestransform.pdf]]
+[[file:../out/figures/diff-yestransform.pdf]]
 
 ** Differencing
 #+ATTR_LATEX: :width \linewidth
@@ -419,7 +437,7 @@ But an unprojection is ambiguous in range, so *diffs and uncertainties are
 defined as a function of range*
 
 #+ATTR_LATEX: :width \linewidth
-[[file:../figures/projection-scale-invariance.pdf]]
+[[file:../out/figures/projection-scale-invariance.pdf]]
 
 All the uncertainties reported so far, were at $\infty$
 
@@ -482,7 +500,7 @@ for the commands.
   long as the camera can keep the chessboards /and/ the working objects in focus
 
 #+ATTR_LATEX: :width 0.7\linewidth
-[[file:../figures/observation-usefulness.pdf]]
+[[file:../out/figures/observation-usefulness.pdf]]
 
 * Stereo
 ** Overview
@@ -498,7 +516,7 @@ Each pair of corresponding rows in the rectified images represents a plane in
 space:
 
 #+ATTR_LATEX: :width 0.65\linewidth
-[[file:../figures/rectification.pdf]]
+[[file:../out/figures/rectification.pdf]]
 
 ** Input images
 I used the lens I calibrated at the start to capture a pair of images in
