@@ -312,9 +312,9 @@ perfect observations
         calobject_warp_sampled = None
 
     if function_optimize is None:
-        b_sampled = np.zeros((Nsamples,mrcal.num_states(**optimization_inputs_baseline)),)
+        b_sampled_unpacked = np.zeros((Nsamples,mrcal.num_states(**optimization_inputs_baseline)),)
     else:
-        b_sampled = None
+        b_sampled_unpacked = None
 
     optimization_inputs_sampled = [None] * Nsamples
 
@@ -347,8 +347,8 @@ perfect observations
             q_noise_point = None
 
         if function_optimize is None:
-            b_sampled[isample] = mrcal.optimize(**optimization_inputs)['b_packed']
-            mrcal.unpack_state(b_sampled[isample], **optimization_inputs)
+            b_sampled_unpacked[isample] = mrcal.optimize(**optimization_inputs)['b_packed']
+            mrcal.unpack_state(b_sampled_unpacked[isample], **optimization_inputs)
         else:
             function_optimize(optimization_inputs)
 
@@ -374,5 +374,5 @@ perfect observations
             calobject_warp_sampled,
             q_noise_board_sampled,
             q_noise_point_sampled,
-            b_sampled,
+            b_sampled_unpacked,
             optimization_inputs_sampled)
