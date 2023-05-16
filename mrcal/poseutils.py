@@ -922,6 +922,134 @@ We return a single array of shape (..., 6,6): drt01/drt0
 
     return out
 
+def compose_rt_tinyrt1_gradientrt1(rt0, out=None):
+    r"""Special-case composition for the uncertainty computation
+
+SYNOPSIS
+
+    r0  = rotation_axis0 * rotation_magnitude0
+    rt0 = nps.glue(r0, t0,  axis=-1)
+
+    drt01_drt1 = compose_rt_tinyrt1_gradientrt1(rt0)
+
+    ### Another way to get the same thing (but possibly less efficiently)
+     _,_,drt01_drt1 = compose_rt(rt0,
+                                 np.zeros((6,),),
+                                 get_gradients=True)
+
+This is a special-case subset of compose_rt(). It is the same, except:
+
+- rt1 is assumed to be 0, so we don't ingest it, and we don't report the
+  composition result
+- we ONLY report the drt01/drt1 gradient
+
+This special-case function is a part of the projection uncertainty computation,
+so it exists separate from compose_rt(). See the documentation for compose_rt()
+for all the details.
+
+This function supports broadcasting fully
+
+ARGUMENTS
+
+- rt0: the first of the two transformations being composed. The second is an
+  identity, so it's not given as an argument
+
+- out: optional argument specifying the destination. By default, a new numpy
+  array is created and returned. To write the results into an existing (and
+  possibly non-contiguous) array, specify it with the 'out' kwarg
+
+RETURNED VALUE
+
+We return a single array of shape (..., 6,6): drt01/drt1
+
+    """
+
+    # R0 (R1 p + t1) + t0 = R0 R1 p + (R0 t1 + t0)
+    # -> R01 = R0 R1
+    # -> t01 = R0 t1 + t0
+
+    # rotate_point_r_core() says that
+
+    #   const val_withgrad_t<N> cross[3] =
+    #       {
+    #           (rg[1]*x_ing[2] - rg[2]*x_ing[1])*sign,
+    #           (rg[2]*x_ing[0] - rg[0]*x_ing[2])*sign,
+    #           (rg[0]*x_ing[1] - rg[1]*x_ing[0])*sign
+    #       };
+    #   const val_withgrad_t<N> inner =
+    #       rg[0]*x_ing[0] +
+    #       rg[1]*x_ing[1] +
+    #       rg[2]*x_ing[2];
+
+    #   if(th2.x < 1e-10)
+    #   {
+    #     // Small rotation. I don't want to divide by 0, so I take the limit
+    #     //   lim(th->0, xrot) =
+    #     //     = x + cross(r, x) + r rt x lim(th->0, (1 - cos(th)) / (th*th))
+    #     //     = x + cross(r, x) + r rt x lim(th->0, sin(th) / (2*th))
+    #     //     = x + cross(r, x) + r rt x/2
+    #     for(int i=0; i<3; i++)
+    #         x_outg[i] =
+    #             x_ing[i] +
+    #             cross[i] +
+    #             rg[i]*inner / 2.;
+    #   }
+    #   else
+    #   {
+    #     xrot = x cos(th) + cross(r, x)*sin(th)/th + r rt x (1 - cos(th)) / (th*th)
+    #   }
+
+    # So if r0 is small:
+    #   t01      = t0 + t1 + cross(r0,t1) + r0/2 inner(r0,t1)
+    #   dt01/dt1 = I + skew_symmetric(r0) + outer(r0,r0)/2
+    # else:
+    #   t01      = t0 + t1 cos(th) + cross(r0,t1)*sin(th)/th + outer(r0,r0) t1 (1 - cos(th)) / (th*th)
+    #   dt01/dt1 = I cos(th) + skew_symmetric(r0)*sin(th)/th + outer(r0,r0) (1 - cos(th)) / (th*th)
+
+    #   drt01/drt1 = [ dr01/dr1  dr01/dt1  ] = [ dr01/dr1   0        ]
+    #                [ dt01/dr1  dt01/dt1  ] = [ 0          dt01/dt1 ]
+
+    out_shape = rt0.shape + (6,)
+    if out is None:
+        out = np.zeros(out_shape, dtype=float)
+    else:
+        if not out.shape == out_shape:
+            raise Exception(f"The given 'out' array has shape {out.shape} but rt0 has shape {rt0.shape}, so 'out' should have shape {out_shape}")
+        out[:] = 0
+
+
+    # dummy arrays
+    rt01       = np.zeros(rt0.shape,        dtype=float)
+    drt01_drt0 = np.zeros(rt0.shape + (6,), dtype=float)
+
+    return \
+        compose_rt(rt0,
+                   np.zeros((6,),),
+                   get_gradients=True,
+                   out = (rt01,drt01_drt0,out))[2]
+
+
+
+    _poseutils_npsp.skew_symmetric(rt0[..., :3],
+                                   out = out[..., 3:, 3:])
+
+    th2 = nps.norm2(rt0[..., :3])
+    s = np.array(th2 * 0.)
+    mask_r0_tiny = th2 < 1e-10
+    if np.any(mask_r0_tiny):
+        s[ mask_r0_tiny] = 0.5
+
+    if np.any(~mask_r0_tiny):
+        s[~mask_r0_tiny] = (1 - np.cos(np.sqrt(th2[~mask_r0_tiny])) / th2[~mask_r0_tiny])
+
+    out[..., 3:, 3:] += np.eye(3) + nps.outer(rt0[..., :3],rt0[..., :3]) * s
+
+    _poseutils_npsp.compose_r_tinyr1_gradientr1(rt0[..., :3],
+                                                out = out[..., :3, :3])
+
+    return out
+
+
 def rotate_point_r(r, x, *, get_gradients=False, out=None, inverted=False):
     r"""Rotate point(s) using a Rodrigues vector
 

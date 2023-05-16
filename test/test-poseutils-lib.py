@@ -1324,4 +1324,36 @@ confirm_equal( drt01_drt0,
                drt01_drt0_ref,
                msg='compose_rt_tinyrt0_gradientrt0 in-place -rt0zero gradients: drt01_drt0')
 
+
+################# compose_rt_tinyrt1_gradientrt1()
+drt01_drt1   = base[:6,:6,0,0]
+
+rt0big      = rt1big
+rt0nearzero = rt1nearzero
+
+mrcal.compose_rt_tinyrt1_gradientrt1(rt0big, out = drt01_drt1)
+drt01_drt1_ref = grad(lambda rt1: compose_rt(rt0big, rt1), rt1zero, step=1e-5)
+confirm_equal( drt01_drt1,
+               drt01_drt1_ref,
+               msg='compose_rt_tinyrt1_gradientrt1 in-place rt0big gradients: drt01_drt1')
+
+mrcal.compose_rt_tinyrt1_gradientrt1(rt0nearzero, out = drt01_drt1)
+drt01_drt1_ref = grad(lambda rt1: compose_rt(rt0nearzero, rt1), rt1zero, step=1e-5)
+confirm_equal( drt01_drt1,
+               drt01_drt1_ref,
+               msg='compose_rt_tinyrt1_gradientrt1 in-place rt0nearzero gradients: drt01_drt1')
+
+mrcal.compose_rt_tinyrt1_gradientrt1(rt0zero, out = drt01_drt1)
+drt01_drt1_ref = grad(lambda rt1: compose_rt(rt0zero, rt1), rt1zero, step=1e-5)
+confirm_equal( drt01_drt1,
+               drt01_drt1_ref,
+               msg='compose_rt_tinyrt1_gradientrt1 in-place rt0zero gradients: drt01_drt1')
+
+mrcal.compose_rt_tinyrt1_gradientrt1(-rt1zero, out = drt01_drt1)
+drt01_drt1_ref = grad(lambda rt1: compose_rt(-rt1zero, rt1), rt1zero, step=1e-5)
+confirm_equal( drt01_drt1,
+               drt01_drt1_ref,
+               msg='compose_rt_tinyrt1_gradientrt1 in-place -rt1zero gradients: drt01_drt1')
+
+
 finish()
