@@ -119,7 +119,7 @@ def parse_args():
                                  'mean-frames-using-meanq-penalize-big-shifts',
                                  'fit-boards-ref',
                                  'diff',
-                                 'optimize-cross-reprojection-error'),
+                                 'cross-reprojection-error'),
                         default = 'mean-frames',
                         help='''Which reproject-after-perturbation method to use. This is for experiments.
                         Some of these methods will be probably wrong.''')
@@ -627,33 +627,33 @@ def reproject_perturbed__diff(q, distance,
                        lensmodel, query_intrinsics)
 
 
-def reproject_perturbed__optimize_cross_reprojection_error(q, distance,
+def reproject_perturbed__cross_reprojection_error(q, distance,
 
-                                                           # shape (Ncameras, Nintrinsics)
-                                                           baseline_intrinsics,
-                                                           # shape (Ncameras, 6)
-                                                           baseline_rt_cam_ref,
-                                                           # shape (Nframes, 6)
-                                                           baseline_rt_ref_frame,
-                                                           # shape (2)
-                                                           baseline_calobject_warp,
-                                                           # dict
-                                                           baseline_optimization_inputs,
+                                                  # shape (Ncameras, Nintrinsics)
+                                                  baseline_intrinsics,
+                                                  # shape (Ncameras, 6)
+                                                  baseline_rt_cam_ref,
+                                                  # shape (Nframes, 6)
+                                                  baseline_rt_ref_frame,
+                                                  # shape (2)
+                                                  baseline_calobject_warp,
+                                                  # dict
+                                                  baseline_optimization_inputs,
 
-                                                           # shape (..., Ncameras, Nintrinsics)
-                                                           query_intrinsics,
-                                                           # shape (..., Ncameras, 6)
-                                                           query_rt_cam_ref,
-                                                           # shape (..., Nframes, 6)
-                                                           query_rt_ref_frame,
-                                                           # shape (..., 2)
-                                                           query_calobject_warp,
-                                                           # shape (...)
-                                                           query_optimization_inputs,
-                                                           # shape (..., Nstate)
-                                                           query_b_unpacked,
-                                                           # shape (..., Nobservations,Nheight,Nwidth, 2)
-                                                           query_q_noise_board):
+                                                  # shape (..., Ncameras, Nintrinsics)
+                                                  query_intrinsics,
+                                                  # shape (..., Ncameras, 6)
+                                                  query_rt_cam_ref,
+                                                  # shape (..., Nframes, 6)
+                                                  query_rt_ref_frame,
+                                                  # shape (..., 2)
+                                                  query_calobject_warp,
+                                                  # shape (...)
+                                                  query_optimization_inputs,
+                                                  # shape (..., Nstate)
+                                                  query_b_unpacked,
+                                                  # shape (..., Nobservations,Nheight,Nwidth, 2)
+                                                  query_q_noise_board):
 
     r'''Reproject by explicitly computing a ref-refperturbed transformation
 
@@ -963,7 +963,7 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
     '''
 
     if fixedframes:
-        raise Exception("reproject_perturbed__optimize_cross_reprojection_error(fixedframes = True) is not yet implemented")
+        raise Exception("reproject_perturbed__cross_reprojection_error(fixedframes = True) is not yet implemented")
 
     if query_optimization_inputs is None:
         return None
@@ -1748,8 +1748,8 @@ elif args.reproject_perturbed == 'fit-boards-ref':
     reproject_perturbed = reproject_perturbed__fit_boards_ref
 elif args.reproject_perturbed == 'diff':
     reproject_perturbed = reproject_perturbed__diff
-elif args.reproject_perturbed == 'optimize-cross-reprojection-error':
-    reproject_perturbed = reproject_perturbed__optimize_cross_reprojection_error
+elif args.reproject_perturbed == 'cross-reprojection-error':
+    reproject_perturbed = reproject_perturbed__cross_reprojection_error
 else:
     raise Exception("getting here is a bug")
 
