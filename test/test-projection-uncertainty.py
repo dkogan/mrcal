@@ -1607,16 +1607,20 @@ The rt_refperturbed_ref formulation:
                              np.ravel(dxJ_results[direction]['linearization-Jf'][1][0,:1000,3:])),
                      wait = True)
 
-        if 'linearization-Je' in dxJ_results['rt_ref_refperturbed']:
-            dx_cross0,J_cross = dxJ_results['rt_ref_refperturbed']['linearization-Je']
+        direction = 'rt_ref_refperturbed'
+        if 'linearization-Je' in dxJ_results[direction]:
+            dx_cross0,J_cross = dxJ_results[direction]['linearization-Je']
         else:
-            dx_cross0,J_cross = dxJ_results['rt_ref_refperturbed']['compose-grad']
+            dx_cross0,J_cross = dxJ_results[direction]['compose-grad']
 
         E_cross_ref0        = nps.norm2(dx_cross0 + x_baseline_boards)
 
         @nps.broadcast_define((('N',6),('N',)), (6,))
         def lstsq(J,x): return np.linalg.lstsq(J, x, rcond = None)[0]
-        rt_ref_refperturbed = -lstsq(J_cross, dx_cross0)
+        if direction == 'rt_ref_refperturbed':
+            rt_ref_refperturbed = -lstsq(J_cross, dx_cross0)
+        else:
+            rt_ref_refperturbed = mrcal.invert_rt(-lstsq(J_cross, dx_cross0))
 
 
         # I have a 1-step solve. Let's look at the error to confirm that it's
