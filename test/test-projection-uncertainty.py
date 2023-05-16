@@ -1339,6 +1339,10 @@ The rt_refperturbed_ref formulation:
             db_cross_ie_packed[~state_mask_ie] = 0
             dx_cross_ie0 = J.dot(db_cross_ie_packed)
 
+            dx_cross_ie0 -= (weight.reshape(delta_qref.shape[:-1] + (1,)) * delta_qref).ravel()
+
+
+
             Nframes     = Nstates_frame     //6
             Nextrinsics = Nstates_extrinsics//6
 
