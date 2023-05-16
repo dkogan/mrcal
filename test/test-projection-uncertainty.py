@@ -1285,17 +1285,15 @@ The rt_refperturbed_ref formulation:
 
 
             # make a copy to not overwrite the input
-            delta_qref = np.array(delta_qref)
+            W_delta_qref = np.array(delta_qref)
+            # shape (N,2)
+            W_delta_qref_xy = nps.clump(W_delta_qref, n=W_delta_qref.ndim-1)
+            if W_delta_qref_xy.base is not W_delta_qref: raise Exception("clump() made new array. This is a bug")
+            # W_delta_qref <- W * delta_qref
+            W_delta_qref_xy *= nps.transpose(weight.ravel())
 
             # mask out outliers
-
-            # shape (N,2)
-            delta_qref_xy = nps.clump(delta_qref, n=delta_qref.ndim-1)
-            if delta_qref_xy.base is not delta_qref: raise Exception("clump() made new array. This is a bug")
-            delta_qref_xy[weight.ravel() <= 0, :] = 0
-
-            # delta_qref <- W delta_qref
-            delta_qref_xy *= nps.transpose(weight.ravel())
+            W_delta_qref_xy[weight.ravel() <= 0, :] = 0
 
             J = J_packed_baseline[slice_meas_observations,:]
 
@@ -1303,7 +1301,7 @@ The rt_refperturbed_ref formulation:
             mrcal._mrcal_npsp._Jt_x(J.indptr,
                                     J.indices,
                                     J.data,
-                                    delta_qref.ravel(),
+                                    W_delta_qref.ravel(),
                                     out = Jt_W_qref)
 
             db_predicted = factorization.solve_xt_JtJ_bt( Jt_W_qref )
@@ -1345,7 +1343,7 @@ The rt_refperturbed_ref formulation:
             db_cross_ie_packed[~state_mask_ie] = 0
             dx_cross_ie0 = J.dot(db_cross_ie_packed)
 
-            dx_cross_ie0 -= (weight.reshape(delta_qref.shape[:-1] + (1,)) * delta_qref).ravel()
+            dx_cross_ie0 -= W_delta_qref.ravel()
 
 
 
