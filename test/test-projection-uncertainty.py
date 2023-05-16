@@ -1666,7 +1666,7 @@ The rt_refperturbed_ref formulation:
 
 
 
-    if rt_ref_refperturbed.shape[0] > 10:
+    if False and rt_ref_refperturbed.shape[0] > 10:
 
         print("not yet done. finish this")
 
