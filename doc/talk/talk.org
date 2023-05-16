@@ -4,6 +4,13 @@
 #+OPTIONS: toc:nil H:2
 
 #+LATEX_CLASS_OPTIONS: [presentation]
+
+# Org adds this: \usepackage[T1]{fontenc} On my box this has the effect of
+# asking for fonts that I don't have, which results in very ugly rendering with
+# mupdf, where it uses bitmapped fonts, and scales them in ugly ways. Adding the
+# below makes it pick the nice fonts
+#+LaTeX_HEADER: \usepackage{lmodern}
+
 #+LaTeX_HEADER: \setbeamertemplate{navigation symbols}{}
 
 # I want clickable links to be blue and underlined, as is custom
