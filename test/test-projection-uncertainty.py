@@ -1359,12 +1359,12 @@ The rt_refperturbed_ref formulation:
                     #           = J_extrinsics d(compose_rt(rt_cam_ref,rt_ref_ref*))/drt_ref_ref*
                     rt_cam_ref = b_baseline_unpacked[slice_state_extrinsics].reshape(Nextrinsics,6)
                     # shape (Nextrinsics,6,6)
-                    drt__drt_ref_refperturbed = mrcal.compose_rt_tinyrt1_gradientrt1(rt_cam_ref)
+                    drt_drt = mrcal.compose_rt_tinyrt1_gradientrt1(rt_cam_ref)
                     # Pack
-                    drt__drt_ref_refperturbed /= nps.dummy(scale_extrinsics, -1)
+                    drt_drt /= nps.dummy(scale_extrinsics, -1)
                     # shape (Nextrinsics*6,6) = (Nstates_extrinsics,6)
-                    drt__drt_ref_refperturbed = nps.clump(drt__drt_ref_refperturbed, n=2)
-                    J_cross_rrp_e = J[:, slice_state_extrinsics].dot(drt__drt_ref_refperturbed)
+                    drt_drt = nps.clump(drt_drt, n=2)
+                    J_cross_rrp_e = J[:, slice_state_extrinsics].dot(drt_drt)
                 else:
                     J_cross_rrp_e = None
 
@@ -1380,12 +1380,12 @@ The rt_refperturbed_ref formulation:
                     #           = J_frame d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
                     rt_ref_frame = b_baseline_unpacked[slice_state_frame].reshape(Nframes,6)
                     # shape (Nframes,6,6)
-                    drt__drt_ref_refperturbed = mrcal.compose_rt_tinyrt0_gradientrt0(rt_ref_frame)
+                    drt_drt = mrcal.compose_rt_tinyrt0_gradientrt0(rt_ref_frame)
                     # Pack. rt_ref_frame is now packed
-                    drt__drt_ref_refperturbed /= nps.dummy(scale_frames, -1)
+                    drt_drt /= nps.dummy(scale_frames, -1)
                     # shape (Nframes*6,6) = (Nstates_frame,6)
-                    drt__drt_ref_refperturbed = nps.clump(drt__drt_ref_refperturbed, n=2)
-                    J_cross_rrp_f = J[:, slice_state_frame].dot(drt__drt_ref_refperturbed)
+                    drt_drt = nps.clump(drt_drt, n=2)
+                    J_cross_rrp_f = J[:, slice_state_frame].dot(drt_drt)
 
             ########## direction == 'rt_refperturbed_ref'
             if 1:
@@ -1402,12 +1402,12 @@ The rt_refperturbed_ref formulation:
                     #           = J_extrinsics d(compose_rt(rt_cam_ref,  rt_ref*_ref))/drt_ref*_ref
                     rt_cam_ref = b_baseline_unpacked[slice_state_extrinsics].reshape(Nextrinsics,6)
                     # shape (Nextrinsics,6,6)
-                    drt__drt_refperturbed_ref = mrcal.compose_rt_tinyrt1_gradientrt1(rt_cam_ref)
+                    drt_drt = mrcal.compose_rt_tinyrt1_gradientrt1(rt_cam_ref)
                     # Pack
-                    drt__drt_refperturbed_ref /= nps.dummy(scale_extrinsics, -1)
+                    drt_drt /= nps.dummy(scale_extrinsics, -1)
                     # shape (Nextrinsics*6,6) = (Nstates_extrinsics,6)
-                    drt__drt_refperturbed_ref = nps.clump(drt__drt_refperturbed_ref, n=2)
-                    J_cross_rpr_e = J[:, slice_state_extrinsics].dot(drt__drt_refperturbed_ref)
+                    drt_drt = nps.clump(drt_drt, n=2)
+                    J_cross_rpr_e = J[:, slice_state_extrinsics].dot(drt_drt)
                 else:
                     J_cross_rpr_e = None
 
@@ -1418,12 +1418,12 @@ The rt_refperturbed_ref formulation:
                     #           = J_frame d(compose_rt(rt_ref*_ref,rt_ref_frame))/drt_ref*_ref
                     rt_ref_frame = b_baseline_unpacked[slice_state_frame].reshape(Nframes,6)
                     # shape (Nframes,6,6)
-                    drt__drt_refperturbed_ref = mrcal.compose_rt_tinyrt0_gradientrt0(rt_ref_frame)
+                    drt_drt = mrcal.compose_rt_tinyrt0_gradientrt0(rt_ref_frame)
                     # Pack. rt_ref_frame is now packed
-                    drt__drt_refperturbed_ref /= nps.dummy(scale_frames, -1)
+                    drt_drt /= nps.dummy(scale_frames, -1)
                     # shape (Nframes*6,6) = (Nstates_frame,6)
-                    drt__drt_refperturbed_ref = nps.clump(drt__drt_refperturbed_ref, n=2)
-                    J_cross_rpr_f = J[:, slice_state_frame].dot(drt__drt_refperturbed_ref)
+                    drt_drt = nps.clump(drt_drt, n=2)
+                    J_cross_rpr_f = J[:, slice_state_frame].dot(drt_drt)
 
             # Workaround for a numpy bug:
             # https://github.com/numpy/numpy/issues/19470
