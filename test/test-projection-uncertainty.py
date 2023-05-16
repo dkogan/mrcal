@@ -1350,85 +1350,72 @@ The rt_refperturbed_ref formulation:
             Nframes     = Nstates_frame     //6
             Nextrinsics = Nstates_extrinsics//6
 
-            ########## direction == 'rt_ref_refperturbed'
+            # The J_cross formulations using the extrinsics and the frames are
+            # actually identical in the two directions: rt_ref_refperturbed and
+            # rt_refperturbed_ref
+
+            #### J_cross_e
+            if slice_state_extrinsics:
+                #### In the rt_ref_refperturbed direction:
+                # J_cross_e = dx_cross/drt_ref_ref*
+                #           = J_extrinsics drt_cam_ref*/drt_ref_ref*
+                #           = J_extrinsics d(compose_rt(rt_cam_ref,rt_ref_ref*))/drt_ref_ref*
+
+                #### In the rt_refperturbed_ref direction:
+                # rt_cam*_ref* is a tiny shift off rt_cam_ref AND I'm
+                # assuming that everything is locally linear. So this shift
+                # is insignificant, and I use rt_cam_ref to compute the
+                # gradient instead
+
+                # J_cross_e = dx_cross/drt_ref*_ref
+                #           = J_extrinsics drt_cam*_ref/drt_ref*_ref
+                #           = J_extrinsics d(compose_rt(rt_cam*_ref*,rt_ref*_ref))/drt_ref*_ref
+                #           = J_extrinsics d(compose_rt(rt_cam_ref,  rt_ref*_ref))/drt_ref*_ref
+
+                # It's the same exact value either way
+                rt_cam_ref = b_baseline_unpacked[slice_state_extrinsics].reshape(Nextrinsics,6)
+                # shape (Nextrinsics,6,6)
+                drt_drt = mrcal.compose_rt_tinyrt1_gradientrt1(rt_cam_ref)
+                # Pack
+                drt_drt /= nps.dummy(scale_extrinsics, -1)
+                # shape (Nextrinsics*6,6) = (Nstates_extrinsics,6)
+                drt_drt = nps.clump(drt_drt, n=2)
+                J_cross_e = J[:, slice_state_extrinsics].dot(drt_drt)
+            else:
+                J_cross_e = None
+
+            #### J_cross_f
             if 1:
-                #### J_cross_e
-                if slice_state_extrinsics:
-                    # J_cross_e = dx_cross/drt_ref_ref*
-                    #           = J_extrinsics drt_cam_ref*/drt_ref_ref*
-                    #           = J_extrinsics d(compose_rt(rt_cam_ref,rt_ref_ref*))/drt_ref_ref*
-                    rt_cam_ref = b_baseline_unpacked[slice_state_extrinsics].reshape(Nextrinsics,6)
-                    # shape (Nextrinsics,6,6)
-                    drt_drt = mrcal.compose_rt_tinyrt1_gradientrt1(rt_cam_ref)
-                    # Pack
-                    drt_drt /= nps.dummy(scale_extrinsics, -1)
-                    # shape (Nextrinsics*6,6) = (Nstates_extrinsics,6)
-                    drt_drt = nps.clump(drt_drt, n=2)
-                    J_cross_rrp_e = J[:, slice_state_extrinsics].dot(drt_drt)
-                else:
-                    J_cross_rrp_e = None
+                #### In the rt_ref_refperturbed direction:
+                # rt_ref*_frame* is a tiny shift off rt_ref_frame AND I'm assuming that
+                # everything is locally linear. So this shift is insignificant, and I use
+                # rt_ref_frame to compute the gradient instead
 
-                #### J_cross_f
-                if 1:
-                    # rt_ref*_frame* is a tiny shift off rt_ref_frame AND I'm assuming that
-                    # everything is locally linear. So this shift is insignificant, and I use
-                    # rt_ref_frame to compute the gradient instead
+                # J_cross_f = dx_cross/drt_ref_ref*
+                #           = J_frame drt_ref_frame*/drt_ref_ref*
+                #           = J_frame d(compose_rt(rt_ref_ref*,rt_ref*_frame*))/drt_ref_ref*
+                #           = J_frame d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
 
-                    # J_cross_f = dx_cross/drt_ref_ref*
-                    #           = J_frame drt_ref_frame*/drt_ref_ref*
-                    #           = J_frame d(compose_rt(rt_ref_ref*,rt_ref*_frame*))/drt_ref_ref*
-                    #           = J_frame d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
-                    rt_ref_frame = b_baseline_unpacked[slice_state_frame].reshape(Nframes,6)
-                    # shape (Nframes,6,6)
-                    drt_drt = mrcal.compose_rt_tinyrt0_gradientrt0(rt_ref_frame)
-                    # Pack. rt_ref_frame is now packed
-                    drt_drt /= nps.dummy(scale_frames, -1)
-                    # shape (Nframes*6,6) = (Nstates_frame,6)
-                    drt_drt = nps.clump(drt_drt, n=2)
-                    J_cross_rrp_f = J[:, slice_state_frame].dot(drt_drt)
+                #### In the rt_refperturbed_ref direction:
+                # J_cross_f = dx_cross/drt_ref*_ref
+                #           = J_frame drt_ref*_frame/drt_ref*_ref
+                #           = J_frame d(compose_rt(rt_ref*_ref,rt_ref_frame))/drt_ref*_ref
 
-            ########## direction == 'rt_refperturbed_ref'
-            if 1:
-                #### J_cross_e
-                if slice_state_extrinsics:
-                    # rt_cam*_ref* is a tiny shift off rt_cam_ref AND I'm
-                    # assuming that everything is locally linear. So this shift
-                    # is insignificant, and I use rt_cam_ref to compute the
-                    # gradient instead
+                # It's the same exact value either way
+                rt_ref_frame = b_baseline_unpacked[slice_state_frame].reshape(Nframes,6)
+                # shape (Nframes,6,6)
+                drt_drt = mrcal.compose_rt_tinyrt0_gradientrt0(rt_ref_frame)
+                # Pack. rt_ref_frame is now packed
+                drt_drt /= nps.dummy(scale_frames, -1)
+                # shape (Nframes*6,6) = (Nstates_frame,6)
+                drt_drt = nps.clump(drt_drt, n=2)
+                J_cross_f = J[:, slice_state_frame].dot(drt_drt)
 
-                    # J_cross_e = dx_cross/drt_ref*_ref
-                    #           = J_extrinsics drt_cam*_ref/drt_ref*_ref
-                    #           = J_extrinsics d(compose_rt(rt_cam*_ref*,rt_ref*_ref))/drt_ref*_ref
-                    #           = J_extrinsics d(compose_rt(rt_cam_ref,  rt_ref*_ref))/drt_ref*_ref
-                    rt_cam_ref = b_baseline_unpacked[slice_state_extrinsics].reshape(Nextrinsics,6)
-                    # shape (Nextrinsics,6,6)
-                    drt_drt = mrcal.compose_rt_tinyrt1_gradientrt1(rt_cam_ref)
-                    # Pack
-                    drt_drt /= nps.dummy(scale_extrinsics, -1)
-                    # shape (Nextrinsics*6,6) = (Nstates_extrinsics,6)
-                    drt_drt = nps.clump(drt_drt, n=2)
-                    J_cross_rpr_e = J[:, slice_state_extrinsics].dot(drt_drt)
-                else:
-                    J_cross_rpr_e = None
-
-                #### J_cross_f
-                if 1:
-                    # J_cross_f = dx_cross/drt_ref*_ref
-                    #           = J_frame drt_ref*_frame/drt_ref*_ref
-                    #           = J_frame d(compose_rt(rt_ref*_ref,rt_ref_frame))/drt_ref*_ref
-                    rt_ref_frame = b_baseline_unpacked[slice_state_frame].reshape(Nframes,6)
-                    # shape (Nframes,6,6)
-                    drt_drt = mrcal.compose_rt_tinyrt0_gradientrt0(rt_ref_frame)
-                    # Pack. rt_ref_frame is now packed
-                    drt_drt /= nps.dummy(scale_frames, -1)
-                    # shape (Nframes*6,6) = (Nstates_frame,6)
-                    drt_drt = nps.clump(drt_drt, n=2)
-                    J_cross_rpr_f = J[:, slice_state_frame].dot(drt_drt)
 
             # Workaround for a numpy bug:
             # https://github.com/numpy/numpy/issues/19470
-            out[0,:] = (dx_cross_fcw0, J_cross_rrp_e, J_cross_rrp_f)
-            out[1,:] = (dx_cross_ie0,  J_cross_rpr_e, J_cross_rpr_f)
+            out[0,:] = (dx_cross_fcw0, J_cross_e, J_cross_f)
+            out[1,:] = (dx_cross_ie0,  J_cross_e, J_cross_f)
             return out
 
 
