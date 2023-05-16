@@ -1020,8 +1020,10 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
     slice_state_frame          = slice(istate_frame0,           istate_frame0          + Nstates_frame         )
     slice_state_calobject_warp = slice(istate_calobject_warp0,  istate_calobject_warp0 + Nstates_calobject_warp)
     slice_state_intrinsics     = slice(istate_intrinsics0,      istate_intrinsics0     + Nstates_intrinsics    )
-    slice_state_extrinsics     = slice(istate_extrinsics0,      istate_extrinsics0     + Nstates_extrinsics    )
-
+    if istate_extrinsics0 is not None:
+        slice_state_extrinsics = slice(istate_extrinsics0,      istate_extrinsics0     + Nstates_extrinsics    )
+    else:
+        slice_state_extrinsics = None
 
 
 
@@ -1272,7 +1274,8 @@ The rt_refperturbed_ref formulation:
             state_mask_fcw[slice_state_frame]          = 1
             state_mask_fcw[slice_state_calobject_warp] = 1
             state_mask_ie [slice_state_intrinsics]     = 1
-            state_mask_ie [slice_state_extrinsics]     = 1
+            if slice_state_extrinsics is not None:
+                state_mask_ie [slice_state_extrinsics] = 1
 
 
             # make a copy to not overwrite the input
@@ -1342,7 +1345,7 @@ The rt_refperturbed_ref formulation:
             ########## direction == 'rt_ref_refperturbed'
             if 1:
                 #### J_cross_e
-                if 1:
+                if slice_state_extrinsics:
                     # J_cross_e = dx_cross/drt_ref_ref*
                     #           = J_extrinsics drt_cam_ref*/drt_ref_ref*
                     #           = J_extrinsics d(compose_rt(rt_cam_ref,rt_ref_ref*))/drt_ref_ref*
@@ -1354,6 +1357,8 @@ The rt_refperturbed_ref formulation:
                     # shape (Nextrinsics*6,6) = (Nstates_extrinsics,6)
                     drt__drt_ref_refperturbed = nps.clump(drt__drt_ref_refperturbed, n=2)
                     J_cross_rrp_e = J[:, slice_state_extrinsics].dot(drt__drt_ref_refperturbed)
+                else:
+                    J_cross_rrp_e = None
 
                 #### J_cross_f
                 if 1:
@@ -1377,7 +1382,7 @@ The rt_refperturbed_ref formulation:
             ########## direction == 'rt_refperturbed_ref'
             if 1:
                 #### J_cross_e
-                if 1:
+                if slice_state_extrinsics:
                     # rt_cam*_ref* is a tiny shift off rt_cam_ref AND I'm
                     # assuming that everything is locally linear. So this shift
                     # is insignificant, and I use rt_cam_ref to compute the
@@ -1395,6 +1400,8 @@ The rt_refperturbed_ref formulation:
                     # shape (Nextrinsics*6,6) = (Nstates_extrinsics,6)
                     drt__drt_refperturbed_ref = nps.clump(drt__drt_refperturbed_ref, n=2)
                     J_cross_rpr_e = J[:, slice_state_extrinsics].dot(drt__drt_refperturbed_ref)
+                else:
+                    J_cross_rpr_e = None
 
                 #### J_cross_f
                 if 1:
@@ -1520,7 +1527,11 @@ The rt_refperturbed_ref formulation:
 
             b = np.ones( (Nstate,), dtype=float)
             mrcal.unpack_state(b, **baseline_optimization_inputs)
-            scale_extrinsics = b[istate_extrinsics0:istate_extrinsics0+6]
+
+            if istate_extrinsics0 is not None:
+                scale_extrinsics = b[istate_extrinsics0:istate_extrinsics0+6]
+            else:
+                scale_extrinsics = None
             scale_frames     = b[istate_frame0     :istate_frame0     +6]
 
             # a (2,3) array indexed as
