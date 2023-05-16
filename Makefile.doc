@@ -93,9 +93,11 @@ EXTRA_CLEAN += doc/mrcal-preamble-GENERATED.html
 # VERSION_USE_LATEST_TAG=1 are used). Beware
 doc: VERSION_USE_LATEST_TAG=1
 
-doc: $(DOC_HTML)
-
+doc: $(DOC_HTML) | doc/out/external
 .PHONY: doc
+
+doc/out/external:
+	ln -fs ../../../mrcal-doc-external $@
 
 # the whole output documentation directory
 EXTRA_CLEAN += doc/out
