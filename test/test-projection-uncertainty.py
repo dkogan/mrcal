@@ -987,6 +987,9 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
     if fixedframes:
         raise Exception("reproject_perturbed__cross_reprojection_error(fixedframes = True) is not yet implemented. I would at least need to handle J_frames not existing when computing J_cross")
 
+    if not baseline_optimization_inputs['do_optimize_frames']:
+        raise Exception("reproject_perturbed__cross_reprojection_error implementation expects the frames to be optimized")
+
     if query_optimization_inputs is None:
         return None
 
@@ -1039,16 +1042,24 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
     istate_calobject_warp0 = mrcal.state_index_calobject_warp(**optimization_inputs_baseline)
     Nstates_calobject_warp = mrcal.num_states_calobject_warp(**optimization_inputs_baseline)
 
+    every_observation_has_extrinsics =                             \
+        baseline_optimization_inputs['do_optimize_extrinsics'] and \
+        Nstates_extrinsics > 0                                 and \
+        istate_extrinsics0 is not None                         and \
+        np.all(baseline_optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,2] >= 0)
+
+    if re.search('Je$', mode) and not every_observation_has_extrinsics:
+        raise Exception(f"User asked for '{args.reproject_perturbed}', but Je is not available: not every observation has an extrinsics vector")
+
     slice_meas_observations    = slice(imeas0_observations,     imeas0_observations    + Nmeas_observations    )
     slice_state_frame          = slice(istate_frame0,           istate_frame0          + Nstates_frame         )
     slice_state_calobject_warp = slice(istate_calobject_warp0,  istate_calobject_warp0 + Nstates_calobject_warp)
     slice_state_intrinsics     = slice(istate_intrinsics0,      istate_intrinsics0     + Nstates_intrinsics    )
-    if istate_extrinsics0 is not None:
+
+    if every_observation_has_extrinsics:
         slice_state_extrinsics = slice(istate_extrinsics0,      istate_extrinsics0     + Nstates_extrinsics    )
     else:
         slice_state_extrinsics = None
-
-
 
     x_baseline_boards = x_baseline[slice_meas_observations]
     if mrcal.num_measurements_points(**optimization_inputs_baseline) != 0:
@@ -1297,7 +1308,7 @@ The rt_refperturbed_ref formulation:
             state_mask_fcw[slice_state_frame]          = 1
             state_mask_fcw[slice_state_calobject_warp] = 1
             state_mask_ie [slice_state_intrinsics]     = 1
-            if slice_state_extrinsics is not None:
+            if every_observation_has_extrinsics:
                 state_mask_ie [slice_state_extrinsics] = 1
 
 
@@ -1373,7 +1384,7 @@ The rt_refperturbed_ref formulation:
             # rt_refperturbed_ref
 
             #### J_cross_e
-            if slice_state_extrinsics:
+            if every_observation_has_extrinsics:
                 #### In the rt_ref_refperturbed direction:
                 # J_cross_e = dx_cross/drt_ref_ref*
                 #           = J_extrinsics drt_cam_ref*/drt_ref_ref*
@@ -1541,7 +1552,7 @@ The rt_refperturbed_ref formulation:
             b = np.ones( (Nstate,), dtype=float)
             mrcal.unpack_state(b, **baseline_optimization_inputs)
 
-            if istate_extrinsics0 is not None:
+            if every_observation_has_extrinsics:
                 scale_extrinsics = b[istate_extrinsics0:istate_extrinsics0+6]
             else:
                 scale_extrinsics = None
@@ -1555,12 +1566,13 @@ The rt_refperturbed_ref formulation:
                                                       scale_extrinsics, scale_frames,
                                                       out = rrp_rpr__x_Je_Jf)
 
-            dxJ_results['rt_ref_refperturbed'][f"{method}-Je"] = \
-                np.array(tuple(rrp_rpr__x_Je_Jf[:,0,0])), \
-                np.array(tuple(rrp_rpr__x_Je_Jf[:,0,1]))
-            dxJ_results['rt_refperturbed_ref'][f"{method}-Je"] = \
-                np.array(tuple(rrp_rpr__x_Je_Jf[:,1,0])), \
-                np.array(tuple(rrp_rpr__x_Je_Jf[:,1,1]))
+            if every_observation_has_extrinsics:
+                dxJ_results['rt_ref_refperturbed'][f"{method}-Je"] = \
+                    np.array(tuple(rrp_rpr__x_Je_Jf[:,0,0])), \
+                    np.array(tuple(rrp_rpr__x_Je_Jf[:,0,1]))
+                dxJ_results['rt_refperturbed_ref'][f"{method}-Je"] = \
+                    np.array(tuple(rrp_rpr__x_Je_Jf[:,1,0])), \
+                    np.array(tuple(rrp_rpr__x_Je_Jf[:,1,1]))
             dxJ_results['rt_ref_refperturbed'][f"{method}-Jf"] = \
                 np.array(tuple(rrp_rpr__x_Je_Jf[:,0,0])), \
                 np.array(tuple(rrp_rpr__x_Je_Jf[:,0,2]))
