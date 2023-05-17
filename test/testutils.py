@@ -94,17 +94,32 @@ def print_blue(x):
 
 
 
-def relative_scale(a,b, eps = 1e-6):
-    return (np.abs(a) + np.abs(b)) / 2 + eps
+def relative_scale(a,b,
+                   *,
+                   smooth_radius = None,
+                   eps           = 1e-6):
+    if smooth_radius is not None and smooth_radius > 0:
+        d = smooth_radius*2 + 1
+        f = np.ones((d,),) / d
+        a = np.convolve(a, f, mode='same')
+        b = np.convolve(b, f, mode='same')
+    return (np.abs(a) + \
+            np.abs(b)) / 2 + eps
 
-def relative_diff(a,b, eps = 1e-6):
-    return (a - b) / relative_scale(a,b, eps)
+def relative_diff(a,b,
+                  *,
+                  smooth_radius = None,
+                  eps           = 1e-6):
+    return (a - b) / relative_scale(a,b,
+                                    eps           = eps,
+                                    smooth_radius = smooth_radius)
 
 def confirm_equal(x, xref,
                   *,
                   msg='',
                   eps=1e-6,
                   reldiff_eps = 1e-6,
+                  reldiff_smooth_radius = None,
                   relative=False,
                   worstcase=False,
                   percentile=None):
@@ -116,6 +131,7 @@ def confirm_equal(x, xref,
 
     if relative: I look at a relative error:
                  err = (a-b) / ((abs(a)+abs(b))/2 + eps)
+                 a,b can be smoothed with a kernel of the given smooth_radius
     else:        I look at absolute error:
                  err = a-b
 
@@ -181,7 +197,9 @@ def confirm_equal(x, xref,
     if N != 0:
         try:  # I I can subtract, get the error that way
             if relative:
-                diff = relative_diff(x, xref, eps = reldiff_eps)
+                diff = relative_diff(x, xref,
+                                     eps           = reldiff_eps,
+                                     smooth_radius = reldiff_smooth_radius)
             else:
                 diff = x - xref
 
