@@ -687,9 +687,9 @@ I have M from the usual uncertainty propagation logic, so I just need L =
 dq*/db*
 
 In my usual least squares solve each chessboard point produces two elements
-(error(x), error(y)) of the measurements x:
+(horizontal, vertical error) of the measurements vectorx:
 
-  x_point =
+  x =
     + W project(intrinsics,
                 T_cam_ref T_ref_frame p)
     - W qref
@@ -705,14 +705,14 @@ data flows from the top-right to the bottom-left:
   frame                            frame
 
     |                                |
-    | Trf                            | Tr+f+
+    | Trf                            | Tr*f*
     v                                v
 
   point in                         point in
-  ref frame     <-- Trr+ -->       ref frame
+  ref frame     <-- Trr* -->       ref frame
 
     |                                |
-    | Tcr                            | Tc+r+
+    | Tcr                            | Tc*r*
     v                                v
 
   point in                         point in
