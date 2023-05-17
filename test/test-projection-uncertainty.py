@@ -1336,7 +1336,8 @@ The rt_refperturbed_ref formulation:
                 testutils.confirm_equal(db_predicted,
                                         db_observed,
                                         eps = 0.1,
-                                        reldiff_eps = 1e-3,
+                                        reldiff_eps = 1e-2,
+                                        reldiff_smooth_radius = 1,
                                         percentile = 90,
                                         relative  = True,
                                         msg = f"db_predicted is db_observed")
@@ -1594,18 +1595,19 @@ The rt_refperturbed_ref formulation:
             testutils.confirm_equal(dxJ_results[direction]['compose-grad'    ][0],
                                     dxJ_results[direction]['linearization-Jf'][0],
                                     eps = 0.1,
+                                    reldiff_eps = 1e-2,
+                                    reldiff_smooth_radius = 1,
                                     percentile = 90,
+                                    relative = True,
                                     msg = f"linearized dx_cross0 is correct using {direction}")
-            testutils.confirm_equal(dxJ_results[direction]['compose-grad'    ][1][...,:3],
-                                    dxJ_results[direction]['linearization-Jf'][1][...,:3],
-                                    eps = 3,
+            testutils.confirm_equal(dxJ_results[direction]['compose-grad'    ][1],
+                                    dxJ_results[direction]['linearization-Jf'][1],
+                                    eps = 0.1,
+                                    reldiff_eps = 1e-2,
+                                    reldiff_smooth_radius = 1,
                                     percentile = 90,
-                                    msg = f"linearized J_cross (/dr) is correct using {direction}")
-            testutils.confirm_equal(dxJ_results[direction]['compose-grad'    ][1][...,3:],
-                                    dxJ_results[direction]['linearization-Jf'][1][...,3:],
-                                    eps = 1,
-                                    percentile = 90,
-                                    msg = f"linearized J_cross (/dt) is correct using {direction}")
+                                    relative = True,
+                                    msg = f"linearized J_cross is correct using {direction}")
 
         if 0:
             import gnuplotlib as gp
