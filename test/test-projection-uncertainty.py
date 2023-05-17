@@ -73,6 +73,11 @@ def parse_args():
                         help='''Comma-separated list of distance where we test the uncertainty predictions.
                         Numbers and "inf" understood. The first value on this
                         list is used for visualization in --show-distribution''')
+    parser.add_argument('--observed-pixel-uncertainty',
+                        type=float,
+                        default=1.5,
+                        help='''The level of the input pixel noise to simulate.
+                        Defaults to 1 stdev = 1.5 pixels''')
     parser.add_argument('--do-sample',
                         action='store_true',
                         help='''By default we don't run the time-intensive
@@ -226,7 +231,6 @@ np.random.seed(0)
 
 ############# Set up my world, and compute all the perfect positions, pixel
 ############# observations of everything
-pixel_uncertainty_stdev = 1.5
 object_spacing          = 0.1
 object_width_n          = 10
 object_height_n         = 9
@@ -1834,11 +1838,11 @@ for icam in (0,3):
     Var_dq_ref = \
         mrcal.projection_uncertainty( p_cam_baseline * 1.0,
                                       model = models_baseline[icam],
-                                      observed_pixel_uncertainty = pixel_uncertainty_stdev)
+                                      observed_pixel_uncertainty = args.observed_pixel_uncertainty)
     Var_dq_moved_written_read = \
         mrcal.projection_uncertainty( p_cam_baseline * 1.0,
                                       model = model_read,
-                                      observed_pixel_uncertainty = pixel_uncertainty_stdev )
+                                      observed_pixel_uncertainty = args.observed_pixel_uncertainty )
     testutils.confirm_equal(Var_dq_moved_written_read, Var_dq_ref,
                             eps = 0.001,
                             worstcase = True,
@@ -1849,12 +1853,12 @@ for icam in (0,3):
         mrcal.projection_uncertainty( p_cam_baseline * 1.0,
                                       model = models_baseline[icam],
                                       atinfinity = True,
-                                      observed_pixel_uncertainty = pixel_uncertainty_stdev )
+                                      observed_pixel_uncertainty = args.observed_pixel_uncertainty )
     Var_dq_inf_moved_written_read = \
         mrcal.projection_uncertainty( p_cam_baseline * 1.0,
                                       model = model_read,
                                       atinfinity = True,
-                                      observed_pixel_uncertainty = pixel_uncertainty_stdev )
+                                      observed_pixel_uncertainty = args.observed_pixel_uncertainty )
     testutils.confirm_equal(Var_dq_inf_moved_written_read, Var_dq_inf_ref,
                             eps = 0.001,
                             worstcase = True,
@@ -1868,7 +1872,7 @@ for icam in (0,3):
         mrcal.projection_uncertainty( p_cam_baseline * 100.0,
                                       model = models_baseline[icam],
                                       atinfinity = True,
-                                      observed_pixel_uncertainty = pixel_uncertainty_stdev )
+                                      observed_pixel_uncertainty = args.observed_pixel_uncertainty )
     testutils.confirm_equal(Var_dq_inf_far_ref, Var_dq_inf_ref,
                             eps = 0.001,
                             worstcase = True,
@@ -1891,7 +1895,7 @@ if not args.do_sample:
   optimization_inputs_sampled) = \
       calibration_sample( args.Nsamples,
                           optimization_inputs_baseline,
-                          pixel_uncertainty_stdev,
+                          args.observed_pixel_uncertainty,
                           fixedframes)
 
 
@@ -1948,7 +1952,7 @@ def check_uncertainties_at(q0_baseline, idistance):
             p_cam_baseline[icam],
             atinfinity = atinfinity,
             model      = models_baseline[icam],
-            observed_pixel_uncertainty = pixel_uncertainty_stdev) \
+            observed_pixel_uncertainty = args.observed_pixel_uncertainty) \
                    for icam in range(args.Ncameras) ])
     # shape (Ncameras)
     worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
@@ -2083,7 +2087,7 @@ if args.make_documentation_plots is not None:
 
     data_tuples_plot_options = \
         [ mrcal.show_projection_uncertainty( models_baseline[icam],
-                                             observed_pixel_uncertainty = pixel_uncertainty_stdev,
+                                             observed_pixel_uncertainty = args.observed_pixel_uncertainty,
                                              observations          = 'dots',
                                              distance              = args.distances[0],
                                              contour_increment     = -0.4,
