@@ -1680,10 +1680,10 @@ The rt_refperturbed_ref formulation:
             Jmode = re.search('(Jf|Je)$', mode).group(1)
             method = f'linearization-{Jmode}'
 
-        dx_cross0,J_cross = dxJ_results[direction][method]
-        rt_ref_refperturbed = rt_rr_all[direction][method]
-        if direction == 'rt_refperturbed_ref':
-            rt_ref_refperturbed = mrcal.invert_rt(rt_ref_refperturbed)
+        if direction == 'rt_ref_refperturbed':
+            rt_ref_refperturbed = rt_rr_all[direction][method]
+        else:
+            rt_ref_refperturbed = mrcal.invert_rt(rt_rr_all[direction][method])
 
         E_cross_ref0 = nps.norm2(dx_cross0 + x_baseline_boards)
 
