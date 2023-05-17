@@ -1478,6 +1478,8 @@ The rt_refperturbed_ref formulation:
 
         dxJ_results = dict(rt_ref_refperturbed = dict(),
                            rt_refperturbed_ref = dict(),)
+        rt_rr_all = dict(rt_ref_refperturbed = dict(),
+                         rt_refperturbed_ref = dict(),)
 
         if 1:
             method = 'compose-grad'
@@ -1581,6 +1583,18 @@ The rt_refperturbed_ref formulation:
                 np.array(tuple(rrp_rpr__x_Je_Jf[:,1,2]))
 
 
+
+
+        @nps.broadcast_define((('N',6),('N',)), (6,))
+        def lstsq(J,x): return np.linalg.lstsq(J, x, rcond = None)[0]
+
+
+        for direction in ('rt_ref_refperturbed','rt_refperturbed_ref'):
+            for method in dxJ_results[direction].keys():
+                dx_cross0,J_cross = dxJ_results[direction][method]
+                rt_rr_all[direction][method] = -lstsq(J_cross, dx_cross0)
+
+
         # I do NOT evaluate the "linearization-Je" mode because it cannot work
         # if any no-extrinsics observations are present, and we usually have
         # some of those. I'm assuming the same issue doesn't affect the frames:
@@ -1621,6 +1635,26 @@ The rt_refperturbed_ref formulation:
                                     relative = True,
                                     msg = f"linearized J_cross is correct using {direction}")
 
+        # I compared the linearization result to the sampled result. Now let's
+        # compare the rt_ref_refperturbed,rt_refperturbed_ref results to each
+        # other
+        for method in rt_rr_all['rt_ref_refperturbed'].keys():
+            rt_error = mrcal.compose_rt(rt_rr_all['rt_ref_refperturbed'][method],
+                                        rt_rr_all['rt_refperturbed_ref'][method])
+
+            th_deg = nps.mag(rt_error[:,:3]) * 180./np.pi
+            t      = nps.mag(rt_error[:,3:])
+            testutils.confirm_equal(th_deg,
+                                    0,
+                                    eps = 1e-3,
+                                    msg = f"rt_refperturbed_ref is the inverse of rt_ref_refperturbed with method {method} (r)")
+            testutils.confirm_equal(t,
+                                    0,
+                                    eps = 1e-4,
+                                    msg = f"rt_refperturbed_ref is the inverse of rt_ref_refperturbed with method {method} (t)")
+
+
+
         if 0:
             import gnuplotlib as gp
             direction = 'rt_ref_refperturbed'
@@ -1641,20 +1675,17 @@ The rt_refperturbed_ref formulation:
         if re.match('rrp', mode): direction = 'rt_ref_refperturbed'
         else:                     direction = 'rt_refperturbed_ref'
         if   re.search('empirical$', mode):
-            dx_cross0,J_cross = dxJ_results[direction]['compose-grad']
+            method = 'compose-grad'
         else:
             Jmode = re.search('(Jf|Je)$', mode).group(1)
-            dx_cross0,J_cross = dxJ_results[direction][f'linearization-{Jmode}']
+            method = f'linearization-{Jmode}'
 
+        dx_cross0,J_cross = dxJ_results[direction][method]
+        rt_ref_refperturbed = rt_rr_all[direction][method]
+        if direction == 'rt_refperturbed_ref':
+            rt_ref_refperturbed = mrcal.invert_rt(rt_ref_refperturbed)
 
         E_cross_ref0 = nps.norm2(dx_cross0 + x_baseline_boards)
-
-        @nps.broadcast_define((('N',6),('N',)), (6,))
-        def lstsq(J,x): return np.linalg.lstsq(J, x, rcond = None)[0]
-        if direction == 'rt_ref_refperturbed':
-            rt_ref_refperturbed = -lstsq(J_cross, dx_cross0)
-        else:
-            rt_ref_refperturbed = mrcal.invert_rt(-lstsq(J_cross, dx_cross0))
 
 
         # I have a 1-step solve. Let's look at the error to confirm that it's
