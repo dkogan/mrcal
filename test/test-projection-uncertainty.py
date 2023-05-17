@@ -800,6 +800,10 @@ When evaluating J_cross = dx_cross/drt_ref_ref*, I can look at it in two ways:
             = J_extrinsics drt_cam_ref*/drt_ref_ref*
             = J_extrinsics d(compose_rt(rt_cam_ref,rt_ref_ref*))/drt_ref_ref*
 
+  For points that have no extrinsics (the camera is defined to sit at the ref
+  coord system) this formulation is not possible. Because there is no
+  J_extrinsics.
+
 - a rt_ref_frame shift to compose_rt(rt_ref_ref*, rt_ref*_frame*)
 
   rt_ref*_frame* is a tiny shift off rt_ref_frame AND I'm assuming that
@@ -925,6 +929,10 @@ And we can compute the linearized quantities near rt_ref*_ref = identity:
              + J[intrinsics,extrinsics] db[intrinsics,extrinsics]
              - W delta_qref
 
+For points that have no extrinsics (the camera is defined to sit at the ref
+coord system) there is no J_extrinsics, and we can ignore it here. But we must
+use J_cross_f below in that case.
+
 When evaluating J_cross = dx_cross/drt_ref*_ref, I can once again look at it in
 two ways:
 
@@ -938,6 +946,11 @@ two ways:
             = J_extrinsics drt_cam*_ref/drt_ref*_ref
             = J_extrinsics d(compose_rt(rt_cam*_ref*,rt_ref*_ref))/drt_ref*_ref
             = J_extrinsics d(compose_rt(rt_cam_ref,  rt_ref*_ref))/drt_ref*_ref
+
+  As before, for points that have no extrinsics (the camera is defined to sit at
+  the ref coord system) there is no J_extrinsics, so this formulation is not
+  possible here. Use J_cross_f.
+
 
 - a rt_ref_frame shift to compose_rt(rt_ref*_ref, rt_ref_frame)
 
@@ -1337,7 +1350,7 @@ The rt_refperturbed_ref formulation:
             db_cross_fcw_packed[~state_mask_fcw] = 0
             dx_cross_fcw0 = J.dot(db_cross_fcw_packed)
             # db_cross_ie_packed contains only state from intrinsics,
-            # extrinsics. All other state is 0
+            # extrinsics (if we have extrinsics). All other state is 0
             db_cross_ie_packed = np.array(db_predicted)
             mrcal.pack_state(db_cross_ie_packed, **baseline_optimization_inputs)
             db_cross_ie_packed[~state_mask_ie] = 0
