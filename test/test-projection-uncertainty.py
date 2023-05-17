@@ -1370,9 +1370,7 @@ The rt_refperturbed_ref formulation:
             db_cross_ie_packed = np.array(db_predicted)
             mrcal.pack_state(db_cross_ie_packed, **baseline_optimization_inputs)
             db_cross_ie_packed[~state_mask_ie] = 0
-            dx_cross_ie0 = J.dot(db_cross_ie_packed)
-
-            dx_cross_ie0 -= W_delta_qref.ravel()
+            dx_cross_ie0 = J.dot(db_cross_ie_packed) - W_delta_qref.ravel()
 
 
 
