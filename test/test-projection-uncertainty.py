@@ -1056,7 +1056,7 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
     slice_state_calobject_warp = slice(istate_calobject_warp0,  istate_calobject_warp0 + Nstates_calobject_warp)
     slice_state_intrinsics     = slice(istate_intrinsics0,      istate_intrinsics0     + Nstates_intrinsics    )
 
-    if every_observation_has_extrinsics:
+    if istate_extrinsics0 is not None:
         slice_state_extrinsics = slice(istate_extrinsics0,      istate_extrinsics0     + Nstates_extrinsics    )
     else:
         slice_state_extrinsics = None
@@ -1308,7 +1308,7 @@ The rt_refperturbed_ref formulation:
             state_mask_fcw[slice_state_frame]          = 1
             state_mask_fcw[slice_state_calobject_warp] = 1
             state_mask_ie [slice_state_intrinsics]     = 1
-            if every_observation_has_extrinsics:
+            if slice_state_extrinsics is not None:
                 state_mask_ie [slice_state_extrinsics] = 1
 
 
@@ -1554,7 +1554,7 @@ The rt_refperturbed_ref formulation:
             b = np.ones( (Nstate,), dtype=float)
             mrcal.unpack_state(b, **baseline_optimization_inputs)
 
-            if every_observation_has_extrinsics:
+            if istate_extrinsics0 is not None:
                 scale_extrinsics = b[istate_extrinsics0:istate_extrinsics0+6]
             else:
                 scale_extrinsics = None
