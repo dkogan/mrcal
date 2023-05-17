@@ -1420,6 +1420,8 @@ The rt_refperturbed_ref formulation:
 
 
 
+
+
         # I look at the un-perturbed data first, to double-check that I'm doing the
         # right thing. This is purely a self-checking step. I don't need to do it
         if 1:
@@ -1451,7 +1453,6 @@ The rt_refperturbed_ref formulation:
         if 1:
             method = 'compose-grad'
 
-
             # shape (..., Nobservations,Nh,Nw,3),
             #       (..., Nobservations,Nh,Nw,3,6)
             pcam, dpcam_drt_ref_refperturbed = \
@@ -1478,7 +1479,6 @@ The rt_refperturbed_ref formulation:
 
         if 1:
             method = 'transform-grad'
-
 
             # shape (..., Nobservations,Nh,Nw,3),
             prefperturbed = mrcal.transform_point_rt( nps.dummy(rt_refperturbed_frameperturbed_all, -2,-2),
@@ -1649,7 +1649,6 @@ The rt_refperturbed_ref formulation:
             print(f"RMS error baseline            = {np.sqrt(E_baseline        / (x_cross0.shape[-1]/2))} pixels")
             print(f"RMS error perturbed           = {np.sqrt(E_cross_ref0      / (x_cross0.shape[-1]/2))} pixels")
             print(f"RMS error perturbed_solvedref = {np.sqrt(E_cross_solvedref / (x_cross0.shape[-1]/2))} pixels")
-
 
         return rt_ref_refperturbed
 
