@@ -985,7 +985,7 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
     '''
 
     if fixedframes:
-        raise Exception("reproject_perturbed__cross_reprojection_error(fixedframes = True) is not yet implemented")
+        raise Exception("reproject_perturbed__cross_reprojection_error(fixedframes = True) is not yet implemented. I would at least need to handle J_frames not existing when computing J_cross")
 
     if query_optimization_inputs is None:
         return None
@@ -1568,7 +1568,10 @@ The rt_refperturbed_ref formulation:
                 np.array(tuple(rrp_rpr__x_Je_Jf[:,1,2]))
 
 
-
+        # I do NOT evaluate the "linearization-Je" mode because it cannot work
+        # if any no-extrinsics observations are present, and we usually have
+        # some of those. I'm assuming the same issue doesn't affect the frames:
+        # we do NOT have fixed frames
         for direction in ('rt_ref_refperturbed','rt_refperturbed_ref'):
 
             # compose-grad and transform-grad should be exactly the same, modulo numerical fuzz
