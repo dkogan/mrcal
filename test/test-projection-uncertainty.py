@@ -1993,7 +1993,7 @@ def check_uncertainties_at(q0_baseline, idistance):
     worst_direction_stdev_observed = mrcal.worst_direction_stdev(Var_dq_observed)
 
     # shape (Ncameras, 2,2)
-    Var_dq = \
+    Var_dq_predicted = \
         nps.cat(*[ mrcal.projection_uncertainty( \
             p_cam_baseline[icam],
             atinfinity = atinfinity,
@@ -2001,7 +2001,7 @@ def check_uncertainties_at(q0_baseline, idistance):
             observed_pixel_uncertainty = args.observed_pixel_uncertainty) \
                    for icam in range(args.Ncameras) ])
     # shape (Ncameras)
-    worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq)
+    worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq_predicted)
 
 
     # q_sampled should be evenly distributed around q0_baseline. I can make eps
@@ -2025,17 +2025,18 @@ def check_uncertainties_at(q0_baseline, idistance):
     # but it's more meaningful to compare the eigenvectors and eigenvalues, so I
     # just do that
     for icam in range(args.Ncameras):
-        testutils.confirm_covariances_equal(Var_dq[icam],
-                                            Var_dq_observed[icam],
+        testutils.confirm_covariances_equal(Var_dq_predicted[icam],
+                                            Var_dq_observed [icam],
                                             what = f"camera {icam} at distance = {distancestr}",
                                             # high error tolerances; Nsamples is too low for better
                                             eps_eigenvalues      = 0.35,
                                             eps_eigenvectors_deg = 15)
 
-    return q_sampled,Var_dq
+    return q_sampled,Var_dq_predicted
 
 
-q_sampled,Var_dq = check_uncertainties_at(q0_baseline, 0)
+# I plot the data from the first distance
+q_sampled,Var_dq_predicted = check_uncertainties_at(q0_baseline, 0)
 for idistance in range(1,len(args.distances)):
     check_uncertainties_at(q0_baseline, idistance)
 
@@ -2055,7 +2056,7 @@ def make_plot(icam, report_center_points = True, **kwargs):
 
     data_tuples = \
         make_tuple(*mrcal.utils._plot_args_points_and_covariance_ellipse(q_sampled[:,icam,:], "Observed uncertainty"),
-                   mrcal.utils._plot_arg_covariance_ellipse(q_sampled_mean, Var_dq[icam], "Predicted uncertainty"),)
+                   mrcal.utils._plot_arg_covariance_ellipse(q_sampled_mean, Var_dq_predicted[icam], "Predicted uncertainty"),)
 
     if report_center_points:
 
