@@ -1467,12 +1467,12 @@ The rt_refperturbed_ref formulation:
             x = (qq - baseline_observations_board[...,:2])*nps.dummy(weight,-1)
             x[...,weight<=0,:] = 0 # outliers
             x = x.ravel()
-            if len(x) != mrcal.num_measurements_boards(**baseline_optimization_inputs):
+            if len(x) != len(x_baseline_boards):
                 raise Exception("Unexpected len(x). This is a bug")
-            if nps.norm2(x - x_baseline[:len(x)]) > 1e-12:
+            if nps.norm2(x - x_baseline_boards) > 1e-12:
                 raise Exception("Unexpected x. This is a bug")
 
-            E_baseline = nps.norm2(x)
+            err_rms_baseline = np.sqrt(nps.norm2(x) / (x.size/2))
 
         dxJ_results = dict(rt_ref_refperturbed = dict(),
                            rt_refperturbed_ref = dict(),)
@@ -1683,11 +1683,11 @@ The rt_refperturbed_ref formulation:
         else:
             rt_ref_refperturbed = mrcal.invert_rt(rt_rr_all[direction][method])
 
-        E_cross_ref0 = nps.norm2(dx_cross0 + x_baseline_boards)
+        err_rms_cross_ref0 = np.sqrt( nps.norm2((dx_cross0 + x_baseline_boards).ravel()) / (dx_cross0.size/2) )
 
-
-        # I have a 1-step solve. Let's look at the error to confirm that it's
-        # smaller. This is an optional validation step
+        # I have a least-squares solve of the linearized system. Let's look at
+        # the error to confirm that it's smaller. This is an optional validation
+        # step
         if 1:
             # shape (..., Nobservations,Nh,Nw,3)
             pcam = \
@@ -1707,11 +1707,23 @@ The rt_refperturbed_ref formulation:
             # shape (..., Nobservations*Nh*Nw*2)
             x_cross0 = nps.clump(x_cross0, n=-4)
 
-            E_cross_solvedref = nps.norm2(x_cross0)
+            err_rms_cross_solved = np.sqrt( nps.norm2(x_cross0.ravel()) / (dx_cross0.size/2) )
 
-            print(f"RMS error baseline            = {np.sqrt(E_baseline        / (x_cross0.shape[-1]/2))} pixels")
-            print(f"RMS error perturbed           = {np.sqrt(E_cross_ref0      / (x_cross0.shape[-1]/2))} pixels")
-            print(f"RMS error perturbed_solvedref = {np.sqrt(E_cross_solvedref / (x_cross0.shape[-1]/2))} pixels")
+            # The pre-optimization cross error should be far worse than the
+            # baseline error: if I simply assume that T_cross = identity, I
+            # won't have a good solve.
+            #
+            # And optimizing the cross transform should then fit decently well,
+            # but not quite so super tightly as the original baseline
+            testutils.confirm(err_rms_baseline*10 < err_rms_cross_ref0,
+                              msg = "Unoptimized cross error is MUCH worse than the baseline")
+            testutils.confirm(err_rms_cross_solved*5 < err_rms_cross_ref0,
+                              msg = "Unoptimized cross error is MUCH worse than optimized cross error")
+
+            if 0:
+                print(f"RMS error baseline            = {err_rms_baseline} pixels")
+                print(f"RMS error perturbed           = {err_rms_cross_ref0} pixels")
+                print(f"RMS error perturbed_solvedref = {err_rms_cross_solved} pixels")
 
         return rt_ref_refperturbed
 
