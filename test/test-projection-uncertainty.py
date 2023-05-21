@@ -1651,8 +1651,6 @@ The rt_refperturbed_ref formulation:
                                     eps = 1e-4,
                                     msg = f"rt_refperturbed_ref is the inverse of rt_ref_refperturbed with method {method} (t)")
 
-
-
         if 0:
             import gnuplotlib as gp
             direction = 'rt_ref_refperturbed'
@@ -2213,7 +2211,6 @@ if args.make_documentation_plots is not None:
                  **plot_options,
                  multiplot = f'layout 2,2',
                  **processoptions_output)
-
 
 if args.explore:
     import IPython
