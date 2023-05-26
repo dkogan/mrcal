@@ -470,23 +470,13 @@ bool mrcal_var_rt_ref_refperturbed(// output
     Note that if dqref = 0, then x_cross0 = x: the cross-reprojection is
     equivalent to the baseline projection error, which is as expected.
 
-    If dqref = 0, the rt_ref_refperturbed = -inv() Jcross_t x, which is NOT 0,
-    and which is NOT what we want. It makes sense somewhat, however: there's
-    some rt_ref_refperturbed that can improve our original optimization
-    solution. We're at an optimum (Jt x = 0), but the cross optimization applies
-    the same transform to ALL the frames, which .....
-
-#warning revisit. Jt x = 0, but this doesn't imply that Jcross_t x = 0. BUT we're
-at an optimum, and applying a transform to all the frames is still in my
-original optimization state, so it should make the solution worse. What's going
-on? Am I applying a transform to all the frames, or am I doing something else?
-In any case...
+    If dqref = 0, the rt_ref_refperturbed = -inv() Jcross_t x, which is 0 if we
+    ignore regularization. Let's do that.
 
     rt_ref_refperturbed is a random variable, since dqref is a random
     variable. The relationship is nicely linear, so I can compute:
 
       mean(rt_ref_refperturbed) = -inv(Jcross_t Jcross) Jcross_t x
-#warning THIS IS THE THING THAT I WANT TO BE 0
 
     I have expressions with J, but in reality I have J*: gradients in respect to
     PACKED variables. I have a variable scaling diagonal matrix D: J = J* D
@@ -543,7 +533,7 @@ In any case...
 
     I need to compute Jcross_t J_fcw* (shape (6,Nstate)). Its transpose, for convenience;
 
-      J_fcw_t* Jcross (shape (Nstate,6)) =
+      J_fcw_t* Jcross (shape=(Nstate,6)) =
         [ 0                                                                                     ] <- intrinsics
         [ 0                                                                                     ] <- extrinsics
         [ sum_measi(outer(j_frame0*, j_frame0*)) Dinv drr_frame0                                ]
