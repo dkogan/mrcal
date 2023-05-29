@@ -739,7 +739,6 @@ bool mrcal_var_rt_ref_refperturbed(// output
     const int*    Jrowptr = (int*)   Jt->p;
     const int*    Jcolidx = (int*)   Jt->i;
     const double* Jval    = (double*)Jt->x;
-#warning "Is this right? Go until Nmeas_obs? Not all Nmeasurements?"
     for(int imeas=0; imeas<Nmeas_obs; imeas++)
     {
         // I have dx/drt_ref_frame for this frame. This is 6 numbers
