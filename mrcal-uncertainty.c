@@ -51,7 +51,7 @@ static int cholmod_error_callback(const char* s, ...)
 
 static
 void finish_Jcross_computations(// output
-                                double* Jcross_t__J_fcw_noi_noe,
+                                double* Jcross_t__J_fcw,
                                 double* Jcross_t__Jcross,
 
                                 // input
@@ -133,16 +133,16 @@ void finish_Jcross_computations(// output
     mrcal_compose_r_tinyr0_gradientr0(dr_ref_frameperturbed__dr_ref_refperturbed,
                                       r_ref_frame);
 
-    // Jcross_t__J_fcw_noi_noe output goes into [A B]
-    //                                          [C D]
-    double* A = &Jcross_t__J_fcw_noi_noe[0*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 0];
-    double* B = &Jcross_t__J_fcw_noi_noe[0*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 3];
-    double* C = &Jcross_t__J_fcw_noi_noe[3*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 0];
-    double* D = &Jcross_t__J_fcw_noi_noe[3*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 3];
+    // Jcross_t__J_fcw output goes into [A B]
+    //                                  [C D]
+    double* A = &Jcross_t__J_fcw[0*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 0];
+    double* B = &Jcross_t__J_fcw[0*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 3];
+    double* C = &Jcross_t__J_fcw[3*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 0];
+    double* D = &Jcross_t__J_fcw[3*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 3];
 
     // for calobject_warp
-    double* Acw = &Jcross_t__J_fcw_noi_noe[0*Nstate_noi_noe + state_index_calobject_warp0-state_index_frame0];
-    double* Ccw = &Jcross_t__J_fcw_noi_noe[3*Nstate_noi_noe + state_index_calobject_warp0-state_index_frame0];
+    double* Acw = &Jcross_t__J_fcw[0*Nstate_noi_noe + state_index_calobject_warp0-state_index_frame0];
+    double* Ccw = &Jcross_t__J_fcw[3*Nstate_noi_noe + state_index_calobject_warp0-state_index_frame0];
 
     // I can compute Jcross_t Jcross from the blocks comprising Jcross_t
     // J_fcw. From above:
@@ -615,10 +615,9 @@ bool mrcal_var_rt_ref_refperturbed(// output
 
     // Jcross_t J_fcw* has shape (6,Nstate), but the columns corresponding to
     // the camera intrinsics, extrinsics are 0. I don't store those 0 columns,
-    // so my array that I store (Jcross_t__J_fcw_noi_noe) has shape (6,
-    // Nstate_noi_noe)
-    double Jcross_t__J_fcw_noi_noe[6*Nstate_noi_noe];
-    memset(Jcross_t__J_fcw_noi_noe, 0, 6*Nstate_noi_noe*sizeof(double));
+    // so my array that I store (Jcross_t__J_fcw) has shape (6, Nstate_noi_noe)
+    double Jcross_t__J_fcw[6*Nstate_noi_noe];
+    memset(Jcross_t__J_fcw, 0, 6*Nstate_noi_noe*sizeof(double));
 
 
 
@@ -722,7 +721,7 @@ bool mrcal_var_rt_ref_refperturbed(// output
 
 
 
-#warning "I should reuse some other memory for this. Chunks of Jcross_t__J_fcw_noi_noe ?"
+#warning "I should reuse some other memory for this. Chunks of Jcross_t__J_fcw ?"
     // sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) for this frame. I sum over
     // all the observations. Uses PACKED gradients. Only the upper triangle is
     // stored, in the usual row-major order
@@ -769,7 +768,7 @@ bool mrcal_var_rt_ref_refperturbed(// output
                 {
                     if(state_index_frame_current >= 0)
                     {
-                        finish_Jcross_computations( Jcross_t__J_fcw_noi_noe,
+                        finish_Jcross_computations( Jcross_t__J_fcw,
                                                     Jcross_t__Jcross,
                                                     sum_outer_jf_jf_packed,
                                                     sum_outer_jf_jcw_packed,
@@ -822,7 +821,7 @@ bool mrcal_var_rt_ref_refperturbed(// output
     }
 
     if(state_index_frame_current >= 0)
-        finish_Jcross_computations( Jcross_t__J_fcw_noi_noe,
+        finish_Jcross_computations( Jcross_t__J_fcw,
                                     Jcross_t__Jcross,
                                     sum_outer_jf_jf_packed,
                                     sum_outer_jf_jcw_packed,
@@ -833,7 +832,7 @@ bool mrcal_var_rt_ref_refperturbed(// output
                                     Nstate_noi_noe);
 
 
-    // I now have filled Jcross_t__Jcross and Jcross_t__J_fcw_noi_noe. I can
+    // I now have filled Jcross_t__Jcross and Jcross_t__J_fcw. I can
     // compute
     //
     //   inv(Jcross_t Jcross) Jcross_t J_fcw
@@ -842,13 +841,13 @@ bool mrcal_var_rt_ref_refperturbed(// output
     //
     //   (Jcross_t J_fcw)t inv(Jcross_t Jcross)
     //
-    // in-place: input and output both use the Jcross_t__J_fcw_noi_noe array
+    // in-place: input and output both use the Jcross_t__J_fcw array
     double inv_JcrosstJcross_det[(6+1)*6/2];
     double det = cofactors_sym6(Jcross_t__Jcross,
                                 inv_JcrosstJcross_det);
 
     mul_genN6_sym66_scaled_strided(Nstate_noi_noe,
-                                   Jcross_t__J_fcw_noi_noe, 1, Nstate_noi_noe,
+                                   Jcross_t__J_fcw, 1, Nstate_noi_noe,
                                    inv_JcrosstJcross_det,
                                    1. / det);
 
@@ -872,7 +871,7 @@ bool mrcal_var_rt_ref_refperturbed(// output
         for(int i=0; i<6; i++)
         {
             double* row_out = &pool[Nstate*i];
-            double* row_in  = &Jcross_t__J_fcw_noi_noe[Nstate_noi_noe*i];
+            double* row_in  = &Jcross_t__J_fcw[Nstate_noi_noe*i];
             memset(row_out, 0, Nstate_i_e*sizeof(double));
             memcpy(&row_out[Nstate_i_e], row_in, Nstate_noi_noe*sizeof(double));
         }
