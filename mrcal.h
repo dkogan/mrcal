@@ -599,8 +599,7 @@ bool mrcal_optimizer_callback(// out
                              bool verbose);
 
 bool mrcal_var_rt_ref_refperturbed(// output
-                                   // Symmetric 6x6, stored densely. Not scaled with
-                                   // observed_pixel_uncertainty
+                                   // Symmetric 6x6, stored densely
                                    double* Var_rt_ref_refperturbed,
 
                                    // inputs
@@ -627,6 +626,8 @@ bool mrcal_var_rt_ref_refperturbed(// output
                                    int Npoints, int Npoints_fixed, // at the end of points[]
                                    int Nobservations_board,
                                    int Nobservations_point,
+
+                                   double observed_pixel_uncertainty,
 
                                    const mrcal_lensmodel_t* lensmodel,
                                    mrcal_problem_selections_t problem_selections,

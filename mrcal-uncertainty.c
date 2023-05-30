@@ -367,8 +367,7 @@ void finish_Jcross_computations(// output
 }
 
 bool mrcal_var_rt_ref_refperturbed(// output
-                                   // Symmetric 6x6, stored densely. Not scaled with
-                                   // observed_pixel_uncertainty
+                                   // Symmetric 6x6, stored densely
                                    double* Var_rt_ref_refperturbed,
 
                                    // inputs
@@ -395,6 +394,8 @@ bool mrcal_var_rt_ref_refperturbed(// output
                                    int Npoints, int Npoints_fixed, // at the end of points[]
                                    int Nobservations_board,
                                    int Nobservations_point,
+
+                                   double observed_pixel_uncertainty,
 
                                    const mrcal_lensmodel_t* lensmodel,
                                    mrcal_problem_selections_t problem_selections,
@@ -930,6 +931,9 @@ bool mrcal_var_rt_ref_refperturbed(// output
     //
     // So for a given row J I accumulate outer(U J, U J)
     memset(Var_rt_ref_refperturbed, 0, 6*6*sizeof(double));
+
+    const double s2 = observed_pixel_uncertainty*observed_pixel_uncertainty;
+
     for(int imeas=0; imeas<Nmeas_obs; imeas++)
     {
         double uj[6] = {};
@@ -945,11 +949,11 @@ bool mrcal_var_rt_ref_refperturbed(// output
 
         for(int i=0; i<6; i++)
         {
-            Var_rt_ref_refperturbed[6*i + i] += uj[i] * uj[i];
+            Var_rt_ref_refperturbed[6*i + i] += uj[i] * uj[i] * s2;
             for(int j=i+1; j<6; j++)
             {
-                Var_rt_ref_refperturbed[6*i + j] += uj[i] * uj[j];
-                Var_rt_ref_refperturbed[6*j + i] += uj[i] * uj[j];
+                Var_rt_ref_refperturbed[6*i + j] += uj[i] * uj[j] * s2;
+                Var_rt_ref_refperturbed[6*j + i] += uj[i] * uj[j] * s2;
             }
         }
     }

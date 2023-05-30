@@ -1329,6 +1329,14 @@ PyObject* _optimize(optimizemode_t optimizemode,
                                 NULL))
         goto done;
 
+    if(optimizemode == OPTIMIZEMODE_VAR_RT_RR &&
+       observed_pixel_uncertainty <= 0)
+    {
+        BARF("var_rt_ref_refperturbed() MUST be given observed_pixel_uncertainty > 0");
+        goto done;
+    }
+
+
     // Can't compute a factorization without a jacobian. That's what we're factoring
     if(!no_factorization)
         no_jacobian = false;
@@ -1645,7 +1653,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
                                                   Npoints, Npoints_fixed,
                                                   Nobservations_board,
                                                   Nobservations_point,
-
+                                                  observed_pixel_uncertainty,
                                                   &mrcal_lensmodel,
                                                   problem_selections,
 
