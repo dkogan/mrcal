@@ -519,6 +519,11 @@ CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* arg
     char* keywords[] = {"bt", NULL};
     PyObject* Py_bt   = NULL;
 
+    cholmod_dense* M = NULL;
+    cholmod_dense* Y = NULL;
+    cholmod_dense* E = NULL;
+
+
     if(!(self->inited_common && self->factorization))
     {
         BARF("No factorization has been computed");
@@ -601,9 +606,9 @@ CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* arg
         .xtype = CHOLMOD_REAL,
         .dtype = CHOLMOD_DOUBLE };
 
-    cholmod_dense* M = &out;
-    cholmod_dense* Y = NULL;
-    cholmod_dense* E = NULL;
+    M = &out;
+    Y = NULL;
+    E = NULL;
 
     if(!cholmod_solve2( CHOLMOD_A, self->factorization,
                         &b, NULL,
