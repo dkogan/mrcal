@@ -498,29 +498,29 @@ bool mrcal_var_rt_ref_refperturbed(// output
                 i  e        f  calobject_warp
                 |  |        |        |
                 V  V        V        V
-              [ 0 | 0 | xxx       | xxx ]
-              [ 0 | 0 | xxx       | xxx ]
-              [ 0 | 0 | xxx       | xxx ]
-              [ 0 | 0 |    xxx    | xxx ]
-      J_fcw = [ 0 | 0 |    xxx    | xxx ]
-              [ 0 | 0 |    xxx    | xxx ]
-              [ 0 | 0 |       xxx | xxx ]
-              [ 0 | 0 |       xxx | xxx ]
-              [ 0 | 0 |       xxx | xxx ]
+              [ 0 | 0 | ---       | --- ]
+              [ 0 | 0 | ---       | --- ]
+              [ 0 | 0 | ---       | --- ]
+              [ 0 | 0 |    ---    | --- ]
+      J_fcw = [ 0 | 0 |    ---    | --- ]
+              [ 0 | 0 |    ---    | --- ]
+              [ 0 | 0 |       --- | --- ]
+              [ 0 | 0 |       --- | --- ]
+              [ 0 | 0 |       --- | --- ]
 
     And
 
-               [ xxx drr0 ]
-               [ xxx drr0 ]
-               [ xxx drr0 ]
-               [ xxx drr1 ]
-      Jcross = [ xxx drr1 ]
-               [ xxx drr1 ]
-               [ xxx drr2 ]
-               [ xxx drr2 ]
-               [ xxx drr2 ]
+               [ --- drr0 ]
+               [ --- drr0 ]
+               [ --- drr0 ]
+               [ --- drr1 ]
+      Jcross = [ --- drr1 ]
+               [ --- drr1 ]
+               [ --- drr2 ]
+               [ --- drr2 ]
+               [ --- drr2 ]
 
-    Where the xxx terms are the flattened "frame" terms from J_fcw that use the
+    Where the --- terms are the flattened "frame" terms from J_fcw that use the
     unpacked state. And drr are the drt_ref_frameperturbed__drt_ref_refperturbed
     matrices for the different rt_ref_frame vectors.
 

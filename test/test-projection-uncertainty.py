@@ -830,7 +830,7 @@ J_frame_t x0 = 0 as well, and thus instead of x_cross0 we can use
 
   dx_cross0 = J[frame,calobject_warp] db[frame,calobject_warp]
 
-So we have rt_ref_ref* = A delta_qref for some A that depends on the
+So we have rt_ref_ref* = K delta_qref for some K that depends on the
 various J matrices that are constant for each solve
 
 Now that I have rt_ref_ref*, I can use it to compute q*. This
@@ -862,48 +862,46 @@ _, dpcam__drt_cam_ref, dpcam__dpref \
                             pref,
                             get_gradients = True )
 
-And now pcam* ~ pcam + dpcam__drt_cam_ref M[extrinsics] delta_qref + dpcam__dpref (pref* - pref)
+And now pcam* ~ pcam + dpcam__drt_cam_ref db[extrinsics] + dpcam__dpref (pref* - pref)
 
 _,dq_dpcam,dq_dintrinsics = \
   mrcal.project( pcam, *baseline_intrinsics,
                  get_gradients = True )
 
-And now q* ~ q + dpcam (pcam* - pcam) + dq_dintrinsics M[intrinsics] delta_qref
+And now q* ~ q + dpcam (pcam* - pcam) + dq_dintrinsics db[intrinsics]
 
 Let's put it all together.
 
 q* - q
 
 ~   dq_dpcam (pcam* - pcam)
-  + dq_dintrinsics M[intrinsics] delta_qref
+  + dq_dintrinsics db[intrinsics_this]
 
-~   dq_dpcam (pcam + dpcam__drt_cam_ref M[extrinsics] delta_qref
+~   dq_dpcam (pcam + dpcam__drt_cam_ref db[extrinsics_this]
   + dpcam__dpref (pref* - pref)  - pcam)
-  + dq_dintrinsics M[intrinsics] delta_qref
+  + dq_dintrinsics db[intrinsics_this]
 
-~   dq_dpcam (  dpcam__drt_cam_ref M[extrinsics] delta_qref
+~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
               + dpcam__dpref dpref*__drt_ref_ref* rt_ref_ref*)
-  + dq_dintrinsics M[intrinsics] delta_qref
+  + dq_dintrinsics db[intrinsics_this]
 
-~   dq_dpcam (  dpcam__drt_cam_ref M[extrinsics] delta_qref
-              + dpcam__dpref dpref*__drt_ref_ref* A delta_qref)
-  + dq_dintrinsics M[intrinsics] delta_qref
+~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+              + dpcam__dpref dpref*__drt_ref_ref* K delta_qref)
+  + dq_dintrinsics db[intrinsics_this]
 
-~   dq_dpcam (  dpcam__drt_cam_ref M[extrinsics] delta_qref
+~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
               - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) dx_cross0)
-  + dq_dintrinsics M[intrinsics] delta_qref
+  + dq_dintrinsics db[intrinsics]
 
-~   dq_dpcam (  dpcam__drt_cam_ref M[extrinsics] delta_qref
-              - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frame,calobject_warp] M[frame,calobject_warp] delta_qref)
-  + dq_dintrinsics M[intrinsics] delta_qref
+~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+              - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frame,calobject_warp_all] db[frame,calobject_warp_all])
+  + dq_dintrinsics db[intrinsics_this]
 
-~ delta_qref *
-  (
-    + dq_dpcam dpcam__drt_cam_ref M[extrinsics]
-    - dq_dpcam dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frame,calobject_warp] M[frame,calobject_warp]
-    + dq_dintrinsics M[intrinsics]
-  )
+--->
 
+dq/db[extrinsics_this]          = dq_dpcam dpcam__drt_cam_ref
+dq/db[intrinsics_this]          = dq_dintrinsics
+dq/db[frame,calobject_warp_all] = -dq_dpcam dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frame,calobject_warp_all]
 
 ============================================================================
 
@@ -976,7 +974,7 @@ where
 
   dx_cross0 = J[intrinsics,extrinsics] db[intrinsics,extrinsics] - W delta_qref
 
-So we have rt_ref*_ref = A delta_qref for some A that depends on the
+So we have rt_ref*_ref = K delta_qref for some K that depends on the
 various J matrices that are constant for each solve
 
 The rest of the data flow is the same as above, except we already have
