@@ -526,8 +526,8 @@ bool mrcal_var_rt_ref_refperturbed(// output
 
     Putting everything together, we have
 
-      K = inv(Jcross_t Jcross)    Jcross_t          J_fcw*            inv(J*tJ*)      Jobservations*t
-                  (6,6)        (6, Nmeas_obs)  (Nmeas_obs,Nstate)  (Nstate,Nstate)  (Nstate, Nmeas_obs)
+      K = -inv(Jcross_t Jcross)    Jcross_t          J_fcw*            inv(J*tJ*)      Jobservations*t
+                   (6,6)        (6, Nmeas_obs)  (Nmeas_obs,Nstate)  (Nstate,Nstate)  (Nstate, Nmeas_obs)
 
       Var(rt_ref_refperturbed) = s^2 K Kt
 
