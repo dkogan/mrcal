@@ -124,12 +124,12 @@ def parse_args():
                                  'mean-frames-using-meanq-penalize-big-shifts',
                                  'fit-boards-ref',
                                  'diff',
-                                 'cross-reprojection-error--rrp-empirical',
-                                 'cross-reprojection-error--rrp-Jf',
-                                 'cross-reprojection-error--rrp-Je',
-                                 'cross-reprojection-error--rpr-empirical',
-                                 'cross-reprojection-error--rpr-Jf',
-                                 'cross-reprojection-error--rpr-Je'),
+                                 'cross-reprojection--rrp-empirical',
+                                 'cross-reprojection--rrp-Jf',
+                                 'cross-reprojection--rrp-Je',
+                                 'cross-reprojection--rpr-empirical',
+                                 'cross-reprojection--rpr-Jf',
+                                 'cross-reprojection--rpr-Je'),
                         default = 'mean-frames',
                         help='''Which reproject-after-perturbation method to use. This is for experiments.
                         Some of these methods will be probably wrong.''')
@@ -993,7 +993,7 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
     if query_optimization_inputs is None:
         return None
 
-    mode = re.match('cross-reprojection-error--(.+)', args.reproject_perturbed).group(1)
+    mode = re.match('cross-reprojection--(.+)', args.reproject_perturbed).group(1)
 
     baseline_observations_board = \
         baseline_optimization_inputs.get('observations_board')
@@ -1872,7 +1872,7 @@ elif args.reproject_perturbed == 'fit-boards-ref':
     reproject_perturbed = reproject_perturbed__fit_boards_ref
 elif args.reproject_perturbed == 'diff':
     reproject_perturbed = reproject_perturbed__diff
-elif re.match('cross-reprojection-error', args.reproject_perturbed):
+elif re.match('cross-reprojection', args.reproject_perturbed):
     reproject_perturbed = reproject_perturbed__cross_reprojection_error
 else:
     raise Exception("getting here is a bug")
