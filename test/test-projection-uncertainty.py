@@ -1734,17 +1734,68 @@ The rt_refperturbed_ref formulation:
 
 
 
-    if False and rt_ref_refperturbed.shape[0] > 10:
+    if True and rt_ref_refperturbed.shape[0] > 10:
 
         print("not yet done. finish this")
+
+        # shape (Nsamples,Nmeas_observations)
+        delta_qref = nps.clump(query_q_noise_board, n = -(query_q_noise_board.ndim-1))
+        W_delta_qref = np.array(delta_qref)
+        # shape (Nsamples,Nmeas_observations/2, 2)
+        W_delta_qref_xy = np.reshape(W_delta_qref,
+                                     (len(W_delta_qref), Nmeas_observations//2,2))
+        if W_delta_qref_xy.base is not W_delta_qref: raise Exception("clump() made new array. This is a bug")
+        # W_delta_qref <- W * delta_qref
+        W_delta_qref_xy *= nps.transpose(weight.ravel())
+        # mask out outliers
+        W_delta_qref_xy[:,weight.ravel() <= 0, :] = 0
+
+        if 0:
+            # I now have an empirical observed_pixel_uncertainty that should match
+            # what I'm simulating. In theory
+            observed_pixel_uncertainty__empirical = np.sqrt(np.mean( (W_delta_qref - np.mean(W_delta_qref, axis=-2)) ** 2., axis=-2 ))
+
+            import gnuplotlib as gp
+            gp.plot(observed_pixel_uncertainty__empirical,
+                    equation_above = f"{args.observed_pixel_uncertainty} title \"reference\"",
+                    wait = True)
+
+
+
+
+
+
+        print("temporary; need to var_rt_ref_refperturbed() before /tmp/negKt is available")
+        var_predicted__rt_ref_refperturbed = \
+            mrcal.var_rt_ref_refperturbed(**optimization_inputs_baseline,
+                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty)
+
+
+
+
+
+
+
+        # Linearized method should have EXACTLY rt_ref_refperturbed = Kt * dqref
+        Kt_computed = -np.fromfile("/tmp/negKt", dtype=float).reshape(Nmeas_observations,6)
+
+        # shape (Nsamples,6)
+        rt_ref_refperturbed_predicted = \
+            nps.matmult(Kt_computed.T,  nps.dummy(W_delta_qref,axis=-1) )[...,0]
+
+        ######## should be 0:
+        print("check this 0 here")
+        nps.norm2((rt_ref_refperturbed - rt_ref_refperturbed_predicted).ravel())
 
         rt_ref_refperturbed__mean0 = rt_ref_refperturbed - np.mean(rt_ref_refperturbed, axis=-2)
 
         var_empirical__rt_ref_refperturbed = np.mean(nps.outer(rt_ref_refperturbed__mean0,rt_ref_refperturbed__mean0), axis=0)
-        var_predicted__rt_ref_refperturbed = mrcal.var_rt_ref_refperturbed(**optimization_inputs_baseline)
 
         l0,v0 = mrcal.utils._sorted_eig(var_empirical__rt_ref_refperturbed)
         l1,v1 = mrcal.utils._sorted_eig(var_predicted__rt_ref_refperturbed)
+
+        import gnuplotlib as gp
+        gp.plot(nps.cat(l0,l1), wait=True)
 
         # Ideally the predicted and observed Var(rt_ref_refperturbed) will match
         # exactly. I can check by looking at the eigendecomposition of the two
@@ -1774,6 +1825,11 @@ The rt_refperturbed_ref formulation:
         # Here the "*2" is needed to make it match. There's a bug somewhere.
         # With "--Nsamples 500" this passes with the above: 15% relative error
         # on each eigenvalue, 15deg max deviation on each eigenvector
+
+        import IPython
+        IPython.embed()
+        sys.exit()
+
 
 
 

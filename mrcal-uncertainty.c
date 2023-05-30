@@ -932,6 +932,13 @@ bool mrcal_var_rt_ref_refperturbed(// output
     // So for a given row J I accumulate outer(U J, U J)
     memset(Var_rt_ref_refperturbed, 0, 6*6*sizeof(double));
 
+
+
+    {
+    FILE* fp_Kt = fopen("/tmp/negKt", "w");
+
+
+
     const double s2 = observed_pixel_uncertainty*observed_pixel_uncertainty;
 
     for(int imeas=0; imeas<Nmeas_obs; imeas++)
@@ -947,6 +954,14 @@ bool mrcal_var_rt_ref_refperturbed(// output
                 uj[i] += x*U[Nstate*i + icol];
         }
 
+        const int Nuj = sizeof(uj)/sizeof(uj[0]);
+        if(Nuj != fwrite(uj, sizeof(uj[0]), Nuj, fp_Kt))
+        {
+            MSG("Couldn't write K");
+            fclose(fp_Kt);
+            goto done;
+        }
+
         for(int i=0; i<6; i++)
         {
             Var_rt_ref_refperturbed[6*i + i] += uj[i] * uj[i] * s2;
@@ -956,6 +971,8 @@ bool mrcal_var_rt_ref_refperturbed(// output
                 Var_rt_ref_refperturbed[6*j + i] += uj[i] * uj[j] * s2;
             }
         }
+    }
+    fclose(fp_Kt);
     }
 
     result = true;
