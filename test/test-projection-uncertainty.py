@@ -676,18 +676,18 @@ compute the perturbed reprojection q*.
 I need to eventually compute Var(q*). I linearize everything to get delta_q* ~
 dq*/db* db*/dqref delta_qref. Let
 
-  L = dq*/db*
+  P = dq*/db*
   M = db*/dqref
 
 so
 
-  delta_q* = L M delta_qref
+  delta_q* = P M delta_qref
 
 Then
 
-  Var(q*) = L M Var(qref) Mt Lt.
+  Var(q*) = P M Var(qref) Mt Lt.
 
-I have M from the usual uncertainty propagation logic, so I just need L =
+I have M from the usual uncertainty propagation logic, so I just need P =
 dq*/db*
 
 In my usual least squares solve each chessboard point produces two elements
@@ -830,8 +830,10 @@ J_frame_t x0 = 0 as well, and thus instead of x_cross0 we can use
 
   dx_cross0 = J[frame,calobject_warp] db[frame,calobject_warp]
 
-So we have rt_ref_ref* = K delta_qref for some K that depends on the
-various J matrices that are constant for each solve
+So we have rt_ref_ref* = K db for some K that depends on the various J matrices
+that are constant for each solve:
+
+  K = -pinv(J_cross) J[frame,calobject_warp]
 
 Now that I have rt_ref_ref*, I can use it to compute q*. This
 can accept arbitrary q, not just those in the solve, so I actually need to
@@ -886,22 +888,22 @@ q* - q
   + dq_dintrinsics db[intrinsics_this]
 
 ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-              + dpcam__dpref dpref*__drt_ref_ref* K delta_qref)
-  + dq_dintrinsics db[intrinsics_this]
-
-~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
               - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) dx_cross0)
   + dq_dintrinsics db[intrinsics]
 
 ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-              - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frame,calobject_warp_all] db[frame,calobject_warp_all])
+              - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frame_all,calobject_warp] db[frame_all,calobject_warp])
+  + dq_dintrinsics db[intrinsics_this]
+
+~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+              + dpcam__dpref dpref*__drt_ref_ref* K db[frame_all,calobject_warp])
   + dq_dintrinsics db[intrinsics_this]
 
 --->
 
 dq/db[extrinsics_this]          = dq_dpcam dpcam__drt_cam_ref
 dq/db[intrinsics_this]          = dq_dintrinsics
-dq/db[frame,calobject_warp_all] = -dq_dpcam dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frame,calobject_warp_all]
+dq/db[frame_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K
 
 ============================================================================
 
@@ -974,8 +976,10 @@ where
 
   dx_cross0 = J[intrinsics,extrinsics] db[intrinsics,extrinsics] - W delta_qref
 
-So we have rt_ref*_ref = K delta_qref for some K that depends on the
-various J matrices that are constant for each solve
+So we have rt_ref*_ref = K db - W delta_qref for some K that depends on the
+various J matrices that are constant for each solve:
+
+  K = -pinv(J_cross) J[intrinsics,extrinsics]
 
 The rest of the data flow is the same as above, except we already have
 rt_ref*_ref, so we don't need to invert the transform when applying it.

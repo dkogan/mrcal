@@ -928,7 +928,7 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 typedef enum {
     OPTIMIZEMODE_OPTIMIZE,
     OPTIMIZEMODE_CALLBACK,
-    OPTIMIZEMODE_VAR_RT_RR
+    OPTIMIZEMODE_DRTRRP_DB
 } optimizemode_t;
 
 static bool lensmodel_one_validate_args( // out
@@ -1242,8 +1242,8 @@ PyObject* _optimize(optimizemode_t optimizemode,
     int calibration_object_height_n = -1;
     int calibration_object_width_n  = -1;
 
-    if(optimizemode == OPTIMIZEMODE_OPTIMIZE ||
-       optimizemode == OPTIMIZEMODE_VAR_RT_RR)
+    if(optimizemode == OPTIMIZEMODE_OPTIMIZE   ||
+       optimizemode == OPTIMIZEMODE_DRTRRP_DB)
     {
         char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
                              OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
@@ -1328,14 +1328,6 @@ PyObject* _optimize(optimizemode_t optimizemode,
                                 OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_CALL)
                                 NULL))
         goto done;
-
-    if(optimizemode == OPTIMIZEMODE_VAR_RT_RR &&
-       observed_pixel_uncertainty <= 0)
-    {
-        BARF("var_rt_ref_refperturbed() MUST be given observed_pixel_uncertainty > 0");
-        goto done;
-    }
-
 
     // Can't compute a factorization without a jacobian. That's what we're factoring
     if(!no_factorization)
@@ -1519,7 +1511,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
             Py_INCREF(result);
         }
         else if(optimizemode == OPTIMIZEMODE_CALLBACK ||
-                optimizemode == OPTIMIZEMODE_VAR_RT_RR)
+                optimizemode == OPTIMIZEMODE_DRTRRP_DB)
         {
             int N_j_nonzero = _mrcal_num_j_nonzero(Nobservations_board,
                                                    Nobservations_point,
@@ -1637,35 +1629,40 @@ PyObject* _optimize(optimizemode_t optimizemode,
             }
             else
             {
-                // optimizemode == OPTIMIZEMODE_VAR_RT_RR
+                // OPTIMIZEMODE_DRTRRP_DB
 
-                PyObject* Var_rt_ref_refperturbed =
-                    PyArray_SimpleNew(2, ((npy_intp[]){6,6}), NPY_DOUBLE);
+                const int Nstate_noi_noe =
+                    Nstate
+                    -  mrcal_num_states_intrinsics(Ncameras_intrinsics, problem_selections, &mrcal_lensmodel)
+                    -  mrcal_num_states_extrinsics(Ncameras_extrinsics, problem_selections);
 
-                if(!mrcal_var_rt_ref_refperturbed(PyArray_DATA((PyArrayObject*)Var_rt_ref_refperturbed),
+                PyObject* K =
+                    PyArray_SimpleNew(2, ((npy_intp[]){6,Nstate_noi_noe}), NPY_DOUBLE);
 
-                                                  c_b_packed_final, Nstate*sizeof(double),
-                                                  &Jt,
 
-                                                  NULL, NULL,
+                if(!mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
+                                                               PyArray_DATA((PyArrayObject*)K),
+                                                               6*Nstate_noi_noe*sizeof(double),
 
-                                                  Ncameras_intrinsics, Ncameras_extrinsics, Nframes,
-                                                  Npoints, Npoints_fixed,
-                                                  Nobservations_board,
-                                                  Nobservations_point,
-                                                  observed_pixel_uncertainty,
-                                                  &mrcal_lensmodel,
-                                                  problem_selections,
+                                                               c_b_packed_final, Nstate*sizeof(double),
+                                                               &Jt,
 
-                                                  calibration_object_width_n,
-                                                  calibration_object_height_n))
+                                                               Ncameras_intrinsics, Ncameras_extrinsics, Nframes,
+                                                               Npoints, Npoints_fixed,
+                                                               Nobservations_board,
+                                                               Nobservations_point,
+                                                               &mrcal_lensmodel,
+                                                               problem_selections,
+
+                                                               calibration_object_width_n,
+                                                               calibration_object_height_n))
                 {
-                    BARF("Error in mrcal_var_rt_ref_refperturbed()");
-                    Py_DECREF(Var_rt_ref_refperturbed);
+                    BARF("mrcal_drt_ref_refperturbed__dbpacked_no_ie() failed");
+                    Py_DECREF(K);
                     goto done;
                 }
 
-                result = Var_rt_ref_refperturbed;
+                result = K;
             }
         }
         else
@@ -1707,11 +1704,11 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     return _optimize(OPTIMIZEMODE_OPTIMIZE,
                      args, kwargs);
 }
-static PyObject* var_rt_ref_refperturbed(PyObject* NPY_UNUSED(self),
-                                         PyObject* args,
-                                         PyObject* kwargs)
+static PyObject* drt_ref_refperturbed__dbpacked_no_ie(PyObject* NPY_UNUSED(self),
+                                                      PyObject* args,
+                                                      PyObject* kwargs)
 {
-    return _optimize(OPTIMIZEMODE_VAR_RT_RR, args, kwargs);
+    return _optimize(OPTIMIZEMODE_DRTRRP_DB, args, kwargs);
 }
 
 
@@ -3471,8 +3468,8 @@ static const char optimize_docstring[] =
 static const char optimizer_callback_docstring[] =
 #include "optimizer_callback.docstring.h"
     ;
-static const char var_rt_ref_refperturbed_docstring[] =
-#include "var_rt_ref_refperturbed.docstring.h"
+static const char drt_ref_refperturbed__dbpacked_no_ie_docstring[] =
+#include "drt_ref_refperturbed__dbpacked_no_ie.docstring.h"
     ;
 static const char lensmodel_metadata_and_config_docstring[] =
 #include "lensmodel_metadata_and_config.docstring.h"
@@ -3504,7 +3501,7 @@ static const char _rectification_maps_docstring[] =
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizer_callback,               METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,var_rt_ref_refperturbed,          METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,drt_ref_refperturbed__dbpacked_no_ie,METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(, state_index_intrinsics,          METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, state_index_extrinsics,          METH_VARARGS | METH_KEYWORDS),

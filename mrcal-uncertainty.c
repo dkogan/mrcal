@@ -8,10 +8,6 @@
 
 #include <suitesparse/cholmod.h>
 
-#if (CHOLMOD_VERSION > (CHOLMOD_VER_CODE(2,2)))
-#include <suitesparse/cholmod_function.h>
-#endif
-
 #include <string.h>
 #include <math.h>
 #include <malloc.h>
@@ -36,18 +32,159 @@
 
 
 
+/*
+docs in docstring of
+reproject_perturbed__optimize_cross_reprojection_error()
+
+I'm looking at a cross-reprojection. This is a least-squares optimization
+of a measurement vector x_cross: a perturbation of the already-optimized
+calibration measurement vector x. Changes:
+
+- camera intrinsics unperturbed
+
+- camera extrinsics unperturbed
+
+- frame poses perturbed with
+
+  - perturbed pixel observations qref -> qref + dqref, resulting in
+    rt_ref_frame -> rt_ref_frame + M dqref =
+    rt_refperturbed_frameperturbed
+
+  - reference-correcting transform rt_ref_refperturbed. So the frame
+    transform we use is rt_ref_frameperturbed = compose(rt_ref_refperturbed,
+    rt_refperturbed_frameperturbed). rt_ref_refperturbed is tiny, and grows
+    with dqref: dqref=0 -> rt_ref_refperturbed=0. So I use a linearization
+    at rt_ref_refperturbed=0
+
+    rt_ref_frameperturbed ~
+      rt_refperturbed_frameperturbed  + drt_ref_frameperturbed__drt_ref_refperturbed drt_ref_refperturbed ~
+      rt_ref_frame + M[frame_i] dqref + drt_ref_frameperturbed__drt_ref_refperturbed drt_ref_refperturbed
+
+- calobject_warp perturbed due to the perturbations in pixel observations
+  qref -> qref + dqref, resulting in calobject_warp -> calobject_warp +
+  M[calobject_warp] dqref
+
+So
+
+  x_cross[i] =
+    x[i] +
+    J_frame[i]          (M[frame_i] dqref + drt_ref_frameperturbed__drt_ref_refperturbed drt_ref_refperturbed)
+    J_calobject_warp[i] M[calobject_warp] dqref
+
+And I define its gradient:
+
+  Jcross[i] = dx_cross[i]/drt_ref_refperturbed
+            = J_frame[i] drt_ref_frameperturbed__drt_ref_refperturbed
+
+I reoptimize norm2(x_cross) by varying rt_ref_refperturbed by taking a
+single Newton step. I minimize
+
+  E = norm2(x_cross0 + Jcross drt_ref_refperturbed)
+
+I set the derivative to 0:
+
+  0 = dE/drt_ref_refperturbed ~
+    ~ (x_cross0 + Jcross drt_ref_refperturbed)t dx_cross/drt_ref_refperturbed
+    = (x_cross0 + Jcross drt_ref_refperturbed)t Jcross
+
+->
+  drt_ref_refperturbed =
+    rt_ref_refperturbed =
+    -inv(Jcross_t Jcross) Jcross_t x_cross0
+
+  x_cross0[i] = x_cross(rt_ref_refperturbed = 0) =
+                x[i] +
+                J_frame[i]          M[frame_i] dqref
+                J_calobject_warp[i] M[calobject_warp] dqref
+
+Note that if dqref = 0, then x_cross0 = x: the cross-reprojection is
+equivalent to the baseline projection error, which is as expected.
+
+If dqref = 0, the rt_ref_refperturbed = -inv() Jcross_t x, which is 0 if we
+ignore regularization. Let's do that.
+
+rt_ref_refperturbed is a random variable, since dqref is a random
+variable. The relationship is nicely linear, so I can compute:
+
+  mean(rt_ref_refperturbed) = -inv(Jcross_t Jcross) Jcross_t x
+
+I have expressions with J, but in reality I have J*: gradients in respect to
+PACKED variables. I have a variable scaling diagonal matrix D: J = J* D
+
+From the finished uncertainty documentation
+
+  M = inv(JtJ) Jobservationst W
+    = inv( Dt J*t J* D ) D Jobservations*t W
+    = invD inv(J*t J*) Jobservations*t W
+
+  Var(qref) = s^2 W^-2
+
+So all the W cancel each other out.
+
+Let's explicate the matrices. (J_frame[] M[frame] + J_calobject_warp[]
+M[calobject_warp]) is J_no_ie M where
+
+              i  e        f  calobject_warp
+              |  |        |        |
+              V  V        V        V
+            [ 0 | 0 | ---       | --- ]
+            [ 0 | 0 | ---       | --- ]
+            [ 0 | 0 | ---       | --- ]
+            [ 0 | 0 |    ---    | --- ]
+  J_no_ie = [ 0 | 0 |    ---    | --- ]
+            [ 0 | 0 |    ---    | --- ]
+            [ 0 | 0 |       --- | --- ]
+            [ 0 | 0 |       --- | --- ]
+            [ 0 | 0 |       --- | --- ]
+
+And
+
+           [ --- drr0 ]
+           [ --- drr0 ]
+           [ --- drr0 ]
+           [ --- drr1 ]
+  Jcross = [ --- drr1 ]
+           [ --- drr1 ]
+           [ --- drr2 ]
+           [ --- drr2 ]
+           [ --- drr2 ]
+
+Where the --- terms are the flattened "frame" terms from J_no_ie that use
+the unpacked state. And drr are the
+drt_ref_frameperturbed__drt_ref_refperturbed matrices for the different
+rt_ref_frame vectors.
+
+Putting everything together, we have
+
+  K = -inv(Jcross_t Jcross)    Jcross_t          J_no_ie*
+               (6,6)        (6, Nmeas_obs)  (Nmeas_obs,Nstate)
+
+  L =     K          inv(J*tJ*)       Jobservations*t
+     (6,Nstate)    (Nstate,Nstate)  (Nstate, Nmeas_obs)
+
+  Var(rt_ref_refperturbed) = s^2 L Lt
 
 
-// stolen from libdogleg
-static int cholmod_error_callback(const char* s, ...)
-{
-  va_list ap;
-  va_start(ap, s);
-  int ret = vfprintf(stderr, s, ap);
-  va_end(ap);
-  fprintf(stderr, "\n");
-  return ret;
-}
+I need to compute Jcross_t J_no_ie* (shape (6,Nstate)). Its transpose, for convenience;
+
+  J_no_ie_t* Jcross (shape=(Nstate,6)) =
+    [ 0                                                                                     ] <- intrinsics
+    [ 0                                                                                     ] <- extrinsics
+    [ sum_measi(outer(j_frame0*, j_frame0*)) Dinv drr_frame0                                ]
+    [ sum_measi(outer(j_frame1*, j_frame1*)) Dinv drr_frame1                                ] <- frames
+    [                         ...                                                           ]
+    [ sum_framei(sum_measi(outer(j_calobject_warp_measi*, j_frame_measi*) Dinv drr_framei)) ] <- calobject_warp
+
+  Jcross_t Jcross = sum(outer(jcross, jcross))
+                  = sum_framei( drr_framei_t Dinv sum_measi(outer(j_frame_measi*, j_frame_measi*)) Dinv drr_framei )
+
+For each frame, both of these expressions need
+
+  sum_measi(outer(j_frame_measi*, j_frame_measi*)) Dinv drr_framei
+
+I compute this in a loop, and accumulate in finish_Jcross_computations()
+
+*/
 
 static
 void finish_Jcross_computations(// output
@@ -366,212 +503,48 @@ void finish_Jcross_computations(// output
     memset(sum_outer_jf_jcw_packed, 0, 6*2      *sizeof(double));
 }
 
-bool mrcal_var_rt_ref_refperturbed(// output
-                                   // Symmetric 6x6, stored densely
-                                   double* Var_rt_ref_refperturbed,
 
-                                   // inputs
-                                   // stuff that describes this solve
-                                   const double* b_packed,
-                                   // used only to confirm that the user passed-in the buffer they
-                                   // should have passed-in. The size must match exactly
-                                   int buffer_size_b_packed,
+bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
+                                                // Shape (6,Nstate_noi_noe)
+                                                double* K,
+                                                // used only to confirm that the user passed-in the buffer they
+                                                // should have passed-in. The size must match exactly
+                                                int buffer_size_K,
 
-                                   // The unitless Jacobian, used by the internal
-                                   // optimization routines
-                                   // cholmod_analyze() and cholmod_factorize()
-                                   // require non-const
-                                   /* const */
-                                   cholmod_sparse* Jt,
+                                                // inputs
+                                                // stuff that describes this solve
+                                                const double* b_packed,
+                                                // used only to confirm that the user passed-in the buffer they
+                                                // should have passed-in. The size must match exactly
+                                                int buffer_size_b_packed,
 
-                                   // if NULL, I recompute
-                                   cholmod_factor* factorization,
-                                   // if NULL, I reuse
-                                   cholmod_common* common,
+                                                // The unitless Jacobian, used by the internal
+                                                // optimization routines
+                                                // cholmod_analyze() and cholmod_factorize()
+                                                // require non-const
+                                                /* const */
+                                                cholmod_sparse* Jt,
 
-                                   // meta-parameters
-                                   int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
-                                   int Npoints, int Npoints_fixed, // at the end of points[]
-                                   int Nobservations_board,
-                                   int Nobservations_point,
+                                                // meta-parameters
+                                                int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
+                                                int Npoints, int Npoints_fixed, // at the end of points[]
+                                                int Nobservations_board,
+                                                int Nobservations_point,
 
-                                   double observed_pixel_uncertainty,
+                                                const mrcal_lensmodel_t* lensmodel,
+                                                mrcal_problem_selections_t problem_selections,
 
-                                   const mrcal_lensmodel_t* lensmodel,
-                                   mrcal_problem_selections_t problem_selections,
-
-                                   int calibration_object_width_n,
-                                   int calibration_object_height_n)
+                                                int calibration_object_width_n,
+                                                int calibration_object_height_n)
 {
-    /*
-    docs in docstring of
-    reproject_perturbed__optimize_cross_reprojection_error()
-
-    I'm looking at a cross-reprojection. This is a least-squares optimization
-    of a measurement vector x_cross: a perturbation of the already-optimized
-    calibration measurement vector x. Changes:
-
-    - camera intrinsics unperturbed
-
-    - camera extrinsics unperturbed
-
-    - frame poses perturbed with
-
-      - perturbed pixel observations qref -> qref + dqref, resulting in
-        rt_ref_frame -> rt_ref_frame + M dqref =
-        rt_refperturbed_frameperturbed
-
-      - reference-correcting transform rt_ref_refperturbed. So the frame
-        transform we use is rt_ref_frameperturbed = compose(rt_ref_refperturbed,
-        rt_refperturbed_frameperturbed). rt_ref_refperturbed is tiny, and grows
-        with dqref: dqref=0 -> rt_ref_refperturbed=0. So I use a linearization
-        at rt_ref_refperturbed=0
-
-        rt_ref_frameperturbed ~
-          rt_refperturbed_frameperturbed  + drt_ref_frameperturbed__drt_ref_refperturbed drt_ref_refperturbed ~
-          rt_ref_frame + M[frame_i] dqref + drt_ref_frameperturbed__drt_ref_refperturbed drt_ref_refperturbed
-
-    - calobject_warp perturbed due to the perturbations in pixel observations
-      qref -> qref + dqref, resulting in calobject_warp -> calobject_warp +
-      M[calobject_warp] dqref
-
-    So
-
-      x_cross[i] =
-        x[i] +
-        J_frame[i]          (M[frame_i] dqref + drt_ref_frameperturbed__drt_ref_refperturbed drt_ref_refperturbed)
-        J_calobject_warp[i] M[calobject_warp] dqref
-
-    And I define its gradient:
-
-      Jcross[i] = dx_cross[i]/drt_ref_refperturbed
-                = J_frame[i] drt_ref_frameperturbed__drt_ref_refperturbed
-
-    I reoptimize norm2(x_cross) by varying rt_ref_refperturbed by taking a
-    single Newton step. I minimize
-
-      E = norm2(x_cross0 + Jcross drt_ref_refperturbed)
-
-    I set the derivative to 0:
-
-      0 = dE/drt_ref_refperturbed ~
-        ~ (x_cross0 + Jcross drt_ref_refperturbed)t dx_cross/drt_ref_refperturbed
-        = (x_cross0 + Jcross drt_ref_refperturbed)t Jcross
-
-    ->
-      drt_ref_refperturbed =
-        rt_ref_refperturbed =
-        -inv(Jcross_t Jcross) Jcross_t x_cross0
-
-      x_cross0[i] = x_cross(rt_ref_refperturbed = 0) =
-                    x[i] +
-                    J_frame[i]          M[frame_i] dqref
-                    J_calobject_warp[i] M[calobject_warp] dqref
-
-    Note that if dqref = 0, then x_cross0 = x: the cross-reprojection is
-    equivalent to the baseline projection error, which is as expected.
-
-    If dqref = 0, the rt_ref_refperturbed = -inv() Jcross_t x, which is 0 if we
-    ignore regularization. Let's do that.
-
-    rt_ref_refperturbed is a random variable, since dqref is a random
-    variable. The relationship is nicely linear, so I can compute:
-
-      mean(rt_ref_refperturbed) = -inv(Jcross_t Jcross) Jcross_t x
-
-    I have expressions with J, but in reality I have J*: gradients in respect to
-    PACKED variables. I have a variable scaling diagonal matrix D: J = J* D
-
-    From the finished uncertainty documentation
-
-      M = inv(JtJ) Jobservationst W
-        = inv( Dt J*t J* D ) D Jobservations*t W
-        = invD inv(J*t J*) Jobservations*t W
-
-      Var(qref) = s^2 W^-2
-
-    So all the W cancel each other out.
-
-    Let's explicate the matrices. (J_frame[] M[frame] + J_calobject_warp[]
-    M[calobject_warp]) is J_fcw M where
-
-                i  e        f  calobject_warp
-                |  |        |        |
-                V  V        V        V
-              [ 0 | 0 | ---       | --- ]
-              [ 0 | 0 | ---       | --- ]
-              [ 0 | 0 | ---       | --- ]
-              [ 0 | 0 |    ---    | --- ]
-      J_fcw = [ 0 | 0 |    ---    | --- ]
-              [ 0 | 0 |    ---    | --- ]
-              [ 0 | 0 |       --- | --- ]
-              [ 0 | 0 |       --- | --- ]
-              [ 0 | 0 |       --- | --- ]
-
-    And
-
-               [ --- drr0 ]
-               [ --- drr0 ]
-               [ --- drr0 ]
-               [ --- drr1 ]
-      Jcross = [ --- drr1 ]
-               [ --- drr1 ]
-               [ --- drr2 ]
-               [ --- drr2 ]
-               [ --- drr2 ]
-
-    Where the --- terms are the flattened "frame" terms from J_fcw that use the
-    unpacked state. And drr are the drt_ref_frameperturbed__drt_ref_refperturbed
-    matrices for the different rt_ref_frame vectors.
-
-    Putting everything together, we have
-
-      K = -inv(Jcross_t Jcross)    Jcross_t          J_fcw*            inv(J*tJ*)      Jobservations*t
-                   (6,6)        (6, Nmeas_obs)  (Nmeas_obs,Nstate)  (Nstate,Nstate)  (Nstate, Nmeas_obs)
-
-      Var(rt_ref_refperturbed) = s^2 K Kt
-
-
-    I need to compute Jcross_t J_fcw* (shape (6,Nstate)). Its transpose, for convenience;
-
-      J_fcw_t* Jcross (shape=(Nstate,6)) =
-        [ 0                                                                                     ] <- intrinsics
-        [ 0                                                                                     ] <- extrinsics
-        [ sum_measi(outer(j_frame0*, j_frame0*)) Dinv drr_frame0                                ]
-        [ sum_measi(outer(j_frame1*, j_frame1*)) Dinv drr_frame1                                ] <- frames
-        [                         ...                                                           ]
-        [ sum_framei(sum_measi(outer(j_calobject_warp_measi*, j_frame_measi*) Dinv drr_framei)) ] <- calobject_warp
-
-      Jcross_t Jcross = sum(outer(jcross, jcross))
-                      = sum_framei( drr_framei_t Dinv sum_measi(outer(j_frame_measi*, j_frame_measi*)) Dinv drr_framei )
-
-    For each frame, both of these expressions need
-
-      sum_measi(outer(j_frame_measi*, j_frame_measi*)) Dinv drr_framei
-
-    I compute this in a loop, and accumulate in finish_Jcross_computations()
-
-    */
-
-    bool result                             = false;
-    bool need_to_free_cholmod_common        = false;
-    bool need_to_free_cholmod_factorization = false;
-
-    cholmod_common cholmod_common_local;
-
-    // contains both input and output
-    double* pool __attribute__ ((aligned (16))) = NULL;
-
-    int Nmeas_boards =
+    const int Nmeas_boards =
         mrcal_num_measurements_boards(Nobservations_board,
                                       calibration_object_width_n,
                                       calibration_object_height_n);
-    int Nmeas_points =
+    const int Nmeas_points =
         mrcal_num_measurements_points(Nobservations_point);
 
     const int Nmeas_obs = Nmeas_boards + Nmeas_points;
-
-#warning should support multiple cameras
 
     const int state_index_frame0 =
         mrcal_state_index_frames(0,
@@ -613,115 +586,64 @@ bool mrcal_var_rt_ref_refperturbed(// output
 
     double Jcross_t__Jcross[(6+1)*6/2] = {};
 
-    // Jcross_t J_fcw* has shape (6,Nstate), but the columns corresponding to
+    // Jcross_t J_no_ie* has shape (6,Nstate), but the columns corresponding to
     // the camera intrinsics, extrinsics are 0. I don't store those 0 columns,
-    // so my array that I store (Jcross_t__J_fcw) has shape (6, Nstate_noi_noe)
-    double Jcross_t__J_fcw[6*Nstate_noi_noe];
-    memset(Jcross_t__J_fcw, 0, 6*Nstate_noi_noe*sizeof(double));
-
-
-
+    // so my array that I store (K) has shape (6, Nstate_noi_noe)
+    if(buffer_size_K != 6*Nstate_noi_noe*(int)sizeof(double))
+    {
+        MSG("The buffer K has the wrong size. Needed exactly %d bytes, but got %d bytes",
+            6*Nstate_noi_noe*(int)sizeof(double),buffer_size_K);
+        return false;
+    }
 
     if( buffer_size_b_packed != Nstate*(int)sizeof(double) )
     {
         MSG("The buffer b_packed has the wrong size. Needed exactly %d bytes, but got %d bytes",
             Nstate*(int)sizeof(double),buffer_size_b_packed);
-        goto done;
+        return false;
     }
 
     if(Nmeas_points != 0)
     {
         MSG("ERROR: %s() currently is not implemented for point observations", __func__);
-        goto done;
+        return false;
     }
     if(Nstate != (int)Jt->nrow)
     {
         MSG("Inconsistent inputs. I have Nstate=%d, but Jt->nrow=%d. Giving up",
             Nstate, (int)Jt->nrow);
-        goto done;
+        return false;
     }
     if(state_index_frame0 < 0)
     {
         MSG("Uncertainty computation is currently implemented only if frames are being optimized");
-        goto done;
+        return false;
     }
     if(state_index_calobject_warp0 < 0)
     {
         MSG("Uncertainty computation is currently implemented only if calobject-warp is being optimized");
-        goto done;
+        return false;
     }
     if(state_index_frame0 + num_states_frames != state_index_calobject_warp0)
     {
         MSG("I'm assuming that the calobject-warp state directly follows the frames, but here it does not. Giving up");
-        goto done;
+        return false;
     }
     if(state_index_calobject_warp0 + num_states_calobject_warp != Nstate)
     {
         MSG("I'm assuming calobject_warp is the last set of states, but here it is not. Giving up");
-        goto done;
+        return false;
     }
     if( state_index_frame0 != Nstate_i_e)
     {
         MSG("Unexpected state vector layout. Giving up");
-        goto done;
-    }
-
-    if( common == NULL )
-    {
-        if( !cholmod_start(&cholmod_common_local) )
-        {
-            MSG("Error calling cholmod_start()");
-            goto done;
-        }
-        common = &cholmod_common_local;
-
-        // stolen from libdogleg
-
-        // I want to use LGPL parts of CHOLMOD only, so I turn off the supernodal routines. This gave me a
-        // 25% performance hit in the solver for a particular set of optical calibration data.
-        common->supernodal = 0;
-
-        // I want all output to go to STDERR, not STDOUT
-#if (CHOLMOD_VERSION <= (CHOLMOD_VER_CODE(2,2)))
-        common->print_function = cholmod_error_callback;
-#else
-        CHOLMOD_FUNCTION_DEFAULTS ;
-        CHOLMOD_FUNCTION_PRINTF(common) = cholmod_error_callback;
-#endif
-
-        need_to_free_cholmod_common = true;
-    }
-
-    if( factorization == NULL )
-    {
-        factorization = cholmod_analyze(Jt, common);
-
-        if(factorization == NULL)
-        {
-            MSG("cholmod_analyze() failed");
-            goto done;
-        }
-        if( !cholmod_factorize(Jt, factorization, common) )
-        {
-            MSG("cholmod_factorize() failed");
-            goto done;
-        }
-        if(factorization->minor != factorization->n)
-        {
-            MSG("Got singular JtJ!");
-            goto done;
-        }
-
-        need_to_free_cholmod_factorization = true;
+        return false;
     }
 
 
+    memset(K, 0, 6*Nstate_noi_noe*sizeof(double));
 
-
-
-
-
-#warning "I should reuse some other memory for this. Chunks of Jcross_t__J_fcw ?"
+#warning "I should reuse some other memory for this. Chunks of K ?"
     // sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) for this frame. I sum over
     // all the observations. Uses PACKED gradients. Only the upper triangle is
     // stored, in the usual row-major order
@@ -732,9 +654,6 @@ bool mrcal_var_rt_ref_refperturbed(// output
     double sum_outer_jf_jcw_packed[6*2] = {};
 
     int state_index_frame_current = -1;
-
-
-
 
     const int*    Jrowptr = (int*)   Jt->p;
     const int*    Jcolidx = (int*)   Jt->i;
@@ -758,7 +677,7 @@ bool mrcal_var_rt_ref_refperturbed(// output
             if(icol < state_index_frame_current)
             {
                 MSG("Unexpected jacobian structure. I'm assuming non-decreasing frame references");
-                goto done;
+                return false;
             }
             else if( state_index_frame0 <= icol &&
                      icol < state_index_calobject_warp0 )
@@ -768,7 +687,7 @@ bool mrcal_var_rt_ref_refperturbed(// output
                 {
                     if(state_index_frame_current >= 0)
                     {
-                        finish_Jcross_computations( Jcross_t__J_fcw,
+                        finish_Jcross_computations( K,
                                                     Jcross_t__Jcross,
                                                     sum_outer_jf_jf_packed,
                                                     sum_outer_jf_jcw_packed,
@@ -786,7 +705,7 @@ bool mrcal_var_rt_ref_refperturbed(// output
 
                 // sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) into sum_outer_jf_jf_packed
                 {
-                    // This is used to compute Jcross_t J_fcw* and Jcross_t
+                    // This is used to compute Jcross_t J_no_ie* and Jcross_t
                     // Jcross. This result is used in finish_Jcross_computations()
                     //
                     // Uses PACKED gradients. Only the upper triangle is stored, in
@@ -821,7 +740,7 @@ bool mrcal_var_rt_ref_refperturbed(// output
     }
 
     if(state_index_frame_current >= 0)
-        finish_Jcross_computations( Jcross_t__J_fcw,
+        finish_Jcross_computations( K,
                                     Jcross_t__Jcross,
                                     sum_outer_jf_jf_packed,
                                     sum_outer_jf_jcw_packed,
@@ -832,159 +751,25 @@ bool mrcal_var_rt_ref_refperturbed(// output
                                     Nstate_noi_noe);
 
 
-    // I now have filled Jcross_t__Jcross and Jcross_t__J_fcw. I can
+    // I now have filled Jcross_t__Jcross and K. I can
     // compute
     //
-    //   inv(Jcross_t Jcross) Jcross_t J_fcw
+    //   inv(Jcross_t Jcross) Jcross_t J_no_ie
     //
     // I actually compute the transpose:
     //
-    //   (Jcross_t J_fcw)t inv(Jcross_t Jcross)
+    //   (Jcross_t J_no_ie)t inv(Jcross_t Jcross)
     //
-    // in-place: input and output both use the Jcross_t__J_fcw array
+    // in-place: input and output both use the K array
     double inv_JcrosstJcross_det[(6+1)*6/2];
     double det = cofactors_sym6(Jcross_t__Jcross,
                                 inv_JcrosstJcross_det);
 
+    // Overwrite K in place
     mul_genN6_sym66_scaled_strided(Nstate_noi_noe,
-                                   Jcross_t__J_fcw, 1, Nstate_noi_noe,
+                                   K, 1, Nstate_noi_noe,
                                    inv_JcrosstJcross_det,
                                    1. / det);
 
-    // I now have a matrix V = inv(Jcross_t Jcross) Jcross_t J_fcw* and I can
-    // compute
-    //
-    //   U = V inv(J*tJ*)
-
-    // I don't want to dynamically allocate memory, and I don't want to waste
-    // space to store the 0 entries for the intrinsics and extrinsics, but I
-    // don't see API options in CHOLMOD to allow me to not do that. I just
-    // implement it in the obvious, and inefficient way for now
-    if(posix_memalign((void**)&pool, 16, 6*Nstate*2*sizeof(double)))
-    {
-        MSG("Error allocating memory. Giving up");
-        pool = NULL;
-        goto done;
-    }
-
-    {
-        for(int i=0; i<6; i++)
-        {
-            double* row_out = &pool[Nstate*i];
-            double* row_in  = &Jcross_t__J_fcw[Nstate_noi_noe*i];
-            memset(row_out, 0, Nstate_i_e*sizeof(double));
-            memcpy(&row_out[Nstate_i_e], row_in, Nstate_noi_noe*sizeof(double));
-        }
-
-        cholmod_dense b = {
-            .nrow  = Nstate,
-            .ncol  = 6,
-            .nzmax = Nstate*6,
-            .d     = Nstate,
-            .x     = &pool[0*Nstate],
-            .xtype = CHOLMOD_REAL,
-            .dtype = CHOLMOD_DOUBLE };
-
-        cholmod_dense out = {
-            .nrow  = Nstate,
-            .ncol  = 6,
-            .nzmax = Nstate*6,
-            .d     = Nstate,
-            .x     = &pool[6*Nstate],
-            .xtype = CHOLMOD_REAL,
-            .dtype = CHOLMOD_DOUBLE };
-
-
-        cholmod_dense* M = &out;
-        cholmod_dense* Y = NULL;
-        cholmod_dense* E = NULL;
-
-        if(!cholmod_solve2( CHOLMOD_A, factorization,
-                            &b, NULL,
-                            &M, NULL, &Y, &E,
-                            common))
-        {
-            MSG("cholmod_solve2() failed");
-            goto done;
-        }
-        if( M != &out )
-        {
-            MSG("cholmod_solve2() reallocated out! We leaked memory");
-            goto done;
-        }
-        cholmod_free_dense (&E, common);
-        cholmod_free_dense (&Y, common);
-    }
-
-    const double* U = &pool[6*Nstate];
-    // I can now compute
-    //
-    //   K = inv(Jcross_t Jcross) Jcross_t J_fcw* inv(J*tJ*) Jobservations*t
-    //     = U Jobservations*t
-    //
-    // I ultimately want
-    //
-    //   Var(rt_ref_refperturbed) = s^2 K Kt =
-    //                            = s^2 sum(outer(row_i(U Jobservations*t),
-    //                                            row_i(U Jobservations*t)))
-    //
-    // So for a given row J I accumulate outer(U J, U J)
-    memset(Var_rt_ref_refperturbed, 0, 6*6*sizeof(double));
-
-
-
-    {
-    FILE* fp_Kt = fopen("/tmp/negKt", "w");
-
-
-
-    const double s2 = observed_pixel_uncertainty*observed_pixel_uncertainty;
-
-    for(int imeas=0; imeas<Nmeas_obs; imeas++)
-    {
-        double uj[6] = {};
-
-        for(int32_t ival = Jrowptr[imeas]; ival < Jrowptr[imeas+1]; ival++)
-        {
-            int32_t      icol = Jcolidx[ival];
-            const double x    = Jval   [ival];
-
-            for(int i=0; i<6; i++)
-                uj[i] += x*U[Nstate*i + icol];
-        }
-
-        const int Nuj = sizeof(uj)/sizeof(uj[0]);
-        if(Nuj != fwrite(uj, sizeof(uj[0]), Nuj, fp_Kt))
-        {
-            MSG("Couldn't write K");
-            fclose(fp_Kt);
-            goto done;
-        }
-
-        for(int i=0; i<6; i++)
-        {
-            Var_rt_ref_refperturbed[6*i + i] += uj[i] * uj[i] * s2;
-            for(int j=i+1; j<6; j++)
-            {
-                Var_rt_ref_refperturbed[6*i + j] += uj[i] * uj[j] * s2;
-                Var_rt_ref_refperturbed[6*j + i] += uj[i] * uj[j] * s2;
-            }
-        }
-    }
-    fclose(fp_Kt);
-    }
-
-    result = true;
-
- done:
-    if(pool != NULL)
-        free(pool);
-
-    if(factorization != NULL && need_to_free_cholmod_factorization)
-        cholmod_free_factor(&factorization, common);
-
-    if(common != NULL && need_to_free_cholmod_common)
-        cholmod_finish(common);
-
-    return result;
+    return true;
 }
