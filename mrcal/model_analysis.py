@@ -1108,9 +1108,8 @@ else:                    we return an array of shape (...)
              Nstate,
              istate_intrinsics, istate_extrinsics, istate_frames,
              slice_optimized_intrinsics )
-    if not atinfinity: f = _dq_db__projection_uncertainty
-    else:              f = _dq_db__projection_uncertainty_rotationonly
-    dq_db = f(*args)
+    if not atinfinity: dq_db = _dq_db__projection_uncertainty             (*args)
+    else:              dq_db = _dq_db__projection_uncertainty_rotationonly(*args)
 
     return _propagate_calibration_uncertainty(what,
                                               dF_db                      = dq_db,
