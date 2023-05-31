@@ -601,9 +601,8 @@ bool mrcal_optimizer_callback(// out
 bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
                                                 // Shape (6,Nstate_noi_noe)
                                                 double* K,
-                                                // used only to confirm that the user passed-in the buffer they
-                                                // should have passed-in. The size must match exactly
-                                                int buffer_size_K,
+                                                int K_stride0, // in bytes. <= 0 means "contiguous"
+                                                int K_stride1, // in bytes. <= 0 means "contiguous"
 
                                                 // inputs
                                                 // stuff that describes this solve

@@ -16,6 +16,7 @@
 #include "mrcal.h"
 #include "minimath/minimath-extra.h"
 #include "util.h"
+#include "strides.h"
 
 
 #warning "don't duplicate these"
@@ -189,6 +190,9 @@ I compute this in a loop, and accumulate in finish_Jcross_computations()
 static
 void finish_Jcross_computations(// output
                                 double* Jcross_t__J_fcw,
+                                int     Jcross_t__J_fcw_stride0_elems,
+                                // rows are assumed stored densely, so there is
+                                // no Jcross_t__J_fcw_stride1
                                 double* Jcross_t__Jcross,
 
                                 // input
@@ -272,14 +276,14 @@ void finish_Jcross_computations(// output
 
     // Jcross_t__J_fcw output goes into [A B]
     //                                  [C D]
-    double* A = &Jcross_t__J_fcw[0*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 0];
-    double* B = &Jcross_t__J_fcw[0*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 3];
-    double* C = &Jcross_t__J_fcw[3*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 0];
-    double* D = &Jcross_t__J_fcw[3*Nstate_noi_noe + state_index_frame_current-state_index_frame0 + 3];
+    double* A = &Jcross_t__J_fcw[0*Jcross_t__J_fcw_stride0_elems + state_index_frame_current-state_index_frame0 + 0];
+    double* B = &Jcross_t__J_fcw[0*Jcross_t__J_fcw_stride0_elems + state_index_frame_current-state_index_frame0 + 3];
+    double* C = &Jcross_t__J_fcw[3*Jcross_t__J_fcw_stride0_elems + state_index_frame_current-state_index_frame0 + 0];
+    double* D = &Jcross_t__J_fcw[3*Jcross_t__J_fcw_stride0_elems + state_index_frame_current-state_index_frame0 + 3];
 
     // for calobject_warp
-    double* Acw = &Jcross_t__J_fcw[0*Nstate_noi_noe + state_index_calobject_warp0-state_index_frame0];
-    double* Ccw = &Jcross_t__J_fcw[3*Nstate_noi_noe + state_index_calobject_warp0-state_index_frame0];
+    double* Acw = &Jcross_t__J_fcw[0*Jcross_t__J_fcw_stride0_elems + state_index_calobject_warp0-state_index_frame0];
+    double* Ccw = &Jcross_t__J_fcw[3*Jcross_t__J_fcw_stride0_elems + state_index_calobject_warp0-state_index_frame0];
 
     // I can compute Jcross_t Jcross from the blocks comprising Jcross_t
     // J_fcw. From above:
@@ -304,7 +308,7 @@ void finish_Jcross_computations(// output
 
     // A <- dr/dr_t sum_outer[:3,:3] + skew_t1 sum_outer[3:,:3]
     {
-        mul_gen33_gen33insym66(A, Nstate_noi_noe, 1,
+        mul_gen33_gen33insym66(A, Jcross_t__J_fcw_stride0_elems, 1,
                                // transposed, so 1,3 and not 3,1
                                dr_ref_frameperturbed__dr_ref_refperturbed, 1,3,
                                sum_outer_jf_jf_packed, 0, 0,
@@ -314,7 +318,7 @@ void finish_Jcross_computations(// output
         // Acw = drr_t Dinv S; ~
         // -> Acwt = St Dinv drr;
         mul_genNM_genML_accum(// transposed
-                              Acw, 1, Nstate_noi_noe,
+                              Acw, 1, Jcross_t__J_fcw_stride0_elems,
 
                               2,3,3,
                               // transposed
@@ -327,7 +331,7 @@ void finish_Jcross_computations(// output
             int i;
 
             i = 0;
-            A[i*Nstate_noi_noe + j] +=
+            A[i*Jcross_t__J_fcw_stride0_elems + j] +=
                 (
                  /*skew[i*3 + 0]   + (  0)*sum_outer_jf_jf_packed[index_sym66(0+3,j)] */
                  /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jf_jf_packed[index_sym66(1+3,j)]
@@ -335,7 +339,7 @@ void finish_Jcross_computations(// output
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 1;
-            A[i*Nstate_noi_noe + j] +=
+            A[i*Jcross_t__J_fcw_stride0_elems + j] +=
                 (
                  /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jf_jf_packed[index_sym66(0+3,j)]
                  /*skew[i*3 + 1]   + (  0)*sum_outer_jf_jf_packed[index_sym66(1+3,j)] */
@@ -343,7 +347,7 @@ void finish_Jcross_computations(// output
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 2;
-            A[i*Nstate_noi_noe + j] +=
+            A[i*Jcross_t__J_fcw_stride0_elems + j] +=
                 (
                  /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jf_jf_packed[index_sym66(0+3,j)]
                  /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jf_jf_packed[index_sym66(1+3,j)]
@@ -354,7 +358,7 @@ void finish_Jcross_computations(// output
             if(j<2)
             {
                 i = 0;
-                Acw[i*Nstate_noi_noe + j] +=
+                Acw[i*Jcross_t__J_fcw_stride0_elems + j] +=
                     (
                      /*skew[i*3 + 0]   + (  0)*sum_outer_jf_jcw_packed[(0+3)*2 + j] */
                      /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jf_jcw_packed[(1+3)*2 + j]
@@ -362,7 +366,7 @@ void finish_Jcross_computations(// output
                      ) / SCALE_TRANSLATION_FRAME;
 
                 i = 1;
-                Acw[i*Nstate_noi_noe + j] +=
+                Acw[i*Jcross_t__J_fcw_stride0_elems + j] +=
                     (
                      /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jf_jcw_packed[(0+3)*2 + j]
                      /*skew[i*3 + 1]   + (  0)*sum_outer_jf_jcw_packed[(1+3)*2 + j] */
@@ -370,7 +374,7 @@ void finish_Jcross_computations(// output
                      ) / SCALE_TRANSLATION_FRAME;
 
                 i = 2;
-                Acw[i*Nstate_noi_noe + j] +=
+                Acw[i*Jcross_t__J_fcw_stride0_elems + j] +=
                     (
                      /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jf_jcw_packed[(0+3)*2 + j]
                      /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jf_jcw_packed[(1+3)*2 + j]
@@ -382,7 +386,7 @@ void finish_Jcross_computations(// output
 
     // B <- dr/dr_t sum_outer[:3,3:] + skew_t1 sum_outer[3:,3:]
     {
-        mul_gen33_gen33insym66(B, Nstate_noi_noe, 1,
+        mul_gen33_gen33insym66(B, Jcross_t__J_fcw_stride0_elems, 1,
                                // transposed, so 1,3 and not 3,1
                                dr_ref_frameperturbed__dr_ref_refperturbed, 1,3,
                                sum_outer_jf_jf_packed, 0, 3,
@@ -393,7 +397,7 @@ void finish_Jcross_computations(// output
             int i;
 
             i = 0;
-            B[i*Nstate_noi_noe + j] +=
+            B[i*Jcross_t__J_fcw_stride0_elems + j] +=
                 (
                  /*skew[i*3 + 0]   + (  0)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)] */
                  /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)]
@@ -401,7 +405,7 @@ void finish_Jcross_computations(// output
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 1;
-            B[i*Nstate_noi_noe + j] +=
+            B[i*Jcross_t__J_fcw_stride0_elems + j] +=
                 (
                  /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)]
                  /*skew[i*3 + 1]   + (  0)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)] */
@@ -409,7 +413,7 @@ void finish_Jcross_computations(// output
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 2;
-            B[i*Nstate_noi_noe + j] +=
+            B[i*Jcross_t__J_fcw_stride0_elems + j] +=
                 (
                  /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)]
                  /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)]
@@ -420,21 +424,21 @@ void finish_Jcross_computations(// output
 
     // C <- sum_outer[3:,:3]
     {
-        set_gen33_from_gen33insym66(C, Nstate_noi_noe, 1,
+        set_gen33_from_gen33insym66(C, Jcross_t__J_fcw_stride0_elems, 1,
                                     sum_outer_jf_jf_packed, 3, 0,
                                     1./SCALE_TRANSLATION_FRAME);
 
         // and similar for calobject_warp
         for(int i=0; i<3; i++)
             for(int j=0; j<2; j++)
-                Ccw[i*Nstate_noi_noe + j] +=
+                Ccw[i*Jcross_t__J_fcw_stride0_elems + j] +=
                     sum_outer_jf_jcw_packed[(3+i)*2 + j]/SCALE_TRANSLATION_FRAME;
 
     }
 
     // D <- sum_outer[3:,3:]
     {
-        set_gen33_from_gen33insym66(D, Nstate_noi_noe, 1,
+        set_gen33_from_gen33insym66(D, Jcross_t__J_fcw_stride0_elems, 1,
                                     sum_outer_jf_jf_packed, 3, 3,
                                     1./SCALE_TRANSLATION_FRAME);
     }
@@ -442,7 +446,7 @@ void finish_Jcross_computations(// output
     // Jcross_t__Jcross[rr] <- A/SCALE_R dr/dr - B/SCALE_T skew(t1)
     {
         mul_gen33_gen33_into33insym66_accum(Jcross_t__Jcross, 0, 0,
-                                            A, Nstate_noi_noe, 1,
+                                            A, Jcross_t__J_fcw_stride0_elems, 1,
                                             dr_ref_frameperturbed__dr_ref_refperturbed, 3,1,
                                             1./SCALE_ROTATION_FRAME);
 
@@ -454,25 +458,25 @@ void finish_Jcross_computations(// output
                 if(j == 0)
                     Jcross_t__Jcross[ivalue] -=
                         (
-                         /*skew[j + 0*3]   + B[i*Nstate_noi_noe+0]*(  0) */
-                         /*skew[j + 1*3]*/ + B[i*Nstate_noi_noe+1]*( t2)
-                         /*skew[j + 2*3]*/ + B[i*Nstate_noi_noe+2]*(-t1)
+                         /*skew[j + 0*3]   + B[i*Jcross_t__J_fcw_stride0_elems+0]*(  0) */
+                         /*skew[j + 1*3]*/ + B[i*Jcross_t__J_fcw_stride0_elems+1]*( t2)
+                         /*skew[j + 2*3]*/ + B[i*Jcross_t__J_fcw_stride0_elems+2]*(-t1)
                          ) / SCALE_TRANSLATION_FRAME;
 
                 if(j == 1)
                     Jcross_t__Jcross[ivalue] -=
                         (
-                         /*skew[j + 0*3]*/ + B[i*Nstate_noi_noe+0]*(-t2)
-                         /*skew[j + 1*3]   + B[i*Nstate_noi_noe+1]*(  0) */
-                         /*skew[j + 2*3]*/ + B[i*Nstate_noi_noe+2]*( t0)
+                         /*skew[j + 0*3]*/ + B[i*Jcross_t__J_fcw_stride0_elems+0]*(-t2)
+                         /*skew[j + 1*3]   + B[i*Jcross_t__J_fcw_stride0_elems+1]*(  0) */
+                         /*skew[j + 2*3]*/ + B[i*Jcross_t__J_fcw_stride0_elems+2]*( t0)
                          ) / SCALE_TRANSLATION_FRAME;
 
                 if(j == 2)
                     Jcross_t__Jcross[ivalue] -=
                         (
-                         /*skew[j + 0*3]*/ + B[i*Nstate_noi_noe+0]*( t1)
-                         /*skew[j + 1*3]*/ + B[i*Nstate_noi_noe+1]*(-t0)
-                         /*skew[j + 2*3]   + B[i*Nstate_noi_noe+2]*(  0) */
+                         /*skew[j + 0*3]*/ + B[i*Jcross_t__J_fcw_stride0_elems+0]*( t1)
+                         /*skew[j + 1*3]*/ + B[i*Jcross_t__J_fcw_stride0_elems+1]*(-t0)
+                         /*skew[j + 2*3]   + B[i*Jcross_t__J_fcw_stride0_elems+2]*(  0) */
                          ) / SCALE_TRANSLATION_FRAME;
             }
             ivalue += 3;
@@ -482,7 +486,7 @@ void finish_Jcross_computations(// output
     // Jcross_t__Jcross[rt] <- B/SCALE_T
     {
         set_33insym66_from_gen33_accum(Jcross_t__Jcross, 0, 3,
-                                       B, Nstate_noi_noe, 1,
+                                       B, Jcross_t__J_fcw_stride0_elems, 1,
                                        1./SCALE_TRANSLATION_FRAME);
     }
 
@@ -507,9 +511,8 @@ void finish_Jcross_computations(// output
 bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
                                                 // Shape (6,Nstate_noi_noe)
                                                 double* K,
-                                                // used only to confirm that the user passed-in the buffer they
-                                                // should have passed-in. The size must match exactly
-                                                int buffer_size_K,
+                                                int K_stride0, // in bytes. <= 0 means "contiguous"
+                                                int K_stride1, // in bytes. <= 0 means "contiguous"
 
                                                 // inputs
                                                 // stuff that describes this solve
@@ -586,16 +589,6 @@ bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
 
     double Jcross_t__Jcross[(6+1)*6/2] = {};
 
-    // Jcross_t J_no_ie* has shape (6,Nstate), but the columns corresponding to
-    // the camera intrinsics, extrinsics are 0. I don't store those 0 columns,
-    // so my array that I store (K) has shape (6, Nstate_noi_noe)
-    if(buffer_size_K != 6*Nstate_noi_noe*(int)sizeof(double))
-    {
-        MSG("The buffer K has the wrong size. Needed exactly %d bytes, but got %d bytes",
-            6*Nstate_noi_noe*(int)sizeof(double),buffer_size_K);
-        return false;
-    }
-
     if( buffer_size_b_packed != Nstate*(int)sizeof(double) )
     {
         MSG("The buffer b_packed has the wrong size. Needed exactly %d bytes, but got %d bytes",
@@ -640,8 +633,34 @@ bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
         return false;
     }
 
+    init_stride_2D(K, 6, Nstate_noi_noe);
 
-    memset(K, 0, 6*Nstate_noi_noe*sizeof(double));
+    if(K_stride1 != sizeof(double))
+    {
+        MSG("Currently the implementation assumes that K has densely-stored rows: K_stride1 must be sizeof(double). Instead I got K_stride1 = %d",
+            K_stride1);
+        return false;
+    }
+    const int K_stride0_elems = K_stride0 / sizeof(double);
+    if(K_stride0_elems*(int)sizeof(double) != K_stride0)
+    {
+        MSG("Currently the implementation assumes that K_stride0 is a multiple of sizeof(double): all elements of K are aligned. Got K_stride0 = %d",
+            K_stride0);
+        return false;
+    }
+
+
+    if(K_stride1 == sizeof(double))
+    {
+        // each row is stored densely
+        if(K_stride0 == (int)sizeof(double)*Nstate_noi_noe)
+            // each column is stored densely as well. I can memset() the whole
+            // block of memory
+            memset(K, 0, 6*Nstate_noi_noe*sizeof(double));
+        else
+            for(int i=0; i<6; i++)
+                memset(&K[i*K_stride0_elems], 0, Nstate_noi_noe*sizeof(double));
+    }
 
 #warning "I should reuse some other memory for this. Chunks of K ?"
     // sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) for this frame. I sum over
@@ -687,7 +706,7 @@ bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
                 {
                     if(state_index_frame_current >= 0)
                     {
-                        finish_Jcross_computations( K,
+                        finish_Jcross_computations( K, K_stride0_elems,
                                                     Jcross_t__Jcross,
                                                     sum_outer_jf_jf_packed,
                                                     sum_outer_jf_jcw_packed,
@@ -740,7 +759,7 @@ bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
     }
 
     if(state_index_frame_current >= 0)
-        finish_Jcross_computations( K,
+        finish_Jcross_computations( K, K_stride0_elems,
                                     Jcross_t__Jcross,
                                     sum_outer_jf_jf_packed,
                                     sum_outer_jf_jcw_packed,
@@ -767,7 +786,7 @@ bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
 
     // Overwrite K in place
     mul_genN6_sym66_scaled_strided(Nstate_noi_noe,
-                                   K, 1, Nstate_noi_noe,
+                                   K, 1, K_stride0_elems,
                                    inv_JcrosstJcross_det,
                                    1. / det);
 

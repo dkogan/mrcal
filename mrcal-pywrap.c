@@ -1635,19 +1635,64 @@ PyObject* _optimize(optimizemode_t optimizemode,
             else
             {
                 // OPTIMIZEMODE_DRTRRP_DB
+                const int state_index_frame0 =
+                    mrcal_state_index_frames(0,
+                                             Ncameras_intrinsics, Ncameras_extrinsics,
+                                             Nframes,
+                                             Npoints, Npoints_fixed, Nobservations_board,
+                                             problem_selections,
+                                             &mrcal_lensmodel);
+                const int state_index_calobject_warp0 =
+                    mrcal_state_index_calobject_warp(Ncameras_intrinsics, Ncameras_extrinsics,
+                                                     Nframes,
+                                                     Npoints, Npoints_fixed, Nobservations_board,
+                                                     problem_selections,
+                                                     &mrcal_lensmodel);
+                const int num_states_frames =
+                    mrcal_num_states_frames(Nframes,
+                                            problem_selections);
+                const int num_states_calobject_warp =
+                    mrcal_num_states_calobject_warp(problem_selections,
+                                                    Nobservations_board);
+                if(state_index_frame0 + num_states_frames != state_index_calobject_warp0)
+                {
+                    BARF("Unexpected state layout");
+                    goto done;
+                }
+                if(state_index_calobject_warp0 + num_states_calobject_warp != Nstate)
+                {
+                    BARF("Unexpected state layout");
+                    goto done;
+                }
 
-                const int Nstate_noi_noe =
-                    Nstate
-                    -  mrcal_num_states_intrinsics(Ncameras_intrinsics, problem_selections, &mrcal_lensmodel)
-                    -  mrcal_num_states_extrinsics(Ncameras_extrinsics, problem_selections);
-
+                // mrcal_drt_ref_refperturbed__dbpacked_no_ie() returns an array
+                // of shape (6,Nstate_noi_noe). I eventually want to use each of
+                // its rows to solve a linear system using the big cholesky
+                // factorization: factorization.solve_xt_JtJ_bt(K). This uses
+                // CHOLMOD internally. CHOLMOD has no good API interface to use
+                // a subset of the state vector for its RHS (Nstate_noi_noe
+                // instead of Nstate). I can pass in a sparsity pattern, but
+                // that feels like it wouldn't win me anything. So I construct
+                // and use a full K, filling the unused entries with 0
                 PyObject* K =
-                    PyArray_SimpleNew(2, ((npy_intp[]){6,Nstate_noi_noe}), NPY_DOUBLE);
+                    PyArray_ZEROS(2, ((npy_intp[]){6,Nstate}), NPY_DOUBLE, 0);
+                if(K == NULL)
+                {
+                    BARF("Couldn't allocate K");
+                    goto done;
+                }
+                if(!PyArray_IS_C_CONTIGUOUS((PyArrayObject*)K))
+                {
+                    BARF("New array K should be contiguous");
+                    Py_DECREF(K);
+                    goto done;
+                }
 
-
+                const npy_intp* strides = PyArray_STRIDES((PyArrayObject*)K);
                 if(!mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
-                                                               PyArray_DATA((PyArrayObject*)K),
-                                                               6*Nstate_noi_noe*sizeof(double),
+                                                               (double*)(PyArray_DATA((PyArrayObject*)K) + strides[0] * state_index_frame0),
+                                                               (int)strides[0],
+                                                               (int)strides[1],
 
                                                                c_b_packed_final, Nstate*sizeof(double),
                                                                &Jt,
@@ -1709,9 +1754,9 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     return _optimize(OPTIMIZEMODE_OPTIMIZE,
                      args, kwargs);
 }
-static PyObject* drt_ref_refperturbed__dbpacked_no_ie(PyObject* NPY_UNUSED(self),
-                                                      PyObject* args,
-                                                      PyObject* kwargs)
+static PyObject* drt_ref_refperturbed__dbpacked(PyObject* NPY_UNUSED(self),
+                                                PyObject* args,
+                                                PyObject* kwargs)
 {
     return _optimize(OPTIMIZEMODE_DRTRRP_DB, args, kwargs);
 }
@@ -3473,8 +3518,8 @@ static const char optimize_docstring[] =
 static const char optimizer_callback_docstring[] =
 #include "optimizer_callback.docstring.h"
     ;
-static const char drt_ref_refperturbed__dbpacked_no_ie_docstring[] =
-#include "drt_ref_refperturbed__dbpacked_no_ie.docstring.h"
+static const char drt_ref_refperturbed__dbpacked_docstring[] =
+#include "drt_ref_refperturbed__dbpacked.docstring.h"
     ;
 static const char lensmodel_metadata_and_config_docstring[] =
 #include "lensmodel_metadata_and_config.docstring.h"
@@ -3506,7 +3551,7 @@ static const char _rectification_maps_docstring[] =
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizer_callback,               METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,drt_ref_refperturbed__dbpacked_no_ie,METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,drt_ref_refperturbed__dbpacked,   METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(, state_index_intrinsics,          METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, state_index_extrinsics,          METH_VARARGS | METH_KEYWORDS),
