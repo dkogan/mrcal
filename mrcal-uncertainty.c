@@ -635,12 +635,6 @@ bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
 
     init_stride_2D(K, 6, Nstate_noi_noe);
 
-    if(K_stride1 != sizeof(double))
-    {
-        MSG("Currently the implementation assumes that K has densely-stored rows: K_stride1 must be sizeof(double). Instead I got K_stride1 = %d",
-            K_stride1);
-        return false;
-    }
     const int K_stride0_elems = K_stride0 / sizeof(double);
     if(K_stride0_elems*(int)sizeof(double) != K_stride0)
     {
@@ -660,6 +654,12 @@ bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
         else
             for(int i=0; i<6; i++)
                 memset(&K[i*K_stride0_elems], 0, Nstate_noi_noe*sizeof(double));
+    }
+    else
+    {
+        MSG("Currently the implementation assumes that K has densely-stored rows: K_stride1 must be sizeof(double). Instead I got K_stride1 = %d",
+            K_stride1);
+        return false;
     }
 
 #warning "I should reuse some other memory for this. Chunks of K ?"
