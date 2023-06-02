@@ -157,14 +157,22 @@ rt_ref_frame vectors.
 
 Putting everything together, we have
 
+  rt_ref_refperturbed = -inv(Jcross_t Jcross) Jcross_t x_cross0
+                      = -inv(Jcross_t Jcross) Jcross_t J[frame,calobject_warp] db[frame,calobject_warp]
+                      = -inv(Jcross_t Jcross) Jcross_t J_no_ie db
+                      = -inv(Jcross_t Jcross) Jcross_t J_no_ie* Dinv db
+                      = K Dinv db
+
+where
+
   K = -inv(Jcross_t Jcross)    Jcross_t          J_no_ie*
                (6,6)        (6, Nmeas_obs)  (Nmeas_obs,Nstate)
 
-  L =     K          inv(J*tJ*)       Jobservations*t
-     (6,Nstate)    (Nstate,Nstate)  (Nstate, Nmeas_obs)
+Finishing it:
 
-  Var(rt_ref_refperturbed) = s^2 L Lt
-
+  rt_ref_refperturbed = K Dinv db
+                      = K Dinv D inv(J*t J*) Jobservations*t W dqref
+                      = K inv(J*t J*) Jobservations*t W dqref
 
 I need to compute Jcross_t J_no_ie* (shape (6,Nstate)). Its transpose, for convenience;
 

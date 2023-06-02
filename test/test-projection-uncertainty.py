@@ -892,18 +892,18 @@ q* - q
   + dq_dintrinsics db[intrinsics]
 
 ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-              - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frame_all,calobject_warp] db[frame_all,calobject_warp])
+              - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frame_all,calobject_warp] D Dinv db[frame_all,calobject_warp])
   + dq_dintrinsics db[intrinsics_this]
 
 ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-              + dpcam__dpref dpref*__drt_ref_ref* K db[frame_all,calobject_warp])
+              + dpcam__dpref dpref*__drt_ref_ref* K Dinv db[frame_all,calobject_warp])
   + dq_dintrinsics db[intrinsics_this]
 
 --->
 
 dq/db[extrinsics_this]          = dq_dpcam dpcam__drt_cam_ref
 dq/db[intrinsics_this]          = dq_dintrinsics
-dq/db[frame_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K
+dq/db[frame_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K Dinv
 
 ============================================================================
 
