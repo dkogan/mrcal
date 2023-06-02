@@ -879,8 +879,8 @@ q* - q
 ~   dq_dpcam (pcam* - pcam)
   + dq_dintrinsics db[intrinsics_this]
 
-~   dq_dpcam (pcam + dpcam__drt_cam_ref db[extrinsics_this]
-  + dpcam__dpref (pref* - pref)  - pcam)
+~   dq_dpcam (+ dpcam__drt_cam_ref db[extrinsics_this]
+              + dpcam__dpref       (pref* - pref) )
   + dq_dintrinsics db[intrinsics_this]
 
 ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
@@ -1092,6 +1092,30 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
         query_rt_cam_ref[ ..., indices_frame_camintrinsics_camextrinsics[:,2]+1, :]
 
 
+
+    # shape (Nsamples,Nmeas_observations)
+    W_delta_qref = \
+        np.array( nps.clump(query_q_noise_board, n = -(query_q_noise_board.ndim-1)) )
+    # shape (Nsamples,Nmeas_observations/2, 2)
+    W_delta_qref_xy = np.reshape(W_delta_qref,
+                                 (len(W_delta_qref), Nmeas_observations//2,2))
+    if W_delta_qref_xy.base is not W_delta_qref: raise Exception("clump() made new array. This is a bug")
+    # W_delta_qref <- W * delta_qref
+    W_delta_qref_xy *= nps.transpose(weight.ravel())
+    # mask out outliers
+    W_delta_qref_xy[:,weight.ravel() <= 0, :] = 0
+
+    J = J_packed_baseline[slice_meas_observations,:]
+
+    # shape (Nsamples, Nstate)
+    Jt_W_qref = np.zeros( W_delta_qref.shape[:1] + J.shape[-1:], dtype=float)
+    mrcal._mrcal_npsp._Jt_x(J.indptr,
+                            J.indices,
+                            J.data,
+                            W_delta_qref,
+                            out = Jt_W_qref)
+
+
     def get_rt_ref_refperturbed():
 
         def transform_point_rt3_withgrad_drt1(rt0, rt1, rt2, p):
@@ -1268,11 +1292,14 @@ noise, and reoptimizing'''
                 return x_cross0 - x_baseline_boards, J_cross
 
         # I broadcast over each sample
-        @nps.broadcast_define( (('Nobservations','Nh','Nw',2),
+        @nps.broadcast_define( (('Nobservations',),
+                                ('Nstate',),
                                 ('Nstate',),),
                                (2,3),
                                out_kwarg='out')
-        def get_cross_operating_point__linearization(delta_qref, query_b_unpacked,
+        def get_cross_operating_point__linearization(W_delta_qref,
+                                                     Jt_W_qref,
+                                                     query_b_unpacked,
                                                      scale_extrinsics, scale_frames,
                                                      *,
                                                      out):
@@ -1299,8 +1326,6 @@ The rt_refperturbed_ref formulation:
   J_cross = dx_cross/drt_ref*_ref
             '''
 
-            if delta_qref.size != Nmeas_observations:
-                raise Exception("Mismatched observation counts. This is a bug")
             if mrcal.num_measurements_points(**optimization_inputs_baseline) != 0:
                 raise Exception("Uncertainty propagation with points not implemented yet")
 
@@ -1313,26 +1338,6 @@ The rt_refperturbed_ref formulation:
             if slice_state_extrinsics is not None:
                 state_mask_ie [slice_state_extrinsics] = 1
 
-
-            # make a copy to not overwrite the input
-            W_delta_qref = np.array(delta_qref)
-            # shape (N,2)
-            W_delta_qref_xy = nps.clump(W_delta_qref, n=W_delta_qref.ndim-1)
-            if W_delta_qref_xy.base is not W_delta_qref: raise Exception("clump() made new array. This is a bug")
-            # W_delta_qref <- W * delta_qref
-            W_delta_qref_xy *= nps.transpose(weight.ravel())
-
-            # mask out outliers
-            W_delta_qref_xy[weight.ravel() <= 0, :] = 0
-
-            J = J_packed_baseline[slice_meas_observations,:]
-
-            Jt_W_qref = np.zeros( (J.shape[-1],), dtype=float)
-            mrcal._mrcal_npsp._Jt_x(J.indptr,
-                                    J.indices,
-                                    J.data,
-                                    W_delta_qref.ravel(),
-                                    out = Jt_W_qref)
 
             db_predicted = factorization.solve_xt_JtJ_bt( Jt_W_qref )
             mrcal.unpack_state(db_predicted, **baseline_optimization_inputs)
@@ -1563,7 +1568,8 @@ The rt_refperturbed_ref formulation:
             # a (2,3) array indexed as
             # (rt_ref_refperturbed,rt_refperturbed_ref),(Jextrinsics,Jframes,x).
             rrp_rpr__x_Je_Jf = np.empty( (len(query_q_noise_board),2,3), dtype=object)
-            get_cross_operating_point__linearization( query_q_noise_board,
+            get_cross_operating_point__linearization( W_delta_qref,
+                                                      Jt_W_qref,
                                                       query_b_unpacked, # only for plotting and checking
                                                       scale_extrinsics, scale_frames,
                                                       out = rrp_rpr__x_Je_Jf)
@@ -1731,26 +1737,13 @@ The rt_refperturbed_ref formulation:
 
 
 
-
+    # shape (Nsamples,6)
     rt_ref_refperturbed = get_rt_ref_refperturbed()
 
 
 
-    if True and rt_ref_refperturbed.shape[0] > 10:
-
-        print("not yet done. finish this")
-
-        # shape (Nsamples,Nmeas_observations)
-        delta_qref = nps.clump(query_q_noise_board, n = -(query_q_noise_board.ndim-1))
-        W_delta_qref = np.array(delta_qref)
-        # shape (Nsamples,Nmeas_observations/2, 2)
-        W_delta_qref_xy = np.reshape(W_delta_qref,
-                                     (len(W_delta_qref), Nmeas_observations//2,2))
-        if W_delta_qref_xy.base is not W_delta_qref: raise Exception("clump() made new array. This is a bug")
-        # W_delta_qref <- W * delta_qref
-        W_delta_qref_xy *= nps.transpose(weight.ravel())
-        # mask out outliers
-        W_delta_qref_xy[:,weight.ravel() <= 0, :] = 0
+    # check the math around computing rt_ref_refperturbed
+    if 1:
 
         if 0:
             # I now have an empirical observed_pixel_uncertainty that should match
@@ -1762,76 +1755,64 @@ The rt_refperturbed_ref formulation:
                     equation_above = f"{args.observed_pixel_uncertainty} title \"reference\"",
                     wait = True)
 
+        # shape (6,Nstate)
+        K = mrcal.drt_ref_refperturbed__dbpacked(**optimization_inputs_baseline)
 
+        # I have
+        #
+        # rt_ref_refperturbed = K inv(J*t J*) Jobservations*t W dqref
 
+        # K[:,:istate_frame0] is always 0. I return the full array, even with
+        # the 0 because CHOLMOD doesn't give me a good interface to tell it that
+        # these cols are 0 in factorization.solve_xt_JtJ_bt()
 
+        K_inv_JtJ = factorization.solve_xt_JtJ_bt(K)
 
-
-        print("temporary; need to var_rt_ref_refperturbed() before /tmp/negKt is available")
-        var_predicted__rt_ref_refperturbed = \
-            mrcal.var_rt_ref_refperturbed(**optimization_inputs_baseline,
-                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty)
-
-
-
-
-
-
-
-        # Linearized method should have EXACTLY rt_ref_refperturbed = Kt * dqref
-        Kt_computed = -np.fromfile("/tmp/negKt", dtype=float).reshape(Nmeas_observations,6)
-
+        # Given the noisy samples I can compute the linearization using the API,
+        # which should match our linearization here exactly
+        #
         # shape (Nsamples,6)
-        rt_ref_refperturbed_predicted = \
-            nps.matmult(Kt_computed.T,  nps.dummy(W_delta_qref,axis=-1) )[...,0]
+        rt_ref_refperturbed_predicted_from_samples = \
+            nps.transpose( \
+                           nps.matmult(K_inv_JtJ,
+                                       nps.transpose(Jt_W_qref) ) )
 
-        ######## should be 0:
-        print("check this 0 here")
-        nps.norm2((rt_ref_refperturbed - rt_ref_refperturbed_predicted).ravel())
+        testutils.confirm_equal(rt_ref_refperturbed_predicted_from_samples,
+                                rt_ref_refperturbed,
+                                relative    = True,
+                                reldiff_eps = 1e-6,
+                                eps         = 1e-3,
+                                worstcase   = True,
+                                msg = "Linearized rt_ref_refperturbed computations match exactly")
+
+        # Now let's compute and compare the linerized Var(rt_ref_refperturbed)
+        JtJ = nps.matmult(J.transpose(),J)
+        var_predicted__rt_ref_refperturbed = \
+            nps.matmult(K_inv_JtJ, JtJ, nps.transpose(K_inv_JtJ)) * \
+            args.observed_pixel_uncertainty*args.observed_pixel_uncertainty
 
         rt_ref_refperturbed__mean0 = rt_ref_refperturbed - np.mean(rt_ref_refperturbed, axis=-2)
-
         var_empirical__rt_ref_refperturbed = np.mean(nps.outer(rt_ref_refperturbed__mean0,rt_ref_refperturbed__mean0), axis=0)
 
-        l0,v0 = mrcal.utils._sorted_eig(var_empirical__rt_ref_refperturbed)
-        l1,v1 = mrcal.utils._sorted_eig(var_predicted__rt_ref_refperturbed)
+        if 0:
+            l0,v0 = mrcal.utils._sorted_eig(var_empirical__rt_ref_refperturbed)
+            l1,v1 = mrcal.utils._sorted_eig(var_predicted__rt_ref_refperturbed)
 
-        import gnuplotlib as gp
-        gp.plot(nps.cat(l0,l1), wait=True)
+            import gnuplotlib as gp
 
-        # Ideally the predicted and observed Var(rt_ref_refperturbed) will match
-        # exactly. I can check by looking at the eigendecomposition of the two
-        # covariance matrices. The eigenvalues are the axis lengths of the
-        # ellipse and the eigenvectors are the orientation. Especially the
-        # bigger eigenvalues/vectors (towards the end of the sorted list) should
-        # match
+            # Eigenvalues should match-ish
+            gp.plot(nps.cat(l0,l1), wait=True)
 
-        # eigenvalues: gp.plot(nps.cat(l0,l1)) should match. Instead I see that
-        # gp.plot(nps.cat(l0,l1*2)) matches ok
+            # eigenvectors of each mode should deviate by a small number of
+            # degrees
+            print(np.arccos(np.abs(np.diag(nps.matmult(v0.T,v1))))*180./np.pi)
 
-        # eigenvectors:
-        #
-        #   np.arccos(np.abs(np.diag(nps.matmult(v0.T,v1))))*180./np.pi
-        #
-        # should all be close to 0 degrees. I more or less see that today.
-
-        # I can check with a function:
-
-        # testutils.confirm_covariances_equal(
-        #     var_empirical__rt_ref_refperturbed,
-        #     var_predicted__rt_ref_refperturbed*2,
-        #     what='rtrr',
-        #     eps_eigenvalues      = 0.15,
-        #     eps_eigenvectors_deg = 15.0)
-
-        # Here the "*2" is needed to make it match. There's a bug somewhere.
-        # With "--Nsamples 500" this passes with the above: 15% relative error
-        # on each eigenvalue, 15deg max deviation on each eigenvector
-
-        import IPython
-        IPython.embed()
-        sys.exit()
-
+        testutils.confirm_covariances_equal(
+            var_empirical__rt_ref_refperturbed,
+            var_predicted__rt_ref_refperturbed,
+            what='Var(rt_ref_refperturbed)',
+            eps_eigenvalues      = 0.1,
+            eps_eigenvectors_deg = 10.0)
 
 
 
