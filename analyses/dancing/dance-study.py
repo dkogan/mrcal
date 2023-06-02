@@ -165,6 +165,10 @@ def parse_args():
                         freedom of the solution, and produces more confident
                         calibrations. It's possible to use this in reality by
                         surverying the chessboard poses''')
+    parser.add_argument('--method',
+                        choices=('mean-frames', 'cross-reprojection--rrp-Jf'),
+                        default='mean-frames',
+                        help='''Multiple uncertainty quantification methods are available. We default to 'mean-frames' ''')
     parser.add_argument('--ymax',
                         type=float,
                         default = 10.0,
@@ -747,6 +751,7 @@ def eval_one_rangenear_tilt(models_true,
             sys.exit()
         if args.show_uncertainty_first_solve:
             mrcal.show_projection_uncertainty(model,
+                                              method      = args.method,
                                               observations= True,
                                               wait        = True)
             sys.exit()
@@ -771,7 +776,8 @@ def eval_one_rangenear_tilt(models_true,
         uncertainties[i_Nframes_far] = \
             mrcal.projection_uncertainty(pcam_samples,
                                          model,
-                                         what='worstdirection-stdev')
+                                         method = args.method,
+                                         what   = 'worstdirection-stdev')
 
     return uncertainties
 
