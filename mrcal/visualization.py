@@ -1345,6 +1345,7 @@ def show_projection_uncertainty(model,
                                 valid_intrinsics_region    = False,
                                 distance                   = None,
                                 isotropic                  = False,
+                                method                     = 'mean-frames',
                                 cbmax                      = 3,
                                 contour_increment          = None,
                                 contour_labels_styles      = 'boxed',
@@ -1434,6 +1435,10 @@ ARGUMENTS
   want the RMS size of the ellipse instead of the worst-direction size, pass
   isotropic=True.
 
+- method: optional string, defaulting to 'mean-frames'. Multiple uncertainty
+  quantification methods are available. One of ('mean-frames',
+  'cross-reprojection--rrp-Jf') is selected by this option
+
 - cbmax: optional value, defaulting to 3.0. Sets the maximum range of the color
   map
 
@@ -1477,6 +1482,12 @@ plot
     '''
 
     import gnuplotlib as gp
+
+    known_methods = set(('mean-frames',
+                         'cross-reprojection--rrp-Jf'),)
+    if method not in known_methods:
+        raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
+
     W,H=model.imagersize()
     if gridn_height is None:
         gridn_height = int(round(H/W*gridn_width))
@@ -1489,6 +1500,7 @@ plot
 
     err = mrcal.projection_uncertainty(pcam * (distance if distance is not None else 1.0),
                                        model           = model,
+                                       method          = method,
                                        atinfinity      = distance is None,
                                        what            = 'rms-stdev' if isotropic else 'worstdirection-stdev',
                                        observed_pixel_uncertainty = observed_pixel_uncertainty)
@@ -1612,6 +1624,7 @@ def show_projection_uncertainty_vs_distance(model,
                                             where                      = "centroid",
                                             observed_pixel_uncertainty = None,
                                             isotropic                  = False,
+                                            method                     = 'mean-frames',
                                             distance_min               = None,
                                             distance_max               = None,
                                             extratitle                 = None,
@@ -1682,6 +1695,10 @@ ARGUMENTS
   want the RMS size of the ellipse instead of the worst-direction size, pass
   isotropic=True.
 
+- method: optional string, defaulting to 'mean-frames'. Multiple uncertainty
+  quantification methods are available. One of ('mean-frames',
+  'cross-reprojection--rrp-Jf') is selected by this option
+
 - extratitle: optional string to include in the title of the resulting plot.
   Used to extend the default title string. If kwargs['title'] is given, it is
   used directly, and the extratitle is ignored
@@ -1709,6 +1726,11 @@ plot
     '''
 
     import gnuplotlib as gp
+
+    known_methods = set(('mean-frames',
+                         'cross-reprojection--rrp-Jf'),)
+    if method not in known_methods:
+        raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
 
     p_cam_observed_at_calibration_time = \
         _observed_hypothesis_points_and_boards_at_calibration_time(model)
@@ -1759,6 +1781,7 @@ plot
     uncertainty = \
         mrcal.projection_uncertainty( pcam,
                                       model = model,
+                                      method= method,
                                       what  = 'rms-stdev' if isotropic else 'worstdirection-stdev',
                                       observed_pixel_uncertainty = observed_pixel_uncertainty)
     if 'title' not in kwargs:
