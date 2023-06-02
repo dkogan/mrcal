@@ -2041,11 +2041,17 @@ def check_uncertainties_at(q0_baseline, idistance):
     # shape (Ncameras)
     worst_direction_stdev_observed = mrcal.worst_direction_stdev(Var_dq_observed)
 
+
+    if args.reproject_perturbed == 'cross-reprojection--rrp-Jf':
+        method = 'cross-reprojection--rrp-Jf'
+    else:
+        method = 'mean-frames'
     # shape (Ncameras, 2,2)
     Var_dq_predicted = \
         nps.cat(*[ mrcal.projection_uncertainty( \
             p_cam_baseline[icam],
             atinfinity = atinfinity,
+            method     = method,
             model      = models_baseline[icam],
             observed_pixel_uncertainty = args.observed_pixel_uncertainty) \
                    for icam in range(args.Ncameras) ])

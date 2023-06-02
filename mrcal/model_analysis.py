@@ -20,6 +20,7 @@ mrcal.model_analysis.fff() or mrcal.fff(). The latter is preferred.
 import numpy as np
 import numpysane as nps
 import sys
+import re
 import mrcal
 
 
@@ -698,12 +699,47 @@ In the regularized case:
     else: raise Exception("Shouldn't have gotten here. There's a bug")
 
 
+def _dq_db__cross_reprojection__rrp_Jf__fcw(dq_db,
+                                            p_ref,
+                                            dq_dpcam, dpcam_dpref,
+                                            Kunpacked):
+
+    # dq/db[frame_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
+
+    if dpcam_dpref is not None:
+        dq_dpref = nps.matmult(dq_dpcam, dpcam_dpref)
+    else:
+        dq_dpref = dq_dpcam
+
+    # pref = transform(rt_ref_ref*, pref*)
+    #   where rt_ref_ref* is tiny
+    # -> pref ~ pref* + cross(r, pref) + t
+    #         = pref* - cross(pref, r) + t
+    # -> 0 = dpref*/dr - skew(pref)
+    #    0 = dpref*/dt + I
+    # -> dpref*/dr = skew(pref)
+    #    dpref*/dt = -I
+    dprefp__dr_ref_refp = mrcal.skew_symmetric(p_ref)
+    # I don't explicitly store dpref*/dt. I multiply by I implicitly
+
+    dq__dr_ref_refp = nps.matmult(dq_dpref, dprefp__dr_ref_refp)
+
+    # I apply this to the whole dq_db array. Kunpacked has 0 rows for
+    # the unaffected state, so the columns that should be untouched will
+    # be untouched
+    dq_db += nps.matmult(dq__dr_ref_refp, Kunpacked[:3,:])
+    dq_db -= nps.matmult(dq_dpref,        Kunpacked[3:,:])
+
+
 def _dq_db__projection_uncertainty( p_cam,
                                     lensmodel, intrinsics_data,
                                     extrinsics_rt_fromref, frames_rt_toref,
                                     Nstate,
                                     istate_intrinsics, istate_extrinsics, istate_frames,
-                                    slice_optimized_intrinsics):
+                                    slice_optimized_intrinsics,
+                                    *,
+                                    Kunpacked,
+                                    method):
     r'''Helper for projection_uncertainty()
 
     See docs for _propagate_calibration_uncertainty() and
@@ -712,6 +748,12 @@ def _dq_db__projection_uncertainty( p_cam,
     This function does all the work when observing points with a finite range
 
     '''
+
+    if re.match('cross-reprojection',method) and \
+       frames_rt_toref is None:
+        raise Exception("cross-reprojection uncertainty is only implemented if we're optimizing extrinsics and frames. Needs more thought and coding to do that")
+
+
 
     dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
@@ -722,7 +764,7 @@ def _dq_db__projection_uncertainty( p_cam,
     else:
         p_ref = p_cam
 
-    if frames_rt_toref is not None:
+    if method == 'mean-frames' and frames_rt_toref is not None:
         Nframes = len(frames_rt_toref)
 
         # The point in the coord system of all the frames. I index the frames on
@@ -758,6 +800,16 @@ def _dq_db__projection_uncertainty( p_cam,
         mrcal.project( p_cam, lensmodel, intrinsics_data,
                        get_gradients = True)
 
+
+
+    # cross-reprojection--rrp-Jf logic from test-projection-uncertainty.py:
+    #
+    #   dq/db[extrinsics_this]          = dq_dpcam dpcam__drt_cam_ref
+    #   dq/db[intrinsics_this]          = dq_dintrinsics
+    #   dq/db[frame_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K Dinv
+    #                                   = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
+
+
     if istate_intrinsics is not None:
         dq_dintrinsics_optimized = dq_dintrinsics[..., slice_optimized_intrinsics]
         Nintrinsics = dq_dintrinsics_optimized.shape[-1]
@@ -768,17 +820,29 @@ def _dq_db__projection_uncertainty( p_cam,
         _, dpcam_drt, dpcam_dpref = \
             mrcal.transform_point_rt(extrinsics_rt_fromref, p_ref,
                                      get_gradients = True)
-
         dq_db[..., istate_extrinsics:istate_extrinsics+6] = \
             nps.matmult(dq_dpcam, dpcam_drt)
-
-        if frames_rt_toref is not None:
-            dq_db[..., istate_frames:istate_frames+Nframes*6] = \
-                nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
     else:
-        if frames_rt_toref is not None:
-            dq_db[..., istate_frames:istate_frames+Nframes*6] = \
-                nps.matmult(dq_dpcam, dpref_dframes)
+        dpcam_dpref = None
+
+
+
+    if method != 'cross-reprojection--rrp-Jf':
+
+        if extrinsics_rt_fromref is not None:
+            if frames_rt_toref is not None:
+                dq_db[..., istate_frames:istate_frames+Nframes*6] = \
+                    nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
+        else:
+            if frames_rt_toref is not None:
+                dq_db[..., istate_frames:istate_frames+Nframes*6] = \
+                    nps.matmult(dq_dpcam, dpref_dframes)
+
+    else:
+        _dq_db__cross_reprojection__rrp_Jf__fcw(dq_db,
+                                                p_ref,
+                                                dq_dpcam, dpcam_dpref,
+                                                Kunpacked)
 
     return dq_db
 
@@ -788,7 +852,10 @@ def _dq_db__projection_uncertainty_rotationonly( p_cam,
                                                  extrinsics_rt_fromref, frames_rt_toref,
                                                  Nstate,
                                                  istate_intrinsics, istate_extrinsics, istate_frames,
-                                                 slice_optimized_intrinsics):
+                                                 slice_optimized_intrinsics,
+                                                 *,
+                                                 Kunpacked,
+                                                 method):
     r'''Helper for projection_uncertainty()
 
     See docs for _propagate_calibration_uncertainty() and
@@ -798,6 +865,12 @@ def _dq_db__projection_uncertainty_rotationonly( p_cam,
 
     '''
 
+    if re.match('cross-reprojection',method) and \
+       frames_rt_toref is None:
+        raise Exception("cross-reprojection uncertainty is only implemented if we're optimizing extrinsics and frames. Needs more thought and coding to do that")
+
+
+
     dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
     if extrinsics_rt_fromref is not None:
@@ -806,7 +879,7 @@ def _dq_db__projection_uncertainty_rotationonly( p_cam,
     else:
         p_ref = p_cam
 
-    if frames_rt_toref is not None:
+    if method == 'mean-frames' and frames_rt_toref is not None:
         Nframes = len(frames_rt_toref)
 
         # The point in the coord system of all the frames. I index the frames on
@@ -837,6 +910,16 @@ def _dq_db__projection_uncertainty_rotationonly( p_cam,
         mrcal.project( p_cam, lensmodel, intrinsics_data,
                        get_gradients = True)
 
+
+
+    # cross-reprojection--rrp-Jf logic from test-projection-uncertainty.py:
+    #
+    #   dq/db[extrinsics_this]          = dq_dpcam dpcam__drt_cam_ref
+    #   dq/db[intrinsics_this]          = dq_dintrinsics
+    #   dq/db[frame_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K Dinv
+    #                                   = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
+
+
     if istate_intrinsics is not None:
         dq_dintrinsics_optimized = dq_dintrinsics[..., slice_optimized_intrinsics]
         Nintrinsics = dq_dintrinsics_optimized.shape[-1]
@@ -849,26 +932,40 @@ def _dq_db__projection_uncertainty_rotationonly( p_cam,
                                  get_gradients = True)
         dq_db[..., istate_extrinsics:istate_extrinsics+3] = \
             nps.matmult(dq_dpcam, dpcam_dr)
-
-        if frames_rt_toref is not None:
-            dq_dpref = nps.matmult(dq_dpcam, dpcam_dpref)
-
-            # dprefallframes_dframesr has shape (..., Nframes,3,3)
-            for i in range(Nframes):
-                dq_db[..., istate_frames+6*i:istate_frames+6*i+3] = \
-                    nps.matmult(dq_dpref, dprefallframes_dframesr[...,i,:,:]) / Nframes
     else:
-        if frames_rt_toref is not None:
-            # dprefallframes_dframesr has shape (..., Nframes,3,3)
-            for i in range(Nframes):
-                dq_db[..., istate_frames+6*i:istate_frames+6*i+3] = \
-                    nps.matmult(dq_dpcam, dprefallframes_dframesr[...,i,:,:]) / Nframes
+        dpcam_dpref = None
+
+
+
+    if method != 'cross-reprojection--rrp-Jf':
+
+        if extrinsics_rt_fromref is not None:
+            if frames_rt_toref is not None:
+                dq_dpref = nps.matmult(dq_dpcam, dpcam_dpref)
+
+                # dprefallframes_dframesr has shape (..., Nframes,3,3)
+                for i in range(Nframes):
+                    dq_db[..., istate_frames+6*i:istate_frames+6*i+3] = \
+                        nps.matmult(dq_dpref, dprefallframes_dframesr[...,i,:,:]) / Nframes
+        else:
+            if frames_rt_toref is not None:
+                # dprefallframes_dframesr has shape (..., Nframes,3,3)
+                for i in range(Nframes):
+                    dq_db[..., istate_frames+6*i:istate_frames+6*i+3] = \
+                        nps.matmult(dq_dpcam, dprefallframes_dframesr[...,i,:,:]) / Nframes
+
+    else:
+        _dq_db__cross_reprojection__rrp_Jf__fcw(dq_db,
+                                                p_ref,
+                                                dq_dpcam, dpcam_dpref,
+                                                Kunpacked)
 
     return dq_db
 
 
 def projection_uncertainty( p_cam, model,
                             *,
+                            method     = 'mean-frames',
                             atinfinity = False,
 
                             # what we're reporting
@@ -1026,6 +1123,15 @@ else:                    we return an array of shape (...)
 
     #     sqrt((a+c)/2 + sqrt( (a-c)^2/4 + b^2))
 
+
+    known_methods = set(('mean-frames',
+                         'cross-reprojection--rrp-Jf'),)
+    if method not in known_methods:
+        raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
+
+
+
+
     # which calibration-time camera we're looking at
     icam_intrinsics = model.icam_intrinsics()
 
@@ -1098,7 +1204,18 @@ else:                    we return an array of shape (...)
         extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
         istate_extrinsics     = mrcal.state_index_extrinsics (icam_extrinsics, **optimization_inputs)
 
+    if method == 'cross-reprojection-rrp-Jf':
+        if frames_rt_toref is None:
+            raise Exception(f"cross-reprojection-rrp-Jf uncertainty implemented only if frames_rt_toref is not None")
+
     Nstate = mrcal.num_states(**optimization_inputs)
+
+    if re.match('cross-reprojection',method):
+        Kunpacked = mrcal.drt_ref_refperturbed__dbpacked(**optimization_inputs)
+        # The value was packed in the denominator. So I call pack() to unpack it
+        mrcal.pack_state(Kunpacked, **optimization_inputs)
+    else:
+        Kunpacked = None
 
     # Two distinct paths here that are very similar, but different-enough to not
     # share any code. If atinfinity, I ignore all translations
@@ -1108,8 +1225,14 @@ else:                    we return an array of shape (...)
              Nstate,
              istate_intrinsics, istate_extrinsics, istate_frames,
              slice_optimized_intrinsics )
-    if not atinfinity: dq_db = _dq_db__projection_uncertainty             (*args)
-    else:              dq_db = _dq_db__projection_uncertainty_rotationonly(*args)
+    if not atinfinity:
+        dq_db = _dq_db__projection_uncertainty             (*args,
+                                                            method    = method,
+                                                            Kunpacked = Kunpacked)
+    else:
+        dq_db = _dq_db__projection_uncertainty_rotationonly(*args,
+                                                            method    = method,
+                                                            Kunpacked = Kunpacked)
 
     return _propagate_calibration_uncertainty(what,
                                               dF_db                      = dq_db,
