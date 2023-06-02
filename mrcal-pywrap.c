@@ -1690,7 +1690,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
 
                 const npy_intp* strides = PyArray_STRIDES((PyArrayObject*)K);
                 if(!mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
-                                                               (double*)(PyArray_DATA((PyArrayObject*)K) + strides[0] * state_index_frame0),
+                                                               &((double*)(PyArray_DATA((PyArrayObject*)K)))[state_index_frame0],
                                                                (int)strides[0],
                                                                (int)strides[1],
 
