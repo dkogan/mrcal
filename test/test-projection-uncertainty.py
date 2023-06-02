@@ -1786,9 +1786,10 @@ The rt_refperturbed_ref formulation:
                                 msg = "Linearized rt_ref_refperturbed computations match exactly")
 
         # Now let's compute and compare the linerized Var(rt_ref_refperturbed)
-        JtJ = nps.matmult(J.transpose(),J)
+
         var_predicted__rt_ref_refperturbed = \
-            nps.matmult(K_inv_JtJ, JtJ, nps.transpose(K_inv_JtJ)) * \
+            mrcal._mrcal_npsp._A_Jt_J_At(K_inv_JtJ, J.indptr, J.indices, J.data,
+                                         Nleading_rows_J = J.shape[0]) * \
             args.observed_pixel_uncertainty*args.observed_pixel_uncertainty
 
         rt_ref_refperturbed__mean0 = rt_ref_refperturbed - np.mean(rt_ref_refperturbed, axis=-2)
