@@ -788,7 +788,7 @@ bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
     mul_genN6_sym66_scaled_strided(Nstate_noi_noe,
                                    K, 1, K_stride0_elems,
                                    inv_JcrosstJcross_det,
-                                   1. / det);
+                                   -1. / det);
 
     return true;
 }
