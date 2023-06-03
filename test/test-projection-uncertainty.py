@@ -736,6 +736,14 @@ reference frame that results when re-optimizing:
                 T_cam_ref T_ref_ref* T_ref*_frame* p*)
     - W qref
 
+Or if we have discrete points instead of chessboards:
+
+  x_cross =
+    + W project(intrinsics,
+                T_cam_ref T_ref_ref* p*)
+    - W qref
+
+
 For a given perturbation of the input observations I want to compute
 T_ref_ref*. So here I look at an operating point T_ref_ref* = 0.
 At the operating point I have x_cross0: affected by the input
@@ -777,7 +785,8 @@ the optimal measurements x and their gradient J:
   x = + x0
       + J_intrinsics     dintrinsics
       + J_extrinsics     drt_cam_ref
-      + J_frame          drt_ref_frame
+      + J_frames         drt_ref_frame
+      + J_points         dpoints
       + J_calobject_warp dcalobject_warp
 
 Once again, we have this expression:
@@ -787,14 +796,22 @@ Once again, we have this expression:
                 T_cam_ref T_ref_ref* T_ref*_frame* p*)
     - W qref
 
+Or if we have discrete points instead of chessboards:
+
+  x_cross =
+    + W project(intrinsics,
+                T_cam_ref T_ref_ref* p*)
+    - W qref
+
 When evaluating x_cross0, I have rt_ref_ref* = 0, so I have perturbed
-rt_ref_frame and calobject_warp only:
+points and rt_ref_frame and calobject_warp only:
 
   x_cross0 =  + x0
-              + J_frame          M[frame]          delta_qref
+              + J_points         M[points]         delta_qref
+              + J_frames         M[frames]         delta_qref
               + J_calobject_warp M[calobject_warp] delta_qref
             = + x0
-              + J[frame,calobject_warp] db[frame,calobject_warp]
+              + J[points,frames,calobject_warp] db[points,frames,calobject_warp]
 
 When evaluating J_cross = dx_cross/drt_ref_ref*, I can look at it in two ways:
 
@@ -808,7 +825,7 @@ When evaluating J_cross = dx_cross/drt_ref_ref*, I can look at it in two ways:
   coord system) this formulation is not possible. Because there is no
   J_extrinsics.
 
-- a rt_ref_frame shift to compose_rt(rt_ref_ref*, rt_ref*_frame*)
+- a rt_ref_frame shift to compose_rt(rt_ref_ref*,rt_ref*_frame*)
 
   rt_ref*_frame* is a tiny shift off rt_ref_frame AND I'm assuming that
   everything is locally linear. So this shift is insignificant, and I use
@@ -819,6 +836,15 @@ When evaluating J_cross = dx_cross/drt_ref_ref*, I can look at it in two ways:
             = J_frame d(compose_rt(rt_ref_ref*,rt_ref*_frame*))/drt_ref_ref*
             = J_frame d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
 
+  For observations with discrete points this is a shift from p to
+  transform(rt_ref_ref*,p*). I look at the gradient at p instead of p* because
+  I'm assuming everything is locally linear
+
+  J_cross_f = dx_cross/drt_ref_ref*
+            = J_p dp*/drt_ref_ref*
+            = J_p d(transform(rt_ref_ref*,p*))/drt_ref_ref*
+            = J_p d(transform(rt_ref_ref*,p ))/drt_ref_ref*
+
 There's one more simplification available. From above:
 
   rt_ref_ref* = -pinv(J_cross) x_cross0
@@ -828,7 +854,7 @@ There's one more simplification available. From above:
 The original optimization problem has d/dx (x0_t x0) = 0 -> Jt x0 = 0. So
 J_frame_t x0 = 0 as well, and thus instead of x_cross0 we can use
 
-  dx_cross0 = J[frame,calobject_warp] db[frame,calobject_warp]
+  dx_cross0 = J[points,frames,calobject_warp] db[points,frames,calobject_warp]
 
 So we have rt_ref_ref* = K db for some K that depends on the various J matrices
 that are constant for each solve:
@@ -892,18 +918,18 @@ q* - q
   + dq_dintrinsics db[intrinsics]
 
 ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-              - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frame_all,calobject_warp] D Dinv db[frame_all,calobject_warp])
+              - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[points_all,frames_all,calobject_warp] D Dinv db[points_all,frames_all,calobject_warp])
   + dq_dintrinsics db[intrinsics_this]
 
 ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-              + dpcam__dpref dpref*__drt_ref_ref* K Dinv db[frame_all,calobject_warp])
+              + dpcam__dpref dpref*__drt_ref_ref* K Dinv db[points_all,frames_all,calobject_warp])
   + dq_dintrinsics db[intrinsics_this]
 
 --->
 
-dq/db[extrinsics_this]          = dq_dpcam dpcam__drt_cam_ref
-dq/db[intrinsics_this]          = dq_dintrinsics
-dq/db[frame_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K Dinv
+dq/db[extrinsics_this]                      = dq_dpcam dpcam__drt_cam_ref
+dq/db[intrinsics_this]                      = dq_dintrinsics
+dq/db[points_all,frames_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K Dinv
 
 ============================================================================
 
@@ -913,7 +939,14 @@ have
 
   x_cross =
     + W project(intrinsics*,
-                T_cam*_ref* T_ref*_ref T_ref_frame pframe)
+                T_cam*_ref* T_ref*_ref T_ref_frame p)
+    - W qref*
+
+Or if we have discrete points instead of chessboards:
+
+  x_cross =
+    + W project(intrinsics*,
+                T_cam*_ref* T_ref*_ref p)
     - W qref*
 
 And the optimum is at
@@ -961,6 +994,13 @@ two ways:
   J_cross_f = dx_cross/drt_ref*_ref
             = J_frame drt_ref*_frame/drt_ref*_ref
             = J_frame d(compose_rt(rt_ref*_ref,rt_ref_frame))/drt_ref*_ref
+
+  For observations with discrete points this is a shift from p to
+  transform(rt_ref*_ref,p)
+
+  J_cross_f = dx_cross/drt_ref*_ref
+            = J_p dp*/drt_ref*_ref
+            = J_p d(transform(rt_ref*_ref,p ))/drt_ref*_ref
 
 There's one more simplification available. From above:
 
