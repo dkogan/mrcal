@@ -875,30 +875,7 @@ For a given perturbation I have
   pcam* = T_cam*_ref* pref*
   q*    = project(intrinsics*, pcam*)
 
-T_ref*_ref ~ identity so
-
-_, dpref*__drt_ref_ref*,_ \
-  mrcal.transform_point_rt( mrcal.identity_rt(),
-                            pref,
-                            inverted = True,
-                            get_gradients = True )
-
-And now pref* ~ pref + dpref*__drt_ref_ref* rt_ref_ref*
-
-_, dpcam__drt_cam_ref, dpcam__dpref \
-  mrcal.transform_point_rt( baseline_rt_cam_ref,
-                            pref,
-                            get_gradients = True )
-
-And now pcam* ~ pcam + dpcam__drt_cam_ref db[extrinsics] + dpcam__dpref (pref* - pref)
-
-_,dq_dpcam,dq_dintrinsics = \
-  mrcal.project( pcam, *baseline_intrinsics,
-                 get_gradients = True )
-
-And now q* ~ q + dpcam (pcam* - pcam) + dq_dintrinsics db[intrinsics]
-
-Let's put it all together.
+Let's linearize everything:
 
 q* - q
 
