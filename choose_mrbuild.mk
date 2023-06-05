@@ -3,7 +3,7 @@
 
 ifneq (,$(wildcard mrbuild/))
   MRBUILD_MK=mrbuild
-  MRBUILD_BIN=mrbuild
+  MRBUILD_BIN=mrbuild/bin
 else ifneq (,$(wildcard /usr/include/mrbuild/Makefile.common.header))
   MRBUILD_MK=/usr/include/mrbuild
   MRBUILD_BIN=/usr/bin
