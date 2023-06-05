@@ -24,11 +24,13 @@ the mrcal APT repository. I currently distribute packages for
 - Debian/buster (10)
 - Debian/bullseye (11)
 - Debian/bookworm (12)
+- Debian/sid (bleeding-edge)
 - Ubuntu/bionic (18.04 LTS)
 - Ubuntu/focal (20.04 LTS)
 - Ubuntu/jammy (22.04 LTS)
 
-=amd64= architecture only. To use these, add to your =/etc/apt/sources.list=:
+=amd64= and =arm64= architectures only (except Ubuntu/bionic, which is
+=amd64-only=). To use these, add to your =/etc/apt/sources.list=:
 
 #+begin_example
 deb [trusted=yes] http://mrcal.secretsauce.net/packages/DISTRO/public/ DISTRO main
@@ -119,20 +121,55 @@ make test-nosampling
 If stuff doesn't work, feel free to bug me.
 
 * code                                                             :noexport:
-Build, upload each package like this:
+Backport arch-all:
+
+#+begin_src sh
+for distro (buster bullseye bookworm sid bionic focal jammy) {
+    perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/'-\1$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
+
+    DEB_BUILD_OPTIONS=nocheck sbuild --host=amd64 --arch-any --arch-all -c ${distro}-amd64 --anything-failed-commands '%s'
+}
+
+for distro (buster bullseye bookworm sid bionic focal jammy) {
+  dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
+}
+#+end_src
+
+Backport arch-any and cross:
+
+#+begin_src sh
+for distro (buster bullseye bookworm sid bionic focal jammy) {
+    perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/'-\1$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
+
+    DEB_BUILD_OPTIONS=nocheck sbuild --host=amd64 --arch-any --arch-all    -c ${distro}-amd64 --anything-failed-commands '%s'
+    DEB_BUILD_OPTIONS=nocheck sbuild --host=arm64 --arch-any --no-arch-all -c ${distro}-amd64 --anything-failed-commands '%s'
+}
+
+for distro (buster bullseye bookworm sid bionic focal jammy) {
+  dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
+}
+#+end_src
+
+Build each mrcal package like this:
 
 #+begin_src sh
 
 distro=bionic;
 
-perl -p -i -e 'if($. == 1) { s/[a-z]+;/'"$distro;/; }" debian/changelog && \
-sbuild \
-  --nolog \
-  --no-apt-{update,upgrade} -d $distro -A \
-  --no-source -c $distro-amd64 \
-  --anything-failed-commands '%s' \
-  --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main" -j 3 && \
-debsign -k 751C135DC2CE0143380854F3ED63B6125A1D1561 ../*.changes(om[1]) && \
-dput digitalocean_mrcal_$distro ../*.changes(om[1])
+for distro (buster bullseye bookworm sid bionic focal jammy) {
+    perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/'-\1$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
+
+    DEB_BUILD_OPTIONS=nocheck sbuild --host=amd64 --arch-any --arch-all    -c ${distro}-amd64 --anything-failed-commands '%s' \
+        --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
+    [[ $distro = "bionic"]] && continue
+    DEB_BUILD_OPTIONS=nocheck sbuild --host=arm64 --arch-any --no-arch-all -c ${distro}-amd64 --anything-failed-commands '%s' \
+        --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
+}
+
+for distro (buster bullseye bookworm sid bionic focal jammy) {
+  dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1,2])
+}
 #+end_src
 
+I.e. the same thing as for dependencies, but passing in the extra repo. No arm64
+in bionic. Something is wrong, and I don't feel like using my time to fix it.
