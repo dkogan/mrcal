@@ -1283,6 +1283,11 @@ noise, and reoptimizing'''
                 #                 T_cam*_ref* T_ref_frame pframe)
                 #     - W qref*
 
+                # this is what is actually passed into this function with this
+                # path
+                pcamperturbed                       = pcam
+                dpcamperturbed_drt_refperturbed_ref = dpcam_drt_ref_refperturbed
+
                 # shape (..., Nobservations,Nh,Nw,2)
                 #       (..., Nobservations,Nh,Nw,2,3)
                 qcross,dq_dpcamperturbed,_ = \
@@ -1553,14 +1558,14 @@ The rt_refperturbed_ref formulation:
             ###########
 
             # shape (..., Nobservations,Nh,Nw,3),
-            prefperturbed = mrcal.transform_point_rt( nps.dummy(baseline_rt_ref_frame_all, -2,-2),
-                                                      baseline_calibration_object)
+            pref = mrcal.transform_point_rt( nps.dummy(baseline_rt_ref_frame_all, -2,-2),
+                                             baseline_calibration_object)
             dprefperturbed_drt_refperturbed_ref = transform_point_identity_gradient(pref)
             # shape (..., Nobservations,Nh,Nw,3),
             #       (..., Nobservations,Nh,Nw,3,6)
             pcamperturbed, _, dpcamperturbed_dprefperturbed = \
                 mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref_all, -2,-2),
-                                         prefperturbed,
+                                         pref,
                                          get_gradients = True)
             dpcamperturbed_drt_refperturbed_ref = \
                 nps.matmult(dpcamperturbed_dprefperturbed,
