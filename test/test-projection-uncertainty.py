@@ -125,10 +125,10 @@ def parse_args():
                                  'fit-boards-ref',
                                  'diff',
                                  'cross-reprojection--rrp-empirical',
-                                 'cross-reprojection--rrp-Jf',
+                                 'cross-reprojection--rrp-Jfp',
                                  'cross-reprojection--rrp-Je',
                                  'cross-reprojection--rpr-empirical',
-                                 'cross-reprojection--rpr-Jf',
+                                 'cross-reprojection--rpr-Jfp',
                                  'cross-reprojection--rpr-Je'),
                         default = 'mean-frames',
                         help='''Which reproject-after-perturbation method to use. This is for experiments.
@@ -987,7 +987,7 @@ two ways:
 
   As before, for points that have no extrinsics (the camera is defined to sit at
   the ref coord system) there is no J_extrinsics, so this formulation is not
-  possible here. Use J_cross_f.
+  possible here. Use J_cross_fp.
 
 
 - a        rt_ref_frame shift to compose_rt(rt_ref*_ref, rt_ref_frame)
@@ -1924,7 +1924,7 @@ The rt_refperturbed_ref formulation:
         if   re.search('empirical$', mode):
             method = 'compose-grad'
         else:
-            Jmode = re.search('(Jf|Je)$', mode).group(1)
+            Jmode = re.search('(Jfp|Je)$', mode).group(1)
             method = f'linearization-{Jmode}'
 
         if direction == 'rt_ref_refperturbed':
@@ -2294,8 +2294,8 @@ def check_uncertainties_at(q0_baseline, idistance):
     worst_direction_stdev_observed = mrcal.worst_direction_stdev(Var_dq_observed)
 
 
-    if args.reproject_perturbed == 'cross-reprojection--rrp-Jf':
-        method = 'cross-reprojection--rrp-Jf'
+    if args.reproject_perturbed == 'cross-reprojection--rrp-Jfp':
+        method = 'cross-reprojection--rrp-Jfp'
     else:
         method = 'mean-frames'
     # shape (Ncameras, 2,2)

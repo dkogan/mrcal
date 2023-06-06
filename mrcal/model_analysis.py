@@ -699,10 +699,10 @@ In the regularized case:
     else: raise Exception("Shouldn't have gotten here. There's a bug")
 
 
-def _dq_db__cross_reprojection__rrp_Jf__fcw(dq_db,
-                                            p_ref,
-                                            dq_dpcam, dpcam_dpref,
-                                            Kunpacked):
+def _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
+                                             p_ref,
+                                             dq_dpcam, dpcam_dpref,
+                                             Kunpacked):
 
     # dq/db[frame_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
 
@@ -802,7 +802,7 @@ def _dq_db__projection_uncertainty( p_cam,
 
 
 
-    # cross-reprojection--rrp-Jf logic from test-projection-uncertainty.py:
+    # cross-reprojection--rrp-Jfp logic from test-projection-uncertainty.py:
     #
     #   dq/db[extrinsics_this]          = dq_dpcam dpcam__drt_cam_ref
     #   dq/db[intrinsics_this]          = dq_dintrinsics
@@ -827,7 +827,7 @@ def _dq_db__projection_uncertainty( p_cam,
 
 
 
-    if method != 'cross-reprojection--rrp-Jf':
+    if method != 'cross-reprojection--rrp-Jfp':
 
         if extrinsics_rt_fromref is not None:
             if frames_rt_toref is not None:
@@ -839,10 +839,10 @@ def _dq_db__projection_uncertainty( p_cam,
                     nps.matmult(dq_dpcam, dpref_dframes)
 
     else:
-        _dq_db__cross_reprojection__rrp_Jf__fcw(dq_db,
-                                                p_ref,
-                                                dq_dpcam, dpcam_dpref,
-                                                Kunpacked)
+        _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
+                                                 p_ref,
+                                                 dq_dpcam, dpcam_dpref,
+                                                 Kunpacked)
 
     return dq_db
 
@@ -912,7 +912,7 @@ def _dq_db__projection_uncertainty_rotationonly( p_cam,
 
 
 
-    # cross-reprojection--rrp-Jf logic from test-projection-uncertainty.py:
+    # cross-reprojection--rrp-Jfp logic from test-projection-uncertainty.py:
     #
     #   dq/db[extrinsics_this]          = dq_dpcam dpcam__drt_cam_ref
     #   dq/db[intrinsics_this]          = dq_dintrinsics
@@ -937,7 +937,7 @@ def _dq_db__projection_uncertainty_rotationonly( p_cam,
 
 
 
-    if method != 'cross-reprojection--rrp-Jf':
+    if method != 'cross-reprojection--rrp-Jfp':
 
         if extrinsics_rt_fromref is not None:
             if frames_rt_toref is not None:
@@ -955,10 +955,10 @@ def _dq_db__projection_uncertainty_rotationonly( p_cam,
                         nps.matmult(dq_dpcam, dprefallframes_dframesr[...,i,:,:]) / Nframes
 
     else:
-        _dq_db__cross_reprojection__rrp_Jf__fcw(dq_db,
-                                                p_ref,
-                                                dq_dpcam, dpcam_dpref,
-                                                Kunpacked)
+        _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
+                                                 p_ref,
+                                                 dq_dpcam, dpcam_dpref,
+                                                 Kunpacked)
 
     return dq_db
 
@@ -1125,7 +1125,7 @@ else:                    we return an array of shape (...)
 
 
     known_methods = set(('mean-frames',
-                         'cross-reprojection--rrp-Jf'),)
+                         'cross-reprojection--rrp-Jfp'),)
     if method not in known_methods:
         raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
 
@@ -1204,9 +1204,9 @@ else:                    we return an array of shape (...)
         extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
         istate_extrinsics     = mrcal.state_index_extrinsics (icam_extrinsics, **optimization_inputs)
 
-    if method == 'cross-reprojection-rrp-Jf':
+    if method == 'cross-reprojection-rrp-Jfp':
         if frames_rt_toref is None:
-            raise Exception(f"cross-reprojection-rrp-Jf uncertainty implemented only if frames_rt_toref is not None")
+            raise Exception(f"cross-reprojection-rrp-Jfp uncertainty implemented only if frames_rt_toref is not None")
 
     Nstate = mrcal.num_states(**optimization_inputs)
 

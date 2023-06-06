@@ -1437,7 +1437,7 @@ ARGUMENTS
 
 - method: optional string, defaulting to 'mean-frames'. Multiple uncertainty
   quantification methods are available. One of ('mean-frames',
-  'cross-reprojection--rrp-Jf') is selected by this option
+  'cross-reprojection--rrp-Jfp') is selected by this option
 
 - cbmax: optional value, defaulting to 3.0. Sets the maximum range of the color
   map
@@ -1484,7 +1484,7 @@ plot
     import gnuplotlib as gp
 
     known_methods = set(('mean-frames',
-                         'cross-reprojection--rrp-Jf'),)
+                         'cross-reprojection--rrp-Jfp'),)
     if method not in known_methods:
         raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
 
@@ -1697,7 +1697,7 @@ ARGUMENTS
 
 - method: optional string, defaulting to 'mean-frames'. Multiple uncertainty
   quantification methods are available. One of ('mean-frames',
-  'cross-reprojection--rrp-Jf') is selected by this option
+  'cross-reprojection--rrp-Jfp') is selected by this option
 
 - extratitle: optional string to include in the title of the resulting plot.
   Used to extend the default title string. If kwargs['title'] is given, it is
@@ -1728,7 +1728,7 @@ plot
     import gnuplotlib as gp
 
     known_methods = set(('mean-frames',
-                         'cross-reprojection--rrp-Jf'),)
+                         'cross-reprojection--rrp-Jfp'),)
     if method not in known_methods:
         raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
 
