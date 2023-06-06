@@ -27,15 +27,16 @@
   computation]]. We can clearly see this in the dance study:
 
   #+begin_src sh
-  dance-study.py                          \
-    --scan num_far_constant_Nframes_near  \
-    --range 2,10                          \
-    --Ncameras 1                          \
-    --Nframes-near 100                    \
-    --observed-pixel-uncertainty 2        \
-    --ymax 2.5                            \
-    --uncertainty-at-range-sampled-max 35 \
-    opencv8.cameramodel
+  ./dance-study.py                          \
+      --scan num_far_constant_Nframes_near  \
+      --range 2,10                          \
+      --method cross-reprojection--rrp-Jfp  \
+      --Ncameras 1                          \
+      --Nframes-near 100                    \
+      --observed-pixel-uncertainty 2        \
+      --ymax 4                              \
+      --uncertainty-at-range-sampled-max 35 \
+      ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity/opencv8.cameramodel
   #+end_src
 
   This tells us that adding /any/ observations at 10m to the bulk set at 2m
