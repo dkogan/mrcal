@@ -78,7 +78,7 @@ concern. Thus
 ** Corner detections
 mrgingham corner detections look like this for an arbitrary image:
 
-#+ATTR_LATEX: :width \linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/mrgingham-results.png]]
 
 * Calibrating opencv8
@@ -113,16 +113,16 @@ We will never satisfy all these assumptions, but we should try hard to do that.
 
 ** Does the solved geometry look right?
 
-#+ATTR_LATEX: :width 0.8\linewidth
-[[file:../out/external/figures/calibration/calibration-chessboards-geometry.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/calibration-chessboards-geometry-crop.pdf]]
 
 Yes. That's how I danced.
 
 ** =LENSMODEL_OPENCV8= residuals histogram
 What does the error distribution look like?
 
-#+ATTR_LATEX: :width 0.9\linewidth
-[[file:../out/external/figures/calibration/residuals-histogram-opencv8.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/residuals-histogram-opencv8-crop.pdf]]
 
 ** =LENSMODEL_OPENCV8= worst-observation residuals
 The worst-fitting observations are a great way to see common issues such as:
@@ -139,16 +139,16 @@ Any of these would violate the assumptions of the noise model, so we want to fix
 them
 
 ** =LENSMODEL_OPENCV8=: the worst image
-#+ATTR_LATEX: :width \linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-opencv8.png]]
 
 ** =LENSMODEL_OPENCV8=: the 10th-worst image
-#+ATTR_LATEX: :width \linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
 
 ** =LENSMODEL_OPENCV8=: residual directions
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/calibration/directions-opencv8.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
 
 ** =LENSMODEL_OPENCV8=: conclusions
 The =LENSMODEL_OPENCV8= lens model does not fit our data in observable ways.
@@ -207,38 +207,38 @@ calobject_warp = [-0.00096895  0.00052931]
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC= residuals histogram
 This is promising. The new residual histogram:
 
-#+ATTR_LATEX: :width 0.9\linewidth
-[[file:../out/external/figures/calibration/residuals-histogram-splined.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/residuals-histogram-splined-crop.pdf]]
 
 ** =LENSMODEL_OPENCV8= residuals histogram
 Here's what it looked like before:
 
-#+ATTR_LATEX: :width 0.9\linewidth
-[[file:../out/external/figures/calibration/residuals-histogram-opencv8.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/residuals-histogram-opencv8-crop.pdf]]
 
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC=: the worst image
-#+ATTR_LATEX: :width \linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-splined.png]]
 
 ** =LENSMODEL_OPENCV8=: the worst image
-#+ATTR_LATEX: :width \linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-opencv8.png]]
 
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC=: previously 10th-worst image
-#+ATTR_LATEX: :width \linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-splined.png]]
 
 ** =LENSMODEL_OPENCV8=: 10th-worst image
-#+ATTR_LATEX: :width \linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
 
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC=: residual directions
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/calibration/directions-splined.png]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/directions-splined-crop.pdf]]
 
 ** =LENSMODEL_OPENCV8=: residual directions
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/calibration/directions-opencv8.png]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
 
 * Differencing
 ** Differencing
@@ -253,16 +253,16 @@ Given a pixel $\vec q_0$,
 - Project $\vec p$ back to pixel coords $\vec q_1$ using lens 1
 - Report the reprojection difference $\vec q_1 - \vec q_0$
 
-#+ATTR_LATEX: :width 0.8\linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/figures/diff-notransform.pdf]]
 
 ** Differencing
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/diff/diff-radius0-heatmap-splined-opencv8.png]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/diff/diff-radius0-heatmap-splined-opencv8-crop.pdf]]
 
 ** Differencing
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/diff/diff-radius0-vectorfield-splined-opencv8.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/diff/diff-radius0-vectorfield-splined-opencv8-crop.pdf]]
 
 ** Differencing
 So with a motion of the camera, we can make the errors disappear.
@@ -286,8 +286,8 @@ We want to add a step:
 [[file:../out/figures/diff-yestransform.pdf]]
 
 ** Differencing
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/diff/diff-splined-opencv8.png]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/diff/diff-splined-opencv8-crop.pdf]]
 
 ** Differencing
 /Much/ better. As expected, the two models agree relatively well in the center,
@@ -353,26 +353,26 @@ The mrcal test suite contains a simulation to validate the approach.
 ** Uncertainty simulation
 The geometry looks like this:
 
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/uncertainty/simulated-uncertainty-opencv4--simulated-geometry.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/uncertainty/simulated-uncertainty-opencv4--simulated-geometry-crop.pdf]]
 
 ** Uncertainty simulation
 Each camera sees this:
 
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/uncertainty/simulated-uncertainty-opencv4--simulated-observations.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/uncertainty/simulated-uncertainty-opencv4--simulated-observations-crop.pdf]]
 
 The red *$\ast$* is a point we will examine.
 
 ** Uncertainty simulation
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/uncertainty/simulated-uncertainty-opencv4--distribution-onepoint.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/uncertainty/simulated-uncertainty-opencv4--distribution-onepoint-crop.pdf]]
 
 ** Uncertainty simulation
 Let's look at the uncertainty everywhere in the imager
 
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/uncertainty/simulated-uncertainty-opencv4--uncertainty-wholeimage-noobservations.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/uncertainty/simulated-uncertainty-opencv4--uncertainty-wholeimage-noobservations-crop.pdf]]
 
 This confirms the expectation: the sweet spot of low uncertainty follows the
 region where the chessboards were
@@ -394,27 +394,27 @@ Solution: use splined models! They are very flexible, and don't have this issue.
 Running the same simulation with a splined model, we see the /real/ projection
 uncertainty:
 
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/uncertainty/simulated-uncertainty-splined--uncertainty-wholeimage-noobservations.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/uncertainty/simulated-uncertainty-splined--uncertainty-wholeimage-noobservations-crop.pdf]]
 
 So /only/ the first camera actually had usable projections.
 
 ** Uncertainty simulation
 Let's overlay the observations:
 
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/uncertainty/simulated-uncertainty-splined--uncertainty-wholeimage-observations.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/uncertainty/simulated-uncertainty-splined--uncertainty-wholeimage-observations-crop.pdf]]
 
 ** Uncertainty from previous calibrations
 Computing the uncertainty map from the earlier =LENSMODEL_OPENCV8= calibration:
 
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/uncertainty/uncertainty-opencv8.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/uncertainty/uncertainty-opencv8-crop.pdf]]
 ** Uncertainty from previous calibrations
 And from the =LENSMODEL_SPLINED_STEREOGRAPHIC_...= calibration:
 
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/uncertainty/uncertainty-splined.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/uncertainty/uncertainty-splined-crop.pdf]]
 
 ** Uncertainty conclusion
 The splined model promises double the uncertainty that =LENSMODEL_OPENCV8= does.
@@ -436,7 +436,7 @@ and uncertainties. Both computations begin with $\vec p =
 But an unprojection is ambiguous in range, so *diffs and uncertainties are
 defined as a function of range*
 
-#+ATTR_LATEX: :width \linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/figures/projection-scale-invariance.pdf]]
 
 All the uncertainties reported so far, were at $\infty$
@@ -445,8 +445,8 @@ All the uncertainties reported so far, were at $\infty$
 The uncertainty of our =LENSMODEL_OPENCV8= calibration at the center as a
 function of range:
 
-#+ATTR_LATEX: :width 0.8\linewidth
-[[file:../out/external/figures/uncertainty/uncertainty-vs-distance-at-center.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/uncertainty/uncertainty-vs-distance-at-center-crop.pdf]]
 
 * Choreography
 ** Overview
@@ -462,32 +462,32 @@ This is output of a tool included in the mrcal tree. See the [[http://mrcal.secr
 for the commands.
 
 ** How many chessboard observations should we get?
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/dance-study/dance-study-scan-Nframes.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/dance-study/dance-study-scan-Nframes-crop.pdf]]
 
 ** How far should the chessboards be placed?
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/dance-study/dance-study-scan-range.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/dance-study/dance-study-scan-range-crop.pdf]]
 
 ** How much should we tilt the chessboards?
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/dance-study/dance-study-scan-tilt_radius.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/dance-study/dance-study-scan-tilt_radius-crop.pdf]]
 
 ** How many cameras should be included in each calibration?
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/dance-study/dance-study-scan-Ncameras.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/dance-study/dance-study-scan-Ncameras-crop.pdf]]
 
 ** How dense should our chessboard be?
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/dance-study/dance-study-scan-object_width_n.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/dance-study/dance-study-scan-object_width_n-crop.pdf]]
 
 ** What should the chessboard corner spacing be?
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/dance-study/dance-study-scan-object_spacing.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/dance-study/dance-study-scan-object_spacing-crop.pdf]]
 
 ** Do we want tiny boards nearby or giant boards faraway?
-#+ATTR_LATEX: :width \linewidth
-[[file:../out/external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.pdf]]
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/dance-study/dance-study-scan-object_spacing-compensated-range-crop.pdf]]
 
 ** Conclusions
 - More frames are good
@@ -499,7 +499,7 @@ for the commands.
 - Tiny chessboards near the camera are better than giant far-off chessboards. As
   long as the camera can keep the chessboards /and/ the working objects in focus
 
-#+ATTR_LATEX: :width 0.7\linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/figures/observation-usefulness.pdf]]
 
 * Stereo
@@ -515,14 +515,14 @@ geometry process:
 Each pair of corresponding rows in the rectified images represents a plane in
 space:
 
-#+ATTR_LATEX: :width 0.65\linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/figures/rectification.pdf]]
 
 ** Input images
 I used the lens I calibrated at the start to capture a pair of images in
 downtown Los Angeles. The left image:
 
-#+ATTR_LATEX: :width 0.75\linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/stereo/0.downsampled.jpg]]
 
 We're on a catwalk between 2nd and 3rd, looking S over Figueroa St.
@@ -531,13 +531,13 @@ We're on a catwalk between 2nd and 3rd, looking S over Figueroa St.
 I then used mrcal's rectification function to produce the rectified image. The
 left:
 
-#+ATTR_LATEX: :width 0.7\linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/rectified0-splined.downsampled.jpg
 
 ** Disparity
 And the resulting disparity, as computed by the OpenCV matcher:
 
-#+ATTR_LATEX: :width 0.7\linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/disparity-splined.downsampled.png
 
 ** JPLV
@@ -553,19 +553,19 @@ instance, let's
 ** JPLV remapped-to-pinhole image
 Remapped to a pinhole image with mrcal
 
-#+ATTR_LATEX: :width 0.9\linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/0-reprojected-scale0.35.downsampled.jpg
 
 ** JPLV rectified image
 Rectified with jplv
 
-#+ATTR_LATEX: :width 0.9\linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/jplv-stereo-rect-left-scale0.35.downsampled.png
 
 ** JPLV stereo
 Disparity from OpenCV
 
-#+ATTR_LATEX: :width 0.9\linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/disparity-jplv-scale0.35.downsampled.png
 
 ** Narrow virtual cameras
@@ -578,25 +578,25 @@ This generates a skewed geometry, but mrcal can still use it just fine. Due to a
 bug, jplv cannot.
 
 ** Narrow virtual cameras
-#+ATTR_LATEX: :width 0.9\linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/stereo-geometry-narrow.pdf
 
 ** Narrow virtual cameras
 One of the resulting resampled /pinhole/ images:
 
-#+ATTR_LATEX: :width 0.9\linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/narrow-left.downsampled.jpg
 
 ** Narrow virtual cameras
 Rectified using mrcal
 
-#+ATTR_LATEX: :width 0.9\linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/rectified0-narrow.downsampled.jpg
 
 ** Narrow virtual cameras
 Disparity from OpenCV
 
-#+ATTR_LATEX: :width 0.9\linewidth
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/disparity-narrow.downsampled.png
 
 * Finally
