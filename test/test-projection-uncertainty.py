@@ -285,7 +285,12 @@ if args.make_documentation_plots is not None:
             mrcal.show_geometry(models_baseline,
                                 show_calobjects = True,
                                 unset='key',
+                                title='',
+                                axis_scale = 1.0,
                                 **processoptions_output)
+            if extension == 'pdf':
+                os.system(f"pdfcrop {processoptions_output['hardcopy']}")
+
     else:
         processoptions_output = dict(wait = True)
 
@@ -293,6 +298,8 @@ if args.make_documentation_plots is not None:
         mrcal.show_geometry(models_baseline,
                             show_calobjects = True,
                             unset='key',
+                            title='',
+                            axis_scale = 1.0,
                             **processoptions_output)
 
 
@@ -311,6 +318,9 @@ if args.make_documentation_plots is not None:
                                          terminal = shorter_terminal(terminal[extension]),
                                          _set     = extraset[extension],
                                          hardcopy = f'{args.make_documentation_plots}--simulated-observations.{extension}')
+
+            gp.add_plot_option(processoptions_output, 'set',   ('xtics 1000', 'ytics 1000'))
+
             gp.plot( *obs_cam,
                      tuplesize=-2,
                      _with='dots',
@@ -319,6 +329,9 @@ if args.make_documentation_plots is not None:
                      _yrange=(models_true[0].imagersize()[1]-1, 0),
                      multiplot = 'layout 2,2',
                      **processoptions_output)
+            if extension == 'pdf':
+                os.system(f"pdfcrop {processoptions_output['hardcopy']}")
+
     else:
         obs_cam = [ ( (observed_points(icam),),
                       (q0_baseline, dict(_with = f'points pt 3 lw 2 lc "red" ps {2*pointscale[""]}'))) \
@@ -2430,6 +2443,8 @@ if args.make_documentation_plots is not None:
                      **plot_options,
                      multiplot = f'layout 2,2',
                      **processoptions_output)
+            if extension == 'pdf':
+                os.system(f"pdfcrop {processoptions_output['hardcopy']}")
     else:
         processoptions_output = dict(wait = True)
         gp.plot( *data_tuples,
@@ -2494,6 +2509,9 @@ if args.make_documentation_plots is not None:
                          **plot_options,
                          multiplot = f'layout 2,2',
                          **processoptions_output)
+                if extension == 'pdf':
+                    os.system(f"pdfcrop {processoptions_output['hardcopy']}")
+
     else:
         data_tuples = [ data_tuples_plot_options[icam][0] + \
                         [(q0_baseline[0], q0_baseline[1], 0, \
