@@ -295,6 +295,8 @@ mrcal-show-projection-uncertainty \
   --unset key \
   --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+
+pdfcrop ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.pdf
 #+end_src
 
 [[file:external/figures/uncertainty/uncertainty-opencv8.png]]
@@ -325,6 +327,8 @@ mrcal-show-projection-uncertainty \
   --unset key \
   --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
+
+pdfcrop ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.pdf
 #+end_src
 
 [[file:external/figures/uncertainty/uncertainty-splined.png]]
