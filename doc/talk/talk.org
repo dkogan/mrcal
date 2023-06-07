@@ -515,7 +515,7 @@ geometry process:
 Each pair of corresponding rows in the rectified images represents a plane in
 space:
 
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.4\textheight :options keepaspectratio
 [[file:../out/figures/rectification.pdf]]
 
 ** Input images
@@ -532,13 +532,13 @@ I then used mrcal's rectification function to produce the rectified image. The
 left:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-file:../out/external/figures/stereo/rectified0-splined.downsampled.jpg
+file:../out/external/figures/stereo/0-rectified.downsampled.png
 
 ** Disparity
 And the resulting disparity, as computed by the OpenCV matcher:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-file:../out/external/figures/stereo/disparity-splined.downsampled.png
+file:../out/external/figures/stereo/0-disparity.downsampled.png
 
 ** JPLV
 
