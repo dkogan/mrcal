@@ -46,6 +46,15 @@ mrcal-show-projection-diff                           \
   $D/{opencv8,splined}.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-radius0-heatmap-splined-opencv8.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+mrcal-show-projection-diff                           \
+  --intrinsics-only                                                   \
+  --cbmax 15                                                         \
+  --unset key                                                         \
+  $D/{opencv8,splined}.cameramodel                         \
+  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-radius0-heatmap-splined-opencv8.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
+
+pdfcrop ~/projects/mrcal-doc-external/figures/diff/diff-radius0-heatmap-splined-opencv8.pdf
 #+end_src
 
 [[file:external/figures/diff/diff-radius0-heatmap-splined-opencv8.png]]
@@ -87,6 +96,8 @@ mrcal-show-projection-diff                               \
   $D/{opencv8,splined}.cameramodel                             \
   --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-radius0-vectorfield-splined-opencv8.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
+
+pdfcrop ~/projects/mrcal-doc-external/figures/diff/diff-radius0-vectorfield-splined-opencv8.pdf
 #+end_src
 
 [[file:external/figures/diff/diff-radius0-vectorfield-splined-opencv8.svg]]
@@ -139,8 +150,17 @@ D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22
 mrcal-show-projection-diff           \
   --unset key                                         \
   $D/{opencv8,splined}.cameramodel         \
+  --title 'Diff looking at 2 models, computing extrinsics transform at infinity' \
   --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-splined-opencv8.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+mrcal-show-projection-diff           \
+  --unset key                                         \
+  $D/{opencv8,splined}.cameramodel         \
+  --title 'Diff looking at 2 models, computing extrinsics transform at infinity' \
+  --hardcopy ~/projects/mrcal-doc-external/figures/diff/diff-splined-opencv8.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
+
+pdfcrop ~/projects/mrcal-doc-external/figures/diff/diff-splined-opencv8.pdf
 #+end_src
 
 [[file:external/figures/diff/diff-splined-opencv8.png]]
