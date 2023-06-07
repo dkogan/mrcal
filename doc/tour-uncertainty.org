@@ -288,7 +288,7 @@ mrcal-show-projection-uncertainty \
   --cbmax 1 \
   --unset key \
   --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.pdf \
-  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
 mrcal-show-projection-uncertainty \
   $D/opencv8.cameramodel \
   --cbmax 1 \
@@ -318,7 +318,7 @@ mrcal-show-projection-uncertainty \
   --cbmax 1 \
   --unset key \
   --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.pdf \
-  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
 mrcal-show-projection-uncertainty \
   $D/splined.cameramodel \
   --cbmax 1 \

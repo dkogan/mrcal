@@ -219,7 +219,7 @@ if args.make_documentation_plots:
     print(f"Will write documentation plots to {args.make_documentation_plots}-xxxx.pdf and .svg")
 
     if terminal['svg'] is None: terminal['svg'] = 'svg size 800,600       noenhanced solid dynamic    font ",14"'
-    if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color      font ",12"'
+    if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color      font ",16"'
     if terminal['png'] is None: terminal['png'] = 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 
 extraset = dict()

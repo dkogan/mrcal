@@ -56,7 +56,7 @@ $PYTHONPATH/mrcal-show-projection-uncertainty                             \
   --set 'yrange [0:0.1]'                                                  \
   $D/opencv8.cameramodel                                                  \
   --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-vs-distance-at-center.pdf \
-  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",12"'
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
 #+end_src
 
 [[file:external/figures/uncertainty/uncertainty-vs-distance-at-center.svg]]

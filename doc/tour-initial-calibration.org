@@ -237,7 +237,7 @@ mrcal-show-geometry      \
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 mrcal-show-geometry $D/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' --hardcopy ~/projects/mrcal-doc-external/figures/calibration/calibration-chessboards-geometry.svg
-mrcal-show-geometry $D/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' --hardcopy ~/projects/mrcal-doc-external/figures/calibration/calibration-chessboards-geometry.pdf
+mrcal-show-geometry $D/opencv8.cameramodel --unset key --set 'xyplane 0' --set 'view 80,30,1.5' --show-calobjects --terminal 'pdf size 8in,6in noenhanced solid color   font ",16"' --hardcopy ~/projects/mrcal-doc-external/figures/calibration/calibration-chessboards-geometry.pdf
 #+end_src
 
 [[file:external/figures/calibration/calibration-chessboards-geometry.svg]]
@@ -284,7 +284,7 @@ mrcal-show-residuals \
   --unset key           \
   --binwidth 0.1 \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-opencv8.pdf" \
-  --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
+  --terminal 'pdf size 8in,6in noenhanced solid color   font ",16"' \
   $D/opencv8.cameramodel
 
 Dout=~/projects/mrcal-doc-external/figures/calibration/histogram
@@ -515,7 +515,7 @@ mrcal-show-residuals \
   --unset key           \
   --set 'pointsize 0.5' \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/directions-opencv8.pdf" \
-  --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
+  --terminal 'pdf size 8in,6in noenhanced solid color   font ",16"' \
   $D/opencv8.cameramodel
 
 Dout=~/projects/mrcal-doc-external/figures/calibration/directions
@@ -692,7 +692,7 @@ mrcal-show-residuals \
   --unset key           \
   --binwidth 0.1 \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/residuals-histogram-splined.pdf" \
-  --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
+  --terminal 'pdf size 8in,6in noenhanced solid color   font ",16"' \
   $D/splined.cameramodel
 
 Dout=~/projects/mrcal-doc-external/figures/calibration/histogram
@@ -928,7 +928,7 @@ mrcal-show-residuals \
   --unset key           \
   --set 'pointsize 0.5' \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/directions-splined.pdf" \
-  --terminal 'pdf size 8in,6in noenhanced solid color   font ",12"' \
+  --terminal 'pdf size 8in,6in noenhanced solid color   font ",16"' \
   $D/splined.cameramodel
 
 Dout=~/projects/mrcal-doc-external/figures/calibration/directions
