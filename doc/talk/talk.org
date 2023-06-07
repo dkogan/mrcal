@@ -1,4 +1,4 @@
-#+title: mrcal - camera calibrations and more!
+#+TITLE: Making and using camera models with mrcal: the practical details
 #+AUTHOR: Dima Kogan
 
 #+OPTIONS: toc:nil H:2
@@ -439,7 +439,7 @@ defined as a function of range*
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/figures/projection-scale-invariance.pdf]]
 
-All the uncertainties reported so far, were at $\infty$
+All the uncertainties reported so far were at $\infty$
 
 ** The uncertainty figure
 The uncertainty of our =LENSMODEL_OPENCV8= calibration at the center as a
@@ -499,7 +499,7 @@ for the commands.
 - Tiny chessboards near the camera are better than giant far-off chessboards. As
   long as the camera can keep the chessboards /and/ the working objects in focus
 
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.4\textheight :options keepaspectratio
 [[file:../out/figures/observation-usefulness.pdf]]
 
 * Stereo
