@@ -42,7 +42,19 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --ymax 1                                       \
   $D/opencv8.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-Nframes.svg \
-  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
+$PYTHONPATH/analyses/dancing/dance-study.py      \
+  --scan Nframes                                 \
+  --Ncameras 1                                   \
+  --Nframes 20,200                               \
+  --range 0.5                                    \
+  --observed-pixel-uncertainty 2                 \
+  --ymax 1                                       \
+  $D/opencv8.cameramodel                         \
+  --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-Nframes.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
+
+pdfcrop ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-Nframes.pdf
 #+end_src
 
 [[file:external/figures/dance-study/dance-study-scan-Nframes.svg]]
@@ -84,7 +96,18 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --observed-pixel-uncertainty 2                 \
   $D/opencv8.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-range.svg \
-  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
+$PYTHONPATH/analyses/dancing/dance-study.py      \
+  --scan range                                   \
+  --Ncameras 1                                   \
+  --Nframes 100                                  \
+  --range 0.4,10                                 \
+  --observed-pixel-uncertainty 2                 \
+  $D/opencv8.cameramodel                         \
+  --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-range.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
+
+pdfcrop ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-range.pdf
 #+end_src
 
 [[file:external/figures/dance-study/dance-study-scan-range.svg]]
@@ -126,7 +149,21 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --uncertainty-at-range-sampled-max 5           \
   $D/opencv8.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-tilt_radius.svg \
-  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
+$PYTHONPATH/analyses/dancing/dance-study.py      \
+  --scan tilt_radius                             \
+  --tilt-radius 0,80                             \
+  --Ncameras 1                                   \
+  --Nframes 100                                  \
+  --range 0.5                                    \
+  --observed-pixel-uncertainty 2                 \
+  --ymax 2                                       \
+  --uncertainty-at-range-sampled-max 5           \
+  $D/opencv8.cameramodel                         \
+  --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-tilt_radius.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
+
+pdfcrop ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-tilt_radius.pdf
 #+end_src
 
 [[file:external/figures/dance-study/dance-study-scan-tilt_radius.svg]]
@@ -189,7 +226,21 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --observed-pixel-uncertainty 2                 \
   $D/opencv8.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-Ncameras.svg \
-  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
+$PYTHONPATH/analyses/dancing/dance-study.py      \
+  --scan Ncameras                                \
+  --Ncameras 1,8                                 \
+  --camera-spacing 0                             \
+  --Nframes 100                                  \
+  --range 0.5                                    \
+  --ymax 0.4                                     \
+  --uncertainty-at-range-sampled-max 10          \
+  --observed-pixel-uncertainty 2                 \
+  $D/opencv8.cameramodel                         \
+  --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-Ncameras.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
+
+pdfcrop ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-Ncameras.pdf
 #+end_src
 
 [[file:external/figures/dance-study/dance-study-scan-Ncameras.svg]]
@@ -231,7 +282,20 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --observed-pixel-uncertainty 2                 \
   $D/opencv8.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_width_n.svg \
-  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
+$PYTHONPATH/analyses/dancing/dance-study.py      \
+  --scan object_width_n                          \
+  --range 2                                      \
+  --Ncameras 1                                   \
+  --Nframes 100                                  \
+  --object-width-n 5,30                          \
+  --uncertainty-at-range-sampled-max 30          \
+  --observed-pixel-uncertainty 2                 \
+  $D/opencv8.cameramodel                         \
+  --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_width_n.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
+
+pdfcrop ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_width_n.pdf
 #+end_src
 
 [[file:external/figures/dance-study/dance-study-scan-object_width_n.svg]]
@@ -265,9 +329,21 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --Nframes 100                                  \
   --object-spacing 0.04,0.20                     \
   --observed-pixel-uncertainty 2                 \
-  --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_spacing.svg \
   $D/opencv8.cameramodel                         \
-  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+  --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_spacing.svg \
+  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
+$PYTHONPATH/analyses/dancing/dance-study.py      \
+  --scan object_spacing                          \
+  --range 2                                      \
+  --Ncameras 1                                   \
+  --Nframes 100                                  \
+  --object-spacing 0.04,0.20                     \
+  --observed-pixel-uncertainty 2                 \
+  $D/opencv8.cameramodel                         \
+  --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_spacing.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
+
+pdfcrop ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_spacing.pdf
 #+end_src
 
 [[file:external/figures/dance-study/dance-study-scan-object_spacing.svg]]
@@ -306,9 +382,24 @@ $PYTHONPATH/analyses/dancing/dance-study.py                                     
   --ymax 20                                                                                                          \
   --uncertainty-at-range-sampled-max 200                                                                             \
   --observed-pixel-uncertainty 2                                                                                     \
-  --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.svg \
   $D/opencv8.cameramodel                                                                                             \
-  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' > /dev/null
+  --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.svg \
+  --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
+$PYTHONPATH/analyses/dancing/dance-study.py                                                                          \
+  --scan object_spacing                                                                                              \
+  --scan-object-spacing-compensate-range-from 0.04                                                                   \
+  --range 2                                                                                                          \
+  --Ncameras 1                                                                                                       \
+  --Nframes 100                                                                                                      \
+  --object-spacing 0.04,0.20                                                                                         \
+  --ymax 20                                                                                                          \
+  --uncertainty-at-range-sampled-max 200                                                                             \
+  --observed-pixel-uncertainty 2                                                                                     \
+  $D/opencv8.cameramodel                                                                                             \
+  --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
+
+pdfcrop ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.pdf
 #+end_src
 
 [[file:external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.svg]]
