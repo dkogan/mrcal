@@ -269,7 +269,7 @@ plot
 
         # I want this routine to work with any N cameras. I need to compute a
         # "characteristic distance" for them to serve as a "baseline". I do this
-        # by first computing a "geometric median" that minimizes the variance
+        # by first computing a "geometric median" that minimizes the mean
         # of the distances from each point to this median. Then the
         # characteristic radius is this constant-ish distance.
 
@@ -281,7 +281,7 @@ plot
         else:
             import scipy.optimize
             res = scipy.optimize.least_squares(# cost function
-                                               lambda c: np.var(nps.mag(p-c)),
+                                               lambda c: np.sum(nps.mag(p-c)),
 
                                                # seed
                                                np.mean(p,axis=-2),
