@@ -23,65 +23,76 @@
 #+LaTeX_HEADER: \setlength{\parskip}{\smallskipamount}
 
 * Overview
-** Where is all this?
-Documentation, installation instructions and everything else are available here:
+** Calibrations and lots of other stuff
+- I couldn't find a set of tools precise-enough to make my visual ranging work
+  possible, so I wrote my own
 
-- http://mrcal.secretsauce.net/
+- By necessity, mrcal is a complete re-design and re-implementation of camera
+  modeling tooling from the ground-up:
 
-This talk is a condensed version of the "tour of mrcal" page:
+  - Richer camera model available to precisely model lens behavior
+  - Uncertainty propagation and cross-validation techniques available to
+    validate a calibration
+  - Fisheye-friendly stereo rectification
+  - No implicit pinhole assumption anywhere
+  - Lots of analysis techniques available, including extensive visualization
+    facilities
 
-- http://mrcal.secretsauce.net/tour.html
+** What is it for?
+mrcal is a generic library, applicable to anything that makes or uses camera
+models.
 
-Please see that page for a bit more detail, and for links to all the data and
-commands in the studies I'll discuss
+- Common applications
+  - Calibration
+  - Triangulation
+  - Photogrammetry
+  - SFM
 
-** mrcal: calibrations and other stuff
-I couldn't find a set of tools to make my visual ranging work possible, so I
-wrote my own:
+** Computing details
 
-- A set of C, Python libraries to work with
-  - camera models
-  - 3D geometry
-  - images
-- Lots of analysis, tools available
-- Fancy lens models
-- Lots of visualization facilities
-- Many commandline tools available, so no coding required for many tasks
+- mrcal is a library (C and Python)
+- Many commandline tools available, so no coding required for common tasks
+- /Thoroughly/ documented
+- Open-source, available in stock Debian
 
-** Tour of mrcal
-I will go through the "tour of mrcal" page:
+Contributions welcome!
 
-- http://mrcal.secretsauce.net/tour.html
+** Where is it?
 
-We follow a real-world data flow, from chessboard observations to stereo
-processing. Images captured using
+Detailed documentation is available at http://mrcal.secretsauce.net/
 
-- Nikon D750 full-frame SLR. 6000x4000 imager
+- This talk is a repackaging of the documentation on that page
+
+- See the docs for more detail, and for links to all the data and commands that
+  produced the results in this talk
+
+* Initial calibration and model choice
+** Initial calibration and model choice
+Let's start by looking at the "tour of mrcal":
+http://mrcal.secretsauce.net/tour.html
+
+We follow a real-world data flow, starting with chessboard observations. Images
+captured using
+
+- Sony Alpha 7 III full-frame SLR. 6000x3376 imager
 - /Very/ wide lens: Samyang 12mm F2.8 fisheye. 180deg field of view
   corner-corner
 - Just one camera
+- Outdoor images captured in downtown Los Angeles
 
-* Corners
-** Gathering corners
+mrcal can calibrate multiple cameras simultaneously; just this example is
+monocular
 
-This is a wide lens, so we have a large chessboard:
+- The [[http://mrcal.secretsauce.net][mrcal website]] contains details and all the commands used to produce the
+  following results
 
-- 10x10 point grid
-- 7.7cm between adjacent points
-
-Most observations take right in front of the lens, so depth of field is a
-concern. Thus
-
-- Images gathered outside
-- F22
-
-** Corner detections
-mrgingham corner detections look like this for an arbitrary image:
+** Gathering and detecting chessboard Corners
+We capture images, and use [[https://github.com/dkogan/mrgingham/][mrgingham]] to detect chessboard corners. For an
+arbitrary image:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/mrgingham-results.png]]
 
-* Calibrating opencv8
 ** Let's run a calibration!
 This is a wide lens, so we need a lens model that can handle it. Let's use the
 8-parameter OpenCV model: =LENSMODEL_OPENCV8=
@@ -89,9 +100,11 @@ This is a wide lens, so we need a lens model that can handle it. Let's use the
 #+begin_example
 $ mrcal-calibrate-cameras --lensmodel LENSMODEL_OPENCV8 ...
 ...
-RMS reprojection error: 0.8 pixels
-Noutliers: 3 out of 18600 total points: 0.0% of the data
-calobject_warp = [-0.00103983  0.00052493]
+
+RMS reprojection error: 0.4 pixels
+Worst residual (by measurement): 1.8 pixels
+Noutliers: 564 out of 16464 total points: 3.4% of the data
+calobject_warp = [-0.00012726 -0.00014325]
 #+end_example
 
 Let's examine the solution. We want the errors in the solve to follow the mrcal
@@ -100,10 +113,11 @@ noise model, and if they don't, we want to try to fix it.
 ** Noise model
 mrcal assumes that
 
-- The model (lens parameters, geometry, ...) accurately represents reality
+- The model (lens parameters, chessboard geometry, etc) accurately represents
+  reality
 - All errors (differences between the observations of the chessboard and what
-  the model predicts) come from observation noise
-- The errors are independent, gaussian and have the same variance everywhere
+  the model predicts) are samples of the observation noise
+- This observation noise is independent, gaussian and homoscedastic
 
 If all those assumptions are true, then the results of the least-squares
 optimization (what the calibration routine is doing) are the maximum-likelihood
@@ -135,14 +149,14 @@ The worst-fitting observations are a great way to see common issues such as:
 - insufficiently-rich models (of the lens or of the chessboard shape or anything
   else)
 
-Any of these would violate the assumptions of the noise model, so we want to fix
-them
+Any of these would violate the assumptions of the noise model, so we want to
+detect and fix them
 
 ** =LENSMODEL_OPENCV8=: the worst image
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-opencv8.png]]
 
-** =LENSMODEL_OPENCV8=: the 10th-worst image
+** =LENSMODEL_OPENCV8=: the worst image in a corner
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
 
@@ -151,14 +165,15 @@ them
 [[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
 
 ** =LENSMODEL_OPENCV8=: conclusions
-The =LENSMODEL_OPENCV8= lens model does not fit our data in observable ways.
+We see clear patterns in the residials, so:
+
+- =LENSMODEL_OPENCV8= does not fit our data
 
 These unmodeled errors are small, but cause big problems when doing precision
 work, for instance with long-range stereo.
 
 Let's fix it.
 
-* Calibrating splined models
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC= definition
 - We need a more flexible lens model to represent our lens.
 - mrcal currently supports a /splined/ model that is configurable to be as rich
@@ -192,53 +207,55 @@ We can then define the rest of the projection function:
 ** Let's re-run the calibration
 Let's re-process the same calibration data using this splined model. We run the
 same command as before, but using the =LENSMODEL_SPLINED_STEREOGRAPHIC_= ...
-=order=3_Nx=30_Ny=20_fov_x_deg=170= model. This is one long string.
+=order=3_Nx=30_Ny=18_fov_x_deg=150= model. This is one long string.
 
 #+begin_example
 $ mrcal-calibrate-cameras
     --lensmodel LENSMODEL_SPLINED_STEREOGRAPHIC_ ...
-    ... order=3_Nx=30_Ny=20_fov_x_deg=170 ...
+    ... order=3_Nx=30_Ny=18_fov_x_deg=150 ...
 ...
-RMS reprojection error: 0.6 pixels
-Noutliers: 0 out of 18600 total points: 0.0% of the data
-calobject_warp = [-0.00096895  0.00052931]
+RMS reprojection error: 0.2 pixels
+Worst residual (by measurement): 1.3 pixels
+Noutliers: 28 out of 16464 total points: 0.2% of the data
+calobject_warp = [-1.26851438e-04 -8.03269701e-05]
 #+end_example
 
-** =LENSMODEL_SPLINED_STEREOGRAPHIC= residuals histogram
-This is promising. The new residual histogram:
+** =LENSMODEL_SPLINED_...= residuals histogram
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/residuals-histogram-splined-crop.pdf]]
 
-** =LENSMODEL_OPENCV8= residuals histogram
-Here's what it looked like before:
+** =LENSMODEL_OPENCV8= residuals histogram (before)
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/residuals-histogram-opencv8-crop.pdf]]
 
-** =LENSMODEL_SPLINED_STEREOGRAPHIC=: the worst image
+** =LENSMODEL_SPLINED_...=: the worst image
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-splined.png]]
 
-** =LENSMODEL_OPENCV8=: the worst image
+** =LENSMODEL_OPENCV8=: the worst image (before)
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-opencv8.png]]
 
-** =LENSMODEL_SPLINED_STEREOGRAPHIC=: previously 10th-worst image
+** =LENSMODEL_SPLINED_...=: the worst image in a corner
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-splined.png]]
 
-** =LENSMODEL_OPENCV8=: 10th-worst image
+** =LENSMODEL_OPENCV8=: the worst image in a corner (before)
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
 
-** =LENSMODEL_SPLINED_STEREOGRAPHIC=: residual directions
+** =LENSMODEL_SPLINED_...=: residual directions
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/directions-splined-crop.pdf]]
 
-** =LENSMODEL_OPENCV8=: residual directions
+** =LENSMODEL_OPENCV8=: residual directions (before)
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
+** Conclusion
+We have good evidence that =LENSMODEL_SPLINED_STEREOGRAPHIC= fits this lens much
+better than =LENSMODEL_OPENCV8=
 
 * Differencing
 ** Differencing
@@ -549,24 +566,6 @@ instance, let's
 
 - Remap to a pinhole model (with some arbitrary zoom factor)
 - Use jplv to compute the rectified image
-
-** JPLV remapped-to-pinhole image
-Remapped to a pinhole image with mrcal
-
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-file:../out/external/figures/stereo/0-reprojected-scale0.35.downsampled.jpg
-
-** JPLV rectified image
-Rectified with jplv
-
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-file:../out/external/figures/stereo/jplv-stereo-rect-left-scale0.35.downsampled.png
-
-** JPLV stereo
-Disparity from OpenCV
-
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-file:../out/external/figures/stereo/disparity-jplv-scale0.35.downsampled.png
 
 ** Narrow virtual cameras
 Another way to do stereo processing of wide images using tools that aren't built
