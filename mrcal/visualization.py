@@ -1334,6 +1334,352 @@ A tuple:
     return (data_tuples, plot_options), Rt10
 
 
+def show_stereo_pair_diff(model_pairs,
+                          *,
+                          implied_Rt10 = None,
+                          gridn_width  = 60,
+                          gridn_height = None,
+
+                          observations            = False,
+                          valid_intrinsics_region = False,
+                          intrinsics_only         = False,
+                          distance                = None,
+
+                          focus_center     = None,
+                          focus_radius     = -1.,
+
+                          vectorfield      = False,
+                          vectorscale      = 1.0,
+                          cbmax            = 4,
+                          extratitle       = None,
+                          return_plot_args = False,
+                          **kwargs):
+    r'''Visualize the difference in projection between N model pairs
+
+SYNOPSIS
+
+    models = ( mrcal.cameramodel('cam0-dance0.cameramodel'),
+               mrcal.cameramodel('cam0-dance1.cameramodel') )
+
+    mrcal.show_stereo_pair_diff(models)
+
+    # A plot pops up displaying the projection difference between the two models
+
+The operation of this tool is documented at
+http://mrcal.secretsauce.net/differencing.html
+
+This function visualizes the results of mrcal.stereo_pair_diff()
+
+It is often useful to compare the projection behavior of two camera models. For
+instance, one may want to validate a calibration by comparing the results of two
+different chessboard dances. Or one may want to evaluate the stability of the
+intrinsics in response to mechanical or thermal stresses.
+
+In the most common case we're given exactly 2 models to compare. We then display
+the projection difference as either a vector field or a heat map. If we're given
+more than 2 models, then a vector field isn't possible and we instead display as
+a heatmap the standard deviation of the differences between models 1..N and
+model0.
+
+The top-level operation of this function:
+
+- Grid the imager
+- Unproject each point in the grid using one camera model
+- Apply a transformation to map this point from one camera's coord system to the
+  other. How we obtain this transformation is described below
+- Project the transformed points to the other camera
+- Look at the resulting pixel difference in the reprojection
+
+If implied_Rt10 is given, we simply use that as the transformation (this is
+currently supported ONLY for diffing exactly 2 cameras). If implied_Rt10 is not
+given, we estimate it. Several variables control this. Top-level logic:
+
+  if intrinsics_only:
+      Rt10 = identity_Rt()
+  else:
+      if focus_radius == 0:
+          Rt10 = relative_extrinsics(models)
+      else:
+          Rt10 = implied_Rt10__from_unprojections()
+
+The details of how the comparison is computed, and the meaning of the arguments
+controlling this, are in the docstring of mrcal.stereo_pair_diff().
+
+ARGUMENTS
+
+- models: iterable of mrcal.cameramodel objects we're comparing. Usually there
+  will be 2 of these, but more than 2 is possible. The intrinsics are used; the
+  extrinsics are NOT.
+
+- implied_Rt10: optional transformation to use to line up the camera coordinate
+  systems. Most of the time we want to estimate this transformation, so this
+  should be omitted or None. Currently this is supported only if exactly two
+  models are being compared.
+
+- gridn_width: optional value, defaulting to 60. How many points along the
+  horizontal gridding dimension
+
+- gridn_height: how many points along the vertical gridding dimension. If None,
+  we compute an integer gridn_height to maintain a square-ish grid:
+  gridn_height/gridn_width ~ imager_height/imager_width
+
+- observations: optional value, defaulting to False. If observations: we overlay
+  calibration-time observations on top of the difference plot. We should then
+  see that more data produces more consistent results. If a special value of
+  'dots' is passed, the observations are plotted as dots instead of points
+
+- valid_intrinsics_region: optional boolean, defaulting to False. If True, we
+  overlay the valid-intrinsics regions onto the plot. If the valid-intrinsics
+  regions aren't available, we will silently omit them
+
+- intrinsics_only: optional boolean, defaulting to False. If True: we evaluate
+  the intrinsics of each lens in isolation by assuming that the coordinate
+  systems of each camera line up exactly
+
+- distance: optional value, defaulting to None. Has an effect only if not
+  intrinsics_only. The projection difference varies depending on the range to
+  the observed world points, with the queried range set in this 'distance'
+  argument. If None (the default) we look out to infinity
+
+- use_uncertainties: optional boolean, defaulting to True. Used only if not
+  intrinsics_only and focus_radius!=0. If True we use the whole imager to fit
+  the implied-by-the-intrinsics transformation, using the uncertainties to
+  emphasize the confident regions. If False, it is important to select the
+  confident region using the focus_center and focus_radius arguments. If
+  use_uncertainties is True, but that data isn't available, we report a warning,
+  and try to proceed without.
+
+- focus_center: optional array of shape (2,); the imager center by default. Used
+  only if not intrinsics_only and focus_radius!=0. Used to indicate that the
+  implied-by-the-intrinsics transformation should use only those pixels a
+  distance focus_radius from focus_center. This is intended to be used if no
+  uncertainties are available, and we need to manually select the focus region.
+
+- focus_radius: optional value. If use_uncertainties then the default is LARGE,
+  to use the whole imager. Else the default is min(width,height)/6. Used to
+  indicate that the implied-by-the-intrinsics transformation should use only
+  those pixels a distance focus_radius from focus_center. This is intended to be
+  used if no uncertainties are available, and we need to manually select the
+  focus region. To avoid computing the transformation, either pass
+  focus_radius=0 (to use the extrinsics in the given models) or pass
+  intrinsics_only=True (to use the identity transform).
+
+- vectorfield: optional boolean, defaulting to False. By default we produce a
+  heat map of the projection differences. If vectorfield: we produce a vector
+  field instead. This is more busy, and is often less clear at first glance, but
+  unlike a heat map, this shows the directions of the differences in addition to
+  the magnitude. This is only valid if we're given exactly two models to compare
+
+- vectorscale: optional value, defaulting to 1.0. Applicable only if
+  vectorfield. The magnitude of the errors displayed in the vector field is
+  often very small, and impossible to make out when looking at the whole imager.
+  This argument can be used to scale all the displayed vectors to improve
+  legibility.
+
+- cbmax: optional value, defaulting to 4.0. Sets the maximum range of the color
+  map
+
+- extratitle: optional string to include in the title of the resulting plot.
+  Used to extend the default title string. If kwargs['title'] is given, it is
+  used directly, and the extratitle is ignored
+
+- return_plot_args: boolean defaulting to False. if return_plot_args: we return
+  a (data_tuples, plot_options) tuple instead of making the plot. The plot can
+  then be made with gp.plot(*data_tuples, **plot_options). Useful if we want to
+  include this as a part of a more complex plot
+
+- **kwargs: optional arguments passed verbatim as plot options to gnuplotlib.
+  Useful to make hardcopies, etc
+
+RETURNED VALUE
+
+A tuple:
+
+- if not return_plot_args (the usual path): the gnuplotlib plot object. The plot
+  disappears when this object is destroyed (by the garbage collection, for
+  instance), so save this returned plot object into a variable, even if you're
+  not going to be doing anything with this object.
+
+  if return_plot_args: a (data_tuples, plot_options) tuple. The plot can then be
+  made with gp.plot(*data_tuples, **plot_options). Useful if we want to include
+  this as a part of a more complex plot
+
+- Rt10: the geometric Rt transformation in an array of shape (...,4,3). This is
+  the relative transformation we ended up using, which is computed using the
+  logic above (using intrinsics_only and focus_radius). if len(models)>2: this
+  is an array of shape (len(models)-1,4,3), with slice i representing the
+  transformation between camera 0 and camera i+1.
+
+    '''
+
+    if len(model_pairs) < 2:
+        raise Exception("At least 2 model_pairs are required to compute the diff")
+
+
+    import gnuplotlib as gp
+
+    if 'title' not in kwargs:
+        if intrinsics_only:
+            title_note = "using an identity extrinsics transform"
+        elif focus_radius == 0:
+            title_note = "using given extrinsics transform"
+        else:
+            distance_string = "infinity" if distance is None else f"distance={distance}"
+
+            title_note = f"computing the extrinsics transform from data at {distance_string}"
+
+        # should say something about the focus too, but it's already too long
+        # elif focus_radius > 2*(W+H):
+        #     where = "extrinsics transform fitted everywhere"
+        # else:
+        #     where = "extrinsics transform fit looking at {} with radius {}". \
+        #         format('the imager center' if focus_center is None else focus_center,
+        #                focus_radius)
+
+        title = f"Diff looking at {len(model_pairs)} model_pairs, {title_note}"
+        if extratitle is not None:
+            title += ": " + extratitle
+        kwargs['title'] = title
+
+    if vectorfield:
+        if len(model_pairs) > 2:
+            raise Exception("I can only plot a vectorfield when looking at exactly 2 model_pairs. Instead I have {}". \
+                            format(len(model_pairs)))
+
+    # Now do all the actual work
+    difflen,diff,q0,Rt10 = mrcal.stereo_pair_diff(model_pairs,
+                                                 implied_Rt10      = implied_Rt10,
+                                                 gridn_width       = gridn_width,
+                                                 gridn_height      = gridn_height,
+                                                 intrinsics_only   = intrinsics_only,
+                                                 distance          = distance,
+                                                 use_uncertainties = False,
+                                                 focus_center      = focus_center,
+                                                 focus_radius      = focus_radius)
+    # shape (Nheight, Nwidth)
+    if difflen is not None and difflen.ndim > 2:
+        difflen = nps.clump(difflen, n=difflen.ndim-2)[0]
+    # shape (Nheight, Nwidth,2)
+    if diff is not None and diff.ndim > 3:
+        diff = nps.clump(diff, n=diff.ndim-3)[0]
+
+
+
+    plot_options = kwargs
+
+    if vectorfield:
+        # Not plotting a matrix image. I collapse (Nheight, Nwidth, ...) to (Nheight*Nwidth, ...)
+        if q0      is not None: q0      = nps.clump(q0,      n=2)
+        if difflen is not None: difflen = nps.clump(difflen, n=2)
+        if diff    is not None: diff    = nps.clump(diff,    n=2)
+
+    gp.add_plot_option(plot_options,
+                       cbrange = [0,cbmax])
+    color = difflen
+
+    # Any invalid values (nan or inf) are set to an effectively infinite
+    # difference
+    color[~np.isfinite(color)] = 1e6
+
+    if vectorfield:
+        # The mrcal.stereo_pair_diff() call made sure they're the same for all
+        # the model_pairs
+        W,H=model_pairs[0][0].imagersize()
+
+        gp.add_plot_option(plot_options,
+                           square   = 1,
+                            _xrange = [0,W],
+                            _yrange = [H,0])
+
+        curve_options = dict(_with='vectors filled palette',
+                             tuplesize=5)
+        plot_data_args = \
+            [ (q0  [:,0], q0  [:,1],
+               diff[:,0] * vectorscale, diff[:,1] * vectorscale,
+               color,
+               curve_options) ]
+    else:
+        curve_options = \
+            _options_heatmap_with_contours(
+                # update these plot options
+                kwargs,
+
+                contour_max  = cbmax,
+                imagersize   = model_pairs[0][0].imagersize(),
+                gridn_width  = gridn_width,
+                gridn_height = gridn_height,
+                do_contours  = True)
+
+        plot_data_args = [ (color, curve_options) ]
+
+    if valid_intrinsics_region:
+        valid_region0 = model_pairs[0].valid_intrinsics_region()
+        if valid_region0 is not None:
+            if vectorfield:
+                # 2d plot
+                plot_data_args.append( (valid_region0[:,0], valid_region0[:,1],
+                                        dict(_with = 'lines lw 4 lc "green"',
+                                             legend = "valid region of 1st camera")) )
+            else:
+                # 3d plot
+                plot_data_args.append( (valid_region0[:,0], valid_region0[:,1], valid_region0[:,0]*0,
+                                        dict(_with = 'lines lw 4 lc "green" nocontour',
+                                             legend = "valid region of 1st camera")) )
+
+        valid_region1 = model_pairs[1].valid_intrinsics_region()
+    else:
+        valid_region0 = None
+        valid_region1 = None
+
+    if len(model_pairs) == 2 and valid_region1 is not None:
+        # The second camera has a valid region, and I should plot it. This has
+        # more complexity: each point on the contour of the valid region of the
+        # second camera needs to be transformed to the coordinate system of the
+        # first camera to make sense. The transformation is complex, and
+        # straight lines will not remain straight. I thus resample the polyline
+        # more densely.
+        if not intrinsics_only:
+
+            v1 = mrcal.unproject(mrcal.utils._densify_polyline(valid_region1, spacing = 50),
+                                 *model_pairs[1].intrinsics(),
+                                 normalize = True)
+
+            if distance is not None:
+                v1 *= distance
+
+            valid_region1 = mrcal.project( mrcal.transform_point_Rt( mrcal.invert_Rt(Rt10),
+                                                                     v1 ),
+                                           *model_pairs[0].intrinsics() )
+
+        if vectorfield:
+            # 2d plot
+            plot_data_args.append( (valid_region1[:,0], valid_region1[:,1],
+                                    dict(_with = 'lines lw 3 lc "gray80"',
+                                         legend = "valid region of 2nd camera")) )
+        else:
+            # 3d plot
+            plot_data_args.append( (valid_region1[:,0], valid_region1[:,1], valid_region1[:,0]*0,
+                                    dict(_with = 'lines lw 3 lc "gray80" nocontour',
+                                         legend = "valid region of 2nd camera")) )
+
+    if observations:
+        for i in range(len(model_pairs)):
+            _2d = bool(vectorfield)
+            _append_observation_visualizations(plot_data_args,
+                                               model_pairs[i],
+                                               f"Camera {i} ",
+                                               -1 if observations == 'dots' else (1+i),
+                                               _2d)
+
+    data_tuples = plot_data_args
+
+    if not return_plot_args:
+        plot = gp.gnuplotlib(**plot_options)
+        plot.plot(*data_tuples)
+        return plot, Rt10
+    return (data_tuples, plot_options), Rt10
+
+
 def show_projection_uncertainty(model,
                                 *,
                                 gridn_width             = 60,
