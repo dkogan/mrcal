@@ -337,6 +337,7 @@ mrcal-show-residuals-board-observation \
   --vectorscale 200 \
   --circlescale 0.5 \
   --set 'cbrange [0:2]' \
+  --title "Worst observation: LENSMODEL_OPENCV8" \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/worst-opencv8.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/opencv8.cameramodel \
@@ -416,6 +417,7 @@ mrcal-show-residuals-board-observation \
   --vectorscale 200 \
   --circlescale 0.5 \
   --set 'cbrange [0:2]' \
+  --title "Observation in the corner: LENSMODEL_OPENCV8" \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/worst-incorner-opencv8.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/opencv8.cameramodel \
@@ -750,6 +752,7 @@ mrcal-show-residuals-board-observation \
   --vectorscale 200 \
   --circlescale 0.5 \
   --set 'cbrange [0:2]' \
+  --title "Worst observation: LENSMODEL_SPLINED_STEREOGRAPHIC" \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/worst-splined.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/splined.cameramodel \
@@ -831,6 +834,7 @@ mrcal-show-residuals-board-observation \
   --vectorscale 200 \
   --circlescale 0.5 \
   --set 'cbrange [0:2]' \
+  --title "Observation in the corner: LENSMODEL_SPLINED_STEREOGRAPHIC" \
   --hardcopy "~/projects/mrcal-doc-external/figures/calibration/worst-incorner-splined.png" \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
   $D/splined.cameramodel \
