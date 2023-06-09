@@ -23,7 +23,19 @@
 #+LaTeX_HEADER: \setlength{\parskip}{\smallskipamount}
 
 * Overview
-** Calibrations and lots of other stuff
+** What is mrcal for?
+mrcal is a generic toolkit, applicable to anything that makes or uses camera
+models.
+
+Common applications:
+
+- Calibration
+- Triangulation
+- Photogrammetry
+- SFM
+
+** Why does mrcal exist?
+
 - I couldn't find a set of tools precise-enough to make my visual ranging work
   possible, so I wrote my own
 
@@ -34,25 +46,16 @@
   - Uncertainty propagation and cross-validation techniques available to
     validate a calibration
   - Fisheye-friendly stereo rectification
-  - No implicit pinhole assumption anywhere
+  - No implicit pinhole assumption anywhere (no homogeneous coordinates,
+    essential, fundamental matrices, etc)
   - Lots of analysis techniques available, including extensive visualization
     facilities
-
-** What is it for?
-mrcal is a generic library, applicable to anything that makes or uses camera
-models.
-
-- Common applications
-  - Calibration
-  - Triangulation
-  - Photogrammetry
-  - SFM
 
 ** Computing details
 
 - mrcal is a library (C and Python)
 - Many commandline tools available, so no coding required for common tasks
-- /Thoroughly/ documented
+- *Thoroughly* documented
 - Open-source, available in stock Debian
 
 Contributions welcome!
@@ -66,8 +69,8 @@ Detailed documentation is available at http://mrcal.secretsauce.net/
 - See the docs for more detail, and for links to all the data and commands that
   produced the results in this talk
 
-* Initial calibration and model choice
-** Initial calibration and model choice
+* Tour of mrcal
+** Demo calibration
 Let's start by looking at the "tour of mrcal":
 http://mrcal.secretsauce.net/tour.html
 
@@ -75,7 +78,7 @@ We follow a real-world data flow, starting with chessboard observations. Images
 captured using
 
 - Sony Alpha 7 III full-frame SLR. 6000x3376 imager
-- /Very/ wide lens: Samyang 12mm F2.8 fisheye. 180deg field of view
+- *Very* wide lens: Samyang 12mm F2.8 fisheye. 180deg field of view
   corner-corner
 - Just one camera
 - Outdoor images captured in downtown Los Angeles
@@ -107,23 +110,22 @@ Noutliers: 564 out of 16464 total points: 3.4% of the data
 calobject_warp = [-0.00012726 -0.00014325]
 #+end_example
 
-Let's examine the solution. We want the errors in the solve to follow the mrcal
-noise model, and if they don't, we want to try to fix it.
+The optimizer converged, and we have a solution
 
-** Noise model
-mrcal assumes that
+** Why is the reprojection error > 0?
 
-- The model (lens parameters, chessboard geometry, etc) accurately represents
-  reality
-- All errors (differences between the observations of the chessboard and what
-  the model predicts) are samples of the observation noise
-- This observation noise is independent, gaussian and homoscedastic
+We have two sources of error:
 
-If all those assumptions are true, then the results of the least-squares
-optimization (what the calibration routine is doing) are the maximum-likelihood
-solution.
+- *Sampling error*: chessboard observations are noisy. We can study this, but we
+  cannot reduce it
 
-We will never satisfy all these assumptions, but we should try hard to do that.
+- *Model error*: our model of the lens behavior, chessboard shape and everything
+  else isn't perfect. We can and must suppress this as much as possible
+
+We want the model error to be negligible. If it is and if the sampling error is
+normal and i.i.d., then we get a bias-free maximum-likelihood calibration result
+
+To characterize the errors, we examine the solution
 
 ** Does the solved geometry look right?
 
@@ -149,8 +151,8 @@ The worst-fitting observations are a great way to see common issues such as:
 - insufficiently-rich models (of the lens or of the chessboard shape or anything
   else)
 
-Any of these would violate the assumptions of the noise model, so we want to
-detect and fix them
+We look for _patterns_ in the residuals: patterns indicate the presence of model
+errors
 
 ** =LENSMODEL_OPENCV8=: the worst image
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
@@ -165,21 +167,18 @@ detect and fix them
 [[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
 
 ** =LENSMODEL_OPENCV8=: conclusions
-We see clear patterns in the residials, so:
+We see clear patterns in the residuals, so:
 
 - =LENSMODEL_OPENCV8= does not fit our data
-
-These unmodeled errors are small, but cause big problems when doing precision
-work, for instance with long-range stereo.
 
 Let's fix it.
 
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC= definition
 - We need a more flexible lens model to represent our lens.
-- mrcal currently supports a /splined/ model that is configurable to be as rich
+- mrcal currently supports a *splined* model that is configurable to be as rich
   as we like
 
-We compute a normalized /stereographic/ projection:
+We compute a normalized *stereographic* projection:
 
 \[ \vec u = \mathrm{project}_\mathrm{stereographic}\left(\vec p\right) \]
 
@@ -327,7 +326,15 @@ uncertainty, so let's do that.
 
 * Uncertainty
 ** Uncertainty
-When we project a point $\vec p$ to a pixel $\vec q$, it would be /really/ nice
+- All calibrations are based on observations of the calibration object
+  (chessboard corners)
+- These observations *always* contain some noise (sampling error)
+- A calibration result is trustworthy *only* if it is insensitive to this noise
+
+We quantify this sensitivity by computing a _projection uncertainty_
+
+** Uncertainty
+When we project a point $\vec p$ to a pixel $\vec q$, it would be *really* nice
 to get an uncertainty estimate $\mathrm{Var} \left(\vec q\right)$. The we could
 
 - Propagate this uncertainty downstream to whatever uses the projection
@@ -339,7 +346,7 @@ to get an uncertainty estimate $\mathrm{Var} \left(\vec q\right)$. The we could
   differences
 
 Since splined models can have 1000s of parameters (the one we just demoed has
-1204), they are prone to overfitting, and it's critically important to gauge
+1084), they are prone to overfitting, and it's critically important to gauge
 those effects.
 
 ** Uncertainty
@@ -349,7 +356,7 @@ A grand summary of how we do this:
    $\mathrm{Var}\left( \vec q_\mathrm{ref} \right)$
 2. We propagate it through the optimization to get the variance of the
    optimization state $\mathrm{Var}(\vec b)$
-3. For any /fixed/ point, its projection $\vec q = \mathrm{project}\left(
+3. For any *fixed* point, its projection $\vec q = \mathrm{project}\left(
    \mathrm{transform}\left( \vec p_\mathrm{fixed} \right)\right)$ depends on
    parameters of $\vec b$, whose variance we know. So
 
@@ -395,26 +402,26 @@ This confirms the expectation: the sweet spot of low uncertainty follows the
 region where the chessboards were
 
 ** Uncertainty simulation
-- The worst-uncertainty-at-*$\ast$* camera claims an uncertainty of 0.8 pixels.
+- The worst uncertainty-at-*$\ast$* camera claims an uncertainty of 0.8 pixels.
   That's pretty low. But we had no chessboard observations there; is this
   uncertainty realistic? _No_
 
 - =LENSMODEL_OPENCV4= is stiff, so the projection doesn't move much due to
   noise. And we interpreted that as low uncertainty. But that comes from our
-  choice of model, and /not/ from the data. So
+  choice of model, and *not* from the data. So
 
 *Lean models always produce overly-optimistic uncertainty estimates*
 
 Solution: use splined models! They are very flexible, and don't have this issue.
 
 ** Uncertainty simulation
-Running the same simulation with a splined model, we see the /real/ projection
+Running the same simulation with a splined model, we see the *real* projection
 uncertainty:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/uncertainty/simulated-uncertainty-splined--uncertainty-wholeimage-noobservations-crop.pdf]]
 
-So /only/ the first camera actually had usable projections.
+So *only* the first camera actually had usable projections.
 
 ** Uncertainty simulation
 Let's overlay the observations:
@@ -465,8 +472,21 @@ function of range:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/uncertainty/uncertainty-vs-distance-at-center-crop.pdf]]
 
+* Let's apply these techniques
+** Let's apply these techniques
+We described several analysis techniques:
+
+- Visualizing the solve residuals
+- Computing intrinsics differences between two models
+- Evaluating projection uncertainty
+
+Let's use these to answer practical questions
+
+* What kind of chessboard?
+
+
 * Choreography
-** Overview
+** Optimal choreography overview
 We have a good way to estimate uncertainties, so let's study what kind of
 chessboard dance is best. We
 
@@ -508,18 +528,18 @@ for the commands.
 
 ** Conclusions
 - More frames are good
-- Closeups are /extremely/ important
+- Closeups are *extremely* important
 - Tilted views are good
 - A smaller number of bigger calibration problems is good
 - More chessboard corners is good, as long as the detector can find them
   reliably
 - Tiny chessboards near the camera are better than giant far-off chessboards. As
-  long as the camera can keep the chessboards /and/ the working objects in focus
+  long as the camera can keep the chessboards *and* the working objects in focus
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.4\textheight :options keepaspectratio
 [[file:../out/figures/observation-usefulness.pdf]]
 
-* Stereo
+* Stereo                                                           :noexport:
 ** Overview
 mrcal can do some basic stereo processing. At its core, it's the usual epipolar
 geometry process:
@@ -561,7 +581,7 @@ file:../out/external/figures/stereo/0-disparity.downsampled.png
 
 What if we wanted to use JPLV stereo with splined models?
 
-We can use mrcal to remap to another projection and feed /that/ to jplv. For
+We can use mrcal to remap to another projection and feed *that* to jplv. For
 instance, let's
 
 - Remap to a pinhole model (with some arbitrary zoom factor)
@@ -581,7 +601,7 @@ bug, jplv cannot.
 file:../out/external/figures/stereo/stereo-geometry-narrow.pdf
 
 ** Narrow virtual cameras
-One of the resulting resampled /pinhole/ images:
+One of the resulting resampled *pinhole* images:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/narrow-left.downsampled.jpg
@@ -598,7 +618,7 @@ Disparity from OpenCV
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/disparity-narrow.downsampled.png
 
-* Finally
+* Finally                                                          :noexport:
 ** Conclusions
 - We have a toolkit that can do lots of cool stuff
 
