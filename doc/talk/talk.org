@@ -477,43 +477,20 @@ function of range:
 We described several analysis techniques:
 
 - Visualizing the solve residuals
-- Computing intrinsics differences between two models
+- Computing projection differences between two models
 - Evaluating projection uncertainty
 
 Let's use these to answer practical questions
 
-* What kind of chessboard?
-
-
-* Choreography
 ** Optimal choreography overview
-We have a good way to estimate uncertainties, so let's study what kind of
-chessboard dance is best. We
+For many of the following analyses we study the effects of sampling error. We
 
-- set up a simulated world with some baseline geometry
-- scan some parameter
-- calibrate
-- look at the uncertainty-vs-range plots as a function of that parameter
+- Set up a simulated world with some baseline geometry
+- Scan some parameter
+- Calibrate
+- Look at the uncertainty-vs-range plots as a function of that parameter
 
-This is output of a tool included in the mrcal tree. See the [[http://mrcal.secretsauce.net/tour.html][tour of mrcal]] page
-for the commands.
-
-** How many chessboard observations should we get?
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/dance-study/dance-study-scan-Nframes-crop.pdf]]
-
-** How far should the chessboards be placed?
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/dance-study/dance-study-scan-range-crop.pdf]]
-
-** How much should we tilt the chessboards?
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/dance-study/dance-study-scan-tilt_radius-crop.pdf]]
-
-** How many cameras should be included in each calibration?
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/dance-study/dance-study-scan-Ncameras-crop.pdf]]
-
+* What kind of calibration object do we want?                      :noexport:
 ** How dense should our chessboard be?
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/dance-study/dance-study-scan-object_width_n-crop.pdf]]
@@ -526,18 +503,175 @@ for the commands.
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/dance-study/dance-study-scan-object_spacing-compensated-range-crop.pdf]]
 
-** Conclusions
-- More frames are good
-- Closeups are *extremely* important
-- Tilted views are good
-- A smaller number of bigger calibration problems is good
-- More chessboard corners is good, as long as the detector can find them
-  reliably
-- Tiny chessboards near the camera are better than giant far-off chessboards. As
-  long as the camera can keep the chessboards *and* the working objects in focus
+** How far should the chessboards be placed?
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/dance-study/dance-study-scan-range-crop.pdf]]
+
+** How many chessboard observations should we get?
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/dance-study/dance-study-scan-Nframes-crop.pdf]]
+
+** What kind of calibration object do we want? Guidelines
+- More data is good
+  - More chessboard corners
+  - More chessboard observations
+- The chessboard should fill the imager
+  - Close-ups
+  - Big chessboards
+
+Questions:
+
+- So what kind of calibration object do we want? Are *chessboards* the right
+  choice?
+
+- Should we place the chessboard immediately in front of the lens?
+
+- Should we use a *giant* chessboard?
+
+** Chessboards? Circles? AprilTags? Charuco?
+mrcal doesn't care!
+
+- Grids of circles don't directly observe the center point, so could be biased.
+  mrcal has a visual validation tool: =mrcal-reproject-to-chessboard=
+- AprilTags also could produce biased or correlated measurements if the whole
+  tag is used to compute the coordinate
+- Anything with AprilTags needs a high-resolution-enough image to resolve the
+  AprilTag. This resolution could instead be used to cram extra chessboard
+  squares into the image
+
+I use chessboards with the mrgingham detector
+
+** The downsides of extreme closeups
+*** Corners out of focus
+- If the blur is unbiased and gaussian: this will increase the noise, but we can
+  compensate by gathering more data
+- It looks like the blur mostly /is/ unbiased and gaussian, but don't push it
+
+*** Noncentral effects become significant
+Core assumption of almost all camera modeling and processing:
+
+- All rays of light intersect at a single point
+
+*This is not a valid assumption near the lens*
+
+But it is otherwise valid-enough:
+
+- We should try to calibrate and use the cameras beyond where noncentral effects
+  are significant. mrcal cross-validation will tell you if you're too close.
+
+** Noncentrality
+The size of the glass in the lens becomes non-negligible as we observe nearby
+objects
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/figures/noncentral.pdf]]
+
+** Noncentrality
+- Most triangulation and stereo routines assume a central projection
+- If necessary, noncentral behavior *can* be modeled:
+  - mrcal has partial support, which was critically important for some projects
+  - CAHVORE is noncentral with most people throwing away the noncentrality when
+    they use it
+
+There's limited awareness that this is what's being done. I've seen people carry
+around code like this to centralize CAHVORE unprojections:
+
+#+begin_src c
+  cmod_2d_to_3d(p_in, &(model.core), ow, nw, NULL, NULL);
+  udmxs_(nw, nw, 1000000, 3);  // nw = 1000000*nw
+  udadd_(nw, ow, nw, 3);       // nw = ow + nw
+#+end_src
+
+Don't do it: just set $\vec E = 0$
+
+** The downsides of huge chessboards
+- Difficult to manufacture
+- Expensive
+- Unstable
+
+mrcal has a simple *static* deformation model: a parabolic deformation in x and
+in y. *Usually this isn't enough to accurately represent foam boards*
+
+** The downsides of huge chessboards
+Because *intrinsics are sensitive to chessboard shape errors*. Simulated
+intrinsics calibration error due to a board shape error of 1mm in the center in
+one direction, and 0.5mm in the center in the other direction. No other noise
+present.
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/residuals/unstable-chessboard-shape-diff-crop.pdf]]
+
+** The downsides of huge chessboards
+I usually use an Aluminum-honeycomb-backed 1m x 1m square board. This works
+well.
+
+** What kind of calibration object do we want? Conclusions
+- Chessboard as large as possible
+- Placed as close to the camera as possible
+- With as dense a chessboard grid as possible
+
+Using the mrcal tools to verify that we didn't go too far
+
+* How should we capture images?                                    :noexport:
+** How should we capture images?
+- Same physical settings as when using the system: aperture size, zoom, focus
+- Features should be in-focus: trade-off with uncertainty requirements from
+  before. Some out-of-focus blur is ok
+- Self-consistent timing
+  - No motion blur. Use a tripod or capture images with lots of light: doing it
+    outside is great
+  - No rolling shutter effects. If you have such a camera, use a tripod
+  - If calibrating multiple cameras, hardware sync is a requirement
+
+mrcal will clearly identify these issues, if they're present in the data
+
+* How should we dance?                                             :noexport:
+** How much should we tilt the chessboards?
+We already saw that we want
+
+- Closeups
+- Lots of images
+
+Should we tilt the chessboards?
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.6\textheight :options keepaspectratio
+[[file:../out/external/figures/dance-study/dance-study-scan-tilt_radius-crop.pdf]]
+
+** How should we dance? Conclusions
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.4\textheight :options keepaspectratio
 [[file:../out/figures/observation-usefulness.pdf]]
+
+Use mrcal tools to validate
+
+* Which model should we use for the lenses?                        :noexport:
+** Which model should we use for the lenses?
+Today mrcal supports
+
+- OpenCV models with 4,5,8,12 parameters
+- CAHVOR, CAHVORE
+- =LENSMODEL_SPLINED_STEREOGRAPHIC=: the rich, splined model
+
+Unless you really need compatibility with a legacy system or you have low
+accuracy requirements, *=LENSMODEL_SPLINED_STEREOGRAPHIC= is strongly
+recommended*.
+
+- It produces accurate calibrations and truthful uncertainty reports
+- If you think you *really* need to use a lean model, mrcal can propagate the
+  resulting modeling errors all the way to triangulation
+- *lens modeling errors are correlated with each other across both time and
+  space, and they will not average out*
+
+* Computing the calibration
+** Computing the calibration
+We are ready to compute the calibration!
+
+- Run the =mrcal-calibrate-cameras= tool
+- For cross-validation you want to split your data into 2 (or more) independent
+  sets, and process those independently
+- If using a lesser lens model, calibrate both with the model you selected, and
+  with =LENSMODEL_SPLINED_STEREOGRAPHIC=. Use that to see how much error you get
+  from your model choice
 
 * Stereo                                                           :noexport:
 ** Overview
@@ -618,11 +752,18 @@ Disparity from OpenCV
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/disparity-narrow.downsampled.png
 
-* Finally                                                          :noexport:
-** Conclusions
-- We have a toolkit that can do lots of cool stuff
 
-- There's much to do still, and there's a laundry list on the documentation page.
+* outline
 
-** Thanks!
-Questions?
+cross validation
+
+uncertainty
+
+* abstract                                                         :noexport:
+- ways to examine the solution to identify and eliminate various
+  common sources of error
+
+- what to do with calibration errors that we know exist
+
+- how to detect and quantify drift in intrinsics or extrinsics
+
