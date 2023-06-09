@@ -352,8 +352,8 @@ mrcal-show-residuals-board-observation \
   --vectorscale 200 \
   --circlescale 0.5 \
   --set 'cbrange [0:2]' \
-  --hardcopy "$Dout/00001.png" \
   --title "Worst observation: LENSMODEL_OPENCV8" \
+  --hardcopy "$Dout/00001.png" \
   --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
   $D/opencv8.cameramodel \
   0
@@ -432,8 +432,8 @@ mrcal-show-residuals-board-observation \
   --vectorscale 200 \
   --circlescale 0.5 \
   --set 'cbrange [0:2]' \
-  --hardcopy "$Dout/00001.png" \
   --title "Observation in the corner: LENSMODEL_OPENCV8" \
+  --hardcopy "$Dout/00001.png" \
   --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
   $D/opencv8.cameramodel \
   10
@@ -766,8 +766,8 @@ mrcal-show-residuals-board-observation \
   --vectorscale 200 \
   --circlescale 0.5 \
   --set 'cbrange [0:2]' \
-  --hardcopy "$Dout/00002.png" \
   --title "Worst observation: LENSMODEL_SPLINED_STEREOGRAPHIC" \
+  --hardcopy "$Dout/00002.png" \
   --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
   $D/splined.cameramodel \
   0
@@ -846,8 +846,8 @@ mrcal-show-residuals-board-observation \
   --vectorscale 200 \
   --circlescale 0.5 \
   --set 'cbrange [0:2]' \
-  --hardcopy "$Dout/00002.png" \
   --title "Observation in the corner: LENSMODEL_SPLINED_STEREOGRAPHIC" \
+  --hardcopy "$Dout/00002.png" \
   --terminal 'pngcairo size 1024,550 notransparent background "#e8dfd0" noenhanced crop          font ",12"' \
   $D/splined.cameramodel \
   47
