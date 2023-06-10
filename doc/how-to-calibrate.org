@@ -805,6 +805,16 @@ mrcal.show_residuals_board_observation(optimization_inputs, 10,
                                        title =  "Effect of corner detection error at the center",
                                        terminal =  'pngcairo size 1024,550 transparent noenhanced crop          font ",12"',
                                        paths   = optimization_inputs['imagepaths'])
+mrcal.show_residuals_board_observation(optimization_inputs, 10,
+                                       vectorscale =  200,
+                                       circlescale =  0.5,
+                                       hardcopy =  "~/projects/mrcal-doc-external/figures/residuals/chessboard-detection-errors.pdf",
+                                       title =  "Effect of corner detection error at the center",
+                                       terminal =  'pdf size 8in,6in noenhanced solid color   font ",16"',
+                                       paths   = optimization_inputs['imagepaths'])
+import os
+os.system("pdfcrop ~/projects/mrcal-doc-external/figures/residuals/chessboard-detection-errors.pdf")
+
 #+end_src
 
 With a model on disk, the same could be produced with
@@ -862,6 +872,7 @@ for i (`seq 0 3`) {
     --from-worst \
     --vectorscale 40 \
     --circlescale 0.5 \
+    --title "Residuals from a rolling shutter camera" \
     --hardcopy "~/projects/mrcal-doc-external/figures/residuals/rolling-shutter-$i.png" \
     --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
     $D/splined.cameramodel \
@@ -870,10 +881,21 @@ for i (`seq 0 3`) {
     --from-worst \
     --vectorscale 40 \
     --circlescale 0.25 \
+    --title "Residuals from a rolling shutter camera" \
     --hardcopy "~/projects/mrcal-doc-external/figures/residuals/rolling-shutter-$i.svg" \
     --terminal 'svg size 800,400 noenhanced solid dynamic font ",14"' \
     $D/splined.cameramodel \
     $i
+  mrcal-show-residuals-board-observation \
+    --from-worst \
+    --vectorscale 40 \
+    --circlescale 0.25 \
+    --title "Residuals from a rolling shutter camera" \
+    --hardcopy "~/projects/mrcal-doc-external/figures/residuals/rolling-shutter-$i.pdf" \
+    --terminal 'pdf size 8in,6in noenhanced solid color   font ",16"' \
+    $D/splined.cameramodel \
+    $i
+  pdfcrop ~/projects/mrcal-doc-external/figures/residuals/rolling-shutter-$i.pdf
 }
 #+end_src
 
@@ -991,6 +1013,8 @@ for i in range(2):
 #!/usr/bin/python3
 
 import sys
+import os
+import os.path
 import mrcal
 import numpy as np
 import numpysane as nps
@@ -1051,6 +1075,7 @@ for i in range(2):
                                            from_worst  = True,
                                            vectorscale = 2,
                                            circlescale = 0.5,
+                                           title       = "Residuals from a broken camera sync",
                                            hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/sync-errors-{i}.png",
                                            terminal    = 'pngcairo size 1024,550 transparent noenhanced crop          font ",12"')
     mrcal.show_residuals_board_observation(optimization_inputs,
@@ -1058,8 +1083,18 @@ for i in range(2):
                                            from_worst  = True,
                                            vectorscale = 2,
                                            circlescale = 0.25,
+                                           title       = "Residuals from a broken camera sync",
                                            hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/sync-errors-{i}.svg",
                                            terminal    =  'svg size 800,400 noenhanced solid dynamic font ",14"')
+    mrcal.show_residuals_board_observation(optimization_inputs,
+                                           i,
+                                           from_worst  = True,
+                                           vectorscale = 2,
+                                           circlescale = 0.25,
+                                           title       = "Residuals from a broken camera sync",
+                                           hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/sync-errors-{i}.pdf",
+                                           terminal    =  'pdf size 8in,6in noenhanced solid color   font ",16"')
+    os.system(os.path.expanduser(f"pdfcrop ~/projects/mrcal-doc-external/figures/residuals/sync-errors-{i}.pdf"))
 #+end_src
 
 [[file:external/figures/residuals/sync-errors-0.svg]]
@@ -1181,6 +1216,8 @@ mrcal.show_residuals_board_observation(optimization_inputs,
 #!/usr/bin/python3
 
 import sys
+import os
+import os.path
 import mrcal
 import numpy as np
 import numpysane as nps
@@ -1219,6 +1256,15 @@ mrcal.show_residuals_board_observation(optimization_inputs,
                                        circlescale = 0.25,
                                        hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unmodeled-chessboard-shape.svg",
                                        terminal    =  'svg size 800,400 noenhanced solid dynamic font ",14"')
+mrcal.show_residuals_board_observation(optimization_inputs,
+                                       0,
+                                       from_worst  = True,
+                                       vectorscale = 100,
+                                       circlescale = 0.25,
+                                       hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unmodeled-chessboard-shape.pdf",
+                                       terminal    =  'pdf size 8in,6in noenhanced solid color   font ",16"')
+
+os.system(os.path.expanduser(f"pdfcrop ~/projects/mrcal-doc-external/figures/residuals/unmodeled-chessboard-shape.pdf"))
 #+end_src
 
 It says:
@@ -1296,6 +1342,8 @@ mrcal.show_residuals_board_observation(optimization_inputs,
 #!/usr/bin/python3
 
 import sys
+import os
+import os.path
 import mrcal
 import numpy as np
 import numpysane as nps
@@ -1349,6 +1397,14 @@ mrcal.show_residuals_board_observation(optimization_inputs,
                                        circlescale = 0.25,
                                        hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unstable-chessboard-shape.svg",
                                        terminal    =  'svg size 800,400 noenhanced solid dynamic font ",14"')
+mrcal.show_residuals_board_observation(optimization_inputs,
+                                       0,
+                                       from_worst  = True,
+                                       vectorscale = 100,
+                                       circlescale = 0.25,
+                                       hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unstable-chessboard-shape.pdf",
+                                       terminal    =  'pdf size 8in,6in noenhanced solid color   font ",16"')
+os.system(os.path.expanduser(f"pdfcrop ~/projects/mrcal-doc-external/figures/residuals/unstable-chessboard-shape.pdf"))
 #+end_src
 
 It says:
