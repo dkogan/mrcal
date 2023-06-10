@@ -862,17 +862,17 @@ the solution to find the smoking-gun images that prove the breakage
   2. The chessboard shape changes slightly over the course of the chessboard
      dance
 
-** Residuasl: unmodeled chessboard shape
+** Residuals: unmodeled chessboard shape
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/unmodeled-chessboard-shape.pdf]]
 
-** Residuasl: unstable chessboard shape
+** Residuals: unstable chessboard shape
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/unstable-chessboard-shape.pdf]]
 
-** Residuasl: chessboard shape
+** Residuals: chessboard shape
 - It's helpful to look at more than just 1 or 2 worst-case residuals
 - The most tilted chessboard observations usually show very consistent residual
   vectors along the far edge of the chessboard
