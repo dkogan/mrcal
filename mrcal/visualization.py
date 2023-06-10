@@ -979,6 +979,9 @@ def show_projection_diff(models,
                          vectorscale      = 1.0,
                          directions       = False,
                          cbmax            = 4,
+                         contour_increment     = None,
+                         contour_labels_styles = 'boxed',
+                         contour_labels_font   = None,
                          extratitle       = None,
                          return_plot_args = False,
                          **kwargs):
@@ -1117,6 +1120,18 @@ ARGUMENTS
 
 - cbmax: optional value, defaulting to 4.0. Sets the maximum range of the color
   map
+- contour_increment: optional value, defaulting to None. If given, this will be
+  used as the distance between adjacent contours. If omitted of None, a
+  reasonable value will be estimated
+
+- contour_labels_styles: optional string, defaulting to 'boxed'. The style of
+  the contour labels. This will be passed to gnuplot as f"with labels
+  {contour_labels_styles} nosurface". Can be used to box/unbox the label, set
+  the color, etc. To change the font use contour_labels_font.
+
+- contour_labels_font: optional string, defaulting to None, If given, this is
+  the font string for the contour labels. Will be passed to gnuplot as f'set
+  cntrlabel font "{contour_labels_font}"'
 
 - extratitle: optional string to include in the title of the resulting plot.
   Used to extend the default title string. If kwargs['title'] is given, it is
@@ -1257,11 +1272,14 @@ A tuple:
                 # update these plot options
                 kwargs,
 
-                contour_max  = cbmax,
-                imagersize   = models[0].imagersize(),
-                gridn_width  = gridn_width,
-                gridn_height = gridn_height,
-                do_contours  = not directions)
+                contour_max           = cbmax,
+                contour_increment     = contour_increment,
+                imagersize            = models[0].imagersize(),
+                gridn_width           = gridn_width,
+                gridn_height          = gridn_height,
+                contour_labels_styles = contour_labels_styles,
+                contour_labels_font   = contour_labels_font,
+                do_contours           = not directions)
 
         plot_data_args = [ (color, curve_options) ]
 
