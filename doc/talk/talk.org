@@ -490,7 +490,7 @@ For many of the following analyses we study the effects of sampling error. We
 - Calibrate
 - Look at the uncertainty-vs-range plots as a function of that parameter
 
-* What kind of calibration object do we want?                      :noexport:
+* What kind of calibration object do we want?
 ** How dense should our chessboard be?
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/dance-study/dance-study-scan-object_width_n-crop.pdf]]
@@ -612,7 +612,7 @@ well.
 
 Using the mrcal tools to verify that we didn't go too far
 
-* How should we capture images?                                    :noexport:
+* How should we capture images?
 ** How should we capture images?
 - Same physical settings as when using the system: aperture size, zoom, focus
 - Features should be in-focus: trade-off with uncertainty requirements from
@@ -625,7 +625,7 @@ Using the mrcal tools to verify that we didn't go too far
 
 mrcal will clearly identify these issues, if they're present in the data
 
-* How should we dance?                                             :noexport:
+* How should we dance?
 ** How much should we tilt the chessboards?
 We already saw that we want
 
@@ -644,7 +644,7 @@ Should we tilt the chessboards?
 
 Use mrcal tools to validate
 
-* Which model should we use for the lenses?                        :noexport:
+* Which model should we use for the lenses?
 ** Which model should we use for the lenses?
 Today mrcal supports
 
@@ -672,6 +672,99 @@ We are ready to compute the calibration!
 - If using a lesser lens model, calibrate both with the model you selected, and
   with =LENSMODEL_SPLINED_STEREOGRAPHIC=. Use that to see how much error you get
   from your model choice
+
+* Results interpretation
+** Interpreting the results
+
+Once we have a calibration, we should see how well we did:
+
+- We examine the projection uncertainty to make sure we have enough good data in
+  the right places
+- We examine the cross-validation diffs to confirm that the model fits
+- If these diffs are too high, we examine the residuals to find the cause of our
+  model errors
+
+You don't need to do *all* of this if you're already familiar with your system
+
+* Uncertainty
+** Projection uncertainty
+- Projection uncertainty gauges the effect of sampling error
+- This is directly affected by the quality of the data we gathered. Problems
+  with the chessboard dance will show up here
+- Lean lens models (anothing other than =LENSMODEL_SPLINED_STEREOGRAPHIC=) will
+  produce an overly-optimistic uncertainty report
+- *A low projection uncertainty is a necessary, but not sufficient condition for
+  a good calibration*: uncertainty reporting samples the input pixel noise, but
+  not the model noise
+
+If the uncertainty is unacceptable, stop there, and fix that first.
+
+** DTLA projection uncertainty: OPENCV8
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/uncertainty/uncertainty-opencv8-crop.pdf]]
+
+** DTLA projection uncertainty: splined model
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/uncertainty/uncertainty-splined-crop.pdf]]
+
+* Cross-validation
+** Cross-validation diffs
+Now we look for model errors
+
+- Any issues in the data gathering show up here
+- Unlike the uncertainty reporting, interpreting these requires some thought
+
+We want a calibration that is insensitive to model noise. We do that by making
+sure that our models fit our data: we sample the model noise, and compare the
+results
+
+** Cross-validation diffs
+- We split our input dataset, and process the subsets independently
+- Then we use the differencing method described above to compare the projection
+  behaviors
+- Intrinsics are the thing that's troublesome, so I focus on that
+
+I want to see
+
+\[E_{\mathrm{uncertainty}_0} + E_{\mathrm{uncertainty}_1} \approx E_{\mathrm{crossvalidation}}\]
+
+Let's look at the downtown LA data. We want to see a cross-validation diff of ~
+0.2 pixels.
+
+** DTLA cross-validation diffs: opencv8
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/cross-validation/diff-cross-validation-opencv8-crop.pdf]]
+
+** DTLA cross-validation diffs: splined model
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/cross-validation/diff-cross-validation-splined-crop.pdf]]
+
+** DTLA cross-validation diffs
+- Clearly the =LENSMODEL_OPENCV8= result has issues
+- But the =LENSMODEL_SPLINED_STEREOGRAPHIC= result has too-high errors too
+
+Because I captured images from too close to the lens, and we're seeing
+non-negligible noncentral behavior. Asking mrcal to model that behavior
+produces:
+
+** DTLA cross-validation diffs: splined model, noncentral
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/cross-validation/diff-cross-validation-splined-noncentral-crop.pdf]]
+
+** DTLA cross-validation diffs
+- If this calibration was important, I would get a different dataset from
+  further out
+
+** DTLA cross-validation diffs
+- Here the cross-validation diffs alerted us to the presense of a problem. They
+  are *very* good at that
+
+- Finding the cause of the problem requires some intuition and experimentation
+
+- One technique is available to help diagnose problems: examining the solve
+  residuals
 
 * Stereo                                                           :noexport:
 ** Overview
