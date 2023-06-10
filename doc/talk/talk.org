@@ -766,6 +766,136 @@ produces:
 - One technique is available to help diagnose problems: examining the solve
   residuals
 
+* Residuals
+** Residuals
+
+We usually have a *lot* of images and a *lot* of residuals. I look at the few
+worst-fitting images. Usually I only look at the residuals if
+
+- I'm calibrating an unfamiliar system
+- I don't trust something about the way the data was collected
+- Something unknown is causing issues (we're seeing too-high cross-validation
+  diffs), and we need to debug
+
+Model errors are indicated with noise that is correlated or heteroscedastic, so
+*we look for patterns in the residuals*.
+
+Let's examine the residuals we get from common problems
+
+** Poorly-fitting lens model
+We saw this in the downtown Los Angeles data
+
+- We looked at both the =LENSMODEL_OPENCV8= and
+  =LENSMODEL_SPLINED_STEREOGRAPHIC= residuals
+
+- The latter was much better, but still showed patterns
+
+Earlier residual plots follow below
+
+** =LENSMODEL_OPENCV8=: the worst image
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/worst-opencv8.png]]
+
+** =LENSMODEL_SPLINED_...=: the worst image
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/worst-splined.png]]
+
+** =LENSMODEL_OPENCV8=: the worst image in a corner
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
+
+** =LENSMODEL_SPLINED_...=: the worst image in a corner
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/worst-incorner-splined.png]]
+
+** =LENSMODEL_OPENCV8=: residual directions
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
+
+** =LENSMODEL_SPLINED_...=: residual directions
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/directions-splined-crop.pdf]]
+
+** Rolling shutter
+
+Some cameras save money on memory by sending pixel data as it is captured. The
+result: *rolling shutter cameras capture different parts of the image at
+different times*.
+
+This produces funky residuals:
+
+** Rolling shutter
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/residuals/rolling-shutter-0.pdf]]
+
+** Rolling shutter
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/residuals/rolling-shutter-2.pdf]]
+
+** Rolling shutter
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/residuals/rolling-shutter-3.pdf]]
+
+** Syncronization errors
+- In a multi-camera calibrations we assume that sets of images were captured at
+  the same instant in time
+- This requires a shared physical wire that each camera uses to initiate image
+  capture
+
+If this doesn't work right we get the tell-tale residuals, and we can examine
+the solution to find the smoking-gun images that prove the breakage
+
+** Syncronization errors
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/residuals/sync-errors-0.pdf]]
+
+** Syncronization errors
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/residuals/sync-errors-1.pdf]]
+
+
+* perfectly corrupted solves                                       :noexport:
+
+For most of the below I'm going to show the usual calibration residuals we would
+expect to see if we had some particular kind of issue. We do this by simulating
+/perfect/ calibration data, corrupting it with the kind of problem we're
+demonstrating, recalibrating, and visualizing the result. Below I do this in
+Python using the [[file:mrcal-python-api-reference.html#-make_perfect_observations][=mrcal.make_perfect_observations()=]] function. These could
+equivalently have been made using the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-reoptimize][=mrcal-reoptimize=]] tool:
+
+#+begin_example
+$ mrcal/analyses/mrcal-reoptimize \
+    --explore                     \
+    --perfect                     \
+    splined.cameramodel
+
+... Have REPL looking at perfect data. Add flaw, reoptimize, visualize here. 
+#+end_example
+
+This technique is powerful and is useful for more than just making plots for
+this documentation. We can also use it to quantify the errors that would result
+from problems that we suspect exist. We can compare those to the
+[[file:tour-cross-validation.org][cross-validation errors]] that we observe to get a hint about what is causing the
+problem.
+
+For instance, you might have a system where you're not confident that your
+chessboard is flat or that your lens model fits or that your camera sync works
+right. You probably see high [[file:tour-cross-validation.org][cross-validation diffs]], but don't have a sense of
+which factor is most responsible for the issues. We can simulate this, to see if
+the suspected issues would cause errors as high as what is observed. Let's say
+you placed a straight edge across your chessboard, and you see a deflection at
+the center of ~ 3mm. mrcal doesn't assume a flat chessboard, but its deformation
+model is simple, and even in this case it can be off by 1mm. Let's hypothesize
+that the board deflection is 0.5mm horizontally and 0.5mm vertically, in the
+other direction. We can then use the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-reoptimize][=mrcal-reoptimize= tool]] to quantify the
+resulting error, and we can compare the simulated cross-validation diff to the
+one we observe. We might discover that the expected chessboard deformation
+produces cross-validation errors that are smaller than what we observe. In that
+case, we should keep looking. But if we see the simulated cross-validation diff
+of the same order of magnitude that we observe, then we know it's time to fix
+the chessboard.
+
+
 * Stereo                                                           :noexport:
 ** Overview
 mrcal can do some basic stereo processing. At its core, it's the usual epipolar
