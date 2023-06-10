@@ -662,7 +662,7 @@ recommended*.
 - *lens modeling errors are correlated with each other across both time and
   space, and they will not average out*
 
-* Computing the calibration
+* Calibrating
 ** Computing the calibration
 We are ready to compute the calibration!
 
