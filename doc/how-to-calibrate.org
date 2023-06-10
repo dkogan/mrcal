@@ -1383,6 +1383,15 @@ mrcal-show-projection-diff \
   ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel \
   --hardcopy ~/projects/mrcal-doc-external/figures/residuals/unstable-chessboard-shape-diff.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+mrcal-show-projection-diff \
+  --no-uncertainties \
+  --radius 500 \
+  --unset key \
+  /tmp/unstable-chessboard-shape.cameramodel \
+  ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel \
+  --hardcopy ~/projects/mrcal-doc-external/figures/residuals/unstable-chessboard-shape-diff.pdf \
+  --terminal 'pdf size 8in,6in noenhanced solid color   font ",16"'
+pdfcrop ~/projects/mrcal-doc-external/figures/residuals/unstable-chessboard-shape-diff.pdf
 #+end_src
 
 [[file:external/figures/residuals/unstable-chessboard-shape-diff.png]]
