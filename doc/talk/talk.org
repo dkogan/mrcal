@@ -782,7 +782,7 @@ Model errors are indicated with noise that is correlated or heteroscedastic, so
 
 Let's examine the residuals we get from common problems
 
-** Poorly-fitting lens model
+** Residuals: poorly-fitting lens model
 We saw this in the downtown Los Angeles data
 
 - We looked at both the =LENSMODEL_OPENCV8= and
@@ -792,52 +792,52 @@ We saw this in the downtown Los Angeles data
 
 Earlier residual plots follow below
 
-** =LENSMODEL_OPENCV8=: the worst image
+** Residuals: =LENSMODEL_OPENCV8=: the worst image
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-opencv8.png]]
 
-** =LENSMODEL_SPLINED_...=: the worst image
+** Residuals: =LENSMODEL_SPLINED_...=: the worst image
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-splined.png]]
 
-** =LENSMODEL_OPENCV8=: the worst image in a corner
+** Residuals: =LENSMODEL_OPENCV8=: the worst image in a corner
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
 
-** =LENSMODEL_SPLINED_...=: the worst image in a corner
+** Residuals: =LENSMODEL_SPLINED_...=: the worst image in a corner
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-splined.png]]
 
-** =LENSMODEL_OPENCV8=: residual directions
+** Residuals: =LENSMODEL_OPENCV8=: residual directions
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
 
-** =LENSMODEL_SPLINED_...=: residual directions
+** Residuals: =LENSMODEL_SPLINED_...=: residual directions
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/directions-splined-crop.pdf]]
 
-** Rolling shutter
+** Residuals: rolling shutter
 
 Some cameras save money on memory by sending pixel data as it is captured. The
 result: *rolling shutter cameras capture different parts of the image at
 different times*.
 
-This produces funky residuals:
+This produces funky residuals
 
-** Rolling shutter
+** Residuals: rolling shutter
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/rolling-shutter-0.pdf]]
 
-** Rolling shutter
+** Residuals: rolling shutter
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/rolling-shutter-2.pdf]]
 
-** Rolling shutter
+** Residuals: rolling shutter
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/rolling-shutter-3.pdf]]
 
-** Syncronization errors
-- In a multi-camera calibrations we assume that sets of images were captured at
+** Residuals: syncronization errors
+- In a multi-camera calibration we assume that sets of images were captured at
   the same instant in time
 - This requires a shared physical wire that each camera uses to initiate image
   capture
@@ -845,14 +845,37 @@ This produces funky residuals:
 If this doesn't work right we get the tell-tale residuals, and we can examine
 the solution to find the smoking-gun images that prove the breakage
 
-** Syncronization errors
+** Residuals: syncronization errors
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/sync-errors-0.pdf]]
 
-** Syncronization errors
+** Residuals: syncronization errors
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/sync-errors-1.pdf]]
 
+** Residuals: chessboard shape
+- Errors in chessboard shape are difficult to disentangle from errors in
+  intrinsics
+- Let's look at characteristic residuals for two scenarios:
+
+  1. The chessboard is slightly non-flat, but in a way not modeled by the solver
+  2. The chessboard shape changes slightly over the course of the chessboard
+     dance
+
+** Residuasl: unmodeled chessboard shape
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/residuals/unmodeled-chessboard-shape.pdf]]
+
+** Residuasl: unstable chessboard shape
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/residuals/unstable-chessboard-shape.pdf]]
+
+** Residuals: chessboard shape
+- It's helpful to look at more than just 1 or 2 worst-case residuals
+- The most tilted chessboard observations usually show very consistent residual
+  vectors along the far edge of the chessboard
 
 * perfectly corrupted solves                                       :noexport:
 
