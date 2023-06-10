@@ -1209,7 +1209,7 @@ mrcal.optimize(**optimization_inputs)
 mrcal.show_residuals_board_observation(optimization_inputs,
                                        0,
                                        from_worst  = True,
-                                       vectorscale = 100,
+                                       vectorscale = 200,
                                        circlescale = 0.5)
 #+end_src
 #+begin_src python :exports none :eval no-export
@@ -1245,21 +1245,21 @@ mrcal.cameramodel(optimization_inputs = optimization_inputs,
 mrcal.show_residuals_board_observation(optimization_inputs,
                                        0,
                                        from_worst  = True,
-                                       vectorscale = 100,
+                                       vectorscale = 200,
                                        circlescale = 0.5,
                                        hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unmodeled-chessboard-shape.png",
                                        terminal    = 'pngcairo size 1024,550 transparent noenhanced crop          font ",12"')
 mrcal.show_residuals_board_observation(optimization_inputs,
                                        0,
                                        from_worst  = True,
-                                       vectorscale = 100,
+                                       vectorscale = 200,
                                        circlescale = 0.25,
                                        hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unmodeled-chessboard-shape.svg",
                                        terminal    =  'svg size 800,400 noenhanced solid dynamic font ",14"')
 mrcal.show_residuals_board_observation(optimization_inputs,
                                        0,
                                        from_worst  = True,
-                                       vectorscale = 100,
+                                       vectorscale = 200,
                                        circlescale = 0.25,
                                        hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unmodeled-chessboard-shape.pdf",
                                        terminal    =  'pdf size 8in,6in noenhanced solid color   font ",16"')
@@ -1335,7 +1335,7 @@ mrcal.cameramodel(optimization_inputs = optimization_inputs,
 mrcal.show_residuals_board_observation(optimization_inputs,
                                        0,
                                        from_worst  = True,
-                                       vectorscale = 100,
+                                       vectorscale = 200,
                                        circlescale = 0.5)
 #+end_src
 #+begin_src python :exports none :eval no-export
@@ -1386,21 +1386,21 @@ mrcal.cameramodel(optimization_inputs = optimization_inputs,
 mrcal.show_residuals_board_observation(optimization_inputs,
                                        0,
                                        from_worst  = True,
-                                       vectorscale = 100,
+                                       vectorscale = 200,
                                        circlescale = 0.5,
                                        hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unstable-chessboard-shape.png",
                                        terminal    = 'pngcairo size 1024,550 transparent noenhanced crop          font ",12"')
 mrcal.show_residuals_board_observation(optimization_inputs,
                                        0,
                                        from_worst  = True,
-                                       vectorscale = 100,
+                                       vectorscale = 200,
                                        circlescale = 0.25,
                                        hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unstable-chessboard-shape.svg",
                                        terminal    =  'svg size 800,400 noenhanced solid dynamic font ",14"')
 mrcal.show_residuals_board_observation(optimization_inputs,
                                        0,
                                        from_worst  = True,
-                                       vectorscale = 100,
+                                       vectorscale = 200,
                                        circlescale = 0.25,
                                        hardcopy    = f"~/projects/mrcal-doc-external/figures/residuals/unstable-chessboard-shape.pdf",
                                        terminal    =  'pdf size 8in,6in noenhanced solid color   font ",16"')
