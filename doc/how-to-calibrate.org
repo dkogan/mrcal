@@ -993,7 +993,8 @@ model = mrcal.cameramodel('splined.cameramodel')
 optimization_inputs = model.optimization_inputs()
 
 binocular_from_monocular(optimization_inputs)
-mrcal.make_perfect_observations(optimization_inputs)
+mrcal.make_perfect_observations(optimization_inputs,
+                                observed_pixel_uncertainty = 0)
 add_imperfection(optimization_inputs)
 
 optimization_inputs['do_apply_outlier_rejection'] = False
@@ -1060,10 +1061,12 @@ model = mrcal.cameramodel('/home/dima/projects/mrcal-doc-external/2022-11-05--dt
 optimization_inputs = model.optimization_inputs()
 
 binocular_from_monocular(optimization_inputs)
-mrcal.make_perfect_observations(optimization_inputs)
+mrcal.make_perfect_observations(optimization_inputs,
+                                observed_pixel_uncertainty = 0)
 add_imperfection(optimization_inputs)
 
 optimization_inputs['do_apply_outlier_rejection'] = False
+optimization_inputs['verbose']                    = True
 mrcal.optimize(**optimization_inputs)
 
 mrcal.cameramodel(optimization_inputs = optimization_inputs,
