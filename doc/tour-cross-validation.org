@@ -78,8 +78,17 @@ mrcal-show-projection-diff                            \
   --cbmax 2                          \
   --unset key                                         \
   $D/[23]-f22-infinity/opencv8.cameramodel            \
+  --title "Cross-validation for LENSMODEL_OPENCV8"    \
   --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-opencv8.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+mrcal-show-projection-diff                            \
+  --cbmax 2                          \
+  --unset key                                         \
+  $D/[23]-f22-infinity/opencv8.cameramodel            \
+  --title "Cross-validation for LENSMODEL_OPENCV8"    \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-opencv8.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
+pdfcrop ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-opencv8.pdf
 #+end_src
 
 [[file:external/figures/cross-validation/diff-cross-validation-opencv8.png]]
@@ -110,8 +119,17 @@ mrcal-show-projection-diff                            \
   --cbmax 2                                           \
   --unset key                                         \
   $D/[23]-f22-infinity/splined.cameramodel            \
+  --title "Cross-validation for LENSMODEL_SPLINED_STEREOGRAPHIC" \
   --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-splined.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+mrcal-show-projection-diff                            \
+  --cbmax 2                                           \
+  --unset key                                         \
+  $D/[23]-f22-infinity/splined.cameramodel            \
+  --title "Cross-validation for LENSMODEL_SPLINED_STEREOGRAPHIC" \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-splined.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
+pdfcrop ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-splined.pdf
 #+end_src
 
 [[file:external/figures/cross-validation/diff-cross-validation-splined.png]]
@@ -165,8 +183,20 @@ mrcal-show-projection-diff                                                      
   --unset key                                                                                                    \
   <(c $D/2-*/splined-noncentral.cameramodel)                                                                     \
   <(c $D/3-*/splined-noncentral.cameramodel)                                                                     \
+  --title "Cross-validation for LENSMODEL_SPLINED_STEREOGRAPHIC, noncentral"                                     \
   --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-splined-noncentral.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+mrcal-show-projection-diff                                                                                       \
+  --no-uncertainties                                                                                             \
+  --radius 500                                                                                                   \
+  --cbmax 2                                                                                                      \
+  --unset key                                                                                                    \
+  <(c $D/2-*/splined-noncentral.cameramodel)                                                                     \
+  <(c $D/3-*/splined-noncentral.cameramodel)                                                                     \
+  --title "Cross-validation for LENSMODEL_SPLINED_STEREOGRAPHIC, noncentral"                                     \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-splined-noncentral.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
+pdfcrop ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-validation-splined-noncentral.pdf
 #+end_src
 
 [[file:external/figures/cross-validation/diff-cross-validation-splined-noncentral.png]]
