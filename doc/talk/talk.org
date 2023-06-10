@@ -711,8 +711,9 @@ If the uncertainty is unacceptable, stop there, and fix that first.
 
 * Cross-validation
 ** Cross-validation diffs
-Now we look for model errors
+- Now we look for model errors
 
+** Cross-validation diffs: detecting model errors
 - Any issues in the data gathering show up here
 - Unlike the uncertainty reporting, interpreting these requires some thought
 
@@ -720,7 +721,7 @@ We want a calibration that is insensitive to model noise. We do that by making
 sure that our models fit our data: we sample the model noise, and compare the
 results
 
-** Cross-validation diffs
+** Cross-validation diffs: detecting model errors
 - We split our input dataset, and process the subsets independently
 - Then we use the differencing method described above to compare the projection
   behaviors
@@ -763,10 +764,11 @@ produces:
 
 - Finding the cause of the problem requires some intuition and experimentation
 
+* Residuals
+** Residuals
 - One technique is available to help diagnose problems: examining the solve
   residuals
 
-* Residuals
 ** Residuals
 
 We usually have a *lot* of images and a *lot* of residuals. I look at the few
@@ -853,7 +855,7 @@ the solution to find the smoking-gun images that prove the breakage
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/sync-errors-1.pdf]]
 
-** Residuals: chessboard shape
+** Residuals: chessboard shape errors
 - Errors in chessboard shape are difficult to disentangle from errors in
   intrinsics
 - Let's look at characteristic residuals for two scenarios:
@@ -862,61 +864,36 @@ the solution to find the smoking-gun images that prove the breakage
   2. The chessboard shape changes slightly over the course of the chessboard
      dance
 
-** Residuals: unmodeled chessboard shape
+** Residuals: errors due to unmodeled chessboard shape
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/unmodeled-chessboard-shape.pdf]]
 
-** Residuals: unstable chessboard shape
+** Residuals: errors due to unstable chessboard shape
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/unstable-chessboard-shape.pdf]]
 
-** Residuals: chessboard shape
-- It's helpful to look at more than just 1 or 2 worst-case residuals
+** Residuals: chessboard shape errors. Conclusions
+- These are hard to conclusively pick out from residual plots
+- It's helpful to look at more than just 1 or 2 worst-case images
 - The most tilted chessboard observations usually show very consistent residual
   vectors along the far edge of the chessboard
 
-* perfectly corrupted solves                                       :noexport:
+** Perfectly-corrupted solves
+- mrcal can report the errors from a solve containing *only one kind* of
+  hypothetical error
+- This tells us the effect of problems we think may exist
 
-For most of the below I'm going to show the usual calibration residuals we would
-expect to see if we had some particular kind of issue. We do this by simulating
-/perfect/ calibration data, corrupting it with the kind of problem we're
-demonstrating, recalibrating, and visualizing the result. Below I do this in
-Python using the [[file:mrcal-python-api-reference.html#-make_perfect_observations][=mrcal.make_perfect_observations()=]] function. These could
-equivalently have been made using the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-reoptimize][=mrcal-reoptimize=]] tool:
+If we suspect we might have a chessboard modeling error, we can see what errors
+we would get if we *did* have this error:
 
-#+begin_example
-$ mrcal/analyses/mrcal-reoptimize \
-    --explore                     \
-    --perfect                     \
-    splined.cameramodel
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/residuals/unstable-chessboard-shape-diff-crop.pdf]]
 
-... Have REPL looking at perfect data. Add flaw, reoptimize, visualize here. 
-#+end_example
+From a board shape error of 1mm in the center in one direction, and 0.5mm in the
+center in the other direction
 
-This technique is powerful and is useful for more than just making plots for
-this documentation. We can also use it to quantify the errors that would result
-from problems that we suspect exist. We can compare those to the
-[[file:tour-cross-validation.org][cross-validation errors]] that we observe to get a hint about what is causing the
-problem.
-
-For instance, you might have a system where you're not confident that your
-chessboard is flat or that your lens model fits or that your camera sync works
-right. You probably see high [[file:tour-cross-validation.org][cross-validation diffs]], but don't have a sense of
-which factor is most responsible for the issues. We can simulate this, to see if
-the suspected issues would cause errors as high as what is observed. Let's say
-you placed a straight edge across your chessboard, and you see a deflection at
-the center of ~ 3mm. mrcal doesn't assume a flat chessboard, but its deformation
-model is simple, and even in this case it can be off by 1mm. Let's hypothesize
-that the board deflection is 0.5mm horizontally and 0.5mm vertically, in the
-other direction. We can then use the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-reoptimize][=mrcal-reoptimize= tool]] to quantify the
-resulting error, and we can compare the simulated cross-validation diff to the
-one we observe. We might discover that the expected chessboard deformation
-produces cross-validation errors that are smaller than what we observe. In that
-case, we should keep looking. But if we see the simulated cross-validation diff
-of the same order of magnitude that we observe, then we know it's time to fix
-the chessboard.
 
 
 * Stereo                                                           :noexport:
