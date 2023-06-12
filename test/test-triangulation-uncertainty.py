@@ -201,7 +201,7 @@ if args.make_documentation_plots:
     print(f"Will write documentation plots to {args.make_documentation_plots_path}-xxxx.pdf and .png and .svg")
 
     if terminal['svg'] is None: terminal['svg'] = 'svg size 800,600       noenhanced solid dynamic    font ",14"'
-    if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color      font ",12"'
+    if terminal['pdf'] is None: terminal['pdf'] = 'pdf size 8in,6in       noenhanced solid color      font ",16"'
     if terminal['png'] is None: terminal['png'] = 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
 else:
     args.make_documentation_plots_extratitle = None
@@ -905,6 +905,9 @@ if args.make_documentation_plots is not None:
                      multiplot = f'layout 1,2',
                      unset = 'grid',
                      **processoptions )
+            if processoptions.get('hardcopy') and extension == 'pdf':
+                os.system(f"pdfcrop {processoptions['hardcopy']}")
+
         else:
             # Interactive plotting, so no multiplots. Interactive plots
             for p in subplots:
@@ -920,6 +923,8 @@ if args.make_documentation_plots is not None:
                       xlabel = 'Variable index (left point x,y,z; right point x,y,z)',
                       ylabel = 'Variable index (left point x,y,z; right point x,y,z)',
                       **processoptions)
+        if processoptions.get('hardcopy') and extension == 'pdf':
+            os.system(f"pdfcrop {processoptions['hardcopy']}")
 
 
         processoptions = copy.deepcopy(processoptions_base)
@@ -961,6 +966,8 @@ if args.make_documentation_plots is not None:
                 xlabel          = "Range to the left triangulated point (m)",
                 ylabel          = "Frequency",
                 **processoptions)
+        if processoptions.get('hardcopy') and extension == 'pdf':
+            os.system(f"pdfcrop {processoptions['hardcopy']}")
 
         processoptions = copy.deepcopy(processoptions_base)
         binwidth = np.sqrt(Var_distance) / 4.
@@ -987,6 +994,8 @@ if args.make_documentation_plots is not None:
                 xlabel          = "Distance between triangulated points (m)",
                 ylabel          = "Frequency",
                 **processoptions)
+        if processoptions.get('hardcopy') and extension == 'pdf':
+            os.system(f"pdfcrop {processoptions['hardcopy']}")
 
     if args.make_documentation_plots:
         for extension in ('pdf','svg','png','gp'):
