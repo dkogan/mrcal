@@ -1443,6 +1443,7 @@ mrcal-show-projection-diff                   \
 mrcal-show-projection-diff \
   --no-uncertainties \
   --radius 500 \
+  --title "Projection error due to a dynamic chessboard shape error" \
   --unset key \
   /tmp/unstable-chessboard-shape.cameramodel \
   ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel \
@@ -1451,6 +1452,7 @@ mrcal-show-projection-diff \
 mrcal-show-projection-diff \
   --no-uncertainties \
   --radius 500 \
+  --title "Projection error due to a dynamic chessboard shape error" \
   --unset key \
   /tmp/unstable-chessboard-shape.cameramodel \
   ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel \
