@@ -94,7 +94,7 @@ monocular
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/stereo/0.downsampled.jpg]]
 
-** Gathering and detecting chessboard Corners
+** Gathering and detecting chessboard corners
 We capture images, and use [[https://github.com/dkogan/mrgingham/][mrgingham]] to detect chessboard corners. For an
 arbitrary image:
 
