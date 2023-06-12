@@ -83,11 +83,16 @@ captured using
 - Just one camera
 - Outdoor images captured in downtown Los Angeles
 
+** Demo calibration
 mrcal can calibrate multiple cameras simultaneously; just this example is
 monocular
 
 - The [[http://mrcal.secretsauce.net][mrcal website]] contains details and all the commands used to produce the
   following results
+
+** Sample image of the scene
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/stereo/0.downsampled.jpg]]
 
 ** Gathering and detecting chessboard Corners
 We capture images, and use [[https://github.com/dkogan/mrgingham/][mrgingham]] to detect chessboard corners. For an
@@ -655,12 +660,6 @@ Unless you really need compatibility with a legacy system or you have low
 accuracy requirements, *=LENSMODEL_SPLINED_STEREOGRAPHIC= is strongly
 recommended*.
 
-- It produces accurate calibrations and truthful uncertainty reports
-- If you think you *really* need to use a lean model, mrcal can propagate the
-  resulting modeling errors all the way to triangulation
-- *lens modeling errors are correlated with each other across both time and
-  space, and they will not average out*
-
 * Calibrating
 ** Computing the calibration
 We are ready to compute the calibration!
@@ -710,22 +709,14 @@ If the uncertainty is unacceptable, stop there, and fix that first.
 
 * Cross-validation
 ** Cross-validation diffs
-- Now we look for model errors
+Now we look for model errors
 
-** Cross-validation diffs: detecting model errors
-- Any issues in the data gathering show up here
+- We split our input dataset, and process the subsets independently: this
+  samples the model error
+- We use the differencing method to compare the projection behaviors
 - Unlike the uncertainty reporting, interpreting these requires some thought
 
-We want a calibration that is insensitive to model noise. We do that by making
-sure that our models fit our data: we sample the model noise, and compare the
-results
-
 ** Cross-validation diffs: detecting model errors
-- We split our input dataset, and process the subsets independently
-- Then we use the differencing method described above to compare the projection
-  behaviors
-- Intrinsics are the thing that's troublesome, so I focus on that
-
 I want to see
 
 \[E_{\mathrm{uncertainty}_0} + E_{\mathrm{uncertainty}_1} \approx E_{\mathrm{crossvalidation}}\]
@@ -733,7 +724,7 @@ I want to see
 Let's look at the downtown LA data. We want to see a cross-validation diff of ~
 0.2 pixels.
 
-** DTLA cross-validation diffs: opencv8
+** DTLA cross-validation diffs: OPENCV8
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/cross-validation/diff-cross-validation-opencv8-crop.pdf]]
 
@@ -797,25 +788,13 @@ Earlier residual plots follow below
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-opencv8.png]]
 
-** Residuals: =LENSMODEL_SPLINED_...=: the worst image
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/calibration/worst-splined.png]]
-
 ** Residuals: =LENSMODEL_OPENCV8=: the worst image in a corner
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
 
-** Residuals: =LENSMODEL_SPLINED_...=: the worst image in a corner
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/calibration/worst-incorner-splined.png]]
-
 ** Residuals: =LENSMODEL_OPENCV8=: residual directions
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
-
-** Residuals: =LENSMODEL_SPLINED_...=: residual directions
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/calibration/directions-splined-crop.pdf]]
 
 ** Residuals: rolling shutter
 
@@ -978,7 +957,7 @@ rough expected-error map:
 1. Compute $\frac{\partial\mathrm{range}}{\partial\mathrm{azimuth}}$ from the
    triangulation expression
 2. Estimate triangulation pixel error, combining expected sampling error and
-   calibration error. This gives us an estimate of $\Delta \mathrm{azimuth}
+   calibration error. This gives us an estimate of $\Delta \mathrm{azimuth}$
 3. $\Delta \mathrm{range} \approx \frac{\partial\mathrm{range}}{\partial\mathrm{azimuth}} \Delta \mathrm{azimuth}$
 
 ** Scene-aware error propagation
