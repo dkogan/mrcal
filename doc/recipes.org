@@ -475,8 +475,48 @@ mrcal-show-projection-diff                                                      
   --unset key                                                                                                    \
   <(c $D/3-*/splined-noncentral.cameramodel)                                                                     \
   <(c $D/4-*/splined-noncentral.cameramodel)                                                                     \
+  --title "Lens intrinsics drift"                                                                                \
   --hardcopy ~/projects/mrcal-doc-external/figures/lens-stability/diff-dance34-splined-noncentral.png \
   --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+
+mrcal-show-projection-diff                                                                            \
+  --vectorfield                                                                                       \
+  --vectorscale 200                                                                                   \
+  --no-uncertainties                                                                                  \
+  --radius 500                                                                                        \
+  --cbmax 2                                                                                           \
+  --unset key                                                                                         \
+  <(c $D/3-*/splined-noncentral.cameramodel)                                                          \
+  <(c $D/4-*/splined-noncentral.cameramodel)                                                          \
+  --title "Lens intrinsics drift"                                                                     \
+  --hardcopy ~/projects/mrcal-doc-external/figures/lens-stability/diff-dance34-splined-noncentral-vectorfield.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+
+mrcal-show-projection-diff                                                                                       \
+  --no-uncertainties                                                                                             \
+  --radius 500                                                                                                   \
+  --cbmax 2                                                                                                      \
+  --unset key                                                                                                    \
+  <(c $D/3-*/splined-noncentral.cameramodel)                                                                     \
+  <(c $D/4-*/splined-noncentral.cameramodel)                                                                     \
+  --title "Lens intrinsics drift"                                                                                \
+  --hardcopy ~/projects/mrcal-doc-external/figures/lens-stability/diff-dance34-splined-noncentral.pdf \
+  --terminal 'pdf size 8in,6in noenhanced solid color   font ",16"'
+pdfcrop ~/projects/mrcal-doc-external/figures/lens-stability/diff-dance34-splined-noncentral.pdf
+
+mrcal-show-projection-diff                                                                            \
+  --vectorfield                                                                                       \
+  --vectorscale 200                                                                                   \
+  --no-uncertainties                                                                                  \
+  --radius 500                                                                                        \
+  --cbmax 2                                                                                           \
+  --unset key                                                                                         \
+  <(c $D/3-*/splined-noncentral.cameramodel)                                                          \
+  <(c $D/4-*/splined-noncentral.cameramodel)                                                          \
+  --title "Lens intrinsics drift"                                                                     \
+  --hardcopy ~/projects/mrcal-doc-external/figures/lens-stability/diff-dance34-splined-noncentral-vectorfield.pdf \
+  --terminal 'pdf size 8in,6in noenhanced solid color   font ",16"'
+pdfcrop ~/projects/mrcal-doc-external/figures/lens-stability/diff-dance34-splined-noncentral-vectorfield.pdf
 #+end_src
 
 [[file:external/figures/lens-stability/diff-dance34-splined-noncentral.png]]
