@@ -36,20 +36,20 @@ Common applications:
 
 ** Why does mrcal exist?
 
-- I couldn't find a set of tools precise-enough to make my visual ranging work
-  possible, so I wrote my own
+I couldn't find a set of tools precise-enough to make my visual ranging work
+possible, so I wrote my own
 
-- By necessity, mrcal is a complete re-design and re-implementation of camera
-  modeling tooling from the ground-up:
+By necessity, mrcal is a complete re-design and re-implementation of camera
+modeling tooling from the ground-up:
 
-  - Richer camera model available to precisely model lens behavior
-  - Uncertainty propagation and cross-validation techniques available to
-    validate a calibration
-  - Fisheye-friendly stereo rectification
-  - No implicit pinhole assumption anywhere (no homogeneous coordinates,
-    essential, fundamental matrices, etc)
-  - Lots of analysis techniques available, including extensive visualization
-    facilities
+- Richer camera model available to precisely model lens behavior
+- Uncertainty propagation and cross-validation techniques available to
+  validate a calibration
+- Fisheye-friendly stereo rectification
+- No implicit pinhole assumption anywhere (no homogeneous coordinates,
+  essential, fundamental matrices, etc)
+- Lots of analysis techniques available, including extensive visualization
+  facilities
 
 ** Computing details
 
