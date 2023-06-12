@@ -287,15 +287,14 @@ mrcal-show-projection-uncertainty \
   $D/opencv8.cameramodel \
   --cbmax 1 \
   --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.pdf \
-  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 mrcal-show-projection-uncertainty \
   $D/opencv8.cameramodel \
   --cbmax 1 \
   --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.png \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
-
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
 pdfcrop ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-opencv8.pdf
 #+end_src
 
@@ -319,15 +318,14 @@ mrcal-show-projection-uncertainty \
   $D/splined.cameramodel \
   --cbmax 1 \
   --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.pdf \
-  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
 mrcal-show-projection-uncertainty \
   $D/splined.cameramodel \
   --cbmax 1 \
   --unset key \
-  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.png \
-  --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"'
-
+  --hardcopy ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
 pdfcrop ~/projects/mrcal-doc-external/figures/uncertainty/uncertainty-splined.pdf
 #+end_src
 
