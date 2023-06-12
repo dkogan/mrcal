@@ -20,7 +20,7 @@
 #+LaTeX_HEADER: \renewcommand{\url}[1]{\href{#1}{\tt{#1}}}
 
 # I want a visible gap between paragraphs
-#+LaTeX_HEADER: \setlength{\parskip}{\smallskipamount}
+#+LaTeX_HEADER: \setlength{\parskip}{\bigskipamount}
 
 * Overview
 ** What is mrcal for?
