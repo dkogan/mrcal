@@ -1035,6 +1035,28 @@ def write_output_one(func, filename):
     os.system(f"convert {filename} -scale 50% {filename_downsampled}")
     print(f"Wrote '{filename_downsampled}'")
 
+def makeplot(x,
+             filename_plot_base,
+             ,**kwargs):
+
+    def plot(extension, terminal):
+
+        filename_plot = f"{filename_plot_base}.{extension}"
+        gp.plot( x,
+                 square   = True,
+                 _with = 'image',
+                 tuplesize = 3,
+                 hardcopy  = filename_plot,
+                 terminal =  terminal,
+                 ,**kwargs)
+        print(f"Wrote '{filename_plot}'")
+        if extension == 'pdf':
+            os.system(f"pdfcrop {filename_plot}")
+
+    plot('png', 'pngcairo size 1024,768 transparent noenhanced crop font ",12"')
+    plot('pdf', 'pdf size 8in,6in noenhanced solid color   font ",16"')
+
+
 write_output_one(lambda filename: mrcal.save_image(filename, images_rectified[0]),
                  f"{Dout}/{image_filenames_base[0]}-rectified.png")
 write_output_one(lambda filename: mrcal.save_image(filename, images_rectified[1]),
@@ -1042,6 +1064,13 @@ write_output_one(lambda filename: mrcal.save_image(filename, images_rectified[1]
 write_output_one(lambda filename: mrcal.save_image(filename, disparity_colored),
                  f"{Dout}/{image_filenames_base[0]}-disparity.png")
 
+makeplot( disparity / disparity_scale,
+          filename_plot_base = f"{Dout}/disparity",
+          _set = ('xrange noextend',
+                  'yrange reverse noextend',
+                  'cblabel "Disparity (pixels)"'),
+          title = f"Disparity",
+          cbrange = [disp_min,disp_max] )
 
 ranges0 = mrcal.stereo_range( disparity,
                               models_rectified,
@@ -1057,22 +1086,15 @@ drange_ddisparity = (ranges0-ranges1) / delta
 idx_valid = (disparity > 0) * (disparity < 30000)
 drange_ddisparity[~idx_valid] = 0
 
-filename_plot = f"{Dout}/sensitivity.png"
-title = f"Expected range error assuming disparity error of {disparity_error_expected} pixels"
-gp.plot( drange_ddisparity * disparity_error_expected,
-         square   = True,
-         _set = ('xrange noextend',
-                 'yrange reverse noextend',
-                 'logscale cb',
-                 'cblabel "Expected range error (m)"',
-                 'cbtics (.3, 1, 10, 100, 500)'),
-         cbrange = [0.3,500],
-         _with = 'image',
-         tuplesize = 3,
-         title     = title,
-         hardcopy  = filename_plot,
-         terminal =  'pngcairo size 1024,768 transparent noenhanced crop font ",12"')
-print(f"Wrote '{filename_plot}'")
+makeplot( drange_ddisparity * disparity_error_expected,
+          filename_plot_base = f"{Dout}/sensitivity",
+          _set = ('xrange noextend',
+                  'yrange reverse noextend',
+                  'logscale cb',
+                  'cblabel "Expected range error (m)"',
+                  'cbtics (.3, 1, 10, 100, 500)'),
+          title = f"Expected range error assuming disparity error of {disparity_error_expected} pixels",
+          cbrange = [0.3,500] )
 #+end_src
 
 The rectified images look like this:
