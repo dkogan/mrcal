@@ -880,20 +880,142 @@ the solution to find the smoking-gun images that prove the breakage
   vectors along the far edge of the chessboard
 
 ** Perfectly-corrupted solves
-- mrcal can report the errors from a solve containing *only one kind* of
-  hypothetical error
-- This tells us the effect of problems we think may exist
+mrcal can report the errors from a solve containing /only one kind/ of
+hypothetical error. This measures the effect of problems we think may exist
 
-If we suspect we might have a chessboard modeling error, we can see what errors
-we would get if we *did* have this error:
+A board shape error of 1mm in the center in one direction, and 0.5mm in the
+center in the other direction does this:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/unstable-chessboard-shape-diff-crop.pdf]]
 
-From a board shape error of 1mm in the center in one direction, and 0.5mm in the
-center in the other direction
+* Recipes
+** Camera stability
+Let's switch gears, and look at some applications
 
+Let's use the differencing method to gauge stability of intrinsics:
 
+- If we stress a camera system (mechanically, thermally, etc), does its behavior
+  change?
+
+** Stability of intrinsics
+As a baseline, once again here's the cross-validation diff from the downtown Los
+Angeles dataset. This is the *difference between two subsequent solves without
+touching anything*
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/cross-validation/diff-cross-validation-splined-noncentral-crop.pdf]]
+
+** Stability of intrinsics
+- Then I moved the camera and tripod over by 2m or so, and gathered more
+  chessboard images. Comparison from before:
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/lens-stability/diff-dance34-splined-noncentral-crop.pdf]]
+
+** Stability of extrinsics
+Tools are available to study mechanical drift as well:
+
+- In isolation
+- Or jointly, with the intrinsics drift
+
+This is experimental. Talk to me if you need it!
+
+* Interoperating with other tools
+** Interoperating with other tools
+What if your system is built around CAHVOR, but you want to use
+=LENSMODEL_SPLINED_STEREOGRAPHIC= for more accuracy?
+
+- mrcal libraries are easy to use and integrate: it's not a lot of work to
+  transition
+
+But if you really don't want to....
+
+** What is the cost of a too-lean model?
+mrcal gives us tools to quantify this.
+
+The usual process is:
+
+- Calibrate using the production model
+- Look at the projection uncertainty and cross-validation plots to estimate the
+  expected calibration errors
+
+** What is the cost of a too-lean model?
+With the =LENSMODEL_SPLINED_STEREOGRAPHIC= we can go one step further:
+
+- *Also* calibrate using =LENSMODEL_SPLINED_STEREOGRAPHIC=
+- Use the metrics to show that this fits very well
+- Use =LENSMODEL_SPLINED_STEREOGRAPHIC= as the ground truth to get more
+  informative diffs
+
+** Having our cake and eating it too
+What if we want the accuracy of =LENSMODEL_SPLINED_STEREOGRAPHIC= but we also
+don't want to rearchitect our code? With a bit of extra computation we can.
+
+- We have a $\left(\mathrm{model},\mathrm{image}\right)$ tuple that faithfully
+  describes the world, if we use =LENSMODEL_SPLINED_STEREOGRAPHIC=
+- We can generate another tuple
+  $\left(\mathrm{model}_\mathrm{production},\mathrm{image}_\mathrm{reprojected}\right)$
+  that reprojects the input image to one that follows the production model. We
+  use this tuple everywhere, and it /also/ faithfully describes the world
+- Pixel noise variances will need to be adjusted
+
+* Model evaluation
+** Estimating ranging errors caused by calibration errors
+- Projection errors aren't what we ultimately care about
+
+- mrcal allows us to propagate these to what we care about
+
+Propagating errors to triangulation:
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/triangulation/sample--ellipses-crop.pdf]]
+
+** Scene-aware error propagation
+If the rough geometry of an observed scene is known beforehand, we can make a
+rough expected-error map:
+
+1. Compute $\frac{\partial\mathrm{range}}{\partial\mathrm{azimuth}}$ from the
+   triangulation expression
+2. Estimate triangulation pixel error, combining expected sampling error and
+   calibration error. This gives us an estimate of $\Delta \mathrm{azimuth}
+3. $\Delta \mathrm{range} \approx \frac{\partial\mathrm{range}}{\partial\mathrm{azimuth}} \Delta \mathrm{azimuth}$
+
+** Scene-aware error propagation
+In the downtown Los Angeles scene we observed this calibration error using
+=LENSMODEL_OPENCV8=:
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/diff/diff-splined-opencv8-crop.pdf]]
+
+** Scene-aware error propagation
+- Rough median of calibration error: 0.5 pixels per camera
+- At worst: 1.0 pixels of calibration error
+- Noise in stereo matching is ~ 0.3 pixels
+
+So we assume a disparity error of 1.0 + 0.3 = 1.3 pixels
+
+** Scene-aware error propagation: left-rectified image
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/stereo-range-sensitivity/0-rectified.downsampled.png]]
+
+** Scene-aware error propagation: disparity
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/stereo-range-sensitivity/disparity-crop.pdf]]
+
+** Scene-aware error propagation: propagated range error
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/stereo-range-sensitivity/sensitivity-crop.pdf]]
+
+** Scene-aware error propagation
+These errors are correlated and will *not* average out. They should be
+minimized.
+
+* Conclusion
+** Conclusion
+- mrcal solves many pervasive issues in traditional camera-modeling toolkits
+- Allows many practical questions to be addressed directly
+- Many improvements and extensions and applications planned
 
 * Stereo                                                           :noexport:
 ** Overview
@@ -975,17 +1097,7 @@ Disparity from OpenCV
 file:../out/external/figures/stereo/disparity-narrow.downsampled.png
 
 
-* outline
+* notes                                                            :noexport:
+say something about calibration by oversampling
 
-cross validation
-
-uncertainty
-
-* abstract                                                         :noexport:
-- ways to examine the solution to identify and eliminate various
-  common sources of error
-
-- what to do with calibration errors that we know exist
-
-- how to detect and quantify drift in intrinsics or extrinsics
-
+show dtla disparity
