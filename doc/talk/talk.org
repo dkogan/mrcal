@@ -531,10 +531,9 @@ Questions:
 ** Chessboards? Circles? AprilTags? Charuco?
 mrcal doesn't care!
 
-- Grids of circles don't directly observe the center point, so could be biased.
-  mrcal has a visual validation tool: =mrcal-reproject-to-chessboard=
-- AprilTags also could produce biased or correlated measurements if the whole
-  tag is used to compute the coordinate
+- Grids of circles (and possibly AprilTags) don't directly observe the point, so
+  they could be biased. mrcal has a visual validation tool:
+  =mrcal-reproject-to-chessboard= that produces a [[file:~/projects/mrcal/doc/out/external/figures/reprojected-to-chessboard/reprojected-to-chessboard.mp4][validation sequence]]
 - Anything with AprilTags needs a high-resolution-enough image to resolve the
   AprilTag. This resolution could instead be used to cram extra chessboard
   squares into the image
