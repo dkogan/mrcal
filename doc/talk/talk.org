@@ -80,7 +80,7 @@ captured using
 - Sony Alpha 7 III full-frame SLR. 6000x3376 imager
 - *Very* wide lens: Samyang 12mm F2.8 fisheye. 180deg field of view
   corner-corner
-- Just one camera (for this demo; mrcal supports multiple cameras)
+- Just one camera (in this demo; mrcal supports multiple cameras)
 - Outdoor images captured in downtown Los Angeles
 
 ** Sample image of the scene
@@ -94,6 +94,7 @@ arbitrary image:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/mrgingham-results.png]]
 
+* Tour of mrcal: =LENSMODEL_OPENCV8=
 ** Let's run a calibration!
 This is a wide lens, so we need a lens model that can handle it. Let's use the
 8-parameter OpenCV model: =LENSMODEL_OPENCV8=
@@ -111,7 +112,6 @@ calobject_warp = [-0.00012726 -0.00014325]
 The optimizer converged, and we have a solution
 
 ** Why is the reprojection error > 0?
-
 We have two sources of error:
 
 - *Sampling error*: chessboard observations are noisy. We can study this, but we
@@ -123,6 +123,8 @@ We have two sources of error:
 We want the model error to be negligible. If it is and if the sampling error is
 normal and i.i.d., then we get a bias-free maximum-likelihood calibration result
 
+_Patterns_ in the residuals indicate the presence of model errors
+
 ** Does the solved geometry look right?                            :noexport:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
@@ -130,7 +132,7 @@ normal and i.i.d., then we get a bias-free maximum-likelihood calibration result
 
 Yes. That's how I danced.
 
-** =LENSMODEL_OPENCV8= residuals histogram                         :noexport:
+** =LENSMODEL_OPENCV8= residuals histogram
 What does the error distribution look like?
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
@@ -150,7 +152,7 @@ The worst-fitting observations are a great way to see common issues such as:
 We look for _patterns_ in the residuals: patterns indicate the presence of model
 errors
 
-** =LENSMODEL_OPENCV8=: the worst image                            :noexport:
+** =LENSMODEL_OPENCV8=: the worst image
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-opencv8.png]]
 
@@ -158,17 +160,18 @@ errors
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
 
-** =LENSMODEL_OPENCV8=: residual directions                        :noexport:
+** =LENSMODEL_OPENCV8=: residual directions
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
 
-** =LENSMODEL_OPENCV8=: conclusions                                :noexport:
-We see clear patterns in the residuals, so:
+** =LENSMODEL_OPENCV8=: conclusions
+We see clear patterns in the residuals, so
 
 - =LENSMODEL_OPENCV8= does not fit our data
 
 Let's fix it.
 
+* Tour of mrcal: =LENSMODEL_SPLINED_STEREOGRAPHIC=
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC= definition                    :noexport:
 - We need a more flexible lens model to represent our lens.
 - mrcal currently supports a *splined* model that is configurable to be as rich
@@ -199,10 +202,12 @@ We can then define the rest of the projection function:
  f_y \left( u_y + \Delta u_y \right) + c_y
 \end{aligned} \right] \]
 
-** Let's re-run the calibration
-Let's re-process the same calibration data using this splined model. We run the
+** Doing it again with =LENSMODEL_SPLINED_STEREOGRAPHIC=
+Let's re-process the same calibration data using the splined model. We run the
 same command as before, but using the =LENSMODEL_SPLINED_STEREOGRAPHIC_= ...
 =order=3_Nx=30_Ny=18_fov_x_deg=150= model. This is one long string.
+
+This model has 1084 parameters.
 
 #+begin_example
 $ mrcal-calibrate-cameras
@@ -225,7 +230,7 @@ calobject_warp = [-1.26851438e-04 -8.03269701e-05]
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/residuals-histogram-splined-crop.pdf]]
 
-** =LENSMODEL_OPENCV8= worst-observation residuals
+** =LENSMODEL_OPENCV8= worst-observation residuals                 :noexport:
 The worst-fitting observations are a great way to see common issues such as:
 
 - out-of focus images
@@ -614,7 +619,7 @@ well.
 
 Using the mrcal tools to verify that we didn't go too far
 
-* How should we capture images?
+* How should we capture images?                                    :noexport:
 ** How should we capture images?
 - Same physical settings as when using the system: aperture size, zoom, focus
 - Features should be in-focus: trade-off with uncertainty requirements from
