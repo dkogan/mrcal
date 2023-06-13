@@ -45,9 +45,9 @@ modeling tooling from the ground-up:
 - Richer camera model available to precisely model lens behavior
 - Uncertainty propagation and cross-validation techniques available to
   validate a calibration
-- Fisheye-friendly stereo rectification
 - No implicit pinhole assumption anywhere (no homogeneous coordinates,
   essential, fundamental matrices, etc)
+- Fisheye-friendly stereo rectification
 - Lots of analysis techniques available, including extensive visualization
   facilities
 
@@ -80,15 +80,8 @@ captured using
 - Sony Alpha 7 III full-frame SLR. 6000x3376 imager
 - *Very* wide lens: Samyang 12mm F2.8 fisheye. 180deg field of view
   corner-corner
-- Just one camera
+- Just one camera (for this demo; mrcal supports multiple cameras)
 - Outdoor images captured in downtown Los Angeles
-
-** Demo calibration
-mrcal can calibrate multiple cameras simultaneously; just this example is
-monocular
-
-- The [[http://mrcal.secretsauce.net][mrcal website]] contains details and all the commands used to produce the
-  following results
 
 ** Sample image of the scene
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
@@ -130,22 +123,20 @@ We have two sources of error:
 We want the model error to be negligible. If it is and if the sampling error is
 normal and i.i.d., then we get a bias-free maximum-likelihood calibration result
 
-To characterize the errors, we examine the solution
-
-** Does the solved geometry look right?
+** Does the solved geometry look right?                            :noexport:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/calibration-chessboards-geometry-crop.pdf]]
 
 Yes. That's how I danced.
 
-** =LENSMODEL_OPENCV8= residuals histogram
+** =LENSMODEL_OPENCV8= residuals histogram                         :noexport:
 What does the error distribution look like?
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/residuals-histogram-opencv8-crop.pdf]]
 
-** =LENSMODEL_OPENCV8= worst-observation residuals
+** =LENSMODEL_OPENCV8= worst-observation residuals                 :noexport:
 The worst-fitting observations are a great way to see common issues such as:
 
 - out-of focus images
@@ -159,26 +150,26 @@ The worst-fitting observations are a great way to see common issues such as:
 We look for _patterns_ in the residuals: patterns indicate the presence of model
 errors
 
-** =LENSMODEL_OPENCV8=: the worst image
+** =LENSMODEL_OPENCV8=: the worst image                            :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-opencv8.png]]
 
-** =LENSMODEL_OPENCV8=: the worst image in a corner
+** =LENSMODEL_OPENCV8=: the worst image in a corner                :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
 
-** =LENSMODEL_OPENCV8=: residual directions
+** =LENSMODEL_OPENCV8=: residual directions                        :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
 
-** =LENSMODEL_OPENCV8=: conclusions
+** =LENSMODEL_OPENCV8=: conclusions                                :noexport:
 We see clear patterns in the residuals, so:
 
 - =LENSMODEL_OPENCV8= does not fit our data
 
 Let's fix it.
 
-** =LENSMODEL_SPLINED_STEREOGRAPHIC= definition
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= definition                    :noexport:
 - We need a more flexible lens model to represent our lens.
 - mrcal currently supports a *splined* model that is configurable to be as rich
   as we like
@@ -190,7 +181,7 @@ We compute a normalized *stereographic* projection:
 This maps a 3D direction vector to a 2D point $\vec u$. This works behind the
 camera, so wide-angle lenses are supported well.
 
-** =LENSMODEL_SPLINED_STEREOGRAPHIC= definition
+** =LENSMODEL_SPLINED_STEREOGRAPHIC= definition                    :noexport:
 Then use $\vec u$ to look-up an adjustment factor $\Delta \vec u$ using two
 splined surfaces: one for each of the two elements of
 
@@ -224,39 +215,53 @@ Noutliers: 28 out of 16464 total points: 0.2% of the data
 calobject_warp = [-1.26851438e-04 -8.03269701e-05]
 #+end_example
 
+** =LENSMODEL_OPENCV8= residuals histogram
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/residuals-histogram-opencv8-crop.pdf]]
+
 ** =LENSMODEL_SPLINED_...= residuals histogram
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/residuals-histogram-splined-crop.pdf]]
 
-** =LENSMODEL_OPENCV8= residuals histogram (before)
+** =LENSMODEL_OPENCV8= worst-observation residuals
+The worst-fitting observations are a great way to see common issues such as:
 
+- out-of focus images
+- images with motion blur
+- rolling shutter effects
+- synchronization errors
+- chessboard detector failures
+- insufficiently-rich models (of the lens or of the chessboard shape or anything
+  else)
+
+We look for _patterns_ in the residuals: patterns indicate the presence of model
+errors
+
+** =LENSMODEL_OPENCV8=: the worst image
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/calibration/residuals-histogram-opencv8-crop.pdf]]
+[[file:../out/external/figures/calibration/worst-opencv8.png]]
 
 ** =LENSMODEL_SPLINED_...=: the worst image
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-splined.png]]
 
-** =LENSMODEL_OPENCV8=: the worst image (before)
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/calibration/worst-opencv8.png]]
-
-** =LENSMODEL_SPLINED_...=: the worst image in a corner
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/calibration/worst-incorner-splined.png]]
-
-** =LENSMODEL_OPENCV8=: the worst image in a corner (before)
+** =LENSMODEL_OPENCV8=: the worst image in a corner                :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
 
+** =LENSMODEL_SPLINED_...=: the worst image in a corner            :noexport:
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/worst-incorner-splined.png]]
+
+** =LENSMODEL_OPENCV8=: residual directions
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
 ** =LENSMODEL_SPLINED_...=: residual directions
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/directions-splined-crop.pdf]]
 
-** =LENSMODEL_OPENCV8=: residual directions (before)
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
 ** Conclusion
 We have good evidence that =LENSMODEL_SPLINED_STEREOGRAPHIC= fits this lens much
 better than =LENSMODEL_OPENCV8=
@@ -266,6 +271,7 @@ better than =LENSMODEL_OPENCV8=
 We computed the calibration two different ways. How different are the two
 models?
 
+** Differencing                                                    :noexport:
 Let's compute the difference using an obvious algorithm:
 
 Given a pixel $\vec q_0$,
@@ -277,15 +283,15 @@ Given a pixel $\vec q_0$,
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/figures/diff-notransform.pdf]]
 
-** Differencing
+** Differencing                                                    :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/diff/diff-radius0-heatmap-splined-opencv8-crop.pdf]]
 
-** Differencing
+** Differencing                                                    :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/diff/diff-radius0-vectorfield-splined-opencv8-crop.pdf]]
 
-** Differencing
+** Differencing                                                    :noexport:
 So with a motion of the camera, we can make the errors disappear.
 
 The issue is that each calibration produces noisy estimates of all the
@@ -295,7 +301,7 @@ intrinsics and all the coordinate transformations:
 
 And the point $\vec p$ we were projecting wasn't truly fixed.
 
-** Differencing
+** Differencing                                                    :noexport:
 We want to add a step:
 
 - Unproject $\vec q_0$ to a fixed point $\vec p_0$ using lens 0
@@ -310,7 +316,7 @@ We want to add a step:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/diff/diff-splined-opencv8-crop.pdf]]
 
-** Differencing
+** Differencing                                                    :noexport:
 /Much/ better. As expected, the two models agree relatively well in the center,
 and the error grows as we move towards the edges.
 
@@ -321,14 +327,6 @@ This differencing method has numerous applications:
 - testing different solution methods
 - underlying a cross-validation scheme
 
-** Differencing
-A big question:
-
-- How much of the observed difference is random sampling error?
-
-To answer this (an other) questions, mrcal can quantify the projection
-uncertainty, so let's do that.
-
 * Uncertainty
 ** Uncertainty
 - All calibrations are based on observations of the calibration object
@@ -338,7 +336,7 @@ uncertainty, so let's do that.
 
 We quantify this sensitivity by computing a _projection uncertainty_
 
-** Uncertainty
+** Uncertainty                                                     :noexport:
 When we project a point $\vec p$ to a pixel $\vec q$, it would be *really* nice
 to get an uncertainty estimate $\mathrm{Var} \left(\vec q\right)$. The we could
 
@@ -354,7 +352,7 @@ Since splined models can have 1000s of parameters (the one we just demoed has
 1084), they are prone to overfitting, and it's critically important to gauge
 those effects.
 
-** Uncertainty
+** Uncertainty                                                     :noexport:
 A grand summary of how we do this:
 
 1. We are assuming a particular distribution of observation input noise
@@ -371,7 +369,7 @@ A grand summary of how we do this:
 \frac{\partial \vec q}{\partial \vec b}^T
 \]
 
-** Uncertainty simulation
+** Uncertainty simulation                                          :noexport:
 The mrcal test suite contains a simulation to validate the approach.
 
 - 4 cameras
@@ -379,13 +377,13 @@ The mrcal test suite contains a simulation to validate the approach.
 - =LENSMODEL_OPENCV4= lens model
 - looking at 50 chessboard poses, with randomized pose
 
-** Uncertainty simulation
+** Uncertainty simulation                                          :noexport:
 The geometry looks like this:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/uncertainty/simulated-uncertainty-opencv4--simulated-geometry-crop.pdf]]
 
-** Uncertainty simulation
+** Uncertainty simulation                                          :noexport:
 Each camera sees this:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
@@ -393,11 +391,11 @@ Each camera sees this:
 
 The red *$\ast$* is a point we will examine.
 
-** Uncertainty simulation
+** Uncertainty simulation                                          :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/uncertainty/simulated-uncertainty-opencv4--distribution-onepoint-crop.pdf]]
 
-** Uncertainty simulation
+** Uncertainty simulation                                          :noexport:
 Let's look at the uncertainty everywhere in the imager
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
@@ -406,7 +404,7 @@ Let's look at the uncertainty everywhere in the imager
 This confirms the expectation: the sweet spot of low uncertainty follows the
 region where the chessboards were
 
-** Uncertainty simulation
+** Uncertainty simulation                                          :noexport:
 - The worst uncertainty-at-*$\ast$* camera claims an uncertainty of 0.8 pixels.
   That's pretty low. But we had no chessboard observations there; is this
   uncertainty realistic? _No_
@@ -419,7 +417,7 @@ region where the chessboards were
 
 Solution: use splined models! They are very flexible, and don't have this issue.
 
-** Uncertainty simulation
+** Uncertainty simulation                                          :noexport:
 Running the same simulation with a splined model, we see the *real* projection
 uncertainty:
 
@@ -428,18 +426,18 @@ uncertainty:
 
 So *only* the first camera actually had usable projections.
 
-** Uncertainty simulation
+** Uncertainty simulation                                          :noexport:
 Let's overlay the observations:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/uncertainty/simulated-uncertainty-splined--uncertainty-wholeimage-observations-crop.pdf]]
 
-** Uncertainty from previous calibrations
+** Uncertainty from the DTLA data
 Computing the uncertainty map from the earlier =LENSMODEL_OPENCV8= calibration:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/uncertainty/uncertainty-opencv8-crop.pdf]]
-** Uncertainty from previous calibrations
+** Uncertainty from the DTLA data
 And from the =LENSMODEL_SPLINED_STEREOGRAPHIC_...= calibration:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
@@ -529,9 +527,8 @@ Questions:
 - So what kind of calibration object do we want? Are *chessboards* the right
   choice?
 
-- Should we place the chessboard immediately in front of the lens?
-
-- Should we use a *giant* chessboard?
+- Should we place the chessboard immediately in front of the lens? Should we use
+  a *giant* chessboard?
 
 ** Chessboards? Circles? AprilTags? Charuco?
 mrcal doesn't care!
@@ -558,11 +555,6 @@ Core assumption of almost all camera modeling and processing:
 
 *This is not a valid assumption near the lens*
 
-But it is otherwise valid-enough:
-
-- We should try to calibrate and use the cameras beyond where noncentral effects
-  are significant. mrcal cross-validation will tell you if you're too close.
-
 ** Noncentrality
 The size of the glass in the lens becomes non-negligible as we observe nearby
 objects
@@ -571,12 +563,18 @@ objects
 [[file:../out/figures/noncentral.pdf]]
 
 ** Noncentrality
-- Most triangulation and stereo routines assume a central projection
+- Most triangulation and stereo routines assume a central projection. This is
+  true for non-closeups
+
 - If necessary, noncentral behavior *can* be modeled:
   - mrcal has partial support, which was critically important for some projects
   - CAHVORE is noncentral with most people throwing away the noncentrality when
     they use it
 
+- We should try to calibrate and use the cameras beyond where noncentral effects
+  are significant. mrcal cross-validation will tell you if you're too close.
+
+** Noncentrality                                                   :noexport:
 There's limited awareness that this is what's being done. I've seen people carry
 around code like this to centralize CAHVORE unprojections:
 
@@ -788,10 +786,6 @@ Earlier residual plots follow below
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-opencv8.png]]
 
-** Residuals: =LENSMODEL_OPENCV8=: the worst image in a corner
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
-
 ** Residuals: =LENSMODEL_OPENCV8=: residual directions
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
@@ -836,13 +830,11 @@ the solution to find the smoking-gun images that prove the breakage
 ** Residuals: chessboard shape errors
 - Errors in chessboard shape are difficult to disentangle from errors in
   intrinsics
-- Let's look at characteristic residuals for two scenarios:
+- We can have static and dynamic shape errors:
+  1. The chessboard is non-flat, but in a way not modeled by the solver
+  2. The chessboard shape changes over the course of the chessboard dance
 
-  1. The chessboard is slightly non-flat, but in a way not modeled by the solver
-  2. The chessboard shape changes slightly over the course of the chessboard
-     dance
-
-** Residuals: errors due to unmodeled chessboard shape
+** Residuals: errors due to unmodeled chessboard shape             :noexport:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/unmodeled-chessboard-shape.pdf]]
@@ -956,8 +948,8 @@ rough expected-error map:
 
 1. Compute $\frac{\partial\mathrm{range}}{\partial\mathrm{azimuth}}$ from the
    triangulation expression
-2. Estimate triangulation pixel error, combining expected sampling error and
-   calibration error. This gives us an estimate of $\Delta \mathrm{azimuth}$
+2. Estimate $\Delta \mathrm{azimuth}$ by combining expected sampling error and
+   calibration error
 3. $\Delta \mathrm{range} \approx \frac{\partial\mathrm{range}}{\partial\mathrm{azimuth}} \Delta \mathrm{azimuth}$
 
 ** Scene-aware error propagation
