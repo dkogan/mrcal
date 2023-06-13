@@ -986,7 +986,7 @@ minimized.
 ** Conclusion
 - mrcal solves many pervasive issues in traditional camera-modeling toolkits
 - Allows many practical questions to be addressed directly
-- Many improvements and extensions and applications planned
+- Many improvements and extensions and applications planned and in development
 
 * Stereo                                                           :noexport:
 ** Overview
@@ -1067,8 +1067,3 @@ Disparity from OpenCV
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/disparity-narrow.downsampled.png
 
-
-* notes                                                            :noexport:
-say something about calibration by oversampling
-
-show dtla disparity
