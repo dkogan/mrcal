@@ -48,8 +48,6 @@ modeling tooling from the ground-up:
 - No implicit pinhole assumption anywhere (no homogeneous coordinates,
   essential, fundamental matrices, etc)
 - Fisheye-friendly stereo rectification
-- Lots of analysis techniques available, including extensive visualization
-  facilities
 
 ** Computing details
 
