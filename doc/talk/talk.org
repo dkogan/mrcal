@@ -448,7 +448,7 @@ And from the =LENSMODEL_SPLINED_STEREOGRAPHIC_...= calibration:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/uncertainty/uncertainty-splined-crop.pdf]]
 
-** Uncertainty conclusion
+** Uncertainty conclusion                                          :noexport:
 The splined model promises double the uncertainty that =LENSMODEL_OPENCV8= does.
 
 Conclusions:
