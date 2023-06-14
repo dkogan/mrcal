@@ -889,15 +889,7 @@ touching anything/
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/lens-stability/diff-dance34-splined-noncentral-crop.pdf]]
 
-** Stability of extrinsics
-Tools are available to study mechanical drift as well:
-
-- In isolation
-- Or jointly, with the intrinsics drift
-
-This is experimental. Talk to me if you need it!
-
-* Interoperating with other tools
+* Interoperating with other tools                                  :noexport:
 ** Interoperating with other tools
 What if your system is built around CAHVOR, but you want to use
 =LENSMODEL_SPLINED_STEREOGRAPHIC= for more accuracy?
