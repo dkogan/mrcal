@@ -55,7 +55,7 @@ modeling tooling from the ground-up:
 
 - mrcal is a library (C and Python)
 - Many commandline tools available, so no coding required for common tasks
-- *Thoroughly* documented
+- /Thoroughly/ documented
 - Open-source, available in stock Debian
 
 Contributions welcome!
@@ -78,7 +78,7 @@ We follow a real-world data flow, starting with chessboard observations. Images
 captured using
 
 - Sony Alpha 7 III full-frame SLR. 6000x3376 imager
-- *Very* wide lens: Samyang 12mm F2.8 fisheye. 180deg field of view
+- /Very/ wide lens: Samyang 12mm F2.8 fisheye. 180deg field of view
   corner-corner
 - Just one camera (in this demo; mrcal supports multiple cameras)
 - Outdoor images captured in downtown Los Angeles
@@ -174,10 +174,10 @@ Let's fix it.
 * Tour of mrcal: =LENSMODEL_SPLINED_STEREOGRAPHIC=
 ** =LENSMODEL_SPLINED_STEREOGRAPHIC= definition                    :noexport:
 - We need a more flexible lens model to represent our lens.
-- mrcal currently supports a *splined* model that is configurable to be as rich
+- mrcal currently supports a /splined/ model that is configurable to be as rich
   as we like
 
-We compute a normalized *stereographic* projection:
+We compute a normalized /stereographic/ projection:
 
 \[ \vec u = \mathrm{project}_\mathrm{stereographic}\left(\vec p\right) \]
 
@@ -336,13 +336,13 @@ This differencing method has numerous applications:
 ** Uncertainty
 - All calibrations are based on observations of the calibration object
   (chessboard corners)
-- These observations *always* contain some noise (sampling error)
-- A calibration result is trustworthy *only* if it is insensitive to this noise
+- These observations /always/ contain some noise (sampling error)
+- A calibration result is trustworthy /only/ if it is insensitive to this noise
 
 We quantify this sensitivity by computing a _projection uncertainty_
 
 ** Uncertainty                                                     :noexport:
-When we project a point $\vec p$ to a pixel $\vec q$, it would be *really* nice
+When we project a point $\vec p$ to a pixel $\vec q$, it would be /really/ nice
 to get an uncertainty estimate $\mathrm{Var} \left(\vec q\right)$. The we could
 
 - Propagate this uncertainty downstream to whatever uses the projection
@@ -364,7 +364,7 @@ A grand summary of how we do this:
    $\mathrm{Var}\left( \vec q_\mathrm{ref} \right)$
 2. We propagate it through the optimization to get the variance of the
    optimization state $\mathrm{Var}(\vec b)$
-3. For any *fixed* point, its projection $\vec q = \mathrm{project}\left(
+3. For any /fixed/ point, its projection $\vec q = \mathrm{project}\left(
    \mathrm{transform}\left( \vec p_\mathrm{fixed} \right)\right)$ depends on
    parameters of $\vec b$, whose variance we know. So
 
@@ -416,20 +416,20 @@ region where the chessboards were
 
 - =LENSMODEL_OPENCV4= is stiff, so the projection doesn't move much due to
   noise. And we interpreted that as low uncertainty. But that comes from our
-  choice of model, and *not* from the data. So
+  choice of model, and /not/ from the data. So
 
 *Lean models always produce overly-optimistic uncertainty estimates*
 
 Solution: use splined models! They are very flexible, and don't have this issue.
 
 ** Uncertainty simulation                                          :noexport:
-Running the same simulation with a splined model, we see the *real* projection
+Running the same simulation with a splined model, we see the /real/ projection
 uncertainty:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/uncertainty/simulated-uncertainty-splined--uncertainty-wholeimage-noobservations-crop.pdf]]
 
-So *only* the first camera actually had usable projections.
+So /only/ the first camera actually had usable projections.
 
 ** Uncertainty simulation                                          :noexport:
 Let's overlay the observations:
@@ -529,11 +529,11 @@ For many of the following analyses we study the effects of sampling error. We
 
 Questions:
 
-- So what kind of calibration object do we want? Are *chessboards* the right
+- So what kind of calibration object do we want? Are /chessboards/ the right
   choice?
 
 - Should we place the chessboard immediately in front of the lens? Should we use
-  a *giant* chessboard?
+  a /giant/ chessboard?
 
 ** Chessboards? Circles? AprilTags? Charuco?
 mrcal doesn't care!
@@ -571,7 +571,7 @@ objects
 - Most triangulation and stereo routines assume a central projection. This is
   true for non-closeups
 
-- If necessary, noncentral behavior *can* be modeled:
+- If necessary, noncentral behavior /can/ be modeled:
   - mrcal has partial support, which was critically important for some projects
   - CAHVORE is noncentral with most people throwing away the noncentrality when
     they use it
@@ -596,7 +596,7 @@ Don't do it: just set $\vec E = 0$
 - Expensive
 - Unstable
 
-mrcal has a simple *static* deformation model: a parabolic deformation in x and
+mrcal has a simple /static/ deformation model: a parabolic deformation in x and
 in y. *Usually this isn't enough to accurately represent foam boards*
 
 ** The downsides of huge chessboards
@@ -685,7 +685,7 @@ Once we have a calibration, we should see how well we did:
 - If these diffs are too high, we examine the residuals to find the cause of our
   model errors
 
-You don't need to do *all* of this if you're already familiar with your system
+You don't need to do /all/ of this if you're already familiar with your system
 
 * Uncertainty
 ** Projection uncertainty
@@ -753,7 +753,7 @@ produces:
 
 ** DTLA cross-validation diffs
 - Here the cross-validation diffs alerted us to the presense of a problem. They
-  are *very* good at that
+  are /very/ good at that
 
 - Finding the cause of the problem requires some intuition and experimentation
 
@@ -764,7 +764,7 @@ produces:
 
 ** Residuals
 
-We usually have a *lot* of images and a *lot* of residuals. I look at the few
+We usually have a /lot/ of images and a /lot/ of residuals. I look at the few
 worst-fitting images. Usually I only look at the residuals if
 
 - I'm calibrating an unfamiliar system
@@ -876,8 +876,8 @@ Let's use the differencing method to gauge stability of intrinsics:
 
 ** Stability of intrinsics
 As a baseline, once again here's the cross-validation diff from the downtown Los
-Angeles dataset. This is the *difference between two subsequent solves without
-touching anything*
+Angeles dataset. This is the /difference between two subsequent solves without
+touching anything/
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/cross-validation/diff-cross-validation-splined-noncentral-crop.pdf]]
@@ -919,7 +919,7 @@ The usual process is:
 ** What is the cost of a too-lean model?
 With the =LENSMODEL_SPLINED_STEREOGRAPHIC= we can go one step further:
 
-- *Also* calibrate using =LENSMODEL_SPLINED_STEREOGRAPHIC=
+- /Also/ calibrate using =LENSMODEL_SPLINED_STEREOGRAPHIC=
 - Use the metrics to show that this fits very well
 - Use =LENSMODEL_SPLINED_STEREOGRAPHIC= as the ground truth to get more
   informative diffs
@@ -984,7 +984,7 @@ So we assume a disparity error of 1.0 + 0.3 = 1.3 pixels
 [[file:../out/external/figures/stereo-range-sensitivity/sensitivity-crop.pdf]]
 
 ** Scene-aware error propagation
-These errors are correlated and will *not* average out. They should be
+These errors are correlated and will /not/ average out. They should be
 minimized.
 
 * Conclusion
@@ -1035,7 +1035,7 @@ file:../out/external/figures/stereo/0-disparity.downsampled.png
 
 What if we wanted to use JPLV stereo with splined models?
 
-We can use mrcal to remap to another projection and feed *that* to jplv. For
+We can use mrcal to remap to another projection and feed /that/ to jplv. For
 instance, let's
 
 - Remap to a pinhole model (with some arbitrary zoom factor)
@@ -1055,7 +1055,7 @@ bug, jplv cannot.
 file:../out/external/figures/stereo/stereo-geometry-narrow.pdf
 
 ** Narrow virtual cameras
-One of the resulting resampled *pinhole* images:
+One of the resulting resampled /pinhole/ images:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/narrow-left.downsampled.jpg
