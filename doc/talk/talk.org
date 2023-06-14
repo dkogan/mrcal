@@ -874,7 +874,7 @@ Let's use the differencing method to gauge stability of intrinsics:
 - If we stress a camera system (mechanically, thermally, etc), does its behavior
   change?
 
-** Stability of intrinsics
+** Lens stability
 As a baseline, once again here's the cross-validation diff from the downtown Los
 Angeles dataset. This is the /difference between two subsequent solves without
 touching anything/
@@ -882,7 +882,7 @@ touching anything/
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/cross-validation/diff-cross-validation-splined-noncentral-crop.pdf]]
 
-** Stability of intrinsics
+** Lens stability
 - Then I moved the camera and tripod over by 2m or so, and gathered more
   chessboard images. Comparison from before:
 
