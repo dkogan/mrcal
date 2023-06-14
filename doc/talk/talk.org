@@ -65,7 +65,7 @@ Detailed documentation is available at http://mrcal.secretsauce.net/
 - This talk is a repackaging of the documentation on that page
 
 - See the docs for more detail, and for links to all the data and commands that
-  produced the results in this talk
+  produced the presented results
 
 * Tour of mrcal
 ** Demo calibration
@@ -106,8 +106,6 @@ Worst residual (by measurement): 1.8 pixels
 Noutliers: 564 out of 16464 total points: 3.4% of the data
 calobject_warp = [-0.00012726 -0.00014325]
 #+end_example
-
-The optimizer converged, and we have a solution
 
 ** Why is the reprojection error > 0?
 We have two sources of error:
@@ -631,7 +629,7 @@ Using the mrcal tools to verify that we didn't go too far
 mrcal will clearly identify these issues, if they're present in the data
 
 * How should we dance?
-** How much should we tilt the chessboards?
+** How much should we tilt the chessboards?                        :noexport:
 We already saw that we want
 
 - Closeups
@@ -661,7 +659,7 @@ Unless you really need compatibility with a legacy system or you have low
 accuracy requirements, *=LENSMODEL_SPLINED_STEREOGRAPHIC= is strongly
 recommended*.
 
-* Calibrating
+* Calibrating                                                      :noexport:
 ** Computing the calibration
 We are ready to compute the calibration!
 
@@ -673,7 +671,7 @@ We are ready to compute the calibration!
   from your model choice
 
 * Results interpretation
-** Interpreting the results
+** Interpreting the calibration results
 
 Once we have a calibration, we should see how well we did:
 
@@ -682,8 +680,6 @@ Once we have a calibration, we should see how well we did:
 - We examine the cross-validation diffs to confirm that the model fits
 - If these diffs are too high, we examine the residuals to find the cause of our
   model errors
-
-You don't need to do /all/ of this if you're already familiar with your system
 
 * Uncertainty
 ** Projection uncertainty
