@@ -804,12 +804,21 @@ frame, fitted with a noncentral projection:
 D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/
 PYTHONPATH=/home/dima/projects/mrcal-noncentral
 ~/projects/mrcal-noncentral/mrcal-show-residuals-board-observation \
---vectorscale 200 \ --circlescale 0.5 \ --set 'cbrange [0:2]' \ --hardcopy
-"~/projects/mrcal-doc-external/figures/calibration/worst-splined-noncentral.png"
-\ --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"' \
-$D/splined-noncentral.cameramodel \ 40
+  --vectorscale 200 \
+  --circlescale 0.5 \
+  --set 'cbrange [0:2]' \
+  --title "Worst observation: LENSMODEL_SPLINED_STEREOGRAPHIC non-central" \
+  --hardcopy "~/projects/mrcal-doc-external/figures/calibration/worst-splined-noncentral.png" \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"' \
+  --image-directory ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/images/ \
+  $D/splined-noncentral.cameramodel \
+  40
 
 [[file:external/figures/calibration/worst-splined-noncentral.png]]
+
+I was hoping the above would show that the patterns disappeared because we took
+care of the main model error effect. But they persist, so we still have some
+unknown model error in there.
 
 This will be included in a future release of mrcal.
 
