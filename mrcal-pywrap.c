@@ -16,7 +16,7 @@
 #include <dogleg.h>
 #include <limits.h>
 
-#if (CHOLMOD_VERSION > (CHOLMOD_VER_CODE(2,2)))
+#if (CHOLMOD_VERSION > (CHOLMOD_VER_CODE(2,2))) && (CHOLMOD_VERSION < (CHOLMOD_VER_CODE(4,0)))
 #include <cholmod_function.h>
 #endif
 
@@ -274,9 +274,11 @@ _CHOLMOD_factorization_init_from_cholmod_sparse(CHOLMOD_factorization* self, cho
         // I want all output to go to STDERR, not STDOUT
 #if (CHOLMOD_VERSION <= (CHOLMOD_VER_CODE(2,2)))
         self->common.print_function = cholmod_error_callback;
-#else
+#elif (CHOLMOD_VERSION < (CHOLMOD_VER_CODE(4,0)))
         CHOLMOD_FUNCTION_DEFAULTS ;
         CHOLMOD_FUNCTION_PRINTF(&self->common) = cholmod_error_callback;
+#else
+        SuiteSparse_config_printf_func_set(cholmod_error_callback);
 #endif
     }
 
