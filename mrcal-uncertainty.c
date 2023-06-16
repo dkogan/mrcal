@@ -10,7 +10,6 @@
 
 #include <string.h>
 #include <math.h>
-#include <malloc.h>
 #include <stdarg.h>
 
 #include "mrcal.h"
