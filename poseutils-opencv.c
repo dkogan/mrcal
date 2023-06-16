@@ -30,8 +30,6 @@
 // and on any theory of liability, whether in contract, strict liability,
 // or tort (including negligence or otherwise) arising in any way out of
 
-#define _GNU_SOURCE
-
 #include <math.h>
 #include <float.h>
 
@@ -84,8 +82,8 @@ void mrcal_R_from_r_full( // outputs
 
     double theta = sqrt(norm2r);
 
-    double c,s;
-    sincos(theta, &s, &c);
+    double s = sin(theta);
+    double c = cos(theta);
     double c1 = 1. - c;
     double itheta = 1./theta;
 

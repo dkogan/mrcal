@@ -6,7 +6,6 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
@@ -847,9 +846,10 @@ void project_cahvor( // outputs
     double r1    = intrinsics[4 + 3];
     double r2    = intrinsics[4 + 4];
 
-    double s_al, c_al, s_be, c_be;
-    sincos(alpha, &s_al, &c_al);
-    sincos(beta,  &s_be, &c_be);
+    double s_al = sin(alpha);
+    double c_al = cos(alpha);
+    double s_be = sin(beta);
+    double c_be = cos(beta);
 
     // I parametrize the optical axis such that
     // - o(alpha=0, beta=0) = (0,0,1) i.e. the optical axis is at the center
@@ -1538,9 +1538,10 @@ void mrcal_unproject_lonlat( // output
         double lon = (q[i].x - cx) * fx_recip;
         double lat = (q[i].y - cy) * fy_recip;
 
-        double clon,slon,clat,slat;
-        sincos(lat, &slat, &clat);
-        sincos(lon, &slon, &clon);
+        double slat = sin(lat);
+        double clat = cos(lat);
+        double slon = sin(lon);
+        double clon = cos(lon);
         if(dv_dq)
         {
             dv_dq[3*i + 0] = (mrcal_point2_t){.x =  fx_recip * clat * clon,
@@ -1621,9 +1622,10 @@ void mrcal_unproject_latlon( // output
         double lat = (q[i].x - cx) * fx_recip;
         double lon = (q[i].y - cy) * fy_recip;
 
-        double clon,slon,clat,slat;
-        sincos(lat, &slat, &clat);
-        sincos(lon, &slon, &clon);
+        double slat = sin(lat);
+        double clat = cos(lat);
+        double slon = sin(lon);
+        double clon = cos(lon);
         if(dv_dq)
         {
             dv_dq[3*i + 0] = (mrcal_point2_t){.x =  fx_recip * clat };

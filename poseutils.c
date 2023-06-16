@@ -6,8 +6,6 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-#define _GNU_SOURCE
-
 #include <stdio.h>
 #include <string.h>
 #include <math.h>

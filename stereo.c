@@ -6,7 +6,6 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-#define _GNU_SOURCE
 #include <math.h>
 
 #include "mrcal.h"
@@ -513,17 +512,18 @@ bool mrcal_rectification_maps(// output
     const double c_over_f_x = fxycxy_rectified[2] * fx_recip;
     const double c_over_f_y = fxycxy_rectified[3] * fy_recip;
 
-    double sdlon, cdlon;
-    sincos(fy_recip, &sdlon, &cdlon);
-    double lon0 = -c_over_f_y;
-    double slon0, clon0;
-    sincos(lon0, &slon0, &clon0);
+    double sdlon = sin(fy_recip);
+    double cdlon = cos(fy_recip);
+    double sdlat = sin(fx_recip);
+    double cdlat = cos(fx_recip);
 
-    double sdlat, cdlat;
-    sincos(fx_recip, &sdlat, &cdlat);
+    double lon0 = -c_over_f_y;
+    double slon0 = sin(lon0);
+    double clon0 = cos(lon0);
+
     double lat0 = -c_over_f_x;
-    double slat0, clat0;
-    sincos(lat0, &slat0, &clat0);
+    double slat0 = sin(lat0);
+    double clat0 = cos(lat0);
 
     double slon = slon0, clon = clon0;
     for(unsigned int i=0; i<imagersize_rectified[1]; i++)
