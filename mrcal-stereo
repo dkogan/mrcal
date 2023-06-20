@@ -989,7 +989,8 @@ def process(i_image):
 
     ranges = mrcal.stereo_range( disparity,
                                  models_rectified,
-                                 disparity_scale = disparity_scale)
+                                 disparity_scale = disparity_scale,
+                                 disparity_min   = disp_min)
     ranges_colored = mrcal.apply_color_map(ranges,
                                            *args.range_image_limits)
 
@@ -1180,13 +1181,13 @@ def gui_stereo(images,
 
                 d = disparity[int(round(q0_rectified[-1])),
                               int(round(q0_rectified[-2]))]
-                if d < 0:
+                if d < disp_min*disparity_scale:
                     set_status("No valid disparity at the clicked location")
                     widget_image0.set_cross_at(q0_rectified)
                     widget_image1.set_cross_at(q0_rectified, no_vertical = True)
                     widget_result.set_cross_at(q0_rectified)
                     return super().handle(event)
-                if d == 0:
+                if d == disp_min*disparity_scale:
                     set_status("Disparity: 0pixels\n" +
                                "range: infinity\n")
                     widget_image0.set_cross_at(q0_rectified)
@@ -1203,10 +1204,12 @@ def gui_stereo(images,
                 _range   = mrcal.stereo_range( d,
                                                models_rectified,
                                                disparity_scale = disparity_scale,
+                                               disparity_min   = disp_min,
                                                qrect0          = q0_rectified)
                 _range_d = mrcal.stereo_range( d + delta*disparity_scale,
                                                models_rectified,
                                                disparity_scale = disparity_scale,
+                                               disparity_min   = disp_min,
                                                qrect0          = q0_rectified)
                 drange_ddisparity = np.abs(_range_d - _range) / delta
 
