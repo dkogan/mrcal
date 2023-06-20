@@ -978,6 +978,7 @@ def stereo_range(disparity,
                  models_rectified,
                  *,
                  disparity_scale = 1,
+                 disparity_min   = 0,
                  qrect0          = None):
 
     r'''Compute ranges from observed disparities
@@ -1188,6 +1189,11 @@ ARGUMENTS
   the "disparity" array is assumed to contain the disparities, in pixels.
   Otherwise it contains data in the units of 1/disparity_scale pixels.
 
+- disparity_min: optional minimum-expected disparity value. If omitted,
+  disparity_min = 0 is assumed. Are encountered disparity value below this limit
+  is interpreted as an invalid value. This has units of "pixels", so we scale by
+  disparity_scale before comparing to the dense stereo correlator result
+
 - qrect0: optional array of rectified camera0 pixel coordinates corresponding to
   the given disparities. By default, a full disparity image is assumed.
   Otherwise we use the given rectified coordinates. The shape of this array must
@@ -1238,7 +1244,7 @@ RETURNED VALUES
 
         disparity_rad = disparity.astype(np.float32) / (fx * disparity_scale)
 
-        mask_invalid = (disparity <= 0)
+        mask_invalid = (disparity <= disparity_min*disparity_scale)
 
         s = np.sin(disparity_rad)
         s[mask_invalid] = 1 # to prevent division by 0
@@ -1263,7 +1269,7 @@ RETURNED VALUES
 
         tanaz0_tanaz1 = disparity.astype(np.float32) / (fx * disparity_scale)
 
-        mask_invalid  = (disparity <= 0)
+        mask_invalid  = (disparity <= disparity_min*disparity_scale)
         tanaz0_tanaz1[mask_invalid] = 1 # to prevent division by 0
 
         tanaz1 = tanaz0 - tanaz0_tanaz1
