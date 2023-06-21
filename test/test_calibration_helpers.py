@@ -74,7 +74,8 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          testdir,
                          cull_left_of_center = False,
                          allow_nonidentity_cam0_transform = False,
-                         range_to_boards = 4.0):
+                         range_to_boards = 4.0,
+                         report_points = False):
     r'''Compute a calibration baseline as a starting point for experiments
 
 This is a perfect, noiseless solve. Regularization IS enabled, and the returned
@@ -92,6 +93,9 @@ not allow_nonidentity_cam0_transform and norm(extrinsics_rt_fromref_true[0]) >
 
 This logic is here purely for safety. A caller that handles non-identity cam0
 transforms has to explicitly say that
+
+I always compute chessboard views. But if report_points: I store each corner
+observation as a separate point
 
 ARGUMENTS
 
@@ -169,6 +173,12 @@ ARGUMENTS
     # shape (Nframes, 6)
     frames_true = mrcal.rt_from_Rt(Rt_ref_board_true)
 
+    if not fixedframes:
+        # Frames are NOT fixed: cam0 is fixed as the reference coord system. I
+        # transform each optimization extrinsics vector to be relative to cam0
+        frames_true = mrcal.compose_rt(extrinsics_true_mounted[0,:], frames_true)
+
+
     ############# I have perfect observations in q_true.
     # weight has shape (Nframes, Ncameras, Nh, Nw),
     weight01 = (np.random.rand(*q_true.shape[:-1]) + 1.) / 2. # in [0,1]
@@ -208,13 +218,6 @@ ARGUMENTS
     if not fixedframes:
         indices_frame_camintrinsics_camextrinsics[:,2] -= 1
 
-    ###########################################################################
-    # p = mrcal.show_geometry(models_true,
-    #                         frames          = frames_true,
-    #                         object_width_n  = object_width_n,
-    #                         object_height_n = object_height_n,
-    #                         object_spacing  = object_spacing)
-    # sys.exit()
 
 
     # I now reoptimize the perfect-observations problem. Without regularization,
@@ -223,9 +226,10 @@ ARGUMENTS
     # noise-induced motions off this optimization optimum
     optimization_inputs_baseline = \
         dict( intrinsics                                = copy.deepcopy(intrinsics_true),
+              frames_rt_toref                           = None,
               points                                    = None,
-              observations_board                        = observations_board_true,
-              indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+              observations_board                        = None,
+              indices_frame_camintrinsics_camextrinsics = None,
               observations_point                        = None,
               indices_point_camintrinsics_camextrinsics = None,
               lensmodel                                 = lensmodel,
@@ -245,15 +249,71 @@ ARGUMENTS
         # Frames are fixed: each camera has an independent pose
         optimization_inputs_baseline['extrinsics_rt_fromref'] = \
             copy.deepcopy(extrinsics_true_mounted)
-        optimization_inputs_baseline['frames_rt_toref'] = copy.deepcopy(frames_true)
     else:
         # Frames are NOT fixed: cam0 is fixed as the reference coord system. I
         # transform each optimization extrinsics vector to be relative to cam0
         optimization_inputs_baseline['extrinsics_rt_fromref'] = \
             mrcal.compose_rt(extrinsics_true_mounted[1:,:],
                              mrcal.invert_rt(extrinsics_true_mounted[0,:]))
-        optimization_inputs_baseline['frames_rt_toref'] = \
-            mrcal.compose_rt(extrinsics_true_mounted[0,:], frames_true)
+
+    ###########################################################################
+    # p = mrcal.show_geometry(models_true,
+    #                         frames          = frames_true,
+    #                         object_width_n  = object_width_n,
+    #                         object_height_n = object_height_n,
+    #                         object_spacing  = object_spacing)
+    # sys.exit()
+
+    if not report_points:
+        optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'] = indices_frame_camintrinsics_camextrinsics
+        optimization_inputs_baseline['frames_rt_toref'         ]                  = copy.deepcopy(frames_true)
+        optimization_inputs_baseline['observations_board']                        = copy.deepcopy(observations_board_true)
+
+    else:
+
+        # I break up the chessboard observations into discrete points
+
+        # shape (Nframes,Ncameras,H,W, 3)
+        indices_point_camintrinsics_camextrinsics = np.zeros((Nframes,Ncameras,object_height_n,object_width_n, 3), dtype=np.int32)
+
+        # index_point
+        indices_point_camintrinsics_camextrinsics[...,0] += \
+            nps.dummy(indices_frame_camintrinsics_camextrinsics[...,0].reshape(Nframes,Ncameras), -1,-1) \
+            * object_height_n * object_width_n \
+            + np.arange(object_height_n * object_width_n).reshape(object_height_n,object_width_n)
+
+        # camintrinsics and camextrinsics
+        indices_point_camintrinsics_camextrinsics[...,1:] += \
+            nps.dummy(indices_frame_camintrinsics_camextrinsics[...,1:].reshape(Nframes,Ncameras,2), -2,-2)
+
+        # shape (Nframes*Ncameras*H*W, 3)
+        indices_point_camintrinsics_camextrinsics = \
+            nps.clump(indices_point_camintrinsics_camextrinsics, n=4)
+
+        # shape (H,W,3)
+        pboard = \
+            mrcal.ref_calibration_object(object_width_n,
+                                         object_height_n,
+                                         object_spacing,
+                                         calobject_warp = calobject_warp_true)
+
+        # shape (Nframes,H,W, 3)
+        points_true = mrcal.transform_point_Rt(nps.dummy(Rt_ref_board_true,-3,-3),
+                                               pboard)
+        # shape (Nframes*H*W, 3)
+        points_true = nps.clump(points_true, n=3)
+
+        #  shape (Nframes*Ncameras*Nh*Nw, 3)
+        observations_point_true = nps.clump(observations_board_true, n=3)
+
+        Npoints = points_true.shape[0]
+
+        optimization_inputs_baseline['indices_point_camintrinsics_camextrinsics'] = indices_point_camintrinsics_camextrinsics
+        optimization_inputs_baseline['points']                                    = copy.deepcopy(points_true)
+        optimization_inputs_baseline['observations_point']                        = copy.deepcopy(observations_point_true)
+
+        optimization_inputs_baseline['point_min_range'] = 1e-3
+        optimization_inputs_baseline['point_max_range'] = 1e12
 
     mrcal.optimize(**optimization_inputs_baseline)
 
@@ -262,12 +322,22 @@ ARGUMENTS
                              icam_intrinsics     = i) \
           for i in range(Ncameras) ]
 
-    return                                                     \
-        optimization_inputs_baseline,                          \
-        models_true, models_baseline,                          \
-        lensmodel, Nintrinsics, imagersizes,                   \
-        intrinsics_true, extrinsics_true_mounted,              \
-        indices_frame_camintrinsics_camextrinsics, frames_true, observations_board_true, Nframes
+    if not report_points:
+        return                                                     \
+            optimization_inputs_baseline,                          \
+            models_true, models_baseline,                          \
+            lensmodel, Nintrinsics, imagersizes,                   \
+            intrinsics_true, extrinsics_true_mounted,              \
+            indices_frame_camintrinsics_camextrinsics, frames_true, observations_board_true, Nframes
+
+    else:
+
+        return                                                     \
+            optimization_inputs_baseline,                          \
+            models_true, models_baseline,                          \
+            lensmodel, Nintrinsics, imagersizes,                   \
+            intrinsics_true, extrinsics_true_mounted,              \
+            indices_point_camintrinsics_camextrinsics, points_true, observations_point_true, Npoints
 
 
 def calibration_sample(Nsamples,
