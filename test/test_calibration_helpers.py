@@ -166,6 +166,7 @@ ARGUMENTS
 
         Nframes += 1
 
+    # shape (Nframes, 6)
     frames_true = mrcal.rt_from_Rt(Rt_ref_board_true)
 
     ############# I have perfect observations in q_true.
