@@ -124,8 +124,8 @@ struct val_withgrad_t
 
     val_withgrad_t<NGRAD> sin(void) const
     {
-        double s, c;
-        ::sincos(x, &s, &c);
+        const double s = ::sin(x);
+        const double c = ::cos(x);
         val_withgrad_t<NGRAD> y;
         y.x = s;
         for(int i=0; i<NGRAD; i++)
@@ -135,8 +135,8 @@ struct val_withgrad_t
 
     val_withgrad_t<NGRAD> cos(void) const
     {
-        double s, c;
-        ::sincos(x, &s, &c);
+        const double s = ::sin(x);
+        const double c = ::cos(x);
         val_withgrad_t<NGRAD> y;
         y.x = c;
         for(int i=0; i<NGRAD; i++)
@@ -146,8 +146,8 @@ struct val_withgrad_t
 
     vec_withgrad_t<NGRAD, 2> sincos(void) const
     {
-        double s, c;
-        ::sincos(x, &s, &c);
+        const double s = ::sin(x);
+        const double c = ::cos(x);
         vec_withgrad_t<NGRAD, 2> sc;
         sc.v[0].x = s;
         sc.v[1].x = c;
@@ -161,8 +161,8 @@ struct val_withgrad_t
 
     val_withgrad_t<NGRAD> tan(void) const
     {
-        double s, c;
-        ::sincos(x, &s, &c);
+        const double s = ::sin(x);
+        const double c = ::cos(x);
         val_withgrad_t<NGRAD> y;
         y.x = s/c;
         for(int i=0; i<NGRAD; i++)
