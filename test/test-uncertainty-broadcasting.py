@@ -134,11 +134,9 @@ extrinsics_rt_fromref_true[0] *= 0
 
 optimization_inputs_baseline,                          \
 models_true, models_baseline,                          \
-indices_frame_camintrinsics_camextrinsics,             \
 lensmodel, Nintrinsics, imagersizes,                   \
-intrinsics_true, extrinsics_true_mounted, frames_true, \
-observations_true,                                     \
-args.Nframes =                                         \
+intrinsics_true, extrinsics_true_mounted,              \
+indices_frame_camintrinsics_camextrinsics, frames_true, observations_true, args.Nframes = \
     calibration_baseline(args.model,
                          Ncameras,
                          args.Nframes,

@@ -186,11 +186,11 @@ ARGUMENTS
 
     # I want observations of shape (Nframes*Ncameras, Nh, Nw, 3) where each row is
     # (x,y,weight)
-    observations_true = nps.clump( nps.glue(q_true,
-                                            nps.dummy(weight,-1),
-                                            axis=-1),
-                                  n=2)
-
+    observations_board_true = \
+        nps.clump( nps.glue(q_true,
+                            nps.dummy(weight,-1),
+                            axis=-1),
+                   n=2)
 
     # Dense observations. All the cameras see all the boards
     indices_frame_camera = np.zeros( (Nframes*Ncameras, 2), dtype=np.int32)
@@ -226,7 +226,7 @@ ARGUMENTS
     optimization_inputs_baseline = \
         dict( intrinsics                                = copy.deepcopy(intrinsics_true),
               points                                    = None,
-              observations_board                        = observations_true,
+              observations_board                        = observations_board_true,
               indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
               observations_point                        = None,
               indices_point_camintrinsics_camextrinsics = None,
@@ -267,11 +267,9 @@ ARGUMENTS
     return                                                     \
         optimization_inputs_baseline,                          \
         models_true, models_baseline,                          \
-        indices_frame_camintrinsics_camextrinsics,             \
         lensmodel, Nintrinsics, imagersizes,                   \
-        intrinsics_true, extrinsics_true_mounted, frames_true, \
-        observations_true,                                     \
-        Nframes
+        intrinsics_true, extrinsics_true_mounted,              \
+        indices_frame_camintrinsics_camextrinsics, frames_true, observations_board_true, Nframes
 
 
 def calibration_sample(Nsamples,
