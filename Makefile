@@ -129,7 +129,7 @@ mrcal-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.so libmrcal.so.${ABI_VERSION}
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $< -lmrcal -o $@
 # Needed on Debian. Unnecessary, but harmless on Arch Linux
-mrcal-pywrap.o: CFLAGS += -I/usr/include/suitesparse
+mrcal-pywrap.o mrcal-uncertainty.o: CFLAGS += -I/usr/include/suitesparse
 PYTHON_OBJECTS := mrcal-pywrap.o $(ALL_NPSP_O)
 
 # In the python api I have to cast a PyCFunctionWithKeywords to a PyCFunction,

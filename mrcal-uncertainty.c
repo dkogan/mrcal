@@ -6,7 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-#include <suitesparse/cholmod.h>
+#include <cholmod.h>
 
 #include <string.h>
 #include <math.h>
