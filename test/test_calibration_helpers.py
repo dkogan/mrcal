@@ -193,16 +193,13 @@ ARGUMENTS
                    n=2)
 
     # Dense observations. All the cameras see all the boards
-    indices_frame_camera = np.zeros( (Nframes*Ncameras, 2), dtype=np.int32)
-    indices_frame = indices_frame_camera[:,0].reshape(Nframes,Ncameras)
-    indices_frame.setfield(nps.outer(np.arange(Nframes, dtype=np.int32),
-                                     np.ones((Ncameras,), dtype=np.int32)),
-                           dtype = np.int32)
-    indices_camera = indices_frame_camera[:,1].reshape(Nframes,Ncameras)
-    indices_camera.setfield(nps.outer(np.ones((Nframes,), dtype=np.int32),
-                                     np.arange(Ncameras, dtype=np.int32)),
-                           dtype = np.int32)
+    indices_frame_camera = np.zeros( (Nframes,Ncameras,2), dtype=np.int32)
+    indices_frame_camera[...,0] += nps.transpose(np.arange(Nframes, dtype=np.int32))
+    indices_frame_camera[...,1] += np.arange(Ncameras, dtype=np.int32)
+    # shape (Nframes*Ncameras, 2)
+    indices_frame_camera = nps.clump(indices_frame_camera, n=2)
 
+    # shape (Nframes*Ncameras, 3)
     indices_frame_camintrinsics_camextrinsics = \
         nps.glue(indices_frame_camera,
                  indices_frame_camera[:,(1,)],
