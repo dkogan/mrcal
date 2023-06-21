@@ -298,8 +298,8 @@ lensmodel_to = args.to
 
 try:
     meta = mrcal.lensmodel_metadata_and_config(lensmodel_to)
-except:
-    print(f"Invalid lens model '{lensmodel_to}': couldn't get the metadata",
+except Exception as e:
+    print(f"Invalid lens model '{lensmodel_to}': couldn't get the metadata: {e}",
           file=sys.stderr)
     sys.exit(1)
 if not meta['has_gradients']:
