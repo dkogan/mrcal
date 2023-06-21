@@ -1218,7 +1218,7 @@ def gui_stereo(images,
                 # guts here, and display them in the window
                 set_status(f"Disparity: {d/disparity_scale:.2f}pixels\n" +
                            f"range: {_range:.2f}m\n" +
-                           f"drange/ddisparity: {drange_ddisparity:.3f}m/pixel")
+                           f"drange/ddisparity: {drange_ddisparity:.5f}m/pixel")
 
                 if 0:
                     p0_rectified = \
