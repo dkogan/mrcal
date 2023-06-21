@@ -1871,14 +1871,13 @@ A tuple
             import re
             if mrcal.lensmodel_metadata_and_config(model.intrinsics()[0])['noncentral'] and not \
                (re.match("LENSMODEL_CAHVORE_",model.intrinsics()[0]) and nps.norm2(model.intrinsics()[1][-3:]) < 1e-12):
-
                 if not atinfinity:
                     raise Exception(f"Model {model.intrinsics()[0]} is noncentral, so I can only evaluate the diff at infinity")
                 if re.match("LENSMODEL_CAHVORE_",model.intrinsics()[0]):
                     if use_uncertainties:
                         raise Exception("I have a noncentral model. No usable uncertainties for those yet")
                     # Special-case to centralize CAHVORE. This path will need to be
-                    # redone when I do noncentral model_pairs "properly", but this will
+                    # redone when I do noncentral models "properly", but this will
                     # do in the meantime
                     intrinsics_data = model.intrinsics()[1]
                     intrinsics_data[-3:] = 0
