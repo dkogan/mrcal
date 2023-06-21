@@ -1480,10 +1480,11 @@ A tuple
     intrinsics_data = [model.intrinsics()[1] for model in models]
 
     for i in range(len(models)):
-        if mrcal.lensmodel_metadata_and_config(lensmodels[i])['noncentral']:
+        import re
+        if mrcal.lensmodel_metadata_and_config(lensmodels[i])['noncentral'] and not \
+           (re.match("LENSMODEL_CAHVORE_",models[i].intrinsics()[0]) and nps.norm2(models[i].intrinsics()[1][-3:]) < 1e-12):
             if not atinfinity:
-                raise Exception(f"Model {i} are noncentral, so I can only evaluate the diff at infinity")
-            import re
+                raise Exception(f"Model {i} is noncentral, so I can only evaluate the diff at infinity")
             if re.match("LENSMODEL_CAHVORE_",lensmodels[i]):
                 if use_uncertainties:
                     raise Exception("I have a noncentral model. No usable uncertainties for those yet")
