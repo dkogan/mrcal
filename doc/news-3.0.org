@@ -14,6 +14,29 @@ compose_r_tinyr1_gradientr1
 
 2023-06-09 mrcal.show_projection_diff() has contour options like mrcal.show_projection_uncertainty()
 
+commit 09d52a7f4475615db8f454f111246204b7279596
+Date:   Tue Jun 20 16:07:57 2023 -0700
+  mrcal-stereo, stereo_range() work properly if disparity_min > 0
+  Invalid-disparity areas are now interpreted properly
+
+commit 97298695e24d4e083ce7496fe42fd2a88a0083f3
+Date:   Wed Jun 21 22:52:05 2023 -0700
+  All the tools use /usr/bin/env in the #!
+  Mac user who live life on hard mode now have it slightly easier
+
+build compat: no _GNU_SOURCE, glibc requirement
+
+commit 700a18a01370a14e2f947c9fe24fdb7acdedcb10
+Date:   Thu Jun 15 21:40:20 2023 -0700
+  Support the more recent CHOLMOD APIs
+
 * Migration notes 2.3 -> 3.0
 
-asdf
+commit 76248fce8655fba0aec1175157cbe8f8da055b7a
+Date:   Wed Jun 21 18:24:50 2023 -0700
+  do_optimize_calobject_warp is true ONLY if Nobservations_board>0 is also true
+  THIS IS A C-API-BREAKING CHANGE: mrcal_pack_solver_state_vector() and
+  mrcal_unpack_solver_state_vector() now take one more argument.
+  Prior to this patch you could get into an inconsistent state where different
+  parts of the code has different ideas about what Nstate was
+
