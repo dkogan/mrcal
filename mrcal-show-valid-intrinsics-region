@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
 # Government sponsorship acknowledged. All rights reserved.

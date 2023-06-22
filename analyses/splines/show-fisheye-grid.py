@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 r'''Evaluate 2D griddings of a camera view
 

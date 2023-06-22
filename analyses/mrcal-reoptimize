@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 r'''Loads a model, and re-runs the optimization problem used to generate it
 

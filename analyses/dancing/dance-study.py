@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 r'''Simulates different chessboard dances to find the best technique
 

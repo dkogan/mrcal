@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 r'''Validates estimate_monocular_calobject_poses_Rt_tocam()
 
