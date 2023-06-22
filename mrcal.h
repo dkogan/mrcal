@@ -393,7 +393,7 @@ void mrcal_pack_solver_state_vector( // out, in
                                      // in
                                      int Ncameras_intrinsics, int Ncameras_extrinsics,
                                      int Nframes,
-                                     int Npoints, int Npoints_fixed,
+                                     int Npoints, int Npoints_fixed, int Nobservations_board,
                                      mrcal_problem_selections_t problem_selections,
                                      const mrcal_lensmodel_t* lensmodel);
 
@@ -417,7 +417,7 @@ void mrcal_unpack_solver_state_vector( // out, in
                                        // in
                                        int Ncameras_intrinsics, int Ncameras_extrinsics,
                                        int Nframes,
-                                       int Npoints, int Npoints_fixed,
+                                       int Npoints, int Npoints_fixed, int Nobservations_board,
                                        mrcal_problem_selections_t problem_selections,
                                        const mrcal_lensmodel_t* lensmodel);
 
