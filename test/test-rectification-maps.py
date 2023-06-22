@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 r'''Tests mrcal_rectification_maps() and mrcal.rectification_maps()
 '''

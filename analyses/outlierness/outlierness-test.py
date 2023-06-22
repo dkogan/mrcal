@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 '''This is a set of simple experiments to test the outlier-rejection and
 sensitivity logic'''

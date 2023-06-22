@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 r'''Reproject calibration images to show just the chessboard in its nominal
 coordinates

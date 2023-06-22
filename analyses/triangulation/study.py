@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 r'''Study the precision and accuracy of the various triangulation routines'''
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 f'''Observe the interpolation grid implemented in the C code
 
