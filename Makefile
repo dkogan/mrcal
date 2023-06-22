@@ -1,6 +1,7 @@
 include choose_mrbuild.mk
 include $(MRBUILD_MK)/Makefile.common.header
 
+
 # "0" or undefined means "false"
 # everything else means  "true"
 
@@ -95,6 +96,9 @@ DIST_BIN :=					\
 # do
 DIST_MAN := $(addsuffix .1,$(DIST_BIN))
 
+# if using an older mrbuild SO won't be defined, and we need it
+SO ?= so
+
 # parser
 cameramodel-parser_GENERATED.c: cameramodel-parser.re mrcal.h
 	re2c $< > $@.tmp && mv $@.tmp $@
@@ -113,7 +117,7 @@ ALL_PY_EXTENSION_MODULES   := _mrcal $(patsubst %,_%_npsp,$(ALL_NPSP_EXTENSION_M
 ######### python stuff
 %-npsp-pywrap-GENERATED.c: %-genpywrap.py
 	python3 $< > $@.tmp && mv $@.tmp $@
-mrcal/_%_npsp$(PY_EXT_SUFFIX): %-npsp-pywrap-GENERATED.o libmrcal.so libmrcal.so.${ABI_VERSION}
+mrcal/_%_npsp$(PY_EXT_SUFFIX): %-npsp-pywrap-GENERATED.o libmrcal.$(SO) libmrcal.$(SO).${ABI_VERSION}
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $< -lmrcal -o $@
 
 ALL_NPSP_C  := $(patsubst %,%-npsp-pywrap-GENERATED.c,$(ALL_NPSP_EXTENSION_MODULES))
@@ -126,7 +130,7 @@ EXTRA_CLEAN += $(ALL_NPSP_C)
 $(ALL_NPSP_O): CFLAGS += -Wno-array-bounds
 
 mrcal-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
-mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.so libmrcal.so.${ABI_VERSION}
+mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.$(SO) libmrcal.$(SO).${ABI_VERSION}
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $< -lmrcal -o $@
 # Needed on Debian. Unnecessary, but harmless on Arch Linux
 mrcal-pywrap.o mrcal-uncertainty.o: CFLAGS += -I/usr/include/suitesparse
@@ -143,7 +147,7 @@ $(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
 DIST_PY3_MODULES := mrcal
 
 all: mrcal/_mrcal$(PY_EXT_SUFFIX) $(ALL_NPSP_SO)
-EXTRA_CLEAN += mrcal/*.so
+EXTRA_CLEAN += mrcal/*.$(SO)
 
 include Makefile.doc
 include Makefile.tests
