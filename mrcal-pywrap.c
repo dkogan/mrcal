@@ -2806,7 +2806,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
         {
             mrcal_pack_solver_state_vector( x,
                                             Ncameras_intrinsics, Ncameras_extrinsics,
-                                            Nframes, Npoints, Npoints_fixed,
+                                            Nframes, Npoints, Npoints_fixed,Nobservations_board,
                                             problem_selections, &mrcal_lensmodel);
             x = &x[Nstate];
         }
@@ -2815,7 +2815,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
         {
             mrcal_unpack_solver_state_vector( x,
                                               Ncameras_intrinsics, Ncameras_extrinsics,
-                                              Nframes, Npoints, Npoints_fixed,
+                                              Nframes, Npoints, Npoints_fixed,Nobservations_board,
                                               problem_selections, &mrcal_lensmodel);
             x = &x[Nstate];
         }
