@@ -182,7 +182,7 @@ for test in tests:
 
     try:
         full = \
-            subprocess.check_output( [f"{testdir}/../test-gradients"] + test.split(),
+            subprocess.check_output( [f"{testdir}/test-gradients"] + test.split(),
                                      shell = False,
                                      encoding = 'ascii')
     except Exception as e:

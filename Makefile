@@ -39,7 +39,7 @@ endif
 
 
 BIN_SOURCES +=					\
-  test-gradients.c				\
+  test/test-gradients.c				\
   test/test-cahvor.c				\
   test/test-lensmodel-string-manipulation.c     \
   test/test-parser-cameramodel.c

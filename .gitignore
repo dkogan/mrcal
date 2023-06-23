@@ -21,7 +21,7 @@ debian/files
 debian/*/
 
 *.pickle
-test-gradients
+test/test-gradients
 test/test-lensmodel-string-manipulation
 test/test-cahvor
 test/test-parser-cameramodel

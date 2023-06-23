@@ -11,7 +11,7 @@
 #include <string.h>
 #include <assert.h>
 
-#include "mrcal.h"
+#include "../mrcal.h"
 
 #define SPLINED_NX 11
 #define SPLINED_NY 8
