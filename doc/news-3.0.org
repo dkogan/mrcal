@@ -24,6 +24,7 @@ Date:   Wed Jun 21 22:52:05 2023 -0700
   All the tools use /usr/bin/env in the #!
   Mac user who live life on hard mode now have it slightly easier
 
+7aae63c8, previous one
 build compat: no _GNU_SOURCE, glibc requirement
 
 commit 700a18a01370a14e2f947c9fe24fdb7acdedcb10
