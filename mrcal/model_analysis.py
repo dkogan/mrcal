@@ -479,8 +479,6 @@ def _observed_pixel_uncertainty_from_inputs(optimization_inputs,
                                      no_jacobian      = True,
                                      no_factorization = True)[1]
 
-
-    # mrcal.residuals_point() ignores the range normalization (penalty)
     sum_of_squares_residuals = 0
     Nobservations            = 0
 
@@ -663,9 +661,6 @@ In the regularized case:
             # measurements are present other than the chessboard observations
             Nmeasurements_observations_leading = 0
         else:
-            if Nmeasurements_points > 0:
-                print("WARNING: I'm currently treating the point range normalization (penalty) terms as following the same noise model as other measurements. This will bias the uncertainty estimate",
-                      file=sys.stderr)
             Nmeasurements_observations_leading = \
                 Nmeasurements_all - Nmeasurements_regularization
             if Nmeasurements_observations_leading == 0:

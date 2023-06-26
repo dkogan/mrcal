@@ -428,8 +428,7 @@ _,optimization_inputs['observations_point'] = \
 optimize(optimization_inputs)
 
 # Grab the residuals. residuals_point() reports ONLY the point reprojection
-# errors: no range normalization (penalty) terms, no board observations, no
-# regularization. Also, no outliers
+# errors: no board observations, no regularization. Also, no outliers
 rmserr_point = np.std(mrcal.residuals_point(optimization_inputs).ravel())
 
 ############# Calibration computed. Now I see how well I did
@@ -517,7 +516,7 @@ testutils.confirm_equal( mrcal.num_measurements_boards(**optimization_inputs),
                          0,
                          msg="num_measurements_boards()")
 testutils.confirm_equal( mrcal.num_measurements_points(**optimization_inputs),
-                         Npoints*args.oversample*3,
+                         Npoints*args.oversample*2,
                          msg="num_measurements_points()")
 testutils.confirm_equal( mrcal.num_measurements_regularization(**optimization_inputs),
                          6,
@@ -529,10 +528,10 @@ testutils.confirm_equal( mrcal.state_index_extrinsics(0, **optimization_inputs),
                          8,
                          msg="state_index_extrinsics()")
 testutils.confirm_equal( mrcal.measurement_index_points(2, **optimization_inputs),
-                         3*2,
+                         2*2,
                          msg="measurement_index_points()")
 testutils.confirm_equal( mrcal.measurement_index_regularization(**optimization_inputs),
-                         3*args.oversample*Npoints,
+                         2*args.oversample*Npoints,
                          msg="measurement_index_regularization()")
 
 if args.write_model:

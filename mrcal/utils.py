@@ -1420,11 +1420,8 @@ else:
     imeas0 = mrcal.measurement_index_points(0, **optimization_inputs)
     Nmeas  = mrcal.num_measurements_points(**optimization_inputs)
 
-    # shape (Nobservations, 2)
-    #
-    # Each observation row is (err_x, err_y, range_penalty). I ignore the
-    # range_penalty here
-    residuals_point = residuals[imeas0:imeas0+Nmeas].reshape(Nobservations,3)[:,:2]
+    # shape (Nobservations, 2); each observation row is (err_x, err_y)
+    residuals_point = residuals[imeas0:imeas0+Nmeas].reshape(Nobservations,2)
 
     indices_point_camera = optimization_inputs['indices_point_camintrinsics_camextrinsics'][...,:2]
 

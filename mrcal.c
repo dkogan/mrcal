@@ -458,18 +458,18 @@ int mrcal_measurement_index_points(int i_observation_point,
     if(Nobservations_point <= 0)
         return -1;
 
-    // 3: x,y measurements, range normalization
+    // 2: x,y measurements
     return
         mrcal_num_measurements_boards(Nobservations_board,
                                       calibration_object_width_n,
                                       calibration_object_height_n) +
-        i_observation_point * 3;
+        i_observation_point * 2;
 }
 
 int mrcal_num_measurements_points(int Nobservations_point)
 {
-    // 3: x,y measurements, range normalization
-    return Nobservations_point * 3;
+    // 2: x,y measurements
+    return Nobservations_point * 2;
 }
 
 int mrcal_measurement_index_regularization(int calibration_object_width_n,
@@ -596,14 +596,6 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
         if( problem_selections.do_optimize_extrinsics &&
             observations_point[i].icam.extrinsics >= 0 )
             N += 2*6;
-
-        // range normalization
-        if(problem_selections.do_optimize_frames &&
-            observations_point[i].i_point < Npoints-Npoints_fixed )
-            N += 3;
-        if( problem_selections.do_optimize_extrinsics &&
-            observations_point[i].icam.extrinsics >= 0 )
-            N += 6;
     }
 
     if(lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
@@ -4360,6 +4352,9 @@ void optimizer_callback(// input state
                 iMeasurement++;
             }
 
+        // TEMPORARY TWEAK: disable range normalization
+        // I will re-add this later
+#if 0
             if(Jt) Jrowptr[iMeasurement] = iJacobian;
             x[iMeasurement] = 0;
             if(icam_extrinsics >= 0 && ctx->problem_selections.do_optimize_extrinsics )
@@ -4370,6 +4365,7 @@ void optimizer_callback(// input state
             if( use_position_from_state )
                 STORE_JACOBIAN3( i_var_point, 0,0,0 );
             iMeasurement++;
+#endif
 
             continue;
         }
@@ -4543,6 +4539,10 @@ void optimizer_callback(// input state
             iMeasurement++;
         }
 
+
+        // TEMPORARY TWEAK: disable range normalization
+        // I will re-add this later
+#if 0
         // Now the range normalization (make sure the range isn't
         // aphysically high or aphysically low)
         void get_penalty(// out
@@ -4681,6 +4681,7 @@ void optimizer_callback(// input state
                                  2.0*dpenalty_ddistsq*(pcam.x*Rc[2] + pcam.y*Rc[5] + pcam.z*Rc[8]) );
             iMeasurement++;
         }
+#endif
     }
 
 

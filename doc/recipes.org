@@ -242,21 +242,11 @@ solved $z$ in camera coordinates:
 
 [[file:external/figures/surveyed-calibration/var-errz.svg]]
 
-Clearly the uncertainty propagation logic is working. Note: today's discrete
-point handling in mrcal has extra factors that generate this warning when
-computing an uncertainty:
-
-#+begin_example
-WARNING: I'm currently treating the point range normalization (penalty) terms as following the same noise model as other measurements. This will bias the uncertainty estimate
-#+end_example
-
-This is benign, and the related logic is likely to change in the future.
-
-The usual rule-of-thumb is to gather calibration data at multiple ranges because
-it is otherwise difficult to disentangle the effects of camera position from the
-effects of intrinsics. We can demonstrate this explicitly using the same test
-script: we solve the same calibration problem, with the range to the center
-chessboard varying.
+Clearly the uncertainty propagation logic is working. The usual rule-of-thumb is
+to gather calibration data at multiple ranges because it is otherwise difficult
+to disentangle the effects of camera position from the effects of intrinsics. We
+can demonstrate this explicitly using the same test script: we solve the same
+calibration problem, with the range to the center chessboard varying.
 
 #+begin_src sh
 for z (4 5 8 9 9.5 10 10.5 11 15 20 30) {
