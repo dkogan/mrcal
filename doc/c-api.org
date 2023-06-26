@@ -377,16 +377,10 @@ ranges for interpretation of discrete points. These may change in the future.
 // bits
 typedef struct
 {
-    // The minimum distance of an observed discrete point from its observing
-    // camera. Any observation of a point below this range will be penalized to
-    // encourage the optimizer to move the point further away from the camera
-    double  point_min_range;
-
-
-    // The maximum distance of an observed discrete point from its observing
-    // camera. Any observation of a point abive this range will be penalized to
-    // encourage the optimizer to move the point closer to the camera
-    double  point_max_range;
+    // The min,max distance of an observed discrete point from its observing
+    // camera. Any observation of a point outside this range will be penalized to
+    // encourage the optimizer to move the point into the acceptable range from the camera
+    double  point_min_range, point_max_range;
 } mrcal_problem_constants_t;
 #+end_src
 
