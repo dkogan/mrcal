@@ -149,7 +149,7 @@ int main(int argc, char* argv[] )
 #define calibration_object_height_n 9
 
     // The observations of chessboards and of discrete points
-    mrcal_observation_board_t observations_board[] =
+    const mrcal_observation_board_t observations_board[] =
         { {.icam = { .intrinsics = 0, .extrinsics = -1 }, .iframe = 0},
           {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 0},
           {.icam = { .intrinsics = 1, .extrinsics =  0 }, .iframe = 1},
