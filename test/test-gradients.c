@@ -167,10 +167,6 @@ int main(int argc, char* argv[] )
 #define Nobservations_point ((int)(sizeof(observations_point)/sizeof(observations_point[0])))
 
     mrcal_point3_t observations_board_pool[Nobservations_board][calibration_object_width_n*calibration_object_height_n] = {};
-    mrcal_point3_t observations_point_px[Nobservations_point] = {};
-
-    for(int i=0; i<Nobservations_point; i++)
-        observations_point[i].px = observations_point_px[i];
 
     // fill observations with arbitrary data
     for(int i=0; i<Nobservations_board; i++)
@@ -185,11 +181,10 @@ int main(int argc, char* argv[] )
                     1. / (double)(1 << ((i+j+k) % 3));
             }
     for(int i=0; i<Nobservations_point; i++)
-    {
-        observations_point_px[i].x = 1100.0 + (double)i*20.0;
-        observations_point_px[i].y = 800.0  - (double)i*12.0;
-        observations_point_px[i].z = 1. / (double)(1 << (i % 3));
-    }
+        observations_point[i].px =
+            (mrcal_point3_t) {.x = 1100.0 + (double)i*20.0,
+                              .y = 800.0  - (double)i*12.0,
+                              .z = 1. / (double)(1 << (i % 3)) };
 
     // simple camera calibration case
     int Ncameras_extrinsics = sizeof(extrinsics)/sizeof(extrinsics[0]);
