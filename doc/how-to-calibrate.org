@@ -1271,7 +1271,7 @@ def add_imperfection(optimization_inputs, observed_pixel_uncertainty):
 model = mrcal.cameramodel('splined.cameramodel')
 optimization_inputs = model.optimization_inputs()
 
-observed_pixel_uncertainty = np.std(mrcal.residuals_chessboard(optimization_inputs).ravel())
+observed_pixel_uncertainty = np.std(mrcal.residuals_board(optimization_inputs).ravel())
 
 optimization_inputs['calobject_warp'] = np.array((1e-3, -0.5e-3))
 mrcal.make_perfect_observations(optimization_inputs,
@@ -1320,7 +1320,7 @@ def add_imperfection(optimization_inputs, observed_pixel_uncertainty):
 model = mrcal.cameramodel('/home/dima/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity/splined.cameramodel')
 optimization_inputs = model.optimization_inputs()
 
-observed_pixel_uncertainty = np.std(mrcal.residuals_chessboard(optimization_inputs).ravel())
+observed_pixel_uncertainty = np.std(mrcal.residuals_board(optimization_inputs).ravel())
 
 optimization_inputs['calobject_warp'] = np.array((1e-3, -0.5e-3))
 mrcal.make_perfect_observations(optimization_inputs,
