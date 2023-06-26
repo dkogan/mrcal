@@ -783,8 +783,8 @@ if not args.skip_intrinsics_solve and \
    args.valid_intrinsics_region_parameters is not None:
 
     observed_pixel_uncertainty = \
-        np.std(mrcal.residuals_chessboard(optimization_inputs,
-                                          residuals = stats['x']).ravel())
+        np.std(mrcal.residuals_board(optimization_inputs,
+                                     residuals = stats['x']).ravel())
 
     threshold_uncertainty = args.valid_intrinsics_region_parameters[0] * observed_pixel_uncertainty
     threshold_mean        = args.valid_intrinsics_region_parameters[1]

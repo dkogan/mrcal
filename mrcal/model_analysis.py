@@ -485,7 +485,7 @@ def _observed_pixel_uncertainty_from_inputs(optimization_inputs,
     Nobservations            = 0
 
     # shape (Nobservations*2)
-    residuals = mrcal.residuals_chessboard(optimization_inputs, residuals = x).ravel()
+    residuals = mrcal.residuals_board(optimization_inputs, residuals = x).ravel()
     if residuals.size:
         sum_of_squares_residuals += np.var(residuals) * residuals.size
         Nobservations += residuals.size

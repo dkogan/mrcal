@@ -31,6 +31,9 @@ commit 700a18a01370a14e2f947c9fe24fdb7acdedcb10
 Date:   Thu Jun 15 21:40:20 2023 -0700
   Support the more recent CHOLMOD APIs
 
+Python API: renamed residuals_chessboard -> residuals_board
+The previous name is still available for backwards compatibility
+
 * Migration notes 2.3 -> 3.0
 
 commit 76248fce8655fba0aec1175157cbe8f8da055b7a
@@ -41,3 +44,7 @@ Date:   Wed Jun 21 18:24:50 2023 -0700
   Prior to this patch you could get into an inconsistent state where different
   parts of the code has different ideas about what Nstate was
 
+
+Python API: renamed residuals_chessboard -> residuals_board
+The previous name is still available for backwards compatibility.
+Use the new name if you can. You don't HAVE to

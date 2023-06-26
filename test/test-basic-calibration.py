@@ -252,8 +252,8 @@ testutils.confirm_equal( optimization_inputs['calobject_warp'],
                          eps = 2e-3,
                          msg = "Recovered the calibration object shape" )
 
-testutils.confirm_equal( np.std( mrcal.residuals_chessboard(optimization_inputs,
-                                                            residuals = stats['x'])),
+testutils.confirm_equal( np.std( mrcal.residuals_board(optimization_inputs,
+                                                       residuals = stats['x'])),
                          pixel_uncertainty_stdev,
                          eps = pixel_uncertainty_stdev*0.1,
                          msg = "Residual have the expected distribution" )

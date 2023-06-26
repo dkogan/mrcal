@@ -1197,23 +1197,22 @@ def _plot_args_points_and_covariance_ellipse(q, what):
              ( q, dict(_with = 'dots',
                          tuplesize = -2)) )
 
+def residuals_board(optimization_inputs,
+                    *,
+                    icam_intrinsics     = None,
+                    residuals           = None,
+                    return_observations = False,
 
-def residuals_chessboard(optimization_inputs,
-                         *,
-                         icam_intrinsics     = None,
-                         residuals           = None,
-                         return_observations = False,
-
-                         # for backwards-compatibility only; same as
-                         # icam_intrinsics
-                         i_cam               = None):
+                    # for backwards-compatibility only; same as
+                    # icam_intrinsics
+                    i_cam               = None):
     r'''Compute and return the chessboard residuals
 
 SYNOPSIS
 
     model = mrcal.cameramodel(model_filename)
 
-    gp.plot( mrcal.residuals_chessboard(
+    gp.plot( mrcal.residuals_board(
                optimization_inputs = model.optimization_inputs(),
                icam_intrinsics     = icam_intrinsics ).ravel(),
              histogram = True,
@@ -1326,6 +1325,8 @@ else:
             residuals_board   [idx, ...    ], \
             observations_board[idx, ..., :2]
 
+# For backwards compatibility
+residuals_chessboard = residuals_board
 
 def residuals_point(optimization_inputs,
                     *,

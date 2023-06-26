@@ -3494,9 +3494,9 @@ plot
     if 'observations_board' in optimization_inputs and \
        optimization_inputs['observations_board'] is not None:
         x_chessboard = \
-            mrcal.residuals_chessboard(optimization_inputs = optimization_inputs,
-                                       icam_intrinsics     = icam_intrinsics,
-                                       residuals           = residuals).ravel()
+            mrcal.residuals_board(optimization_inputs = optimization_inputs,
+                                  icam_intrinsics     = icam_intrinsics,
+                                  residuals           = residuals).ravel()
     else:
         x_chessboard = np.array(())
 
@@ -3575,10 +3575,10 @@ def _get_show_residuals_data_onecam(model,
        optimization_inputs['observations_board'] is not None:
         # shape (N,2), (N,2)
         err_chessboard,obs_chessboard = \
-            mrcal.residuals_chessboard(optimization_inputs = optimization_inputs,
-                                       icam_intrinsics     = icam_intrinsics,
-                                       residuals           = residuals,
-                                       return_observations = True)
+            mrcal.residuals_board(optimization_inputs = optimization_inputs,
+                                  icam_intrinsics     = icam_intrinsics,
+                                  residuals           = residuals,
+                                  return_observations = True)
     else:
         err_chessboard,obs_chessboard = \
             np.array(()),np.array(())
