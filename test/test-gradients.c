@@ -166,7 +166,7 @@ int main(int argc, char* argv[] )
 #define Nobservations_board ((int)(sizeof(observations_board)/sizeof(observations_board[0])))
 #define Nobservations_point ((int)(sizeof(observations_point)/sizeof(observations_point[0])))
 
-    mrcal_point3_t observations_px      [Nobservations_board][calibration_object_width_n*calibration_object_height_n] = {};
+    mrcal_point3_t observations_board_pool[Nobservations_board][calibration_object_width_n*calibration_object_height_n] = {};
     mrcal_point3_t observations_point_px[Nobservations_point] = {};
 
     for(int i=0; i<Nobservations_point; i++)
@@ -177,11 +177,11 @@ int main(int argc, char* argv[] )
         for(int j=0; j<calibration_object_height_n; j++)
             for(int k=0; k<calibration_object_width_n; k++)
             {
-                observations_px[i][calibration_object_width_n*j + k].x =
+                observations_board_pool[i][calibration_object_width_n*j + k].x =
                     1000.0 + (double)k - 10.0*(double)j + (double)(i*j*k);
-                observations_px[i][calibration_object_width_n*j + k].y =
+                observations_board_pool[i][calibration_object_width_n*j + k].y =
                     1000.0 - (double)k + 30.0*(double)j - (double)(i*j*k);
-                observations_px[i][calibration_object_width_n*j + k].z =
+                observations_board_pool[i][calibration_object_width_n*j + k].z =
                     1. / (double)(1 << ((i+j+k) % 3));
             }
     for(int i=0; i<Nobservations_point; i++)
@@ -440,7 +440,7 @@ int main(int argc, char* argv[] )
                         Nobservations_board,
                         Nobservations_point,
 
-                        (mrcal_point3_t*)observations_px,
+                        (mrcal_point3_t*)observations_board_pool,
 
                         &lensmodel,
                         imagersizes,
