@@ -78,6 +78,12 @@ def parse_args():
                         default=1.5,
                         help='''The level of the input pixel noise to simulate.
                         Defaults to 1 stdev = 1.5 pixels''')
+    parser.add_argument('--points',
+                        action='store_true',
+                        help='''By default we do everything with chessboard
+                        observations. If --points, we simulate the same
+                        chessboard observations, but we calibrate with discrete
+                        observations of points in the chessboard''')
     parser.add_argument('--do-sample',
                         action='store_true',
                         help='''By default we don't run the time-intensive
@@ -160,7 +166,14 @@ if args.fixed == 'frames' and re.match('mean-frames-using-meanq', args.reproject
     print("--fixed frames currently not implemented together with --reproject-perturbed mean-frames-using-meanq.",
           file = sys.stderr)
     sys.exit(1)
-
+if args.points and not re.match('cross-reprojection', args.reproject_perturbed):
+    print("--points is currently implemented ONLY with --reproject-perturbed cross-reprojection-...",
+          file = sys.stderr)
+    sys.exit(1)
+if args.points and args.make_documentation_plots is not None:
+    print("--points is not currently implemented with --make-documentation-plots",
+          file = sys.stderr)
+    sys.exit(1)
 
 
 
@@ -246,7 +259,7 @@ optimization_inputs_baseline,                          \
 models_true, models_baseline,                          \
 lensmodel, Nintrinsics, imagersizes,                   \
 intrinsics_true, extrinsics_true_mounted,              \
-indices_frame_camintrinsics_camextrinsics, frames_true, observations_true, args.Nframes = \
+*rest = \
     calibration_baseline(args.model,
                          args.Ncameras,
                          args.Nframes,
@@ -258,7 +271,24 @@ indices_frame_camintrinsics_camextrinsics, frames_true, observations_true, args.
                          calobject_warp_true,
                          fixedframes,
                          testdir,
-                         range_to_boards = args.range_to_boards)
+                         range_to_boards = args.range_to_boards,
+                         report_points   = args.points)
+
+
+if not args.points:
+    indices_frame_camintrinsics_camextrinsics, frames_true, observations_board_true, args.Nframes = rest
+    indices_point_camintrinsics_camextrinsics = None
+    points_true                               = None
+    observations_point_true                   = None
+    Npoints                                   = None
+
+else:
+    indices_point_camintrinsics_camextrinsics, points_true, observations_point_true, Npoints = rest
+    indices_frame_camintrinsics_camextrinsics = None
+    frames_true                               = None
+    observations_board_true                   = None
+
+
 
 # I evaluate the projection uncertainty of this vector. In each camera. I'd like
 # it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
@@ -304,7 +334,7 @@ if args.make_documentation_plots is not None:
 
 
     def observed_points(icam):
-        obs_cam = observations_true[indices_frame_camintrinsics_camextrinsics[:,1]==icam, ..., :2].ravel()
+        obs_cam = observations_board_true[indices_frame_camintrinsics_camextrinsics[:,1]==icam, ..., :2].ravel()
         return obs_cam.reshape(len(obs_cam)//2,2)
 
     if args.make_documentation_plots:
@@ -350,7 +380,7 @@ if args.make_documentation_plots is not None:
 intrinsics_baseline         = nps.cat( *[m.intrinsics()[1]         for m in models_baseline] )
 extrinsics_baseline_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in models_baseline] )
 frames_baseline             = optimization_inputs_baseline['frames_rt_toref']
-points_baseline             = np.zeros((0,3), dtype=float)
+points_baseline             = optimization_inputs_baseline['points']
 calobject_warp_baseline     = optimization_inputs_baseline['calobject_warp']
 
 if args.write_models:
@@ -1050,23 +1080,6 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
 
     mode = re.match('cross-reprojection--(.+)', args.reproject_perturbed).group(1)
 
-    object_width_n      = baseline_optimization_inputs['observations_board'].shape[-2]
-    object_height_n     = baseline_optimization_inputs['observations_board'].shape[-3]
-    object_spacing      = baseline_optimization_inputs['calibration_object_spacing']
-    # shape (Nh,Nw,3)
-    baseline_calibration_object = \
-        mrcal.ref_calibration_object(object_width_n,
-                                     object_height_n,
-                                     object_spacing,
-                                     calobject_warp = baseline_calobject_warp)
-
-    # shape (...,Nh, Nw,3)
-    query_calibration_object = \
-        mrcal.ref_calibration_object(object_width_n,
-                                     object_height_n,
-                                     object_spacing,
-                                     calobject_warp = query_calobject_warp)
-
     b_baseline_unpacked, x_baseline, J_packed_baseline, factorization = \
         mrcal.optimizer_callback(**baseline_optimization_inputs)
     mrcal.unpack_state(b_baseline_unpacked, **baseline_optimization_inputs)
@@ -1094,8 +1107,10 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
     istate_calobject_warp0 = mrcal.state_index_calobject_warp(**optimization_inputs_baseline)
     Nstates_calobject_warp = mrcal.num_states_calobject_warp(**optimization_inputs_baseline)
 
-    slice_state_calobject_warp    = slice(istate_calobject_warp0,    istate_calobject_warp0       + Nstates_calobject_warp   )
     slice_state_intrinsics        = slice(istate_intrinsics0,        istate_intrinsics0           + Nstates_intrinsics       )
+
+    if istate_calobject_warp0 is not None:
+        slice_state_calobject_warp    = slice(istate_calobject_warp0,    istate_calobject_warp0       + Nstates_calobject_warp   )
 
 
     every_observation_has_extrinsics =                                  \
@@ -1153,9 +1168,11 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
             weight[what] = baseline_observations[what][...,2]
 
             # set outliers to 0
+            if what == 'point': Nmeas_per_point = 2 # includes range normalization penalty
+            else:               Nmeas_per_point = 2
             x_baseline[imeas0_observations[what] : \
                        imeas0_observations[what]+Nmeas_observations[what]]. \
-                reshape(Nmeas_observations[what]//2,2)[(weight[what].ravel())<=0,:] = 0
+                reshape(Nmeas_observations[what]//Nmeas_per_point,Nmeas_per_point)[(weight[what].ravel())<=0,:] = 0
 
     if have['board']:
         idx_frame,idx_camintrinsics['board'],idx_camextrinsics['board'] = \
@@ -1165,10 +1182,11 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
             np.all(baseline_optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,2] >= 0)
     if have['point']:
         idx_points,idx_camintrinsics['point'],idx_camextrinsics['point'] = \
-            nps.transpose(baseline_optimization_inputs[f'indices_points_camintrinsics_camextrinsics'])
+            nps.transpose(baseline_optimization_inputs[f'indices_point_camintrinsics_camextrinsics'])
         every_observation_has_extrinsics = \
             every_observation_has_extrinsics and \
-            np.all(baseline_optimization_inputs['indices_points_camintrinsics_camextrinsics'][:,2] >= 0)
+            np.all(baseline_optimization_inputs['indices_point_camintrinsics_camextrinsics'][:,2] >= 0)
+
 
     if istate_extrinsics0 is not None:
         slice_state_extrinsics = slice(istate_extrinsics0, istate_extrinsics0 + Nstates_extrinsics)
@@ -1187,7 +1205,8 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
             np.array( nps.clump(query_q_noise_board, n = -(query_q_noise_board.ndim-1)) )
     if have['point']:
         W_delta_qref[..., imeas0_observations['point']:imeas0_observations['point']+Nmeas_observations['point']] = \
-            np.array( nps.clump(query_q_noise_point, n = -(query_q_noise_point.ndim-1)) )
+            np.array( nps.clump( query_q_noise_point,
+                                n = -(query_q_noise_point.ndim-1)) )
 
     J_observations = J_packed_baseline[imeas0_observations_all:imeas0_observations_all+Nmeas_observations_all,:]
 
@@ -1198,12 +1217,15 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
     for what in have.keys():
         if have[what]:
 
+            if what == 'point': Nmeas_per_point = 2 # includes range normalization penalty
+            else:               Nmeas_per_point = 2
+
             # shape (Nsamples,Nmeas_observations_what/2, 2)
             W_delta_qref_xy_what = \
                 np.reshape(W_delta_qref[...,
                                         imeas0_observations[what]:imeas0_observations[what]+Nmeas_observations[what]],
                            (len(W_delta_qref),
-                            Nmeas_observations[what]//2,2))
+                            Nmeas_observations[what]//Nmeas_per_point,Nmeas_per_point))
             if not np.shares_memory(W_delta_qref_xy_what,W_delta_qref): raise Exception("clump() made new array. This is a bug")
             # W_delta_qref <- W * delta_qref
             W_delta_qref_xy_what *= nps.transpose(weight[what].ravel())
@@ -1356,15 +1378,25 @@ noise, and reoptimizing'''
                         #     - W qref
 
 
-                        # shape (Nsamples, Nmeas_observations_all,Nh,Nw,2)
-                        #       (Nsamples, Nmeas_observations_all,Nh,Nw,2,3)
-                        if have['point']:
-                            print("CHECK THIS: for points the dummy()/clump() stuff is wrong")
-                        qcross,dq_dpcam,_ = \
-                            mrcal.project(pcam[what],
-                                          baseline_optimization_inputs['lensmodel'],
-                                          nps.dummy(baseline_intrinsics[ idx_camintrinsics[what], :], -2,-2),
-                                          get_gradients = True)
+                        if what == 'board':
+                            # shape (Nsamples, Nmeas_observations_all,Nh,Nw,2)
+                            #       (Nsamples, Nmeas_observations_all,Nh,Nw,2,3)
+                            qcross,dq_dpcam,_ = \
+                                mrcal.project(pcam[what],
+                                              baseline_optimization_inputs['lensmodel'],
+                                              nps.dummy(baseline_intrinsics[ idx_camintrinsics[what], :], -2,-2),
+                                              get_gradients = True)
+                        elif what == 'point':
+                            # shape (Nsamples, Nmeas_observations_all,2)
+                            #       (Nsamples, Nmeas_observations_all,2,3)
+                            qcross,dq_dpcam,_ = \
+                                mrcal.project(pcam[what],
+                                              baseline_optimization_inputs['lensmodel'],
+                                              baseline_intrinsics[ idx_camintrinsics[what], :],
+                                              get_gradients = True)
+                        else:
+                            raise Exception(f"Unknown what={what}")
+
                         qref = baseline_observations[what][...,:2]
                         x_cross0_what[:] = (qcross - qref)*nps.dummy(weight[what],-1)
                         x_cross0_what[...,weight[what]<=0,:] = 0 # outliers
@@ -1374,12 +1406,23 @@ noise, and reoptimizing'''
                         dx_drt_ref_refperturbed = nps.matmult(dx_dpcam, dpcam_drt_ref_refperturbed[what])
 
 
-                        # shape (Nsamples,Nmeas_observations_all,Nh,Nw,2,6) ->
-                        #       (Nsamples,Nmeas_observations_all*Nh*Nw*2,6) ->
-                        J_cross_what[:] = \
-                            nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
-                                             n = -4),
-                                   -2, -1)
+                        if what == 'board':
+                            # shape (Nsamples,Nmeas_observations_all,Nh,Nw,2,6) ->
+                            #       (Nsamples,Nmeas_observations_all*Nh*Nw*2,6) ->
+                            J_cross_what[:] = \
+                                nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
+                                                 n = -4),
+                                       -2, -1)
+                        elif what == 'point':
+                            # shape (Nsamples,Nmeas_observations_all,2,6) ->
+                            #       (Nsamples,Nmeas_observations_all*2,6) ->
+                            J_cross_what[:] = \
+                                nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -3),
+                                                 n = -2),
+                                       -2, -1)
+                        else:
+                            raise Exception(f"Unknown what={what}")
+
                     else:
                         # The expression above is
 
@@ -1406,13 +1449,25 @@ noise, and reoptimizing'''
                         pcamperturbed                       = pcam
                         dpcamperturbed_drt_refperturbed_ref = dpcam_drt_ref_refperturbed
 
-                        # shape (..., Nmeas_observations_all,Nh,Nw,2)
-                        #       (..., Nmeas_observations_all,Nh,Nw,2,3)
-                        qcross,dq_dpcamperturbed,_ = \
-                            mrcal.project(pcamperturbed[what],
-                                          baseline_optimization_inputs['lensmodel'],
-                                          nps.dummy(query_intrinsics[:, idx_camintrinsics[what] ], -2,-2),
-                                          get_gradients = True)
+                        if what == 'board':
+                            # shape (..., Nmeas_observations_all,Nh,Nw,2)
+                            #       (..., Nmeas_observations_all,Nh,Nw,2,3)
+                            qcross,dq_dpcamperturbed,_ = \
+                                mrcal.project(pcamperturbed[what],
+                                              baseline_optimization_inputs['lensmodel'],
+                                              nps.dummy(query_intrinsics[:, idx_camintrinsics[what] ], -2,-2),
+                                              get_gradients = True)
+                        elif what == 'point':
+                            # shape (..., Nmeas_observations_all,2)
+                            #       (..., Nmeas_observations_all,2,3)
+                            qcross,dq_dpcamperturbed,_ = \
+                                mrcal.project(pcamperturbed[what],
+                                              baseline_optimization_inputs['lensmodel'],
+                                              query_intrinsics[:, idx_camintrinsics[what] ],
+                                              get_gradients = True)
+                        else:
+                            raise Exception(f"Unknown what={what}")
+
                         qrefperturbed = query_observations[what][...,:2]
                         x_cross0_what[:] = (qcross - qrefperturbed)*nps.dummy(weight[what],-1)
                         x_cross0_what[...,weight[what]<=0,:] = 0 # outliers
@@ -1420,12 +1475,22 @@ noise, and reoptimizing'''
                         dx_dpcamperturbed = dq_dpcamperturbed*nps.dummy(weight[what],-1,-1)
                         dx_dpcamperturbed[...,weight[what]<=0,:,:] = 0 # outliers
                         dx_drt_ref_refperturbed = nps.matmult(dx_dpcamperturbed, dpcamperturbed_drt_refperturbed_ref[what])
-                        # shape (...,Nmeas_observations_all,Nh,Nw,2,6) ->
-                        #       (...,Nmeas_observations_all*Nh*Nw*2,6) ->
-                        J_cross_what[:] = \
-                            nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
-                                             n = -4),
-                                   -2, -1)
+                        if what == 'board':
+                            # shape (...,Nmeas_observations_all,Nh,Nw,2,6) ->
+                            #       (...,Nmeas_observations_all*Nh*Nw*2,6) ->
+                            J_cross_what[:] = \
+                                nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
+                                                 n = -4),
+                                       -2, -1)
+                        elif what == 'point':
+                            # shape (...,Nmeas_observations_all,2,6) ->
+                            #       (...,Nmeas_observations_all*2,6) ->
+                            J_cross_what[:] = \
+                                nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -3),
+                                                 n = -2),
+                                       -2, -1)
+                        else:
+                            raise Exception(f"Unknown what={what}")
 
             return x_cross0 - x_baseline[imeas0_observations_all:imeas0_observations_all+Nmeas_observations_all], J_cross
 
@@ -1481,7 +1546,7 @@ The rt_refperturbed_ref formulation:
             if have['board']: state_mask_fpcw[slice_state_frame] = 1
             if have['point']: state_mask_fpcw[slice_state_point] = 1
 
-            if slice_state_calobject_warp is not None:
+            if have['board'] and slice_state_calobject_warp is not None:
                 state_mask_fpcw[slice_state_calobject_warp] = 1
 
             state_mask_ie [slice_state_intrinsics]      = 1
@@ -1618,7 +1683,14 @@ The rt_refperturbed_ref formulation:
                     dp_drt = np.zeros((Npoints,3,6), dtype=float)
                     mrcal.skew_symmetric(p, out = dp_drt[...,:3])
                     dp_drt[...,:3] *= -1
-                    mrcal.identity_R(out = dp_drt[...,3:])
+
+                    # I want:
+                    #   mrcal.identity_R(out = dp_drt[...,3:])
+                    # But this doesn't work today: npsp needs a fix
+                    dp_drt[...,:,3:] = 0
+                    dp_drt[...,0,3 ] = 1
+                    dp_drt[...,1,4 ] = 1
+                    dp_drt[...,2,5 ] = 1
 
                     # Pack numerator
                     dp_drt /= nps.dummy(scale_points, -1)
@@ -1635,7 +1707,25 @@ The rt_refperturbed_ref formulation:
 
 
         pref = dict()
+
         if have['board']:
+            object_width_n      = baseline_optimization_inputs['observations_board'].shape[-2]
+            object_height_n     = baseline_optimization_inputs['observations_board'].shape[-3]
+            object_spacing      = baseline_optimization_inputs['calibration_object_spacing']
+            # shape (Nh,Nw,3)
+            baseline_calibration_object = \
+                mrcal.ref_calibration_object(object_width_n,
+                                             object_height_n,
+                                             object_spacing,
+                                             calobject_warp = baseline_calobject_warp)
+
+            # shape (...,Nh, Nw,3)
+            query_calibration_object = \
+                mrcal.ref_calibration_object(object_width_n,
+                                             object_height_n,
+                                             object_spacing,
+                                             calobject_warp = query_calobject_warp)
+
             # shape (Nmeas_observations_all,Nh,Nw,3),
             pref['board'] = \
                 mrcal.transform_point_rt(nps.dummy(baseline_rt_ref_frame[ ..., idx_frame, :], -2,-2),
@@ -1653,20 +1743,32 @@ The rt_refperturbed_ref formulation:
                 if have[what]:
                     idx = slice(imeas0_observations[what],
                                 imeas0_observations[what]+Nmeas_observations[what])
-                    # shape (..., Nmeas_observations_all,Nh,Nw,2)
-                    qq = \
-                        mrcal.project(mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics[what] +1, :], -2,-2),
-                                                               pref[what]),
-                                      baseline_optimization_inputs['lensmodel'],
-                                      nps.dummy(baseline_intrinsics[ idx_camintrinsics[what], :], -2,-2))
+
+                    if what == 'board':
+                        # shape (Nmeas_observations_all,Nh,Nw,2)
+                        qq = \
+                            mrcal.project(mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics[what] +1, :], -2,-2),
+                                                                   pref[what]),
+                                          baseline_optimization_inputs['lensmodel'],
+                                          nps.dummy(baseline_intrinsics[ idx_camintrinsics[what], :], -2,-2))
+                    elif what == 'point':
+                        # shape (Nmeas_observations_all,2)
+                        qq = \
+                            mrcal.project(mrcal.transform_point_rt(baseline_rt_cam_ref[ idx_camextrinsics[what] +1, :],
+                                                                   pref[what]),
+                                          baseline_optimization_inputs['lensmodel'],
+                                          baseline_intrinsics[ idx_camintrinsics[what], :])
+                    else:
+                        raise Exception(f"Unknown what={what}")
+
                     x = (qq - baseline_observations[what][..., idx, :2]) * nps.dummy(weight[what],-1)
                     x[...,weight[what]<=0,:] = 0 # outliers
                     x = x.ravel()
 
                     if len(x) != len(x_baseline[idx]):
-                        raise Exception("Unexpected len(x). This is a bug")
+                        raise Exception(f"Unexpected len(x) for {what}. This is a bug")
                     if nps.norm2(x - x_baseline[idx]) > 1e-12:
-                        raise Exception("Unexpected x. This is a bug")
+                        raise Exception(f"Unexpected x for {what}. This is a bug")
 
                     err_sum_of_squares_baseline += nps.norm2(x)
                     N_sum_of_squares_baseline   += x.size
@@ -1695,10 +1797,10 @@ The rt_refperturbed_ref formulation:
                                                       nps.mv(query_calibration_object,-4,-5))
             if have['point']:
                 pcam['point'], dpcam_drt_ref_refperturbed['point'] = \
-                    transform_point_rt3_withgrad_drt1(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :], -2,-2),
+                    transform_point_rt3_withgrad_drt1(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
                                                       mrcal.identity_rt(),
                                                       mrcal.identity_rt(),
-                                                      nps.mv(query_point,-4,-5))
+                                                      query_point[:,idx_points])
 
             dxJ_results['rt_ref_refperturbed'][method] = \
                 get_cross_operating_point__point_grad(pcam, dpcam_drt_ref_refperturbed,
@@ -1717,10 +1819,10 @@ The rt_refperturbed_ref formulation:
                                                       baseline_calibration_object)
             if have['point']:
                 pcamperturbed['point'], dpcamperturbed_drt_refperturbed_ref['point'] = \
-                    transform_point_rt3_withgrad_drt1(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :], -2,-2),
+                    transform_point_rt3_withgrad_drt1(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
                                                       mrcal.identity_rt(),
                                                       mrcal.identity_rt(),
-                                                      baseline_point)
+                                                      baseline_point[idx_points])
             dxJ_results['rt_refperturbed_ref'][method] = \
                 get_cross_operating_point__point_grad(pcamperturbed,
                                                       dpcamperturbed_drt_refperturbed_ref,
@@ -1751,13 +1853,13 @@ The rt_refperturbed_ref formulation:
 
             if have['point']:
                 # shape (..., Nmeas_observations_all,3),
-                prefperturbed = query_point
+                prefperturbed = query_point[:,idx_points]
 
                 dpref_drt_ref_refperturbed = transform_point_identity_gradient(prefperturbed)
                 # shape (..., Nmeas_observations_all,3),
                 #       (..., Nmeas_observations_all,3,6)
                 pcam['point'], _, dpcam_dpref = \
-                    mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :], -2,-2),
+                    mrcal.transform_point_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
                                              prefperturbed,
                                              get_gradients = True)
                 dpcam_drt_ref_refperturbed['point'] = \
@@ -1786,10 +1888,10 @@ The rt_refperturbed_ref formulation:
 
             if have['point']:
                 dprefperturbed_drt_refperturbed_ref = transform_point_identity_gradient(pref['point'])
-                # shape (..., Nmeas_observations_all,Nh,Nw,3),
-                #       (..., Nmeas_observations_all,Nh,Nw,3,6)
+                # shape (..., Nmeas_observations_all,3),
+                #       (..., Nmeas_observations_all,3,6)
                 pcamperturbed['point'], _, dpcamperturbed_dprefperturbed = \
-                    mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :], -2,-2),
+                    mrcal.transform_point_rt(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
                                              pref['point'],
                                              get_gradients = True)
                 dpcamperturbed_drt_refperturbed_ref['point'] = \
@@ -1819,7 +1921,7 @@ The rt_refperturbed_ref formulation:
 
             # a (2,3) array indexed as
             # (rt_ref_refperturbed,rt_refperturbed_ref),(Jextrinsics,Jframes,x).
-            rrp_rpr__xcross__Jcross_e__Jcross_fp = np.empty( (len(query_q_noise_board),2,3), dtype=object)
+            rrp_rpr__xcross__Jcross_e__Jcross_fp = np.empty( (args.Nsamples,2,3), dtype=object)
             get_cross_operating_point__linearization( W_delta_qref,
                                                       Jt_W_qref,
                                                       query_b_unpacked, # only for plotting and checking
@@ -2138,7 +2240,7 @@ for distance in args.distances:
 
                             intrinsics_true,
                             extrinsics_true_mounted,
-                            frames_true,
+                            frames_true if not args.points else points_true,
                             np.zeros((0,3), dtype=float),
                             calobject_warp_true,
                             # q_noise_board_sampled not available here: We
