@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
 
-r'''Reproject calibration images to show just the chessboard in its nominal
-coordinates
+r'''Reproject calibration images to show a chessboard-centered view
 
 SYNOPSIS
 
-  D=../mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity;
-
   analyses/mrcal-reproject-to-chessboard \
-    --image-directory $D/images          \
+    --image-directory images/            \
     --outdir /tmp/frames-splined         \
-    $D/splined.cameramodel
+    splined.cameramodel
+
+  ffmpeg                                 \
+    -r 5                                 \
+    -f image2                            \
+    -export_path_metadata 1              \
+    -pattern_type glob                   \
+    -i "/tmp/frames-splined/*.jpg"       \
+    -filter:v "drawtext=text='%{metadata\\:lavf.image2dec.source_basename}':fontcolor=yellow:fontsize=48" \
+    -y                                   \
+    /tmp/reprojected-to-chessboard.mp4
 
 Outliers are highlighted. This is useful to visualize calibration errors. A
 perfect solve would display exactly the same calibration grid with every frame.
