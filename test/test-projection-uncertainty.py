@@ -1686,7 +1686,8 @@ The rt_refperturbed_ref formulation:
 
                     # I want:
                     #   mrcal.identity_R(out = dp_drt[...,3:])
-                    # But this doesn't work today: npsp needs a fix
+                    # But this doesn't work today: npsp has a fix in 0.39, but I
+                    # don't want to demand this later release
                     dp_drt[...,:,3:] = 0
                     dp_drt[...,0,3 ] = 1
                     dp_drt[...,1,4 ] = 1
