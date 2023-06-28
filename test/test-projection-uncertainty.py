@@ -2045,34 +2045,53 @@ The rt_refperturbed_ref formulation:
         else:
             rt_ref_refperturbed = mrcal.invert_rt(rt_rr_all[direction][method])
 
-        err_rms_cross_ref0 = np.sqrt( nps.norm2((dx_cross0 + x_baseline[imeas0_observations_all:imeas0_observations_all+Nmeas_observations_all]).ravel()) / (dx_cross0.size/2) )
-
         # I have a least-squares solve of the linearized system. Let's look at
         # the error to confirm that it's smaller. This is an optional validation
         # step
         if 1:
-            if have['point']:
-                raise Exception("Finish this piece")
+            err_rms_cross_ref0 = np.sqrt( nps.norm2((dx_cross0 + x_baseline[imeas0_observations_all:imeas0_observations_all+Nmeas_observations_all]).ravel()) / (dx_cross0.size/2) )
 
-            # shape (..., Nmeas_observations_all,Nh,Nw,3)
-            pcam = \
-                mrcal.transform_point_rt( mrcal.compose_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
-                                                           nps.mv(rt_ref_refperturbed, -2,-5),
-                                                           nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2)),
-                                          nps.mv(query_calibration_object,-4,-5))
+            Nmeas_cross                     = 0
+            err_sum_of_squares_cross_solved = 0.0
 
-            # shape (..., Nmeas_observations_all,Nh,Nw,2)
-            q_cross = \
-                mrcal.project(pcam,
-                              baseline_optimization_inputs['lensmodel'],
-                              nps.dummy(baseline_intrinsics[ idx_camintrinsics['board'], :], -2,-2),
-                              get_gradients = False)
-            x_cross0 = (q_cross - baseline_observations['board'][...,:2])*nps.dummy(weight['board'],-1)
-            x_cross0[...,weight['board']<=0,:] = 0 # outliers
-            # shape (..., Nmeas_observations_all*Nh*Nw*2)
-            x_cross0 = nps.clump(x_cross0, n=-4)
+            for what in have.keys():
+                if not have[what]:
+                    continue
 
-            err_rms_cross_solved = np.sqrt( nps.norm2(x_cross0.ravel()) / (dx_cross0.size/2) )
+                if what == 'board':
+                    # shape (..., Nmeas_observations_all,Nh,Nw,3)
+                    pcam = \
+                        mrcal.transform_point_rt(mrcal.compose_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
+                                                                  nps.mv(rt_ref_refperturbed, -2,-5),
+                                                                  nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2)),
+                                                 nps.mv(query_calibration_object,-4,-5))
+                    # shape (..., Nmeas_observations_all,Nh,Nw,2)
+                    q_cross = \
+                        mrcal.project(pcam,
+                                      baseline_optimization_inputs['lensmodel'],
+                                      nps.dummy(baseline_intrinsics[ idx_camintrinsics[what], :], -2,-2))
+                elif what == 'point':
+                    # shape (..., Nmeas_observations_all,3)
+                    pcam = \
+                        mrcal.transform_point_rt(mrcal.compose_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
+                                                                  nps.mv(rt_ref_refperturbed,-2,-3)),
+                                                 query_point[:,idx_points])
+
+                    # shape (..., Nmeas_observations_all,2)
+                    q_cross = \
+                        mrcal.project(pcam,
+                                      baseline_optimization_inputs['lensmodel'],
+                                      baseline_intrinsics[ idx_camintrinsics[what], :])
+                else:
+                    raise Exception(f"Unknown what={what}")
+
+                x_cross0 = (q_cross - baseline_observations[what][...,:2])*nps.dummy(weight[what],-1)
+                x_cross0[...,weight[what]<=0,:] = 0 # outliers
+                # shape (..., Nmeas_observations_all*Nh*Nw*2)
+                x_cross0 = nps.clump(x_cross0, n=-(x_cross0.ndim-1))
+
+                err_sum_of_squares_cross_solved += nps.norm2(x_cross0.ravel())
+                Nmeas_cross                     += x_cross0.size
 
             # The pre-optimization cross error should be far worse than the
             # baseline error: if I simply assume that T_cross = identity, I
@@ -2080,6 +2099,9 @@ The rt_refperturbed_ref formulation:
             #
             # And optimizing the cross transform should then fit decently well,
             # but not quite so super tightly as the original baseline
+            if Nmeas_cross != dx_cross0.size:
+                raise Exception(f"dx_cross0.size mismatch. This is a bug. Nmeas_cross={Nmeas_cross}, dx_cross0.size={dx_cross0.size}")
+            err_rms_cross_solved = np.sqrt( err_sum_of_squares_cross_solved / (Nmeas_cross/2) )
             testutils.confirm(err_rms_baseline*10 < err_rms_cross_ref0,
                               msg = f"cross-uncertainty at distance={distance}: Unoptimized cross error is MUCH worse than the baseline")
             testutils.confirm(err_rms_cross_solved*5 < err_rms_cross_ref0,
