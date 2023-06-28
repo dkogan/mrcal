@@ -203,10 +203,8 @@ void finish_Jcross_computations(// output
                                 double* Jcross_t__Jcross,
 
                                 // input
-
-                                // Would be const, but I memset(0) at the end
-                                double* sum_outer_jf_jf_packed,
-                                double* sum_outer_jf_jcw_packed,
+                                const double* sum_outer_jf_jf_packed,
+                                const double* sum_outer_jf_jcw_packed,
                                 const double* rt1_packed,
                                 int state_index_frame_current,
                                 int state_index_frame0,
@@ -509,9 +507,6 @@ void finish_Jcross_computations(// output
                 sum_outer_jf_jf_packed[i] /
                 (SCALE_TRANSLATION_FRAME*SCALE_TRANSLATION_FRAME);
     }
-
-    memset(sum_outer_jf_jf_packed,  0, (6+1)*6/2*sizeof(double));
-    memset(sum_outer_jf_jcw_packed, 0, 6*2      *sizeof(double));
 }
 
 
@@ -722,6 +717,8 @@ bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
                                                     state_index_frame0,
                                                     state_index_calobject_warp0,
                                                     Nstate_noi_noe);
+                        memset(sum_outer_jf_jf_packed,  0, (6+1)*6/2*sizeof(double));
+                        memset(sum_outer_jf_jcw_packed, 0, 6*2      *sizeof(double));
                     }
                     state_index_frame_current = icol;
                 }
@@ -766,6 +763,7 @@ bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
     }
 
     if(state_index_frame_current >= 0)
+    {
         finish_Jcross_computations( K, K_stride0_elems,
                                     Jcross_t__Jcross,
                                     sum_outer_jf_jf_packed,
@@ -775,6 +773,9 @@ bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
                                     state_index_frame0,
                                     state_index_calobject_warp0,
                                     Nstate_noi_noe);
+        memset(sum_outer_jf_jf_packed,  0, (6+1)*6/2*sizeof(double));
+        memset(sum_outer_jf_jcw_packed, 0, 6*2      *sizeof(double));
+    }
 
 
     // I now have filled Jcross_t__Jcross and K. I can
