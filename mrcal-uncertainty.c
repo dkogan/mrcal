@@ -196,10 +196,10 @@ I compute this in a loop, and accumulate in finish_Jcross_computations()
 
 static
 void finish_Jcross_computations(// output
-                                double* Jcross_t__J_fcw,
-                                int     Jcross_t__J_fcw_stride0_elems,
+                                double* Jcross_t__J_fpcw,
+                                int     Jcross_t__J_fpcw_stride0_elems,
                                 // rows are assumed stored densely, so there is
-                                // no Jcross_t__J_fcw_stride1
+                                // no Jcross_t__J_fpcw_stride1
                                 double* Jcross_t__Jcross,
 
                                 // input
@@ -215,28 +215,28 @@ void finish_Jcross_computations(// output
 {
     // I accumulated sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) into
     // sum_outer_jf_jf_packed. This is needed to compute both Jcross_t
-    // J_fcw* and Jcross_t Jcross, which I do here.
+    // J_fpcw* and Jcross_t Jcross, which I do here.
     //
     // sum_outer_jf_jf_packed stores only the upper triangle is stored, in
     // the usual row-major order. sum_outer_jf_jf_packed uses PACKED
     // gradients, which need to be unpacked in some cases. These SCALE
     // factors explained further down
     //
-    // Jcross_t__J_fcw[:, iframe0:iframe+6] =
+    // Jcross_t__J_fpcw[:, iframe0:iframe+6] =
     //   drt_ref_frameperturbed/drt_ref_refperturbed__t sum_outer_jf_jf_packed /SCALE
     //
     // Jcross_t Jcross = sum(outer(jcross, jcross))
     //                   = sum_i( drr[i]t sum_outer_jf_jf_packed drr[i] ) /SCALE/SCALE
     //
-    // Jcross has full state, but J_fcw* has packed state, so I need
+    // Jcross has full state, but J_fpcw* has packed state, so I need
     // different number of SCALE factors.
     //
-    // Jcross_t__J_fcw ~ drr_t j jpt = drr_t Dinv jp jpt
-    // Jcross_t Jcross ~ drr_t j jt drr ~ Jcross_t__J_fcw Dinv drr
+    // Jcross_t__J_fpcw ~ drr_t j jpt = drr_t Dinv jp jpt
+    // Jcross_t Jcross ~ drr_t j jt drr ~ Jcross_t__J_fpcw Dinv drr
     //
     // In the code I have sum_outer_jf_jf_packed ~ jp jpt
     //
-    // &Jcross_t__J_fcw[state_index_frame_current] is the first element of
+    // &Jcross_t__J_fpcw[state_index_frame_current] is the first element of
     // the output for this frame
     //
     // I have 4 triangles to process with the different gradients, as
@@ -281,22 +281,22 @@ void finish_Jcross_computations(// output
     mrcal_compose_r_tinyr0_gradientr0(dr_ref_frameperturbed__dr_ref_refperturbed,
                                       r_ref_frame);
 
-    // Jcross_t__J_fcw output goes into [A B]
+    // Jcross_t__J_fpcw output goes into [A B]
     //                                  [C D]
-    double* A = &Jcross_t__J_fcw[0*Jcross_t__J_fcw_stride0_elems + state_index_frame_current-state_index_frame0 + 0];
-    double* B = &Jcross_t__J_fcw[0*Jcross_t__J_fcw_stride0_elems + state_index_frame_current-state_index_frame0 + 3];
-    double* C = &Jcross_t__J_fcw[3*Jcross_t__J_fcw_stride0_elems + state_index_frame_current-state_index_frame0 + 0];
-    double* D = &Jcross_t__J_fcw[3*Jcross_t__J_fcw_stride0_elems + state_index_frame_current-state_index_frame0 + 3];
+    double* A = &Jcross_t__J_fpcw[0*Jcross_t__J_fpcw_stride0_elems + state_index_frame_current-state_index_frame0 + 0];
+    double* B = &Jcross_t__J_fpcw[0*Jcross_t__J_fpcw_stride0_elems + state_index_frame_current-state_index_frame0 + 3];
+    double* C = &Jcross_t__J_fpcw[3*Jcross_t__J_fpcw_stride0_elems + state_index_frame_current-state_index_frame0 + 0];
+    double* D = &Jcross_t__J_fpcw[3*Jcross_t__J_fpcw_stride0_elems + state_index_frame_current-state_index_frame0 + 3];
 
     // for calobject_warp
-    double* Acw = &Jcross_t__J_fcw[0*Jcross_t__J_fcw_stride0_elems + state_index_calobject_warp0-state_index_frame0];
-    double* Ccw = &Jcross_t__J_fcw[3*Jcross_t__J_fcw_stride0_elems + state_index_calobject_warp0-state_index_frame0];
+    double* Acw = &Jcross_t__J_fpcw[0*Jcross_t__J_fpcw_stride0_elems + state_index_calobject_warp0-state_index_frame0];
+    double* Ccw = &Jcross_t__J_fpcw[3*Jcross_t__J_fpcw_stride0_elems + state_index_calobject_warp0-state_index_frame0];
 
     // I can compute Jcross_t Jcross from the blocks comprising Jcross_t
-    // J_fcw. From above:
+    // J_fpcw. From above:
     //
     // Jcross_t Jcross ~
-    //   ~ Jcross_t__J_fcw Dinv drr
+    //   ~ Jcross_t__J_fpcw Dinv drr
     //
     //   ~ [A B] Dinv drr
     //     [C D]
@@ -315,7 +315,7 @@ void finish_Jcross_computations(// output
 
     // A <- dr/dr_t sum_outer[:3,:3] + skew_t1 sum_outer[3:,:3]
     {
-        mul_gen33_gen33insym66(A, Jcross_t__J_fcw_stride0_elems, 1,
+        mul_gen33_gen33insym66(A, Jcross_t__J_fpcw_stride0_elems, 1,
                                // transposed, so 1,3 and not 3,1
                                dr_ref_frameperturbed__dr_ref_refperturbed, 1,3,
                                sum_outer_jf_jf_packed, 0, 0,
@@ -325,7 +325,7 @@ void finish_Jcross_computations(// output
         // Acw = drr_t Dinv S; ~
         // -> Acwt = St Dinv drr;
         mul_genNM_genML_accum(// transposed
-                              Acw, 1, Jcross_t__J_fcw_stride0_elems,
+                              Acw, 1, Jcross_t__J_fpcw_stride0_elems,
 
                               2,3,3,
                               // transposed
@@ -338,7 +338,7 @@ void finish_Jcross_computations(// output
             int i;
 
             i = 0;
-            A[i*Jcross_t__J_fcw_stride0_elems + j] +=
+            A[i*Jcross_t__J_fpcw_stride0_elems + j] +=
                 (
                  /*skew[i*3 + 0]   + (  0)*sum_outer_jf_jf_packed[index_sym66(0+3,j)] */
                  /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jf_jf_packed[index_sym66(1+3,j)]
@@ -346,7 +346,7 @@ void finish_Jcross_computations(// output
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 1;
-            A[i*Jcross_t__J_fcw_stride0_elems + j] +=
+            A[i*Jcross_t__J_fpcw_stride0_elems + j] +=
                 (
                  /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jf_jf_packed[index_sym66(0+3,j)]
                  /*skew[i*3 + 1]   + (  0)*sum_outer_jf_jf_packed[index_sym66(1+3,j)] */
@@ -354,7 +354,7 @@ void finish_Jcross_computations(// output
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 2;
-            A[i*Jcross_t__J_fcw_stride0_elems + j] +=
+            A[i*Jcross_t__J_fpcw_stride0_elems + j] +=
                 (
                  /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jf_jf_packed[index_sym66(0+3,j)]
                  /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jf_jf_packed[index_sym66(1+3,j)]
@@ -365,7 +365,7 @@ void finish_Jcross_computations(// output
             if(j<2)
             {
                 i = 0;
-                Acw[i*Jcross_t__J_fcw_stride0_elems + j] +=
+                Acw[i*Jcross_t__J_fpcw_stride0_elems + j] +=
                     (
                      /*skew[i*3 + 0]   + (  0)*sum_outer_jf_jcw_packed[(0+3)*2 + j] */
                      /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jf_jcw_packed[(1+3)*2 + j]
@@ -373,7 +373,7 @@ void finish_Jcross_computations(// output
                      ) / SCALE_TRANSLATION_FRAME;
 
                 i = 1;
-                Acw[i*Jcross_t__J_fcw_stride0_elems + j] +=
+                Acw[i*Jcross_t__J_fpcw_stride0_elems + j] +=
                     (
                      /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jf_jcw_packed[(0+3)*2 + j]
                      /*skew[i*3 + 1]   + (  0)*sum_outer_jf_jcw_packed[(1+3)*2 + j] */
@@ -381,7 +381,7 @@ void finish_Jcross_computations(// output
                      ) / SCALE_TRANSLATION_FRAME;
 
                 i = 2;
-                Acw[i*Jcross_t__J_fcw_stride0_elems + j] +=
+                Acw[i*Jcross_t__J_fpcw_stride0_elems + j] +=
                     (
                      /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jf_jcw_packed[(0+3)*2 + j]
                      /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jf_jcw_packed[(1+3)*2 + j]
@@ -393,7 +393,7 @@ void finish_Jcross_computations(// output
 
     // B <- dr/dr_t sum_outer[:3,3:] + skew_t1 sum_outer[3:,3:]
     {
-        mul_gen33_gen33insym66(B, Jcross_t__J_fcw_stride0_elems, 1,
+        mul_gen33_gen33insym66(B, Jcross_t__J_fpcw_stride0_elems, 1,
                                // transposed, so 1,3 and not 3,1
                                dr_ref_frameperturbed__dr_ref_refperturbed, 1,3,
                                sum_outer_jf_jf_packed, 0, 3,
@@ -404,7 +404,7 @@ void finish_Jcross_computations(// output
             int i;
 
             i = 0;
-            B[i*Jcross_t__J_fcw_stride0_elems + j] +=
+            B[i*Jcross_t__J_fpcw_stride0_elems + j] +=
                 (
                  /*skew[i*3 + 0]   + (  0)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)] */
                  /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)]
@@ -412,7 +412,7 @@ void finish_Jcross_computations(// output
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 1;
-            B[i*Jcross_t__J_fcw_stride0_elems + j] +=
+            B[i*Jcross_t__J_fpcw_stride0_elems + j] +=
                 (
                  /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)]
                  /*skew[i*3 + 1]   + (  0)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)] */
@@ -420,7 +420,7 @@ void finish_Jcross_computations(// output
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 2;
-            B[i*Jcross_t__J_fcw_stride0_elems + j] +=
+            B[i*Jcross_t__J_fpcw_stride0_elems + j] +=
                 (
                  /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)]
                  /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)]
@@ -431,21 +431,21 @@ void finish_Jcross_computations(// output
 
     // C <- sum_outer[3:,:3]
     {
-        set_gen33_from_gen33insym66(C, Jcross_t__J_fcw_stride0_elems, 1,
+        set_gen33_from_gen33insym66(C, Jcross_t__J_fpcw_stride0_elems, 1,
                                     sum_outer_jf_jf_packed, 3, 0,
                                     1./SCALE_TRANSLATION_FRAME);
 
         // and similar for calobject_warp
         for(int i=0; i<3; i++)
             for(int j=0; j<2; j++)
-                Ccw[i*Jcross_t__J_fcw_stride0_elems + j] +=
+                Ccw[i*Jcross_t__J_fpcw_stride0_elems + j] +=
                     sum_outer_jf_jcw_packed[(3+i)*2 + j]/SCALE_TRANSLATION_FRAME;
 
     }
 
     // D <- sum_outer[3:,3:]
     {
-        set_gen33_from_gen33insym66(D, Jcross_t__J_fcw_stride0_elems, 1,
+        set_gen33_from_gen33insym66(D, Jcross_t__J_fpcw_stride0_elems, 1,
                                     sum_outer_jf_jf_packed, 3, 3,
                                     1./SCALE_TRANSLATION_FRAME);
     }
@@ -453,7 +453,7 @@ void finish_Jcross_computations(// output
     // Jcross_t__Jcross[rr] <- A/SCALE_R dr/dr - B/SCALE_T skew(t1)
     {
         mul_gen33_gen33_into33insym66_accum(Jcross_t__Jcross, 0, 0,
-                                            A, Jcross_t__J_fcw_stride0_elems, 1,
+                                            A, Jcross_t__J_fpcw_stride0_elems, 1,
                                             dr_ref_frameperturbed__dr_ref_refperturbed, 3,1,
                                             1./SCALE_ROTATION_FRAME);
 
@@ -465,25 +465,25 @@ void finish_Jcross_computations(// output
                 if(j == 0)
                     Jcross_t__Jcross[ivalue] -=
                         (
-                         /*skew[j + 0*3]   + B[i*Jcross_t__J_fcw_stride0_elems+0]*(  0) */
-                         /*skew[j + 1*3]*/ + B[i*Jcross_t__J_fcw_stride0_elems+1]*( t2)
-                         /*skew[j + 2*3]*/ + B[i*Jcross_t__J_fcw_stride0_elems+2]*(-t1)
+                         /*skew[j + 0*3]   + B[i*Jcross_t__J_fpcw_stride0_elems+0]*(  0) */
+                         /*skew[j + 1*3]*/ + B[i*Jcross_t__J_fpcw_stride0_elems+1]*( t2)
+                         /*skew[j + 2*3]*/ + B[i*Jcross_t__J_fpcw_stride0_elems+2]*(-t1)
                          ) / SCALE_TRANSLATION_FRAME;
 
                 if(j == 1)
                     Jcross_t__Jcross[ivalue] -=
                         (
-                         /*skew[j + 0*3]*/ + B[i*Jcross_t__J_fcw_stride0_elems+0]*(-t2)
-                         /*skew[j + 1*3]   + B[i*Jcross_t__J_fcw_stride0_elems+1]*(  0) */
-                         /*skew[j + 2*3]*/ + B[i*Jcross_t__J_fcw_stride0_elems+2]*( t0)
+                         /*skew[j + 0*3]*/ + B[i*Jcross_t__J_fpcw_stride0_elems+0]*(-t2)
+                         /*skew[j + 1*3]   + B[i*Jcross_t__J_fpcw_stride0_elems+1]*(  0) */
+                         /*skew[j + 2*3]*/ + B[i*Jcross_t__J_fpcw_stride0_elems+2]*( t0)
                          ) / SCALE_TRANSLATION_FRAME;
 
                 if(j == 2)
                     Jcross_t__Jcross[ivalue] -=
                         (
-                         /*skew[j + 0*3]*/ + B[i*Jcross_t__J_fcw_stride0_elems+0]*( t1)
-                         /*skew[j + 1*3]*/ + B[i*Jcross_t__J_fcw_stride0_elems+1]*(-t0)
-                         /*skew[j + 2*3]   + B[i*Jcross_t__J_fcw_stride0_elems+2]*(  0) */
+                         /*skew[j + 0*3]*/ + B[i*Jcross_t__J_fpcw_stride0_elems+0]*( t1)
+                         /*skew[j + 1*3]*/ + B[i*Jcross_t__J_fpcw_stride0_elems+1]*(-t0)
+                         /*skew[j + 2*3]   + B[i*Jcross_t__J_fpcw_stride0_elems+2]*(  0) */
                          ) / SCALE_TRANSLATION_FRAME;
             }
             ivalue += 3;
@@ -493,7 +493,7 @@ void finish_Jcross_computations(// output
     // Jcross_t__Jcross[rt] <- B/SCALE_T
     {
         set_33insym66_from_gen33_accum(Jcross_t__Jcross, 0, 3,
-                                       B, Jcross_t__J_fcw_stride0_elems, 1,
+                                       B, Jcross_t__J_fpcw_stride0_elems, 1,
                                        1./SCALE_TRANSLATION_FRAME);
     }
 
