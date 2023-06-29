@@ -697,7 +697,12 @@ In the regularized case:
 def _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
                                              p_ref,
                                              dq_dpcam, dpcam_dpref,
-                                             Kunpacked):
+                                             Kunpacked,
+                                             *,
+                                             atinfinity):
+
+    # atinfinity = rotation-only
+
 
     # dq/db[frame_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
 
@@ -723,7 +728,9 @@ def _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
     # the unaffected state, so the columns that should be untouched will
     # be untouched
     dq_db += nps.matmult(dq__dr_ref_refp, Kunpacked[:3,:])
-    dq_db -= nps.matmult(dq_dpref,        Kunpacked[3:,:])
+
+    if not atinfinity:
+        dq_db -= nps.matmult(dq_dpref,        Kunpacked[3:,:])
 
 
 def _dq_db__projection_uncertainty( p_cam,
@@ -837,7 +844,8 @@ def _dq_db__projection_uncertainty( p_cam,
         _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
                                                  p_ref,
                                                  dq_dpcam, dpcam_dpref,
-                                                 Kunpacked)
+                                                 Kunpacked,
+                                                 atinfinity = False)
 
     return dq_db
 
@@ -953,7 +961,8 @@ def _dq_db__projection_uncertainty_rotationonly( p_cam,
         _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
                                                  p_ref,
                                                  dq_dpcam, dpcam_dpref,
-                                                 Kunpacked)
+                                                 Kunpacked,
+                                                 atinfinity = True)
 
     return dq_db
 
