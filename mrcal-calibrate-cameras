@@ -374,7 +374,7 @@ def solve_initial(args, seedmodels, imagersizes,
                                do_apply_outlier_rejection        = False,
                                do_apply_regularization           = False,
                                verbose                           = False)
-        sys.stderr.write(f"## RMS error: {stats['rms_reproj_error__pixels']}\n\n")
+        sys.stderr.write(f"## RMS error: {stats['rms_reproj_error__pixels']:.02f}\n\n")
 
         sys.stderr.write("## initial solve: geometry and LENSMODEL_STEREOGRAPHIC core only\n")
         stats = mrcal.optimize(intrinsics                                = intrinsics_data,
@@ -481,7 +481,7 @@ def solve_initial(args, seedmodels, imagersizes,
                                    do_apply_outlier_rejection        = False,
                                    do_apply_regularization           = False,
                                    verbose                           = False)
-            sys.stderr.write(f"## RMS error: {stats['rms_reproj_error__pixels']}\n\n")
+            sys.stderr.write(f"## RMS error: {stats['rms_reproj_error__pixels']:.02f}\n\n")
 
             print("pre-optimization; after: rt_cf[:2]")
             print(frames_rt_toref[:2])
@@ -735,7 +735,7 @@ if not optimization_inputs['do_apply_regularization']:
     optimization_inputs['verbose']                = args.verbose_solver
 
 stats = mrcal.optimize(**optimization_inputs)
-sys.stderr.write(f"## RMS error: {stats['rms_reproj_error__pixels']}\n")
+sys.stderr.write(f"## RMS error: {stats['rms_reproj_error__pixels']:.02f}\n")
 
 report = f"RMS reprojection error: {stats['rms_reproj_error__pixels']:.01f} pixels\n"
 
