@@ -63,6 +63,11 @@ def parse_args():
                         help='''Scale all the plotted circles by this factor. Useful to improve legibility if
                         the vectors are too big or too small''')
 
+    parser.add_argument('--cbmax',
+                        type=float,
+                        help='''Maximum range of the colorbar. If omitted, we
+                        autoscale''')
+
     parser.add_argument('--from-worst',
                         action = 'store_true',
                         help='''If given, the requested observations index from
@@ -279,6 +284,7 @@ def show(i_observation):
                                                i_observations_sorted_from_worst = i_observations_sorted_from_worst,
                                                residuals                        = residuals,
                                                paths                            = paths,
+                                               cbmax                            = args.cbmax,
                                                image_path_prefix                = args.image_path_prefix,
                                                image_directory                  = args.image_directory,
                                                circlescale                      = args.circlescale,
