@@ -3189,6 +3189,7 @@ def show_residuals_board_observation(optimization_inputs,
                                      image_directory                  = None,
                                      circlescale                      = 1.0,
                                      vectorscale                      = 1.0,
+                                     cbmax                            = None,
                                      showimage                        = True,
                                      extratitle                       = None,
                                      return_plot_args                 = False,
@@ -3265,6 +3266,9 @@ ARGUMENTS
   vectors. If omitted, a unit scale (1.0) is used: this results in the vectors
   representing pixel errors directly. This exists to improve the legibility of
   the generated plot
+
+- cbmax: optional value, defaulting to None. If given, sets the maximum range of
+  the color map
 
 - showimage: optional boolean, defaulting to True. If False, we do NOT plot the
   image beneath the residuals.
@@ -3394,6 +3398,10 @@ plot
 
 
     gp.add_plot_option(plot_options, 'unset', 'key')
+
+    if cbmax is not None:
+        gp.add_plot_option(plot_options,
+                           cbmax = cbmax)
 
     data_tuples = \
         (
