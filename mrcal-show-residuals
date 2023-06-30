@@ -106,6 +106,10 @@ def parse_args():
                         default = 1.0,
                         help='''Scale all the vectors by this factor. Useful to improve legibility if the
                         vectors are too small to see. Applies only if --vectorfield''')
+    parser.add_argument('--cbmax',
+                        type=float,
+                        help='''Maximum range of the colorbar used in
+                        --vectorfield, --magnitudes. If omitted, we autoscale''')
     parser.add_argument('--title',
                         type=str,
                         default = None,
@@ -204,11 +208,13 @@ if args.vectorfield:
     mrcal.show_residuals_vectorfield(model,
                                      vectorscale = args.vectorscale,
                                      valid_intrinsics_region = args.valid_intrinsics_region,
+                                     cbmax                   = args.cbmax,
                                      **kwargs)
 
 elif args.magnitudes:
     mrcal.show_residuals_magnitudes(model,
                                     valid_intrinsics_region = args.valid_intrinsics_region,
+                                    cbmax                   = args.cbmax,
                                     **kwargs)
 
 elif args.directions:

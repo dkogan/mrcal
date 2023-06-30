@@ -3638,6 +3638,7 @@ def show_residuals_vectorfield(model,
                                residuals               = None,
                                *,
                                vectorscale             = 1.0,
+                               cbmax                   = None,
                                valid_intrinsics_region = True,
                                extratitle              = None,
                                return_plot_args        = False,
@@ -3673,6 +3674,9 @@ ARGUMENTS
   vectors. If omitted, a unit scale (1.0) is used. Any other scale factor makes
   the tip of each vector run past (or short) of the predicted corner position.
   This exists to improve the legibility of the generated plot
+
+- cbmax: optional value, defaulting to None. If given, sets the maximum range of
+  the color map
 
 - valid_intrinsics_region: optional boolean, defaulting to True. If
   valid_intrinsics_region: the valid-intrinsics region present in the model is
@@ -3730,6 +3734,10 @@ plot
 
                        overwrite = False)
 
+    if cbmax is not None:
+        gp.add_plot_option(plot_options,
+                           cbrange = [0,cbmax])
+
     data_tuples = [(obs[:,0], obs[:,1],
                     vectorscale*err[:,0], vectorscale*err[:,1],
                     np.sqrt(nps.norm2(err)),
@@ -3748,6 +3756,7 @@ plot
 def show_residuals_magnitudes(model,
                               residuals               = None,
                               *,
+                              cbmax                   = None,
                               valid_intrinsics_region = True,
                               extratitle              = None,
                               return_plot_args        = False,
@@ -3778,6 +3787,9 @@ ARGUMENTS
   optimization residuals. If omitted or None, this will be recomputed. To use a
   cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
   mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- cbmax: optional value, defaulting to None. If given, sets the maximum range of
+  the color map
 
 - valid_intrinsics_region: optional boolean, defaulting to True. If
   valid_intrinsics_region: the valid-intrinsics region present in the model is
@@ -3834,6 +3846,10 @@ plot
                        ylabel  = 'Imager y',
 
                        overwrite = False)
+
+    if cbmax is not None:
+        gp.add_plot_option(plot_options,
+                           cbrange = [0,cbmax])
 
     data_tuples = [( obs[:,0], obs[:,1], np.sqrt(nps.norm2(err)),
                      dict(_with='points pt 7 palette',
