@@ -33,109 +33,48 @@
 
 
 /*
-docs in docstring of
-reproject_perturbed__optimize_cross_reprojection_error()
+Detailed docs appear in the docstring of
 
-I'm looking at a cross-reprojection. This is a least-squares optimization
-of a measurement vector x_cross: a perturbation of the already-optimized
-calibration measurement vector x. Changes:
+  reproject_perturbed__cross_reprojection_error() in
+  test-projection-uncertainty.py
 
-- camera intrinsics unperturbed
+The punchline:
 
-- camera extrinsics unperturbed
+  J_cross_f = J_frame d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
+  J_cross_p = J_p     d(transform(rt_ref_ref*,p ))/drt_ref_ref*
 
-- frame poses perturbed with
+  ...
 
-  - perturbed pixel observations qref -> qref + dqref, resulting in
-    rt_ref_frame -> rt_ref_frame + M dqref =
-    rt_refperturbed_frameperturbed
+  So we have rt_ref_ref* = K db for some K that depends on the various J
+  matrices that are constant for each solve:
 
-  - reference-correcting transform rt_ref_refperturbed. So the frame
-    transform we use is rt_ref_frameperturbed = compose(rt_ref_refperturbed,
-    rt_refperturbed_frameperturbed). rt_ref_refperturbed is tiny, and grows
-    with dqref: dqref=0 -> rt_ref_refperturbed=0. So I use a linearization
-    at rt_ref_refperturbed=0
+    K = -pinv(J_cross) J[frames,points,calobject_warp]
 
-    rt_ref_frameperturbed ~
-      rt_refperturbed_frameperturbed  + drt_ref_frameperturbed__drt_ref_refperturbed drt_ref_refperturbed ~
-      rt_ref_frame + M[frame_i] dqref + drt_ref_frameperturbed__drt_ref_refperturbed drt_ref_refperturbed
+THIS function computes
 
-- calobject_warp perturbed due to the perturbations in pixel observations
-  qref -> qref + dqref, resulting in calobject_warp -> calobject_warp +
-  M[calobject_warp] dqref
+  Kpacked = drt_ref_ref* / dbpacked
+          = K db/dbpacked
+          = K D
 
-So
+Let's explicate the matrices.
 
-  x_cross[i] =
-    x[i] +
-    J_frame[i]          (M[frame_i] dqref + drt_ref_frameperturbed__drt_ref_refperturbed drt_ref_refperturbed)
-    J_calobject_warp[i] M[calobject_warp] dqref
+              i  e        f           p  calobject_warp
+              |  |        |           |        |
+              V  V        V           v        V
+            [ 0 | 0 | ---       |           | --- ]
+            [ 0 | 0 | ---       |           | --- ]
+            [ 0 | 0 | ---       |           | --- ]
+            [ 0 | 0 |    ---    |           | --- ]
+            [ 0 | 0 |    ---    |           | --- ]
+            [ 0 | 0 |    ---    |           | --- ]
+  J_fpcw =  [ 0 | 0 |       --- |           | --- ]
+            [ 0 | 0 |       --- |           | --- ]
+            [ 0 | 0 |       --- |           | --- ]
+            [ 0 | 0 |           | ---       |     ]
+            [ 0 | 0 |           | ---       |     ]
+            [ 0 | 0 |           |    ---    |     ]
+            [ 0 | 0 |           |       --- |     ]
 
-And I define its gradient:
-
-  Jcross[i] = dx_cross[i]/drt_ref_refperturbed
-            = J_frame[i] drt_ref_frameperturbed__drt_ref_refperturbed
-
-I reoptimize norm2(x_cross) by varying rt_ref_refperturbed by taking a
-single Newton step. I minimize
-
-  E = norm2(x_cross0 + Jcross drt_ref_refperturbed)
-
-I set the derivative to 0:
-
-  0 = dE/drt_ref_refperturbed ~
-    ~ (x_cross0 + Jcross drt_ref_refperturbed)t dx_cross/drt_ref_refperturbed
-    = (x_cross0 + Jcross drt_ref_refperturbed)t Jcross
-
-->
-  drt_ref_refperturbed =
-    rt_ref_refperturbed =
-    -inv(Jcross_t Jcross) Jcross_t x_cross0
-
-  x_cross0[i] = x_cross(rt_ref_refperturbed = 0) =
-                x[i] +
-                J_frame[i]          M[frame_i] dqref
-                J_calobject_warp[i] M[calobject_warp] dqref
-
-Note that if dqref = 0, then x_cross0 = x: the cross-reprojection is
-equivalent to the baseline projection error, which is as expected.
-
-If dqref = 0, the rt_ref_refperturbed = -inv() Jcross_t x, which is 0 if we
-ignore regularization. Let's do that.
-
-rt_ref_refperturbed is a random variable, since dqref is a random
-variable. The relationship is nicely linear, so I can compute:
-
-  mean(rt_ref_refperturbed) = -inv(Jcross_t Jcross) Jcross_t x
-
-I have expressions with J, but in reality I have J*: gradients in respect to
-PACKED variables. I have a variable scaling diagonal matrix D: J = J* D
-
-From the finished uncertainty documentation
-
-  M = inv(JtJ) Jobservationst W
-    = inv( Dt J*t J* D ) D Jobservations*t W
-    = invD inv(J*t J*) Jobservations*t W
-
-  Var(qref) = s^2 W^-2
-
-So all the W cancel each other out.
-
-Let's explicate the matrices. (J_frame[] M[frame] + J_calobject_warp[]
-M[calobject_warp]) is J_no_ie M where
-
-              i  e        f  calobject_warp
-              |  |        |        |
-              V  V        V        V
-            [ 0 | 0 | ---       | --- ]
-            [ 0 | 0 | ---       | --- ]
-            [ 0 | 0 | ---       | --- ]
-            [ 0 | 0 |    ---    | --- ]
-  J_no_ie = [ 0 | 0 |    ---    | --- ]
-            [ 0 | 0 |    ---    | --- ]
-            [ 0 | 0 |       --- | --- ]
-            [ 0 | 0 |       --- | --- ]
-            [ 0 | 0 |       --- | --- ]
 
 And
 
@@ -149,46 +88,48 @@ And
            [ --- drr2 ]
            [ --- drr2 ]
 
-Where the --- terms are the flattened "frame" terms from J_no_ie that use
-the unpacked state. And drr are the
-drt_ref_frameperturbed__drt_ref_refperturbed matrices for the different
-rt_ref_frame vectors.
+Where the --- terms are the flattened "frame" and "point" terms from J_fpcw. And
+drr are the expressions from above:
+
+  d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
+  d(transform(rt_ref_ref*,p ))/drt_ref_ref*
+
+Note: these depend ONLY on rt_ref_frame and p, which are quantities we have.
+These do NOT depend on rt_ref_ref*.
 
 Putting everything together, we have
 
-  rt_ref_refperturbed = -inv(Jcross_t Jcross) Jcross_t x_cross0
-                      = -inv(Jcross_t Jcross) Jcross_t J[frame,calobject_warp] db[frame,calobject_warp]
-                      = -inv(Jcross_t Jcross) Jcross_t J_no_ie db
-                      = -inv(Jcross_t Jcross) Jcross_t J_no_ie* Dinv db
-                      = K Dinv db
+  rt_ref_ref* = K db
+              = (-pinv(J_cross) J_fpcw) db
+              = (-pinv(J_cross) J_fpcwpacked Dinv) D dbpacked
+              = K D dbpacked
+              = Kpacked dbpacked
 
 where
 
-  K = -inv(Jcross_t Jcross)    Jcross_t          J_no_ie*
-               (6,6)        (6, Nmeas_obs)  (Nmeas_obs,Nstate)
+  Kpacked = -inv(Jcross_t Jcross)    Jcross_t        J_fpcwpacked
+                     (6,6)        (6, Nmeas_obs)  (Nmeas_obs,Nstate)
 
-Finishing it:
+I need to compute Jcross_t J_fpcwpacked (shape (6,Nstate)). Its transpose, for convenience;
 
-  rt_ref_refperturbed = K Dinv db
-                      = K Dinv D inv(J*t J*) Jobservations*t W dqref
-                      = K inv(J*t J*) Jobservations*t W dqref
-
-I need to compute Jcross_t J_no_ie* (shape (6,Nstate)). Its transpose, for convenience;
-
-  J_no_ie_t* Jcross (shape=(Nstate,6)) =
+  J_fpcwpacked_t Jcross (shape=(Nstate,6)) =
     [ 0                                                                                     ] <- intrinsics
     [ 0                                                                                     ] <- extrinsics
     [ sum_measi(outer(j_frame0*, j_frame0*)) Dinv drr_frame0                                ]
     [ sum_measi(outer(j_frame1*, j_frame1*)) Dinv drr_frame1                                ] <- frames
     [                         ...                                                           ]
+    [ sum_measi(outer(j_point0*, j_point0*)) Dinv drr_point0                                ] <- points
+    [ sum_measi(outer(j_point1*, j_point1*)) Dinv drr_point1                                ]
+    [                         ...                                                           ]
     [ sum_framei(sum_measi(outer(j_calobject_warp_measi*, j_frame_measi*) Dinv drr_framei)) ] <- calobject_warp
 
   Jcross_t Jcross = sum(outer(jcross, jcross))
-                  = sum_framei( drr_framei_t Dinv sum_measi(outer(j_frame_measi*, j_frame_measi*)) Dinv drr_framei )
+                  = sum_framei( drr_framei_t Dinv sum_measi(outer(j_frame_measi*, j_frame_measi*)) Dinv drr_framei ) +
+                    sum_pointi( drr_pointi_t Dinv sum_measi(outer(j_point_measi*, j_point_measi*)) Dinv drr_pointi )
 
 For each frame, both of these expressions need
 
-  sum_measi(outer(j_frame_measi*, j_frame_measi*)) Dinv drr_framei
+  sum_measi(outer(j_..._measi*, j_..._measi*)) Dinv drr_...i
 
 I compute this in a loop, and accumulate in finish_Jcross_computations()
 
@@ -218,7 +159,7 @@ void finish_Jcross_computations(// output
 {
     // I accumulated sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) into
     // sum_outer_jf_jf_packed. This is needed to compute both Jcross_t
-    // Jfpcw* and Jcross_t Jcross, which I do here.
+    // J_fpcwpacked and Jcross_t Jcross, which I do here.
     //
     // sum_outer_jf_jf_packed stores only the upper triangle is stored, in
     // the usual row-major order. sum_outer_jf_jf_packed uses PACKED
@@ -231,7 +172,7 @@ void finish_Jcross_computations(// output
     // Jcross_t Jcross = sum(outer(jcross, jcross))
     //                   = sum_i( drr[i]t sum_outer_jf_jf_packed drr[i] ) /SCALE/SCALE
     //
-    // Jcross has full state, but Jfpcw* has packed state, so I need
+    // Jcross has full state, but J_fpcwpacked has packed state, so I need
     // different number of SCALE factors.
     //
     // Jcross_t__Jf ~ drr_t j jpt = drr_t Dinv jp jpt
@@ -732,7 +673,7 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
 
                 // sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) into sum_outer_jf_jf_packed
                 {
-                    // This is used to compute Jcross_t J_no_ie* and Jcross_t
+                    // This is used to compute Jcross_t J_fpcwpacked and Jcross_t
                     // Jcross. This result is used in finish_Jcross_computations()
                     //
                     // Uses PACKED gradients. Only the upper triangle is stored, in
@@ -761,7 +702,7 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
                             dx_drt_ref_frame_packed[i]*
                             dx_dcalobject_warp_packed[j];
 
-                ival += num_states_calobject_warp-1;
+                ival += Nstate_calobject_warp-1;
             }
         }
     }
@@ -784,11 +725,11 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
     // I now have filled Jcross_t__Jcross and K. I can
     // compute
     //
-    //   inv(Jcross_t Jcross) Jcross_t J_no_ie
+    //   inv(Jcross_t Jcross) Jcross_t J_fpcw
     //
     // I actually compute the transpose:
     //
-    //   (Jcross_t J_no_ie)t inv(Jcross_t Jcross)
+    //   (Jcross_t J_fpcw)t inv(Jcross_t Jcross)
     //
     // in-place: input and output both use the K array
     double inv_JcrosstJcross_det[(6+1)*6/2];
