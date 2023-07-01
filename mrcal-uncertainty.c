@@ -515,37 +515,37 @@ void finish_Jcross_computations(// output
 }
 
 
-bool mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
-                                                // Shape (6,Nstate_noi_noe)
-                                                double* K,
-                                                int K_stride0, // in bytes. <= 0 means "contiguous"
-                                                int K_stride1, // in bytes. <= 0 means "contiguous"
+bool mrcal_drt_ref_refperturbed__dbpacked(// output
+                                          // Shape (6,Nstate_frames)
+                                          double* K,
+                                          int K_stride0, // in bytes. <= 0 means "contiguous"
+                                          int K_stride1, // in bytes. <= 0 means "contiguous"
 
-                                                // inputs
-                                                // stuff that describes this solve
-                                                const double* b_packed,
-                                                // used only to confirm that the user passed-in the buffer they
-                                                // should have passed-in. The size must match exactly
-                                                int buffer_size_b_packed,
+                                          // inputs
+                                          // stuff that describes this solve
+                                          const double* b_packed,
+                                          // used only to confirm that the user passed-in the buffer they
+                                          // should have passed-in. The size must match exactly
+                                          int buffer_size_b_packed,
 
-                                                // The unitless Jacobian, used by the internal
-                                                // optimization routines
-                                                // cholmod_analyze() and cholmod_factorize()
-                                                // require non-const
-                                                /* const */
-                                                cholmod_sparse* Jt,
+                                          // The unitless Jacobian, used by the internal
+                                          // optimization routines
+                                          // cholmod_analyze() and cholmod_factorize()
+                                          // require non-const
+                                          /* const */
+                                          cholmod_sparse* Jt,
 
-                                                // meta-parameters
-                                                int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
-                                                int Npoints, int Npoints_fixed, // at the end of points[]
-                                                int Nobservations_board,
-                                                int Nobservations_point,
+                                          // meta-parameters
+                                          int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
+                                          int Npoints, int Npoints_fixed, // at the end of points[]
+                                          int Nobservations_board,
+                                          int Nobservations_point,
 
-                                                const mrcal_lensmodel_t* lensmodel,
-                                                mrcal_problem_selections_t problem_selections,
+                                          const mrcal_lensmodel_t* lensmodel,
+                                          mrcal_problem_selections_t problem_selections,
 
-                                                int calibration_object_width_n,
-                                                int calibration_object_height_n)
+                                          int calibration_object_width_n,
+                                          int calibration_object_height_n)
 {
     const int Nmeas_boards =
         mrcal_num_measurements_boards(Nobservations_board,

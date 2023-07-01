@@ -1667,8 +1667,8 @@ PyObject* _optimize(optimizemode_t optimizemode,
                     goto done;
                 }
 
-                // mrcal_drt_ref_refperturbed__dbpacked_no_ie() returns an array
-                // of shape (6,Nstate_noi_noe). I eventually want to use each of
+                // mrcal_drt_ref_refperturbed__dbpacked() returns an array of
+                // shape (6,Nstate_noi_noe). I eventually want to use each of
                 // its rows to solve a linear system using the big cholesky
                 // factorization: factorization.solve_xt_JtJ_bt(K). This uses
                 // CHOLMOD internally. CHOLMOD has no good API interface to use
@@ -1691,25 +1691,25 @@ PyObject* _optimize(optimizemode_t optimizemode,
                 }
 
                 const npy_intp* strides = PyArray_STRIDES((PyArrayObject*)K);
-                if(!mrcal_drt_ref_refperturbed__dbpacked_no_ie(// output
-                                                               &((double*)(PyArray_DATA((PyArrayObject*)K)))[state_index_frame0],
-                                                               (int)strides[0],
-                                                               (int)strides[1],
+                if(!mrcal_drt_ref_refperturbed__dbpacked(// output
+                                                         &((double*)(PyArray_DATA((PyArrayObject*)K)))[state_index_frame0],
+                                                         (int)strides[0],
+                                                         (int)strides[1],
 
-                                                               c_b_packed_final, Nstate*sizeof(double),
-                                                               &Jt,
+                                                         c_b_packed_final, Nstate*sizeof(double),
+                                                         &Jt,
 
-                                                               Ncameras_intrinsics, Ncameras_extrinsics, Nframes,
-                                                               Npoints, Npoints_fixed,
-                                                               Nobservations_board,
-                                                               Nobservations_point,
-                                                               &mrcal_lensmodel,
-                                                               problem_selections,
+                                                         Ncameras_intrinsics, Ncameras_extrinsics, Nframes,
+                                                         Npoints, Npoints_fixed,
+                                                         Nobservations_board,
+                                                         Nobservations_point,
+                                                         &mrcal_lensmodel,
+                                                         problem_selections,
 
-                                                               calibration_object_width_n,
-                                                               calibration_object_height_n))
+                                                         calibration_object_width_n,
+                                                         calibration_object_height_n))
                 {
-                    BARF("mrcal_drt_ref_refperturbed__dbpacked_no_ie() failed");
+                    BARF("mrcal_drt_ref_refperturbed__dbpacked() failed");
                     Py_DECREF(K);
                     goto done;
                 }
