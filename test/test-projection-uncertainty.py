@@ -894,8 +894,8 @@ When evaluating J_cross = dx_cross/drt_ref_ref*, I can look at it in two ways:
   ref coord system) this formulation is not possible. Because there is no
   J_extrinsics.
 
-- a        rt_ref_frame shift to compose_rt(rt_ref_ref*,rt_ref*_frame*)
-  and/or a point shift to transform_rt(rt_ref_ref*,p*)
+- a rt_ref_frame shift to compose_rt(rt_ref_ref*,rt_ref*_frame*) and/or a point
+  shift to transform_rt(rt_ref_ref*,p*)
 
   rt_ref*_frame* is a tiny shift off rt_ref_frame AND I'm assuming that
   everything is locally linear. So this shift is insignificant, and I use
@@ -1031,8 +1031,8 @@ two ways:
   possible here. Use J_cross_fp.
 
 
-- a        rt_ref_frame shift to compose_rt(rt_ref*_ref, rt_ref_frame)
-  and/or a point shift to transform_rt(rt_ref*_ref,p)
+- a rt_ref_frame shift to compose_rt(rt_ref*_ref, rt_ref_frame) and/or a point
+  shift to transform_rt(rt_ref*_ref,p)
 
   J_cross_f = dx_cross/drt_ref*_ref
             = J_frame drt_ref*_frame/drt_ref*_ref
