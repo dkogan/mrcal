@@ -34,6 +34,11 @@ Date:   Thu Jun 15 21:40:20 2023 -0700
 Python API: renamed residuals_chessboard -> residuals_board
 The previous name is still available for backwards compatibility
 
+4923218d..: show_residuals_board_observation() and cmdline tool have --cbmax
+
+073f55b5..: show_residuals_vectorfield(), .._magnitudes(), mrcal-show-residuals have --cbmax
+
+
 * Migration notes 2.3 -> 3.0
 
 commit 76248fce8655fba0aec1175157cbe8f8da055b7a
