@@ -925,7 +925,7 @@ J_frame_t x0 = 0 as well, and thus instead of x_cross0 we can use
 So we have rt_ref_ref* = K db for some K that depends on the various J matrices
 that are constant for each solve:
 
-  K = -pinv(J_cross) J[frame,calobject_warp]
+  K = -pinv(J_cross) J[frames,points,calobject_warp]
 
 Now that I have rt_ref_ref*, I can use it to compute q*. This
 can accept arbitrary q, not just those in the solve, so I actually need to
