@@ -2244,6 +2244,11 @@ else:
     raise Exception("getting here is a bug")
 
 
+if args.reproject_perturbed == 'cross-reprojection--rrp-Jfp':
+    method = 'cross-reprojection--rrp-Jfp'
+else:
+    method = 'mean-frames'
+
 
 
 q0_true = dict()
@@ -2318,10 +2323,12 @@ for icam in (0,3):
     Var_dq_ref = \
         mrcal.projection_uncertainty( p_cam_baseline * 1.0,
                                       model = models_baseline[icam],
+                                      method= method,
                                       observed_pixel_uncertainty = args.observed_pixel_uncertainty)
     Var_dq_moved_written_read = \
         mrcal.projection_uncertainty( p_cam_baseline * 1.0,
                                       model = model_read,
+                                      method= method,
                                       observed_pixel_uncertainty = args.observed_pixel_uncertainty )
     testutils.confirm_equal(Var_dq_moved_written_read, Var_dq_ref,
                             eps = 0.001,
@@ -2333,11 +2340,13 @@ for icam in (0,3):
         mrcal.projection_uncertainty( p_cam_baseline * 1.0,
                                       model = models_baseline[icam],
                                       atinfinity = True,
+                                      method     = method,
                                       observed_pixel_uncertainty = args.observed_pixel_uncertainty )
     Var_dq_inf_moved_written_read = \
         mrcal.projection_uncertainty( p_cam_baseline * 1.0,
                                       model = model_read,
                                       atinfinity = True,
+                                      method     = method,
                                       observed_pixel_uncertainty = args.observed_pixel_uncertainty )
     testutils.confirm_equal(Var_dq_inf_moved_written_read, Var_dq_inf_ref,
                             eps = 0.001,
@@ -2352,6 +2361,7 @@ for icam in (0,3):
         mrcal.projection_uncertainty( p_cam_baseline * 100.0,
                                       model = models_baseline[icam],
                                       atinfinity = True,
+                                      method     = method,
                                       observed_pixel_uncertainty = args.observed_pixel_uncertainty )
     testutils.confirm_equal(Var_dq_inf_far_ref, Var_dq_inf_ref,
                             eps = 0.001,
@@ -2429,11 +2439,6 @@ def check_uncertainties_at(q0_baseline, idistance):
     # shape (Ncameras)
     worst_direction_stdev_observed = mrcal.worst_direction_stdev(Var_dq_observed)
 
-
-    if args.reproject_perturbed == 'cross-reprojection--rrp-Jfp':
-        method = 'cross-reprojection--rrp-Jfp'
-    else:
-        method = 'mean-frames'
     # shape (Ncameras, 2,2)
     Var_dq_predicted = \
         nps.cat(*[ mrcal.projection_uncertainty( \
