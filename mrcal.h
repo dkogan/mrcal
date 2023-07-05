@@ -599,10 +599,20 @@ bool mrcal_optimizer_callback(// out
                              bool verbose);
 
 bool mrcal_drt_ref_refperturbed__dbpacked(// output
-                                          // Shape (6,Nstate_noi_noe)
-                                          double* K,
-                                          int K_stride0, // in bytes. <= 0 means "contiguous"
-                                          int K_stride1, // in bytes. <= 0 means "contiguous"
+                                          // Shape (6,Nstate_frames)
+                                          double* Kpackedf,
+                                          int Kpackedf_stride0, // in bytes. <= 0 means "contiguous"
+                                          int Kpackedf_stride1, // in bytes. <= 0 means "contiguous"
+
+                                          // Shape (6,Nstate_points)
+                                          double* Kpackedp,
+                                          int Kpackedp_stride0, // in bytes. <= 0 means "contiguous"
+                                          int Kpackedp_stride1, // in bytes. <= 0 means "contiguous"
+
+                                          // Shape (6,Nstate_calobject_warp)
+                                          double* Kpackedcw,
+                                          int Kpackedcw_stride0, // in bytes. <= 0 means "contiguous"
+                                          int Kpackedcw_stride1, // in bytes. <= 0 means "contiguous"
 
                                           // inputs
                                           // stuff that describes this solve
@@ -611,10 +621,11 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
                                           // should have passed-in. The size must match exactly
                                           int buffer_size_b_packed,
 
-                                          // The unitless Jacobian, used by the internal
-                                          // optimization routines
-                                          // cholmod_analyze() and cholmod_factorize()
-                                          // require non-const
+                                          // The unitless (packed) Jacobian,
+                                          // used by the internal optimization
+                                          // routines cholmod_analyze() and
+                                          // cholmod_factorize() require
+                                          // non-const
                                           /* const */
                                           struct cholmod_sparse_struct* Jt,
 

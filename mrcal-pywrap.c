@@ -1644,28 +1644,19 @@ PyObject* _optimize(optimizemode_t optimizemode,
                                              Npoints, Npoints_fixed, Nobservations_board,
                                              problem_selections,
                                              &mrcal_lensmodel);
+                const int state_index_point0 =
+                    mrcal_state_index_points(0,
+                                             Ncameras_intrinsics, Ncameras_extrinsics,
+                                             Nframes,
+                                             Npoints, Npoints_fixed, Nobservations_board,
+                                             problem_selections,
+                                             &mrcal_lensmodel);
                 const int state_index_calobject_warp0 =
                     mrcal_state_index_calobject_warp(Ncameras_intrinsics, Ncameras_extrinsics,
                                                      Nframes,
                                                      Npoints, Npoints_fixed, Nobservations_board,
                                                      problem_selections,
                                                      &mrcal_lensmodel);
-                const int num_states_frames =
-                    mrcal_num_states_frames(Nframes,
-                                            problem_selections);
-                const int num_states_calobject_warp =
-                    mrcal_num_states_calobject_warp(problem_selections,
-                                                    Nobservations_board);
-                if(state_index_frame0 + num_states_frames != state_index_calobject_warp0)
-                {
-                    BARF("Unexpected state layout");
-                    goto done;
-                }
-                if(state_index_calobject_warp0 + num_states_calobject_warp != Nstate)
-                {
-                    BARF("Unexpected state layout");
-                    goto done;
-                }
 
                 // mrcal_drt_ref_refperturbed__dbpacked() returns an array of
                 // shape (6,Nstate_noi_noe). I eventually want to use each of
@@ -1691,8 +1682,20 @@ PyObject* _optimize(optimizemode_t optimizemode,
                 }
 
                 const npy_intp* strides = PyArray_STRIDES((PyArrayObject*)K);
+
                 if(!mrcal_drt_ref_refperturbed__dbpacked(// output
-                                                         &((double*)(PyArray_DATA((PyArrayObject*)K)))[state_index_frame0],
+                                                         state_index_frame0 >= 0 ?
+                                                         &((double*)(PyArray_DATA((PyArrayObject*)K)))[state_index_frame0] : NULL,
+                                                         (int)strides[0],
+                                                         (int)strides[1],
+
+                                                         state_index_point0 >= 0 ?
+                                                         &((double*)(PyArray_DATA((PyArrayObject*)K)))[state_index_point0] : NULL,
+                                                         (int)strides[0],
+                                                         (int)strides[1],
+
+                                                         state_index_calobject_warp0 >= 0 ?
+                                                         &((double*)(PyArray_DATA((PyArrayObject*)K)))[state_index_calobject_warp0] : NULL,
                                                          (int)strides[0],
                                                          (int)strides[1],
 

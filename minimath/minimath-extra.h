@@ -9,6 +9,27 @@
 // Upper triangle is stored, in the usual row-major order.
 __attribute__((unused))
 static
+int index_sym33(int i, int j)
+{
+    // In the top-right triangle I have i<=j, and
+    //   index = N*i+j - sum(i, i=0..i)
+    //         = N*i+j - (i+1)*i/2
+    //         = (N*2 - i - 1)*i/2 + j
+    const int N=3;
+    if(i<=j) return (N*2-i-1)*i/2 + j;
+    else     return (N*2-j-1)*j/2 + i;
+}
+__attribute__((unused))
+static
+int index_sym33_assume_upper(int i, int j)
+{
+    const int N=3;
+    return (N*2-i-1)*i/2 + j;
+}
+
+// Upper triangle is stored, in the usual row-major order.
+__attribute__((unused))
+static
 int index_sym66(int i, int j)
 {
     // In the top-right triangle I have i<=j, and

@@ -58,38 +58,40 @@ THIS function computes
 
 Let's explicate the matrices.
 
-              i  e        f           p  calobject_warp
-              |  |        |           |        |
-              V  V        V           v        V
-            [ 0 | 0 | ---       |           | --- ]
-            [ 0 | 0 | ---       |           | --- ]
-            [ 0 | 0 | ---       |           | --- ]
-            [ 0 | 0 |    ---    |           | --- ]
-            [ 0 | 0 |    ---    |           | --- ]
-            [ 0 | 0 |    ---    |           | --- ]
-  J_fpcw =  [ 0 | 0 |       --- |           | --- ]
-            [ 0 | 0 |       --- |           | --- ]
-            [ 0 | 0 |       --- |           | --- ]
-            [ 0 | 0 |           | ---       |     ]
-            [ 0 | 0 |           | ---       |     ]
-            [ 0 | 0 |           |    ---    |     ]
-            [ 0 | 0 |           |       --- |     ]
+              i   e            f               p  calobject_warp
+              |   |            |               |        |
+              V   V            V               V        V
+            [ 0 | 0 | ------             |           | -- ]
+            [ 0 | 0 | ------             |           | -- ]
+            [ 0 | 0 | ------             |           | -- ]
+            [ 0 | 0 |       ------       |           | -- ]
+            [ 0 | 0 |       ------       |           | -- ]
+            [ 0 | 0 |       ------       |           | -- ]
+  J_fpcw =  [ 0 | 0 |             ------ |           | -- ]
+            [ 0 | 0 |             ------ |           | -- ]
+            [ 0 | 0 |             ------ |           | -- ]
+            [ 0 | 0 |                    | ---       |    ]
+            [ 0 | 0 |                    | ---       |    ]
+            [ 0 | 0 |                    |    ---    |    ]
+            [ 0 | 0 |                    |       --- |    ]
 
 
 And
 
-           [ --- drr0 ]
-           [ --- drr0 ]
-           [ --- drr0 ]
-           [ --- drr1 ]
-  Jcross = [ --- drr1 ]
-           [ --- drr1 ]
-           [ --- drr2 ]
-           [ --- drr2 ]
-           [ --- drr2 ]
+           [ ------ drtrfp_drtrrp0 ]
+           [ ------ drtrfp_drtrrp0 ]
+           [        ....           ]
+           [ ------ drtrfp_drtrrp1 ]
+  Jcross = [ ------ drtrfp_drtrrp1 ]
+           [        ....           ]
+           [ ---    dpref_drrp0    ]
+           [ ---    dpref_drrp0    ]
+           [ ---    dpref_drrp1    ]
+           [ ---    dpref_drrp1    ]
+           [        ....           ]
 
 Where the --- terms are the flattened "frame" and "point" terms from J_fpcw. And
-drr are the expressions from above:
+drtrfp_drtrrp, dpref_drrp are the expressions from above:
 
   d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
   d(transform(rt_ref_ref*,p ))/drt_ref_ref*
@@ -101,148 +103,157 @@ Putting everything together, we have
 
   rt_ref_ref* = K db
               = (-pinv(J_cross) J_fpcw) db
-              = (-pinv(J_cross) J_fpcwpacked Dinv) D dbpacked
+              = (-pinv(J_cross) J_packedfpcw Dinv) D dbpacked
               = K D dbpacked
               = Kpacked dbpacked
 
 where
 
-  Kpacked = -inv(Jcross_t Jcross)    Jcross_t        J_fpcwpacked
+  Kpacked = -inv(Jcross_t Jcross)    Jcross_t        J_packedfpcw
                      (6,6)        (6, Nmeas_obs)  (Nmeas_obs,Nstate)
 
-I need to compute Jcross_t J_fpcwpacked (shape (6,Nstate)). Its transpose, for convenience;
+I need to compute Jcross_t J_packedfpcw (shape (6,Nstate)). Its transpose, for convenience;
 
-  J_fpcwpacked_t Jcross (shape=(Nstate,6)) =
+  J_packedfpcw_t Jcross (shape=(Nstate,6)) =
     [ 0                                                                                     ] <- intrinsics
     [ 0                                                                                     ] <- extrinsics
-    [ sum_measi(outer(j_frame0*, j_frame0*)) Dinv drr_frame0                                ]
-    [ sum_measi(outer(j_frame1*, j_frame1*)) Dinv drr_frame1                                ] <- frames
+    [ sum_measi(outer(j_frame0*, j_frame0*)) Dinv drtrt_frame0                              ]
+    [ sum_measi(outer(j_frame1*, j_frame1*)) Dinv drtrt_frame1                              ] <- frames
     [                         ...                                                           ]
-    [ sum_measi(outer(j_point0*, j_point0*)) Dinv drr_point0                                ] <- points
-    [ sum_measi(outer(j_point1*, j_point1*)) Dinv drr_point1                                ]
+    [ sum_measi(outer(j_point0*, j_point0*)) Dinv dpref_point0                              ] <- points
+    [ sum_measi(outer(j_point1*, j_point1*)) Dinv dpref_point1                              ]
     [                         ...                                                           ]
-    [ sum_framei(sum_measi(outer(j_calobject_warp_measi*, j_frame_measi*) Dinv drr_framei)) ] <- calobject_warp
+    [ sum_framei(sum_measi(outer(j_calobject_warp_measi*, j_frame_measi*) Dinv drtrt_framei)) ] <- calobject_warp
 
   Jcross_t Jcross = sum(outer(jcross, jcross))
-                  = sum_framei( drr_framei_t Dinv sum_measi(outer(j_frame_measi*, j_frame_measi*)) Dinv drr_framei ) +
-                    sum_pointi( drr_pointi_t Dinv sum_measi(outer(j_point_measi*, j_point_measi*)) Dinv drr_pointi )
+                  = sum_framei( drtrt_framei_t Dinv sum_measi(outer(j_frame_measi*, j_frame_measi*)) Dinv drtrt_framei ) +
+                    sum_pointi( dpref_pointi_t Dinv sum_measi(outer(j_point_measi*, j_point_measi*)) Dinv dpref_pointi )
 
 For each frame, both of these expressions need
 
-  sum_measi(outer(j_..._measi*, j_..._measi*)) Dinv drr_...i
+  sum_measi(outer(j_..._measi*, j_..._measi*)) Dinv drtrt_...i
 
-I compute this in a loop, and accumulate in finish_Jcross_computations()
+I compute this in a loop, and accumulate in accumulate_frame() and accumulate_point()
 
 */
 
 static
-void finish_Jcross_computations(// output
+void accumulate_frame(// output
+                      // shape (6,6)
+                      double*   Jcross_t__Jpackedf, // THIS one frame, many measurements
+                      const int Jcross_t__Jpackedf_stride0_elems,
+                      // rows are assumed stored densely, so there is
+                      // no Jcross_t__Jpackedf_stride1
 
-                                // shape (6, 6)
-                                double*   Jcross_t__Jf, // THIS measurement, THIS frame
-                                const int Jcross_t__Jf_stride0_elems,
-                                // rows are assumed stored densely, so there is
-                                // no Jcross_t__Jf_stride1
+                      // shape (6,2)
+                      double*   Jcross_t__Jpackedcw, // THIS one frame, many measurements
+                      const int Jcross_t__Jpackedcw_stride0_elems,
+                      // rows are assumed stored densely, so there is
+                      // no Jcross_t__Jpackedcw_stride1
 
-                                // shape (6, 2)
-                                double*   Jcross_t__Jcw, // THIS measurement
-                                const int Jcross_t__Jcw_stride0_elems,
-                                // rows are assumed stored densely, so there is
-                                // no Jcross_t__Jcw_stride1
+                      // shape (6,6)
+                      double* Jcross_t__Jcross,
 
-                                double* Jcross_t__Jcross,
-
-                                // input
-                                const double* sum_outer_jf_jf_packed,
-                                const double* sum_outer_jf_jcw_packed,
-                                const double* rt1_packed)
+                      // input
+                      // shape (6,6); symmetric, upper-triangle-only is stored
+                      const double* sum_outer_jpackedf_jpackedf,
+                      // shape (6,2)
+                      const double* sum_outer_jpackedf_jpackedcw,
+                      // shape (6,)
+                      const double* rt_ref_frame_packed)
 {
-    // I accumulated sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) into
-    // sum_outer_jf_jf_packed. This is needed to compute both Jcross_t
-    // J_fpcwpacked and Jcross_t Jcross, which I do here.
+    // sum_outer_jpackedf_jpackedf stores only the upper triangle, in the usual
+    // row-major order.
     //
-    // sum_outer_jf_jf_packed stores only the upper triangle is stored, in
-    // the usual row-major order. sum_outer_jf_jf_packed uses PACKED
-    // gradients, which need to be unpacked in some cases. These SCALE
-    // factors explained further down
+    // Jcross_t__Jpackedf[:, iframe0:iframe+6] =
+    //   drtrfp_drtrrp_t sum_outer_jpackedf_jpackedf /SCALE
     //
-    // Jcross_t__Jf[:, iframe0:iframe+6] =
-    //   drt_ref_frameperturbed/drt_ref_refperturbed__t sum_outer_jf_jf_packed /SCALE
+    // where drtrfp_drtrrp = d(compose_rt(rt_ref_ref*,rt_ref_frame)) / drt_ref_ref*
     //
     // Jcross_t Jcross = sum(outer(jcross, jcross))
-    //                   = sum_i( drr[i]t sum_outer_jf_jf_packed drr[i] ) /SCALE/SCALE
+    //                 = sum_i( drtrfp_drtrrp_t[i]
+    //                          sum_outer_jpackedf_jpackedf
+    //                          drtrfp_drtrrp[i] ) /SCALE/SCALE
     //
-    // Jcross has full state, but J_fpcwpacked has packed state, so I need
-    // different number of SCALE factors.
+    // Jcross has full state, but J_packed has packed state, so I need different
+    // number of SCALE factors.
     //
-    // Jcross_t__Jf ~ drr_t j jpt = drr_t Dinv jp jpt
-    // Jcross_t Jcross ~ drr_t j jt drr ~ Jcross_t__Jf Dinv drr
+    // drtrfp_drtrrp = d(compose(rt0,rt1)/drt0) where rt0 is tiny. Derivation:
     //
-    // In the code I have sum_outer_jf_jf_packed ~ jp jpt
+    //   R0 (R1 p + t1) + t0 = R0 R1 p + (R0 t1 + t0)
+    //   -> R01 = R0 R1
+    //   -> t01 = R0 t1 + t0
     //
-    // &Jcross_t__Jf[state_index_frame_current] is the first element of
-    // the output for this frame
+    //   At rt0 ~ identity we have:
+    //     dt01/dr0 = d(R0 t1)/dr0
     //
-    // I have 4 triangles to process with the different gradients, as
-    // described above.
+    //   rotate_point_r_core() says that
+    //     const val_withgrad_t<N> cross[3] =
+    //         {
+    //             (rg[1]*x_ing[2] - rg[2]*x_ing[1])*sign,
+    //             (rg[2]*x_ing[0] - rg[0]*x_ing[2])*sign,
+    //             (rg[0]*x_ing[1] - rg[1]*x_ing[0])*sign
+    //         };
+    //     const val_withgrad_t<N> inner =
+    //         rg[0]*x_ing[0] +
+    //         rg[1]*x_ing[1] +
+    //         rg[2]*x_ing[2];
+    //     // Small rotation. I don't want to divide by 0, so I take the limit
+    //     //   lim(th->0, xrot) =
+    //     //     = x + cross(r, x) + r rt x lim(th->0, (1 - cos(th)) / (th*th))
+    //     //     = x + cross(r, x) + r rt x lim(th->0, sin(th) / (2*th))
+    //     //     = x + cross(r, x) + r rt x/2
+    //     for(int i=0; i<3; i++)
+    //         x_outg[i] =
+    //             x_ing[i] +
+    //             cross[i] +
+    //             rg[i]*inner / 2.;
     //
-    //   drr = [dr/dr      0]
-    //         [ -skew(t1) I]
+    //   So t01 = t0 + t1 + linear(r0) + quadratic(r0)
+    //   r0 ~ 0 so I ignore the quadratic term:
+    //     dt01/dr0 = d(cross(r0,t1))/dr0
+    //              = -d(cross(t1,r0))/dr0
+    //              = -d(skew_symmetric(t1) r0))/dr0
+    //              = -skew_symmetric(t1)
+    //   Thus
+    //     drt01/drt0 = [ dr01/dr0  dr01/dt0  ] = [ dr01/dr0              0 ]
+    //                  [ dt01/dr0  dt01/dt0  ] = [ -skew_symmetric(t1)   I ]
     //
-    //   drr_t S = [dr/dr_t skew_t1] [ S00 S01 ] = [ dr/dr_t S00 + skew_t1 S10    dr/dr_t S01 + skew_t1 S11]
-    //             [ 0      I      ] [ S10 S11 ]   [ S10                          S11                      ]
+    // In the above expressions I have drtrfp_drtrrp_t S for some matrix S. Expanded:
+    //
+    //   drtrfp_drtrrp_t S = [dr/dr_t skew_t1] [ S00 S01 ] = [ dr/dr_t S00 + skew_t1 S10    dr/dr_t S01 + skew_t1 S11]
+    //                       [ 0      I      ] [ S10 S11 ]   [ S10                          S11                      ]
     //
     // In the case of the frames, each Sxx block has shape (3,3). For
     // calobject_warp, S has shape (6,2) so I only have S00 and S10, each
     // with shape (3,2)
+    double drrfp_drrrp[3*3];
 
-    // I will need composition gradients assuming tiny rt0. I have
-    //   compose(rt0, rt1) = compose(r0,r1), rotate(r0,t1)+t0
-    // I need to get gradient drt_ref_frameperturbed/drt_ref_refperturbed. Let's
-    // look at the r,t separately. I have:
-    //   dr/dr0: This is complex. I compute it and store it into this matrix
-    //   dr/dt0 = 0
-    //   dt/dr0 = -skew(t1)
-    //   dt/dt0 = I
-    //
-    // where
-    //             [  0 -t2  t1]
-    //   skew(t) = [ t2   0 -t0]
-    //             [-t1  t0   0]
-
-    double dr_ref_frameperturbed__dr_ref_refperturbed[3*3];
-
-#warning UNJUSTIFIED ASSUMPTION
-    // UNJUSTIFIED ASSUMPTION HERE. This should use
-    // r_refperturbed_frameperturbed = r_ref_frame + M[] dqref, but that makes
-    // my life much more complex, so I just use the unperturbed
-    // r_ref_frame. I'll try to show empirically that this is just
-    // as good
     const double r_ref_frame[3] =
-        { rt1_packed[0] * SCALE_ROTATION_FRAME,
-          rt1_packed[1] * SCALE_ROTATION_FRAME,
-          rt1_packed[2] * SCALE_ROTATION_FRAME };
-    mrcal_compose_r_tinyr0_gradientr0(dr_ref_frameperturbed__dr_ref_refperturbed,
+        { rt_ref_frame_packed[0] * SCALE_ROTATION_FRAME,
+          rt_ref_frame_packed[1] * SCALE_ROTATION_FRAME,
+          rt_ref_frame_packed[2] * SCALE_ROTATION_FRAME };
+    mrcal_compose_r_tinyr0_gradientr0(drrfp_drrrp,
                                       r_ref_frame);
 
-    // Jcross_t__Jf output goes into [Af Bf]
-    //                               [Cf Df]
+    // Jcross_t__Jpackedf output goes into [Af Bf]
+    //                                     [Cf Df]
 
-    double* Af = &Jcross_t__Jf[Jcross_t__Jf_stride0_elems*0 + 0];
-    double* Bf = &Jcross_t__Jf[Jcross_t__Jf_stride0_elems*0 + 3];
-    double* Cf = &Jcross_t__Jf[Jcross_t__Jf_stride0_elems*3 + 0];
-    double* Df = &Jcross_t__Jf[Jcross_t__Jf_stride0_elems*3 + 3];
+    double* Af = &Jcross_t__Jpackedf[Jcross_t__Jpackedf_stride0_elems*0 + 0];
+    double* Bf = &Jcross_t__Jpackedf[Jcross_t__Jpackedf_stride0_elems*0 + 3];
+    double* Cf = &Jcross_t__Jpackedf[Jcross_t__Jpackedf_stride0_elems*3 + 0];
+    double* Df = &Jcross_t__Jpackedf[Jcross_t__Jpackedf_stride0_elems*3 + 3];
 
-    double* Acw = &Jcross_t__Jcw[Jcross_t__Jcw_stride0_elems*0];
-    double* Ccw = &Jcross_t__Jcw[Jcross_t__Jcw_stride0_elems*3];
+    double* Acw = &Jcross_t__Jpackedcw[Jcross_t__Jpackedcw_stride0_elems*0];
+    double* Ccw = &Jcross_t__Jpackedcw[Jcross_t__Jpackedcw_stride0_elems*3];
 
     // I can compute Jcross_t Jcross from the blocks comprising Jcross_t
-    // Jfpcw. From above:
+    // Jpackedfpcw. From above:
     //
     // Jcross_t Jcross ~
-    //   ~ Jcross_t__Jf Dinv drr
+    //   ~ Jcross_t__Jpackedf Dinv drtrfp_drtrrp
     //
-    //   ~ [Af Bf] Dinv drr
+    //   ~ [Af Bf] Dinv drtrfp_drtrrp
     //     [Cf Df]
     //
     //   = [Af/SCALE_R Bf/SCALE_T] [dr/dr      0]
@@ -250,31 +261,28 @@ void finish_Jcross_computations(// output
     //
     //   = [Af/SCALE_R dr/dr - Bf/SCALE_T skew(t1)    Bf/SCALE_T]
     //     [...                                       Df/SCALE_T]
-    //
-    // Jcross_t__Jcross is symmetric, so I just compute the upper triangle,
-    // and I don't care about the ... block
-    const double t0 = rt1_packed[3+0] * SCALE_TRANSLATION_FRAME;
-    const double t1 = rt1_packed[3+1] * SCALE_TRANSLATION_FRAME;
-    const double t2 = rt1_packed[3+2] * SCALE_TRANSLATION_FRAME;
+    const double t0 = rt_ref_frame_packed[3+0] * SCALE_TRANSLATION_FRAME;
+    const double t1 = rt_ref_frame_packed[3+1] * SCALE_TRANSLATION_FRAME;
+    const double t2 = rt_ref_frame_packed[3+2] * SCALE_TRANSLATION_FRAME;
 
     // Af <- dr/dr_t sum_outer[:3,:3] + skew_t1 sum_outer[3:,:3]
     {
-        mul_gen33_gen33insym66(Af, Jcross_t__Jf_stride0_elems, 1,
+        mul_gen33_gen33insym66(Af, Jcross_t__Jpackedf_stride0_elems, 1,
                                // transposed, so 1,3 and not 3,1
-                               dr_ref_frameperturbed__dr_ref_refperturbed, 1,3,
-                               sum_outer_jf_jf_packed, 0, 0,
+                               drrfp_drrrp, 1,3,
+                               sum_outer_jpackedf_jpackedf, 0, 0,
                                1./SCALE_ROTATION_FRAME);
 
         // and similar for calobject_warp
-        // Acw = drr_t Dinv S; ~
-        // -> Acwt = St Dinv drr;
+        // Acw = drtrfp_drtrrp_t Dinv S; ~
+        // -> Acwt = St Dinv drtrfp_drtrrp;
         mul_genNM_genML_accum(// transposed
-                              Acw, 1, Jcross_t__Jcw_stride0_elems,
+                              Acw, 1, Jcross_t__Jpackedcw_stride0_elems,
 
                               2,3,3,
                               // transposed
-                              &sum_outer_jf_jcw_packed[0*2 + 0], 1,2,
-                              dr_ref_frameperturbed__dr_ref_refperturbed, 3,1,
+                              &sum_outer_jpackedf_jpackedcw[0*2 + 0], 1,2,
+                              drrfp_drrrp, 3,1,
                               1./SCALE_ROTATION_FRAME);
 
         for(int j=0; j<3; j++)
@@ -282,54 +290,54 @@ void finish_Jcross_computations(// output
             int i;
 
             i = 0;
-            Af[i*Jcross_t__Jf_stride0_elems + j] +=
+            Af[i*Jcross_t__Jpackedf_stride0_elems + j] +=
                 (
-                 /*skew[i*3 + 0]   + (  0)*sum_outer_jf_jf_packed[index_sym66(0+3,j)] */
-                 /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jf_jf_packed[index_sym66(1+3,j)]
-                 /*skew[i*3 + 2]*/ + ( t1)*sum_outer_jf_jf_packed[index_sym66(2+3,j)]
+                 /*skew[i*3 + 0]   + (  0)*sum_outer_jpackedf_jpackedf[index_sym66(0+3,j)] */
+                 /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jpackedf_jpackedf[index_sym66(1+3,j)]
+                 /*skew[i*3 + 2]*/ + ( t1)*sum_outer_jpackedf_jpackedf[index_sym66(2+3,j)]
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 1;
-            Af[i*Jcross_t__Jf_stride0_elems + j] +=
+            Af[i*Jcross_t__Jpackedf_stride0_elems + j] +=
                 (
-                 /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jf_jf_packed[index_sym66(0+3,j)]
-                 /*skew[i*3 + 1]   + (  0)*sum_outer_jf_jf_packed[index_sym66(1+3,j)] */
-                 /*skew[i*3 + 2]*/ + (-t0)*sum_outer_jf_jf_packed[index_sym66(2+3,j)]
+                 /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jpackedf_jpackedf[index_sym66(0+3,j)]
+                 /*skew[i*3 + 1]   + (  0)*sum_outer_jpackedf_jpackedf[index_sym66(1+3,j)] */
+                 /*skew[i*3 + 2]*/ + (-t0)*sum_outer_jpackedf_jpackedf[index_sym66(2+3,j)]
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 2;
-            Af[i*Jcross_t__Jf_stride0_elems + j] +=
+            Af[i*Jcross_t__Jpackedf_stride0_elems + j] +=
                 (
-                 /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jf_jf_packed[index_sym66(0+3,j)]
-                 /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jf_jf_packed[index_sym66(1+3,j)]
-                 /*skew[i*3 + 2]   + (  0)*sum_outer_jf_jf_packed[index_sym66(2+3,j)] */
+                 /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jpackedf_jpackedf[index_sym66(0+3,j)]
+                 /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jpackedf_jpackedf[index_sym66(1+3,j)]
+                 /*skew[i*3 + 2]   + (  0)*sum_outer_jpackedf_jpackedf[index_sym66(2+3,j)] */
                  ) / SCALE_TRANSLATION_FRAME;
 
             // and similar for calobject_warp
             if(j<2)
             {
                 i = 0;
-                Acw[i*Jcross_t__Jcw_stride0_elems + j] +=
+                Acw[i*Jcross_t__Jpackedcw_stride0_elems + j] +=
                     (
-                     /*skew[i*3 + 0]   + (  0)*sum_outer_jf_jcw_packed[(0+3)*2 + j] */
-                     /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jf_jcw_packed[(1+3)*2 + j]
-                     /*skew[i*3 + 2]*/ + ( t1)*sum_outer_jf_jcw_packed[(2+3)*2 + j]
+                     /*skew[i*3 + 0]   + (  0)*sum_outer_jpackedf_jpackedcw[(0+3)*2 + j] */
+                     /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jpackedf_jpackedcw[(1+3)*2 + j]
+                     /*skew[i*3 + 2]*/ + ( t1)*sum_outer_jpackedf_jpackedcw[(2+3)*2 + j]
                      ) / SCALE_TRANSLATION_FRAME;
 
                 i = 1;
-                Acw[i*Jcross_t__Jcw_stride0_elems + j] +=
+                Acw[i*Jcross_t__Jpackedcw_stride0_elems + j] +=
                     (
-                     /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jf_jcw_packed[(0+3)*2 + j]
-                     /*skew[i*3 + 1]   + (  0)*sum_outer_jf_jcw_packed[(1+3)*2 + j] */
-                     /*skew[i*3 + 2]*/ + (-t0)*sum_outer_jf_jcw_packed[(2+3)*2 + j]
+                     /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jpackedf_jpackedcw[(0+3)*2 + j]
+                     /*skew[i*3 + 1]   + (  0)*sum_outer_jpackedf_jpackedcw[(1+3)*2 + j] */
+                     /*skew[i*3 + 2]*/ + (-t0)*sum_outer_jpackedf_jpackedcw[(2+3)*2 + j]
                      ) / SCALE_TRANSLATION_FRAME;
 
                 i = 2;
-                Acw[i*Jcross_t__Jcw_stride0_elems + j] +=
+                Acw[i*Jcross_t__Jpackedcw_stride0_elems + j] +=
                     (
-                     /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jf_jcw_packed[(0+3)*2 + j]
-                     /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jf_jcw_packed[(1+3)*2 + j]
-                     /*skew[i*3 + 2]   + (  0)*sum_outer_jf_jcw_packed[(2+3)*2 + j] */
+                     /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jpackedf_jpackedcw[(0+3)*2 + j]
+                     /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jpackedf_jpackedcw[(1+3)*2 + j]
+                     /*skew[i*3 + 2]   + (  0)*sum_outer_jpackedf_jpackedcw[(2+3)*2 + j] */
                      ) / SCALE_TRANSLATION_FRAME;
             }
         }
@@ -337,10 +345,10 @@ void finish_Jcross_computations(// output
 
     // Bf <- dr/dr_t sum_outer[:3,3:] + skew_t1 sum_outer[3:,3:]
     {
-        mul_gen33_gen33insym66(Bf, Jcross_t__Jf_stride0_elems, 1,
+        mul_gen33_gen33insym66(Bf, Jcross_t__Jpackedf_stride0_elems, 1,
                                // transposed, so 1,3 and not 3,1
-                               dr_ref_frameperturbed__dr_ref_refperturbed, 1,3,
-                               sum_outer_jf_jf_packed, 0, 3,
+                               drrfp_drrrp, 1,3,
+                               sum_outer_jpackedf_jpackedf, 0, 3,
                                1./SCALE_ROTATION_FRAME);
 
         for(int j=0; j<3; j++)
@@ -348,57 +356,60 @@ void finish_Jcross_computations(// output
             int i;
 
             i = 0;
-            Bf[i*Jcross_t__Jf_stride0_elems + j] +=
+            Bf[i*Jcross_t__Jpackedf_stride0_elems + j] +=
                 (
-                 /*skew[i*3 + 0]   + (  0)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)] */
-                 /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)]
-                 /*skew[i*3 + 2]*/ + ( t1)*sum_outer_jf_jf_packed[index_sym66(2+3,j+3)]
+                 /*skew[i*3 + 0]   + (  0)*sum_outer_jpackedf_jpackedf[index_sym66(0+3,j+3)] */
+                 /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jpackedf_jpackedf[index_sym66(1+3,j+3)]
+                 /*skew[i*3 + 2]*/ + ( t1)*sum_outer_jpackedf_jpackedf[index_sym66(2+3,j+3)]
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 1;
-            Bf[i*Jcross_t__Jf_stride0_elems + j] +=
+            Bf[i*Jcross_t__Jpackedf_stride0_elems + j] +=
                 (
-                 /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)]
-                 /*skew[i*3 + 1]   + (  0)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)] */
-                 /*skew[i*3 + 2]*/ + (-t0)*sum_outer_jf_jf_packed[index_sym66(2+3,j+3)]
+                 /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jpackedf_jpackedf[index_sym66(0+3,j+3)]
+                 /*skew[i*3 + 1]   + (  0)*sum_outer_jpackedf_jpackedf[index_sym66(1+3,j+3)] */
+                 /*skew[i*3 + 2]*/ + (-t0)*sum_outer_jpackedf_jpackedf[index_sym66(2+3,j+3)]
                  ) / SCALE_TRANSLATION_FRAME;
 
             i = 2;
-            Bf[i*Jcross_t__Jf_stride0_elems + j] +=
+            Bf[i*Jcross_t__Jpackedf_stride0_elems + j] +=
                 (
-                 /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jf_jf_packed[index_sym66(0+3,j+3)]
-                 /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jf_jf_packed[index_sym66(1+3,j+3)]
-                 /*skew[i*3 + 2]   + (  0)*sum_outer_jf_jf_packed[index_sym66(2+3,j+3)] */
+                 /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jpackedf_jpackedf[index_sym66(0+3,j+3)]
+                 /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jpackedf_jpackedf[index_sym66(1+3,j+3)]
+                 /*skew[i*3 + 2]   + (  0)*sum_outer_jpackedf_jpackedf[index_sym66(2+3,j+3)] */
                  ) / SCALE_TRANSLATION_FRAME;
         }
     }
 
     // Cf <- sum_outer[3:,:3]
     {
-        set_gen33_from_gen33insym66(Cf, Jcross_t__Jf_stride0_elems, 1,
-                                    sum_outer_jf_jf_packed, 3, 0,
+        set_gen33_from_gen33insym66(Cf, Jcross_t__Jpackedf_stride0_elems, 1,
+                                    sum_outer_jpackedf_jpackedf, 3, 0,
                                     1./SCALE_TRANSLATION_FRAME);
 
         // and similar for calobject_warp
         for(int i=0; i<3; i++)
             for(int j=0; j<2; j++)
-                Ccw[i*Jcross_t__Jcw_stride0_elems + j] +=
-                    sum_outer_jf_jcw_packed[(3+i)*2 + j]/SCALE_TRANSLATION_FRAME;
+                Ccw[i*Jcross_t__Jpackedcw_stride0_elems + j] +=
+                    sum_outer_jpackedf_jpackedcw[(3+i)*2 + j]/SCALE_TRANSLATION_FRAME;
 
     }
 
     // Df <- sum_outer[3:,3:]
     {
-        set_gen33_from_gen33insym66(Df, Jcross_t__Jf_stride0_elems, 1,
-                                    sum_outer_jf_jf_packed, 3, 3,
+        set_gen33_from_gen33insym66(Df, Jcross_t__Jpackedf_stride0_elems, 1,
+                                    sum_outer_jpackedf_jpackedf, 3, 3,
                                     1./SCALE_TRANSLATION_FRAME);
     }
+
+    // Jcross_t__Jcross is symmetric, so I just compute the upper triangle,
+    // and I don't care about the ... block
 
     // Jcross_t__Jcross[rr] <- Af/SCALE_R dr/dr - Bf/SCALE_T skew(t1)
     {
         mul_gen33_gen33_into33insym66_accum(Jcross_t__Jcross, 0, 0,
-                                            Af, Jcross_t__Jf_stride0_elems, 1,
-                                            dr_ref_frameperturbed__dr_ref_refperturbed, 3,1,
+                                            Af, Jcross_t__Jpackedf_stride0_elems, 1,
+                                            drrfp_drrrp, 3,1,
                                             1./SCALE_ROTATION_FRAME);
 
         int ivalue = 0;
@@ -409,25 +420,25 @@ void finish_Jcross_computations(// output
                 if(j == 0)
                     Jcross_t__Jcross[ivalue] -=
                         (
-                         /*skew[j + 0*3]   + Bf[i*Jcross_t__Jf_stride0_elems+0]*(  0) */
-                         /*skew[j + 1*3]*/ + Bf[i*Jcross_t__Jf_stride0_elems+1]*( t2)
-                         /*skew[j + 2*3]*/ + Bf[i*Jcross_t__Jf_stride0_elems+2]*(-t1)
+                         /*skew[j + 0*3]   + Bf[i*Jcross_t__Jpackedf_stride0_elems+0]*(  0) */
+                         /*skew[j + 1*3]*/ + Bf[i*Jcross_t__Jpackedf_stride0_elems+1]*( t2)
+                         /*skew[j + 2*3]*/ + Bf[i*Jcross_t__Jpackedf_stride0_elems+2]*(-t1)
                          ) / SCALE_TRANSLATION_FRAME;
 
                 if(j == 1)
                     Jcross_t__Jcross[ivalue] -=
                         (
-                         /*skew[j + 0*3]*/ + Bf[i*Jcross_t__Jf_stride0_elems+0]*(-t2)
-                         /*skew[j + 1*3]   + Bf[i*Jcross_t__Jf_stride0_elems+1]*(  0) */
-                         /*skew[j + 2*3]*/ + Bf[i*Jcross_t__Jf_stride0_elems+2]*( t0)
+                         /*skew[j + 0*3]*/ + Bf[i*Jcross_t__Jpackedf_stride0_elems+0]*(-t2)
+                         /*skew[j + 1*3]   + Bf[i*Jcross_t__Jpackedf_stride0_elems+1]*(  0) */
+                         /*skew[j + 2*3]*/ + Bf[i*Jcross_t__Jpackedf_stride0_elems+2]*( t0)
                          ) / SCALE_TRANSLATION_FRAME;
 
                 if(j == 2)
                     Jcross_t__Jcross[ivalue] -=
                         (
-                         /*skew[j + 0*3]*/ + Bf[i*Jcross_t__Jf_stride0_elems+0]*( t1)
-                         /*skew[j + 1*3]*/ + Bf[i*Jcross_t__Jf_stride0_elems+1]*(-t0)
-                         /*skew[j + 2*3]   + Bf[i*Jcross_t__Jf_stride0_elems+2]*(  0) */
+                         /*skew[j + 0*3]*/ + Bf[i*Jcross_t__Jpackedf_stride0_elems+0]*( t1)
+                         /*skew[j + 1*3]*/ + Bf[i*Jcross_t__Jpackedf_stride0_elems+1]*(-t0)
+                         /*skew[j + 2*3]   + Bf[i*Jcross_t__Jpackedf_stride0_elems+2]*(  0) */
                          ) / SCALE_TRANSLATION_FRAME;
             }
             ivalue += 3;
@@ -437,7 +448,7 @@ void finish_Jcross_computations(// output
     // Jcross_t__Jcross[rt] <- Bf/SCALE_T
     {
         set_33insym66_from_gen33_accum(Jcross_t__Jcross, 0, 3,
-                                       Bf, Jcross_t__Jf_stride0_elems, 1,
+                                       Bf, Jcross_t__Jpackedf_stride0_elems, 1,
                                        1./SCALE_TRANSLATION_FRAME);
     }
 
@@ -450,17 +461,202 @@ void finish_Jcross_computations(// output
         const int i0 = index_sym66_assume_upper(3,3);
         for(int i=i0; i<N; i++)
             Jcross_t__Jcross[i] +=
-                sum_outer_jf_jf_packed[i] /
+                sum_outer_jpackedf_jpackedf[i] /
                 (SCALE_TRANSLATION_FRAME*SCALE_TRANSLATION_FRAME);
     }
 }
 
+static
+void accumulate_point(// output
+                      // shape (6,3)
+                      double*   Jcross_t__Jpackedp, // THIS one point, many measurements
+                      const int Jcross_t__Jpackedp_stride0_elems,
+                      // rows are assumed stored densely, so there is
+                      // no Jcross_t__Jpackedp_stride1
+
+                      // shape (6,6)
+                      double* Jcross_t__Jcross,
+
+                      // input
+                      // shape (3,3); symmetric, upper-triangle-only is stored
+                      const double* sum_outer_jpackedp_jpackedp,
+                      // shape (3,)
+                      const double* ppacked)
+{
+    // sum_outer_jpackedp_jpackedp stores only the upper triangle, in the usual
+    // row-major order.
+    //
+    // Jcross_t__Jpackedp[:, ipoint0:ipoint+3] =
+    //   dpref_drrp_t sum_outer_jpackedp_jpackedp /SCALE
+    //
+    // where dpref_drrp = d(transform(rt_ref_ref*,p*)) / drt_ref_ref*
+    //
+    // Jcross_t Jcross = sum(outer(jcross, jcross))
+    //                 = sum_i( dpref_drrp_t[i]
+    //                          sum_outer_jpackedp_jpackedp
+    //                          dpref_drrp[i] ) /SCALE/SCALE
+    //
+    // Jcross has full state, but J_packed has packed state, so I need different
+    // number of SCALE factors.
+    //
+    // dpref_drrp = d(transform(rt_ref_ref*,p)/drt_ref_ref*) where drt_ref_ref*
+    // is tiny. Derivation using the Rodrigues rotation formula:
+    //
+    //     rotate(r,p)
+    //     ~ p cos(th) + cross(r/th,p) sin(th) + r/th inner(r/th,p) (1-cos(th))
+    //     ~ p + cross(r,p) + r inner(r,p) / (th^2)*(1-cos(th))
+    //     ~ p + cross(r,p) + r inner(r,p) / (th^2)*(1- (1-th^2))
+    //     ~ p + cross(r,p) + r inner(r,p)
+    //     ~ p + linear(r) + quadratic(r)
+    //
+    //   I assume r is tiny so I only look at the linear term:
+    //
+    //     d/dr = -skew_symmetric(p)
+    //     d/dt = I
+    //
+    // In the above expressions I have dpref_drrp_t:
+    //
+    //   dpref_drrp_t = [skew_p]
+    //                  [I     ]
+
+    // Jcross_t__Jpackedp output goes into [A]
+    //                                     [B]
+    //
+    // A = dpref_drrp_t[:3,:] sum_outer_jpackedp_jpackedp /SCALE
+    // B = dpref_drrp_t[3:,:] sum_outer_jpackedp_jpackedp /SCALE
+    //
+    // A = skew_p sum_outer_jpackedp_jpackedp /SCALE
+    // B =        sum_outer_jpackedp_jpackedp /SCALE
+    double* A = &Jcross_t__Jpackedp[Jcross_t__Jpackedp_stride0_elems*0 + 0];
+    double* B = &Jcross_t__Jpackedp[Jcross_t__Jpackedp_stride0_elems*3 + 0];
+
+    // A <- skew_p sum_outer_jpackedp_jpackedp /SCALE
+    {
+        // p = ppacked * SCALE_POSITION_POINT,
+
+        //          [  0 -p2  p1]
+        // skew_p = [ p2   0 -p0]
+        //          [-p1  p0   0]
+
+        for(int j=0; j<3; j++)
+        {
+            int i;
+
+            i = 0;
+            A[i*Jcross_t__Jpackedp_stride0_elems + j] +=
+                (
+                 /*skew[i*3 + 0]   + (          0)*sum_outer_jpackedp_jpackedp[index_sym33(0,j)] */
+                 /*skew[i*3 + 1]*/ + (-ppacked[2])*sum_outer_jpackedp_jpackedp[index_sym33(1,j)]
+                 /*skew[i*3 + 2]*/ + ( ppacked[1])*sum_outer_jpackedp_jpackedp[index_sym33(2,j)]
+                 );
+
+            i = 1;
+            A[i*Jcross_t__Jpackedp_stride0_elems + j] +=
+                (
+                 /*skew[i*3 + 0]*/ + ( ppacked[2])*sum_outer_jpackedp_jpackedp[index_sym33(0,j)]
+                 /*skew[i*3 + 1]   + (          0)*sum_outer_jpackedp_jpackedp[index_sym33(1,j)] */
+                 /*skew[i*3 + 2]*/ + (-ppacked[0])*sum_outer_jpackedp_jpackedp[index_sym33(2,j)]
+                 );
+
+            i = 2;
+            A[i*Jcross_t__Jpackedp_stride0_elems + j] +=
+                (
+                 /*skew[i*3 + 0]*/ + (-ppacked[1])*sum_outer_jpackedp_jpackedp[index_sym33(0,j)]
+                 /*skew[i*3 + 1]*/ + ( ppacked[0])*sum_outer_jpackedp_jpackedp[index_sym33(1,j)]
+                 /*skew[i*3 + 2]   + (          0)*sum_outer_jpackedp_jpackedp[index_sym33(2,j)] */
+                 );
+
+        }
+    }
+
+    // B <=        sum_outer_jpackedp_jpackedp /SCALE
+    {
+        for(int j=0; j<3; j++)
+            for(int i=0; i<3; i++)
+                B[i*Jcross_t__Jpackedp_stride0_elems + j] +=
+                    sum_outer_jpackedp_jpackedp[index_sym33(i,j)]
+                    / SCALE_POSITION_POINT;
+    }
+
+    // Jcross_t__Jcross is symmetric, so I just compute the upper triangle,
+    // and I don't care about the ... block
+
+    // Jcross_t__Jcross <- [A] [-skew_p I]
+    //                     [B]
+    //                  = [-A skew_p    A]
+    //                    [-B skew_p    B]
+
+    // Jcross_t__Jcross[00] <- -A skew_p / SCALE
+    {
+        int ivalue = 0;
+        for(int i=0; i<3; i++)
+        {
+            for(int j=i; j<3; j++, ivalue++)
+            {
+                if(j == 0)
+                    Jcross_t__Jcross[ivalue] -=
+                        (
+                         /*skew[j + 0*3]   + A[i*Jcross_t__Jpackedp_stride0_elems+0]*(          0) */
+                         /*skew[j + 1*3]*/ + A[i*Jcross_t__Jpackedp_stride0_elems+1]*( ppacked[2])
+                         /*skew[j + 2*3]*/ + A[i*Jcross_t__Jpackedp_stride0_elems+2]*(-ppacked[1])
+                         );
+
+                if(j == 1)
+                    Jcross_t__Jcross[ivalue] -=
+                        (
+                         /*skew[j + 0*3]*/ + A[i*Jcross_t__Jpackedp_stride0_elems+0]*(-ppacked[2])
+                         /*skew[j + 1*3]   + A[i*Jcross_t__Jpackedp_stride0_elems+1]*(          0) */
+                         /*skew[j + 2*3]*/ + A[i*Jcross_t__Jpackedp_stride0_elems+2]*( ppacked[0])
+                         );
+
+                if(j == 2)
+                    Jcross_t__Jcross[ivalue] -=
+                        (
+                         /*skew[j + 0*3]*/ + A[i*Jcross_t__Jpackedp_stride0_elems+0]*( ppacked[1])
+                         /*skew[j + 1*3]*/ + A[i*Jcross_t__Jpackedp_stride0_elems+1]*(-ppacked[0])
+                         /*skew[j + 2*3]   + A[i*Jcross_t__Jpackedp_stride0_elems+2]*(          0) */
+                         );
+            }
+            ivalue += 3;
+        }
+    }
+
+    // Jcross_t__Jcross[01] <- A/SCALE
+    {
+        set_33insym66_from_gen33_accum(Jcross_t__Jcross, 0, 3,
+                                       A, Jcross_t__Jpackedp_stride0_elems, 1,
+                                       1./SCALE_POSITION_POINT);
+    }
+
+    // Jcross_t__Jcross[10] doesn't need to be set: I only have values in
+    // the upper triangle
+
+    // Jcross_t__Jcross[11] <- B / SCALE
+    {
+        const int N = (6+1)*6/2;
+        const int i0 = index_sym66_assume_upper(3,3);
+        for(int i=i0; i<N; i++)
+            Jcross_t__Jcross[i] +=
+                sum_outer_jpackedp_jpackedp[i-i0] /
+                (SCALE_POSITION_POINT*SCALE_POSITION_POINT);
+    }
+}
 
 bool mrcal_drt_ref_refperturbed__dbpacked(// output
                                           // Shape (6,Nstate_frames)
-                                          double* K,
-                                          int K_stride0, // in bytes. <= 0 means "contiguous"
-                                          int K_stride1, // in bytes. <= 0 means "contiguous"
+                                          double* Kpackedf,
+                                          int Kpackedf_stride0, // in bytes. <= 0 means "contiguous"
+                                          int Kpackedf_stride1, // in bytes. <= 0 means "contiguous"
+
+                                          // Shape (6,Nstate_points)
+                                          double* Kpackedp,
+                                          int Kpackedp_stride0, // in bytes. <= 0 means "contiguous"
+                                          int Kpackedp_stride1, // in bytes. <= 0 means "contiguous"
+
+                                          // Shape (6,Nstate_calobject_warp)
+                                          double* Kpackedcw,
+                                          int Kpackedcw_stride0, // in bytes. <= 0 means "contiguous"
+                                          int Kpackedcw_stride1, // in bytes. <= 0 means "contiguous"
 
                                           // inputs
                                           // stuff that describes this solve
@@ -469,10 +665,11 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
                                           // should have passed-in. The size must match exactly
                                           int buffer_size_b_packed,
 
-                                          // The unitless Jacobian, used by the internal
-                                          // optimization routines
-                                          // cholmod_analyze() and cholmod_factorize()
-                                          // require non-const
+                                          // The unitless (packed) Jacobian,
+                                          // used by the internal optimization
+                                          // routines cholmod_analyze() and
+                                          // cholmod_factorize() require
+                                          // non-const
                                           /* const */
                                           cholmod_sparse* Jt,
 
@@ -504,6 +701,21 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
                                  Npoints, Npoints_fixed, Nobservations_board,
                                  problem_selections,
                                  lensmodel);
+    const int state_index_point0 =
+        mrcal_state_index_points(0,
+                                 Ncameras_intrinsics, Ncameras_extrinsics,
+                                 Nframes,
+                                 Npoints, Npoints_fixed, Nobservations_board,
+                                 problem_selections,
+                                 lensmodel);
+
+    if(state_index_frame0 < 0 &&
+       state_index_point0 < 0)
+    {
+        MSG("Neither board poses nor points are being optimized. This case isn't implemented");
+        return false;
+    }
+
     const int state_index_calobject_warp0 =
         mrcal_state_index_calobject_warp(Ncameras_intrinsics, Ncameras_extrinsics,
                                          Nframes,
@@ -517,25 +729,35 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
                          problem_selections,
                          lensmodel);
 
-    const int num_states_frames =
-        mrcal_num_states_frames(Nframes,
-                                problem_selections);
-
-    const int num_states_intrinsics =
+    const int Nstate_intrinsics =
         mrcal_num_states_intrinsics(Ncameras_intrinsics,
                                     problem_selections,
                                     lensmodel);
-    const int num_states_extrinsics =
+    const int Nstate_extrinsics =
         mrcal_num_states_extrinsics(Ncameras_extrinsics,
                                     problem_selections);
-    const int num_states_calobject_warp =
+    const int Nstate_frames =
+        mrcal_num_states_frames(Nframes,
+                                problem_selections);
+    const int Nstate_points =
+        mrcal_num_states_points(Npoints,Npoints_fixed,
+                                problem_selections);
+    const int Nstate_calobject_warp =
         mrcal_num_states_calobject_warp(problem_selections,
                                         Nobservations_board);
-    const int Nstate_i_e = num_states_intrinsics + num_states_extrinsics;
-    const int Nstate_noi_noe = Nstate - Nstate_i_e;
 
-
-    double Jcross_t__Jcross[(6+1)*6/2] = {};
+    if(state_index_frame0 >= 0 &&
+       !(state_index_calobject_warp0 == state_index_frame0 + Nstate_frames))
+    {
+        MSG("I assume that the calobject_warp state variables follow the frame state variables immediately");
+        return false;
+    }
+    if(state_index_calobject_warp0 >= 0 &&
+       !(Nstate_calobject_warp == 2))
+    {
+        MSG("I assume that the calobject_warp has exactly 2 state variables");
+        return false;
+    }
 
     if( buffer_size_b_packed != Nstate*(int)sizeof(double) )
     {
@@ -544,185 +766,278 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
         return false;
     }
 
-    if(Nmeas_points != 0)
-    {
-        MSG("ERROR: %s() currently is not implemented for point observations", __func__);
-        return false;
-    }
     if(Nstate != (int)Jt->nrow)
     {
         MSG("Inconsistent inputs. I have Nstate=%d, but Jt->nrow=%d. Giving up",
             Nstate, (int)Jt->nrow);
         return false;
     }
-    if(state_index_frame0 < 0)
-    {
-        MSG("Uncertainty computation is currently implemented only if frames are being optimized");
-        return false;
-    }
-    if(state_index_calobject_warp0 < 0)
-    {
-        MSG("Uncertainty computation is currently implemented only if calobject-warp is being optimized");
-        return false;
-    }
-    if(state_index_frame0 + num_states_frames != state_index_calobject_warp0)
-    {
-        MSG("I'm assuming that the calobject-warp state directly follows the frames, but here it does not. Giving up");
-        return false;
-    }
-    if(state_index_calobject_warp0 + num_states_calobject_warp != Nstate)
-    {
-        MSG("I'm assuming calobject_warp is the last set of states, but here it is not. Giving up");
-        return false;
-    }
-    if( state_index_frame0 != Nstate_i_e)
-    {
-        MSG("Unexpected state vector layout. Giving up");
-        return false;
+
+#define INIT_ARRAY(Kpacked, N)                                          \
+    init_stride_2D(Kpacked, 6, N);                                      \
+    const int Kpacked ## _stride0_elems = Kpacked ## _stride0 / sizeof(double); \
+    if(Kpacked != NULL)                                                 \
+    {                                                                   \
+        if(Kpacked ## _stride0_elems*(int)sizeof(double) != Kpacked ## _stride0) \
+        {                                                               \
+            MSG("Currently the implementation assumes that " #Kpacked "_stride0 is a multiple of sizeof(double): all elements of Kpacked are aligned. Got Kpacked ## _stride0 = %d", \
+                Kpacked ## _stride0);                                   \
+            return false;                                               \
+        }                                                               \
+                                                                        \
+        if(Kpacked ## _stride1 == sizeof(double))                       \
+        {                                                               \
+            /* each row is stored densely */                            \
+            if(Kpacked ## _stride0 == (int)sizeof(double)*N)            \
+                /* each column is stored densely as well. I can memset() the whole */ \
+                /* block of memory */                                   \
+                memset(Kpacked, 0, 6*N*sizeof(double));                 \
+            else                                                        \
+                for(int i=0; i<6; i++)                                  \
+                    memset(&Kpacked[i*Kpacked ## _stride0_elems], 0, N*sizeof(double)); \
+        }                                                               \
+        else                                                            \
+        {                                                               \
+            MSG("Currently the implementation assumes that Kpacked has densely-stored rows: " #Kpacked "_stride1 must be sizeof(double). Instead I got Kpacked ## _stride1 = %d", \
+                Kpacked ## _stride1);                                   \
+            return false;                                               \
+        }                                                               \
     }
 
-    init_stride_2D(K, 6, Nstate_noi_noe);
-
-    const int K_stride0_elems = K_stride0 / sizeof(double);
-    if(K_stride0_elems*(int)sizeof(double) != K_stride0)
-    {
-        MSG("Currently the implementation assumes that K_stride0 is a multiple of sizeof(double): all elements of K are aligned. Got K_stride0 = %d",
-            K_stride0);
-        return false;
-    }
+    INIT_ARRAY(Kpackedf,  Nstate_frames);
+    INIT_ARRAY(Kpackedp,  Nstate_points);
+    INIT_ARRAY(Kpackedcw, Nstate_calobject_warp);
 
 
-    if(K_stride1 == sizeof(double))
-    {
-        // each row is stored densely
-        if(K_stride0 == (int)sizeof(double)*Nstate_noi_noe)
-            // each column is stored densely as well. I can memset() the whole
-            // block of memory
-            memset(K, 0, 6*Nstate_noi_noe*sizeof(double));
-        else
-            for(int i=0; i<6; i++)
-                memset(&K[i*K_stride0_elems], 0, Nstate_noi_noe*sizeof(double));
-    }
-    else
-    {
-        MSG("Currently the implementation assumes that K has densely-stored rows: K_stride1 must be sizeof(double). Instead I got K_stride1 = %d",
-            K_stride1);
-        return false;
-    }
-
-#warning "I should reuse some other memory for this. Chunks of K ?"
     // sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) for this frame. I sum over
     // all the observations. Uses PACKED gradients. Only the upper triangle is
     // stored, in the usual row-major order
-    double sum_outer_jf_jf_packed[(6+1)*6/2] = {};
+    double sum_outer_jpackedf_jpackedf[(6+1)*6/2] = {};
+
+    // sum(outer(dx/dpoint,dx/dpoint)) for this point. I sum over all the
+    // observations. Uses PACKED gradients. Only the upper triangle is stored,
+    // in the usual row-major order
+    double sum_outer_jpackedp_jpackedp[(3+1)*3/2] = {};
 
     // sum(outer(j_frame_measi*, j_calobject_warp_measi*)) for this frame. Uses
     // PACKED gradients. Stored densely, since it isn't symmetric. Shape (6,2)
-    double sum_outer_jf_jcw_packed[6*2] = {};
+    double sum_outer_jpackedf_jpackedcw[6*2] = {};
+
+    double Jcross_t__Jcross[(6+1)*6/2] = {};
 
     int state_index_frame_current = -1;
+    int state_index_point_current = -1;
 
     const int*    Jrowptr = (int*)   Jt->p;
     const int*    Jcolidx = (int*)   Jt->i;
     const double* Jval    = (double*)Jt->x;
     for(int imeas=0; imeas<Nmeas_obs; imeas++)
     {
-        // I have dx/drt_ref_frame for this frame. This is 6 numbers
-        const double* dx_drt_ref_frame_packed = NULL;
+        int32_t ival = Jrowptr[imeas];
+        int32_t icol;
 
-        for(int32_t ival = Jrowptr[imeas]; ival < Jrowptr[imeas+1]; ival++)
+        #warning linear search
+        // I look through the jacobian until I find either a frame or a point
+        // gradient
+        while(ival < Jrowptr[imeas+1])
         {
-            int32_t icol = Jcolidx[ival];
-#warning "I can do better than a linear search here. I know the structure of J."
-            if(icol < state_index_frame0)
-                // not a rt_ref_frame gradient. Ignore
-                continue;
+            icol = Jcolidx[ival];
 
-            // We're looking at SOME rt_ref_frame gradient. I expect these to be
-            // non-decreasing: consecutive chunks of Nw*Nh*2 measurements will
-            // represent the same board pose, and the same rt_ref_frame
-            if(icol < state_index_frame_current)
-            {
-                MSG("Unexpected jacobian structure. I'm assuming non-decreasing frame references");
-                return false;
-            }
-            else if( state_index_frame0 <= icol &&
-                     icol < state_index_calobject_warp0 )
+            if( state_index_frame0 >= 0 && state_index_frame0 <= icol)
+                break;
+            if( state_index_point0 >= 0 && state_index_point0 <= icol)
+                break;
+
+            ival++;
+        }
+        if(!(ival < Jrowptr[imeas+1]))
+            continue;
+
+
+        // if(frame gradient). If these don't exist in this problem,
+        // Nstate_frames==0, and this will always be false
+        if( state_index_frame0 <= icol &&
+            icol < state_index_frame0 + Nstate_frames )
+        {
+            // This observation is of chessboards
+
+            // We're looking at SOME rt_ref_frame gradient. I expect 6 values
+            // for the rt_ref_frame gradient followed by 2 values for the
+            // calobject_warp gradient
+            //
+            // Consecutive chunks of Nw*Nh*2 measurements will represent the
+            // same board pose, and the same rt_ref_frame
+            if(state_index_frame_current >= 0 &&
+               icol != state_index_frame_current)
             {
                 // Looking at a new frame. Finish the previous frame
-                if(icol != state_index_frame_current)
-                {
-                    if(state_index_frame_current >= 0)
-                    {
-                        finish_Jcross_computations( &K[state_index_frame_current-state_index_frame0],
-                                                    K_stride0_elems,
-                                                    &K[state_index_calobject_warp0-state_index_frame0],
-                                                    K_stride0_elems,
-                                                    Jcross_t__Jcross,
-                                                    sum_outer_jf_jf_packed,
-                                                    sum_outer_jf_jcw_packed,
-                                                    &b_packed[state_index_frame_current]);
-                        memset(sum_outer_jf_jf_packed,  0, (6+1)*6/2*sizeof(double));
-                        memset(sum_outer_jf_jcw_packed, 0, 6*2      *sizeof(double));
-                    }
-                    state_index_frame_current = icol;
-                }
+                accumulate_frame( // output
+                                  &Kpackedf[state_index_frame_current-state_index_frame0],
+                                  Kpackedf_stride0_elems,
+                                  Kpackedcw,
+                                  Kpackedcw_stride0_elems,
+                                  Jcross_t__Jcross,
 
-                // I have dx/drt_ref_frame for this frame. This is 6 numbers
-                dx_drt_ref_frame_packed = &Jval[ival];
-
-                // sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) into sum_outer_jf_jf_packed
-                {
-                    // This is used to compute Jcross_t J_fpcwpacked and Jcross_t
-                    // Jcross. This result is used in finish_Jcross_computations()
-                    //
-                    // Uses PACKED gradients. Only the upper triangle is stored, in
-                    // the usual row-major order
-                    int ivalue = 0;
-                    for(int i=0; i<6; i++)
-                        for(int j=i; j<6; j++, ivalue++)
-                            sum_outer_jf_jf_packed[ivalue] +=
-                                dx_drt_ref_frame_packed[i]*dx_drt_ref_frame_packed[j];
-                }
-
-                // fast-forward past the frame gradients
-                ival += 6-1;
+                                  // input
+                                  sum_outer_jpackedf_jpackedf,
+                                  sum_outer_jpackedf_jpackedcw,
+                                  &b_packed[state_index_frame_current]);
+                memset(sum_outer_jpackedf_jpackedf,  0, (6+1)*6/2*sizeof(double));
+                memset(sum_outer_jpackedf_jpackedcw, 0, 6*2      *sizeof(double));
             }
-            else
+            state_index_frame_current = icol;
+
+            // I have dx/drt_ref_frame for this frame. This is 6 numbers
+            const double* dx_drt_ref_frame_packed = &Jval[ival];
+
+            // sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) into sum_outer_jpackedf_jpackedf
+
+            // This is used to compute Jcross_t J_packedfpcw and Jcross_t
+            // Jcross. This result is used in accumulate_frame()
+            //
+            // Uses PACKED gradients. Only the upper triangle is stored, in
+            // the usual row-major order
+            for(int i=0, ivalue=0; i<6; i++)
+                for(int j=i; j<6; j++, ivalue++)
+                    sum_outer_jpackedf_jpackedf[ivalue] +=
+                        dx_drt_ref_frame_packed[i]*dx_drt_ref_frame_packed[j];
+
+            // I just looked at all the frame gradients. Fast-forward past
+            // them all
+            ival += 6;
+
+
+            if(!(ival < Jrowptr[imeas+1]))
             {
-                // if() statements above guarantee that this is calobject_warp.
-                const double* dx_dcalobject_warp_packed = &Jval[ival];
+                // No more gradients for this measurement. There is no
+                // calobject_warp
+                if(Kpackedcw != NULL)
+                {
+                    MSG("Unexpected jacobian structure. There's no calobject_warp gradient in measurement %d, but the user asked for it",
+                        imeas);
+                    return false;
+                }
 
-                // Similar to the above, but this isn't symmetric, so I store it
-                // densely
-                int ivalue = 0;
-                for(int i=0; i<6; i++)
-                    for(int j=0; j<2; j++, ivalue++)
-                        sum_outer_jf_jcw_packed[ivalue] +=
-                            dx_drt_ref_frame_packed[i]*
-                            dx_dcalobject_warp_packed[j];
+                continue; // next measurement
+            }
 
-                ival += Nstate_calobject_warp-1;
+            icol = Jcolidx[ival];
+            if(!(icol >= state_index_calobject_warp0 &&
+                 icol < state_index_calobject_warp0 + Nstate_calobject_warp) )
+            {
+                MSG("Unexpected jacobian structure. I'm assuming frame jacobians to be followed immediately by calobject_warp jacobians");
+                return false;
+            }
+
+            // calobject_warp
+            if(Kpackedcw == NULL)
+            {
+                MSG("Unexpected jacobian structure. There's a calobject_warp gradient in measurement %d, but the user didn't ask for it",
+                    imeas);
+                return false;
+            }
+
+            const double* dx_dcalobject_warp_packed = &Jval[ival];
+
+            // Similar to the above, but this isn't symmetric, so I store it
+            // densely
+            int ivalue = 0;
+            for(int i=0; i<6; i++)
+                for(int j=0; j<2; j++, ivalue++)
+                    sum_outer_jpackedf_jpackedcw[ivalue] +=
+                        dx_drt_ref_frame_packed[i]*
+                        dx_dcalobject_warp_packed[j];
+
+            // I just looked at all the calobject_warp gradients.
+            // Fast-forward past them all
+            ival += Nstate_calobject_warp;
+
+            if(ival < Jrowptr[imeas+1])
+            {
+                MSG("Unexpected jacobian structure. The calobject_warp jacobians should be the last gradient for each measurement");
+                return false;
+            }
+        }
+
+        // if(point gradient). If these don't exist in this problem,
+        // Nstate_points==0, and this will always be false
+        if( state_index_point0 <= icol &&
+            icol < state_index_point0 + Nstate_points )
+        {
+            // This observation is of a point
+
+            // We're looking at SOME point gradient: 3 values
+            if(state_index_point_current >= 0 &&
+               icol != state_index_point_current)
+            {
+                // Looking at a new point. Finish the previous point
+                accumulate_point( // output
+                                  &Kpackedp[state_index_point_current-state_index_point0],
+                                  Kpackedp_stride0_elems,
+                                  Jcross_t__Jcross,
+
+                                  // input
+                                  sum_outer_jpackedp_jpackedp,
+                                  &b_packed[state_index_point_current]);
+                memset(sum_outer_jpackedp_jpackedp,  0, (3+1)*3/2*sizeof(double));
+            }
+            state_index_point_current = icol;
+
+            // I have dx/dpoint for this point. This is 3 numbers
+            const double* dx_dpoint_packed = &Jval[ival];
+
+            // sum(outer(dx/dpoint,dx/dpoint)) into sum_outer_jpackedp_jpackedp
+
+            // This is used to compute Jcross_t J_packedfpcw and Jcross_t
+            // Jcross. This result is used in accumulate_point()
+            //
+            // Uses PACKED gradients. Only the upper triangle is stored, in
+            // the usual row-major order
+            for(int i=0, ivalue=0; i<3; i++)
+                for(int j=i; j<3; j++, ivalue++)
+                    sum_outer_jpackedp_jpackedp[ivalue] +=
+                        dx_dpoint_packed[i]*dx_dpoint_packed[j];
+
+            // I just looked at all the point gradients. Fast-forward past
+            // them all
+            ival += 3;
+
+            if(ival < Jrowptr[imeas+1])
+            {
+                MSG("Unexpected jacobian structure. The point jacobians should be the last gradient for each measurement");
+                return false;
             }
         }
     }
 
     if(state_index_frame_current >= 0)
     {
-        finish_Jcross_computations( &K[state_index_frame_current-state_index_frame0],
-                                    K_stride0_elems,
-                                    &K[state_index_calobject_warp0-state_index_frame0],
-                                    K_stride0_elems,
-                                    Jcross_t__Jcross,
-                                    sum_outer_jf_jf_packed,
-                                    sum_outer_jf_jcw_packed,
-                                    &b_packed[state_index_frame_current]);
-        memset(sum_outer_jf_jf_packed,  0, (6+1)*6/2*sizeof(double));
-        memset(sum_outer_jf_jcw_packed, 0, 6*2      *sizeof(double));
+        accumulate_frame( // output
+                          &Kpackedf[state_index_frame_current-state_index_frame0],
+                          Kpackedf_stride0_elems,
+                          Kpackedcw,
+                          Kpackedcw_stride0_elems,
+                          Jcross_t__Jcross,
+
+                          // input
+                          sum_outer_jpackedf_jpackedf,
+                          sum_outer_jpackedf_jpackedcw,
+                          &b_packed[state_index_frame_current]);
+    }
+    if(state_index_point_current >= 0)
+    {
+
+        accumulate_point( // output
+                          &Kpackedp[state_index_point_current-state_index_point0],
+                          Kpackedp_stride0_elems,
+                          Jcross_t__Jcross,
+
+                          // input
+                          sum_outer_jpackedp_jpackedp,
+                          &b_packed[state_index_point_current]);
     }
 
-
-    // I now have filled Jcross_t__Jcross and K. I can
+    // I now have filled Jcross_t__Jcross and Kpacked. I can
     // compute
     //
     //   inv(Jcross_t Jcross) Jcross_t J_fpcw
@@ -731,16 +1046,23 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
     //
     //   (Jcross_t J_fpcw)t inv(Jcross_t Jcross)
     //
-    // in-place: input and output both use the K array
+    // in-place: input and output both use the Kpacked array
     double inv_JcrosstJcross_det[(6+1)*6/2];
-    double det = cofactors_sym6(Jcross_t__Jcross,
-                                inv_JcrosstJcross_det);
+    const double det =
+        cofactors_sym6(Jcross_t__Jcross,
+                       inv_JcrosstJcross_det);
 
-    // Overwrite K in place
-    mul_genN6_sym66_scaled_strided(Nstate_noi_noe,
-                                   K, 1, K_stride0_elems,
-                                   inv_JcrosstJcross_det,
-                                   -1. / det);
+    // Overwrite Kpacked in place
+#define FINALIZE(Kpacked, N)                                            \
+    if(Kpacked)                                                         \
+        mul_genN6_sym66_scaled_strided(N,                               \
+                                       Kpacked, 1, Kpacked ## _stride0_elems, \
+                                       inv_JcrosstJcross_det,           \
+                                       -1. / det)
+
+    FINALIZE(Kpackedf,  Nstate_frames);
+    FINALIZE(Kpackedp,  Nstate_points);
+    FINALIZE(Kpackedcw, Nstate_calobject_warp);
 
     return true;
 }

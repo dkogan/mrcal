@@ -751,12 +751,6 @@ def _dq_db__projection_uncertainty( p_cam,
 
     '''
 
-    if re.match('cross-reprojection',method) and \
-       frames_rt_toref is None:
-        raise Exception("cross-reprojection uncertainty is only implemented if we're optimizing extrinsics and frames. Needs more thought and coding to do that")
-
-
-
     dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
     if extrinsics_rt_fromref is not None:
@@ -867,12 +861,6 @@ def _dq_db__projection_uncertainty_rotationonly( p_cam,
     This function does all the work when observing points at infinity
 
     '''
-
-    if re.match('cross-reprojection',method) and \
-       frames_rt_toref is None:
-        raise Exception("cross-reprojection uncertainty is only implemented if we're optimizing extrinsics and frames. Needs more thought and coding to do that")
-
-
 
     dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
@@ -1156,9 +1144,6 @@ else:                    we return an array of shape (...)
             frames_rt_toref = None
         if points          is not None and points         .size == 0:
             points          = None
-
-        if points is not None:
-            raise Exception("Uncertainty computation not yet implemented if I have non-fixed points")
 
         if frames_rt_toref is not None:
             # None if we're not optimizing chessboard poses, but I just checked,
