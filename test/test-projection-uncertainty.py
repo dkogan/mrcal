@@ -2452,7 +2452,11 @@ def check_uncertainties_at(q0_baseline, idistance):
 
     # shape (Ncameras,3)
     p_cam_baseline = mrcal.unproject(q0_baseline, lensmodel, intrinsics_baseline,
-                                     normalize = True) * distance
+                                     normalize = True)
+    # if we're at infinity, I leave p_cam_baseline as a unit vector. This will
+    # make bugs with improper at-infinity handling more apparent
+    if not atinfinity:
+        p_cam_baseline *= distance
 
     # shape (Nsamples, Ncameras, 2)
     q_sampled = \
