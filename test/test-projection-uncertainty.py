@@ -1715,6 +1715,34 @@ The rt_refperturbed_ref formulation:
                                             msg = f"drt_ref_refperturbed__dbpacked() does the right thing")
 
 
+                    if 0:
+                        JctJc_ref = nps.matmult( J_cross_fp.T, J_cross_fp )
+                        JctJc_flat = np.fromfile("/tmp/Jcross_t__Jcross", dtype=float)
+                        JctJc = np.zeros((6,6), dtype=float)
+                        JctJc[0,0:] = JctJc_flat[0:6]
+                        JctJc[1,1:] = JctJc_flat[6:11]
+                        JctJc[2,2:] = JctJc_flat[11:15]
+                        JctJc[3,3:] = JctJc_flat[15:18]
+                        JctJc[4,4:] = JctJc_flat[18:20]
+                        JctJc[5,5:] = JctJc_flat[20:21]
+                        for i in np.arange(6): JctJc[i,i] /= 2.
+                        JctJc = JctJc + JctJc.T
+                        print(JctJc)
+                        print(JctJc_ref)
+
+                        istate_point0 = mrcal.state_index_points(0, **optimization_inputs_baseline)
+
+                        Kpackedp_noinv = np.fromfile("/tmp/Kpackedp_noinv", dtype=float).reshape(6,Nstates_point)
+                        Kpackedp_noinv_ref = nps.matmult(J_cross_fp.T,Jpacked_fpcw)[:,istate_point0:]
+                        print(np.max(np.abs(Kpackedp_noinv_ref - Kpackedp_noinv)))
+
+                        import IPython
+                        IPython.embed()
+                        sys.exit()
+
+
+
+
             out[0,:] = (dx_cross_fpcw0, J_cross_e, J_cross_fp)
             out[1,:] = (dx_cross_ie0,   J_cross_e, J_cross_fp)
 
