@@ -1026,7 +1026,6 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
     }
     if(state_index_point_current >= 0)
     {
-
         accumulate_point( // output
                           &Kpackedp[state_index_point_current-state_index_point0],
                           Kpackedp_stride0_elems,
