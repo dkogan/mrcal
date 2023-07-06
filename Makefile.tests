@@ -27,6 +27,7 @@ TESTS :=																\
   test/test-surveyed-calibration.py__--do-sample__--oversample__10									\
   test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample							\
   test/test-projection-uncertainty.py__--fixed__frames__--model__opencv4__--do-sample__--Nsamples__200					\
+  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample--extra-observation-at__40__--observed-pixel-uncertainty__0.3__--reproject-perturbed cross-reprojection--rrp-Jfp \
   test/test-projection-uncertainty.py__--fixed__cam0__--model__splined									\
   test/test-linearizations.py														\
   test/test-lensmodel-string-manipulation												\
