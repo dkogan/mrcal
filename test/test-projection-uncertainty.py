@@ -2487,9 +2487,6 @@ def check_uncertainties_at(q0_baseline, idistance):
     Var_dq_observed = np.mean( nps.outer(q_sampled-q_sampled_mean,
                                          q_sampled-q_sampled_mean), axis=-4 )
 
-    # shape (Ncameras)
-    worst_direction_stdev_observed = mrcal.worst_direction_stdev(Var_dq_observed)
-
     # shape (Ncameras, 2,2)
     Var_dq_predicted = \
         nps.cat(*[ mrcal.projection_uncertainty( \
@@ -2499,9 +2496,6 @@ def check_uncertainties_at(q0_baseline, idistance):
             model      = models_baseline[icam],
             observed_pixel_uncertainty = args.observed_pixel_uncertainty) \
                    for icam in range(args.Ncameras) ])
-    # shape (Ncameras)
-    worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq_predicted)
-
 
     # q_sampled should be evenly distributed around q0_baseline. I can make eps
     # as tight as I want by increasing Nsamples
@@ -2510,6 +2504,10 @@ def check_uncertainties_at(q0_baseline, idistance):
                              eps = 0.3,
                              worstcase = True,
                              msg = f"Sampled projections cluster around the sample point at distance = {distancestr}")
+
+    # shape (Ncameras)
+    worst_direction_stdev_observed  = mrcal.worst_direction_stdev(Var_dq_observed)
+    worst_direction_stdev_predicted = mrcal.worst_direction_stdev(Var_dq_predicted)
 
     # I accept 20% error. This is plenty good-enough. And I can get tighter matches
     # if I grab more samples
