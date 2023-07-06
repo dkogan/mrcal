@@ -2167,7 +2167,7 @@ The rt_refperturbed_ref formulation:
                                 worstcase   = True,
                                 msg = "Linearized rt_ref_refperturbed computations match exactly")
 
-        # Now let's compute and compare the linerized Var(rt_ref_refperturbed)
+        # Now let's compute and compare the linearized Var(rt_ref_refperturbed)
 
         var_predicted__rt_ref_refperturbed = \
             mrcal._mrcal_npsp._A_Jt_J_At(Kpacked_inv_JtJ, J_observations.indptr, J_observations.indices, J_observations.data,
