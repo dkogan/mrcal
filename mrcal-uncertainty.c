@@ -867,6 +867,12 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
             //
             // Consecutive chunks of Nw*Nh*2 measurements will represent the
             // same board pose, and the same rt_ref_frame
+
+            if(icol < state_index_frame_current)
+            {
+                MSG("Unexpected jacobian structure. I'm assuming non-decreasing frame references. The Jcross_t__Jcross computation uses chunks of Kpackedf; it assumes that once the chunk is computed, it is DONE, and never revisited. Non-monotonic frame indices break that");
+                return false;
+            }
             if(state_index_frame_current >= 0 &&
                icol != state_index_frame_current)
             {
@@ -967,6 +973,12 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
             // This observation is of a point
 
             // We're looking at SOME point gradient: 3 values
+
+            if(icol < state_index_point_current)
+            {
+                MSG("Unexpected jacobian structure. I'm assuming non-decreasing point references. The Jcross_t__Jcross computation uses chunks of Kpackedp; it assumes that once the chunk is computed, it is DONE, and never revisited. Non-monotonic point indices break that");
+                return false;
+            }
             if(state_index_point_current >= 0 &&
                icol != state_index_point_current)
             {

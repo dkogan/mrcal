@@ -271,20 +271,20 @@ ARGUMENTS
 
         # I break up the chessboard observations into discrete points
 
-        # shape (Nframes,Ncameras,H,W, 3)
-        indices_point_camintrinsics_camextrinsics = np.zeros((Nframes,Ncameras,object_height_n,object_width_n, 3), dtype=np.int32)
+        # shape (Nframes,H,W,Ncameras, 3)
+        indices_point_camintrinsics_camextrinsics = np.zeros((Nframes,object_height_n,object_width_n,Ncameras, 3), dtype=np.int32)
 
         # index_point
         indices_point_camintrinsics_camextrinsics[...,0] += \
-            nps.dummy(indices_frame_camintrinsics_camextrinsics[...,0].reshape(Nframes,Ncameras), -1,-1) \
+            nps.dummy(indices_frame_camintrinsics_camextrinsics[...,0].reshape(Nframes,Ncameras), -2,-2) \
             * object_height_n * object_width_n \
-            + np.arange(object_height_n * object_width_n).reshape(object_height_n,object_width_n)
+            + nps.dummy(np.arange(object_height_n * object_width_n).reshape(object_height_n,object_width_n), -1)
 
         # camintrinsics and camextrinsics
         indices_point_camintrinsics_camextrinsics[...,1:] += \
-            nps.dummy(indices_frame_camintrinsics_camextrinsics[...,1:].reshape(Nframes,Ncameras,2), -2,-2)
+            nps.dummy(indices_frame_camintrinsics_camextrinsics[...,1:].reshape(Nframes,Ncameras,2), -3,-3)
 
-        # shape (Nframes*Ncameras*H*W, 3)
+        # shape (Nframes*H*W*Ncameras, 3)
         indices_point_camintrinsics_camextrinsics = \
             nps.clump(indices_point_camintrinsics_camextrinsics, n=4)
 
@@ -301,8 +301,16 @@ ARGUMENTS
         # shape (Nframes*H*W, 3)
         points_true = nps.clump(points_true, n=3)
 
-        #  shape (Nframes*Ncameras*Nh*Nw, 3)
-        observations_point_true = nps.clump(observations_board_true, n=3)
+        #  shape (Nframes*Nh*Nw*Ncameras, 3)
+        observations_point_true = \
+            nps.clump(
+                nps.mv( observations_board_true.reshape(Nframes,
+                                                        Ncameras,
+                                                        object_height_n,
+                                                        object_width_n,
+                                                        3),
+                        -4, -2),
+                n=4)
 
         Npoints = points_true.shape[0]
 
