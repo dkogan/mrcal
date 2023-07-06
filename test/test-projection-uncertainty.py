@@ -2531,7 +2531,7 @@ def check_uncertainties_at(q0_baseline, idistance):
 
 
 # I plot the data from the first distance
-q_sampled,Var_dq_predicted = check_uncertainties_at(q0_baseline, 0)
+q_sampled__dist0,Var_dq_predicted__dist0 = check_uncertainties_at(q0_baseline, 0)
 for idistance in range(1,len(args.distances)):
     check_uncertainties_at(q0_baseline, idistance)
 
@@ -2545,13 +2545,13 @@ import gnuplotlib as gp
 
 def make_plot(icam, report_center_points = True, **kwargs):
 
-    q_sampled_mean = np.mean(q_sampled[:,icam,:],axis=-2)
+    q_sampled_mean = np.mean(q_sampled__dist0[:,icam,:],axis=-2)
 
     def make_tuple(*args): return args
 
     data_tuples = \
-        make_tuple(*mrcal.utils._plot_args_points_and_covariance_ellipse(q_sampled[:,icam,:], "Observed uncertainty"),
-                   mrcal.utils._plot_arg_covariance_ellipse(q_sampled_mean, Var_dq_predicted[icam], "Predicted uncertainty"),)
+        make_tuple(*mrcal.utils._plot_args_points_and_covariance_ellipse(q_sampled__dist0[:,icam,:], "Observed uncertainty"),
+                   mrcal.utils._plot_arg_covariance_ellipse(q_sampled_mean, Var_dq_predicted__dist0[icam], "Predicted uncertainty"),)
 
     if report_center_points:
 
