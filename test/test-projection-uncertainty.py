@@ -2138,17 +2138,17 @@ The rt_refperturbed_ref formulation:
                     wait = True)
 
         # shape (6,Nstate)
-        K = mrcal.drt_ref_refperturbed__dbpacked(**optimization_inputs_baseline)
+        Kpacked = mrcal.drt_ref_refperturbed__dbpacked(**optimization_inputs_baseline)
 
         # I have
         #
-        # rt_ref_refperturbed = K inv(J*t J*) Jobservations*t W dqref
+        # rt_ref_refperturbed = Kpacked inv(J*t J*) Jobservations*t W dqref
 
-        # K[:,:istate_frame0] is always 0. I return the full array, even with
+        # Kpacked[:,:istate_frame0] is always 0. I return the full array, even with
         # the 0 because CHOLMOD doesn't give me a good interface to tell it that
         # these cols are 0 in factorization.solve_xt_JtJ_bt()
 
-        K_inv_JtJ = factorization.solve_xt_JtJ_bt(K)
+        Kpacked_inv_JtJ = factorization.solve_xt_JtJ_bt(Kpacked)
 
         # Given the noisy samples I can compute the linearization using the API,
         # which should match our linearization here exactly
@@ -2156,7 +2156,7 @@ The rt_refperturbed_ref formulation:
         # shape (Nsamples,6)
         rt_ref_refperturbed_predicted_from_samples = \
             nps.transpose( \
-                           nps.matmult(K_inv_JtJ,
+                           nps.matmult(Kpacked_inv_JtJ,
                                        nps.transpose(Jt_W_qref) ) )
 
         testutils.confirm_equal(rt_ref_refperturbed_predicted_from_samples,
@@ -2170,7 +2170,7 @@ The rt_refperturbed_ref formulation:
         # Now let's compute and compare the linerized Var(rt_ref_refperturbed)
 
         var_predicted__rt_ref_refperturbed = \
-            mrcal._mrcal_npsp._A_Jt_J_At(K_inv_JtJ, J_observations.indptr, J_observations.indices, J_observations.data,
+            mrcal._mrcal_npsp._A_Jt_J_At(Kpacked_inv_JtJ, J_observations.indptr, J_observations.indices, J_observations.data,
                                          Nleading_rows_J = J_observations.shape[0]) * \
             args.observed_pixel_uncertainty*args.observed_pixel_uncertainty
 
