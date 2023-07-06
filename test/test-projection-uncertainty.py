@@ -1558,9 +1558,7 @@ The rt_refperturbed_ref formulation:
             mrcal.unpack_state(db_predicted, **baseline_optimization_inputs)
 
             #### I just computed db = M dqref
-            if not hasattr(get_cross_operating_point__linearization,
-                           'did_already_compare_b'):
-                get_cross_operating_point__linearization.did_already_compare_b = True
+            if not get_cross_operating_point__linearization.__dict__.get('did_check'):
 
                 db_observed = query_b_unpacked - b_baseline_unpacked
 
@@ -1700,8 +1698,28 @@ The rt_refperturbed_ref formulation:
                     J_cross_fp[:] = J_observations[:, slice_state_point].dot(dp_drt)
 
 
+                if not get_cross_operating_point__linearization.__dict__.get('did_check'):
+
+                    Jpacked_fpcw = J_observations.toarray()
+                    Jpacked_fpcw[:,~state_mask_fpcw] = 0
+                    Kpacked_ref_fpcw = \
+                        -np.linalg.lstsq(J_cross_fp,
+                                         Jpacked_fpcw,
+                                         rcond = None)[0]
+                    Kpacked = mrcal.drt_ref_refperturbed__dbpacked(**optimization_inputs_baseline)
+
+                    testutils.confirm_equal(Kpacked_ref_fpcw,
+                                            Kpacked,
+                                            eps       = 1e-12,
+                                            worstcase = True,
+                                            msg = f"drt_ref_refperturbed__dbpacked() does the right thing")
+
+
             out[0,:] = (dx_cross_fpcw0, J_cross_e, J_cross_fp)
             out[1,:] = (dx_cross_ie0,   J_cross_e, J_cross_fp)
+
+            get_cross_operating_point__linearization.did_check = True
+
             return out
 
 
