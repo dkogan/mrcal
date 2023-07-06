@@ -1046,6 +1046,24 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
     //   (Jcross_t J_fpcw)t inv(Jcross_t Jcross)
     //
     // in-place: input and output both use the Kpacked array
+
+
+#if 0
+    // testing code
+    FILE* fp;
+
+    fp = fopen("/tmp/Jcross_t__Jcross", "w");
+    fwrite(Jcross_t__Jcross, 8, (6+1)*6/2, fp);
+    fclose(fp);
+
+    fp = fopen("/tmp/Kpackedp_noinv", "w");
+    for(int i=0; i<6; i++)
+        fwrite(&Kpackedp[i*Kpackedp_stride0_elems],
+               8, Nstate_points, fp);
+    fclose(fp);
+#endif
+
+
     double inv_JcrosstJcross_det[(6+1)*6/2];
     const double det =
         cofactors_sym6(Jcross_t__Jcross,
