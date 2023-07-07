@@ -38,6 +38,7 @@ The previous name is still available for backwards compatibility
 
 073f55b5..: show_residuals_vectorfield(), .._magnitudes(), mrcal-show-residuals have --cbmax
 
+Added CHOLMOD_factorization.rcond()
 
 * Migration notes 2.3 -> 3.0
 

@@ -637,16 +637,34 @@ CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* arg
     return result;
 }
 
+static PyObject*
+CHOLMOD_factorization_rcond(CHOLMOD_factorization* self,
+                            PyObject* NPY_UNUSED(args))
+{
+    if(!(self->inited_common && self->factorization))
+    {
+        BARF("No factorization has been computed");
+        return NULL;
+    }
+
+    return PyFloat_FromDouble(cholmod_rcond( self->factorization,
+                                             &self->common));
+}
+
 static const char CHOLMOD_factorization_docstring[] =
 #include "CHOLMOD_factorization.docstring.h"
     ;
 static const char CHOLMOD_factorization_solve_xt_JtJ_bt_docstring[] =
 #include "CHOLMOD_factorization_solve_xt_JtJ_bt.docstring.h"
     ;
+static const char CHOLMOD_factorization_rcond_docstring[] =
+#include "CHOLMOD_factorization_rcond.docstring.h"
+    ;
 
 static PyMethodDef CHOLMOD_factorization_methods[] =
     {
         PYMETHODDEF_ENTRY(CHOLMOD_factorization_, solve_xt_JtJ_bt, METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(CHOLMOD_factorization_, rcond,           METH_NOARGS),
         {}
     };
 
