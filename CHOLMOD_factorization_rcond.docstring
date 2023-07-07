@@ -1,0 +1,27 @@
+Compute rough estimate of reciprocal of condition number
+
+SYNOPSIS
+
+    b, x, J, factorization = \
+        mrcal.optimizer_callback(**optimization_inputs)
+
+    rcond = factorization.rcond()
+
+Calls cholmod_rcond(). Its documentation says:
+
+  Returns a rough estimate of the reciprocal of the condition number: the
+  minimum entry on the diagonal of L (or absolute entry of D for an LDLT
+  factorization) divided by the maximum entry. L can be real, complex, or
+  zomplex. Returns -1 on error, 0 if the matrix is singular or has a zero or NaN
+  entry on the diagonal of L, 1 if the matrix is 0-by-0, or
+  min(diag(L))/max(diag(L)) otherwise. Never returns NaN; if L has a NaN on the
+  diagonal it returns zero instead.
+
+ARGUMENTS
+
+- None
+
+RETURNED VALUE
+
+A single floating point value: an estimate of the reciprocal of the condition
+number
