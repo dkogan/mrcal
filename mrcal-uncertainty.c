@@ -16,19 +16,7 @@
 #include "minimath/minimath-extra.h"
 #include "util.h"
 #include "strides.h"
-
-
-#warning "don't duplicate these"
-#define SCALE_INTRINSICS_FOCAL_LENGTH 500.0
-#define SCALE_INTRINSICS_CENTER_PIXEL 20.0
-#define SCALE_ROTATION_CAMERA         (0.1 * M_PI/180.0)
-#define SCALE_TRANSLATION_CAMERA      1.0
-#define SCALE_ROTATION_FRAME          (15.0 * M_PI/180.0)
-#define SCALE_TRANSLATION_FRAME       1.0
-#define SCALE_POSITION_POINT          SCALE_TRANSLATION_FRAME
-#define SCALE_CALOBJECT_WARP          0.01
-#define SCALE_DISTORTION              1.0
-
+#include "scales.h"
 
 
 
