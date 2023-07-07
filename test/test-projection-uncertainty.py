@@ -1325,10 +1325,10 @@ rt_ref*_ref, so we don't need to invert the transform when applying it.
 
         def get_cross_operating_point__point_grad(
                 # dict( boards = shape (Nsamples, Nobservations_board,Nh,Nw,3),
-                #       points = shape (Nsamples, Nobservations_board,      3) )
+                #       points = shape (Nsamples, Nobservations_point,      3) )
                 pcam,
                 # dict( boards = shape (Nsamples, Nobservations_board,Nh,Nw,3),
-                #       points = shape (Nsamples, Nobservations_board,      3,6) )
+                #       points = shape (Nsamples, Nobservations_point,      3,6) )
                 dpcam_drt_ref_refperturbed,
                 *,
                 direction):
@@ -1792,14 +1792,14 @@ The rt_refperturbed_ref formulation:
                                 imeas0_observations[what]+Nmeas_observations[what])
 
                     if what == 'board':
-                        # shape (Nmeas_observations_all,Nh,Nw,2)
+                        # shape (Nmeas_observations_all/2,Nh,Nw,2)
                         qq = \
                             mrcal.project(mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics[what] +1, :], -2,-2),
                                                                    pref[what]),
                                           baseline_optimization_inputs['lensmodel'],
                                           nps.dummy(baseline_intrinsics[ idx_camintrinsics[what], :], -2,-2))
                     elif what == 'point':
-                        # shape (Nmeas_observations_all,2)
+                        # shape (Nmeas_observations_all/2,2)
                         qq = \
                             mrcal.project(mrcal.transform_point_rt(baseline_rt_cam_ref[ idx_camextrinsics[what] +1, :],
                                                                    pref[what]),
