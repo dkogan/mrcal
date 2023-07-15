@@ -17,7 +17,8 @@ TESTS :=																\
   test/test-py-gradients.py														\
   test/test-cahvor															\
   test/test-optimizer-callback.py													\
-  test/test-basic-sfm.py														\
+  test/test-sfm-fixed-points.py														\
+  test/test-sfm-regularization-unity-cam01.py												\
   test/test-basic-calibration.py													\
   test/test-surveyed-calibration.py													\
   test/test-surveyed-calibration.py__--distance__8											\

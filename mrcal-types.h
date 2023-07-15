@@ -174,6 +174,7 @@ typedef struct
 // is used to identify a specific camera, while the "extrinsics" index is used
 // to locate a camera in space. If I have a camera that is moving over time, the
 // intrinsics index will remain the same, while the extrinsics index will change
+#warning "triangulated-solve: there should be a pool of these, and I should be indexing that pool"
 typedef struct
 {
     // indexes the intrinsics array
@@ -205,21 +206,33 @@ typedef struct
     // indexes the "points" array to select the position of the point being
     // observed
     int                  i_point;
+} mrcal_observation_point_t;
+
+// An observation of a discrete point where the point itself is NOT a part of
+// the optimization, but computed implicitly via triangulation. This structure
+// is very similar to mrcal_observation_point_t, except instead of i_point
+// identifying the point being observed we have
+#warning "triangulated-solve: FINISH DOC"
+typedef struct
+{
+    // which camera is making this observation
+    mrcal_camera_index_t icam;
+
+#warning "triangulated-solve: DOCUMENT. CAN THIS BIT FIELD BE PACKED NICELY?"
+    // Set if this is the last camera observing this point. Any set of N>=2
+    // cameras can observe any point. All observations of a given point are
+    // stored consecutively, the last one being noted by this bit
+#warning "triangulated-solve: do I really need this? I cannot look at the next observation to determine when this one is done?"
+    bool                 last_in_set : 1;
 
     // Observed pixel coordinates. This works just like elements of
-    // observations_board_pool:
-    //
-    // .x, .y are the pixel observations
-    // .z is the weight of the observation. Most of the weights are expected to
-    // be 1.0. Less precise observations have lower weights.
-    // .z<0 indicates that this is an outlier. This is respected on
-    // input
-    //
-    // Unlike observations_board_pool, outlier rejection is NOT YET IMPLEMENTED
-    // for points, so outlier points will NOT be found and reported on output in
-    // .z<0
+    // observations_board_pool and mrcal_observation_point_t
     mrcal_point3_t px;
-} mrcal_observation_point_t;
+} mrcal_observation_point_triangulated_t;
+
+
+#warning "triangulated-solve: need a function to identify a vanilla calibration problem. It needs to not include any triangulated points. The noise propagation is different"
+
 
 // Bits indicating which parts of the optimization problem being solved. We can
 // ask mrcal to solve for ALL the lens parameters and ALL the geometry and
@@ -244,12 +257,17 @@ typedef struct
     // If true, optimize the shape of the calibration object
     bool do_optimize_calobject_warp         : 1;
 
+#warning "triangulated-solve: Need finer-grained regularization flags"
+#warning "triangulated-solve: Regularization flags should reflect do_optimize stuff and Ncameras stuff"
     // If true, apply the regularization terms in the solver
     bool do_apply_regularization            : 1;
 
     // Whether to try to find NEW outliers. The outliers given on
     // input are respected regardless
     bool do_apply_outlier_rejection         : 1;
+
+    // Pull the distance between the first two cameras to 1.0
+    bool do_apply_regularization_unity_cam01: 1;
 
 } mrcal_problem_selections_t;
 

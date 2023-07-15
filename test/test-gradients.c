@@ -48,10 +48,6 @@ int main(int argc, char* argv[] )
         return 0;
     }
 
-    mrcal_problem_selections_t problem_selections =
-        {.do_apply_regularization = true};
-
-
     int iarg = 1;
     if( iarg >= argc )
     {
@@ -84,14 +80,23 @@ int main(int argc, char* argv[] )
 
     iarg++;
 
+    mrcal_problem_selections_t problem_selections = {};
     if(iarg >= argc)
-        problem_selections = ((mrcal_problem_selections_t) { .do_optimize_intrinsics_core       = true,
-                                                       .do_optimize_intrinsics_distortions= true,
-                                                       .do_optimize_extrinsics            = true,
-                                                       .do_optimize_frames                = true,
-                                                       .do_optimize_calobject_warp        = true,
-                                                       .do_apply_regularization           = true});
+    {
+        // Default. Turn on everything
+        problem_selections = ((mrcal_problem_selections_t) { .do_optimize_intrinsics_core         = true,
+                                                             .do_optimize_intrinsics_distortions  = true,
+                                                             .do_optimize_extrinsics              = true,
+                                                             .do_optimize_frames                  = true,
+                                                             .do_optimize_calobject_warp          = true,
+                                                             .do_apply_regularization             = true,
+                                                             .do_apply_regularization_unity_cam01 = true});
+    }
     else
+    {
+        problem_selections = ((mrcal_problem_selections_t){.do_apply_regularization             = true,
+                                                           .do_apply_regularization_unity_cam01 = true});
+
         for(; iarg < argc; iarg++)
         {
             if( 0 == strcmp(argv[iarg], "intrinsic-core") )
@@ -124,7 +129,7 @@ int main(int argc, char* argv[] )
             fprintf(stderr, usage, argv[0]);
             return 1;
         }
-
+    }
 
     mrcal_pose_t extrinsics[] =
         { { .r = { .xyz = {  .01,   .1,    .02}},  .t = { .xyz = { -2.3, 0.2, 0.1}}},
@@ -167,6 +172,7 @@ int main(int argc, char* argv[] )
 #define Nobservations_point ((int)(sizeof(observations_point)/sizeof(observations_point[0])))
 
     mrcal_point3_t observations_board_pool[Nobservations_board][calibration_object_width_n*calibration_object_height_n] = {};
+    mrcal_point3_t observations_point_pool[Nobservations_point] = {};
 
     // fill observations with arbitrary data
     for(int i=0; i<Nobservations_board; i++)
@@ -181,10 +187,42 @@ int main(int argc, char* argv[] )
                     1. / (double)(1 << ((i+j+k) % 3));
             }
     for(int i=0; i<Nobservations_point; i++)
-        observations_point[i].px =
-            (mrcal_point3_t) {.x = 1100.0 + (double)i*20.0,
-                              .y = 800.0  - (double)i*12.0,
-                              .z = 1. / (double)(1 << (i % 3)) };
+    {
+        observations_point_pool[i].x = 1100.0 + (double)i*20.0;
+        observations_point_pool[i].y = 800.0  - (double)i*12.0;
+        observations_point_pool[i].z = 1. / (double)(1 << (i % 3));
+    }
+
+    // Observations of triangulated points
+    int Nobservations_point_triangulated;
+    mrcal_observation_point_triangulated_t* observations_point_triangulated;
+    mrcal_observation_point_triangulated_t _observations_point_triangulated[] =
+        { // convergent
+          {.icam = { .intrinsics = 0, .extrinsics = -1 }, .last_in_set = false, .px = {.xyz = {  0., 0., 1.}} },
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .last_in_set = true,  .px = {.xyz = {-0.1, 0., 1.}} },
+          // divergent
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .last_in_set = false, .px = {.xyz = { 0.2, 0., 1.}} },
+          {.icam = { .intrinsics = 0, .extrinsics = -1 }, .last_in_set = true,  .px = {.xyz = { 0.,  0., 1.}} },
+
+          // convergent
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .last_in_set = false, .px = {.xyz = {  0., -0.02, 1.}} },
+          {.icam = { .intrinsics = 2, .extrinsics =  1 }, .last_in_set = true,  .px = {.xyz = {-0.1,  0.01, 1.}} },
+          // divergent
+          {.icam = { .intrinsics = 2, .extrinsics =  1 }, .last_in_set = false, .px = {.xyz = { 0.21,  0.01, 1.}} },
+          {.icam = { .intrinsics = 1, .extrinsics =  0 }, .last_in_set = true,  .px = {.xyz = { -0.1,  0.03, 1.}} } };
+
+    if(!(problem_selections.do_optimize_intrinsics_core ||
+         problem_selections.do_optimize_intrinsics_distortions) &&
+       problem_selections.do_optimize_extrinsics)
+    {
+        Nobservations_point_triangulated = (int)(sizeof(_observations_point_triangulated)/sizeof(_observations_point_triangulated[0]));
+        observations_point_triangulated = _observations_point_triangulated;
+    }
+    else
+    {
+        Nobservations_point_triangulated = 0;
+        observations_point_triangulated = NULL;
+    }
 
     // simple camera calibration case
     int Ncameras_extrinsics = sizeof(extrinsics)/sizeof(extrinsics[0]);
@@ -209,23 +247,23 @@ int main(int argc, char* argv[] )
     int Ndistortion = Nintrinsics;
     if(modelHasCore_fxfycxcy(&lensmodel))
         Ndistortion -= 4;
-    double intrinsics[Ncameras_intrinsics * Nintrinsics];
+    double intrinsics[Ncameras_intrinsics][Nintrinsics];
 
     mrcal_intrinsics_core_t* intrinsics_core;
 
-    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[0*Nintrinsics]);
+    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[0][0]);
     intrinsics_core->focal_xy [0] = 2000.3;
     intrinsics_core->focal_xy [1] = 1900.5;
     intrinsics_core->center_xy[0] = 1800.3;
     intrinsics_core->center_xy[1] = 1790.2;
 
-    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[1*Nintrinsics]);
+    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[1][0]);
     intrinsics_core->focal_xy [0] = 2100.2;
     intrinsics_core->focal_xy [1] = 2130.4;
     intrinsics_core->center_xy[0] = 1830.3;
     intrinsics_core->center_xy[1] = 1810.2;
 
-    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[2*Nintrinsics]);
+    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[2][0]);
     intrinsics_core->focal_xy [0] = 2503.8;
     intrinsics_core->focal_xy [1] = 2730.4;
     intrinsics_core->center_xy[0] = 1730.3;
@@ -240,7 +278,7 @@ int main(int argc, char* argv[] )
     if(lensmodel.type != MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC )
         for(int i=0; i<Ncameras_intrinsics; i++)
             for(int j=0; j<Ndistortion; j++)
-                intrinsics[Nintrinsics * i + 4 + j] = 0.1 + 0.05 * (double)(i + Ncameras_intrinsics*j);
+                intrinsics[i][4 + j] = 0.1 + 0.05 * (double)(i + Ncameras_intrinsics*j);
     else
     {
         const double intrinsics_cam[3][SPLINED_NX*SPLINED_NY*2] =
@@ -347,7 +385,7 @@ int main(int argc, char* argv[] )
               0.98972987, 1.86917315, 1.15851243, 1.8772311 , 0.99256034,
               1.50009109 } };
         for(int i=0; i<Ncameras_intrinsics; i++)
-            memcpy(&intrinsics[Nintrinsics*i+4],
+            memcpy(&intrinsics[i][4],
                    intrinsics_cam[i],
                    sizeof(intrinsics_cam[i]));
     }
@@ -404,17 +442,30 @@ int main(int argc, char* argv[] )
                                                                      calibration_object_width_n,
                                                                      calibration_object_height_n);
     int Nmeasurements_points         = mrcal_num_measurements_points(Nobservations_point);
+    int Nmeasurements_points_triangulated = mrcal_num_measurements_points_triangulated(observations_point_triangulated,
+                                                                                       Nobservations_point_triangulated);
     int Nmeasurements_regularization = mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
                                                                              Nframes,
                                                                              Npoints, Npoints_fixed, Nobservations_board,
                                                                              problem_selections,
                                                                              &lensmodel);
+
+    int imeasurement = 0;
     printf("## Measurement calobjects: %d measurements. Starts at measurement %d\n",
-           Nmeasurements_boards, 0);
+           Nmeasurements_boards, imeasurement);
+    imeasurement += Nmeasurements_boards;
+
     printf("## Measurement points: %d measurements. Starts at measurement %d\n",
-           Nmeasurements_points, Nmeasurements_boards);
+           Nmeasurements_points, imeasurement);
+    imeasurement += Nmeasurements_points;
+
+    printf("## Measurement points-triangulated: %d measurements. Starts at measurement %d\n",
+           Nmeasurements_points_triangulated, imeasurement);
+    imeasurement += Nmeasurements_points_triangulated;
+
     printf("## Measurement regularization: %d measurements. Starts at measurement %d\n",
-           Nmeasurements_regularization, Nmeasurements_boards+Nmeasurements_points);
+           Nmeasurements_regularization, imeasurement);
+    imeasurement += Nmeasurements_regularization;
 
     mrcal_problem_constants_t problem_constants =
         { .point_min_range =  30.0,
@@ -422,7 +473,7 @@ int main(int argc, char* argv[] )
 
     mrcal_stats_t stats =
         mrcal_optimize( NULL,0, NULL,0,
-                        intrinsics,
+                        (double*)intrinsics,
                         extrinsics,
                         frames,
                         points,
@@ -435,7 +486,10 @@ int main(int argc, char* argv[] )
                         Nobservations_board,
                         Nobservations_point,
 
+                        observations_point_triangulated,
+                        Nobservations_point_triangulated,
                         (mrcal_point3_t*)observations_board_pool,
+                        (mrcal_point3_t*)observations_point_pool,
 
                         &lensmodel,
                         imagersizes,

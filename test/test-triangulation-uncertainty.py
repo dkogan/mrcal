@@ -444,8 +444,8 @@ istate_i0,               \
 istate_i1,               \
 icam_extrinsics0,        \
 icam_extrinsics1,        \
-istate_e1,               \
-istate_e0 =              \
+istate_e0,               \
+istate_e1 =              \
     mrcal.triangulation._triangulation_uncertainty_internal(slices,
                                                             optimization_inputs_baseline,
                                                             0,0,

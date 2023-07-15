@@ -84,6 +84,21 @@ tests = ( # mostly all
          )
 
 
+vartype_name = ( "intrinsics-core",
+                 "intrinsics-distortions",
+                 "extrinsics",
+                 "frames",
+                 "discrete points",
+                 "calobject_warp" )
+
+meastype_name = ( "boards",
+                  "points",
+                  "points-triangulated",
+                  "regularization" )
+
+Nvartypes  = len(vartype_name)
+Nmeastypes = len(meastype_name)
+
 def get_variable_map(s):
     r'''Generates a perl snippet to classify a variable
 
@@ -133,15 +148,6 @@ def get_variable_map(s):
     err = 'die("Could not classify variable ivar. Giving up")'
     return f"({calobject_warp}) ? 5 : (({points}) ? 4 : (({frames})? 3 : (({extrinsics}) ? 2 : (({intrinsics_any}) ? ({intrinsics_classify}) : {err}))))"
 
-def vartype_name(i):
-    d = { 0: "intrinsics-core",
-          1: "intrinsics-distortions",
-          2: "extrinsics",
-          3: "frames",
-          4: "discrete points",
-          5: "calobject_warp" }
-    return d[i]
-
 def get_measurement_map(s):
     r'''Generates a perl snippet to classify a measurement
 
@@ -149,7 +155,8 @@ def get_measurement_map(s):
 
     0 boards
     1 points
-    2 regularization'''
+    2 points_triangulated
+    3 regularization'''
 
 
     m = re.search("^## Measurement calobjects: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
@@ -160,22 +167,22 @@ def get_measurement_map(s):
     Nmeas_points  = m.group(1)
     imeas0_points = m.group(2)
 
+    m = re.search("^## Measurement points-triangulated: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
+    Nmeas_points_triangulated  = m.group(1)
+    imeas0_points_triangulated = m.group(2)
+
     m = re.search("^## Measurement regularization: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
     Nmeas_regularization  = m.group(1)
     imeas0_regularization = m.group(2)
 
-    boards         = f"imeasurement >= {imeas0_boards}         && imeas < {imeas0_boards}         + {Nmeas_boards}"
-    points         = f"imeasurement >= {imeas0_points}         && imeas < {imeas0_points}         + {Nmeas_points}"
-    regularization = f"imeasurement >= {imeas0_regularization} && imeas < {imeas0_regularization} + {Nmeas_regularization}"
+    boards              = f"imeasurement >= {imeas0_boards}              && imeas < {imeas0_boards}              + {Nmeas_boards}"
+    points              = f"imeasurement >= {imeas0_points}              && imeas < {imeas0_points}              + {Nmeas_points}"
+    points_triangulated = f"imeasurement >= {imeas0_points_triangulated} && imeas < {imeas0_points_triangulated} + {Nmeas_points_triangulated}"
+    regularization      = f"imeasurement >= {imeas0_regularization}      && imeas < {imeas0_regularization}      + {Nmeas_regularization}"
 
     err = 'die("Could not classify measurement imeasurement. Giving up")'
-    return f"({regularization}) ? 2 : (({points}) ? 1 : (({boards})? 0 : {err}))"
+    return f"({regularization}) ? 3 : (({points_triangulated}) ? 2 : (({points}) ? 1 : (({boards})? 0 : {err})))"
 
-def meastype_name(i):
-    d = { 0: "boards",
-          1: "points",
-          2: "regularization" }
-    return d[i]
 
 
 for test in tests:
@@ -214,16 +221,16 @@ for test in tests:
     # separately is because different classses have very different point.
     # Looking at everything together could result in ALL of one class being
     # considered an outlier, and the test would pass
-    i_thisvar_all  = [err_class[:,1] == vartype  for vartype  in range(6)]
-    i_thismeas_all = [err_class[:,2] == meastype for meastype in range(3)]
+    i_thisvar_all  = [err_class[:,1] == vartype  for vartype  in range(Nvartypes)]
+    i_thismeas_all = [err_class[:,2] == meastype for meastype in range(Nmeastypes)]
 
-    for vartype in range(6):
-        for meastype in range(3):
+    for vartype in range(Nvartypes):
+        for meastype in range(Nmeastypes):
             i = i_thisvar_all[vartype] * i_thismeas_all[meastype]
             err = err_class[ i, 0 ]
             if len(err) <= 0: continue
 
             err_relative_99percentile = testutils.percentile_compat(err, 99, interpolation='higher')
-            testutils.confirm(err_relative_99percentile < 1e-3, f"99%-percentile relative error={err_relative_99percentile} for vars {vartype_name(vartype)}, meas {meastype_name(meastype)} in {test}")
+            testutils.confirm(err_relative_99percentile < 1e-3, f"99%-percentile relative error={err_relative_99percentile} for vars {vartype_name[vartype]}, meas {meastype_name[meastype]} in {test}")
 
 testutils.finish()
