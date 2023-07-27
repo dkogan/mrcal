@@ -573,7 +573,13 @@ mrcal_triangulate_leecivera_linf(// outputs
 
 // This is called "cheirality" in Lee and Civera's papers
 template <int NGRAD>
-static bool chirality(const val_withgrad_t<NGRAD  >& l0,
+static bool chirality(// output
+                      val_withgrad_t<NGRAD  >& improvement0,
+                      val_withgrad_t<NGRAD  >& improvement1,
+                      val_withgrad_t<NGRAD  >& improvement01,
+
+                      // input
+                      const val_withgrad_t<NGRAD  >& l0,
                       const vec_withgrad_t<NGRAD,3>& v0,
                       const val_withgrad_t<NGRAD  >& l1,
                       const vec_withgrad_t<NGRAD,3>& v1,
@@ -582,37 +588,41 @@ static bool chirality(const val_withgrad_t<NGRAD  >& l0,
     double len2_nominal = 0.0;
     double len2;
 
+    improvement0  = val_withgrad_t<NGRAD>();
+    improvement1  = val_withgrad_t<NGRAD>();
+    improvement01 = val_withgrad_t<NGRAD>();
+
     for(int i=0; i<3; i++)
     {
-        double x = ( l1.x*v1.v[i].x + t01.v[i].x) - l0.x*v0.v[i].x;
-        len2_nominal += x*x;
+        val_withgrad_t<NGRAD> x_nominal = ( l1*v1.v[i] + t01.v[i]) - l0*v0.v[i];
+        val_withgrad_t<NGRAD> x0        = ( l1*v1.v[i] + t01.v[i]) + l0*v0.v[i];
+        val_withgrad_t<NGRAD> x1        = (-l1*v1.v[i] + t01.v[i]) - l0*v0.v[i];
+        val_withgrad_t<NGRAD> x01       = (-l1*v1.v[i] + t01.v[i]) + l0*v0.v[i];
+
+        improvement0  += x0 *x0  - x_nominal*x_nominal;
+        improvement1  += x1 *x1  - x_nominal*x_nominal;
+        improvement01 += x01*x01 - x_nominal*x_nominal;
     }
 
-    len2 = 0.0;
-    for(int i=0; i<3; i++)
-    {
-        double x = ( l1.x*v1.v[i].x + t01.v[i].x) + l0.x*v0.v[i].x;
-        len2 += x*x;
-    }
-    if( len2 < len2_nominal) return false;
+    return
+      improvement0.x  > 0.0 &&
+      improvement1.x  > 0.0 &&
+      improvement01.x > 0.0;
+}
 
-    len2 = 0.0;
-    for(int i=0; i<3; i++)
-    {
-        double x = (-l1.x*v1.v[i].x + t01.v[i].x) + l0.x*v0.v[i].x;
-        len2 += x*x;
-    }
-    if( len2 < len2_nominal) return false;
-
-    len2 = 0.0;
-    for(int i=0; i<3; i++)
-    {
-        double x = (-l1.x*v1.v[i].x + t01.v[i].x) - l0.x*v0.v[i].x;
-        len2 += x*x;
-    }
-    if( len2 < len2_nominal) return false;
-
-    return true;
+// version without reporting the improvement values
+template <int NGRAD>
+static bool chirality(const val_withgrad_t<NGRAD  >& l0,
+                      const vec_withgrad_t<NGRAD,3>& v0,
+                      const val_withgrad_t<NGRAD  >& l1,
+                      const vec_withgrad_t<NGRAD,3>& v1,
+                      const vec_withgrad_t<NGRAD,3>& t01)
+{
+    val_withgrad_t<NGRAD> improvement0;
+    val_withgrad_t<NGRAD> improvement1;
+    val_withgrad_t<NGRAD> improvement01;
+    return chirality(improvement0, improvement1, improvement01,
+                     l0,v0,l1,v1,t01);
 }
 
 // The "Mid2" method in "Triangulation: Why Optimize?", Seong Hun Lee and Javier
@@ -735,7 +745,10 @@ angle_error__assume_small(const vec_withgrad_t<6,3>& v0,
     const val_withgrad_t<6> inner11 = v1.norm2();
     const val_withgrad_t<6> inner01 = v0.dot(v1);
 
-    const val_withgrad_t<6>  costh  = inner01 / (inner00*inner11).sqrt();
+    val_withgrad_t<6>  costh  = inner01 / (inner00*inner11).sqrt();
+    if(costh.x < 0.0)
+        // Could happen with barely-divergent rays
+        costh *= val_withgrad_t<6>(-1.0);
 
     // The angle is assumed small, so cos(th) ~ 1 - th*th/2.
     // -> th ~ sqrt( 2*(1 - cos(th)) )
@@ -750,14 +763,72 @@ angle_error__assume_small(const vec_withgrad_t<6,3>& v0,
 #warning "triangulated-solve: look at behavior near 0 where dsqrt/dx -> inf"
 }
 
+__attribute__((unused))
+static
+double relu(double x, double knee)
+{
+    /* Smooth function ~ x>0 ? x : 0
+
+       Three modes
+       -        x < 0:    0
+       - 0    < x < knee: k*x^2
+       - knee < x:        x + eps
+
+       At the transitions I want the function and the first derivative
+       to be continuous. At the knee I want d/dx = 1. So 2*k*knee = 1 ->
+       k = 1/(2*knee). k * knee^2 = knee + eps -> eps = knee * (k*knee -
+       1) = -knee/2
+    */
+    if(x    <= 0) return 0.0;
+    if(knee <= x) return x - knee/2.0;
+
+    double k = 1. / (2*knee);
+    return k * x*x;
+}
+
+static
+val_withgrad_t<6> sigmoid(val_withgrad_t<6> x, double knee)
+{
+    /* Smooth function maps to 0..1
+
+       Modes
+       -        x < 0:    0
+       - 0    < x < knee: smooth interpolation
+       - knee < x:        1
+    */
+    if(x.x  <= 0  ) return 0.0;
+    if(knee <= x.x) return 1.0;
+
+    // transition at (x - knee/2.) < 0
+    // f(x) = a x^2 + b x + c
+    // f(-knee/2.)  = 0
+    // f(0)         = 1/2
+    // f'(-knee/2.) = 0
+    if(x.x < knee/2.0)
+        {
+            double b = 2./knee;
+            double a = b/knee;
+            double c = 1./2.;
+            return c + (x.x - knee/2.)*(b + (x.x - knee/2.)*a);
+        }
+
+    // transition at (x - knee/2.) > 0
+    // f(x) = a x^2 + b x + c
+    // f(knee/2.)  = 1
+    // f'(knee/2.) = 0
+    // f(0)         = 1/2
+    {
+        double b = 2./knee;
+        double a = -b/knee;
+        double c = 1./2.;
+        return c + (x.x - knee/2.)*(b + (x.x - knee/2.)*a);
+    }
+}
+
 // Internal function used in the optimization. This uses
 // mrcal_triangulate_leecivera_mid2(), but contains logic in the divergent-ray
 // case more appropriate for the optimization loop
-//
-// This will be called from a different .c file in the same shared object, and I
-// don't want the symbol to be visible from outside of this shared object
 extern "C"
-__attribute__((visibility("hidden")))
 double
 _mrcal_triangulated_error(// outputs
                           mrcal_point3_t* _derr_dv1,
@@ -801,6 +872,9 @@ _mrcal_triangulated_error(// outputs
     val_withgrad_t<6> err = angle_error__assume_small( v0, m ) * 2.;
 
 #warning "triangulated-solve: what happens when the rays are exactly parallel? Make sure the numerics remain happy. They don't: I divide by cross(v0,v1) ~ 0"
+
+#if 0
+    // original method
     if(!chirality(l0, v0, l1, v1, t01))
     {
         // The rays diverge. This is aphysical, but an incorrect (i.e.
@@ -858,7 +932,7 @@ _mrcal_triangulated_error(// outputs
         {
             // we're VERY divergent. Add another cost term:
             // the distance to the vanishing point
-            err += err_to_vanishing_point;
+            err = err_to_vanishing_point;
         }
         else
         {
@@ -869,9 +943,28 @@ _mrcal_triangulated_error(// outputs
                 (err_to_vanishing_point    - THRESHOLD_DIVERGENT_LOWER) /
                 (THRESHOLD_DIVERGENT_UPPER - THRESHOLD_DIVERGENT_LOWER);
 
-            err += k*err_to_vanishing_point;
+            err = k*err_to_vanishing_point + (val_withgrad_t<6>(1.0)-k)*err;
         }
     }
+
+#else
+
+    // new method
+    val_withgrad_t<6> improvement0;
+    val_withgrad_t<6> improvement1;
+    val_withgrad_t<6> improvement01;
+    if(!chirality(improvement0, improvement1, improvement01,
+                  l0, v0, l1, v1, t01))
+    {
+        val_withgrad_t<6> err_to_vanishing_point = angle_error__assume_small(v0, v1);
+
+        err +=
+            err_to_vanishing_point * (sigmoid(-improvement0,  3.0) +
+                                      sigmoid(-improvement1,  3.0) +
+                                      sigmoid(-improvement01, 3.0));
+    }
+
+#endif
 
     if(_derr_dv1 != NULL)
         memcpy(_derr_dv1->xyz,

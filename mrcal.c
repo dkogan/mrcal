@@ -426,7 +426,6 @@ int mrcal_measurement_index_points(int i_observation_point,
         i_observation_point * 2;
 }
 
-#warning "triangulated-solve: need outlier support"
 #warning "triangulated-solve: need known-range points, at-infinity points"
 
 int mrcal_num_measurements_points(int Nobservations_point)
@@ -461,7 +460,7 @@ int mrcal_measurement_index_points_triangulated(int i_point_triangulated,
                                                                    i_point_triangulated);
 }
 
-#warning "triangulated-solve: python-wrap this function?"
+#warning "triangulated-solve: python-wrap this function"
 int mrcal_num_measurements_points_triangulated_initial_Npoints(// May be NULL if we don't have any of these
                                                                const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                                                                int Nobservations_point_triangulated,
@@ -506,6 +505,129 @@ int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have a
                                                                     Nobservations_point_triangulated,
                                                                     -1 );
 }
+
+#warning "triangulated-solve: python-wrap this function"
+bool mrcal_decode_observation_indices_points_triangulated(
+    // output
+    int* iobservation0,
+    int* iobservation1,
+    int* iobservation_point0,
+    int* Nobservations_this_point,
+    int* Nmeasurements_this_point,
+    int* ipoint,
+
+    // input
+    const int imeasurement,
+
+    const mrcal_observation_point_triangulated_t* observations_point_triangulated,
+    int Nobservations_point_triangulated)
+{
+    if(observations_point_triangulated == NULL ||
+       Nobservations_point_triangulated <= 0)
+        return false;
+
+    // Similar loop as in
+    // mrcal_num_measurements_points_triangulated_initial_Npoints(). If the data
+    // layout changes, update this and that
+
+    int Nmeas        = 0;
+    int iobservation = 0;
+    *ipoint          = 0;
+
+    while( iobservation < Nobservations_point_triangulated )
+    {
+        int Nset = 1;
+        while(!observations_point_triangulated[iobservation].last_in_set)
+        {
+            Nset++;
+            iobservation++;
+        }
+
+        // This point has Nset observations. Each pair of observations produces
+        // a measurement, so:
+        const int Nmeas_thispoint = Nset*(Nset-1) / 2;
+
+        // Done with this point. It is described by Nmeas_thispoint
+        // measurements, with the first one at Nmeas. The last observation is at
+        // iobservation
+
+        if(imeasurement < Nmeas+Nmeas_thispoint)
+        {
+            // The measurement I care about observes THIS point. I find the
+            // specific observations.
+            //
+            // I simplify the notation: "m" is "imeasurement", "o" is
+            // "iobservation".
+
+            const int No = Nset;
+            const int Nm = Nmeas_thispoint;
+            const int m  = imeasurement - Nmeas;
+
+            // Within this point o is in range(No) and m is in range(Nm). A pair
+            // (o0,o1) describes one measurement. Both o0 and o1 are in
+            // range(No) and o1>o0. A sample table of measurement indices m for
+            // No = 5:
+            //
+            //          o1
+            //       0 1 2 3 4
+            //       ---------
+            //     0|  0 1 2 3
+            // o0  1|    4 5 6
+            //     2|      7 8
+            //     3|        9
+            //     4|
+            //
+            // For a given o0, the maximum m =
+            //
+            //   m_max = (No-1) + (No-2) + (No-3) ... - 1
+            //
+            // for a total of o0+1 (No...) terms so
+            //
+            //   m_max = ((No-1) + (No-o0-1))/2 * (o0+1) - 1
+            //         = (2*No - 2 - o0)/2 * (o0+1) - 1
+            //
+            //   m_min = m_max(o0-1) + 1
+            //         = (2*No - 2 - o0 + 1)/2 * o0
+            //         = (2*No - 1 - o0) * o0 / 2
+            //         = (-o0^2 + (2*No - 1)*o0 ) / 2
+            //
+            // -> (-1/2) o0^2 + (2*No - 1)/2 o0 - m_min = 0
+            // -> o0 = (2*No - 1)/2 +- sqrt( (2*No - 1)^2/4 - 2*m_min)
+            //       = (2*No - 1)/2 - sqrt( (2*No - 1)^2/4 - 2*m_min)
+            //       = (2*No - 1 - sqrt( (2*No - 1)^2 - 8*m_min))/2
+            //
+            // o0(m) = floor(o0(m))
+            //
+            // Now that I have o0 I compute
+            //
+            //   o1 = m - m_min(o0) + o0 + 1
+            //      = m - (-o0^2 + (2*No - 1)*o0 ) / 2 + o0 + 1
+            //      = m + (o0^2 + (3- 2*No)*o0 + 2) / 2
+            //      = m + o0*(o0 + 3 - 2*No)/2 + 1
+            const double x = 2.*(double)No - 1.;
+            *iobservation0 = (int)((x - sqrt( x*x - 8.*(double)m))/2.);
+            *iobservation1 = m + (*iobservation0)*((*iobservation0) + 3 - 2*No)/2 + 1;
+
+            // Reference the observations from the first
+            *iobservation_point0 = iobservation-Nset+1;
+            *iobservation0 += *iobservation_point0;
+            *iobservation1 += *iobservation_point0;
+
+            *Nobservations_this_point = No;
+            *Nmeasurements_this_point = Nm;
+
+            return true;
+        }
+
+        Nmeas += Nmeas_thispoint;
+
+        iobservation++;
+        (*ipoint)++;
+    }
+
+    return false;
+}
+
 
 int mrcal_measurement_index_regularization(
 #warning "triangulated-solve: this argument order is weird. Put then triangulated stuff at the end?"
@@ -3725,11 +3847,20 @@ bool markOutliers(// output, input
                   mrcal_point3_t* observations_board_pool,
 
                   // output
-                  int* Noutliers,
+                  int* Nmeasurements_outliers,
 
                   // input
+
+                  // for diagnostics only
                   const mrcal_observation_board_t* observations_board,
+
                   int Nobservations_board,
+                  int Nobservations_point,
+
+#warning "triangulated-solve: not const because this is where the outlier bit lives currently"
+                  mrcal_observation_point_triangulated_t* observations_point_triangulated,
+                  int Nobservations_point_triangulated,
+
                   int calibration_object_width_n,
                   int calibration_object_height_n,
 
@@ -3741,7 +3872,7 @@ bool markOutliers(// output, input
     // with mean 0. This is reasonable because this function is applied after
     // running the optimization.
     //
-    // The threshold stdev is the stdev of my observed residuals
+    // The threshold is based on the stdev of my observed residuals
     //
     // I have two separate thresholds. If any measurements are worse than the
     // higher threshold, then I will need to reoptimize, so I throw out some
@@ -3750,99 +3881,196 @@ bool markOutliers(// output, input
 
     const double k0 = 4.0;
     const double k1 = 5.0;
-    *Noutliers = 0;
 
-    int i_pt,i_feature;
+    *Nmeasurements_outliers   = 0;
+    int Nmeasurements_inliers = 0;
 
-#define LOOP_OBSERVATION()                              \
-    i_feature = 0;                                      \
-    for(int i_observation_board=0;                      \
-        i_observation_board<Nobservations_board;        \
+
+    const int imeasurement_board0 =
+        mrcal_measurement_index_boards(0,
+                                       Nobservations_board,
+                                       Nobservations_point,
+                                       calibration_object_width_n,
+                                       calibration_object_height_n);
+    const int Nmeasurements_board =
+        mrcal_num_measurements_boards(Nobservations_board,
+                                      calibration_object_width_n,
+                                      calibration_object_height_n);
+
+    const int imeasurement_point_triangulated0 =
+        mrcal_measurement_index_points_triangulated(0,
+                                                    Nobservations_board,
+                                                    Nobservations_point,
+
+                                                    observations_point_triangulated,
+                                                    Nobservations_point_triangulated,
+
+                                                    calibration_object_width_n,
+                                                    calibration_object_height_n);
+
+
+    // just in case
+    if(Nobservations_point_triangulated <= 0)
+    {
+        Nobservations_point_triangulated = 0;
+        observations_point_triangulated = NULL;
+    }
+
+    const double* x_boards =
+        &x_measurements[ imeasurement_board0 ];
+    const double* x_point_triangulated =
+        &x_measurements[ imeasurement_point_triangulated0 ];
+
+#define LOOP_BOARD_OBSERVATION(extra_while_condition)   \
+    for(int i_observation_board=0, i_pt_board = 0;      \
+        i_observation_board<Nobservations_board && extra_while_condition; \
         i_observation_board++)
 
-#define LOOP_FEATURE()                                                  \
+#define LOOP_BOARD_FEATURE()                                            \
         const mrcal_observation_board_t* observation = &observations_board[i_observation_board]; \
         const int icam_intrinsics = observation->icam.intrinsics;       \
-        for(i_pt=0;                                                     \
+        for(int i_pt=0;                                                    \
             i_pt < calibration_object_width_n*calibration_object_height_n; \
-            i_pt++, i_feature++)
+            i_pt++, i_pt_board++)
 
-#define LOOP_FEATURE_HEADER()                                           \
-            const mrcal_point3_t* pt_observed = &observations_board_pool[i_feature]; \
-            double* weight = &observations_board_pool[i_feature].z;
+#define LOOP_BOARD_FEATURE_HEADER()                                     \
+            const mrcal_point3_t* pt_observed = &observations_board_pool[i_pt_board]; \
+            double* weight = &observations_board_pool[i_pt_board].z;
+
+#define LOOP_TRIANGULATED_POINT0(extra_while_condition) \
+    for(int i0                              = 0,        \
+            imeasurement_point_triangulated = 0;        \
+        i0 < Nobservations_point_triangulated && extra_while_condition; \
+        i0++)
+
+#define LOOP_TRIANGULATED_POINT1()                      \
+        mrcal_observation_point_triangulated_t* pt0 =   \
+            &observations_point_triangulated[i0];       \
+        if(pt0->last_in_set)                            \
+            continue;                                   \
+                                                        \
+        int i1 = i0+1;                                  \
+        while(true)
+
+#define LOOP_TRIANGULATED_POINT_HEADER()                        \
+            mrcal_observation_point_triangulated_t* pt1 =       \
+                &observations_point_triangulated[i1];
+
+#define LOOP_TRIANGULATED_POINT_FOOTER()        \
+            imeasurement_point_triangulated++;  \
+            if(pt1->last_in_set)                \
+                break;                          \
+            i1++;
 
 
 
 
 
-    int Ninliers = 0;
+    /////////////// Compute the variance to set the threshold
     double var = 0.0;
-
-    LOOP_OBSERVATION()
+    LOOP_BOARD_OBSERVATION(true)
     {
-        LOOP_FEATURE()
+        LOOP_BOARD_FEATURE()
         {
-            LOOP_FEATURE_HEADER();
+            LOOP_BOARD_FEATURE_HEADER();
 
             if(*weight <= 0.0)
             {
-                (*Noutliers)++;
+                (*Nmeasurements_outliers) += 2;
                 continue;
             }
 
-            double dx = x_measurements[2*i_feature + 0];
-            double dy = x_measurements[2*i_feature + 1];
+            double dx = x_boards[2*i_pt_board + 0];
+            double dy = x_boards[2*i_pt_board + 1];
             var += dx*dx + dy*dy;
-            Ninliers++;
+            Nmeasurements_inliers += 2;
         }
     }
-    var /= (double)(2*Ninliers);
-
-    bool markedAny = false;
-    LOOP_OBSERVATION()
+    LOOP_TRIANGULATED_POINT0(true)
     {
-        LOOP_FEATURE()
+        LOOP_TRIANGULATED_POINT1()
         {
-            LOOP_FEATURE_HEADER();
+            LOOP_TRIANGULATED_POINT_HEADER();
 
+            if(pt0->outlier || pt1->outlier)
             {
-                if(*weight <= 0.0)
-                    continue;
+                (*Nmeasurements_outliers)++;
+            }
+            else
+            {
+                var +=
+                    x_point_triangulated[imeasurement_point_triangulated] *
+                    x_point_triangulated[imeasurement_point_triangulated];
+                Nmeasurements_inliers++;
+            }
+            LOOP_TRIANGULATED_POINT_FOOTER();
+        }
+    }
+    var /= (double)Nmeasurements_inliers;
 
-                double dx = x_measurements[2*i_feature + 0];
-                double dy = x_measurements[2*i_feature + 1];
-                // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
-                // -> x^2 > k^2 var
-                if(dx*dx > k1*k1*var ||
-                   dy*dy > k1*k1*var )
-                {
-                    *weight   *= -1.0;
-                    markedAny = true;
-                    (*Noutliers)++;
-                    // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean (assumed 0). Observed stdev: %f, limit: %f",
-                    //     i_feature,
-                    //     dx/sqrt(var),
-                    //     dy/sqrt(var),
-                    //     sqrt(var),
-                    //     k1);
-                }
+    ///////////// Any new outliers found?
+    bool foundNewOutliers = false;
+    LOOP_BOARD_OBSERVATION(!foundNewOutliers)
+    {
+        LOOP_BOARD_FEATURE()
+        {
+            LOOP_BOARD_FEATURE_HEADER();
+
+            if(*weight <= 0.0)
+                continue;
+
+            double dx = x_boards[2*i_pt_board + 0];
+            double dy = x_boards[2*i_pt_board + 1];
+            // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
+            // -> x^2 > k^2 var
+            if(dx*dx > k1*k1*var ||
+               dy*dy > k1*k1*var )
+            {
+                // MSG("Feature %d looks like an outlier. x/y are %f/%f stdevs off mean (assumed 0). Observed stdev: %f, limit: %f",
+                //     i_pt_board,
+                //     dx/sqrt(var),
+                //     dy/sqrt(var),
+                //     sqrt(var),
+                //     k1);
+                foundNewOutliers = true;
+                break;
             }
         }
     }
+    LOOP_TRIANGULATED_POINT0(!foundNewOutliers)
+    {
+        LOOP_TRIANGULATED_POINT1()
+        {
+            LOOP_TRIANGULATED_POINT_HEADER();
 
-    if(!markedAny)
+            if(!pt0->outlier && !pt1->outlier)
+            {
+                double dx = x_point_triangulated[imeasurement_point_triangulated];
+
+                // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
+                // -> x^2 > k^2 var
+                if(dx*dx > k1*k1*var )
+                {
+                    foundNewOutliers = true;
+                    break;
+                }
+            }
+            LOOP_TRIANGULATED_POINT_FOOTER();
+        }
+    }
+    if(!foundNewOutliers)
         return false;
 
-    // Some measurements were past the worse threshold, so I throw out a bit
-    // extra to leave some margin so that the next re-optimization would be the
-    // last. Hopefully
-    LOOP_OBSERVATION()
+    // I have new outliers: some measurements were found past the threshold. I
+    // throw out a bit extra to leave some margin so that the next
+    // re-optimization would hopefully be the last.
+    LOOP_BOARD_OBSERVATION(true)
     {
         int Npt_inlier  = 0;
         int Npt_outlier = 0;
-        LOOP_FEATURE()
+        LOOP_BOARD_FEATURE()
         {
-            LOOP_FEATURE_HEADER();
+            LOOP_BOARD_FEATURE_HEADER();
             if(*weight <= 0.0)
             {
                 Npt_outlier++;
@@ -3850,15 +4078,15 @@ bool markOutliers(// output, input
             }
             Npt_inlier++;
 
-            double dx = x_measurements[2*i_feature + 0];
-            double dy = x_measurements[2*i_feature + 1];
+            double dx = x_boards[2*i_pt_board + 0];
+            double dy = x_boards[2*i_pt_board + 1];
             // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
             // -> x^2 > k^2 var
             if(dx*dx > k0*k0*var ||
                dy*dy > k0*k0*var )
             {
                 *weight *= -1.0;
-                (*Noutliers)++;
+                (*Nmeasurements_outliers) += 2;
             }
         }
 
@@ -3871,13 +4099,50 @@ bool markOutliers(// output, input
                 Npt_inlier,
                 Npt_inlier + Npt_outlier);
     }
+    LOOP_TRIANGULATED_POINT0(true)
+    {
+        LOOP_TRIANGULATED_POINT1()
+        {
+            LOOP_TRIANGULATED_POINT_HEADER();
+
+            if(!pt0->outlier && !pt1->outlier)
+            {
+                double dx = x_point_triangulated[imeasurement_point_triangulated];
+
+                // I have sigma = sqrt(var). Outliers have abs(x) > k*sigma
+                // -> x^2 > k^2 var
+                if(dx*dx > k0*k0*var )
+                {
+                    // Outlier. I don't know which observations was the broken
+                    // one, so I mark them both
+                    pt0->outlier = true;
+                    pt1->outlier = true;
+
+#warning "triangulated-solve: outlier rejection reports bogus Nmeasurements_outliers"
+                    (*Nmeasurements_outliers)++;
+
+#warning "triangulated-solve: outliers not returned to the caller yet, so I simply print them out here"
+                    MSG("New outliers found: measurement %d observation (%d,%d)",
+                        imeasurement_point_triangulated0 + imeasurement_point_triangulated,
+                        i0, i1);
+                }
+            }
+
+            LOOP_TRIANGULATED_POINT_FOOTER();
+        }
+    }
 
     return true;
 
-#undef LOOP_OBSERVATION
-#undef LOOP_FEATURE
-#undef LOOP_FEATURE_HEADER
+#undef LOOP_BOARD_OBSERVATION
+#undef LOOP_BOARD_FEATURE
+#undef LOOP_BOARD_FEATURE_HEADER
+#undef LOOP_TRIANGULATED_POINT0
+#undef LOOP_TRIANGULATED_POINT1
+#undef LOOP_TRIANGULATED_POINT_HEADER
+#undef LOOP_TRIANGULATED_POINT_FOOTER
 }
+
 
 typedef struct
 {
@@ -3909,7 +4174,7 @@ typedef struct
     mrcal_projection_precomputed_t precomputed;
     const int* imagersizes; // Ncameras_intrinsics*2 of these
 
-    mrcal_problem_selections_t          problem_selections;
+    mrcal_problem_selections_t       problem_selections;
     const mrcal_problem_constants_t* problem_constants;
 
     double calibration_object_spacing;
@@ -3917,7 +4182,6 @@ typedef struct
     int calibration_object_height_n;
 
     const int Nmeasurements, N_j_nonzero, Nintrinsics;
-    const char* reportFitMsg;
 } callback_context_t;
 
 static
@@ -4192,10 +4456,9 @@ void optimizer_callback(// input state
                 {
                     const double err = (q_hypothesis[i_pt].xy[i_xy] - qx_qy_w__observed->xyz[i_xy]) * weight;
 
-                    if( ctx->reportFitMsg )
+                    if(ctx->verbose)
                     {
-                        MSG("%s: obs/frame/cam_i/cam_e/dot: %d %d %d %d %d err: %g",
-                            ctx->reportFitMsg,
+                        MSG("obs/frame/cam_i/cam_e/dot: %d %d %d %d %d err: %g",
                             i_observation_board, iframe, icam_intrinsics, icam_extrinsics, i_pt, err);
                         continue;
                     }
@@ -4318,10 +4581,9 @@ void optimizer_callback(// input state
                 {
                     const double err = 0.0;
 
-                    if( ctx->reportFitMsg )
+                    if(ctx->verbose)
                     {
-                        MSG( "%s: obs/frame/cam_i/cam_e/dot: %d %d %d %d %d err: %g",
-                             ctx->reportFitMsg,
+                        MSG( "obs/frame/cam_i/cam_e/dot: %d %d %d %d %d err: %g",
                              i_observation_board, iframe, icam_intrinsics, icam_extrinsics, i_pt, err);
                         continue;
                     }
@@ -4822,10 +5084,8 @@ void optimizer_callback(// input state
             assert(0);
         }
 
-
-#warning "First cut at triangulated features: mrcal_observation_point_t.px is the observation vector in camera coords. No outliers. No intrinsics"
-
-
+#warning "triangulated-solve: mrcal_observation_point_t.px is the observation vector in camera coords. No outliers. No intrinsics"
+#warning "triangulated-solve: make weights work somehow. This is tied to outliers"
 
         for(int i0 = 0;
             i0 < ctx->Nobservations_point_triangulated;
@@ -4836,328 +5096,451 @@ void optimizer_callback(// input state
             if(pt0->last_in_set)
                 continue;
 
-#warning "triangulated-solve: make weights work somehow"
-            // const mrcal_point3_t* qx_qy_w__observed0 = &pt0->px;
-            // double weight0 = qx_qy_w__observed0->z;
-            // if(weight0 <= 0.0)
-            // {
-            //     // Outlier
-            //    do stuff
-            // }
-
-
-            // For better code efficiency I compute the triangulation in the
-            // camera-1 coord system. This is because this code looks like
-            //
-            // for(point0)
-            // {
-            //   compute_stuff_for_point0;
-            //   for(point1)
-            //   {
-            //     compute_stuff_for_point1;
-            //     compute stuff based on products of point0 and point1;
-            //   }
-            // }
-            //
-            // Doing the triangulation in the frame of point1 allows me to do
-            // more stuff in the outer compute_stuff_for_point0 computation, and
-            // less in the inner compute_stuff_for_point1 computation
-
-            // I need t10. I'm looking at a composition Rt_10 = Rt_1r*Rt_r0 =
-            // (R_1r,t_1r)*(R_r0,t_r0) = (R_10, R_1r*t_r0 + t_1r) -> t_10 =
-            // R_1r*t_r0 + t_1r = transform(Rt_1r, t_r0)
-            //
-            // I don't actually have t_r0: I have t_0r, so I need to compute an
-            // inversion. y = R x + t -> x = Rinv y - Rinv t -> tinv = -Rinv t
-            // t_r0 = -R_r0 t_0r
-
-            const mrcal_point3_t* v0 = &pt0->px;
-
-            const mrcal_point3_t* t_r0;
-            mrcal_point3_t        _t_r0;
-            double                dnegt_r0__dr_0r[3][3];
-            double                dnegt_r0__dt_0r[3][3];
-
-            const mrcal_point3_t* v0_ref;
-            mrcal_point3_t        _v0_ref;
-            double                dv0_ref__dr_0r[3][3];
-
-            const int icam_extrinsics0 = pt0->icam.extrinsics;
-            if( icam_extrinsics0 >= 0 )
+            if(!pt0->outlier)
             {
-                const mrcal_pose_t* rt_0r = &camera_rt[icam_extrinsics0];
-                const double* r_0r = &rt_0r->r.xyz[0];
-                const double* t_0r = &rt_0r->t.xyz[0];
+                // For better code efficiency I compute the triangulation in the
+                // camera-1 coord system. This is because this code looks like
+                //
+                // for(point0)
+                // {
+                //   compute_stuff_for_point0;
+                //   for(point1)
+                //   {
+                //     compute_stuff_for_point1;
+                //     compute stuff based on products of point0 and point1;
+                //   }
+                // }
+                //
+                // Doing the triangulation in the frame of point1 allows me to do
+                // more stuff in the outer compute_stuff_for_point0 computation, and
+                // less in the inner compute_stuff_for_point1 computation
 
-                t_r0   = &_t_r0;
-                v0_ref = &_v0_ref;
+                // I need t10. I'm looking at a composition Rt_10 = Rt_1r*Rt_r0 =
+                // (R_1r,t_1r)*(R_r0,t_r0) = (R_10, R_1r*t_r0 + t_1r) -> t_10 =
+                // R_1r*t_r0 + t_1r = transform(Rt_1r, t_r0)
+                //
+                // I don't actually have t_r0: I have t_0r, so I need to compute an
+                // inversion. y = R x + t -> x = Rinv y - Rinv t -> tinv = -Rinv t
+                // t_r0 = -R_r0 t_0r
 
-                mrcal_rotate_point_r_inverted(_t_r0.xyz,
-                                              &dnegt_r0__dr_0r[0][0],
-                                              &dnegt_r0__dt_0r[0][0],
+                const mrcal_point3_t* v0 = &pt0->px;
 
-                                              r_0r, t_0r);
-                for(int i=0; i<3; i++)
-                    _t_r0.xyz[i] *= -1.;
+                const mrcal_point3_t* t_r0;
+                mrcal_point3_t        _t_r0;
+                double                dnegt_r0__dr_0r[3][3];
+                double                dnegt_r0__dt_0r[3][3];
 
-                mrcal_rotate_point_r_inverted(_v0_ref.xyz,
-                                              &dv0_ref__dr_0r[0][0],
-                                              NULL,
+                const mrcal_point3_t* v0_ref;
+                mrcal_point3_t        _v0_ref;
+                double                dv0_ref__dr_0r[3][3];
 
-                                              r_0r, v0->xyz);
-            }
-            else
-            {
-                t_r0   = NULL;
-                v0_ref = v0;
-            }
-
-
-            int i1 = i0+1;
-
-            while(true)
-            {
-                const mrcal_observation_point_triangulated_t* pt1 =
-                    &ctx->observations_point_triangulated[i1];
-
-                const mrcal_point3_t* v1 = &pt1->px;
-
-                const mrcal_point3_t* t_10;
-                mrcal_point3_t       _t_10;
-                const mrcal_point3_t* v0_cam1;
-                mrcal_point3_t        _v0_cam1;
-
-                double dt_10__drt_1r    [3][6];
-                double dt_10__dt_r0     [3][3];
-                double dv0_cam1__dr_1r  [3][3];
-                double dv0_cam1__dv0_ref[3][3];
-
-                const int icam_extrinsics1 = pt1->icam.extrinsics;
-                if( icam_extrinsics1 >= 0 )
+                const int icam_extrinsics0 = pt0->icam.extrinsics;
+                if( icam_extrinsics0 >= 0 )
                 {
-                    const mrcal_pose_t* rt_1r = &camera_rt[icam_extrinsics1];
+                    const mrcal_pose_t* rt_0r = &camera_rt[icam_extrinsics0];
+                    const double* r_0r = &rt_0r->r.xyz[0];
+                    const double* t_0r = &rt_0r->t.xyz[0];
 
-                    v0_cam1 = &_v0_cam1;
+                    t_r0   = &_t_r0;
+                    v0_ref = &_v0_ref;
+
+                    mrcal_rotate_point_r_inverted(_t_r0.xyz,
+                                                  &dnegt_r0__dr_0r[0][0],
+                                                  &dnegt_r0__dt_0r[0][0],
+
+                                                  r_0r, t_0r);
+                    for(int i=0; i<3; i++)
+                        _t_r0.xyz[i] *= -1.;
+
+                    mrcal_rotate_point_r_inverted(_v0_ref.xyz,
+                                                  &dv0_ref__dr_0r[0][0],
+                                                  NULL,
+
+                                                  r_0r, v0->xyz);
+                }
+                else
+                {
+                    t_r0   = NULL;
+                    v0_ref = v0;
+                }
 
 
-                    if( icam_extrinsics0 >= 0 )
+                int i1 = i0+1;
+
+                while(true)
+                {
+                    const mrcal_observation_point_triangulated_t* pt1 =
+                        &ctx->observations_point_triangulated[i1];
+
+                    if(!pt1->outlier)
                     {
-                        t_10 = &_t_10;
-                        mrcal_transform_point_rt( &_t_10.xyz[0],
-                                                  &dt_10__drt_1r[0][0],
-                                                  &dt_10__dt_r0 [0][0],
-                                                  &rt_1r->r.xyz[0], &t_r0->xyz[0] );
+                        const mrcal_point3_t* v1 = &pt1->px;
+
+                        const mrcal_point3_t* t_10;
+                        mrcal_point3_t       _t_10;
+                        const mrcal_point3_t* v0_cam1;
+                        mrcal_point3_t        _v0_cam1;
+
+                        double dt_10__drt_1r    [3][6];
+                        double dt_10__dt_r0     [3][3];
+                        double dv0_cam1__dr_1r  [3][3];
+                        double dv0_cam1__dv0_ref[3][3];
+
+                        const int icam_extrinsics1 = pt1->icam.extrinsics;
+                        if( icam_extrinsics1 >= 0 )
+                        {
+                            const mrcal_pose_t* rt_1r = &camera_rt[icam_extrinsics1];
+
+                            v0_cam1 = &_v0_cam1;
+
+
+                            if( icam_extrinsics0 >= 0 )
+                            {
+                                t_10 = &_t_10;
+                                mrcal_transform_point_rt( &_t_10.xyz[0],
+                                                          &dt_10__drt_1r[0][0],
+                                                          &dt_10__dt_r0 [0][0],
+                                                          &rt_1r->r.xyz[0], &t_r0->xyz[0] );
+                            }
+                            else
+                            {
+                                // t_r0 = 0 ->
+                                //
+                                // t_10 = R_1r*t_r0 + t_1r =
+                                //      = R_1r*0    + t_1r =
+                                //      = t_1r
+                                t_10 = &rt_1r->t;
+                            }
+
+                            mrcal_rotate_point_r( &_v0_cam1.xyz[0],
+                                                  &dv0_cam1__dr_1r  [0][0],
+                                                  &dv0_cam1__dv0_ref[0][0],
+                                                  &rt_1r->r.xyz[0], &v0_ref->xyz[0] );
+                        }
+                        else
+                        {
+                            // rt_1r = 0 ->
+                            //
+                            // t_10 = R_1r*t_r0 + t_1r =
+                            //      = t_r0
+                            t_10 = t_r0;
+                            // At most one camera can sit at the reference. So if I'm
+                            // here, I know that t_r0 != NULL and thus t_10 != NULL
+
+                            v0_cam1 = v0_ref;
+                        }
+
+                        mrcal_point3_t derr__dv0_cam1;
+                        mrcal_point3_t derr__dt_10;
+
+                        double err =
+                            _mrcal_triangulated_error(&derr__dv0_cam1, &derr__dt_10,
+                                                      v1, v0_cam1, t_10);
+
+
+                        x[iMeasurement] = err;
+                        norm2_error += err*err;
+
+                        if(Jt)
+                        {
+                            Jrowptr[iMeasurement] = iJacobian;
+
+                            // Now I propagate gradients. Dependency graph:
+                            //
+                            //   derr__dv0_cam1
+                            //     dv0_cam1__dr_1r
+                            //     dv0_cam1__dv0_ref
+                            //       dv0_ref__dr_0r
+                            //
+                            //   derr__dt_10
+                            //     dt_10__drt_1r
+                            //     dt_10__dt_r0
+                            //       dnegt_r0__dr_0r
+                            //       dnegt_r0__dt_0r
+                            //
+                            // So
+                            //
+                            //   derr/dr_0r =
+                            //     derr/dv0_cam1 dv0_cam1/dv0_ref dv0_ref/dr_0r +
+                            //     derr/dt_10    dt_10/dt_r0      dt_r0/dr_0r
+                            //
+                            //   derr/dt_0r =
+                            //     derr/dt_10    dt_10/dt_r0      dt_r0/dt_0r
+                            //
+                            //   derr/dr_1r =
+                            //     derr/dv0_cam1 dv0_cam1/dr_1r +
+                            //     derr/dt_10    dt_10/dr_1r
+                            //
+                            //   derr/dt_1r =
+                            //     derr/dt_10    dt_10/dt_1r
+                            if( icam_extrinsics0 >= 0 )
+                            {
+                                const int i_var_camera_rt0  =
+                                    mrcal_state_index_extrinsics(icam_extrinsics0,
+                                                                 ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                                 ctx->Nframes,
+                                                                 ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                                 ctx->problem_selections, &ctx->lensmodel);
+
+                                double* out;
+
+                                out = &Jval[iJacobian];
+                                double* derr__dt_r0;
+                                double _derr__dt_r0[3];
+
+                                if( icam_extrinsics1 >= 0 )
+                                {
+                                    derr__dt_r0 = _derr__dt_r0;
+                                    mul_vec3t_gen33(derr__dt_r0, derr__dt_10.xyz, &dt_10__dt_r0[0][0], 1, );
+
+                                    double temp[3];
+                                    mul_vec3t_gen33(temp, derr__dv0_cam1.xyz, &dv0_cam1__dv0_ref[0][0], 1, );
+                                    mul_vec3t_gen33(out,  temp,               &dv0_ref__dr_0r[0][0],    1, );
+                                }
+                                else
+                                {
+                                    // camera1 is at the reference, so I don't have
+                                    // dt_10__dt_r0 and dv0_cam1__dv0_ref explicitly
+                                    // stored.
+                                    //
+                                    // t_10    = t_r0   --> dt_10__dt_r0      = I
+                                    // v0_cam1 = v0_ref --> dv0_cam1__dv0_ref = I
+                                    derr__dt_r0 = derr__dt_10.xyz;
+                                    mul_vec3t_gen33(out,  derr__dv0_cam1.xyz, &dv0_ref__dr_0r[0][0],    1, );
+                                }
+
+
+                                mul_vec3t_gen33(out, derr__dt_r0, &dnegt_r0__dr_0r[0][0],  -1, _accum);
+
+                                SCALE_JACOBIAN_N( i_var_camera_rt0 + 0,
+                                                  SCALE_ROTATION_CAMERA,
+                                                  3 );
+
+
+                                out = &Jval[iJacobian];
+                                mul_vec3t_gen33(out, derr__dt_r0, &dnegt_r0__dt_0r[0][0], -1, );
+
+                                SCALE_JACOBIAN_N( i_var_camera_rt0 + 3,
+                                                  SCALE_TRANSLATION_CAMERA,
+                                                  3 );
+                            }
+                            if( icam_extrinsics1 >= 0 )
+                            {
+                                const int i_var_camera_rt1  =
+                                    mrcal_state_index_extrinsics(icam_extrinsics1,
+                                                                 ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                                 ctx->Nframes,
+                                                                 ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                                 ctx->problem_selections, &ctx->lensmodel);
+
+                                double* out;
+
+                                out = &Jval[iJacobian];
+
+                                //   derr/dr_1r =
+                                //     derr/dv0_cam1 dv0_cam1/dr_1r +
+                                //     derr/dt_10    dt_10/dr_1r
+                                //
+                                //   derr/dt_1r =
+                                //     derr/dt_10    dt_10/dt_1r
+                                mul_vec3t_gen33(out,
+                                                derr__dv0_cam1.xyz,
+                                                &dv0_cam1__dr_1r[0][0],
+                                                1,
+                                                );
+
+                                if( icam_extrinsics0 >= 0 )
+                                {
+                                    mul_genNM_genML_accum(out, 3,1,
+                                                          1,3,3,
+                                                          derr__dt_10.xyz, 3,1,
+                                                          &dt_10__drt_1r[0][0], 6, 1,
+                                                          1);
+                                    SCALE_JACOBIAN_N( i_var_camera_rt1 + 0,
+                                                      SCALE_ROTATION_CAMERA,
+                                                      3 );
+
+                                    out = &Jval[iJacobian];
+                                    mul_genNM_genML(out, 3,1,
+                                                    1,3,3,
+                                                    derr__dt_10.xyz, 3,1,
+                                                    &dt_10__drt_1r[0][3], 6, 1,
+                                                    1);
+
+                                    SCALE_JACOBIAN_N( i_var_camera_rt1 + 3,
+                                                      SCALE_TRANSLATION_CAMERA,
+                                                      3 );
+                                }
+                                else
+                                {
+                                    // camera0 is at the reference. dt_10__drt_1r is not
+                                    // given explicitly
+                                    //
+                                    // t_10 = t_1r ->
+                                    //   dt_10__dr_1r = 0
+                                    //   dt_10__dt_1r = I
+                                    // So
+                                    //
+                                    //   derr/dr_1r = derr/dv0_cam1 dv0_cam1/dr_1r
+                                    //   derr/dt_1r = derr/dt_10
+                                    SCALE_JACOBIAN_N( i_var_camera_rt1 + 0,
+                                                      SCALE_ROTATION_CAMERA,
+                                                      3 );
+
+                                    out = &Jval[iJacobian];
+
+                                    for(int i=0; i<3; i++)
+                                        out[i] = derr__dt_10.xyz[i];
+
+                                    SCALE_JACOBIAN_N( i_var_camera_rt1 + 3,
+                                                      SCALE_TRANSLATION_CAMERA,
+                                                      3 );
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Don't need the Jacobian. I just move iJacobian as needed
+                            if( icam_extrinsics0 >= 0 )
+                                iJacobian += 6;
+                            if( icam_extrinsics1 >= 0 )
+                                iJacobian += 6;
+                        }
                     }
                     else
                     {
-                        // t_r0 = 0 ->
-                        //
-                        // t_10 = R_1r*t_r0 + t_1r =
-                        //      = R_1r*0    + t_1r =
-                        //      = t_1r
-                        t_10 = &rt_1r->t;
-                    }
+                        // pt1 is an outlier
+                        const double err = 0.0;
 
-                    mrcal_rotate_point_r( &_v0_cam1.xyz[0],
-                                          &dv0_cam1__dr_1r  [0][0],
-                                          &dv0_cam1__dv0_ref[0][0],
-                                          &rt_1r->r.xyz[0], &v0_ref->xyz[0] );
-                }
-                else
-                {
-                    // rt_1r = 0 ->
-                    //
-                    // t_10 = R_1r*t_r0 + t_1r =
-                    //      = t_r0
-                    t_10 = t_r0;
-                    // At most one camera can sit at the reference. So if I'm
-                    // here, I know that t_r0 != NULL and thus t_10 != NULL
+                        const int icam_extrinsics1 = pt1->icam.extrinsics;
 
-                    v0_cam1 = v0_ref;
-                }
+                        x[iMeasurement] = err;
+                        norm2_error += err*err;
 
-                mrcal_point3_t derr__dv0_cam1;
-                mrcal_point3_t derr__dt_10;
-
-                double err =
-                    _mrcal_triangulated_error(&derr__dv0_cam1, &derr__dt_10,
-                                              v1, v0_cam1, t_10);
-
-
-                x[iMeasurement] = err;
-                norm2_error += err*err;
-
-                if(Jt)
-                {
-                    Jrowptr[iMeasurement] = iJacobian;
-
-                    // Now I propagate gradients. Dependency graph:
-                    //
-                    //   derr__dv0_cam1
-                    //     dv0_cam1__dr_1r
-                    //     dv0_cam1__dv0_ref
-                    //       dv0_ref__dr_0r
-                    //
-                    //   derr__dt_10
-                    //     dt_10__drt_1r
-                    //     dt_10__dt_r0
-                    //       dnegt_r0__dr_0r
-                    //       dnegt_r0__dt_0r
-                    //
-                    // So
-                    //
-                    //   derr/dr_0r =
-                    //     derr/dv0_cam1 dv0_cam1/dv0_ref dv0_ref/dr_0r +
-                    //     derr/dt_10    dt_10/dt_r0      dt_r0/dr_0r
-                    //
-                    //   derr/dt_0r =
-                    //     derr/dt_10    dt_10/dt_r0      dt_r0/dt_0r
-                    //
-                    //   derr/dr_1r =
-                    //     derr/dv0_cam1 dv0_cam1/dr_1r +
-                    //     derr/dt_10    dt_10/dr_1r
-                    //
-                    //   derr/dt_1r =
-                    //     derr/dt_10    dt_10/dt_1r
-                    if( icam_extrinsics0 >= 0 )
-                    {
-                        const int i_var_camera_rt0  =
-                            mrcal_state_index_extrinsics(icam_extrinsics0,
-                                                         ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
-                                                         ctx->Nframes,
-                                                         ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                                         ctx->problem_selections, &ctx->lensmodel);
-
-                        double* out;
-
-                        out = &Jval[iJacobian];
-                        double* derr__dt_r0;
-                        double _derr__dt_r0[3];
-
-                        if( icam_extrinsics1 >= 0 )
+                        if(Jt)
                         {
-                            derr__dt_r0 = _derr__dt_r0;
-                            mul_vec3t_gen33(derr__dt_r0, derr__dt_10.xyz, &dt_10__dt_r0[0][0], 1, );
+                            Jrowptr[iMeasurement] = iJacobian;
 
-                            double temp[3];
-                            mul_vec3t_gen33(temp, derr__dv0_cam1.xyz, &dv0_cam1__dv0_ref[0][0], 1, );
-                            mul_vec3t_gen33(out,  temp,               &dv0_ref__dr_0r[0][0],    1, );
+                            if( icam_extrinsics0 >= 0 )
+                            {
+                                const int i_var_camera_rt0  =
+                                    mrcal_state_index_extrinsics(icam_extrinsics0,
+                                                                 ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                                 ctx->Nframes,
+                                                                 ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                                 ctx->problem_selections, &ctx->lensmodel);
+
+                                STORE_JACOBIAN_N( i_var_camera_rt0 + 0,
+                                                  (double*)NULL, 0.0,
+                                                  3 );
+                                STORE_JACOBIAN_N( i_var_camera_rt0 + 3,
+                                                  (double*)NULL, 0.0,
+                                                  3 );
+                            }
+                            if( icam_extrinsics1 >= 0 )
+                            {
+                                const int i_var_camera_rt1  =
+                                    mrcal_state_index_extrinsics(icam_extrinsics1,
+                                                                 ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                                 ctx->Nframes,
+                                                                 ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                                 ctx->problem_selections, &ctx->lensmodel);
+                                STORE_JACOBIAN_N( i_var_camera_rt1 + 0,
+                                                  (double*)NULL, 0.0,
+                                                  3 );
+                                STORE_JACOBIAN_N( i_var_camera_rt1 + 3,
+                                                  (double*)NULL, 0.0,
+                                                  3 );
+                            }
                         }
                         else
                         {
-                            // camera1 is at the reference, so I don't have
-                            // dt_10__dt_r0 and dv0_cam1__dv0_ref explicitly
-                            // stored.
-                            //
-                            // t_10    = t_r0   --> dt_10__dt_r0      = I
-                            // v0_cam1 = v0_ref --> dv0_cam1__dv0_ref = I
-                            derr__dt_r0 = derr__dt_10.xyz;
-                            mul_vec3t_gen33(out,  derr__dv0_cam1.xyz, &dv0_ref__dr_0r[0][0],    1, );
+                            // Don't need the Jacobian. I just move iJacobian as needed
+                            if( icam_extrinsics0 >= 0 )
+                                iJacobian += 6;
+                            if( icam_extrinsics1 >= 0 )
+                                iJacobian += 6;
                         }
-
-
-                        mul_vec3t_gen33(out, derr__dt_r0, &dnegt_r0__dr_0r[0][0],  -1, _accum);
-
-                        SCALE_JACOBIAN_N( i_var_camera_rt0 + 0,
-                                          SCALE_ROTATION_CAMERA,
-                                          3 );
-
-
-                        out = &Jval[iJacobian];
-                        mul_vec3t_gen33(out, derr__dt_r0, &dnegt_r0__dt_0r[0][0], -1, );
-
-                        SCALE_JACOBIAN_N( i_var_camera_rt0 + 3,
-                                          SCALE_TRANSLATION_CAMERA,
-                                          3 );
                     }
-                    if( icam_extrinsics1 >= 0 )
+
+                    iMeasurement++;
+
+                    if(pt1->last_in_set)
+                        break;
+                    i1++;
+                }
+            }
+            else
+            {
+                // pt0 is an outlier. I loop through all the pairwise
+                // observations, but I ignore ALL of them
+                const double err = 0.0;
+
+                const int icam_extrinsics0 = pt0->icam.extrinsics;
+                int i1 = i0+1;
+
+                while(true)
+                {
+                    const mrcal_observation_point_triangulated_t* pt1 =
+                        &ctx->observations_point_triangulated[i1];
+
+                    const int icam_extrinsics1 = pt1->icam.extrinsics;
+
+                    x[iMeasurement] = err;
+                    norm2_error += err*err;
+
+                    if(Jt)
                     {
-                        const int i_var_camera_rt1  =
-                            mrcal_state_index_extrinsics(icam_extrinsics1,
-                                                         ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
-                                                         ctx->Nframes,
-                                                         ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
-                                                         ctx->problem_selections, &ctx->lensmodel);
-
-                        double* out;
-
-                        out = &Jval[iJacobian];
-
-                        //   derr/dr_1r =
-                        //     derr/dv0_cam1 dv0_cam1/dr_1r +
-                        //     derr/dt_10    dt_10/dr_1r
-                        //
-                        //   derr/dt_1r =
-                        //     derr/dt_10    dt_10/dt_1r
-                        mul_vec3t_gen33(out,
-                                        derr__dv0_cam1.xyz,
-                                        &dv0_cam1__dr_1r[0][0],
-                                        1,
-                                        );
+                        Jrowptr[iMeasurement] = iJacobian;
 
                         if( icam_extrinsics0 >= 0 )
                         {
-                            mul_genNM_genML_accum(out, 3,1,
-                                                  1,3,3,
-                                                  derr__dt_10.xyz, 3,1,
-                                                  &dt_10__drt_1r[0][0], 6, 1,
-                                                  1);
-                            SCALE_JACOBIAN_N( i_var_camera_rt1 + 0,
-                                              SCALE_ROTATION_CAMERA,
+                            const int i_var_camera_rt0  =
+                                mrcal_state_index_extrinsics(icam_extrinsics0,
+                                                             ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                             ctx->Nframes,
+                                                             ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                             ctx->problem_selections, &ctx->lensmodel);
+
+                            STORE_JACOBIAN_N( i_var_camera_rt0 + 0,
+                                              (double*)NULL, 0.0,
                                               3 );
-
-                            out = &Jval[iJacobian];
-                            mul_genNM_genML(out, 3,1,
-                                            1,3,3,
-                                            derr__dt_10.xyz, 3,1,
-                                            &dt_10__drt_1r[0][3], 6, 1,
-                                            1);
-
-                            SCALE_JACOBIAN_N( i_var_camera_rt1 + 3,
-                                              SCALE_TRANSLATION_CAMERA,
+                            STORE_JACOBIAN_N( i_var_camera_rt0 + 3,
+                                              (double*)NULL, 0.0,
                                               3 );
                         }
-                        else
+                        if( icam_extrinsics1 >= 0 )
                         {
-                            // camera0 is at the reference. dt_10__drt_1r is not
-                            // given explicitly
-                            //
-                            // t_10 = t_1r ->
-                            //   dt_10__dr_1r = 0
-                            //   dt_10__dt_1r = I
-                            // So
-                            //
-                            //   derr/dr_1r = derr/dv0_cam1 dv0_cam1/dr_1r
-                            //   derr/dt_1r = derr/dt_10
-                            SCALE_JACOBIAN_N( i_var_camera_rt1 + 0,
-                                              SCALE_ROTATION_CAMERA,
+                            const int i_var_camera_rt1  =
+                                mrcal_state_index_extrinsics(icam_extrinsics1,
+                                                             ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
+                                                             ctx->Nframes,
+                                                             ctx->Npoints, ctx->Npoints_fixed, ctx->Nobservations_board,
+                                                             ctx->problem_selections, &ctx->lensmodel);
+
+                            STORE_JACOBIAN_N( i_var_camera_rt1 + 0,
+                                              (double*)NULL, 0.0,
                                               3 );
-
-                            out = &Jval[iJacobian];
-
-                            for(int i=0; i<3; i++)
-                                out[i] = derr__dt_10.xyz[i];
-
-                            SCALE_JACOBIAN_N( i_var_camera_rt1 + 3,
-                                              SCALE_TRANSLATION_CAMERA,
+                            STORE_JACOBIAN_N( i_var_camera_rt1 + 3,
+                                              (double*)NULL, 0.0,
                                               3 );
                         }
                     }
-                }
-                else
-                {
-                    // Don't need the Jacobian. I just move iJacobian as needed
-                    if( icam_extrinsics0 >= 0 )
-                        iJacobian += 6;
-                    if( icam_extrinsics1 >= 0 )
-                        iJacobian += 6;
-                }
+                    else
+                    {
+                        // Don't need the Jacobian. I just move iJacobian as needed
+                        if( icam_extrinsics0 >= 0 )
+                            iJacobian += 6;
+                        if( icam_extrinsics1 >= 0 )
+                            iJacobian += 6;
+                    }
 
-                iMeasurement++;
+                    iMeasurement++;
 
-                if(pt1->last_in_set)
-                    break;
-                i1++;
+                    if(pt1->last_in_set)
+                        break;
+                    i1++;
+                }
             }
         }
     }
@@ -5507,24 +5890,18 @@ void optimizer_callback(// input state
         }
     }
 
-    // required to indicate the end of the jacobian matrix
-    if( !ctx->reportFitMsg )
+    if(Jt) Jrowptr[iMeasurement] = iJacobian;
+    if(iMeasurement != ctx->Nmeasurements)
     {
-        if(Jt) Jrowptr[iMeasurement] = iJacobian;
-        if(iMeasurement != ctx->Nmeasurements)
-        {
-            MSG("Assertion (iMeasurement == ctx->Nmeasurements) failed: (%d != %d)",
-                iMeasurement, ctx->Nmeasurements);
-            assert(0);
-        }
-        if(iJacobian    != ctx->N_j_nonzero  )
-        {
-            MSG("Assertion (iJacobian    == ctx->N_j_nonzero  ) failed: (%d != %d)",
-                iJacobian, ctx->N_j_nonzero);
-            assert(0);
-        }
-
-        // MSG_IF_VERBOSE("RMS: %g", sqrt(norm2_error / (double)ctx>Nmeasurements));
+        MSG("Assertion (iMeasurement == ctx->Nmeasurements) failed: (%d != %d)",
+            iMeasurement, ctx->Nmeasurements);
+        assert(0);
+    }
+    if(iJacobian    != ctx->N_j_nonzero  )
+    {
+        MSG("Assertion (iJacobian    == ctx->N_j_nonzero  ) failed: (%d != %d)",
+            iJacobian, ctx->N_j_nonzero);
+        assert(0);
     }
 }
 
@@ -5985,13 +6362,7 @@ mrcal_optimize( // out
 
         const int Nmeasurements_board = Nfeatures_board*2;
 
-        if(verbose)
-        {
-            // WARNING: I will never hook these up. Get rid of reportFitMsg?
-            ctx.reportFitMsg = "Before";
-            //        optimizer_callback(packed_state, NULL, NULL, &ctx);
-        }
-        ctx.reportFitMsg = NULL;
+#warning "triangulated-solve: check for point outliers here as well"
 
         double outliernessScale = -1.0;
         do
@@ -6023,6 +6394,10 @@ mrcal_optimize( // out
                               &stats.Noutliers,
                               observations_board,
                               Nobservations_board,
+                              Nobservations_point,
+#warning "triangulated-solve: not const for now. this will become const once the outlier bit moves to the point_triangulated pool"
+                              (mrcal_observation_point_triangulated_t*)observations_point_triangulated,
+                              Nobservations_point_triangulated,
                               calibration_object_width_n,
                               calibration_object_height_n,
                               solver_context->beforeStep->x,
@@ -6223,3 +6598,6 @@ bool mrcal_write_cameramodel_file(const char* filename,
         fclose(fp);
     return result;
 }
+
+
+#warning "triangulated-solve: fixed points should live in a separate array, instead of at the end of the 'points' array"

@@ -203,4 +203,75 @@ THAT function, and see the docs for that function. The differences:
 ''' },
 )
 
+
+# The triangulation function used inside the optimization loop. Returns an
+# "error" scalar instead of a triangulated point
+m.function( "_triangulated_error",
+            f"""Internal triangulation routine used in the optimization loop
+
+This is the internals for mrcal.triangulated_error(). As a user, please call
+THAT function, and see the docs for that function. The differences:
+
+- This is just the no-gradients function. The internal function that returns
+  gradients is _triangulated_error_withgrad
+
+""",
+
+            args_input       = ('v0', 'v1', 't01'),
+            prototype_input  = ((3,), (3,), (3,),),
+            prototype_output = (),
+
+            Ccode_validate = r'''
+            return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = { (np.float64,np.float64,np.float64,
+                                  np.float64):
+                                 r'''
+                const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0;
+                const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1;
+                const mrcal_point3_t* t01 = (const mrcal_point3_t*)data_slice__t01;
+
+                *(double*)data_slice__output =
+                  _mrcal_triangulated_error(NULL,NULL,
+                                            v0, v1, t01);
+                return true;
+'''},
+)
+
+m.function( "_triangulated_error_withgrad",
+            f"""Internal triangulation routine used in the optimization loop
+
+This is the internals for mrcal.triangulated_error(). As a user, please call
+THAT function, and see the docs for that function. The differences:
+
+- This is just the gradient-returning function. The internal function that skips those
+  is _triangulated_error
+
+""",
+
+            args_input       = ('v0', 'v1', 't01'),
+            prototype_input  = ((3,), (3,),  (3,),),
+            prototype_output = ((), (3,),  (3,) ),
+
+            Ccode_validate = r'''
+            return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = { (np.float64,np.float64,np.float64,
+                                  np.float64,np.float64,np.float64):
+                  r'''
+                const mrcal_point3_t* v0  = (const mrcal_point3_t*)data_slice__v0;
+                const mrcal_point3_t* v1  = (const mrcal_point3_t*)data_slice__v1;
+                const mrcal_point3_t* t01 = (const mrcal_point3_t*)data_slice__t01;
+
+                mrcal_point3_t* derr_dv1  = (mrcal_point3_t*)data_slice__output1;
+                mrcal_point3_t* derr_dt01 = (mrcal_point3_t*)data_slice__output2;
+
+                *(double*)data_slice__output0 =
+                  _mrcal_triangulated_error(derr_dv1, derr_dt01,
+                                            v0, v1, t01);
+                return true;
+''' },
+)
+
+
 m.write()

@@ -222,8 +222,11 @@ if nps.norm2(rt_cam_ref[0]) != 0:
           file=sys.stderr)
     sys.exit()
 
-# For now the triangulated observations are local observation vectors
-observations_triangulated = mrcal.unproject(observations, *m.intrinsics())
+# Add weight column. All weights are 1.0
+observations_triangulated = nps.glue(observations,
+                                     np.ones(observations.shape[:-1] + (1,),
+                                             dtype = np.float32),
+                                     axis = -1)
 
 optimization_inputs = \
     dict( intrinsics            = nps.atleast_dims(m.intrinsics()[1], -2),

@@ -14,7 +14,6 @@
 #include <numpy/arrayobject.h>
 #include <signal.h>
 #include <dogleg.h>
-#include <limits.h>
 
 #if (CHOLMOD_VERSION > (CHOLMOD_VER_CODE(2,2))) && (CHOLMOD_VERSION < (CHOLMOD_VER_CODE(4,0)))
 #include <cholmod_function.h>
@@ -1304,6 +1303,10 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
 
                                            // input
                                            const PyArrayObject* observations_point_triangulated, // may be NULL
+                                           // used only if observations_point_triangulated != NULL
+                                           const mrcal_lensmodel_t* lensmodel,
+                                           const double* intrinsics,
+
                                            const PyArrayObject* indices_point_triangulated_camintrinsics_camextrinsics)
 {
     if(indices_point_triangulated_camintrinsics_camextrinsics == NULL)
@@ -1350,7 +1353,7 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
         if(ipoint_last_in_set < 0)
             // No "last" set exists. Nothing to do.
             return true;
-
+#warning "triangulated-solve: indices_point_triangulated_camintrinsics_camextrinsics are silly: ipoint is used ONLY to figure out where the set ends"
         c_observations_point_triangulated[ipoint_last_in_set].last_in_set = true;
         if(Npoints_in_this_set < 2)
         {
@@ -1359,6 +1362,22 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
             return false;
         }
         return true;
+    }
+
+    // Needed for the unproject() below
+    int                            Nintrinsics_state = 0;
+    mrcal_projection_precomputed_t precomputed;
+    if(lensmodel != NULL)
+    {
+        Nintrinsics_state = mrcal_lensmodel_num_params(lensmodel);
+        mrcal_lensmodel_metadata_t meta = mrcal_lensmodel_metadata(lensmodel);
+        if(!meta.has_gradients)
+        {
+            BARF("mrcal_unproject(lensmodel='%s') is not yet implemented: we need gradients",
+                 mrcal_lensmodel_name_unconfigured(lensmodel));
+            return -1;
+        }
+        _mrcal_precompute_lensmodel_data(&precomputed, lensmodel);
     }
 
     for(int i=0; i<N; i++)
@@ -1370,12 +1389,28 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
         const int32_t icam_extrinsics = row[2];
 
         c_observations_point_triangulated[i].last_in_set = false;
+        c_observations_point_triangulated[i].outlier     = false;
         c_observations_point_triangulated[i].icam = (mrcal_camera_index_t){.intrinsics = icam_intrinsics,
-                                                                         .extrinsics = icam_extrinsics};
+                                                                           .extrinsics = icam_extrinsics};
         if(observations_point_triangulated__data != NULL)
         {
-            mrcal_point3_t* px = (mrcal_point3_t*)(&observations_point_triangulated__data[3*i]);
-            c_observations_point_triangulated[i].px = *px;
+            const mrcal_point3_t* px_weight = (const mrcal_point3_t*)(&observations_point_triangulated__data[3*i]);
+
+            // For now the triangulated observations are local observation vectors
+            if(!_mrcal_unproject_internal( // out
+                                           &c_observations_point_triangulated[i].px,
+
+                                           // in
+                                           (const mrcal_point2_t*)(px_weight->xyz), 1,
+                                           lensmodel,
+                                           &intrinsics[icam_intrinsics*Nintrinsics_state],
+                                           &precomputed))
+            {
+                BARF("mrcal_unproject() failed");
+                return -1;
+            }
+
+            c_observations_point_triangulated[i].outlier = (px_weight->z <= 0.0);
         }
         else
             c_observations_point_triangulated[i].px = (mrcal_point3_t){};
@@ -1615,6 +1650,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
         mrcal_observation_point_triangulated_t c_observations_point_triangulated[Nobservations_point_triangulated];
         if( fill_c_observations_point_triangulated(c_observations_point_triangulated,
                                                    observations_point_triangulated,
+                                                   &mrcal_lensmodel, c_intrinsics,
                                                    indices_point_triangulated_camintrinsics_camextrinsics)
             < 0 )
         {
@@ -2026,22 +2062,26 @@ static PyObject* drt_ref_refperturbed__dbpacked(PyObject* NPY_UNUSED(self),
 //
 // This means that the arguments that are required in optimizer_callback() are
 // only optional here
-typedef int (callback_state_index_t)(int i,
-                                     int Ncameras_intrinsics,
-                                     int Ncameras_extrinsics,
-                                     int Nframes,
-                                     int Npoints,
-                                     int Npoints_fixed,
-                                     int Nobservations_board,
-                                     int Nobservations_point,
-                                     int calibration_object_width_n,
-                                     int calibration_object_height_n,
-                                     const PyArrayObject* indices_frame_camintrinsics_camextrinsics,
-                                     const PyArrayObject* indices_point_camintrinsics_camextrinsics,
-                                     const PyArrayObject* indices_point_triangulated_camintrinsics_camextrinsics,
-                                     const PyArrayObject* observations_point,
-                                     const mrcal_lensmodel_t* lensmodel,
-                                     mrcal_problem_selections_t problem_selections);
+//
+// The callbacks return the Python object that will be returned. A callback
+// should indicate an error by calling PyErr_...() as usual. If a callback
+// returns NULL without setting an error, we return None from Python
+typedef PyObject* (callback_state_index_t)(int i,
+                                           int Ncameras_intrinsics,
+                                           int Ncameras_extrinsics,
+                                           int Nframes,
+                                           int Npoints,
+                                           int Npoints_fixed,
+                                           int Nobservations_board,
+                                           int Nobservations_point,
+                                           int calibration_object_width_n,
+                                           int calibration_object_height_n,
+                                           const PyArrayObject* indices_frame_camintrinsics_camextrinsics,
+                                           const PyArrayObject* indices_point_camintrinsics_camextrinsics,
+                                           const PyArrayObject* indices_point_triangulated_camintrinsics_camextrinsics,
+                                           const PyArrayObject* observations_point,
+                                           const mrcal_lensmodel_t* lensmodel,
+                                           mrcal_problem_selections_t problem_selections);
 #define STATE_INDEX_GENERIC(f, ...) state_index_generic(callback_ ## f, \
                                                         #f,             \
                                                         __VA_ARGS__ )
@@ -2050,7 +2090,6 @@ static PyObject* state_index_generic(callback_state_index_t cb,
                                      const char* called_function,
                                      PyObject* self, PyObject* args, PyObject* kwargs,
                                      bool need_lensmodel,
-                                     bool negative_result_allowed,
                                      const char* argname)
 {
     // This is VERY similar to _pack_unpack_state(). Please consolidate
@@ -2195,38 +2234,40 @@ static PyObject* state_index_generic(callback_state_index_t cb,
                                       Nframes,
                                       Nobservations_board );
 
-    int index = cb(i,
-                   Ncameras_intrinsics,
-                   Ncameras_extrinsics,
-                   Nframes,
-                   Npoints,
-                   Npoints_fixed,
-                   Nobservations_board,
-                   Nobservations_point,
-                   calibration_object_width_n,
-                   calibration_object_height_n,
-                   indices_frame_camintrinsics_camextrinsics,
-                   indices_point_camintrinsics_camextrinsics,
-                   indices_point_triangulated_camintrinsics_camextrinsics,
-                   observations_point,
-                   &mrcal_lensmodel,
-                   problem_selections);
+    result = cb(i,
+                Ncameras_intrinsics,
+                Ncameras_extrinsics,
+                Nframes,
+                Npoints,
+                Npoints_fixed,
+                Nobservations_board,
+                Nobservations_point,
+                calibration_object_width_n,
+                calibration_object_height_n,
+                indices_frame_camintrinsics_camextrinsics,
+                indices_point_camintrinsics_camextrinsics,
+                indices_point_triangulated_camintrinsics_camextrinsics,
+                observations_point,
+                &mrcal_lensmodel,
+                problem_selections);
 
-    if(PyErr_Occurred())
-        goto done;
-
-    // Either <0 or INT_MAX means "error", and I return None from Python.
-    // negative_result_allowed controls which of the two modes we're in
-    if( ( negative_result_allowed && index != INT_MAX) ||
-        (!negative_result_allowed && index >= 0) )
+    // If an error is set I return it. result SHOULD be NULL, but if it isn't, I
+    // release it.
+    if(result != NULL && PyErr_Occurred())
     {
-        result = PyLong_FromLong(index);
+        Py_DECREF(result);
+        result = NULL;
     }
-    else
+    // A callback returning NULL without setting an error indicates that we
+    // should return None
+    if(result == NULL && !PyErr_Occurred())
     {
         result = Py_None;
         Py_INCREF(result);
     }
+
+    if(result == NULL)
+        goto done;
 
  done:
     OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
@@ -2235,7 +2276,7 @@ static PyObject* state_index_generic(callback_state_index_t cb,
     return result;
 }
 
-static int callback_state_index_intrinsics(int i,
+static PyObject* callback_state_index_intrinsics(int i,
                                            int Ncameras_intrinsics,
                                            int Ncameras_extrinsics,
                                            int Nframes,
@@ -2252,23 +2293,29 @@ static int callback_state_index_intrinsics(int i,
                                            const mrcal_lensmodel_t* lensmodel,
                                            mrcal_problem_selections_t problem_selections)
 {
-    return mrcal_state_index_intrinsics(i,
-                                        Ncameras_intrinsics, Ncameras_extrinsics,
-                                        Nframes,
-                                        Npoints, Npoints_fixed, Nobservations_board,
-                                        problem_selections,
-                                        lensmodel);
+    int index =
+        mrcal_state_index_intrinsics(i,
+                                     Ncameras_intrinsics, Ncameras_extrinsics,
+                                     Nframes,
+                                     Npoints, Npoints_fixed, Nobservations_board,
+                                     problem_selections,
+                                     lensmodel);
+
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* state_index_intrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(state_index_intrinsics,
                                self, args, kwargs,
                                true,
-                               false,
                                "icam_intrinsics");
 }
 
-static int callback_num_states_intrinsics(int i,
+static PyObject* callback_num_states_intrinsics(int i,
                                           int Ncameras_intrinsics,
                                           int Ncameras_extrinsics,
                                           int Nframes,
@@ -2285,19 +2332,24 @@ static int callback_num_states_intrinsics(int i,
                                           const mrcal_lensmodel_t* lensmodel,
                                           mrcal_problem_selections_t problem_selections)
 {
-    return mrcal_num_states_intrinsics(Ncameras_intrinsics,
-                                       problem_selections, lensmodel);
+    int index =
+        mrcal_num_states_intrinsics(Ncameras_intrinsics,
+                                    problem_selections, lensmodel);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* num_states_intrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(num_states_intrinsics,
                                self, args, kwargs,
                                true,
-                               false,
                                NULL);
 }
 
-static int callback_state_index_extrinsics(int i,
+static PyObject* callback_state_index_extrinsics(int i,
                                            int Ncameras_intrinsics,
                                            int Ncameras_extrinsics,
                                            int Nframes,
@@ -2314,24 +2366,28 @@ static int callback_state_index_extrinsics(int i,
                                            const mrcal_lensmodel_t* lensmodel,
                                            mrcal_problem_selections_t problem_selections)
 {
-    return
+    int index =
         mrcal_state_index_extrinsics(i,
                                      Ncameras_intrinsics, Ncameras_extrinsics,
                                      Nframes,
                                      Npoints, Npoints_fixed, Nobservations_board,
                                      problem_selections,
                                      lensmodel);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* state_index_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(state_index_extrinsics,
                                self, args, kwargs,
                                true,
-                               false,
                                "icam_extrinsics");
 }
 
-static int callback_num_states_extrinsics(int i,
+static PyObject* callback_num_states_extrinsics(int i,
                                           int Ncameras_intrinsics,
                                           int Ncameras_extrinsics,
                                           int Nframes,
@@ -2348,19 +2404,23 @@ static int callback_num_states_extrinsics(int i,
                                           const mrcal_lensmodel_t* lensmodel,
                                           mrcal_problem_selections_t problem_selections)
 {
-    return
+    int index =
         mrcal_num_states_extrinsics(Ncameras_extrinsics, problem_selections);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* num_states_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(num_states_extrinsics,
                                self, args, kwargs,
                                false,
-                               false,
                                NULL);
 }
 
-static int callback_state_index_frames(int i,
+static PyObject* callback_state_index_frames(int i,
                                        int Ncameras_intrinsics,
                                        int Ncameras_extrinsics,
                                        int Nframes,
@@ -2377,24 +2437,28 @@ static int callback_state_index_frames(int i,
                                        const mrcal_lensmodel_t* lensmodel,
                                        mrcal_problem_selections_t problem_selections)
 {
-    return
+    int index =
         mrcal_state_index_frames(i,
                                  Ncameras_intrinsics, Ncameras_extrinsics,
                                  Nframes,
                                  Npoints, Npoints_fixed, Nobservations_board,
                                  problem_selections,
                                  lensmodel);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* state_index_frames(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(state_index_frames,
                                self, args, kwargs,
                                true,
-                               false,
                                "iframe");
 }
 
-static int callback_num_states_frames(int i,
+static PyObject* callback_num_states_frames(int i,
                                       int Ncameras_intrinsics,
                                       int Ncameras_extrinsics,
                                       int Nframes,
@@ -2411,19 +2475,23 @@ static int callback_num_states_frames(int i,
                                       const mrcal_lensmodel_t* lensmodel,
                                       mrcal_problem_selections_t problem_selections)
 {
-    return
+    int index =
         mrcal_num_states_frames(Nframes, problem_selections);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* num_states_frames(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(num_states_frames,
                                self, args, kwargs,
                                false,
-                               false,
                                NULL);
 }
 
-static int callback_state_index_points(int i,
+static PyObject* callback_state_index_points(int i,
                                        int Ncameras_intrinsics,
                                        int Ncameras_extrinsics,
                                        int Nframes,
@@ -2440,24 +2508,28 @@ static int callback_state_index_points(int i,
                                        const mrcal_lensmodel_t* lensmodel,
                                        mrcal_problem_selections_t problem_selections)
 {
-    return
+    int index =
         mrcal_state_index_points(i,
                                  Ncameras_intrinsics, Ncameras_extrinsics,
                                  Nframes,
                                  Npoints, Npoints_fixed, Nobservations_board,
                                  problem_selections,
                                  lensmodel);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* state_index_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(state_index_points,
                                self, args, kwargs,
                                true,
-                               false,
                                "i_point");
 }
 
-static int callback_num_states_points(int i,
+static PyObject* callback_num_states_points(int i,
                                        int Ncameras_intrinsics,
                                        int Ncameras_extrinsics,
                                        int Nframes,
@@ -2474,19 +2546,23 @@ static int callback_num_states_points(int i,
                                        const mrcal_lensmodel_t* lensmodel,
                                        mrcal_problem_selections_t problem_selections)
 {
-    return
+    int index =
         mrcal_num_states_points(Npoints, Npoints_fixed, problem_selections);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* num_states_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(num_states_points,
                                self, args, kwargs,
                                false,
-                               false,
                                NULL);
 }
 
-static int callback_state_index_calobject_warp(int i,
+static PyObject* callback_state_index_calobject_warp(int i,
                                                int Ncameras_intrinsics,
                                                int Ncameras_extrinsics,
                                                int Nframes,
@@ -2503,23 +2579,27 @@ static int callback_state_index_calobject_warp(int i,
                                                const mrcal_lensmodel_t* lensmodel,
                                                mrcal_problem_selections_t problem_selections)
 {
-    return
+    int index =
         mrcal_state_index_calobject_warp( Ncameras_intrinsics, Ncameras_extrinsics,
                                           Nframes,
                                           Npoints, Npoints_fixed, Nobservations_board,
                                           problem_selections,
                                           lensmodel);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* state_index_calobject_warp(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(state_index_calobject_warp,
                                self, args, kwargs,
                                true,
-                               false,
                                NULL);
 }
 
-static int callback_num_states_calobject_warp(int i,
+static PyObject* callback_num_states_calobject_warp(int i,
                                               int Ncameras_intrinsics,
                                               int Ncameras_extrinsics,
                                               int Nframes,
@@ -2536,19 +2616,23 @@ static int callback_num_states_calobject_warp(int i,
                                               const mrcal_lensmodel_t* lensmodel,
                                               mrcal_problem_selections_t problem_selections)
 {
-    return
+    int index =
         mrcal_num_states_calobject_warp(problem_selections, Nobservations_board);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* num_states_calobject_warp(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(num_states_calobject_warp,
                                self, args, kwargs,
                                false,
-                               false,
                                NULL);
 }
 
-static int callback_num_states(int i,
+static PyObject* callback_num_states(int i,
                                int Ncameras_intrinsics,
                                int Ncameras_extrinsics,
                                int Nframes,
@@ -2565,22 +2649,26 @@ static int callback_num_states(int i,
                                const mrcal_lensmodel_t* lensmodel,
                                mrcal_problem_selections_t problem_selections)
 {
-    return
+    int index =
         mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
                          Nframes, Npoints, Npoints_fixed, Nobservations_board,
                          problem_selections,
                          lensmodel);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* num_states(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(num_states,
                                self, args, kwargs,
                                true,
-                               false,
                                NULL);
 }
 
-static int callback_num_intrinsics_optimization_params(int i,
+static PyObject* callback_num_intrinsics_optimization_params(int i,
                                int Ncameras_intrinsics,
                                int Ncameras_extrinsics,
                                int Nframes,
@@ -2597,20 +2685,24 @@ static int callback_num_intrinsics_optimization_params(int i,
                                const mrcal_lensmodel_t* lensmodel,
                                mrcal_problem_selections_t problem_selections)
 {
-    return
+    int index =
         mrcal_num_intrinsics_optimization_params(problem_selections,
                                                  lensmodel);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* num_intrinsics_optimization_params(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(num_intrinsics_optimization_params,
                                self, args, kwargs,
                                true,
-                               false,
                                NULL);
 }
 
-static int callback_measurement_index_boards(int i,
+static PyObject* callback_measurement_index_boards(int i,
                                              int Ncameras_intrinsics,
                                              int Ncameras_extrinsics,
                                              int Nframes,
@@ -2627,26 +2719,30 @@ static int callback_measurement_index_boards(int i,
                                              const mrcal_lensmodel_t* lensmodel,
                                              mrcal_problem_selections_t problem_selections)
 {
-    if(calibration_object_width_n < 0)
-        return -1;
+    int index = -1;
 
-    return
-        mrcal_measurement_index_boards(i,
-                                       Nobservations_board,
-                                       Nobservations_point,
-                                       calibration_object_width_n,
-                                       calibration_object_height_n);
+    if(calibration_object_width_n >= 0)
+        index =
+            mrcal_measurement_index_boards(i,
+                                           Nobservations_board,
+                                           Nobservations_point,
+                                           calibration_object_width_n,
+                                           calibration_object_height_n);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* measurement_index_boards(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(measurement_index_boards,
                                self, args, kwargs,
                                false,
-                               false,
                                "i_observation_board");
 }
 
-static int callback_num_measurements_boards(int i,
+static PyObject* callback_num_measurements_boards(int i,
                                             int Ncameras_intrinsics,
                                             int Ncameras_extrinsics,
                                             int Nframes,
@@ -2663,24 +2759,27 @@ static int callback_num_measurements_boards(int i,
                                             const mrcal_lensmodel_t* lensmodel,
                                             mrcal_problem_selections_t problem_selections)
 {
-    if(calibration_object_width_n < 0)
-        return 0;
+    int index = 0;
+    if(calibration_object_width_n >= 0)
+        index =
+            mrcal_num_measurements_boards(Nobservations_board,
+                                          calibration_object_width_n,
+                                          calibration_object_height_n);
+    if(index >= 0)
+        return PyLong_FromLong(index);
 
-    return
-        mrcal_num_measurements_boards(Nobservations_board,
-                                      calibration_object_width_n,
-                                      calibration_object_height_n);
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* num_measurements_boards(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(num_measurements_boards,
                                self, args, kwargs,
                                false,
-                               false,
                                NULL);
 }
 
-static int callback_measurement_index_points(int i,
+static PyObject* callback_measurement_index_points(int i,
                                              int Ncameras_intrinsics,
                                              int Ncameras_extrinsics,
                                              int Nframes,
@@ -2697,23 +2796,27 @@ static int callback_measurement_index_points(int i,
                                              const mrcal_lensmodel_t* lensmodel,
                                              mrcal_problem_selections_t problem_selections)
 {
-    return
+    int index =
         mrcal_measurement_index_points(i,
                                        Nobservations_board,
                                        Nobservations_point,
                                        calibration_object_width_n,
                                        calibration_object_height_n);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* measurement_index_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(measurement_index_points,
                                self, args, kwargs,
                                false,
-                               false,
                                "i_observation_point");
 }
 
-static int callback_measurement_index_points_triangulated(int i,
+static PyObject* callback_measurement_index_points_triangulated(int i,
                                                           int Ncameras_intrinsics,
                                                           int Ncameras_extrinsics,
                                                           int Nframes,
@@ -2742,15 +2845,15 @@ static int callback_measurement_index_points_triangulated(int i,
     int Nobservations_point_triangulated =
         N <= 0 ? 0 :
         fill_c_observations_point_triangulated(c_observations_point_triangulated,
-                                               NULL,
+                                               NULL, NULL, NULL,
                                                indices_point_triangulated_camintrinsics_camextrinsics);
     if(Nobservations_point_triangulated < 0)
     {
         BARF("Error parsing triangulated points");
-        return -1;
+        return NULL;
     }
 
-    return
+    int index =
         mrcal_measurement_index_points_triangulated(i,
                                                     Nobservations_board,
                                                     Nobservations_point,
@@ -2758,6 +2861,11 @@ static int callback_measurement_index_points_triangulated(int i,
                                                     Nobservations_point_triangulated,
                                                     calibration_object_width_n,
                                                     calibration_object_height_n);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 
 static PyObject* measurement_index_points_triangulated(PyObject* self, PyObject* args, PyObject* kwargs)
@@ -2765,11 +2873,10 @@ static PyObject* measurement_index_points_triangulated(PyObject* self, PyObject*
     return STATE_INDEX_GENERIC(measurement_index_points_triangulated,
                                self, args, kwargs,
                                false,
-                               false,
                                "i_point_triangulated");
 }
 
-static int callback_num_measurements_points(int i,
+static PyObject* callback_num_measurements_points(int i,
                                             int Ncameras_intrinsics,
                                             int Ncameras_extrinsics,
                                             int Nframes,
@@ -2786,19 +2893,23 @@ static int callback_num_measurements_points(int i,
                                             const mrcal_lensmodel_t* lensmodel,
                                             mrcal_problem_selections_t problem_selections)
 {
-    return
+    int index =
         mrcal_num_measurements_points(Nobservations_point);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* num_measurements_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(num_measurements_points,
                                self, args, kwargs,
                                false,
-                               false,
                                NULL);
 }
 
-static int callback_num_measurements_points_triangulated(int i,
+static PyObject* callback_num_measurements_points_triangulated(int i,
                                                          int Ncameras_intrinsics,
                                                          int Ncameras_extrinsics,
                                                          int Nframes,
@@ -2822,34 +2933,37 @@ static int callback_num_measurements_points_triangulated(int i,
         N = PyArray_DIM(indices_point_triangulated_camintrinsics_camextrinsics, 0);
 
     if(N == 0)
-        return 0;
+        return PyLong_FromLong(0);
 
     mrcal_observation_point_triangulated_t c_observations_point_triangulated[N];
 
     int Nobservations_point_triangulated =
         fill_c_observations_point_triangulated(c_observations_point_triangulated,
-                                               NULL,
+                                               NULL, NULL, NULL,
                                                indices_point_triangulated_camintrinsics_camextrinsics);
     if(Nobservations_point_triangulated < 0)
     {
         BARF("Error parsing triangulated points");
-        return -1;
+        return NULL;
     }
-
-    return
+    int index =
         mrcal_num_measurements_points_triangulated(c_observations_point_triangulated,
                                                    Nobservations_point_triangulated);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* num_measurements_points_triangulated(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(num_measurements_points_triangulated,
                                self, args, kwargs,
                                false,
-                               false,
                                NULL);
 }
 
-static int callback_measurement_index_regularization(int i,
+static PyObject* callback_measurement_index_regularization(int i,
                                                      int Ncameras_intrinsics,
                                                      int Ncameras_extrinsics,
                                                      int Nframes,
@@ -2877,15 +2991,14 @@ static int callback_measurement_index_regularization(int i,
     int Nobservations_point_triangulated =
         N <= 0 ? 0 :
         fill_c_observations_point_triangulated(c_observations_point_triangulated,
-                                               NULL,
+                                               NULL, NULL, NULL,
                                                indices_point_triangulated_camintrinsics_camextrinsics);
     if(Nobservations_point_triangulated < 0)
     {
         BARF("Error parsing triangulated points");
-        return -1;
+        return NULL;
     }
-
-    return
+    int index =
         mrcal_measurement_index_regularization(c_observations_point_triangulated,
                                                Nobservations_point_triangulated,
                                                calibration_object_width_n,
@@ -2895,17 +3008,21 @@ static int callback_measurement_index_regularization(int i,
                                                Npoints, Npoints_fixed, Nobservations_board, Nobservations_point,
                                                problem_selections,
                                                lensmodel);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* measurement_index_regularization(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(measurement_index_regularization,
                                self, args, kwargs,
                                true,
-                               false,
                                NULL);
 }
 
-static int callback_num_measurements_regularization(int i,
+static PyObject* callback_num_measurements_regularization(int i,
                                                     int Ncameras_intrinsics,
                                                     int Ncameras_extrinsics,
                                                     int Nframes,
@@ -2922,24 +3039,28 @@ static int callback_num_measurements_regularization(int i,
                                                     const mrcal_lensmodel_t* lensmodel,
                                                     mrcal_problem_selections_t problem_selections)
 {
-    return
+    int index =
         mrcal_num_measurements_regularization(Ncameras_intrinsics, Ncameras_extrinsics,
                                               Nframes,
                                               Npoints, Npoints_fixed, Nobservations_board,
                                               problem_selections,
                                               lensmodel);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* num_measurements_regularization(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(num_measurements_regularization,
                                self, args, kwargs,
                                true,
-                               false,
                                NULL);
 }
 
 
-static int callback_num_measurements(int i,
+static PyObject* callback_num_measurements(int i,
                                      int Ncameras_intrinsics,
                                      int Ncameras_extrinsics,
                                      int Nframes,
@@ -2956,6 +3077,7 @@ static int callback_num_measurements(int i,
                                      const mrcal_lensmodel_t* lensmodel,
                                      mrcal_problem_selections_t problem_selections)
 {
+
 #warning "triangulated-solve: add tests to the num_measurements_..., state_index_... ..."
 
 
@@ -2979,17 +3101,16 @@ static int callback_num_measurements(int i,
     {
         Nobservations_point_triangulated =
             fill_c_observations_point_triangulated(c_observations_point_triangulated,
-                                                   NULL,
+                                                   NULL, NULL, NULL,
                                                    indices_point_triangulated_camintrinsics_camextrinsics);
         if(Nobservations_point_triangulated < 0)
         {
             BARF("Error parsing triangulated points");
-            return -1;
+            return NULL;
         }
         observations_point_triangulated = c_observations_point_triangulated;
     }
-
-    return
+    int index =
         mrcal_num_measurements(Nobservations_board,
                                Nobservations_point,
                                observations_point_triangulated,
@@ -3001,17 +3122,21 @@ static int callback_num_measurements(int i,
                                Npoints, Npoints_fixed,
                                problem_selections,
                                lensmodel);
+    if(index >= 0)
+        return PyLong_FromLong(index);
+
+    BARF("Error parsing problem or no requested states exist");
+    return NULL;
 }
 static PyObject* num_measurements(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(num_measurements,
                                self, args, kwargs,
                                true,
-                               false,
                                NULL);
 }
 
-static int callback_corresponding_icam_extrinsics(int icam_intrinsics,
+static PyObject* callback_corresponding_icam_extrinsics(int icam_intrinsics,
                                                   int Ncameras_intrinsics,
                                                   int Ncameras_extrinsics,
                                                   int Nframes,
@@ -3028,15 +3153,14 @@ static int callback_corresponding_icam_extrinsics(int icam_intrinsics,
                                                   const mrcal_lensmodel_t* lensmodel,
                                                   mrcal_problem_selections_t problem_selections)
 {
+
 #warning "triangulated-solve: barf if we have any triangulated points"
 
-
-    // Negative results ARE allowed here, so I return INT_MAX on error
     if( icam_intrinsics < 0 || icam_intrinsics >= Ncameras_intrinsics )
     {
         BARF("The given icam_intrinsics=%d is out of bounds. Must be >= 0 and < %d",
              icam_intrinsics, Ncameras_intrinsics);
-        return INT_MAX;
+        return NULL;
     }
 
     int icam_extrinsics;
@@ -3044,7 +3168,7 @@ static int callback_corresponding_icam_extrinsics(int icam_intrinsics,
     if(Nobservations_board > 0 && indices_frame_camintrinsics_camextrinsics == NULL)
     {
         BARF("Have Nobservations_board > 0, but indices_frame_camintrinsics_camextrinsics == NULL. Some required arguments missing?");
-        return INT_MAX;
+        return NULL;
     }
     mrcal_observation_board_t c_observations_board[Nobservations_board];
     fill_c_observations_board(// output
@@ -3058,7 +3182,7 @@ static int callback_corresponding_icam_extrinsics(int icam_intrinsics,
         if(indices_point_camintrinsics_camextrinsics == NULL)
         {
             BARF("Have Nobservations_point > 0, but indices_point_camintrinsics_camextrinsics == NULL. Some required arguments missing?");
-            return INT_MAX;
+            return NULL;
         }
     }
     mrcal_observation_point_t c_observations_point[Nobservations_point];
@@ -3079,22 +3203,105 @@ static int callback_corresponding_icam_extrinsics(int icam_intrinsics,
                                             c_observations_point))
     {
         BARF("Error calling mrcal_corresponding_icam_extrinsics()");
-        return INT_MAX;
+        return NULL;
     }
 
-    // might be <0. This is OK because negative_result_allowed is true here
-    return icam_extrinsics;
+    return PyLong_FromLong(icam_extrinsics);
 }
 static PyObject* corresponding_icam_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     return STATE_INDEX_GENERIC(corresponding_icam_extrinsics,
                                self, args, kwargs,
                                false,
-                               true, // negative_result_allowed here
                                "icam_intrinsics");
 }
 
+static PyObject* callback_decode_observation_indices_points_triangulated(int imeasurement,
+                                     int Ncameras_intrinsics,
+                                     int Ncameras_extrinsics,
+                                     int Nframes,
+                                     int Npoints,
+                                     int Npoints_fixed,
+                                     int Nobservations_board,
+                                     int Nobservations_point,
+                                     int calibration_object_width_n,
+                                     int calibration_object_height_n,
+                                     const PyArrayObject* indices_frame_camintrinsics_camextrinsics,
+                                     const PyArrayObject* indices_point_camintrinsics_camextrinsics,
+                                     const PyArrayObject* indices_point_triangulated_camintrinsics_camextrinsics,
+                                     const PyArrayObject* observations_point,
+                                     const mrcal_lensmodel_t* lensmodel,
+                                     mrcal_problem_selections_t problem_selections)
+{
 
+
+    if(indices_point_triangulated_camintrinsics_camextrinsics == NULL)
+    {
+        BARF("No triangulated points in this solve. Nothing to decode");
+        return NULL;
+    }
+
+    int N = PyArray_DIM(indices_point_triangulated_camintrinsics_camextrinsics, 0);
+    if(N <= 0)
+    {
+        BARF("No triangulated points in this solve. Nothing to decode");
+        return NULL;
+    }
+
+    mrcal_observation_point_triangulated_t c_observations_point_triangulated[N];
+
+    int Nobservations_point_triangulated =
+        fill_c_observations_point_triangulated(c_observations_point_triangulated,
+                                               NULL, NULL, NULL,
+                                               indices_point_triangulated_camintrinsics_camextrinsics);
+    if(Nobservations_point_triangulated < 0)
+    {
+        BARF("Error parsing triangulated points");
+        return NULL;
+    }
+
+    mrcal_observation_point_triangulated_t* observations_point_triangulated =
+        c_observations_point_triangulated;
+
+    int iobservation0;
+    int iobservation1;
+    int iobservation_point0;
+    int Nobservations_this_point;
+    int Nmeasurements_this_point;
+    int ipoint;
+
+    bool result =
+        mrcal_decode_observation_indices_points_triangulated(&iobservation0,
+                                                             &iobservation1,
+                                                             &iobservation_point0,
+                                                             &Nobservations_this_point,
+                                                             &Nmeasurements_this_point,
+                                                             &ipoint,
+
+                                                             imeasurement,
+                                                             observations_point_triangulated,
+                                                             Nobservations_point_triangulated);
+    if(!result)
+    {
+        BARF("Error decoding indices");
+        return NULL;
+    }
+
+    return Py_BuildValue( "{sisisisisisi}",
+                          "iobservation0",            iobservation0,
+                          "iobservation1",            iobservation1,
+                          "iobservation_point0",      iobservation_point0,
+                          "Nobservations_this_point", Nobservations_this_point,
+                          "Nmeasurements_this_point", Nmeasurements_this_point,
+                          "ipoint",                   ipoint );
+}
+static PyObject* decode_observation_indices_points_triangulated(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    return STATE_INDEX_GENERIC(decode_observation_indices_points_triangulated,
+                               self, args, kwargs,
+                               false,
+                               "imeasurement");
+}
 
 static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kwargs,
                                     bool pack)
@@ -3943,6 +4150,9 @@ static const char num_measurements_docstring[] =
 static const char corresponding_icam_extrinsics_docstring[] =
 #include "corresponding_icam_extrinsics.docstring.h"
     ;
+static const char decode_observation_indices_points_triangulated_docstring[] =
+#include "decode_observation_indices_points_triangulated.docstring.h"
+    ;
 
 static const char num_states_docstring[] =
 #include "num_states.docstring.h"
@@ -4021,6 +4231,7 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, num_measurements_regularization, METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, num_measurements,                METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, corresponding_icam_extrinsics,   METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, decode_observation_indices_points_triangulated,METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(,lensmodel_metadata_and_config,METH_VARARGS),
       PYMETHODDEF_ENTRY(,lensmodel_num_params,         METH_VARARGS),
