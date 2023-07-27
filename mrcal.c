@@ -3847,7 +3847,8 @@ bool markOutliers(// output, input
                   mrcal_point3_t* observations_board_pool,
 
                   // output
-                  int* Nmeasurements_outliers,
+                  int* Noutliers_board,
+                  int* Noutliers_triangulated_point,
 
                   // input
 
@@ -3883,9 +3884,11 @@ bool markOutliers(// output, input
     const double k0 = 4.0;
     const double k1 = 5.0;
 
-    *Nmeasurements_outliers   = 0;
-    int Nmeasurements_inliers = 0;
+    *Noutliers_board   = 0;
+    int Ninliers_board = 0;
 
+    *Noutliers_triangulated_point   = 0;
+    int Ninliers_triangulated_point = 0;
 
     const int imeasurement_board0 =
         mrcal_measurement_index_boards(0,
@@ -3893,11 +3896,6 @@ bool markOutliers(// output, input
                                        Nobservations_point,
                                        calibration_object_width_n,
                                        calibration_object_height_n);
-    const int Nmeasurements_board =
-        mrcal_num_measurements_boards(Nobservations_board,
-                                      calibration_object_width_n,
-                                      calibration_object_height_n);
-
     const int imeasurement_point_triangulated0 =
         mrcal_measurement_index_points_triangulated(0,
                                                     Nobservations_board,
@@ -3978,18 +3976,18 @@ bool markOutliers(// output, input
 
             if(*weight <= 0.0)
             {
-                (*Nmeasurements_outliers) += 2;
+                (*Noutliers_board)++;
                 continue;
             }
 
             double dx = x_boards[2*i_pt_board + 0];
             double dy = x_boards[2*i_pt_board + 1];
             var += dx*dx + dy*dy;
-            Nmeasurements_inliers += 2;
+            Ninliers_board++;
         }
     }
 
-    MSG("I started with %d board outliers", *Nmeasurements_outliers);
+    MSG("I started with %d board outliers", *Noutliers_board);
     int Nmeasurements_outliers_triangulated_start = 0;
 
     LOOP_TRIANGULATED_POINT0(true)
@@ -4088,6 +4086,8 @@ bool markOutliers(// output, input
                     pt0->outlier = true;
                     pt1->outlier = true;
                     foundNewOutliers = true;
+#warning "triangulated-solve: outliers should not be marked in this first loop. This should happen in the following loop. Putting it here breaks the logic"
+
 
                     // There are a lot of these, so I'm disabling this print for
                     // now, to avoid spamming the terminal
@@ -4102,21 +4102,23 @@ bool markOutliers(// output, input
 
 
             if(pt0->outlier || pt1->outlier)
-            {
-                (*Nmeasurements_outliers)++;
-            }
+                (*Noutliers_triangulated_point)++;
             else
             {
                 var +=
                     x_point_triangulated[imeasurement_point_triangulated] *
                     x_point_triangulated[imeasurement_point_triangulated];
-                Nmeasurements_inliers++;
+                Ninliers_triangulated_point++;
             }
             LOOP_TRIANGULATED_POINT_FOOTER();
         }
     }
-    MSG("I started with %d triangulated outliers", Nmeasurements_outliers_triangulated_start);
-    var /= (double)Nmeasurements_inliers;
+    if(Nobservations_point_triangulated > 0)
+    {
+        MSG("I started with %d triangulated outliers", Nmeasurements_outliers_triangulated_start);
+        MSG("I started with %d triangulated outliers", *Noutliers_triangulated_point);
+    }
+    var /= (double)(Ninliers_board*2 + Ninliers_triangulated_point);
     // MSG("Outlier rejection sees stdev = %f", sqrt(var));
 
     ///////////// Any new outliers found?
@@ -4197,7 +4199,7 @@ bool markOutliers(// output, input
                dy*dy > k0*k0*var )
             {
                 *weight *= -1.0;
-                (*Nmeasurements_outliers) += 2;
+                (*Noutliers_board)++;
             }
         }
 
@@ -4230,8 +4232,7 @@ bool markOutliers(// output, input
                     pt0->outlier = true;
                     pt1->outlier = true;
 
-#warning "triangulated-solve: outlier rejection reports bogus Nmeasurements_outliers"
-                    (*Nmeasurements_outliers)++;
+                    (*Noutliers_triangulated_point)++;
 
 #warning "triangulated-solve: outliers not returned to the caller yet, so I simply print them out here"
                     MSG("New outliers found: measurement %d observation (%d,%d)",
@@ -6462,19 +6463,17 @@ mrcal_optimize( // out
 
     if( !check_gradient )
     {
-        stats.Noutliers = 0;
+        stats.Noutliers_board              = 0;
+        stats.Noutliers_triangulated_point = 0;
 
-        const int Nfeatures_board =
-            Nobservations_board *
-            calibration_object_width_n *
-            calibration_object_height_n;
-        for(int i=0; i<Nfeatures_board; i++)
+        const int Nmeasurements_board =
+            mrcal_num_measurements_boards(Nobservations_board,
+                                          calibration_object_width_n,
+                                          calibration_object_height_n);
+        for(int i=0; i<Nmeasurements_board/2; i++)
             if(observations_board_pool[i].z < 0.0)
-                stats.Noutliers++;
-
-        const int Nmeasurements_board = Nfeatures_board*2;
-
-#warning "triangulated-solve: check for point outliers here as well"
+                stats.Noutliers_board++;
+#warning "triangulated-solve: check for point outliers here as well. Pull the triangulated-point outlier code out of markOutliers, and call it here (divergent-ray finder and looking at marked outliers)"
 
         double outliernessScale = -1.0;
         do
@@ -6497,13 +6496,14 @@ mrcal_optimize( // out
                 dogleg_reportOutliers(getConfidence,
                                       &outliernessScale,
                                       2, Npoints_fromBoards,
-                                      stats.Noutliers,
+                                      stats.Noutliers_board,
                                       solver_context->beforeStep, solver_context);
 #endif
 
         } while( problem_selections.do_apply_outlier_rejection &&
                  markOutliers(observations_board_pool,
-                              &stats.Noutliers,
+                              &stats.Noutliers_board,
+                              &stats.Noutliers_triangulated_point,
                               observations_board,
                               Nobservations_board,
                               Nobservations_point,
@@ -6516,10 +6516,12 @@ mrcal_optimize( // out
                               extrinsics_fromref,
                               verbose) &&
                  ({MSG("Threw out some outliers. New count = %d/%d (%.1f%%). Going again",
-                       stats.Noutliers,
+                       stats.Noutliers_board,
                        Nmeasurements_board,
-                       (double)(stats.Noutliers * 100) / (double)Nmeasurements_board);
+                       (double)(stats.Noutliers_board * 100) / (double)Nmeasurements_board);
                    true;}));
+#warning "triangulated-solve: the above print should deal with triangulated points too"
+
 
         // Done. I have the final state. I spit it back out
         unpack_solver_state( intrinsics,         // Ncameras_intrinsics of these

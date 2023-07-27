@@ -306,7 +306,13 @@ typedef struct
     /* How many pixel observations were thrown out as outliers. Each pixel */ \
     /* observation produces two measurements. Note that this INCLUDES any */ \
     /* outliers that were passed-in at the start */                     \
-    _(int,            Noutliers,                  PyLong_FromLong)
+    _(int,            Noutliers_board,                  PyLong_FromLong) \
+                                                                        \
+    /* How many pixel observations were thrown out as outliers. Each pixel */ \
+    /* observation produces two measurements. Note that this INCLUDES any */ \
+    /* outliers that were passed-in at the start */                     \
+    _(int,            Noutliers_triangulated_point,     PyLong_FromLong)
+#warning "triangulated-solve: implement stats.Noutliers_triangulated_point; add to c-api.org"
 #define MRCAL_STATS_ITEM_DEFINE(type, name, pyconverter) type name;
 typedef struct
 {

@@ -749,9 +749,9 @@ worst_point_err = np.sqrt(np.max(nps.norm2( nps.clump(residuals, n=3) )))
 report += f"Worst residual (by measurement): {worst_point_err:.01f} pixels\n"
 if not args.skip_outlier_rejection:
     report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
-        format(stats['Noutliers'],
+        format(stats['Noutliers_board'],
                args.object_height_n*args.object_width_n*len(observations),
-               100.0 * stats['Noutliers'] / (args.object_height_n*args.object_width_n*len(observations)))
+               100.0 * stats['Noutliers_board'] / (args.object_height_n*args.object_width_n*len(observations)))
 if calobject_warp is not None:
     report += f"calobject_warp = {calobject_warp}\n"
 
