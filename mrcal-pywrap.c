@@ -2260,13 +2260,14 @@ static PyObject* state_index_generic(callback_state_index_t cb,
     }
     // A callback returning NULL without setting an error indicates that we
     // should return None
-    if(result == NULL && !PyErr_Occurred())
+    else if(result == NULL && !PyErr_Occurred())
     {
         result = Py_None;
         Py_INCREF(result);
     }
 
     if(result == NULL)
+        // error
         goto done;
 
  done:
@@ -2304,8 +2305,8 @@ static PyObject* callback_state_index_intrinsics(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* state_index_intrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2338,8 +2339,8 @@ static PyObject* callback_num_states_intrinsics(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* num_states_intrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2376,8 +2377,8 @@ static PyObject* callback_state_index_extrinsics(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* state_index_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2409,8 +2410,8 @@ static PyObject* callback_num_states_extrinsics(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* num_states_extrinsics(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2447,8 +2448,8 @@ static PyObject* callback_state_index_frames(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* state_index_frames(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2480,8 +2481,8 @@ static PyObject* callback_num_states_frames(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* num_states_frames(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2518,8 +2519,8 @@ static PyObject* callback_state_index_points(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* state_index_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2551,8 +2552,8 @@ static PyObject* callback_num_states_points(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* num_states_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2588,8 +2589,8 @@ static PyObject* callback_state_index_calobject_warp(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* state_index_calobject_warp(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2621,8 +2622,8 @@ static PyObject* callback_num_states_calobject_warp(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* num_states_calobject_warp(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2657,8 +2658,8 @@ static PyObject* callback_num_states(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* num_states(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2691,8 +2692,8 @@ static PyObject* callback_num_intrinsics_optimization_params(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* num_intrinsics_optimization_params(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2721,7 +2722,8 @@ static PyObject* callback_measurement_index_boards(int i,
 {
     int index = -1;
 
-    if(calibration_object_width_n >= 0)
+    if(calibration_object_width_n  > 0 &&
+       calibration_object_height_n > 0)
         index =
             mrcal_measurement_index_boards(i,
                                            Nobservations_board,
@@ -2731,8 +2733,8 @@ static PyObject* callback_measurement_index_boards(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* measurement_index_boards(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2760,7 +2762,9 @@ static PyObject* callback_num_measurements_boards(int i,
                                             mrcal_problem_selections_t problem_selections)
 {
     int index = 0;
-    if(calibration_object_width_n >= 0)
+
+    if(calibration_object_width_n  > 0 &&
+       calibration_object_height_n > 0)
         index =
             mrcal_num_measurements_boards(Nobservations_board,
                                           calibration_object_width_n,
@@ -2768,8 +2772,8 @@ static PyObject* callback_num_measurements_boards(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* num_measurements_boards(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2805,8 +2809,8 @@ static PyObject* callback_measurement_index_points(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* measurement_index_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2864,8 +2868,8 @@ static PyObject* callback_measurement_index_points_triangulated(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 static PyObject* measurement_index_points_triangulated(PyObject* self, PyObject* args, PyObject* kwargs)
@@ -2898,8 +2902,8 @@ static PyObject* callback_num_measurements_points(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* num_measurements_points(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -2952,8 +2956,8 @@ static PyObject* callback_num_measurements_points_triangulated(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* num_measurements_points_triangulated(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -3011,8 +3015,8 @@ static PyObject* callback_measurement_index_regularization(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* measurement_index_regularization(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -3048,8 +3052,8 @@ static PyObject* callback_num_measurements_regularization(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* num_measurements_regularization(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -3125,8 +3129,8 @@ static PyObject* callback_num_measurements(int i,
     if(index >= 0)
         return PyLong_FromLong(index);
 
-    BARF("Error parsing problem or no requested states exist");
-    return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 static PyObject* num_measurements(PyObject* self, PyObject* args, PyObject* kwargs)
 {
@@ -3182,6 +3186,11 @@ static PyObject* callback_corresponding_icam_extrinsics(int icam_intrinsics,
         if(indices_point_camintrinsics_camextrinsics == NULL)
         {
             BARF("Have Nobservations_point > 0, but indices_point_camintrinsics_camextrinsics == NULL. Some required arguments missing?");
+            return NULL;
+        }
+        if(observations_point == NULL)
+        {
+            BARF("Have Nobservations_point > 0, but observations_point == NULL. Some required arguments missing?");
             return NULL;
         }
     }
