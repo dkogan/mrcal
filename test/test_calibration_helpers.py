@@ -93,7 +93,8 @@ This logic is here purely for safety. A caller that handles non-identity cam0
 transforms has to explicitly say that
 
 I always compute chessboard views. But if report_points: I store each corner
-observation as a separate point
+observation as a separate point. if report_points: I ALSO enable the unity_cam01
+regularization to make the solve non-singular
 
 ARGUMENTS
 
@@ -241,7 +242,8 @@ ARGUMENTS
               do_optimize_extrinsics                    = True,
               do_optimize_calobject_warp                = True,
               do_apply_regularization                   = True,
-              do_apply_outlier_rejection                = False)
+              do_apply_outlier_rejection                = False,
+              do_apply_regularization_unity_cam01       = report_points)
 
     if fixedframes:
         # Frames are fixed: each camera has an independent pose

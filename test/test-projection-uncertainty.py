@@ -83,7 +83,9 @@ def parse_args():
                         help='''By default we do everything with chessboard
                         observations. If --points, we simulate the same
                         chessboard observations, but we calibrate with discrete
-                        observations of points in the chessboard''')
+                        observations of points in the chessboard. --points
+                        enables the unity_cam01 regularization to make the solve
+                        non-singular''')
     parser.add_argument('--do-sample',
                         action='store_true',
                         help='''By default we don't run the time-intensive
@@ -254,6 +256,13 @@ extrinsics_rt_fromref_true = \
               (0.08, 0.2,  0.02,   1.,  0.9, 0.1),
               (0.01, 0.07, 0.2,    2.1, 0.4, 0.2),
               (-0.1, 0.08, 0.08,   3.4, 0.2, 0.1), ))
+
+if args.points:
+    # Needed for the unity_cam01 regularization. I reset the nominal distance to
+    # 1.0
+    extrinsics_rt_fromref_true[:,3:] /= nps.mag(extrinsics_rt_fromref_true[1,3:])
+
+
 
 optimization_inputs_baseline,                          \
 models_true, models_baseline,                          \
