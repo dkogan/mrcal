@@ -3532,7 +3532,7 @@ plot
                                         mean     = np.mean(x),
                                         N        = len(x),
                                         binwidth = binwidth,
-                                        legend   = f'Normal distribution of residuals with observed stdev: {sigma_observed:.02f} pixels')
+                                        legend   = f'Normal distribution of residuals with observed stdev: {sigma_observed:.02g} pixels')
 
     if icam_intrinsics is None:
         what = 'all the cameras'
