@@ -88,6 +88,30 @@ r_from_R_core(// output
               // inputs
               const val_withgrad_t<N>* Rg)
 {
+    // Looking at https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula the
+    // Rodrigues rotation formula for th rad rotation around unit axis v is
+    //
+    //   R = I + sin(th) V + (1 - cos(th)) V^2
+    //
+    // where V = skew_symmetric(v):
+    //
+    //          [  0 -v2  v1]
+    //   V(v) = [ v2   0 -v0]
+    //          [-v1  v0   0]
+    //
+    // I, V^2 are symmetric; V is anti-symmetric. So R[i,j] - R[j,i] =
+    // 2*sin(th)*V[i,j]
+    //
+    // Let's define
+    //
+    //       [ R21 - R12 ]
+    //   u = [ R02 - R20 ]
+    //       [ R10 - R01 ]
+    //
+    // From the above equations we see that u = 2 sin(th) v. So I compute the
+    // axis from u. I want th in [0,pi] so I can't compute it from u: I would
+    // always have sin(th) > 0 so asin(th) would be in [0,th/2]. Thus I compute
+    // th from trace(R) = 1 + 2*cos(th)
     val_withgrad_t<N> tr = Rg[0] + Rg[4] + Rg[8];
     val_withgrad_t<N> u[3] =
         {
