@@ -159,13 +159,13 @@ base   = np.zeros((7,11,13,5), dtype=float)
 
 
 
-base[1,1,0:3,1] = np.array((1., 2., 0.1))
+base[1,1,0:3,1] = np.array((1., 2., 0.1)) # making sure that mag(r) is in [pi/2,pi]
 r0_ref = base[1,1,0:3,1]
 
 base[1,1,3:6,1] = np.array((3., 5., -2.4))
 t0_ref = base[1,1,3:6,1]
 
-base[1,1,6:9,1] = np.array((-.3, -.2, 1.1))
+base[1,1,6:9,1] = np.array((-.3, -.2, 1.1)) # making sure that mag(r) is in [0,pi/2]
 r1_ref = base[1,1,6:9,1]
 
 base[1,1,9:12,1] = np.array((-8.,  .5, -.4))
@@ -296,97 +296,99 @@ confirm_equal( y,
 
 ################# rotate_point_r
 
-y = mrcal.rotate_point_r(r0_ref, x, out = out3)
-confirm_equal( y,
-               nps.matmult(x, nps.transpose(R_from_r(r0_ref))),
-               msg='rotate_point_r result')
+for what,r_ref,R_ref in (('r0_ref', r0_ref, R0_ref),
+                         ('r1_ref', r1_ref, R1_ref)):
+    y = mrcal.rotate_point_r(r_ref, x, out = out3)
+    confirm_equal( y,
+                   nps.matmult(x, nps.transpose(R_from_r(r_ref))),
+                   msg=f'{what}: rotate_point_r result')
 
-y, J_r, J_x = mrcal.rotate_point_r(r0_ref, x, get_gradients=True,
-                                   out = (out3, out33, out33a))
-J_r_ref = grad(lambda r: nps.matmult(x, nps.transpose(R_from_r(r))),
-               r0_ref)
-J_x_ref = grad(lambda x: nps.matmult(x, nps.transpose(R_from_r(r0_ref))),
-               x)
-confirm_equal( y,
-               nps.matmult(x, nps.transpose(R_from_r(r0_ref))),
-               msg='rotate_point_r result')
-confirm_equal( J_r,
-               J_r_ref,
-               msg='rotate_point_r J_r')
-confirm_equal( J_x,
-               J_x_ref,
-               msg='rotate_point_r J_x')
+    y, J_r, J_x = mrcal.rotate_point_r(r_ref, x, get_gradients=True,
+                                       out = (out3, out33, out33a))
+    J_r_ref = grad(lambda r: nps.matmult(x, nps.transpose(R_from_r(r))),
+                   r_ref)
+    J_x_ref = grad(lambda x: nps.matmult(x, nps.transpose(R_from_r(r_ref))),
+                   x)
+    confirm_equal( y,
+                   nps.matmult(x, nps.transpose(R_from_r(r_ref))),
+                   msg=f'{what}: rotate_point_r result')
+    confirm_equal( J_r,
+                   J_r_ref,
+                   msg=f'{what}: rotate_point_r J_r')
+    confirm_equal( J_x,
+                   J_x_ref,
+                   msg=f'{what}: rotate_point_r J_x')
 
-r0_ref_copy  = np.array(r0_ref)
-x_copy       = np.array(x)
-y = mrcal.rotate_point_r(r0_ref_copy, x_copy,
-                         out = x_copy)
-confirm_equal( y,
-               nps.matmult(x, nps.transpose(R_from_r(r0_ref))),
-               msg='rotate_point_r result written in-place into x')
+    r0_ref_copy  = np.array(r_ref)
+    x_copy       = np.array(x)
+    y = mrcal.rotate_point_r(r0_ref_copy, x_copy,
+                             out = x_copy)
+    confirm_equal( y,
+                   nps.matmult(x, nps.transpose(R_from_r(r_ref))),
+                   msg=f'{what}: rotate_point_r result written in-place into x')
 
-r0_ref_copy  = np.array(r0_ref)
-x_copy       = np.array(x)
-out33_copy   = np.array(out33)
-out33a_copy  = np.array(out33a)
-y, J_r, J_x = mrcal.rotate_point_r(r0_ref_copy, x_copy, get_gradients=True,
-                                   out = (x_copy, out33, out33a))
-confirm_equal( y,
-               nps.matmult(x, nps.transpose(R_from_r(r0_ref))),
-               msg='rotate_point_r (with gradients) result written in-place into x')
-confirm_equal( J_r,
-               J_r_ref,
-               msg='rotate_point_r (with gradients) result written in-place into x: J_r')
-confirm_equal( J_x,
-               J_x_ref,
-               msg='rotate_point_r (with gradients) result written in-place into x: J_x')
+    r0_ref_copy  = np.array(r_ref)
+    x_copy       = np.array(x)
+    out33_copy   = np.array(out33)
+    out33a_copy  = np.array(out33a)
+    y, J_r, J_x = mrcal.rotate_point_r(r0_ref_copy, x_copy, get_gradients=True,
+                                       out = (x_copy, out33, out33a))
+    confirm_equal( y,
+                   nps.matmult(x, nps.transpose(R_from_r(r_ref))),
+                   msg=f'{what}: rotate_point_r (with gradients) result written in-place into x')
+    confirm_equal( J_r,
+                   J_r_ref,
+                   msg=f'{what}: rotate_point_r (with gradients) result written in-place into x: J_r')
+    confirm_equal( J_x,
+                   J_x_ref,
+                   msg=f'{what}: rotate_point_r (with gradients) result written in-place into x: J_x')
 
-# inverted
-y = mrcal.rotate_point_r(r0_ref, x, out = out3, inverted=True)
-confirm_equal( y,
-               nps.matmult(x, R_from_r(r0_ref)),
-               msg='rotate_point_r(inverted) result')
+    # inverted
+    y = mrcal.rotate_point_r(r_ref, x, out = out3, inverted=True)
+    confirm_equal( y,
+                   nps.matmult(x, R_from_r(r_ref)),
+                   msg=f'{what}: rotate_point_r(inverted) result')
 
-y, J_r, J_x = mrcal.rotate_point_r(r0_ref, x, get_gradients=True,
-                                   out = (out3, out33, out33a),
-                                   inverted = True)
-J_r_ref = grad(lambda r: nps.matmult(x, R_from_r(r)),
-               r0_ref)
-J_x_ref = grad(lambda x: nps.matmult(x, R_from_r(r0_ref)),
-               x)
-confirm_equal( y,
-               nps.matmult(x, R_from_r(r0_ref)),
-               msg='rotate_point_r(inverted) result')
-confirm_equal( J_r,
-               J_r_ref,
-               msg='rotate_point_r(inverted) J_r')
-confirm_equal( J_x,
-               J_x_ref,
-               msg='rotate_point_r(inverted) J_x')
+    y, J_r, J_x = mrcal.rotate_point_r(r_ref, x, get_gradients=True,
+                                       out = (out3, out33, out33a),
+                                       inverted = True)
+    J_r_ref = grad(lambda r: nps.matmult(x, R_from_r(r)),
+                   r_ref)
+    J_x_ref = grad(lambda x: nps.matmult(x, R_from_r(r_ref)),
+                   x)
+    confirm_equal( y,
+                   nps.matmult(x, R_from_r(r_ref)),
+                   msg=f'{what}: rotate_point_r(inverted) result')
+    confirm_equal( J_r,
+                   J_r_ref,
+                   msg=f'{what}: rotate_point_r(inverted) J_r')
+    confirm_equal( J_x,
+                   J_x_ref,
+                   msg=f'{what}: rotate_point_r(inverted) J_x')
 
-# inverted, in-place
-r0_ref_copy  = np.array(r0_ref)
-x_copy       = np.array(x)
-y = mrcal.rotate_point_r(r0_ref_copy, x_copy, inverted = True,
-                         out = x_copy)
-confirm_equal( y,
-               nps.matmult(x, R_from_r(r0_ref)),
-               msg='rotate_point_r(inverted) result written in-place into x')
-r0_ref_copy  = np.array(r0_ref)
-x_copy       = np.array(x)
-out33_copy   = np.array(out33)
-out33a_copy  = np.array(out33a)
-y, J_r, J_x = mrcal.rotate_point_r(r0_ref_copy, x_copy, get_gradients=True, inverted = True,
-                                   out = (x_copy, out33, out33a))
-confirm_equal( y,
-               nps.matmult(x, R_from_r(r0_ref)),
-               msg='rotate_point_r(inverted, with-gradients) result written in-place into x')
-confirm_equal( J_r,
-               J_r_ref,
-               msg='rotate_point_r(inverted, with-gradients result written in-place into x) J_r')
-confirm_equal( J_x,
-               J_x_ref,
-               msg='rotate_point_r(inverted, with-gradients result written in-place into x) J_x')
+    # inverted, in-place
+    r0_ref_copy  = np.array(r_ref)
+    x_copy       = np.array(x)
+    y = mrcal.rotate_point_r(r0_ref_copy, x_copy, inverted = True,
+                             out = x_copy)
+    confirm_equal( y,
+                   nps.matmult(x, R_from_r(r_ref)),
+                   msg=f'{what}: rotate_point_r(inverted) result written in-place into x')
+    r0_ref_copy  = np.array(r_ref)
+    x_copy       = np.array(x)
+    out33_copy   = np.array(out33)
+    out33a_copy  = np.array(out33a)
+    y, J_r, J_x = mrcal.rotate_point_r(r0_ref_copy, x_copy, get_gradients=True, inverted = True,
+                                       out = (x_copy, out33, out33a))
+    confirm_equal( y,
+                   nps.matmult(x, R_from_r(r_ref)),
+                   msg=f'{what}: rotate_point_r(inverted, with-gradients) result written in-place into x')
+    confirm_equal( J_r,
+                   J_r_ref,
+                   msg=f'{what}: rotate_point_r(inverted, with-gradients result written in-place into x) J_r')
+    confirm_equal( J_x,
+                   J_x_ref,
+                   msg=f'{what}: rotate_point_r(inverted, with-gradients result written in-place into x) J_x')
 
 
 ################# transform_point_Rt
@@ -674,31 +676,32 @@ confirm_equal( J_x,
 
 ################# r_from_R
 
+for what,r_ref,R_ref in (('r0_ref', r0_ref, R0_ref),
+                         ('r1_ref', r1_ref, R1_ref)):
+    r = mrcal.r_from_R(R_ref, out = out3)
+    confirm_equal( r,
+                   r_ref,
+                   msg=f'{what}: r_from_R result')
 
-r = mrcal.r_from_R(R0_ref, out = out3)
-confirm_equal( r,
-               r0_ref,
-               msg='r_from_R result')
+    r, J_R = mrcal.r_from_R(R_ref, get_gradients=True,
+                            out = (out3,out333))
+    J_R_ref = grad(r_from_R,
+                   R_ref)
+    confirm_equal( r,
+                   r_ref,
+                   msg=f'{what}: r_from_R result')
+    confirm_equal( J_R,
+                   J_R_ref,
+                   msg=f'{what}: r_from_R J_R')
 
-r, J_R = mrcal.r_from_R(R0_ref, get_gradients=True,
-                        out = (out3,out333))
-J_R_ref = grad(r_from_R,
-               R0_ref)
-confirm_equal( r,
-               r0_ref,
-               msg='r_from_R result')
-confirm_equal( J_R,
-               J_R_ref,
-               msg='r_from_R J_R')
-
-# Do it again, actually calling opencv. This is both a test, and shows how to
-# migrate old code
-r, J_R = mrcal.r_from_R(R0_ref, get_gradients=True,
-                        out = (out3,out333))
-rref,J_R_ref = cv2.Rodrigues(R0_ref)
-confirm_equal( r,
-               rref,
-               msg='r_from_R result, comparing with cv2.Rodrigues')
+    # Do it again, actually calling opencv. This is both a test, and shows how to
+    # migrate old code
+    r, J_R = mrcal.r_from_R(R_ref, get_gradients=True,
+                            out = (out3,out333))
+    rref,J_R_ref = cv2.Rodrigues(R_ref)
+    confirm_equal( r,
+                   rref,
+                   msg=f'{what}: r_from_R result, comparing with cv2.Rodrigues')
 
 # I'm not comparing with opencv's gradient report or dr/dR. It doesn't match. I
 # know my gradient is correct because I numerically checked it above. Maybe
@@ -720,21 +723,38 @@ confirm_equal( mrcal.r_from_R(R_fuzzed_I), np.zeros((3,)),
                msg = 'r_from_R() can handle numerical fuzz')
 
 ################# R_from_r
-R = mrcal.R_from_r(r0_ref, out = out33)
-confirm_equal( R,
-               R0_ref,
-               msg='R_from_r result')
+for what,r_ref,R_ref in (('r0_ref', r0_ref, R0_ref),
+                         ('r1_ref', r1_ref, R1_ref)):
+    R = mrcal.R_from_r(r_ref, out = out33)
+    confirm_equal( R,
+                   R_ref,
+                   msg=f'{what}: R_from_r result')
 
-R, J_r = mrcal.R_from_r(r0_ref, get_gradients=True,
-                        out = (out33,out333))
-J_r_ref = grad(R_from_r,
-               r0_ref)
-confirm_equal( R,
-               R0_ref,
-               msg='R_from_r result')
-confirm_equal( J_r,
-               J_r_ref,
-               msg='R_from_r J_r')
+    R, J_r = mrcal.R_from_r(r_ref, get_gradients=True,
+                            out = (out33,out333))
+    J_r_ref = grad(R_from_r,
+                   r_ref)
+    confirm_equal( R,
+                   R_ref,
+                   msg=f'{what}: R_from_r result')
+    confirm_equal( J_r,
+                   J_r_ref,
+                   msg=f'{what}: R_from_r J_r')
+
+    # Do it again, actually calling opencv. This is both a test, and shows how to
+    # migrate old code
+    R, J_r = mrcal.R_from_r(r_ref, get_gradients=True,
+                            out = (out33,out333))
+    Rref,J_r_ref = cv2.Rodrigues(r_ref)
+    J_r_ref = nps.transpose(J_r_ref) # fix opencv's weirdness. Now shape=(9,3)
+    J_r_ref = J_r_ref.reshape(3,3,3)
+    confirm_equal( R,
+                   Rref,
+                   msg=f'{what}: R_from_r result, comparing with cv2.Rodrigues')
+    confirm_equal( J_r,
+                   J_r_ref,
+                   msg=f'{what}: R_from_r J_r, comparing with cv2.Rodrigues')
+
 
 # the implementation has a separate path for tiny R, so I test it separately
 R = mrcal.R_from_r(r0_ref_tiny, out = out33)
@@ -752,21 +772,6 @@ confirm_equal( R,
 confirm_equal( J_r,
                J_r_ref,
                msg='R_from_r J_r for tiny r0')
-
-# Do it again, actually calling opencv. This is both a test, and shows how to
-# migrate old code
-R, J_r = mrcal.R_from_r(r0_ref, get_gradients=True,
-                        out = (out33,out333))
-Rref,J_r_ref = cv2.Rodrigues(r0_ref)
-J_r_ref = nps.transpose(J_r_ref) # fix opencv's weirdness. Now shape=(9,3)
-J_r_ref = J_r_ref.reshape(3,3,3)
-confirm_equal( R,
-               Rref,
-               msg='R_from_r result, comparing with cv2.Rodrigues')
-confirm_equal( J_r,
-               J_r_ref,
-               msg='R_from_r J_r, comparing with cv2.Rodrigues')
-
 
 
 rt = mrcal.rt_from_Rt(Rt0_ref, out = out6)
