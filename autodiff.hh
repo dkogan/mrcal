@@ -187,6 +187,9 @@ struct val_withgrad_t
         return th;
     }
 
+    // This function does NOT check for overflow. The gradient is infinite at
+    // the valid bounds of the input. So the caller has to do the right thing in
+    // those cases
     val_withgrad_t<NGRAD> acos(void) const
     {
         val_withgrad_t<NGRAD> th;
