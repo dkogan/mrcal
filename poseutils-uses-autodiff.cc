@@ -112,6 +112,11 @@ r_from_R_core(// output
     // axis from u. I want th in [0,pi] so I can't compute it from u: I would
     // always have sin(th) > 0 so asin(th) would be in [0,th/2]. Thus I compute
     // th from trace(R) = 1 + 2*cos(th)
+    //
+    // There's an extra wrinkle here. Computing the axis from mag(u) only works
+    // if sin(th) != 0. So there are two special cases that must be handled: th
+    // ~ 0 and th ~ 180. If th ~ 0, then the axis doesn't matter and r ~ 0. If
+    // th ~ 180 then the axis DOES matter, and we need special logic.
     val_withgrad_t<N> tr = Rg[0] + Rg[4] + Rg[8];
     val_withgrad_t<N> u[3] =
         {
@@ -137,13 +142,103 @@ r_from_R_core(// output
         for(int i=0; i<3; i++)
             rg[i] = u[i] * mag_axis_recip * th;
     }
-    else
+    else if(costh.x > 0)
     {
         // small th. Can't divide by it. But I can look at the limit.
         //
         // u / (2 sinth)*th = u/2 *th/sinth ~ u/2
         for(int i=0; i<3; i++)
             rg[i] = u[i] / 2.;
+    }
+    else
+    {
+        // cos(th) < 0. So th ~ 180 = 180 + dth. And I have
+        //
+        //   R = I + sin(th) V + (1 - cos(th)) V^2
+        //     = I + sin(180 + dth) V + (1 - cos(180 + dth)) V^2
+        //     = I + (sin(180)cos(dth) + cos(180)sin(dth)) V + (1 - (cos(180)cos(dth) - sin(180)sin(dth))) V^2
+        //     ~ I - dth V + 2 V^2
+        //
+        // Once again, I, V^2 are symmetric; V is anti-symmetric. S
+        //
+        //   R - Rt = 2 sin(th) V
+        //          ~ 2 (sin(180)cos(dth) + cos(180)sin(dth)) V
+        //          = -2 dth V
+        // I want
+        //
+        //   r = th * v
+        //     = th * V[-(1,2),  +(0,2),  -(0,1)]
+        //     = ((Rt - R) / 2.)[-(1,2),  +(0,2),  -(0,1)] + pi v
+        //
+        // The first part of that (Rt-R)... captures the local behavior near
+        // th=pi. The second part of that (pi v) captures the operating point.
+        // For the operating point I compute v at exactly 180deg
+        //
+        //   R + Rt = 2 I + 2 (1 - cos(th)) V^2
+        //          = 2 I + 4 V^2
+        //-> V^2 = (R + Rt)/4 - I/2
+        //
+        //
+        //          [  0 -v2  v1]
+        //   V(v) = [ v2   0 -v0]
+        //          [-v1  v0   0]
+        //
+        //            [ -(v1^2+v2^2)       v0 v1         v0 v2     ]
+        //   V^2(v) = [      v0 v1      -(v0^2+v2^2)     v1 v2     ]
+        //            [      v0 v2         v1 v2      -(v0^2+v1^2) ]
+        //
+        // Let v be a unit vector. Then
+        //
+        //            [ v0^2 - 1    v0 v1       v0 v2    ]
+        //   V^2(v) = [ v0 v1       v1^2 - 1    v1 v2    ]
+        //            [ v0 v2       v1 v2       v2^2 - 1 ]
+        //
+        // I look only at the diagonal:
+        //
+        //   v[i] = +-sqrt( 1. + V^2[i,i] )
+
+        // Local behavior around th=180deg.
+        // ((Rt - R) / 2.)[-(1,2),  +(0,2),  -(0,1)]
+        for(int i=0; i<3; i++)
+            rg[i] = u[i] / -2.;
+
+        // Operating point: rg += pi v
+        // Here I just bias the result. I do NOT propagate gradients
+        const double Vsq_diag[3] =
+            {
+                (Rg[0*3 + 0].x - 1.) /2.,
+                (Rg[1*3 + 1].x - 1.) /2.,
+                (Rg[2*3 + 2].x - 1.) /2.
+            };
+        // This is abs(v) initially
+        double v[3] = {};
+        for(int i=0; i<3; i++)
+            if(1. + Vsq_diag[i] > 0.0)
+                v[i] = sqrt(1. + Vsq_diag[i]);
+        // Now I need to get the sign of each individual value. Overall, the
+        // sign of the vector v doesn't matter. I set the sign of a notably
+        // non-zero abs(v[i]) to >0, and go from there.
+        if(     v[0] > 0.5)
+        {
+            // I set v[0]>0. It's there already
+            if( Rg[0*3 + 1].x + Rg[1*3 + 0].x < 0 ) v[1] *= -1.;
+            if( Rg[0*3 + 2].x + Rg[2*3 + 0].x < 0 ) v[2] *= -1.;
+        }
+        else if(v[1] > 0.5)
+        {
+            if( Rg[0*3 + 1].x + Rg[1*3 + 0].x < 0 ) v[0] *= -1.;
+            // I set v[1]>0. It's there already
+            if( Rg[1*3 + 2].x + Rg[2*3 + 1].x < 0 ) v[2] *= -1.;
+        }
+        else
+        {
+            if( Rg[0*3 + 2].x + Rg[2*3 + 0].x < 0 ) v[0] *= -1.;
+            if( Rg[1*3 + 2].x + Rg[2*3 + 1].x < 0 ) v[1] *= -1.;
+            // I set v[2]>0. It's there already
+        }
+
+        for(int i=0; i<3; i++)
+            rg[i].x += v[i] * M_PI;
     }
 }
 

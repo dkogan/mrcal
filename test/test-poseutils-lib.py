@@ -722,6 +722,17 @@ R_fuzzed_I = \
 confirm_equal( mrcal.r_from_R(R_fuzzed_I), np.zeros((3,)),
                msg = 'r_from_R() can handle numerical fuzz')
 
+# I've seen this show up in the wild. r_from_R() was producing [0 0 0]
+R_false_0 = \
+    np.array(((-1.,  0.,  0.),
+              ( 0.,  0., -1.),
+              ( 0., -1.,  0.)),)
+r_false_0 = mrcal.r_from_R(R_false_0)
+if r_false_0[1] > 0.: r_false_0 *= -1 # this is unique up-to-sign. Accept both
+confirm_equal( r_false_0,
+               np.array((0., -np.pi/np.sqrt(2.), np.pi/np.sqrt(2.),)),
+               msg = 'r_from_R() failing case')
+
 ################# R_from_r
 for what,r_ref,R_ref in (('r0_ref', r0_ref, R0_ref),
                          ('r1_ref', r1_ref, R1_ref)):
