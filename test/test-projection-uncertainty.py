@@ -401,7 +401,13 @@ if args.write_models:
         filename = f"/tmp/models-baseline-camera{i}.cameramodel"
         models_baseline[i].write(filename)
         print(f"Wrote '{filename}'")
-    sys.exit()
+
+    if not args.do_sample:
+        sys.exit()
+    else:
+        # I wrote the no-input-noise-optimized model ("baseline"). I will write
+        # out the result from the first noise sample later
+        pass
 
 
 
@@ -2453,6 +2459,17 @@ if not args.do_sample:
                           optimization_inputs_baseline,
                           args.observed_pixel_uncertainty,
                           fixedframes)
+
+if args.write_models:
+    for i in range(args.Ncameras):
+
+        model = mrcal.cameramodel(optimization_inputs = optimization_inputs_sampled[0],
+                                  icam_intrinsics     = i)
+        filename = f"/tmp/models-noisesample0-camera{i}.cameramodel"
+        model.write(filename)
+        print(f"Wrote '{filename}'")
+    sys.exit()
+
 
 
 def check_uncertainties_at(q0_baseline, idistance):
