@@ -190,6 +190,19 @@ struct val_withgrad_t
     // This function does NOT check for overflow. The gradient is infinite at
     // the valid bounds of the input. So the caller has to do the right thing in
     // those cases
+    val_withgrad_t<NGRAD> asin(void) const
+    {
+        val_withgrad_t<NGRAD> th;
+        th.x = ::asin(x);
+        double dasin_dx = 1. / ::sqrt( 1. - x*x );
+        for(int i=0; i<NGRAD; i++)
+            th.j[i] = dasin_dx * j[i];
+        return th;
+    }
+
+    // This function does NOT check for overflow. The gradient is infinite at
+    // the valid bounds of the input. So the caller has to do the right thing in
+    // those cases
     val_withgrad_t<NGRAD> acos(void) const
     {
         val_withgrad_t<NGRAD> th;
