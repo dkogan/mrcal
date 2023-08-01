@@ -394,8 +394,13 @@ calobject_warp_baseline     = optimization_inputs_baseline['calobject_warp']
 
 if args.write_models:
     for i in range(args.Ncameras):
-        models_true    [i].write(f"/tmp/models-true-camera{i}.cameramodel")
-        models_baseline[i].write(f"/tmp/models-baseline-camera{i}.cameramodel")
+        filename = f"/tmp/models-true-camera{i}.cameramodel"
+        models_true    [i].write(filename)
+        print(f"Wrote '{filename}'")
+
+        filename = f"/tmp/models-baseline-camera{i}.cameramodel"
+        models_baseline[i].write(filename)
+        print(f"Wrote '{filename}'")
     sys.exit()
 
 
