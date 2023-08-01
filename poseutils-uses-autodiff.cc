@@ -89,7 +89,7 @@ r_from_R_core(// output
               const val_withgrad_t<N>* Rg)
 {
     val_withgrad_t<N> tr = Rg[0] + Rg[4] + Rg[8];
-    val_withgrad_t<N> axis[3] =
+    val_withgrad_t<N> u[3] =
         {
             Rg[2*3 + 1] - Rg[1*3 + 2],
             Rg[0*3 + 2] - Rg[2*3 + 0],
@@ -98,28 +98,28 @@ r_from_R_core(// output
 
     val_withgrad_t<N> costh = (tr - 1.) / 2.;
 
-    if( (fabs(axis[0].x) > 1e-10 ||
-         fabs(axis[1].x) > 1e-10 ||
-         fabs(axis[2].x) > 1e-10) &&
+    if( (fabs(u[0].x) > 1e-10 ||
+         fabs(u[1].x) > 1e-10 ||
+         fabs(u[2].x) > 1e-10) &&
         fabs(costh.x)   < (1. - 1e-10) )
     {
         // normal path
         val_withgrad_t<N> th = costh.acos();
         val_withgrad_t<N> mag_axis_recip =
             val_withgrad_t<N>(1.) /
-            ((axis[0]*axis[0] +
-              axis[1]*axis[1] +
-              axis[2]*axis[2]).sqrt());
+            ((u[0]*u[0] +
+              u[1]*u[1] +
+              u[2]*u[2]).sqrt());
         for(int i=0; i<3; i++)
-            rg[i] = axis[i] * mag_axis_recip * th;
+            rg[i] = u[i] * mag_axis_recip * th;
     }
     else
     {
         // small th. Can't divide by it. But I can look at the limit.
         //
-        // axis / (2 sinth)*th = axis/2 *th/sinth ~ axis/2
+        // u / (2 sinth)*th = u/2 *th/sinth ~ u/2
         for(int i=0; i<3; i++)
-            rg[i] = axis[i] / 2.;
+            rg[i] = u[i] / 2.;
     }
 }
 
