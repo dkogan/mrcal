@@ -405,12 +405,12 @@ I solve the calibration problem using [[https://en.wikipedia.org/wiki/Ordinary_l
 discrepancies between pixel observations and their predictions. The pixel
 observations $\vec q_\mathrm{ref}$ are noisy, and I assume that they are
 zero-mean, independent and normally-distributed. In particular, I treat the 2
-values in each observation ($x$ and $y$) as two independent measurements. I have
-no proof that the noise truly meets all those criteria, but empirical evidence
-suggests that these are all reasonable assumptions. And they simplify lots of
-analyses that we want to do. In order to propagate the input noise, we need to
-quantify it: for the $i$ -th observed point, what is $\mathrm{Var}\left(\vec
-q_{\mathrm{ref}_i}\right)$?
+values in each observation ($x$ and $y$) as two independent measurements.
+There's no proof that the noise truly meets all those criteria, but empirical
+evidence suggests that these are all reasonable assumptions. And they simplify
+lots of analyses that we want to do. In order to propagate the input noise, we
+need to quantify it: for the $i$ -th observed point, what is
+$\mathrm{Var}\left(\vec q_{\mathrm{ref}_i}\right)$?
 
 Chessboard corner detectors often make it easy to infer the /relative/ accuracy
 levels between the different corners, as opposed to an /absolute/ noise level
@@ -438,18 +438,80 @@ and the variance for all the pixel observations
 
 The remaining piece is to compute $\sigma$, but this is hard to measure
 directly. There's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in mrgingham, but it doesn't obviously work well.
-Thus the current method is to estimate $\sigma$ from the solve residuals:
+Thus the current method is to estimate $\sigma$ from the solve residuals.
 
-\[\sigma = \sqrt{\mathrm{Var}\left( \vec x^*_\mathrm{observations} \right)}\]
+** Estimating the input noise
+I'm trying to find a relationship between the solve residuals $\vec
+x^*$ (which I have from the solve) and the input noise
+$\Delta \vec q_\mathrm{ref}$.
 
-where $\vec x^*$ is the measurement vector at the optimum. If all the
-assumptions are satisfied and we have enough data, then the input noise is the
-only source of error, and the only thing that affects the optimal $\vec x$, and
-this way of evaluating $\sigma$ is reasonable. If we have too little data, we're
-going to be overfitting, and the $\sigma$ computed using the above method will
-be too low. The current thought is that this will be hard to do with chessboards
-and even a half-hearted calibration will always have enough data. So mrcal
-currently doesn't try to catch this case. This might be added in the future.
+I use $\vec x^*$ to signify the measurement vector at the optimum. For this
+analysis I make a simplifying assumption that the regularization terms are
+insignificant and that the whole measurement vector $\vec x$ contains
+observations.
+
+Let's start with a perfect noise-free solve. The observations $\vec
+q_\mathrm{ref}$ are perfect and $\vec x = \vec 0$.
+
+Then I add some input noise $\Delta \vec q_\mathrm{ref}$. I now have
+
+\[\vec x = -W \Delta \vec q_\mathrm{ref}\]
+
+And I reoptimize. As noted on the [[file:uncertainty.org::#propagating-to-state-vector][projection uncertainty page]] this moves the
+optimization state by
+
+\[
+\Delta \vec b = \left( J^T J \right)^{-1} J^T W \Delta \vec q_\mathrm{ref}
+\]
+
+I assume that everything is locally linear, so we can quantify the corresponding
+shift in the measurement vector:
+
+\begin{aligned}
+\vec x^* &= -W \Delta \vec q_\mathrm{ref} + \Delta \vec x \\
+&= -W \Delta \vec q_\mathrm{ref} + J \Delta \vec b \\
+&= -W \Delta \vec q_\mathrm{ref} + J \left( J^T J \right)^{-1} J^T W \Delta \vec q_\mathrm{ref} \\
+&= \left( -I + J \left( J^T J \right)^{-1} J^T \right) W \Delta \vec q_\mathrm{ref}
+\end{aligned}
+
+And
+
+\[
+\left\Vert \vec x^* \right\Vert^2 =
+\Delta \vec q_\mathrm{ref}^T W \left( I - J \left( J^T J \right)^{-1} J^T \right) W \Delta \vec q_\mathrm{ref}
+\]
+
+Let's treat $\Delta \vec q_\mathrm{ref}$ as a random variable, and look at the
+expectation:
+
+\begin{aligned}
+E\left( \left\Vert \vec x^* \right\Vert^2 \right) &=
+\mathrm{tr}
+\left( I - J \left( J^T J \right)^{-1} J^T \right)
+\mathrm{Var}
+\left(
+W \Delta \vec q_\mathrm{ref}
+\right) \\
+&=
+\left(N_\mathrm{measurements} - N_\mathrm{state}\right) \sigma^2
+\end{aligned}
+
+See [[#noise-in-measurement-vector][below]] for notes about computing $\mathrm{Var}\left(W \Delta \vec q_\mathrm{ref}\right)$.
+
+So the expected RMS reprojection error in a solve is
+
+\[
+\sqrt{ \frac{E\left( \left\Vert \vec x^* \right\Vert^2 \right)}{N_\mathrm{measurements}}} =
+\sqrt{ \frac{\left(N_\mathrm{measurements} - N_\mathrm{state}\right) \sigma^2}{N_\mathrm{measurements}}} =
+\sigma \sqrt{1 - \frac{N_\mathrm{state}}{N_\mathrm{measurements}}}
+\]
+
+If we have information-full data, such as chessboard observations, then
+$N_\mathrm{measurements} >> N_\mathrm{state}$, and we can simply assume that the
+standard deviation of the input observation noise $\sigma$ is the RMS
+reprojection error in the solve. However, with lower-quality data, such as
+observations of discrete points, the extra correction factor of $\sqrt{1 -
+\frac{N_\mathrm{state}}{N_\mathrm{measurements}}}$ cannot be ignored.
 
 ** Noise in the measurement vector $\vec x$
 :PROPERTIES:
