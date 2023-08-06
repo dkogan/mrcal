@@ -81,6 +81,10 @@ noise is. The current approach is described in the [[file:formulation.org::#nois
 formulation]].
 
 * Propagating input noise to the state vector
+:PROPERTIES:
+:CUSTOM_ID: propagating-to-state-vector
+:END:
+
 We solved the [[file:formulation.org][least squares problem]], so we have the optimal state vector $\vec
 b^*$.
 
