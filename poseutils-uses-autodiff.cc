@@ -159,7 +159,7 @@ r_from_R_core(// output
         //     = I + (sin(180)cos(dth) + cos(180)sin(dth)) V + (1 - (cos(180)cos(dth) - sin(180)sin(dth))) V^2
         //     ~ I - dth V + 2 V^2
         //
-        // Once again, I, V^2 are symmetric; V is anti-symmetric. S
+        // Once again, I, V^2 are symmetric; V is anti-symmetric. So
         //
         //   R - Rt = 2 sin(th) V
         //          ~ 2 (sin(180)cos(dth) + cos(180)sin(dth)) V
