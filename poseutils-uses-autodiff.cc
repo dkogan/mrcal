@@ -204,17 +204,17 @@ r_from_R_core(// output
 
         // Operating point: rg += pi v
         // Here I just bias the result. I do NOT propagate gradients
-        const double Vsq_diag[3] =
+        const double Vsq_diag_plus_one[3] =
             {
-                (Rg[0*3 + 0].x - 1.) /2.,
-                (Rg[1*3 + 1].x - 1.) /2.,
-                (Rg[2*3 + 2].x - 1.) /2.
+                (Rg[0*3 + 0].x + 1.) /2.,
+                (Rg[1*3 + 1].x + 1.) /2.,
+                (Rg[2*3 + 2].x + 1.) /2.
             };
         // This is abs(v) initially
         double v[3] = {};
         for(int i=0; i<3; i++)
-            if(1. + Vsq_diag[i] > 0.0)
-                v[i] = sqrt(1. + Vsq_diag[i]);
+            if(Vsq_diag_plus_one[i] > 0.0)
+                v[i] = sqrt(Vsq_diag_plus_one[i]);
         // Now I need to get the sign of each individual value. Overall, the
         // sign of the vector v doesn't matter. I set the sign of a notably
         // non-zero abs(v[i]) to >0, and go from there.
