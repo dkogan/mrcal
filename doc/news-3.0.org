@@ -79,3 +79,61 @@ TypeError: 'do_apply_regularization_unity_cam01' is an invalid keyword argument 
   - Does too little data give smaller residuals? It should. Is this reflected in
     the sqrt() factor?
 
+** triangulated features merge
+*** =git grep -n Noutliers= Noutliers has change meaning: it's now =Nmeasurements_outliers=
+
+   #+begin_src diff
+   diff --git a/doc/c-api.org b/doc/c-api.org
+   index 7d3c8939..2ae7d9d5 100644
+   --- a/doc/c-api.org
+   +++ b/doc/c-api.org
+        /* The RMS error of the optimized fit at the optimum. Generally the residual */
+        /* vector x contains error values for each element of q, so N observed pixels */
+        /* produce 2N measurements: len(x) = 2*N. And the RMS error is */
+        /*   sqrt( norm2(x) / N ) */
+        double rms_reproj_error__pixels;
+
+   -    /* How many pixel observations were thrown out as outliers. Each pixel */
+   -    /* observation produces two measurements. Note that this INCLUDES any */
+   -    /* outliers that were passed-in at the start */
+   +    /* How many measurements were thrown out as outliers. Each pixel */
+   +    /* observation of a chessboard point produces two measurements (x,y). */
+   +    /* Note: this INCLUDES any outliers that were passed-in at the start */
+        int Noutliers;
+    } mrcal_stats_t;
+
+
+   --- a/mrcal-calibrate-cameras
+   +++ b/mrcal-calibrate-cameras
+   @@ -745,13 +745,13 @@ Npoints_chessboard = args.object_width_n*args.object_height_n*Nobservations
+    residuals = \
+        stats['x'][:Npoints_chessboard*2]. \
+        reshape(Nobservations, args.object_height_n, args.object_width_n, 2)
+    worst_point_err = np.sqrt(np.max(nps.norm2( nps.clump(residuals, n=3) )))
+    report += f"Worst residual (by measurement): {worst_point_err:.01f} pixels\n"
+    if not args.skip_outlier_rejection:
+   -    report += "Noutliers: {} out of {} total points: {:.01f}% of the data\n". \
+   +    report += "Noutliers: {} out of {} total measurements: {:.01f}% of the data\n". \
+            format(stats['Noutliers'],
+                   args.object_height_n*args.object_width_n*len(observations),
+                   100.0 * stats['Noutliers'] / (args.object_height_n*args.object_width_n*len(observations)))
+    if calobject_warp is not None:
+        report += f"calobject_warp = {calobject_warp}\n"
+ 
+   #+end_src
+
+*** divergent-rays-are outlier logic is weird
+I declare and outlier on the first pass. That pass is for getting the threshold
+
+
+** release checklist
+These are notes to myself containing the steps needed to roll a new release
+
+- docs: make sure all new python functions are described in python.org
+- new [[file:versions.org][versions]]
+- new [[file:news-2.2.org][news]]
+- [[file:~/projects/mrcal/Makefile::PROJECT_NAME := mrcal][Makefile ABI version]]
+- package build and upload
+- versioned docs upload
+- git tag
+- move docs-default (symlink) on the server
