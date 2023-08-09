@@ -50,6 +50,23 @@ gradients, pass get_gradients=True. Logic:
 
 This function supports broadcasting fully.
 
+Note that the rotation r is not unique: the rotation angle (the magnitude of r)
+is only unique modulo 2 pi. And even then, rotations around axis v with angle
+pi+th are equivalent to rotations around axis -v with angle pi-th. So usually we
+will return r with mag(r) in [0,pi]. If the rotation angle is near pi, the
+returned r might have a magnitude slightly larger than pi.
+
+Furthermore, the gradient dr/dR needs a note. R is a (3,3) matrix, but not all
+(3,3) matrices are valid rotations. Let's define vecR as a flattened (9,) vector
+of all the values in R. The local linearization
+
+  delta_r = dr/dvecR delta_vecR
+
+is only meaningful if delta_vecR is in the valid-rotation subspace. Thus the
+gradient returned by this function is any dr/dvecR + K where K maps
+out-of-valid-R directions to 0. The matrix returned by this function CANNOT be
+assumed to have K = 0.
+
 ARGUMENTS
 
 - R: array of shape (3,3). This matrix defines the rotation. It is assumed that
@@ -235,6 +252,9 @@ gradients, pass get_gradients=True. Logic:
 Note that the translation gradient isn't returned: it is always the identity
 
 This function supports broadcasting fully.
+
+Some details about the returned r and gradients of dR are described in the
+documentation for r_from_R()
 
 ARGUMENTS
 
