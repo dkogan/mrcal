@@ -5,8 +5,8 @@
 TESTS :=																\
   test/test-pywrap-functions.py														\
   test/test-pylib-projections.py													\
-  test/test-poseutils.py														\
   test/test-cameramodel.py														\
+  test/test-poseutils.py														\
   test/test-poseutils-lib.py														\
   test/test-projections.py														\
   test/test-projection--special-cases.py__pinhole											\
