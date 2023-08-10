@@ -34,12 +34,14 @@ def sample_dqref(observations,
     return q_noise, observations_perturbed
 
 
-def grad(f, x, step=1e-6):
+def grad(f, x,
+         *,
+         step   = 1e-6):
     r'''Computes df/dx at x
 
     f is a function of one argument. If the input has shape Si and the output
-    has shape So, the returned gradient has shape So+Si. This applies central
-    differences
+    has shape So, the returned gradient has shape So+Si. This computes forward
+    differences.
 
     '''
 
@@ -49,9 +51,9 @@ def grad(f, x, step=1e-6):
     def df_dxi(i, d,dflat):
 
         dflat[i] = step
-        fplus  = f(x+d)
-        fminus = f(x-d)
-        j = (fplus-fminus)/(2.*step)
+        f0    = f(x)
+        fplus = f(x+d)
+        j = (fplus-f0)/step
         dflat[i] = 0
         return j
 
