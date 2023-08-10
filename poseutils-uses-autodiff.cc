@@ -26,15 +26,13 @@ rotate_point_r_core(// output
     // Rodrigues rotation formula:
     //   xrot = x cos(th) + cross(axis, x) sin(th) + axis axist x (1 - cos(th))
     //
-    // I have r = axis*th -> th = norm(r) ->
+    // I have r = axis*th -> th = mag(r) ->
     //   xrot = x cos(th) + cross(r, x) sin(th)/th + r rt x (1 - cos(th)) / (th*th)
 
-    // an inversion would flip the sign on:
-    // - rg
-    // - cross
-    // - inner
-    // But inner is always multiplied by rg, making the sign irrelevant. So an
-    // inversion only flips the sign on the cross
+    // if inverted: we have r <- -r, axis <- axis, th <- -th
+    //
+    // According to the expression above, this only flips the sign on the
+    // cross() term
     double sign = inverted ? -1.0 : 1.0;
 
     const val_withgrad_t<N> th2 =
@@ -67,7 +65,8 @@ rotate_point_r_core(// output
     }
     else
     {
-        // Non-small rotation. This is the normal path
+        // Non-small rotation. This is the normal path. Note that this path is
+        // still valid even if th ~ 180deg
 
         const val_withgrad_t<N> th = th2.sqrt();
         const vec_withgrad_t<N, 2> sc = th.sincos();
