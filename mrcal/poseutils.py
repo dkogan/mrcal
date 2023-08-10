@@ -660,6 +660,12 @@ rotations at the same time.
 In-place operation is supported; the output array may be the same as either of
 the input arrays to overwrite the input.
 
+Note that the rotation r is not unique: the rotation angle (the magnitude of r)
+is only unique modulo 2 pi. And even then, rotations around axis v with angle
+pi+th are equivalent to rotations around axis -v with angle pi-th. So usually we
+will have r with mag(r) in [0,pi]. This function might return a rotation outside
+this range.
+
 ARGUMENTS
 
 - *r: a list of rotations to compose. Usually we'll be composing two rotations,
@@ -782,6 +788,9 @@ transformations at the same time.
 
 In-place operation is supported; the output array may be the same as either of
 the input arrays to overwrite the input.
+
+Some details about the returned r are described in the documentation for
+compose_r()
 
 ARGUMENTS
 
