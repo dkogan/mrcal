@@ -167,12 +167,16 @@ r_from_R_core(// output
         // I want
         //
         //   r = th * v
-        //     = th * V[-(1,2),  +(0,2),  -(0,1)]
-        //     = ((Rt - R) / 2.)[-(1,2),  +(0,2),  -(0,1)] + pi v
+        //     = (180deg + dth) * v
         //
-        // The first part of that (Rt-R)... captures the local behavior near
-        // th=pi. The second part of that (pi v) captures the operating point.
-        // For the operating point I compute v at exactly 180deg
+        // v comes from V: v = [-V12, V02, -V01]; Let's denote this V[i]
+        //
+        // So r = dth v +- 180deg v
+        //      = ((R - Rt) / -2.)[i] +- 180deg V[i]
+        //
+        // dth v is u / -2 (we computed u above)
+        //
+        // For V[i] we need the symmetric parts:
         //
         //   R + Rt = 2 I + 2 (1 - cos(th)) V^2
         //          = 2 I + 4 V^2
@@ -187,7 +191,22 @@ r_from_R_core(// output
         //   V^2(v) = [      v0 v1      -(v0^2+v2^2)     v1 v2     ]
         //            [      v0 v2         v1 v2      -(v0^2+v1^2) ]
         //
-        // Let v be a unit vector. Then
+        // I want v be a unit vector. Can I assume that? From above:
+        //
+        //   tr(V^2) = -2 norm2(v)
+        //
+        // So I want to assume that tr(V^2) = -2. The earlier expression had
+        //
+        //   R + Rt = 2 I + 4 V^2
+        //
+        // -> tr(R + Rt) = tr(2 I + 4 V^2)
+        // -> tr(V^2) = (tr(R + Rt) - 6)/4
+        //            = (2 tr(R) - 6)/4
+        //            = (1 + 2*cos(th) - 3)/2
+        //            = -1 + cos(th)
+        //
+        // Near th ~ 180deg, this is -2 as required. So we can assume that
+        // mag(v)=1:
         //
         //            [ v0^2 - 1    v0 v1       v0 v2    ]
         //   V^2(v) = [ v0 v1       v1^2 - 1    v1 v2    ]
@@ -197,48 +216,55 @@ r_from_R_core(// output
         //
         //   v[i] = +-sqrt( 1. + V^2[i,i] )
 
-        // Local behavior around th=180deg.
-        // ((Rt - R) / 2.)[-(1,2),  +(0,2),  -(0,1)]
+
         for(int i=0; i<3; i++)
             rg[i] = u[i] / -2.;
 
-        // Operating point: rg += pi v
-        // Here I just bias the result. I do NOT propagate gradients
-        const double Vsq_diag_plus_one[3] =
+        // Now rg += pi v
+        const val_withgrad_t<N> vsq[3] =
             {
-                (Rg[0*3 + 0].x + 1.) /2.,
-                (Rg[1*3 + 1].x + 1.) /2.,
-                (Rg[2*3 + 2].x + 1.) /2.
+                (Rg[0*3 + 0] + 1.) /2.,
+                (Rg[1*3 + 1] + 1.) /2.,
+                (Rg[2*3 + 2] + 1.) /2.
             };
         // This is abs(v) initially
-        double v[3] = {};
+        val_withgrad_t<N> v[3] = {};
         for(int i=0; i<3; i++)
-            if(Vsq_diag_plus_one[i] > 0.0)
-                v[i] = sqrt(Vsq_diag_plus_one[i]);
+            if(vsq[i].x > 0.0)
+                v[i] = vsq[i].sqrt();
         // Now I need to get the sign of each individual value. Overall, the
         // sign of the vector v doesn't matter. I set the sign of a notably
         // non-zero abs(v[i]) to >0, and go from there.
-        if(     v[0] > 0.5)
+
+        // threshold can be anything notably > 0. I'd like to encourage the same
+        // branch to always be taken, so I set the thresholds relatively low
+        if(     v[0].x > 0.1)
         {
-            // I set v[0]>0. It's there already
-            if( Rg[0*3 + 1].x + Rg[1*3 + 0].x < 0 ) v[1] *= -1.;
-            if( Rg[0*3 + 2].x + Rg[2*3 + 0].x < 0 ) v[2] *= -1.;
+            // I leave v[0]>0.
+            //   V^2[0,1] must have the same sign as v1
+            //   V^2[0,2] must have the same sign as v2
+            if( (Rg[0*3 + 1].x + Rg[1*3 + 0].x) < 0 ) v[1] *= -1.;
+            if( (Rg[0*3 + 2].x + Rg[2*3 + 0].x) < 0 ) v[2] *= -1.;
         }
-        else if(v[1] > 0.5)
+        else if(v[1].x > 0.1)
         {
-            if( Rg[0*3 + 1].x + Rg[1*3 + 0].x < 0 ) v[0] *= -1.;
-            // I set v[1]>0. It's there already
-            if( Rg[1*3 + 2].x + Rg[2*3 + 1].x < 0 ) v[2] *= -1.;
+            // I leave v[1]>0.
+            //   V^2[1,0] must have the same sign as v0
+            //   V^2[1,2] must have the same sign as v2
+            if( (Rg[1*3 + 0].x + Rg[0*3 + 1].x) < 0 ) v[0] *= -1.;
+            if( (Rg[1*3 + 2].x + Rg[2*3 + 1].x) < 0 ) v[2] *= -1.;
         }
         else
         {
-            if( Rg[0*3 + 2].x + Rg[2*3 + 0].x < 0 ) v[0] *= -1.;
-            if( Rg[1*3 + 2].x + Rg[2*3 + 1].x < 0 ) v[1] *= -1.;
-            // I set v[2]>0. It's there already
+            // I leave v[2]>0.
+            //   V^2[2,0] must have the same sign as v0
+            //   V^2[2,1] must have the same sign as v1
+            if( (Rg[2*3 + 0].x + Rg[0*3 + 2].x) < 0 ) v[0] *= -1.;
+            if( (Rg[2*3 + 1].x + Rg[1*3 + 2].x) < 0 ) v[1] *= -1.;
         }
 
         for(int i=0; i<3; i++)
-            rg[i].x += v[i] * M_PI;
+            rg[i] += v[i] * M_PI;
     }
 }
 
