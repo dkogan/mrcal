@@ -18,7 +18,6 @@ from test_poseutils_helpers import \
     r_from_R,                      \
     compose_r
 
-
 def wrap_r_unconditional(r, dr_dX = None):
     '''Unwrap a Rodrigues vector r
 
@@ -128,38 +127,6 @@ axes /= nps.dummy(nps.mag(axes), -1) # normalize
 for axis in axes:
     for th0 in (-np.pi, 0, np.pi):
         for dth in (-1e-4, -1e-7, -1e-10, 0, 1e-10, 1e-7, 1e-4):
-
-            # check these
-
-            # th0 = 0
-            # dth = 1e-4
-
-
-            # # th0 = 0
-            # # dth = -1e-4
-
-            # # th0 = np.pi
-            # # dth = -1e-4
-
-            # # th0 = -np.pi
-            # # dth = -1e-4
-
-            # # th0 = 0
-            # # dth = 0
-
-
-
-
-            # th0 = 0
-            # dth = 1e-5
-
-
-
-
-
-
-
-
 
             r = (th0 + dth) * axis
 
@@ -281,7 +248,7 @@ for axis in axes:
                                     r1)
                 confirm_equal( wrap_r(r01),
                                wrap_r(r01_ref),
-                               msg=f'compose_r(r0,r1) r01 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+                               msg=f'compose_r(r0,r1) r0 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
                 confirm_equal( wrap_r(r01,     dr_dX = dr01_dr0),
                                wrap_r(r01_ref, dr_dX = dr01_dr0__ref),
                                msg=f'compose_r(r0,r1) dr01_dr0 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
@@ -298,7 +265,7 @@ for axis in axes:
                                      r1)
                 confirm_equal( wrap_r(r10),
                                wrap_r(r10_ref),
-                               msg=f'compose_r(r1,r0) r10 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+                               msg=f'compose_r(r1,r0) r0 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
                 confirm_equal( wrap_r(r10,     dr_dX = dr10_dr0),
                                wrap_r(r10_ref, dr_dX = dr10_dr0__ref),
                                msg=f'compose_r(r1,r0) dr10_dr0 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
@@ -306,10 +273,32 @@ for axis in axes:
                                wrap_r(r10_ref, dr_dX = dr10_dr1__ref),
                                msg=f'compose_r(r1,r0) dr10_dr1 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
 
-            p = np.array((3., -0.2, -0.9),)
+            ######### rotate_point_r
+            if True:
 
+                # Simple reference implementation. Should move this to
+                # test_poseutils_helpers.py. And test_poseutils_lib.py should
+                # use it
+                def rotate_point_r(r,p):
+                    return nps.inner(p, R_from_r(r))
 
-            # also do transform_point_r
+                p = np.array((3., -0.2, -0.9),)
 
+                pt, dpt_dr, dpt_dp = mrcal.rotate_point_r(r,p, get_gradients = True)
+                pt_ref             = rotate_point_r(r,p)
+
+                dpt_dr__ref = grad(lambda r: rotate_point_r(r,p),
+                                   r)
+                dpt_dp__ref = grad(lambda p: rotate_point_r(r,p),
+                                   p)
+                confirm_equal( pt,
+                               pt_ref,
+                               msg=f'rotate_point_r(r,p) r near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+                confirm_equal(dpt_dr,
+                              dpt_dr__ref,
+                              msg=f'rotate_point_r(r,p) dpt_dr near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+                confirm_equal(dpt_dp,
+                              dpt_dp__ref,
+                              msg=f'rotate_point_r(r,p) dpt_dp near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
 
 finish()
