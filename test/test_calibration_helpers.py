@@ -36,12 +36,17 @@ def sample_dqref(observations,
 
 def grad(f, x,
          *,
+         switch = None,
          step   = 1e-6):
     r'''Computes df/dx at x
 
     f is a function of one argument. If the input has shape Si and the output
     has shape So, the returned gradient has shape So+Si. This computes forward
     differences.
+
+    If the function being evaluated produces bimodal output, the step might move
+    us to a different mode, giving a falsely-high difference. Use the "switch"
+    argument to switch to the other mode in this case.
 
     '''
 
@@ -53,6 +58,8 @@ def grad(f, x,
         dflat[i] = step
         f0    = f(x)
         fplus = f(x+d)
+        if switch is not None and nps.norm2(fplus-f0) > 1.:
+            fplus = switch(fplus)
         j = (fplus-f0)/step
         dflat[i] = 0
         return j
