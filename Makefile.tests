@@ -8,6 +8,7 @@ TESTS :=																\
   test/test-cameramodel.py														\
   test/test-poseutils.py														\
   test/test-poseutils-lib.py														\
+  test/test-poseutils-near-singularity.py												\
   test/test-projections.py														\
   test/test-projection--special-cases.py__pinhole											\
   test/test-projection--special-cases.py__stereographic											\
