@@ -104,7 +104,7 @@ def wrap_r(r,
         return wrap_r_unconditional(r)
 
     if r_match_direction is not None:
-        if nps.inner(r, r_match_direction) > 0:
+        if nps.inner(r, r_match_direction) >= 0:
             return dr_dX
         return wrap_r_unconditional(r, dr_dX)
     if nps.mag(r) <= np.pi:
