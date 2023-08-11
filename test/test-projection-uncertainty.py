@@ -2190,6 +2190,46 @@ The rt_refperturbed_ref formulation:
                 print(f"RMS error perturbed           = {np.mean(err_rms_cross_ref0)} pixels")
                 print(f"RMS error perturbed_solvedref = {np.mean(err_rms_cross_solved)} pixels")
 
+
+                if 0:
+                    # crude plotting to make sure the solved rt_ref_refperturbed
+                    # are near optimal
+                    def compute(rt_ref_refperturbed):
+
+                        what = 'point'
+                        pcam = \
+                            mrcal.transform_point_rt(mrcal.compose_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
+                                                                      rt_ref_refperturbed),
+                                                     query_point[0,idx_points])
+                        q_cross = \
+                            mrcal.project(pcam,
+                                          baseline_optimization_inputs['lensmodel'],
+                                          baseline_intrinsics[ idx_camintrinsics[what], :])
+
+                        x_cross0 = (q_cross - baseline_observations[what][...,:2])*nps.dummy(weight[what],-1)
+                        x_cross0[...,weight[what]<=0,:] = 0 # outliers
+
+                        norm2 = nps.norm2(x_cross0.ravel())
+                        return np.sqrt( norm2 / (Nmeas_cross/2) )
+
+                    i = 3
+
+                    b = compute(rt_ref_refperturbed[0])
+                    delta = np.linspace(-1e-5, 1e-5, 1000)
+                    dirac = np.zeros((6,), dtype=float)
+                    dirac[i] = 1.
+                    e = np.array([compute(rt_ref_refperturbed[0] + d*dirac) \
+                                  for d in delta])
+
+                    import gnuplotlib as gp
+                    gp.plot(delta+rt_ref_refperturbed[0,i], b+e)
+
+                    import IPython
+                    IPython.embed()
+                    sys.exit()
+
+
+
         return rt_ref_refperturbed
 
 
