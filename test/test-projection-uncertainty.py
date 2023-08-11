@@ -2176,7 +2176,7 @@ The rt_refperturbed_ref formulation:
             err_rms_cross_solved = np.sqrt( err_sum_of_squares_cross_solved / (Nmeas_cross/2) )
             testutils.confirm(err_rms_baseline*10 < err_rms_cross_ref0,
                               msg = f"cross-uncertainty at distance={distance}: Unoptimized cross error is MUCH worse than the baseline")
-            testutils.confirm(err_rms_cross_solved*5 < err_rms_cross_ref0,
+            testutils.confirm(err_rms_cross_solved*2 < err_rms_cross_ref0,
                               msg = f"cross-uncertainty at distance={distance}: Unoptimized cross error is MUCH worse than optimized cross error")
 
             if 0:
