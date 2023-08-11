@@ -582,9 +582,11 @@ for what,r_ref,R_ref in (('r0_ref', r0_ref, R0_ref),
                    msg=f'{what}: r_from_R result, comparing with cv2.Rodrigues')
 
 # I'm not comparing with opencv's gradient report or dr/dR. It doesn't match. I
-# know my gradient is correct because I numerically checked it above. Maybe
-# opencv is doing something different because of the constraints placed on R.
-# Figuring this out would be good
+# know my gradient is correct because I numerically checked it above. This is
+# almost certainly due to the constraints present on R: not all 3x3 matrices are
+# valid R. This is handled in the deeper checks in
+# test-poseutils-near-singularity.py
+#
 # J_R_ref = nps.transpose(J_R_ref) # fix opencv's weirdness. Now shape=(3,9)
 # J_R_ref = J_R_ref.reshape(3,3,3)
 # confirm_equal( J_R,
