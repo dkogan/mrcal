@@ -1,0 +1,28 @@
+// This is very error-prone for some reason. I can get a nice pdf like this:
+//
+//   dot2tex --autosize -c -t math cross-uncertainty.dot > cross-uncertainty.tex && pdflatex cross-uncertainty.tex && mupdf cross-uncertainty.pdf
+
+digraph G {
+
+        node [shape = box];
+        edge [label = "xxx"]; // need dummy label for texlbl to do anything
+
+        p_board           [ texlbl = "$p_\mathrm{board}$"];
+        p_ref             [ texlbl = "$p_\mathrm{ref}$"];
+        p_cam             [ texlbl = "$p_\mathrm{cam}$"];
+        p_board_perturbed [ texlbl = "$p_\mathrm{board}^*$"];
+        p_ref_perturbed   [ texlbl = "$p_\mathrm{ref}^*$"];
+        p_cam_perturbed   [ texlbl = "$p_\mathrm{cam}^*$"];
+
+
+        p_board -> p_ref [texlbl = "$T_{rf}$"];
+        p_ref   -> p_cam [texlbl = "$T_{cr}$"];
+
+        p_board_perturbed -> p_ref_perturbed [texlbl = "$T_{r^*f^*}$"];
+        p_ref_perturbed   -> p_cam_perturbed [texlbl = "$T_{c^*r^*}$"];
+
+        subgraph cross {
+                rank = same;
+                p_ref -> p_ref_perturbed [ dir = "both", texlbl = "$T_{r^*r}$" ];
+        }
+}
