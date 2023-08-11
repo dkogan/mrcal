@@ -2121,10 +2121,14 @@ The rt_refperturbed_ref formulation:
         # the error to confirm that it's smaller. This is an optional validation
         # step
         if 1:
-            err_rms_cross_ref0 = np.sqrt( nps.norm2((dx_cross0 + x_baseline[imeas0_observations_all:imeas0_observations_all+Nmeas_observations_all]).ravel()) / (dx_cross0.size/2) )
+            # shape (Nsamples,)
+            err_rms_cross_ref0 = \
+                np.sqrt( nps.norm2( dx_cross0 + \
+                                    x_baseline[imeas0_observations_all:imeas0_observations_all+Nmeas_observations_all]) \
+                         / (N_sum_of_squares_baseline/2) )
 
             Nmeas_cross                     = 0
-            err_sum_of_squares_cross_solved = 0.0
+            err_sum_of_squares_cross_solved = np.zeros((args.Nsamples), dtype=float)
 
             for what in have.keys():
                 if not have[what]:
@@ -2162,27 +2166,29 @@ The rt_refperturbed_ref formulation:
                 # shape (..., Nmeas_observations_all*Nh*Nw*2)
                 x_cross0 = nps.clump(x_cross0, n=-(x_cross0.ndim-1))
 
-                err_sum_of_squares_cross_solved += nps.norm2(x_cross0.ravel())
-                Nmeas_cross                     += x_cross0.size
+                Nmeas_cross                     += x_cross0.shape[-1]
+                err_sum_of_squares_cross_solved += nps.norm2(x_cross0)
 
             # The pre-optimization cross error should be far worse than the
             # baseline error: if I simply assume that T_cross = identity, I
             # won't have a good solve.
             #
             # And optimizing the cross transform should then fit decently well,
-            # but not quite so super tightly as the original baseline
-            if Nmeas_cross != dx_cross0.size:
-                raise Exception(f"dx_cross0.size mismatch. This is a bug. Nmeas_cross={Nmeas_cross}, dx_cross0.size={dx_cross0.size}")
+            # but not quite so super tightly as the original baseline (the
+            # baseline has no pixel noise)
+            if Nmeas_cross != dx_cross0.shape[-1]:
+                raise Exception(f"dx_cross0.shape[-1] mismatch. This is a bug. Nmeas_cross={Nmeas_cross}, dx_cross0.shape={dx_cross0.shape}")
+
             err_rms_cross_solved = np.sqrt( err_sum_of_squares_cross_solved / (Nmeas_cross/2) )
-            testutils.confirm(err_rms_baseline*10 < err_rms_cross_ref0,
+            testutils.confirm(err_rms_baseline*10 < np.mean(err_rms_cross_ref0),
                               msg = f"cross-uncertainty at distance={distance}: Unoptimized cross error is MUCH worse than the baseline")
-            testutils.confirm(err_rms_cross_solved*2 < err_rms_cross_ref0,
+            testutils.confirm(np.mean(err_rms_cross_solved)*2 < np.mean(err_rms_cross_ref0),
                               msg = f"cross-uncertainty at distance={distance}: Unoptimized cross error is MUCH worse than optimized cross error")
 
             if 0:
                 print(f"RMS error baseline            = {err_rms_baseline} pixels")
-                print(f"RMS error perturbed           = {err_rms_cross_ref0} pixels")
-                print(f"RMS error perturbed_solvedref = {err_rms_cross_solved} pixels")
+                print(f"RMS error perturbed           = {np.mean(err_rms_cross_ref0)} pixels")
+                print(f"RMS error perturbed_solvedref = {np.mean(err_rms_cross_solved)} pixels")
 
         return rt_ref_refperturbed
 
