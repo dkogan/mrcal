@@ -1487,9 +1487,6 @@ void mrcal_project_stereographic( // output
     //   (from https://en.wikipedia.org/wiki/Fisheye_lens)
     //   u = xy_unit * tan(th/2) * 2
     //
-    // I compute the normalized (focal-length = 1) projection, and
-    // use that to look-up the x and y focal length scalings
-
     // th is the angle between the observation and the projection
     // center
     //
