@@ -2417,75 +2417,78 @@ for distance in args.distances:
                                 msg = f"Regularization bias small-enough for camera {icam} at distance={'infinity' if distance is None else distance}")
 
 for icam in (0,3):
+
+    if icam >= args.Ncameras:
+        break
+
     # I move the extrinsics of a model, write it to disk, and make sure the same
     # uncertainties come back
+    if True:
+        model_moved = mrcal.cameramodel(models_baseline[icam])
+        model_moved.extrinsics_rt_fromref([1., 2., 3., 4., 5., 6.])
+        model_moved.write(f'{workdir}/out.cameramodel')
+        model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
 
-    if icam >= args.Ncameras: break
+        icam_intrinsics_read = model_read.icam_intrinsics()
+        icam_extrinsics_read = mrcal.corresponding_icam_extrinsics(icam_intrinsics_read,
+                                                                   **model_read.optimization_inputs())
 
-    model_moved = mrcal.cameramodel(models_baseline[icam])
-    model_moved.extrinsics_rt_fromref([1., 2., 3., 4., 5., 6.])
-    model_moved.write(f'{workdir}/out.cameramodel')
-    model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
+        testutils.confirm_equal(icam if fixedframes else icam-1,
+                                icam_extrinsics_read,
+                                msg = f"corresponding icam_extrinsics reported correctly for camera {icam}")
 
-    icam_intrinsics_read = model_read.icam_intrinsics()
-    icam_extrinsics_read = mrcal.corresponding_icam_extrinsics(icam_intrinsics_read,
-                                                               **model_read.optimization_inputs())
+        p_cam_baseline = mrcal.unproject( q0_baseline, *models_baseline[icam].intrinsics(),
+                                          normalize = True)
 
-    testutils.confirm_equal(icam if fixedframes else icam-1,
-                            icam_extrinsics_read,
-                            msg = f"corresponding icam_extrinsics reported correctly for camera {icam}")
+        Var_dq_ref = \
+            mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                          model = models_baseline[icam],
+                                          method= method,
+                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty)
+        Var_dq_moved_written_read = \
+            mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                          model = model_read,
+                                          method= method,
+                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty )
+        testutils.confirm_equal(Var_dq_moved_written_read, Var_dq_ref,
+                                eps = 0.001,
+                                worstcase = True,
+                                relative  = True,
+                                msg = f"var(dq) with full rt matches for camera {icam} after moving, writing to disk, reading from disk")
 
-    p_cam_baseline = mrcal.unproject( q0_baseline, *models_baseline[icam].intrinsics(),
-                                      normalize = True)
-
-    Var_dq_ref = \
-        mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                      model = models_baseline[icam],
-                                      method= method,
-                                      observed_pixel_uncertainty = args.observed_pixel_uncertainty)
-    Var_dq_moved_written_read = \
-        mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                      model = model_read,
-                                      method= method,
-                                      observed_pixel_uncertainty = args.observed_pixel_uncertainty )
-    testutils.confirm_equal(Var_dq_moved_written_read, Var_dq_ref,
-                            eps = 0.001,
-                            worstcase = True,
-                            relative  = True,
-                            msg = f"var(dq) with full rt matches for camera {icam} after moving, writing to disk, reading from disk")
-
-    Var_dq_inf_ref = \
-        mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                      model = models_baseline[icam],
-                                      atinfinity = True,
-                                      method     = method,
-                                      observed_pixel_uncertainty = args.observed_pixel_uncertainty )
-    Var_dq_inf_moved_written_read = \
-        mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                      model = model_read,
-                                      atinfinity = True,
-                                      method     = method,
-                                      observed_pixel_uncertainty = args.observed_pixel_uncertainty )
-    testutils.confirm_equal(Var_dq_inf_moved_written_read, Var_dq_inf_ref,
-                            eps = 0.001,
-                            worstcase = True,
-                            relative  = True,
-                            msg = f"var(dq) with rotation-only matches for camera {icam} after moving, writing to disk, reading from disk")
+        Var_dq_inf_ref = \
+            mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                          model = models_baseline[icam],
+                                          atinfinity = True,
+                                          method     = method,
+                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty )
+        Var_dq_inf_moved_written_read = \
+            mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                          model = model_read,
+                                          atinfinity = True,
+                                          method     = method,
+                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty )
+        testutils.confirm_equal(Var_dq_inf_moved_written_read, Var_dq_inf_ref,
+                                eps = 0.001,
+                                worstcase = True,
+                                relative  = True,
+                                msg = f"var(dq) with rotation-only matches for camera {icam} after moving, writing to disk, reading from disk")
 
     # the at-infinity uncertainty should be invariant to point scalings (the
     # real scaling used is infinity). The not-at-infinity uncertainty is NOT
     # invariant, so I don't check that
-    Var_dq_inf_far_ref = \
-        mrcal.projection_uncertainty( p_cam_baseline * 100.0,
-                                      model = models_baseline[icam],
-                                      atinfinity = True,
-                                      method     = method,
-                                      observed_pixel_uncertainty = args.observed_pixel_uncertainty )
-    testutils.confirm_equal(Var_dq_inf_far_ref, Var_dq_inf_ref,
-                            eps = 0.001,
-                            worstcase = True,
-                            relative  = True,
-                            msg = f"var(dq) (infinity) is invariant to point scale for camera {icam}")
+    if True:
+        Var_dq_inf_far_ref = \
+            mrcal.projection_uncertainty( p_cam_baseline * 100.0,
+                                          model = models_baseline[icam],
+                                          atinfinity = True,
+                                          method     = method,
+                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty )
+        testutils.confirm_equal(Var_dq_inf_far_ref, Var_dq_inf_ref,
+                                eps = 0.001,
+                                worstcase = True,
+                                relative  = True,
+                                msg = f"var(dq) (infinity) is invariant to point scale for camera {icam}")
 
 if not args.do_sample:
     testutils.finish()
