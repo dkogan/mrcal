@@ -2490,6 +2490,145 @@ for icam in (0,3):
                                 relative  = True,
                                 msg = f"var(dq) (infinity) is invariant to point scale for camera {icam}")
 
+    # If we're monocular then we're representing a number of relative
+    # camera-chessboard transforms. It doesn't matter which is moving in
+    # reality: absolute poses don't matter. Since these are identical ways of
+    # defining the same problem, I should get the same residuals and uncertainty
+    # estimates in every case
+    #
+    # Today mrcal isn't flexible-enough to use these other representations with
+    # more than one camera. If I have a moving multi-camera rig then I want to
+    # be able to represent the pose each camera separately, but lock the
+    # transform between the cameras. So for now I test this with a single camera
+    if args.Ncameras == 1 and not fixedframes:
+
+        # I have baseline stationary-cam-moving-frames-ref-cam0 scenario. I
+        # create the other ones and compare
+
+        # The baseline is:
+        # stationary camera, moving chessboard, reference at cam0
+        #   0    state variables for extrinsics
+        #   6*Nf state variables for frames
+        #
+        #   indices_frame_camintrinsics_camextrinsics =
+        #   [ 0 0 -1
+        #     1 0 -1
+        #     2 0 -1
+        #     ...   ]
+
+        idxf,idxci,idxce = optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'].T
+        # No extrinsics. The baseline has 1 camera, and it's at the reference
+
+        # shape (Nframes, 6)
+        rt_cf = optimization_inputs_baseline['frames_rt_toref']
+
+        x_baseline = \
+            mrcal.optimizer_callback(**optimization_inputs_baseline,
+                                     no_jacobian      = True,
+                                     no_factorization = True)[1]
+
+
+        ### Now I check the other scenarios
+
+        # moving camera, stationary frame, reference at the frame
+        #   ref at the one stationary chessboard
+        #   6*Nf state variables for extrinsics
+        #   0    state variables for frames
+
+        #   indices_frame_camintrinsics_camextrinsics =
+        #   [ 0 0 0
+        #     0 0 1
+        #     0 0 2
+        #     ... ]
+        #
+        #   I want to have indices_frame = -1 here, but mrcal does not currently
+        #   support this. Instead we set indices_frame = 0, actually store
+        #   something into the frames_rt_toref array, and set do_optimize_frames
+        #   = True
+        if True:
+            optimization_inputs_check = copy.deepcopy(optimization_inputs_baseline)
+
+            optimization_inputs_check['indices_frame_camintrinsics_camextrinsics'] = \
+                np.ascontiguousarray(nps.transpose( nps.cat( idxce+1,
+                                                             idxci,
+                                                             idxf ) ))
+
+            optimization_inputs_check['extrinsics_rt_fromref'] = np.array(rt_cf)
+            optimization_inputs_check['frames_rt_toref'      ] = np.zeros((1,6), dtype=float)
+            optimization_inputs_check['do_optimize_extrinsics'] = True
+            optimization_inputs_check['do_optimize_frames'    ] = False
+
+            x = mrcal.optimizer_callback(**optimization_inputs_check,
+                                         no_jacobian      = True,
+                                         no_factorization = True)[1]
+            testutils.confirm_equal(x_baseline, x,
+                                    eps = 1e-8,
+                                    worstcase = True,
+                                    msg = f"x is consistent when looking at moving cameras/stationary frame/ref at frame0")
+            x = mrcal.optimize(**optimization_inputs_check)['x']
+            testutils.confirm_equal(x_baseline, x,
+                                    eps = 1e-8,
+                                    worstcase = True,
+                                    msg = f"x is consistent when looking at moving cameras/stationary frame/ref at frame0; post-optimization")
+
+
+        # moving camera, stationary frame, reference at cam0
+        #   6*(Nf-1) state variables for extrinsics
+        #   6        state variables for frames
+
+        #   indices_frame_camintrinsics_camextrinsics =
+        #   [ 0 0 -1
+        #     0 0  0
+        #     0 0  1
+        #     ...   ]
+        if True:
+            optimization_inputs_check = copy.deepcopy(optimization_inputs_baseline)
+
+            optimization_inputs_check['indices_frame_camintrinsics_camextrinsics'] = \
+                np.ascontiguousarray(nps.transpose( nps.cat( idxce+1,
+                                                             idxci,
+                                                             idxf-1 )))
+
+            rt_c_c0 = mrcal.compose_rt(rt_cf[1:,:],
+                                       mrcal.invert_rt(rt_cf[0,:]))
+
+            optimization_inputs_check['extrinsics_rt_fromref' ] = rt_c_c0
+            optimization_inputs_check['frames_rt_toref'       ] = rt_cf[(0,),:]
+            optimization_inputs_check['do_optimize_extrinsics'] = True
+            optimization_inputs_check['do_optimize_frames'    ] = True
+
+            x = mrcal.optimizer_callback(**optimization_inputs_check,
+                                         no_jacobian      = True,
+                                         no_factorization = True)[1]
+            testutils.confirm_equal(x_baseline, x,
+                                    eps = 1e-8,
+                                    worstcase = True,
+                                    msg = f"x is consistent when looking at moving cameras/stationary frame/ref at cam0")
+            x = mrcal.optimize(**optimization_inputs_check)['x']
+            testutils.confirm_equal(x_baseline, x,
+                                    eps = 1e-8,
+                                    worstcase = True,
+                                    msg = f"x is consistent when looking at moving cameras/stationary frame/ref at cam0; post-optimization")
+
+
+        # stationary camera, moving frame, reference at frame0
+        #   6        state variables for extrinsics
+        #   6*(Nf-1) state variables for frames
+
+        #   indices_frame_camintrinsics_camextrinsics =
+        #   [ -1 0 0
+        #      0 0 0
+        #      1 0 0
+        #     ...   ]
+        #
+        # mrcal cannot represent this today, so I don't check it. Today mrcal
+        # can represent NULL camera transforms (index_camextrinsics < 0), but
+        # not NULL frame transforms. Above I could fake a NULL frame transform
+        # by setting do_optimize_frames = False, but that only works if I want
+        # to lock down ALL the frame transforms, not just a single one, like I
+        # need to do here
+
+
 if not args.do_sample:
     testutils.finish()
     sys.exit()
