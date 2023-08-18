@@ -439,7 +439,11 @@ import signal
 
 import time
 
-model_from = mrcal.cameramodel(args.model_from)
+try:
+    model_from = mrcal.cameramodel(args.model_from)
+except Exception as e:
+    print(f"Couldn't read '{args.model_from}' as a cameramodel: {e}", file=sys.stderr)
+    sys.exit(1)
 
 if not args.to_pinhole:
     if not args.model_to:
