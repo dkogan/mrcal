@@ -19,6 +19,20 @@ $(DOC_ALL_SVG_FROM_FIG): doc/out/figures/%.svg: doc/%.fig | doc/out/figures/
 $(DOC_ALL_PDF_FROM_FIG): doc/out/figures/%.pdf: doc/%.fig | doc/out/figures/
 	fig2dev -L pdf $< $@
 
+DOC_ALL_DOT          := $(wildcard doc/*.dot)
+DOC_ALL_TEX_FROM_DOT := $(patsubst doc/%.dot,doc/out/figures/%.tex,$(DOC_ALL_DOT))
+DOC_ALL_PDF_FROM_DOT := $(patsubst %.tex,%.pdf,$(DOC_ALL_TEX_FROM_DOT))
+doc: $(DOC_ALL_PDF_FROM_DOT)
+# This is very error-prone for some reason. The below options and the existing
+# doc/cross-uncertainty.dot work, but tweaking either makes it now work.
+$(DOC_ALL_TEX_FROM_DOT): doc/out/figures/%.tex: doc/%.dot | doc/out/figures/
+	dot2tex --autosize -c -t math $< -o $@
+# pdflatex ignores the directory of the given argument, so I need to cd in there
+# first
+%.pdf: %.tex
+	cd $(dir $@); pdflatex $(notdir $<)
+
+
 ## I'd like to place docs for each Python submodule in a separate .html (instead
 ## of a single huge mrcal-python-api-reference.html). Here's an attempt at at
 ## that. This works, but needs more effort:
