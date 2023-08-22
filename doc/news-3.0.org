@@ -40,6 +40,8 @@ The previous name is still available for backwards compatibility
 
 Added CHOLMOD_factorization.rcond()
 
+75893eea: Added initialy EARLY version of mrcal-show-stereo-pair-diff
+
 * Migration notes 2.3 -> 3.0
 
 commit 76248fce8655fba0aec1175157cbe8f8da055b7a
