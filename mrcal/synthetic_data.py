@@ -228,11 +228,11 @@ SYNOPSIS
           calobject_warp  = None,
 
           # mean board pose and the radius of the added uniform noise
-          rt_ref_boardcenter              = rt_ref_boardcenter
+          rt_ref_boardcenter              = rt_ref_boardcenter,
           rt_ref_boardcenter__noiseradius = rt_ref_boardcenter__noiseradius,
 
           # How many frames we want
-          Nframes = 100
+          Nframes = 100,
 
           which = 'some-cameras-must-see-half-board')
 
