@@ -1344,6 +1344,7 @@ The optimization_inputs dict, or None if one isn't stored in this model.
         x = _deserialize_optimization_inputs(self._optimization_inputs_string)
         if x['extrinsics_rt_fromref'] is None:
             x['extrinsics_rt_fromref'] = np.zeros((0,6), dtype=float)
+        x['verbose'] = False
         return x
 
 
