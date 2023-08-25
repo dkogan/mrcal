@@ -1103,17 +1103,9 @@ SYNOPSIS
     ===>
     [(10,3), (10,3,3), (10,3,3)]
 
-Rotate point(s) by a rotation matrix. The Rodrigues vector is converted to a
-rotation matrix internally, and then this function is a matrix multiplication. x
-is stored as a row vector (that's how numpy stores 1-dimensional arrays), but
-the multiplication works as if x was a column vector (to match linear algebra
-conventions):
-
-    rotate_point_r(r,x) = transpose( matmult(R(r), transpose(x))) =
-                        = matmult(x, transpose(R(r)))
-
-By default this function returns the rotated points only. If we also want
-gradients, pass get_gradients=True. Logic:
+Rotate point(s) x by a Rodrigues rotation r. By default this function returns
+the rotated points only. If we also want gradients, pass get_gradients=True.
+Logic:
 
     if not get_gradients: return u=r(x)
     else:                 return (u=r(x),du/dr,du/dx)
