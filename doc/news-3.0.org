@@ -784,6 +784,10 @@ index e03f3c2..5309575 100644
 +#endif
 #+end_src
 
+** I should check the camera extrinsics uncertainty
+If the camera geometry is very uncertain, the calibration isn't successful; even
+if the variance in the other state variables compensates for these perfectly
+
 * release checklist
 These are notes to myself containing the steps needed to roll a new release
 
