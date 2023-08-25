@@ -4567,11 +4567,8 @@ void optimizer_callback(// input state
                     const double err = (q_hypothesis[i_pt].xy[i_xy] - qx_qy_w__observed->xyz[i_xy]) * weight;
 
                     if(ctx->verbose)
-                    {
                         MSG("obs/frame/cam_i/cam_e/dot: %d %d %d %d %d err: %g",
                             i_observation_board, iframe, icam_intrinsics, icam_extrinsics, i_pt, err);
-                        continue;
-                    }
 
                     if(Jt) Jrowptr[iMeasurement] = iJacobian;
                     x[iMeasurement] = err;
@@ -4692,11 +4689,8 @@ void optimizer_callback(// input state
                     const double err = 0.0;
 
                     if(ctx->verbose)
-                    {
                         MSG( "obs/frame/cam_i/cam_e/dot: %d %d %d %d %d err: %g",
                              i_observation_board, iframe, icam_intrinsics, icam_extrinsics, i_pt, err);
-                        continue;
-                    }
 
                     if(Jt) Jrowptr[iMeasurement] = iJacobian;
                     x[iMeasurement] = err;
