@@ -134,7 +134,6 @@ TypeError: 'do_apply_regularization_unity_cam01' is an invalid keyword argument 
 *** divergent-rays-are outlier logic is weird
 I declare and outlier on the first pass. That pass is for getting the threshold
 
-
 ** new implied_Rt10__from_unprojections
 
 Here's a new flavor of that function, to make mrcal-convert-lensmodel work
@@ -786,7 +785,54 @@ index e03f3c2..5309575 100644
 
 ** I should check the camera extrinsics uncertainty
 If the camera geometry is very uncertain, the calibration isn't successful; even
-if the variance in the other state variables compensates for these perfectly
+if the variance in the other state variables compensates for these perfectly.
+The _propagate_calibration_uncertainty() function can easily do this. I should
+rename it. And I should expose it as part of the API. This code works to detect
+uncertain extrinsics for a camera pair:
+
+#+begin_src python
+
+model_filename = sys.argv[1]
+m = mrcal.cameramodel(model_filename)
+optimization_inputs = m.optimization_inputs()
+
+istate_extrinsics0 = mrcal.state_index_extrinsics(0, **optimization_inputs)
+Nstate_extrinsics  = mrcal.num_states_extrinsics(    **optimization_inputs)
+
+Nstate = mrcal.num_states( **optimization_inputs)
+
+if Nstate_extrinsics != 6:
+    raise Exception(f"Unexpected {Nstate_extrinsics=}")
+
+dF_db = np.zeros((Nstate_extrinsics, Nstate), dtype=float)
+dF_db[:,istate_extrinsics0:istate_extrinsics0+Nstate_extrinsics] = \
+    np.eye(Nstate_extrinsics)
+
+Var_rt_cam_ref = \
+    mrcal.model_analysis._propagate_calibration_uncertainty('covariance',
+                                                            dF_db = dF_db,
+                                                            observed_pixel_uncertainty = 1.,
+                                                            optimization_inputs = optimization_inputs)
+
+print(f"stdev(rt_cam_ref) = {np.sqrt(np.diag(Var_rt_cam_ref))}")
+
+#+end_src
+
+
+** regression
+The triangulated-features merge caused the uncertainty reporting to be a bit
+different for some reason. I need to chase it down to see what happened. I'm
+looking at
+
+~/projects/mrcal.old/out0.cameramodel
+
+This command is returning slightly different results before/after the merge:
+
+~/projects/mrcal.old/mrcal-show-projection-uncertainty out0.cameramodel --cbmax 30
+
+** point range normalization
+I removed it here: 0e727189. Do I want it back in some form? I do still require
+point_min_range and point_max_range. Do I really need these?
 
 * release checklist
 These are notes to myself containing the steps needed to roll a new release
