@@ -26,4 +26,43 @@
                                 (indent "0em")
                                 (multlinewidth "85%")
                                 (tagindent ".8em")
-                                (tagside "right")))))
+                                (tagside "right"))
+         :html-mathjax-template "<script>
+  window.MathJax = {
+    loader: {
+      load: ['[custom]/xypic.js'],
+      paths: {custom: 'external/XyJax-v3-master/build'}
+    },
+    tex: {
+      packages: {'[+]': ['xypic']},
+      ams: {
+        multlineWidth: '%MULTLINEWIDTH'
+      },
+      tags: '%TAGS',
+      tagSide: '%TAGSIDE',
+      tagIndent: '%TAGINDENT'
+    },
+    chtml: {
+      scale: %SCALE,
+      displayAlign: '%ALIGN',
+      displayIndent: '%INDENT'
+    },
+    svg: {
+      scale: %SCALE,
+      displayAlign: '%ALIGN',
+      displayIndent: '%INDENT'
+    },
+    output: {
+      font: '%FONT',
+      displayOverflow: '%OVERFLOW'
+    }
+  };
+</script>
+
+<script
+  id=\"MathJax-script\"
+  async
+  src=\"%PATH\">
+</script>"
+
+)))

@@ -837,6 +837,9 @@ produce wildly different output if I tweak the regularization weight
 I removed it here: 0e727189. Do I want it back in some form? I do still require
 point_min_range and point_max_range. Do I really need these?
 
+** XyJax loaded in too many doc pages
+I need it everywhere I use \xymatrix (currently uncertainty.org only). So that's
+the only place I should use it. Loading it needlessly is slow
 * release checklist
 These are notes to myself containing the steps needed to roll a new release
 
