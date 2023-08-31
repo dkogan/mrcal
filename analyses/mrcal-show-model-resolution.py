@@ -21,7 +21,6 @@ def parse_args():
 
     parser.add_argument('--cbmin',
                         type=float,
-                        default=0,
                         help='''Minimum range of the colorbar''')
     parser.add_argument('--cbmax',
                         type=float,
@@ -180,10 +179,15 @@ q = np.ascontiguousarray( \
 resolution__deg_pixel = mean_resolution__rad_pixel(q, model) * 180./np.pi
 
 if args.cbmax is None:
-    # ceil 2-digit base-10
+    # ceil x * 10^n where x is an integer in [1,9] and n is an integer
     args.cbmax = np.max(resolution__deg_pixel)
     base10_floor = np.power(10., np.floor(np.log10(args.cbmax)))
     args.cbmax = np.ceil(args.cbmax / base10_floor) * base10_floor
+if args.cbmin is None:
+    # floor x * 10^n where x is an integer in [1,9] and n is an integer
+    args.cbmin = np.min(resolution__deg_pixel)
+    base10_floor = np.power(10., np.floor(np.log10(args.cbmin)))
+    args.cbmin = np.floor(args.cbmin / base10_floor) * base10_floor
 
 curve_options = \
     mrcal.visualization._options_heatmap_with_contours(
