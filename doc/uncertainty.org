@@ -66,14 +66,6 @@ This overall approach is sound, but it implies some limitations:
   uncertainty reporting. Otherwise the reported confidence comes from the model
   itself, rather than the calibration data.
 
-- Currently the uncertainty estimates can be computed only from a vanilla
-  calibration problem: a set of stationary cameras observing a moving
-  calibration object. Other formulations can be used to compute the lens
-  parameters as well (structure-from-motion while also computing the lens models
-  for instance), but at this time the uncertainty computations cannot handle
-  those cases. It can be done, but the current method needs to be extended to do
-  so.
-
 * Estimating the input noise
 We're measuring the sensitivity to the noise in the calibration-time
 observations. In order to propagate this noise, we need to know what that input
@@ -139,7 +131,7 @@ b = M \Delta \vec q_\mathrm{ref}$ where
 
 As usual,
 
-\[ \mathrm{Var}(\vec b) = M \mathrm{Var}\left(\vec q_\mathrm{ref}\right) M^T \]
+\[ \mathrm{Var}\left(\vec b\right) = M \mathrm{Var}\left(\vec q_\mathrm{ref}\right) M^T \]
 
 As stated on the [[file:formulation.org::#noise-model][input noise page]], we're assuming independent noise on all
 observed pixels, with a standard deviation inversely proportional to the weight:
@@ -169,9 +161,561 @@ expected.
 :PROPERTIES:
 :CUSTOM_ID: propagating-through-projection
 :END:
-We now have the variance of the full optimization state $\vec b$, and we want to
-propagate this through projection to end up with an estimate of uncertainty at
-any given pixel $\vec q$.
+We now have the variance of the full optimization state $\vec b$, and we can
+propagate this to evaluate the uncertainty of any component of the solve. Here I
+focus on the uncertainty of the *intrinsics*, since this is the biggest issue in
+most calibration tasks.
+
+I want to propagate $\mathrm{Var}\left(\vec b\right)$ through projection to get
+the projection uncertainty at any given pixel $\vec q$. This is challenging
+because we reoptimize with each new sample of input noise $\Delta \vec
+q_\mathrm{ref}$, and each optimization moves around all the coordinate systems:
+
+[[file:figures/uncertainty.svg]]
+
+Thus evaluating the projection uncertainty of a $\vec p_\mathrm{cam}$, a point
+in camera coordinates is not meaningful: the coordinate system itself moves with
+each re-optimization. Currently mrcal has multiple methods to address this.
+First I describe the /cross-reprojection/ uncertainty method: the new method
+available in mrcal 3.0. This is the preferred formulation. Then, for
+completeness, I describe the /mean-frames/ method: the simpler but somewhat
+problematic method used in earlier versions of mrcal.
+
+** Cross-reprojection uncertainty
+
+Let's say I have a baseline solve (parameter vector $\vec b$) and a perturbed
+solve (parameter vector $\vec b^+$) obtained from perturbing the observations
+$\vec q_\mathrm{ref}$ and re-optimizing. I also have an arbitrary baseline query
+pixel $\vec q$ and distance from which I compute the perturbed reprojection
+$\vec q^+$.
+
+I need to eventually compute $\mathrm{Var}\left(\vec q^+\right)$. I linearize
+everything to get
+
+\[
+\Delta \vec q^+ \approx \frac{\partial\vec q^+}{\partial\vec b^+} \frac{\partial\vec b^+}{\partial\vec q_\mathrm{ref}}
+\Delta \vec q_\mathrm{ref}
+\]
+
+Let
+
+\[
+P \equiv \frac{\partial\vec q^+}{\partial\vec b^+}
+\]
+
+and
+
+\[
+M \equiv \frac{\partial\vec b^+}{\partial\vec q_\mathrm{ref}}
+\]
+
+Then
+
+\[
+\Delta \vec q^+ \approx P M \Delta \vec q_\mathrm{ref}
+\]
+
+And
+
+\[
+\mathrm{Var} \left( \vec q^+ \right) = P M \mathrm{Var} \left( \vec q_\mathrm{ref} \right) M^T P^T
+\]
+
+I have $M$ from the [[#propagating-to-state-vector][above uncertainty propagation logic]], so I just need $P$.
+
+In my usual least squares solve using chessboards, each point produces two
+elements (horizontal, vertical error) of the measurements vector:
+
+\[
+\vec x_i = W \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics}, T_\mathrm{cr} \, T_\mathrm{rf} \, \vec p_i \right) -
+\vec q_{\mathrm{ref}_i} \right)
+\]
+
+The data flow is:
+
+\[
+\xymatrix{
+\vec p_\mathrm{board}   \ar[d]^{T_\mathrm{rf}} \\
+\vec p_\mathrm{ref}     \ar[d]^{T_\mathrm{cr}} \\
+\vec p_\mathrm{cam}     \ar[d]^{\vec b_\mathrm{intrinsics} } \\
+\vec q
+}
+\]
+
+The optimization vector $\vec b$ contains the calibration object warp, which
+affects $\vec p_\mathrm{board}$, and it contains $T_\mathrm{cr}$,
+$T_\mathrm{rf}$ and $\vec b_\mathrm{intrinsics}$. When optimizing discrete
+points the flow is slightly different:
+
+\[
+\xymatrix{
+\vec p_\mathrm{point}   \ar[d]^{T_\mathrm{cr}} \\
+\vec p_\mathrm{cam}     \ar[d]^{\vec b_\mathrm{intrinsics} } \\
+\vec q
+}
+\]
+
+Each point is defined in the reference coordinate system, and each point
+coordinate is stored in $\vec b$. The analysis is very similar for the two cases
+(boards, points). In this writeup I mostly focus on boards, but the
+implementation supports both formulations.
+
+If we perturb $\vec q_\mathrm{ref}$ then we have a different optimization, with
+different quantities in this same data flow:
+
+\[
+\xymatrix{
+\vec p^+_\mathrm{board}  \ar[d]^{T_\mathrm{r^+f^+}} \\
+\vec p^+_\mathrm{ref}    \ar[d]^{T_\mathrm{c^+r^+}} \\
+\vec p^+_\mathrm{cam}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
+\vec q^+
+}
+\]
+
+As noted above, all the coordinate systems have shifted, so the two
+optimizations aren't directly comparable. In order to gauge the effect of
+$\Delta \vec q_\mathrm{ref}$ I optimize the "cross-reprojection error": I treat
+the two optimized worlds (unperturbed, perturbed) contant, and I compute an
+optimal transformation $T_\mathrm{rr^+}$ to relate the two sets of coordinate
+systems. I do this by solving the original optimization problem, but using half
+of the data flow from each of the unperturbed and perturbed optimizations. The
+data flow in this cross-reprojection optimization appears in red:
+
+\[
+\xymatrix{
+  \vec p  _\mathrm{board}  \ar[d]^{T_\mathrm{rf}}
+& {\color{red} \vec p^+_\mathrm{board}}  \ar@[red][d]^{\color{red} T_\mathrm{r^+f^+}} \\
+  {\color{red} \vec p  _\mathrm{ref}}    \ar@[red][d]^{\color{red} T_\mathrm{cr}}
+& {\color{red} \vec p^+_\mathrm{ref}}    \ar[d]^{T_\mathrm{c^+r^+}}
+  \ar@[red][l]^{\color{red} T_\mathrm{rr^+}} \\
+  {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][d]^{\color{red} \vec b_\mathrm{intrinsics} }
+& \vec p^+_\mathrm{cam}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
+  {\color{red} \vec q}
+& \vec q^+
+}
+\]
+
+Here I look at the /perturbed/ chessboard,frames,points and the /unperturbed/
+camera intrinsics, extrinsics. Note that I could have traversed this data flow
+diagram from the top-left to the bottom-right instead. This produces a [[#cross-reprojection-rt-rpr][different
+formulation, described below]].
+
+Once we have $T_\mathrm{rr^+}$, we can traverse this data flow in a different
+direction to compute $\vec q^+$ and then $\mathrm{Var}\left(\vec q^+\right)$:
+
+\[
+\xymatrix{
+  {\vec p  _\mathrm{ref}} \ar[r]^{T_\mathrm{r^+r}}
+& {\vec p^+_\mathrm{ref}}    \ar[d]^{T_\mathrm{c^+r^+}} \\
+  {\vec p  _\mathrm{cam}} \ar[u]_{T_\mathrm{rc}}
+& {\vec p^+_\mathrm{cam}}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
+  {\vec q} \ar[u]_{\vec b_\mathrm{intrinsics} }
+& {\vec q^+}
+}
+\]
+
+So let's compute $T_\mathrm{rr^+}$. For a given perturbation $\Delta \vec
+q_\mathrm{ref}$ I compute an optimization
+
+\[
+\vec{ \mathrm{rt}_\mathrm{rr^+}} = \mathrm{argmin}\Vert \vec x_\mathrm{cross} \Vert^2
+\]
+
+where
+
+\begin{aligned}
+\vec x_\mathrm{cross} \equiv \,
+& W_\mathrm{board} \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics},
+                  T_\mathrm{cr} T_\mathrm{rr^+} T_\mathrm{r^+f^+} \vec p^+_\mathrm{board}\right)
+  - \vec q_\mathrm{refboard} \right) + \\
+& W_\mathrm{point} \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics},
+                  T_\mathrm{cr} T_\mathrm{rr^+} \vec p^+_\mathrm{point}\right)
+  -  \vec q_\mathrm{refpoint} \right)
+\end{aligned}
+
+$\vec{ \mathrm{rt}_\mathrm{rr^+}}$ is a single transform (a vector with 6
+elements, regardless of how many cameras or observations we have). This vector
+defines the $T_\mathrm{rr^+}$ transform.
+
+I optimize $\Vert\vec x_\mathrm{cross}\Vert^2$ by making a linearity assumption,
+and taking a Newton step from the operating point $\vec
+{\mathrm{rt}_\mathrm{rr^+}} = 0$. The baseline $\vec x_\mathrm{cross_0}$ comes
+from the above expression at the operating point. Furthermore I have
+
+\[
+J_\mathrm{cross} \equiv
+\frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}}
+\]
+
+I assume everything is locally linear, so $\Delta \vec x_\mathrm{cross} \approx
+J_\mathrm{cross} \Delta \vec{\mathrm{rt}_\mathrm{rr^+}}$. I minimize $E \equiv
+\Vert \vec x_\mathrm{cross_0} + \Delta \vec x_\mathrm{cross}\Vert^2$ by setting
+the derivative to $\vec 0$:
+
+\[
+0 = \frac{\partial E}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \propto (\vec x_\mathrm{cross_0} + \Delta \vec x_\mathrm{cross})^T J_\mathrm{cross}
+\]
+
+So
+
+\begin{aligned}
+J_\mathrm{cross}^T \vec x_\mathrm{cross_0} &= -J_\mathrm{cross}^T \Delta \vec x_\mathrm{cross} \\
+& \approx -J_\mathrm{cross}^T J_\mathrm{cross} \Delta \vec{\mathrm{rt}_\mathrm{rr^+}}
+\end{aligned}
+
+and
+
+\[
+\Delta \vec{\mathrm{rt}_\mathrm{rr^+}} \approx -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T \vec x_\mathrm{cross_0 }
+\]
+
+The operating point is at $\vec{\mathrm{rt}_\mathrm{rr^+}} = 0$ so
+
+\begin{aligned}
+\vec{\mathrm{rt}_\mathrm{rr^+}} &= 0 + \Delta \vec{\mathrm{rt}_\mathrm{rr^+}} \\
+                                &= -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T \vec x_\mathrm{cross_0}
+\end{aligned}
+
+This is good, but requires that $\vec x_\mathrm{cross}$ and $J_\mathrm{cross}$
+be computed directly. We can do better.
+
+Since everything I'm looking at is near the original solution to the main
+optimization problem, I can look at /everything/ in the linear space defined by
+the optimal measurements $\vec x^*$ and their gradient $J$:
+
+\[
+\vec x \approx \vec x_0 + J \Delta \vec b
+\]
+
+Once again, we have this data flow:
+
+
+\[
+\xymatrix{
+  \vec p  _\mathrm{board}  \ar[d]^{T_\mathrm{rf}}
+& {\color{red} \vec p^+_\mathrm{board}}  \ar@[red][d]^{\color{red} T_\mathrm{r^+f^+}} \\
+  {\color{red} \vec p  _\mathrm{ref}}    \ar@[red][d]^{\color{red} T_\mathrm{cr}}
+& {\color{red} \vec p^+_\mathrm{ref}}    \ar[d]^{T_\mathrm{c^+r^+}}
+  \ar@[red][l]^{\color{red} T_\mathrm{rr^+}} \\
+  {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][d]^{\color{red} \vec b_\mathrm{intrinsics} }
+& \vec p^+_\mathrm{cam}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
+  {\color{red} \vec q}
+& \vec q^+
+}
+\]
+
+implying this cost vector:
+
+\begin{aligned}
+\vec x_\mathrm{cross} \equiv \,
+& W_\mathrm{board} \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics},
+                  T_\mathrm{cr} T_\mathrm{rr^+} T_\mathrm{r^+f^+} \vec p^+_\mathrm{board}\right)
+  - \vec q_\mathrm{refboard} \right) + \\
+& W_\mathrm{point} \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics},
+                  T_\mathrm{cr} T_\mathrm{rr^+} \vec p^+_\mathrm{point}\right)
+  -  \vec q_\mathrm{refpoint} \right)
+\end{aligned}
+
+I evaluate $\vec x_\mathrm{cross_0}$ at $\vec{\mathrm{rt}_\mathrm{rr^+}} = 0$.
+This is exactly the $\vec x^*$ from the original optimization, except I perturb
+$\vec b_\mathrm{frames}$ and $\vec b_\mathrm{points}$ and $\vec
+b_\mathrm{calobjectwarp}$:
+
+\[
+\vec x_\mathrm{cross_0} = \vec x^* +
+J_\mathrm{frames,points,calobjectwarp}  M_\mathrm{frames,points,calobjectwarp} \Delta \vec q_\mathrm{ref}
+\]
+
+I can evaluate $J_\mathrm{cross}$ in two different ways:
+
+- a $\vec {\mathrm{rt}_\mathrm{cr}}$ shift to $\mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},\vec{\mathrm{rt}_\mathrm{rr^+}} \right)$. So
+  \begin{aligned}
+  J_{\mathrm{cross}_\mathrm{e}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+  & = J_\mathrm{extrinsics} \frac{\partial \mathrm{rt}_\mathrm{cr^+}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+  & = J_\mathrm{extrinsics} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},\vec{\mathrm{rt}_\mathrm{rr^+}} \right)}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}}
+  \end{aligned}
+
+  For observations that have no extrinsics (the camera is defined to sit at the
+  referene coord system) this formulation is not possible. Because there is no
+  $J_\mathrm{extrinsics}$
+
+- a $\vec {\mathrm{rt}_\mathrm{rf}}$ shift to $\mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{rr^+}},\mathrm{rt}_\mathrm{r^+f^+}\right)$ and/or a point
+  shift to $T_\mathrm{rr^+} \vec p^+$
+
+  $\vec{\mathrm{rt}_\mathrm{r^+f^+}}$ is a tiny shift off
+  $\vec{\mathrm{rt}_\mathrm{rf}}$ /and/ I'm assuming that everything is locally
+  linear. So this shift is insignificant for evaluating the gradient, and I use
+  $\vec{\mathrm{rt}_\mathrm{rf}}$ to compute the gradient instead. Similarly for
+  $p^+$ and $p$:
+
+  \begin{aligned}
+  J_{\mathrm{cross}_\mathrm{f}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+            & =       J_\mathrm{frame}  \frac{\partial \mathrm{rt}_\mathrm{rf^+}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+            & =       J_\mathrm{frame}  \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{rr^+}},\mathrm{rt}_\mathrm{r^+f^+}\right)}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+            & \approx J_\mathrm{frame}  \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{rr^+}},\mathrm{rt}_\mathrm{rf}\right)}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}}
+ \\
+  J_{\mathrm{cross}_\mathrm{p}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+            & =       J_\mathrm{points} \frac{\partial p^+}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+            & =       J_\mathrm{points} \frac{\partial T_\mathrm{rr^+} p^+}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+            & \approx J_\mathrm{points} \frac{\partial T_\mathrm{rr^+} p  }{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+  \end{aligned}
+
+
+
+NEED THE SAME THING FOR CALOBJECTWARP
+
+
+
+There's one more simplification available. From above:
+
+
+\[
+\vec{\mathrm{rt}_\mathrm{rr^+}} &= -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T \vec x_\mathrm{cross_0} \\
+\]
+
+and
+
+\[
+\vec x_\mathrm{cross_0} = \vec x_* +
+J_\mathrm{frames,points,calobjectwarp}  M_\mathrm{frames,points,calobjectwarp} \Delta \vec q_\mathrm{ref}
+\]
+
+The original optimization problem was solved, so we have
+$\frac{\partial}{\partial \vec b} \Vert \vec x \Vert^2 = 0$, and thus $J^T \vec
+x^* = 0$.
+
+
+ So J_frame_t x0 = 0 as well, and thus instead of x_\mathrm{cross_0} we
+can use
+
+\[
+\Delta \vec x_\mathrm{cross_0} = J_\mathrm{frames,points,calobjectwarp} \Delta \vec b_\mathrm{frames,points,calobjectwarp}
+\]
+
+So we have \vec{\mathrm{rt}_\mathrm{rr^+}} = K db for some K that depends on the various J matrices
+that are constant for each solve:
+
+  K = -pinv(J_\mathrm{cross}) J[frames,points,calobject_warp]
+
+Now that I have \vec{\mathrm{rt}_\mathrm{rr^+}}, I can use it to compute q^+. This
+can accept arbitrary q, not just those in the solve, so I actually need to
+compute projections, rather than looking at a linearized space defined by J
+
+I have without any perturbations:
+
+  pref = T_\mathrm{ref_cam} unproject(intrinsics, q)
+
+For a given perturbation I have
+
+  pref^+ = T_\mathrm{ref^+_ref} pref
+  pcam^+ = T_\mathrm{cam^+_ref^+} pref^+
+  q^+    = project(intrinsics^+, pcam^+)
+
+Let's linearize everything:
+
+q^+ - q
+
+~   dq_dpcam (pcam^+ - pcam)
+  + dq_dintrinsics db[intrinsics_this]
+
+~   dq_dpcam (+ dpcam__d\mathrm{rt}_\mathrm{cr} db[extrinsics_this]
+              + dpcam__dpref       (pref^+ - pref) )
+  + dq_dintrinsics db[intrinsics_this]
+
+~   dq_dpcam (  dpcam__d\mathrm{rt}_\mathrm{cr} db[extrinsics_this]
+              + dpcam__dpref dpref^+__\Delta \vec{\mathrm{rt}_\mathrm{rr^+}} \vec{\mathrm{rt}_\mathrm{rr^+}})
+  + dq_dintrinsics db[intrinsics_this]
+
+~   dq_dpcam (  dpcam__d\mathrm{rt}_\mathrm{cr} db[extrinsics_this]
+              - dpcam__dpref dpref^+__d\mathrm{rt}_\mathrm{rr^+} pinv(J_\mathrm{cross}) \partial\vec x_\mathrm{cross_0})
+  + dq_dintrinsics db[intrinsics]
+
+~   dq_dpcam (  dpcam__d\mathrm{rt}_\mathrm{cr} db[extrinsics_this]
+              - dpcam__dpref dpref^+__d\mathrm{rt}_\mathrm{rr^+} pinv(J_\mathrm{cross}) J[frames_all,points_all,calobject_warp] D Dinv db[frames_all,points_all,calobject_warp])
+  + dq_dintrinsics db[intrinsics_this]
+
+~   dq_dpcam (  dpcam__d\mathrm{rt}_\mathrm{cr} db[extrinsics_this]
+              + dpcam__dpref dpref^+__d\mathrm{rt}_\mathrm{rr^+} K Dinv db[frames_all,points_all,calobject_warp])
+  + dq_dintrinsics db[intrinsics_this]
+
+--->
+
+dq/db[extrinsics_this]                      = dq_dpcam dpcam__d\mathrm{rt}_\mathrm{cr}
+dq/db[intrinsics_this]                      = dq_dintrinsics
+dq/db[frames_all,points_all,calobject_warp] = dq_dpcam dpcam__dpref dpref^+__d\mathrm{rt}_\mathrm{rr^+} K Dinv
+
+*** other way
+:PROPERTIES:
+:CUSTOM_ID: cross-reprojection-rt-rpr
+:END:
+
+I can also go the other way: traversing the diagram above from the top-left to
+bottom-right. The derivation is similar, with slightly different results. We
+have
+
+  x_\mathrm{cross} =
+    [
+      + W_board project(intrinsics^+,
+                        T_\mathrm{cam^+_ref^+} T_\mathrm{ref^+_ref} T_\mathrm{ref_frame} pboard)
+      - W_board q_\mathrm{ref}_board^+
+
+      + W_point project(intrinsics^+,
+                        T_\mathrm{cam^+_ref^+} T_\mathrm{ref^+_ref} p)
+      - W_point q_\mathrm{ref}_point^+
+    ]
+
+And the optimum is at
+
+  \mathrm{rt}_ref^+_ref = 0 + d\mathrm{rt}_ref^+_ref
+              = -pinv(J_\mathrm{cross}) x_\mathrm{cross_0}
+
+And we can compute the linearized quantities near \mathrm{rt}_ref^+_ref = identity:
+
+  \mathrm{rt}_cam^+_ref = compose_rt(\mathrm{rt}_cam^+_ref^+, \mathrm{rt}_ref^+_ref)
+
+  x_\mathrm{cross_0} = + x0
+             + J_intrinsics M[intrinsics] delta_q_\mathrm{ref}
+             + J_\mathrm{extrinsics} M[extrinsics] delta_q_\mathrm{ref}
+             - W delta_q_\mathrm{ref}
+           = + x0
+             + J[intrinsics,extrinsics] db[intrinsics,extrinsics]
+             - W delta_q_\mathrm{ref}
+
+For points that have no extrinsics (the camera is defined to sit at the ref
+coord system) there is no J_\mathrm{extrinsics}, and we can ignore it here. But we must
+use J_\mathrm{cross}_f below in that case.
+
+When evaluating J_\mathrm{cross} = \frac{\partial \vec x_\mathrm{cross}}{\partial \mathrm{rt}_ref^+_ref,} I can once again look at it in
+two ways:
+
+- a \mathrm{rt}_\mathrm{cr} shift to compose_rt(\mathrm{rt}_cam^+_ref^+,\mathrm{rt}_ref^+_ref).
+
+  \mathrm{rt}_cam^+_ref^+ is a tiny shift off \mathrm{rt}_\mathrm{cr} AND I'm assuming that everything
+  is locally linear. So this shift is insignificant, and I use \mathrm{rt}_\mathrm{cr} to
+  compute the gradient instead
+
+  J_{\mathrm{cross}_\mathrm{e}} = \frac{\partial \vec x_\mathrm{cross}}{\partial \mathrm{rt}_ref^+_ref
+}            = J_\mathrm{extrinsics} d\mathrm{rt}_cam^+_ref/d\mathrm{rt}_ref^+_ref
+            = J_\mathrm{extrinsics} d(compose_rt(\mathrm{rt}_cam^+_ref^+,\mathrm{rt}_ref^+_ref))/d\mathrm{rt}_ref^+_ref
+            = J_\mathrm{extrinsics} d(compose_rt(\mathrm{rt}_\mathrm{cr},  \mathrm{rt}_ref^+_ref))/d\mathrm{rt}_ref^+_ref
+
+  As before, for points that have no extrinsics (the camera is defined to sit at
+  the ref coord system) there is no J_\mathrm{extrinsics}, so this formulation is not
+  possible here. Use J_\mathrm{cross}_fp.
+
+
+- a \mathrm{rt}_\mathrm{rf} shift to compose_rt(\mathrm{rt}_ref^+_ref, \mathrm{rt}_\mathrm{rf}) and/or a point
+  shift to transform_rt(\mathrm{rt}_ref^+_ref,p)
+
+  J_\mathrm{cross}_f = \frac{\partial \vec x_\mathrm{cross}}{\partial \mathrm{rt}_ref^+_ref
+}            = J_frame d\mathrm{rt}_ref^+_frame/d\mathrm{rt}_ref^+_ref
+            = J_frame d(compose_rt(\mathrm{rt}_ref^+_ref,\mathrm{rt}_\mathrm{rf}))/d\mathrm{rt}_ref^+_ref
+
+  J_\mathrm{cross}_p = \frac{\partial \vec x_\mathrm{cross}}{\partial \mathrm{rt}_ref^+_ref
+}            = J_p dp^+/d\mathrm{rt}_ref^+_ref
+            = J_p d(transform(\mathrm{rt}_ref^+_ref,p ))/d\mathrm{rt}_ref^+_ref
+
+There's one more simplification available. From above:
+
+  \mathrm{rt}_ref^+_ref = -pinv(J_\mathrm{cross}) x_\mathrm{cross_0}
+              = -inv() J_\mathrm{cross}_t x_\mathrm{cross_0}
+              = ... J_frame_t (x0 + ...)
+
+And we can simplify to
+
+  \mathrm{rt}_ref^+_ref = -pinv(J_\mathrm{cross}) \partial\vec x_\mathrm{cross_0}
+
+where
+
+  \partial\vec x_\mathrm{cross_0} = J[intrinsics,extrinsics] db[intrinsics,extrinsics] - W delta_q_\mathrm{ref}
+
+So we have \mathrm{rt}_ref^+_ref = K db - W delta_q_\mathrm{ref} for some K that depends on the
+various J matrices that are constant for each solve:
+
+  K = -pinv(J_\mathrm{cross}) J[intrinsics,extrinsics]
+
+The rest of the data flow is the same as above, except we already have
+\mathrm{rt}_ref^+_ref, so we don't need to invert the transform when applying it.
+
+
+
+
+
+
+cross-reprojection--rrp-Jfp
+
+** mean-frames
+**** problems this old method has that are solved with the new method
+The current projection uncertainty method works badly if given chessboards at
+multiple different ranges from the camera. This is due to the aphysical
+transform $T_{\mathrm{r}^+\mathrm{r}}$ computed as part of the [[file:uncertainty.org::#propagating-through-projection][uncertainty
+computation]]. We can clearly see this in the dance study:
+
+#+begin_src sh
+./dance-study.py                          \
+    --scan num_far_constant_Nframes_near  \
+    --range 2,10                          \
+    --method cross-reprojection--rrp-Jfp  \
+    --Ncameras 1                          \
+    --Nframes-near 100                    \
+    --observed-pixel-uncertainty 2        \
+    --ymax 4                              \
+    --uncertainty-at-range-sampled-max 35 \
+    ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity/opencv8.cameramodel
+#+end_src
+
+This tells us that adding /any/ observations at 10m to the bulk set at 2m
+makes the projection uncertainty /worse/. One could expect no improvement from
+the far-off observations, but they shouldn't break anything. The issue is the
+averaging in 3D point space. Observation noise causes the far-off geometry to
+move much more than the nearby chessboards, and that far-off motion then
+dominates the average. We can also see it with the much larger ellipse we get
+when we add =--extra-observation-at= to
+
+#+begin_src sh
+test/test-projection-uncertainty.py \
+  --fixed cam0                      \
+  --model opencv4                   \
+  --show-distribution               \
+  --range-to-boards 4               \
+  --extra-observation-at 40         \
+  --do-sample                       \
+  --explore
+#+end_src
+
+Some experimental fixes are implemented in
+[[https://www.github.com/dkogan/mrcal/blob/master/test/test-projection-uncertainty.py][=test/test-projection-uncertainty.py=]]. For instance:
+
+#+begin_src sh
+test/test-projection-uncertainty.py \
+  --fixed cam0                      \
+  --model opencv4                   \
+  --show-distribution               \
+  --range-to-boards 4               \
+  --extra-observation-at 40         \
+  --do-sample                       \
+  --explore                         \
+  --reproject-perturbed mean-frames-using-meanq-penalize-big-shifts
+#+end_src
+
+It is important to solve this to be able to clearly say if non-closeup
+observations are useful at all or not. There was quick a bit of thought and
+experimentation in this area, but no conclusive solutions yet.
+
+
+When asked to compute the uncertainty of many pixels at once (such as what
+[[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool does), mrcal currently computes a
+separate $T_{\mathrm{r}^+\mathrm{r}}$ for each pixel. But there exists only
+one $T_{\mathrm{r}^+\mathrm{r}}$, and this should be computed once for all
+pixels, and applied to all of them.
+
+Currently we are able to compute projection uncertainties only when given a
+vanilla calibration problem: stationary cameras are observing a moving
+chessboard. We should support more cases, for instance structure-from-motion
+coupled with intrinsics optimization. And computing uncertainty from a
+points-only chessboard-less solve should be possible
+
+**** how
 
 The state vector $\vec b$ is a random variable, and we know its distribution. To
 evaluate the projection uncertainty we want to project a /fixed/ point, to see
@@ -180,7 +724,8 @@ intrinsics shift due to the uncertainty in $\vec b$. In other words, we want to
 project a point defined in the coordinate system of the camera housing, as the
 origin of the mathematical camera moves around inside this housing:
 
-[[file:figures/uncertainty.svg]]
+
+
 
 How do we operate on points in a fixed coordinate system when all the coordinate
 systems we have are floating random variables? We use the most fixed thing we
@@ -208,30 +753,28 @@ transformation to get the desired projection uncertainty $\mathrm{Var}\left(\vec
 q^+ - \vec q\right)$. The full data flow looks like this, with all the perturbed
 quantities marked with a $+$ superscript.
 
-# Another way to do this (using xymatrix). This works, except for the funny
-# spacing
-#
-# \begin{equation}
-# \xymatrix{
-#    \vec q^+ &
-#    \vec p^+_\mathrm{camera}          \ar[l]^{\mathrm{intrinsics}^+} &
-#    \vec p^+_{\mathrm{reference}_0}   \ar[l]^{T^+_\mathrm{cr}} &
-#    \vec p_{\mathrm{frame}_0}         \ar[l]^{T^+_{\mathrm{rf}_0}} &
-#    \vec p_\mathrm{reference}         \ar[l]^{T_\mathrm{fr}} &
-#    \vec p_\mathrm{camera}            \ar[l]^{T_\mathrm{rc}} &
-#    \vec q                            \ar[l]^{\mathrm{intrinsics}}
-# }
-# \end{equation}
-
 \[
-   \vec q^+                         \xleftarrow{\mathrm{intrinsics}^+}
-   \vec p^+_\mathrm{camera}         \xleftarrow{T^+_\mathrm{cr}}
-   \vec p^+_{\mathrm{reference}_0}  \xleftarrow{T^+_{\mathrm{rf}_0}} \vec p_{\mathrm{frame}_0} \xleftarrow{T_\mathrm{fr}}
-   \vec p_\mathrm{reference}
-   \xleftarrow{T_\mathrm{rc}}   \vec p_\mathrm{camera}
-   \xleftarrow{\mathrm{intrinsics}}
-   \vec q
+\xymatrix{
+   \vec q^+ & &
+   \vec p^+_\mathrm{camera}          \ar[ll]_-{\vec b_\mathrm{intrinsics}^+} &
+   \vec p^+_{\mathrm{reference}_0}   \ar[l]_-{T^+_\mathrm{cr}} &
+   \vec p_{\mathrm{frame}_0}         \ar[l]_-{T^+_{\mathrm{rf}_0}} &
+   \vec p_\mathrm{reference}         \ar[l]_-{T_\mathrm{fr}} &
+   \vec p_\mathrm{camera}            \ar[l]_-{T_\mathrm{rc}} & &
+   \vec q                            \ar[ll]_-{\vec b_\mathrm{intrinsics}}
+}
 \]
+
+# Another way to do this (without xymatrix):
+# \[
+#    \vec q^+                         \xleftarrow{\vec b_\mathrm{intrinsics}^+}
+#    \vec p^+_\mathrm{camera}         \xleftarrow{T^+_\mathrm{cr}}
+#    \vec p^+_{\mathrm{reference}_0}  \xleftarrow{T^+_{\mathrm{rf}_0}} \vec p_{\mathrm{frame}_0} \xleftarrow{T_\mathrm{fr}}
+#    \vec p_\mathrm{reference}
+#    \xleftarrow{T_\mathrm{rc}}   \vec p_\mathrm{camera}
+#    \xleftarrow{\vec b_\mathrm{intrinsics}}
+#    \vec q
+# \]
 
 This works, but it depends on $\vec p_{\mathrm{frame}_0}$ being "fixed". We can
 do better. We're observing more than one chessboard, and /in aggregate/ all the
@@ -240,18 +783,36 @@ very simple approach towards combinining the frames: we compute the mean of all
 the $\vec p^+_\mathrm{reference}$ estimates from each frame. The full data flow
 then looks like this:
 
-\begin{aligned}
-   & \swarrow                   & \vec p^+_{\mathrm{reference}_0}  & \xleftarrow{T^+_{\mathrm{rf}_0}} & \vec p_{\mathrm{frame}_0} & \nwarrow & \\
-   \vec q^+                      \xleftarrow{\mathrm{intrinsics}^+}
-   \vec p^+_\mathrm{camera}      \xleftarrow{T^+_\mathrm{cr}}
-   \vec p^+_\mathrm{reference}
-   & \xleftarrow{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_1}  & \xleftarrow{T^+_{\mathrm{rf}_1}} & \vec p_{\mathrm{frame}_1} & \xleftarrow{T_\mathrm{fr}} &
-   \vec p_\mathrm{reference}
-   \xleftarrow{T_\mathrm{rc}}   \vec p_\mathrm{camera}
-   \xleftarrow{\mathrm{intrinsics}}
-   \vec q \\
-   & \nwarrow                   & \vec p^+_{\mathrm{reference}_2}  & \xleftarrow{T^+_{\mathrm{rf}_2}} & \vec p_{\mathrm{frame}_2} & \swarrow
-\end{aligned}
+\[
+\xymatrix{
+& & & & \vec p^+_{\mathrm{reference}_0} \ar[dl]_{\mathrm{mean}} & \vec p^+_{\mathrm{frame}_0} \ar[l]_-{T^+_{\mathrm{rf}_0}} \\
+\vec q^+ & &
+\vec p^+_\mathrm{camera}          \ar[ll]_-{\vec b_\mathrm{intrinsics}^+} &
+\vec p^+_{\mathrm{reference}}   \ar[l]_-{T^+_\mathrm{cr}} &
+\vec p^+_{\mathrm{reference}_1} \ar[l]_{\mathrm{mean}} & \vec p^+_{\mathrm{frame}_1} \ar[l]_-{T^+_{\mathrm{rf}_1}} &
+\vec p_\mathrm{reference}         \ar[l]_-{T_\mathrm{f_1 r}} \ar[lu]_-{T_\mathrm{f_0 r}} \ar[ld]^-{T_\mathrm{f_2 r}} &
+\vec p_\mathrm{camera}            \ar[l]_-{T_\mathrm{rc}} & &
+\vec q                            \ar[ll]_-{\vec b_\mathrm{intrinsics}} \\
+& & & & \vec p^+_{\mathrm{reference}_2} \ar[ul]^{\mathrm{mean}} & \vec p^+_{\mathrm{frame}_2} \ar[l]_-{T^+_{\mathrm{rf}_2}}
+}
+\]
+
+# Another way to do this (without xymatrix):
+# \begin{aligned}
+#    & \swarrow                   & \vec p^+_{\mathrm{reference}_0}  & \xleftarrow{T^+_{\mathrm{rf}_0}} & \vec p_{\mathrm{frame}_0} & \nwarrow & \\
+#    \vec q^+                      \xleftarrow{\vec b_\mathrm{intrinsics}^+}
+#    \vec p^+_\mathrm{camera}      \xleftarrow{T^+_\mathrm{cr}}
+#    \vec p^+_\mathrm{reference}
+#    & \xleftarrow{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_1}  & \xleftarrow{T^+_{\mathrm{rf}_1}} & \vec p_{\mathrm{frame}_1} & \xleftarrow{T_\mathrm{fr}} &
+#    \vec p_\mathrm{reference}
+#    \xleftarrow{T_\mathrm{rc}}   \vec p_\mathrm{camera}
+#    \xleftarrow{\vec b_\mathrm{intrinsics}}
+#    \vec q \\
+#    & \nwarrow                   & \vec p^+_{\mathrm{reference}_2}  & \xleftarrow{T^+_{\mathrm{rf}_2}} & \vec p_{\mathrm{frame}_2} & \swarrow
+# \end{aligned}
+
+
+
 
 This is better, but there's another issue. What is the transformation relating
 the original and perturbed reference coordinate systems?
@@ -355,451 +916,3 @@ of the chessboard dance]].
 See the [[file:tour-uncertainty.org][tour of mrcal]] for a simulation validating this approach of quantifying
 uncertainty and for some empirical results.
 
-* cross-uncertainty
-
-** notes from the roadmap
-Improved projection uncertainty quantification. The [[file:uncertainty.org][current projection
-uncertainty method]], which functional, has some issues. A new approach in the
-[[https://github.com/dkogan/mrcal/tree/2022-04--cross-uncertainty][=2022-04--cross-uncertainty= branch]] aims to resolve them.
-
-The current projection uncertainty method works badly if given chessboards at
-multiple different ranges from the camera. This is due to the aphysical
-transform $T_{\mathrm{r}^+\mathrm{r}}$ computed as part of the [[file:uncertainty.org::#propagating-through-projection][uncertainty
-computation]]. We can clearly see this in the dance study:
-
-#+begin_src sh
-./dance-study.py                          \
-    --scan num_far_constant_Nframes_near  \
-    --range 2,10                          \
-    --method cross-reprojection--rrp-Jfp  \
-    --Ncameras 1                          \
-    --Nframes-near 100                    \
-    --observed-pixel-uncertainty 2        \
-    --ymax 4                              \
-    --uncertainty-at-range-sampled-max 35 \
-    ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity/opencv8.cameramodel
-#+end_src
-
-This tells us that adding /any/ observations at 10m to the bulk set at 2m
-makes the projection uncertainty /worse/. One could expect no improvement from
-the far-off observations, but they shouldn't break anything. The issue is the
-averaging in 3D point space. Observation noise causes the far-off geometry to
-move much more than the nearby chessboards, and that far-off motion then
-dominates the average. We can also see it with the much larger ellipse we get
-when we add =--extra-observation-at= to
-
-#+begin_src sh
-test/test-projection-uncertainty.py \
-  --fixed cam0                      \
-  --model opencv4                   \
-  --show-distribution               \
-  --range-to-boards 4               \
-  --extra-observation-at 40         \
-  --do-sample                       \
-  --explore
-#+end_src
-
-Some experimental fixes are implemented in
-[[https://www.github.com/dkogan/mrcal/blob/master/test/test-projection-uncertainty.py][=test/test-projection-uncertainty.py=]]. For instance:
-
-#+begin_src sh
-test/test-projection-uncertainty.py \
-  --fixed cam0                      \
-  --model opencv4                   \
-  --show-distribution               \
-  --range-to-boards 4               \
-  --extra-observation-at 40         \
-  --do-sample                       \
-  --explore                         \
-  --reproject-perturbed mean-frames-using-meanq-penalize-big-shifts
-#+end_src
-
-It is important to solve this to be able to clearly say if non-closeup
-observations are useful at all or not. There was quick a bit of thought and
-experimentation in this area, but no conclusive solutions yet.
-
-The solution being considered: solve for $T_{\mathrm{r}^+\mathrm{r}}$
-directly. We have a solve that minimizes the reprojection error $\Sigma_i
-\left\Vert\vec q_i - \mathrm{project}\left(T_\mathrm{cr_i} T_\mathrm{rf_i}
-\vec p_{\mathrm{frame}_i}\right)\right\Vert^2$ and another one that looks at
-perturbed quantities $\left\Vert\vec q^+ -
-\mathrm{project}^+\left(T_{\mathrm{c}^+\mathrm{r}^+}
-T_{\mathrm{r}^+\mathrm{f}^+} \vec p_{\mathrm{frame}}\right)\right\Vert^2$. Can
-I cross these to find the $T_{\mathrm{r}^+\mathrm{r}}$ that minimizes
-$\left\Vert\vec q^+ - \mathrm{project}^+\left(T_{\mathrm{c}^+\mathrm{r}^+}
-T_{\mathrm{r}^+\mathrm{r}} T_\mathrm{rf} \vec
-p_{\mathrm{frame}}\right)\right\Vert^2$. A diagram:
-
-#+begin_example
-ORIGINAL SOLVE                   PERTURBED SOLVE
-
-point in                         point in
-chessboard                       chessboard
-frame                            frame
-
-  |                                |
-  | Trf                            | Tr+f+
-  v                                v
-
-point in                         point in
-ref frame     <-- Trr+ -->       ref frame
-
-  |                                |
-  | Tcr                            | Tc+r+
-  v                                v
-
-point in                         point in
-cam frame                        cam frame
-
-  |                                |
-  | project                        | project
-  v                                v
-
-pixel                            pixel
-#+end_example
-
-Some experiments along those lines are implemented in
-=mrcal-show-projection-diff --same-dance= and in
-=test/test-projection-uncertainty.py --reproject-perturbed ...=
-
-When asked to compute the uncertainty of many pixels at once (such as what
-[[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool does), mrcal currently computes a
-separate $T_{\mathrm{r}^+\mathrm{r}}$ for each pixel. But there exists only
-one $T_{\mathrm{r}^+\mathrm{r}}$, and this should be computed once for all
-pixels, and applied to all of them.
-
-Currently we are able to compute projection uncertainties only when given a
-vanilla calibration problem: stationary cameras are observing a moving
-chessboard. We should support more cases, for instance structure-from-motion
-coupled with intrinsics optimization. And computing uncertainty from a
-points-only chessboard-less solve should be possible
-
-** New notes
-
-Reproject by explicitly computing a ref-refperturbed transformation
-
-I have a baseline solve (parameter vector $\vec b$) and a perturbed solve (parameter
-vector $\vec b^+$) obtained from perturbing the observations $\vec q_\mathrm{ref}$ and
-re-optimizing. I also have an arbitrary baseline query pixel $\vec q$ and distance
-$d$ from which I compute the perturbed reprojection $\vec q^+$.
-
-I need to eventually compute $\mathrm{Var}\left(\vec q^+\right)$. I linearize
-everything to get
-
-\[
-\Delta \vec q^+ \approx \frac{\mathrm{d}\vec q^+}{\mathrm{d}\vec b^+} \frac{\mathrm{d}\vec b^+}{\mathrm{d}\vec q_\mathrm{ref}}
-\Delta \vec q_\mathrm{ref}
-\]
-
-Let
-
-\[
-P \equiv \frac{\mathrm{d}\vec q^+}{\mathrm{d}\vec b^+}
-\]
-
-and
-
-\[
-M \equiv \frac{\mathrm{d}\vec b^+}{\mathrm{d}\vec q_\mathrm{ref}}
-\]
-
-Then
-
-\[
-\Delta \vec q^+ \approx P M \Delta \vec q_\mathrm{ref}
-\]
-
-Then
-
-\[
-\mathrm{Var} \left( \vec q^+ \right) = P M \mathrm{Var} \left( \vec q_\mathrm{ref} \right) M^T P^T
-\]
-
-I have $M$ from the [[#propagating-to-state-vector][above uncertainty propagation logic]], so I just need $P$.
-
-In my usual least squares solve each chessboard point produces two elements
-(horizontal, vertical error) of the measurements vector:
-
-\[
-\vec x = W \left( \mathrm{project}\left(\mathrm{intrinsics}, T_\mathrm{cam,ref} \, T_\mathrm{ref,frame} \, \vec p \right) -
-\vec q_\mathrm{ref} \right)
-\]
-
-In this uncertainty quantification method I optimize the "cross reprojection
-error": I look at the /perturbed/ chessboard,frames,points and the /unperturbed/
-camera intrinsics, extrinsics. The data flows from the top-right to the
-bottom-left:
-
-\[
-\xymatrix{
-p_\mathrm{board}  \ar[d]^{T_{rf}} & p^*_\mathrm{board}  \ar[d]^{T_{r^*f^*}} \\
-p_\mathrm{ref}    \ar[d]^{T_{cr}} \ar@{<->}[r]^{T_{rr^*}} &
-p^*_\mathrm{ref}    \ar[d]^{T_{c^*r^*}} \\
-p_\mathrm{cam}                 & p^*_\mathrm{cam}
-}
-\]
-
-This requires computing a ref transformation to take into account the shifting
-reference frame that results when re-optimizing:
-
-\begin{aligned}
-\vec x_\mathrm{cross} &=& \\
-& & + W_\mathrm{board} \mathrm{project}\left(\mathrm{intrinsics},
-                  T_\mathrm{cam_ref} T_\mathrm{ref,ref^+} T_\mathrm{ref^+,frame^+} p_\mathrm{board}\right) \\
-& & - W_\mathrm{board} q_\mathrm{ref}_board \\
-& & + W_\mathrm{point} \mathrm{project}\left(\mathrm{intrinsics},
-                  T_\mathrm{cam,ref} T_\mathrm{ref,ref^+} p^+\right) \\
-& & - W_\mathrm{point} q_\mathrm{ref}_point \\
-\end{aligned}
-
-This expression includes observations of chessboards and of discrete points.
-
-For a given perturbation of the input observations I want to compute
-T_\mathrm{ref_ref^+}. So here I look at an operating point T_\mathrm{ref_ref^+} = 0.
-At the operating point I have x_cross0: affected by the input
-perturbation, but not any reference transform.
-
-I reoptimize norm2(x_cross) by varying rt_ref_ref^+. Let J_cross =
-dx_cross/drt_ref_ref^+. I assume everything is locally linear, as defined by
-J_cross. I minimize
-
-  E = norm2(x_cross0 + dx_cross)
-
-I set the derivative to 0:
-
-  0 = dE/drt_ref_ref^+ ~ (x_cross0 + dx_cross)t J_cross
-
--> J_cross_t x_cross0 = -J_cross_t dx_cross
-
-Furthermore, dx_cross = J_cross drt_ref_ref^+, so
-
-  J_cross_t x_cross0 = -J_cross_t J_cross drt_ref_ref^+
-
-and
-
-  drt_ref_ref^+ = -inv(J_cross_t J_cross) J_cross_t x_cross0
-               = -pinv(J_cross) x_cross0
-
-The operating point is at rt_ref_ref^+ = 0, so the shift is off 0:
-
-  rt_ref_ref^+ = 0 + drt_ref_ref^+
-              = -pinv(J_cross) x_cross0
-
-This is good, but implies that J_cross needs to be computed directly. We can do
-better.
-
-Since everything I'm looking at is near the original solution to the main
-optimization problem, I can look at EVERYTHING in the linear space defined by
-the optimal measurements x and their gradient J:
-
-  x = + x0
-      + J_intrinsics     dintrinsics
-      + J_extrinsics     drt_cam_ref
-      + J_frames         drt_ref_frame
-      + J_points         dpoints
-      + J_calobject_warp dcalobject_warp
-
-Once again, we have this expression:
-
-  x_cross =
-    [
-      + W_board \mathrm{project}\left(intrinsics,
-                        T_\mathrm{cam_ref} T_\mathrm{ref_ref^+} T_\mathrm{ref^+_frame^+} pboard\right)
-      - W_board q_\mathrm{ref}_board
-
-      + W_point \mathrm{project}\left(intrinsics,
-                        T_\mathrm{cam_ref} T_\mathrm{ref_ref^+} p^+\right)
-      - W_point q_\mathrm{ref}_point
-    ]
-
-When evaluating x_cross0, I have rt_ref_ref^+ = 0, so I have perturbed
-points and rt_ref_frame and calobject_warp only:
-
-  x_cross0 =  + x0
-              + J_points         M[points]         delta_q_\mathrm{ref}
-              + J_frames         M[frames]         delta_q_\mathrm{ref}
-              + J_calobject_warp M[calobject_warp] delta_q_\mathrm{ref}
-            = + x0
-              + J[frames,points,calobject_warp] db[frames,points,calobject_warp]
-
-When evaluating J_cross = dx_cross/drt_ref_ref^+, I can look at it in two ways:
-
-- a rt_cam_ref shift to compose_rt(rt_cam_ref,rt_ref_ref^+).
-
-  J_cross_e = dx_cross/drt_ref_ref^+
-            = J_extrinsics drt_cam_ref^+/drt_ref_ref^+
-            = J_extrinsics d(compose_rt(rt_cam_ref,rt_ref_ref^+))/drt_ref_ref^+
-
-  For observations that have no extrinsics (the camera is defined to sit at the
-  ref coord system) this formulation is not possible. Because there is no
-  J_extrinsics.
-
-- a rt_ref_frame shift to compose_rt(rt_ref_ref^+,rt_ref^+_frame^+) and/or a point
-  shift to transform_rt(rt_ref_ref^+,p^+)
-
-  rt_ref^+_frame^+ is a tiny shift off rt_ref_frame AND I'm assuming that
-  everything is locally linear. So this shift is insignificant, and I use
-  rt_ref_frame to compute the gradient instead. Same for p^+/p.
-
-  J_cross_f = dx_cross/drt_ref_ref^+
-            = J_frame drt_ref_frame^+/drt_ref_ref^+
-            = J_frame d(compose_rt(rt_ref_ref^+,rt_ref^+_frame^+))/drt_ref_ref^+
-            = J_frame d(compose_rt(rt_ref_ref^+,rt_ref_frame))/drt_ref_ref^+
-
-  J_cross_p = dx_cross/drt_ref_ref^+
-            = J_p dp^+/drt_ref_ref^+
-            = J_p d(transform(rt_ref_ref^+,p^+))/drt_ref_ref^+
-            = J_p d(transform(rt_ref_ref^+,p ))/drt_ref_ref^+
-
-There's one more simplification available. From above:
-
-  rt_ref_ref^+ = -pinv(J_cross) x_cross0
-              = -inv() J_cross_t x_cross0
-              = ... J_frame_t (x0 + ...)
-
-The original optimization problem has d/dx (x0_t x0) = 0 -> Jt x0 = 0. So
-J_frame_t x0 = 0 as well, and thus instead of x_cross0 we can use
-
-  dx_cross0 = J[frames,points,calobject_warp] db[frames,points,calobject_warp]
-
-So we have rt_ref_ref^+ = K db for some K that depends on the various J matrices
-that are constant for each solve:
-
-  K = -pinv(J_cross) J[frames,points,calobject_warp]
-
-Now that I have rt_ref_ref^+, I can use it to compute q^+. This
-can accept arbitrary q, not just those in the solve, so I actually need to
-compute projections, rather than looking at a linearized space defined by J
-
-I have without any perturbations:
-
-  pref = T_\mathrm{ref_cam} unproject(intrinsics, q)
-
-For a given perturbation I have
-
-  pref^+ = T_\mathrm{ref^+_ref} pref
-  pcam^+ = T_\mathrm{cam^+_ref^+} pref^+
-  q^+    = project(intrinsics^+, pcam^+)
-
-Let's linearize everything:
-
-q^+ - q
-
-~   dq_dpcam (pcam^+ - pcam)
-  + dq_dintrinsics db[intrinsics_this]
-
-~   dq_dpcam (+ dpcam__drt_cam_ref db[extrinsics_this]
-              + dpcam__dpref       (pref^+ - pref) )
-  + dq_dintrinsics db[intrinsics_this]
-
-~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-              + dpcam__dpref dpref^+__drt_ref_ref^+ rt_ref_ref^+)
-  + dq_dintrinsics db[intrinsics_this]
-
-~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-              - dpcam__dpref dpref^+__drt_ref_ref^+ pinv(J_cross) dx_cross0)
-  + dq_dintrinsics db[intrinsics]
-
-~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-              - dpcam__dpref dpref^+__drt_ref_ref^+ pinv(J_cross) J[frames_all,points_all,calobject_warp] D Dinv db[frames_all,points_all,calobject_warp])
-  + dq_dintrinsics db[intrinsics_this]
-
-~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-              + dpcam__dpref dpref^+__drt_ref_ref^+ K Dinv db[frames_all,points_all,calobject_warp])
-  + dq_dintrinsics db[intrinsics_this]
-
---->
-
-dq/db[extrinsics_this]                      = dq_dpcam dpcam__drt_cam_ref
-dq/db[intrinsics_this]                      = dq_dintrinsics
-dq/db[frames_all,points_all,calobject_warp] = dq_dpcam dpcam__dpref dpref^+__drt_ref_ref^+ K Dinv
-
-============================================================================
-
-I can also go the other way: traversing the diagram above from the top-left to
-bottom-right. The derivation is similar, with slightly different results. We
-have
-
-  x_cross =
-    [
-      + W_board project(intrinsics^+,
-                        T_\mathrm{cam^+_ref^+} T_\mathrm{ref^+_ref} T_\mathrm{ref_frame} pboard)
-      - W_board q_\mathrm{ref}_board^+
-
-      + W_point project(intrinsics^+,
-                        T_\mathrm{cam^+_ref^+} T_\mathrm{ref^+_ref} p)
-      - W_point q_\mathrm{ref}_point^+
-    ]
-
-And the optimum is at
-
-  rt_ref^+_ref = 0 + drt_ref^+_ref
-              = -pinv(J_cross) x_cross0
-
-And we can compute the linearized quantities near rt_ref^+_ref = identity:
-
-  rt_cam^+_ref = compose_rt(rt_cam^+_ref^+, rt_ref^+_ref)
-
-  x_cross0 = + x0
-             + J_intrinsics M[intrinsics] delta_q_\mathrm{ref}
-             + J_extrinsics M[extrinsics] delta_q_\mathrm{ref}
-             - W delta_q_\mathrm{ref}
-           = + x0
-             + J[intrinsics,extrinsics] db[intrinsics,extrinsics]
-             - W delta_q_\mathrm{ref}
-
-For points that have no extrinsics (the camera is defined to sit at the ref
-coord system) there is no J_extrinsics, and we can ignore it here. But we must
-use J_cross_f below in that case.
-
-When evaluating J_cross = dx_cross/drt_ref^+_ref, I can once again look at it in
-two ways:
-
-- a rt_cam_ref shift to compose_rt(rt_cam^+_ref^+,rt_ref^+_ref).
-
-  rt_cam^+_ref^+ is a tiny shift off rt_cam_ref AND I'm assuming that everything
-  is locally linear. So this shift is insignificant, and I use rt_cam_ref to
-  compute the gradient instead
-
-  J_cross_e = dx_cross/drt_ref^+_ref
-            = J_extrinsics drt_cam^+_ref/drt_ref^+_ref
-            = J_extrinsics d(compose_rt(rt_cam^+_ref^+,rt_ref^+_ref))/drt_ref^+_ref
-            = J_extrinsics d(compose_rt(rt_cam_ref,  rt_ref^+_ref))/drt_ref^+_ref
-
-  As before, for points that have no extrinsics (the camera is defined to sit at
-  the ref coord system) there is no J_extrinsics, so this formulation is not
-  possible here. Use J_cross_fp.
-
-
-- a rt_ref_frame shift to compose_rt(rt_ref^+_ref, rt_ref_frame) and/or a point
-  shift to transform_rt(rt_ref^+_ref,p)
-
-  J_cross_f = dx_cross/drt_ref^+_ref
-            = J_frame drt_ref^+_frame/drt_ref^+_ref
-            = J_frame d(compose_rt(rt_ref^+_ref,rt_ref_frame))/drt_ref^+_ref
-
-  J_cross_p = dx_cross/drt_ref^+_ref
-            = J_p dp^+/drt_ref^+_ref
-            = J_p d(transform(rt_ref^+_ref,p ))/drt_ref^+_ref
-
-There's one more simplification available. From above:
-
-  rt_ref^+_ref = -pinv(J_cross) x_cross0
-              = -inv() J_cross_t x_cross0
-              = ... J_frame_t (x0 + ...)
-
-And we can simplify to
-
-  rt_ref^+_ref = -pinv(J_cross) dx_cross0
-
-where
-
-  dx_cross0 = J[intrinsics,extrinsics] db[intrinsics,extrinsics] - W delta_q_\mathrm{ref}
-
-So we have rt_ref^+_ref = K db - W delta_q_\mathrm{ref} for some K that depends on the
-various J matrices that are constant for each solve:
-
-  K = -pinv(J_cross) J[intrinsics,extrinsics]
-
-The rest of the data flow is the same as above, except we already have
-rt_ref^+_ref, so we don't need to invert the transform when applying it.
