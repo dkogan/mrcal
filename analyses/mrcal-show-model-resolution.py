@@ -201,4 +201,5 @@ curve_options = \
 
 gp.plot( (resolution__deg_pixel, curve_options),
          **plot_options,
+         title = "Camera resolution in deg/pixel",
          wait = args.hardcopy is None)
