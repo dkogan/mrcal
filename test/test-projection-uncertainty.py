@@ -1595,7 +1595,7 @@ The rt_refperturbed_ref formulation:
                                         reldiff_smooth_radius = 1,
                                         percentile = 90,
                                         relative  = True,
-                                        msg = f"cross-uncertainty at distance={distance}: db_predicted is db_observed")
+                                        msg = f"cross-reprojection uncertainty at distance={distance}: db_predicted is db_observed")
                 if 0:
                     import gnuplotlib as gp
                     gp.plot( nps.cat(db_predicted, db_observed), wait = True )
@@ -2040,12 +2040,12 @@ The rt_refperturbed_ref formulation:
                                     dxJ_results[direction]['transform-grad'][0],
                                     eps       = 1e-6,
                                     worstcase = True,
-                                    msg = f"cross-uncertainty at distance={distance}: dx_cross0 is identical as computed by compose-grad and transform-grad using {direction}")
+                                    msg = f"cross-reprojection uncertainty at distance={distance}: dx_cross0 is identical as computed by compose-grad and transform-grad using {direction}")
             testutils.confirm_equal(dxJ_results[direction]['compose-grad']  [1],
                                     dxJ_results[direction]['transform-grad'][1],
                                     eps       = 1e-6,
                                     worstcase = True,
-                                    msg = f"cross-uncertainty at distance={distance}: J_cross is identical as computed by compose-grad and transform-grad using {direction}")
+                                    msg = f"cross-reprojection uncertainty at distance={distance}: J_cross is identical as computed by compose-grad and transform-grad using {direction}")
 
             # The linearized operating point was computed only by looking at the
             # gradients of the original solution WITHOUT reoptimizing anything.
@@ -2059,7 +2059,7 @@ The rt_refperturbed_ref formulation:
                                     reldiff_smooth_radius = 1,
                                     percentile = 90,
                                     relative = True,
-                                    msg = f"cross-uncertainty at distance={distance}: linearized dx_cross0 is correct using {direction}")
+                                    msg = f"cross-reprojection uncertainty at distance={distance}: linearized dx_cross0 is correct using {direction}")
             testutils.confirm_equal(dxJ_results[direction]['compose-grad'     ][1],
                                     dxJ_results[direction]['linearization-Jfp'][1],
                                     eps = 0.1,
@@ -2067,7 +2067,7 @@ The rt_refperturbed_ref formulation:
                                     reldiff_smooth_radius = 1,
                                     percentile = 90,
                                     relative = True,
-                                    msg = f"cross-uncertainty at distance={distance}: linearized J_cross is correct using {direction}")
+                                    msg = f"cross-reprojection uncertainty at distance={distance}: linearized J_cross is correct using {direction}")
 
         # I compared the linearization result to the sampled result. Now let's
         # compare the rt_ref_refperturbed,rt_refperturbed_ref results to each
@@ -2081,11 +2081,11 @@ The rt_refperturbed_ref formulation:
             testutils.confirm_equal(th_deg,
                                     0,
                                     eps = 1e-3,
-                                    msg = f"cross-uncertainty at distance={distance}: rt_refperturbed_ref is the inverse of rt_ref_refperturbed with method {method} (r)")
+                                    msg = f"cross-reprojection uncertainty at distance={distance}: rt_refperturbed_ref is the inverse of rt_ref_refperturbed with method {method} (r)")
             testutils.confirm_equal(t,
                                     0,
                                     eps = 1e-4,
-                                    msg = f"cross-uncertainty at distance={distance}: rt_refperturbed_ref is the inverse of rt_ref_refperturbed with method {method} (t)")
+                                    msg = f"cross-reprojection uncertainty at distance={distance}: rt_refperturbed_ref is the inverse of rt_ref_refperturbed with method {method} (t)")
 
         if 0:
             import gnuplotlib as gp
@@ -2181,9 +2181,9 @@ The rt_refperturbed_ref formulation:
 
             err_rms_cross_solved = np.sqrt( err_sum_of_squares_cross_solved / (Nmeas_cross/2) )
             testutils.confirm(err_rms_baseline*10 < np.mean(err_rms_cross_ref0),
-                              msg = f"cross-uncertainty at distance={distance}: Unoptimized cross error is MUCH worse than the baseline")
+                              msg = f"cross-reprojection uncertainty at distance={distance}: Unoptimized cross error is MUCH worse than the baseline")
             testutils.confirm(np.mean(err_rms_cross_solved)*2 < np.mean(err_rms_cross_ref0),
-                              msg = f"cross-uncertainty at distance={distance}: Unoptimized cross error is MUCH worse than optimized cross error")
+                              msg = f"cross-reprojection uncertainty at distance={distance}: Unoptimized cross error is MUCH worse than optimized cross error")
 
             if 0:
                 print(f"RMS error baseline            = {err_rms_baseline} pixels")
