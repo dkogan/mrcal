@@ -421,10 +421,12 @@ This is exactly the $\vec x^*$ from the original optimization, except I perturb
 $\vec b_\mathrm{frames}$ and $\vec b_\mathrm{points}$ and $\vec
 b_\mathrm{calobjectwarp}$:
 
-\[
-\vec x_\mathrm{cross_0} = \vec x^* +
+\begin{aligned}
+\vec x_\mathrm{cross_0} =& \vec x^* +
+J_\mathrm{frames,points,calobjectwarp} \Delta \vec b_\mathrm{frames,points,calobjectwarp} \\
+=& \vec x^* +
 J_\mathrm{frames,points,calobjectwarp}  M_\mathrm{frames,points,calobjectwarp} \Delta \vec q_\mathrm{ref}
-\]
+\end{aligned}
 
 I can evaluate $J_\mathrm{cross}$ in two different ways:
 
@@ -466,50 +468,61 @@ NEED THE SAME THING FOR CALOBJECTWARP
 
 
 
-There's one more simplification available. From above:
+There's one more simplification available. The original optimization problem was
+solved, so we have $\frac{\partial E}{\partial \vec b} =
+\frac{\partial}{\partial \vec b} \Vert \vec x \Vert^2 = 0$, and thus $J^T \vec
+x^* = 0$.
 
-
-\[
-\vec{\mathrm{rt}_\mathrm{rr^+}} &= -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T \vec x_\mathrm{cross_0} \\
-\]
-
-and
+From above:
 
 \[
 \vec x_\mathrm{cross_0} = \vec x_* +
 J_\mathrm{frames,points,calobjectwarp}  M_\mathrm{frames,points,calobjectwarp} \Delta \vec q_\mathrm{ref}
 \]
 
-The original optimization problem was solved, so we have
-$\frac{\partial}{\partial \vec b} \Vert \vec x \Vert^2 = 0$, and thus $J^T \vec
-x^* = 0$.
+We can combine those two to simplify
+\begin{aligned}
+\vec{\mathrm{rt}_\mathrm{rr^+}} &= -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T \vec x_\mathrm{cross_0} \\
+&= \cdots J_\mathrm{some\_state\_subset}^T \vec x_\mathrm{cross_0} \\
+&= \cdots J_\mathrm{some\_state\_subset}^T \left(\vec x^* + \Delta \vec x\right) \\
+&= \cdots J_\mathrm{some\_state\_subset}^T \Delta \vec x \\
+&= -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T \Delta \vec x_\mathrm{cross_0}
+\end{aligned}
 
+So instead of $\vec x_\mathrm{cross_0}$ we can use
 
- So J_frame_t x0 = 0 as well, and thus instead of x_\mathrm{cross_0} we
-can use
+\begin{aligned}
+\Delta \vec x_\mathrm{cross_0} = \, & J_\mathrm{frames,points,calobjectwarp} \Delta \vec b_\mathrm{frames,points,calobjectwarp} \\
+& J_\mathrm{frames,points,calobjectwarp}  M_\mathrm{frames,points,calobjectwarp} \Delta \vec q_\mathrm{ref}
+\end{aligned}
+
+So we have $\vec{\mathrm{rt}_\mathrm{rr^+}} = K \Delta \vec b$ for some $K$ that
+depends on the various $J$ matrices that are constant for each solve.
+
+Now that I have $\vec{\mathrm{rt}_\mathrm{rr^+}}$, I can use it to compute $\vec
+q^+$. This can accept arbitrary $\vec q$, not just those in the solve, so I actually
+need to compute projections, rather than looking at a linearized space defined
+by $J$. I follow this data flow from above:
+
 
 \[
-\Delta \vec x_\mathrm{cross_0} = J_\mathrm{frames,points,calobjectwarp} \Delta \vec b_\mathrm{frames,points,calobjectwarp}
+\xymatrix{
+  {\vec p  _\mathrm{ref}} \ar[r]^{T_\mathrm{r^+r}}
+& {\vec p^+_\mathrm{ref}}    \ar[d]^{T_\mathrm{c^+r^+}} \\
+  {\vec p  _\mathrm{cam}} \ar[u]_{T_\mathrm{rc}}
+& {\vec p^+_\mathrm{cam}}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
+  {\vec q} \ar[u]_{\vec b_\mathrm{intrinsics} }
+& {\vec q^+}
+}
 \]
 
-So we have \vec{\mathrm{rt}_\mathrm{rr^+}} = K db for some K that depends on the various J matrices
-that are constant for each solve:
 
-  K = -pinv(J_\mathrm{cross}) J[frames,points,calobject_warp]
-
-Now that I have \vec{\mathrm{rt}_\mathrm{rr^+}}, I can use it to compute q^+. This
-can accept arbitrary q, not just those in the solve, so I actually need to
-compute projections, rather than looking at a linearized space defined by J
-
-I have without any perturbations:
-
-  pref = T_\mathrm{ref_cam} unproject(intrinsics, q)
-
-For a given perturbation I have
-
-  pref^+ = T_\mathrm{ref^+_ref} pref
-  pcam^+ = T_\mathrm{cam^+_ref^+} pref^+
-  q^+    = project(intrinsics^+, pcam^+)
+\begin{aligned}
+\vec p_\mathrm{ref}   & = T_\mathrm{rc} \mathrm{unproject}\left(\vec b_\mathrm{intrinsics}, \vec q\right) \\
+\vec p^+_\mathrm{ref} & = T_\mathrm{r^+r} \vec p_\mathrm{ref} \\
+\vec p^+_\mathrm{cam} & = T_\mathrm{c^+r^+} \vec p^+_\mathrm{ref} \\
+\vec q^+              & = \mathrm{project}\left(\vec b^+_\mathrm{intrinsics}, \vec p^+_\mathrm{cam}\right)
+\end{aligned}
 
 Let's linearize everything:
 
