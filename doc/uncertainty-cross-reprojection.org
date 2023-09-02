@@ -1,0 +1,458 @@
+#+TITLE: Projection uncertainty: cross-reprojection
+#+OPTIONS: toc:t
+
+** Cross-reprojection uncertainty
+
+Let's say I have a baseline solve (parameter vector $\vec b$) and a perturbed
+solve (parameter vector $\vec b^+$) obtained from perturbing the observations
+$\vec q_\mathrm{ref}$ and re-optimizing. I also have an arbitrary baseline query
+pixel $\vec q$ and distance from which I compute the perturbed reprojection
+$\vec q^+$.
+
+I need to eventually compute $\mathrm{Var}\left(\vec q^+\right)$. I linearize
+everything to get
+
+\[
+\Delta \vec q^+ \approx \frac{\partial\vec q^+}{\partial\vec b} \frac{\partial\vec b}{\partial\vec q_\mathrm{ref}}
+\Delta \vec q_\mathrm{ref}
+\]
+
+Let
+
+\[
+P \equiv \frac{\partial\vec q^+}{\partial\vec b}
+\]
+
+and
+
+\[
+M \equiv \frac{\partial\vec b}{\partial\vec q_\mathrm{ref}}
+\]
+
+Then
+
+\[
+\Delta \vec q^+ \approx P M \Delta \vec q_\mathrm{ref}
+\]
+
+And
+
+\[
+\mathrm{Var} \left( \vec q^+ \right) = P M \mathrm{Var} \left( \vec q_\mathrm{ref} \right) M^T P^T
+\]
+
+I have $M$ from the [[file:uncertainty.org::#propagating-to-state-vector][above uncertainty propagation logic]], so I just need $P$.
+
+In my usual least squares solve using chessboards, each point produces two
+elements (horizontal, vertical error) of the measurements vector:
+
+\[
+\vec x_i = W \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics}, T_\mathrm{cr} \, T_\mathrm{rf} \, \vec p_i \right) -
+\vec q_{\mathrm{ref}_i} \right)
+\]
+
+The data flow is:
+
+\[
+\xymatrix{
+\vec p_\mathrm{board}   \ar[d]^{T_\mathrm{rf}} \\
+\vec p_\mathrm{ref}     \ar[d]^{T_\mathrm{cr}} \\
+\vec p_\mathrm{cam}     \ar[d]^{\vec b_\mathrm{intrinsics} } \\
+\vec q
+}
+\]
+
+The optimization vector $\vec b$ contains the calibration object warp, which
+affects $\vec p_\mathrm{board}$, and it contains $T_\mathrm{cr}$,
+$T_\mathrm{rf}$ and $\vec b_\mathrm{intrinsics}$. When optimizing discrete
+points the flow is slightly different:
+
+\[
+\xymatrix{
+\vec p_\mathrm{point}   \ar[d]^{T_\mathrm{cr}} \\
+\vec p_\mathrm{cam}     \ar[d]^{\vec b_\mathrm{intrinsics} } \\
+\vec q
+}
+\]
+
+Each point is defined in the reference coordinate system, and each point
+coordinate is stored in $\vec b$. The analysis is very similar for the two cases
+(boards, points). In this writeup I mostly focus on boards, but the
+implementation supports both formulations.
+
+If we perturb $\vec q_\mathrm{ref}$ then we have a different optimization, with
+different quantities in this same data flow:
+
+\[
+\xymatrix{
+\vec p^+_\mathrm{board}  \ar[d]^{T_\mathrm{r^+f^+}} \\
+\vec p^+_\mathrm{ref}    \ar[d]^{T_\mathrm{c^+r^+}} \\
+\vec p^+_\mathrm{cam}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
+\vec q^+
+}
+\]
+
+As noted above, all the coordinate systems have shifted, so the two
+optimizations aren't directly comparable. In order to gauge the effect of
+$\Delta \vec q_\mathrm{ref}$ I optimize the "cross-reprojection error": I treat
+the two optimized worlds (unperturbed, perturbed) contant, and I compute an
+optimal transformation $T_\mathrm{rr^+}$ to relate the two sets of coordinate
+systems. I do this by solving the original optimization problem, but using half
+of the data flow from each of the unperturbed and perturbed optimizations. The
+data flow in this cross-reprojection optimization appears in red:
+
+\[
+\xymatrix{
+  \vec p  _\mathrm{board}  \ar[d]^{T_\mathrm{rf}}
+& {\color{red} \vec p^+_\mathrm{board}}  \ar@[red][d]^{\color{red} T_\mathrm{r^+f^+}} \\
+  {\color{red} \vec p  _\mathrm{ref}}    \ar@[red][d]^{\color{red} T_\mathrm{cr}}
+& {\color{red} \vec p^+_\mathrm{ref}}    \ar[d]^{T_\mathrm{c^+r^+}}
+  \ar@[red][l]^{\color{red} T_\mathrm{rr^+}} \\
+  {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][d]^{\color{red} \vec b_\mathrm{intrinsics} }
+& \vec p^+_\mathrm{cam}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
+  {\color{red} \vec q}
+& \vec q^+
+}
+\]
+
+All the quantities *except* $T_\mathrm{rr^+}$ are available in the perturbed and
+unperturbed optimizations. From those quantities we can compute the optimal
+$T_\mathrm{rr^+}$.
+
+In this read data flow I look at the /perturbed/ chessboard,frames,points and
+the /unperturbed/ camera intrinsics, extrinsics. Note that I could have
+traversed this data flow diagram from the top-left to the bottom-right instead.
+This produces a [[#cross-reprojection-rt-rpr][different formulation, described below]].
+
+So let's compute $T_\mathrm{rr^+}$. For a given perturbation $\Delta \vec
+q_\mathrm{ref}$ I compute an optimization
+
+\[
+\vec{ \mathrm{rt}_\mathrm{rr^+}} = \mathrm{argmin}\Vert \vec x_\mathrm{cross} \Vert^2
+\]
+
+where
+
+\begin{aligned}
+\vec x_\mathrm{cross} \equiv \,
+& W_\mathrm{board} \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics},
+                  T_\mathrm{cr} T_\mathrm{rr^+} T_\mathrm{r^+f^+} \vec p^+_\mathrm{board}\right)
+  - \vec q_\mathrm{refboard} \right) + \\
+& W_\mathrm{point} \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics},
+                  T_\mathrm{cr} T_\mathrm{rr^+} \vec p^+_\mathrm{point}\right)
+  -  \vec q_\mathrm{refpoint} \right)
+\end{aligned}
+
+$\vec{ \mathrm{rt}_\mathrm{rr^+}}$ is a single transform (a vector with 6
+elements, regardless of how many cameras or observations we have). This vector
+defines the $T_\mathrm{rr^+}$ transform.
+
+I optimize $\Vert\vec x_\mathrm{cross}\Vert^2$ by making a linearity assumption,
+and taking a Newton step from the operating point $\vec
+{\mathrm{rt}_\mathrm{rr^+}} = 0$. The baseline $\vec x_\mathrm{cross_0}$ comes
+from the above expression at the operating point. Furthermore I have
+
+\[
+J_\mathrm{cross} \equiv
+\frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}}
+\]
+
+I assume everything is locally linear, so $\Delta \vec x_\mathrm{cross} \approx
+J_\mathrm{cross} \Delta \vec{\mathrm{rt}_\mathrm{rr^+}}$. I minimize $E \equiv
+\Vert \vec x_\mathrm{cross_0} + \Delta \vec x_\mathrm{cross}\Vert^2$ by setting
+the derivative to $\vec 0$:
+
+\[
+0 = \frac{\partial E}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \propto (\vec x_\mathrm{cross_0} + \Delta \vec x_\mathrm{cross})^T J_\mathrm{cross}
+\]
+
+So
+
+\begin{aligned}
+J_\mathrm{cross}^T \vec x_\mathrm{cross_0} &= -J_\mathrm{cross}^T \Delta \vec x_\mathrm{cross} \\
+& \approx -J_\mathrm{cross}^T J_\mathrm{cross} \Delta \vec{\mathrm{rt}_\mathrm{rr^+}}
+\end{aligned}
+
+and
+
+\[
+\Delta \vec{\mathrm{rt}_\mathrm{rr^+}} \approx -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T \vec x_\mathrm{cross_0 }
+\]
+
+The operating point is at $\vec{\mathrm{rt}_\mathrm{rr^+}} = 0$ so
+
+\begin{aligned}
+\vec{\mathrm{rt}_\mathrm{rr^+}} &= 0 + \Delta \vec{\mathrm{rt}_\mathrm{rr^+}} \\
+                                &= -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T \vec x_\mathrm{cross_0}
+\end{aligned}
+
+This is good, but requires that $\vec x_\mathrm{cross}$ and $J_\mathrm{cross}$
+be computed directly. We can do better.
+
+Since everything I'm looking at is near the original solution to the main
+optimization problem, I can look at /everything/ in the linear space defined by
+the optimal measurements $\vec x^*$ and their gradient $J$:
+
+\[
+\vec x \approx \vec x_0 + J \Delta \vec b
+\]
+
+Once again, we have this data flow:
+
+\[
+\xymatrix{
+  \vec p  _\mathrm{board}  \ar[d]^{T_\mathrm{rf}}
+& {\color{red} \vec p^+_\mathrm{board}}  \ar@[red][d]^{\color{red} T_\mathrm{r^+f^+}} \\
+  {\color{red} \vec p  _\mathrm{ref}}    \ar@[red][d]^{\color{red} T_\mathrm{cr}}
+& {\color{red} \vec p^+_\mathrm{ref}}    \ar[d]^{T_\mathrm{c^+r^+}}
+  \ar@[red][l]^{\color{red} T_\mathrm{rr^+}} \\
+  {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][d]^{\color{red} \vec b_\mathrm{intrinsics} }
+& \vec p^+_\mathrm{cam}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
+  {\color{red} \vec q}
+& \vec q^+
+}
+\]
+
+implying this cost vector:
+
+\begin{aligned}
+\vec x_\mathrm{cross} \equiv \,
+& W_\mathrm{board} \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics},
+                  T_\mathrm{cr} T_\mathrm{rr^+} T_\mathrm{r^+f^+} \vec p^+_\mathrm{board}\right)
+  - \vec q_\mathrm{refboard} \right) + \\
+& W_\mathrm{point} \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics},
+                  T_\mathrm{cr} T_\mathrm{rr^+} \vec p^+_\mathrm{point}\right)
+  -  \vec q_\mathrm{refpoint} \right)
+\end{aligned}
+
+I evaluate $\vec x_\mathrm{cross_0}$ at $\vec{\mathrm{rt}_\mathrm{rr^+}} = 0$.
+This is exactly the $\vec x^*$ from the original optimization, except I perturb
+$\vec b_\mathrm{frames}$ and $\vec b_\mathrm{points}$ and $\vec
+b_\mathrm{calobjectwarp}$:
+
+\begin{aligned}
+\vec x_\mathrm{cross_0} = \, & \vec x^* +
+J_\mathrm{frames,points,calobjectwarp} \Delta \vec b_\mathrm{frames,points,calobjectwarp} \\
+= \, & \vec x^* +
+J_\mathrm{frames,points,calobjectwarp}  M_\mathrm{frames,points,calobjectwarp} \Delta \vec q_\mathrm{ref}
+\end{aligned}
+
+I can evaluate $J_\mathrm{cross}$ in two different ways:
+
+- a $\vec {\mathrm{rt}_\mathrm{cr}}$ shift to $\mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},\vec{\mathrm{rt}_\mathrm{rr^+}} \right)$. So
+  \begin{aligned}
+  J_{\mathrm{cross}_\mathrm{e}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+  & = J_\mathrm{extrinsics} \frac{\partial \mathrm{rt}_\mathrm{cr^+}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+  & = J_\mathrm{extrinsics} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},\vec{\mathrm{rt}_\mathrm{rr^+}} \right)}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}}
+  \end{aligned}
+
+  For observations that have no extrinsics (the camera is defined to sit at the
+  referene coord system) this formulation is not possible. Because there is no
+  $J_\mathrm{extrinsics}$
+
+- a $\vec {\mathrm{rt}_\mathrm{rf}}$ shift to $\mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{rr^+}},\mathrm{rt}_\mathrm{r^+f^+}\right)$ and/or a point
+  shift to $T_\mathrm{rr^+} \vec p^+$
+
+  $\vec{\mathrm{rt}_\mathrm{r^+f^+}}$ is a tiny shift off
+  $\vec{\mathrm{rt}_\mathrm{rf}}$ /and/ I'm assuming that everything is locally
+  linear. So this shift is insignificant for evaluating the gradient, and I use
+  $\vec{\mathrm{rt}_\mathrm{rf}}$ to compute the gradient instead. Similarly for
+  $p^+$ and $p$:
+
+  \begin{aligned}
+  J_{\mathrm{cross}_\mathrm{f}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+            & =       J_\mathrm{frame}  \frac{\partial \mathrm{rt}_\mathrm{rf^+}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+            & =       J_\mathrm{frame}  \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{rr^+}},\mathrm{rt}_\mathrm{r^+f^+}\right)}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+            & \approx J_\mathrm{frame}  \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{rr^+}},\mathrm{rt}_\mathrm{rf}\right)}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}}
+ \\
+  J_{\mathrm{cross}_\mathrm{p}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+            & =       J_\mathrm{points} \frac{\partial p^+}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+            & =       J_\mathrm{points} \frac{\partial T_\mathrm{rr^+} p^+}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+            & \approx J_\mathrm{points} \frac{\partial T_\mathrm{rr^+} p  }{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+  \end{aligned}
+
+
+
+NEED THE SAME THING FOR CALOBJECTWARP
+
+
+
+There's one more simplification available. The original optimization problem was
+solved, so we have $\frac{\partial E}{\partial \vec b} =
+\frac{\partial}{\partial \vec b} \Vert \vec x \Vert^2 = 0$, and thus $J^T \vec
+x^* = 0$.
+
+From above:
+
+\[
+\vec x_\mathrm{cross_0} = \vec x_* +
+J_\mathrm{frames,points,calobjectwarp}  M_\mathrm{frames,points,calobjectwarp} \Delta \vec q_\mathrm{ref}
+\]
+
+We can combine those two to simplify
+\begin{aligned}
+\vec{\mathrm{rt}_\mathrm{rr^+}} &= -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T \vec x_\mathrm{cross_0} \\
+&= \cdots J_\mathrm{some\_state\_subset}^T \vec x_\mathrm{cross_0} \\
+&= \cdots J_\mathrm{some\_state\_subset}^T \left(\vec x^* + \Delta \vec x\right) \\
+&= \cdots J_\mathrm{some\_state\_subset}^T \Delta \vec x \\
+&= -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T \Delta \vec x_\mathrm{cross_0}
+\end{aligned}
+
+So instead of $\vec x_\mathrm{cross_0}$ we can use
+
+\begin{aligned}
+\Delta \vec x_\mathrm{cross_0} = \, & J_\mathrm{frames,points,calobjectwarp} \Delta \vec b_\mathrm{frames,points,calobjectwarp} \\
+& J_\mathrm{frames,points,calobjectwarp}  M_\mathrm{frames,points,calobjectwarp} \Delta \vec q_\mathrm{ref}
+\end{aligned}
+
+So we have $\vec{\mathrm{rt}_\mathrm{rr^+}} = K \Delta \vec b$ for some $K$ that
+depends on the various $J$ matrices that are constant for each solve.
+
+*** Cross-reprojection uncertainty via $T_\mathrm{r^+r}$
+:PROPERTIES:
+:CUSTOM_ID: cross-reprojection-rt-rpr
+:END:
+
+I can also go the other way: traversing the data flow diagram above from the
+top-left to bottom-right:
+
+\[
+\xymatrix{
+  {\color{red}\vec p  _\mathrm{board}} \ar@[red][d]^{\color{red} T_\mathrm{rf}}
+& {           \vec p^+_\mathrm{board}} \ar      [d]^{            T_\mathrm{r^+f^+}} \\
+  {\color{red} \vec p _\mathrm{ref}}   \ar      [d]^{            T_\mathrm{cr}}
+  \ar@[red][r]^{\color{red} T_\mathrm{r^+r}}
+& {\color{red} \vec p^+_\mathrm{ref}}  \ar@[red][d]^{\color{red} T_\mathrm{c^+r^+}} \\
+  {            \vec p  _\mathrm{cam}}  \ar      [d]^{            \vec b_\mathrm{intrinsics} }
+& {\color{red} \vec p^+_\mathrm{cam}}  \ar@[red][d]^{\color{red} \vec b^+_\mathrm{intrinsics} } \\
+  {            \vec q}
+& {\color{red} \vec q^+}
+}
+\]
+
+The derivation is mostly similar, with slightly different results. We have
+
+\begin{aligned}
+\vec x_\mathrm{cross} \equiv \,
+& W_\mathrm{board} \left( \mathrm{project}\left(\vec b^+_\mathrm{intrinsics},
+                  T_\mathrm{c^+r^+} T_\mathrm{r^+r} T_\mathrm{rf} \vec p_\mathrm{board}\right)
+  - \vec q^+_\mathrm{refboard} \right) + \\
+& W_\mathrm{point} \left( \mathrm{project}\left(\vec b^+_\mathrm{intrinsics},
+                  T_\mathrm{c^+r^+} T_\mathrm{r^+r} \vec p_\mathrm{point}\right)
+  -  \vec q^+_\mathrm{refpoint} \right)
+\end{aligned}
+
+And the optimum is similarly at
+
+\[
+\vec{\mathrm{rt}_\mathrm{r^+r}} = -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T \Delta \vec x_\mathrm{cross_0}
+\]
+
+where
+
+\[
+\Delta \vec x_\mathrm{cross_0} = J_\mathrm{intrinsics,extrinsics} \Delta \vec b_\mathrm{intrinsics,extrinsics} - W \Delta \vec q_\mathrm{ref}
+\]
+
+And we can compute the linearized quantities near $\vec {\mathrm{rt}_\mathrm{r^+r}} = 0$:
+\[
+\vec{\mathrm{rt}_\mathrm{c^+r}} = \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{c^+r^+}}, \vec{\mathrm{rt}_\mathrm{r^+r}}\right)
+\]
+
+\begin{aligned}
+\vec x_\mathrm{cross_0} = \, & \vec x^* +
+J_\mathrm{intrinsics,extrinsics} \Delta \vec b_\mathrm{intrinsics,extrinsics} - W \Delta \vec q_\mathrm{ref} \\
+= \, & \vec x^* +
+J_\mathrm{intrinsics,extrinsics}  M_\mathrm{intrinsics,extrinsics} \Delta \vec q_\mathrm{ref} - W \Delta \vec q_\mathrm{ref}
+\end{aligned}
+
+For points that have no extrinsics (the camera is defined to sit at the ref
+coord system) there is no $J_\mathrm{extrinsics}$, and we can ignore it here;
+but we must then use the $J_{\mathrm{cross}_\mathrm{f}}$ form below.
+
+When evaluating $J_\mathrm{cross} = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}$ I can once again look at it in
+two ways:
+
+- a $\vec{\mathrm{rt}_\mathrm{cr}}$ shift to $\mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{c^+r^+}},\vec{\mathrm{rt}_\mathrm{r^+r}}\right)$.
+
+  $\vec{\mathrm{rt}_\mathrm{c^+r^+}}$ is a tiny shift off
+  $\vec{\mathrm{rt}_\mathrm{cr}}$ /and/ I'm assuming that everything is locally
+  linear. So this shift is insignificant, and I use
+  $\vec{\mathrm{rt}_\mathrm{cr}}$ to compute the gradient instead
+
+  \begin{aligned}
+  J_{\mathrm{cross}_\mathrm{e}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
+            & = J_\mathrm{extrinsics} \frac{\partial \vec{\mathrm{rt}_\mathrm{c^+r}}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
+            & = J_\mathrm{extrinsics} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{c^+r^+}},\vec{\mathrm{rt}_\mathrm{r^+r}}\right)}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
+            & = J_\mathrm{extrinsics} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},  \vec{\mathrm{rt}_\mathrm{r^+r}}\right)}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}
+  \end{aligned}
+
+  As before, for points that have no extrinsics (the camera is defined to sit at
+  the reference coord system) there is no $J_\mathrm{extrinsics}$, so this
+  formulation is not possible here. Use $J_{\mathrm{cross}_\mathrm{f}}$ and/or
+  $J_{\mathrm{cross}_\mathrm{p}}$
+
+
+- a $\vec {\mathrm{rt}_\mathrm{rf}}$ shift to $\mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{r^+r}}, \vec {\mathrm{rt}_\mathrm{rf}}\right)$ and/or a point
+  shift to $T_\mathrm{r^+r} \vec p$
+
+  \begin{aligned}
+  J_{\mathrm{cross}_\mathrm{f}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
+            & = J_\mathrm{frame} \frac{\partial \vec {\mathrm{rt}_\mathrm{r^+f}}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
+            & = J_\mathrm{frame} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{r^+r}},\vec {\mathrm{rt}_\mathrm{rf}}\right)}{\vec{\mathrm{rt}_\mathrm{r^+r}}} \\
+  J_{\mathrm{cross}_\mathrm{p}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
+            & = J_\mathrm{points} \frac{\partial \vec p^+}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
+            & = J_\mathrm{points} \frac{T_\mathrm{r^+r} \vec p}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}
+  \end{aligned}
+
+So we have $\vec{\mathrm{rt}_\mathrm{r^+r}} = K \Delta \vec b - W \Delta \vec
+q_\mathrm{ref}$ for some $K$ that depends on the various $J$ matrices that are
+constant for each solve.
+
+*** Putting it all together
+Now that I have $\vec{\mathrm{rt}_\mathrm{rr^+}}$ or
+$\vec{\mathrm{rt}_\mathrm{r^+r}}$, I can use it to compute $\vec q^+$. This can
+accept arbitrary $\vec q$, not just those in the solve, so I actually need to
+compute projections, rather than looking at a linearized space defined by $J$. I
+traverse the data flow diagram in a different direction to compute $\vec q^+$
+and then $\mathrm{Var}\left(\vec q^+\right)$:
+
+\[
+\xymatrix{
+  {\vec p  _\mathrm{ref}} \ar[r]^{T_\mathrm{r^+r}}
+& {\vec p^+_\mathrm{ref}}    \ar[d]^{T_\mathrm{c^+r^+}} \\
+  {\vec p  _\mathrm{cam}} \ar[u]_{T_\mathrm{rc}}
+& {\vec p^+_\mathrm{cam}}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
+  {\vec q} \ar[u]_{\vec b_\mathrm{intrinsics} }
+& {\vec q^+}
+}
+\]
+
+So
+\begin{aligned}
+\vec p_\mathrm{ref}   & = T_\mathrm{rc} \mathrm{unproject}\left(\vec b_\mathrm{intrinsics}, \vec q\right) \\
+\vec p^+_\mathrm{ref} & = T_\mathrm{r^+r} \vec p_\mathrm{ref} \\
+\vec p^+_\mathrm{cam} & = T_\mathrm{c^+r^+} \vec p^+_\mathrm{ref} \\
+\vec q^+              & = \mathrm{project}\left(\vec b^+_\mathrm{intrinsics}, \vec p^+_\mathrm{cam}\right)
+\end{aligned}
+
+I can thus compute the gradient of $\vec q^+$ in respect to all the variables,
+and I can propagate those gradients to get
+
+\[
+P \equiv \frac{\partial\vec q^+}{\partial\vec b}
+\]
+
+and then $\mathrm{Var} \left( \vec q^+ \right)$
+
+
+*** more
+cross-reprojection--rrp-Jfp
+
+
+
+* init                                                             :noexport:
+Need to do this to render the latex snippets with C-c C-x C-l
+
+(add-to-list 'org-latex-packages-alist '("all,cmtip,color,matrix,arrow" "xy" t))
+(add-to-list 'org-latex-packages-alist '("" "color" t))

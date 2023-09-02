@@ -1,0 +1,215 @@
+#+TITLE: Projection uncertainty: mean-frames
+#+OPTIONS: toc:t
+
+A key part of the [[file:uncertainty.org][projection uncertainty propagation method]] is to compute a
+function $\vec q^+\left(\vec b\right)$ to represent the change in projected
+pixel $\vec q$ as the optimization vector $\vec b$ moves around.
+
+The legacy /mean-frames/ method is described here. This is accessible by calling
+[[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty(method = "mean-frames")=]]. This method is simple,
+and has [[#uncertainty-mean-frames-issues][some issues]] that are resolved by newer methods: starting with mrcal 3.0
+the improved [[file:uncertainty-cross-reprojection.org][/cross-reprojection/ uncertainty]] method is available. This
+documentation is here for reference.
+
+* Mean-frames uncertainty
+The state vector $\vec b$ is a random variable, and we know its distribution. To
+evaluate the projection uncertainty we want to project a /fixed/ point, to see
+how this projection $\vec q$ moves around as the chessboards and cameras and
+intrinsics shift due to the uncertainty in $\vec b$. In other words, we want to
+project a point defined in the coordinate system of the camera housing, as the
+origin of the mathematical camera moves around inside this housing:
+
+[[file:figures/uncertainty.svg]]
+
+How do we operate on points in a fixed coordinate system when all the coordinate
+systems we have are floating random variables? We use the most fixed thing we
+have: chessboards. As with the camera housing, the chessboards themselves are
+fixed in space. We have noisy camera observations of the chessboards that
+implicitly produce estimates of the fixed transformation $T_{\mathrm{cf}_i}$ for
+each chessboard $i$. The explicit transformations that we /actually/ have in
+$\vec b$ all relate to a floating reference coordinate system: $T_\mathrm{cr}$
+and $T_\mathrm{rf}$. /That/ coordinate system doesn't have any physical meaning,
+and it's useless in producing our fixed point.
+
+Thus if we project points from a chessboard frame, we would be unaffected by the
+untethered reference coordinate system. So points in a chessboard frame are
+somewhat "fixed" for our purposes.
+
+To begin, let's focus on just /one/ chessboard frame: frame 0. We want to know
+the uncertainty at a pixel coordinate $\vec q$, so let's unproject and transform
+$\vec q$ out to frame 0:
+
+\[ \vec p_{\mathrm{frame}_0} = T_{\mathrm{f}_0\mathrm{r}} T_\mathrm{rc} \mathrm{unproject}\left( \vec q \right) \]
+
+We then transform and project $\vec p_{\mathrm{frame}_0}$ back to the imager to
+get $\vec q^+$. But here we take into account the uncertainties of each
+transformation to get the desired projection uncertainty $\mathrm{Var}\left(\vec
+q^+ - \vec q\right)$. The full data flow looks like this, with all the perturbed
+quantities marked with a $+$ superscript.
+
+\[
+\xymatrix{
+   \vec q^+ & &
+   \vec p^+_\mathrm{camera}          \ar[ll]_-{\vec b_\mathrm{intrinsics}^+} &
+   \vec p^+_{\mathrm{reference}_0}   \ar[l]_-{T^+_\mathrm{cr}} &
+   \vec p_{\mathrm{frame}_0}         \ar[l]_-{T^+_{\mathrm{rf}_0}} &
+   \vec p_\mathrm{reference}         \ar[l]_-{T_\mathrm{fr}} &
+   \vec p_\mathrm{camera}            \ar[l]_-{T_\mathrm{rc}} & &
+   \vec q                            \ar[ll]_-{\vec b_\mathrm{intrinsics}}
+}
+\]
+
+# Another way to do this (without xymatrix):
+# \[
+#    \vec q^+                         \xleftarrow{\vec b_\mathrm{intrinsics}^+}
+#    \vec p^+_\mathrm{camera}         \xleftarrow{T^+_\mathrm{cr}}
+#    \vec p^+_{\mathrm{reference}_0}  \xleftarrow{T^+_{\mathrm{rf}_0}} \vec p_{\mathrm{frame}_0} \xleftarrow{T_\mathrm{fr}}
+#    \vec p_\mathrm{reference}
+#    \xleftarrow{T_\mathrm{rc}}   \vec p_\mathrm{camera}
+#    \xleftarrow{\vec b_\mathrm{intrinsics}}
+#    \vec q
+# \]
+
+This works, but it depends on $\vec p_{\mathrm{frame}_0}$ being "fixed". We can
+do better. We're observing more than one chessboard, and /in aggregate/ all the
+chessboard frames can represent an even-more "fixed" frame. Currently we take a
+very simple approach towards combinining the frames: we compute the mean of all
+the $\vec p^+_\mathrm{reference}$ estimates from each frame. The full data flow
+then looks like this:
+
+\[
+\xymatrix{
+& & & & \vec p^+_{\mathrm{reference}_0} \ar[dl]_{\mathrm{mean}} & \vec p^+_{\mathrm{frame}_0} \ar[l]_-{T^+_{\mathrm{rf}_0}} \\
+\vec q^+ & &
+\vec p^+_\mathrm{camera}          \ar[ll]_-{\vec b_\mathrm{intrinsics}^+} &
+\vec p^+_{\mathrm{reference}}   \ar[l]_-{T^+_\mathrm{cr}} &
+\vec p^+_{\mathrm{reference}_1} \ar[l]_{\mathrm{mean}} & \vec p^+_{\mathrm{frame}_1} \ar[l]_-{T^+_{\mathrm{rf}_1}} &
+\vec p_\mathrm{reference}         \ar[l]_-{T_\mathrm{f_1 r}} \ar[lu]_-{T_\mathrm{f_0 r}} \ar[ld]^-{T_\mathrm{f_2 r}} &
+\vec p_\mathrm{camera}            \ar[l]_-{T_\mathrm{rc}} & &
+\vec q                            \ar[ll]_-{\vec b_\mathrm{intrinsics}} \\
+& & & & \vec p^+_{\mathrm{reference}_2} \ar[ul]^{\mathrm{mean}} & \vec p^+_{\mathrm{frame}_2} \ar[l]_-{T^+_{\mathrm{rf}_2}}
+}
+\]
+
+# Another way to do this (without xymatrix):
+# \begin{aligned}
+#    & \swarrow                   & \vec p^+_{\mathrm{reference}_0}  & \xleftarrow{T^+_{\mathrm{rf}_0}} & \vec p_{\mathrm{frame}_0} & \nwarrow & \\
+#    \vec q^+                      \xleftarrow{\vec b_\mathrm{intrinsics}^+}
+#    \vec p^+_\mathrm{camera}      \xleftarrow{T^+_\mathrm{cr}}
+#    \vec p^+_\mathrm{reference}
+#    & \xleftarrow{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_1}  & \xleftarrow{T^+_{\mathrm{rf}_1}} & \vec p_{\mathrm{frame}_1} & \xleftarrow{T_\mathrm{fr}} &
+#    \vec p_\mathrm{reference}
+#    \xleftarrow{T_\mathrm{rc}}   \vec p_\mathrm{camera}
+#    \xleftarrow{\vec b_\mathrm{intrinsics}}
+#    \vec q \\
+#    & \nwarrow                   & \vec p^+_{\mathrm{reference}_2}  & \xleftarrow{T^+_{\mathrm{rf}_2}} & \vec p_{\mathrm{frame}_2} & \swarrow
+# \end{aligned}
+
+So to summarize, to compute the projection uncertainty at a pixel $\vec q$ we
+
+1. Unproject $\vec q$ and transform to /each/ chessboard coordinate system to
+   obtain $\vec p_{\mathrm{frame}_i}$
+
+2. Transform and project back to $\vec q^+$, using the mean of all the $\vec
+   p_{\mathrm{reference}_i}$ and taking into account uncertainties
+
+We have $\vec q^+\left(\vec b\right) = \mathrm{project}\left( T_\mathrm{cr} \,
+\mathrm{mean}_i \left( T_{\mathrm{rf}_i} \vec p_{\mathrm{frame}_i} \right)
+\right)$ where the transformations $T$ and the intrinsics used in
+$\mathrm{project}()$ come directly from the optimization state vector $\vec b$.
+This function can be used in the higher-level [[file:uncertainty.org][projection uncertainty propagation
+method]] to compute $\mathrm{Var}\left( \vec q \right)$.
+
+* Problems of "mean-frames" uncertainty
+:PROPERTIES:
+:CUSTOM_ID: uncertainty-mean-frames-issues
+:END:
+
+The current projection uncertainty method works badly if given chessboards at
+multiple different ranges from the camera. This is due to the aphysical
+transform $T_{\mathrm{r}^+\mathrm{r}}$ computed as part of the [[file:uncertainty.org::#propagating-through-projection][uncertainty
+computation]]. We can clearly see this in the dance study:
+
+#+begin_src sh
+./dance-study.py                          \
+    --scan num_far_constant_Nframes_near  \
+    --range 2,10                          \
+    --method cross-reprojection--rrp-Jfp  \
+    --Ncameras 1                          \
+    --Nframes-near 100                    \
+    --observed-pixel-uncertainty 2        \
+    --ymax 4                              \
+    --uncertainty-at-range-sampled-max 35 \
+    ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity/opencv8.cameramodel
+#+end_src
+
+This tells us that adding /any/ observations at 10m to the bulk set at 2m
+makes the projection uncertainty /worse/. One could expect no improvement from
+the far-off observations, but they shouldn't break anything. The issue is the
+averaging in 3D point space. Observation noise causes the far-off geometry to
+move much more than the nearby chessboards, and that far-off motion then
+dominates the average. We can also see it with the much larger ellipse we get
+when we add =--extra-observation-at= to
+
+#+begin_src sh
+test/test-projection-uncertainty.py \
+  --fixed cam0                      \
+  --model opencv4                   \
+  --show-distribution               \
+  --range-to-boards 4               \
+  --extra-observation-at 40         \
+  --do-sample                       \
+  --explore
+#+end_src
+
+Some experimental fixes are implemented in
+[[https://www.github.com/dkogan/mrcal/blob/master/test/test-projection-uncertainty.py][=test/test-projection-uncertainty.py=]]. For instance:
+
+#+begin_src sh
+test/test-projection-uncertainty.py \
+  --fixed cam0                      \
+  --model opencv4                   \
+  --show-distribution               \
+  --range-to-boards 4               \
+  --extra-observation-at 40         \
+  --do-sample                       \
+  --explore                         \
+  --reproject-perturbed mean-frames-using-meanq-penalize-big-shifts
+#+end_src
+
+It is important to solve this to be able to clearly say if non-closeup
+observations are useful at all or not. There was quick a bit of thought and
+experimentation in this area, but no conclusive solutions yet.
+
+
+When asked to compute the uncertainty of many pixels at once (such as what
+[[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool does), mrcal currently computes a
+separate $T_{\mathrm{r}^+\mathrm{r}}$ for each pixel. But there exists only
+one $T_{\mathrm{r}^+\mathrm{r}}$, and this should be computed once for all
+pixels, and applied to all of them.
+
+Currently we are able to compute projection uncertainties only when given a
+vanilla calibration problem: stationary cameras are observing a moving
+chessboard. We should support more cases, for instance structure-from-motion
+coupled with intrinsics optimization. And computing uncertainty from a
+points-only chessboard-less solve should be possible
+
+
+different transform for each q
+
+
+This is better, but there's another issue. What is the transformation relating
+the original and perturbed reference coordinate systems?
+
+Each transformation $T$ includes a rotation matrix $R$, so the above constructs
+a new rotation as a mean of multiple rotation matrices, which is aphysical: the
+resulting matrix is not a valid rotation. In practice, the perturbations are
+tiny, and this is sufficiently close. Extreme geometries do break it, and this
+will be fixed in the future.
+\[ T_{\mathrm{r}^+\mathrm{r}} = \mathrm{mean}_i \left( T_{\mathrm{r}^+\mathrm{f}_i} T_{\mathrm{f}_i\mathrm{r}} \right) \]
+
+* init                                                             :noexport:
+Need to do this to render the latex snippets with C-c C-x C-l
+
+(add-to-list 'org-latex-packages-alist '("all,cmtip,color,matrix,arrow" "xy" t))
+(add-to-list 'org-latex-packages-alist '("" "color" t))
