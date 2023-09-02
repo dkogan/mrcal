@@ -488,40 +488,6 @@ So instead of $\vec x_\mathrm{cross_0}$ we can use
 So we have $\vec{\mathrm{rt}_\mathrm{rr^+}} = K \Delta \vec b$ for some $K$ that
 depends on the various $J$ matrices that are constant for each solve.
 
-Now that I have $\vec{\mathrm{rt}_\mathrm{rr^+}}$, I can use it to compute $\vec
-q^+$. This can accept arbitrary $\vec q$, not just those in the solve, so I
-actually need to compute projections, rather than looking at a linearized space
-defined by $J$. I traverse the data flow diagram in a different direction to compute
-$\vec q^+$ and then $\mathrm{Var}\left(\vec q^+\right)$:
-
-\[
-\xymatrix{
-  {\vec p  _\mathrm{ref}} \ar[r]^{T_\mathrm{r^+r}}
-& {\vec p^+_\mathrm{ref}}    \ar[d]^{T_\mathrm{c^+r^+}} \\
-  {\vec p  _\mathrm{cam}} \ar[u]_{T_\mathrm{rc}}
-& {\vec p^+_\mathrm{cam}}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
-  {\vec q} \ar[u]_{\vec b_\mathrm{intrinsics} }
-& {\vec q^+}
-}
-\]
-
-So
-\begin{aligned}
-\vec p_\mathrm{ref}   & = T_\mathrm{rc} \mathrm{unproject}\left(\vec b_\mathrm{intrinsics}, \vec q\right) \\
-\vec p^+_\mathrm{ref} & = T_\mathrm{r^+r} \vec p_\mathrm{ref} \\
-\vec p^+_\mathrm{cam} & = T_\mathrm{c^+r^+} \vec p^+_\mathrm{ref} \\
-\vec q^+              & = \mathrm{project}\left(\vec b^+_\mathrm{intrinsics}, \vec p^+_\mathrm{cam}\right)
-\end{aligned}
-
-I can thus compute the gradient of $\vec q^+$ in respect to all the variables,
-and I can propagate those gradients to get
-
-\[
-P \equiv \frac{\partial\vec q^+}{\partial\vec b}
-\]
-
-and then $\mathrm{Var} \left( \vec q^+ \right)$
-
 *** Cross-reprojection uncertainty via $T_\mathrm{r^+r}$
 :PROPERTIES:
 :CUSTOM_ID: cross-reprojection-rt-rpr
@@ -562,6 +528,12 @@ And the optimum is similarly at
 \vec{\mathrm{rt}_\mathrm{r^+r}} = -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T \Delta \vec x_\mathrm{cross_0}
 \]
 
+where
+
+\[
+\Delta \vec x_\mathrm{cross_0} = J_\mathrm{intrinsics,extrinsics} \Delta \vec b_\mathrm{intrinsics,extrinsics} - W \Delta \vec q_\mathrm{ref}
+\]
+
 And we can compute the linearized quantities near $\vec {\mathrm{rt}_\mathrm{r^+r}} = 0$:
 \[
 \vec{\mathrm{rt}_\mathrm{c^+r}} = \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{c^+r^+}}, \vec{\mathrm{rt}_\mathrm{r^+r}}\right)
@@ -591,8 +563,8 @@ two ways:
   \begin{aligned}
   J_{\mathrm{cross}_\mathrm{e}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
             & = J_\mathrm{extrinsics} \frac{\partial \vec{\mathrm{rt}_\mathrm{c^+r}}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
-            & = J_\mathrm{extrinsics} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{c^+r^+}},\vec{\mathrm{rt}_\mathrm{r^+r}})}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
-            & = J_\mathrm{extrinsics} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},  \vec{\mathrm{rt}_\mathrm{r^+r}})}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}
+            & = J_\mathrm{extrinsics} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{c^+r^+}},\vec{\mathrm{rt}_\mathrm{r^+r}}\right)}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
+            & = J_\mathrm{extrinsics} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},  \vec{\mathrm{rt}_\mathrm{r^+r}}\right)}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}
   \end{aligned}
 
   As before, for points that have no extrinsics (the camera is defined to sit at
@@ -608,42 +580,53 @@ two ways:
   J_{\mathrm{cross}_\mathrm{f}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
             & = J_\mathrm{frame} \frac{\partial \vec {\mathrm{rt}_\mathrm{r^+f}}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
             & = J_\mathrm{frame} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{r^+r}},\vec {\mathrm{rt}_\mathrm{rf}}\right)}{\vec{\mathrm{rt}_\mathrm{r^+r}}} \\
-  J_{\mathrm{cross}_\mathrm{p}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}} \\
+  J_{\mathrm{cross}_\mathrm{p}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
             & = J_\mathrm{points} \frac{\partial \vec p^+}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
-            & = J_\mathrm{points} \frac{T__\mathrm{r^+r} \vec p}{\parital \vec{\mathrm{rt}_\mathrm{r^+r}}}
+            & = J_\mathrm{points} \frac{T_\mathrm{r^+r} \vec p}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}
   \end{aligned}
 
-There's one more simplification available. From above:
+So we have $\vec{\mathrm{rt}_\mathrm{r^+r}} = K \Delta \vec b - W \Delta \vec
+q_\mathrm{ref}$ for some $K$ that depends on the various $J$ matrices that are
+constant for each solve.
 
-  \vec{\mathrm{rt}_\mathrm{r^+r}} = -pinv(J_\mathrm{cross}) x_\mathrm{cross_0}
-              = -inv() J_\mathrm{cross}_t x_\mathrm{cross_0}
-              = ... J_frame_t (x0 + ...)
-
-And we can simplify to
-
-\[
-\vec{\mathrm{rt}_\mathrm{r^+r}} = -pinv(J_\mathrm{cross}) \partial\vec x_\mathrm{cross_0}
-\]
-
-where
+*** Putting it all together
+Now that I have $\vec{\mathrm{rt}_\mathrm{rr^+}}$ or
+$\vec{\mathrm{rt}_\mathrm{r^+r}}$, I can use it to compute $\vec q^+$. This can
+accept arbitrary $\vec q$, not just those in the solve, so I actually need to
+compute projections, rather than looking at a linearized space defined by $J$. I
+traverse the data flow diagram in a different direction to compute $\vec q^+$
+and then $\mathrm{Var}\left(\vec q^+\right)$:
 
 \[
-\partial\vec x_\mathrm{cross_0} = J[intrinsics,extrinsics] db[intrinsics,extrinsics] - W delta_q_\mathrm{ref}
+\xymatrix{
+  {\vec p  _\mathrm{ref}} \ar[r]^{T_\mathrm{r^+r}}
+& {\vec p^+_\mathrm{ref}}    \ar[d]^{T_\mathrm{c^+r^+}} \\
+  {\vec p  _\mathrm{cam}} \ar[u]_{T_\mathrm{rc}}
+& {\vec p^+_\mathrm{cam}}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
+  {\vec q} \ar[u]_{\vec b_\mathrm{intrinsics} }
+& {\vec q^+}
+}
 \]
 
-So we have \vec{\mathrm{rt}_\mathrm{r^+r}} = K db - W delta_q_\mathrm{ref} for some K that depends on the
-various J matrices that are constant for each solve:
+So
+\begin{aligned}
+\vec p_\mathrm{ref}   & = T_\mathrm{rc} \mathrm{unproject}\left(\vec b_\mathrm{intrinsics}, \vec q\right) \\
+\vec p^+_\mathrm{ref} & = T_\mathrm{r^+r} \vec p_\mathrm{ref} \\
+\vec p^+_\mathrm{cam} & = T_\mathrm{c^+r^+} \vec p^+_\mathrm{ref} \\
+\vec q^+              & = \mathrm{project}\left(\vec b^+_\mathrm{intrinsics}, \vec p^+_\mathrm{cam}\right)
+\end{aligned}
 
-  K = -pinv(J_\mathrm{cross}) J[intrinsics,extrinsics]
+I can thus compute the gradient of $\vec q^+$ in respect to all the variables,
+and I can propagate those gradients to get
 
-The rest of the data flow is the same as above, except we already have
-\vec{\mathrm{rt}_\mathrm{r^+r}}, so we don't need to invert the transform when applying it.
+\[
+P \equiv \frac{\partial\vec q^+}{\partial\vec b}
+\]
+
+and then $\mathrm{Var} \left( \vec q^+ \right)$
 
 
-
-
-
-
+*** more
 cross-reprojection--rrp-Jfp
 
 ** mean-frames
