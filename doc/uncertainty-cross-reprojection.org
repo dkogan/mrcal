@@ -1,48 +1,17 @@
 #+TITLE: Projection uncertainty: cross-reprojection
-#+OPTIONS: toc:t
+#+OPTIONS: toc:nil
 
-** Cross-reprojection uncertainty
+A key part of the [[file:uncertainty.org][projection uncertainty propagation method]] is to compute a
+function $\vec q^+\left(\vec b\right)$ to represent the change in projected
+pixel $\vec q$ as the optimization vector $\vec b$ moves around.
 
-Let's say I have a baseline solve (parameter vector $\vec b$) and a perturbed
-solve (parameter vector $\vec b^+$) obtained from perturbing the observations
-$\vec q_\mathrm{ref}$ and re-optimizing. I also have an arbitrary baseline query
-pixel $\vec q$ and distance from which I compute the perturbed reprojection
-$\vec q^+$.
+The "cross-reprojection" method of computing this function is described here,
+and is the recommended method as of mrcal 3.0. This method is accessible by
+calling [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty(method = "cross-reprojection--rrp-Jfp")=]],
+or omitting the =method= argument entirely, since this method is now the default.
 
-I need to eventually compute $\mathrm{Var}\left(\vec q^+\right)$. I linearize
-everything to get
 
-\[
-\Delta \vec q^+ \approx \frac{\partial\vec q^+}{\partial\vec b} \frac{\partial\vec b}{\partial\vec q_\mathrm{ref}}
-\Delta \vec q_\mathrm{ref}
-\]
-
-Let
-
-\[
-P \equiv \frac{\partial\vec q^+}{\partial\vec b}
-\]
-
-and
-
-\[
-M \equiv \frac{\partial\vec b}{\partial\vec q_\mathrm{ref}}
-\]
-
-Then
-
-\[
-\Delta \vec q^+ \approx P M \Delta \vec q_\mathrm{ref}
-\]
-
-And
-
-\[
-\mathrm{Var} \left( \vec q^+ \right) = P M \mathrm{Var} \left( \vec q_\mathrm{ref} \right) M^T P^T
-\]
-
-I have $M$ from the [[file:uncertainty.org::#propagating-to-state-vector][above uncertainty propagation logic]], so I just need $P$.
-
+* Cross-reprojection uncertainty
 In my usual least squares solve using chessboards, each point produces two
 elements (horizontal, vertical error) of the measurements vector:
 
@@ -91,6 +60,8 @@ different quantities in this same data flow:
 \vec q^+
 }
 \]
+
+All perturbed quantities are marked with a $+$ superscript.
 
 As noted above, all the coordinate systems have shifted, so the two
 optimizations aren't directly comparable. In order to gauge the effect of
@@ -273,7 +244,7 @@ I can evaluate $J_\mathrm{cross}$ in two different ways:
 
 
 
-NEED THE SAME THING FOR CALOBJECTWARP
+*NEED THE SAME THING FOR CALOBJECTWARP*
 
 
 
@@ -414,8 +385,7 @@ Now that I have $\vec{\mathrm{rt}_\mathrm{rr^+}}$ or
 $\vec{\mathrm{rt}_\mathrm{r^+r}}$, I can use it to compute $\vec q^+$. This can
 accept arbitrary $\vec q$, not just those in the solve, so I actually need to
 compute projections, rather than looking at a linearized space defined by $J$. I
-traverse the data flow diagram in a different direction to compute $\vec q^+$
-and then $\mathrm{Var}\left(\vec q^+\right)$:
+traverse the data flow diagram in a different direction to compute $\vec q^+$:
 
 \[
 \xymatrix{
@@ -437,19 +407,8 @@ So
 \end{aligned}
 
 I can thus compute the gradient of $\vec q^+$ in respect to all the variables,
-and I can propagate those gradients to get
-
-\[
-P \equiv \frac{\partial\vec q^+}{\partial\vec b}
-\]
-
-and then $\mathrm{Var} \left( \vec q^+ \right)$
-
-
-*** more
-cross-reprojection--rrp-Jfp
-
-
+and I can propagate those gradients to get $\mathrm{Var} \left( \vec q^+
+\right)$
 
 * init                                                             :noexport:
 Need to do this to render the latex snippets with C-c C-x C-l
