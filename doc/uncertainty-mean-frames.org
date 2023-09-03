@@ -1,15 +1,15 @@
 #+TITLE: Projection uncertainty: mean-frames
-#+OPTIONS: toc:t
+#+OPTIONS: toc:nil
 
 A key part of the [[file:uncertainty.org][projection uncertainty propagation method]] is to compute a
 function $\vec q^+\left(\vec b\right)$ to represent the change in projected
 pixel $\vec q$ as the optimization vector $\vec b$ moves around.
 
-The legacy /mean-frames/ method is described here. This is accessible by calling
+mrcal has several methods of doing this, and the legacy /mean-frames/ method is
+described here. This is accessible by calling
 [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty(method = "mean-frames")=]]. This method is simple,
-and has [[#uncertainty-mean-frames-issues][some issues]] that are resolved by newer methods: starting with mrcal 3.0
-the improved [[file:uncertainty-cross-reprojection.org][/cross-reprojection/ uncertainty]] method is available. This
-documentation is here for reference.
+and has [[#uncertainty-mean-frames-issues][some issues]] that are resolved by newer formulations: starting with mrcal
+3.0 the improved [[file:uncertainty-cross-reprojection.org][/cross-reprojection/ uncertainty]] method is recommended.
 
 * Mean-frames uncertainty
 The state vector $\vec b$ is a random variable, and we know its distribution. To
@@ -120,93 +120,133 @@ $\mathrm{project}()$ come directly from the optimization state vector $\vec b$.
 This function can be used in the higher-level [[file:uncertainty.org][projection uncertainty propagation
 method]] to compute $\mathrm{Var}\left( \vec q \right)$.
 
-* Problems of "mean-frames" uncertainty
+* Problems with "mean-frames" uncertainty
 :PROPERTIES:
 :CUSTOM_ID: uncertainty-mean-frames-issues
 :END:
 
-The current projection uncertainty method works badly if given chessboards at
-multiple different ranges from the camera. This is due to the aphysical
-transform $T_{\mathrm{r}^+\mathrm{r}}$ computed as part of the [[file:uncertainty.org::#propagating-through-projection][uncertainty
-computation]]. We can clearly see this in the dance study:
+This "mean-frames" uncertainty method works well, but has several issues:
+
+** Aphysical $T_{\mathrm{r}^+\mathrm{r}}$ transform
+The computation above indirectly computes the transform that relates the
+unperturbed and perturbed reference coordinate systems:
+
+\[ T_{\mathrm{r}^+\mathrm{r}} = \mathrm{mean}_i \left( T_{\mathrm{r}^+\mathrm{f}_i} T_{\mathrm{f}_i\mathrm{r}} \right) \]
+
+Each transformation $T$ includes a rotation matrix $R$, so the above constructs
+a new rotation as a mean of multiple rotation matrices. This is aphysical: the
+resulting matrix is not a valid rotation. In practice, the perturbations are
+tiny, and this is sufficiently close. Usually, but not always.
+
+** Pessimistic response to disparate observed chessboard ranges
+Because of this aphysical transform, the mean-frames method produces
+fictitiously high uncertainties when gives a mix of low-range and high-range
+observations. Far-away chessboard observations don't contain much information,
+so adding some far-away chessboards to a dataset shouldn't improve the
+uncertainty much at the distance, but it shouldn't make it any worse. However,
+with the mean-frames method, far-away observations /do/ make the uncertainty
+worse. We can clearly see this in the dance study:
 
 #+begin_src sh
-./dance-study.py                          \
+analyses/dancing/dance-study.py           \
     --scan num_far_constant_Nframes_near  \
     --range 2,10                          \
-    --method cross-reprojection--rrp-Jfp  \
     --Ncameras 1                          \
     --Nframes-near 100                    \
     --observed-pixel-uncertainty 2        \
     --ymax 4                              \
     --uncertainty-at-range-sampled-max 35 \
-    ~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity/opencv8.cameramodel
+    --Nscan-samples 4                     \
+    --method mean-frames                  \
+    opencv8.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity
+for method (mean-frames cross-reprojection--rrp-Jfp) {
+  analyses/dancing/dance-study.py                          \
+      --scan num_far_constant_Nframes_near  \
+      --range 2,10                          \
+      --Ncameras 1                          \
+      --Nframes-near 100                    \
+      --observed-pixel-uncertainty 2        \
+      --ymax 4                              \
+      --uncertainty-at-range-sampled-max 35 \
+      --Nscan-samples 4                     \
+      --method $method                      \
+      --hardcopy "~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-num-far-constant-num-near--$method.svg" \
+      --terminal 'svg size 800,600 noenhanced solid dynamic font ",14"' \
+      $D/opencv8.cameramodel
+  analyses/dancing/dance-study.py                          \
+      --scan num_far_constant_Nframes_near  \
+      --range 2,10                          \
+      --Ncameras 1                          \
+      --Nframes-near 100                    \
+      --observed-pixel-uncertainty 2        \
+      --ymax 4                              \
+      --uncertainty-at-range-sampled-max 35 \
+      --Nscan-samples 4                     \
+      --method $method                      \
+      --hardcopy "~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-num-far-constant-num-near--$method.png" \
+      --terminal 'pngcairo size 1024,768 transparent noenhanced crop          font ",12"' \
+      $D/opencv8.cameramodel
+  analyses/dancing/dance-study.py                          \
+      --scan num_far_constant_Nframes_near  \
+      --range 2,10                          \
+      --Ncameras 1                          \
+      --Nframes-near 100                    \
+      --observed-pixel-uncertainty 2        \
+      --ymax 4                              \
+      --uncertainty-at-range-sampled-max 35 \
+      --Nscan-samples 4                     \
+      --method $method                      \
+      --hardcopy "~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-num-far-constant-num-near--$method.pdf" \
+      --terminal 'pdf size 8in,6in noenhanced solid color   font ",16"' \
+      $D/opencv8.cameramodel
+
+  pdfcrop ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-num-far-constant-num-near--$method.pdf
+}
 #+end_src
 
-This tells us that adding /any/ observations at 10m to the bulk set at 2m
-makes the projection uncertainty /worse/. One could expect no improvement from
-the far-off observations, but they shouldn't break anything. The issue is the
-averaging in 3D point space. Observation noise causes the far-off geometry to
-move much more than the nearby chessboards, and that far-off motion then
-dominates the average. We can also see it with the much larger ellipse we get
-when we add =--extra-observation-at= to
+[[file:external/figures/dance-study/dance-study-scan-num-far-constant-num-near--mean-frames.svg]]
+
+This is a one-camera calibration computed off 100 chessboard observations at 2m
+out, with a few observations added at a longer range of 10m. Each curve
+represents the projection uncertainty at the center of the image, at different
+distances. The purple curve is the uncertainty with no 10m chessboards at all.
+As we add observations at 10m, we see the uncertainty get worse.
+
+The issue is the averaging in 3D point space. Observation noise causes the
+far-off geometry to move much more than the nearby chessboards, and that far-off
+motion then dominates the average. If we use [[file:uncertainty-cross-reprojection.org][the newer
+=cross-reprojection--rrp-Jfp= method]], this issue goes away:
 
 #+begin_src sh
-test/test-projection-uncertainty.py \
-  --fixed cam0                      \
-  --model opencv4                   \
-  --show-distribution               \
-  --range-to-boards 4               \
-  --extra-observation-at 40         \
-  --do-sample                       \
-  --explore
+analyses/dancing/dance-study.py           \
+    --scan num_far_constant_Nframes_near  \
+    --range 2,10                          \
+    --Ncameras 1                          \
+    --Nframes-near 100                    \
+    --observed-pixel-uncertainty 2        \
+    --ymax 4                              \
+    --uncertainty-at-range-sampled-max 35 \
+    --Nscan-samples 4                     \
+    --method cross-reprojection--rrp-Jfp  \
+    opencv8.cameramodel
 #+end_src
 
-Some experimental fixes are implemented in
-[[https://www.github.com/dkogan/mrcal/blob/master/test/test-projection-uncertainty.py][=test/test-projection-uncertainty.py=]]. For instance:
+[[file:external/figures/dance-study/dance-study-scan-num-far-constant-num-near--cross-reprojection--rrp-Jfp.svg]]
 
-#+begin_src sh
-test/test-projection-uncertainty.py \
-  --fixed cam0                      \
-  --model opencv4                   \
-  --show-distribution               \
-  --range-to-boards 4               \
-  --extra-observation-at 40         \
-  --do-sample                       \
-  --explore                         \
-  --reproject-perturbed mean-frames-using-meanq-penalize-big-shifts
-#+end_src
+As expected, the low-range uncertainty is unaffected by the 10m observations,
+but the far-range uncertainty is improved.
 
-It is important to solve this to be able to clearly say if non-closeup
-observations are useful at all or not. There was quick a bit of thought and
-experimentation in this area, but no conclusive solutions yet.
+** Chessboards are a hard requirement
+The "mean-frames" metho has a hard requirement on chessboards being used in the
+solve. In fact, the assumption of stationary cameras observing a moving
+chessboard is baked into the formulation. So any other case (moving cameras or
+calibrating off discrete points for instance) is not supported. [[file:uncertainty-cross-reprojection.org][The newer
+=cross-reprojection--rrp-Jfp= method]] lifts this restriction.
 
 
-When asked to compute the uncertainty of many pixels at once (such as what
-[[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tool does), mrcal currently computes a
-separate $T_{\mathrm{r}^+\mathrm{r}}$ for each pixel. But there exists only
-one $T_{\mathrm{r}^+\mathrm{r}}$, and this should be computed once for all
-pixels, and applied to all of them.
-
-Currently we are able to compute projection uncertainties only when given a
-vanilla calibration problem: stationary cameras are observing a moving
-chessboard. We should support more cases, for instance structure-from-motion
-coupled with intrinsics optimization. And computing uncertainty from a
-points-only chessboard-less solve should be possible
-
-
-different transform for each q
-
-
-This is better, but there's another issue. What is the transformation relating
-the original and perturbed reference coordinate systems?
-
-Each transformation $T$ includes a rotation matrix $R$, so the above constructs
-a new rotation as a mean of multiple rotation matrices, which is aphysical: the
-resulting matrix is not a valid rotation. In practice, the perturbations are
-tiny, and this is sufficiently close. Extreme geometries do break it, and this
-will be fixed in the future.
-\[ T_{\mathrm{r}^+\mathrm{r}} = \mathrm{mean}_i \left( T_{\mathrm{r}^+\mathrm{f}_i} T_{\mathrm{f}_i\mathrm{r}} \right) \]
 
 * init                                                             :noexport:
 Need to do this to render the latex snippets with C-c C-x C-l
