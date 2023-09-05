@@ -125,7 +125,14 @@ method]] to compute $\mathrm{Var}\left( \vec q \right)$.
 :CUSTOM_ID: uncertainty-mean-frames-issues
 :END:
 
-This "mean-frames" uncertainty method works well, but has several issues:
+This "mean-frames" uncertainty method works well, but has several issues. All of
+these are fixed in [[file:uncertainty-cross-reprojection.org][the newer =cross-reprojection--rrp-Jfp= method]].
+
+** Chessboards are a hard requirement
+The "mean-frames" method has a hard requirement on chessboards being used in the
+solve. In fact, the assumption of stationary cameras observing a moving
+chessboard is baked into the formulation. So any other scenario (moving cameras
+or calibrating off discrete points for instance) is not supported.
 
 ** Aphysical $T_{\mathrm{r}^+\mathrm{r}}$ transform
 The computation above indirectly computes the transform that relates the
@@ -238,15 +245,6 @@ analyses/dancing/dance-study.py           \
 
 As expected, the low-range uncertainty is unaffected by the 10m observations,
 but the far-range uncertainty is improved.
-
-** Chessboards are a hard requirement
-The "mean-frames" metho has a hard requirement on chessboards being used in the
-solve. In fact, the assumption of stationary cameras observing a moving
-chessboard is baked into the formulation. So any other case (moving cameras or
-calibrating off discrete points for instance) is not supported. [[file:uncertainty-cross-reprojection.org][The newer
-=cross-reprojection--rrp-Jfp= method]] lifts this restriction.
-
-
 
 * init                                                             :noexport:
 Need to do this to render the latex snippets with C-c C-x C-l
