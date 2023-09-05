@@ -314,6 +314,10 @@ And in Python:
 - [[file:mrcal-python-api-reference.html#-unpack_state][=mrcal.unpack_state()=]]: Scales a state vector from the packed, unitless form used by the optimizer
 
 * Measurement vector $\vec x$
+:PROPERTIES:
+:CUSTOM_ID: measurement-vector
+:END:
+
 Given a hypothesis state vector $\vec b$ mrcal computes a vector of errors, or
 /measurements/ $\vec x$. The optimization algorithm searches the space of
 hypotheses $\vec b$, trying to minimize $E \equiv \left \Vert \vec x \right \Vert^2$.

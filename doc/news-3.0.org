@@ -5,7 +5,7 @@
 
 fixed mrcal.show_geometry() axis_scale logic: e3e29bab
 
-cross-uncertainty
+cross-reprojection
 
 mrcal.drt_ref_refperturbed__dbpacked()
 mrcal.compose_rt_tinyrt0_gradientrt0()
