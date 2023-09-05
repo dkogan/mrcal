@@ -18,7 +18,7 @@ In [[file:formulation.org::#measurement-vector][the usual least squares solve us
 elements (horizontal, vertical error) of the measurements vector:
 
 \[
-\vec x_i = W \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics}, T_\mathrm{cr} \, T_\mathrm{rf} \, \vec p_{\mathrm{board}_i} \right) -
+\vec x_i = W \left( \mathrm{project}\left(T_\mathrm{cr} \, T_\mathrm{rf} \, \vec p_{\mathrm{board}_i}, \vec b_\mathrm{intrinsics} \right) -
 \vec q_{\mathrm{ref}_i} \right)
 \]
 
@@ -110,11 +110,11 @@ where
 
 \begin{aligned}
 \vec x_\mathrm{cross} \equiv \,
-& W_\mathrm{board} \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics},
-                  T_\mathrm{cr} T_\mathrm{rr^+} T_\mathrm{r^+f^+} \vec p^+_\mathrm{board}\right)
+& W_\mathrm{board} \left( \mathrm{project}\left(
+                  T_\mathrm{cr} T_\mathrm{rr^+} T_\mathrm{r^+f^+} \vec p^+_\mathrm{board}, \vec b_\mathrm{intrinsics}\right)
   - \vec q_\mathrm{refboard} \right) + \\
-& W_\mathrm{point} \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics},
-                  T_\mathrm{cr} T_\mathrm{rr^+} \vec p^+_\mathrm{point}\right)
+& W_\mathrm{point} \left( \mathrm{project}\left(
+                  T_\mathrm{cr} T_\mathrm{rr^+} \vec p^+_\mathrm{point}, \vec b_\mathrm{intrinsics} \right)
   -  \vec q_\mathrm{refpoint} \right)
 \end{aligned}
 
@@ -193,11 +193,11 @@ implying this cost vector:
 
 \begin{aligned}
 \vec x_\mathrm{cross} \equiv \,
-& W_\mathrm{board} \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics},
-                  T_\mathrm{cr} T_\mathrm{rr^+} T_\mathrm{r^+f^+} \vec p^+_\mathrm{board}\right)
+& W_\mathrm{board} \left( \mathrm{project}\left(
+                  T_\mathrm{cr} T_\mathrm{rr^+} T_\mathrm{r^+f^+} \vec p^+_\mathrm{board}, \vec b_\mathrm{intrinsics}\right)
   - \vec q_\mathrm{refboard} \right) + \\
-& W_\mathrm{point} \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics},
-                  T_\mathrm{cr} T_\mathrm{rr^+} \vec p^+_\mathrm{point}\right)
+& W_\mathrm{point} \left( \mathrm{project}\left(
+                  T_\mathrm{cr} T_\mathrm{rr^+} \vec p^+_\mathrm{point}, \vec b_\mathrm{intrinsics}\right)
   -  \vec q_\mathrm{refpoint} \right)
 \end{aligned}
 
@@ -300,11 +300,11 @@ The derivation is mostly similar, with slightly different results. We have
 
 \begin{aligned}
 \vec x_\mathrm{cross} \equiv \,
-& W_\mathrm{board} \left( \mathrm{project}\left(\vec b^+_\mathrm{intrinsics},
-                  T_\mathrm{c^+r^+} T_\mathrm{r^+r} T_\mathrm{rf} \vec p_\mathrm{board}\right)
+& W_\mathrm{board} \left( \mathrm{project}\left(
+                  T_\mathrm{c^+r^+} T_\mathrm{r^+r} T_\mathrm{rf} \vec p_\mathrm{board}, \vec b^+_\mathrm{intrinsics} \right)
   - \vec q^+_\mathrm{refboard} \right) + \\
-& W_\mathrm{point} \left( \mathrm{project}\left(\vec b^+_\mathrm{intrinsics},
-                  T_\mathrm{c^+r^+} T_\mathrm{r^+r} \vec p_\mathrm{point}\right)
+& W_\mathrm{point} \left( \mathrm{project}\left(
+                  T_\mathrm{c^+r^+} T_\mathrm{r^+r} \vec p_\mathrm{point}, \vec b^+_\mathrm{intrinsics} \right)
   -  \vec q^+_\mathrm{refpoint} \right)
 \end{aligned}
 
@@ -374,10 +374,10 @@ traverse the data flow diagram in a different direction to compute $\vec q^+$:
 
 So
 \begin{aligned}
-\vec p_\mathrm{ref}   & = T_\mathrm{rc} \mathrm{unproject}\left(\vec b_\mathrm{intrinsics}, \vec q\right) \\
+\vec p_\mathrm{ref}   & = T_\mathrm{rc} \mathrm{unproject}\left(\vec q, \vec b_\mathrm{intrinsics} \right) \\
 \vec p^+_\mathrm{ref} & = T_\mathrm{r^+r} \vec p_\mathrm{ref} \\
 \vec p^+_\mathrm{cam} & = T_\mathrm{c^+r^+} \vec p^+_\mathrm{ref} \\
-\vec q^+              & = \mathrm{project}\left(\vec b^+_\mathrm{intrinsics}, \vec p^+_\mathrm{cam}\right)
+\vec q^+              & = \mathrm{project}\left(\vec p^+_\mathrm{cam}, \vec b^+_\mathrm{intrinsics} \right)
 \end{aligned}
 
 I can thus compute the gradient of $\vec q^+$ in respect to all the variables,
