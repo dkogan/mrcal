@@ -798,12 +798,39 @@ def _dq_db__projection_uncertainty( p_cam,
 
 
 
-    # cross-reprojection--rrp-Jfp logic from test-projection-uncertainty.py:
-    #
-    #   dq/db[extrinsics_this]          = dq_dpcam dpcam__drt_cam_ref
-    #   dq/db[intrinsics_this]          = dq_dintrinsics
-    #   dq/db[frame_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K Dinv
-    #                                   = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
+    # Logic to complete the computation. Let's linearize everything:
+
+    # q* - q
+
+    # ~   dq_dpcam (pcam* - pcam)
+    #   + dq_dintrinsics db[intrinsics_this]
+
+    # ~   dq_dpcam (+ dpcam__drt_cam_ref db[extrinsics_this]
+    #               + dpcam__dpref       (pref* - pref) )
+    #   + dq_dintrinsics db[intrinsics_this]
+
+    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+    #               + dpcam__dpref dpref*__drt_ref_ref* rt_ref_ref*)
+    #   + dq_dintrinsics db[intrinsics_this]
+
+    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+    #               - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) dx_cross0)
+    #   + dq_dintrinsics db[intrinsics]
+
+    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+    #               - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frames_all,points_all,calobject_warp] D Dinv db[frames_all,points_all,calobject_warp])
+    #   + dq_dintrinsics db[intrinsics_this]
+
+    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+    #               + dpcam__dpref dpref*__drt_ref_ref* K Dinv db[frames_all,points_all,calobject_warp])
+    #   + dq_dintrinsics db[intrinsics_this]
+
+    # --->
+
+    # dq/db[extrinsics_this]                      = dq_dpcam dpcam__drt_cam_ref
+    # dq/db[intrinsics_this]                      = dq_dintrinsics
+    # dq/db[frames_all,points_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K Dinv
+    #                                             = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
 
 
     if istate_intrinsics is not None:
@@ -902,14 +929,39 @@ def _dq_db__projection_uncertainty_rotationonly( p_cam,
                        get_gradients = True)
 
 
+    # Logic to complete the computation. Let's linearize everything:
 
-    # cross-reprojection--rrp-Jfp logic from test-projection-uncertainty.py:
-    #
-    #   dq/db[extrinsics_this]          = dq_dpcam dpcam__drt_cam_ref
-    #   dq/db[intrinsics_this]          = dq_dintrinsics
-    #   dq/db[frame_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K Dinv
-    #                                   = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
+    # q* - q
 
+    # ~   dq_dpcam (pcam* - pcam)
+    #   + dq_dintrinsics db[intrinsics_this]
+
+    # ~   dq_dpcam (+ dpcam__drt_cam_ref db[extrinsics_this]
+    #               + dpcam__dpref       (pref* - pref) )
+    #   + dq_dintrinsics db[intrinsics_this]
+
+    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+    #               + dpcam__dpref dpref*__drt_ref_ref* rt_ref_ref*)
+    #   + dq_dintrinsics db[intrinsics_this]
+
+    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+    #               - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) dx_cross0)
+    #   + dq_dintrinsics db[intrinsics]
+
+    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+    #               - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frames_all,points_all,calobject_warp] D Dinv db[frames_all,points_all,calobject_warp])
+    #   + dq_dintrinsics db[intrinsics_this]
+
+    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+    #               + dpcam__dpref dpref*__drt_ref_ref* K Dinv db[frames_all,points_all,calobject_warp])
+    #   + dq_dintrinsics db[intrinsics_this]
+
+    # --->
+
+    # dq/db[extrinsics_this]                      = dq_dpcam dpcam__drt_cam_ref
+    # dq/db[intrinsics_this]                      = dq_dintrinsics
+    # dq/db[frames_all,points_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K Dinv
+    #                                             = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
 
     if istate_intrinsics is not None:
         dq_dintrinsics_optimized = dq_dintrinsics[..., slice_optimized_intrinsics]
