@@ -1,5 +1,5 @@
 #+TITLE: Projection uncertainty: cross-reprojection
-#+OPTIONS: toc:nil
+#+OPTIONS: toc:t
 
 A key part of the [[file:uncertainty.org][projection uncertainty propagation method]] is to compute a
 function $\vec q^+\left(\vec b\right)$ to represent the change in projected
@@ -10,13 +10,15 @@ and is the recommended method as of mrcal 3.0. This method is accessible by
 calling [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty(method = "cross-reprojection--rrp-Jfp")=]],
 or omitting the =method= argument entirely, since this method is now the default.
 
+The logic described here is validated thoroughly in
+[[https://www.github.com/dkogan/mrcal/blob/master/test/test-projection-uncertainty.py][=test/test-projection-uncertainty.py=]].
 
 * Cross-reprojection uncertainty
-In my usual least squares solve using chessboards, each point produces two
+In [[file:formulation.org::#measurement-vector][the usual least squares solve using chessboards]], each point produces two
 elements (horizontal, vertical error) of the measurements vector:
 
 \[
-\vec x_i = W \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics}, T_\mathrm{cr} \, T_\mathrm{rf} \, \vec p_i \right) -
+\vec x_i = W \left( \mathrm{project}\left(\vec b_\mathrm{intrinsics}, T_\mathrm{cr} \, T_\mathrm{rf} \, \vec p_{\mathrm{board}_i} \right) -
 \vec q_{\mathrm{ref}_i} \right)
 \]
 
@@ -49,7 +51,7 @@ coordinate is stored in $\vec b$. The analysis is very similar for the two cases
 (boards, points). In this writeup I mostly focus on boards, but the
 implementation supports both formulations.
 
-If we perturb $\vec q_\mathrm{ref}$ then we have a different optimization, with
+If we perturb $\vec q_\mathrm{ref} \rightarrow \vec q^+_\mathrm{ref} = \vec q_\mathrm{ref} + \Delta \vec q_\mathrm{ref}$ then we have a different optimization, with
 different quantities in this same data flow:
 
 \[
@@ -69,8 +71,8 @@ $\Delta \vec q_\mathrm{ref}$ I optimize the "cross-reprojection error": I treat
 the two optimized worlds (unperturbed, perturbed) contant, and I compute an
 optimal transformation $T_\mathrm{rr^+}$ to relate the two sets of coordinate
 systems. I do this by solving the original optimization problem, but using half
-of the data flow from each of the unperturbed and perturbed optimizations. The
-data flow in this cross-reprojection optimization appears in red:
+of the data from each of the unperturbed and perturbed optimizations. The data
+flow in this cross-reprojection optimization appears in red:
 
 \[
 \xymatrix{
@@ -90,10 +92,12 @@ All the quantities *except* $T_\mathrm{rr^+}$ are available in the perturbed and
 unperturbed optimizations. From those quantities we can compute the optimal
 $T_\mathrm{rr^+}$.
 
-In this read data flow I look at the /perturbed/ chessboard,frames,points and
-the /unperturbed/ camera intrinsics, extrinsics. Note that I could have
-traversed this data flow diagram from the top-left to the bottom-right instead.
-This produces a [[#cross-reprojection-rt-rpr][different formulation, described below]].
+In this red data flow I look at the /perturbed/ chessboard,points,frames ($\color{red} \vec
+p^+_\mathrm{board}$, $\color{red} \vec p^+_\mathrm{point}$, $\color{red} T_\mathrm{r^+f^+}$) and the
+/unperturbed/ camera extrinsics,intrinsics ($T_\mathrm{cr}$, $\vec
+b_\mathrm{intrinsics}$). Note that I could have traversed this data flow diagram
+from the top-left to the bottom-right instead. This produces a [[#cross-reprojection-rt-rpr][different
+formulation, described below]].
 
 So let's compute $T_\mathrm{rr^+}$. For a given perturbation $\Delta \vec
 q_\mathrm{ref}$ I compute an optimization
@@ -115,13 +119,14 @@ where
 \end{aligned}
 
 $\vec{ \mathrm{rt}_\mathrm{rr^+}}$ is a single transform (a vector with 6
-elements, regardless of how many cameras or observations we have). This vector
-defines the $T_\mathrm{rr^+}$ transform.
+elements, regardless of how many cameras or observations we have). This is an
+[[file:conventions.org::#pose-representation][=rt= pose]] that defines the $T_\mathrm{rr^+}$ transform.
 
 I optimize $\Vert\vec x_\mathrm{cross}\Vert^2$ by making a linearity assumption,
 and taking a Newton step from the operating point $\vec
 {\mathrm{rt}_\mathrm{rr^+}} = 0$. The baseline $\vec x_\mathrm{cross_0}$ comes
-from the above expression at the operating point. Furthermore I have
+from the above expression at $\vec {\mathrm{rt}_\mathrm{rr^+}} = 0$. Furthermore
+I have
 
 \[
 J_\mathrm{cross} \equiv
@@ -201,66 +206,57 @@ This is exactly the $\vec x^*$ from the original optimization, except I perturb
 $\vec b_\mathrm{frames}$ and $\vec b_\mathrm{points}$ and $\vec
 b_\mathrm{calobjectwarp}$:
 
-\begin{aligned}
-\vec x_\mathrm{cross_0} = \, & \vec x^* +
-J_\mathrm{frames,points,calobjectwarp} \Delta \vec b_\mathrm{frames,points,calobjectwarp} \\
-= \, & \vec x^* +
-J_\mathrm{frames,points,calobjectwarp}  M_\mathrm{frames,points,calobjectwarp} \Delta \vec q_\mathrm{ref}
-\end{aligned}
+\[
+\vec x_\mathrm{cross_0} = \vec x^* +
+J_\mathrm{frames,points,calobjectwarp} \Delta \vec b_\mathrm{frames,points,calobjectwarp}
+\]
 
-I can evaluate $J_\mathrm{cross}$ in two different ways:
+To evaluate $J_\mathrm{cross} \equiv \frac{\partial \vec
+x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}}$ I need to consider
+how $\vec x_\mathrm{cross}$ changes in response to
+$\vec{\mathrm{rt}_\mathrm{rr^+}}$. I want to look at deviations from the
+/original/, unperturbed optimization problem. This can be done in two different
+ways:
 
-- a $\vec {\mathrm{rt}_\mathrm{cr}}$ shift to $\mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},\vec{\mathrm{rt}_\mathrm{rr^+}} \right)$. So
-  \begin{aligned}
-  J_{\mathrm{cross}_\mathrm{e}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
-  & = J_\mathrm{extrinsics} \frac{\partial \mathrm{rt}_\mathrm{cr^+}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
-  & = J_\mathrm{extrinsics} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},\vec{\mathrm{rt}_\mathrm{rr^+}} \right)}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}}
-  \end{aligned}
+- We can see $\vec{\mathrm{rt}_\mathrm{rr^+}}$ as shifting $\vec
+  {\mathrm{rt}_\mathrm{cr}} \rightarrow \vec {\mathrm{rt}_\mathrm{cr^+}} = \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},\vec{\mathrm{rt}_\mathrm{rr^+}}
+  \right)$:
+  \[
+  J_{\mathrm{cross}_\mathrm{e}} =
+  J_\mathrm{extrinsics} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},\vec{\mathrm{rt}_\mathrm{rr^+}} \right)}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}}
+  \]
 
   For observations that have no extrinsics (the camera is defined to sit at the
-  referene coord system) this formulation is not possible. Because there is no
+  referene coord system) this formulation is not possible: there is no
   $J_\mathrm{extrinsics}$
 
-- a $\vec {\mathrm{rt}_\mathrm{rf}}$ shift to $\mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{rr^+}},\mathrm{rt}_\mathrm{r^+f^+}\right)$ and/or a point
-  shift to $T_\mathrm{rr^+} \vec p^+$
+- Or we can see it as a shift $\vec {\mathrm{rt}_\mathrm{rf}} \rightarrow
+  \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{rr^+}},\vec{\mathrm{rt}_\mathrm{r^+f^+}}\right)$
+  and/or a point shift $\vec p_\mathrm{point} \rightarrow T_\mathrm{rr^+} \vec p^+_\mathrm{point}$
 
-  $\vec{\mathrm{rt}_\mathrm{r^+f^+}}$ is a tiny shift off
+  Since $\vec{\mathrm{rt}_\mathrm{r^+f^+}}$ is a tiny shift off
   $\vec{\mathrm{rt}_\mathrm{rf}}$ /and/ I'm assuming that everything is locally
-  linear. So this shift is insignificant for evaluating the gradient, and I use
-  $\vec{\mathrm{rt}_\mathrm{rf}}$ to compute the gradient instead. Similarly for
-  $p^+$ and $p$:
+  linear, I use $\vec{\mathrm{rt}_\mathrm{rf}}$ to compute the gradient instead
+  of $\vec{\mathrm{rt}_\mathrm{r^+f^+}}$. Similarly for $p^+$ and $p$:
 
   \begin{aligned}
-  J_{\mathrm{cross}_\mathrm{f}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
-            & =       J_\mathrm{frame}  \frac{\partial \mathrm{rt}_\mathrm{rf^+}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
-            & =       J_\mathrm{frame}  \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{rr^+}},\mathrm{rt}_\mathrm{r^+f^+}\right)}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+  J_{\mathrm{cross}_\mathrm{f}}
+            & = J_\mathrm{frame}  \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{rr^+}},\mathrm{rt}_\mathrm{r^+f^+}\right)}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
             & \approx J_\mathrm{frame}  \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{rr^+}},\mathrm{rt}_\mathrm{rf}\right)}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}}
  \\
-  J_{\mathrm{cross}_\mathrm{p}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
-            & =       J_\mathrm{points} \frac{\partial p^+}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
+  J_{\mathrm{cross}_\mathrm{p}}
             & =       J_\mathrm{points} \frac{\partial T_\mathrm{rr^+} p^+}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
             & \approx J_\mathrm{points} \frac{\partial T_\mathrm{rr^+} p  }{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
   \end{aligned}
 
-
-
-*NEED THE SAME THING FOR CALOBJECTWARP*
-
-
+Each observation can use a different $J_\mathrm{cross}$ form, as appropriate.
 
 There's one more simplification available. The original optimization problem was
 solved, so we have $\frac{\partial E}{\partial \vec b} =
 \frac{\partial}{\partial \vec b} \Vert \vec x \Vert^2 = 0$, and thus $J^T \vec
 x^* = 0$.
 
-From above:
-
-\[
-\vec x_\mathrm{cross_0} = \vec x_* +
-J_\mathrm{frames,points,calobjectwarp}  M_\mathrm{frames,points,calobjectwarp} \Delta \vec q_\mathrm{ref}
-\]
-
-We can combine those two to simplify
+We can combine the expressions we just computed to simplify:
 \begin{aligned}
 \vec{\mathrm{rt}_\mathrm{rr^+}} &= -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T \vec x_\mathrm{cross_0} \\
 &= \cdots J_\mathrm{some\_state\_subset}^T \vec x_\mathrm{cross_0} \\
@@ -271,15 +267,14 @@ We can combine those two to simplify
 
 So instead of $\vec x_\mathrm{cross_0}$ we can use
 
-\begin{aligned}
-\Delta \vec x_\mathrm{cross_0} = \, & J_\mathrm{frames,points,calobjectwarp} \Delta \vec b_\mathrm{frames,points,calobjectwarp} \\
-& J_\mathrm{frames,points,calobjectwarp}  M_\mathrm{frames,points,calobjectwarp} \Delta \vec q_\mathrm{ref}
-\end{aligned}
+\[
+\Delta \vec x_\mathrm{cross_0} = J_\mathrm{frames,points,calobjectwarp} \Delta \vec b_\mathrm{frames,points,calobjectwarp}
+\]
 
 So we have $\vec{\mathrm{rt}_\mathrm{rr^+}} = K \Delta \vec b$ for some $K$ that
 depends on the various $J$ matrices that are constant for each solve.
 
-*** Cross-reprojection uncertainty via $T_\mathrm{r^+r}$
+** Cross-reprojection uncertainty via $T_\mathrm{r^+r}$
 :PROPERTIES:
 :CUSTOM_ID: cross-reprojection-rt-rpr
 :END:
@@ -325,62 +320,41 @@ where
 \Delta \vec x_\mathrm{cross_0} = J_\mathrm{intrinsics,extrinsics} \Delta \vec b_\mathrm{intrinsics,extrinsics} - W \Delta \vec q_\mathrm{ref}
 \]
 
-And we can compute the linearized quantities near $\vec {\mathrm{rt}_\mathrm{r^+r}} = 0$:
-\[
-\vec{\mathrm{rt}_\mathrm{c^+r}} = \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{c^+r^+}}, \vec{\mathrm{rt}_\mathrm{r^+r}}\right)
-\]
-
-\begin{aligned}
-\vec x_\mathrm{cross_0} = \, & \vec x^* +
-J_\mathrm{intrinsics,extrinsics} \Delta \vec b_\mathrm{intrinsics,extrinsics} - W \Delta \vec q_\mathrm{ref} \\
-= \, & \vec x^* +
-J_\mathrm{intrinsics,extrinsics}  M_\mathrm{intrinsics,extrinsics} \Delta \vec q_\mathrm{ref} - W \Delta \vec q_\mathrm{ref}
-\end{aligned}
-
-For points that have no extrinsics (the camera is defined to sit at the ref
-coord system) there is no $J_\mathrm{extrinsics}$, and we can ignore it here;
-but we must then use the $J_{\mathrm{cross}_\mathrm{f}}$ form below.
-
 When evaluating $J_\mathrm{cross} = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}$ I can once again look at it in
 two ways:
 
-- a $\vec{\mathrm{rt}_\mathrm{cr}}$ shift to $\mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{c^+r^+}},\vec{\mathrm{rt}_\mathrm{r^+r}}\right)$.
+- a shift $\vec{\mathrm{rt}_\mathrm{cr}} \rightarrow \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{c^+r^+}},\vec{\mathrm{rt}_\mathrm{r^+r}}\right)$.
 
-  $\vec{\mathrm{rt}_\mathrm{c^+r^+}}$ is a tiny shift off
+  Since $\vec{\mathrm{rt}_\mathrm{c^+r^+}}$ is a tiny shift off
   $\vec{\mathrm{rt}_\mathrm{cr}}$ /and/ I'm assuming that everything is locally
-  linear. So this shift is insignificant, and I use
-  $\vec{\mathrm{rt}_\mathrm{cr}}$ to compute the gradient instead
+  linear, I use
+  $\vec{\mathrm{rt}_\mathrm{cr}}$ to compute the gradient instead of $\vec{\mathrm{rt}_\mathrm{c^+r^+}}$
 
   \begin{aligned}
-  J_{\mathrm{cross}_\mathrm{e}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
-            & = J_\mathrm{extrinsics} \frac{\partial \vec{\mathrm{rt}_\mathrm{c^+r}}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
+  J_{\mathrm{cross}_\mathrm{e}}
             & = J_\mathrm{extrinsics} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{c^+r^+}},\vec{\mathrm{rt}_\mathrm{r^+r}}\right)}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
-            & = J_\mathrm{extrinsics} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},  \vec{\mathrm{rt}_\mathrm{r^+r}}\right)}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}
+            & \approx J_\mathrm{extrinsics} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},  \vec{\mathrm{rt}_\mathrm{r^+r}}\right)}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}
   \end{aligned}
 
-  As before, for points that have no extrinsics (the camera is defined to sit at
-  the reference coord system) there is no $J_\mathrm{extrinsics}$, so this
-  formulation is not possible here. Use $J_{\mathrm{cross}_\mathrm{f}}$ and/or
+  As before, for observations that have no extrinsics (the camera is defined to
+  sit at the reference coord system) there is no $J_\mathrm{extrinsics}$, so
+  this formulation is not possible. Use $J_{\mathrm{cross}_\mathrm{f}}$ and/or
   $J_{\mathrm{cross}_\mathrm{p}}$
 
 
-- a $\vec {\mathrm{rt}_\mathrm{rf}}$ shift to $\mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{r^+r}}, \vec {\mathrm{rt}_\mathrm{rf}}\right)$ and/or a point
-  shift to $T_\mathrm{r^+r} \vec p$
+- a shift $\vec {\mathrm{rt}_\mathrm{rf}} \rightarrow \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{r^+r}}, \vec {\mathrm{rt}_\mathrm{rf}}\right)$ and/or a point
+  shift $\vec p_\mathrm{point} \rightarrow T_\mathrm{r^+r} \vec p_\mathrm{point}$:
 
   \begin{aligned}
-  J_{\mathrm{cross}_\mathrm{f}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
-            & = J_\mathrm{frame} \frac{\partial \vec {\mathrm{rt}_\mathrm{r^+f}}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
-            & = J_\mathrm{frame} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{r^+r}},\vec {\mathrm{rt}_\mathrm{rf}}\right)}{\vec{\mathrm{rt}_\mathrm{r^+r}}} \\
-  J_{\mathrm{cross}_\mathrm{p}} & = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
-            & = J_\mathrm{points} \frac{\partial \vec p^+}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}} \\
-            & = J_\mathrm{points} \frac{T_\mathrm{r^+r} \vec p}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}
+  J_{\mathrm{cross}_\mathrm{f}} & = J_\mathrm{frame} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{r^+r}},\vec {\mathrm{rt}_\mathrm{rf}}\right)}{\vec{\mathrm{rt}_\mathrm{r^+r}}} \\
+  J_{\mathrm{cross}_\mathrm{p}} & = J_\mathrm{points} \frac{T_\mathrm{r^+r} \vec p}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}
   \end{aligned}
 
 So we have $\vec{\mathrm{rt}_\mathrm{r^+r}} = K \Delta \vec b - W \Delta \vec
 q_\mathrm{ref}$ for some $K$ that depends on the various $J$ matrices that are
 constant for each solve.
 
-*** Putting it all together
+** Putting it all together
 Now that I have $\vec{\mathrm{rt}_\mathrm{rr^+}}$ or
 $\vec{\mathrm{rt}_\mathrm{r^+r}}$, I can use it to compute $\vec q^+$. This can
 accept arbitrary $\vec q$, not just those in the solve, so I actually need to
