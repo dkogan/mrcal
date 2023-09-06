@@ -271,10 +271,16 @@ def parse_args():
         sys.exit(1)
 
     if args.distance is not None:
+        import math
         try:
             args.distance = [float(d) for d in args.distance.split(',')]
         except:
             print("Error: distances must be given a comma-separated list of floats in --distance",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        if any(not math.isfinite(x) or x <= 0 for x in args.distance):
+            print("All values in --distances must be finite and > 0",
                   file=sys.stderr)
             sys.exit(1)
 
