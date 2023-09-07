@@ -26,6 +26,15 @@ into the same framework as all the other models, and all the higher-level logic
 (differencing, uncertainty quantification, etc) continues to work with no
 modifications.
 
+These models are now mature, and have been used extensively in many different
+applications. It is now my strong recommendation to use these in lieu of any
+other model. A common point of concern is computational performance, which is
+expected when switching from a model that has 12 parameters to a model that has
+500 or more parameters. However, the implementation is built around B-splines,
+so the projection function has local support, and the projection of any given
+point uses only a few parameters. Some things involving these models are slower,
+and some aren't, but the difference is never dramatic. Try it.
+
 * Projection function
 The =LENSMODEL_SPLINED_STEREOGRAPHIC_...= model is a stereographic model with
 correction factors. To compute a projection using this model, we first compute
