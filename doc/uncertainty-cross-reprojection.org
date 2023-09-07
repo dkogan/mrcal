@@ -68,7 +68,7 @@ All perturbed quantities are marked with a $+$ superscript.
 As noted above, all the coordinate systems have shifted, so the two
 optimizations aren't directly comparable. In order to gauge the effect of
 $\Delta \vec q_\mathrm{ref}$ I optimize the "cross-reprojection error": I treat
-the two optimized worlds (unperturbed, perturbed) contant, and I compute an
+the two optimized worlds (unperturbed, perturbed) constant, and I compute an
 optimal transformation $T_\mathrm{rr^+}$ to relate the two sets of coordinate
 systems. I do this by solving the original optimization problem, but using half
 of the data from each of the unperturbed and perturbed optimizations. The data
@@ -94,7 +94,7 @@ $T_\mathrm{rr^+}$.
 
 In this red data flow I look at the /perturbed/ chessboard,points,frames ($\color{red} \vec
 p^+_\mathrm{board}$, $\color{red} \vec p^+_\mathrm{point}$, $\color{red} T_\mathrm{r^+f^+}$) and the
-/unperturbed/ camera extrinsics,intrinsics ($T_\mathrm{cr}$, $\vec
+/unperturbed/ camera extrinsics,intrinsics ($\color{red} T_\mathrm{cr}$, $\color{red} \vec
 b_\mathrm{intrinsics}$). Note that I could have traversed this data flow diagram
 from the top-left to the bottom-right instead. This produces a [[#cross-reprojection-rt-rpr][different
 formulation, described below]].
