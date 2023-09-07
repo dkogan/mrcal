@@ -1210,9 +1210,6 @@ else:                    we return an array of shape (...)
     # from the model. But for good hygiene I get them from the solve as
     # well
 
-    # This will raise an exception if the cameras are not stationary
-    icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics, **optimization_inputs)
-
     lensmodel       = optimization_inputs['lensmodel']
     intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
 
@@ -1238,6 +1235,8 @@ else:                    we return an array of shape (...)
 
         slice_optimized_intrinsics  = slice(i0,i1)
 
+    # This will raise an exception if the cameras are not stationary
+    icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics, **optimization_inputs)
     if icam_extrinsics < 0:
         extrinsics_rt_fromref = None
         istate_extrinsics     = None
