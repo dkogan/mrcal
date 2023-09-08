@@ -112,9 +112,10 @@ ARGUMENTS
   everything in the reference coordinate system. If given, we use a "plot"
   coordinate system with the transformation TO plot coordinates FROM the
   reference coordinates given in this argument. This argument can be given as
-  single Rt transformation to apply to ALL the cameras, or an iterable of Rt
+  single Rt transformation to apply to everything; or an iterable of Rt
   transformations to use a different one for each camera (the number of
-  transforms must match the number of cameras exactly)
+  transforms must match the number of cameras exactly). If a separate transform
+  per camera is given, we must not be plotting points or frames
 
 - frames_rt_toref: optional array of shape (N,6). If given, each row of shape
   (6,) is an rt transformation representing the transformation TO the reference
