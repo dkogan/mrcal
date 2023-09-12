@@ -851,3 +851,42 @@ These are notes to myself containing the steps needed to roll a new release
 - versioned docs upload
 - git tag
 - move docs-default (symlink) on the server
+
+** C headers: mrcal-xxx.h -> xxx.h
+
+** mrcal-convert-lensmodel
+This needs to support points:
+- search for indices_point_camintrinsics_camextrinsics
+- solving without --sampled fails with points: no logic to do point culling
+
+** mrcal-cull-corners should be able to cull board edges
+Need new option like =--cull-board-rowscols L,T,R,B=
+
+Can hack it on the commandline:
+
+#+begin_src sh
+R=1; < $C vnl-filter --sub 'ii() { if(filename != prev(filename)) { i=0; return i; } return ++i; }' -p .,'i=ii()' | vnl-filter -p .,\!i,'i=int(i/14)',j='i % 14' | vnl-filter -p filename,x,y,level="(i<$R || i>=14-$R || j<$R || j>=14-$R) ? \"-\" : level" > /tmp/corners-board-edge-cut$R.vnl
+#+end_src
+
+** mrcal-stereo should have an anti-aliasing filter
+When I downsample. Just before =mrcal.transform_image()= it should
+
+#+begin_src python
+for i in range(len(images)):
+    images[i] = cv2.GaussianBlur(images[i],
+                                 ksize=(0,0), # auto-select
+                                 # sigmaX = 2 ^ -pixels_per_deg,
+                                 sigmaX = 2 )
+#+end_src
+
+** I should support more lens models
+Being compatible with at least ROS would be nice. Their models are:
+
+- =plumb_bob=: This is =LENSMODEL_OPENCV5=
+- =rational_polynomial=: This is =LENSMODEL_OPENCV8=
+- =equidistant=: mrcal does not support this today. It should. This is
+  [[https://docs.opencv.org/3.4/db/d58/group__calib3d__fisheye.html][cv::fisheye]]
+
+** More conversion functions
+- Similarly I should have =mrcal-to-ros= and =mrcal-from-ros= to convert model
+  files
