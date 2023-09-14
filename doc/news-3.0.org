@@ -840,6 +840,13 @@ point_min_range and point_max_range. Do I really need these?
 ** XyJax loaded in too many doc pages
 I need it everywhere I use \xymatrix (currently uncertainty.org only). So that's
 the only place I should use it. Loading it needlessly is slow
+
+** mrcal.rectified_system() should detect baseline <= eps and barf
+If I give it the same model, sometimes I see baseline = eps, and bogus values
+otherwise. It should detect this explicitly and it should barf
+
+** write_ply_points() should be exported
+
 * release checklist
 These are notes to myself containing the steps needed to roll a new release
 
