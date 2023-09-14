@@ -634,7 +634,7 @@ element (difference consists of N separate polygons)
 
     diff = Polygon(positive).difference(Polygon(negative))
     if isinstance(diff, (MultiPolygon,GeometryCollection)):
-        diff = list(diff)
+        diff = list(diff.geoms)
     elif isinstance(diff, Polygon):
         diff = [diff]
     else:
