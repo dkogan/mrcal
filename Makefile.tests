@@ -44,7 +44,8 @@ TESTS :=																\
   test/test-broadcasting.py														\
   test/test-compute-chessboard-corners-parsing.py											\
   test/test-rectification-maps.py													\
-  test/test-save-load-image.py
+  test/test-save-load-image.py \
+  test-worst_direction_stdev.py
 
 # triangulation-uncertainty tests. Lots and lots of tests to exhaustively try
 # out different scenarios
