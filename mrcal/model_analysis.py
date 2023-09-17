@@ -396,7 +396,7 @@ report a full Rt transformation with the t component set to 0
 
 
 def worst_direction_stdev(cov):
-    r'''Compute the worst-direction standard deviation from a 2x2 covariance matrix
+    r'''Compute the worst-direction standard deviation from a NxN covariance matrix
 
 SYNOPSIS
 
@@ -420,17 +420,22 @@ SYNOPSIS
     print(mrcal.worst_direction_stdev(cov))
     ===> 1.105304960905736
 
-The covariance of a (2,) random variable can be described by a (2,2)
+The covariance of a (N,) random vector can be described by a (N,N)
 positive-definite symmetric matrix. The 1-sigma contour of this random variable
 is described by an ellipse with its axes aligned with the eigenvectors of the
 covariance, and the semi-major and semi-minor axis lengths specified as the sqrt
 of the corresponding eigenvalues. This function returns the worst-case standard
-deviation of the given covariance: the sqrt of the larger of the two
-eigenvalues.
+deviation of the given covariance: the sqrt of the largest eigenvalue.
+
+Given the common case of a 2x2 covariance this function computes the result
+directly. Otherwise it uses the numpy functions to compute the biggest
+eigenvalue.
 
 This function supports broadcasting fully.
 
 DERIVATION
+
+I solve this directly for the 2x2 case.
 
 Let cov = (a b). If l is an eigenvalue of the covariance then
           (b c)
@@ -462,13 +467,25 @@ broadcasting
 
     if cov.shape[-2:] == (1,1):
         return np.sqrt(cov[...,0,0])
+
     if cov.shape[-2:] == (2,2):
         a = cov[..., 0,0]
         b = cov[..., 1,0]
         c = cov[..., 1,1]
         return np.sqrt((a+c)/2 + np.sqrt( (a-c)*(a-c)/4 + b*b))
 
-    raise Exception("cov must be either 1x1 or 2x2 in the innermost dimension")
+    if cov.shape[-1] != cov.shape[-2]:
+        raise Exception(f"covariance matrices must be square. Got cov.shape = {cov.shape}")
+
+    import scipy.sparse.linalg
+    @nps.broadcast_define( (('N','N',),),
+                           () )
+    def largest_eigenvalue(V):
+        return \
+            scipy.sparse.linalg.eigsh(V, 1,
+                                      which               = 'LM',
+                                      return_eigenvectors = False)[0]
+    return np.sqrt(largest_eigenvalue(cov))
 
 
 def _observed_pixel_uncertainty_from_inputs(optimization_inputs,
