@@ -460,7 +460,7 @@ broadcasting
     cov = nps.atleast_dims(cov,-2)
 
     if cov.shape[-2:] == (1,1):
-        return cov[...,0,0]
+        return np.sqrt(cov[...,0,0])
     if cov.shape[-2:] == (2,2):
         a = cov[..., 0,0]
         b = cov[..., 1,0]
