@@ -707,7 +707,14 @@ In the regularized case:
 
     if what == 'covariance':           return Var_dF * observed_pixel_uncertainty*observed_pixel_uncertainty
     if what == 'worstdirection-stdev': return worst_direction_stdev(Var_dF) * observed_pixel_uncertainty
-    if what == 'rms-stdev':            return np.sqrt(nps.trace(Var_dF)/2.) * observed_pixel_uncertainty
+    if what == 'rms-stdev':
+        # Compute the RMS of the standard deviations in each direction
+        # RMS(stdev) =
+        # = sqrt( mean(stdev^2) )
+        # = sqrt( mean(var) )
+        # = sqrt( sum(var)/N )
+        # = sqrt( trace/N )
+        return np.sqrt(nps.trace(Var_dF)/Var_dF.shape[-1]) * observed_pixel_uncertainty
     else: raise Exception("Shouldn't have gotten here. There's a bug")
 
 
@@ -1108,8 +1115,8 @@ broadcasts on p_cam only. We accept
   - 'worstdirection-stdev': return the worst-direction standard deviation for
                             each p_cam
 
-  - 'rms-stdev':            return the RMS of the worst and best direction
-                            standard deviations
+  - 'rms-stdev':            return the RMS of the standard deviations in each
+                            direction
 
 - observed_pixel_uncertainty: optional value, defaulting to None. The
   uncertainty of the pixel observations being propagated through the solve and
