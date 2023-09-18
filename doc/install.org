@@ -82,7 +82,7 @@ these are available in most distros. Things that may not be:
 - [[https://re2c.org/][=re2c=]]: parser-generator for the C code to parse =.cameramodel= files. At
   least version 2 is required.
 
-- [[https://github.com/yaml/pyyaml][=python3-yaml=]]: yaml parser used for the ROS, Kalibr model reading  
+- [[https://github.com/yaml/pyyaml][=python3-yaml=]]: yaml parser used for the OpenCV, Kalibr model reading
 
 - [[https://pyfltk.sourceforge.io/][=python3-fltk=]]: Python bindings for the [[https://www.fltk.org/][FLTK]] GUI toolkit. Optional. Used only
   in the visualizer in the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool.
