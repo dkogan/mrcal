@@ -736,14 +736,135 @@ ARGUMENTS
 
 
 
+
+            def parse_as_ros_yaml(modelstring):
+                r'''Try to parse model as a ROS string
+
+This is documented here: https://wiki.ros.org/camera_calibration_parsers
+
+A sample file:
+
+  image_width: 2448
+  image_height: 2050
+  camera_name: prosilica
+  camera_matrix:
+    rows: 3
+    cols: 3
+    data: [4827.94, 0, 1223.5, 0, 4835.62, 1024.5, 0, 0, 1]
+  distortion_model: plumb_bob
+  distortion_coefficients:
+    rows: 1
+    cols: 5
+    data: [-0.41527, 0.31874, -0.00197, 0.00071, 0]
+  rectification_matrix:
+    rows: 3
+    cols: 3
+    data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+  projection_matrix:
+    rows: 3
+    cols: 4
+    data: [4827.94, 0, 1223.5, 0, 0, 4835.62, 1024.5, 0, 0, 0, 1, 0]
+
+This is trying to include rectification in the model, which is dumb. I should be
+able to have a single camera with extrinsics. I do this:
+
+- Ignore the rectification_matrix
+- Assume the camera matrix is the intrinsics core only
+- Assume the projection_matrix is compose(camera_matrix, Rt_camera_ref)
+
+                '''
+                import yaml
+
+                # output
+                model = dict()
+
+
+                try:    model_in = yaml.safe_load(modelstring)
+                except Exception as e:
+                    raise CameramodelParseException(f"YAML parsing failed: {e}")
+
+                try:    M = model_in['camera_matrix']['data']
+                except Exception as e:
+                    raise CameramodelParseException(f"No ['camera_matrix']['data']: {e}")
+                try:    M = np.array(M,dtype=float).reshape(3,3)
+                except Exception as e:
+                    raise CameramodelParseException(f"['camera_matrix']['data'] not interpretable as a (3,3) array: {e}")
+                if M[0,1] != 0 or \
+                   M[1,0] != 0 or \
+                   M[2,0] != 0 or \
+                   M[2,1] != 0 or \
+                   M[2,2] != 1:
+                    raise CameramodelParseException(f"['camera_matrix']['data'] should have [fx 0 cx; 0 fy cy; 0 0 1] structure: {e}")
+
+                try:    P = model_in['projection_matrix']['data']
+                except Exception as e:
+                    raise CameramodelParseException(f"No ['projection_matrix']['data']: {e}")
+                try:    P = np.array(P,dtype=float).reshape(3,4)
+                except Exception as e:
+                    raise CameramodelParseException(f"['projection_matrix']['data'] not interpretable as a (3,4) array: {e}")
+
+
+                if model_in['distortion_model'] == 'plumb_bob':
+                    model['lensmodel'] = 'LENSMODEL_OPENCV5'
+                elif model_in['distortion_model'] == 'rational_polynomial':
+                    model['lensmodel'] = 'LENSMODEL_OPENCV8'
+                elif model_in['distortion_model'] == 'equidistant':
+                    raise CameramodelParseException('"equidistant" ros model not supported yet')
+                else:
+                    raise CameramodelParseException(f"Unknown ros model \"{model_in['distortion_model']}\"")
+
+                try:    model['intrinsics'] = \
+                          [M[0,0],M[1,1],M[0,2],M[1,2]] + \
+                          model_in['distortion_coefficients']['data']
+                except Exception as e:
+                    raise CameramodelParseException(f"No ['distortion_coefficients']['data']: {e}")
+                # not checking len(distortion_coefficients); _read_into_self()
+                # will do that
+
+                try:    model['imagersize'] = [model_in['image_width'],
+                                               model_in['image_height']]
+                except Exception as e:
+                    raise CameramodelParseException(f"No ['image_width'] or ['image_height]: {e}")
+
+                try:
+                    Rt_cam_ref = np.zeros((4,3), dtype=float)
+                    Rt_cam_ref[3,:] = P[:,3]
+                    Rt_cam_ref[:3,:] = np.linalg.solve(M,P[:,:3])
+                except Exception as e:
+                    raise CameramodelParseException(f"Couldn't interpret projection_matrix,camera_matrix as a geometric transform: {e}")
+                should_be_I = nps.matmult(nps.transpose(Rt_cam_ref[:3,:]),
+                                          Rt_cam_ref[:3,:])
+                if nps.norm2((should_be_I - np.diag(np.diag(should_be_I))).ravel()) >= 1e-10:
+                    raise CameramodelParseException("inv(camera_matrix)*projection_matrix don't produce a valid rotation")
+                if nps.norm2(np.diag(should_be_I) - 1) >= 1e-10:
+                    raise CameramodelParseException("inv(camera_matrix)*projection_matrix don't produce a valid rotation")
+
+                # extrinsics are rt_fromref
+                model['extrinsics'] = list(mrcal.rt_from_Rt(Rt_cam_ref))
+
+                return repr(model)
+
+
             # Some readable file. Read it!
             def tryread(f, what):
+                r'''Try all the formats I support'''
+
                 modelstring = f.read()
+
                 try:
                     self._read_into_self(modelstring)
                     return
-                except CameramodelParseException:
+                except CameramodelParseException as e:
+                    print(f"Couldn't parse as a native .cameramodel: '{e}'")
                     pass
+
+                try:
+                    self._read_into_self(parse_as_ros_yaml(modelstring))
+                    return
+                except CameramodelParseException as e:
+                    print(f"Couldn't parse as a ROS model: '{e}'")
+                    pass
+
 
                 # Couldn't read the file as a .cameramodel. Does a .cahvor
                 # work?
