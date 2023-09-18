@@ -475,7 +475,10 @@ A sample valid .cameramodel file:
     def _read_into_self(self, f):
         r'''Reads in a model from an open file, or the model given as a string
 
-        Note that the string is NOT a filename, it's the model data'''
+        Note that the string is NOT a filename, it's the model data. This
+        function reads the native .cameramodel format only
+
+        '''
 
         # workaround for python3 idiocy
         try:
@@ -731,43 +734,46 @@ ARGUMENTS
                     self._icam_intrinsics = None
                 return
 
-            if type(file_or_model) is str:
 
-                # Some readable file. Read it!
-                def tryread(f, what):
-                    modelstring = f.read()
-                    try:
-                        self._read_into_self(modelstring)
-                        return
-                    except CameramodelParseException:
-                        pass
 
-                    # Couldn't read the file as a .cameramodel. Does a .cahvor
-                    # work?
+            # Some readable file. Read it!
+            def tryread(f, what):
+                modelstring = f.read()
+                try:
+                    self._read_into_self(modelstring)
+                    return
+                except CameramodelParseException:
+                    pass
 
-                    # This is more complicated than it looks. I want to read the
-                    # .cahvor file into self, but the current cahvor interface
-                    # wants to generate a new model object. So I do that, write
-                    # it as a .cameramodel-formatted string, and then read that
-                    # back into self. Inefficient, but this is far from a hot
-                    # path
-                    from . import cahvor
-                    try:
-                        model = cahvor.read_from_string(modelstring)
-                    except:
-                        raise Exception(f"Couldn't parse {what} as a camera model (.cameramodel or .cahvor)") from None
-                    modelfile = io.StringIO()
-                    model.write(modelfile)
-                    self._read_into_self(modelfile.getvalue())
+                # Couldn't read the file as a .cameramodel. Does a .cahvor
+                # work?
+
+                # This is more complicated than it looks. I want to read the
+                # .cahvor file into self, but the current cahvor interface
+                # wants to generate a new model object. So I do that, write
+                # it as a .cameramodel-formatted string, and then read that
+                # back into self. Inefficient, but this is far from a hot
+                # path
+                from . import cahvor
+                try:
+                    model = cahvor.read_from_string(modelstring)
+                except:
+                    raise Exception(f"Couldn't parse {what} as a camera model (.cameramodel or .cahvor)") from None
+                modelfile = io.StringIO()
+                model.write(modelfile)
+                self._read_into_self(modelfile.getvalue())
+
+            if isinstance(file_or_model, str):
 
                 if file_or_model == '-':
                     tryread(sys.stdin, "STDIN")
                 else:
                     with open(file_or_model, 'r') as openedfile:
                         tryread(openedfile, f"file '{file_or_model}'")
-                return
+            else:
+                # I assume this is a readable file
+                tryread(file_or_model, "file object")
 
-            self._read_into_self(file_or_model)
             return
 
 
