@@ -849,20 +849,24 @@ able to have a single camera with extrinsics. I do this:
             def tryread(f, what):
                 r'''Try all the formats I support'''
 
+                debug_loading = False
+
                 modelstring = f.read()
 
                 try:
                     self._read_into_self(modelstring)
                     return
                 except CameramodelParseException as e:
-                    print(f"Couldn't parse as a native .cameramodel: '{e}'")
+                    if debug_loading:
+                        print(f"Couldn't parse as a native .cameramodel: '{e}'")
                     pass
 
                 try:
                     self._read_into_self(parse_as_ros_yaml(modelstring))
                     return
                 except CameramodelParseException as e:
-                    print(f"Couldn't parse as a ROS model: '{e}'")
+                    if debug_loading:
+                        print(f"Couldn't parse as a ROS model: '{e}'")
                     pass
 
 
