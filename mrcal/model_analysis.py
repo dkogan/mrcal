@@ -642,8 +642,6 @@ In the regularized case:
         dF_dbpacked = np.array(dF_db) # make a copy
         mrcal.unpack_state(dF_dbpacked, **optimization_inputs)
 
-    dF_dbpacked = nps.atleast_dims(dF_dbpacked, -2)
-
     if \
        x                                  is None or \
        factorization                      is None or \
@@ -705,8 +703,12 @@ In the regularized case:
         # No regularization. Use the simplified expression
         Var_dF = nps.matmult(dF_dbpacked, nps.transpose(A))
 
-    if what == 'covariance':           return Var_dF * observed_pixel_uncertainty*observed_pixel_uncertainty
-    if what == 'worstdirection-stdev': return worst_direction_stdev(Var_dF) * observed_pixel_uncertainty
+    if what == 'covariance':
+        if dF_dbpacked.ndim == 1:
+            Var_dF = Var_dF[0,0]
+        return Var_dF * observed_pixel_uncertainty*observed_pixel_uncertainty
+    if what == 'worstdirection-stdev':
+        return worst_direction_stdev(Var_dF) * observed_pixel_uncertainty
     if what == 'rms-stdev':
         # Compute the RMS of the standard deviations in each direction
         # RMS(stdev) =
@@ -715,7 +717,8 @@ In the regularized case:
         # = sqrt( sum(var)/N )
         # = sqrt( trace/N )
         return np.sqrt(nps.trace(Var_dF)/Var_dF.shape[-1]) * observed_pixel_uncertainty
-    else: raise Exception("Shouldn't have gotten here. There's a bug")
+    else:
+        raise Exception("Shouldn't have gotten here. There's a bug")
 
 
 def _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
