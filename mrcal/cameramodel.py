@@ -737,8 +737,8 @@ ARGUMENTS
 
 
 
-            def parse_as_ros_yaml(modelstring):
-                r'''Try to parse model as a ROS string
+            def parse_as_opencv_yaml(modelstring):
+                r'''Try to parse model as an opencv string
 
 This is documented here: https://wiki.ros.org/camera_calibration_parsers
 
@@ -809,9 +809,9 @@ able to have a single camera with extrinsics. I do this:
                 elif model_in['distortion_model'] == 'rational_polynomial':
                     model['lensmodel'] = 'LENSMODEL_OPENCV8'
                 elif model_in['distortion_model'] == 'equidistant':
-                    raise CameramodelParseException('"equidistant" ros model not supported yet')
+                    raise CameramodelParseException('"equidistant" OpenCV model not supported yet')
                 else:
-                    raise CameramodelParseException(f"Unknown ros model \"{model_in['distortion_model']}\"")
+                    raise CameramodelParseException(f"Unknown OpenCV model \"{model_in['distortion_model']}\"")
 
                 try:    model['intrinsics'] = \
                           [M[0,0],M[1,1],M[0,2],M[1,2]] + \
@@ -862,11 +862,11 @@ able to have a single camera with extrinsics. I do this:
                     pass
 
                 try:
-                    self._read_into_self(parse_as_ros_yaml(modelstring))
+                    self._read_into_self(parse_as_opencv_yaml(modelstring))
                     return
                 except CameramodelParseException as e:
                     if debug_loading:
-                        print(f"Couldn't parse as a ROS model: '{e}'")
+                        print(f"Couldn't parse as a OpenCV model: '{e}'")
                     pass
 
 
