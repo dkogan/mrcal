@@ -172,10 +172,6 @@ if args.points and not re.match('cross-reprojection', args.reproject_perturbed):
     print("--points is currently implemented ONLY with --reproject-perturbed cross-reprojection-...",
           file = sys.stderr)
     sys.exit(1)
-if args.points and args.make_documentation_plots is not None:
-    print("--points is not currently implemented with --make-documentation-plots",
-          file = sys.stderr)
-    sys.exit(1)
 
 
 
@@ -343,8 +339,17 @@ if args.make_documentation_plots is not None:
 
 
     def observed_points(icam):
-        obs_cam = observations_board_true[indices_frame_camintrinsics_camextrinsics[:,1]==icam, ..., :2].ravel()
-        return obs_cam.reshape(len(obs_cam)//2,2)
+        q = np.zeros((0,2), dtype=float)
+
+        if indices_frame_camintrinsics_camextrinsics is not None:
+            obs_cam = observations_board_true[indices_frame_camintrinsics_camextrinsics[:,1]==icam, ..., :2]
+            q = nps.glue( q, obs_cam, axis = -2 )
+
+        if indices_point_camintrinsics_camextrinsics is not None:
+            obs_cam = observations_point_true[indices_point_camintrinsics_camextrinsics[:,1]==icam, ..., :2]
+            q = nps.glue( q, obs_cam, axis = -2 )
+
+        return q
 
     if args.make_documentation_plots:
         for extension in ('pdf','svg','png','gp'):
