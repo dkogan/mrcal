@@ -418,11 +418,6 @@ A sample valid .cameramodel file:
             for l in note.splitlines():
                 f.write('# ' + l + '\n')
 
-        _validateIntrinsics(self._imagersize,
-                            self._intrinsics)
-        _validateValidIntrinsicsRegion(self._valid_intrinsics_region)
-        _validateExtrinsics(self._extrinsics)
-
         # I write this out manually instead of using repr for the whole thing
         # because I want to preserve key ordering
         f.write("{\n")
@@ -870,8 +865,8 @@ able to have a single camera with extrinsics. I do this:
                     pass
 
 
-                # Couldn't read the file as a .cameramodel. Does a .cahvor
-                # work?
+                # Couldn't read the file in any known method. Last try: does a
+                # .cahvor work?
 
                 # This is more complicated than it looks. I want to read the
                 # .cahvor file into self, but the current cahvor interface
@@ -983,7 +978,12 @@ able to have a single camera with extrinsics. I do this:
             ')'
 
 
-    def write(self, f, *, note=None, cahvor=False):
+    def write(self, f,
+              *,
+              note   = None,
+              cahvor = False,
+              opencv = False,
+              kalibr = False):
         r'''Write out this camera model to disk
 
 SYNOPSIS
@@ -991,9 +991,20 @@ SYNOPSIS
     model.write('left.cameramodel')
 
 We write the contents of the given mrcal.cameramodel object to the given
-filename or a given pre-opened file. If the filename is 'xxx.cahv' or
-'xxx.cahvor' or 'xxx.cahvore' or if cahvor: we use the legacy cahvor file format
-for output
+filename or a given pre-opened file. The format is selected based on the output
+filename and the (cahvor,opencv,kalibr) variables. At most one of those may be
+True. If any is True, we use that format. If they're all False then we infer the
+format from the filename:
+
+- 'xxx.cahv' or 'xxx.cahvor' or 'xxx.cahvore' will result in the legacy cahvor
+  file format being used
+
+- 'xxx.yaml' or 'xxx.yml' will result in the OpenCV format
+
+- Anything else will use the mrcal-native .cameramodel format.
+
+Note that kalibr also uses YAML files, so if you want that format, you MUST pass
+kalibr = True
 
 ARGUMENTS
 
@@ -1003,30 +1014,151 @@ ARGUMENTS
   written to the top of the output file. This should describe how this model was
   generated
 
-- cahvor: an optional boolean, defaulting to False. If True: we write out the
-  data using the legacy .cahvor file format
+- cahvor,opencv,kalibr: optional booleans, defaulting to False. At most one of
+  these maybe True. If any of these is True, that is the output file format we
+  use.
 
 RETURNED VALUES
 
 None
+
         '''
 
-        if cahvor:
+        known_format_options = ('cahvor','opencv','kalibr')
+
+        NformatOptions = 0
+        for o in known_format_options:
+            if locals()[o]:
+                NformatOptions += 1
+        if NformatOptions > 1:
+            raise Exception(f"At most 1 of {known_format_options} may be given.")
+
+
+        _validateIntrinsics(self._imagersize,
+                            self._intrinsics)
+        _validateValidIntrinsicsRegion(self._valid_intrinsics_region)
+        _validateExtrinsics(self._extrinsics)
+
+
+
+        def write_cahvor(f):
             from . import cahvor
             cahvor.write(f, self, note)
-            return
 
-        if type(f) is str:
-            if re.match(".*\.cahv(or(e)?)?$", f):
-                from . import cahvor
-                cahvor.write(f, self, note)
+        def write_opencv(f):
+            r'''Write out an opencv-format file
 
+This is documented here: https://wiki.ros.org/camera_calibration_parsers
+
+A sample file:
+
+  image_width: 2448
+  image_height: 2050
+  camera_name: prosilica
+  camera_matrix:
+    rows: 3
+    cols: 3
+    data: [4827.94, 0, 1223.5, 0, 4835.62, 1024.5, 0, 0, 1]
+  distortion_model: plumb_bob
+  distortion_coefficients:
+    rows: 1
+    cols: 5
+    data: [-0.41527, 0.31874, -0.00197, 0.00071, 0]
+  rectification_matrix:
+    rows: 3
+    cols: 3
+    data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+  projection_matrix:
+    rows: 3
+    cols: 4
+    data: [4827.94, 0, 1223.5, 0, 0, 4835.62, 1024.5, 0, 0, 0, 1, 0]
+
+This is trying to include rectification in the model, which is dumb. I should be
+able to have a single camera with extrinsics. I do this:
+
+- Ignore the rectification_matrix. I hard-code the identity array
+- Assume the camera matrix is the intrinsics core only
+- Assume the projection_matrix is compose(camera_matrix, Rt_camera_ref)
+
+                '''
+
+            if   self._intrinsics[0] == 'LENSMODEL_OPENCV5':
+                distortion_model = 'plumb_bob'
+                distortions      = self._intrinsics[1][4:]
+            elif self._intrinsics[0] == 'LENSMODEL_OPENCV4':
+                distortion_model = 'plumb_bob'
+                distortions      = nps.glue(self._intrinsics[1][4:], 0,
+                                            axis = -1)
+            if   self._intrinsics[0] == 'LENSMODEL_PINHOLE':
+                distortion_model = 'plumb_bob'
+                distortions      = nps.glue(self._intrinsics[1][4:],
+                                            np.zeros((5,), dtype=float),
+                                            axis = -1)
+            elif self._intrinsics[0] == 'LENSMODEL_OPENCV8':
+                distortion_model = 'rational_polynomial'
+                distortions      = self._intrinsics[1][4:]
+            # I don't support "equidistant" yet
             else:
-                with open(f, 'w') as openedfile:
-                    self._write( openedfile, note )
+                raise Exception(f"OpenCV yaml can't store the \"{self._intrinsics[0]}\" model")
+            fxycxy = self._intrinsics[1][:4]
 
+
+            M = np.array(((fxycxy[0], 0,         fxycxy[2]),
+                          (        0, fxycxy[1], fxycxy[3]),
+                          (        0,         0,         1)),
+                         dtype=float)
+            Rt_cam_ref = mrcal.Rt_from_rt(self._extrinsics)
+            P = np.zeros((3,4), dtype=float)
+            P[:,:3] = nps.matmult(M, Rt_cam_ref[:3,:])
+            P[:, 3] = Rt_cam_ref[3,:]
+
+            f.write(f"image_width: {self._imagersize[0]}\nimage_height: {self._imagersize[1]}\ncamera_name: mrcalmodel\n")
+
+            f.write(f"camera_matrix:\n  rows: 3\n  cols: 3\n  data: [{fxycxy[0]}, 0, {fxycxy[2]}, 0, {fxycxy[1]}, {fxycxy[3]}, 0, 0, 1]\n")
+            f.write(f"distortion_model: {distortion_model}\n")
+            f.write(f"distortion_coefficients:\n  rows: 1\n  cols: {len(distortions)}\n  data: [")
+            np.savetxt(f, nps.atleast_dims(distortions,-2),
+                       delimiter=', ',
+                       newline  ='',
+                       fmt='%.12g')
+            f.write("]\n")
+            f.write('''rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [''')
+            np.savetxt(f, P.reshape(1,12),
+                       delimiter=', ',
+                       newline  ='',
+                       fmt='%.12g')
+            f.write("]\n")
+
+        def write_kalibr(f):
+            pass
+
+        write_function = None
+        if   cahvor: write_function = write_cahvor
+        elif opencv: write_function = write_opencv
+        elif kalibr: write_function = write_kalibr
+
+        if isinstance(f, str):
+            with open(f, 'w') as openedfile:
+                if write_function is not None:
+                    write_function(openedfile)
+                elif re.match(".*\.cahv(or(e)?)?$", f):
+                    write_cahvor(openedfile)
+                elif re.match(".*\.ya?ml$", f):
+                    write_opencv(openedfile)
+                else:
+                    self._write( openedfile, note )
         else:
-            self._write( f, note )
+            if write_function is not None:
+                write_function(f)
+            else:
+                self._write( f, note )
 
 
     def intrinsics(self,
