@@ -903,3 +903,5 @@ Being compatible with at least ROS would be nice. Their models are:
 ** More conversion functions
 - Similarly I should have =mrcal-to-ros= and =mrcal-from-ros= to convert model
   files
+  https://wiki.ros.org/camera_calibration_parsers
+  
