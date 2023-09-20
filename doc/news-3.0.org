@@ -42,7 +42,7 @@ Added CHOLMOD_factorization.rcond()
 
 75893eea: Added initialy EARLY version of mrcal-show-stereo-pair-diff
 
-mrcal.worst_direction_stdev() works with NxN arrays
+mrcal.worst_direction_stdev() works with NxN arrays, not just 2x2
 
 mrcal.ref_calibration_object has optimization_inputs argument
 This provides a convenient shorthand to get the object used in a particular
