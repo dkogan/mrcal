@@ -22,15 +22,19 @@ import numpysane as nps
 import sys
 import mrcal
 
-def ref_calibration_object(W, H, object_spacing,
+def ref_calibration_object(W              = None,
+                           H              = None,
+                           object_spacing = None,
                            *,
-                           calobject_warp = None,
-                           x_corner0      = 0,
-                           x_corner1      = None,
-                           Nx             = None,
-                           y_corner0      = 0,
-                           y_corner1      = None,
-                           Ny             = None):
+                           optimization_inputs = None,
+
+                           calobject_warp      = None,
+                           x_corner0           = 0,
+                           x_corner1           = None,
+                           Nx                  = None,
+                           y_corner0           = 0,
+                           y_corner1           = None,
+                           Ny                  = None):
     r'''Return the geometry of the calibration object
 
 SYNOPSIS
@@ -113,6 +117,15 @@ np.linspace(x_corner0, x_corner1, Nx). By default we have
 So we only return the coordinates of the corners by default. The points returned
 along the y axis work similarly, using their variables.
 
+If optimization_inputs is given, we get H,W,object_spacing and calobject_warp
+from the inputs. In this case, (H,W,object_spacing) must all be None. Otherwise
+all of (H,W,object_spacing) must be given. Thus it's possible to call this
+function like this:
+
+    model = mrcal.cameramodel('calibration.cameramodel')
+    obj = mrcal.ref_calibration_object(optimization_inputs =
+                                       optimization_inputs)
+
 ARGUMENTS
 
 - W: how many chessboard corners we have in the horizontal direction
@@ -129,6 +142,11 @@ ARGUMENTS
   warping of the calibration object. If None, the object is flat. If an array is
   given, the values describe the maximum additive deflection along the x and y
   axes. Extended array can be given for broadcasting
+
+- optimization_inputs: the input from a calibrated model. Usually the output of
+  mrcal.cameramodel.optimization_inputs() call. If given,
+  (H,W,object_spacing,calobject_warp) are all read from these inputs, and must
+  not be given separately.
 
 - x_corner0: optional value, defaulting to 0. Selects the first point in the
   linear horizontal grid we're returning. This indexes the chessboard corners,
@@ -152,6 +170,24 @@ The calibration object geometry in a (..., Ny,Nx,3) array, with the leading
 dimensions set by the broadcasting rules. Usually Ny = H and Nx = W
 
     '''
+    Noptions_base = 0
+    options_base = ('W', 'H', 'object_spacing')
+    for o in options_base:
+        if locals()[o] is not None: Noptions_base += 1
+    if not (Noptions_base == 0 or \
+            Noptions_base == len(options_base)):
+        raise Exception(f"Options '{options_base}': ALL must be given, or NONE must be given")
+    if Noptions_base > 0 and optimization_inputs is not None:
+        raise Exception(f"Options '{options_base}' and 'optimization_inputs' cannot both be given")
+    if Noptions_base == 0 and optimization_inputs is None:
+        raise Exception(f"One of options '{options_base}' and 'optimization_inputs' MUST be given")
+
+    if optimization_inputs is not None:
+        H,W = optimization_inputs['observations_board'].shape[-3:-1]
+
+        object_spacing = optimization_inputs['calibration_object_spacing']
+        calobject_warp = optimization_inputs['calobject_warp']
+
 
     if Nx        is None: Nx        = W
     if Ny        is None: Ny        = H
