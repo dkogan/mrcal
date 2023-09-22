@@ -733,7 +733,12 @@ ARGUMENTS
 
 
             def parse_as_opencv_yaml(modelstring):
-                r'''Try to parse model as an opencv string
+                r'''Try to parse model as an opencv/ros/kalibr string
+
+Supports yaml, json. Supports opencv and ros formats. And the output of
+"rostopic echo" for "sensor_msgs/CameraInfo" messages. This functions tries to
+be general, and accept everything.
+
 
 This is documented here: https://wiki.ros.org/camera_calibration_parsers
 
@@ -768,58 +773,164 @@ able to have a single camera with extrinsics. I do this:
 - Assume the projection_matrix is compose(camera_matrix, Rt_camera_ref)
 
                 '''
-                import yaml
+
+                def load():
+                    try:
+                        import yaml
+                        return yaml.safe_load(modelstring)
+                    except Exception as e:
+                        e1 = e
+                        pass
+
+                    try:
+                        import json
+                        return json.loads(modelstring)
+                    except Exception as e:
+                        e2 = e
+                        pass
+
+                    raise CameramodelParseException(f"Couldn't parse yaml (Exception '{e1}') or json (Exception '{e2}')")
+
 
                 # output
                 model = dict()
 
+                # This will raise the exception, as needed
+                model_in = load()
 
-                try:    model_in = yaml.safe_load(modelstring)
-                except Exception as e:
-                    raise CameramodelParseException(f"YAML parsing failed: {e}")
+                def find_array( key_sequences,
+                                dtype, shape,
+                                model):
+                    r'''Search a model dictionary for a given array
 
-                try:    M = model_in['camera_matrix']['data']
-                except Exception as e:
-                    raise CameramodelParseException(f"No ['camera_matrix']['data']: {e}")
-                try:    M = np.array(M,dtype=float).reshape(3,3)
-                except Exception as e:
-                    raise CameramodelParseException(f"['camera_matrix']['data'] not interpretable as a (3,3) array: {e}")
+There are multiple ros/opencv/kalibr data formats that aren't identical, so this
+general function is used to find the data. The args are:
+
+
+- key_sequences: a list of key sequences to look for. A key sequence such as
+  ('camera_matrix','data') will find
+  model[...][...][...].....['camera_matrix']['data']. At most one such matching
+  sequence is allowed. If we find more than one, this function will throw an
+  error
+
+- dtype: the requested dtype of the array we look for. If the data can't be
+  interpreted in this way, I barf
+
+- shape: the shape of array we look for. This function will try to reshape into
+  this shape, and accept any array that may be reshaped in this way. Pass () to
+  interpret this value as a scalar. Pass None to not reshape, and pass the resulting array as is
+
+- model: the input dict
+
+                    '''
+
+
+                    def find_sequence(s,d, at=''):
+                        for k in d.keys():
+                            if isinstance(k,str) and k == s[0]:
+                                if len(s) == 1:
+                                    if isinstance(d[k],dict):
+                                        return None,None
+                                    return d[k], f"{at}['{k}']"
+                                if not isinstance(d[k], dict):
+                                    return None,None
+                                return \
+                                    find_sequence(s[1:], d[k], at=f"{at}['{k}']")
+                        return None,None
+
+                    matches = [find_sequence(s,model) for s in key_sequences]
+
+                    matches = [(m,at) for m,at in matches if m is not None]
+                    if len(matches) == 0:
+                        raise CameramodelParseException(f"None of required key sequences '{key_sequences}' found. Must have exactly one")
+                    if len(matches) > 1:
+                        raise CameramodelParseException(f"More than one of required key sequences '{key_sequences}' found. Must have exactly one")
+
+                    m,at = matches[0]
+                    try:
+                        m = np.array(m, dtype=dtype)
+                    except:
+                        raise CameramodelParseException(f"Could not parse model{at} as dtype = {dtype}")
+
+                    if shape is not None:
+                        try:
+                            m = m.reshape(shape)
+                        except:
+                            raise CameramodelParseException(f"Could not parse model{at} with shape {shape}. Input has shape {m.shape}")
+
+                        if len(shape) == 0: m = m.item() # extract the value if we have a scalar
+
+                    return m,at
+
+
+                M,M_at = \
+                    find_array( ( ('camera_matrix','data'),
+                                  ('camera_matrix',),
+                                  ('K',) ),
+                                dtype = float,
+                                shape = (3,3),
+                                model = model_in )
                 if M[0,1] != 0 or \
                    M[1,0] != 0 or \
                    M[2,0] != 0 or \
                    M[2,1] != 0 or \
                    M[2,2] != 1:
-                    raise CameramodelParseException(f"['camera_matrix']['data'] should have [fx 0 cx; 0 fy cy; 0 0 1] structure: {e}")
+                    raise CameramodelParseException(f"model{M_at} should have [fx 0 cx; 0 fy cy; 0 0 1] structure")
 
-                try:    P = model_in['projection_matrix']['data']
-                except Exception as e:
-                    raise CameramodelParseException(f"No ['projection_matrix']['data']: {e}")
-                try:    P = np.array(P,dtype=float).reshape(3,4)
-                except Exception as e:
-                    raise CameramodelParseException(f"['projection_matrix']['data'] not interpretable as a (3,4) array: {e}")
+                P,P_at = \
+                    find_array( ( ('projection_matrix','data'),
+                                  ('projection_matrix',),
+                                  ('P',) ),
+                                dtype = float,
+                                shape = (3,4),
+                                model = model_in )
 
+                lensmodel,lensmodel_at = \
+                    find_array( ( ('distortion_model',),),
+                                dtype = str,
+                                shape = (),
+                                model = model_in )
 
-                if model_in['distortion_model'] == 'plumb_bob':
+                if lensmodel == 'plumb_bob':
                     model['lensmodel'] = 'LENSMODEL_OPENCV5'
-                elif model_in['distortion_model'] == 'rational_polynomial':
+                elif lensmodel == 'rational_polynomial':
                     model['lensmodel'] = 'LENSMODEL_OPENCV8'
-                elif model_in['distortion_model'] == 'equidistant':
+                elif lensmodel == 'equidistant':
                     raise CameramodelParseException('"equidistant" OpenCV model not supported yet')
                 else:
-                    raise CameramodelParseException(f"Unknown OpenCV model \"{model_in['distortion_model']}\"")
+                    raise CameramodelParseException(f"Unknown OpenCV model \"{lensmodel}\"")
 
-                try:    model['intrinsics'] = \
+                distortion,distortion_at = \
+                    find_array( ( ('distortion_coefficients','data'),
+                                  ('distortion_coefficients',),
+                                  ('D',)),
+                                dtype = float,
+                                shape = None, # Any shape. Do not reshape
+                                model = model_in )
+
+                try:
+                    model['intrinsics'] = \
                           [M[0,0],M[1,1],M[0,2],M[1,2]] + \
-                          model_in['distortion_coefficients']['data']
+                          list(distortion)
                 except Exception as e:
-                    raise CameramodelParseException(f"No ['distortion_coefficients']['data']: {e}")
-                # not checking len(distortion_coefficients); _read_into_self()
-                # will do that
+                    raise CameramodelParseException(f"No model{distortion_at}")
+                # not checking len(distortion_coefficients);
+                #_read_into_self() will do that
 
-                try:    model['imagersize'] = [model_in['image_width'],
-                                               model_in['image_height']]
-                except Exception as e:
-                    raise CameramodelParseException(f"No ['image_width'] or ['image_height]: {e}")
+                image_width,image_width_at = \
+                    find_array( ( ('image_width',),
+                                  ('width',)),
+                                dtype = float,
+                                shape = (),
+                                model = model_in )
+                image_height,image_height_at = \
+                    find_array( ( ('image_height',),
+                                  ('height',)),
+                                dtype = float,
+                                shape = (),
+                                model = model_in )
+
+                model['imagersize'] = [image_width,image_height]
 
                 try:
                     Rt_cam_ref = np.zeros((4,3), dtype=float)
@@ -844,24 +955,21 @@ able to have a single camera with extrinsics. I do this:
             def tryread(f, what):
                 r'''Try all the formats I support'''
 
-                debug_loading = False
-
                 modelstring = f.read()
 
+                errors = dict()
                 try:
                     self._read_into_self(modelstring)
                     return
                 except CameramodelParseException as e:
-                    if debug_loading:
-                        print(f"Couldn't parse as a native .cameramodel: '{e}'")
+                    errors['cameramodel'] = e
                     pass
 
                 try:
                     self._read_into_self(parse_as_opencv_yaml(modelstring))
                     return
                 except CameramodelParseException as e:
-                    if debug_loading:
-                        print(f"Couldn't parse as a OpenCV model: '{e}'")
+                    errors['yaml_or_json'] = e
                     pass
 
 
@@ -874,14 +982,17 @@ able to have a single camera with extrinsics. I do this:
                 # it as a .cameramodel-formatted string, and then read that
                 # back into self. Inefficient, but this is far from a hot
                 # path
-                from . import cahvor
                 try:
+                    from . import cahvor
                     model = cahvor.read_from_string(modelstring)
-                except:
-                    raise Exception(f"Couldn't parse {what} as a camera model (.cameramodel or .cahvor)") from None
-                modelfile = io.StringIO()
-                model.write(modelfile)
-                self._read_into_self(modelfile.getvalue())
+                    modelfile = io.StringIO()
+                    model.write(modelfile)
+                    self._read_into_self(modelfile.getvalue())
+                    return
+                except Exception as e:
+                    errors['cahvor'] = e
+
+                raise Exception(f"Couldn't parse {what}. Errors for each attempt: {errors}")
 
             if isinstance(file_or_model, str):
 
