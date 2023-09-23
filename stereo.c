@@ -319,6 +319,13 @@ bool mrcal_rectified_system(// output
     *baseline = 0.0;
     for(int i=0; i<3; i++) *baseline += right[i]*right[i];
     *baseline = sqrt(*baseline);
+
+    if(*baseline < 1e-6)
+    {
+        MSG("The stereo pair has a unnaturally small baseline. Did you accidentally pass the same model for the two cameras?");
+        return false;
+    }
+
     for(int i=0; i<3; i++) right[i] /= (*baseline);
 
     // "forward" of the rectified coord system, in camera0 coords. The mean
