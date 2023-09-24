@@ -2308,7 +2308,8 @@ for icam in (0,3):
         # by setting do_optimize_frames = False, but that only works if I want
         # to lock down ALL the frame transforms, not just a single one, like I
         # need to do here
-
+        if True:
+            pass
 
 if not args.do_sample:
     testutils.finish()
