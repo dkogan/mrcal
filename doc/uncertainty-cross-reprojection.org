@@ -65,14 +65,15 @@ different quantities in this same data flow:
 
 All perturbed quantities are marked with a $+$ superscript.
 
-As noted above, all the coordinate systems have shifted, so the two
-optimizations aren't directly comparable. In order to gauge the effect of
-$\Delta \vec q_\mathrm{ref}$ I optimize the "cross-reprojection error": I treat
-the two optimized worlds (unperturbed, perturbed) constant, and I compute an
-optimal transformation $T_\mathrm{rr^+}$ to relate the two sets of coordinate
-systems. I do this by solving the original optimization problem, but using half
-of the data from each of the unperturbed and perturbed optimizations. The data
-flow in this cross-reprojection optimization appears in red:
+As noted [[file:uncertainty.org::#propagating-through-projection][previously]], after we optimize a perturbed problem, all the coordinate
+systems have shifted, so the two optimizations aren't directly comparable. In
+order to gauge the effect of $\Delta \vec q_\mathrm{ref}$ I optimize the
+"cross-reprojection error": I treat the two optimized worlds (unperturbed,
+perturbed) constant, and I compute an optimal transformation $T_\mathrm{rr^+}$
+to relate the two sets of coordinate systems. I do this by solving the original
+optimization problem, but using half of the data from each of the unperturbed
+and perturbed optimizations. The data flow in this cross-reprojection
+optimization appears in red:
 
 \[
 \xymatrix{
