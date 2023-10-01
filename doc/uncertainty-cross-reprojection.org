@@ -93,9 +93,9 @@ All the quantities *except* $T_\mathrm{rr^+}$ are available in the perturbed and
 unperturbed optimizations. From those quantities we can compute the optimal
 $T_\mathrm{rr^+}$.
 
-In this red data flow I look at the /perturbed/ chessboard,points,frames ($\color{red} \vec
-p^+_\mathrm{board}$, $\color{red} \vec p^+_\mathrm{point}$, $\color{red} T_\mathrm{r^+f^+}$) and the
-/unperturbed/ camera extrinsics,intrinsics ($\color{red} T_\mathrm{cr}$, $\color{red} \vec
+In this red data flow I look at the /perturbed/ chessboard,points,frames ($\vec
+p^+_\mathrm{board}$, $\vec p^+_\mathrm{point}$, $T_\mathrm{r^+f^+}$) and the
+/unperturbed/ camera extrinsics,intrinsics ($T_\mathrm{cr}$, $\vec
 b_\mathrm{intrinsics}$). Note that I could have traversed this data flow diagram
 from the top-left to the bottom-right instead. This produces a [[#cross-reprojection-rt-rpr][different
 formulation, described below]].
