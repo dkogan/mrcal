@@ -228,8 +228,8 @@ ways:
   \]
 
   For observations that have no extrinsics (the camera is defined to sit at the
-  referene coord system) this formulation is not possible: there is no
-  $J_\mathrm{extrinsics}$
+  reference coord system or the extrinsics aren't being optimized) this
+  formulation is not possible: there is no $J_\mathrm{extrinsics}$
 
 - Or we can see it as a shift $\vec {\mathrm{rt}_\mathrm{rf}} \rightarrow
   \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{rr^+}},\vec{\mathrm{rt}_\mathrm{r^+f^+}}\right)$
@@ -249,6 +249,12 @@ ways:
             & =       J_\mathrm{points} \frac{\partial T_\mathrm{rr^+} p^+}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
             & \approx J_\mathrm{points} \frac{\partial T_\mathrm{rr^+} p  }{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}} \\
   \end{aligned}
+
+  For observations that have no frames or points (the chessboard or points are
+  sitting at the reference coordinate system origin /or/ these aren't being
+  optimized) this formulation is not possible: there is no
+  $J_\mathrm{frame}$ or $J_\mathrm{points}$.
+
 
 Each observation can use a different $J_\mathrm{cross}$ form, as appropriate.
 
@@ -338,10 +344,9 @@ two ways:
   \end{aligned}
 
   As before, for observations that have no extrinsics (the camera is defined to
-  sit at the reference coord system) there is no $J_\mathrm{extrinsics}$, so
-  this formulation is not possible. Use $J_{\mathrm{cross}_\mathrm{f}}$ and/or
-  $J_{\mathrm{cross}_\mathrm{p}}$
-
+  sit at the reference coord system or the extrinsics aren't being optimized)
+  there is no $J_\mathrm{extrinsics}$, so this formulation is not possible. Use
+  $J_{\mathrm{cross}_\mathrm{f}}$ and/or $J_{\mathrm{cross}_\mathrm{p}}$
 
 - a shift $\vec {\mathrm{rt}_\mathrm{rf}} \rightarrow \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{r^+r}}, \vec {\mathrm{rt}_\mathrm{rf}}\right)$ and/or a point
   shift $\vec p_\mathrm{point} \rightarrow T_\mathrm{r^+r} \vec p_\mathrm{point}$:
@@ -350,6 +355,9 @@ two ways:
   J_{\mathrm{cross}_\mathrm{f}} & = J_\mathrm{frame} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{r^+r}},\vec {\mathrm{rt}_\mathrm{rf}}\right)}{\vec{\mathrm{rt}_\mathrm{r^+r}}} \\
   J_{\mathrm{cross}_\mathrm{p}} & = J_\mathrm{points} \frac{T_\mathrm{r^+r} \vec p}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}
   \end{aligned}
+
+  As before, if there is no $J_\mathrm{frame}$ or $J_\mathrm{points}$, this
+  isn't possible: use $J_{\mathrm{cross}_\mathrm{e}}$.
 
 So we have $\vec{\mathrm{rt}_\mathrm{r^+r}} = K \Delta \vec b - W \Delta \vec
 q_\mathrm{ref}$ for some $K$ that depends on the various $J$ matrices that are
