@@ -764,7 +764,6 @@ def reproject_perturbed__cross_reprojection_error(q, distance,
 The logic here is described thoroughly in
 
   http://mrcal.secretsauce.net/uncertainty-cross-reprojection.html
-                                            = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
     '''
 
     if fixedframes:
