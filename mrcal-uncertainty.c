@@ -23,18 +23,18 @@
 /*
 Detailed docs appear in the docstring of
 
-  reproject_perturbed__cross_reprojection_error() in
-  test-projection-uncertainty.py
+  http://mrcal.secretsauce.net/uncertainty-cross-reprojection.html
 
 The punchline:
 
-  J_cross_f = J_frame d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
-  J_cross_p = J_p     d(transform(rt_ref_ref*,p ))/drt_ref_ref*
+  J_cross_e = J_extrinsics d(compose_rt(rt_cam_ref,rt_ref_ref*))  /drt_ref_ref*
+  J_cross_f = J_frame      d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
+  J_cross_p = J_p          d(transform(rt_ref_ref*,p ))           /drt_ref_ref*
 
-  ...
+  For each mesurement I pick one of these expressions.
 
-  So we have rt_ref_ref* = K db for some K that depends on the various J
-  matrices that are constant for each solve:
+  We have rt_ref_ref* = K db for some K that depends on the various J matrices
+  that are constant for each solve:
 
     K = -pinv(J_cross) J[frames,points,calobject_warp]
 
