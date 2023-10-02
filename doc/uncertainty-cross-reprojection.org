@@ -217,7 +217,7 @@ x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{rr^+}}}$ I need to consider
 how $\vec x_\mathrm{cross}$ changes in response to
 $\vec{\mathrm{rt}_\mathrm{rr^+}}$. I want to look at deviations from the
 /original/, unperturbed optimization problem. This can be done in two different
-ways:
+ways (for each measurement I can pick either of these methods):
 
 - We can see $\vec{\mathrm{rt}_\mathrm{rr^+}}$ as shifting $\vec
   {\mathrm{rt}_\mathrm{cr}} \rightarrow \vec {\mathrm{rt}_\mathrm{cr^+}} = \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cr}},\vec{\mathrm{rt}_\mathrm{rr^+}}
@@ -327,8 +327,10 @@ where
 \Delta \vec x_\mathrm{cross_0} = J_\mathrm{intrinsics,extrinsics} \Delta \vec b_\mathrm{intrinsics,extrinsics} - W \Delta \vec q_\mathrm{ref}
 \]
 
-When evaluating $J_\mathrm{cross} = \frac{\partial \vec x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}$ I can once again look at it in
-two ways:
+When evaluating $J_\mathrm{cross} = \frac{\partial \vec
+x_\mathrm{cross}}{\partial \vec{\mathrm{rt}_\mathrm{r^+r}}}$ I can once again
+look at it in two ways (for each measurement I can pick either of these
+methods):
 
 - a shift $\vec{\mathrm{rt}_\mathrm{cr}} \rightarrow \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{c^+r^+}},\vec{\mathrm{rt}_\mathrm{r^+r}}\right)$.
 
