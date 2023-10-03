@@ -192,9 +192,9 @@ should catch any differences.
         #         r'''Return any rotation matrix that maps the given unit vector v to [0,0,1]'''
         #         z = v/nps.mag(v)
         #         if np.abs(z[0]) < .9:
-        #             x = np.array((1,0,0))
+        #             x = np.array((1,0,0), dtype=float)
         #         else:
-        #             x = np.array((0,1,0))
+        #             x = np.array((0,1,0), dtype=float)
         #         x -= nps.inner(x,z)*z
         #         x /= nps.mag(x)
         #         y = np.cross(z,x)
