@@ -151,12 +151,14 @@ ARGUMENTS
   labelled in this way. If omitted, none of the points will be labelled
   specially. This is used only if points is not None
 
-- show_calobjects: optional string defaults to 'all'. if show_calobjects: we
+- show_calobjects: optional value defaults to 'all'. if show_calobjects: we
   render the observed calibration objects (if they are available in
   frames_rt_toref or model.optimization_inputs()['frames_rt_toref']; we look at
   the FIRST model that provides this data). If we have optimization_inputs and
   show_calobjects == 'all': we display the objects observed by ANY camera. elif
   show_calobjects == 'thiscamera': we only show those observed by THIS camera.
+  The only allowed values are 'all', 'thiscamera' or anything evaluating to
+  False (False, 0, None, ...)
 
 - show_points: same as show_calobjects, but applying to discrete points, not
   chessboard poses
