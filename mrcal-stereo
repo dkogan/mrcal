@@ -14,7 +14,9 @@ SYNOPSIS
 
   $ mrcal-stereo                        \
      --az-fov-deg               90      \
-     --el-fov-deg               90      \
+     --el-fov-deg               70      \
+     --pixels-per-deg           -0.5    \
+     --disparity-range          0 100   \
      --sgbm-block-size          5       \
      --sgbm-p1                  600     \
      --sgbm-p2                  2400    \
