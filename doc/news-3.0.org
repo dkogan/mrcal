@@ -48,6 +48,8 @@ mrcal.ref_calibration_object has optimization_inputs argument
 This provides a convenient shorthand to get the object used in a particular
 calibration
 
+03f030: Procrustes transform functions detect and report errors
+
 * Migration notes 2.3 -> 3.0
 
 commit 76248fce8655fba0aec1175157cbe8f8da055b7a
