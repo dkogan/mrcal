@@ -57,6 +57,10 @@ We return a transformation that minimizes the sum 2-norm of the misalignment:
 
 We return an Rt transformation to map points in set 1 to points in set 0.
 
+At least 4 sets of points must be passed-in to produce a non-singular result. If
+a set of inputs produces a singular result, a (4,3) array of 0 is returned. This
+is not a valid Rt transform, and is used to signal an error.
+
 A similar computation can be performed to instead align a set of UNIT VECTORS to
 compute an optimal rotation matrix R by calling align_procrustes_vectors_R01().
 
@@ -77,6 +81,9 @@ The Rt transformation in an array of shape (4,3). We return the optimal
 transformation to align the given point clouds. The transformation maps points
 TO coord system 0 FROM coord system 1.
 
+If the inputs were singular or insufficient, a (4,3) array of 0 is returned.
+This is not a valid Rt transform, and is used to signal an error.
+
     """
     if weights is None:
         weights = np.ones(p0.shape[:-1], dtype=float)
@@ -95,6 +102,10 @@ def _align_procrustes_points_Rt01(p0, p1, weights):
     Mt = nps.matmult(              (p0 - np.mean(p0, axis=-1)[..., np.newaxis])*weights,
                       nps.transpose(p1 - np.mean(p1, axis=-1)[..., np.newaxis]))
     V,S,Ut = np.linalg.svd(Mt)
+
+    if S[-1] < 1e-12:
+        # Poorly-defined problem. Return error
+        return np.zeros((4,3), dtype=float)
 
     R = nps.matmult(V, Ut)
 
@@ -148,6 +159,10 @@ misalignment:
 
 We return a rotation to map vectors in set 1 to vectors in set 0.
 
+At least 3 sets of vectors must be passed-in to produce a non-singular result.
+If a set of inputs produces a singular result, a (3,3) array of 0 is returned.
+This is not a valid rotation, and is used to signal an error.
+
 A similar computation can be performed to instead align a set of POINTS to
 compute an optimal transformation Rt by calling align_procrustes_points_Rt01().
 
@@ -168,6 +183,9 @@ The rotation matrix in an array of shape (3,3). We return the optimal rotation
 to align the given vector sets. The rotation maps vectors TO coord system 0 FROM
 coord system 1.
 
+If the inputs were singular or insufficient, a (3,3) array of 0 is returned.
+This is not a valid rotation, and is used to signal an error.
+
     """
 
     if weights is None:
@@ -186,6 +204,9 @@ def _align_procrustes_vectors_R01(v0, v1, weights):
     # end up with contiguous-memory results
     Mt = nps.matmult( v0*weights, nps.transpose(v1) )
     V,S,Ut = np.linalg.svd(Mt)
+    if S[-1] < 1e-12:
+        # Poorly-defined problem. Return error
+        return np.zeros((3,3), dtype=float)
 
     R = nps.matmult(V, Ut)
 
