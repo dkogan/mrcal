@@ -874,7 +874,10 @@ camera coordinate system FROM the points coordinate system.
     return Rt_cam_points_all
 
 
-def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
+def _estimate_camera_poses( # shape (Nobservations,4,3)
+                            calobject_poses_local_Rt_cf,
+                            # shape (Nobservations,2)
+                            indices_frame_camera, \
                             object_width_n, object_height_n,
                             object_spacing):
     r'''Estimate camera poses in respect to each other
@@ -900,16 +903,14 @@ def _estimate_camera_poses( calobject_poses_local_Rt_cf, indices_frame_camera, \
     # I need to compute an estimate of the pose of each camera in the coordinate
     # system of camera0. This is only possible if there're enough overlapping
     # observations. For instance if camera1 has overlapping observations with
-    # camera2, but neight overlap with camera0, then I can't relate camera1,2 to
-    # camera0. However if camera2 has overlap with camera2, then I can compute
-    # the relative pose of camera2 from its overlapping observations with
-    # camera0. And I can compute the camera1-camera2 pose from its overlapping
-    # data, and then transform to the camera0 coord system using the
-    # previously-computed camera2-camera0 pose
+    # camera2, but neither overlap with camera0, then I can't relate camera1,2 to
+    # camera0. However if camera0 has overlap with camera1, then I can compute
+    # the relative pose of camera2-camera0 from its overlapping observations with
+    # camera1.
     #
-    # I do this by solving a shortest-path problem using Dijkstra's algorithm to
-    # find a set of pair overlaps between cameras that leads to camera0. I favor
-    # edges with large numbers of shared observed frames
+    # I solve a shortest-path problem using Dijkstra's algorithm to find a set
+    # of pair overlaps between cameras that leads to camera0. I favor edges with
+    # large numbers of shared observed frames
 
     # list of camera-i to camera-0 transforms. I keep doing stuff until this
     # list is full of valid data
