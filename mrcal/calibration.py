@@ -896,8 +896,6 @@ def _estimate_camera_poses( # shape (Nobservations,4,3)
     indices_frame_camintrinsics_camextrinsics, which mrcal.optimize() expects
     '''
 
-    import heapq
-
     Ncameras = np.max(indices_frame_camera[:,1]) + 1
 
     # I need to compute an estimate of the pose of each camera in the coordinate
@@ -985,7 +983,6 @@ def _estimate_camera_poses( # shape (Nobservations,4,3)
 
         return mrcal.align_procrustes_points_Rt01(A, B)
 
-
     def compute_connectivity_matrix():
         r'''Returns a connectivity matrix of camera observations
 
@@ -1018,86 +1015,44 @@ def _estimate_camera_poses( # shape (Nobservations,4,3)
         finish_frame(i_start_current, len(indices_frame_camera)-1)
         return camera_connectivity
 
+    def found_best_path_to_node(camera_idx, from_idx):
+        '''A shortest path was found'''
+        if camera_idx == 0:
+            # This is the reference camera. Nothing to do
+            return
 
+        Rt_fc = compute_pairwise_Rt(from_idx, camera_idx)
+
+        if from_idx == 0:
+            Rt_0c[camera_idx-1] = Rt_fc
+            return
+
+        Rt_0f = Rt_0c[from_idx-1]
+        Rt_0c[camera_idx-1] = mrcal.compose_Rt( Rt_0f, Rt_fc)
+
+    def cost_edge(camera_idx, from_idx):
+        # I want to MINIMIZE cost, so I MAXIMIZE the shared frames count and
+        # MINIMIZE the hop count. Furthermore, I really want to minimize the
+        # number of hops, so that's worth many shared frames.
+        num_shared_frames = shared_frames[camera_idx, from_idx]
+        cost = 100000 - num_shared_frames
+        assert(cost > 0) # dijkstra's algorithm requires this to be true
+        return cost
+
+    def neighbors(camera_idx):
+        for neighbor_idx in range(Ncameras):
+            if neighbor_idx == camera_idx                  or \
+               shared_frames[neighbor_idx,camera_idx] == 0:
+                continue
+            yield neighbor_idx
+
+    # shape (Ncamera,Ncameras)
     shared_frames = compute_connectivity_matrix()
 
-    class Node:
-        def __init__(self, camera_idx):
-            self.camera_idx    = camera_idx
-            self.from_idx      = -1
-            self.cost_to_node  = None
-
-        def __lt__(self, other):
-            return self.cost_to_node < other.cost_to_node
-
-        def visit(self):
-            '''Dijkstra's algorithm'''
-            self.finish()
-
-            for neighbor_idx in range(Ncameras):
-                if neighbor_idx == self.camera_idx                  or \
-                   shared_frames[neighbor_idx,self.camera_idx] == 0:
-                    continue
-                neighbor = nodes[neighbor_idx]
-
-                if neighbor.visited():
-                    continue
-
-                cost_edge = Node.compute_edge_cost(shared_frames[neighbor_idx,self.camera_idx])
-
-                cost_to_neighbor_via_node = self.cost_to_node + cost_edge
-                if not neighbor.seen():
-                    neighbor.cost_to_node = cost_to_neighbor_via_node
-                    neighbor.from_idx     = self.camera_idx
-                    heapq.heappush(heap, neighbor)
-                else:
-                    if cost_to_neighbor_via_node < neighbor.cost_to_node:
-                        neighbor.cost_to_node = cost_to_neighbor_via_node
-                        neighbor.from_idx     = self.camera_idx
-                        heapq.heapify(heap) # is this the most efficient "update" call?
-
-        def finish(self):
-            '''A shortest path was found'''
-            if self.camera_idx == 0:
-                # This is the reference camera. Nothing to do
-                return
-
-            Rt_fc = compute_pairwise_Rt(self.from_idx, self.camera_idx)
-
-            if self.from_idx == 0:
-                Rt_0c[self.camera_idx-1] = Rt_fc
-                return
-
-            Rt_0f = Rt_0c[self.from_idx-1]
-            Rt_0c[self.camera_idx-1] = mrcal.compose_Rt( Rt_0f, Rt_fc)
-
-        def visited(self):
-            '''Returns True if this node went through the heap and has then been visited'''
-            return self.camera_idx == 0 or Rt_0c[self.camera_idx-1] is not None
-
-        def seen(self):
-            '''Returns True if this node has been in the heap'''
-            return self.cost_to_node is not None
-
-        @staticmethod
-        def compute_edge_cost(shared_frames):
-            # I want to MINIMIZE cost, so I MAXIMIZE the shared frames count and
-            # MINIMIZE the hop count. Furthermore, I really want to minimize the
-            # number of hops, so that's worth many shared frames.
-            cost = 100000 - shared_frames
-            assert(cost > 0) # dijkstra's algorithm requires this to be true
-            return cost
-
-
-
-    nodes = [Node(i) for i in range(Ncameras)]
-    nodes[0].cost_to_node = 0
-    heap = []
-
-    nodes[0].visit()
-    while heap:
-        node_top = heapq.heappop(heap)
-        node_top.visit()
+    _traverse_sensor_connections( Ncameras,
+                                  neighbors,
+                                  cost_edge,
+                                  found_best_path_to_node )
 
     if any([x is None for x in Rt_0c]):
         raise Exception("ERROR: Don't have complete camera observations overlap!\n" +
@@ -1106,6 +1061,86 @@ def _estimate_camera_poses( # shape (Nobservations,4,3)
 
 
     return np.ascontiguousarray(nps.cat(*Rt_0c))
+
+
+def _traverse_sensor_connections( Nsensors,
+                                  callback__neighbors,
+                                  callback__cost_edge,
+                                  callback__found_best_path_to_sensor ):
+    '''Traverses a connectivity graph of sensors
+
+    Starts from the root sensor, and visits each one in order of total distance
+    from the root. Useful to evaluate the whole set of sensors using pairwise
+    metrics, building the network up from the best-connected, to the
+    worst-connected. Any sensor not connected to the root at all will NOT be
+    visited. The caller should check for any unvisited sensors.
+
+    We have Nsensors sensors. Each one is identified by an integer in
+    [0,Nsensors). The root is defined to be sensor 0.
+
+    Three callbacks must be passed in:
+
+    - callback__neighbors (i)
+      An iterable returning each neigbor of sensor i.
+
+    - callback__cost_edge(i, i_parent)
+      The cost between two adjacent nodes
+
+    - callback__found_best_path_to_sensor(i, i_parent)
+      Called when the best path to node i is found. This path runs through
+      i_parent as the previous sensor
+
+    '''
+
+    import heapq
+
+    class Node:
+        def __init__(self, idx):
+            self.idx        = idx
+            self.idx_parent = -1
+            self.cost       = None
+            self.done       = False
+
+        def __lt__(self, other):
+            return self.cost < other.cost
+
+        def visit(self):
+            callback__found_best_path_to_sensor(self.idx,
+                                                self.idx_parent)
+            self.done = True
+
+            for neighbor_idx in callback__neighbors(self.idx):
+                neighbor = nodes[neighbor_idx]
+
+                if neighbor.done:
+                    continue
+
+                cost_to_neighbor_via_node = \
+                    self.cost + \
+                    callback__cost_edge(neighbor_idx,self.idx)
+
+                if neighbor.cost is None:
+                    # Haven't seen this node yet
+                    neighbor.cost = cost_to_neighbor_via_node
+                    neighbor.idx_parent     = self.idx
+                    heapq.heappush(heap, neighbor)
+                else:
+                    # This node is already in the heap, ready to be processed.
+                    # If this new path to this node is better, use it
+                    if cost_to_neighbor_via_node < neighbor.cost:
+                        neighbor.cost = cost_to_neighbor_via_node
+                        neighbor.idx_parent     = self.idx
+                        heapq.heapify(heap) # is this the most efficient "update" call?
+
+
+    nodes = [Node(i) for i in range(Nsensors)]
+    nodes[0].cost = 0
+    heap = []
+
+    nodes[0].visit()
+    while heap:
+        node_top = heapq.heappop(heap)
+        node_top.visit()
 
 
 def estimate_joint_frame_poses(calobject_Rt_camera_frame,
