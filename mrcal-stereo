@@ -584,7 +584,7 @@ def write_output_one(tag, outdir, force,
 def write_output_all(args,
                      models,
                      images,
-                     image_filenames_base,
+                     image_filenames,
                      models_rectified,
                      images_rectified,
                      disparity,
@@ -593,6 +593,10 @@ def write_output_all(args,
                      ranges,
                      ranges_colored,
                      force_override = False):
+
+    image_filenames_base = \
+        [os.path.splitext(os.path.split(f)[1])[0] for f in image_filenames]
+
 
     if not args.already_rectified:
         write_output_one(args.tag,
@@ -950,9 +954,6 @@ def process(i_image):
         for i in range(2):
             mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
 
-    image_filenames_base = \
-        [os.path.splitext(os.path.split(f)[1])[0] for f in image_filenames]
-
     if not args.already_rectified:
         images_rectified = [mrcal.transform_image(images[i],
                                                   rectification_maps[i]) \
@@ -999,7 +1000,7 @@ def process(i_image):
     if args.viz == 'stereo':
         # Earlier I confirmed that in this path Nimages==1
         gui_stereo(images,
-                   image_filenames_base,
+                   image_filenames,
                    images_rectified,
                    disparity,
                    disparity_colored,
@@ -1009,7 +1010,7 @@ def process(i_image):
         write_output_all(args,
                          models,
                          images,
-                         image_filenames_base,
+                         image_filenames,
                          models_rectified,
                          images_rectified,
                          disparity,
@@ -1021,7 +1022,7 @@ def process(i_image):
 
 
 def gui_stereo(images,
-               image_filenames_base,
+               image_filenames,
                images_rectified,
                disparity,
                disparity_colored,
@@ -1074,7 +1075,7 @@ def gui_stereo(images,
         write_output_all(args,
                          models,
                          images,
-                         image_filenames_base,
+                         image_filenames,
                          models_rectified,
                          images_rectified,
                          disparity,
