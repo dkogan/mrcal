@@ -667,9 +667,16 @@ def write_output_all(args,
     q_cam0 = mrcal.project(mrcal.transform_point_Rt(Rt_cam0_ref, p_ref),
                            *models[0].intrinsics())
 
+    # Without this sometimes q_cam0 can get nan, and this throws ugly warnings
+    i      = np.isfinite(q_cam0)
+    i = np.min(i, axis=-1) # qx or qx being nan means the whole q is nan
+    p_ref  = p_ref [i,:]
+    q_cam0 = q_cam0[i,:]
+
     H,W = images[0].shape[:2]
 
     q_cam0_integer = (q_cam0 + 0.5).astype(int)
+
     i = \
         (q_cam0_integer[:,0] >= 0) * \
         (q_cam0_integer[:,1] >= 0) * \
