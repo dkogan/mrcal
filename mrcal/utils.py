@@ -1186,9 +1186,39 @@ None
             calobject_warp.ravel()[:] = b[ivar0:ivar0+Nvars_calobject_warp]
 
 
-def _sorted_eig(C):
-    'like eig(), but the results are sorted by eigenvalue'
-    l,v = np.linalg.eig(C)
+def sorted_eig(M):
+    r'''Compute eigenvalues, eigenvectors; sorted results returned
+
+SYNOPSIS
+
+    # p is an array of shape (N,3): a point cloud. I find a normal to a fitted
+    # plane
+    p -= np.mean(p, axis=-2)
+
+    l,v = mrcal.sorted_eig(nps.matmult(nps.transpose(p),p))
+
+    n = v[:,0]
+
+    # n is the eigenvector corresponding to the smallest eigenvalue
+
+This function calls numpy.linalg.eig(), and sorts the output by eigenvalue, in
+ascending order
+
+ARGUMENTS
+
+- M: the matrix to eigendecompose
+
+RETURNED VALUE
+
+Same as that of numpy.linalg.eig(). A tuple:
+
+- Eigenvalues, sorted in ascending order
+
+- Eigenvectors, sorted by the corresponding eigenvalue. Each eigenvector is
+  stored in a COLUMN of this array
+
+    '''
+    l,v = np.linalg.eig(M)
     i = np.argsort(l)
     return l[i], v[:,i]
 
