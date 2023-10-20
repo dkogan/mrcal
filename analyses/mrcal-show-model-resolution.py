@@ -99,6 +99,7 @@ def mean_resolution__rad_pixel(q, model):
                               get_gradients = True)
 
 
+    # Use R_aligned_to_vector(). Add broadcasting to that function?
     @nps.broadcast_define( ( (3,), ),
                            (3,3) )
     def rotation_any_v_to_z(v):
