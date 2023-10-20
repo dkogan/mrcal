@@ -116,18 +116,7 @@ bool mrcal_rectified_resolution( // output and input
         //     // use mrcal.worst_direction_stdev() to find the densest direction. But I
         //     // actually know the directions I care about, so I evaluate them
         //     // independently for the az and el directions
-        //     def rotation_any_v_to_z(v):
-        //         r'''Return any rotation matrix that maps the given unit vector v to [0,0,1]'''
-        //         z = v
-        //         if np.abs(v[0]) < .9:
-        //             x = np.array((1,0,0), dtype=float)
-        //         else:
-        //             x = np.array((0,1,0), dtype=float)
-        //         x -= nps.inner(x,v)*v
-        //         x /= nps.mag(x);
-        //         y = np.cross(z,x);
-        //         return nps.cat(x,y,z);
-        //     Ruv = rotation_any_v_to_z(v0);
+        //     Ruv = mrcal.R_aligned_to_vector(v0);
         //     M = nps.matmult(dq_dv0, nps.transpose(Ruv[:2,:]))
         //     // I pick the densest direction: highest |dq/dth|
         //     pixels_per_rad = mrcal.worst_direction_stdev( nps.matmult( nps.transpose(M),M) );

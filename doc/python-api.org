@@ -42,6 +42,9 @@ Functions to manipulate [[file:conventions.org::#pose-representation][rotations 
 - [[file:mrcal-python-api-reference.html#-align_procrustes_points_Rt01][=mrcal.align_procrustes_points_Rt01()=]]: Compute a rigid transformation to align two point clouds
 - [[file:mrcal-python-api-reference.html#-align_procrustes_vectors_R01][=mrcal.align_procrustes_vectors_R01()=]]: Compute a rotation to align two sets of direction vectors
 
+** Utilities
+- [[file:mrcal-python-api-reference.html#-R_aligned_to_vector][=mrcal.R_aligned_to_vector()=]]: Compute a rotation to map a given vector to [0,0,1]
+
 * Lens models
 Routines for manipulating [[file:lensmodels.org][lens models]].
 
