@@ -1976,8 +1976,8 @@ The rt_refperturbed_ref formulation:
 
         if 0:
             # I do this more or less below in the confirm_covariances_equal()
-            l0,v0 = mrcal.utils._sorted_eig(var_empirical__rt_ref_refperturbed)
-            l1,v1 = mrcal.utils._sorted_eig(var_predicted__rt_ref_refperturbed)
+            l0,v0 = mrcal.sorted_eig(var_empirical__rt_ref_refperturbed)
+            l1,v1 = mrcal.sorted_eig(var_predicted__rt_ref_refperturbed)
 
             import gnuplotlib as gp
 

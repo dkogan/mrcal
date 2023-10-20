@@ -5,8 +5,6 @@ import os
 import re
 from inspect import currentframe
 
-import mrcal.utils
-
 Nchecks = 0
 NchecksFailed = 0
 
@@ -300,8 +298,8 @@ def confirm_covariances_equal(var, var_ref,
                   msg = f"Var(dq) is symmetric for {what}")
 
 
-    l_predicted,v_predicted = mrcal.utils._sorted_eig(var)
-    l_observed,v_observed   = mrcal.utils._sorted_eig(var_ref)
+    l_predicted,v_predicted = mrcal.sorted_eig(var)
+    l_observed,v_observed   = mrcal.sorted_eig(var_ref)
 
     # This look at JUST the most dominant modes
     eccentricity_predicted = l_predicted[-1] / l_predicted[-2]

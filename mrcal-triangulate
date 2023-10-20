@@ -758,7 +758,7 @@ else:
                       ("joint",            Var_p_joint)):
 
         if var is not None:
-            l,v = mrcal.utils._sorted_eig(var)
+            l,v = mrcal.sorted_eig(var)
             # look at the least-confident direction
             sigma = np.sqrt(l[-1])
             v     = v[:,-1]
