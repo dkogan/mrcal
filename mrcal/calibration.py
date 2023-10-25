@@ -1047,6 +1047,8 @@ def _estimate_camera_poses( # shape (Nobservations,4,3)
             yield neighbor_idx
 
     # shape (Ncamera,Ncameras)
+    # shape (Ncameras,Ncameras); each element is the number of shared
+    # observations
     shared_frames = compute_connectivity_matrix()
 
     _traverse_sensor_connections( Ncameras,
