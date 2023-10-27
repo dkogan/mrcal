@@ -902,6 +902,10 @@ Being compatible with at least ROS would be nice. Their models are:
 - Similarly I should have =mrcal-to-ros= and =mrcal-from-ros= to convert model
   files
   https://wiki.ros.org/camera_calibration_parsers
+  https://github.com/ethz-asl/kalibr/wiki/supported-models
+  https://github.com/ethz-asl/kalibr/wiki/Yaml-formats
+  https://github.com/ethz-asl/kalibr/wiki/downloads
+
   
 ** compatibility camera model formats
 Write tests. Read and confirm test/data/*.yaml. Each should be able to
