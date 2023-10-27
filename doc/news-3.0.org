@@ -846,6 +846,11 @@ This command is returning slightly different results before/after the merge:
 Computing the uncertainty of the results of stationary-calibration.py can
 produce wildly different output if I tweak the regularization weight
 
+** regularization scaling
+I should aim for specific number of pixels instead of for some ratio. This will
+probably break loading optimization_inputs from model files: they'd need
+reoptimization
+
 ** point range normalization
 I removed it here: 0e727189. Do I want it back in some form? I do still require
 point_min_range and point_max_range. Do I really need these?
