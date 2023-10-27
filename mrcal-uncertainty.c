@@ -27,80 +27,73 @@ Detailed docs appear in the docstring of
 
 The punchline:
 
-  J_cross_e = J_extrinsics d(compose_rt(rt_cam_ref,rt_ref_ref*))  /drt_ref_ref*
-  J_cross_f = J_frame      d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
-  J_cross_p = J_p          d(transform(rt_ref_ref*,p ))           /drt_ref_ref*
+  Jcross_e = J_extrinsics d(compose_rt(rt_cam_ref,rt_ref_ref*))  /drt_ref_ref*
+  Jcross_f = J_frame      d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
+  Jcross_p = J_p          d(transform(rt_ref_ref*,p ))           /drt_ref_ref*
 
   For each mesurement I pick one of these expressions.
 
   We have rt_ref_ref* = K db for some K that depends on the various J matrices
   that are constant for each solve:
 
-    K = -pinv(J_cross) J[frames,points,calobject_warp]
+    K = -pinv(Jcross) J[frames,points,calobject_warp]
 
 THIS function computes
 
-  Kpacked = drt_ref_ref* / dbpacked
-          = K db/dbpacked
-          = K D
+  Kpacked = K D
 
 Let's explicate the matrices.
 
-              i   e            f               p  calobject_warp
-              |   |            |               |        |
-              V   V            V               V        V
-            [ 0 | 0 | ------             |           | -- ]
-            [ 0 | 0 | ------             |           | -- ]
-            [ 0 | 0 | ------             |           | -- ]
-            [ 0 | 0 |       ------       |           | -- ]
-            [ 0 | 0 |       ------       |           | -- ]
-            [ 0 | 0 |       ------       |           | -- ]
-  J_fpcw =  [ 0 | 0 |             ------ |           | -- ]
-            [ 0 | 0 |             ------ |           | -- ]
-            [ 0 | 0 |             ------ |           | -- ]
-            [ 0 | 0 |                    | ---       |    ]
-            [ 0 | 0 |                    | ---       |    ]
-            [ 0 | 0 |                    |    ---    |    ]
-            [ 0 | 0 |                    |       --- |    ]
+              i   e           f                  p     calobject_warp
+              |   |           |                  |           |
+              V   V           V                  V           V
+            [ 0 | 0 | J0_f0             |                | J0_cw ]
+            [ 0 | 0 | J1_f0             |                | J1_cw ]
+            [ 0 | 0 | J2_f0             |                | J2_cw ]
+            [ 0 | 0 |       J3_f1       |                | J3_cw ]
+            [ 0 | 0 |       J4_f1       |                | J4_cw ]
+            [ 0 | 0 |       J5_f1       |                | J5_cw ]
+  J_fpcw =  [ 0 | 0 |             J6_f2 |                | J6_cw ]
+            [ 0 | 0 |             J7_f2 |                | J7_cw ]
+            [ 0 | 0 |             J8_f2 |                | J8_cw ]
+            [ 0 | 0 |                   | J9_p0          |       ]
+            [ 0 | 0 |                   | J10_p0         |       ]
+            [ 0 | 0 |                   |                |       ]
+            [ 0 | 0 |                   |         J11_p1 |       ]
 
 
 And
 
-           [ ------ drtrfp_drtrrp0 ]
-           [ ------ drtrfp_drtrrp0 ]
-           [        ....           ]
-           [ ------ drtrfp_drtrrp1 ]
-  Jcross = [ ------ drtrfp_drtrrp1 ]
-           [        ....           ]
-           [ ---    dpref_drrp0    ]
-           [ ---    dpref_drrp0    ]
-           [ ---    dpref_drrp1    ]
-           [ ---    dpref_drrp1    ]
-           [        ....           ]
+           [ J0_f0  dfp0_drtrrp ]
+           [ J1_f0  dfp0_drtrrp ]
+           [        ....        ]
+           [ J7_f2  dfp2_drtrrp ]
+  Jcross = [ J8_f2  dfp2_drtrrp ]
+           [        ....        ]
+           [ J9_p0  dpp0_drtrp  ]
+           [ J10_p0 dpp0_drtrp  ]
+           [        ....        ]
 
-Where the --- terms are the flattened "frame" and "point" terms from J_fpcw. And
-drtrfp_drtrrp, dpref_drrp are the expressions from above:
+For measurements where we want to use Jcross_e instead of Jcross_f the relevant
+rows of Jcross are replaced appropriately.
 
-  d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
-  d(transform(rt_ref_ref*,p ))/drt_ref_ref*
-
-Note: these depend ONLY on rt_ref_frame and p, which are quantities we have.
-These do NOT depend on rt_ref_ref*.
+Note: these all depend ONLY on rt_cam_ref and rt_ref_frame and p, which are
+quantities we have. These do NOT depend on rt_ref_ref*.
 
 Putting everything together, we have
 
   rt_ref_ref* = K db
-              = (-pinv(J_cross) J_fpcw) db
-              = (-pinv(J_cross) J_packedfpcw Dinv) D dbpacked
-              = K D dbpacked
+              = -pinv(Jcross) J_fpcw db
+              = -pinv(Jcross) J_packedfpcw dbpacked
               = Kpacked dbpacked
 
-where
+so
 
   Kpacked = -inv(Jcross_t Jcross)    Jcross_t        J_packedfpcw
-                     (6,6)        (6, Nmeas_obs)  (Nmeas_obs,Nstate)
+                     (6,6)        (6, Nmeas_obs)   (Nmeas_obs,Nstate)
 
-I need to compute Jcross_t J_packedfpcw (shape (6,Nstate)). Its transpose, for convenience;
+Usually Nmeas_obs >> Nstate, so I start by computing Jcross_t J_packedfpcw
+(shape (6,Nstate)). Its transpose, for convenience;
 
   J_packedfpcw_t Jcross (shape=(Nstate,6)) =
     [ 0                                                                                     ] <- intrinsics
