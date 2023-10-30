@@ -623,6 +623,14 @@ void accumulate_point(// output
     }
 }
 
+// LAPACK prototypes for a packed cholesky factorization and a linear solve
+// using that factorization, respectively
+int dpptrf_(char* uplo, int* n, double* ap,
+            int* info, int uplo_len);
+int dpptrs_(char* uplo, int* n, int* nrhs,
+            double* ap, double* b, int* ldb, int* info,
+            int uplo_len);
+
 bool mrcal_drt_ref_refperturbed__dbpacked(// output
                                           // Shape (6,Nstate_frames)
                                           double* Kpackedf,
@@ -1057,6 +1065,15 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
 #endif
 
 
+
+    /*
+      The implementation of cofactors_sym6() is crazy: 6x6 is too big to use
+      Cramer's method; 5x5 might already be too big. I do what dogleg.c does
+      here to use LAPACK directly
+     */
+#define SOLVE_SYM66_WITH_CRAMERS_RULE 1
+
+#if defined SOLVE_SYM66_WITH_CRAMERS_RULE && SOLVE_SYM66_WITH_CRAMERS_RULE
     double inv_JcrosstJcross_det[(6+1)*6/2];
     const double det =
         cofactors_sym6(Jcross_t__Jcross,
@@ -1073,6 +1090,42 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
     FINALIZE(Kpackedf,  Nstate_frames);
     FINALIZE(Kpackedp,  Nstate_points);
     FINALIZE(Kpackedcw, Nstate_calobject_warp);
+#undef FINALIZE
+
+#else
+#error not yet done
+    // I do what dogleg.c does here to use LAPACK directly
+
+    int info;
+    dpptrf_(&(char){'L'}, &(int){6}, Jcross_t__Jcross,
+            &info, 1);
+    if(info != 0)
+    {
+        BARF("Singular Jcross_t Jcross!");
+        return false;
+    }
+
+#error "do I need to *-1 the results of dpptrs_() ?"
+#define FINALIZE(Kpacked, N)                                    \
+    if(Kpacked)                                                 \
+    {                                                           \
+        dpptrs_(&(char){'L'}, &(int){6}, &(int){N},             \
+                Jcross_t__Jcross,                               \
+                Kpacked, &(int){6}, &info, 1);                  \
+                                                                \
+        if(info != 0)                                           \
+        {                                                       \
+            BARF("dpptrs() failed. This shouldn't happen");     \
+            return false;                                       \
+        }                                                       \
+    }
+
+    FINALIZE(Kpackedf,  Nstate_frames);
+    FINALIZE(Kpackedp,  Nstate_points);
+    FINALIZE(Kpackedcw, Nstate_calobject_warp);
+#undef FINALIZE
+
+#endif
 
     return true;
 }
