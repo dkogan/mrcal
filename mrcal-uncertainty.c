@@ -64,18 +64,20 @@ Let's explicate the matrices.
 
 And
 
-           [ J0_f0  dfp0_drtrrp ]
-           [ J1_f0  dfp0_drtrrp ]
-           [        ....        ]
-           [ J7_f2  dfp2_drtrrp ]
-  Jcross = [ J8_f2  dfp2_drtrrp ]
-           [        ....        ]
-           [ J9_p0  dpp0_drtrp  ]
-           [ J10_p0 dpp0_drtrp  ]
-           [        ....        ]
+           [ J0_f0  drt_rf0__drt_rrp ]
+           [ J1_f0  drt_rf0__drt_rrp ]
+           [        ....             ]
+           [ J3_f1  drt_rf1__drt_rrp ]
+           [ J4_f1  drt_rf1__drt_rrp ]
+  Jcross = [        ....             ]
+           [ J6_e0  drt_cr0__drt_rrp ]
+           [ J7_e0  drt_cr0__drt_rrp ]
+           [        ....             ]
+           [ J9_p0  dp0__drt_rrp     ]
+           [ J10_p0 dp0__drt_rrp     ]
+           [        ....             ]
 
-For measurements where we want to use Jcross_e instead of Jcross_f the relevant
-rows of Jcross are replaced appropriately.
+Here I used Jcross_e in measurement blocks 6,7 and Jcross_f for the rest.
 
 Note: these all depend ONLY on rt_cam_ref and rt_ref_frame and p, which are
 quantities we have. These do NOT depend on rt_ref_ref*.
@@ -98,23 +100,32 @@ Usually Nmeas_obs >> Nstate, so I start by computing Jcross_t J_packedfpcw
   J_packedfpcw_t Jcross (shape=(Nstate,6)) =
     [ 0                                                                                     ] <- intrinsics
     [ 0                                                                                     ] <- extrinsics
-    [ sum_measi(outer(j_frame0*, j_frame0*)) Dinv drtrt_frame0                              ]
-    [ sum_measi(outer(j_frame1*, j_frame1*)) Dinv drtrt_frame1                              ] <- frames
+    [ J0_packedf0_t J0_packedf0   Dinv drt_rf0__drt_rrp                                     ]
+    [ J1_packedf0_t J1_packedf0   Dinv drt_rf0__drt_rrp                                     ]
     [                         ...                                                           ]
-    [ sum_measi(outer(j_point0*, j_point0*)) Dinv dpref_point0                              ] <- points
-    [ sum_measi(outer(j_point1*, j_point1*)) Dinv dpref_point1                              ]
+    [ J3_packedf1_t J3_packedf1   Dinv drt_rf1__drt_rrp                                     ]
+    [ J4_packedf1_t J4_packedf1   Dinv drt_rf1__drt_rrp                                     ] <- frames
     [                         ...                                                           ]
-    [ sum_framei(sum_measi(outer(j_calobject_warp_measi*, j_frame_measi*) Dinv drtrt_framei)) ] <- calobject_warp
+    [ J6_packedf2_t J0_packede0   Dinv drt_cr0__drt_rrp                                     ]
+    [ J7_packedf2_t J1_packede0   Dinv drt_cr0__drt_rrp                                     ]
+    [                         ...                                                           ]
+    [ J9_packedp0_t  J9_packedp0  Dinv dp0__drt_rrp                                         ] <- points
+    [ J10_packedp0_t J10_packedp0 Dinv dp0__drt_rrp                                         ]
+    [                         ...                                                           ]
+    [ sum_i(Ji_cw_t Ji_packedfj Dinv drt_rfj__drt_rrp ) +                                   ] <- calobject_warp
+    [ sum_i(Ji_cw_t Ji_packedej Dinv drt_crj__drt_rrp )                                     ]
 
   Jcross_t Jcross = sum(outer(jcross, jcross))
-                  = sum_framei( drtrt_framei_t Dinv sum_measi(outer(j_frame_measi*, j_frame_measi*)) Dinv drtrt_framei ) +
-                    sum_pointi( dpref_pointi_t Dinv sum_measi(outer(j_point_measi*, j_point_measi*)) Dinv dpref_pointi )
+                  = sum_i( drt_rfj__drt_rrp_t Ji_fj_t Ji_fj drt_rfj__drt_rrp ) +
+                    sum_i( drt_crj__drt_rrp_t Ji_ej_t Ji_ej drt_crj__drt_rrp ) +
+                    sum_i( dpj__drt_rrp_t     Ji_fj_t Ji_fj dpj__drt_rrp )
 
 For each frame, both of these expressions need
 
-  sum_measi(outer(j_..._measi*, j_..._measi*)) Dinv drtrt_...i
+  Ji.._t Ji Dinv D...__drt_rtp
 
-I compute this in a loop, and accumulate in accumulate_frame() and accumulate_point()
+I compute this in a loop, and accumulate in accumulate_frame() and
+accumulate_point()
 
 */
 
