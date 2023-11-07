@@ -455,9 +455,11 @@ bool mrcal_rectification_maps(// output
     ///// TODAY this C implementation supports MRCAL_LENSMODEL_LATLON only. This
     ///// isn't a design choice, I just don't want to do the extra work yet. The
     ///// API already is general enough to support both rectification schemes.
-    if( rectification_model_type != MRCAL_LENSMODEL_LATLON )
+    if( ! (rectification_model_type == MRCAL_LENSMODEL_LATLON ||
+           rectification_model_type == MRCAL_LENSMODEL_PINHOLE) )
     {
-        MSG("Today this C implementation supports MRCAL_LENSMODEL_LATLON only.");
+        MSG("%s() supports MRCAL_LENSMODEL_LATLON and MRCAL_LENSMODEL_PINHOLE only",
+            __func__);
         return false;
     }
 
@@ -503,64 +505,94 @@ bool mrcal_rectification_maps(// output
     // test explicitly checks for this, and determines that this isn't an issue
     const double fx         = fxycxy_rectified[0];
     const double fy         = fxycxy_rectified[1];
+
     const double fx_recip   = 1./fx;
     const double fy_recip   = 1./fy;
     const double c_over_f_x = fxycxy_rectified[2] * fx_recip;
     const double c_over_f_y = fxycxy_rectified[3] * fy_recip;
 
-    double sdlon = sin(fy_recip);
-    double cdlon = cos(fy_recip);
-    double sdlat = sin(fx_recip);
-    double cdlat = cos(fx_recip);
 
-    double lon0 = -c_over_f_y;
-    double slon0 = sin(lon0);
-    double clon0 = cos(lon0);
-
-    double lat0 = -c_over_f_x;
-    double slat0 = sin(lat0);
-    double clat0 = cos(lat0);
-
-    double slon = slon0, clon = clon0;
-    for(unsigned int i=0; i<imagersize_rectified[1]; i++)
+    void set_rectification_map_pixel(const int i, const int j,
+                                     const mrcal_point3_t* v)
     {
-        double slat = slat0, clat = clat0;
-        for(unsigned int j=0; j<imagersize_rectified[0]; j++)
-        {
-            mrcal_point3_t v =
-                (mrcal_point3_t){.x = slat,
-                                 .y = clat * slon,
-                                 .z = clat * clon};
+        mrcal_point3_t vcam;
+        mrcal_point2_t q;
 
-            mrcal_point3_t vcam;
-            mrcal_point2_t q;
+        vcam = *v;
+        mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
+                             R_cam0_rect, v->xyz);
+        mrcal_project(&q, NULL, NULL,
+                      &vcam, 1,
+                      lensmodel0, intrinsics0);
+        rectification_map0[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
+        rectification_map0[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
 
-            vcam = v;
-            mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
-                                 R_cam0_rect, v.xyz);
-            mrcal_project(&q, NULL, NULL,
-                          &vcam, 1,
-                          lensmodel0, intrinsics0);
-            rectification_map0[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
-            rectification_map0[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
-
-            vcam = v;
-            mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
-                                 R_cam1_rect, v.xyz);
-            mrcal_project(&q, NULL, NULL,
-                          &vcam, 1,
-                          lensmodel1, intrinsics1);
-            rectification_map1[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
-            rectification_map1[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
-
-            double _slat = slat;
-            slat = _slat*cdlat +  clat*sdlat;
-            clat =  clat*cdlat - _slat*sdlat;
-        }
-        double _slon = slon;
-        slon = _slon*cdlon +  clon*sdlon;
-        clon =  clon*cdlon - _slon*sdlon;
+        vcam = *v;
+        mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
+                             R_cam1_rect, v->xyz);
+        mrcal_project(&q, NULL, NULL,
+                      &vcam, 1,
+                      lensmodel1, intrinsics1);
+        rectification_map1[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
+        rectification_map1[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
     }
+
+
+
+    if(rectification_model_type == MRCAL_LENSMODEL_LATLON)
+    {
+        double sdlon = sin(fy_recip);
+        double cdlon = cos(fy_recip);
+        double sdlat = sin(fx_recip);
+        double cdlat = cos(fx_recip);
+
+        double lon0 = -c_over_f_y;
+        double slon0 = sin(lon0);
+        double clon0 = cos(lon0);
+
+        double lat0 = -c_over_f_x;
+        double slat0 = sin(lat0);
+        double clat0 = cos(lat0);
+
+        double slon = slon0, clon = clon0;
+        for(unsigned int i=0; i<imagersize_rectified[1]; i++)
+        {
+            double slat = slat0, clat = clat0;
+            for(unsigned int j=0; j<imagersize_rectified[0]; j++)
+            {
+                mrcal_point3_t v =
+                    (mrcal_point3_t){.x = slat,
+                                     .y = clat * slon,
+                                     .z = clat * clon};
+
+                set_rectification_map_pixel(i,j,&v);
+
+                double _slat = slat;
+                slat = _slat*cdlat +  clat*sdlat;
+                clat =  clat*cdlat - _slat*sdlat;
+            }
+            double _slon = slon;
+            slon = _slon*cdlon +  clon*sdlon;
+            clon =  clon*cdlon - _slon*sdlon;
+        }
+    }
+    else
+    {
+        // MRCAL_LENSMODEL_PINHOLE
+        for(unsigned int i=0; i<imagersize_rectified[1]; i++)
+        {
+            for(unsigned int j=0; j<imagersize_rectified[0]; j++)
+            {
+                mrcal_point3_t v =
+                    (mrcal_point3_t){.x = (double)j*fx_recip - c_over_f_x,
+                                     .y = (double)i*fy_recip - c_over_f_y,
+                                     .z = 1.0};
+
+                set_rectification_map_pixel(i,j,&v);
+            }
+        }
+    }
+
 
     return true;
 }

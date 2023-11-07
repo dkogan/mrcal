@@ -867,6 +867,10 @@ space.
 
 The documentation for mrcal.rectified_system() applies here.
 
+This function is implemented in C in the mrcal_rectification_maps() function. An
+equivalent Python implementation is available:
+mrcal.stereo._rectification_maps_python()
+
 ARGUMENTS
 
 - models: an iterable of two mrcal.cameramodel objects representing the cameras
@@ -887,12 +891,6 @@ contains corresponding pixel coordinates in the input image
     '''
 
     _validate_models_rectified(models_rectified)
-
-    if models_rectified[0].intrinsics()[0] == 'LENSMODEL_PINHOLE':
-        # The pinhole rectification path is not implemented in C yet. Call the
-        # Python
-        return _rectification_maps_python(models,
-                                          models_rectified)
 
     Naz,Nel = models_rectified[0].imagersize()
     # shape (Ncameras=2, Nel, Naz, Nxy=2)
@@ -918,9 +916,6 @@ The main implementation is written in C in stereo.c:
 
 This should be identical to the rectification_maps() function above. This is
 checked by the test-rectification-maps.py test.
-
-NOTE: THE C IMPLEMENTATION HANDLES LENSMODEL_LATLON only. The
-mrcal.rectification_maps() wrapper above calls THIS function in that case
 
     '''
 
