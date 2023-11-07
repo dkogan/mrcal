@@ -286,7 +286,7 @@ and automatic editing of calibration points. In Calibration and Orientation of
 Cameras in Computer Vision, A. Gruen and T.S. Huang (Eds.), Springer-Verlag, pp.
 123–136]]
 
-** =LENSMODEL_CAHVORE=
+** =LENSMODEL_CAHVORE_...=
 :PROPERTIES:
 :CUSTOM_ID: lensmodel-cahvore
 :END:
@@ -299,6 +299,7 @@ CAHVORE is a [[file:formulation.org::#lens-behavior][noncentral projection]], so
 =unproject()= do something reasonable in all cases. Thus projection uncertainty
 and differencing don't work for this model, and throw an error.
 
+*** Configuration
 =LENSMODEL_CAHVORE= models have a single configuration parameter: =linearity=.
 
 - =linearity= = 0 is a "fisheye" CAHVORE model. This is referred to as
@@ -308,7 +309,7 @@ and differencing don't work for this model, and throw an error.
 - Any other =linearity= is a "general" CAHVORE model. This is referred to as
   =CAHVORE3= in JPL tools
 
-Some notes:
+*** Some notes
 
 - The last 3 intrinsic parameters of =LENSMODEL_CAHVORE= are the $\vec E$
   vector. If these are 0, this becomes a central projection, and
@@ -365,3 +366,6 @@ The $\Delta \vec u$ are the off-stereographic terms. If $\Delta \vec u = 0$, we
 get a plain stereographic projection.
 
 Much more detail about this model is available on the [[file:splined-models.org][splined models page]].
+
+*** Configuration
+There are several configuration parameters described on the [[file:splined-models.org::#splined-models-configuration-selection][splined models page]].
