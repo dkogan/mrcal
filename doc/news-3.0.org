@@ -919,6 +919,8 @@ print(m)
 ** mrcal_drt_ref_refperturbed__dbpacked() currently is hardcoded to use the rrp formulation
 Give it an argument to select the formulation. And rename the function. Or
 something
+** better error message
+[[file:~/projects/mrcal/mrcal-pywrap.c::BARF("Couldn't parse the configuration of the given lens model '%s'",][here]]
 * release checklist
 These are notes to myself containing the steps needed to roll a new release
 
