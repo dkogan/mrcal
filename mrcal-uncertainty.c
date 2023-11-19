@@ -58,7 +58,6 @@ Let's explicate the matrices.
             [ 0 | 0 |             J8_f2 |                | J8_cw ]
             [ 0 | 0 |                   | J9_p0          |       ]
             [ 0 | 0 |                   | J10_p0         |       ]
-            [ 0 | 0 |                   |                |       ]
             [ 0 | 0 |                   |         J11_p1 |       ]
 
 
