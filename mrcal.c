@@ -5500,6 +5500,9 @@ mrcal_optimize( // out
         double outliernessScale = -1.0;
         do
         {
+            if(solver_context != NULL)
+                dogleg_freeContext(&solver_context);
+
             norm2_error = dogleg_optimize2(packed_state,
                                            Nstate, ctx.Nmeasurements, ctx.N_j_nonzero,
                                            (dogleg_callback_t*)&optimizer_callback, &ctx,
