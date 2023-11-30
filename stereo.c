@@ -452,9 +452,6 @@ bool mrcal_rectification_maps(// output
                               const unsigned int*          imagersize_rectified,
                               const double*                r_rect0_ref)
 {
-    ///// TODAY this C implementation supports MRCAL_LENSMODEL_LATLON only. This
-    ///// isn't a design choice, I just don't want to do the extra work yet. The
-    ///// API already is general enough to support both rectification schemes.
     if( ! (rectification_model_type == MRCAL_LENSMODEL_LATLON ||
            rectification_model_type == MRCAL_LENSMODEL_PINHOLE) )
     {
