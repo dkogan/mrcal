@@ -604,7 +604,7 @@ assumes that all the geometry and intrinsics are perfect, and sets the
 observations to projections of that perfect geometry. If requested, perfect
 gaussian noise is then added to the observations.
 
-THIS FUNCTION MODIES THE INPUT OPTIMIZATION_INPUTS
+THIS FUNCTION MODIFIES THE INPUT OPTIMIZATION_INPUTS
 
 ARGUMENTS
 
