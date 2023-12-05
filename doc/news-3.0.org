@@ -923,6 +923,13 @@ Give it an argument to select the formulation. And rename the function. Or
 something
 ** better error message
 [[file:~/projects/mrcal/mrcal-pywrap.c::BARF("Couldn't parse the configuration of the given lens model '%s'",][here]]
+** expose apply_color_map() in C
+
+** documentation is corrupt
+This html page is busted: http://mrcal.secretsauce.net/mrcal-cull-corners.html
+** triangulate() should report stuff in the ref coords, not camera0 coords
+It doesn't make a whole lot of sense the way I'm doing it right now
+
 * release checklist
 These are notes to myself containing the steps needed to roll a new release
 
