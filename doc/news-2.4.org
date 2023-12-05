@@ -3,6 +3,8 @@
 
 * New in mrcal 2.4
 
+numpy.linalg.lsqsq() calls work even in old numpy releases
+
 fixed mrcal.show_geometry() axis_scale logic: e3e29bab
 
 2023-06-09 mrcal.show_projection_diff() has contour options like mrcal.show_projection_uncertainty()
