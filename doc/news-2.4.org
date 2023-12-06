@@ -65,6 +65,8 @@ The previous name is still available for backwards compatibility.
 Use the new name if you can. You don't HAVE to
 
 * todo
+- loading kalibr/opencv/ros models
+
 - Old tools complain about new keywords:
 
   #+begin_example
@@ -519,4 +521,4 @@ This html page is busted: http://mrcal.secretsauce.net/mrcal-cull-corners.html
 It doesn't make a whole lot of sense the way I'm doing it right now
 
 ** mrcal-show-residual should take --cbmax
-
+** get the docs from the 3.0 branch
