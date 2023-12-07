@@ -80,7 +80,7 @@ do {                                                                    \
         const int dims[] = dims_ref;                                    \
         int       ndims  = (int)sizeof(dims)/(int)sizeof(dims[0]);      \
         if(!_check_layout( #name, (PyArrayObject*)name_pyarrayobj, (int)npy_type, #npy_type, dims, ndims, #dims_ref, true )) \
-            return false;                                               \
+            goto done;                                               \
     }
 
 static bool _check_layout(const char*    name,
@@ -970,6 +970,8 @@ static bool lensmodel_one_validate_args( // out
     }
 
     return true;
+ done:
+    return false;
 }
 
 // Using this for both optimize() and optimizer_callback()
@@ -1156,6 +1158,8 @@ static bool optimize_validate_args( // out
     }
 
     return true;
+ done:
+    return false;
 }
 
 static void fill_c_observations_board(// out
@@ -1801,13 +1805,8 @@ static PyObject* state_index_generic(callback_state_index_t cb,
     // checks dimensionality of array !IS_NULL. So if any array isn't passed-in,
     // that's OK! After I do this and if !IS_NULL, then I can ask for array
     // dimensions safely
-    bool check(void)
-    {
-        OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
-        OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
-        return true;
-    }
-    if(!check()) goto done;
+    OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
+    OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
 
     // If explicit dimensions are given, use them. If they're not given, but we
     // have an array, use those dimensions. If an array isn't given either, use
@@ -2635,13 +2634,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     // checks dimensionality of array !IS_NULL. So if any array isn't passed-in,
     // that's OK! After I do this and if !IS_NULL, then I can ask for array
     // dimensions safely
-    bool check(void)
-    {
-        OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
-        OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
-        return true;
-    }
-    if(!check()) goto done;
+    OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
+    OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
 
     // If explicit dimensions are given, use them. If they're not given, but we
     // have an array, use those dimensions. If an array isn't given either, use
@@ -2982,6 +2976,8 @@ rectified_resolution_validate_args(RECTIFIED_RESOLUTION_ARGUMENTS(ARG_LIST_DEFIN
 {
     RECTIFIED_RESOLUTION_ARGUMENTS(CHECK_LAYOUT);
     return true;
+ done:
+    return false;
 }
 
 static
@@ -3085,6 +3081,8 @@ rectified_system_validate_args(RECTIFIED_SYSTEM_ARGUMENTS(ARG_LIST_DEFINE)
 {
     RECTIFIED_SYSTEM_ARGUMENTS(CHECK_LAYOUT);
     return true;
+ done:
+    return false;
 }
 
 static
@@ -3245,6 +3243,8 @@ rectification_maps_validate_args(RECTIFICATION_MAPS_ARGUMENTS(ARG_LIST_DEFINE)
 {
     RECTIFICATION_MAPS_ARGUMENTS(CHECK_LAYOUT);
     return true;
+ done:
+    return false;
 }
 
 static

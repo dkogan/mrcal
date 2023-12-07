@@ -427,6 +427,47 @@ bool mrcal_rectified_system(// output
     return true;
 }
 
+static
+void set_rectification_map_pixel(// output
+                                 float* rectification_map0,
+                                 float* rectification_map1,
+                                 // input
+
+                                 const int i, const int j,
+                                 const mrcal_point3_t* v,
+
+                                 const mrcal_lensmodel_t* lensmodel0,
+                                 const double*            intrinsics0,
+                                 const double*            R_cam0_rect,
+
+                                 const mrcal_lensmodel_t* lensmodel1,
+                                 const double*            intrinsics1,
+                                 const double*            R_cam1_rect,
+
+                                 const unsigned int*      imagersize_rectified)
+{
+    mrcal_point3_t vcam;
+    mrcal_point2_t q;
+
+    vcam = *v;
+    mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
+                         R_cam0_rect, v->xyz);
+    mrcal_project(&q, NULL, NULL,
+                  &vcam, 1,
+                  lensmodel0, intrinsics0);
+    rectification_map0[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
+    rectification_map0[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
+
+    vcam = *v;
+    mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
+                         R_cam1_rect, v->xyz);
+    mrcal_project(&q, NULL, NULL,
+                  &vcam, 1,
+                  lensmodel1, intrinsics1);
+    rectification_map1[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
+    rectification_map1[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
+}
+
 bool mrcal_rectification_maps(// output
                               // Dense array of shape (Ncameras=2, Nel, Naz, Nxy=2)
                               float* rectification_maps,
@@ -504,34 +545,6 @@ bool mrcal_rectification_maps(// output
     const double c_over_f_x = fxycxy_rectified[2] * fx_recip;
     const double c_over_f_y = fxycxy_rectified[3] * fy_recip;
 
-
-    void set_rectification_map_pixel(const int i, const int j,
-                                     const mrcal_point3_t* v)
-    {
-        mrcal_point3_t vcam;
-        mrcal_point2_t q;
-
-        vcam = *v;
-        mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
-                             R_cam0_rect, v->xyz);
-        mrcal_project(&q, NULL, NULL,
-                      &vcam, 1,
-                      lensmodel0, intrinsics0);
-        rectification_map0[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
-        rectification_map0[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
-
-        vcam = *v;
-        mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
-                             R_cam1_rect, v->xyz);
-        mrcal_project(&q, NULL, NULL,
-                      &vcam, 1,
-                      lensmodel1, intrinsics1);
-        rectification_map1[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
-        rectification_map1[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
-    }
-
-
-
     if(rectification_model_type == MRCAL_LENSMODEL_LATLON)
     {
         double sdlon = sin(fy_recip);
@@ -558,7 +571,16 @@ bool mrcal_rectification_maps(// output
                                      .y = clat * slon,
                                      .z = clat * clon};
 
-                set_rectification_map_pixel(i,j,&v);
+                set_rectification_map_pixel( rectification_map0,
+                                             rectification_map1,
+                                             i,j,&v,
+                                             lensmodel0,
+                                             intrinsics0,
+                                             R_cam0_rect,
+                                             lensmodel1,
+                                             intrinsics1,
+                                             R_cam1_rect,
+                                             imagersize_rectified);
 
                 double _slat = slat;
                 slat = _slat*cdlat +  clat*sdlat;
@@ -581,7 +603,16 @@ bool mrcal_rectification_maps(// output
                                      .y = (double)i*fy_recip - c_over_f_y,
                                      .z = 1.0};
 
-                set_rectification_map_pixel(i,j,&v);
+                set_rectification_map_pixel( rectification_map0,
+                                             rectification_map1,
+                                             i,j,&v,
+                                             lensmodel0,
+                                             intrinsics0,
+                                             R_cam0_rect,
+                                             lensmodel1,
+                                             intrinsics1,
+                                             R_cam1_rect,
+                                             imagersize_rectified);
             }
         }
     }
