@@ -30,6 +30,9 @@
 // and on any theory of liability, whether in contract, strict liability,
 // or tort (including negligence or otherwise) arising in any way out of
 
+// Apparently I need this in MSVC to get constants
+#define _USE_MATH_DEFINES
+
 #include <math.h>
 #include <float.h>
 

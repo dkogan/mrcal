@@ -6,6 +6,9 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
+// Apparently I need this in MSVC to get constants
+#define _USE_MATH_DEFINES
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>

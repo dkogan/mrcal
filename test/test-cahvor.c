@@ -1,3 +1,6 @@
+// Apparently I need this in MSVC to get constants
+#define _USE_MATH_DEFINES
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
