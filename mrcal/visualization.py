@@ -3111,7 +3111,10 @@ None. The input image array is modified
 
     import cv2
 
-    if valid_intrinsics_region.size == 0:
+    if valid_intrinsics_region is None:
+        cv2.circle( image, tuple((model.imagersize() - 1)//2), 10, color, -1)
+        print("WARNING: annotate_image__valid_intrinsics_region(): valid-intrinsics region is undefined. Drawing a circle")
+    elif valid_intrinsics_region.size == 0:
         cv2.circle( image, tuple((model.imagersize() - 1)//2), 10, color, -1)
         print("WARNING: annotate_image__valid_intrinsics_region(): valid-intrinsics region is empty. Drawing a circle")
     else:
@@ -3619,7 +3622,10 @@ def _get_show_residuals_data_onecam(model,
         legend = "Valid-intrinsics region"
         valid_region = model.valid_intrinsics_region()
 
-        if valid_region.size == 0:
+        if valid_region.size is None:
+            valid_region = np.zeros((1,2))
+            legend += ": undefined"
+        elif valid_region == 0:
             valid_region = np.zeros((1,2))
             legend += ": empty"
 
