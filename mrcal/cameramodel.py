@@ -997,6 +997,13 @@ general function is used to find the data. The args are:
             if isinstance(file_or_model, str):
 
                 if file_or_model == '-':
+                    if sys.stdin.isatty():
+                        # This isn't an error per-se. But most likely the user
+                        # ran something like "mrcal-to-cahvor" without
+                        # redirecting any data into it. Without this check the
+                        # program will sit there, waiting for input. Which will
+                        # look strange to an unsuspecting user
+                        raise Exception("Trying to read a model from standard input, but no file is being redirected into it")
                     tryread(sys.stdin, "STDIN")
                 else:
                     with open(file_or_model, 'r') as openedfile:
