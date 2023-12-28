@@ -81,6 +81,8 @@ DIST_BIN :=					\
 	mrcal-graft-models			\
 	mrcal-to-cahvor				\
 	mrcal-from-cahvor			\
+	mrcal-to-kalibr				\
+	mrcal-from-kalibr			\
 	mrcal-show-geometry			\
 	mrcal-show-valid-intrinsics-region	\
 	mrcal-is-within-valid-intrinsics-region \

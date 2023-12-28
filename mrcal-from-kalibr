@@ -1,0 +1,253 @@
+#!/usr/bin/env python3
+
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+r'''Converts a kalibr-formatted camera model to the .cameramodel file format
+
+SYNOPSIS
+
+  $ mrcal-from-kalibr model.yaml
+  Wrote model-cam0.cameramodel
+  Wrote model-cam1.cameramodel
+
+File formats supported by mrcal are described at
+http://mrcal.secretsauce.net/cameramodels.html#cameramodel-file-formats
+
+This tool converts the given model(s) to the cameramodel file format. No changes
+to the content are made; this is purely a format converter. Use the
+mrcal-convert-lensmodel tool to fit a different lens model instead. Model
+filenames are given on the commandline. Output is written to the same directory,
+with the same filename, but annotated with the camera name from the data file,
+and with a .cameramodel extension.
+
+If the model is omitted or given as "-", the input is read from standard input,
+and the output is written to standard output
+
+Unlike mrcal .cameramodel files where one camera is described by one file, the
+.yaml files used by kalibr are intended to describe multiple cameras. This
+format conversion tool will write out multiple .cameramodel file to represent
+the given data. To select a single camera, pass --camera CAMERA.
+
+Multiple models can be given on the commandline; each one will be converted.
+
+'''
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--camera',
+                        help='''Kalibr model files may contain multiple cameras,
+                        selected by this argument. If omitted, all available
+                        cameras will be read. If given, we read JUST the one
+                        requested camera''')
+    parser.add_argument('--force', '-f',
+                        action='store_true',
+                        default=False,
+                        help='''By default existing files are not overwritten. Pass --force to overwrite them
+                        without complaint''')
+    parser.add_argument('--outdir',
+                        required=False,
+                        type=lambda d: d if os.path.isdir(d) else \
+                                parser.error("--outdir requires an existing directory as the arg, but got '{}'".format(d)),
+                        help='''Directory to write the output models into. If omitted, we write the output
+                        models to the same directory as the input models''')
+    parser.add_argument('model',
+                        default=['-'],
+                        nargs='*',
+                        type=str,
+                        help='''Input camera model''')
+
+    return parser.parse_args()
+
+args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+Nstdin = sum(1 for m in args.model if m=='-')
+if Nstdin > 1:
+    print(f"At most one model can be read from standard input ('-'), but I got {Nstdin}", file=sys.stderr)
+    sys.exit(1)
+
+import mrcal
+import yaml
+import numpy as np
+import numpysane as nps
+
+
+def convert_one(d):
+
+    # I expect at least this structure:
+    #
+    #   camera_model: pinhole
+    #   intrinsics: [461.629, 460.152, 362.680, 246.049]
+    #   distortion_model: radtan
+    #   distortion_coeffs: [-0.27695497, 0.06712482, 0.00087538, 0.00011556]
+    #   resolution: [752, 480]
+    #   T_cn_cnm1:
+    #   - [ 0.99998854, 0.00216014, 0.00427195,-0.11003785]
+    #   - [-0.00221074, 0.99992702, 0.01187697, 0.00045792]
+    #   - [-0.00424598,-0.01188627, 0.99992034,-0.00064487]
+    #   - [0.0, 0.0, 0.0, 1.0]
+    #
+    # T_cn_cnm1 may be omitted: I use an identity transform in that case
+    if d['camera_model'] != 'pinhole':
+        print(f"ERROR: at this time I only support kalibr 'camera_model = pinhole'; got camera_model={d['camera_model']}",
+              file=sys.stderr)
+        sys.exit(1)
+
+    distortion_model_known = set(('radtan','none'),)
+
+    if not d['distortion_model'] in distortion_model_known:
+        print(f"ERROR: at this time I only support kalibr distortion_model: {distortion_model_known}; got distortion_model={d['distortion_model']}",
+              file=sys.stderr)
+        sys.exit(1)
+
+    if d['distortion_model'] == 'radtan':
+        intrinsics = ('LENSMODEL_OPENCV4',
+                      np.array(d['intrinsics'] +
+                               d['distortion_coeffs'],
+                               dtype=float))
+    else:
+        intrinsics = ('LENSMODEL_PINHOLE',
+                      np.array(d['intrinsics'],
+                               dtype=float))
+
+    m = mrcal.cameramodel( intrinsics = intrinsics,
+                           imagersize = np.array(d['resolution'],
+                                                 dtype=int) )
+    if not 'T_cn_cnm1' in d:
+        # using the identity transform. I'm done
+        return m
+
+    T_cn_cnm1 = np.array(d['T_cn_cnm1'])
+    if T_cn_cnm1.shape != (4,4):
+        print(f"ERROR: T_cn_cnm1 must be a 4x4 array; got T_cn_cnm1.shape={T_cn_cnm1.shape}",
+              file=sys.stderr)
+        sys.exit()
+    if np.any(T_cn_cnm1[3,:] - np.array((0,0,0,1))):
+        print(f"ERROR: T_cn_cnm1 must have a last row of (0,0,0,1); got {T_cn_cnm1[3,:]}",
+              file=sys.stderr)
+        sys.exit()
+
+    # The documentation is here:
+    #
+    #   https://github.com/ethz-asl/kalibr/wiki/Yaml-formats
+    #
+    # It says:
+    #
+    #   T_cn_cnm1 camera extrinsic transformation, always with respect to the
+    #   last camera in the chain (e.g. cam1: T_cn_cnm1 = T_c1_c0, takes cam0 to
+    #   cam1 coordinates)
+    #
+    # This isn't clear, but in practice it doesn't matter. I believe cam0 is
+    # conventionally the reference (has an identity transform) and there are
+    # exactly two cameras. So I just assume T_cn_cnm1 is T_cam_ref.
+    R_cam_ref = T_cn_cnm1[:3,:3]
+    t_cam_ref = T_cn_cnm1[:3, 3]
+    Rt_cam_ref = nps.glue(R_cam_ref,t_cam_ref, axis=-2)
+    m.extrinsics_Rt_fromref(Rt_cam_ref)
+    return m
+
+
+def convert_all(f, which):
+
+    # which is None = "all cameras"
+
+    try:
+        D = yaml.safe_load(f)
+    except yaml.scanner.ScannerError as e:
+        print("Error parsing YAML:\n\n")
+        print(e)
+        sys.exit(1)
+
+    if 'camera_model' in D:
+        # one camera; stored inline
+        d = D
+        if which is not None:
+            print(f"Error: a single in-line model found in the file, but a specific camera is requested: '{which}'. Omit --camera",
+                  file=sys.stderr)
+            sys.exit(1)
+        return ( \
+                 (None, convert_one(d)),
+               )
+
+    if which is None:
+        # all cameras
+        if len(D) == 0:
+            print("Zero models read from input",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        return [ (which, convert_one(d)) \
+                 for which,d in D.items() ]
+
+    if not which in D:
+        print(f"Error: asked for camera '{which}', but the given file contains only these cameras: {tuple(D.keys())}",
+              file=sys.stderr)
+        sys.exit(1)
+
+    return ( \
+             (which, convert_one(D[which])),
+           )
+
+
+
+for model in args.model:
+    if model == '-':
+        if sys.stdin.isatty():
+            # This isn't an error per-se. But most likely the user ran this
+            # without redirecting any data into it. Without this check the
+            # program will sit there, waiting for input. Which will look strange
+            # to an unsuspecting user
+            print("Trying to read a model from standard input, but no file is being redirected into it",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        names_models = convert_all(sys.stdin, which = args.camera)
+        if len(names_models) > 1:
+            print("Reading from standard input may only produce ONE model on stdout, but got more here. Pass --camera to select the camera you want",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        names_models[0][1].write(sys.stdout)
+
+    else:
+        base,extension = os.path.splitext(model)
+        if extension.lower() == '.cameramodel':
+            print("Input file is already in the cameramodel format (judging from the filename). Doing nothing",
+                  file=sys.stderr)
+            sys.exit(0)
+
+        if args.outdir is not None:
+            base = args.outdir + '/' + os.path.split(base)[1]
+
+        with open(model, "r") as f:
+            names_models = convert_all(f, which = args.camera)
+
+        for name,model in names_models:
+
+            if name is None: name = ''
+            else:            name = f"-{name}"
+            filename_out = f"{base}{name}.cameramodel"
+            if not args.force and os.path.exists(filename_out):
+                print(f"Target model '{filename_out}' already exists. Doing nothing with this model. Pass -f to overwrite",
+                      file=sys.stderr)
+                continue
+
+            model.write(filename_out)
+            print("Wrote " + filename_out)
