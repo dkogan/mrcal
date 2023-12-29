@@ -49,6 +49,11 @@ Added [[file:mrcal-python-api-reference.html#-sorted_eig][=mrcal.sorted_eig()=]]
 
 mrcal_rectification_maps() supports latlon AND pinhole rectification
 
+mrcal builds with clang
+
+mrcal-from-kalibr, mrcal-to-kalibr
+
+
 * Migration notes 2.3 -> 2.4
 
 commit 76248fce8655fba0aec1175157cbe8f8da055b7a
