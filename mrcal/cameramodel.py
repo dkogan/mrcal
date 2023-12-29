@@ -733,7 +733,7 @@ ARGUMENTS
 
 
             def parse_as_opencv_yaml(modelstring):
-                r'''Try to parse model as an opencv/ros/kalibr string
+                r'''Try to parse model as an opencv/ros string
 
 Supports yaml, json. Supports opencv and ros formats. And the output of
 "rostopic echo" for "sensor_msgs/CameraInfo" messages. This functions tries to
@@ -803,7 +803,7 @@ able to have a single camera with extrinsics. I do this:
                                 model):
                     r'''Search a model dictionary for a given array
 
-There are multiple ros/opencv/kalibr data formats that aren't identical, so this
+There are multiple ros/opencv data formats that aren't identical, so this
 general function is used to find the data. The args are:
 
 
@@ -1100,8 +1100,7 @@ general function is used to find the data. The args are:
               *,
               note   = None,
               cahvor = False,
-              opencv = False,
-              kalibr = False):
+              opencv = False):
         r'''Write out this camera model to disk
 
 SYNOPSIS
@@ -1110,9 +1109,9 @@ SYNOPSIS
 
 We write the contents of the given mrcal.cameramodel object to the given
 filename or a given pre-opened file. The format is selected based on the output
-filename and the (cahvor,opencv,kalibr) variables. At most one of those may be
-True. If any is True, we use that format. If they're all False then we infer the
-format from the filename:
+filename and the (cahvor,opencv) variables. At most one of those may be True. If
+any is True, we use that format. If they're all False then we infer the format
+from the filename:
 
 - 'xxx.cahv' or 'xxx.cahvor' or 'xxx.cahvore' will result in the legacy cahvor
   file format being used
@@ -1120,9 +1119,6 @@ format from the filename:
 - 'xxx.yaml' or 'xxx.yml' will result in the OpenCV format
 
 - Anything else will use the mrcal-native .cameramodel format.
-
-Note that kalibr also uses YAML files, so if you want that format, you MUST pass
-kalibr = True
 
 ARGUMENTS
 
@@ -1132,7 +1128,7 @@ ARGUMENTS
   written to the top of the output file. This should describe how this model was
   generated
 
-- cahvor,opencv,kalibr: optional booleans, defaulting to False. At most one of
+- cahvor,opencv: optional booleans, defaulting to False. At most one of
   these maybe True. If any of these is True, that is the output file format we
   use.
 
@@ -1142,7 +1138,7 @@ None
 
         '''
 
-        known_format_options = ('cahvor','opencv','kalibr')
+        known_format_options = ('cahvor','opencv')
 
         NformatOptions = 0
         for o in known_format_options:
@@ -1254,13 +1250,10 @@ projection_matrix:
                        fmt='%.12g')
             f.write("]\n")
 
-        def write_kalibr(f):
-            pass
 
         write_function = None
         if   cahvor: write_function = write_cahvor
         elif opencv: write_function = write_opencv
-        elif kalibr: write_function = write_kalibr
 
         if isinstance(f, str):
             with open(f, 'w') as openedfile:
