@@ -52,6 +52,7 @@ mrcal_rectification_maps() supports latlon AND pinhole rectification
 mrcal builds with clang
 
 mrcal-from-kalibr, mrcal-to-kalibr
+mrcal-from-ros
 
 
 * Migration notes 2.3 -> 2.4

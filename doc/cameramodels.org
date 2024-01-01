@@ -90,10 +90,15 @@ Several different file formats are supported:
   supported by both [[https://github.com/ethz-asl/kalibr][kalibr]] and mrcal contains [[file:lensmodels.org::#lensmodel-pinhole][=LENSMODEL_PINHOLE=]] and
   [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV4=]] only.
 
+- OpenCV/ROS =.yaml=: the [[https://wiki.ros.org/camera_calibration_parsers][format used by ROS and OpenCV]]. This supports
+  [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV5=]] and [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]]. This format can describe a stereo
+  pair, but can /not/ describe an arbitrary set of N cameras. The reference
+  coordinate system is at the left-rectified camera.
+
 The [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format
 based on the data (if reading) and the filename (if writing). The
-[[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]], [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]], [[file:mrcal-to-kalibr.html][=mrcal-to-kalibr=]] and
-[[file:mrcal-from-kalibr.html][=mrcal-from-kalibr=]] can convert between the different file formats.
+[[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]], [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]], [[file:mrcal-to-kalibr.html][=mrcal-to-kalibr=]], [[file:mrcal-from-kalibr.html][=mrcal-from-kalibr=]]
+and [[file:mrcal-from-ros.html][=mrcal-from-ros=]] can convert between the different file formats.
 
 * Sample usages
 See the [[file:mrcal-python-api-reference.html#cameramodel][API documentation]] for usage details.

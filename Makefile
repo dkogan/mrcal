@@ -83,6 +83,7 @@ DIST_BIN :=					\
 	mrcal-from-cahvor			\
 	mrcal-to-kalibr				\
 	mrcal-from-kalibr			\
+	mrcal-from-ros				\
 	mrcal-show-geometry			\
 	mrcal-show-valid-intrinsics-region	\
 	mrcal-is-within-valid-intrinsics-region \

@@ -44,6 +44,8 @@ to write any code. The available tools, with links to their manpages:
   format to the =.yaml= format used by [[https://github.com/ethz-asl/kalibr][kalibr]].
 - [[file:mrcal-from-kalibr.html][=mrcal-from-kalibr=]]: Converts a model stored in =.yaml= files used by [[https://github.com/ethz-asl/kalibr][kalibr]]
   to the =.cameramodel= format.
+- [[file:mrcal-from-ros.html][=mrcal-from-ros=]]: Converts a model stored in =.yaml= files used by [[https://www.ros.org/][ROS]] and
+  [[https://opencv.org/][OpenCV]] to the =.cameramodel= format.
 
 * Reprojection
 - [[file:mrcal-reproject-image.html][=mrcal-reproject-image=]]: Given image(s) and lens model(s), produces a new set
