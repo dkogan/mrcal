@@ -1144,9 +1144,9 @@ general function is used to find the data. The args are:
 
     def write(self, f,
               *,
-              note   = None,
-              cahvor = False,
-              opencv = False):
+              note    = None,
+              cahvor  = False,
+              _opencv = False):
         r'''Write out this camera model to disk
 
 SYNOPSIS
@@ -1154,17 +1154,9 @@ SYNOPSIS
     model.write('left.cameramodel')
 
 We write the contents of the given mrcal.cameramodel object to the given
-filename or a given pre-opened file. The format is selected based on the output
-filename and the (cahvor,opencv) variables. At most one of those may be True. If
-any is True, we use that format. If they're all False then we infer the format
-from the filename:
-
-- 'xxx.cahv' or 'xxx.cahvor' or 'xxx.cahvore' will result in the legacy cahvor
-  file format being used
-
-- 'xxx.yaml' or 'xxx.yml' will result in the OpenCV format
-
-- Anything else will use the mrcal-native .cameramodel format.
+filename or a given pre-opened file. If the filename is 'xxx.cahv' or
+'xxx.cahvor' or 'xxx.cahvore' or if cahvor: we use the legacy cahvor file format
+for output
 
 ARGUMENTS
 
@@ -1174,9 +1166,8 @@ ARGUMENTS
   written to the top of the output file. This should describe how this model was
   generated
 
-- cahvor,opencv: optional booleans, defaulting to False. At most one of
-  these maybe True. If any of these is True, that is the output file format we
-  use.
+- cahvor: an optional boolean, defaulting to False. If True: we write out the
+  data using the legacy .cahvor file format
 
 RETURNED VALUES
 
@@ -1184,7 +1175,10 @@ None
 
         '''
 
-        known_format_options = ('cahvor','opencv')
+        # opencv models may be written by setting _opencv=True. But this has no
+        # clear way to specify extrinsics, and requires specifying stereo
+        # rectification, so this is undocumented for now
+        known_format_options = ('cahvor','_opencv')
 
         NformatOptions = 0
         for o in known_format_options:
@@ -1207,6 +1201,12 @@ None
 
         def write_opencv(f):
             r'''Write out an opencv-format file
+
+This has no clear way to specify extrinsics, and requires specifying stereo
+rectification, so this is undone and undocumented for now. This function always
+sets an identity extrinsics transform and completely made-up projection and
+rectification matrices
+
 
 This is documented here: https://wiki.ros.org/camera_calibration_parsers
 
@@ -1233,14 +1233,7 @@ A sample file:
     cols: 4
     data: [4827.94, 0, 1223.5, 0, 0, 4835.62, 1024.5, 0, 0, 0, 1, 0]
 
-This is trying to include rectification in the model, which is dumb. I should be
-able to have a single camera with extrinsics. I do this:
-
-- Ignore the rectification_matrix. I hard-code the identity array
-- Assume the camera matrix is the intrinsics core only
-- Assume the projection_matrix is compose(camera_matrix, Rt_camera_ref)
-
-                '''
+            '''
 
             if   self._intrinsics[0] == 'LENSMODEL_OPENCV5':
                 distortion_model = 'plumb_bob'
@@ -1267,10 +1260,6 @@ able to have a single camera with extrinsics. I do this:
                           (        0, fxycxy[1], fxycxy[3]),
                           (        0,         0,         1)),
                          dtype=float)
-            Rt_cam_ref = mrcal.Rt_from_rt(self._extrinsics)
-            P = np.zeros((3,4), dtype=float)
-            P[:,:3] = nps.matmult(M, Rt_cam_ref[:3,:])
-            P[:, 3] = Rt_cam_ref[3,:]
 
             f.write(f"image_width: {self._imagersize[0]}\nimage_height: {self._imagersize[1]}\ncamera_name: mrcalmodel\n")
 
@@ -1289,17 +1278,13 @@ able to have a single camera with extrinsics. I do this:
 projection_matrix:
   rows: 3
   cols: 4
-  data: [''')
-            np.savetxt(f, P.reshape(1,12),
-                       delimiter=', ',
-                       newline  ='',
-                       fmt='%.12g')
-            f.write("]\n")
+  data: [1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0]
+''')
 
 
         write_function = None
-        if   cahvor: write_function = write_cahvor
-        elif opencv: write_function = write_opencv
+        if   cahvor:  write_function = write_cahvor
+        elif _opencv: write_function = write_opencv
 
         if isinstance(f, str):
             with open(f, 'w') as openedfile:
