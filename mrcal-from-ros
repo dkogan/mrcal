@@ -34,7 +34,11 @@ filenames are given on the commandline. Output is written to the same directory,
 with the same filename, but with a .cameramodel extension.
 
 If the model is omitted or given as "-", the input is read from standard input,
-and the output is written to standard output
+and the output is written to standard output.
+
+Note: there's no corresponding mrcal-to-ros tool at this time, because the
+behavior of such a tool isn't well-defined. Talk to me if this would be useful
+to you, to clarify what it should do, exactly.
 
 '''
 

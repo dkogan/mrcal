@@ -98,7 +98,10 @@ Several different file formats are supported:
 The [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format
 based on the data (if reading) and the filename (if writing). The
 [[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]], [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]], [[file:mrcal-to-kalibr.html][=mrcal-to-kalibr=]], [[file:mrcal-from-kalibr.html][=mrcal-from-kalibr=]]
-and [[file:mrcal-from-ros.html][=mrcal-from-ros=]] can convert between the different file formats.
+and [[file:mrcal-from-ros.html][=mrcal-from-ros=]] can convert between the different file formats. There's no
+=mrcal-to-ros= at this time because the behavior of such a tool isn't
+well-defined. Talk to me if this would be useful to you, to clarify what it
+should do, exactly.
 
 * Sample usages
 See the [[file:mrcal-python-api-reference.html#cameramodel][API documentation]] for usage details.
