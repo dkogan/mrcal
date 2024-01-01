@@ -983,6 +983,10 @@ general function is used to find the data. The args are:
 
                 Rt_ref_cam = np.zeros((4,3), dtype=float)
                 Rt_ref_cam[:3,:] = R
+                if nps.norm2((nps.matmult(R, R.T) - np.eye(3)).ravel()) > 1e-12:
+                    raise CameramodelParseException(f"R must be a valid rotation. Instead it is {R}")
+
+
                 # In rectified coords ("ref" coords here) I want the camera to
                 # sit at -P[:,3] / P[0,0]
                 Rt_ref_cam[ 3,:] = -P[:,3] / P[0,0]

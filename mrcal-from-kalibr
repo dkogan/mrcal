@@ -158,6 +158,10 @@ def convert_one(d):
     # conventionally the reference (has an identity transform) and there are
     # exactly two cameras. So I just assume T_cn_cnm1 is T_cam_ref.
     R_cam_ref = T_cn_cnm1[:3,:3]
+    if nps.norm2((nps.matmult(R_cam_ref, R_cam_ref.T) - np.eye(3)).ravel()) > 1e-12:
+        print(f"ERROR: T_cn_cnm1[:3,:3] must be a valid rotation. Instead it is {T_cn_cnm1[:3,:3]}",
+              file=sys.stderr)
+        sys.exit(1)
     t_cam_ref = T_cn_cnm1[:3, 3]
     Rt_cam_ref = nps.glue(R_cam_ref,t_cam_ref, axis=-2)
     m.extrinsics_Rt_fromref(Rt_cam_ref)
