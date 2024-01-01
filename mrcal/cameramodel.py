@@ -925,6 +925,12 @@ general function is used to find the data. The args are:
                     R = mrcal.identity_R()
                     R_at = 'default'
 
+                # Special-case P=0 or R=0. Sometimes I see this. Set everything to identity
+                if nps.norm2(P.ravel()) == 0:
+                    P[:,:3] = np.eye(3)
+                if nps.norm2(R.ravel()) == 0:
+                    R       = np.eye(3)
+
                 lensmodel,lensmodel_at = \
                     find_array( ( ('distortion_model',),),
                                 dtype = str,
