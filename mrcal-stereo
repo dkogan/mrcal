@@ -577,8 +577,8 @@ def write_output_one(tag, outdir, force,
         print(f"WARNING: '{filename}' already exists. Not overwriting this file. Pass -f to overwrite")
         return
 
-    print(f"Wrote '{filename}'")
     func(filename)
+    print(f"Wrote '{filename}'")
 
 
 def write_output_all(args,
