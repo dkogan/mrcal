@@ -78,7 +78,7 @@ mrcal-stereo                     \
   --force-grayscale              \
   --clahe                        \
   [01].cameramodel               \
-  [01].jpg                       \
+  [01].jpg
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/stereo;
