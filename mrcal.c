@@ -262,8 +262,13 @@ mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name )
 #define CHECK_AND_RETURN_WITHCONFIG(s,n)                                \
     /* Configured model. If the name is followed by _ or nothing, I */  \
     /* accept this model */                                             \
-    if( 0 == strcmp( name, #s) ) return MRCAL_##s;                      \
-    if( 0 == strncmp( name, #s"_", strlen(#s)+1) ) return MRCAL_##s;
+    {                                                                   \
+        const int len_s = strlen(#s);                                   \
+        if( 0 == strncmp( name, #s, len_s) &&                           \
+            ( name[len_s] == '\0' ||                                    \
+              name[len_s] == '_' ) )                                    \
+            return MRCAL_##s;                                           \
+    }
 
     MRCAL_LENSMODEL_NOCONFIG_LIST(                   CHECK_AND_RETURN_NOCONFIG );
     MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(  CHECK_AND_RETURN_WITHCONFIG );
