@@ -99,6 +99,7 @@ These are all backends for the corresponding [[file:commandline-tools.org][comma
 - [[file:mrcal-python-api-reference.html#-plotoptions_state_boundaries][=mrcal.plotoptions_state_boundaries()=]]: Return the 'set' plot options for gnuplotlib to show the state boundaries
 - [[file:mrcal-python-api-reference.html#-plotoptions_measurement_boundaries][=mrcal.plotoptions_measurement_boundaries()=]]: Return the 'set' plot options for gnuplotlib to show the measurement boundaries
 - [[file:mrcal-python-api-reference.html#-apply_color_map][=mrcal.apply_color_map()=]]: Color-code an array
+- [[file:mrcal-python-api-reference.html#-write_point_cloud_as_ply][=mrcal.write_point_cloud_as_ply()=]]: Write a point cloud to a .ply file
 
 * Calibration helpers
 These are used by routines implementing a [[file:formulation.org][camera calibration]] system. Most users

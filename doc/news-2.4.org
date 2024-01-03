@@ -54,6 +54,7 @@ mrcal builds with clang
 mrcal-from-kalibr, mrcal-to-kalibr
 mrcal-from-ros
 
+write_point_cloud_as_ply() exported
 
 * Migration notes 2.3 -> 2.4
 
@@ -513,8 +514,6 @@ report a full Rt transformation with the t component set to 0
 
         return mrcal.Rt_from_rt(res.x)
 #+end_src
-
-** write_ply_points() should be exported
 
 ** better error message
 [[file:~/projects/mrcal/mrcal-pywrap.c::BARF("Couldn't parse the configuration of the given lens model '%s'",][here]]
