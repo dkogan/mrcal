@@ -56,6 +56,8 @@ mrcal-from-ros
 
 write_point_cloud_as_ply() exported
 
+lensmodel parsing: more detailed error codes
+
 * Migration notes 2.3 -> 2.4
 
 commit 76248fce8655fba0aec1175157cbe8f8da055b7a
@@ -514,9 +516,6 @@ report a full Rt transformation with the t component set to 0
 
         return mrcal.Rt_from_rt(res.x)
 #+end_src
-
-** better error message
-[[file:~/projects/mrcal/mrcal-pywrap.c::BARF("Couldn't parse the configuration of the given lens model '%s'",][here]]
 
 ** expose apply_color_map() in C
 

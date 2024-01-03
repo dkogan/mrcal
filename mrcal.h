@@ -75,7 +75,7 @@ bool mrcal_lensmodel_name( char* out, int size,
 //
 // The configuration is ignored. Thus this function works even if the
 // configuration is missing or unparseable. Unknown model names return
-// MRCAL_LENSMODEL_INVALID
+// MRCAL_LENSMODEL_INVALID_TYPE
 //
 // This is the inverse of mrcal_lensmodel_name_unconfigured()
 mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name );
@@ -84,13 +84,9 @@ mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name );
 // Parse the full configured lens model from a lens model name string
 //
 // The lens mode type AND the configuration are read into a mrcal_lensmodel_t
-// structure, which this function returns. Strings with valid model names but
-// missing or unparseable configuration return
+// structure, which this function returns.
 //
-//   {.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}.
-//
-// Any other errors result in some other invalid lensmodel.type values, which
-// can be checked with mrcal_lensmodel_type_is_valid(lensmodel->type)
+// On error returns false with lensmodel->type set to MRCAL_LENSMODEL_INVALID_...
 //
 // This is the inverse of mrcal_lensmodel_name()
 bool mrcal_lensmodel_from_name( // output

@@ -713,15 +713,32 @@ static bool parse_lensmodel_from_arg(// output
     mrcal_lensmodel_from_name(lensmodel, lensmodel_cstring);
     if( !mrcal_lensmodel_type_is_valid(lensmodel->type) )
     {
-        if(lensmodel->type == MRCAL_LENSMODEL_INVALID_BADCONFIG)
+        switch(lensmodel->type)
         {
-            BARF("Couldn't parse the configuration of the given lens model '%s'",
+        case MRCAL_LENSMODEL_INVALID:
+            // this should never (rarely?) happen
+            BARF("Lens model '%s': error parsing",
                          lensmodel_cstring);
             return false;
+        case MRCAL_LENSMODEL_INVALID_BADCONFIG:
+            BARF("Lens model '%s': error parsing the required configuration",
+                         lensmodel_cstring);
+            return false;
+        case MRCAL_LENSMODEL_INVALID_MISSINGCONFIG:
+            BARF("Lens model '%s': missing the required configuration",
+                         lensmodel_cstring);
+            return false;
+        case MRCAL_LENSMODEL_INVALID_TYPE:
+            BARF("Invalid lens model type was passed in: '%s'. Must be one of " VALID_LENSMODELS_FORMAT,
+                 lensmodel_cstring
+                 VALID_LENSMODELS_ARGLIST);
+            return false;
+        default:
+            BARF("Lens model '%s' produced an unexpected error: lensmodel->type=%d. This should never happen",
+                 lensmodel_cstring,
+                 (int)lensmodel->type);
+            return false;
         }
-        BARF("Invalid lens model was passed in: '%s'. Must be one of " VALID_LENSMODELS_FORMAT,
-                     lensmodel_cstring
-                     VALID_LENSMODELS_ARGLIST);
         return false;
     }
     return true;
@@ -1789,7 +1806,7 @@ static PyObject* state_index_generic(callback_state_index_t cb,
     }
 #undef CALLED_FUNCTION_BUFFER
 
-    mrcal_lensmodel_t mrcal_lensmodel = {.type = MRCAL_LENSMODEL_INVALID};
+    mrcal_lensmodel_t mrcal_lensmodel = {};
 
     if(need_lensmodel)
     {
