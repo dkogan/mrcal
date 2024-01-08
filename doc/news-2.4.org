@@ -59,6 +59,8 @@ write_point_cloud_as_ply() exported
 
 lensmodel parsing: more detailed error codes
 
+C API: more types defined
+
 * Migration notes 2.3 -> 2.4
 
 commit 76248fce8655fba0aec1175157cbe8f8da055b7a
