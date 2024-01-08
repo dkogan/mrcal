@@ -37,6 +37,7 @@ m = npsp.module( name      = "_mrcal_npsp",
                  docstring = docstring_module,
                  header    = r'''
 #include "mrcal.h"
+#include <float.h>
 
 static
 bool validate_lensmodel_un_project(// out; valid if we returned true
@@ -779,68 +780,232 @@ applied
                   np.float32: apply_homography_body },
 )
 
-m.function( "_clip_float_into_bgr_colormap_functions_15_5_7",
-            """Writes a 2D array into a color heatmap
 
-This is used in the internals of apply_color_map().
+body__apply_color_map = r'''
+                 const int H = dims_slice__array[0];
+                 const int W = dims_slice__array[1];
 
-This is equivalent to this Python code:
+                 {T} T_a_min;
+                 if(      *a_min < (double)({T_min}) ) T_a_min = {T_min};
+                 else if( *a_min > (double)({T_max}) ) T_a_min = {T_max};
+                 else                                  T_a_min = ({T})(*a_min);
 
-  x = np.clip( (array.astype(float) - a_min) / (a_max - a_min),
-                0, 1 )
-  def clip_and_convert(x):
-      return np.clip(x*255, 0, 255).round().astype(np.uint8)
-  out[..., 0] = clip_and_convert(np.sin(x * 2.*np.pi)) # B: function 15
-  out[..., 1] = clip_and_convert(np.sin(x*x*x))        # G: function 5
-  out[..., 2] = clip_and_convert(np.sqrt(x))           # R: function 7
- """,
+                 {T} T_a_max;
+                 if(      *a_max < (double)({T_min}) ) T_a_max = {T_min};
+                 else if( *a_max > (double)({T_max}) ) T_a_max = {T_max};
+                 else                                  T_a_max = ({T})(*a_max);
+
+                 mrcal_image_bgr_t out   = {.height = H,
+                                            .width  = W,
+                                            .stride = strides_slice__output[0],
+                                            .data   = data_slice__output};
+
+                 mrcal_image_{Tname}_t in = {.height = H,
+                                             .width  = W,
+                                             .stride = strides_slice__array[0],
+                                             .data   = ({T}*)data_slice__array};
+
+                 return
+                   mrcal_apply_color_map_{Tname}(&out, &in,
+                                                 (*a_min)==DBL_MAX,(*a_max)==DBL_MIN,
+                                                 false,
+                                                 T_a_min, T_a_max,
+                                                 *function_red,
+                                                 *function_green,
+                                                 *function_blue);
+'''
+
+
+m.function( "apply_color_map",
+            """Color-code an array
+
+SYNOPSIS
+
+    image = produce_data()
+
+    print( image.shape )
+    ===>
+    (480, 640)
+
+    image_colorcoded = mrcal.apply_color_map(image)
+
+    print( image_colorcoded.shape )
+    ===>
+    (480, 640, 3)
+
+    print( image_colorcoded.dtype )
+    ===>
+    dtype('uint8')
+
+    mrcal.save_image('data.png', image_colorcoded)
+
+This is very similar to cv2.applyColorMap() but more flexible in several
+important ways. Differences:
+
+- Supports arrays of any shape. Most of the time the input is 2-dimensional
+  images, but this isn't required
+
+- Supports any input data type, NOT limited to 8-bit images like
+  cv2.applyColorMap()
+
+- Supports gnuplot color maps instead of MATLAB ones
+
+The color map is applied to each value in the input, each one producing an BGR
+row of shape (3,). So output.shape is input.shape + (3,).
+
+The output has dtype=numpy.uint8, so these arrays can be output as images, and
+visualized using any image-viewing tools.
+
+This function uses gnuplot's color maps, specified as rgbformulae:
+
+  http://gnuplot.info/docs_6.0/loc14176.html
+  http://gnuplot.info/docs_6.0/loc14246.html
+
+This is selected by passing (function_red,function_blue,function_green)
+integers, selecting different functions for each color channel. The default is
+the default gnuplot colormap: 7,5,15. This is a nice
+black-violet-blue-purple-red-orange-yellow map, appropriate for most usages. A
+colormap may be visualized with gnuplot. For instance to see the "AFM hot"
+colormap, run this gnuplot script:
+
+  set palette rgbformulae 34,35,36
+  test palette
+
+The definition of each colormap function is given by "show palette rgbformulae"
+in gnuplot:
+
+    > show palette rgbformulae
+     * there are 37 available rgb color mapping formulae:
+        0: 0               1: 0.5             2: 1
+        3: x               4: x^2             5: x^3
+        6: x^4             7: sqrt(x)         8: sqrt(sqrt(x))
+        9: sin(90x)       10: cos(90x)       11: |x-0.5|
+       12: (2x-1)^2       13: sin(180x)      14: |cos(180x)|
+       15: sin(360x)      16: cos(360x)      17: |sin(360x)|
+       18: |cos(360x)|    19: |sin(720x)|    20: |cos(720x)|
+       21: 3x             22: 3x-1           23: 3x-2
+       24: |3x-1|         25: |3x-2|         26: (3x-1)/2
+       27: (3x-2)/2       28: |(3x-1)/2|     29: |(3x-2)/2|
+       30: x/0.32-0.78125 31: 2*x-0.84       32: 4x;1;-2x+1.84;x/0.08-11.5
+       33: |2*x - 0.5|    34: 2*x            35: 2*x - 0.5
+       36: 2*x - 1
+     * negative numbers mean inverted=negative colour component
+     * thus the ranges in `set pm3d rgbformulae' are -36..36
+
+ARGUMENTS
+
+- array: input numpy array
+
+- a_min: optional value indicating the lower bound of the values we color map.
+  All input values outside of the range [a_min,a_max] are clipped. If omitted,
+  we use array.min()
+
+- a_max: optional value indicating the upper bound of the values we color map.
+  All input values outside of the range [a_min,a_max] are clipped. If omitted,
+  we use array.max()
+
+- function_red
+  function_green
+  function_blue: optional integers selecting the color maps for each channel.
+  See the full docstring for this function for detail
+
+RETURNED VALUE
+
+The color-mapped output array of shape array.shape + (3,) and containing 8-bit
+unsigned integers. The last row is the BGR color-mapped values.
+""",
 
             args_input       = ('array',),
             prototype_input  = (('H','W'),),
-            prototype_output = ('H','W', 3),
-            extra_args = (("double", "a_min", "0.0", "d"),
-                          ("double", "a_max", "1.0", "d"),),
+            prototype_output = ( 'H','W', 3),
 
+            extra_args = (("double", "a_min",          "DBL_MAX", "d"),
+                          ("double", "a_max",          "DBL_MIN", "d"),
+                          ("int",    "function_red",   "7",       "i"),
+                          ("int",    "function_green", "5",       "i"),
+                          ("int",    "function_blue",  "15",      "i"), ),
+
+            # I require contiguity of the last dimension only
             Ccode_validate = r'''
-            return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+              /* If I have no data, just call the thing contiguous. This is useful */
+              /* because np.ascontiguousarray doesn't set contiguous alignment */
+              /* for empty arrays */
+              const bool isempty__array =
+                dims_slice__array[0] == 0 || dims_slice__array[1] == 0;
+              if(!isempty__array &&
+                 strides_slice__array[1] != sizeof_element__array)
+              {
+                  PyErr_Format(PyExc_RuntimeError,
+                               "Array 'array' must be contiguous in the last dimension");
+                  return false;
+              }
+
+              const bool isempty__output =
+                dims_slice__output[0] == 0 || dims_slice__output[1] == 0;
+              if(!isempty__output &&
+                 ( strides_slice__output[1] != sizeof_element__output*3 ||
+                   strides_slice__output[2] != sizeof_element__output ) )
+              {
+                  PyErr_Format(PyExc_RuntimeError,
+                               "Array 'output' must be contiguous in the last dimension");
+                  return false;
+              }
+
+              return true;''',
 
             Ccode_slice_eval = \
-                { (np.float64, np.uint8):
-                 r'''
-                 int32_t H = dims_slice__array[0];
-                 int32_t W = dims_slice__array[1];
-                 const double*  array = (const double* )data_slice__array;
-                 uint8_t*       out   = (      uint8_t*)data_slice__output;
-
-                 // assuming contiguous storage
-                 for(int32_t i=0; i<H*W; i++)
-                 {
-                     const double x =
-                       fmin(fmax( (*array - *a_min) / (*a_max - *a_min),
-                                  0), 1);
-
-                     double v;
-
-                     v = sin(x * 2.0 * M_PI);
-                     if(     v <= 0.0) out[0] = 0;
-                     else if(v >= 1.0) out[0] = 255;
-                     else              out[0] = (uint8_t)(255.*v + 0.5);
-
-                     v = x*x*x;
-                     if(     v <= 0.0) out[1] = 0;
-                     else if(v >= 1.0) out[1] = 255;
-                     else              out[1] = (uint8_t)(255.*v + 0.5);
-
-                     v = sqrt(x);
-                     if(     v <= 0.0) out[2] = 0;
-                     else if(v >= 1.0) out[2] = 255;
-                     else              out[2] = (uint8_t)(255.*v + 0.5);
-
-                     array = &array[1];
-                     out   = &out  [3];
-                 }
-                 return true;
-'''},
+            {
+                (np. int8,   np.uint8): body__apply_color_map \
+                  .replace('{T}',     'int8_t') \
+                  .replace('{Tname}', 'int8') \
+                  .replace('{T_min}',  'INT8_MIN') \
+                  .replace('{T_max}',  'INT8_MAX'),
+                (np.uint8,   np.uint8): body__apply_color_map \
+                  .replace('{T}',     'uint8_t') \
+                  .replace('{Tname}', 'uint8') \
+                  .replace('{T_min}',  '0') \
+                  .replace('{T_max}',  'UINT8_MAX'),
+                (np. int16,  np.uint8): body__apply_color_map \
+                  .replace('{T}',     'int16_t') \
+                  .replace('{Tname}', 'int16') \
+                  .replace('{T_min}',  'INT16_MIN') \
+                  .replace('{T_max}',  'INT16_MAX'),
+                (np.uint16,  np.uint8): body__apply_color_map \
+                  .replace('{T}',     'uint16_t') \
+                  .replace('{Tname}', 'uint16') \
+                  .replace('{T_min}',  '0') \
+                  .replace('{T_max}',  'UINT16_MAX'),
+                (np. int32,  np.uint8): body__apply_color_map \
+                  .replace('{T}',     'int32_t') \
+                  .replace('{Tname}', 'int32') \
+                  .replace('{T_min}',  'INT32_MIN') \
+                  .replace('{T_max}',  'INT32_MAX'),
+                (np.uint32,  np.uint8): body__apply_color_map \
+                  .replace('{T}',     'uint32_t') \
+                  .replace('{Tname}', 'uint32') \
+                  .replace('{T_min}',  '0') \
+                  .replace('{T_max}',  'UINT32_MAX'),
+                (np. int64,  np.uint8): body__apply_color_map \
+                  .replace('{T}',     'int64_t') \
+                  .replace('{Tname}', 'int64') \
+                  .replace('{T_min}',  'INT64_MIN') \
+                  .replace('{T_max}',  'INT64_MAX'),
+                (np.uint64,  np.uint8): body__apply_color_map \
+                  .replace('{T}',     'uint64_t') \
+                  .replace('{Tname}', 'uint64') \
+                  .replace('{T_min}',  '0') \
+                  .replace('{T_max}',  'UINT64_MAX'),
+                (np.float32, np.uint8): body__apply_color_map \
+                  .replace('{T}',     'float') \
+                  .replace('{Tname}', 'float') \
+                  .replace('{T_min}', 'FLT_MIN') \
+                  .replace('{T_max}', 'FLT_MAX'),
+                (np.float64, np.uint8): body__apply_color_map \
+                  .replace('{T}',     'double') \
+                  .replace('{Tname}', 'double') \
+                  .replace('{T_min}',  'DBL_MIN') \
+                  .replace('{T_max}',  'DBL_MAX'),
+            },
 )
 
 m.write()

@@ -885,16 +885,16 @@ def process(i_image):
 
 
     disparity_colored = mrcal.apply_color_map(disparity,
-                                              disp_min*disparity_scale,
-                                              disp_max*disparity_scale)
-
+                                              a_min = disp_min*disparity_scale,
+                                              a_max = disp_max*disparity_scale)
 
     ranges = mrcal.stereo_range( disparity,
                                  models_rectified,
                                  disparity_scale = disparity_scale,
                                  disparity_min   = disp_min)
     ranges_colored = mrcal.apply_color_map(ranges,
-                                           *args.range_image_limits)
+                                           a_min = args.range_image_limits[0],
+                                           a_max = args.range_image_limits[1],)
 
     if args.viz == 'stereo':
         # Earlier I confirmed that in this path Nimages==1

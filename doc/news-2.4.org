@@ -61,6 +61,11 @@ lensmodel parsing: more detailed error codes
 
 C API: more types defined
 
+mrcal_apply_color_map() available in C, for many types
+
+mrcal.apply_color_map() uses the C function internally. All gnuplot colormap
+functions supported
+
 * Migration notes 2.3 -> 2.4
 
 commit 76248fce8655fba0aec1175157cbe8f8da055b7a
@@ -75,6 +80,10 @@ Date:   Wed Jun 21 18:24:50 2023 -0700
 Python API: renamed residuals_chessboard -> residuals_board
 The previous name is still available for backwards compatibility.
 Use the new name if you can. You don't HAVE to
+
+mrcal.apply_color_map(): a_min, a_max MUST now be passed in as kwargs, instead
+of positionals.
+
 
 * todo
 - "pydoc3 mrcal" should show everything. It doesn't. "compose_rt" isn't there,
@@ -502,7 +511,6 @@ report a full Rt transformation with the t component set to 0
         return mrcal.Rt_from_rt(res.x)
 #+end_src
 
-** expose apply_color_map() in C
 ** triangulate() should report stuff in the ref coords, not camera0 coords
 It doesn't make a whole lot of sense the way I'm doing it right now
 ** get the docs from the 3.0 branch
