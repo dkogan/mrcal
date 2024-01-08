@@ -485,6 +485,36 @@ These use the [[https://freeimage.sourceforge.io/][freeimage library]]. These fu
 than any other functions you may have already. The declarations are in
 [[https://www.github.com/dkogan/mrcal/blob/master/mrcal-image.h][=mrcal-image.h=]], and the documentation lives there.
 
+* Heat maps
+mrcal can produce a colored visualization of any of the image types defined
+above:
+
+#+begin_src c
+bool
+mrcal_apply_color_map_T(
+        mrcal_image_bgr_t*    out,
+        const mrcal_image_T_t* in,
+
+        /* If true, I set in_min/in_max from the */
+        /* min/max of the input data */
+        const bool auto_min,
+        const bool auto_max,
+
+        /* If true, I implement gnuplot's default 7,5,15 mapping. */
+        /* This is a reasonable default choice. */
+        /* function_red/green/blue are ignored if true */
+        const bool auto_function,
+
+        /* min/max input values to use if not */
+        /* auto_min/auto_max */
+        T in_min, /* will map to 0 */
+        T in_max, /* will map to 255 */
+
+        /* The color mappings to use. If !auto_function */
+        int function_red,
+        int function_green,
+        int function_blue);
+#+end_src
 
 * Dense stereo
 
