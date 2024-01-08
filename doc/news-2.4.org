@@ -3,7 +3,8 @@
 
 * New in mrcal 2.4
 
-numpy.linalg.lsqsq() calls work even in old numpy releases
+363c9f9ce9e9a02aa249bf97ccf137fdd6115a64
+numpy.linalg.lstsq() calls work even in old numpy releases
 
 fixed mrcal.show_geometry() axis_scale logic: e3e29bab
 
@@ -503,3 +504,5 @@ report a full Rt transformation with the t component set to 0
 ** triangulate() should report stuff in the ref coords, not camera0 coords
 It doesn't make a whole lot of sense the way I'm doing it right now
 ** get the docs from the 3.0 branch
+** clang warnings
+** example of dense stereo processing in C
