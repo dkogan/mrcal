@@ -6,7 +6,11 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
+// Apparently I need this in MSVC to get constants
+#define _USE_MATH_DEFINES
+
 #include <math.h>
+#include <float.h>
 
 #include "mrcal.h"
 #include "minimath/minimath.h"
@@ -434,6 +438,47 @@ bool mrcal_rectified_system(// output
     return true;
 }
 
+static
+void set_rectification_map_pixel(// output
+                                 float* rectification_map0,
+                                 float* rectification_map1,
+                                 // input
+
+                                 const int i, const int j,
+                                 const mrcal_point3_t* v,
+
+                                 const mrcal_lensmodel_t* lensmodel0,
+                                 const double*            intrinsics0,
+                                 const double*            R_cam0_rect,
+
+                                 const mrcal_lensmodel_t* lensmodel1,
+                                 const double*            intrinsics1,
+                                 const double*            R_cam1_rect,
+
+                                 const unsigned int*      imagersize_rectified)
+{
+    mrcal_point3_t vcam;
+    mrcal_point2_t q;
+
+    vcam = *v;
+    mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
+                         R_cam0_rect, v->xyz);
+    mrcal_project(&q, NULL, NULL,
+                  &vcam, 1,
+                  lensmodel0, intrinsics0);
+    rectification_map0[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
+    rectification_map0[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
+
+    vcam = *v;
+    mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
+                         R_cam1_rect, v->xyz);
+    mrcal_project(&q, NULL, NULL,
+                  &vcam, 1,
+                  lensmodel1, intrinsics1);
+    rectification_map1[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
+    rectification_map1[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
+}
+
 bool mrcal_rectification_maps(// output
                               // Dense array of shape (Ncameras=2, Nel, Naz, Nxy=2)
                               float* rectification_maps,
@@ -508,34 +553,6 @@ bool mrcal_rectification_maps(// output
     const double c_over_f_x = fxycxy_rectified[2] * fx_recip;
     const double c_over_f_y = fxycxy_rectified[3] * fy_recip;
 
-
-    void set_rectification_map_pixel(const int i, const int j,
-                                     const mrcal_point3_t* v)
-    {
-        mrcal_point3_t vcam;
-        mrcal_point2_t q;
-
-        vcam = *v;
-        mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
-                             R_cam0_rect, v->xyz);
-        mrcal_project(&q, NULL, NULL,
-                      &vcam, 1,
-                      lensmodel0, intrinsics0);
-        rectification_map0[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
-        rectification_map0[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
-
-        vcam = *v;
-        mrcal_rotate_point_R(vcam.xyz, NULL, NULL,
-                             R_cam1_rect, v->xyz);
-        mrcal_project(&q, NULL, NULL,
-                      &vcam, 1,
-                      lensmodel1, intrinsics1);
-        rectification_map1[(i*imagersize_rectified[0] + j)*2 + 0] = (float)q.x;
-        rectification_map1[(i*imagersize_rectified[0] + j)*2 + 1] = (float)q.y;
-    }
-
-
-
     if(rectification_model_type == MRCAL_LENSMODEL_LATLON)
     {
         double sdlon = sin(fy_recip);
@@ -562,7 +579,16 @@ bool mrcal_rectification_maps(// output
                                      .y = clat * slon,
                                      .z = clat * clon};
 
-                set_rectification_map_pixel(i,j,&v);
+                set_rectification_map_pixel( rectification_map0,
+                                             rectification_map1,
+                                             i,j,&v,
+                                             lensmodel0,
+                                             intrinsics0,
+                                             R_cam0_rect,
+                                             lensmodel1,
+                                             intrinsics1,
+                                             R_cam1_rect,
+                                             imagersize_rectified);
 
                 double _slat = slat;
                 slat = _slat*cdlat +  clat*sdlat;
@@ -585,7 +611,16 @@ bool mrcal_rectification_maps(// output
                                      .y = (double)i*fy_recip - c_over_f_y,
                                      .z = 1.0};
 
-                set_rectification_map_pixel(i,j,&v);
+                set_rectification_map_pixel( rectification_map0,
+                                             rectification_map1,
+                                             i,j,&v,
+                                             lensmodel0,
+                                             intrinsics0,
+                                             R_cam0_rect,
+                                             lensmodel1,
+                                             intrinsics1,
+                                             R_cam1_rect,
+                                             imagersize_rectified);
             }
         }
     }
@@ -593,3 +628,269 @@ bool mrcal_rectification_maps(// output
 
     return true;
 }
+
+
+// Logic from GetColorValueFromFormula() in src/getcolor.c in the gnuplot
+// sources
+static bool
+gnuplot_color_formula(uint8_t* out,
+                      int formula, float x)
+{
+    /* the input gray x is supposed to be in interval [0,1] */
+    if (formula < 0) {		/* negate the value for negative formula */
+	x = 1.f - x;
+	formula = -formula;
+    }
+
+    switch (formula) {
+    case 0:
+	x = 0.f;
+        break;
+    case 1:
+	x = 0.5f;
+        break;
+    case 2:
+	x = 1.f;
+        break;
+    case 3:			/* x = x */
+	break;
+    case 4:
+	x = x * x;
+	break;
+    case 5:
+	x = x * x * x;
+	break;
+    case 6:
+	x = x * x * x * x;
+	break;
+    case 7:
+	x = sqrtf(x);
+	break;
+    case 8:
+	x = sqrtf(sqrtf(x));
+	break;
+    case 9:
+	x = sinf(90.f * x * M_PI/180.f);
+	break;
+    case 10:
+	x = cosf(90.f * x * M_PI/180.f);
+	break;
+    case 11:
+	x = fabsf(x - 0.5f);
+	break;
+    case 12:
+	x = (2.f * x - 1.f) * (2.0 * x - 1.f);
+	break;
+    case 13:
+	x = sinf(180.f * x * M_PI/180.f);
+	break;
+    case 14:
+	x = fabsf(cosf(180.f * x * M_PI/180.f));
+	break;
+    case 15:
+	x = sinf(360.f * x * M_PI/180.f);
+	break;
+    case 16:
+	x = cosf(360.f * x * M_PI/180.f);
+	break;
+    case 17:
+	x = fabsf(sinf(360.f * x * M_PI/180.f));
+	break;
+    case 18:
+	x = fabsf(cosf(360.f * x * M_PI/180.f));
+	break;
+    case 19:
+	x = fabsf(sinf(720.f * x * M_PI/180.f));
+	break;
+    case 20:
+	x = fabsf(cosf(720.f * x * M_PI/180.f));
+	break;
+    case 21:
+	x = 3.f * x;
+	break;
+    case 22:
+	x = 3.f * x - 1.f;
+	break;
+    case 23:
+	x = 3.f * x - 2.f;
+	break;
+    case 24:
+	x = fabsf(3.f * x - 1.f);
+	break;
+    case 25:
+	x = fabsf(3.f * x - 2.f);
+	break;
+    case 26:
+	x = (1.5f * x - 0.5f);
+	break;
+    case 27:
+	x = (1.5f * x - 1.f);
+	break;
+    case 28:
+	x = fabsf(1.5f * x - 0.5f);
+	break;
+    case 29:
+	x = fabsf(1.5f * x - 1.f);
+	break;
+    case 30:
+	if (x <= 0.25f)
+	    x = 0.f;
+	else if (x >= 0.57f)
+	    x = 1.f;
+	else
+            x = x / 0.32f - 0.78125f;
+	break;
+    case 31:
+	if (x <= 0.42f)
+	    x = 0.f;
+	else if (x >= 0.92f)
+	    x = 1.f;
+	else
+            x = 2.f * x - 0.84f;
+	break;
+    case 32:
+	if (x <= 0.42f)
+	    x *= 4.f;
+	else
+	    x = (x <= 0.92f) ? -2.f * x + 1.84f : x / 0.08f - 11.5f;
+	break;
+    case 33:
+	x = fabsf(2.f * x - 0.5f);
+	break;
+    case 34:
+	x = 2.f * x;
+	break;
+    case 35:
+	x = 2.f * x - 0.5f;
+	break;
+    case 36:
+	x = 2.f * x - 1.f;
+	break;
+    default:
+        return false;
+    }
+    if      (x <= 0.f) x = 0.f;
+    else if (x >= 1.f) x = 1.f;
+
+    // round to nearest integer
+    *out = (uint8_t)(0.5f + 255.0f*x);
+    return true;
+}
+
+// Color-code an array
+
+// I use gnuplot's color-mapping functions to do this. gnuplot's "show palette"
+// help message displays the current gnuplot settings and "test palette"
+// displays the palette. The function definitions are given by "show palette
+// rgbformulae":
+//
+//     > show palette rgbformulae
+//      * there are 37 available rgb color mapping formulae:
+//         0: 0               1: 0.5             2: 1
+//         3: x               4: x^2             5: x^3
+//         6: x^4             7: sqrt(x)         8: sqrt(sqrt(x))
+//         9: sin(90x)       10: cos(90x)       11: |x-0.5|
+//        12: (2x-1)^2       13: sin(180x)      14: |cos(180x)|
+//        15: sin(360x)      16: cos(360x)      17: |sin(360x)|
+//        18: |cos(360x)|    19: |sin(720x)|    20: |cos(720x)|
+//        21: 3x             22: 3x-1           23: 3x-2
+//        24: |3x-1|         25: |3x-2|         26: (3x-1)/2
+//        27: (3x-2)/2       28: |(3x-1)/2|     29: |(3x-2)/2|
+//        30: x/0.32-0.78125 31: 2*x-0.84       32: 4x;1;-2x+1.84;x/0.08-11.5
+//        33: |2*x - 0.5|    34: 2*x            35: 2*x - 0.5
+//        36: 2*x - 1
+//      * negative numbers mean inverted=negative colour component
+//      * thus the ranges in `set pm3d rgbformulae' are -36..36
+#define DEFINE_mrcal_apply_color_map(T,Tname,T_MIN,T_MAX)               \
+    bool mrcal_apply_color_map_##Tname(                                 \
+        mrcal_image_bgr_t*    out,                                      \
+        const mrcal_image_##Tname##_t* in,                              \
+                                                                        \
+        /* If true, I set in_min/in_max from the */                     \
+        /* min/max of the input data */                                 \
+        const bool auto_min,                                            \
+        const bool auto_max,                                            \
+                                                                        \
+        /* If true, I implement gnuplot's default 7,5,15 mapping. */    \
+        /* This is a reasonable default choice. */                      \
+        /* function_red/green/blue are ignored if true */               \
+        const bool auto_function,                                       \
+                                                                        \
+        /* min/max input values to use if not */                        \
+        /* auto_min/auto_max */                                         \
+        T in_min, /* will map to 0 */                                   \
+        T in_max, /* will map to 255 */                                 \
+                                                                        \
+        /* The color mappings to use. If !auto_function */              \
+        int function_red,                                               \
+        int function_green,                                             \
+        int function_blue)                                              \
+{                                                                       \
+    const int w = in->width;                                            \
+    const int h = in->height;                                           \
+    if(!(w == out->width && h == out->height))                          \
+    {                                                                   \
+        MSG("%s(): input and output images MUST have the same dimensions", \
+            __func__);                                                  \
+        return false;                                                   \
+    }                                                                   \
+                                                                        \
+    if(auto_min || auto_max)                                            \
+    {                                                                   \
+        if(auto_min) in_min = T_MAX;                                    \
+        if(auto_max) in_max = T_MIN;                                    \
+                                                                        \
+        for(int y=0; y<h; y++)                                          \
+            for(int x=0; x<w; x++)                                      \
+            {                                                           \
+                const T v = *mrcal_image_##Tname##_at_const(in,  x,y);  \
+                if(auto_min && v < in_min) in_min = v;                  \
+                if(auto_max && v > in_max) in_max = v;                  \
+            }                                                           \
+    }                                                                   \
+                                                                        \
+    if(auto_function)                                                   \
+    {                                                                   \
+        function_red   = 7;                                             \
+        function_green = 5;                                             \
+        function_blue  = 15;                                            \
+    }                                                                   \
+                                                                        \
+    for(int y=0; y<h; y++)                                              \
+    {                                                                   \
+        for(int x=0; x<w; x++)                                          \
+        {                                                               \
+            const T* in_T = mrcal_image_##Tname##_at_const(in,  x,y);   \
+                                                                        \
+            bgr_t* out_bgr = mrcal_image_bgr_at(           out, x,y);   \
+                                                                        \
+            float x;                                                    \
+            if     (*in_T <= in_min)                                    \
+                x = 0.0f;                                               \
+            else if(*in_T >= in_max)                                    \
+                x = 1.0f;                                               \
+            else                                                        \
+                x = (float)(*in_T - in_min) / (float)(in_max - in_min); \
+                                                                        \
+            if(!gnuplot_color_formula(&out_bgr->bgr[2], function_red,   x) || \
+               !gnuplot_color_formula(&out_bgr->bgr[1], function_green, x) || \
+               !gnuplot_color_formula(&out_bgr->bgr[0], function_blue,  x)) \
+                return false;                                           \
+        }                                                               \
+    }                                                                   \
+                                                                        \
+    return true;                                                        \
+}
+
+DEFINE_mrcal_apply_color_map(uint8_t,  uint8,  0,         UINT8_MAX)
+DEFINE_mrcal_apply_color_map(uint16_t, uint16, 0,         UINT16_MAX)
+DEFINE_mrcal_apply_color_map(uint32_t, uint32, 0,         UINT32_MAX)
+DEFINE_mrcal_apply_color_map(uint64_t, uint64, 0,         UINT64_MAX)
+
+DEFINE_mrcal_apply_color_map(int8_t,   int8,   INT8_MIN,  INT8_MAX)
+DEFINE_mrcal_apply_color_map(int16_t,  int16,  INT16_MIN, INT16_MAX)
+DEFINE_mrcal_apply_color_map(int32_t,  int32,  INT32_MIN, INT32_MAX)
+DEFINE_mrcal_apply_color_map(int64_t,  int64,  INT64_MIN, INT64_MAX)
+
+DEFINE_mrcal_apply_color_map(float,    float,  FLT_MIN,   FLT_MAX)
+DEFINE_mrcal_apply_color_map(double,   double, DBL_MIN,   DBL_MAX)

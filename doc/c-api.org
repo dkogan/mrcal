@@ -432,11 +432,83 @@ This reads and write the [[#cameramodel-in-c][=mrcal_cameramodel_t= structures]]
 =.cameramodel= file format is supported by these C functions. The Python API
 supports more formats.
 
-* Image reading/writing
-mrcal includes simple functions for reading/writing images. These use the
-[[https://freeimage.sourceforge.io/][freeimage library]]. These functions aren't interesting, or better than any other
-functions you may have already. The declarations are in [[https://www.github.com/dkogan/mrcal/blob/master/mrcal-image.h][=mrcal-image.h=]], and the
-documentation lives there.
+* Images
+mrcal defines simple image types in [[https://www.github.com/dkogan/mrcal/blob/master/mrcal-image.h][=mrcal-image.h=]]:
+
+- =mrcal_image_int8_t=
+- =mrcal_image_uint8_t=
+- =mrcal_image_int16_t=
+- =mrcal_image_uint16_t=
+- =mrcal_image_int32_t=
+- =mrcal_image_uint32_t=
+- =mrcal_image_int64_t=
+- =mrcal_image_uint64_t=
+- =mrcal_image_float_t=
+- =mrcal_image_double_t=
+- =mrcal_image_bgr_t=
+
+These are the basic not-necessarily-contiguous arrays. The =bgr= type is used
+for color images:
+
+#+begin_src c
+typedef struct { uint8_t bgr[3]; } bgr_t;
+#+end_src
+
+Simple accessor and manipulation functions are available for each of these
+types (replacing each =T= below):
+
+#+begin_src c
+T* mrcal_image_T_at(mrcal_image_T_t* image, int x, int y);
+
+const T* mrcal_image_T_at_const(const mrcal_image_T_t* image, int x, int y);
+
+mrcal_image_T_t mrcal_image_T_crop(mrcal_image_T_t* image,
+                                   int x0, int y0,
+                                   int w,  int h);
+#+end_src
+
+And for =uint8_t=, =uint16_t= and =bgr_t= we can also read and write image files:
+
+#+begin_src c
+bool mrcal_image_T_save (const char* filename, const mrcal_image_T_t*  image);
+
+bool mrcal_image_T_load( mrcal_image_T_t*  image, const char* filename);
+#+end_src
+
+These use the [[https://freeimage.sourceforge.io/][freeimage library]]. These functions aren't interesting, or better
+than any other functions you may have already. The declarations are in
+[[https://www.github.com/dkogan/mrcal/blob/master/mrcal-image.h][=mrcal-image.h=]], and the documentation lives there.
+
+* Heat maps
+mrcal can produce a colored visualization of any of the image types defined
+above:
+
+#+begin_src c
+bool
+mrcal_apply_color_map_T(
+        mrcal_image_bgr_t*    out,
+        const mrcal_image_T_t* in,
+
+        /* If true, I set in_min/in_max from the */
+        /* min/max of the input data */
+        const bool auto_min,
+        const bool auto_max,
+
+        /* If true, I implement gnuplot's default 7,5,15 mapping. */
+        /* This is a reasonable default choice. */
+        /* function_red/green/blue are ignored if true */
+        const bool auto_function,
+
+        /* min/max input values to use if not */
+        /* auto_min/auto_max */
+        T in_min, /* will map to 0 */
+        T in_max, /* will map to 255 */
+
+        /* The color mappings to use. If !auto_function */
+        int function_red,
+        int function_green,
+        int function_blue);
+#+end_src
 
 * Dense stereo
 

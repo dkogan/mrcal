@@ -51,7 +51,7 @@ LDLIBS += -lelas
 endif
 
 CFLAGS    += --std=gnu99
-CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
+CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter -Wno-missing-braces
 
 $(patsubst %.c,%.o,$(shell grep -l '#include .*minimath\.h' *.c */*.c)): minimath/minimath_generated.h
 minimath/minimath_generated.h: minimath/minimath_generate.pl
@@ -82,6 +82,9 @@ DIST_BIN :=					\
 	mrcal-graft-models			\
 	mrcal-to-cahvor				\
 	mrcal-from-cahvor			\
+	mrcal-to-kalibr				\
+	mrcal-from-kalibr			\
+	mrcal-from-ros				\
 	mrcal-show-geometry			\
 	mrcal-show-valid-intrinsics-region	\
 	mrcal-is-within-valid-intrinsics-region \

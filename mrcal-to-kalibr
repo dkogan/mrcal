@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+
+r'''Converts cameramodel(s) to the file format used by kalibr
+
+SYNOPSIS
+
+  $ mrcal-to-kalibr model1.cameramodel model2.cameramodel > model.yaml
+
+  [model.yaml is now a kalibr model describing the two cameras]
+
+File formats supported by mrcal are described at
+http://mrcal.secretsauce.net/cameramodels.html#cameramodel-file-formats
+
+This tool converts the given model(s) to the .yaml format used by kalibr. No
+changes to the content are made; this is purely a format converter (the
+mrcal-convert-lensmodel tool fits different lens models instead).
+
+Unlike mrcal .cameramodel files where one camera is described by one file, the
+.yaml files used by kalibr are intended to describe multiple cameras. This
+format conversion tool will write out a single kalibr .yaml model containing ALL
+the given models. The names of the models in the kalibr data will be "cam0",
+"cam1", ...
+
+Since we always write out one kalibr model and since we don't know what it
+should be called, the output of this tool always goes to standard output.
+
+If the model is omitted or given as "-", the input is read from standard input,
+and only the one input model is processed
+
+By default we set the extrinsics exactly as they appear in the input models. So
+this may result in non-identity extrinsics for camera 0. If we want camera 0 to
+always have identity extrinsics, pass --cam0-at-reference. This will transform
+all the extrinsics such that cam0 has the desired identity transformation
+
+'''
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--cam0-at-reference',
+                        action='store_true',
+                        default=False,
+                        help='''By default we set the extrinsics as they appear
+                        in the input models. If we want to represent the output
+                        relative to camera-0 instead, pass --cam0-at-reference.
+                        This transforms all the extrinsics such that cam0 has
+                        the identity transformation''')
+    parser.add_argument('model',
+                        default=['-'],
+                        nargs='*',
+                        type=str,
+                        help='''Input camera model''')
+
+    return parser.parse_args()
+
+args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+Nstdin = sum(1 for m in args.model if m=='-')
+if Nstdin > 1:
+    print(f"At most one model can be read from standard input ('-'), but I got {Nstdin}", file=sys.stderr)
+    sys.exit(1)
+
+import mrcal
+import numpy as np
+import numpysane as nps
+
+
+def convert_one(i, model_filename):
+
+    model = mrcal.cameramodel(model_filename)
+
+    lensmodel,intrinsics = model.intrinsics()
+    imagersize           = model.imagersize()
+    Rt_cam_ref           = model.extrinsics_Rt_fromref()
+
+    if args.cam0_at_reference:
+        if i == 0:
+            convert_one.Rt_ref_cam0 = mrcal.invert_Rt(Rt_cam_ref)
+            Rt_cam_ref = mrcal.identity_Rt()
+        else:
+            Rt_cam_ref = mrcal.compose_Rt(Rt_cam_ref, convert_one.Rt_ref_cam0)
+
+    cos_th = (np.trace(Rt_cam_ref[:3,:]) - 1.) / 2.
+    # cos_th ~ 1 - x^2/2
+    th_sq = (1 - cos_th)*2.
+    norm2_t = nps.norm2(Rt_cam_ref[3,:])
+    is_identity = norm2_t < 1e-12 and th_sq < 1e-12
+
+    lensmodel_known = set(('LENSMODEL_PINHOLE','LENSMODEL_OPENCV4'),)
+
+    if not lensmodel in lensmodel_known:
+        print(f"ERROR: kalibr only supports {lensmodel_known}, but '{model_filename}' uses {lensmodel}",
+              file=sys.stderr)
+        sys.exit(1)
+
+    if   lensmodel == 'LENSMODEL_OPENCV4':
+        distortion_model = 'radtan'
+    elif lensmodel == 'LENSMODEL_PINHOLE':
+        distortion_model = 'none'
+    else:
+        raise Exception("Getting here is a bug")
+
+    if not is_identity:
+        T_cn_cnm1 = np.eye(4, dtype=float)
+        T_cn_cnm1[:3,:3] = Rt_cam_ref[:3,:]
+        T_cn_cnm1[:3, 3] = Rt_cam_ref[ 3,:]
+
+    return \
+        fr'''cam{i}:
+  camera_model: pinhole
+  intrinsics: {repr(list(intrinsics[:4]))}
+  distortion_model: {distortion_model}
+  distortion_coeffs: {repr(list(intrinsics[4:]))}''' + \
+(rf'''
+  T_cn_cnm1:
+  - {repr(list(T_cn_cnm1[0,:]))}
+  - {repr(list(T_cn_cnm1[1,:]))}
+  - {repr(list(T_cn_cnm1[2,:]))}
+  - {repr(list(T_cn_cnm1[3,:]))}''' if not is_identity else '') + \
+rf'''
+  resolution: {repr(list(imagersize))}
+'''
+
+
+yaml = ''.join(convert_one(i,model) for i,model in enumerate(args.model))
+
+print(yaml)

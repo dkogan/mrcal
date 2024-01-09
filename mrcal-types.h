@@ -96,8 +96,21 @@ typedef struct
 // mrcal_lensmodel_t does that.
 #define _LIST_WITH_COMMA(s,n) ,MRCAL_ ## s
 typedef enum
-    { MRCAL_LENSMODEL_INVALID           = -2,
-      MRCAL_LENSMODEL_INVALID_BADCONFIG = -1
+    { // Generic error. Rarely used in current mrcal
+      MRCAL_LENSMODEL_INVALID               = -2,
+
+      // Configuration parsing failed
+      MRCAL_LENSMODEL_INVALID_BADCONFIG     = -1,
+
+      // A configuration was required, but was missing entirely
+      MRCAL_LENSMODEL_INVALID_MISSINGCONFIG = -3,
+
+      // The model type wasn't known
+      MRCAL_LENSMODEL_INVALID_TYPE          = -4,
+
+      // Dummy entry. Must be -1 so that successive values start at 0
+      _MRCAL_LENSMODEL_DUMMY                = -1
+
       // The rest, starting with 0
       MRCAL_LENSMODEL_LIST( _LIST_WITH_COMMA ) } mrcal_lensmodel_type_t;
 #undef _LIST_WITH_COMMA

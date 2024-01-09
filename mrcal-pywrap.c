@@ -79,7 +79,7 @@ do {                                                                    \
         const int dims[] = dims_ref;                                    \
         int       ndims  = (int)sizeof(dims)/(int)sizeof(dims[0]);      \
         if(!_check_layout( #name, (PyArrayObject*)name_pyarrayobj, (int)npy_type, #npy_type, dims, ndims, #dims_ref, true )) \
-            return false;                                               \
+            goto done;                                               \
     }
 
 static bool _check_layout(const char*    name,
@@ -513,16 +513,17 @@ static PyObject* CHOLMOD_factorization_str(CHOLMOD_factorization* self)
 static PyObject*
 CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* args, PyObject* kwargs)
 {
+    cholmod_dense* M = NULL;
+    cholmod_dense* Y = NULL;
+    cholmod_dense* E = NULL;
+
+
     // error by default
     PyObject* result = NULL;
     PyObject* Py_out = NULL;
 
     char* keywords[] = {"bt", NULL};
     PyObject* Py_bt   = NULL;
-
-    cholmod_dense* M = NULL;
-    cholmod_dense* Y = NULL;
-    cholmod_dense* E = NULL;
 
 
     if(!(self->inited_common && self->factorization))
@@ -717,15 +718,32 @@ static bool parse_lensmodel_from_arg(// output
     mrcal_lensmodel_from_name(lensmodel, lensmodel_cstring);
     if( !mrcal_lensmodel_type_is_valid(lensmodel->type) )
     {
-        if(lensmodel->type == MRCAL_LENSMODEL_INVALID_BADCONFIG)
+        switch(lensmodel->type)
         {
-            BARF("Couldn't parse the configuration of the given lens model '%s'",
+        case MRCAL_LENSMODEL_INVALID:
+            // this should never (rarely?) happen
+            BARF("Lens model '%s': error parsing",
                          lensmodel_cstring);
             return false;
+        case MRCAL_LENSMODEL_INVALID_BADCONFIG:
+            BARF("Lens model '%s': error parsing the required configuration",
+                         lensmodel_cstring);
+            return false;
+        case MRCAL_LENSMODEL_INVALID_MISSINGCONFIG:
+            BARF("Lens model '%s': missing the required configuration",
+                         lensmodel_cstring);
+            return false;
+        case MRCAL_LENSMODEL_INVALID_TYPE:
+            BARF("Invalid lens model type was passed in: '%s'. Must be one of " VALID_LENSMODELS_FORMAT,
+                 lensmodel_cstring
+                 VALID_LENSMODELS_ARGLIST);
+            return false;
+        default:
+            BARF("Lens model '%s' produced an unexpected error: lensmodel->type=%d. This should never happen",
+                 lensmodel_cstring,
+                 (int)lensmodel->type);
+            return false;
         }
-        BARF("Invalid lens model was passed in: '%s'. Must be one of " VALID_LENSMODELS_FORMAT,
-                     lensmodel_cstring
-                     VALID_LENSMODELS_ARGLIST);
         return false;
     }
     return true;
@@ -988,6 +1006,8 @@ static bool lensmodel_one_validate_args( // out
     }
 
     return true;
+ done:
+    return false;
 }
 
 // Using this for both optimize() and optimizer_callback()
@@ -1256,6 +1276,8 @@ static bool optimize_validate_args( // out
     // fill_c_observations_point_triangulated()
 
     return true;
+ done:
+    return false;
 }
 
 static void fill_c_observations_board(// out
@@ -1499,14 +1521,14 @@ PyObject* _optimize(optimizemode_t optimizemode,
     PyObject*      factorization = NULL;
     PyObject*      jacobian      = NULL;
 
-    SET_SIGINT();
-
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_DEFINE);
 
     int calibration_object_height_n = -1;
     int calibration_object_width_n  = -1;
+
+    SET_SIGINT();
 
     if(optimizemode == OPTIMIZEMODE_OPTIMIZE   ||
        optimizemode == OPTIMIZEMODE_DRTRRP_DB)
@@ -2176,7 +2198,7 @@ static PyObject* state_index_generic(callback_state_index_t cb,
     }
 #undef CALLED_FUNCTION_BUFFER
 
-    mrcal_lensmodel_t mrcal_lensmodel = {.type = MRCAL_LENSMODEL_INVALID};
+    mrcal_lensmodel_t mrcal_lensmodel = {};
 
     if(need_lensmodel)
     {
@@ -2192,13 +2214,8 @@ static PyObject* state_index_generic(callback_state_index_t cb,
     // checks dimensionality of array !IS_NULL. So if any array isn't passed-in,
     // that's OK! After I do this and if !IS_NULL, then I can ask for array
     // dimensions safely
-    bool check(void)
-    {
-        OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
-        OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
-        return true;
-    }
-    if(!check()) goto done;
+    OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
+    OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
 
     // If explicit dimensions are given, use them. If they're not given, but we
     // have an array, use those dimensions. If an array isn't given either, use
@@ -3385,13 +3402,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     // checks dimensionality of array !IS_NULL. So if any array isn't passed-in,
     // that's OK! After I do this and if !IS_NULL, then I can ask for array
     // dimensions safely
-    bool check(void)
-    {
-        OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
-        OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
-        return true;
-    }
-    if(!check()) goto done;
+    OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
+    OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
 
     // If explicit dimensions are given, use them. If they're not given, but we
     // have an array, use those dimensions. If an array isn't given either, use
@@ -3733,6 +3745,8 @@ rectified_resolution_validate_args(RECTIFIED_RESOLUTION_ARGUMENTS(ARG_LIST_DEFIN
 {
     RECTIFIED_RESOLUTION_ARGUMENTS(CHECK_LAYOUT);
     return true;
+ done:
+    return false;
 }
 
 static
@@ -3836,6 +3850,8 @@ rectified_system_validate_args(RECTIFIED_SYSTEM_ARGUMENTS(ARG_LIST_DEFINE)
 {
     RECTIFIED_SYSTEM_ARGUMENTS(CHECK_LAYOUT);
     return true;
+ done:
+    return false;
 }
 
 static
@@ -3996,6 +4012,8 @@ rectification_maps_validate_args(RECTIFICATION_MAPS_ARGUMENTS(ARG_LIST_DEFINE)
 {
     RECTIFICATION_MAPS_ARGUMENTS(CHECK_LAYOUT);
     return true;
+ done:
+    return false;
 }
 
 static

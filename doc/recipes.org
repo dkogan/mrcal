@@ -1010,8 +1010,8 @@ images_rectified = [mrcal.transform_image(images[i],
 disparity = stereo_sgbm.compute(*images_rectified)
 
 disparity_colored = mrcal.apply_color_map(disparity,
-                                          disp_min*disparity_scale,
-                                          disp_max*disparity_scale)
+                                          a_min = disp_min*disparity_scale,
+                                          a_max = disp_max*disparity_scale)
 
 image_filenames_base = \
     [os.path.splitext(os.path.split(f)[1])[0] for f in image_filenames]

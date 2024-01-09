@@ -1536,3 +1536,177 @@ The rotation in a (3,3) array
     x /= nps.mag(x)
     y = np.cross(z,x)
     return nps.cat(x,y,z)
+
+def write_point_cloud_as_ply(filename,
+                             points,
+                             *,
+                             color     = None,
+                             binary    = True):
+
+    r'''Write a point cloud to a .ply file
+
+SYNOPSIS
+
+    print( points.shape )
+    ===>
+    (1000, 3)
+
+    write_point_cloud_as_ply( "points.ply", points )
+
+The point cloud to visualize may contain colors for each point: either as a BGR
+triplet or as a single intensity value. The colors may be given either in the
+trailing columns of the "points" array or in a separate "color" array.
+
+Both binary and ascii .ply formats are supported, with the binary format the
+default.
+
+ARGUMENTS
+
+- filename: the filename of the .ply file being written
+
+- points: the numpy array of points being visualized. Required. One of 3 shapes
+  is allowed:
+
+  - shape (N,3) if no color information is given here; may be given in the
+    separate "color" array
+  - shape (N,4) if a grayscale intensity is given in the last column
+  - shape (N,6) if a BGR color is given in the last 3 columns
+
+  If color is given here, the separate "color" array must be None
+
+- color: the numpy array of colors corresponding to each point in "points".
+  Optional. If the colors are given here, they must NOT be given in "points":
+  points.shape MUST be (N,3). If not None, 2 shapes are allowed:
+
+  - shape (N,)  if we have a grayscale intensity
+  - shape (N,3) if we have BGR colors
+
+- binary: optional boolean, defaulting to True. Selects the binary or ascii .ply
+  format.
+
+
+RETURNED VALUE
+
+None
+'''
+
+
+    if points.ndim != 2:
+        raise Exception(f"points.shape must be (N,3) or (N,4) or (N,6), but points.ndim={points.ndim}")
+    N,Ntrailing = points.shape
+
+    if not (Ntrailing == 3 or \
+            Ntrailing == 4 or \
+            Ntrailing == 6):
+        raise Exception(f"points.shape[-1] must be one of (3,4,6) to indicate no-color or grayscale or bgr colors respectively. Instead got points.shape[-1] = {points.shape[-1]}")
+
+    if color is not None:
+
+        if Ntrailing != 3:
+            raise Exception("Both 'points' and 'color' are specifying color information. At most one of those should provide it")
+
+        if color.ndim > 2:
+            raise Exception(f"color.shape must be (N,) or (N,3), but color.ndim={color.ndim}")
+        if N != color.shape[0]:
+            raise Exception(f"Inconsistent point counts: len(points)={len(points)} but len(color)={len(color)}")
+
+        if not (color.shape == (N,) or \
+                color.shape == (N,3) ):
+            raise Exception(f"color.shape must be (N,) or (N,3), but color.shape={color.shape}")
+
+    else:
+        # No "color" specified
+        if Ntrailing == 4:
+            # But it exists as grayscale in the points. Separate it into the
+            # "color" array
+            color  = points[:,3]
+            points = points[:,:3]
+        elif Ntrailing == 6:
+            # But it exists as bgr in the points. Separate it into the
+            # "color" array
+            color  = points[:,3:]
+            points = points[:,:3]
+
+
+
+    # I now have points.shape = (N,3) and color is None or (N,) or (N,3)
+
+
+
+    if binary:
+        ply_type = 'binary_little_endian'
+    else:
+        ply_type = 'ascii'
+
+    if color is not None and color.ndim == 1:
+        # grayscale
+        dtype = np.dtype([ ('xyz',np.float32,3), ('i', np.uint8) ])
+        header_color = '''property uchar intensity
+'''
+    elif color is not None and color.ndim == 2:
+        # bgr
+        dtype = np.dtype([ ('xyz',np.float32,3), ('rgb', np.uint8, 3) ])
+        header_color = '''property uchar red
+property uchar green
+property uchar blue
+'''
+    else:
+        dtype = np.dtype([ ('xyz',np.float32,3), ])
+        header_color = ''
+
+    ply_header = f'''ply
+format {ply_type} 1.0
+element vertex {N}
+property float x
+property float y
+property float z
+{header_color}end_header
+'''.encode()
+
+
+    with open(filename, 'wb') as f:
+        f.write(ply_header)
+
+        if binary:
+            binary_ply = np.empty( (N,),
+                                   dtype = dtype)
+            binary_ply['xyz'] = points.astype(np.float32)
+            if color is not None and color.ndim == 1:
+                # grayscale
+                binary_ply['i'  ] = color .astype(np.uint8)
+            elif color is not None and color.ndim == 2:
+                # bgr
+                binary_ply['rgb'][:,0] = color[:,2]
+                binary_ply['rgb'][:,1] = color[:,1]
+                binary_ply['rgb'][:,2] = color[:,0]
+
+            binary_ply.tofile(f)
+        else:
+            if color is not None and color.ndim == 1:
+                # grayscale
+                pbgr = nps.glue(points,
+                                nps.dummy(color, -1),
+                                axis = -1)
+                np.savetxt(f,
+                           pbgr,
+                           fmt      = ('%.1f','%.1f','%.1f','%d'),
+                           comments = '',
+                           header   = '')
+            elif color is not None and color.ndim == 2:
+                # bgr
+                pbgr = nps.glue(points,
+                                color[:,(2,)],
+                                color[:,(1,)],
+                                color[:,(0,)],
+                                255*np.ones((N,1)),
+                                axis = -1)
+                np.savetxt(f,
+                           pbgr,
+                           fmt      = ('%.1f','%.1f','%.1f','%d','%d','%d','%d'),
+                           comments = '',
+                           header   = '')
+            else:
+                np.savetxt(f, points,
+                           fmt      = ('%.1f','%.1f','%.1f',),
+                           comments = '',
+                           header   = '')

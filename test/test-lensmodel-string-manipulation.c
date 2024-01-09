@@ -94,8 +94,10 @@ int main(int argc, char* argv[])
 
     confirm_lensmodel( mrcal_lensmodel_from_name(&lensmodel, "LENSMODEL_CAHVOR"),
                        (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_CAHVOR} );
+    confirm_lensmodel( mrcal_lensmodel_from_name(&lensmodel, "LENSMODEL_ABCD"),
+                       (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_TYPE} );
     confirm_lensmodel( mrcal_lensmodel_from_name(&lensmodel, "LENSMODEL_SPLINED_STEREOGRAPHIC"),
-                       (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_BADCONFIG} );
+                       (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_MISSINGCONFIG} );
     confirm_lensmodel( mrcal_lensmodel_from_name(&lensmodel, "LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20_fov_x_deg=200_"),
                        (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_BADCONFIG} );
     confirm_lensmodel( mrcal_lensmodel_from_name(&lensmodel, "LENSMODEL_SPLINED_STEREOGRAPHIC_order=3_Nx=30_Ny=20"),
@@ -107,7 +109,7 @@ int main(int argc, char* argv[])
     confirm_lensmodel( mrcal_lensmodel_from_name(&lensmodel, "LENSMODEL_SPLINED_STEREOGRAPHIC__order=3_Nx=30_Ny=20_fov_x_deg=200"),
                        (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_BADCONFIG} );
     confirm_lensmodel( mrcal_lensmodel_from_name(&lensmodel, "LENSMODEL_SPLINED_STEREOGRAPHICorder=3_Nx=30_Ny=20_fov_x_deg=200"),
-                       (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID} );
+                       (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_TYPE} );
 
     ref =
         (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_CAHVORE,

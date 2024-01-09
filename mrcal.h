@@ -75,7 +75,7 @@ bool mrcal_lensmodel_name( char* out, int size,
 //
 // The configuration is ignored. Thus this function works even if the
 // configuration is missing or unparseable. Unknown model names return
-// MRCAL_LENSMODEL_INVALID
+// MRCAL_LENSMODEL_INVALID_TYPE
 //
 // This is the inverse of mrcal_lensmodel_name_unconfigured()
 mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name );
@@ -84,13 +84,9 @@ mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name );
 // Parse the full configured lens model from a lens model name string
 //
 // The lens mode type AND the configuration are read into a mrcal_lensmodel_t
-// structure, which this function returns. Strings with valid model names but
-// missing or unparseable configuration return
+// structure, which this function returns.
 //
-//   {.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}.
-//
-// Any other errors result in some other invalid lensmodel.type values, which
-// can be checked with mrcal_lensmodel_type_is_valid(lensmodel->type)
+// On error returns false with lensmodel->type set to MRCAL_LENSMODEL_INVALID_...
 //
 // This is the inverse of mrcal_lensmodel_name()
 bool mrcal_lensmodel_from_name( // output
@@ -847,6 +843,46 @@ void                 mrcal_free_cameramodel(mrcal_cameramodel_t** cameramodel);
 
 bool mrcal_write_cameramodel_file(const char* filename,
                                   const mrcal_cameramodel_t* cameramodel);
+
+#define DECLARE_mrcal_apply_color_map(T,Tname)                          \
+    bool mrcal_apply_color_map_##Tname(                                 \
+        mrcal_image_bgr_t*    out,                                      \
+        const mrcal_image_##Tname##_t* in,                              \
+                                                                        \
+        /* If true, I set in_min/in_max from the */                     \
+        /* min/max of the input data */                                 \
+        const bool auto_min,                                            \
+        const bool auto_max,                                            \
+                                                                        \
+        /* If true, I implement gnuplot's default 7,5,15 mapping. */    \
+        /* This is a reasonable default choice. */                      \
+        /* function_red/green/blue are ignored if true */               \
+        const bool auto_function,                                       \
+                                                                        \
+        /* min/max input values to use if not */                        \
+        /* auto_min/auto_max */                                         \
+        T in_min, /* will map to 0 */                                   \
+        T in_max, /* will map to 255 */                                 \
+                                                                        \
+        /* The color mappings to use. If !auto_function */              \
+        int function_red,                                               \
+        int function_green,                                             \
+        int function_blue)
+
+DECLARE_mrcal_apply_color_map(uint8_t,  uint8);
+DECLARE_mrcal_apply_color_map(uint16_t, uint16);
+DECLARE_mrcal_apply_color_map(uint32_t, uint32);
+DECLARE_mrcal_apply_color_map(uint64_t, uint64);
+
+DECLARE_mrcal_apply_color_map(int8_t,   int8);
+DECLARE_mrcal_apply_color_map(int16_t,  int16);
+DECLARE_mrcal_apply_color_map(int32_t,  int32);
+DECLARE_mrcal_apply_color_map(int64_t,  int64);
+
+DECLARE_mrcal_apply_color_map(float,    float);
+DECLARE_mrcal_apply_color_map(double,   double);
+
+#undef DECLARE_mrcal_apply_color_map
 
 // Public ABI stuff, that's not for end-user consumption
 #include "mrcal-internal.h"

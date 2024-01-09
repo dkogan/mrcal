@@ -40,6 +40,12 @@ to write any code. The available tools, with links to their manpages:
 - [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]]: Converts a model stored in the =.cahvor= file format to
   the =.cameramodel= format. This exists for compatibility only, and does not
   touch the data: any lens model may be used
+- [[file:mrcal-to-kalibr.html][=mrcal-to-kalibr=]]: Converts a model stored in the native =.cameramodel= file
+  format to the =.yaml= format used by [[https://github.com/ethz-asl/kalibr][kalibr]].
+- [[file:mrcal-from-kalibr.html][=mrcal-from-kalibr=]]: Converts a model stored in =.yaml= files used by [[https://github.com/ethz-asl/kalibr][kalibr]]
+  to the =.cameramodel= format.
+- [[file:mrcal-from-ros.html][=mrcal-from-ros=]]: Converts a model stored in =.yaml= files used by [[https://www.ros.org/][ROS]] and
+  [[https://opencv.org/][OpenCV]] to the =.cameramodel= format.
 
 * Reprojection
 - [[file:mrcal-reproject-image.html][=mrcal-reproject-image=]]: Given image(s) and lens model(s), produces a new set

@@ -6,6 +6,9 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
+// Apparently I need this in MSVC to get constants
+#define _USE_MATH_DEFINES
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
@@ -158,9 +161,7 @@ const char* const* mrcal_supported_lensmodel_names( void )
 #undef LENSMODEL_SCAN_CFG_ELEMENT_PLUS1
 
 // parses the model name AND the configuration into a mrcal_lensmodel_t structure.
-// Strings with valid model names but missing or unparseable configuration
-// return {.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}. Unknown model names return
-// {.type = MRCAL_LENSMODEL_INVALID}
+// On error returns false with lensmodel->type set to MRCAL_LENSMODEL_INVALID_...
 bool mrcal_lensmodel_from_name( // output
                                 mrcal_lensmodel_t* lensmodel,
 
@@ -177,25 +178,29 @@ bool mrcal_lensmodel_from_name( // output
 #define CHECK_AND_RETURN_WITHCONFIG(s,n)                                \
     /* Configured model. I need to extract the config from the string. */ \
     /* The string format is NAME_cfg1=var1_cfg2=var2... */              \
-    if( 0 == strcmp( name, #s) )                                        \
     {                                                                   \
-        *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}; \
-        return false;                                                   \
-    }                                                                   \
-    if( 0 == strncmp( name, #s"_", strlen(#s)+1) )                      \
-    {                                                                   \
-        /* found name. Now extract the config */                        \
-        *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_##s};            \
-        mrcal_##s##__config_t* config = &lensmodel->s##__config;        \
-                                                                        \
-        const char* config_str = &name[strlen(#s)];                     \
-                                                                        \
-        if(s##__scan_model_config(config, config_str))                  \
-            return true;                                                \
-        else                                                            \
+        const int len_s = strlen(#s);                                   \
+        if( 0 == strncmp( name, #s, len_s ) )                           \
         {                                                               \
-            *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}; \
-            return false;                                               \
+            if(name[len_s] == '\0')                                     \
+            {                                                           \
+                *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_MISSINGCONFIG}; \
+                return false;                                           \
+            }                                                           \
+            if(name[len_s] == '_')                                      \
+            {                                                           \
+                /* found name. Now extract the config */                \
+                *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_##s};    \
+                mrcal_##s##__config_t* config = &lensmodel->s##__config; \
+                                                                        \
+                const char* config_str = &name[len_s];                  \
+                                                                        \
+                if(s##__scan_model_config(config, config_str))          \
+                    return true;                                        \
+                                                                        \
+                *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_BADCONFIG}; \
+                return false;                                           \
+            }                                                           \
         }                                                               \
     }
 
@@ -203,14 +208,15 @@ bool mrcal_lensmodel_from_name( // output
     MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(  CHECK_AND_RETURN_WITHCONFIG );
     MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( CHECK_AND_RETURN_WITHCONFIG );
 
-    *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID};
+    *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_TYPE};
     return false;
 #undef CHECK_AND_RETURN_NOCONFIG
 #undef CHECK_AND_RETURN_WITHCONFIG
 }
 
 // parses the model name only. The configuration is ignored. Even if it's
-// missing or unparseable. Unknown model names return MRCAL_LENSMODEL_INVALID
+// missing or unparseable. Unknown model names return
+// MRCAL_LENSMODEL_INVALID_TYPE
 mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name )
 {
 #define CHECK_AND_RETURN_NOCONFIG(s,n)                                  \
@@ -219,14 +225,19 @@ mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name )
 #define CHECK_AND_RETURN_WITHCONFIG(s,n)                                \
     /* Configured model. If the name is followed by _ or nothing, I */  \
     /* accept this model */                                             \
-    if( 0 == strcmp( name, #s) ) return MRCAL_##s;                      \
-    if( 0 == strncmp( name, #s"_", strlen(#s)+1) ) return MRCAL_##s;
+    {                                                                   \
+        const int len_s = strlen(#s);                                   \
+        if( 0 == strncmp( name, #s, len_s) &&                           \
+            ( name[len_s] == '\0' ||                                    \
+              name[len_s] == '_' ) )                                    \
+            return MRCAL_##s;                                           \
+    }
 
     MRCAL_LENSMODEL_NOCONFIG_LIST(                   CHECK_AND_RETURN_NOCONFIG );
     MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(  CHECK_AND_RETURN_WITHCONFIG );
     MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( CHECK_AND_RETURN_WITHCONFIG );
 
-    return MRCAL_LENSMODEL_INVALID;
+    return MRCAL_LENSMODEL_INVALID_TYPE;
 
 #undef CHECK_AND_RETURN_NOCONFIG
 #undef CHECK_AND_RETURN_WITHCONFIG
@@ -856,6 +867,54 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
 //
 // Here we sample two interpolated surfaces at once: one each for the x and y
 // focal-length scales
+//
+// The sampling function assumes evenly spaced knots.
+// a,b,c,d are sequential control points
+// x is in [0,1] between b and c. Function looks like this:
+//   double A = fA(x);
+//   double B = fB(x);
+//   double C = fC(x);
+//   double D = fD(x);
+//   return A*a + B*b + C*c + D*d;
+// I need to sample many such 1D segments, so I compute A,B,C,D separately,
+// and apply them together
+static
+void get_sample_coeffs__cubic(double* ABCD, double* ABCDgrad, double x)
+{
+    double x2 = x*x;
+    double x3 = x2*x;
+    ABCD[0] =  (-x3 + 3*x2 - 3*x + 1)/6;
+    ABCD[1] = (3 * x3/2 - 3*x2 + 2)/3;
+    ABCD[2] = (-3 * x3 + 3*x2 + 3*x + 1)/6;
+    ABCD[3] = x3 / 6;
+
+    ABCDgrad[0] =  -x2/2 + x - 1./2.;
+    ABCDgrad[1] = 3*x2/2 - 2*x;
+    ABCDgrad[2] = -3*x2/2 + x + 1./2.;
+    ABCDgrad[3] = x2 / 2;
+}
+static
+void interp__cubic(double* out, const double* ABCDx, const double* ABCDy,
+                   // control points
+                   const double* c,
+                   int stridey)
+{
+    double cinterp[4][2];
+    const int stridex = 2;
+    for(int iy=0; iy<4; iy++)
+        for(int k=0;k<2;k++)
+            cinterp[iy][k] =
+                ABCDx[0] * c[iy*stridey + 0*stridex + k] +
+                ABCDx[1] * c[iy*stridey + 1*stridex + k] +
+                ABCDx[2] * c[iy*stridey + 2*stridex + k] +
+                ABCDx[3] * c[iy*stridey + 3*stridex + k];
+    for(int k=0;k<2;k++)
+        out[k] =
+            ABCDy[0] * cinterp[0][k] +
+            ABCDy[1] * cinterp[1][k] +
+            ABCDy[2] * cinterp[2][k] +
+            ABCDy[3] * cinterp[3][k];
+}
 static
 void sample_bspline_surface_cubic(double* out,
                                   double* dout_dx,
@@ -875,31 +934,6 @@ void sample_bspline_surface_cubic(double* out,
     double* ABCDx = &ABCDx_ABCDy[0];
     double* ABCDy = &ABCDx_ABCDy[4];
 
-    // The sampling function assumes evenly spaced knots.
-    // a,b,c,d are sequential control points
-    // x is in [0,1] between b and c. Function looks like this:
-    //   double A = fA(x);
-    //   double B = fB(x);
-    //   double C = fC(x);
-    //   double D = fD(x);
-    //   return A*a + B*b + C*c + D*d;
-    // I need to sample many such 1D segments, so I compute A,B,C,D separately,
-    // and apply them together
-    void get_sample_coeffs(double* ABCD, double* ABCDgrad, double x)
-    {
-        double x2 = x*x;
-        double x3 = x2*x;
-        ABCD[0] =  (-x3 + 3*x2 - 3*x + 1)/6;
-        ABCD[1] = (3 * x3/2 - 3*x2 + 2)/3;
-        ABCD[2] = (-3 * x3 + 3*x2 + 3*x + 1)/6;
-        ABCD[3] = x3 / 6;
-
-        ABCDgrad[0] =  -x2/2 + x - 1./2.;
-        ABCDgrad[1] = 3*x2/2 - 2*x;
-        ABCDgrad[2] = -3*x2/2 + x + 1./2.;
-        ABCDgrad[3] = x2 / 2;
-    }
-
     // 4 samples along one dimension, and then one sample along the other
     // dimension, using the 4 samples as the control points. Order doesn't
     // matter. See bsplines.py
@@ -907,33 +941,56 @@ void sample_bspline_surface_cubic(double* out,
     // I do this twice: one for each focal length surface
     double ABCDgradx[4];
     double ABCDgrady[4];
-    get_sample_coeffs(ABCDx, ABCDgradx, x);
-    get_sample_coeffs(ABCDy, ABCDgrady, y);
-    void interp(double* out, const double* ABCDx, const double* ABCDy)
-    {
-        double cinterp[4][2];
-        const int stridex = 2;
-        for(int iy=0; iy<4; iy++)
-            for(int k=0;k<2;k++)
-                cinterp[iy][k] =
-                    ABCDx[0] * c[iy*stridey + 0*stridex + k] +
-                    ABCDx[1] * c[iy*stridey + 1*stridex + k] +
-                    ABCDx[2] * c[iy*stridey + 2*stridex + k] +
-                    ABCDx[3] * c[iy*stridey + 3*stridex + k];
-        for(int k=0;k<2;k++)
-            out[k] =
-                ABCDy[0] * cinterp[0][k] +
-                ABCDy[1] * cinterp[1][k] +
-                ABCDy[2] * cinterp[2][k] +
-                ABCDy[3] * cinterp[3][k];
-    }
+    get_sample_coeffs__cubic(ABCDx, ABCDgradx, x);
+    get_sample_coeffs__cubic(ABCDy, ABCDgrady, y);
 
     // the intrinsics gradient is flatten(ABCDx[0..3] * ABCDy[0..3]) for both x
     // and y. By returning ABCD[xy] and not the cartesian products, I make
     // smaller temporary data arrays
-    interp(out,     ABCDx,     ABCDy);
-    interp(dout_dx, ABCDgradx, ABCDy);
-    interp(dout_dy, ABCDx,     ABCDgrady);
+    interp__cubic(out,     ABCDx,     ABCDy,     c, stridey);
+    interp__cubic(dout_dx, ABCDgradx, ABCDy,     c, stridey);
+    interp__cubic(dout_dy, ABCDx,     ABCDgrady, c, stridey);
+}
+// The sampling function assumes evenly spaced knots.
+// a,b,c are sequential control points
+// x is in [-1/2,1/2] around b. Function looks like this:
+//   double A = fA(x);
+//   double B = fB(x);
+//   double C = fC(x);
+//   return A*a + B*b + C*c;
+// I need to sample many such 1D segments, so I compute A,B,C separately,
+// and apply them together
+static
+void get_sample_coeffs__quadratic(double* ABC, double* ABCgrad, double x)
+{
+    double x2 = x*x;
+    ABC[0] = (4*x2 - 4*x + 1)/8;
+    ABC[1] = (3 - 4*x2)/4;
+    ABC[2] = (4*x2 + 4*x + 1)/8;
+
+    ABCgrad[0] = x - 1./2.;
+    ABCgrad[1] = -2.*x;
+    ABCgrad[2] = x + 1./2.;
+}
+static
+void interp__quadratic(double* out, const double* ABCx, const double* ABCy,
+                       // control points
+                       const double* c,
+                       int stridey)
+{
+    double cinterp[3][2];
+    const int stridex = 2;
+    for(int iy=0; iy<3; iy++)
+        for(int k=0;k<2;k++)
+            cinterp[iy][k] =
+                ABCx[0] * c[iy*stridey + 0*stridex + k] +
+                ABCx[1] * c[iy*stridey + 1*stridex + k] +
+                ABCx[2] * c[iy*stridey + 2*stridex + k];
+    for(int k=0;k<2;k++)
+        out[k] =
+            ABCy[0] * cinterp[0][k] +
+            ABCy[1] * cinterp[1][k] +
+            ABCy[2] * cinterp[2][k];
 }
 static
 void sample_bspline_surface_quadratic(double* out,
@@ -954,27 +1011,6 @@ void sample_bspline_surface_quadratic(double* out,
     double* ABCx = &ABCx_ABCy[0];
     double* ABCy = &ABCx_ABCy[3];
 
-    // The sampling function assumes evenly spaced knots.
-    // a,b,c are sequential control points
-    // x is in [-1/2,1/2] around b. Function looks like this:
-    //   double A = fA(x);
-    //   double B = fB(x);
-    //   double C = fC(x);
-    //   return A*a + B*b + C*c;
-    // I need to sample many such 1D segments, so I compute A,B,C separately,
-    // and apply them together
-    void get_sample_coeffs(double* ABC, double* ABCgrad, double x)
-    {
-        double x2 = x*x;
-        ABC[0] = (4*x2 - 4*x + 1)/8;
-        ABC[1] = (3 - 4*x2)/4;
-        ABC[2] = (4*x2 + 4*x + 1)/8;
-
-        ABCgrad[0] = x - 1./2.;
-        ABCgrad[1] = -2.*x;
-        ABCgrad[2] = x + 1./2.;
-    }
-
     // 3 samples along one dimension, and then one sample along the other
     // dimension, using the 3 samples as the control points. Order doesn't
     // matter. See bsplines.py
@@ -982,31 +1018,15 @@ void sample_bspline_surface_quadratic(double* out,
     // I do this twice: one for each focal length surface
     double ABCgradx[3];
     double ABCgrady[3];
-    get_sample_coeffs(ABCx, ABCgradx, x);
-    get_sample_coeffs(ABCy, ABCgrady, y);
-    void interp(double* out, const double* ABCx, const double* ABCy)
-    {
-        double cinterp[3][2];
-        const int stridex = 2;
-        for(int iy=0; iy<3; iy++)
-            for(int k=0;k<2;k++)
-                cinterp[iy][k] =
-                    ABCx[0] * c[iy*stridey + 0*stridex + k] +
-                    ABCx[1] * c[iy*stridey + 1*stridex + k] +
-                    ABCx[2] * c[iy*stridey + 2*stridex + k];
-        for(int k=0;k<2;k++)
-            out[k] =
-                ABCy[0] * cinterp[0][k] +
-                ABCy[1] * cinterp[1][k] +
-                ABCy[2] * cinterp[2][k];
-    }
+    get_sample_coeffs__quadratic(ABCx, ABCgradx, x);
+    get_sample_coeffs__quadratic(ABCy, ABCgrady, y);
 
     // the intrinsics gradient is flatten(ABCx[0..3] * ABCy[0..3]) for both x
     // and y. By returning ABC[xy] and not the cartesian products, I make
     // smaller temporary data arrays
-    interp(out,     ABCx,     ABCy);
-    interp(dout_dx, ABCgradx, ABCy);
-    interp(dout_dy, ABCx,     ABCgrady);
+    interp__quadratic(out,     ABCx,     ABCy,     c, stridey);
+    interp__quadratic(dout_dx, ABCgradx, ABCy,     c, stridey);
+    interp__quadratic(dout_dy, ABCx,     ABCgrady, c, stridey);
 }
 
 typedef struct
@@ -1983,6 +2003,55 @@ static int get_Ngradients(const mrcal_lensmodel_t* lensmodel,
 }
 
 static
+void propagate_extrinsics__splined( // output
+                                    mrcal_point3_t* dq_deee,
+                                    // input
+                                    const mrcal_point3_t* dp_deee,
+                                    const double* duxy_dp,
+                                    const double* ddeltau_dux,
+                                    const double* ddeltau_duy,
+                                    const double  fx,
+                                    const double  fy)
+{
+    mrcal_point3_t du_deee[2];
+    mul_genN3_gen33_vout(2, (double*)duxy_dp, (double*)dp_deee, (double*)du_deee);
+
+    for(int i=0; i<3; i++)
+    {
+        dq_deee[0].xyz[i] =
+            fx *
+            ( du_deee[0].xyz[i] * (1. + ddeltau_dux[0]) +
+              ddeltau_duy[0] * du_deee[1].xyz[i]);
+        dq_deee[1].xyz[i] =
+            fy *
+            ( du_deee[1].xyz[i] * (1. + ddeltau_duy[1]) +
+              ddeltau_dux[1] * du_deee[0].xyz[i]);
+    }
+}
+static
+void propagate_extrinsics_cam0__splined( // output
+                                         mrcal_point3_t* dq_deee,
+                                         // input
+                                         const double* dux_dp,
+                                         const double* duy_dp,
+                                         const double* ddeltau_dux,
+                                         const double* ddeltau_duy,
+                                         const double  fx,
+                                         const double  fy)
+{
+    for(int i=0; i<3; i++)
+    {
+        dq_deee[0].xyz[i] =
+            fx *
+            ( dux_dp[i] * (1. + ddeltau_dux[0]) +
+              ddeltau_duy[0] * duy_dp[i]);
+        dq_deee[1].xyz[i] =
+            fy *
+            ( duy_dp[i] * (1. + ddeltau_duy[1]) +
+              ddeltau_dux[1] * dux_dp[i]);
+    }
+}
+static
 void _project_point_splined( // outputs
                             mrcal_point2_t* q,
                             mrcal_point2_t* dq_dfxy,
@@ -2162,51 +2231,43 @@ void _project_point_splined( // outputs
         ddeltau_duy[i] *= segments_per_u;
     }
 
-    void propagate_extrinsics( mrcal_point3_t* dq_deee,
-                               const mrcal_point3_t* dp_deee)
-    {
-        mrcal_point3_t du_deee[2];
-        mul_genN3_gen33_vout(2, (double*)du_dp, (double*)dp_deee, (double*)du_deee);
-
-        for(int i=0; i<3; i++)
-        {
-            dq_deee[0].xyz[i] =
-                fx *
-                ( du_deee[0].xyz[i] * (1. + ddeltau_dux[0]) +
-                  ddeltau_duy[0] * du_deee[1].xyz[i]);
-            dq_deee[1].xyz[i] =
-                fy *
-                ( du_deee[1].xyz[i] * (1. + ddeltau_duy[1]) +
-                  ddeltau_dux[1] * du_deee[0].xyz[i]);
-        }
-    }
-    void propagate_extrinsics_cam0( mrcal_point3_t* dq_deee)
-    {
-        for(int i=0; i<3; i++)
-        {
-            dq_deee[0].xyz[i] =
-                fx *
-                ( du_dp[0][i] * (1. + ddeltau_dux[0]) +
-                  ddeltau_duy[0] * du_dp[1][i]);
-            dq_deee[1].xyz[i] =
-                fy *
-                ( du_dp[1][i] * (1. + ddeltau_duy[1]) +
-                  ddeltau_dux[1] * du_dp[0][i]);
-        }
-    }
     if(camera_at_identity)
     {
         if( dq_drcamera != NULL ) memset(dq_drcamera->xyz, 0, 6*sizeof(double));
         if( dq_dtcamera != NULL ) memset(dq_dtcamera->xyz, 0, 6*sizeof(double));
-        if( dq_drframe  != NULL ) propagate_extrinsics( dq_drframe,  dp_drf );
-        if( dq_dtframe  != NULL ) propagate_extrinsics_cam0( dq_dtframe );
+        if( dq_drframe  != NULL )
+            propagate_extrinsics__splined( dq_drframe,  dp_drf,
+                                           (const double*)du_dp,
+                                           ddeltau_dux, ddeltau_duy,
+                                           fx,fy);
+        if( dq_dtframe  != NULL )
+            propagate_extrinsics_cam0__splined( dq_dtframe,
+                                                du_dp[0], du_dp[1],
+                                                ddeltau_dux, ddeltau_duy,
+                                                fx, fy);
     }
     else
     {
-        if( dq_drcamera != NULL ) propagate_extrinsics( dq_drcamera, dp_drc );
-        if( dq_dtcamera != NULL ) propagate_extrinsics( dq_dtcamera, dp_dtc );
-        if( dq_drframe  != NULL ) propagate_extrinsics( dq_drframe,  dp_drf );
-        if( dq_dtframe  != NULL ) propagate_extrinsics( dq_dtframe,  dp_dtf );
+        if( dq_drcamera != NULL )
+            propagate_extrinsics__splined( dq_drcamera, dp_drc,
+                                           (const double*)du_dp,
+                                           ddeltau_dux, ddeltau_duy,
+                                           fx,fy);
+        if( dq_dtcamera != NULL )
+            propagate_extrinsics__splined( dq_dtcamera, dp_dtc,
+                                           (const double*)du_dp,
+                                           ddeltau_dux, ddeltau_duy,
+                                           fx,fy);
+        if( dq_drframe  != NULL )
+            propagate_extrinsics__splined( dq_drframe,  dp_drf,
+                                           (const double*)du_dp,
+                                           ddeltau_dux, ddeltau_duy,
+                                           fx,fy);
+        if( dq_dtframe  != NULL )
+            propagate_extrinsics__splined( dq_dtframe,  dp_dtf,
+                                           (const double*)du_dp,
+                                           ddeltau_dux, ddeltau_duy,
+                                           fx,fy);
     }
 }
 
@@ -2216,6 +2277,258 @@ typedef struct
     uint16_t run_side_length;
     uint16_t ivar_stridey;
 } gradient_sparse_meta_t;
+
+
+// This is internal to project()
+void _propagate_extrinsics_one(mrcal_point3_t* dp_dparam,
+                               const mrcal_point3_t* pt_ref,
+                               const double* drj_dparam,
+                               const double* dtj_dparam,
+                               const double* d_Rj_rj)
+{
+    // dRj[row0]/drj is 3x3 matrix at &d_Rj_rj[0]
+    // dRj[row0]/drc = dRj[row0]/drj * drj_drc
+    for(int i=0; i<3; i++)
+    {
+        mul_vec3_gen33_vout( pt_ref->xyz, &d_Rj_rj[9*i], dp_dparam[i].xyz );
+        mul_vec3_gen33     ( dp_dparam[i].xyz,   drj_dparam);
+        add_vec(3, dp_dparam[i].xyz, &dtj_dparam[3*i] );
+    }
+}
+void _propagate_extrinsics_one_rzero(mrcal_point3_t* dp_dparam,
+                                     const mrcal_point3_t* pt_ref,
+                                     const double* dtj_dparam,
+                                     const double* d_Rj_rj)
+{
+    // dRj[row0]/drj is 3x3 matrix at &d_Rj_rj[0]
+    // dRj[row0]/drc = dRj[row0]/drj * drj_drc
+    memcpy(dp_dparam->xyz, dtj_dparam, 9*sizeof(double));
+}
+void _propagate_extrinsics_one_tzero(mrcal_point3_t* dp_dparam,
+                                     const mrcal_point3_t* pt_ref,
+                                     const double* drj_dparam,
+                                     const double* d_Rj_rj)
+{
+    // dRj[row0]/drj is 3x3 matrix at &d_Rj_rj[0]
+    // dRj[row0]/drc = dRj[row0]/drj * drj_drc
+    for(int i=0; i<3; i++)
+    {
+        mul_vec3_gen33_vout( pt_ref->xyz, &d_Rj_rj[9*i], dp_dparam[i].xyz );
+        mul_vec3_gen33     ( dp_dparam[i].xyz,   drj_dparam);
+    }
+}
+void _propagate_extrinsics_one_rzero_tidentity(mrcal_point3_t* dp_dparam,
+                                               const mrcal_point3_t* pt_ref,
+                                               const double* d_Rj_rj)
+{
+    dp_dparam[0] = (mrcal_point3_t){.x = 1.0};
+    dp_dparam[1] = (mrcal_point3_t){.y = 1.0};
+    dp_dparam[2] = (mrcal_point3_t){.z = 1.0};
+}
+
+void _propagate_extrinsics_one_cam0(mrcal_point3_t* dp_rf,
+                                    const mrcal_point3_t* pt_ref,
+                                    const double* _d_Rf_rf)
+{
+    // dRj[row0]/drj is 3x3 matrix at &_d_Rf_rf[0]
+    // dRj[row0]/drc = dRj[row0]/drj * drj_drc
+    for(int i=0; i<3; i++)
+        mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rf_rf[9*i], dp_rf[i].xyz );
+}
+mrcal_point3_t _propagate_extrinsics( // output
+                                      mrcal_point3_t* _dp_drc,
+                                      mrcal_point3_t* _dp_dtc,
+                                      mrcal_point3_t* _dp_drf,
+                                      mrcal_point3_t* _dp_dtf,
+                                      mrcal_point3_t** dp_drc,
+                                      mrcal_point3_t** dp_dtc,
+                                      mrcal_point3_t** dp_drf,
+                                      mrcal_point3_t** dp_dtf,
+
+                                      // input
+                                      const mrcal_point3_t* pt_ref,
+                                      const geometric_gradients_t* gg,
+                                      const double* Rj, const double* d_Rj_rj,
+                                      const double* _tj )
+{
+    // Rj * pt + tj -> pt
+    mrcal_point3_t p;
+    mul_vec3_gen33t_vout(pt_ref->xyz, Rj, p.xyz);
+    add_vec(3, p.xyz,  _tj);
+
+    if(gg != NULL)
+    {
+        _propagate_extrinsics_one(                _dp_drc, pt_ref, gg->_d_rj_rc, gg->_d_tj_rc, d_Rj_rj);
+        _propagate_extrinsics_one_rzero_tidentity(_dp_dtc, pt_ref,                             d_Rj_rj);
+        _propagate_extrinsics_one_tzero(          _dp_drf, pt_ref, gg->_d_rj_rf,               d_Rj_rj);
+        _propagate_extrinsics_one_rzero(          _dp_dtf, pt_ref,               gg->_d_tj_tf, d_Rj_rj);
+        *dp_drc = _dp_drc;
+        *dp_dtc = _dp_dtc;
+        *dp_drf = _dp_drf;
+        *dp_dtf = _dp_dtf;
+    }
+    else
+    {
+        // camera is at the reference. The "joint" coord system is the "frame"
+        // coord system
+        //
+        //   p_cam = Rf p_ref + tf
+        //
+        // dp/drc = 0
+        // dp/dtc = 0
+        // dp/drf = reshape(dRf_drf p_ref)
+        // dp/dtf = I
+        _propagate_extrinsics_one_cam0(_dp_drf, pt_ref, d_Rj_rj);
+
+        *dp_drc = NULL;
+        *dp_dtc = NULL;
+        *dp_drf = _dp_drf;
+        *dp_dtf = NULL; // this is I. The user of this MUST know to interpret
+        // it that way
+    }
+    return p;
+}
+// This is internal to project()
+void _project_point( // outputs
+                     mrcal_point2_t* q,
+                     mrcal_point2_t* p_dq_dfxy,
+                     double* p_dq_dintrinsics_nocore,
+                     double* gradient_sparse_meta_pool,
+                     int runlen,
+                     mrcal_point3_t* restrict dq_drcamera,
+                     mrcal_point3_t* restrict dq_dtcamera,
+                     mrcal_point3_t* restrict dq_drframe,
+                     mrcal_point3_t* restrict dq_dtframe,
+                     mrcal_calobject_warp_t* restrict dq_dcalobject_warp,
+                     int*            restrict dq_dintrinsics_pool_int,
+                     // inputs
+                     const mrcal_point3_t* p,
+                     const double* restrict intrinsics,
+                     const mrcal_lensmodel_t* lensmodel,
+                     const mrcal_calobject_warp_t* dpt_refz_dwarp,
+                     // if NULL then the camera is at the reference
+                     bool camera_at_identity,
+                     const double* Rj,
+                     const int Nintrinsics,
+                     const mrcal_projection_precomputed_t* precomputed,
+                     const mrcal_point3_t* dp_drc,
+                     const mrcal_point3_t* dp_dtc,
+                     const mrcal_point3_t* dp_drf,
+                     const mrcal_point3_t* dp_dtf)
+{
+    if(lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
+    {
+        // only need 3+3 for quadratic splines
+        double grad_ABCDx_ABCDy[4+4];
+        int ivar0;
+
+        _project_point_splined( // outputs
+                                q, p_dq_dfxy,
+                                grad_ABCDx_ABCDy,
+                                &ivar0,
+
+                                dq_drcamera,dq_dtcamera,dq_drframe,dq_dtframe,
+                                // inputs
+                                p,
+                                dp_drc, dp_dtc, dp_drf, dp_dtf,
+                                intrinsics,
+                                camera_at_identity,
+                                lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order,
+                                lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx,
+                                lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny,
+                                precomputed->LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed.segments_per_u);
+        // WARNING: if I could assume that dq_dintrinsics_pool_double!=NULL then I wouldnt need to copy the context
+        if(dq_dintrinsics_pool_int != NULL)
+        {
+            *(dq_dintrinsics_pool_int++) = ivar0;
+            memcpy(gradient_sparse_meta_pool,
+                   grad_ABCDx_ABCDy,
+                   sizeof(double)*runlen*2);
+        }
+    }
+    else if(lensmodel->type == MRCAL_LENSMODEL_CAHVOR)
+    {
+        project_cahvor( // outputs
+                        q,p_dq_dfxy,
+                        p_dq_dintrinsics_nocore,
+                        dq_drcamera,dq_dtcamera,dq_drframe,dq_dtframe,
+                        // inputs
+                        p,
+                        dp_drc, dp_dtc, dp_drf, dp_dtf,
+                        intrinsics,
+                        camera_at_identity,
+                        lensmodel);
+    }
+    else if(lensmodel->type == MRCAL_LENSMODEL_CAHVORE)
+    {
+        if(!project_cahvore( // outputs
+                             q,p_dq_dfxy,
+                             p_dq_dintrinsics_nocore,
+                             dq_drcamera,dq_dtcamera,dq_drframe,dq_dtframe,
+                             // inputs
+                             p,
+                             dp_drc, dp_dtc, dp_drf, dp_dtf,
+                             intrinsics,
+                             camera_at_identity,
+                             lensmodel))
+        {
+            MSG("CAHVORE PROJECTION OF (%f,%f,%f) FAILED. I don't know what to do. Setting result and all gradients to 0",
+                p->x, p->y, p->z);
+            memset(q, 0, sizeof(*q));
+            if(p_dq_dfxy)               memset(p_dq_dfxy,               0, sizeof(*p_dq_dfxy));
+            if(p_dq_dintrinsics_nocore) memset(p_dq_dintrinsics_nocore, 0, sizeof(*p_dq_dintrinsics_nocore) * 2 * (Nintrinsics-4));
+            if(dq_drcamera)             memset(dq_drcamera,             0, sizeof(*dq_drcamera));
+            if(dq_dtcamera)             memset(dq_dtcamera,             0, sizeof(*dq_dtcamera));
+            if(dq_drframe)              memset(dq_drframe,              0, sizeof(*dq_drframe));
+            if(dq_dtframe)              memset(dq_dtframe,              0, sizeof(*dq_dtframe));
+
+        }
+    }
+    else
+    {
+        _project_point_parametric( // outputs
+                                   q,p_dq_dfxy,
+                                   p_dq_dintrinsics_nocore,
+                                   dq_drcamera,dq_dtcamera,dq_drframe,dq_dtframe,
+                                   // inputs
+                                   p,
+                                   dp_drc, dp_dtc, dp_drf, dp_dtf,
+                                   intrinsics,
+                                   camera_at_identity,
+                                   lensmodel);
+    }
+
+    if( dq_dcalobject_warp != NULL && dpt_refz_dwarp != NULL )
+    {
+        // p = proj(Rc Rf warp(x) + Rc tf + tc);
+        // dp/dw = dp/dRcRf(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
+        //       = dp/dtc RcRf dwarp/dw
+        // dp/dtc is dq_dtcamera
+        // R is rodrigues(rj)
+        // dwarp/dw = [0 0 0 ...]
+        //            [0 0 0 ...]
+        //            [a b c ...]
+        // Let R = [r0 r1 r2]
+        // dp/dw = dp/dt [a r2   b r2] =
+        //         [a dp/dt r2    b dp/dt r2  ...]
+        mrcal_point3_t* p_dq_dt;
+        if(!camera_at_identity) p_dq_dt = dq_dtcamera;
+        else                    p_dq_dt = dq_dtframe;
+        double d[] =
+            { p_dq_dt[0].xyz[0] * Rj[0*3 + 2] +
+              p_dq_dt[0].xyz[1] * Rj[1*3 + 2] +
+              p_dq_dt[0].xyz[2] * Rj[2*3 + 2],
+              p_dq_dt[1].xyz[0] * Rj[0*3 + 2] +
+              p_dq_dt[1].xyz[1] * Rj[1*3 + 2] +
+              p_dq_dt[1].xyz[2] * Rj[2*3 + 2]};
+
+        for(int i=0; i<MRCAL_NSTATE_CALOBJECT_WARP; i++)
+        {
+            dq_dcalobject_warp[0].values[i] = d[0]*dpt_refz_dwarp->values[i];
+            dq_dcalobject_warp[1].values[i] = d[1]*dpt_refz_dwarp->values[i];
+        }
+    }
+}
 
 // Projects 3D point(s), and reports the projection, and all the gradients. This
 // is the main internal callback in the optimizer. This operates in one of two modes:
@@ -2412,8 +2725,8 @@ void project( // out
         }
     }
 
-    // These are produced by propagate_extrinsics() and consumed by
-    // project_point()
+    // These are produced by _propagate_extrinsics() and consumed by
+    // _project_point()
     mrcal_point3_t _dp_drc[3];
     mrcal_point3_t _dp_dtc[3];
     mrcal_point3_t _dp_drf[3];
@@ -2423,252 +2736,28 @@ void project( // out
     mrcal_point3_t* dp_drf;
     mrcal_point3_t* dp_dtf;
 
-    mrcal_point3_t propagate_extrinsics( const mrcal_point3_t* pt_ref,
-                                   const geometric_gradients_t* gg,
-                                   const double* Rj, const double* d_Rj_rj,
-                                   const double* _tj )
-    {
-        // Rj * pt + tj -> pt
-        mrcal_point3_t p;
-        mul_vec3_gen33t_vout(pt_ref->xyz, Rj, p.xyz);
-        add_vec(3, p.xyz,  _tj);
-
-        void propagate_extrinsics_one(mrcal_point3_t* dp_dparam,
-                                      const double* drj_dparam,
-                                      const double* dtj_dparam,
-                                      const double* d_Rj_rj)
-        {
-            // dRj[row0]/drj is 3x3 matrix at &d_Rj_rj[0]
-            // dRj[row0]/drc = dRj[row0]/drj * drj_drc
-            for(int i=0; i<3; i++)
-            {
-                mul_vec3_gen33_vout( pt_ref->xyz, &d_Rj_rj[9*i], dp_dparam[i].xyz );
-                mul_vec3_gen33     ( dp_dparam[i].xyz,   drj_dparam);
-                add_vec(3, dp_dparam[i].xyz, &dtj_dparam[3*i] );
-            }
-        }
-        void propagate_extrinsics_one_rzero(mrcal_point3_t* dp_dparam,
-                                            const double* dtj_dparam,
-                                            const double* d_Rj_rj)
-        {
-            // dRj[row0]/drj is 3x3 matrix at &d_Rj_rj[0]
-            // dRj[row0]/drc = dRj[row0]/drj * drj_drc
-            memcpy(dp_dparam->xyz, dtj_dparam, 9*sizeof(double));
-        }
-        void propagate_extrinsics_one_tzero(mrcal_point3_t* dp_dparam,
-                                            const double* drj_dparam,
-                                            const double* d_Rj_rj)
-        {
-            // dRj[row0]/drj is 3x3 matrix at &d_Rj_rj[0]
-            // dRj[row0]/drc = dRj[row0]/drj * drj_drc
-            for(int i=0; i<3; i++)
-            {
-                mul_vec3_gen33_vout( pt_ref->xyz, &d_Rj_rj[9*i], dp_dparam[i].xyz );
-                mul_vec3_gen33     ( dp_dparam[i].xyz,   drj_dparam);
-            }
-        }
-        void propagate_extrinsics_one_rzero_tidentity(mrcal_point3_t* dp_dparam,
-                                                      const double* d_Rj_rj)
-        {
-            dp_dparam[0] = (mrcal_point3_t){.x = 1.0};
-            dp_dparam[1] = (mrcal_point3_t){.y = 1.0};
-            dp_dparam[2] = (mrcal_point3_t){.z = 1.0};
-        }
-
-        void propagate_extrinsics_one_cam0(mrcal_point3_t* dp_rf,
-                                           const double* _d_Rf_rf)
-        {
-            // dRj[row0]/drj is 3x3 matrix at &_d_Rf_rf[0]
-            // dRj[row0]/drc = dRj[row0]/drj * drj_drc
-            for(int i=0; i<3; i++)
-                mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rf_rf[9*i], dp_rf[i].xyz );
-        }
-        if(gg != NULL)
-        {
-            propagate_extrinsics_one(                _dp_drc, gg->_d_rj_rc, gg->_d_tj_rc, d_Rj_rj);
-            propagate_extrinsics_one_rzero_tidentity(_dp_dtc,                             d_Rj_rj);
-            propagate_extrinsics_one_tzero(          _dp_drf, gg->_d_rj_rf,               d_Rj_rj);
-            propagate_extrinsics_one_rzero(          _dp_dtf,               gg->_d_tj_tf, d_Rj_rj);
-            dp_drc = _dp_drc;
-            dp_dtc = _dp_dtc;
-            dp_drf = _dp_drf;
-            dp_dtf = _dp_dtf;
-        }
-        else
-        {
-            // camera is at the reference. The "joint" coord system is the "frame"
-            // coord system
-            //
-            //   p_cam = Rf p_ref + tf
-            //
-            // dp/drc = 0
-            // dp/dtc = 0
-            // dp/drf = reshape(dRf_drf p_ref)
-            // dp/dtf = I
-            propagate_extrinsics_one_cam0(_dp_drf, d_Rj_rj);
-
-            dp_drc = NULL;
-            dp_dtc = NULL;
-            dp_drf = _dp_drf;
-            dp_dtf = NULL; // this is I. The user of this MUST know to interpret
-            // it that way
-        }
-        return p;
-    }
-
-    void project_point( // outputs
-                       mrcal_point2_t* q,
-                       mrcal_point2_t* p_dq_dfxy,
-                       double* p_dq_dintrinsics_nocore,
-                       double* gradient_sparse_meta_pool,
-                       int runlen,
-                       mrcal_point3_t* restrict dq_drcamera,
-                       mrcal_point3_t* restrict dq_dtcamera,
-                       mrcal_point3_t* restrict dq_drframe,
-                       mrcal_point3_t* restrict dq_dtframe,
-                       mrcal_calobject_warp_t* restrict dq_dcalobject_warp,
-                       // inputs
-                       const mrcal_point3_t* p,
-                       const double* restrict intrinsics,
-                       const mrcal_lensmodel_t* lensmodel,
-                       const mrcal_calobject_warp_t* dpt_refz_dwarp,
-
-                       // if NULL then the camera is at the reference
-                       bool camera_at_identity,
-                       const double* Rj)
-    {
-        if(lensmodel->type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC)
-        {
-            // only need 3+3 for quadratic splines
-            double grad_ABCDx_ABCDy[4+4];
-            int ivar0;
-
-            _project_point_splined( // outputs
-                                   q, p_dq_dfxy,
-                                   grad_ABCDx_ABCDy,
-                                   &ivar0,
-
-                                   dq_drcamera,dq_dtcamera,dq_drframe,dq_dtframe,
-                                   // inputs
-                                   p,
-                                   dp_drc, dp_dtc, dp_drf, dp_dtf,
-                                   intrinsics,
-                                   camera_at_identity,
-                                   lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.order,
-                                   lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.Nx,
-                                   lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny,
-                                   precomputed->LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed.segments_per_u);
-            // WARNING: if I could assume that dq_dintrinsics_pool_double!=NULL then I wouldnt need to copy the context
-            if(dq_dintrinsics_pool_int != NULL)
-            {
-                *(dq_dintrinsics_pool_int++) = ivar0;
-                memcpy(gradient_sparse_meta_pool,
-                       grad_ABCDx_ABCDy,
-                       sizeof(double)*runlen*2);
-            }
-        }
-        else if(lensmodel->type == MRCAL_LENSMODEL_CAHVOR)
-        {
-            project_cahvor( // outputs
-                            q,p_dq_dfxy,
-                            p_dq_dintrinsics_nocore,
-                            dq_drcamera,dq_dtcamera,dq_drframe,dq_dtframe,
-                            // inputs
-                            p,
-                            dp_drc, dp_dtc, dp_drf, dp_dtf,
-                            intrinsics,
-                            camera_at_identity,
-                            lensmodel);
-        }
-        else if(lensmodel->type == MRCAL_LENSMODEL_CAHVORE)
-        {
-            if(!project_cahvore( // outputs
-                                 q,p_dq_dfxy,
-                                 p_dq_dintrinsics_nocore,
-                                 dq_drcamera,dq_dtcamera,dq_drframe,dq_dtframe,
-                                 // inputs
-                                 p,
-                                 dp_drc, dp_dtc, dp_drf, dp_dtf,
-                                 intrinsics,
-                                 camera_at_identity,
-                                 lensmodel))
-            {
-                MSG("CAHVORE PROJECTION OF (%f,%f,%f) FAILED. I don't know what to do. Setting result and all gradients to 0",
-                    p->x, p->y, p->z);
-                memset(q, 0, sizeof(*q));
-                if(p_dq_dfxy)               memset(p_dq_dfxy,               0, sizeof(*p_dq_dfxy));
-                if(p_dq_dintrinsics_nocore) memset(p_dq_dintrinsics_nocore, 0, sizeof(*p_dq_dintrinsics_nocore) * 2 * (Nintrinsics-4));
-                if(dq_drcamera)             memset(dq_drcamera,             0, sizeof(*dq_drcamera));
-                if(dq_dtcamera)             memset(dq_dtcamera,             0, sizeof(*dq_dtcamera));
-                if(dq_drframe)              memset(dq_drframe,              0, sizeof(*dq_drframe));
-                if(dq_dtframe)              memset(dq_dtframe,              0, sizeof(*dq_dtframe));
-
-            }
-        }
-        else
-        {
-            _project_point_parametric( // outputs
-                                      q,p_dq_dfxy,
-                                      p_dq_dintrinsics_nocore,
-                                      dq_drcamera,dq_dtcamera,dq_drframe,dq_dtframe,
-                                      // inputs
-                                      p,
-                                      dp_drc, dp_dtc, dp_drf, dp_dtf,
-                                      intrinsics,
-                                      camera_at_identity,
-                                      lensmodel);
-        }
-
-        if( dq_dcalobject_warp != NULL && dpt_refz_dwarp != NULL )
-        {
-            // p = proj(Rc Rf warp(x) + Rc tf + tc);
-            // dp/dw = dp/dRcRf(warp(x)) dR(warp(x))/dwarp(x) dwarp/dw =
-            //       = dp/dtc RcRf dwarp/dw
-            // dp/dtc is dq_dtcamera
-            // R is rodrigues(rj)
-            // dwarp/dw = [0 0 0 ...]
-            //            [0 0 0 ...]
-            //            [a b c ...]
-            // Let R = [r0 r1 r2]
-            // dp/dw = dp/dt [a r2   b r2] =
-            //         [a dp/dt r2    b dp/dt r2  ...]
-            mrcal_point3_t* p_dq_dt;
-            if(!camera_at_identity) p_dq_dt = dq_dtcamera;
-            else                    p_dq_dt = dq_dtframe;
-            double d[] =
-                { p_dq_dt[0].xyz[0] * Rj[0*3 + 2] +
-                  p_dq_dt[0].xyz[1] * Rj[1*3 + 2] +
-                  p_dq_dt[0].xyz[2] * Rj[2*3 + 2],
-                  p_dq_dt[1].xyz[0] * Rj[0*3 + 2] +
-                  p_dq_dt[1].xyz[1] * Rj[1*3 + 2] +
-                  p_dq_dt[1].xyz[2] * Rj[2*3 + 2]};
-
-            for(int i=0; i<MRCAL_NSTATE_CALOBJECT_WARP; i++)
-            {
-                dq_dcalobject_warp[0].values[i] = d[0]*dpt_refz_dwarp->values[i];
-                dq_dcalobject_warp[1].values[i] = d[1]*dpt_refz_dwarp->values[i];
-            }
-        }
-    }
-
-
-
     if( calibration_object_width_n == 0 )
     { // projecting discrete points
         mrcal_point3_t p =
-            propagate_extrinsics( &(mrcal_point3_t){},
-                                  camera_at_identity ? NULL : &gg,
-                                  Rj, d_Rj_rj, &joint_rt[3]);
-        project_point(  q,
-                        p_dq_dfxy, p_dq_dintrinsics_nocore,
-                        gradient_sparse_meta ? gradient_sparse_meta->pool : NULL,
-                        runlen,
-                        dq_drcamera, dq_dtcamera, dq_drframe, dq_dtframe, NULL,
+            _propagate_extrinsics( _dp_drc,_dp_dtc,_dp_drf,_dp_dtf,
+                                   &dp_drc,&dp_dtc,&dp_drf,&dp_dtf,
+                                   &(mrcal_point3_t){},
+                                   camera_at_identity ? NULL : &gg,
+                                   Rj, d_Rj_rj, &joint_rt[3]);
+        _project_point(  q,
+                         p_dq_dfxy, p_dq_dintrinsics_nocore,
+                         gradient_sparse_meta ? gradient_sparse_meta->pool : NULL,
+                         runlen,
+                         dq_drcamera, dq_dtcamera, dq_drframe, dq_dtframe, NULL,
+                         dq_dintrinsics_pool_int,
 
-                        &p,
-                        intrinsics, lensmodel,
-                        NULL,
-                        camera_at_identity, Rj);
+                         &p,
+                         intrinsics, lensmodel,
+                         NULL,
+                         camera_at_identity, Rj,
+                         Nintrinsics,
+                         precomputed,
+                         dp_drc,dp_dtc,dp_drf,dp_dtf);
     }
     else
     { // projecting a chessboard
@@ -2702,9 +2791,11 @@ void project( // out
                 }
 
                 mrcal_point3_t p =
-                    propagate_extrinsics( &pt_ref,
-                                          camera_at_identity ? NULL : &gg,
-                                          Rj, d_Rj_rj, &joint_rt[3]);
+                    _propagate_extrinsics( _dp_drc,_dp_dtc,_dp_drf,_dp_dtf,
+                                           &dp_drc,&dp_dtc,&dp_drf,&dp_dtf,
+                                           &pt_ref,
+                                           camera_at_identity ? NULL : &gg,
+                                           Rj, d_Rj_rj, &joint_rt[3]);
 
                 mrcal_point3_t* dq_drcamera_here          = dq_drcamera        ? &dq_drcamera        [i_pt*2] : NULL;
                 mrcal_point3_t* dq_dtcamera_here          = dq_dtcamera        ? &dq_dtcamera        [i_pt*2] : NULL;
@@ -2718,22 +2809,26 @@ void project( // out
                 {
                     // I need all translation gradients to be available to
                     // compute the calobject_warp gradients (see the end of the
-                    // project_point() function above). So I compute those even
+                    // _project_point() function above). So I compute those even
                     // if the caller didn't ask for them
                     if(!dq_dtcamera_here) dq_dtcamera_here = dq_dtcamera_here_dummy;
                     if(!dq_dtframe_here)  dq_dtframe_here  = dq_dtframe_here_dummy;
                 }
 
-                project_point(&q[i_pt],
-                              p_dq_dfxy ? &p_dq_dfxy[i_pt] : NULL,
-                              p_dq_dintrinsics_nocore ? &p_dq_dintrinsics_nocore[2*(Nintrinsics-4)*i_pt] : NULL,
-                              gradient_sparse_meta ? &gradient_sparse_meta->pool[i_pt*runlen*2] : NULL,
-                              runlen,
-                              dq_drcamera_here, dq_dtcamera_here, dq_drframe_here, dq_dtframe_here, dq_dcalobject_warp_here,
-                              &p,
-                              intrinsics, lensmodel,
-                              &dpt_refz_dwarp,
-                              camera_at_identity, Rj);
+                _project_point(&q[i_pt],
+                               p_dq_dfxy ? &p_dq_dfxy[i_pt] : NULL,
+                               p_dq_dintrinsics_nocore ? &p_dq_dintrinsics_nocore[2*(Nintrinsics-4)*i_pt] : NULL,
+                               gradient_sparse_meta ? &gradient_sparse_meta->pool[i_pt*runlen*2] : NULL,
+                               runlen,
+                               dq_drcamera_here, dq_dtcamera_here, dq_drframe_here, dq_dtframe_here, dq_dcalobject_warp_here,
+                               dq_dintrinsics_pool_int,
+                               &p,
+                               intrinsics, lensmodel,
+                               &dpt_refz_dwarp,
+                               camera_at_identity, Rj,
+                               Nintrinsics,
+                               precomputed,
+                               dp_drc,dp_dtc,dp_drf,dp_dtf);
                 i_pt++;
             }
     }
@@ -2984,6 +3079,66 @@ bool mrcal_unproject( // out
     return _mrcal_unproject_internal(out, q, N, lensmodel, intrinsics, &precomputed);
 }
 
+typedef struct
+{
+    const mrcal_lensmodel_t* lensmodel;
+    // core, distortions concatenated
+    const double* intrinsics;
+    const mrcal_projection_precomputed_t* precomputed;
+    const mrcal_point2_t* q;
+} _unproject_callback_cookie_t;
+static
+void _unproject_callback(const double*   u,
+                         double*         x,
+                         double*         J,
+                         void*           _cookie)
+{
+    _unproject_callback_cookie_t* cookie = (_unproject_callback_cookie_t*)_cookie;
+
+    // u is the constant-fxy-cxy 2D stereographic
+    // projection of the hypothesis v. I unproject it stereographically,
+    // and project it using the actual model
+    mrcal_point2_t dv_du[3];
+    mrcal_pose_t frame = {};
+    mrcal_unproject_stereographic( &frame.t, dv_du,
+                                   (mrcal_point2_t*)u, 1,
+                                   cookie->intrinsics );
+
+    mrcal_point3_t dq_dtframe[2];
+    mrcal_point2_t q_hypothesis;
+    project( &q_hypothesis,
+             NULL,NULL,NULL,NULL,NULL,
+             NULL, NULL, NULL, dq_dtframe,
+             NULL,
+
+             // in
+             cookie->intrinsics,
+             NULL,
+             &frame,
+             NULL,
+             true,
+             cookie->lensmodel, cookie->precomputed,
+             0.0, 0,0);
+    x[0] = q_hypothesis.x - cookie->q->x;
+    x[1] = q_hypothesis.y - cookie->q->y;
+    J[0*2 + 0] =
+        dq_dtframe[0].x*dv_du[0].x +
+        dq_dtframe[0].y*dv_du[1].x +
+        dq_dtframe[0].z*dv_du[2].x;
+    J[0*2 + 1] =
+        dq_dtframe[0].x*dv_du[0].y +
+        dq_dtframe[0].y*dv_du[1].y +
+        dq_dtframe[0].z*dv_du[2].y;
+    J[1*2 + 0] =
+        dq_dtframe[1].x*dv_du[0].x +
+        dq_dtframe[1].y*dv_du[1].x +
+        dq_dtframe[1].z*dv_du[2].x;
+    J[1*2 + 1] =
+        dq_dtframe[1].x*dv_du[0].y +
+        dq_dtframe[1].y*dv_du[1].y +
+        dq_dtframe[1].z*dv_du[2].y;
+}
+
 // NOT A PART OF THE EXTERNAL API. This is exported for the mrcal python wrapper
 // only
 bool _mrcal_unproject_internal( // out
@@ -3037,56 +3192,6 @@ bool _mrcal_unproject_internal( // out
     // unconstrained optimization here
     for(int i=0; i<N; i++)
     {
-        void cb(const double*   u,
-                double*         x,
-                double*         J,
-                void*           cookie __attribute__((unused)))
-        {
-            // u is the constant-fxy-cxy 2D stereographic
-            // projection of the hypothesis v. I unproject it stereographically,
-            // and project it using the actual model
-            mrcal_point2_t dv_du[3];
-            mrcal_pose_t frame = {};
-            mrcal_unproject_stereographic( &frame.t, dv_du,
-                                           (mrcal_point2_t*)u, 1,
-                                           intrinsics );
-
-            mrcal_point3_t dq_dtframe[2];
-            mrcal_point2_t q_hypothesis;
-            project( &q_hypothesis,
-                     NULL,NULL,NULL,NULL,NULL,
-                     NULL, NULL, NULL, dq_dtframe,
-                     NULL,
-
-                     // in
-                     intrinsics,
-                     NULL,
-                     &frame,
-                     NULL,
-                     true,
-                     lensmodel, precomputed,
-                     0.0, 0,0);
-            x[0] = q_hypothesis.x - q[i].x;
-            x[1] = q_hypothesis.y - q[i].y;
-            J[0*2 + 0] =
-                dq_dtframe[0].x*dv_du[0].x +
-                dq_dtframe[0].y*dv_du[1].x +
-                dq_dtframe[0].z*dv_du[2].x;
-            J[0*2 + 1] =
-                dq_dtframe[0].x*dv_du[0].y +
-                dq_dtframe[0].y*dv_du[1].y +
-                dq_dtframe[0].z*dv_du[2].y;
-            J[1*2 + 0] =
-                dq_dtframe[1].x*dv_du[0].x +
-                dq_dtframe[1].y*dv_du[1].x +
-                dq_dtframe[1].z*dv_du[2].x;
-            J[1*2 + 1] =
-                dq_dtframe[1].x*dv_du[0].y +
-                dq_dtframe[1].y*dv_du[1].y +
-                dq_dtframe[1].z*dv_du[2].y;
-        }
-
-
         const double fx = intrinsics[0];
         const double fy = intrinsics[1];
         const double cx = intrinsics[2];
@@ -3107,8 +3212,14 @@ bool _mrcal_unproject_internal( // out
         dogleg_parameters2_t dogleg_parameters;
         dogleg_getDefaultParameters(&dogleg_parameters);
         dogleg_parameters.dogleg_debug = 0;
+
+        _unproject_callback_cookie_t cookie =
+            { .lensmodel   = lensmodel,
+              .intrinsics  = intrinsics,
+              .precomputed = precomputed,
+              .q           = &q[i] };
         double norm2x =
-            dogleg_optimize_dense2(out->xyz, 2, 2, cb, NULL,
+            dogleg_optimize_dense2(out->xyz, 2, 2, _unproject_callback, (void*)&cookie,
                                    &dogleg_parameters,
                                    NULL);
         //This needs to be precise; if it isn't, I barf. Shouldn't happen
@@ -3760,6 +3871,40 @@ int mrcal_num_states_calobject_warp(mrcal_problem_selections_t problem_selection
 // If we have moving cameras (NOT a vanilla calibration problem), there isn't a
 // single icam_extrinsics for a given icam_intrinsics, and we report an error by
 // returning false
+static
+bool _corresponding_icam_extrinsics__check( const mrcal_camera_index_t* icam, int i,
+                                            int* icam_map_to_extrinsics,
+                                            int* icam_map_to_intrinsics,
+                                            const char* what)
+{
+    int icam_intrinsics = icam->intrinsics;
+    int icam_extrinsics = icam->extrinsics;
+
+    if(icam_extrinsics < 0) icam_extrinsics = -1;
+
+    if(icam_map_to_intrinsics[icam_extrinsics+1] == -100)
+        icam_map_to_intrinsics[icam_extrinsics+1] = icam_intrinsics;
+    else if(icam_map_to_intrinsics[icam_extrinsics+1] != icam_intrinsics)
+    {
+        MSG("Cannot compute icam_extrinsics. I don't have a vanilla calibration problem: %s observation %d has icam_intrinsics,icam_extrinsics %d,%d while I saw %d,%d previously",
+            what, i,
+            icam_map_to_intrinsics[icam_extrinsics+1], icam_extrinsics,
+            icam_intrinsics, icam_extrinsics);
+        return false;
+    }
+
+    if(icam_map_to_extrinsics[icam_intrinsics] == -100)
+        icam_map_to_extrinsics[icam_intrinsics] = icam_extrinsics;
+    else if(icam_map_to_extrinsics[icam_intrinsics] != icam_extrinsics)
+    {
+        MSG("Cannot compute icam_extrinsics. I don't have a vanilla calibration problem: %s observation %d has icam_intrinsics,icam_extrinsics %d,%d while I saw %d,%d previously",
+            what, i,
+            icam_intrinsics, icam_map_to_extrinsics[icam_intrinsics],
+            icam_intrinsics, icam_extrinsics);
+        return false;
+    }
+    return true;
+}
 bool mrcal_corresponding_icam_extrinsics(// out
                                          int* icam_extrinsics,
 
@@ -3784,44 +3929,17 @@ bool mrcal_corresponding_icam_extrinsics(// out
     for(int i=0; i<Ncameras_intrinsics;   i++) icam_map_to_extrinsics[i] = -100;
     for(int i=0; i<Ncameras_extrinsics+1; i++) icam_map_to_intrinsics[i] = -100;
 
-
-    bool check( const mrcal_camera_index_t* icam, int i, const char* what)
-    {
-        int icam_intrinsics = icam->intrinsics;
-        int icam_extrinsics = icam->extrinsics;
-
-        if(icam_extrinsics < 0) icam_extrinsics = -1;
-
-        if(icam_map_to_intrinsics[icam_extrinsics+1] == -100)
-            icam_map_to_intrinsics[icam_extrinsics+1] = icam_intrinsics;
-        else if(icam_map_to_intrinsics[icam_extrinsics+1] != icam_intrinsics)
-        {
-            MSG("Cannot compute icam_extrinsics. I don't have a vanilla calibration problem: %s observation %d has icam_intrinsics,icam_extrinsics %d,%d while I saw %d,%d previously",
-                what, i,
-                icam_map_to_intrinsics[icam_extrinsics+1], icam_extrinsics,
-                icam_intrinsics, icam_extrinsics);
-            return false;
-        }
-
-        if(icam_map_to_extrinsics[icam_intrinsics] == -100)
-            icam_map_to_extrinsics[icam_intrinsics] = icam_extrinsics;
-        else if(icam_map_to_extrinsics[icam_intrinsics] != icam_extrinsics)
-        {
-            MSG("Cannot compute icam_extrinsics. I don't have a vanilla calibration problem: %s observation %d has icam_intrinsics,icam_extrinsics %d,%d while I saw %d,%d previously",
-                what, i,
-                icam_intrinsics, icam_map_to_extrinsics[icam_intrinsics],
-                icam_intrinsics, icam_extrinsics);
-            return false;
-        }
-        return true;
-    }
-
-
     for(int i=0; i<Nobservations_board; i++)
-        if(!check( &observations_board[i].icam, i, "board"))
+        if(!_corresponding_icam_extrinsics__check( &observations_board[i].icam, i,
+                                                   icam_map_to_extrinsics,
+                                                   icam_map_to_intrinsics,
+                                                   "board"))
             return false;
     for(int i=0; i<Nobservations_point; i++)
-        if(!check( &observations_point[i].icam, i, "point"))
+        if(!_corresponding_icam_extrinsics__check( &observations_point[i].icam, i,
+                                                   icam_map_to_extrinsics,
+                                                   icam_map_to_intrinsics,
+                                                   "point"))
             return false;
 
     *icam_extrinsics = icam_map_to_extrinsics[icam_intrinsics];
@@ -4294,6 +4412,35 @@ typedef struct
     const int Nmeasurements, N_j_nonzero, Nintrinsics;
 } callback_context_t;
 
+static
+void penalty_range_normalization(// out
+                                 double* penalty, double* dpenalty_ddistsq,
+
+                                 // in
+                                 // SIGNED distance. <0 means "behind the camera"
+                                 const double distsq,
+                                 const callback_context_t* ctx,
+                                 const double weight)
+{
+    const double maxsq = ctx->problem_constants->point_max_range*ctx->problem_constants->point_max_range;
+    if(distsq > maxsq)
+    {
+        *penalty = weight * (distsq/maxsq - 1.0);
+        *dpenalty_ddistsq = weight*(1. / maxsq);
+        return;
+    }
+
+    const double minsq = ctx->problem_constants->point_min_range*ctx->problem_constants->point_min_range;
+    if(distsq < minsq)
+    {
+        // too close OR behind the camera
+        *penalty = weight*(1.0 - distsq/minsq);
+        *dpenalty_ddistsq = weight*(-1. / minsq);
+        return;
+    }
+
+    *penalty = *dpenalty_ddistsq = 0.0;
+}
 static
 void optimizer_callback(// input state
                        const double*   packed_state,
@@ -5035,34 +5182,6 @@ void optimizer_callback(// input state
 #if 0
         // Now the range normalization (make sure the range isn't
         // aphysically high or aphysically low)
-        void get_penalty(// out
-                         double* penalty, double* dpenalty_ddistsq,
-
-                         // in
-                         // SIGNED distance. <0 means "behind the camera"
-                         const double distsq)
-        {
-            const double maxsq = ctx->problem_constants->point_max_range*ctx->problem_constants->point_max_range;
-            if(distsq > maxsq)
-            {
-                *penalty = weight * (distsq/maxsq - 1.0);
-                *dpenalty_ddistsq = weight*(1. / maxsq);
-                return;
-            }
-
-            const double minsq = ctx->problem_constants->point_min_range*ctx->problem_constants->point_min_range;
-            if(distsq < minsq)
-            {
-                // too close OR behind the camera
-                *penalty = weight*(1.0 - distsq/minsq);
-                *dpenalty_ddistsq = weight*(-1. / minsq);
-                return;
-            }
-
-            *penalty = *dpenalty_ddistsq = 0.0;
-        }
-
-
         if(icam_extrinsics < 0)
         {
             double distsq =
@@ -5072,10 +5191,10 @@ void optimizer_callback(// input state
             double penalty, dpenalty_ddistsq;
             if(model_supports_projection_behind_camera(&ctx->lensmodel) ||
                point_ref.z > 0.0)
-                get_penalty(&penalty, &dpenalty_ddistsq, distsq);
+                penalty_range_normalization(&penalty, &dpenalty_ddistsq, distsq, ctx,weight);
             else
             {
-                get_penalty(&penalty, &dpenalty_ddistsq, -distsq);
+                penalty_range_normalization(&penalty, &dpenalty_ddistsq, -distsq, ctx,weight);
                 dpenalty_ddistsq *= -1.;
             }
 
@@ -5116,10 +5235,10 @@ void optimizer_callback(// input state
             double penalty, dpenalty_ddistsq;
             if(model_supports_projection_behind_camera(&ctx->lensmodel) ||
                pcam.z > 0.0)
-                get_penalty(&penalty, &dpenalty_ddistsq, distsq);
+                penalty_range_normalization(&penalty, &dpenalty_ddistsq, distsq, ctx,weight);
             else
             {
-                get_penalty(&penalty, &dpenalty_ddistsq, -distsq);
+                penalty_range_normalization(&penalty, &dpenalty_ddistsq, -distsq, ctx,weight);
                 dpenalty_ddistsq *= -1.;
             }
 

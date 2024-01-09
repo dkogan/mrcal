@@ -71,25 +71,37 @@ bool mrcal_write_cameramodel_file(const char* filename,
 :PROPERTIES:
 :CUSTOM_ID: cameramodel-file-formats
 :END:
-Two different file formats are available:
+Several different file formats are supported:
 
-- =.cameramodel=: the mrcal-native format. This is a plain text representation
-  of a Python =dict= describing all the fields. This is the preferred format,
-  and the /only/ format supported by the [[file:c-api.org::#cameramodel-io-in-c][C API]]
+- =.cameramodel=: the mrcal-native format, consisting of a plain text
+  representation of a Python =dict=. It supports /all/ the models, and is the
+  /only/ format supported by the [[file:c-api.org::#cameramodel-io-in-c][C API]], and is the only format that contains the
+  =optimization_inputs= and thus can be used for the [[file:uncertainty.org][uncertainty computations]].
 
 - =.cahvor=: the legacy format available for compatibility with existing JPL
   tools. If you don't need to interoperate with tools that require this format,
-  there's little reason to use it. This format cannot store
-  [[file:splined-models.org][splined models]] or =optimization_inputs=, so it
-  cannot be used for the [[file:uncertainty.org][uncertainty computations]]. Not supported in C
+  there's little reason to use it.
 
-Note that both file formats can describe lenses using the [[file:lensmodels.org::#cahvor-lens-model][=LENSMODEL_CAHVOR=]]
-model.
+- [[https://github.com/ethz-asl/kalibr][kalibr]] =.yaml=: the [[https://github.com/ethz-asl/kalibr/wiki/Yaml-formats][format used by the kalibr toolkit]]. Unlike =.cameramodel=
+  files where one camera is described by one file, the =.yaml= files used by
+  kalibr are intended to describe multiple cameras. Thus only partial support is
+  available: we can convert to/from this format using the [[file:mrcal-to-kalibr.html][=mrcal-to-kalibr=]] and
+  [[file:mrcal-from-kalibr.html][=mrcal-from-kalibr=]] tools respectively. At this time the set of models
+  supported by both [[https://github.com/ethz-asl/kalibr][kalibr]] and mrcal contains [[file:lensmodels.org::#lensmodel-pinhole][=LENSMODEL_PINHOLE=]] and
+  [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV4=]] only.
+
+- OpenCV/ROS =.yaml=: the [[https://wiki.ros.org/camera_calibration_parsers][format used by ROS and OpenCV]]. This supports
+  [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV5=]] and [[file:lensmodels.org::#lensmodel-opencv][=LENSMODEL_OPENCV8=]]. This format can describe a stereo
+  pair, but can /not/ describe an arbitrary set of N cameras. The reference
+  coordinate system is at the left-rectified camera.
 
 The [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] class will intelligently pick the correct file format
 based on the data (if reading) and the filename (if writing). The
-[[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]] and [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]] tools can be used to convert between
-the two file formats.
+[[file:mrcal-to-cahvor.html][=mrcal-to-cahvor=]], [[file:mrcal-from-cahvor.html][=mrcal-from-cahvor=]], [[file:mrcal-to-kalibr.html][=mrcal-to-kalibr=]], [[file:mrcal-from-kalibr.html][=mrcal-from-kalibr=]]
+and [[file:mrcal-from-ros.html][=mrcal-from-ros=]] can convert between the different file formats. There's no
+=mrcal-to-ros= at this time because the behavior of such a tool isn't
+well-defined. Talk to me if this would be useful to you, to clarify what it
+should do, exactly.
 
 * Sample usages
 See the [[file:mrcal-python-api-reference.html#cameramodel][API documentation]] for usage details.

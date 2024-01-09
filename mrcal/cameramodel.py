@@ -732,13 +732,12 @@ ARGUMENTS
 
 
 
-            def parse_as_opencv_yaml(modelstring):
-                r'''Try to parse model as an opencv/ros/kalibr string
+            def parse_as_opencv_or_ros(modelstring):
+                r'''Try to parse model as an opencv/ros string
 
 Supports yaml, json. Supports opencv and ros formats. And the output of
 "rostopic echo" for "sensor_msgs/CameraInfo" messages. This functions tries to
 be general, and accept everything.
-
 
 This is documented here: https://wiki.ros.org/camera_calibration_parsers
 
@@ -765,12 +764,38 @@ A sample file:
     cols: 4
     data: [4827.94, 0, 1223.5, 0, 0, 4835.62, 1024.5, 0, 0, 0, 1, 0]
 
-This is trying to include rectification in the model, which is dumb. I should be
-able to have a single camera with extrinsics. I do this:
+A sample sensor_msgs/CameraInfo message:
 
-- Ignore the rectification_matrix
-- Assume the camera matrix is the intrinsics core only
-- Assume the projection_matrix is compose(camera_matrix, Rt_camera_ref)
+  $ rostopic echo -n1 -b tst.bag /camera/camera_info
+
+  ....
+  height: 600
+  width: 960
+  distortion_model: "rational_polynomial"
+  D: [1.5, 0.4, 0.1, -9.2e-05, 0.1, 1.9, 0.9, 0.2]
+  K: [420.1, 0.1, 479.1, 0.1, 420.1, 295.1, 0.1, 0.1, 1.1]
+  R: [0.9998926520347595, 0.014629560522735119, -0.0007753203972242773, -0.014624223113059998, 0.9998719692230225, 0.006493249908089638, 0.0008702144841663539, -0.006481214426457882, 0.9999786019325256]
+  P: [600.0, 0.0, 480.0, -20.3, 0.0, 600.0, 300.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+  ....
+
+These are apparently trying to include rectification in the model, which is
+silly: I should be able to have a single camera with extrinsics. And there're no
+clear extrinsics stored here either, and I must figure out what is really
+intended here.
+
+Here the only "extrinsics" relate the camera to its rectified version.
+Rectification may rotate a camera, but may NOT translate it.
+
+- From previous experience, the rotation in R is R_leftrect_cam
+
+- P[:,3] are scaled translations: t*fx as described here:
+
+    https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html#stereorectify
+
+- From previous experience, the translation in P[:,3]/fx is
+  t_rightrect_leftrect.
+
+So for the purposes of extrinsics, the reference is the "left-rectified" camera
 
                 '''
 
@@ -803,7 +828,7 @@ able to have a single camera with extrinsics. I do this:
                                 model):
                     r'''Search a model dictionary for a given array
 
-There are multiple ros/opencv/kalibr data formats that aren't identical, so this
+There are multiple ros/opencv data formats that aren't identical, so this
 general function is used to find the data. The args are:
 
 
@@ -875,7 +900,7 @@ general function is used to find the data. The args are:
                    M[2,0] != 0 or \
                    M[2,1] != 0 or \
                    M[2,2] != 1:
-                    raise CameramodelParseException(f"model{M_at} should have [fx 0 cx; 0 fy cy; 0 0 1] structure")
+                    raise CameramodelParseException(f"model {M_at} should have [fx 0 cx; 0 fy cy; 0 0 1] structure")
 
                 P,P_at = \
                     find_array( ( ('projection_matrix','data'),
@@ -884,6 +909,27 @@ general function is used to find the data. The args are:
                                 dtype = float,
                                 shape = (3,4),
                                 model = model_in )
+                if P[1,3] != 0 or \
+                   P[2,3] != 0:
+                    raise CameramodelParseException(f"model {P_at} expected to have last column of [x*fx,0,0], but instead have: {P[:,3]}")
+
+                try:
+                    R,R_at = \
+                        find_array( ( ('rotation','data'),
+                                      ('rotation',),
+                                      ('R',) ),
+                                    dtype = float,
+                                    shape = (3,3),
+                                    model = model_in )
+                except:
+                    R = mrcal.identity_R()
+                    R_at = 'default'
+
+                # Special-case P=0 or R=0. Sometimes I see this. Set everything to identity
+                if nps.norm2(P.ravel()) == 0:
+                    P[:,:3] = np.eye(3)
+                if nps.norm2(R.ravel()) == 0:
+                    R       = np.eye(3)
 
                 lensmodel,lensmodel_at = \
                     find_array( ( ('distortion_model',),),
@@ -891,14 +937,17 @@ general function is used to find the data. The args are:
                                 shape = (),
                                 model = model_in )
 
-                if lensmodel == 'plumb_bob':
-                    model['lensmodel'] = 'LENSMODEL_OPENCV5'
-                elif lensmodel == 'rational_polynomial':
-                    model['lensmodel'] = 'LENSMODEL_OPENCV8'
-                elif lensmodel == 'equidistant':
-                    raise CameramodelParseException('"equidistant" OpenCV model not supported yet')
-                else:
-                    raise CameramodelParseException(f"Unknown OpenCV model \"{lensmodel}\"")
+                map_lensmodel = \
+                    dict(plumb_bob           = 'LENSMODEL_OPENCV5',
+                         rational_polynomial = 'LENSMODEL_OPENCV8')
+
+                try:
+                    model['lensmodel'] = map_lensmodel[lensmodel]
+                except:
+                    if lensmodel == 'equidistant':
+                        raise CameramodelParseException('"equidistant" OpenCV model not supported yet')
+                    else:
+                        raise CameramodelParseException(f"Unknown OpenCV model \"{lensmodel}\". I only about: {list(map_lensmodel.keys())}")
 
                 distortion,distortion_at = \
                     find_array( ( ('distortion_coefficients','data'),
@@ -913,40 +962,37 @@ general function is used to find the data. The args are:
                           [M[0,0],M[1,1],M[0,2],M[1,2]] + \
                           list(distortion)
                 except Exception as e:
-                    raise CameramodelParseException(f"No model{distortion_at}")
+                    raise CameramodelParseException(f"No model {distortion_at}")
                 # not checking len(distortion_coefficients);
                 #_read_into_self() will do that
 
                 image_width,image_width_at = \
                     find_array( ( ('image_width',),
                                   ('width',)),
-                                dtype = float,
+                                dtype = int,
                                 shape = (),
                                 model = model_in )
                 image_height,image_height_at = \
                     find_array( ( ('image_height',),
                                   ('height',)),
-                                dtype = float,
+                                dtype = int,
                                 shape = (),
                                 model = model_in )
 
                 model['imagersize'] = [image_width,image_height]
 
-                try:
-                    Rt_cam_ref = np.zeros((4,3), dtype=float)
-                    Rt_cam_ref[3,:] = P[:,3]
-                    Rt_cam_ref[:3,:] = np.linalg.solve(M,P[:,:3])
-                except Exception as e:
-                    raise CameramodelParseException(f"Couldn't interpret projection_matrix,camera_matrix as a geometric transform: {e}")
-                should_be_I = nps.matmult(nps.transpose(Rt_cam_ref[:3,:]),
-                                          Rt_cam_ref[:3,:])
-                if nps.norm2((should_be_I - np.diag(np.diag(should_be_I))).ravel()) >= 1e-10:
-                    raise CameramodelParseException("inv(camera_matrix)*projection_matrix don't produce a valid rotation")
-                if nps.norm2(np.diag(should_be_I) - 1) >= 1e-10:
-                    raise CameramodelParseException("inv(camera_matrix)*projection_matrix don't produce a valid rotation")
+                Rt_ref_cam = np.zeros((4,3), dtype=float)
+                Rt_ref_cam[:3,:] = R
+                if nps.norm2((nps.matmult(R, R.T) - np.eye(3)).ravel()) > 1e-12:
+                    raise CameramodelParseException(f"R must be a valid rotation. Instead it is {R}")
+
+
+                # In rectified coords ("ref" coords here) I want the camera to
+                # sit at -P[:,3] / P[0,0]
+                Rt_ref_cam[ 3,:] = -P[:,3] / P[0,0]
 
                 # extrinsics are rt_fromref
-                model['extrinsics'] = list(mrcal.rt_from_Rt(Rt_cam_ref))
+                model['extrinsics'] = list(mrcal.rt_from_Rt(mrcal.invert_Rt(Rt_ref_cam)))
 
                 return repr(model)
 
@@ -966,7 +1012,7 @@ general function is used to find the data. The args are:
                     pass
 
                 try:
-                    self._read_into_self(parse_as_opencv_yaml(modelstring))
+                    self._read_into_self(parse_as_opencv_or_ros(modelstring))
                     return
                 except CameramodelParseException as e:
                     errors['yaml_or_json'] = e
@@ -997,6 +1043,13 @@ general function is used to find the data. The args are:
             if isinstance(file_or_model, str):
 
                 if file_or_model == '-':
+                    if sys.stdin.isatty():
+                        # This isn't an error per-se. But most likely the user
+                        # ran something like "mrcal-to-cahvor" without
+                        # redirecting any data into it. Without this check the
+                        # program will sit there, waiting for input. Which will
+                        # look strange to an unsuspecting user
+                        raise Exception("Trying to read a model from standard input, but no file is being redirected into it")
                     tryread(sys.stdin, "STDIN")
                 else:
                     with open(file_or_model, 'r') as openedfile:
@@ -1091,10 +1144,9 @@ general function is used to find the data. The args are:
 
     def write(self, f,
               *,
-              note   = None,
-              cahvor = False,
-              opencv = False,
-              kalibr = False):
+              note    = None,
+              cahvor  = False,
+              _opencv = False):
         r'''Write out this camera model to disk
 
 SYNOPSIS
@@ -1102,20 +1154,9 @@ SYNOPSIS
     model.write('left.cameramodel')
 
 We write the contents of the given mrcal.cameramodel object to the given
-filename or a given pre-opened file. The format is selected based on the output
-filename and the (cahvor,opencv,kalibr) variables. At most one of those may be
-True. If any is True, we use that format. If they're all False then we infer the
-format from the filename:
-
-- 'xxx.cahv' or 'xxx.cahvor' or 'xxx.cahvore' will result in the legacy cahvor
-  file format being used
-
-- 'xxx.yaml' or 'xxx.yml' will result in the OpenCV format
-
-- Anything else will use the mrcal-native .cameramodel format.
-
-Note that kalibr also uses YAML files, so if you want that format, you MUST pass
-kalibr = True
+filename or a given pre-opened file. If the filename is 'xxx.cahv' or
+'xxx.cahvor' or 'xxx.cahvore' or if cahvor: we use the legacy cahvor file format
+for output
 
 ARGUMENTS
 
@@ -1125,9 +1166,8 @@ ARGUMENTS
   written to the top of the output file. This should describe how this model was
   generated
 
-- cahvor,opencv,kalibr: optional booleans, defaulting to False. At most one of
-  these maybe True. If any of these is True, that is the output file format we
-  use.
+- cahvor: an optional boolean, defaulting to False. If True: we write out the
+  data using the legacy .cahvor file format
 
 RETURNED VALUES
 
@@ -1135,7 +1175,10 @@ None
 
         '''
 
-        known_format_options = ('cahvor','opencv','kalibr')
+        # opencv models may be written by setting _opencv=True. But this has no
+        # clear way to specify extrinsics, and requires specifying stereo
+        # rectification, so this is undocumented for now
+        known_format_options = ('cahvor','_opencv')
 
         NformatOptions = 0
         for o in known_format_options:
@@ -1158,6 +1201,12 @@ None
 
         def write_opencv(f):
             r'''Write out an opencv-format file
+
+This has no clear way to specify extrinsics, and requires specifying stereo
+rectification, so this is undone and undocumented for now. This function always
+sets an identity extrinsics transform and completely made-up projection and
+rectification matrices
+
 
 This is documented here: https://wiki.ros.org/camera_calibration_parsers
 
@@ -1184,14 +1233,7 @@ A sample file:
     cols: 4
     data: [4827.94, 0, 1223.5, 0, 0, 4835.62, 1024.5, 0, 0, 0, 1, 0]
 
-This is trying to include rectification in the model, which is dumb. I should be
-able to have a single camera with extrinsics. I do this:
-
-- Ignore the rectification_matrix. I hard-code the identity array
-- Assume the camera matrix is the intrinsics core only
-- Assume the projection_matrix is compose(camera_matrix, Rt_camera_ref)
-
-                '''
+            '''
 
             if   self._intrinsics[0] == 'LENSMODEL_OPENCV5':
                 distortion_model = 'plumb_bob'
@@ -1218,10 +1260,6 @@ able to have a single camera with extrinsics. I do this:
                           (        0, fxycxy[1], fxycxy[3]),
                           (        0,         0,         1)),
                          dtype=float)
-            Rt_cam_ref = mrcal.Rt_from_rt(self._extrinsics)
-            P = np.zeros((3,4), dtype=float)
-            P[:,:3] = nps.matmult(M, Rt_cam_ref[:3,:])
-            P[:, 3] = Rt_cam_ref[3,:]
 
             f.write(f"image_width: {self._imagersize[0]}\nimage_height: {self._imagersize[1]}\ncamera_name: mrcalmodel\n")
 
@@ -1240,20 +1278,13 @@ able to have a single camera with extrinsics. I do this:
 projection_matrix:
   rows: 3
   cols: 4
-  data: [''')
-            np.savetxt(f, P.reshape(1,12),
-                       delimiter=', ',
-                       newline  ='',
-                       fmt='%.12g')
-            f.write("]\n")
+  data: [1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0]
+''')
 
-        def write_kalibr(f):
-            pass
 
         write_function = None
-        if   cahvor: write_function = write_cahvor
-        elif opencv: write_function = write_opencv
-        elif kalibr: write_function = write_kalibr
+        if   cahvor:  write_function = write_cahvor
+        elif _opencv: write_function = write_opencv
 
         if isinstance(f, str):
             with open(f, 'w') as openedfile:
