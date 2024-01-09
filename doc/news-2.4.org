@@ -66,6 +66,8 @@ mrcal_apply_color_map() available in C, for many types
 mrcal.apply_color_map() uses the C function internally. All gnuplot colormap
 functions supported
 
+mrcal-stereo gui displays the pixel coordinates for both cameras
+
 * Migration notes 2.3 -> 2.4
 
 commit 76248fce8655fba0aec1175157cbe8f8da055b7a

@@ -955,7 +955,7 @@ def gui_stereo(images,
 
         if q_rect is not None:
             set_status.qstring = \
-                f"q_rectified = {q_rect[0]:.1f},{q_rect[1]:.1f}\n"
+                f"q_rectified0 = {q_rect[0]:.1f},{q_rect[1]:.1f}\n"
             if q_input0 is not None:
                 set_status.qstring += f"q_input_cam0 = {q_input0[0]:.1f},{q_input0[1]:.1f}\n"
             if q_input1 is not None:
@@ -1173,16 +1173,14 @@ def gui_stereo(images,
                     pass
 
                 if q_rect is not None:
-                    if self is not widget_image1:
-                        q_input0 = \
-                            mrcal.project( mrcal.transform_point_Rt( Rt_cam0_rect0,
-                                                                     mrcal.unproject(q_rect, *models_rectified[0].intrinsics())),
-                                           *models[0].intrinsics())
-                    else:
-                        q_input1 = \
-                            mrcal.project( mrcal.transform_point_Rt( Rt_cam1_rect1,
-                                                                     mrcal.unproject(q_rect, *models_rectified[1].intrinsics())),
-                                           *models[1].intrinsics())
+                    q_input0 = \
+                        mrcal.project( mrcal.transform_point_Rt( Rt_cam0_rect0,
+                                                                 mrcal.unproject(q_rect, *models_rectified[0].intrinsics())),
+                                       *models[0].intrinsics())
+                    q_input1 = \
+                        mrcal.project( mrcal.transform_point_Rt( Rt_cam1_rect1,
+                                                                 mrcal.unproject(q_rect, *models_rectified[1].intrinsics())),
+                                       *models[1].intrinsics())
 
                 set_status(string  = None, # keep old string
                            q_rect   = q_rect,
