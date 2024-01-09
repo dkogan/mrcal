@@ -50,7 +50,7 @@ LDLIBS += -lelas
 endif
 
 CFLAGS    += --std=gnu99
-CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
+CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter -Wno-missing-braces
 
 $(patsubst %.c,%.o,$(shell grep -l '#include .*minimath\.h' *.c */*.c)): minimath/minimath_generated.h
 minimath/minimath_generated.h: minimath/minimath_generate.pl

@@ -514,6 +514,11 @@ static PyObject* CHOLMOD_factorization_str(CHOLMOD_factorization* self)
 static PyObject*
 CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* args, PyObject* kwargs)
 {
+    cholmod_dense* M = NULL;
+    cholmod_dense* Y = NULL;
+    cholmod_dense* E = NULL;
+
+
     // error by default
     PyObject* result = NULL;
     PyObject* Py_out = NULL;
@@ -603,9 +608,9 @@ CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* arg
         .xtype = CHOLMOD_REAL,
         .dtype = CHOLMOD_DOUBLE };
 
-    cholmod_dense* M = &out;
-    cholmod_dense* Y = NULL;
-    cholmod_dense* E = NULL;
+    M = &out;
+    Y = NULL;
+    E = NULL;
 
     if(!cholmod_solve2( CHOLMOD_A, self->factorization,
                         &b, NULL,
@@ -1268,14 +1273,15 @@ PyObject* _optimize(bool is_optimize, // or optimizer_callback
     PyObject*      factorization = NULL;
     PyObject*      jacobian      = NULL;
 
-    SET_SIGINT();
-
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_DEFINE);
 
     int calibration_object_height_n = -1;
     int calibration_object_width_n  = -1;
+
+    SET_SIGINT();
+
 
     if(is_optimize)
     {

@@ -514,5 +514,4 @@ report a full Rt transformation with the t component set to 0
 ** triangulate() should report stuff in the ref coords, not camera0 coords
 It doesn't make a whole lot of sense the way I'm doing it right now
 ** get the docs from the 3.0 branch
-** clang warnings
 ** example of dense stereo processing in C
