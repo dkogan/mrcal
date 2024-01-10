@@ -457,7 +457,7 @@ These are the basic not-necessarily-contiguous arrays. The =bgr= type is used
 for color images:
 
 #+begin_src c
-typedef struct { uint8_t bgr[3]; } bgr_t;
+typedef struct { uint8_t bgr[3]; } mrcal_bgr_t;
 #+end_src
 
 Simple accessor and manipulation functions are available for each of these
@@ -473,7 +473,8 @@ mrcal_image_T_t mrcal_image_T_crop(mrcal_image_T_t* image,
                                    int w,  int h);
 #+end_src
 
-And for =uint8_t=, =uint16_t= and =bgr_t= we can also read and write image files:
+And for =uint8_t=, =uint16_t= and =mrcal_bgr_t= we can also read and write image
+files:
 
 #+begin_src c
 bool mrcal_image_T_save (const char* filename, const mrcal_image_T_t*  image);

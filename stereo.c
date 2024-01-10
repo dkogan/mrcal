@@ -858,7 +858,7 @@ gnuplot_color_formula(uint8_t* out,
         {                                                               \
             const T* in_T = mrcal_image_##Tname##_at_const(in,  x,y);   \
                                                                         \
-            bgr_t* out_bgr = mrcal_image_bgr_at(           out, x,y);   \
+            mrcal_bgr_t* out_bgr = mrcal_image_bgr_at(     out, x,y);   \
                                                                         \
             float x;                                                    \
             if     (*in_T <= in_min)                                    \

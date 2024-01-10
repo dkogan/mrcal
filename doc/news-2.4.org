@@ -68,6 +68,8 @@ functions supported
 
 mrcal-stereo gui displays the pixel coordinates for both cameras
 
+bgr_t -> mrcal_bgr_t
+
 * Migration notes 2.3 -> 2.4
 
 commit 76248fce8655fba0aec1175157cbe8f8da055b7a
@@ -86,6 +88,7 @@ Use the new name if you can. You don't HAVE to
 mrcal.apply_color_map(): a_min, a_max MUST now be passed in as kwargs, instead
 of positionals.
 
+C API. Renamed type: bgr_t -> mrcal_bgr_t
 
 * todo
 - "pydoc3 mrcal" should show everything. It doesn't. "compose_rt" isn't there,
