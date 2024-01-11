@@ -99,7 +99,7 @@ const char* mrcal_lensmodel_name_unconfigured( const mrcal_lensmodel_t* lensmode
         MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( CASE_STRING_WITHCONFIG )
 
     default:
-        assert(0);
+        return NULL;
 
 
 #undef CASE_STRING_NOCONFIG
@@ -144,7 +144,7 @@ bool mrcal_lensmodel_name( char* out, int size, const mrcal_lensmodel_t* lensmod
         MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( CASE_STRING_WITHCONFIG )
 
     default:
-        assert(0);
+        return NULL;
 
 #undef CASE_STRING_NOCONFIG
 #undef CASE_STRING_WITHCONFIG
