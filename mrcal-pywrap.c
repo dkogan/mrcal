@@ -1343,6 +1343,8 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
         ARGDEF_indices_point_triangulated_camintrinsics_camextrinsics(CHECK_LAYOUT);
 
         return true;
+    done:
+        return false;
     }
 
     if(!validate_arguments())
