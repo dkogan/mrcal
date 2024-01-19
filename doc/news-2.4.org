@@ -92,6 +92,9 @@ of positionals.
 
 C API. Renamed type: bgr_t -> mrcal_bgr_t
 
+mrcal._elas_nsps.stereo_matching_libelas() kwargs renamed: disp_min/max ->
+disparity_min/max
+
 * todo
 - "pydoc3 mrcal" should show everything. It doesn't. "compose_rt" isn't there,
   for instance

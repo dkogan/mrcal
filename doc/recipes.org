@@ -799,7 +799,7 @@ el0_deg    = 6.6
 
 pixels_per_deg                  = -1.
 rectification                   = 'LENSMODEL_LATLON'
-disp_min,disp_max               = 0,150
+disparity_min,disparity_max     = 0,150
 range_image_min,range_image_max = 1,1000
 
 disparity_error_expected        = 1.3
@@ -823,12 +823,12 @@ disparity_scale = 16
 
 # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
 # implementation requires this
-disp_max = disparity_scale*round(disp_max/disparity_scale)
-disp_min = disparity_scale*int  (disp_min/disparity_scale)
+disparity_max = disparity_scale*round(disparity_max/disparity_scale)
+disparity_min = disparity_scale*int  (disparity_min/disparity_scale)
 
 stereo_sgbm = \
-    cv2.StereoSGBM_create(minDisparity      = disp_min,
-                          numDisparities    = disp_max - disp_min,
+    cv2.StereoSGBM_create(minDisparity      = disparity_min,
+                          numDisparities    = disparity_max - disparity_min,
                           blockSize         = 5,
                           P1                = 600,
                           P2                = 2400,
@@ -914,7 +914,7 @@ else:
 
 pixels_per_deg                  = -1.
 rectification                   = 'LENSMODEL_LATLON'
-disp_min,disp_max               = 0,150
+disparity_min,disparity_max     = 0,150
 range_image_min,range_image_max = 1,1000
 
 disparity_error_expected        = 1.3
@@ -955,12 +955,12 @@ disparity_scale = 16
 
 # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
 # implementation requires this
-disp_max = disparity_scale*round(disp_max/disparity_scale)
-disp_min = disparity_scale*int  (disp_min/disparity_scale)
+disparity_max = disparity_scale*round(disparity_max/disparity_scale)
+disparity_min = disparity_scale*int  (disparity_min/disparity_scale)
 
 stereo_sgbm = \
-    cv2.StereoSGBM_create(minDisparity      = disp_min,
-                          numDisparities    = disp_max - disp_min,
+    cv2.StereoSGBM_create(minDisparity      = disparity_min,
+                          numDisparities    = disparity_max - disparity_min,
                           blockSize         = 5,
                           P1                = 600,
                           P2                = 2400,
@@ -980,8 +980,8 @@ images_rectified = [mrcal.transform_image(images[i],
 disparity = stereo_sgbm.compute(*images_rectified)
 
 disparity_colored = mrcal.apply_color_map(disparity,
-                                          a_min = disp_min*disparity_scale,
-                                          a_max = disp_max*disparity_scale)
+                                          a_min = disparity_min*disparity_scale,
+                                          a_max = disparity_max*disparity_scale)
 
 image_filenames_base = \
     [os.path.splitext(os.path.split(f)[1])[0] for f in image_filenames]
