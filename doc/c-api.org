@@ -537,6 +537,10 @@ declared in [[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.
   images, [[https://docs.opencv.org/4.6.0/da/d54/group__imgproc__transform.html#gab75ef31ce5cdfb5c44b6da5f3b908ea4][the OpenCV =cv::remap()= function]] can be used. The Python wrapper is
   [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]], and further documentation is in its docstring
 
+- =mrcal_stereo_range_sparse()=, =mrcal_stereo_range_dense()= compute ranges
+  from disparities. The former function converts a set of discrete disparity
+  values, while the latter function processes a whole disparity image
+
 * Triangulation
 A number of triangulation routines are available in [[https://www.github.com/dkogan/mrcal/blob/master/triangulation.h][=triangulation.h=]]. These
 estimate the position of the 3D point that produced a given pair of
