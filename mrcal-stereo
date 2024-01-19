@@ -771,8 +771,8 @@ if args.stereo_matcher == 'SGBM':
 
     # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
     # implementation requires this
-    disparity_max = disparity_scale*round(disparity_max/disparity_scale)
-    disparity_min = disparity_scale*int  (disparity_min/disparity_scale)
+    num_disparities = disparity_max - disparity_min
+    num_disparities = disparity_scale*round(num_disparities/disparity_scale)
 
     # I only add non-default args. StereoSGBM_create() doesn't like being given
     # None args
@@ -807,7 +807,7 @@ if args.stereo_matcher == 'SGBM':
 
     stereo_sgbm = \
         cv2.StereoSGBM_create(minDisparity      = disparity_min,
-                              numDisparities    = disparity_max - disparity_min,
+                              numDisparities    = num_disparities,
                               **kwargs_sgbm)
 elif args.stereo_matcher == 'ELAS':
     disparity_scale = 1
