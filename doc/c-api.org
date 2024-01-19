@@ -520,8 +520,8 @@ mrcal_apply_color_map_T(
 * Dense stereo
 
 A number of dense stereo routines are available. These make it possible to
-implement a full mrcal dense stereo pipeline in C. The available functions are
-declared in [[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.h=]]:
+implement a full mrcal dense stereo pipeline in C; an [[https://github.com/dkogan/mrcal/blob/master/doc/examples/dense-stereo-demo/dense-stereo-demo.cc][example is provided]]. The
+available functions are declared in [[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.h=]]:
 
 - =mrcal_rectified_resolution()= computes the resolution of the rectified system
   from the resolution of the input. Usually =mrcal_rectified_system()= does this
