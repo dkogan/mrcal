@@ -908,7 +908,7 @@ contains corresponding pixel coordinates in the input image
 
 def _rectification_maps_python(models,
                                models_rectified):
-    r'''Reference implementation of mrcal_rectification_maps() in python
+    r'''Reference implementation of mrcal.rectification_maps() in python
 
 The main implementation is written in C in stereo.c:
 
