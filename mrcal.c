@@ -2196,7 +2196,7 @@ void _project_point( // outputs
                      mrcal_point3_t* restrict dq_drframe,
                      mrcal_point3_t* restrict dq_dtframe,
                      mrcal_calobject_warp_t* restrict dq_dcalobject_warp,
-                     int*            restrict dq_dintrinsics_pool_int,
+                     int* restrict *          dq_dintrinsics_pool_int,
                      // inputs
                      const mrcal_point3_t* p,
                      const double* restrict intrinsics,
@@ -2234,9 +2234,9 @@ void _project_point( // outputs
                                 lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny,
                                 precomputed->LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed.segments_per_u);
         // WARNING: if I could assume that dq_dintrinsics_pool_double!=NULL then I wouldnt need to copy the context
-        if(dq_dintrinsics_pool_int != NULL)
+        if(*dq_dintrinsics_pool_int != NULL)
         {
-            *(dq_dintrinsics_pool_int++) = ivar0;
+            *((*dq_dintrinsics_pool_int)++) = ivar0;
             memcpy(gradient_sparse_meta_pool,
                    grad_ABCDx_ABCDy,
                    sizeof(double)*runlen*2);
@@ -2545,7 +2545,7 @@ void project( // out
                          gradient_sparse_meta ? gradient_sparse_meta->pool : NULL,
                          runlen,
                          dq_drcamera, dq_dtcamera, dq_drframe, dq_dtframe, NULL,
-                         dq_dintrinsics_pool_int,
+                         &dq_dintrinsics_pool_int,
 
                          &p,
                          intrinsics, lensmodel,
@@ -2617,7 +2617,7 @@ void project( // out
                                gradient_sparse_meta ? &gradient_sparse_meta->pool[i_pt*runlen*2] : NULL,
                                runlen,
                                dq_drcamera_here, dq_dtcamera_here, dq_drframe_here, dq_dtframe_here, dq_dcalobject_warp_here,
-                               dq_dintrinsics_pool_int,
+                               &dq_dintrinsics_pool_int,
                                &p,
                                intrinsics, lensmodel,
                                &dpt_refz_dwarp,
