@@ -72,18 +72,16 @@ TESTS_TRIANGULATION_UNCERTAINTY := $(TESTS_TRIANGULATION_UNCERTAINTY) \
 TESTS_NOSAMPLING := $(foreach t,$(TESTS),$(if $(filter --do-sample,$(subst __, ,$t)),,$t))
 TESTS := $(TESTS) $(TESTS_TRIANGULATION_UNCERTAINTY)
 
-# "make test-all"			-> TESTS
-# "make test-nosampling"		-> TESTS_NOSAMPLING
-# "make test-triangulation-uncertainty" -> TESTS_TRIANGULATION_UNCERTAINTY
-define test_set
-	$(if $(filter %-nosampling,$1),$(TESTS_NOSAMPLING),$(if $(filter %-triangulation-uncertainty,$1),$(TESTS_TRIANGULATION_UNCERTAINTY),$(TESTS)))
-endef
+# Define the set for each "make test-xxx" command
+TESTS_all                       := $(TESTS)
+TESTS_nosampling                := $(TESTS_NOSAMPLING)
+TESTS_triangulation_uncertainty := $(TESTS_TRIANGULATION_UNCERTAINTY)
 
 # "test-all" is the full set of tests
 # "test-nosampling" excludes the very time-consuming tests
 TESTS_ALL_TARGETS := test-all test-nosampling test-triangulation-uncertainty
 $(TESTS_ALL_TARGETS): all
-	@FAILED=""; $(foreach t,$(call test_set,$@),echo "========== RUNNING: $(subst __, ,$t)"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED !"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
+	@FAILED=""; $(foreach t,$(TESTS_$(subst -,_,$(patsubst test-%,%,$@))),echo "========== RUNNING: $(subst __, ,$t)"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED !"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
 .PHONY: $(TESTS_ALL_TARGETS)
 
 test:
