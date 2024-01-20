@@ -963,6 +963,7 @@ def stereo_range(disparity,
                  *,
                  disparity_scale = 1,
                  disparity_min   = 0,
+                 disparity_max   = None,
                  qrect0          = None):
 
     r'''Compute ranges from observed disparities
@@ -1174,9 +1175,12 @@ ARGUMENTS
   Otherwise it contains data in the units of 1/disparity_scale pixels.
 
 - disparity_min: optional minimum-expected disparity value. If omitted,
-  disparity_min = 0 is assumed. Are encountered disparity value below this limit
-  is interpreted as an invalid value. This has units of "pixels", so we scale by
+  disparity_min = 0 is assumed. disparity below this limit is interpreted as an
+  invalid value: range=0 is reported. This has units of "pixels", so we scale by
   disparity_scale before comparing to the dense stereo correlator result
+
+- disparity_max: optional maximum-expected disparity value. If omitted, no
+  maximum exists. Works the same as disparity_min
 
 - qrect0: optional array of rectified camera0 pixel coordinates corresponding to
   the given disparities. By default, a full disparity image is assumed.
@@ -1221,7 +1225,7 @@ RETURNED VALUES
                 ( disparity_scaled     = disparity.astype(np.uint16),
                   disparity_scale      = np.uint16(disparity_scale),
                   disparity_scaled_min = np.uint16(disparity_min),
-                  disparity_scaled_max = np.uint16(np.iinfo(np.uint16).max),
+                  disparity_scaled_max = np.uint16(np.iinfo(np.uint16).max) if disparity_max is None else np.uint16(disparity_max),
                   rectification_model_type = models_rectified[0].intrinsics()[0],
                   fxycxy_rectified     = models_rectified[0].intrinsics()[1].astype(float),
                   baseline             = baseline )
@@ -1232,7 +1236,7 @@ RETURNED VALUES
                 ( disparity            = disparity.astype(float) / disparity_scale,
                   qrect0               = qrect0.astype(float),
                   disparity_min        = float(disparity_min),
-                  disparity_max        = np.finfo(float).max,
+                  disparity_max        = np.finfo(float).max if disparity_max is None else float(disparity_max),
                   rectification_model_type = models_rectified[0].intrinsics()[0],
                   fxycxy_rectified     = models_rectified[0].intrinsics()[1].astype(float),
                   baseline             = baseline )
@@ -1247,6 +1251,7 @@ def _stereo_range_python(disparity,
                          *,
                          disparity_scale = 1,
                          disparity_min   = 0,
+                         disparity_max   = None,
                          qrect0          = None):
 
     r'''Reference implementation of mrcal.stereo_range() in python
@@ -1288,6 +1293,13 @@ checked by the test-stereo-range.py test.
                              models_rectified[1].extrinsics_Rt_toref())
     baseline = nps.mag(Rt01[3,:])
 
+    mask_invalid = \
+        (disparity < disparity_min*disparity_scale) + \
+        (disparity <= 0)
+    if disparity_max is not None:
+        mask_invalid += \
+            (disparity > disparity_max*disparity_scale)
+
     if intrinsics[0] == 'LENSMODEL_LATLON':
         if qrect0 is None:
             az0 = (np.arange(W, dtype=float) - cx)/fx
@@ -1295,8 +1307,6 @@ checked by the test-stereo-range.py test.
             az0 = (qrect0[...,0] - cx)/fx
 
         disparity_rad = disparity.astype(np.float32) / (fx * disparity_scale)
-
-        mask_invalid = (disparity <= disparity_min*disparity_scale)
 
         s = np.sin(disparity_rad)
         s[mask_invalid] = 1 # to prevent division by 0
@@ -1324,7 +1334,6 @@ checked by the test-stereo-range.py test.
 
         tanaz0_tanaz1 = disparity.astype(np.float32) / (fx * disparity_scale)
 
-        mask_invalid  = (disparity <= disparity_min*disparity_scale)
         tanaz0_tanaz1[mask_invalid] = 1 # to prevent division by 0
 
         tanaz1 = tanaz0 - tanaz0_tanaz1
