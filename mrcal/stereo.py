@@ -1242,7 +1242,10 @@ RETURNED VALUES
         cy = intrinsics[1][3]
 
         if qrect0 is None:
+            # shape (W,)
             tanaz0 = (np.arange(W, dtype=float) - cx)/fx
+
+            # shape (H,1)
             tanel  = (np.arange(H, dtype=float) - cy)/fy
             tanel  = nps.dummy(tanel, -1)
         else:
