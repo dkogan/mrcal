@@ -2076,6 +2076,7 @@ typedef struct
 
 
 // This is internal to project()
+static
 void _propagate_extrinsics_one(mrcal_point3_t* dp_dparam,
                                const mrcal_point3_t* pt_ref,
                                const double* drj_dparam,
@@ -2091,6 +2092,7 @@ void _propagate_extrinsics_one(mrcal_point3_t* dp_dparam,
         add_vec(3, dp_dparam[i].xyz, &dtj_dparam[3*i] );
     }
 }
+static
 void _propagate_extrinsics_one_rzero(mrcal_point3_t* dp_dparam,
                                      const mrcal_point3_t* pt_ref,
                                      const double* dtj_dparam,
@@ -2100,6 +2102,7 @@ void _propagate_extrinsics_one_rzero(mrcal_point3_t* dp_dparam,
     // dRj[row0]/drc = dRj[row0]/drj * drj_drc
     memcpy(dp_dparam->xyz, dtj_dparam, 9*sizeof(double));
 }
+static
 void _propagate_extrinsics_one_tzero(mrcal_point3_t* dp_dparam,
                                      const mrcal_point3_t* pt_ref,
                                      const double* drj_dparam,
@@ -2113,6 +2116,7 @@ void _propagate_extrinsics_one_tzero(mrcal_point3_t* dp_dparam,
         mul_vec3_gen33     ( dp_dparam[i].xyz,   drj_dparam);
     }
 }
+static
 void _propagate_extrinsics_one_rzero_tidentity(mrcal_point3_t* dp_dparam,
                                                const mrcal_point3_t* pt_ref,
                                                const double* d_Rj_rj)
@@ -2122,6 +2126,7 @@ void _propagate_extrinsics_one_rzero_tidentity(mrcal_point3_t* dp_dparam,
     dp_dparam[2] = (mrcal_point3_t){.z = 1.0};
 }
 
+static
 void _propagate_extrinsics_one_cam0(mrcal_point3_t* dp_rf,
                                     const mrcal_point3_t* pt_ref,
                                     const double* _d_Rf_rf)
@@ -2131,6 +2136,7 @@ void _propagate_extrinsics_one_cam0(mrcal_point3_t* dp_rf,
     for(int i=0; i<3; i++)
         mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rf_rf[9*i], dp_rf[i].xyz );
 }
+static
 mrcal_point3_t _propagate_extrinsics( // output
                                       mrcal_point3_t* _dp_drc,
                                       mrcal_point3_t* _dp_dtc,
@@ -2185,6 +2191,7 @@ mrcal_point3_t _propagate_extrinsics( // output
     return p;
 }
 // This is internal to project()
+static
 void _project_point( // outputs
                      mrcal_point2_t* q,
                      mrcal_point2_t* p_dq_dfxy,
