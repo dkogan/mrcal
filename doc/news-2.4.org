@@ -72,6 +72,16 @@ bgr_t -> mrcal_bgr_t
 
 C API: mrcal_lensmodel_name...() return NULL if given an invalid model
 
+Added mrcal_stereo_range_sparse() and mrcal_stereo_range_dense();
+mrcal.stereo_range() uses those
+
+mrcal.stereo_range() has optional disparity_max parameter; and
+disparity_scaled_min, disparity_scaled_max
+
+added demo for dense stereo in C
+
+C API: mrcal_lensmodel_..._from_name() handles NULL gracefully
+
 * Migration notes 2.3 -> 2.4
 
 commit 76248fce8655fba0aec1175157cbe8f8da055b7a
