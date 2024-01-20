@@ -244,6 +244,12 @@ bool mrcal_lensmodel_from_name( // output
         }                                                               \
     }
 
+    if(name == NULL)
+    {
+        *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_TYPE};
+        return false;
+    }
+
     MRCAL_LENSMODEL_NOCONFIG_LIST(                   CHECK_AND_RETURN_NOCONFIG );
     MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(  CHECK_AND_RETURN_WITHCONFIG );
     MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( CHECK_AND_RETURN_WITHCONFIG );
@@ -272,6 +278,9 @@ mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name )
               name[len_s] == '_' ) )                                    \
             return MRCAL_##s;                                           \
     }
+
+    if(name == NULL)
+        return MRCAL_LENSMODEL_INVALID_TYPE;
 
     MRCAL_LENSMODEL_NOCONFIG_LIST(                   CHECK_AND_RETURN_NOCONFIG );
     MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(  CHECK_AND_RETURN_WITHCONFIG );
