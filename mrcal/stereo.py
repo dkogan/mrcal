@@ -1207,6 +1207,74 @@ RETURNED VALUES
     if is_scalar:
         disparity = np.array((disparity,),)
 
+    Rt01 = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
+                             models_rectified[1].extrinsics_Rt_toref())
+    baseline = nps.mag(Rt01[3,:])
+
+    if qrect0 is None:
+        W,H = models_rectified[0].imagersize()
+        if np.any(disparity.shape - np.array((H,W),dtype=int)):
+            raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
+
+        return                                    \
+            mrcal._mrcal_npsp._stereo_range_dense \
+                ( disparity_scaled     = disparity.astype(np.uint16),
+                  disparity_scale      = np.uint16(disparity_scale),
+                  disparity_scaled_min = np.uint16(disparity_min),
+                  disparity_scaled_max = np.uint16(np.iinfo(np.uint16).max),
+                  rectification_model_type = models_rectified[0].intrinsics()[0],
+                  fxycxy_rectified     = models_rectified[0].intrinsics()[1].astype(float),
+                  baseline             = baseline )
+
+    else:
+        return                                     \
+            mrcal._mrcal_npsp._stereo_range_sparse \
+                ( disparity            = disparity.astype(float) / disparity_scale,
+                  qrect0               = qrect0.astype(float),
+                  disparity_min        = float(disparity_min),
+                  disparity_max        = np.finfo(float).max,
+                  rectification_model_type = models_rectified[0].intrinsics()[0],
+                  fxycxy_rectified     = models_rectified[0].intrinsics()[1].astype(float),
+                  baseline             = baseline )
+
+    if is_scalar:
+        r = r[0]
+    return r
+
+
+def _stereo_range_python(disparity,
+                         models_rectified,
+                         *,
+                         disparity_scale = 1,
+                         disparity_min   = 0,
+                         qrect0          = None):
+
+    r'''Reference implementation of mrcal.stereo_range() in python
+
+The main implementation is written in C in stereo.c:
+
+  mrcal_stereo_range_sparse() and mrcal_stereo_range_dense()
+
+This should be identical to the stereo_range() function above. This is
+checked by the test-stereo-range.py test.
+
+    '''
+
+    _validate_models_rectified(models_rectified)
+
+    # I want to support scalar disparities. If one is given, I convert it into
+    # an array of shape (1,), and then pull it out at the end
+    is_scalar = False
+    try:
+        s = disparity.shape
+    except:
+        is_scalar = True
+    if not is_scalar:
+        if len(s) == 0:
+            is_scalar = True
+    if is_scalar:
+        disparity = np.array((disparity,),)
+
     W,H = models_rectified[0].imagersize()
     if qrect0 is None and np.any(disparity.shape - np.array((H,W),dtype=int)):
         raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
