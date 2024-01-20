@@ -65,12 +65,17 @@ TESTS_TRIANGULATION_UNCERTAINTY := $(TESTS_TRIANGULATION_UNCERTAINTY) \
   $(foreach where,near far, \
   $(BASE)$(if $(filter NONE,$(stabilization)),,$(stabilization))__--fixed__$(fixed)__--q-observation-stdev-correlation__$(corr)__--observed-point__$(if $(filter near,$(where)),-2__0__10,-40__0__200)))))
 
+TESTS_external_data := test/test-stereo-range.py
+
 
 
 # TESTS_TRIANGULATION_UNCERTAINTY not included in TESTS yet, so TESTS_NOSAMPLING
 # includes none of those
 TESTS_NOSAMPLING := $(foreach t,$(TESTS),$(if $(filter --do-sample,$(subst __, ,$t)),,$t))
 TESTS := $(TESTS) $(TESTS_TRIANGULATION_UNCERTAINTY)
+
+# TESTS_external_data is not included in any other set, and must be requested
+# explicitly
 
 # Define the set for each "make test-xxx" command
 TESTS_all                       := $(TESTS)
@@ -79,7 +84,8 @@ TESTS_triangulation_uncertainty := $(TESTS_TRIANGULATION_UNCERTAINTY)
 
 # "test-all" is the full set of tests
 # "test-nosampling" excludes the very time-consuming tests
-TESTS_ALL_TARGETS := test-all test-nosampling test-triangulation-uncertainty
+# "test-external-data" is everything that needs data other than what's in the repo
+TESTS_ALL_TARGETS := test-all test-nosampling test-triangulation-uncertainty test-external-data
 $(TESTS_ALL_TARGETS): all
 	@FAILED=""; $(foreach t,$(TESTS_$(subst -,_,$(patsubst test-%,%,$@))),echo "========== RUNNING: $(subst __, ,$t)"; $(subst __, ,$t) || FAILED="$$FAILED $t"; ) test -z "$$FAILED" || echo "SOME TEST SETS FAILED: $$FAILED !"; test -z "$$FAILED" && echo "ALL TEST SETS PASSED!"
 .PHONY: $(TESTS_ALL_TARGETS)
