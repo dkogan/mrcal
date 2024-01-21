@@ -19,9 +19,9 @@ SYNOPSIS
 File formats supported by mrcal are described at
 http://mrcal.secretsauce.net/cameramodels.html#cameramodel-file-formats
 
-This tool converts the given model(s) to the cameramodel file format. No changes
-to the content are made; this is purely a format converter (the
-mrcal-convert-lensmodel tool fits different lens models instead). Model
+This tool converts the given model(s) to the mrcal-native .cameramodel file
+format. No changes to the content are made; this is purely a format converter
+(the mrcal-convert-lensmodel tool fits different lens models instead). Model
 filenames are given on the commandline. Output is written to the same directory,
 with the same filename, but annotated with the camera name from the data file,
 and with a .cameramodel extension.
@@ -34,6 +34,24 @@ Unlike mrcal .cameramodel files where one camera is described by one file, the
 format conversion tool will write out multiple .cameramodel file to represent
 the given data. To select a single camera, pass --camera CAMERA.
 
+By default we set the extrinsics of camera-0 as they appear in the input: the
+"previous" camera from camera-0 is used as the reference coordinate system. If
+we want to force camera-0 to have an identity transform, pass
+--cam0-at-reference. Usually this will be the case anyway in the input data, but
+this option makes sure.
+
+The kalibr format is described here:
+
+  https://github.com/ethz-asl/kalibr/wiki/Yaml-formats
+
+At this time we only support
+
+- LENSMODEL_PINHOLE
+- LENSMODEL_OPENCV4
+
+which corresponds to
+
+  camera_model == 'pinhole' and distortion_model in ('radtan','none')
 
 '''
 
@@ -48,6 +66,14 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
+    parser.add_argument('--cam0-at-reference',
+                        action='store_true',
+                        default=False,
+                        help='''By default we set the extrinsics of camera-0 as
+                        they appear in the input. If we want to force camera-0
+                        to have an identity transform, pass --cam0-at-reference.
+                        Usually this will be the case anyway in the input data,
+                        but this option makes sure''')
     parser.add_argument('--camera',
                         help='''Kalibr model files may contain multiple cameras,
                         selected by this argument. If omitted, all available
@@ -83,7 +109,12 @@ import numpy as np
 import numpysane as nps
 
 
+Rt_camprev_ref = None
+
 def convert_one(d):
+
+    global Rt_camprev_ref
+
 
     # I expect at least this structure:
     #
@@ -125,39 +156,51 @@ def convert_one(d):
                            imagersize = np.array(d['resolution'],
                                                  dtype=int) )
     if not 'T_cn_cnm1' in d:
-        # using the identity transform. I'm done
-        return m
+        Rt_cam_camprev = mrcal.identity_Rt()
 
-    T_cn_cnm1 = np.array(d['T_cn_cnm1'])
-    if T_cn_cnm1.shape != (4,4):
-        print(f"ERROR: T_cn_cnm1 must be a 4x4 array; got T_cn_cnm1.shape={T_cn_cnm1.shape}",
-              file=sys.stderr)
-        sys.exit()
-    if np.any(T_cn_cnm1[3,:] - np.array((0,0,0,1))):
-        print(f"ERROR: T_cn_cnm1 must have a last row of (0,0,0,1); got {T_cn_cnm1[3,:]}",
-              file=sys.stderr)
-        sys.exit()
+    else:
+        T_cn_cnm1 = np.array(d['T_cn_cnm1'])
+        if T_cn_cnm1.shape != (4,4):
+            print(f"ERROR: T_cn_cnm1 must be a 4x4 array; got T_cn_cnm1.shape={T_cn_cnm1.shape}",
+                  file=sys.stderr)
+            sys.exit()
+        if np.any(T_cn_cnm1[3,:] - np.array((0,0,0,1))):
+            print(f"ERROR: T_cn_cnm1 must have a last row of (0,0,0,1); got {T_cn_cnm1[3,:]}",
+                  file=sys.stderr)
+            sys.exit()
 
-    # The documentation is here:
-    #
-    #   https://github.com/ethz-asl/kalibr/wiki/Yaml-formats
-    #
-    # It says:
-    #
-    #   T_cn_cnm1 camera extrinsic transformation, always with respect to the
-    #   last camera in the chain (e.g. cam1: T_cn_cnm1 = T_c1_c0, takes cam0 to
-    #   cam1 coordinates)
-    #
-    # This isn't clear, but in practice it doesn't matter. I believe cam0 is
-    # conventionally the reference (has an identity transform) and there are
-    # exactly two cameras. So I just assume T_cn_cnm1 is T_cam_ref.
-    R_cam_ref = T_cn_cnm1[:3,:3]
-    if nps.norm2((nps.matmult(R_cam_ref, R_cam_ref.T) - np.eye(3)).ravel()) > 1e-12:
-        print(f"ERROR: T_cn_cnm1[:3,:3] must be a valid rotation. Instead it is {T_cn_cnm1[:3,:3]}",
-              file=sys.stderr)
-        sys.exit(1)
-    t_cam_ref = T_cn_cnm1[:3, 3]
-    Rt_cam_ref = nps.glue(R_cam_ref,t_cam_ref, axis=-2)
+        # The documentation is here:
+        #
+        #   https://github.com/ethz-asl/kalibr/wiki/Yaml-formats
+        #
+        # It says:
+        #
+        #   T_cn_cnm1 camera extrinsic transformation, always with respect to the
+        #   last camera in the chain (e.g. cam1: T_cn_cnm1 = T_c1_c0, takes cam0 to
+        #   cam1 coordinates)
+        #
+        # This isn't clear. I assume "last" means "previous"
+        R_cam_camprev = T_cn_cnm1[:3,:3]
+        if nps.norm2((nps.matmult(R_cam_camprev, R_cam_camprev.T) - np.eye(3)).ravel()) > 1e-12:
+            print(f"ERROR: T_cn_cnm1[:3,:3] must be a valid rotation. Instead it is {T_cn_cnm1[:3,:3]}",
+                  file=sys.stderr)
+            sys.exit(1)
+        t_cam_camprev = T_cn_cnm1[:3, 3]
+        Rt_cam_camprev = nps.glue(R_cam_camprev,t_cam_camprev, axis=-2)
+
+    if Rt_camprev_ref is not None:
+        Rt_cam_ref = mrcal.compose_Rt(Rt_cam_camprev, Rt_camprev_ref)
+    else:
+        # This is the first camera. What do we use as our reference?
+        if args.cam0_at_reference:
+            Rt_cam_ref = mrcal.identity_Rt()
+        else:
+            # By default the "prev cam" from cam0 is the reference
+            Rt_cam_ref = Rt_cam_camprev
+
+
+    Rt_camprev_ref = Rt_cam_ref # for the next one
+
     m.extrinsics_Rt_fromref(Rt_cam_ref)
     return m
 
@@ -173,6 +216,11 @@ def convert_all(f, which):
         print(e)
         sys.exit(1)
 
+    if len(D) == 0:
+        print("Zero models read from input",
+              file=sys.stderr)
+        sys.exit(1)
+
     if 'camera_model' in D:
         # one camera; stored inline
         d = D
@@ -180,27 +228,38 @@ def convert_all(f, which):
             print(f"Error: a single in-line model found in the file, but a specific camera is requested: '{which}'. Omit --camera",
                   file=sys.stderr)
             sys.exit(1)
-        return ( \
-                 (None, convert_one(d)),
-               )
-
-    if which is None:
-        # all cameras
-        if len(D) == 0:
-            print("Zero models read from input",
-                  file=sys.stderr)
+        try:
+            return ( \
+                     (None, convert_one(d)),
+                    )
+        except KeyError as e:
+            print(f"Error parsing input; missing key: {e}", file=sys.stderr)
             sys.exit(1)
 
-        return [ (which, convert_one(d)) \
-                 for which,d in D.items() ]
-
-    if not which in D:
+    if which is not None and \
+       not which in D:
         print(f"Error: asked for camera '{which}', but the given file contains only these cameras: {tuple(D.keys())}",
               file=sys.stderr)
         sys.exit(1)
 
+
+    # The extrinsics are specified as a serial chain. So I need to parse all the
+    # cameras, even if I only need to save one
+    models = dict()
+    for name,d in D.items():
+        try:
+            models[name] = convert_one(d)
+        except KeyError as e:
+            print(f"Error parsing input; missing key: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    if which is None:
+        # all cameras requested
+        return [ (name, models[name]) \
+                 for name in models.keys() ]
+
     return ( \
-             (which, convert_one(D[which])),
+             (which, models[which]),
            )
 
 
@@ -217,7 +276,7 @@ if args.model == '-':
 
     names_models = convert_all(sys.stdin, which = args.camera)
     if len(names_models) > 1:
-        print("Reading from standard input may only produce ONE model on stdout, but got more here. Pass --camera to select the camera you want",
+        print(f"Reading from standard input may only produce ONE model on stdout, but got more here. Pass --camera to select the camera you want; available cameras: {list(n for n,m in names_models)}",
               file=sys.stderr)
         sys.exit(1)
 
@@ -248,6 +307,3 @@ else:
 
         model.write(filename_out)
         print("Wrote " + filename_out)
-
-
-
