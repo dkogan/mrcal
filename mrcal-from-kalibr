@@ -34,7 +34,6 @@ Unlike mrcal .cameramodel files where one camera is described by one file, the
 format conversion tool will write out multiple .cameramodel file to represent
 the given data. To select a single camera, pass --camera CAMERA.
 
-Multiple models can be given on the commandline; each one will be converted.
 
 '''
 
@@ -66,10 +65,9 @@ def parse_args():
                         help='''Directory to write the output models into. If omitted, we write the output
                         models to the same directory as the input models''')
     parser.add_argument('model',
-                        default=['-'],
-                        nargs='*',
+                        default='-',
                         type=str,
-                        help='''Input camera model''')
+                        help='''Input camera model; '-' to read standard input''')
 
     return parser.parse_args()
 
@@ -78,10 +76,6 @@ args = parse_args()
 # arg-parsing is done before the imports so that --help works without building
 # stuff, so that I can generate the manpages and README
 
-Nstdin = sum(1 for m in args.model if m=='-')
-if Nstdin > 1:
-    print(f"At most one model can be read from standard input ('-'), but I got {Nstdin}", file=sys.stderr)
-    sys.exit(1)
 
 import mrcal
 import yaml
@@ -211,47 +205,49 @@ def convert_all(f, which):
 
 
 
-for model in args.model:
-    if model == '-':
-        if sys.stdin.isatty():
-            # This isn't an error per-se. But most likely the user ran this
-            # without redirecting any data into it. Without this check the
-            # program will sit there, waiting for input. Which will look strange
-            # to an unsuspecting user
-            print("Trying to read a model from standard input, but no file is being redirected into it",
+if args.model == '-':
+    if sys.stdin.isatty():
+        # This isn't an error per-se. But most likely the user ran this
+        # without redirecting any data into it. Without this check the
+        # program will sit there, waiting for input. Which will look strange
+        # to an unsuspecting user
+        print("Trying to read a model from standard input, but no file is being redirected into it",
+              file=sys.stderr)
+        sys.exit(1)
+
+    names_models = convert_all(sys.stdin, which = args.camera)
+    if len(names_models) > 1:
+        print("Reading from standard input may only produce ONE model on stdout, but got more here. Pass --camera to select the camera you want",
+              file=sys.stderr)
+        sys.exit(1)
+
+    names_models[0][1].write(sys.stdout)
+
+else:
+    base,extension = os.path.splitext(args.model)
+    if extension.lower() == '.cameramodel':
+        print("Input file is already in the cameramodel format (judging from the filename). Doing nothing",
+              file=sys.stderr)
+        sys.exit(0)
+
+    if args.outdir is not None:
+        base = args.outdir + '/' + os.path.split(base)[1]
+
+    with open(args.model, "r") as f:
+        names_models = convert_all(f, which = args.camera)
+
+    for name,model in names_models:
+
+        if name is None: name = ''
+        else:            name = f"-{name}"
+        filename_out = f"{base}{name}.cameramodel"
+        if not args.force and os.path.exists(filename_out):
+            print(f"Target model '{filename_out}' already exists. Doing nothing with this model. Pass -f to overwrite",
                   file=sys.stderr)
-            sys.exit(1)
+            continue
 
-        names_models = convert_all(sys.stdin, which = args.camera)
-        if len(names_models) > 1:
-            print("Reading from standard input may only produce ONE model on stdout, but got more here. Pass --camera to select the camera you want",
-                  file=sys.stderr)
-            sys.exit(1)
+        model.write(filename_out)
+        print("Wrote " + filename_out)
 
-        names_models[0][1].write(sys.stdout)
 
-    else:
-        base,extension = os.path.splitext(model)
-        if extension.lower() == '.cameramodel':
-            print("Input file is already in the cameramodel format (judging from the filename). Doing nothing",
-                  file=sys.stderr)
-            sys.exit(0)
 
-        if args.outdir is not None:
-            base = args.outdir + '/' + os.path.split(base)[1]
-
-        with open(model, "r") as f:
-            names_models = convert_all(f, which = args.camera)
-
-        for name,model in names_models:
-
-            if name is None: name = ''
-            else:            name = f"-{name}"
-            filename_out = f"{base}{name}.cameramodel"
-            if not args.force and os.path.exists(filename_out):
-                print(f"Target model '{filename_out}' already exists. Doing nothing with this model. Pass -f to overwrite",
-                      file=sys.stderr)
-                continue
-
-            model.write(filename_out)
-            print("Wrote " + filename_out)
