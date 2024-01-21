@@ -93,11 +93,18 @@ def parse_args():
                         help='''Directory to write the output models into. If omitted, we write the output
                         models to the same directory as the input models''')
     parser.add_argument('model',
-                        default='-',
+                        default=['-'],
+                        nargs='*',
                         type=str,
                         help='''Input camera model; '-' to read standard input''')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if len(args.model) > 1:
+        print("ERROR: only one input file may be processed", file=sys.stderr)
+        sys.exit(1)
+    args.model = args.model[0]
+    return args
 
 args = parse_args()
 
