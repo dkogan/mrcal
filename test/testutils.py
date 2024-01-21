@@ -6,6 +6,7 @@ import numpysane as nps
 import os
 import re
 from inspect import currentframe
+import mrcal
 
 Nchecks = 0
 NchecksFailed = 0
