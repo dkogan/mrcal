@@ -288,8 +288,57 @@ def read(f):
 def read_from_string(s):
     return _read(s, "<string>")
 
+def _deconstruct_model(model):
+
+    x = dict()
+
+    lensmodel,intrinsics = model.intrinsics()
+    m = re.match('^LENSMODEL_CAHVORE_linearity=([0-9\.]+)$', lensmodel)
+    if m is not None:
+        x['cahvore_linearity'] = float(m.group(1))
+    else:
+        x['cahvore_linearity'] = None
+
+    x['Dimensions'] = model.imagersize()
+
+
+    fx,fy,cx,cy = intrinsics[:4]
+    Rt_toref = model.extrinsics_Rt_toref()
+    R_toref = Rt_toref[:3,:]
+    t_toref = Rt_toref[ 3,:]
+
+    x['C'] = t_toref
+    x['A'] = R_toref[:,2]
+    Hp     = R_toref[:,0]
+    Vp     = R_toref[:,1]
+    x['H'] = fx*Hp + x['A']*cx
+    x['V'] = fy*Vp + x['A']*cy
+
+    x['O'] = None
+    x['R'] = None
+    x['E'] = None
+
+    if re.match('LENSMODEL_CAHVOR', lensmodel):
+        # CAHVOR(E)
+        alpha,beta,R0,R1,R2 = intrinsics[4:9]
+
+        s_al,c_al,s_be,c_be = np.sin(alpha),np.cos(alpha),np.sin(beta),np.cos(beta)
+        x['O'] = nps.matmult( R_toref, nps.transpose(np.array(( s_al*c_be, s_be, c_al*c_be ), dtype=float)) ).ravel()
+        x['R'] = np.array((R0, R1, R2), dtype=float)
+
+        if re.match('LENSMODEL_CAHVORE', lensmodel):
+            x['E'] = intrinsics[9:]
+
+    x['VALID_INTRINSICS_REGION'] = model.valid_intrinsics_region()
+
+    return x
+
+
 def _write(f, m, note=None):
     r'''Writes a cameramodel as a .cahvor to a writeable file object'''
+
+    x = _deconstruct_model(m)
+
 
     if note is not None:
         for l in note.splitlines():
@@ -301,47 +350,27 @@ def _write(f, m, note=None):
     elif re.match('LENSMODEL_(OPENCV.*|PINHOLE)', lensmodel):
         f.write("Model = CAHV = perspective, linear\n")
     else:
-        match = re.match('^LENSMODEL_CAHVORE_linearity=([0-9\.]+)$', lensmodel)
-        if match is not None:
-            f.write("Model = CAHVORE3,{} = general\n".format(match.group(1)))
+        if x['cahvore_linearity'] is not None:
+            f.write(f"Model = CAHVORE3,{x['cahvore_linearity']} = general\n")
         else:
-            raise Exception("Don't know how to handle lens model '{}'".format(lensmodel))
+            raise Exception(f"Don't know how to handle lens model '{lensmodel}'")
 
-    d = m.imagersize()
-    f.write('Dimensions = {} {}\n'.format(int(d[0]), int(d[1])))
+    f.write('Dimensions = {} {}\n'.format(int(x['Dimensions'][0]), int(x['Dimensions'][1])))
 
-    fx,fy,cx,cy = intrinsics[:4]
-    Rt_toref = m.extrinsics_Rt_toref()
-    R_toref = Rt_toref[:3,:]
-    t_toref = Rt_toref[ 3,:]
+    f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('C', *x['C']))
+    f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('A', *x['A']))
+    f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('H', *x['H']))
+    f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('V', *x['V']))
 
-    C  = t_toref
-    A  = R_toref[:,2]
-    Hp = R_toref[:,0]
-    Vp = R_toref[:,1]
-    H  = fx*Hp + A*cx
-    V  = fy*Vp + A*cy
-
-    f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('C', *C))
-    f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('A', *A))
-    f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('H', *H))
-    f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('V', *V))
-
-    if re.match('^LENSMODEL_CAHVOR', lensmodel):
+    if re.match('LENSMODEL_CAHVOR', lensmodel):
         # CAHVOR(E)
-        alpha,beta,R0,R1,R2 = intrinsics[4:9]
+        f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('O', *x['O']))
+        f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('R', *x['R']))
 
-        s_al,c_al,s_be,c_be = np.sin(alpha),np.cos(alpha),np.sin(beta),np.cos(beta)
-        O = nps.matmult( R_toref, nps.transpose(np.array(( s_al*c_be, s_be, c_al*c_be ), dtype=float)) ).ravel()
-        R = np.array((R0, R1, R2), dtype=float)
-        f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('O', *O))
-        f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('R', *R))
+        if re.match('LENSMODEL_CAHVORE', lensmodel):
+            f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('E', *x['E']))
 
-        if re.match('^LENSMODEL_CAHVORE', lensmodel):
-            E = intrinsics[9:]
-            f.write(("{} =" + (" {:15.10f}" * 3) + "\n").format('E', *E))
-
-    elif re.match('LENSMODEL_OPENCV*', lensmodel):
+    elif re.match('LENSMODEL_OPENCV', lensmodel):
         Ndistortions = mrcal.lensmodel_num_params(lensmodel) - 4
         f.write(("{} =" + (" {:15.10f}" * Ndistortions) + "\n").format(lensmodel, *intrinsics[4:]))
     elif lensmodel == 'LENSMODEL_PINHOLE':
@@ -350,17 +379,16 @@ def _write(f, m, note=None):
     else:
         raise Exception(f"Cannot write lens model '{lensmodel}' to a .cahvor file. I only support PINHOLE, CAHVOR(E) and OPENCV model")
 
-    c = m.valid_intrinsics_region()
-    if c is not None:
+    if x['VALID_INTRINSICS_REGION'] is not None:
         f.write("VALID_INTRINSICS_REGION = ")
-        np.savetxt(f, c.ravel(), fmt='%.2f', newline=' ')
+        np.savetxt(f, x['VALID_INTRINSICS_REGION'].ravel(), fmt='%.2f', newline=' ')
         f.write('\n')
 
     # Write covariance matrix. Old jplv parser requires that this exists, even
     # if the actual values don't matter
     S_size = 12
-    if   re.match('^LENSMODEL_CAHVORE', lensmodel): S_size = 21
-    elif re.match('^LENSMODEL_CAHVOR',  lensmodel): S_size = 18
+    if   re.match('LENSMODEL_CAHVORE', lensmodel): S_size = 21
+    elif re.match('LENSMODEL_CAHVOR',  lensmodel): S_size = 18
     f.write("S =\n" + ((" 0.0" * S_size) + "\n") * S_size)
 
     # Extra spaces before "=" are significant. Old jplv parser gets confused if
