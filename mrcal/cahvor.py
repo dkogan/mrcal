@@ -39,15 +39,15 @@ import numpysane as nps
 
 import mrcal
 
-def _HVs_HVc_HVp(cahvor):
+def _HVs_HVc_HVp(A,H,V):
     r'''Given a cahvor dict returns a tuple containing (Hs,Vs,Hc,Vc,Hp,Vp)'''
 
-    Hc   = nps.inner(cahvor['H'], cahvor['A'])
-    hshp = cahvor['H'] - Hc * cahvor['A']
+    Hc   = nps.inner(H, A)
+    hshp = H - Hc * A
     Hs   = np.sqrt(nps.inner(hshp,hshp))
 
-    Vc   = nps.inner(cahvor['V'], cahvor['A'])
-    vsvp = cahvor['V'] - Vc * cahvor['A']
+    Vc   = nps.inner(V, A)
+    vsvp = V - Vc * A
     Vs   = np.sqrt(nps.inner(vsvp,vsvp))
 
     Hp   = hshp / Hs
@@ -55,9 +55,88 @@ def _HVs_HVc_HVp(cahvor):
 
     return Hs,Vs,Hc,Vc,Hp,Vp
 
-def _fxy_cxy(cahvor):
-    r'''Given a cahvor dict returns a tuple containing (fx,fy,cx,cy)'''
-    return _HVs_HVc_HVp(cahvor)[:4]
+def _construct_model(C,A,H,V,
+                     O = None,
+                     R = None,
+                     E = None,
+                     *,
+                     cahvore_linearity,
+                     is_cahvor_or_cahvore,
+                     is_cahvore,
+                     Dimensions,
+                     name,
+                     VALID_INTRINSICS_REGION = None,
+                     lensmodel_fallback   = None,
+                     distortions_fallback = None,
+                     **rest):
+    r'''Construct a mrcal.cameramodel object from cahvor chunks
+
+I'm going to be calling this from the outside, but everything about cahvor is a
+massive hack, so I'm not documenting this
+    '''
+
+    # normalize optical axis. Mostly this is here to smooth out ASCII roundoff
+    # errors
+    A /= nps.mag(A)
+    fx,fy,cx,cy,Hp,Vp = _HVs_HVc_HVp(A,H,V)
+
+    # By construction Hp and Vp will both be orthogonal to A. But CAHVOR allows
+    # non-orthogonal Hp,Vp. MY implementation does not support this, so I check,
+    # and barf if I encounter non-orthogonal Hp,Vp
+    Vp_expected = np.cross(A, Hp)
+    th = np.arccos(np.clip( nps.inner(Vp,Vp_expected),
+                            -1, 1)) *180./np.pi
+    if th > 1e-3:
+        print(f"WARNING: parsed .cahvor file has non-orthogonal Hp,Vp. Skew of {th:.3f} degrees. I'm using an orthogonal Vp, so the resulting model will work slightly differently",
+              file=sys.stderr)
+    Vp = Vp_expected
+
+    R_toref = nps.transpose( nps.cat( Hp,
+                                      Vp,
+                                      A ))
+    t_toref = C
+
+    lensmodel   = lensmodel_fallback
+    distortions = distortions_fallback
+    if is_cahvor_or_cahvore:
+        if O is None:
+            alpha = 0
+            beta  = 0
+        else:
+            o     = nps.matmult( O, R_toref )
+            alpha = np.arctan2(o[0], o[2])
+            beta  = np.arcsin( o[1] )
+
+        if is_cahvore:
+            # CAHVORE
+            if E is None:
+                raise Exception('Cahvor file {} LOOKS like a cahvore, but lacks the E'.format(name))
+            R0,R1,R2 = R.ravel()
+            E0,E1,E2 = E.ravel()
+
+            distortions      = np.array((alpha,beta,R0,R1,R2,E0,E1,E2), dtype=float)
+            lensmodel = f'LENSMODEL_CAHVORE_linearity={cahvore_linearity}'
+
+        else:
+            # CAHVOR
+            if E is not None:
+                raise Exception('Cahvor file {} LOOKS like a cahvor, but has an E'.format(name))
+
+            if R is None or np.linalg.norm(R) < 1e-8:
+                # pinhole
+                distortions = np.array(())
+                lensmodel = 'LENSMODEL_PINHOLE'
+            else:
+                R0,R1,R2 = R.ravel()
+                distortions = np.array((alpha,beta,R0,R1,R2), dtype=float)
+                lensmodel = 'LENSMODEL_CAHVOR'
+
+    return mrcal.cameramodel(imagersize = Dimensions[:2].astype(np.int32),
+                             intrinsics = (lensmodel, nps.glue( np.array((fx,fy,cx,cy), dtype=float),
+                                                                distortions,
+                                                                axis = -1)),
+                             valid_intrinsics_region = VALID_INTRINSICS_REGION,
+                             extrinsics_Rt_toref = np.ascontiguousarray(nps.glue(R_toref,t_toref, axis=-2)))
 
 def _read(s, name):
     r'''Reads a .cahvor file into a cameramodel
@@ -116,7 +195,10 @@ def _read(s, name):
                             format(name, k))
 
 
+    is_cahvore           = False
+    cahvore_linearity    = None
     is_cahvor_or_cahvore = False
+
     if 'LENSMODEL_OPENCV12' in x:
         distortions = x["LENSMODEL_OPENCV12"]
         lensmodel = 'LENSMODEL_OPENCV12'
@@ -134,6 +216,8 @@ def _read(s, name):
         lensmodel = 'LENSMODEL_PINHOLE'
     else:
         is_cahvor_or_cahvore = True
+        lensmodel   = None
+        distortions = None
 
     if 'VALID_INTRINSICS_REGION' in x:
         x['VALID_INTRINSICS_REGION'] = \
@@ -178,67 +262,14 @@ def _read(s, name):
     else:
         is_cahvore = False
 
-    # normalize optical axis. Mostly this is here to smooth out ASCII roundoff
-    # errors
-    x['A'] /= nps.mag(x['A'])
-    Hp,Vp = _HVs_HVc_HVp(x)[-2:]
+    return _construct_model(**x,
+                            is_cahvor_or_cahvore = is_cahvor_or_cahvore,
+                            is_cahvore           = is_cahvore,
+                            cahvore_linearity    = cahvore_linearity,
+                            name                 = name,
+                            distortions_fallback = distortions,
+                            lensmodel_fallback   = lensmodel)
 
-    # By construction Hp and Vp will both be orthogonal to A. But CAHVOR allows
-    # non-orthogonal Hp,Vp. MY implementation does not support this, so I check,
-    # and barf if I encounter non-orthogonal Hp,Vp
-    Vp_expected = np.cross(x['A'], Hp)
-    th = np.arccos(np.clip( nps.inner(Vp,Vp_expected),
-                            -1, 1)) *180./np.pi
-    if th > 1e-3:
-        print(f"WARNING: parsed .cahvor file has non-orthogonal Hp,Vp. Skew of {th:.3f} degrees. I'm using an orthogonal Vp, so the resulting model will work slightly differently",
-              file=sys.stderr)
-    Vp = Vp_expected
-
-    R_toref = nps.transpose( nps.cat( Hp,
-                                      Vp,
-                                      x['A'] ))
-    t_toref = x['C']
-
-    if is_cahvor_or_cahvore:
-        if 'O' not in x:
-            alpha = 0
-            beta  = 0
-        else:
-            o     = nps.matmult( x['O'], R_toref )
-            alpha = np.arctan2(o[0], o[2])
-            beta  = np.arcsin( o[1] )
-
-        if is_cahvore:
-            # CAHVORE
-            if 'E' not in x:
-                raise Exception('Cahvor file {} LOOKS like a cahvore, but lacks the E'.format(name))
-            R0,R1,R2 = x['R'].ravel()
-            E0,E1,E2 = x['E'].ravel()
-
-            distortions      = np.array((alpha,beta,R0,R1,R2,E0,E1,E2), dtype=float)
-            lensmodel = f'LENSMODEL_CAHVORE_linearity={cahvore_linearity}'
-
-        else:
-            # CAHVOR
-            if 'E' in x:
-                raise Exception('Cahvor file {} LOOKS like a cahvor, but has an E'.format(name))
-
-            if 'R' not in x or np.linalg.norm(x['R']) < 1e-8:
-                # pinhole
-                distortions = np.array(())
-                lensmodel = 'LENSMODEL_PINHOLE'
-            else:
-                R0,R1,R2 = x['R'].ravel()
-                distortions = np.array((alpha,beta,R0,R1,R2), dtype=float)
-                lensmodel = 'LENSMODEL_CAHVOR'
-
-    m = mrcal.cameramodel(imagersize = x['Dimensions'][:2].astype(np.int32),
-                          intrinsics = (lensmodel, nps.glue( np.array(_fxy_cxy(x), dtype=float),
-                                                                    distortions,
-                                                                    axis = -1)),
-                          valid_intrinsics_region = x.get('VALID_INTRINSICS_REGION'),
-                          extrinsics_Rt_toref = np.ascontiguousarray(nps.glue(R_toref,t_toref, axis=-2)))
-    return m
 
 def read(f):
     r'''Reads a .cahvor file into a cameramodel
