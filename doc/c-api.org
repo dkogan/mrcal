@@ -518,6 +518,9 @@ mrcal_apply_color_map_T(
 #+end_src
 
 * Dense stereo
+:PROPERTIES:
+:CUSTOM_ID: dense-stereo-in-c
+:END:
 
 A number of dense stereo routines are available. These make it possible to
 implement a full mrcal dense stereo pipeline in C; an [[https://github.com/dkogan/mrcal/blob/master/doc/examples/dense-stereo-demo/dense-stereo-demo.cc][example is provided]]. The
