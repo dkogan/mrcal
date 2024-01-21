@@ -2,105 +2,122 @@
 #+OPTIONS: toc:nil
 
 * New in mrcal 2.4
+Another mostly-maintenance release. Fixes bugs, adds features. Primarily:
 
-363c9f9ce9e9a02aa249bf97ccf137fdd6115a64
-numpy.linalg.lstsq() calls work even in old numpy releases
+- build with clang. Try it out like this: =CC=clang CXX=clang++ make=
+- full dense stereo in C
 
-fixed mrcal.show_geometry() axis_scale logic: e3e29bab
+** Python API
+- [[file:mrcal-python-api-reference.html#-show_projection_diff][=mrcal.show_projection_diff()=]] has similar contour-generating options as what
+  [[file:mrcal-python-api-reference.html#-show_projection_uncertainty][=mrcal.show_projection_uncertainty()=]] has
 
-2023-06-09 mrcal.show_projection_diff() has contour options like mrcal.show_projection_uncertainty()
+- renamed =mrcal.residuals_chessboard()= to [[file:mrcal-python-api-reference.html#-residuals_board][=mrcal.residuals_board()=]]. Both
+  names are available for backwards compatibility
 
-commit 09d52a7f4475615db8f454f111246204b7279596
-Date:   Tue Jun 20 16:07:57 2023 -0700
-  mrcal-stereo, stereo_range() work properly if disparity_min > 0
-  Invalid-disparity areas are now interpreted properly
+- =mrcal.show_residuals_...()= tools and =mrcal-show-residuals-...= functions
+  all have =cbmax= and =--cbmax= options respectively, like the other
+  visualization tools that produce heat maps.
 
-commit 97298695e24d4e083ce7496fe42fd2a88a0083f3
-Date:   Wed Jun 21 22:52:05 2023 -0700
-  All the tools use /usr/bin/env in the #!
-  Mac user who live life on hard mode now have it slightly easier
+- Added [[file:mrcal-python-api-reference.html#CHOLMOD_factorization-rcond][=mrcal.CHOLMOD_factorization.rcond()=]] as an interface to
+  =cholmod_rcond()=
 
-7aae63c8, previous one
-build compat: no _GNU_SOURCE, glibc requirement
+- [[file:mrcal-python-api-reference.html#-worst_direction_stdev][=mrcal.worst_direction_stdev()=]] works with NxN arrays, not just 2x2
 
-commit 700a18a01370a14e2f947c9fe24fdb7acdedcb10
-Date:   Thu Jun 15 21:40:20 2023 -0700
-  Support the more recent CHOLMOD APIs
+- [[file:mrcal-python-api-reference.html#-ref_calibration_object][=mrcal.ref_calibration_object()=]] has a new =optimization_inputs= argument.
+  This provides a convenient shorthand to get the object used in a particular
+  calibration
 
-Python API: renamed residuals_chessboard -> residuals_board
-The previous name is still available for backwards compatibility
+- Added [[file:mrcal-python-api-reference.html#-R_aligned_to_vector][=mrcal.R_aligned_to_vector()=]] to produce a non-unique rotation to map a
+  given vector to [0,0,1]
 
-4923218d..: show_residuals_board_observation() and cmdline tool have --cbmax
+- Added [[file:mrcal-python-api-reference.html#-sorted_eig][=mrcal.sorted_eig()=]] to compute an eigenvalue decomposition with
+  /sorted/ eigenvalues
 
-073f55b5..: show_residuals_vectorfield(), .._magnitudes(), mrcal-show-residuals have --cbmax
+- Added [[file:mrcal-python-api-reference.html#-write_point_cloud_as_ply][=mrcal.write_point_cloud_as_ply()=]] to write a point cloud as a =.ply=
+  file
 
-Added CHOLMOD_factorization.rcond()
+- [[file:mrcal-python-api-reference.html#-apply_color_map][=mrcal.apply_color_map()=]] supports /all/ gnuplot rgbformulae, above the 7,5,15
+  default
 
-mrcal.worst_direction_stdev() works with NxN arrays, not just 2x2
+- [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]] has more optional arguments:
+  - =disparity_max= to set the upper valid-disparity bound
+  - =disparity_scaled_min=, =disparity_scaled_max= to act on the raw disparity
+    data produced by the stereo matcher
 
-mrcal.ref_calibration_object has optimization_inputs argument
-This provides a convenient shorthand to get the object used in a particular
-calibration
+** Stereo
+- [[file:mrcal-stereo.html][=mrcal-stereo=]], [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]] work properly if =disparity_min > 0=
 
-03f030: Procrustes transform functions detect and report errors
+- The [[file:mrcal-stereo.html][=mrcal-stereo=]] GUI displays the pixel coordinates for /both/ cameras, not
+  just the one under the cursor
 
-Added [[file:mrcal-python-api-reference.html#-R_aligned_to_vector][=mrcal.R_aligned_to_vector()=]]
+** General fixes
+- All the tools use =/usr/bin/env= in the =#!= line. People who live life on
+  hard mode now have it slightly easier
 
-Added [[file:mrcal-python-api-reference.html#-sorted_eig][=mrcal.sorted_eig()=]]
+** C API
+- =mrcal_rectification_maps()= supports =LENSMODEL_LATLON= /and/
+  =LENSMODEL_PINHOLE= rectification
 
-mrcal_rectification_maps() supports latlon AND pinhole rectification
+- More image types supported. We now have:
+  - =mrcal_image_int8_t=
+  - =mrcal_image_uint8_t=
+  - =mrcal_image_int16_t=
+  - =mrcal_image_uint16_t=
+  - =mrcal_image_int32_t=
+  - =mrcal_image_uint32_t=
+  - =mrcal_image_int64_t=
+  - =mrcal_image_uint64_t=
+  - =mrcal_image_float_t=
+  - =mrcal_image_double_t=
+  - =mrcal_image_bgr_t=
 
-mrcal builds with clang
+- Renamed the =bgr_t= type to =mrcal_bgr_t=. For namespacing.
 
-mrcal-from-kalibr, mrcal-to-kalibr
-mrcal-from-ros
+- Better error handling: lensmodel-parsing functions return an error code
+  instead of asserting, if given invalid input. Affected functions:
 
-write_point_cloud_as_ply() exported
+  - =mrcal_lensmodel_name_unconfigured()=
+  - =mrcal_lensmodel_name()=
+  - =mrcal_lensmodel_type_from_name()=
+  - =mrcal_lensmodel_from_name()=
 
-lensmodel parsing: more detailed error codes
+- The remaining pieces for a [[file:c-api.org::#dense-stereo-in-c][full dense-stereo pipeline in C]] were implemented.
+  The new functions are
 
-C API: more types defined
+  - =mrcal_stereo_range_sparse()= to convert a set of disparity values to ranges
+  - =mrcal_stereo_range_dense()= to convert a disparity /image/ to a range
+    /image/
+  - =mrcal_apply_color_map()= to convert a disparity or range image to a heat
+    map for human consumption
 
-mrcal_apply_color_map() available in C, for many types
+  A [[https://github.com/dkogan/mrcal/blob/master/doc/examples/dense-stereo-demo/dense-stereo-demo.cc][dense-stereo-in-C sample]] is provided.
 
-mrcal.apply_color_map() uses the C function internally. All gnuplot colormap
-functions supported
+** Build
+- The sources do not use =_GNU_SOURCE=: mrcal does not depend on glibc
 
-mrcal-stereo gui displays the pixel coordinates for both cameras
+- The sources support the updated CHOLMOD APIs in the recent distros
 
-bgr_t -> mrcal_bgr_t
+- The Procrustes fit functions ([[file:mrcal-python-api-reference.html#-align_procrustes_vectors_R01][=mrcal.align_procrustes_vectors_R01()=]],
+  [[file:mrcal-python-api-reference.html#-align_procrustes_vectors_Rt01][=mrcal.align_procrustes_vectors_Rt01()=]]) detect and report errors in the input
+  data
 
-C API: mrcal_lensmodel_name...() return NULL if given an invalid model
+- mrcal builds with clang
 
-Added mrcal_stereo_range_sparse() and mrcal_stereo_range_dense();
-mrcal.stereo_range() uses those
-
-mrcal.stereo_range() has optional disparity_max parameter; and
-disparity_scaled_min, disparity_scaled_max
-
-added demo for dense stereo in C
-
-C API: mrcal_lensmodel_..._from_name() handles NULL gracefully
+- Tools to support more file formats:
+  - [[file:mrcal-from-kalibr.html][=mrcal-from-kalibr=]]
+  - [[file:mrcal-to-kalibr.html][=mrcal-to-kalibr=]]
+  - [[file:mrcal-from-ros.html][=mrcal-from-ros=]]
+  These will probably be extended in the future. /Please/ let me know if these
+  are or aren't useful
 
 * Migration notes 2.3 -> 2.4
-
-commit 76248fce8655fba0aec1175157cbe8f8da055b7a
-Date:   Wed Jun 21 18:24:50 2023 -0700
-  do_optimize_calobject_warp is true ONLY if Nobservations_board>0 is also true
-  THIS IS A C-API-BREAKING CHANGE: mrcal_pack_solver_state_vector() and
-  mrcal_unpack_solver_state_vector() now take one more argument.
-  Prior to this patch you could get into an inconsistent state where different
-  parts of the code has different ideas about what Nstate was
-
-
-Python API: renamed residuals_chessboard -> residuals_board
-The previous name is still available for backwards compatibility.
-Use the new name if you can. You don't HAVE to
-
-mrcal.apply_color_map(): a_min, a_max MUST now be passed in as kwargs, instead
-of positionals.
-
-C API. Renamed type: bgr_t -> mrcal_bgr_t
-
-mrcal._elas_nsps.stereo_matching_libelas() kwargs renamed: disp_min/max ->
-disparity_min/max
+- C API/ABI breaking change: these functions now take an extra =int
+  Nobservations_board= argument:
+  - =mrcal_pack_solver_state_vector()=
+  - =mrcal_unpack_solver_state_vector()=
+- C API breaking change: =bgr_t= structure renamed to =mrcal_bgr_t=
+- Python API: a function was renamed: =mrcal.residuals_chessboard()= ->
+  [[file:mrcal-python-api-reference.html#-residuals_board][=mrcal.residuals_board()=]]. Both names are available for backwards
+  compatibility, but moving to the new name is recommended.
+- Python [[file:mrcal-python-api-reference.html#-apply_color_map][=mrcal.apply_color_map()=]] function: =a_min=, =a_max= arguments now
+  /must/ be passed in as kwargs, and not positionals.
