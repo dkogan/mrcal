@@ -47,6 +47,8 @@ At this time we only support
 
 - LENSMODEL_PINHOLE
 - LENSMODEL_OPENCV4
+- LENSMODEL_CAHVOR  (experimental)
+- LENSMODEL_CAHVORE (experimental)
 
 which corresponds to
 
@@ -92,12 +94,14 @@ if Nstdin > 1:
     sys.exit(1)
 
 import mrcal
+import mrcal.cahvor
 import numpy as np
 import numpysane as nps
 
 
 Rt_ref_camprev = None
 
+# stolen from mrcal-to-kalibr. Please consolidate
 def Rt_is_identity(Rt):
     cos_th = (np.trace(Rt[:3,:]) - 1.) / 2.
     # cos_th ~ 1 - x^2/2
@@ -112,6 +116,8 @@ def convert_one(i, model_filename):
     model = mrcal.cameramodel(model_filename)
 
     lensmodel,intrinsics = model.intrinsics()
+    lensmodel_type = re.match('LENSMODEL_[^_]*',lensmodel).group(0)
+
     imagersize           = model.imagersize()
     Rt_cam_ref           = model.extrinsics_Rt_fromref()
 
@@ -128,19 +134,57 @@ def convert_one(i, model_filename):
     Rt_ref_camprev = mrcal.invert_Rt(Rt_cam_ref) # for the next one
 
 
-    lensmodel_known = set(('LENSMODEL_PINHOLE','LENSMODEL_OPENCV4'),)
+    lensmodel_known = set(('LENSMODEL_PINHOLE','LENSMODEL_OPENCV4',
+                           'LENSMODEL_CAHVOR','LENSMODEL_CAHVORE'),)
 
-    if not lensmodel in lensmodel_known:
-        print(f"ERROR: kalibr only supports {lensmodel_known}, but '{model_filename}' uses {lensmodel}",
+    if not lensmodel_type in lensmodel_known:
+        print(f"ERROR: kalibr only supports {lensmodel_known}, but '{model_filename}' uses {lensmodel_type}",
               file=sys.stderr)
         sys.exit(1)
 
-    if   lensmodel == 'LENSMODEL_OPENCV4':
-        distortion_model = 'radtan'
-    elif lensmodel == 'LENSMODEL_PINHOLE':
-        distortion_model = 'none'
+    if   lensmodel_type == 'LENSMODEL_OPENCV4':
+        camera_model      = 'pinhole'
+        intrinsics        = repr(list(intrinsics[:4]))
+        distortion_model  = 'radtan'
+        distortion_coeffs = repr(list(intrinsics[4:]))
+        cahvore_linearity = None
+    elif lensmodel_type == 'LENSMODEL_PINHOLE':
+        camera_model      = 'pinhole'
+        intrinsics        = repr(list(intrinsics[:4]))
+        distortion_model  = 'none'
+        distortion_coeffs = repr(list(intrinsics[4:]))
+        cahvore_linearity = None
     else:
-        raise Exception("Getting here is a bug")
+        # cahvor(e)
+        distortion_model  = None
+        distortion_coeffs = None
+
+        model_identity_extrinsics = mrcal.cameramodel(model)
+        model_identity_extrinsics.extrinsics_Rt_fromref(mrcal.identity_Rt())
+        x = mrcal.cahvor._deconstruct_model(model_identity_extrinsics)
+
+        if   lensmodel_type == 'LENSMODEL_CAHVOR':
+            camera_model = 'cahvor'
+            intrinsics   = repr(list(x['C']) +
+                                list(x['A']) +
+                                list(x['H']) +
+                                list(x['V']) +
+                                list(x['O']) +
+                                list(x['R']))
+            cahvore_linearity = None
+
+        elif lensmodel_type == 'LENSMODEL_CAHVORE':
+            camera_model = 'cahvore'
+            intrinsics   = repr(list(x['C']) +
+                                list(x['A']) +
+                                list(x['H']) +
+                                list(x['V']) +
+                                list(x['O']) +
+                                list(x['R']) +
+                                list(x['E']))
+            cahvore_linearity = mrcal.lensmodel_metadata_and_config(lensmodel)['linearity']
+        else:
+            raise Exception("Getting here is a bug")
 
     # Identity transforms on the first camera are allowed to omit T_cn_cnm1
     if i==0 and Rt_is_identity(Rt_cam_camprev):
@@ -150,12 +194,16 @@ def convert_one(i, model_filename):
         T_cn_cnm1[:3,:3] = Rt_cam_camprev[:3,:]
         T_cn_cnm1[:3, 3] = Rt_cam_camprev[ 3,:]
 
+
     return \
         fr'''cam{i}:
-  camera_model: pinhole
-  intrinsics: {repr(list(intrinsics[:4]))}
+  camera_model: {camera_model}
+  intrinsics: {intrinsics}''' + \
+(rf'''
   distortion_model: {distortion_model}
-  distortion_coeffs: {repr(list(intrinsics[4:]))}''' + \
+  distortion_coeffs: {distortion_coeffs}''' if distortion_model is not None else '') + \
+(rf'''
+  cahvore_linearity: {cahvore_linearity}''' if cahvore_linearity is not None else '') + \
 (rf'''
   T_cn_cnm1:
   - {repr(list(T_cn_cnm1[0,:]))}

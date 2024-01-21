@@ -48,6 +48,8 @@ At this time we only support
 
 - LENSMODEL_PINHOLE
 - LENSMODEL_OPENCV4
+- LENSMODEL_CAHVOR  (experimental)
+- LENSMODEL_CAHVORE (experimental)
 
 which corresponds to
 
@@ -104,14 +106,24 @@ args = parse_args()
 
 
 import mrcal
+import mrcal.cahvor
 import yaml
 import numpy as np
 import numpysane as nps
 
 
+
 Rt_camprev_ref = None
 
-def convert_one(d):
+# stolen from mrcal-to-kalibr. Please consolidate
+def Rt_is_identity(Rt):
+    cos_th = (np.trace(Rt[:3,:]) - 1.) / 2.
+    # cos_th ~ 1 - x^2/2
+    th_sq = (1 - cos_th)*2.
+    norm2_t = nps.norm2(Rt[3,:])
+    return norm2_t < 1e-12 and th_sq < 1e-12
+
+def convert_one(d,name):
 
     global Rt_camprev_ref
 
@@ -130,31 +142,81 @@ def convert_one(d):
     #   - [0.0, 0.0, 0.0, 1.0]
     #
     # T_cn_cnm1 may be omitted: I use an identity transform in that case
-    if d['camera_model'] != 'pinhole':
-        print(f"ERROR: at this time I only support kalibr 'camera_model = pinhole'; got camera_model={d['camera_model']}",
+    camera_model_known = set(('pinhole',
+                              'cahvor','cahvore'),)
+    if not d['camera_model'] in camera_model_known:
+        print(f"ERROR: at this time I only support kalibr camera_model: {camera_model_known}; got camera_model={d['camera_model']}",
               file=sys.stderr)
         sys.exit(1)
 
-    distortion_model_known = set(('radtan','none'),)
+    if not re.match('cahvor',d['camera_model']):
 
-    if not d['distortion_model'] in distortion_model_known:
-        print(f"ERROR: at this time I only support kalibr distortion_model: {distortion_model_known}; got distortion_model={d['distortion_model']}",
-              file=sys.stderr)
-        sys.exit(1)
+        # The "usual" path
+        distortion_model_known = set(('radtan','none'),)
+        if not d['distortion_model'] in distortion_model_known:
+            print(f"ERROR: at this time I only support kalibr distortion_model: {distortion_model_known}; got distortion_model={d['distortion_model']}",
+                  file=sys.stderr)
+            sys.exit(1)
 
-    if d['distortion_model'] == 'radtan':
-        intrinsics = ('LENSMODEL_OPENCV4',
-                      np.array(d['intrinsics'] +
-                               d['distortion_coeffs'],
-                               dtype=float))
+        if d['distortion_model'] == 'radtan':
+            intrinsics = ('LENSMODEL_OPENCV4',
+                          np.array(d['intrinsics'] +
+                                   d['distortion_coeffs'],
+                                   dtype=float))
+        else:
+            intrinsics = ('LENSMODEL_PINHOLE',
+                          np.array(d['intrinsics'],
+                                   dtype=float))
+
+        m = mrcal.cameramodel( intrinsics = intrinsics,
+                               imagersize = np.array(d['resolution'],
+                                                     dtype=int) )
+
     else:
-        intrinsics = ('LENSMODEL_PINHOLE',
-                      np.array(d['intrinsics'],
-                               dtype=float))
+        # cahvor or cahvore. This can only come from the hacked kalibr at jpl
+        if 'distortion_model' in d:
+            print(f"ERROR: camera_model={d['camera_model']}, so no distortion_model should have been given, but we have distortion_model={d['distortion_model']}",
+                  file=sys.stderr)
+            sys.exit(1)
 
-    m = mrcal.cameramodel( intrinsics = intrinsics,
-                           imagersize = np.array(d['resolution'],
-                                                 dtype=int) )
+        intrinsics = np.array(d['intrinsics'])
+
+        if d['camera_model'] == 'cahvor':
+            if intrinsics.size != 6*3:
+                print(f"ERROR: camera_model='cahvor' should have {6*3} intrinsics values, but got {intrinsics.size}",
+                      file=sys.stderr)
+                sys.exit(1)
+
+            C,A,H,V,O,R = intrinsics.reshape(6,3)
+            E = None
+
+        else:
+            # cahvore
+            if intrinsics.size != 7*3:
+                print(f"ERROR: camera_model='cahvor' should have {7*3} intrinsics values, but got {intrinsics.size}",
+                      file=sys.stderr)
+                sys.exit(1)
+
+            C,A,H,V,O,R,E = intrinsics.reshape(7,3)
+
+        try:
+            m = mrcal.cahvor._construct_model(C,A,H,V,O,R,E,
+                                              is_cahvor_or_cahvore = True,
+                                              is_cahvore           = E is not None,
+                                              cahvore_linearity    = d.get('cahvore_linearity',0.37),
+                                              Dimensions           = np.array(d['resolution'],dtype=np.int32),
+                                              name                 = name)
+        except Exception as e:
+            print(f"ERROR: couldn't parse cahvor(e) model: {e}",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        if not Rt_is_identity(m.extrinsics_Rt_fromref()):
+            print(f"ERROR: given cahvor(e) model has non-identity extrinsics. These may conflict with the extrinsics in the rest of the kalibr file",
+                  file=sys.stderr)
+            sys.exit(1)
+
+
     if not 'T_cn_cnm1' in d:
         Rt_cam_camprev = mrcal.identity_Rt()
 
@@ -230,7 +292,7 @@ def convert_all(f, which):
             sys.exit(1)
         try:
             return ( \
-                     (None, convert_one(d)),
+                     (None, convert_one(d,'camera')),
                     )
         except KeyError as e:
             print(f"Error parsing input; missing key: {e}", file=sys.stderr)
@@ -248,7 +310,7 @@ def convert_all(f, which):
     models = dict()
     for name,d in D.items():
         try:
-            models[name] = convert_one(d)
+            models[name] = convert_one(d,name)
         except KeyError as e:
             print(f"Error parsing input; missing key: {e}", file=sys.stderr)
             sys.exit(1)
