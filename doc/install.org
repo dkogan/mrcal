@@ -29,8 +29,8 @@ the mrcal APT repository. I currently distribute packages for
 - Ubuntu/focal (20.04 LTS)
 - Ubuntu/jammy (22.04 LTS)
 
-=amd64= and =arm64= architectures only (except Ubuntu/bionic, which is
-=amd64-only=). To use these, add to your =/etc/apt/sources.list=:
+=amd64= and =arm64= architectures only (except Debian/buster and Ubuntu/bionic,
+which are =amd64-only=). To use these, add to your =/etc/apt/sources.list=:
 
 #+begin_example
 deb [trusted=yes] http://mrcal.secretsauce.net/packages/DISTRO/public/ DISTRO main
@@ -121,55 +121,86 @@ make test-nosampling
 If stuff doesn't work, feel free to bug me.
 
 * code                                                             :noexport:
-Backport arch-all:
+Need to install =ca-certificates= in all the chroots so that I can talk to the
+https://mrcal APT server
 
 #+begin_src sh
 for distro (buster bullseye bookworm sid bionic focal jammy) {
-    perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/'-\1$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
-
-    DEB_BUILD_OPTIONS=nocheck sbuild --host=amd64 --arch-any --arch-all -c ${distro}-amd64 --anything-failed-commands '%s'
-}
-
-for distro (buster bullseye bookworm sid bionic focal jammy) {
-  dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
+    sudo schroot -c source:${distro}-amd64 -- sh -c 'apt update && apt -y upgrade && apt -y install ca-certificates'
 }
 #+end_src
 
-Backport arch-any and cross:
+If that's already installed, still bring all the chroots up-to-date:
 
 #+begin_src sh
 for distro (buster bullseye bookworm sid bionic focal jammy) {
-    perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/'-\1$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
-
-    DEB_BUILD_OPTIONS=nocheck sbuild --host=amd64 --arch-any --arch-all    -c ${distro}-amd64 --anything-failed-commands '%s'
-    DEB_BUILD_OPTIONS=nocheck sbuild --host=arm64 --arch-any --no-arch-all -c ${distro}-amd64 --anything-failed-commands '%s'
-}
-
-for distro (buster bullseye bookworm sid bionic focal jammy) {
-  dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
+    sudo schroot -c source:${distro}-amd64 -- sh -c 'apt update && apt -y upgrade'
 }
 #+end_src
 
-Build each mrcal package like this:
+To native-build (amd64) any dependency or mrcal itself:
 
 #+begin_src sh
-
-distro=bionic;
-
 for distro (buster bullseye bookworm sid bionic focal jammy) {
-    perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/'-\1$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
+    perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
 
-    DEB_BUILD_OPTIONS=nocheck sbuild --host=amd64 --arch-any --arch-all    -c ${distro}-amd64 --anything-failed-commands '%s' \
-        --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
-    [[ $distro = "bionic"]] && continue
-    DEB_BUILD_OPTIONS=nocheck sbuild --host=arm64 --arch-any --no-arch-all -c ${distro}-amd64 --anything-failed-commands '%s' \
-        --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
-}
+    DEB_BUILD_OPTIONS=nocheck \
+    sbuild \
+      --no-apt-update \
+      --no-apt-upgrade \
+      --host=amd64 \
+      --arch-any \
+      --arch-all \
+      --source \
+      -c ${distro}-amd64 \
+      --anything-failed-commands '%s' \
+      --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
 
-for distro (buster bullseye bookworm sid bionic focal jammy) {
-  dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1,2])
+    dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
 }
 #+end_src
 
-I.e. the same thing as for dependencies, but passing in the extra repo. No arm64
-in bionic. Something is wrong, and I don't feel like using my time to fix it.
+To cross-build for arm64:
+
+#+begin_src sh
+for distro (bullseye bookworm sid) {
+    perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
+
+    DEB_BUILD_OPTIONS=nocheck \
+    sbuild \
+      --host=arm64 \
+      --arch-any \
+      --no-arch-all \
+      --no-source \
+      --profiles=nocheck,cross \
+      -c ${distro}-amd64 \
+      --anything-failed-commands '%s' \
+      --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
+
+    dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
+}
+
+for distro (focal jammy) {
+    perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
+
+    DEB_BUILD_OPTIONS=nocheck \
+    sbuild \
+      --no-apt-update --no-apt-upgrade \
+      --host=arm64 \
+      --arch-any \
+      --no-arch-all \
+      --no-source \
+      --profiles=nocheck,cross \
+      -c ${distro}-amd64 \
+      --anything-failed-commands '%s' \
+      --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
+
+    dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
+}
+#+end_src
+
+The ubuntu repos were done differently above because for some idiotic reason
+ubuntu puts the non-amd64 packages into a different domain. So I have to
+manually add the right sources, and I have to explicitly tell sbuild to not try
+to "apt update", because it would try to use the same repos with the different
+arch, and it would fail
