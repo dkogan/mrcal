@@ -39,16 +39,15 @@ By default we set the extrinsics of camera-0 as they appear in the input: the
 reference coordinate system is set to the previous" camera from camera-0. If we
 want to force camera-0 to have an identity transform, pass --cam0-at-reference.
 
-The kalibr format is described here:
-
-  https://github.com/ethz-asl/kalibr/wiki/Yaml-formats
+The kalibr format is described at
+https://github.com/ethz-asl/kalibr/wiki/Yaml-formats
 
 At this time we only support
 
-- LENSMODEL_PINHOLE
-- LENSMODEL_OPENCV4
-- LENSMODEL_CAHVOR  (experimental)
-- LENSMODEL_CAHVORE (experimental)
+  - LENSMODEL_PINHOLE
+  - LENSMODEL_OPENCV4
+  - LENSMODEL_CAHVOR  (experimental)
+  - LENSMODEL_CAHVORE (experimental)
 
 which corresponds to
 
