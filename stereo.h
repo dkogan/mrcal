@@ -9,6 +9,7 @@
 #pragma once
 
 #include "mrcal-types.h"
+#include "mrcal-image.h"
 
 // The reference implementation in Python is _rectified_resolution_python() in
 // stereo.py
@@ -87,3 +88,42 @@ bool mrcal_rectification_maps(// output
                               const double*                fxycxy_rectified,
                               const unsigned int*          imagersize_rectified,
                               const double*                r_rect0_ref);
+
+
+// The reference implementation in Python is _stereo_range_python() in
+// stereo.py
+//
+// The Python wrapper is mrcal.stereo_range(), and the documentation is in
+// the docstring of that function
+bool mrcal_stereo_range_sparse(// output
+                               double* range, // N of these
+
+                               // input
+                               const double*                disparity, // N of these
+                               const mrcal_point2_t*        qrect0,    // N of these
+                               const int                    N,         // how many points
+
+                               const double                 disparity_min,
+                               const double                 disparity_max,
+
+                               // models_rectified
+                               const mrcal_lensmodel_type_t rectification_model_type,
+                               const double*                fxycxy_rectified,
+                               const double                 baseline);
+
+bool mrcal_stereo_range_dense(// output
+                              mrcal_image_double_t* range,
+
+                              // input
+                              const mrcal_image_uint16_t*  disparity_scaled,
+                              const uint16_t               disparity_scale,
+
+                              // Used to detect invalid values. Set to
+                              // 0,UINT16_MAX to ignore
+                              const uint16_t               disparity_scaled_min,
+                              const uint16_t               disparity_scaled_max,
+
+                              // models_rectified
+                              const mrcal_lensmodel_type_t rectification_model_type,
+                              const double*                fxycxy_rectified,
+                              const double                 baseline);

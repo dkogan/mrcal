@@ -2,516 +2,123 @@
 #+OPTIONS: toc:nil
 
 * New in mrcal 2.4
+This is yet another mostly-maintenance release. A number of bugs are fixed, and
+a number of new features have been added. The biggest new features:
 
-363c9f9ce9e9a02aa249bf97ccf137fdd6115a64
-numpy.linalg.lstsq() calls work even in old numpy releases
+- mrcal can be built with clang. Try it out like this: =CC=clang CXX=clang++
+  make=. This opens up some portability improvements, such as making it easier
+  to run on Windows.
+- Full dense stereo pipeline in C.
 
-fixed mrcal.show_geometry() axis_scale logic: e3e29bab
+** General fixes
+- All the tools use =/usr/bin/env= in the =#!= line. People who live life on
+  hard mode now have it slightly easier
 
-2023-06-09 mrcal.show_projection_diff() has contour options like mrcal.show_projection_uncertainty()
+- Tools to support more file formats:
+  - [[file:mrcal-from-kalibr.html][=mrcal-from-kalibr=]]
+  - [[file:mrcal-to-kalibr.html][=mrcal-to-kalibr=]]
+  - [[file:mrcal-from-ros.html][=mrcal-from-ros=]]
+  These are experimental. /Please/ let me know if these are or aren't useful
 
-commit 09d52a7f4475615db8f454f111246204b7279596
-Date:   Tue Jun 20 16:07:57 2023 -0700
-  mrcal-stereo, stereo_range() work properly if disparity_min > 0
-  Invalid-disparity areas are now interpreted properly
+- [[file:mrcal-stereo.html][=mrcal-stereo=]], [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]] work properly if =disparity_min>0=
 
-commit 97298695e24d4e083ce7496fe42fd2a88a0083f3
-Date:   Wed Jun 21 22:52:05 2023 -0700
-  All the tools use /usr/bin/env in the #!
-  Mac user who live life on hard mode now have it slightly easier
+- The [[file:mrcal-stereo.html][=mrcal-stereo=]] GUI displays the pixel coordinates for /both/ cameras, not
+  just the one under the cursor
 
-7aae63c8, previous one
-build compat: no _GNU_SOURCE, glibc requirement
+** Build
+- mrcal builds with clang
 
-commit 700a18a01370a14e2f947c9fe24fdb7acdedcb10
-Date:   Thu Jun 15 21:40:20 2023 -0700
-  Support the more recent CHOLMOD APIs
+- The sources do not use =_GNU_SOURCE=: mrcal does not depend on glibc
 
-Python API: renamed residuals_chessboard -> residuals_board
-The previous name is still available for backwards compatibility
+- The sources support the updated CHOLMOD APIs in the recent distros
 
-4923218d..: show_residuals_board_observation() and cmdline tool have --cbmax
+** Python API
+- The Procrustes fit functions ([[file:mrcal-python-api-reference.html#-align_procrustes_vectors_R01][=mrcal.align_procrustes_vectors_R01()=]],
+  [[file:mrcal-python-api-reference.html#-align_procrustes_vectors_Rt01][=mrcal.align_procrustes_vectors_Rt01()=]]) detect and report errors in the input
+  data
 
-073f55b5..: show_residuals_vectorfield(), .._magnitudes(), mrcal-show-residuals have --cbmax
+- [[file:mrcal-python-api-reference.html#-show_projection_diff][=mrcal.show_projection_diff()=]] has similar contour-generating options as what
+  [[file:mrcal-python-api-reference.html#-show_projection_uncertainty][=mrcal.show_projection_uncertainty()=]] has
 
-Added CHOLMOD_factorization.rcond()
+- renamed =mrcal.residuals_chessboard()= to [[file:mrcal-python-api-reference.html#-residuals_board][=mrcal.residuals_board()=]]. Both
+  names are available for backwards compatibility
 
-mrcal.worst_direction_stdev() works with NxN arrays, not just 2x2
+- =mrcal.show_residuals_...()= functions and =mrcal-show-residuals-...= tools
+  now /all/ have =cbmax= and =--cbmax= options respectively to set the upper
+  bound for the mapping in the heat map display
 
-mrcal.ref_calibration_object has optimization_inputs argument
-This provides a convenient shorthand to get the object used in a particular
-calibration
+- Added [[file:mrcal-python-api-reference.html#CHOLMOD_factorization-rcond][=mrcal.CHOLMOD_factorization.rcond()=]] as an interface to
+  =cholmod_rcond()=
 
-03f030: Procrustes transform functions detect and report errors
+- [[file:mrcal-python-api-reference.html#-worst_direction_stdev][=mrcal.worst_direction_stdev()=]] works with NxN arrays, not just 2x2
 
-Added [[file:mrcal-python-api-reference.html#-R_aligned_to_vector][=mrcal.R_aligned_to_vector()=]]
+- [[file:mrcal-python-api-reference.html#-ref_calibration_object][=mrcal.ref_calibration_object()=]] has a new =optimization_inputs= argument.
+  This provides a convenient shorthand to get the object used in a particular
+  calibration
 
-Added [[file:mrcal-python-api-reference.html#-sorted_eig][=mrcal.sorted_eig()=]]
+- Added [[file:mrcal-python-api-reference.html#-R_aligned_to_vector][=mrcal.R_aligned_to_vector()=]] to produce a non-unique rotation to map a
+  given vector to [0,0,1]
 
-mrcal_rectification_maps() supports latlon AND pinhole rectification
+- Added [[file:mrcal-python-api-reference.html#-sorted_eig][=mrcal.sorted_eig()=]] to compute an eigenvalue decomposition with
+  /sorted/ eigenvalues
 
-mrcal builds with clang
+- Added [[file:mrcal-python-api-reference.html#-write_point_cloud_as_ply][=mrcal.write_point_cloud_as_ply()=]] to write a point cloud as a =.ply=
+  file
 
-mrcal-from-kalibr, mrcal-to-kalibr
-mrcal-from-ros
+- [[file:mrcal-python-api-reference.html#-apply_color_map][=mrcal.apply_color_map()=]] supports /all/ gnuplot rgbformulae, above the 7,5,15
+  default
 
-write_point_cloud_as_ply() exported
+- [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]] has more optional arguments:
+  - =disparity_max= to set the upper valid-disparity bound
+  - =disparity_scaled_min=, =disparity_scaled_max= to act on the raw disparity
+    data produced by the stereo matcher
 
-lensmodel parsing: more detailed error codes
+** C API
+- Better error handling: lensmodel-parsing functions return an error code
+  instead of asserting, if given invalid input. Affected functions:
 
-C API: more types defined
+  - =mrcal_lensmodel_name_unconfigured()=
+  - =mrcal_lensmodel_name()=
+  - =mrcal_lensmodel_type_from_name()=
+  - =mrcal_lensmodel_from_name()=
 
-mrcal_apply_color_map() available in C, for many types
+- More image types supported. We now have:
+  - =mrcal_image_int8_t=
+  - =mrcal_image_uint8_t=
+  - =mrcal_image_int16_t=
+  - =mrcal_image_uint16_t=
+  - =mrcal_image_int32_t=
+  - =mrcal_image_uint32_t=
+  - =mrcal_image_int64_t=
+  - =mrcal_image_uint64_t=
+  - =mrcal_image_float_t=
+  - =mrcal_image_double_t=
+  - =mrcal_image_bgr_t=
 
-mrcal.apply_color_map() uses the C function internally. All gnuplot colormap
-functions supported
+- Renamed the =bgr_t= type to =mrcal_bgr_t=. For namespacing.
+
+- =mrcal_rectification_maps()= supports =LENSMODEL_LATLON= /and/
+  =LENSMODEL_PINHOLE= rectification
+
+- The remaining pieces for a [[file:c-api.org::#dense-stereo-in-c][full dense-stereo pipeline in C]] were implemented.
+  The new functions are
+
+  - =mrcal_stereo_range_sparse()= to convert a set of disparity values to ranges
+  - =mrcal_stereo_range_dense()= to convert a disparity /image/ to a range
+    /image/
+  - =mrcal_apply_color_map()= to convert a disparity or range image to a heat
+    map for human consumption
+
+  A [[https://github.com/dkogan/mrcal/blob/master/doc/examples/dense-stereo-demo/dense-stereo-demo.cc][dense-stereo-in-C sample]] is provided.
 
 * Migration notes 2.3 -> 2.4
-
-commit 76248fce8655fba0aec1175157cbe8f8da055b7a
-Date:   Wed Jun 21 18:24:50 2023 -0700
-  do_optimize_calobject_warp is true ONLY if Nobservations_board>0 is also true
-  THIS IS A C-API-BREAKING CHANGE: mrcal_pack_solver_state_vector() and
-  mrcal_unpack_solver_state_vector() now take one more argument.
-  Prior to this patch you could get into an inconsistent state where different
-  parts of the code has different ideas about what Nstate was
-
-
-Python API: renamed residuals_chessboard -> residuals_board
-The previous name is still available for backwards compatibility.
-Use the new name if you can. You don't HAVE to
-
-mrcal.apply_color_map(): a_min, a_max MUST now be passed in as kwargs, instead
-of positionals.
-
-
-* todo
-- "pydoc3 mrcal" should show everything. It doesn't. "compose_rt" isn't there,
-  for instance
-
-- mrcal-stereo: during the rectification (or maybe disparity search) stage C-c
-  doesn't work.
-
-** new implied_Rt10__from_unprojections
-
-Here's a new flavor of that function, to make mrcal-convert-lensmodel work
-better. Test it.
-
-#+begin_src python
-
-# This thing appears to be sensitive to initialization. Either make it robust,
-# or put back the random trials.
-#
-# To reproduce, get the models here:
-#   https://github.jpl.nasa.gov/kogan/uavsar/wiki/2021-04-01--eo-eo-ir-calibration
-#
-# And do
-#
-#   /mrcal-convert-lensmodel --radius 0 --intrinsics-only --viz --sampled LENSMODEL_CAHVOR /tmp/camera-330075.cameramodel
-#
-# I've observing diverging behavior. Sometimes it fits almost perfectly (error
-# << 0.5 pixels everywhere). Other times it's worse (error ~ 0.5 in many places)
-#
-# This is what implied_Rt10__from_unprojections_tweaked_to_work_better() is
-# meant to address
-
-
-
-
-
-
-def implied_Rt10__from_unprojections_tweaked_to_work_better(q0, p0, v1,
-                                     weights      = None,
-                                     atinfinity   = True,
-                                     focus_center = np.zeros((2,), dtype=float),
-                                     focus_radius = 1.0e8):
-
-    r'''Compute the implied-by-the-intrinsics transformation to fit two cameras' projections
-
-SYNOPSIS
-
-    models = ( mrcal.cameramodel('cam0-dance0.cameramodel'),
-               mrcal.cameramodel('cam0-dance1.cameramodel') )
-
-    lensmodels      = [model.intrinsics()[0] for model in models]
-    intrinsics_data = [model.intrinsics()[1] for model in models]
-
-    # v  shape (...,Ncameras,Nheight,Nwidth,...)
-    # q0 shape (...,         Nheight,Nwidth,...)
-    v,q0 = \
-        mrcal.sample_imager_unproject(60, None,
-                                      *models[0].imagersize(),
-                                      lensmodels, intrinsics_data,
-                                      normalize = True)
-    implied_Rt10 = \
-        mrcal.implied_Rt10__from_unprojections(q0, v[0,...], v[1,...])
-
-    q1 = mrcal.project( mrcal.transform_point_Rt(implied_Rt10, v[0,...]),
-                        *models[1].intrinsics())
-
-    projection_diff = q1 - q0
-
-When comparing projections from two lens models, it is usually necessary to
-align the geometry of the two cameras, to cancel out any transformations implied
-by the intrinsics of the lenses. This transformation is computed by this
-function, used primarily by mrcal.show_projection_diff() and the
-mrcal-show-projection-diff tool.
-
-What are we comparing? We project the same world point into the two cameras, and
-report the difference in projection. Usually, the lens intrinsics differ a bit,
-and the implied origin of the camera coordinate systems and their orientation
-differ also. These geometric uncertainties are baked into the intrinsics. So
-when we project "the same world point" we must apply a geometric transformation
-to compensate for the difference in the geometry of the two cameras. This
-transformation is unknown, but we can estimate it by fitting projections across
-the imager: the "right" transformation would result in apparent low projection
-diffs in a wide area.
-
-The primary inputs are unprojected gridded samples of the two imagers, obtained
-with something like mrcal.sample_imager_unproject(). We grid the two imagers,
-and produce normalized observation vectors for each grid point. We pass the
-pixel grid from camera0 in q0, and the two unprojections in p0, v1. This
-function then tries to find a transformation to minimize
-
-  norm2( project(camera1, transform(p0)) - q1 )
-
-We return an Rt transformation to map points in the camera0 coordinate system to
-the camera1 coordinate system. Some details about this general formulation are
-significant:
-
-- The subset of points we use for the optimization
-- What kind of transformation we use
-
-In most practical usages, we would not expect a good fit everywhere in the
-imager: areas where no chessboards were observed will not fit well, for
-instance. From the point of view of the fit we perform, those ill-fitting areas
-should be treated as outliers, and they should NOT be a part of the solve. How
-do we specify the well-fitting area? The best way is to use the model
-uncertainties to pass the weights in the "weights" argument (see
-show_projection_diff() for an implementation). If uncertainties aren't
-available, or if we want a faster solve, the focus region can be passed in the
-focus_center, focus_radius arguments. By default, these are set to encompass the
-whole imager, since the uncertainties would take care of everything, but without
-uncertainties (weights = None), these should be set more discriminately. It is
-possible to pass both a focus region and weights, but it's probably not very
-useful.
-
-Unlike the projection operation, the diff operation is NOT invariant under
-geometric scaling: if we look at the projection difference for two points at
-different locations along a single observation ray, there will be a variation in
-the observed diff. This is due to the geometric difference in the two cameras.
-If the models differed only in their intrinsics parameters, then this would not
-happen. Thus this function needs to know how far from the camera it should look.
-By default (atinfinity = True) we look out to infinity. In this case, p0 is
-expected to contain unit vectors. To use any other distance, pass atinfinity =
-False, and pass POINTS in p0 instead of just observation directions. v1 should
-always be normalized. Generally the most confident distance will be where the
-chessboards were observed at calibration time.
-
-Practically, it is very easy for the unprojection operation to produce nan or
-inf values. And the weights could potentially have some invalid values also.
-This function explicitly checks for such illegal data in p0, v1 and weights, and
-ignores those points.
-
-ARGUMENTS
-
-- q0: an array of shape (Nh,Nw,2). Gridded pixel coordinates covering the imager
-  of both cameras
-
-- p0: an array of shape (...,Nh,Nw,3). An unprojection of q0 from camera 0. If
-  atinfinity, this should contain unit vectors, else it should contain points in
-  space at the desired distance from the camera. This array may have leading
-  dimensions that are all used in the fit. These leading dimensions correspond
-  to those in the "weights" array
-
-- v1: an array of shape (Nh,Nw,3). An unprojection of q0 from camera 1. This
-  should always contain unit vectors, regardless of the value of atinfinity
-
-- weights: optional array of shape (...,Nh,Nw); None by default. If given, these
-  are used to weigh each fitted point differently. Usually we use the projection
-  uncertainties to apply a stronger weight to more confident points. If omitted
-  or None, we weigh each point equally. This array may have leading dimensions
-  that are all used in the fit. These leading dimensions correspond to those in
-  the "p0" array
-
-- atinfinity: optional boolean; True by default. If True, we're looking out to
-  infinity, and I compute a rotation-only fit; a full Rt transformation is still
-  returned, but Rt[3,:] is 0; p0 should contain unit vectors. If False, I'm
-  looking out to a finite distance, and p0 should contain 3D points specifying
-  the positions of interest.
-
-- focus_center: optional array of shape (2,); (0,0) by default. Used to indicate
-  that we're interested only in a subset of pixels q0, a distance focus_radius
-  from focus_center. By default focus_radius is LARGE, so we use all the points.
-  This is intended to be used if no uncertainties are available, and we need to
-  manually select the focus region.
-
-- focus_radius: optional value; LARGE by default. Used to indicate that we're
-  interested only in a subset of pixels q0, a distance focus_radius from
-  focus_center. By default focus_radius is LARGE, so we use all the points. This
-  is intended to be used if no uncertainties are available, and we need to
-  manually select the focus region.
-
-RETURNED VALUE
-
-An array of shape (4,3), representing an Rt transformation from camera0 to
-camera1. If atinfinity then we're computing a rotation-fit only, but we still
-report a full Rt transformation with the t component set to 0
-
-    '''
-
-
-    s = 1e0 # 1e1 to make it mostly work
-
-
-    # This is very similar in spirit to what compute_Rcorrected_dq_dintrinsics() did
-    # (removed in commit 4240260), but that function worked analytically, while this
-    # one explicitly computes the rotation by matching up known vectors.
-
-    import scipy.optimize
-
-    if weights is None:
-        weights = np.ones(p0.shape[:-1], dtype=float)
-    else:
-        # Any inf/nan weight or vector are set to 0
-        weights = weights.copy()
-        weights[ ~np.isfinite(weights) ] = 0.0
-
-    p0 = p0.copy()
-    v1 = v1.copy()
-
-    # p0 had shape (..., Nh,Nw,3). Collapse all the leading dimensions into one
-    # And do the same for weights
-    p0      = nps.clump(p0,      n = len(p0.shape)     -3)
-    weights = nps.clump(weights, n = len(weights.shape)-2)
-
-    i_nan_p0 = ~np.isfinite(p0)
-    p0[i_nan_p0] = 0.
-    weights[i_nan_p0[...,0]] = 0.0
-    weights[i_nan_p0[...,1]] = 0.0
-    weights[i_nan_p0[...,2]] = 0.0
-
-    i_nan_v1 = ~np.isfinite(v1)
-    v1[i_nan_v1] = 0.
-    weights[..., i_nan_v1[...,0]] = 0.0
-    weights[..., i_nan_v1[...,1]] = 0.0
-    weights[..., i_nan_v1[...,2]] = 0.0
-
-    # We try to match the geometry in a particular region
-    q_off_center = q0 - focus_center
-    i = nps.norm2(q_off_center) < focus_radius*focus_radius
-    if np.count_nonzero(i)<3:
-        raise Exception("Focus region contained too few points")
-
-    p0_cut  = p0     [...,i, :]
-    v1_cut  = v1     [    i, :]
-    weights = weights[...,i   ]
-
-    def residual_jacobian_rt(rt):
-
-        rt = rt.copy()
-        rt[3:] *= s
-
-        # rtp0 has shape (...,N,3)
-        rtp0, drtp0_drt, _ = \
-            mrcal.transform_point_rt(rt, p0_cut,
-                                     get_gradients = True)
-
-        # inner(a,b)/(mag(a)*mag(b)) = cos(x) ~ 1 - x^2/2
-        # Each of these has shape (...,N)
-        mag_rtp0 = nps.mag(rtp0)
-        inner    = nps.inner(rtp0, v1_cut)
-        th2      = 2.* (1.0 - inner / mag_rtp0) + 1e-9
-        th2[th2<0] = 0
-        x        = np.sqrt(th2 * weights)
-
-        # shape (...,N,6)
-        dmag_rtp0_drt = nps.matmult( nps.dummy(rtp0, -2),   # shape (...,N,1,3)
-                                     drtp0_drt              # shape (...,N,3,6)
-                                     # matmult has shape (...,N,1,6)
-                                   )[...,0,:] / \
-                                   nps.dummy(mag_rtp0, -1)  # shape (...,N,1)
-        # shape (..., N,6)
-        dinner_drt    = nps.matmult( nps.dummy(v1_cut, -2), # shape (    N,1,3)
-                                     drtp0_drt              # shape (...,N,3,6)
-                                     # matmult has shape (...,N,1,6)
-                                   )[...,0,:]
-
-        # dth2 = 2 (inner dmag_rtp0 - dinner mag_rtp0)/ mag_rtp0^2
-        # shape (...,N,6)
-        dwth2_drt = 2. * \
-            (nps.dummy(inner,    -1) * dmag_rtp0_drt - \
-             nps.dummy(mag_rtp0, -1) * dinner_drt) / \
-             nps.dummy(mag_rtp0*mag_rtp0, -1) * \
-             nps.dummy(weights,-1)
-
-        # dx/drt = d(sqrt(wth2))/drt = dwth2/drt / (2sqrt(wth2)) = dwth2/drt / 2x
-        J = dwth2_drt / (2.*nps.dummy(x,-1))
-        return x.ravel(), nps.clump(J, n=len(J.shape)-1)
-
-
-    def residual_jacobian_r(r):
-
-        # rp0     has shape (N,3)
-        # drp0_dr has shape (N,3,3)
-        rp0, drp0_dr, _ = \
-            mrcal.rotate_point_r(r, p0_cut,
-                                 get_gradients = True)
-
-        # inner(a,b)/(mag(a)*mag(b)) ~ cos(x) ~ 1 - x^2/2
-        # Each of these has shape (N)
-        inner = nps.inner(rp0, v1_cut)
-        th2   = 2.* (1.0 - inner)
-        x     = th2 * weights
-
-        # shape (N,3)
-        dinner_dr = nps.matmult( nps.dummy(v1_cut, -2), # shape (N,1,3)
-                                 drp0_dr                # shape (N,3,3)
-                                 # matmult has shape (N,1,3)
-                               )[:,0,:]
-
-        J = -2. * dinner_dr * nps.dummy(weights,-1)
-        return x, J
-
-
-    cache = {'rt': None}
-    def residual(rt, f):
-        if cache['rt'] is None or not np.array_equal(rt,cache['rt']):
-            cache['rt'] = rt
-            cache['x'],cache['J'] = f(rt)
-        return cache['x']
-    def jacobian(rt, f):
-        if cache['rt'] is None or not np.array_equal(rt,cache['rt']):
-            cache['rt'] = rt
-            cache['x'],cache['J'] = f(rt)
-        return cache['J']
-
-
-    # # gradient check
-    # import gnuplotlib as gp
-    # rt0 = np.random.random(6)*1e-3
-    # x0,J0 = residual_jacobian_rt(rt0)
-    # drt = np.random.random(6)*1e-7
-    # rt1 = rt0+drt
-    # x1,J1 = residual_jacobian_rt(rt1)
-    # dx_theory = nps.matmult(J0, nps.transpose(drt)).ravel()
-    # dx_got    = x1-x0
-    # relerr = (dx_theory-dx_got) / ( (np.abs(dx_theory)+np.abs(dx_got))/2. )
-    # gp.plot(relerr, wait=1, title='rt')
-    # r0 = np.random.random(3)*1e-3
-    # x0,J0 = residual_jacobian_r(r0)
-    # dr = np.random.random(3)*1e-7
-    # r1 = r0+dr
-    # x1,J1 = residual_jacobian_r(r1)
-    # dx_theory = nps.matmult(J0, nps.transpose(dr)).ravel()
-    # dx_got    = x1-x0
-    # relerr = (dx_theory-dx_got) / ( (np.abs(dx_theory)+np.abs(dx_got))/2. )
-    # gp.plot(relerr, wait=1, title='r')
-    # sys.exit()
-
-
-    # I was using loss='soft_l1', but it behaved strangely. For large
-    # f_scale_deg it should be equivalent to loss='linear', but I was seeing
-    # large diffs when comparing a model to itself:
-    #
-    #   ./mrcal-show-projection-diff --gridn 50 28 test/data/cam0.splined.cameramodel{,} --distance 3
-    #
-    # f_scale_deg needs to be > 0.1 to make test-projection-diff.py pass, so
-    # there was an uncomfortably-small usable gap for f_scale_deg. loss='huber'
-    # should work similar-ish to 'soft_l1', and it works even for high
-    # f_scale_deg
-    f_scale_deg = 5e1
-    loss        = 'linear'
-
-    if atinfinity:
-
-
-        # This is similar to a basic procrustes fit, but here we're using an L1
-        # cost function
-
-        r = np.random.random(3) * 1e-3
-
-        res = scipy.optimize.least_squares(residual,
-                                           r,
-                                           jac=jacobian,
-                                           method='trf',
-
-                                           loss=loss,
-                                           f_scale = (f_scale_deg * np.pi/180.)**2.,
-                                           # max_nfev=1,
-                                           args=(residual_jacobian_r,),
-
-                                           # Without this, the optimization was
-                                           # ending too quickly, and I was
-                                           # seeing not-quite-optimal solutions.
-                                           # Especially for
-                                           # very-nearly-identical rotations.
-                                           # This is tested by diffing the same
-                                           # model in test-projection-diff.py.
-                                           # I'd like to set this to None to
-                                           # disable the comparison entirely,
-                                           # but that requires scipy >= 1.3.0.
-                                           # So instead I set the threshold so
-                                           # low that it's effectively disabled
-                                           gtol = np.finfo(float).eps,
-                                           verbose=0)
-        Rt = np.zeros((4,3), dtype=float)
-        Rt[:3,:] = mrcal.R_from_r(res.x)
-        return Rt
-
-    else:
-
-        rt = np.random.random(6) * 1e-3
-
-        res = scipy.optimize.least_squares(residual,
-                                           rt,
-                                           #jac=jacobian,
-                                           method='trf',
-
-                                           loss=loss,
-                                           f_scale = (f_scale_deg * np.pi/180.)**2.,
-                                           # max_nfev=1,
-                                           args=(residual_jacobian_rt,),
-
-                                           # Without this, the optimization was
-                                           # ending too quickly, and I was
-                                           # seeing not-quite-optimal solutions.
-                                           # Especially for
-                                           # very-nearly-identical rotations.
-                                           # This is tested by diffing the same
-                                           # model in test-projection-diff.py.
-                                           # I'd like to set this to None to
-                                           # disable the comparison entirely,
-                                           # but that requires scipy >= 1.3.0.
-                                           # So instead I set the threshold so
-                                           # low that it's effectively disabled
-                                           gtol = None)#np.finfo(float).eps )
-
-        Rt_ref =  np.array([[ 9.99994393e-01, -9.09700493e-07,  3.34877487e-03],
-                                     [ 2.67442438e-06,  9.99999861e-01, -5.26971529e-04],
-                                     [-3.34877393e-03,  5.26977530e-04,  9.99994254e-01],
-                                     [ 4.38090818e-01,  2.30269137e-02, -1.00328728e+01]])
-
-        res.x[3:] *= s
-        Rt_got = mrcal.Rt_from_rt(res.x)
-
-        # print(f"norm2err at ref:      {nps.norm2(residual(mrcal.rt_from_Rt(Rt_ref)/ np.array((1.,1.,1.,s,s,s)), residual_jacobian_rt))}")
-        # print(f"norm2err at solution: {nps.norm2(residual(res.x/ np.array((1.,1.,1.,s,s,s)), residual_jacobian_rt))}")
-        # print(Rt_got)
-        # print(res.message)
-        # import IPython
-        # IPython.embed()
-        # sys.exit()
-
-
-
-
-
-
-        return mrcal.Rt_from_rt(res.x)
-#+end_src
-
-** triangulate() should report stuff in the ref coords, not camera0 coords
-It doesn't make a whole lot of sense the way I'm doing it right now
-** get the docs from the 3.0 branch
-** example of dense stereo processing in C
+- C API/ABI breaking change: these functions now take an extra =int
+  Nobservations_board= argument:
+  - =mrcal_pack_solver_state_vector()=
+  - =mrcal_unpack_solver_state_vector()=
+- C API breaking change: =bgr_t= structure renamed to =mrcal_bgr_t=
+- Python API: a function was renamed: =mrcal.residuals_chessboard()= ->
+  [[file:mrcal-python-api-reference.html#-residuals_board][=mrcal.residuals_board()=]]. Both names are available for backwards
+  compatibility, but moving to the new name is recommended.
+- Python [[file:mrcal-python-api-reference.html#-apply_color_map][=mrcal.apply_color_map()=]] function: =a_min=, =a_max= arguments now
+  /must/ be passed in as kwargs, and not as positionals.

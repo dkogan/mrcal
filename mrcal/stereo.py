@@ -908,7 +908,7 @@ contains corresponding pixel coordinates in the input image
 
 def _rectification_maps_python(models,
                                models_rectified):
-    r'''Reference implementation of mrcal_rectification_maps() in python
+    r'''Reference implementation of mrcal.rectification_maps() in python
 
 The main implementation is written in C in stereo.c:
 
@@ -961,9 +961,12 @@ checked by the test-rectification-maps.py test.
 def stereo_range(disparity,
                  models_rectified,
                  *,
-                 disparity_scale = 1,
-                 disparity_min   = 0,
-                 qrect0          = None):
+                 disparity_scale      = 1,
+                 disparity_min        = None,
+                 disparity_scaled_min = None,
+                 disparity_max        = None,
+                 disparity_scaled_max = None,
+                 qrect0               = None):
 
     r'''Compute ranges from observed disparities
 
@@ -1174,9 +1177,17 @@ ARGUMENTS
   Otherwise it contains data in the units of 1/disparity_scale pixels.
 
 - disparity_min: optional minimum-expected disparity value. If omitted,
-  disparity_min = 0 is assumed. Are encountered disparity value below this limit
-  is interpreted as an invalid value. This has units of "pixels", so we scale by
+  disparity_min = 0 is assumed. disparity below this limit is interpreted as an
+  invalid value: range=0 is reported. This has units of "pixels", so we scale by
   disparity_scale before comparing to the dense stereo correlator result
+
+- disparity_max: optional maximum-expected disparity value. If omitted, no
+  maximum exists. Works the same as disparity_min
+
+- disparity_scaled_min
+  disparity_scaled_max: optional disparity values with the disparity_scaled
+  already applied. These can be compared directly against the scaled disparity
+  values. Both the scaled and unscaled flavors of these may NOT be given
 
 - qrect0: optional array of rectified camera0 pixel coordinates corresponding to
   the given disparities. By default, a full disparity image is assumed.
@@ -1193,6 +1204,139 @@ RETURNED VALUES
     '''
 
     _validate_models_rectified(models_rectified)
+
+    if disparity_min is not None and disparity_scaled_min is not None and \
+       disparity_min != disparity_scaled_min:
+        raise Exception("disparity_min and disparity_scaled_min may not both be given")
+    if disparity_max is not None and disparity_scaled_max is not None and \
+       disparity_max != disparity_scaled_max:
+        raise Exception("disparity_max and disparity_scaled_max may not both be given")
+
+    if qrect0 is None:
+        if disparity_scaled_min is None:
+            if disparity_min is None:
+                disparity_scaled_min = 0
+            else:
+                disparity_scaled_min = disparity_min * disparity_scale
+        if disparity_scaled_max is None:
+            if disparity_max is None:
+                disparity_scaled_max = np.uint16(np.iinfo(np.uint16).max)
+            else:
+                disparity_scaled_max = disparity_max * disparity_scale
+    else:
+        if disparity_min is None:
+            if disparity_scaled_min is None:
+                disparity_min = 0
+            else:
+                disparity_min = disparity_scaled_min / disparity_scale
+        if disparity_max is None:
+            if disparity_scaled_max is None:
+                disparity_max = np.finfo(float).max
+            else:
+                disparity_max = disparity_scaled_max / disparity_scale
+
+    # I want to support scalar disparities. If one is given, I convert it into
+    # an array of shape (1,), and then pull it out at the end
+    is_scalar = False
+    try:
+        s = disparity.shape
+    except:
+        is_scalar = True
+    if not is_scalar:
+        if len(s) == 0:
+            is_scalar = True
+    if is_scalar:
+        disparity = np.array((disparity,),)
+
+    Rt01 = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
+                             models_rectified[1].extrinsics_Rt_toref())
+    baseline = nps.mag(Rt01[3,:])
+
+    if qrect0 is None:
+        W,H = models_rectified[0].imagersize()
+        if np.any(disparity.shape - np.array((H,W),dtype=int)):
+            raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
+
+        return                                    \
+            mrcal._mrcal_npsp._stereo_range_dense \
+                ( disparity_scaled     = disparity.astype(np.uint16),
+                  disparity_scale      = np.uint16(disparity_scale),
+                  disparity_scaled_min = np.uint16(disparity_scaled_min),
+                  disparity_scaled_max = np.uint16(disparity_scaled_max),
+                  rectification_model_type = models_rectified[0].intrinsics()[0],
+                  fxycxy_rectified     = models_rectified[0].intrinsics()[1].astype(float),
+                  baseline             = baseline )
+
+    else:
+
+        return                                     \
+            mrcal._mrcal_npsp._stereo_range_sparse \
+                ( disparity            = disparity.astype(float) / disparity_scale,
+                  qrect0               = qrect0.astype(float),
+                  disparity_min        = float(disparity_min),
+                  disparity_max        = float(disparity_max),
+                  rectification_model_type = models_rectified[0].intrinsics()[0],
+                  fxycxy_rectified     = models_rectified[0].intrinsics()[1].astype(float),
+                  baseline             = baseline )
+
+    if is_scalar:
+        r = r[0]
+    return r
+
+
+def _stereo_range_python(disparity,
+                         models_rectified,
+                         *,
+                         disparity_scale = 1,
+                         disparity_min        = None,
+                         disparity_scaled_min = None,
+                         disparity_max        = None,
+                         disparity_scaled_max = None,
+                         qrect0          = None):
+
+    r'''Reference implementation of mrcal.stereo_range() in python
+
+The main implementation is written in C in stereo.c:
+
+  mrcal_stereo_range_sparse() and mrcal_stereo_range_dense()
+
+This should be identical to the stereo_range() function above. This is
+checked by the test-stereo-range.py test.
+
+    '''
+
+    _validate_models_rectified(models_rectified)
+
+    if disparity_min is not None and disparity_scaled_min is not None and \
+       disparity_min != disparity_scaled_min:
+        raise Exception("disparity_min and disparity_scaled_min may not both be given")
+    if disparity_max is not None and disparity_scaled_max is not None and \
+       disparity_max != disparity_scaled_max:
+        raise Exception("disparity_max and disparity_scaled_max may not both be given")
+
+    if qrect0 is None:
+        if disparity_scaled_min is None:
+            if disparity_min is None:
+                disparity_scaled_min = 0
+            else:
+                disparity_scaled_min = disparity_min * disparity_scale
+        if disparity_scaled_max is None:
+            if disparity_max is None:
+                disparity_scaled_max = np.uint16(np.iinfo(np.uint16).max)
+            else:
+                disparity_scaled_max = disparity_max * disparity_scale
+    else:
+        if disparity_min is None:
+            if disparity_scaled_min is None:
+                disparity_min = 0
+            else:
+                disparity_min = disparity_scaled_min / disparity_scale
+        if disparity_max is None:
+            if disparity_scaled_max is None:
+                disparity_max = np.finfo(float).max
+            else:
+                disparity_max = disparity_scaled_max / disparity_scale
+
 
     # I want to support scalar disparities. If one is given, I convert it into
     # an array of shape (1,), and then pull it out at the end
@@ -1220,6 +1364,18 @@ RETURNED VALUES
                              models_rectified[1].extrinsics_Rt_toref())
     baseline = nps.mag(Rt01[3,:])
 
+    if qrect0 is None:
+        mask_invalid = \
+            (disparity < disparity_scaled_min) + \
+            (disparity > disparity_scaled_max) + \
+            (disparity <= 0)
+    else:
+        mask_invalid = \
+            (disparity / disparity_scale < disparity_min) + \
+            (disparity / disparity_scale > disparity_max) + \
+            (disparity <= 0)
+
+
     if intrinsics[0] == 'LENSMODEL_LATLON':
         if qrect0 is None:
             az0 = (np.arange(W, dtype=float) - cx)/fx
@@ -1227,8 +1383,6 @@ RETURNED VALUES
             az0 = (qrect0[...,0] - cx)/fx
 
         disparity_rad = disparity.astype(np.float32) / (fx * disparity_scale)
-
-        mask_invalid = (disparity <= disparity_min*disparity_scale)
 
         s = np.sin(disparity_rad)
         s[mask_invalid] = 1 # to prevent division by 0
@@ -1242,7 +1396,10 @@ RETURNED VALUES
         cy = intrinsics[1][3]
 
         if qrect0 is None:
+            # shape (W,)
             tanaz0 = (np.arange(W, dtype=float) - cx)/fx
+
+            # shape (H,1)
             tanel  = (np.arange(H, dtype=float) - cy)/fy
             tanel  = nps.dummy(tanel, -1)
         else:
@@ -1253,7 +1410,6 @@ RETURNED VALUES
 
         tanaz0_tanaz1 = disparity.astype(np.float32) / (fx * disparity_scale)
 
-        mask_invalid  = (disparity <= disparity_min*disparity_scale)
         tanaz0_tanaz1[mask_invalid] = 1 # to prevent division by 0
 
         tanaz1 = tanaz0 - tanaz0_tanaz1

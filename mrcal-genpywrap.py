@@ -1008,4 +1008,145 @@ unsigned integers. The last row is the BGR color-mapped values.
             },
 )
 
+m.function( "_stereo_range_sparse",
+            """Internal wrapper of mrcal_stereo_range_sparse()
+""",
+
+            args_input       = ('disparity',
+                                'qrect0',
+                                'disparity_min',
+                                'disparity_max',
+                                'fxycxy_rectified',
+                                'baseline'
+                                ),
+            prototype_input  = (('N',),
+                                ('N',2,),
+                                (),
+                                (),
+                                (4,),
+                                ()),
+            prototype_output = ( 'N', ),
+
+            extra_args = (("const char*", "rectification_model_type", "NULL", "s"),),
+
+            Ccode_cookie_struct = '''
+              mrcal_lensmodel_type_t type;
+            ''',
+
+            Ccode_validate = r'''
+
+              cookie->type = mrcal_lensmodel_type_from_name(rectification_model_type);
+              // the mrcal_stereo_range_...() functions will check to make sure
+              // the type is valid
+
+              return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = \
+            {
+                (float,float,float,float,float,float,
+                 float): '''
+
+                 const int N = dims_slice__output[0];
+
+                 return mrcal_stereo_range_sparse(// output
+                   (double*)data_slice__output,
+
+                   // input
+                   (double*)data_slice__disparity,
+                   (const mrcal_point2_t*)data_slice__qrect0,
+                   N,
+
+                   *(double*)data_slice__disparity_min,
+                   *(double*)data_slice__disparity_max,
+
+                   // models_rectified
+                   cookie->type,
+                   (double*)data_slice__fxycxy_rectified,
+                   *(double*)data_slice__baseline);
+'''
+
+            },
+)
+
+m.function( "_stereo_range_dense",
+            """Internal wrapper of mrcal_stereo_range_dense()
+""",
+
+            args_input       = ('disparity_scaled',
+                                'disparity_scale',
+                                'disparity_scaled_min',
+                                'disparity_scaled_max',
+                                'fxycxy_rectified',
+                                'baseline'
+                                ),
+            prototype_input  = (('H','W'),
+                                (),
+                                (),
+                                (),
+                                (4,),
+                                ()),
+            prototype_output = ('H','W'),
+
+            extra_args = (("const char*", "rectification_model_type", "NULL", "s"),),
+
+            Ccode_cookie_struct = '''
+              mrcal_lensmodel_type_t type;
+            ''',
+
+            Ccode_validate = r'''
+
+              cookie->type = mrcal_lensmodel_type_from_name(rectification_model_type);
+              // the mrcal_stereo_range_...() functions will check to make sure
+              // the type is valid
+
+
+              if(strides_slice__disparity_scaled[1] != sizeof_element__disparity_scaled)
+              {
+                  PyErr_Format(PyExc_RuntimeError,
+                               "Array 'disparity_scaled' must be contiguous in the last dimension");
+                  return false;
+              }
+
+              if( strides_slice__output[1] != sizeof_element__output )
+              {
+                  PyErr_Format(PyExc_RuntimeError,
+                               "Array 'output' must be contiguous in the last dimension");
+                  return false;
+              }
+
+              return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = \
+            {
+                (np.uint16,np.uint16,np.uint16,np.uint16,float,float,
+                 float): '''
+
+                 const int H = dims_slice__disparity_scaled[0];
+                 const int W = dims_slice__disparity_scaled[1];
+
+                 return mrcal_stereo_range_dense(
+                   // output
+                   &(mrcal_image_double_t){.height = H,
+                                           .width  = W,
+                                           .stride = strides_slice__output[0],
+                                           .data   = data_slice__output},
+
+
+                   // input
+                   &(mrcal_image_uint16_t){.height = H,
+                                           .width  = W,
+                                           .stride = strides_slice__disparity_scaled[0],
+                                           .data   = data_slice__disparity_scaled},
+                   *(uint16_t*)data_slice__disparity_scale,
+                   *(uint16_t*)data_slice__disparity_scaled_min,
+                   *(uint16_t*)data_slice__disparity_scaled_max,
+
+                   // models_rectified
+                   cookie->type,
+                   (double*)data_slice__fxycxy_rectified,
+                   *(double*)data_slice__baseline);
+'''
+            },
+)
+
 m.write()

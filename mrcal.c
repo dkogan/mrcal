@@ -59,7 +59,7 @@ const char* mrcal_lensmodel_name_unconfigured( const mrcal_lensmodel_t* lensmode
         MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( CASE_STRING_WITHCONFIG )
 
     default:
-        assert(0);
+        return NULL;
 
 
 #undef CASE_STRING_NOCONFIG
@@ -104,7 +104,7 @@ bool mrcal_lensmodel_name( char* out, int size, const mrcal_lensmodel_t* lensmod
         MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( CASE_STRING_WITHCONFIG )
 
     default:
-        assert(0);
+        return NULL;
 
 #undef CASE_STRING_NOCONFIG
 #undef CASE_STRING_WITHCONFIG
@@ -204,6 +204,12 @@ bool mrcal_lensmodel_from_name( // output
         }                                                               \
     }
 
+    if(name == NULL)
+    {
+        *lensmodel = (mrcal_lensmodel_t){.type = MRCAL_LENSMODEL_INVALID_TYPE};
+        return false;
+    }
+
     MRCAL_LENSMODEL_NOCONFIG_LIST(                   CHECK_AND_RETURN_NOCONFIG );
     MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(  CHECK_AND_RETURN_WITHCONFIG );
     MRCAL_LENSMODEL_WITHCONFIG_DYNAMIC_NPARAMS_LIST( CHECK_AND_RETURN_WITHCONFIG );
@@ -232,6 +238,9 @@ mrcal_lensmodel_type_t mrcal_lensmodel_type_from_name( const char* name )
               name[len_s] == '_' ) )                                    \
             return MRCAL_##s;                                           \
     }
+
+    if(name == NULL)
+        return MRCAL_LENSMODEL_INVALID_TYPE;
 
     MRCAL_LENSMODEL_NOCONFIG_LIST(                   CHECK_AND_RETURN_NOCONFIG );
     MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(  CHECK_AND_RETURN_WITHCONFIG );
@@ -2280,6 +2289,7 @@ typedef struct
 
 
 // This is internal to project()
+static
 void _propagate_extrinsics_one(mrcal_point3_t* dp_dparam,
                                const mrcal_point3_t* pt_ref,
                                const double* drj_dparam,
@@ -2295,6 +2305,7 @@ void _propagate_extrinsics_one(mrcal_point3_t* dp_dparam,
         add_vec(3, dp_dparam[i].xyz, &dtj_dparam[3*i] );
     }
 }
+static
 void _propagate_extrinsics_one_rzero(mrcal_point3_t* dp_dparam,
                                      const mrcal_point3_t* pt_ref,
                                      const double* dtj_dparam,
@@ -2304,6 +2315,7 @@ void _propagate_extrinsics_one_rzero(mrcal_point3_t* dp_dparam,
     // dRj[row0]/drc = dRj[row0]/drj * drj_drc
     memcpy(dp_dparam->xyz, dtj_dparam, 9*sizeof(double));
 }
+static
 void _propagate_extrinsics_one_tzero(mrcal_point3_t* dp_dparam,
                                      const mrcal_point3_t* pt_ref,
                                      const double* drj_dparam,
@@ -2317,6 +2329,7 @@ void _propagate_extrinsics_one_tzero(mrcal_point3_t* dp_dparam,
         mul_vec3_gen33     ( dp_dparam[i].xyz,   drj_dparam);
     }
 }
+static
 void _propagate_extrinsics_one_rzero_tidentity(mrcal_point3_t* dp_dparam,
                                                const mrcal_point3_t* pt_ref,
                                                const double* d_Rj_rj)
@@ -2326,6 +2339,7 @@ void _propagate_extrinsics_one_rzero_tidentity(mrcal_point3_t* dp_dparam,
     dp_dparam[2] = (mrcal_point3_t){.z = 1.0};
 }
 
+static
 void _propagate_extrinsics_one_cam0(mrcal_point3_t* dp_rf,
                                     const mrcal_point3_t* pt_ref,
                                     const double* _d_Rf_rf)
@@ -2335,6 +2349,7 @@ void _propagate_extrinsics_one_cam0(mrcal_point3_t* dp_rf,
     for(int i=0; i<3; i++)
         mul_vec3_gen33_vout( pt_ref->xyz, &_d_Rf_rf[9*i], dp_rf[i].xyz );
 }
+static
 mrcal_point3_t _propagate_extrinsics( // output
                                       mrcal_point3_t* _dp_drc,
                                       mrcal_point3_t* _dp_dtc,
@@ -2389,6 +2404,7 @@ mrcal_point3_t _propagate_extrinsics( // output
     return p;
 }
 // This is internal to project()
+static
 void _project_point( // outputs
                      mrcal_point2_t* q,
                      mrcal_point2_t* p_dq_dfxy,
@@ -2400,7 +2416,7 @@ void _project_point( // outputs
                      mrcal_point3_t* restrict dq_drframe,
                      mrcal_point3_t* restrict dq_dtframe,
                      mrcal_calobject_warp_t* restrict dq_dcalobject_warp,
-                     int*            restrict dq_dintrinsics_pool_int,
+                     int* restrict *          dq_dintrinsics_pool_int,
                      // inputs
                      const mrcal_point3_t* p,
                      const double* restrict intrinsics,
@@ -2438,9 +2454,9 @@ void _project_point( // outputs
                                 lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config.Ny,
                                 precomputed->LENSMODEL_SPLINED_STEREOGRAPHIC__precomputed.segments_per_u);
         // WARNING: if I could assume that dq_dintrinsics_pool_double!=NULL then I wouldnt need to copy the context
-        if(dq_dintrinsics_pool_int != NULL)
+        if(*dq_dintrinsics_pool_int != NULL)
         {
-            *(dq_dintrinsics_pool_int++) = ivar0;
+            *((*dq_dintrinsics_pool_int)++) = ivar0;
             memcpy(gradient_sparse_meta_pool,
                    grad_ABCDx_ABCDy,
                    sizeof(double)*runlen*2);
@@ -2749,7 +2765,7 @@ void project( // out
                          gradient_sparse_meta ? gradient_sparse_meta->pool : NULL,
                          runlen,
                          dq_drcamera, dq_dtcamera, dq_drframe, dq_dtframe, NULL,
-                         dq_dintrinsics_pool_int,
+                         &dq_dintrinsics_pool_int,
 
                          &p,
                          intrinsics, lensmodel,
@@ -2821,7 +2837,7 @@ void project( // out
                                gradient_sparse_meta ? &gradient_sparse_meta->pool[i_pt*runlen*2] : NULL,
                                runlen,
                                dq_drcamera_here, dq_dtcamera_here, dq_drframe_here, dq_dtframe_here, dq_dcalobject_warp_here,
-                               dq_dintrinsics_pool_int,
+                               &dq_dintrinsics_pool_int,
                                &p,
                                intrinsics, lensmodel,
                                &dpt_refz_dwarp,

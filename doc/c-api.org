@@ -451,7 +451,7 @@ These are the basic not-necessarily-contiguous arrays. The =bgr= type is used
 for color images:
 
 #+begin_src c
-typedef struct { uint8_t bgr[3]; } bgr_t;
+typedef struct { uint8_t bgr[3]; } mrcal_bgr_t;
 #+end_src
 
 Simple accessor and manipulation functions are available for each of these
@@ -467,7 +467,8 @@ mrcal_image_T_t mrcal_image_T_crop(mrcal_image_T_t* image,
                                    int w,  int h);
 #+end_src
 
-And for =uint8_t=, =uint16_t= and =bgr_t= we can also read and write image files:
+And for =uint8_t=, =uint16_t= and =mrcal_bgr_t= we can also read and write image
+files:
 
 #+begin_src c
 bool mrcal_image_T_save (const char* filename, const mrcal_image_T_t*  image);
@@ -511,10 +512,13 @@ mrcal_apply_color_map_T(
 #+end_src
 
 * Dense stereo
+:PROPERTIES:
+:CUSTOM_ID: dense-stereo-in-c
+:END:
 
 A number of dense stereo routines are available. These make it possible to
-implement a full mrcal dense stereo pipeline in C. The available functions are
-declared in [[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.h=]]:
+implement a full mrcal dense stereo pipeline in C; an [[https://github.com/dkogan/mrcal/blob/master/doc/examples/dense-stereo-demo/dense-stereo-demo.cc][example is provided]]. The
+available functions are declared in [[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.h=]]:
 
 - =mrcal_rectified_resolution()= computes the resolution of the rectified system
   from the resolution of the input. Usually =mrcal_rectified_system()= does this
@@ -529,6 +533,10 @@ declared in [[https://www.github.com/dkogan/mrcal/blob/master/stereo.h][=stereo.
   compute the rectified images. To apply the maps, and actually remap the
   images, [[https://docs.opencv.org/4.6.0/da/d54/group__imgproc__transform.html#gab75ef31ce5cdfb5c44b6da5f3b908ea4][the OpenCV =cv::remap()= function]] can be used. The Python wrapper is
   [[file:mrcal-python-api-reference.html#-rectification_maps][=mrcal.rectification_maps()=]], and further documentation is in its docstring
+
+- =mrcal_stereo_range_sparse()=, =mrcal_stereo_range_dense()= compute ranges
+  from disparities. The former function converts a set of discrete disparity
+  values, while the latter function processes a whole disparity image
 
 * Triangulation
 A number of triangulation routines are available in [[https://www.github.com/dkogan/mrcal/blob/master/triangulation.h][=triangulation.h=]]. These

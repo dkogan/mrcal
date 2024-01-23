@@ -29,8 +29,8 @@ mrcal_stereo_matching_libelas( // output
                                // parameters. These are the fields in
                                // Elas::Elas::parameters. This function provides
                                // no defaults: eerything must be set
-                               int32_t disp_min,
-                               int32_t disp_max,
+                               int32_t disparity_min,
+                               int32_t disparity_max,
                                float   support_threshold,
                                int32_t support_texture,
                                int32_t candidate_stepsize,
@@ -55,8 +55,8 @@ mrcal_stereo_matching_libelas( // output
 {
     Elas::Elas::parameters param;
 
-    param.disp_min              = disp_min;
-    param.disp_max              = disp_max;
+    param.disp_min              = disparity_min;
+    param.disp_max              = disparity_max;
     param.support_threshold     = support_threshold;
     param.support_texture       = support_texture;
     param.candidate_stepsize    = candidate_stepsize;

@@ -862,7 +862,7 @@ gnuplot_color_formula(uint8_t* out,
         {                                                               \
             const T* in_T = mrcal_image_##Tname##_at_const(in,  x,y);   \
                                                                         \
-            bgr_t* out_bgr = mrcal_image_bgr_at(           out, x,y);   \
+            mrcal_bgr_t* out_bgr = mrcal_image_bgr_at(     out, x,y);   \
                                                                         \
             float x;                                                    \
             if     (*in_T <= in_min)                                    \
@@ -894,3 +894,182 @@ DEFINE_mrcal_apply_color_map(int64_t,  int64,  INT64_MIN, INT64_MAX)
 
 DEFINE_mrcal_apply_color_map(float,    float,  FLT_MIN,   FLT_MAX)
 DEFINE_mrcal_apply_color_map(double,   double, DBL_MIN,   DBL_MAX)
+
+
+
+static bool _validate_rectification_model_type(const mrcal_lensmodel_type_t rectification_model_type)
+{
+    if(rectification_model_type == MRCAL_LENSMODEL_LATLON ||
+       rectification_model_type == MRCAL_LENSMODEL_PINHOLE)
+        return true;
+
+    // ERROR
+
+    const char* rectification_model_string =
+        mrcal_lensmodel_name_unconfigured( &(mrcal_lensmodel_t){.type = rectification_model_type} );
+    if(rectification_model_string == NULL)
+    {
+        MSG("Unknown rectification_model_type=%d\n", rectification_model_type);
+        return false;
+    }
+
+    MSG("Invalid rectification_model_type for rectification: %s; I know about MRCAL_LENSMODEL_LATLON and MRCAL_LENSMODEL_PINHOLE\n",
+        rectification_model_string);
+    return false;
+}
+
+static double _stereo_range_one(const double                 disparity,
+                                const mrcal_point2_t         qrect0,
+
+                                // models_rectified
+                                const mrcal_lensmodel_type_t rectification_model_type,
+                                const double*                fxycxy_rectified,
+                                const double                 baseline )
+{
+    // See the docstring for mrcal.stereo_range() for the derivation
+    const double fx = fxycxy_rectified[0];
+    const double fy = fxycxy_rectified[1];
+    const double cx = fxycxy_rectified[2];
+    const double cy = fxycxy_rectified[3];
+
+    if(rectification_model_type == MRCAL_LENSMODEL_LATLON)
+    {
+        const double az0           = (qrect0.x - cx)/fx;
+        const double disparity_rad = disparity / fx;
+
+        const double range =
+            baseline *
+            cos(az0 - disparity_rad) / sin(disparity_rad);
+
+        if(!isfinite(range)) return 0.0;
+        return range;
+    }
+
+    // _validate_rectification_model_type() makes sure this is true
+    // if(rectification_model_type == MRCAL_LENSMODEL_PINHOLE)
+    {
+        const double tanaz0        = (qrect0.x - cx) / fx;
+        const double tanel         = (qrect0.y - cy) / fy;
+        const double s_sq_recip    = tanel*tanel + 1.;
+        const double tanaz0_tanaz1 = disparity / fx;
+        const double tanaz1        = tanaz0 - tanaz0_tanaz1;
+
+        const double range =
+            baseline /
+            sqrt(s_sq_recip + tanaz0*tanaz0) *
+            ( (s_sq_recip + tanaz0*tanaz1) / tanaz0_tanaz1 +
+              tanaz0 );
+
+        if(!isfinite(range)) return 0.0;
+        return range;
+    }
+}
+
+bool mrcal_stereo_range_sparse(// output
+                               double* range, // N of these
+
+                               // input
+                               const double*                disparity, // N of these
+                               const mrcal_point2_t*        qrect0,    // N of these
+                               const int                    N,         // how many points
+
+                               const double                 disparity_min,
+                               const double                 disparity_max,
+
+                               // models_rectified
+                               const mrcal_lensmodel_type_t rectification_model_type,
+                               const double*                fxycxy_rectified,
+                               const double                 baseline)
+{
+    if(!_validate_rectification_model_type(rectification_model_type))
+        return false;
+
+    if(disparity_min >= disparity_max)
+    {
+        MSG("Must have disparity_max > disparity_min");
+        return false;
+    }
+
+    for(int i=0; i<N; i++)
+    {
+        if(disparity[i] <= 0.0          ||
+           disparity[i] < disparity_min ||
+           disparity[i] > disparity_max )
+        {
+            range[i] = 0.0;
+        }
+        else
+            range[i] = _stereo_range_one(disparity[i],
+                                         qrect0[i],
+                                         rectification_model_type,
+                                         fxycxy_rectified,
+                                         baseline);
+    }
+
+    return true;
+}
+
+bool mrcal_stereo_range_dense(// output
+                              mrcal_image_double_t* range,
+
+                              // input
+                              const mrcal_image_uint16_t*  disparity_scaled,
+                              const uint16_t               disparity_scale,
+
+                              // Used to detect invalid values. Set to
+                              // 0,UINT16_MAX to ignore
+                              const uint16_t               disparity_scaled_min,
+                              const uint16_t               disparity_scaled_max,
+
+                              // models_rectified
+                              const mrcal_lensmodel_type_t rectification_model_type,
+                              const double*                fxycxy_rectified,
+                              const double                 baseline)
+{
+    if(!_validate_rectification_model_type(rectification_model_type))
+        return false;
+
+    if(disparity_scaled_min >= disparity_scaled_max)
+    {
+        MSG("Must have disparity_scaled_max > disparity_scaled_min");
+        return false;
+    }
+
+    if(range->width  != disparity_scaled->width ||
+       range->height != disparity_scaled->height)
+    {
+        MSG("range and disparity_scaled MUST have the same dimensions. Got (W,H): (%d,%d) and (%d,%d) respectively\n",
+            range->width,            range->height,
+            disparity_scaled->width, disparity_scaled->height);
+        return false;
+    }
+
+    const int W = range->width;
+    const int H = range->height;
+
+    for(int i=0; i<H; i++)
+    {
+        double*         r_row = mrcal_image_double_at(       range,           0, i);
+        const uint16_t* d_row = mrcal_image_uint16_at_const(disparity_scaled, 0, i);
+
+        for(int j=0; j<W; j++)
+        {
+            if(d_row[j] <= 0.0                 ||
+               d_row[j] < disparity_scaled_min ||
+               d_row[j] > disparity_scaled_max )
+            {
+                r_row[j] = 0.0;
+            }
+            else
+                r_row[j] =
+                    _stereo_range_one((double)(d_row[j]) / (double)disparity_scale,
+                                      (mrcal_point2_t){.x = (double)j,
+                                                       .y = (double)i},
+                                      rectification_model_type,
+                                      fxycxy_rectified,
+                                      baseline);
+        }
+    }
+
+    return true;
+}

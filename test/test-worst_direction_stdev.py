@@ -60,7 +60,7 @@ for shape in ((2,3,5,5),
               ()):
     V = random_positive_definite(shape)
 
-    testutils.confirm_equal( mrcal.worstdirection_stdev(V),
+    testutils.confirm_equal( mrcal.worst_direction_stdev(V),
                              worstdirection_stdev_ref(V),
                              msg = f"Checking shape {shape}" )
 

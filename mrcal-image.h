@@ -49,7 +49,7 @@
 #include <stdbool.h>
 
 
-typedef struct { uint8_t bgr[3]; } bgr_t;
+typedef struct { uint8_t bgr[3]; } mrcal_bgr_t;
 
 #define MRCAL_IMAGE_DECLARE(T, Tname)                                   \
 typedef struct                                                          \
@@ -95,12 +95,12 @@ bool mrcal_image_ ## Tname ## _load( mrcal_image_ ## Tname ## _t*  image, const 
 
 
 // Common images types
-MRCAL_IMAGE_DECLARE(uint8_t,  uint8);
-MRCAL_IMAGE_DECLARE(uint16_t, uint16);
-MRCAL_IMAGE_DECLARE(bgr_t,    bgr);
-MRCAL_IMAGE_SAVE_LOAD_DECLARE(uint8_t,  uint8);
-MRCAL_IMAGE_SAVE_LOAD_DECLARE(uint16_t, uint16);
-MRCAL_IMAGE_SAVE_LOAD_DECLARE(bgr_t,    bgr);
+MRCAL_IMAGE_DECLARE(uint8_t,     uint8);
+MRCAL_IMAGE_DECLARE(uint16_t,    uint16);
+MRCAL_IMAGE_DECLARE(mrcal_bgr_t, bgr);
+MRCAL_IMAGE_SAVE_LOAD_DECLARE(uint8_t,     uint8);
+MRCAL_IMAGE_SAVE_LOAD_DECLARE(uint16_t,    uint16);
+MRCAL_IMAGE_SAVE_LOAD_DECLARE(mrcal_bgr_t, bgr);
 
 // Uncommon types. Not everything supports these
 MRCAL_IMAGE_DECLARE(int8_t,  int8);

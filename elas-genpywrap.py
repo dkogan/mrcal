@@ -70,9 +70,9 @@ ARGUMENTS
 The rest are parameters, with the description coming directly from the comment
 in libelas/src/elas.h
 
-- disp_min: min disparity
+- disparity_min: min disparity
 
-- disp_max: max disparity
+- disparity_max: max disparity
 
 - support_threshold: max. uniqueness ratio (best vs. second best support match)
 
@@ -132,8 +132,8 @@ numpy array with the same shape as the input images, but with dtype.np=float32
             prototype_output = (('H','W'), ('H','W')),
 
             # default values are the "ROBOTICS" setting, as defined in elas.h
-            extra_args = (("int",   "disp_min",              "0",    "i"),
-                          ("int",   "disp_max",              "255",  "i"),
+            extra_args = (("int",   "disparity_min",         "0",    "i"),
+                          ("int",   "disparity_max",         "255",  "i"),
                           ("float", "support_threshold",     "0.85", "f"),
                           ("int",   "support_texture",       "10",   "i"),
                           ("int",   "candidate_stepsize",    "5",    "i"),
@@ -170,8 +170,8 @@ numpy array with the same shape as the input images, but with dtype.np=float32
                                                 (const uint8_t*)data_slice__image0,
                                                 (const uint8_t*)data_slice__image1,
                                                 dims_slice__image0[1], dims_slice__image0[0], strides_slice__image0[0],
-                                                *disp_min,
-                                                *disp_max,
+                                                *disparity_min,
+                                                *disparity_max,
                                                 *support_threshold,
                                                 *support_texture,
                                                 *candidate_stepsize,

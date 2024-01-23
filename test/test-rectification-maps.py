@@ -60,10 +60,16 @@ for rectification in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
         rectification_maps_ref = \
             mrcal.stereo._rectification_maps_python((model0,model1),
                                                     models_rectified)
+        rectification_maps_ref = np.array(rectification_maps_ref)
 
         rectification_maps = \
             mrcal.rectification_maps((model0,model1),
                                      models_rectified)
+
+        # some pinhole maps have crazy behavior on the edges (WAAAAAAY out of
+        # view), and I ignore it
+        rectification_maps    [rectification_maps     > 1e6] = 0
+        rectification_maps_ref[rectification_maps_ref > 1e6] = 0
 
         testutils.confirm_equal(rectification_maps,
                                 rectification_maps_ref,

@@ -762,7 +762,7 @@ if args.force_grayscale:
     kwargs_load_image['channels']       = 1
 
 # Done with all the preliminaries. Run the stereo matching
-disp_min,disp_max = args.disparity_range
+disparity_min,disparity_max = args.disparity_range
 
 if args.stereo_matcher == 'SGBM':
 
@@ -771,8 +771,8 @@ if args.stereo_matcher == 'SGBM':
 
     # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
     # implementation requires this
-    disp_max = disparity_scale*round(disp_max/disparity_scale)
-    disp_min = disparity_scale*int  (disp_min/disparity_scale)
+    num_disparities = disparity_max - disparity_min
+    num_disparities = disparity_scale*round(num_disparities/disparity_scale)
 
     # I only add non-default args. StereoSGBM_create() doesn't like being given
     # None args
@@ -806,8 +806,8 @@ if args.stereo_matcher == 'SGBM':
     kwargs_sgbm['blockSize'] = args.sgbm_block_size
 
     stereo_sgbm = \
-        cv2.StereoSGBM_create(minDisparity      = disp_min,
-                              numDisparities    = disp_max - disp_min,
+        cv2.StereoSGBM_create(minDisparity      = disparity_min,
+                              numDisparities    = num_disparities,
                               **kwargs_sgbm)
 elif args.stereo_matcher == 'ELAS':
     disparity_scale = 1
@@ -878,20 +878,20 @@ def process(i_image):
     elif args.stereo_matcher == 'ELAS':
 
         disparities = mrcal.stereo_matching_libelas(*images_rectified,
-                                                    disp_min = disp_min,
-                                                    disp_max = disp_max)
+                                                    disparity_min = disparity_min,
+                                                    disparity_max = disparity_max)
 
         disparity = disparities[0]
 
 
     disparity_colored = mrcal.apply_color_map(disparity,
-                                              a_min = disp_min*disparity_scale,
-                                              a_max = disp_max*disparity_scale)
+                                              a_min = disparity_min*disparity_scale,
+                                              a_max = disparity_max*disparity_scale)
 
     ranges = mrcal.stereo_range( disparity,
                                  models_rectified,
                                  disparity_scale = disparity_scale,
-                                 disparity_min   = disp_min)
+                                 disparity_min   = disparity_min)
     ranges_colored = mrcal.apply_color_map(ranges,
                                            a_min = args.range_image_limits[0],
                                            a_max = args.range_image_limits[1],)
@@ -955,7 +955,7 @@ def gui_stereo(images,
 
         if q_rect is not None:
             set_status.qstring = \
-                f"q_rectified = {q_rect[0]:.1f},{q_rect[1]:.1f}\n"
+                f"q_rectified0 = {q_rect[0]:.1f},{q_rect[1]:.1f}\n"
             if q_input0 is not None:
                 set_status.qstring += f"q_input_cam0 = {q_input0[0]:.1f},{q_input0[1]:.1f}\n"
             if q_input1 is not None:
@@ -1083,13 +1083,13 @@ def gui_stereo(images,
 
                 d = disparity[int(round(q0_rectified[-1])),
                               int(round(q0_rectified[-2]))]
-                if d < disp_min*disparity_scale:
+                if d < disparity_min*disparity_scale:
                     set_status("No valid disparity at the clicked location")
                     widget_image0.set_cross_at(q0_rectified)
                     widget_image1.set_cross_at(q0_rectified, no_vertical = True)
                     widget_result.set_cross_at(q0_rectified)
                     return super().handle(event)
-                if d == disp_min*disparity_scale:
+                if d == disparity_min*disparity_scale:
                     set_status("Disparity: 0pixels\n" +
                                "range: infinity\n")
                     widget_image0.set_cross_at(q0_rectified)
@@ -1106,12 +1106,12 @@ def gui_stereo(images,
                 _range   = mrcal.stereo_range( d,
                                                models_rectified,
                                                disparity_scale = disparity_scale,
-                                               disparity_min   = disp_min,
+                                               disparity_min   = disparity_min,
                                                qrect0          = q0_rectified)
                 _range_d = mrcal.stereo_range( d + delta*disparity_scale,
                                                models_rectified,
                                                disparity_scale = disparity_scale,
-                                               disparity_min   = disp_min,
+                                               disparity_min   = disparity_min,
                                                qrect0          = q0_rectified)
                 drange_ddisparity = np.abs(_range_d - _range) / delta
 
@@ -1173,16 +1173,14 @@ def gui_stereo(images,
                     pass
 
                 if q_rect is not None:
-                    if self is not widget_image1:
-                        q_input0 = \
-                            mrcal.project( mrcal.transform_point_Rt( Rt_cam0_rect0,
-                                                                     mrcal.unproject(q_rect, *models_rectified[0].intrinsics())),
-                                           *models[0].intrinsics())
-                    else:
-                        q_input1 = \
-                            mrcal.project( mrcal.transform_point_Rt( Rt_cam1_rect1,
-                                                                     mrcal.unproject(q_rect, *models_rectified[1].intrinsics())),
-                                           *models[1].intrinsics())
+                    q_input0 = \
+                        mrcal.project( mrcal.transform_point_Rt( Rt_cam0_rect0,
+                                                                 mrcal.unproject(q_rect, *models_rectified[0].intrinsics())),
+                                       *models[0].intrinsics())
+                    q_input1 = \
+                        mrcal.project( mrcal.transform_point_Rt( Rt_cam1_rect1,
+                                                                 mrcal.unproject(q_rect, *models_rectified[1].intrinsics())),
+                                       *models[1].intrinsics())
 
                 set_status(string  = None, # keep old string
                            q_rect   = q_rect,
