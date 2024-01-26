@@ -763,7 +763,7 @@ def reproject_perturbed__cross_reprojection_error(q, distance,
 
 The logic here is described thoroughly in
 
-  http://mrcal.secretsauce.net/uncertainty-cross-reprojection.html
+  https://mrcal.secretsauce.net/uncertainty-cross-reprojection.html
     '''
 
     if fixedframes:

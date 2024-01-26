@@ -337,7 +337,7 @@ return. Two projections are currently supported:
 - "LENSMODEL_LATLON": the default projection that utilizes a transverse
   equirectangular map. This projection has even angular spacing between pixels,
   so it works well even with wide lenses. The documentation has more information:
-  http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
+  https://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
 
 - "LENSMODEL_PINHOLE": the traditional projection function that utilizes a
   pinhole camera. This works badly with wide lenses, and is recommended if

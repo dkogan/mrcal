@@ -20,11 +20,11 @@ exposed as a set of C and Python libraries and some commandline tools.
 
 * DESCRIPTION
 
-Extensive documentation is available at http://mrcal.secretsauce.net/
+Extensive documentation is available at https://mrcal.secretsauce.net/
 
 * INSTALLATION
 
-Install and/or building instructions are on the [[http://mrcal.secretsauce.net/install.html]["Building or installing" page]].
+Install and/or building instructions are on the [[https://mrcal.secretsauce.net/install.html]["Building or installing" page]].
 
 * REPOSITORY
 

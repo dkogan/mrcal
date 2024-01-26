@@ -20,7 +20,7 @@ corrections (off some baseline model), and visualizing these corrections is
 useful for understanding the projection behavior. Details of these models are
 described in the documentation:
 
-http://mrcal.secretsauce.net/lensmodels.html#splined-stereographic-lens-model
+https://mrcal.secretsauce.net/lensmodels.html#splined-stereographic-lens-model
 
 At this time LENSMODEL_SPLINED_STEREOGRAPHIC is the only splined model mrcal
 has, so the baseline model is always LENSMODEL_STEREOGRAPHIC.

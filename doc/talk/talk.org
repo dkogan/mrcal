@@ -60,7 +60,7 @@ Contributions welcome!
 
 ** Where is it?
 
-Detailed documentation is available at http://mrcal.secretsauce.net/
+Detailed documentation is available at https://mrcal.secretsauce.net/
 
 - This talk is a repackaging of the documentation on that page
 
@@ -70,7 +70,7 @@ Detailed documentation is available at http://mrcal.secretsauce.net/
 * Tour of mrcal
 ** Demo calibration
 Let's start by looking at the "tour of mrcal":
-http://mrcal.secretsauce.net/tour.html
+https://mrcal.secretsauce.net/tour.html
 
 We follow a real-world data flow, starting with chessboard observations. Images
 captured using

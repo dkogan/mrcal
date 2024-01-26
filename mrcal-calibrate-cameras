@@ -31,7 +31,7 @@ SYNOPSIS
 
 This tool uses the generic mrcal platform to solve a common specific problem of
 N-camera calibration using observations of a chessboard. Please see the mrcal
-documentation at http://mrcal.secretsauce.net/how-to-calibrate.html for details.
+documentation at https://mrcal.secretsauce.net/how-to-calibrate.html for details.
 
 '''
 
@@ -74,13 +74,13 @@ def parse_args():
     parser.add_argument('--lensmodel',
                         required=False,
                         help='''Which lens model we're using. This is a string "LENSMODEL_....". Required
-                        unless we have a --seed. See http://mrcal.secretsauce.net/how-to-calibrate.html
+                        unless we have a --seed. See https://mrcal.secretsauce.net/how-to-calibrate.html
                         for notes about how to select a model''')
     parser.add_argument('--focal',
                         type=str,
                         help=r'''Initial estimate of the focal length, in
                         pixels. Required unless --seed is given. See
-                        http://mrcal.secretsauce.net/how-to-calibrate.html for
+                        https://mrcal.secretsauce.net/how-to-calibrate.html for
                         notes about how to estimate a focal length. This is
                         either a single value to use for all the cameras, or a
                         comma-separated whitespace-less list of values to use

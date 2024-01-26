@@ -1000,7 +1000,7 @@ SYNOPSIS
     # A plot pops up displaying the projection difference between the two models
 
 The operation of this tool is documented at
-http://mrcal.secretsauce.net/differencing.html
+https://mrcal.secretsauce.net/differencing.html
 
 This function visualizes the results of mrcal.projection_diff()
 
@@ -1387,7 +1387,7 @@ SYNOPSIS
     # A plot pops up displaying the projection difference between the two models
 
 The operation of this tool is documented at
-http://mrcal.secretsauce.net/differencing.html
+https://mrcal.secretsauce.net/differencing.html
 
 This function visualizes the results of mrcal.stereo_pair_diff()
 
@@ -1744,7 +1744,7 @@ we estimate
 All the coordinate systems move around, and all 3 of these sets of data have
 some uncertainty. This tool takes into account all the uncertainties to report
 an estimated uncertainty metric. See
-http://mrcal.secretsauce.net/uncertainty.html for a detailed description of
+https://mrcal.secretsauce.net/uncertainty.html for a detailed description of
 the computation.
 
 This function grids the imager, and reports an uncertainty for each point on the
@@ -2026,7 +2026,7 @@ we estimate
 All the coordinate systems move around, and all 3 of these sets of data have
 some uncertainty. This tool takes into account all the uncertainties to report
 an estimated uncertainty metric. See
-http://mrcal.secretsauce.net/uncertainty.html for a detailed description of
+https://mrcal.secretsauce.net/uncertainty.html for a detailed description of
 the computation.
 
 The curve produced by this function has a characteristic shape:
@@ -2703,7 +2703,7 @@ corrections (off some baseline model), and visualizing these corrections is
 useful for understanding the projection behavior. Details of these models are
 described in the documentation:
 
-  http://mrcal.secretsauce.net/lensmodels.html#splined-stereographic-lens-model
+  https://mrcal.secretsauce.net/lensmodels.html#splined-stereographic-lens-model
 
 At this time LENSMODEL_SPLINED_STEREOGRAPHIC is the only splined model mrcal
 has, so the baseline model is always LENSMODEL_STEREOGRAPHIC. In spots, the

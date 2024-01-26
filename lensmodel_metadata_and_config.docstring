@@ -19,7 +19,7 @@ but aren't subject to optimization). The configuration parameters are embedded
 in the model string. This function returns a dict containing the metadata and
 all the configuration values. See the documentation for details:
 
-  http://mrcal.secretsauce.net/lensmodels.html#representation
+  https://mrcal.secretsauce.net/lensmodels.html#representation
 
 ARGUMENTS
 

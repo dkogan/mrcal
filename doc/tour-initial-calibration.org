@@ -984,7 +984,7 @@ far better than how =LENSMODEL_OPENCV8= did (error magnitudes are much better).
 We /do/ still see a clear pattern in the directions inside the ring, so it could
 still be improved: a denser spline spacing would do better. This is a peculiar
 image processing artifact of the Sony Alpha 7 III camera: from experience, other
-cameras using this lens do not exhibit this effect. See [[http://mrcal.secretsauce.net/docs-2.2/tour-initial-calibration.html][the tour of mrcal 2.2]]
+cameras using this lens do not exhibit this effect. See [[https://mrcal.secretsauce.net/docs-2.2/tour-initial-calibration.html][the tour of mrcal 2.2]]
 for instance; this used the same lens with a different camera.
 
 We can also visualize the [[file:splined-models.org][magnitude of the vector field defined by the splined

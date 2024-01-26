@@ -73,7 +73,7 @@ To cite this work in a publication, use this bibtex stanza:
 @misc{mrcal,
   author = "Dima Kogan",
   title = "mrcal",
-  howpublished = "\url{http://mrcal.secretsauce.net}",
+  howpublished = "\url{https://mrcal.secretsauce.net}",
 }
 #+end_example
 

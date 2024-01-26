@@ -23,7 +23,7 @@
 /*
 Detailed docs appear in the docstring of
 
-  http://mrcal.secretsauce.net/uncertainty-cross-reprojection.html
+  https://mrcal.secretsauce.net/uncertainty-cross-reprojection.html
 
 The punchline:
 

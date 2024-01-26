@@ -197,7 +197,7 @@ bool mrcal_unproject( // out
 
 // Project the given camera-coordinate-system points using a pinhole
 // model. See the docs for projection details:
-// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-pinhole
+// https://mrcal.secretsauce.net/lensmodels.html#lensmodel-pinhole
 //
 // This is a simplified special case of mrcal_project(). We project N
 // camera-coordinate-system points p to N pixel coordinates q
@@ -216,7 +216,7 @@ void mrcal_project_pinhole( // output
 
 // Unproject the given pixel coordinates using a pinhole model.
 // See the docs for projection details:
-// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-pinhole
+// https://mrcal.secretsauce.net/lensmodels.html#lensmodel-pinhole
 //
 // This is a simplified special case of mrcal_unproject(). We unproject N 2D
 // pixel coordinates q to N camera-coordinate-system vectors v. The returned
@@ -235,7 +235,7 @@ void mrcal_unproject_pinhole( // output
 
 // Project the given camera-coordinate-system points using a stereographic
 // model. See the docs for projection details:
-// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-stereographic
+// https://mrcal.secretsauce.net/lensmodels.html#lensmodel-stereographic
 //
 // This is a simplified special case of mrcal_project(). We project N
 // camera-coordinate-system points p to N pixel coordinates q
@@ -254,7 +254,7 @@ void mrcal_project_stereographic( // output
 
 // Unproject the given pixel coordinates using a stereographic model.
 // See the docs for projection details:
-// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-stereographic
+// https://mrcal.secretsauce.net/lensmodels.html#lensmodel-stereographic
 //
 // This is a simplified special case of mrcal_unproject(). We unproject N 2D
 // pixel coordinates q to N camera-coordinate-system vectors v. The returned
@@ -274,7 +274,7 @@ void mrcal_unproject_stereographic( // output
 
 // Project the given camera-coordinate-system points using an equirectangular
 // projection. See the docs for projection details:
-// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
+// https://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
 //
 // This is a simplified special case of mrcal_project(). We project N
 // camera-coordinate-system points p to N pixel coordinates q
@@ -294,7 +294,7 @@ void mrcal_project_lonlat( // output
 
 // Unproject the given pixel coordinates using an equirectangular projection.
 // See the docs for projection details:
-// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
+// https://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
 //
 // This is a simplified special case of mrcal_unproject(). We unproject N 2D
 // pixel coordinates q to N camera-coordinate-system vectors v. The returned
@@ -316,7 +316,7 @@ void mrcal_unproject_lonlat( // output
 
 // Project the given camera-coordinate-system points using a transverse
 // equirectangular projection. See the docs for projection details:
-// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
+// https://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
 //
 // This is a simplified special case of mrcal_project(). We project N
 // camera-coordinate-system points p to N pixel coordinates q
@@ -336,7 +336,7 @@ void mrcal_project_latlon( // output
 
 // Unproject the given pixel coordinates using a transverse equirectangular
 // projection. See the docs for projection details:
-// http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
+// https://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
 //
 // This is a simplified special case of mrcal_unproject(). We unproject N 2D
 // pixel coordinates q to N camera-coordinate-system vectors v. The returned

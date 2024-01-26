@@ -17,7 +17,7 @@ SYNOPSIS
   ... this model
 
 The operation of this tool is documented at
-http://mrcal.secretsauce.net/uncertainty.html
+https://mrcal.secretsauce.net/uncertainty.html
 
 A calibration process produces the best-fitting camera parameters. To be able to
 use these parameters we must know how trustworthy they are. This tool examines
@@ -40,7 +40,7 @@ There are several modes of operation:
   mapping to a single pixel. We show the uncertainty vs distances from the
   camera along this ray
 
-See http://mrcal.secretsauce.net/uncertainty.html for a full description of
+See https://mrcal.secretsauce.net/uncertainty.html for a full description of
 the computation performed here
 
 '''

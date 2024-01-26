@@ -558,7 +558,7 @@ the multiplication by D in the expressions below. It's usually sparse, but
 stored densely.
 
 The uncertainty computation in
-http://mrcal.secretsauce.net/uncertainty.html concludes that
+https://mrcal.secretsauce.net/uncertainty.html concludes that
 
   Var(b) = observed_pixel_uncertainty^2 inv(JtJ) J[observations]t J[observations] inv(JtJ)
 
@@ -1045,7 +1045,7 @@ def projection_uncertainty( p_cam, model,
     r'''Compute the projection uncertainty of a camera-referenced point
 
 This is the interface to the uncertainty computations described in
-http://mrcal.secretsauce.net/uncertainty.html
+https://mrcal.secretsauce.net/uncertainty.html
 
 SYNOPSIS
 
@@ -1084,7 +1084,7 @@ through the optimization problem. This gives us the uncertainty of the solved
 optimization parameters. And then we propagate this parameter noise through
 projection to produce the projected pixel uncertainty.
 
-As noted in the docs (http://mrcal.secretsauce.net/uncertainty.html), this
+As noted in the docs (https://mrcal.secretsauce.net/uncertainty.html), this
 measures the SAMPLING error, which is a direct function of the quality of the
 gathered calibration data. It does NOT measure model errors, which arise from
 inappropriate lens models, for instance.
@@ -1138,7 +1138,7 @@ else:                    we return an array of shape (...)
 
     # This is a summary of the full derivation in the docs:
     #
-    #   http://mrcal.secretsauce.net/uncertainty.html
+    #   https://mrcal.secretsauce.net/uncertainty.html
     #
     # I computed Var(b) earlier, which contains the variance of ALL the optimization
     # parameters together. The noise on the chessboard poses is coupled to the noise
@@ -1339,7 +1339,7 @@ SYNOPSIS
     # models at each cell
 
 The operation of this tool is documented at
-http://mrcal.secretsauce.net/differencing.html
+https://mrcal.secretsauce.net/differencing.html
 
 It is often useful to compare the projection behavior of two camera models. For
 instance, one may want to validate a calibration by comparing the results of two
@@ -1751,7 +1751,7 @@ SYNOPSIS
     # model_pairs at each cell
 
 The operation of this tool is documented at
-http://mrcal.secretsauce.net/differencing.html
+https://mrcal.secretsauce.net/differencing.html
 
 It is often useful to compare the projection behavior of two camera model_pairs. For
 instance, one may want to validate a calibration by comparing the results of two

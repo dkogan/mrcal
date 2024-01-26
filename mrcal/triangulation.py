@@ -1642,7 +1642,7 @@ SYNOPSIS
 DESCRIPTION
 
 This is the interface to the triangulation computations described in
-http://mrcal.secretsauce.net/triangulation.html
+https://mrcal.secretsauce.net/triangulation.html
 
 Let's say two cameras observe a point p in space. The pixel observations of this
 point in the two cameras are q0 and q1 respectively. If the two cameras are
@@ -1711,7 +1711,7 @@ stabilize_coords=True to return Var(p) in the physical camera housing coords.
 The underlying method is exactly the same as how this is done with projection
 uncertainty:
 
-  http://mrcal.secretsauce.net/uncertainty.html#propagating-through-projection
+  https://mrcal.secretsauce.net/uncertainty.html#propagating-through-projection
 
 In the usual case, the translation component of this extra transformation is
 negligible, but the rotation (even a small one) produces lateral uncertainty

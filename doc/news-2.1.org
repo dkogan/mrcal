@@ -5,7 +5,7 @@
 This is a /very/ minor release, made primarily to facilitate the push to Debian.
 Updates:
 
-- Lots of minor documentation improvements. These appear on [[http://mrcal.secretsauce.net][the website]]
+- Lots of minor documentation improvements. These appear on [[https://mrcal.secretsauce.net][the website]]
 - Visualization functions use more legible colors to display the
   valid-intrinsics region
 - Python library imports =cv2= only where necessary, which dramatically speeds

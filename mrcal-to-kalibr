@@ -17,7 +17,7 @@ SYNOPSIS
   [model.yaml is now a kalibr model describing the two cameras]
 
 File formats supported by mrcal are described at
-http://mrcal.secretsauce.net/cameramodels.html#cameramodel-file-formats
+https://mrcal.secretsauce.net/cameramodels.html#cameramodel-file-formats
 
 This tool converts the given model(s) to the .yaml format used by kalibr. No
 changes to the content are made; this is purely a format converter (the

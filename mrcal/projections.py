@@ -485,7 +485,7 @@ This is a special case of mrcal.project(). Useful to represent a very simple,
 very perfect lens. Wide lenses do not follow this model. Long lenses usually
 more-or-less DO follow this model. See the lensmodel documentation for details:
 
-http://mrcal.secretsauce.net/lensmodels.html#lensmodel-pinhole
+https://mrcal.secretsauce.net/lensmodels.html#lensmodel-pinhole
 
 Given a (N,3) array of points in the camera frame (x,y aligned with the imager
 coords, z 'forward') and the parameters fxycxy, this function computes the
@@ -554,7 +554,7 @@ This is a special case of mrcal.unproject(). Useful to represent a very simple,
 very perfect lens. Wide lenses do not follow this model. Long lenses usually
 more-or-less DO follow this model. See the lensmodel documentation for details:
 
-http://mrcal.secretsauce.net/lensmodels.html#lensmodel-pinhole
+https://mrcal.secretsauce.net/lensmodels.html#lensmodel-pinhole
 
 Given a (N,2) array of pinhole coordinates and the parameters fxycxy, this
 function computes the inverse projection, optionally with gradients.
@@ -620,7 +620,7 @@ This is a special case of mrcal.project(). No actual lens ever follows this
 model exactly, but this is useful as a baseline for other models. See the
 lensmodel documentation for details:
 
-http://mrcal.secretsauce.net/lensmodels.html#lensmodel-stereographic
+https://mrcal.secretsauce.net/lensmodels.html#lensmodel-stereographic
 
 Given a (N,3) array of points in the camera frame (x,y aligned with the imager
 coords, z 'forward') and parameters of a perfect stereographic camera, this
@@ -698,7 +698,7 @@ This is a special case of mrcal.unproject(). No actual lens ever follows this
 model exactly, but this is useful as a baseline for other models. See the
 lensmodel documentation for details:
 
-http://mrcal.secretsauce.net/lensmodels.html#lensmodel-stereographic
+https://mrcal.secretsauce.net/lensmodels.html#lensmodel-stereographic
 
 Given a (N,2) array of stereographic coordinates and parameters of a perfect
 stereographic camera, this function computes the inverse projection, optionally
@@ -777,7 +777,7 @@ representing lenses, but for describing the projection function of wide
 panoramic images. Lenses do not follow this model. See the lensmodel
 documentation for details:
 
-http://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
+https://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
 
 Given a (N,3) array of points in the camera frame (x,y aligned with the imager
 coords, z 'forward') and the parameters fxycxy, this function computes the
@@ -847,7 +847,7 @@ representing lenses, but for describing the projection function of wide
 panoramic images. Lenses do not follow this model. See the lensmodel
 documentation for details:
 
-http://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
+https://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat
 
 Given a (N,2) array of equirectangular coordinates and the parameters fxycxy,
 this function computes the inverse projection, optionally with gradients.
@@ -914,7 +914,7 @@ This is a special case of mrcal.project(). Useful not for representing lenses,
 but for performing stereo rectification. Lenses do not follow this model. See
 the lensmodel documentation for details:
 
-http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
+https://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
 
 Given a (N,3) array of points in the camera frame (x,y aligned with the imager
 coords, z 'forward') and the parameters fxycxy, this function computes the
@@ -983,7 +983,7 @@ This is a special case of mrcal.unproject(). Useful not for representing lenses,
 but for performing stereo rectification. Lenses do not follow this model. See
 the lensmodel documentation for details:
 
-http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
+https://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon
 
 Given a (N,2) array of transverse equirectangular coordinates and the parameters
 fxycxy, this function computes the inverse projection, optionally with
