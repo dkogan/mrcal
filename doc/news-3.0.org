@@ -246,6 +246,9 @@ These are notes to myself containing the steps needed to roll a new release
 - new [[file:news-2.2.org][news]]
 - [[file:~/projects/mrcal/Makefile::PROJECT_NAME := mrcal][Makefile ABI version]]
 - package build and upload
-- versioned docs upload
+- versioned docs:
+  - on the server move =docs-latest-release= symlink. This controls what =make publish-docs= writes to
+  - on the server populate the =docs-latest-release/external= symlink
+  - on the server move =docs-default= symlink. This controls what
+    https://mrcal.secretsauce.net sees
 - git tag
-- move docs-default (symlink) on the server
