@@ -2186,7 +2186,7 @@ for icam in (0,3):
         # create the other ones and compare
 
         # The baseline is:
-        # stationary camera, moving chessboard, reference at cam0
+        # stationary camera, moving frame, reference at cam0
         #   0    state variables for extrinsics
         #   6*Nf state variables for frames
         #
