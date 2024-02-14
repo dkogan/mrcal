@@ -144,19 +144,19 @@ def _read(s, name):
     The input is the .cahvor file contents as a string'''
 
 
-    re_f = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
-    re_u = '\d+'
-    re_d = '[-+]?\d+'
-    re_s = '.+'
+    re_f = r'[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
+    re_u = r'\d+'
+    re_d = r'[-+]?\d+'
+    re_s = r'.+'
 
     # I parse all key=value lines into my dict as raw text. Further I
     # post-process some of these raw lines.
     x = {}
     for l in s.splitlines():
-        if re.match('^\s*#|^\s*$', l):
+        if re.match(r'^\s*#|^\s*$', l):
             continue
 
-        m = re.match('\s*(\w+)\s*=\s*(.+?)\s*\n?$',
+        m = re.match(r'\s*(\w+)\s*=\s*(.+?)\s*\n?$',
                      l, flags=re.I)
         if m:
             key   = m.group(1)
@@ -184,9 +184,9 @@ def _read(s, name):
         if i in x:
             # Any data that's composed only of digits and whitespaces (no "."),
             # use integers
-            if re.match('[0-9\s]+$', x[i]): totype = int
-            else:                           totype = float
-            x[i] = np.array( [ totype(v) for v in re.split('\s+', x[i])], dtype=totype)
+            if re.match(r'[0-9\s]+$', x[i]): totype = int
+            else:                            totype = float
+            x[i] = np.array( [ totype(v) for v in re.split(r'\s+', x[i])], dtype=totype)
 
     # Now I sanity-check the results and call it done
     for k in ('Dimensions','C','A','H','V'):
@@ -231,7 +231,7 @@ def _read(s, name):
     #   CAHVORE1
     #   CAHVORE2
     #   CAHVORE3,0.44
-    m = re.match('CAHVORE\s*([0-9]+)(\s*,\s*([0-9\.e-]+))?',x['Model'])
+    m = re.match(r'CAHVORE\s*([0-9]+)(\s*,\s*([0-9\.e-]+))?',x['Model'])
     if m:
         modelname = x['Model']
         is_cahvore = True
@@ -293,7 +293,7 @@ def _deconstruct_model(model):
     x = dict()
 
     lensmodel,intrinsics = model.intrinsics()
-    m = re.match('^LENSMODEL_CAHVORE_linearity=([0-9\.]+)$', lensmodel)
+    m = re.match(r'^LENSMODEL_CAHVORE_linearity=([0-9\.]+)$', lensmodel)
     if m is not None:
         x['cahvore_linearity'] = float(m.group(1))
     else:
@@ -434,17 +434,17 @@ def read_transforms(f):
           'ins_from_camera': {} }
 
     for l in f:
-        if re.match('^\s*#|^\s*$', l):
+        if re.match(r'^\s*#|^\s*$', l):
             continue
 
-        re_f = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
-        re_u = '\d+'
-        re_d = '[-+]?\d+'
-        re_s = '.+'
+        re_f = r'[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
+        re_u = r'\d+'
+        re_d = r'[-+]?\d+'
+        re_s = r'.+'
 
-        re_pos  = '\(\s*({f})\s+({f})\s+({f})\s*\)'        .format(f=re_f)
-        re_quat = '\(\s*({f})\s+({f})\s+({f})\s+({f})\s*\)'.format(f=re_f)
-        m = re.match('\s*ins2veh\s*=\s*{p}\s*{q}\s*\n?$'.
+        re_pos  = r'\(\s*({f})\s+({f})\s+({f})\s*\)'        .format(f=re_f)
+        re_quat = r'\(\s*({f})\s+({f})\s+({f})\s+({f})\s*\)'.format(f=re_f)
+        m = re.match(r'\s*ins2veh\s*=\s*{p}\s*{q}\s*\n?$'.
                      format(u=re_u, p=re_pos, q=re_quat),
                      l)
         if m:
@@ -456,7 +456,7 @@ def read_transforms(f):
                                                             )))
             continue
 
-        m = re.match('\s*cam2ins\s*\[({u})\]\s*=\s*{p}\s*{q}\s*\n?$'.
+        m = re.match(r'\s*cam2ins\s*\[({u})\]\s*=\s*{p}\s*{q}\s*\n?$'.
                      format(u=re_u, p=re_pos, q=re_quat),
                      l)
         if m:
