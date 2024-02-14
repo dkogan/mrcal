@@ -1290,9 +1290,9 @@ projection_matrix:
             with open(f, 'w') as openedfile:
                 if write_function is not None:
                     write_function(openedfile)
-                elif re.match(".*\.cahv(or(e)?)?$", f):
+                elif re.match(r".*\.cahv(or(e)?)?$", f):
                     write_cahvor(openedfile)
-                elif re.match(".*\.ya?ml$", f):
+                elif re.match(r".*\.ya?ml$", f):
                     write_opencv(openedfile)
                 else:
                     self._write( openedfile, note )
