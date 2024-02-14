@@ -1257,7 +1257,7 @@ RETURNED VALUES
         if np.any(disparity.shape - np.array((H,W),dtype=int)):
             raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
 
-        return                                    \
+        r =                                    \
             mrcal._mrcal_npsp._stereo_range_dense \
                 ( disparity_scaled     = disparity.astype(np.uint16),
                   disparity_scale      = np.uint16(disparity_scale),
@@ -1269,7 +1269,7 @@ RETURNED VALUES
 
     else:
 
-        return                                     \
+        r =                                     \
             mrcal._mrcal_npsp._stereo_range_sparse \
                 ( disparity            = disparity.astype(float) / disparity_scale,
                   qrect0               = qrect0.astype(float),
