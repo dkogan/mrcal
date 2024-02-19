@@ -1231,7 +1231,7 @@ def _plot_arg_covariance_ellipse(q_mean, Var, what):
     if np.max(np.abs(Var)) == 0:
         return None
 
-    l,v   = _sorted_eig(Var)
+    l,v   = mrcal.sorted_eig(Var)
     l0,l1 = l
     v0,v1 = nps.transpose(v)
 
