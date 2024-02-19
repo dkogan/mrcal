@@ -94,7 +94,11 @@ def parse_args():
                         of tests, pass --do-sample''')
     parser.add_argument('--show-distribution',
                         action='store_true',
-                        help='''If given, we produce plots showing the distribution of samples''')
+                        help='''If given, we produce plots showing the
+                        distribution of samples. --make-documentation-plots also
+                        does this, albeit slightly differently: it makes a
+                        multiplot, not a separate plot for each camera.
+                        --make-documentation-plots also makes many other plots''')
     parser.add_argument('--write-models',
                         action='store_true',
                         help='''If given, we write the resulting models to disk for further analysis''')
