@@ -2478,7 +2478,7 @@ if not (args.explore or \
 
 import gnuplotlib as gp
 
-def make_plot(icam, report_center_points = True, **kwargs):
+def make_plot__distribution(icam, report_center_points = True, **kwargs):
 
     q_sampled_mean = np.mean(q_sampled__dist0[:,icam,:],axis=-2)
 
@@ -2526,7 +2526,7 @@ def make_plot(icam, report_center_points = True, **kwargs):
 if args.show_distribution:
     plot_distribution = [None] * args.Ncameras
     for icam in range(args.Ncameras):
-        data_tuples, plot_options = make_plot(icam)
+        data_tuples, plot_options = make_plot__distribution(icam)
 
         if args.extra_observation_at is not None:
             plot_options['title'] += f': boards at {args.range_to_boards}m, extra one at {args.extra_observation_at}m'
@@ -2536,7 +2536,7 @@ if args.show_distribution:
 
 if args.make_documentation_plots is not None:
     data_tuples_plot_options = \
-        [ make_plot(icam, report_center_points=False) \
+        [ make_plot__distribution(icam, report_center_points=False) \
           for icam in range(args.Ncameras) ]
     plot_options = data_tuples_plot_options[0][1]
     del plot_options['title']
