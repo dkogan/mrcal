@@ -2188,14 +2188,13 @@ for icam in (0,3):
         # The baseline is:
         # stationary camera, moving frame, reference at cam0
         #   0    state variables for extrinsics
-        #   6*Nf state variables for frames
+        #   6*Nf state variables for frames (or 3*Np*Nf points)
         #
         #   indices_frame_camintrinsics_camextrinsics =
         #   [ 0 0 -1
         #     1 0 -1
         #     2 0 -1
         #     ...   ]
-
         idxf,idxci,idxce = optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'].T
         # No extrinsics. The baseline has 1 camera, and it's at the reference
 
@@ -2224,7 +2223,7 @@ for icam in (0,3):
         #   I want to have indices_frame = -1 here, but mrcal does not currently
         #   support this. Instead we set indices_frame = 0, actually store
         #   something into the frames_rt_toref array, and set do_optimize_frames
-        #   = True
+        #   = False
         if True:
             optimization_inputs_check = copy.deepcopy(optimization_inputs_baseline)
 
@@ -2261,6 +2260,35 @@ for icam in (0,3):
         #     0 0  0
         #     0 0  1
         #     ...   ]
+        #
+        #   Or if looking_at_points:
+
+        #     if I assume I'm looking at a chessboard, I set the points to the known
+        #     geometry, fix that, and I'm done. But what if the point geometry is fixed
+        #     between frames, but unknown? I fix cam0 and have a single set of points that
+        #     I optimize:
+
+        #     6*(Nf-1) extrinsics
+        #     3*Np points
+
+        #     indices_point_camintrinsics_camextrinsics =
+        #     [ 0 0 -1
+        #       1 0 -1
+        #       2 0 -1
+        #       ...
+        #       0 0  0
+        #       1 0  0
+        #       2 0  0
+        #       ...
+        #       0 0  1
+        #       1 0  1
+        #       2 0  1
+        #       ... ]
+
+        #     What if I have a moving rigid rig of cameras? I cannot represent
+        #     that today. I either need a way to lock down the relative
+        #     transforms in a set of points or a set of cameras. TODAY I study
+        #     monocular SFM only
         if True:
             optimization_inputs_check = copy.deepcopy(optimization_inputs_baseline)
 
