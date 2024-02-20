@@ -180,10 +180,6 @@ point_min_range and point_max_range. Do I really need these?
 I need it everywhere I use \xymatrix (currently uncertainty.org only). So that's
 the only place I should use it. Loading it needlessly is slow
 
-** Rename C files
-mrcal-xxx.[ch] -> xxx.[ch]
-Anything internal doesn't need to have a namespaced filename
-
 ** mrcal-convert-lensmodel
 This needs to support points:
 - search for indices_point_camintrinsics_camextrinsics

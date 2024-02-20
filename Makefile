@@ -23,9 +23,9 @@ VERSION = $(VERSION_FROM_PROJECT)
 
 LIB_SOURCES +=			\
   mrcal.c			\
-  mrcal-opencv.c		\
-  mrcal-uncertainty.c		\
-  mrcal-image.c			\
+  opencv.c			\
+  uncertainty.c			\
+  image.c			\
   stereo.c			\
   poseutils.c			\
   poseutils-opencv.c		\
