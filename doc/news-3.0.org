@@ -224,13 +224,6 @@ Being compatible with at least ROS would be nice. Their models are:
 - Implement the write() functions for the different formats. For instance
   =write_kalibr()= should be finished
   
-** compatibility camera model formats
-Write tests. Read and confirm test/data/*.yaml. Each should be able to
-
-#+begin_src python
-m = mrcal.cameramodel('/tmp/tst3.yaml')
-print(m)
-#+end_src
 ** mrcal_drt_ref_refperturbed__dbpacked() currently is hardcoded to use the rrp formulation
 Give it an argument to select the formulation. And rename the function. Or
 something
