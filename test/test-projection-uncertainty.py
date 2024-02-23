@@ -2203,7 +2203,7 @@ for icam in (0,3):
         # No extrinsics. The baseline has 1 camera, and it's at the reference
 
         # shape (Nframes, 6)
-        rt_cf = optimization_inputs_baseline['frames_rt_toref']
+        rt_cam0_frame = optimization_inputs_baseline['frames_rt_toref']
 
         x_baseline = \
             mrcal.optimizer_callback(**optimization_inputs_baseline,
@@ -2236,7 +2236,7 @@ for icam in (0,3):
                                                              idxci,
                                                              idxf ) ))
 
-            optimization_inputs_check['extrinsics_rt_fromref'] = np.array(rt_cf)
+            optimization_inputs_check['extrinsics_rt_fromref'] = np.array(rt_cam0_frame)
             optimization_inputs_check['frames_rt_toref'      ] = np.zeros((1,6), dtype=float)
             optimization_inputs_check['do_optimize_extrinsics'] = True
             optimization_inputs_check['do_optimize_frames'    ] = False
@@ -2301,11 +2301,11 @@ for icam in (0,3):
                                                              idxci,
                                                              idxf-1 )))
 
-            rt_c_c0 = mrcal.compose_rt(rt_cf[1:,:],
-                                       mrcal.invert_rt(rt_cf[0,:]))
+            rt_c_c0 = mrcal.compose_rt(rt_cam0_frame[1:,:],
+                                       mrcal.invert_rt(rt_cam0_frame[0,:]))
 
             optimization_inputs_check['extrinsics_rt_fromref' ] = rt_c_c0
-            optimization_inputs_check['frames_rt_toref'       ] = rt_cf[(0,),:]
+            optimization_inputs_check['frames_rt_toref'       ] = rt_cam0_frame[(0,),:]
             optimization_inputs_check['do_optimize_extrinsics'] = True
             optimization_inputs_check['do_optimize_frames'    ] = True
 
