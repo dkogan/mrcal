@@ -2036,20 +2036,16 @@ The rt_refperturbed_ref formulation:
 # by the uncertianty method
 if   re.match('mean-frames', args.reproject_perturbed):
     reproject_perturbed = reproject_perturbed__mean_frames
+    method              = 'mean-frames'
 elif args.reproject_perturbed == 'fit-boards-ref':
     reproject_perturbed = reproject_perturbed__fit_boards_ref
 elif args.reproject_perturbed == 'diff':
     reproject_perturbed = reproject_perturbed__diff
 elif re.match('cross-reprojection', args.reproject_perturbed):
     reproject_perturbed = reproject_perturbed__cross_reprojection_error
+    method              = 'cross-reprojection--rrp-Jfp'
 else:
     raise Exception("getting here is a bug")
-
-
-if args.reproject_perturbed == 'cross-reprojection--rrp-Jfp':
-    method = 'cross-reprojection--rrp-Jfp'
-else:
-    method = 'mean-frames'
 
 
 
