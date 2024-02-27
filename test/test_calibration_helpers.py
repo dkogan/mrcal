@@ -159,7 +159,9 @@ ARGUMENTS
                                             calobject_warp                  = calobject_warp_true,
                                             rt_ref_boardcenter              = np.array((0.,             0.,             0.,             x_center, 0,   range_to_boards)),
                                             rt_ref_boardcenter__noiseradius = np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5,      2.5, range_to_boards/2.0)),
-                                            Nframes                         = Nframes)
+                                            Nframes                         = Nframes,
+                                            pcamera_nominal_ref             = np.array((x_center,0,0), dtype=float),
+                                            max_oblique_angle_deg           = 30.)
     if extra_observation_at is not None:
         q_true_extra,Rt_ref_board_true_extra = \
             mrcal.synthesize_board_observations(models_true,
@@ -169,7 +171,9 @@ ARGUMENTS
                                                 calobject_warp                  = calobject_warp_true,
                                                 rt_ref_boardcenter              = np.array((0.,             0.,             0.,             x_center, 0,   extra_observation_at)),
                                                 rt_ref_boardcenter__noiseradius = np.array((np.pi/180.*30., np.pi/180.*30., np.pi/180.*20., 2.5,      2.5, extra_observation_at/10.0)),
-                                                Nframes                         = 1)
+                                                Nframes                         = 1,
+                                                pcamera_nominal_ref             = np.array((x_center,0,0), dtype=float),
+                                                max_oblique_angle_deg           = 30.)
 
         q_true            = nps.glue( q_true, q_true_extra,
                                       axis=-5)
