@@ -334,30 +334,44 @@ if args.make_documentation_plots is not None:
         gp.add_plot_option(processoptions_output, 'set', 'xyplane relative 0')
         mrcal.show_geometry(models_baseline,
                             show_calobjects = True,
-                            unset='key',
                             title='',
                             axis_scale = 1.0,
                             **processoptions_output)
 
 
 
-
-    def observed_points(icam):
-        q = np.zeros((0,2), dtype=float)
-
+    # shape (Nframes,Nh*Nw,2) or None
+    def observed_boards(icam):
         if indices_frame_camintrinsics_camextrinsics is not None:
-            obs_cam = observations_board_true[indices_frame_camintrinsics_camextrinsics[:,1]==icam, ..., :2]
-            q = nps.glue( q, obs_cam, axis = -2 )
+            # shape (Nframes,Nh,Nw,2)
+            o = observations_board_true[indices_frame_camintrinsics_camextrinsics[:,1]==icam, ..., :2]
+            # shape (Nframes,Nh*Nw,2)
+            return (nps.mv(nps.clump(nps.mv(o,-1,-3), n=-2),-1,-2),
+                    dict(legend = np.array([f"Board {i}" for i in range(o.shape[0],)])))
+        return None
 
+    # shape (Npoints,2) or None
+    def observed_points(icam):
         if indices_point_camintrinsics_camextrinsics is not None:
-            obs_cam = observations_point_true[indices_point_camintrinsics_camextrinsics[:,1]==icam, ..., :2]
-            q = nps.glue( q, obs_cam, axis = -2 )
+            return observations_point_true[indices_point_camintrinsics_camextrinsics[:,1]==icam, ..., :2]
+        return None
 
-        return q
+    # plot tuples to display the observed_boards and/or observed_points,
+    # depending on what we have
+    def observed_pixels(icam):
+        t = []
+
+        o = observed_boards(icam)
+        if o is not None: t.append(o)
+
+        o = observed_points(icam)
+        if o is not None: t.append(o)
+
+        return t
 
     if args.make_documentation_plots:
         for extension in ('pdf','svg','png','gp'):
-            obs_cam = [ ( (observed_points(icam),),
+            obs_cam = [ ( (*observed_pixels(icam),),
                           (q0_baseline, dict(_with = f'points pt 3 lw 2 lc "red" ps {2*pointscale[extension]}'))) \
                         for icam in range(args.Ncameras) ]
             processoptions_output = dict(wait     = False,
@@ -379,7 +393,7 @@ if args.make_documentation_plots is not None:
                 os.system(f"pdfcrop {processoptions_output['hardcopy']}")
 
     else:
-        obs_cam = [ ( (observed_points(icam),),
+        obs_cam = [ ( (*observed_pixels(icam),),
                       (q0_baseline, dict(_with = f'points pt 3 lw 2 lc "red" ps {2*pointscale[""]}'))) \
                     for icam in range(args.Ncameras) ]
         processoptions_output = dict(wait = True)
