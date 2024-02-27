@@ -149,6 +149,7 @@ ARGUMENTS
     extrinsics_true_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in models_true] )
     x_center = -(Ncameras-1)/2.
 
+    rad = 2.5
     # shapes (Nframes, Ncameras, Nh, Nw, 2),
     #        (Nframes, 4,3)
     q_true,Rt_ref_board_true = \
@@ -166,8 +167,8 @@ ARGUMENTS
                                             rt_ref_boardcenter__noiseradius = np.array((np.pi/180.*30.,
                                                                                         np.pi/180.*30.,
                                                                                         np.pi/180.*20.,
-                                                                                        2.5,
-                                                                                        2.5,
+                                                                                        rad,
+                                                                                        rad,
                                                                                         range_to_boards/2.0)),
                                             Nframes                         = Nframes,
                                             pcamera_nominal_ref             = np.array((x_center,0,0), dtype=float),
@@ -188,8 +189,8 @@ ARGUMENTS
                                                 rt_ref_boardcenter__noiseradius = np.array((np.pi/180.*30.,
                                                                                             np.pi/180.*30.,
                                                                                             np.pi/180.*20.,
-                                                                                            2.5,
-                                                                                            2.5,
+                                                                                            rad,
+                                                                                            rad,
                                                                                             extra_observation_at/10.0)),
                                                 Nframes                         = 1,
                                                 pcamera_nominal_ref             = np.array((x_center,0,0), dtype=float),
