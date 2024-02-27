@@ -242,6 +242,8 @@ def synthesize_board_observations(models,
                                   rt_ref_boardcenter,
                                   rt_ref_boardcenter__noiseradius,
                                   Nframes,
+                                  max_oblique_angle_deg = None,
+                                  pcamera_nominal_ref   = np.array((0,0,0), dtype=float),
 
                                   which = 'all-cameras-must-see-full-board'):
     r'''Produce synthetic chessboard observations
@@ -356,6 +358,15 @@ ARGUMENTS
     that produce observations that are AT LEAST HALF visible by AT LEAST ONE
     camera.
 
+- max_oblique_angle_deg: optional value, defaulting to None. If non-None, we
+  only return observations where the board normal is within this angle of the
+  vector to the nominal camera (at pcamera_nominal_ref). This ensures that the
+  boards all "face" the camera to a certain degree
+
+- pcamera_nominal_ref: optional vector, defaulting to (0,0,0). Used in
+  conjunction with max_oblique_angle_deg to make sure the observation angle
+  isn't too oblique
+
 RETURNED VALUES
 
 We return a tuple:
@@ -429,6 +440,12 @@ We return a tuple:
     Rt_boardref_origboardref = mrcal.identity_Rt()
     Rt_boardref_origboardref[3,:] = -board_center
 
+    if max_oblique_angle_deg is not None:
+        max_cos_oblique_angle = np.cos(max_oblique_angle_deg * np.pi/180.)
+    else:
+        max_cos_oblique_angle = None
+
+
     def get_observation_chunk():
         '''Make Nframes observations, and return them all, even the out-of-view ones'''
 
@@ -462,14 +479,26 @@ We return a tuple:
 
         return q,Rt_ref_boardref
 
-    def cull_out_of_view(q,Rt_ref_boardref,
-                         which):
+    def cull(q,Rt_ref_boardref,
+             which):
 
         # q               has shape (Nframes,Ncameras,Nh,Nw,2)
         # Rt_ref_boardref has shape (Nframes,4,3)
 
-        # I pick only those frames where at least one cameras sees the whole
-        # board
+        ######## Throw out extreme oblique views
+        if max_cos_oblique_angle is not None:
+            nref_position = Rt_ref_boardref[...,3,:] - pcamera_nominal_ref
+            nref_position /= nps.dummy(nps.mag(nref_position), -1)
+            nref_orientation = Rt_ref_boardref[...,:3,2]
+            costh = np.abs(nps.inner(nref_position, nref_orientation))
+            i = costh > max_cos_oblique_angle
+
+            q               = q[i]
+            Rt_ref_boardref = Rt_ref_boardref[i]
+
+
+        ######## I pick only those frames where at least one cameras sees the
+        ######## whole board
 
         # shape (Nframes,Ncameras,Nh,Nw)
         mask_visible = (q[..., 0] >= 0) * (q[..., 1] >= 0)
@@ -512,8 +541,8 @@ We return a tuple:
         q_here, Rt_ref_boardref_here = get_observation_chunk()
 
         q_here, Rt_ref_boardref_here = \
-            cull_out_of_view(q_here, Rt_ref_boardref_here,
-                             which)
+            cull(q_here, Rt_ref_boardref_here,
+                 which)
 
         q = nps.glue(q, q_here, axis=-5)
         Rt_ref_boardref = nps.glue(Rt_ref_boardref, Rt_ref_boardref_here, axis=-3)
