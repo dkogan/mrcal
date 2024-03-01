@@ -22,7 +22,8 @@ calibration quality:
   observations of chessboard corners. These observations aren't perfect, and
   contain a sample of some noise distribution. We can [[file:formulation.org::#noise-model][characterize this
   distribution]] and we can then analytically predict the effects of that noise.
-  We do that here.
+  We hope to show that this noise (which we cannot eliminate) does not have a
+  significant effect on the behavior of the solved model. We do that here.
 
 - *Model error*. These result when the solver's model of the world is
   insufficient to describe what is actually happening. When model errors are
