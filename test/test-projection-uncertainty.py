@@ -71,6 +71,11 @@ def parse_args():
                         type=float,
                         default=4.0,
                         help='''Nominal range to the simulated chessboards''')
+    parser.add_argument('--observations-left-right-with-gap',
+                        action='store_true',
+                        help='''If given, we produce chessboards views on the
+                        left and right, with a gap in the center. Tested with
+                        --range-to-boards 0.9 --Ncameras 1''')
     parser.add_argument('--distances',
                         type=str,
                         default='5,inf',
@@ -264,6 +269,16 @@ if args.points:
 
 
 
+if args.observations_left_right_with_gap:
+    calibration_baseline_kwargs = \
+        dict(x_noiseradius = 2.5 / 4.,
+             y_noiseradius = 2.5,
+             x_offset      = 2.5 / 2.,
+             x_mirror      = True)
+else:
+    calibration_baseline_kwargs = dict()
+
+
 optimization_inputs_baseline,                          \
 models_true, models_baseline,                          \
 lensmodel, Nintrinsics, imagersizes,                   \
@@ -281,7 +296,8 @@ intrinsics_true, extrinsics_true_mounted,              \
                          fixedframes,
                          testdir,
                          range_to_boards = args.range_to_boards,
-                         report_points   = args.points)
+                         report_points   = args.points,
+                         **calibration_baseline_kwargs)
 
 
 if not args.points:
