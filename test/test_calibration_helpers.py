@@ -152,8 +152,7 @@ ARGUMENTS
     rad = 2.5
 
 
-
-    def synthesize(z, zrad, Nframes):
+    def synthesize(z, z_noiseradius, Nframes):
         return \
             mrcal.synthesize_board_observations(models_true,
                                                 object_width_n                  = object_width_n,
@@ -171,7 +170,7 @@ ARGUMENTS
                                                                                             np.pi/180.*20.,
                                                                                             rad,
                                                                                             rad,
-                                                                                            zrad)),
+                                                                                            z_noiseradius)),
                                                 Nframes                         = Nframes,
                                                 pcamera_nominal_ref             = np.array((x_center,0,0), dtype=float),
                                                 max_oblique_angle_deg           = 30.)
@@ -179,15 +178,16 @@ ARGUMENTS
 
     # shapes (Nframes, Ncameras, Nh, Nw, 2),
     #        (Nframes, 4,3)
-    q_true,Rt_ref_board_true = synthesize(z       = range_to_boards,
-                                          zrad    = range_to_boards / 2.0,
-                                          Nframes = Nframes)
+    q_true,Rt_ref_board_true = \
+        synthesize(z             = range_to_boards,
+                   z_noiseradius = range_to_boards / 2.0,
+                   Nframes       = Nframes)
 
     if extra_observation_at is not None:
         q_true_extra,Rt_ref_board_true_extra = \
-            synthesize(z       = extra_observation_at,
-                       zrad    = extra_observation_at / 10.0,
-                       Nframes = 1)
+            synthesize(z             = extra_observation_at,
+                       z_noiseradius = extra_observation_at / 10.0,
+                       Nframes       = 1)
 
 
         q_true            = nps.glue( q_true, q_true_extra,
