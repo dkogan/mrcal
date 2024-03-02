@@ -67,6 +67,10 @@ def parse_args():
                         default = 4,
                         help='''How many cameras to simulate. By default we use 4. The values of those 4 are
                         hard-coded, so --Ncameras must be <= 4''')
+    parser.add_argument('--range-to-boards',
+                        type=float,
+                        default=4.0,
+                        help='''Nominal range to the simulated chessboards''')
     parser.add_argument('--distances',
                         type=str,
                         default='5,inf',
@@ -126,10 +130,6 @@ def parse_args():
     parser.add_argument('--extra-observation-at',
                         type=float,
                         help='''Adds one extra observation at the given distance''')
-    parser.add_argument('--range-to-boards',
-                        type=float,
-                        default=4.0,
-                        help='''Nominal range to the simulated chessboards''')
     parser.add_argument('--reproject-perturbed',
                         choices=('mean-frames',
                                  'mean-frames-using-meanq',
