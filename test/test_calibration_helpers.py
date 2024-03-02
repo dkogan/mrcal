@@ -82,6 +82,8 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          cull_left_of_center = False,
                          allow_nonidentity_cam0_transform = False,
                          range_to_boards = 4.0,
+                         x_noiseradius = 2.5,
+                         y_noiseradius = 2.5,
                          report_points = False):
     r'''Compute a calibration baseline as a starting point for experiments
 
@@ -149,7 +151,6 @@ ARGUMENTS
     extrinsics_true_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in models_true] )
     x_center = -(Ncameras-1)/2.
 
-    rad = 2.5
 
 
     def synthesize(z, z_noiseradius, Nframes):
@@ -168,8 +169,8 @@ ARGUMENTS
                                                 rt_ref_boardcenter__noiseradius = np.array((np.pi/180.*30.,
                                                                                             np.pi/180.*30.,
                                                                                             np.pi/180.*20.,
-                                                                                            rad,
-                                                                                            rad,
+                                                                                            x_noiseradius,
+                                                                                            y_noiseradius,
                                                                                             z_noiseradius)),
                                                 Nframes                         = Nframes,
                                                 pcamera_nominal_ref             = np.array((x_center,0,0), dtype=float),
