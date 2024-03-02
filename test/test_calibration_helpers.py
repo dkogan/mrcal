@@ -82,8 +82,10 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          cull_left_of_center = False,
                          allow_nonidentity_cam0_transform = False,
                          range_to_boards = 4.0,
+                         x_offset = 0.0,
                          x_noiseradius = 2.5,
                          y_noiseradius = 2.5,
+                         x_mirror      = False, # half with +x_offset, half with -x_offset
                          report_points = False):
     r'''Compute a calibration baseline as a starting point for experiments
 
@@ -153,7 +155,8 @@ ARGUMENTS
 
 
 
-    def synthesize(z, z_noiseradius, Nframes):
+    def synthesize(z, z_noiseradius, Nframes,
+                   x_offset):
         return \
             mrcal.synthesize_board_observations(models_true,
                                                 object_width_n                  = object_width_n,
@@ -163,7 +166,7 @@ ARGUMENTS
                                                 rt_ref_boardcenter              = np.array((0.,
                                                                                             0.,
                                                                                             0.,
-                                                                                            x_center,
+                                                                                            x_center + x_offset,
                                                                                             0,
                                                                                             z)),
                                                 rt_ref_boardcenter__noiseradius = np.array((np.pi/180.*30.,
@@ -177,18 +180,41 @@ ARGUMENTS
                                                 max_oblique_angle_deg           = 30.)
 
 
-    # shapes (Nframes, Ncameras, Nh, Nw, 2),
-    #        (Nframes, 4,3)
-    q_true,Rt_ref_board_true = \
-        synthesize(z             = range_to_boards,
-                   z_noiseradius = range_to_boards / 2.0,
-                   Nframes       = Nframes)
+    if not x_mirror:
+        # shapes (Nframes, Ncameras, Nh, Nw, 2),
+        #        (Nframes, 4,3)
+        q_true,Rt_ref_board_true = \
+            synthesize(z             = range_to_boards,
+                       z_noiseradius = range_to_boards / 2.0,
+                       Nframes       = Nframes,
+                       x_offset      = x_offset)
+    else:
+        if Nframes & 1:
+            raise Exception("x_mirror is True, so Nframes must be even")
+
+        # shapes (Nframes//2, Ncameras, Nh, Nw, 2),
+        #        (Nframes//2, 4,3)
+        q_true0,Rt_ref_board_true0 = \
+            synthesize(z             = range_to_boards,
+                       z_noiseradius = range_to_boards / 2.0,
+                       Nframes       = Nframes//2,
+                       x_offset      = x_offset)
+        q_true1,Rt_ref_board_true1 = \
+            synthesize(z             = range_to_boards,
+                       z_noiseradius = range_to_boards / 2.0,
+                       Nframes       = Nframes//2,
+                       x_offset      = -x_offset)
+
+        q_true            = nps.glue(q_true0,           q_true1,            axis=-5)
+        Rt_ref_board_true = nps.glue(Rt_ref_board_true0,Rt_ref_board_true1, axis=-3)
+
 
     if extra_observation_at is not None:
         q_true_extra,Rt_ref_board_true_extra = \
             synthesize(z             = extra_observation_at,
                        z_noiseradius = extra_observation_at / 10.0,
-                       Nframes       = 1)
+                       Nframes       = 1,
+                       x_offset      = x_offset)
 
 
         q_true            = nps.glue( q_true, q_true_extra,
