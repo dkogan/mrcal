@@ -530,7 +530,7 @@ def solve_initial(args, seedmodels, imagersizes,
                 # have very poorly behaved derivatives. If all the rational coefficients
                 # are ~0, then the denominator is always ~1, and this problematic case
                 # can't happen. I favor that.
-                newDistortions[5:8] *= 1e-3
+                newDistortions[..., 5:8] *= 1e-3
         return nps.glue( intrinsics_data, newDistortions, axis=-1 )
 
 
