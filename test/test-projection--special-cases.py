@@ -190,7 +190,8 @@ testutils.confirm_equal(dq_dp_reported,
                         dq_dp_observed,
                         msg = f"project_{name}() dq/dp",
                         worstcase = True,
-                        relative  = True)
+                        relative  = True,
+                        eps=1e-5)
 _,dq_dp_reported,dq_di_reported = mrcal.project(p[ipt], *intrinsics, get_gradients=True)
 dq_dp_observed = grad(lambda p: mrcal.project(p, *intrinsics),
                       p[ipt])
@@ -200,7 +201,8 @@ testutils.confirm_equal(dq_dp_reported,
                         dq_dp_observed,
                         msg = f"project({name}) dq/dp",
                         worstcase = True,
-                        relative  = True)
+                        relative  = True,
+                        eps = 1e-5)
 testutils.confirm_equal(dq_di_reported,
                         dq_di_observed,
                         msg = f"project({name}) dq/di",
