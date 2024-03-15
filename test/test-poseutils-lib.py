@@ -192,6 +192,9 @@ for what,r_ref,R_ref in (('r0_ref', r0_ref, R0_ref),
                    msg=f'{what}: rotate_point_r result')
     confirm_equal( J_r,
                    J_r_ref,
+                   relative  = True,
+                   worstcase = True,
+                   eps       = 1e-4,
                    msg=f'{what}: rotate_point_r J_r')
     confirm_equal( J_x,
                    J_x_ref,
@@ -216,6 +219,9 @@ for what,r_ref,R_ref in (('r0_ref', r0_ref, R0_ref),
                    msg=f'{what}: rotate_point_r (with gradients) result written in-place into x')
     confirm_equal( J_r,
                    J_r_ref,
+                   relative  = True,
+                   worstcase = True,
+                   eps       = 1e-4,
                    msg=f'{what}: rotate_point_r (with gradients) result written in-place into x: J_r')
     confirm_equal( J_x,
                    J_x_ref,
@@ -239,6 +245,9 @@ for what,r_ref,R_ref in (('r0_ref', r0_ref, R0_ref),
                    msg=f'{what}: rotate_point_r(inverted) result')
     confirm_equal( J_r,
                    J_r_ref,
+                   relative  = True,
+                   worstcase = True,
+                   eps       = 1e-4,
                    msg=f'{what}: rotate_point_r(inverted) J_r')
     confirm_equal( J_x,
                    J_x_ref,
@@ -263,6 +272,9 @@ for what,r_ref,R_ref in (('r0_ref', r0_ref, R0_ref),
                    msg=f'{what}: rotate_point_r(inverted, with-gradients) result written in-place into x')
     confirm_equal( J_r,
                    J_r_ref,
+                   relative  = True,
+                   worstcase = True,
+                   eps       = 1e-4,
                    msg=f'{what}: rotate_point_r(inverted, with-gradients result written in-place into x) J_r')
     confirm_equal( J_x,
                    J_x_ref,
@@ -427,6 +439,9 @@ confirm_equal( y,
                msg='transform_point_rt result')
 confirm_equal( J_rt,
                J_rt_ref,
+               relative  = True,
+               worstcase = True,
+               eps       = 1e-4,
                msg='transform_point_rt J_rt')
 confirm_equal( J_x,
                J_x_ref,
@@ -460,6 +475,9 @@ confirm_equal( y,
                msg='transform_point_rt (with gradients) result written in-place into t')
 confirm_equal( J_rt,
                J_rt_ref,
+               relative  = True,
+               worstcase = True,
+               eps       = 1e-4,
                msg='transform_point_rt (with gradients) result written in-place into t: J_rt')
 confirm_equal( J_x,
                J_x_ref,
@@ -475,6 +493,9 @@ confirm_equal( y,
                msg='transform_point_rt (with gradients) result written in-place into x')
 confirm_equal( J_rt,
                J_rt_ref,
+               relative  = True,
+               worstcase = True,
+               eps       = 1e-4,
                msg='transform_point_rt (with gradients) result written in-place into x: J_rt')
 confirm_equal( J_x,
                J_x_ref,
@@ -498,6 +519,9 @@ confirm_equal( y,
                msg='transform_point_rt(inverted) result')
 confirm_equal( J_rt,
                J_rt_ref,
+               relative  = True,
+               worstcase = True,
+               eps       = 1e-4,
                msg='transform_point_rt(inverted) J_rt')
 confirm_equal( J_x,
                J_x_ref,
@@ -531,6 +555,9 @@ confirm_equal( y,
                msg='transform_point_rt(inverted, with gradients) result written in-place into t')
 confirm_equal( J_rt,
                J_rt_ref,
+               relative  = True,
+               worstcase = True,
+               eps       = 1e-4,
                msg='transform_point_rt(inverted, with gradients) result written in-place into t: J_rt')
 confirm_equal( J_x,
                J_x_ref,
@@ -546,6 +573,9 @@ confirm_equal( y,
                msg='transform_point_rt(inverted, with gradients) result written in-place into x')
 confirm_equal( J_rt,
                J_rt_ref,
+               relative  = True,
+               worstcase = True,
+               eps       = 1e-4,
                msg='transform_point_rt(inverted, with gradients) result written in-place into x: J_rt')
 confirm_equal( J_x,
                J_x_ref,
@@ -1076,9 +1106,15 @@ confirm_equal( r01,
                msg='compose_r in-place r0big,-r0big gradients: r01')
 confirm_equal( dr01_dr0,
                dr01_dr0_ref,
+               relative  = True,
+               worstcase = True,
+               eps       = 1e-4,
                msg='compose_r in-place r0big,-r0big gradients: dr01_dr0')
 confirm_equal( dr01_dr1,
                dr01_dr1_ref,
+               relative  = True,
+               worstcase = True,
+               eps       = 1e-4,
                msg='compose_r in-place r0big,-r0big gradients: dr01_dr1')
 
 mrcal.compose_r(r0nearzero, -r0nearzero,
@@ -1218,6 +1254,7 @@ mrcal.compose_rt_tinyrt0_gradientrt0(-rt0zero, out = drt01_drt0)
 drt01_drt0_ref = grad(lambda rt0: compose_rt( rt0, -rt0zero), rt0zero, step=1e-5)
 confirm_equal( drt01_drt0,
                drt01_drt0_ref,
+               eps       = 1e-5,
                msg='compose_rt_tinyrt0_gradientrt0 in-place -rt0zero gradients: drt01_drt0')
 
 
