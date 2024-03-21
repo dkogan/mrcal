@@ -26,7 +26,7 @@
 
 extern "C"
 {
-#include "mrcal.h"
+#include <mrcal/mrcal.h>
 }
 
 static
