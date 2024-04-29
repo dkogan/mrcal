@@ -12,6 +12,8 @@ compose_r_tinyr1_gradientr1
 
 75893eea: Added initialy EARLY version of mrcal-show-stereo-pair-diff
 
+mrcal-stereo --single-buffered
+
 * Migration notes 2.4 -> 3.0
 
 * todo
