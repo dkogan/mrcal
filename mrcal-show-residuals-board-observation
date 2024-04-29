@@ -266,7 +266,7 @@ indices_frame_camintrinsics_camextrinsics = optimization_inputs['indices_frame_c
 observations = optimization_inputs['observations_board']
 residuals_shape = observations.shape[:-1] + (2,)
 # shape (Nobservations, object_height_n, object_width_n, 2)
-residuals_reshaped = residuals[:np.product(residuals_shape)].reshape(*residuals_shape)
+residuals_reshaped = residuals[:np.prod(residuals_shape)].reshape(*residuals_shape)
 # shape (Nobservations,)
 err_per_observation = nps.norm2(nps.clump(residuals_reshaped, n=-3))
 i_observations_sorted_from_worst = \

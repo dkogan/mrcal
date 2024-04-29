@@ -3324,7 +3324,7 @@ plot
     residuals_shape = observations.shape[:-1] + (2,)
 
     # shape (Nobservations, object_height_n, object_width_n, 2)
-    residuals = residuals[:np.product(residuals_shape)].reshape(*residuals_shape)
+    residuals = residuals[:np.prod(residuals_shape)].reshape(*residuals_shape)
 
     if from_worst:
         if i_observations_sorted_from_worst is None:

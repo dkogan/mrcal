@@ -1796,7 +1796,7 @@ This function returns a tuple
     residuals = \
         mrcal.optimizer_callback(**optimization_inputs,
                                  no_jacobian      = True,
-                                 no_factorization = True)[1][:np.product(residuals_shape)]. \
+                                 no_factorization = True)[1][:np.prod(residuals_shape)]. \
         reshape(*residuals_shape)
 
     # shape (Nobservations, object_height_n, object_width_n)
