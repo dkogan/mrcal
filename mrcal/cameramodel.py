@@ -239,6 +239,15 @@ future
     for k in optimization_inputs.keys():
         v = optimization_inputs[k]
         if v is None: v = ''
+
+        # Skip the default do_apply_regularization_unity_cam01 value when
+        # writing to the model on disk. This isn't required, since it is
+        # default. And its presense will make the older mrcal.cameramodel()
+        # parsers complain
+        if k == 'do_apply_regularization_unity_cam01' and \
+           not v:
+            continue
+
         optimization_inputs_normalized[k] = v
 
     np.savez_compressed(data_bytes, **optimization_inputs_normalized)
