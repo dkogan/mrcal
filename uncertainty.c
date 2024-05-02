@@ -837,7 +837,7 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
 
         #warning linear search
         // I look through the jacobian until I find either a frame or a point
-        // gradient
+        // gradient. This is an inefficient linear search.
         while(ival < Jrowptr[imeas+1])
         {
             icol = Jcolidx[ival];
