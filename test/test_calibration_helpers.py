@@ -55,6 +55,18 @@ def grad(f, x,
 
     def df_dxi(i, d,dflat):
 
+        # For testing, the earlier central-differences implementation is still
+        # available. This was converted to forward-differences in
+        # b65eb8f300a70b37a9b03d24f44570ef88fe6c4a because that made some tests
+        # work better
+        if False:
+            dflat[i] = step
+            fplus  = f(x+d)
+            fminus = f(x-d)
+            j = (fplus-fminus)/(2.*step)
+            dflat[i] = 0
+            return j
+
         dflat[i] = step
         f0    = f(x)
         fplus = f(x+d)
