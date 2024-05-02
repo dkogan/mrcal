@@ -178,7 +178,7 @@ each re-optimization. Currently mrcal has multiple methods to address this:
 
 - [[file:uncertainty-cross-reprojection.org][the /cross-reprojection/ uncertainty method]]: the new method available in mrcal
   3.0. This is the preferred formulation
-- [[file:uncertainty-mean-frames.org][the /mean-frames/ method]]: the simpler but somewhat problematic method used in
+- [[file:uncertainty-mean-pcam.org][the /mean-pcam/ method]]: the simpler but somewhat problematic method used in
   earlier versions of mrcal
 
 The goal of both of these methods is to compute a function $\vec q^+\left(\vec

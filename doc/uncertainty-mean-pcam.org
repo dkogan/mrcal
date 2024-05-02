@@ -1,17 +1,17 @@
-#+TITLE: Projection uncertainty: mean-frames
+#+TITLE: Projection uncertainty: mean-pcam
 #+OPTIONS: toc:nil
 
 A key part of the [[file:uncertainty.org][projection uncertainty propagation method]] is to compute a
 function $\vec q^+\left(\vec b\right)$ to represent the change in projected
 pixel $\vec q$ as the optimization vector $\vec b$ moves around.
 
-mrcal has several methods of doing this, and the legacy /mean-frames/ method is
+mrcal has several methods of doing this, and the legacy /mean-pcam/ method is
 described here. This is accessible by calling
-[[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty(method = "mean-frames")=]]. This method is simple,
-and has [[#uncertainty-mean-frames-issues][some issues]] that are resolved by newer formulations: starting with mrcal
+[[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty(method = "mean-pcam")=]]. This method is simple,
+and has [[#uncertainty-mean-pcam-issues][some issues]] that are resolved by newer formulations: starting with mrcal
 3.0 the improved [[file:uncertainty-cross-reprojection.org][/cross-reprojection/ uncertainty]] method is recommended.
 
-* Mean-frames uncertainty
+* Mean-pcam uncertainty
 The state vector $\vec b$ is a random variable, and we know its distribution. To
 evaluate the projection uncertainty we want to project a /fixed/ point, to see
 how this projection $\vec q$ moves around as the chessboards and cameras and
@@ -120,19 +120,33 @@ $\mathrm{project}()$ come directly from the optimization state vector $\vec b$.
 This function can be used in the higher-level [[file:uncertainty.org][projection uncertainty propagation
 method]] to compute $\mathrm{Var}\left( \vec q \right)$.
 
-* Problems with "mean-frames" uncertainty
+* Problems with "mean-pcam" uncertainty
 :PROPERTIES:
-:CUSTOM_ID: uncertainty-mean-frames-issues
+:CUSTOM_ID: uncertainty-mean-pcam-issues
 :END:
 
-This "mean-frames" uncertainty method works well, but has several issues. All of
+This "mean-pcam" uncertainty method works well, but has several issues. All of
 these are fixed in [[file:uncertainty-cross-reprojection.org][the newer =cross-reprojection--rrp-Jfp= method]].
 
 ** Chessboards are a hard requirement
-The "mean-frames" method has a hard requirement on chessboards being used in the
-solve. In fact, the assumption of stationary cameras observing a moving
-chessboard is baked into the formulation. So any other scenario (moving cameras
-or calibrating off discrete points for instance) is not supported.
+The mrcal releases prior to 3.0 used the equivalent "mean-frames" formulation,
+where the mean was being computed in the chessboard coordinate system, not in
+the camera coordinate system. This created a hard requirement that we use
+chessboards specifically to calibrate: there is no $\vec p_{\mathrm{frame}}$
+otherwise. And this created an /additional/ assumption of stationary cameras
+observing a moving chessboard. And any other scenario (moving cameras or
+calibrating off discrete points for instance) were not supported.
+
+In mrcal 3.0 the "mean-frames" formulation was replaced with the equivalent
+"mean-pcam" formulation:
+
+\begin{aligned}
+\vec p_{\mathrm{cam}} &=& T_\mathrm{cr} \, \mathrm{mean}_i \left( T_{\mathrm{rf}_i} \, \vec p_{\mathrm{frame}_i} \right) \\
+                      &=& \mathrm{mean}_i \left( T_\mathrm{cr} \, T_{\mathrm{rf}_i} \, \vec p_{\mathrm{frame}_i} \right)
+\end{aligned}
+
+This change fixed /this/ problem. The other issues remained, however, so [[file:uncertainty-cross-reprojection.org][the
+improved "cross-reprojection" uncertainty method]] still needed to be developed.
 
 ** Aphysical $T_{\mathrm{r}^+\mathrm{r}}$ transform
 The computation above indirectly computes the transform that relates the
@@ -142,16 +156,22 @@ unperturbed and perturbed reference coordinate systems:
 
 Each transformation $T$ includes a rotation matrix $R$, so the above constructs
 a new rotation as a mean of multiple rotation matrices. This is aphysical: the
-resulting matrix is not a valid rotation. In practice, the perturbations are
-tiny, and this is sufficiently close. Usually, but not always.
+resulting matrix is not a valid rotation. This is often OK (mrcal < 3.0 /does/
+produce usable results), but it can break.
+
+** Poorly-defined $T_{\mathrm{r}^+\mathrm{r}}$ transform
+In addition to this transform being aphysical, it's not even uniquely defined:
+each query point $q$ will produce a different $T_{\mathrm{r}^+\mathrm{r}}$. This
+makes no sense: this should be a function of the calibration (original and
+perturbed) only.
 
 ** Pessimistic response to disparate observed chessboard ranges
-Because of this aphysical transform, the mean-frames method produces
+Because of this aphysical transform, the mean-pcam method produces
 fictitiously high uncertainties when gives a mix of low-range and high-range
 observations. Far-away chessboard observations don't contain much information,
 so adding some far-away chessboards to a dataset shouldn't improve the
 uncertainty much at the distance, but it shouldn't make it any worse. However,
-with the mean-frames method, far-away observations /do/ make the uncertainty
+with the mean-pcam method, far-away observations /do/ make the uncertainty
 worse. We can clearly see this in the dance study:
 
 #+begin_src sh
@@ -164,12 +184,12 @@ analyses/dancing/dance-study.py           \
     --ymax 4                              \
     --uncertainty-at-range-sampled-max 35 \
     --Nscan-samples 4                     \
-    --method mean-frames                  \
+    --method mean-pcam                  \
     opencv8.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity
-for method (mean-frames cross-reprojection--rrp-Jfp) {
+for method (mean-pcam cross-reprojection--rrp-Jfp) {
   analyses/dancing/dance-study.py                          \
       --scan num_far_constant_Nframes_near  \
       --range 2,10                          \
@@ -214,7 +234,7 @@ for method (mean-frames cross-reprojection--rrp-Jfp) {
 }
 #+end_src
 
-[[file:external/figures/dance-study/dance-study-scan-num-far-constant-num-near--mean-frames.svg]]
+[[file:external/figures/dance-study/dance-study-scan-num-far-constant-num-near--mean-pcam.svg]]
 
 This is a one-camera calibration computed off 100 chessboard observations at 2m
 out, with a few observations added at a longer range of 10m. Each curve

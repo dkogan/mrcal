@@ -787,7 +787,7 @@ def _dq_db__projection_uncertainty( p_cam,
     else:
         p_ref = p_cam
 
-    if method == 'mean-frames' and frames_rt_toref is not None:
+    if method == 'mean-pcam' and frames_rt_toref is not None:
         Nframes = len(frames_rt_toref)
 
         # The point in the coord system of all the frames. I index the frames on
@@ -924,7 +924,7 @@ def _dq_db__projection_uncertainty_rotationonly( p_cam,
     else:
         p_ref = p_cam
 
-    if method == 'mean-frames' and frames_rt_toref is not None:
+    if method == 'mean-pcam' and frames_rt_toref is not None:
         Nframes = len(frames_rt_toref)
 
         # The point in the coord system of all the frames. I index the frames on
@@ -1036,7 +1036,7 @@ def _dq_db__projection_uncertainty_rotationonly( p_cam,
 
 def projection_uncertainty( p_cam, model,
                             *,
-                            method     = 'mean-frames',
+                            method     = 'mean-pcam',
                             atinfinity = False,
 
                             # what we're reporting
@@ -1195,7 +1195,7 @@ else:                    we return an array of shape (...)
     #     sqrt((a+c)/2 + sqrt( (a-c)^2/4 + b^2))
 
 
-    known_methods = set(('mean-frames',
+    known_methods = set(('mean-pcam',
                          'cross-reprojection--rrp-Jfp'),)
     if method not in known_methods:
         raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")

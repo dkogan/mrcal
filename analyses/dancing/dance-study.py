@@ -166,9 +166,9 @@ def parse_args():
                         calibrations. It's possible to use this in reality by
                         surverying the chessboard poses''')
     parser.add_argument('--method',
-                        choices=('mean-frames', 'cross-reprojection--rrp-Jfp'),
-                        default='mean-frames',
-                        help='''Multiple uncertainty quantification methods are available. We default to 'mean-frames' ''')
+                        choices=('mean-pcam', 'cross-reprojection--rrp-Jfp'),
+                        default='mean-pcam',
+                        help='''Multiple uncertainty quantification methods are available. We default to 'mean-pcam' ''')
     parser.add_argument('--ymax',
                         type=float,
                         default = 10.0,

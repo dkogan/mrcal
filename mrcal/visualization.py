@@ -1712,7 +1712,7 @@ def show_projection_uncertainty(model,
                                 valid_intrinsics_region    = False,
                                 distance                   = None,
                                 isotropic                  = False,
-                                method                     = 'mean-frames',
+                                method                     = 'mean-pcam',
                                 cbmax                      = 3,
                                 contour_increment          = None,
                                 contour_labels_styles      = 'boxed',
@@ -1802,8 +1802,8 @@ ARGUMENTS
   want the RMS size of the ellipse instead of the worst-direction size, pass
   isotropic=True.
 
-- method: optional string, defaulting to 'mean-frames'. Multiple uncertainty
-  quantification methods are available. One of ('mean-frames',
+- method: optional string, defaulting to 'mean-pcam'. Multiple uncertainty
+  quantification methods are available. One of ('mean-pcam',
   'cross-reprojection--rrp-Jfp') is selected by this option
 
 - cbmax: optional value, defaulting to 3.0. Sets the maximum range of the color
@@ -1850,7 +1850,7 @@ plot
 
     import gnuplotlib as gp
 
-    known_methods = set(('mean-frames',
+    known_methods = set(('mean-pcam',
                          'cross-reprojection--rrp-Jfp'),)
     if method not in known_methods:
         raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
@@ -1991,7 +1991,7 @@ def show_projection_uncertainty_vs_distance(model,
                                             where                      = "centroid",
                                             observed_pixel_uncertainty = None,
                                             isotropic                  = False,
-                                            method                     = 'mean-frames',
+                                            method                     = 'mean-pcam',
                                             distance_min               = None,
                                             distance_max               = None,
                                             extratitle                 = None,
@@ -2062,8 +2062,8 @@ ARGUMENTS
   want the RMS size of the ellipse instead of the worst-direction size, pass
   isotropic=True.
 
-- method: optional string, defaulting to 'mean-frames'. Multiple uncertainty
-  quantification methods are available. One of ('mean-frames',
+- method: optional string, defaulting to 'mean-pcam'. Multiple uncertainty
+  quantification methods are available. One of ('mean-pcam',
   'cross-reprojection--rrp-Jfp') is selected by this option
 
 - extratitle: optional string to include in the title of the resulting plot.
@@ -2094,7 +2094,7 @@ plot
 
     import gnuplotlib as gp
 
-    known_methods = set(('mean-frames',
+    known_methods = set(('mean-pcam',
                          'cross-reprojection--rrp-Jfp'),)
     if method not in known_methods:
         raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")

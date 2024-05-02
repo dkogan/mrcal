@@ -136,9 +136,9 @@ def parse_args():
                         type=float,
                         help='''Adds one extra observation at the given distance''')
     parser.add_argument('--reproject-perturbed',
-                        choices=('mean-frames',
-                                 'mean-frames-using-meanq',
-                                 'mean-frames-using-meanq-penalize-big-shifts',
+                        choices=('mean-pcam',
+                                 'mean-pcam-using-meanq',
+                                 'mean-pcam-using-meanq-penalize-big-shifts',
                                  'fit-boards-ref',
                                  'diff',
                                  'cross-reprojection--rrp-empirical',
@@ -147,7 +147,7 @@ def parse_args():
                                  'cross-reprojection--rpr-empirical',
                                  'cross-reprojection--rpr-Jfp',
                                  'cross-reprojection--rpr-Je'),
-                        default = 'mean-frames',
+                        default = 'mean-pcam',
                         help='''Which reproject-after-perturbation method to use. This is for experiments.
                         Some of these methods will be probably wrong.''')
 
@@ -173,8 +173,8 @@ args = parse_args()
 if args.Ncameras <= 0 or args.Ncameras > 4:
     print(f"Ncameras must be in [0,4], but got {args.Ncameras}. Giving up", file=sys.stderr)
     sys.exit(1)
-if args.fixed == 'frames' and re.match('mean-frames-using-meanq', args.reproject_perturbed):
-    print("--fixed frames currently not implemented together with --reproject-perturbed mean-frames-using-meanq.",
+if args.fixed == 'frames' and re.match('mean-pcam-using-meanq', args.reproject_perturbed):
+    print("--fixed frames currently not implemented together with --reproject-perturbed mean-pcam-using-meanq.",
           file = sys.stderr)
     sys.exit(1)
 if args.points and not re.match('cross-reprojection', args.reproject_perturbed):
@@ -452,39 +452,39 @@ if args.write_models:
 
 
 
-def reproject_perturbed__mean_frames(q, distance,
+def reproject_perturbed__mean_pcam(q, distance,
 
-                                     # shape (Ncameras, Nintrinsics)
-                                     baseline_intrinsics,
-                                     # shape (Ncameras, 6)
-                                     baseline_rt_cam_ref,
-                                     # shape (Nframes, 6)
-                                     baseline_rt_ref_frame,
-                                     # shape (Npoints, 3)
-                                     baseline_points,
-                                     # shape (2)
-                                     baseline_calobject_warp,
-                                     # dict
-                                     baseline_optimization_inputs,
+                                   # shape (Ncameras, Nintrinsics)
+                                   baseline_intrinsics,
+                                   # shape (Ncameras, 6)
+                                   baseline_rt_cam_ref,
+                                   # shape (Nframes, 6)
+                                   baseline_rt_ref_frame,
+                                   # shape (Npoints, 3)
+                                   baseline_points,
+                                   # shape (2)
+                                   baseline_calobject_warp,
+                                   # dict
+                                   baseline_optimization_inputs,
 
-                                     # shape (..., Ncameras, Nintrinsics)
-                                     query_intrinsics,
-                                     # shape (..., Ncameras, 6)
-                                     query_rt_cam_ref,
-                                     # shape (..., Nframes, 6)
-                                     query_rt_ref_frame,
-                                     # shape (Npoints, 3)
-                                     query_points,
-                                     # shape (..., 2)
-                                     query_calobject_warp,
-                                     # shape (...)
-                                     query_optimization_inputs,
-                                     # shape (..., Nstate)
-                                     query_b_unpacked,
-                                     # shape (..., Nobservations_board,Nheight,Nwidth, 2)
-                                     query_q_noise_board,
-                                     # shape (..., Nobservations_point, 2)
-                                     query_q_noise_point):
+                                   # shape (..., Ncameras, Nintrinsics)
+                                   query_intrinsics,
+                                   # shape (..., Ncameras, 6)
+                                   query_rt_cam_ref,
+                                   # shape (..., Nframes, 6)
+                                   query_rt_ref_frame,
+                                   # shape (Npoints, 3)
+                                   query_points,
+                                   # shape (..., 2)
+                                   query_calobject_warp,
+                                   # shape (...)
+                                   query_optimization_inputs,
+                                   # shape (..., Nstate)
+                                   query_b_unpacked,
+                                   # shape (..., Nobservations_board,Nheight,Nwidth, 2)
+                                   query_q_noise_board,
+                                   # shape (..., Nobservations_point, 2)
+                                   query_q_noise_point):
     r'''Reproject by computing the mean in the space of frames
 
 This is what the uncertainty computation does (as of 2020/10/26). The implied
@@ -516,7 +516,7 @@ rotation here is aphysical (it is a mean of multiple rotation matrices)
             mrcal.transform_point_rt( nps.dummy(query_rt_ref_frame, -2),
                                       p_frames )
 
-    if args.reproject_perturbed == 'mean-frames':
+    if args.reproject_perturbed == 'mean-pcam':
 
         # "Normal" path: I take the mean of all the frame-coord-system
         # representations of my point
@@ -548,7 +548,7 @@ rotation here is aphysical (it is a mean of multiple rotation matrices)
         # shape (..., Nframes, Ncameras, 2)
         q_reprojected = mrcal.project(p_cam_query_allframes, lensmodel, nps.dummy(query_intrinsics,-3))
 
-        if args.reproject_perturbed != 'mean-frames-using-meanq-penalize-big-shifts':
+        if args.reproject_perturbed != 'mean-pcam-using-meanq-penalize-big-shifts':
             return np.mean(q_reprojected, axis=-3)
         else:
             # Experiment. Weighted mean to de-emphasize points with huge shifts
@@ -2064,9 +2064,9 @@ The rt_refperturbed_ref formulation:
 # Which implementation we're using. Use the method that matches the uncertainty
 # computation. Thus the sampled ellipsoids should match the ellipsoids reported
 # by the uncertianty method
-if   re.match('mean-frames', args.reproject_perturbed):
-    reproject_perturbed = reproject_perturbed__mean_frames
-    method              = 'mean-frames'
+if   re.match('mean-pcam', args.reproject_perturbed):
+    reproject_perturbed = reproject_perturbed__mean_pcam
+    method              = 'mean-pcam'
 elif args.reproject_perturbed == 'fit-boards-ref':
     reproject_perturbed = reproject_perturbed__fit_boards_ref
 elif args.reproject_perturbed == 'diff':
