@@ -217,17 +217,6 @@ Being compatible with at least ROS would be nice. Their models are:
 - =equidistant=: mrcal does not support this today. It should. This is
   [[https://docs.opencv.org/3.4/db/d58/group__calib3d__fisheye.html][cv::fisheye]]
 
-** More conversion functions
-- Similarly I should have =mrcal-to-ros= and =mrcal-from-ros= to convert model
-  files
-  https://wiki.ros.org/camera_calibration_parsers
-  https://github.com/ethz-asl/kalibr/wiki/supported-models
-  https://github.com/ethz-asl/kalibr/wiki/Yaml-formats
-  https://github.com/ethz-asl/kalibr/wiki/downloads
-
-- Implement the write() functions for the different formats. For instance
-  =write_kalibr()= should be finished
-  
 ** mrcal_drt_ref_refperturbed__dbpacked() currently is hardcoded to use the rrp formulation
 Give it an argument to select the formulation. And rename the function. Or
 something
