@@ -56,25 +56,31 @@ def r_from_R(R):
 
     '''
 
-    axis = np.array((R[2,1] - R[1,2],
-                     R[0,2] - R[2,0],
-                     R[1,0] - R[0,1] ))
+    # see the comment in r_from_R_core() for lots of detail
 
-    if nps.norm2(axis) > 1e-12:
+    #       [ R21 - R12 ]
+    #   u = [ R02 - R20 ]
+    #       [ R10 - R01 ]
+    #   u = 2 sin(th) axis
+    u = np.array((R[2,1] - R[1,2],
+                  R[0,2] - R[2,0],
+                  R[1,0] - R[0,1] ))
+
+    if nps.norm2(u) > 1e-12:
         # normal path
         costh = (np.trace(R) - 1.)/2.
         if   costh >  1.0: th = 0
         elif costh < -1.0: th = np.pi
         else:              th = np.arccos(costh)
-        return axis / nps.mag(axis) * th
+        return u / nps.mag(u) * th
 
-    # small mag(axis). Can't divide by it. But I can look at the limit.
+    # small mag(u). Can't divide by it. But I can look at the limit.
     # th ~ 0 or th ~ 180
     costh = (np.trace(R) - 1.)/2.
     if costh > 0:
         # th ~ 0
-        # axis / (2 sinth)*th = axis/2 *th/sinth ~ axis/2
-        return axis/2.
+        # r = axis th = u / (2 sinth)*th ~ u/2
+        return u/2.
 
     # th ~ 180
 
