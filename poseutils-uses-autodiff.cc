@@ -108,9 +108,9 @@ r_from_R_core(// output
     //       [ R10 - R01 ]
     //
     // From the above equations we see that u = 2 sin(th) v. So I compute the
-    // axis from u. I want th in [0,pi] so I can't compute it from u: I would
-    // always have sin(th) > 0 so asin(th) would be in [0,th/2]. Thus I compute
-    // th from trace(R) = 1 + 2*cos(th)
+    // axis v = u/mag(u). I want th in [0,pi] so I can't compute th from u since
+    // there's an ambiguity: sin(th) = sin(pi-th). So instead, I compute th from
+    // trace(R) = 1 + 2*cos(th)
     //
     // There's an extra wrinkle here. Computing the axis from mag(u) only works
     // if sin(th) != 0. So there are two special cases that must be handled: th
