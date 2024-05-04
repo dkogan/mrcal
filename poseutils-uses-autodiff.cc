@@ -126,18 +126,17 @@ r_from_R_core(// output
 
     val_withgrad_t<N> costh = (tr - 1.) / 2.;
 
-    if( (fabs(u[0].x) > 1e-10 ||
-         fabs(u[1].x) > 1e-10 ||
-         fabs(u[2].x) > 1e-10) &&
-        fabs(costh.x)   < (1. - 1e-10) )
+    val_withgrad_t<N> norm2u =
+        u[0]*u[0] +
+        u[1]*u[1] +
+        u[2]*u[2];
+    if(norm2u.x > 1e-12)
     {
         // normal path
         val_withgrad_t<N> th = costh.acos();
         val_withgrad_t<N> mag_axis_recip =
             val_withgrad_t<N>(1.) /
-            ((u[0]*u[0] +
-              u[1]*u[1] +
-              u[2]*u[2]).sqrt());
+            norm2u.sqrt();
         for(int i=0; i<3; i++)
             rg[i] = u[i] * mag_axis_recip * th;
     }
