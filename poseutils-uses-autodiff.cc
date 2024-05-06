@@ -98,14 +98,17 @@ r_from_R_core(// output
     //   V(v) = [ v2   0 -v0]
     //          [-v1  v0   0]
     //
-    // I, V^2 are symmetric; V is anti-symmetric. So R[i,j] - R[j,i] =
-    // 2*sin(th)*V[i,j]
+    // and
+    //
+    //   v(V) = [-V12, V02, -V01]
+    //
+    // I, V^2 are symmetric; V is anti-symmetric. So R - Rt = 2 sin(th) V
     //
     // Let's define
     //
-    //       [ R21 - R12 ]
-    //   u = [ R02 - R20 ]
-    //       [ R10 - R01 ]
+    //       [  R21 - R12 ]
+    //   u = [ -R20 + R02 ] = v(R) - v(Rt)
+    //       [  R10 - R01 ]
     //
     // From the above equations we see that u = 2 sin(th) v. So I compute the
     // axis v = u/mag(u). I want th in [0,pi] so I can't compute th from u since
@@ -150,36 +153,30 @@ r_from_R_core(// output
     }
     else
     {
-        // cos(th) < 0. So th ~ 180 = 180 + dth. And I have
+        // cos(th) < 0. So th ~ +-180 = +-180 + dth where dth ~ 0. And I have
         //
-        //   R = I + sin(th) V + (1 - cos(th)) V^2
-        //     = I + sin(180 + dth) V + (1 - cos(180 + dth)) V^2
-        //     = I + (sin(180)cos(dth) + cos(180)sin(dth)) V + (1 - (cos(180)cos(dth) - sin(180)sin(dth))) V^2
+        //   R = I + sin(th)  V + (1 - cos(th) ) V^2
+        //     = I + sin(+-180 + dth) V + (1 - cos(+-180 + dth)) V^2
+        //     = I - sin(dth) V + (1 + cos(dth)) V^2
         //     ~ I - dth V + 2 V^2
         //
         // Once again, I, V^2 are symmetric; V is anti-symmetric. So
         //
         //   R - Rt = 2 sin(th) V
-        //          ~ 2 (sin(180)cos(dth) + cos(180)sin(dth)) V
+        //          = -2 sin(dth) V
         //          = -2 dth V
         // I want
         //
-        //   r = th * v
-        //     = (180deg + dth) * v
+        //   r = th v
+        //     = dth v +- 180deg v
         //
-        // v comes from V: v = [-V12, V02, -V01]; Let's denote this V[i]
+        //   r = v((R - Rt) / -2.) +- 180deg v
+        //     = u/-2 +- 180deg v
         //
-        // So r = dth v +- 180deg v
-        //      = ((R - Rt) / -2.)[i] +- 180deg V[i]
+        // Now we need v; let's look at the symmetric parts:
         //
-        // dth v is u / -2 (we computed u above)
-        //
-        // For V[i] we need the symmetric parts:
-        //
-        //   R + Rt = 2 I + 2 (1 - cos(th)) V^2
-        //          = 2 I + 4 V^2
+        //   R + Rt = 2 I + 4 V^2
         //-> V^2 = (R + Rt)/4 - I/2
-        //
         //
         //          [  0 -v2  v1]
         //   V(v) = [ v2   0 -v0]
@@ -210,11 +207,12 @@ r_from_R_core(// output
         //   V^2(v) = [ v0 v1       v1^2 - 1    v1 v2    ]
         //            [ v0 v2       v1 v2       v2^2 - 1 ]
         //
-        // I look only at the diagonal:
+        // So
         //
-        //   v[i] = +-sqrt( 1. + V^2[i,i] )
-
-
+        //   v^2 = 1 + diag(V^2)
+        //       = 1 + 2 diag(R)/4 - I/2
+        //       = 1 + diag(R)/2 - 1/2
+        //       = (1 + diag(R))/2
         for(int i=0; i<3; i++)
             rg[i] = u[i] / -2.;
 
@@ -230,6 +228,11 @@ r_from_R_core(// output
         for(int i=0; i<3; i++)
             if(vsq[i].x > 0.0)
                 v[i] = vsq[i].sqrt();
+            else
+            {
+                // round-off sets this at 0; it's already there. Leave it
+            }
+
         // Now I need to get the sign of each individual value. Overall, the
         // sign of the vector v doesn't matter. I set the sign of a notably
         // non-zero abs(v[i]) to >0, and go from there.
