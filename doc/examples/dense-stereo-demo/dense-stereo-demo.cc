@@ -1,6 +1,7 @@
-// Sample dense stereo pipeline, implemented using the C mrcal API. This is a
-// C++ source file because the remapping and disparity search come from OpenCV,
-// which is a C++ library. The mrcal calls are C functions
+// Sample dense stereo pipeline, implemented using the C mrcal API. Needs at
+// least mrcal 2.4. This is a C++ source file because the remapping and
+// disparity search come from OpenCV, which is a C++ library. The mrcal calls
+// are C functions
 //
 // On a Debian machine you can build like this:
 // g++                      \
