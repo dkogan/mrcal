@@ -21,6 +21,9 @@ from test_poseutils_helpers import \
 def wrap_r_unconditional(r, dr_dX = None):
     '''Unwrap a Rodrigues vector r
 
+    returns r'     if dr_dX is None
+    returns dr'_dX if dr_dX is not None
+
     I define rotations with a Rodrigues vector r = th v. Where v is the unit
     vector representing the rotation axis; and th is a scalar representing the
     magnitude or this rotation, in radians. Thus rotations th v and (th + 2pi*n)
