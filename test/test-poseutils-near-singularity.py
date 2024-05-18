@@ -90,27 +90,21 @@ def wrap_r(r,
 
     '''Unwrap a Rodrigues vector r
 
-    This function only does anything if it needs to: if mag(r) > np.pi or if
-    we're pointing opposite r_match_direction
+    returns r'     if dr_dX is None
+    returns dr'_dX if dr_dX is not None
+
+    This function only wraps the argument if it needs to: if mag(r) > np.pi or
+    if we're pointing opposite r_match_direction
+
     '''
 
-    if dr_dX is None:
-        if r_match_direction is not None:
-            if nps.inner(r, r_match_direction) > 0:
-                return r
-            return wrap_r_unconditional(r)
-        if nps.mag(r) <= np.pi:
-            return r
-        return wrap_r_unconditional(r)
-
     if r_match_direction is not None:
-        if nps.inner(r, r_match_direction) >= 0:
-            return dr_dX
-        return wrap_r_unconditional(r, dr_dX)
+        if nps.inner(r, r_match_direction) > 0:
+            return r if dr_dX is None else dr_dX
+        return wrap_r_unconditional(r, dr_dX = dr_dX)
     if nps.mag(r) <= np.pi:
-        return dr_dX
-    return wrap_r_unconditional(r, dr_dX)
-
+        return r if dr_dX is None else dr_dX
+    return wrap_r_unconditional(r, dr_dX = dr_dX)
 
 
 ################### Check the behavior around the th=0, th=180 singularities.
