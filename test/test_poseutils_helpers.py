@@ -66,9 +66,10 @@ def r_from_R(R):
                   R[0,2] - R[2,0],
                   R[1,0] - R[0,1] ))
 
+    costh = (np.trace(R) - 1.)/2.
+
     if nps.norm2(u) > 1e-12:
         # normal path
-        costh = (np.trace(R) - 1.)/2.
         if   costh >  1.0: th = 0
         elif costh < -1.0: th = np.pi
         else:              th = np.arccos(costh)
@@ -76,7 +77,6 @@ def r_from_R(R):
 
     # small mag(u). Can't divide by it. But I can look at the limit.
     # th ~ 0 or th ~ 180
-    costh = (np.trace(R) - 1.)/2.
     if costh > 0:
         # th ~ 0
         # r = axis th = u / (2 sinth)*th ~ u/2
