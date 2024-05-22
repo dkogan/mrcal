@@ -93,6 +93,10 @@ struct val_withgrad_t
     {
         *this = (*this) * b;
     }
+    void operator*=( const double b )
+    {
+        *this = (*this) * b;
+    }
     val_withgrad_t<NGRAD> operator/( const val_withgrad_t<NGRAD>& b ) const
     {
         val_withgrad_t<NGRAD> y;
@@ -105,7 +109,14 @@ struct val_withgrad_t
     {
         return (*this) * (1./b);
     }
-
+    void operator/=( const val_withgrad_t<NGRAD>& b )
+    {
+        *this = (*this) / b;
+    }
+    void operator/=( const double b )
+    {
+        *this = (*this) / b;
+    }
     val_withgrad_t<NGRAD> sqrt(void) const
     {
         val_withgrad_t<NGRAD> y;
