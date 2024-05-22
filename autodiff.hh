@@ -244,7 +244,7 @@ struct val_withgrad_t
         //     0
         //
         // So for small x the gradient is 0
-        if(fabs(x) < 1e-8)
+        if(fabs(x) < 1e-5)
             return val_withgrad_t<NGRAD>(1.0);
 
         return sinx / (*this);
