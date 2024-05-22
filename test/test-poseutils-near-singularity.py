@@ -65,7 +65,12 @@ def wrap_r_unconditional(r, dr_dX = None):
 
 
     if dr_dX is None:
+        if nps.mag(r) == 0:
+            return r
         return r - r/nps.mag(r) * 2.*np.pi
+
+    if nps.mag(r) == 0:
+        return dr_dX
 
     # drw_dX = d( r - r/nps.mag(r) * 2.*np.pi )/dX
     #        = dr_dX - 2pi (dr_dX/nps.mag(r) + r d/dx (1/magr))
@@ -224,47 +229,96 @@ for axis in axes:
 
                 continue
 
-
             ######### compose_r
             if True:
-                r0 = r
-                r1 = np.array((-0.02, -1.2, 0.4),)
 
+                r1_simple = np.array((-0.02, -1.2, 0.4),)
 
-                ###### r01
-                r01, dr01_dr0, dr01_dr1 = mrcal.compose_r(r0,r1, get_gradients = True)
-                r01_ref                 = compose_r(r0,r1)
+                inv_r1_simple_r = mrcal.compose_r(-r1_simple,r)
 
-                dr01_dr0__ref = grad(lambda r0: compose_r(r0,r1),
-                                    r0)
-                dr01_dr1__ref = grad(lambda r1: compose_r(r0,r1),
-                                    r1)
-                confirm_equal( wrap_r(r01),
-                               wrap_r(r01_ref),
-                               msg=f'compose_r(r0,r1) r0 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
-                confirm_equal( wrap_r(r01,     dr_dX = dr01_dr0),
-                               wrap_r(r01_ref, dr_dX = dr01_dr0__ref),
-                               msg=f'compose_r(r0,r1) dr01_dr0 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
-                confirm_equal( wrap_r(r01,     dr_dX = dr01_dr1),
-                               wrap_r(r01_ref, dr_dX = dr01_dr1__ref),
-                               msg=f'compose_r(r0,r1) dr01_dr1 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+                # it isn't possible to correctly decide if we should or should
+                # not wrap the result for ALL cases (some cases have mag(r)=pi
+                # exactly, up to machine precision). So I try both, and pick the
+                # closer one
+                r_roundtrip = mrcal.compose_r( r1_simple, inv_r1_simple_r )
+                r_wrapped   = wrap_r_unconditional(r)
+                confirm_equal( r_roundtrip,
+                               r if nps.norm2(r_roundtrip-r) < nps.norm2(r_roundtrip-r_wrapped) \
+                               else r_wrapped,
+                               worstcase = True,
+                               eps = 1e-6,
+                               msg='compose()')
 
-                ###### r10
-                r10, dr10_dr1, dr10_dr0 = mrcal.compose_r(r1,r0, get_gradients = True)
-                r10_ref = compose_r(r1,r0)
-                dr10_dr0__ref = grad(lambda r0: compose_r(r1,r0),
-                                     r0)
-                dr10_dr1__ref = grad(lambda r1: compose_r(r1,r0),
-                                     r1)
-                confirm_equal( wrap_r(r10),
-                               wrap_r(r10_ref),
-                               msg=f'compose_r(r1,r0) r0 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
-                confirm_equal( wrap_r(r10,     dr_dX = dr10_dr0),
-                               wrap_r(r10_ref, dr_dX = dr10_dr0__ref),
-                               msg=f'compose_r(r1,r0) dr10_dr0 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
-                confirm_equal( wrap_r(r10,     dr_dX = dr10_dr1),
-                               wrap_r(r10_ref, dr_dX = dr10_dr1__ref),
-                               msg=f'compose_r(r1,r0) dr10_dr1 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+                for (r0,r1) in ((r, r1_simple),
+                                (r,-r),
+                                (r, r),
+                                (r1_simple, inv_r1_simple_r)):
+                    ###### r01
+                    r01, dr01_dr0, dr01_dr1 = mrcal.compose_r(r0,r1, get_gradients = True)
+                    r01_ref                 = compose_r(r0,r1)
+                    confirm_equal( r01,
+                                   r01_ref,
+                                   worstcase = True,
+                                   relative  = True,
+                                   eps       = 1e-3,
+                                   msg=f'compose_r(r0,r1) near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+                    dr01_dr0__ref = grad(lambda r0: compose_r(r0,r1),
+                                         r0,
+                                         switch = wrap_r_unconditional,
+                                         step = 1e-7)
+                    dr01_dr1__ref = grad(lambda r1: compose_r(r0,r1),
+                                         r1,
+                                         switch = wrap_r_unconditional,
+                                         step = 1e-7)
+                    confirm_equal( dr01_dr0,
+                                   dr01_dr0__ref,
+                                   worstcase = True,
+                                   relative  = True,
+                                   eps       = 1e-2,
+                                   reldiff_eps=1e-3,
+                                   msg=f'compose_r(r0,r1) dr01_dr0 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+                    confirm_equal( dr01_dr1,
+                                   dr01_dr1__ref,
+                                   worstcase = True,
+                                   relative  = True,
+                                   eps       = 1e-2,
+                                   reldiff_eps=1e-3,
+                                   msg=f'compose_r(r0,r1) dr01_dr1 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+
+                    if r0 is r1: continue
+
+                    ###### r10
+                    r10, dr10_dr1, dr10_dr0 = mrcal.compose_r(r1,r0, get_gradients = True)
+                    r10_ref = compose_r(r1,r0)
+                    confirm_equal( r10,
+                                   r10_ref,
+                                   worstcase = True,
+                                   relative  = True,
+                                   eps       = 1e-3,
+                                   msg=f'compose_r(r1,r0) near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+                    dr10_dr0__ref = grad(lambda r0: compose_r(r1,r0),
+                                         r0,
+                                         switch = wrap_r_unconditional,
+                                         step = 1e-7)
+                    dr10_dr1__ref = grad(lambda r1: compose_r(r1,r0),
+                                         r1,
+                                         switch = wrap_r_unconditional,
+                                         step = 1e-7)
+                    confirm_equal( dr10_dr0,
+                                   dr10_dr0__ref,
+                                   worstcase = True,
+                                   relative  = True,
+                                   eps       = 1e-2,
+                                   reldiff_eps=1e-3,
+                                   msg=f'compose_r(r1,r0 dr10_dr0 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+                    confirm_equal( dr10_dr1,
+                                   dr10_dr1__ref,
+                                   worstcase = True,
+                                   relative  = True,
+                                   eps       = 1e-2,
+                                   reldiff_eps=1e-3,
+                                   msg=f'compose_r(r1,r0 dr10_dr1 near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+
 
             ######### rotate_point_r
             if True:
