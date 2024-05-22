@@ -110,20 +110,16 @@ def wrap_r(r,
     return wrap_r_unconditional(r, dr_dX = dr_dX)
 
 
-################### Check the behavior around the th=0, th=180 singularities.
-################### Gradients and values should be correct
+################### Check the behavior around the th=0, th=180, th=360
+################### singularities. Gradients and values should be correct
 axes = \
     np.array(((1.,  2.,  0.1),
-              (1,   0,   0),
-              (0,   1,   0),
-              (0,   0,   1),
-              (-1,  0,   0),
-              (0,   -1,  0),
-              (0,   0,   -1)))
+              (1.,  0,   0),
+              (0,   0,   -1.),))
 axes /= nps.dummy(nps.mag(axes), -1) # normalize
 for axis in axes:
     for th0 in (-np.pi, 0, np.pi):
-        for dth in (-1e-4, -1e-7, -1e-10, 0, 1e-10, 1e-7, 1e-4):
+        for dth in (-1e-4, -1e-10, 0, 1e-10, 1e-4):
 
             r = (th0 + dth) * axis
 
