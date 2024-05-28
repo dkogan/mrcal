@@ -129,11 +129,17 @@ r_from_R_core(// output
 
     val_withgrad_t<N> costh = (tr - 1.) / 2.;
 
+    // In radians. If my angle is this close to 0, I use the special-case paths
+    const double eps = 1e-8;
+
+    // near 0 we have norm2u ~ 4 th^2
     val_withgrad_t<N> norm2u =
         u[0]*u[0] +
         u[1]*u[1] +
         u[2]*u[2];
-    if(norm2u.x > 1e-12)
+    if(// both conditions to handle roundoff error
+       norm2u.x > 4. * eps*eps &&
+       1. - fabs(costh.x) > eps*eps/2. )
     {
         // normal path
         val_withgrad_t<N> th = costh.acos();
