@@ -36,8 +36,9 @@ def sample_dqref(observations,
 
 def grad(f, x,
          *,
-         switch = None,
-         step   = 1e-6):
+         switch              = None,
+         forward_differences = False,
+         step                = 1e-6):
     r'''Computes df/dx at x
 
     f is a function of one argument. If the input has shape Si and the output
@@ -50,16 +51,16 @@ def grad(f, x,
 
     '''
 
+    if switch is not None and not forward_differences:
+        raise Exception("switch works ONLY with forward differences")
+
     d     = np.zeros(x.shape,dtype=float)
     dflat = d.ravel()
 
     def df_dxi(i, d,dflat):
 
-        # For testing, the earlier central-differences implementation is still
-        # available. This was converted to forward-differences in
-        # b65eb8f300a70b37a9b03d24f44570ef88fe6c4a because that made some tests
-        # work better
-        if False:
+        if not forward_differences:
+            # central differences
             dflat[i] = step
             fplus  = f(x+d)
             fminus = f(x-d)
@@ -67,14 +68,16 @@ def grad(f, x,
             dflat[i] = 0
             return j
 
-        dflat[i] = step
-        f0    = f(x)
-        fplus = f(x+d)
-        if switch is not None and nps.norm2(fplus-f0) > 1.:
-            fplus = switch(fplus)
-        j = (fplus-f0)/step
-        dflat[i] = 0
-        return j
+        else:
+            # forward differences
+            dflat[i] = step
+            f0    = f(x)
+            fplus = f(x+d)
+            if switch is not None and nps.norm2(fplus-f0) > 1.:
+                fplus = switch(fplus)
+            j = (fplus-f0)/step
+            dflat[i] = 0
+            return j
 
     # grad variable is in first dim
     Jflat = nps.cat(*[df_dxi(i, d,dflat) for i in range(len(dflat))])
