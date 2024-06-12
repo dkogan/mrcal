@@ -86,6 +86,41 @@ def grad(f, x,
     return Jflat.reshape( Jflat.shape[:-1] + d.shape )
 
 
+def grad__r_from_R(R):
+
+    # This function deals with a flattened Rflat with shape (9,)
+    #
+    # dr/dRflat isn't well-defined: not all sets of 9 numbers form a valid
+    # rotation matrix: the r_from_R mapping locally acts in a 3-dimensional
+    # subspace of R. We get this subspace from the opposite, well-defined
+    # gradient dRflat/dr. dRflat_dr.shape is (9,3) so dR all lie in a subspace
+    # spanned by its columns. I compute a QR decomposition:
+    #
+    #   dRflat_dr = Q R
+    #
+    # where Q is orthonormal (9,3) and R is some (3,3). Q is
+    # the basis spanned by Rflat in response to perturbations in dr:
+    #
+    #   dRflat = Q R dr
+    #
+    # So for some dRflat I can project to the subspace and transform to get dr:
+    #
+    #   dr = inv(R) Qt dRflat
+    #
+    # This is a different way of computing the same thing that
+    # r_from_R(get_gradients=True) does
+    #
+    # Note that I'm not computing any numerical gradients here. If R_from_r() is
+    # right, then this should be right too
+    r = mrcal.r_from_R(R)
+
+    _,dR_dr      = mrcal.R_from_r(r, get_gradients = True)
+    dRflat_dr    = nps.clump(dR_dr, n=2)
+
+    Q,R = np.linalg.qr(dRflat_dr)
+    return np.linalg.solve(R, Q.T)
+
+
 def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          object_width_n,
                          object_height_n,

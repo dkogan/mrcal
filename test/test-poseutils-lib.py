@@ -14,7 +14,7 @@ import mrcal._poseutils_npsp as _poseutils
 import cv2
 import scipy
 from testutils import *
-from test_calibration_helpers import grad
+from test_calibration_helpers import grad,grad__r_from_R
 
 from test_poseutils_helpers import \
     R_from_r,                      \
@@ -593,8 +593,7 @@ for what,r_ref,R_ref in (('r0_ref', r0_ref, R0_ref),
 
     r, J_R = mrcal.r_from_R(R_ref, get_gradients=True,
                             out = (out3,out333))
-    J_R_ref = grad(r_from_R,
-                   R_ref)
+    J_R_ref = grad__r_from_R(R_ref)
     confirm_equal( r,
                    r_ref,
                    msg=f'{what}: r_from_R result')
@@ -702,8 +701,8 @@ confirm_equal( rt,
 
 rt, J_R = mrcal.rt_from_Rt(Rt0_ref, get_gradients = True,
                            out = (out6,out333))
-J_R_ref = grad(r_from_R,
-               Rt0_ref[:3,:])
+
+J_R_ref = grad__r_from_R(Rt0_ref[:3,:])
 confirm_equal( rt,
                rt0_ref,
                msg='rt_from_Rt result')

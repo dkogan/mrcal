@@ -11,7 +11,7 @@ sys.path[:0] = f"{testdir}/..",
 import mrcal
 
 from testutils import *
-from test_calibration_helpers import grad
+from test_calibration_helpers import grad,grad__r_from_R
 
 from test_poseutils_helpers import \
     R_from_r,                      \
@@ -128,11 +128,12 @@ for axis in axes:
 
             r = (th0 + dth) * axis
 
-            ######### r_from_R
-            if False:
+            ######### R_from_r, r_from_R
+            if True:
+
+                R,dR_dr    = mrcal.R_from_r(r, get_gradients=True)
 
                 R_ref      = R_from_r(r)
-                R,dR_dr    = mrcal.R_from_r(r, get_gradients=True)
                 dR_dr__ref = grad(R_from_r,r)
 
                 confirm_equal( R,
@@ -142,92 +143,28 @@ for axis in axes:
                                dR_dr__ref,
                                msg=f'R_from_r J near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
 
-                r_ref             = r_from_R(R_ref)
-                r_roundtrip,dr_dR = mrcal.r_from_R(R_ref, get_gradients=True)
-                # need smaller step than dth
-                dr_dR__ref        = grad(r_from_R,R_ref,
-                                         switch = wrap_r_unconditional,
-                                         step   = 1e-11)
+                # I check R_roundtrip. The dr/dR computation assumes this
+                r_roundtrip,dr_dR = mrcal.r_from_R(R,           get_gradients=True)
+                R_roundtrip,dR_dr = mrcal.R_from_r(r_roundtrip, get_gradients=True)
 
-                confirm_equal( wrap_r(r),
-                               wrap_r(r_ref),
-                               msg=f'r_from_R result near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+                confirm_equal( mrcal.compose_r(r_roundtrip, -r),
+                               0,
+                               eps = 1e-8,
+                               msg=f'roundtrip r result near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
+                confirm_equal( nps.matmult(R_roundtrip, mrcal.invert_R(R)) - np.eye(3),
+                               0,
+                               eps = 1e-8,
+                               msg=f'roundtrip R result near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
 
-                # I need to compare two different dr/dR. This isn't
-                # well-defined: not all sets of 9 numbers are valid R. Only the
-                # subspace spanned by the columns of dRflat_dr should be
-                # evaluated when comparing dr_dR. So what I should be comparing
-                # is
-                #
-                #   dr_dRflat * proj_into_subspace
-                #
-                # I compute proj_into_subspace. If I have an orthogonal subspace
-                # then I add up the projections onto each basis vector:
-                #
-                #   p_projected = proj_into_subspace p
-                #               = sum_i( bi inner(bi,p) )
-                #               = sum_i( outer(bi,bi) ) p
-                #
-                # So proj_into_subspace = sum_i( outer(bi,bi) )
-                #
-                # I orthogonalize the valid subspace using the QR factorization
-                # and I compute the projection matrix
+                dr_dR__ref = grad__r_from_R(R_ref)
 
-                # shape (9,3)
-                dRflat_dr = nps.clump(dR_dr, n=2)
-                dR_basis = np.linalg.qr(dRflat_dr)[0]
-                proj_into_dR = nps.matmult(dR_basis,dR_basis.T)
-
-                dr_dRflat__ref = nps.matmult(nps.clump(wrap_r(r_ref,
-                                                              dr_dX = dr_dR__ref),
-                                                       n=-2),
-                                             proj_into_dR)
-                dr_dRflat      = nps.matmult(nps.clump(wrap_r(r_roundtrip,
-                                                              dr_dX             = dr_dR,
-                                                              r_match_direction = r_ref),
-                                                       n=-2),
-                                             proj_into_dR)
-
-                confirm_equal( dr_dRflat,
-                               dr_dRflat__ref,
+                confirm_equal( dr_dR,
+                               dr_dR__ref,
                                relative    = True,
                                worstcase   = True,
-                               eps         = 2e-2,
+                               eps         = 1e-3,
                                reldiff_eps = 1e-5,
                                msg         = f'r_from_R J near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
-
-
-                import IPython
-                IPython.embed()
-                sys.exit()
-
-
-
-                nps.matmult(nps.clump(dr_dR__ref,n=-2),proj_into_dR)
-                nps.matmult(nps.clump(dr_dR,     n=-2),proj_into_dR)
-
-
-
-                # Test code to manually compute a forward difference
-                delta = 1e-11
-                R0 = R_ref
-                R1 = np.array(R_ref)
-                Delta = np.zeros(R0.shape, dtype=float)
-                Delta[0,0] = delta
-                R1 += Delta
-                Deltaflat = Delta.ravel()
-                print((r_from_R(R1) - r_from_R(R0)) / delta)
-
-                # I applied a tweak to R. What if I evaluate its effect in the
-                # valid-R subspace?
-                import gnuplotlib as gp
-                gp.plot(nps.cat(Deltaflat,
-                                nps.inner(proj_into_dR, Deltaflat)),
-                        legend=np.array(('orig',
-                                         'projected-into-valid-subspace')))
-
-
-                continue
 
             ######### compose_r
             if True:
@@ -264,10 +201,12 @@ for axis in axes:
                                    msg=f'compose_r(r0,r1) near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
                     dr01_dr0__ref = grad(lambda r0: compose_r(r0,r1),
                                          r0,
+                                         forward_differences = True,
                                          switch = wrap_r_unconditional,
                                          step = 1e-7)
                     dr01_dr1__ref = grad(lambda r1: compose_r(r0,r1),
                                          r1,
+                                         forward_differences = True,
                                          switch = wrap_r_unconditional,
                                          step = 1e-7)
                     confirm_equal( dr01_dr0,
@@ -298,10 +237,12 @@ for axis in axes:
                                    msg=f'compose_r(r1,r0) near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
                     dr10_dr0__ref = grad(lambda r0: compose_r(r1,r0),
                                          r0,
+                                         forward_differences = True,
                                          switch = wrap_r_unconditional,
                                          step = 1e-7)
                     dr10_dr1__ref = grad(lambda r1: compose_r(r1,r0),
                                          r1,
+                                         forward_differences = True,
                                          switch = wrap_r_unconditional,
                                          step = 1e-7)
                     confirm_equal( dr10_dr0,
