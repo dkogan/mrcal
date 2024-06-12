@@ -123,6 +123,37 @@ make test-nosampling
 If stuff doesn't work, feel free to bug me.
 
 * code                                                             :noexport:
+** To add a new distro
+*** On the server
+#+begin_src sh
+distro=noble
+V=24.04
+
+mkdir -p /var/www/mrcal/packages/$distro/public/conf
+
+< /var/www/mrcal/packages/jammy/public/conf/distributions \
+perl -pe "s/jammy/$distro/g; s/22.04/$V/g;" \
+> /var/www/mrcal/packages/$distro/public/conf/distributions
+#+end_src
+
+*** On the client
+- Add to =/etc/dput.cf=
+- =mk-sbuild $distro=
+
+For Ubuntu, we need to add the cross repos manually; because they put non-amd64
+binaries on servers under a different domain for some stupid reason:
+
+#+begin_src sh
+sudo schroot -c source:${distro}-amd64 -- sh -c "echo '
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $distro main restricted universe multiverse 
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $distro-security main restricted universe multiverse 
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $distro-updates main restricted universe multiverse 
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $distro-proposed main restricted universe multiverse 
+' >> /etc/apt/sources.list"
+#+end_src
+
+** Building
+
 Need to install =ca-certificates= in all the chroots so that I can talk to the
 https://mrcal APT server
 
