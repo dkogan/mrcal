@@ -11,6 +11,7 @@
 
 extern "C" {
 #include "poseutils.h"
+#include "minimath/minimath.h"
 }
 
 template<int N>
@@ -490,34 +491,96 @@ void mrcal_r_from_R_full( // output
     init_stride_3D(J, 3,3,3);
     init_stride_2D(R, 3,3);
 
-    if(J == NULL)
+    vec_withgrad_t<0, 3> rg;
+    vec_withgrad_t<0, 9> Rg;
+    Rg.init_vars(&P2(R,0,0), 0,3, -1, R_stride1);
+    Rg.init_vars(&P2(R,1,0), 3,3, -1, R_stride1);
+    Rg.init_vars(&P2(R,2,0), 6,3, -1, R_stride1);
+
+    r_from_R_core<0>(rg.v, Rg.v);
+    rg.extract_value(r, r_stride0);
+
+    if(J != NULL)
     {
-        vec_withgrad_t<0, 3> rg;
-        vec_withgrad_t<0, 9> Rg;
-        Rg.init_vars(&P2(R,0,0), 0,3, -1, R_stride1);
-        Rg.init_vars(&P2(R,1,0), 3,3, -1, R_stride1);
-        Rg.init_vars(&P2(R,2,0), 6,3, -1, R_stride1);
+        // Not all (3,3) matrices R are valid rotations, and I make sure to evaluate
+        // the gradient in the subspace defined by the opposite operation: R_from_r
+        //
+        // I'm assuming a flattened R.shape = (9,) everywhere here
+        //
+        // - I compute r = r_from_R(R)
+        //
+        // - R',dR/dr = R_from_r(r, get_gradients = True)
+        //   R' should match R. This method assumes that.
+        //
+        // - We have
+        //     dR = dR/dr dr
+        //     dr = dr/dR dR
+        //   so
+        //     dr/dR dR/dr = I
+        //
+        // - dR/dr has shape (9,3). In response to perturbations in r, R moves in a
+        //   rank-3 subspace: this is the local subspace of valid rotation
+        //   matrices. The dr/dR we seek should be limited to that subspace as
+        //   well. So dr/dR = M (dR/dr)' for some 3x3 matrix M
+        //
+        // - Combining those two I get
+        //     dr/dR       = M (dR/dr)'
+        //     dr/dR dR/dr = M (dR/dr)' dR/dr
+        //     I           = M (dR/dr)' dR/dr
+        //   ->
+        //     M = inv( (dR/dr)' dR/dr )
+        //   ->
+        //     dr/dR = M (dR/dr)'
+        //           = inv( (dR/dr)' dR/dr ) (dR/dr)'
+        //           = pinv(dR/dr)
 
-        r_from_R_core<0>(rg.v, Rg.v);
-        rg.extract_value(r, r_stride0);
-    }
-    else
-    {
-        vec_withgrad_t<9, 3> rg;
-        vec_withgrad_t<9, 9> Rg;
-        Rg.init_vars(&P2(R,0,0), 0,3, 0, R_stride1);
-        Rg.init_vars(&P2(R,1,0), 3,3, 3, R_stride1);
-        Rg.init_vars(&P2(R,2,0), 6,3, 6, R_stride1);
+        // share memory
+        union
+        {
+            // Unused. The tests make sure this is the same as R
+            double R_roundtrip[3*3];
+            double det_inv_dRflat_drT__dRflat_dr[6] = {};
+        };
 
-        r_from_R_core<9>(rg.v, Rg.v);
-        rg.extract_value(r, r_stride0);
+        double dRflat_dr[9*3]; // inverse gradient
 
-        // J is dr/dR of shape (3,3,3). autodiff.h has a gradient of shape
-        // (3,9): the /dR part is flattened. I pull it out in 3 chunks that scan
-        // the middle dimension. So I fill in J[:,0,:] then J[:,1,:] then J[:,2,:]
-        rg.extract_grad(&P3(J,0,0,0), 0,3, 0,J_stride0,J_stride2,3);
-        rg.extract_grad(&P3(J,0,1,0), 3,3, 0,J_stride0,J_stride2,3);
-        rg.extract_grad(&P3(J,0,2,0), 6,3, 0,J_stride0,J_stride2,3);
+        mrcal_R_from_r_full( // outputs
+                             R_roundtrip,0,0,
+                             dRflat_dr,  0,0,0,
+
+                             // input
+                             &rg.v[0].x, 0 );
+
+        ////// transpose(dRflat_dr) * dRflat_dr
+        // 3x3 symmetric matrix; packed,dense storage; row-first
+        double dRflat_drT__dRflat_dr[6] = {};
+        int i_result = 0;
+        for(int i=0; i<3; i++)
+            for(int j=i;j<3;j++)
+            {
+                for(int k=0; k<9; k++)
+                    dRflat_drT__dRflat_dr[i_result] +=
+                        dRflat_dr[k*3 + i]*
+                        dRflat_dr[k*3 + j];
+                i_result++;
+            }
+
+        ////// inv( transpose(dRflat_dr) * dRflat_dr )
+        // 3x3 symmetric matrix; packed,dense storage; row-first
+        double inv_det = 1./cofactors_sym3(dRflat_drT__dRflat_dr, det_inv_dRflat_drT__dRflat_dr);
+
+        ////// inv( transpose(dRflat_dr) * dRflat_dr ) transpose(dRflat_dr)
+        for(int i=0; i<3; i++)
+            for(int j=0; j<3; j++)
+            {
+                // computing dr/dR[i,j]
+                double dr[3] = {};
+                mul_vec3_sym33_vout_scaled( &dRflat_dr[3*(j + 3*i)], det_inv_dRflat_drT__dRflat_dr,
+                                            dr,
+                                            inv_det);
+                for(int k=0; k<3; k++)
+                    P3(J, k,i,j) = dr[k];
+            }
     }
 }
 
