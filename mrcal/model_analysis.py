@@ -1918,6 +1918,11 @@ A tuple
     if len(model_pairs) != 2:
         raise Exception("Exactly 2 model_pairs are expected")
 
+
+
+    ### radius does nothing
+    ### "distance is None" does something useful?
+
     if distance is None:
         atinfinity = True
         distance   = np.ones((1,), dtype=float)

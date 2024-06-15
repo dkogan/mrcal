@@ -10,11 +10,14 @@ mrcal.compose_rt_tinyrt0_gradientrt0()
 mrcal.compose_rt_tinyrt1_gradientrt1
 compose_r_tinyr1_gradientr1
 
-75893eea: Added initialy EARLY version of mrcal-show-stereo-pair-diff
+75893eea: Added initialy EARLY version of mrcal-show-stereo-pair-diff (this
+needs to be tested, documented)
 
 120f654e Fixed incorrect opencv8 intrinsics seeding
 
 mrcal-stereo --single-buffered
+
+poseutils: more careful handling of rotations near singularities
 
 * Migration notes 2.4 -> 3.0
 
@@ -43,6 +46,8 @@ TypeError: 'do_apply_regularization_unity_cam01' is an invalid keyword argument 
   - Does too little data give smaller residuals? It should. Is this reflected in
     the sqrt() factor?
 
+- mrcal.cameramodel.extrinsics_rt_fromref (and friends): make aliases. I want
+  mrcal.cameramodel.rt_cam_ref()
 
 ** triangulated features merge
 *** =git grep -n Noutliers= Noutliers has change meaning: it's now =Nmeasurements_outliers=
@@ -220,6 +225,26 @@ Being compatible with at least ROS would be nice. Their models are:
 ** mrcal_drt_ref_refperturbed__dbpacked() currently is hardcoded to use the rrp formulation
 Give it an argument to select the formulation. And rename the function. Or
 something
+** other stuff
+- "pydoc3 mrcal" should show everything. It doesn't. "compose_rt" isn't there,
+  for instance
+
+- mrcal-stereo: during the rectification (or maybe disparity search) stage C-c
+  doesn't work.
+
+** Expose _options_heatmap_with_contours()
+** mrcal.stereo_range() does uint16 based on qrect0 is None. It should look at the type
+Currently a full-image float range image doesn't work right: it casts to uint16,
+and we lose accuracy
+** Port to mrcal 2.5
+commit 317b4b904f1f1fa3c983e48d86104dca50893a6e
+Author: Dima Kogan <dima@secretsauce.net>
+Date:   Thu Aug 10 14:30:58 2023 -0700
+
+    r_from_R_core() better implementation around th=180deg
+
+ And mrcal-stereo --single-buffered
+
 * release checklist
 These are notes to myself containing the steps needed to roll a new release
 
