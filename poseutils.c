@@ -15,6 +15,7 @@
 
 #include "poseutils.h"
 #include "strides.h"
+#include "minimath/minimath.h"
 
 // All arrays stored in row-major order
 //
@@ -787,4 +788,293 @@ void mrcal_compose_r_tinyr1_gradientr1_full( // output
     P2(dr_dr1,1,2) += -P1(r_0,0)/2.;
     P2(dr_dr1,2,0) += -P1(r_0,1)/2.;
     P2(dr_dr1,2,1) +=  P1(r_0,0)/2.;
+}
+
+
+void mrcal_r_from_R_full( // output
+                         double* r,       // (3,) vector
+                         int r_stride0,   // in bytes. <= 0 means "contiguous"
+                         double* J,       // (3,3,3) array. Gradient. May be NULL
+                         int J_stride0,   // in bytes. <= 0 means "contiguous"
+                         int J_stride1,   // in bytes. <= 0 means "contiguous"
+                         int J_stride2,   // in bytes. <= 0 means "contiguous"
+
+                         // input
+                         const double* R, // (3,3) array
+                         int R_stride0,   // in bytes. <= 0 means "contiguous"
+                         int R_stride1    // in bytes. <= 0 means "contiguous"
+                          )
+{
+    init_stride_1D(r, 3);
+    init_stride_3D(J, 3,3,3);
+    init_stride_2D(R, 3,3);
+
+
+    // Looking at https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula the
+    // Rodrigues rotation formula for th rad rotation around unit axis v is
+    //
+    //   R = I + sin(th) V + (1 - cos(th)) V^2
+    //
+    // where V = skew_symmetric(v):
+    //
+    //          [  0 -v2  v1]
+    //   V(v) = [ v2   0 -v0]
+    //          [-v1  v0   0]
+    //
+    // and
+    //
+    //   v(V) = [-V12, V02, -V01]
+    //
+    // I, V^2 are symmetric; V is anti-symmetric. So R - Rt = 2 sin(th) V
+    //
+    // Let's define
+    //
+    //       [  R21 - R12 ]
+    //   u = [ -R20 + R02 ] = v(R) - v(Rt)
+    //       [  R10 - R01 ]
+    //
+    // From the above equations we see that u = 2 sin(th) v. So I compute the
+    // axis v = u/mag(u). I want th in [0,pi] so I can't compute th from u since
+    // there's an ambiguity: sin(th) = sin(pi-th). So instead, I compute th from
+    // trace(R) = 1 + 2*cos(th)
+    //
+    // There's an extra wrinkle here. Computing the axis from mag(u) only works
+    // if sin(th) != 0. So there are two special cases that must be handled: th
+    // ~ 0 and th ~ 180. If th ~ 0, then the axis doesn't matter and r ~ 0. If
+    // th ~ 180 then the axis DOES matter, and we need special logic.
+    const double tr = P2(R,0,0) + P2(R,1,1) + P2(R,2,2);
+    const double u[3] =
+        {
+            P2(R,2,1) - P2(R,1,2),
+            P2(R,0,2) - P2(R,2,0),
+            P2(R,1,0) - P2(R,0,1)
+        };
+
+    const double costh = (tr - 1.) / 2.;
+
+    // In radians. If my angle is this close to 0, I use the special-case paths
+    const double eps = 1e-8;
+
+    // near 0 we have norm2u ~ 4 th^2
+    const double norm2u =
+        u[0]*u[0] +
+        u[1]*u[1] +
+        u[2]*u[2];
+    if(// both conditions to handle roundoff error
+       norm2u > 4. * eps*eps &&
+       1. - fabs(costh) > eps*eps/2. )
+    {
+        // normal path
+        const double th = acos(costh);
+        for(int i=0; i<3; i++)
+            P1(r,i) = u[i]/sqrt(norm2u) * th;
+    }
+    else if(costh > 0)
+    {
+        // small th. Can't divide by it. But I can look at the limit.
+        //
+        // u / (2 sinth)*th = u/2 *th/sinth ~ u/2
+        for(int i=0; i<3; i++)
+            P1(r,i) = u[i] / 2.;
+    }
+    else
+    {
+        // cos(th) < 0. So th ~ +-180 = +-180 + dth where dth ~ 0. And I have
+        //
+        //   R = I + sin(th)  V + (1 - cos(th) ) V^2
+        //     = I + sin(+-180 + dth) V + (1 - cos(+-180 + dth)) V^2
+        //     = I - sin(dth) V + (1 + cos(dth)) V^2
+        //     ~ I - dth V + 2 V^2
+        //
+        // Once again, I, V^2 are symmetric; V is anti-symmetric. So
+        //
+        //   R - Rt = 2 sin(th) V
+        //          = -2 sin(dth) V
+        //          = -2 dth V
+        // I want
+        //
+        //   r = th v
+        //     = dth v +- 180deg v
+        //
+        //   r = v((R - Rt) / -2.) +- 180deg v
+        //     = u/-2 +- 180deg v
+        //
+        // Now we need v; let's look at the symmetric parts:
+        //
+        //   R + Rt = 2 I + 4 V^2
+        //-> V^2 = (R + Rt)/4 - I/2
+        //
+        //          [  0 -v2  v1]
+        //   V(v) = [ v2   0 -v0]
+        //          [-v1  v0   0]
+        //
+        //            [ -(v1^2+v2^2)       v0 v1         v0 v2     ]
+        //   V^2(v) = [      v0 v1      -(v0^2+v2^2)     v1 v2     ]
+        //            [      v0 v2         v1 v2      -(v0^2+v1^2) ]
+        //
+        // I want v be a unit vector. Can I assume that? From above:
+        //
+        //   tr(V^2) = -2 norm2(v)
+        //
+        // So I want to assume that tr(V^2) = -2. The earlier expression had
+        //
+        //   R + Rt = 2 I + 4 V^2
+        //
+        // -> tr(R + Rt) = tr(2 I + 4 V^2)
+        // -> tr(V^2) = (tr(R + Rt) - 6)/4
+        //            = (2 tr(R) - 6)/4
+        //            = (1 + 2*cos(th) - 3)/2
+        //            = -1 + cos(th)
+        //
+        // Near th ~ 180deg, this is -2 as required. So we can assume that
+        // mag(v)=1:
+        //
+        //            [ v0^2 - 1    v0 v1       v0 v2    ]
+        //   V^2(v) = [ v0 v1       v1^2 - 1    v1 v2    ]
+        //            [ v0 v2       v1 v2       v2^2 - 1 ]
+        //
+        // So
+        //
+        //   v^2 = 1 + diag(V^2)
+        //       = 1 + 2 diag(R)/4 - I/2
+        //       = 1 + diag(R)/2 - 1/2
+        //       = (1 + diag(R))/2
+        for(int i=0; i<3; i++)
+            P1(r,i) = u[i] / -2.;
+
+        // Now r += pi v
+        const double vsq[3] =
+            {
+                (P2(R,0,0) + 1.) /2.,
+                (P2(R,1,1) + 1.) /2.,
+                (P2(R,2,2) + 1.) /2.
+            };
+        // This is abs(v) initially
+        double v[3] = {};
+        for(int i=0; i<3; i++)
+            if(vsq[i] > 0.0)
+                v[i] = sqrt(vsq[i]);
+            else
+            {
+                // round-off sets this at 0; it's already there. Leave it
+            }
+
+        // Now I need to get the sign of each individual value. Overall, the
+        // sign of the vector v doesn't matter. I set the sign of a notably
+        // non-zero abs(v[i]) to >0, and go from there.
+
+        // threshold can be anything notably > 0. I'd like to encourage the same
+        // branch to always be taken, so I set the thresholds relatively low
+        if(     v[0] > 0.1)
+        {
+            // I leave v[0]>0.
+            //   V^2[0,1] must have the same sign as v1
+            //   V^2[0,2] must have the same sign as v2
+            if( (P2(R,0,1) + P2(R,1,0)) < 0 ) v[1] *= -1.;
+            if( (P2(R,0,2) + P2(R,2,0)) < 0 ) v[2] *= -1.;
+        }
+        else if(v[1] > 0.1)
+        {
+            // I leave v[1]>0.
+            //   V^2[1,0] must have the same sign as v0
+            //   V^2[1,2] must have the same sign as v2
+            if( (P2(R,1,0) + P2(R,0,1)) < 0 ) v[0] *= -1.;
+            if( (P2(R,1,2) + P2(R,2,1)) < 0 ) v[2] *= -1.;
+        }
+        else
+        {
+            // I leave v[2]>0.
+            //   V^2[2,0] must have the same sign as v0
+            //   V^2[2,1] must have the same sign as v1
+            if( (P2(R,2,0) + P2(R,0,2)) < 0 ) v[0] *= -1.;
+            if( (P2(R,2,1) + P2(R,1,2)) < 0 ) v[1] *= -1.;
+        }
+
+        for(int i=0; i<3; i++)
+            P1(r,i) += v[i] * M_PI;
+    }
+
+
+    if(J != NULL)
+    {
+        // Not all (3,3) matrices R are valid rotations, and I make sure to evaluate
+        // the gradient in the subspace defined by the opposite operation: R_from_r
+        //
+        // I'm assuming a flattened R.shape = (9,) everywhere here
+        //
+        // - I compute r = r_from_R(R)
+        //
+        // - R',dR/dr = R_from_r(r, get_gradients = True)
+        //   R' should match R. This method assumes that.
+        //
+        // - We have
+        //     dR = dR/dr dr
+        //     dr = dr/dR dR
+        //   so
+        //     dr/dR dR/dr = I
+        //
+        // - dR/dr has shape (9,3). In response to perturbations in r, R moves in a
+        //   rank-3 subspace: this is the local subspace of valid rotation
+        //   matrices. The dr/dR we seek should be limited to that subspace as
+        //   well. So dr/dR = M (dR/dr)' for some 3x3 matrix M
+        //
+        // - Combining those two I get
+        //     dr/dR       = M (dR/dr)'
+        //     dr/dR dR/dr = M (dR/dr)' dR/dr
+        //     I           = M (dR/dr)' dR/dr
+        //   ->
+        //     M = inv( (dR/dr)' dR/dr )
+        //   ->
+        //     dr/dR = M (dR/dr)'
+        //           = inv( (dR/dr)' dR/dr ) (dR/dr)'
+        //           = pinv(dR/dr)
+
+        // share memory
+        union
+        {
+            // Unused. The tests make sure this is the same as R
+            double R_roundtrip[3*3];
+            double det_inv_dRflat_drT__dRflat_dr[6];
+        } m;
+
+        double dRflat_dr[9*3]; // inverse gradient
+
+        mrcal_R_from_r_full( // outputs
+                             m.R_roundtrip,0,0,
+                             dRflat_dr,  0,0,0,
+
+                             // input
+                             r,r_stride0 );
+
+        ////// transpose(dRflat_dr) * dRflat_dr
+        // 3x3 symmetric matrix; packed,dense storage; row-first
+        double dRflat_drT__dRflat_dr[6] = {};
+        int i_result = 0;
+        for(int i=0; i<3; i++)
+            for(int j=i;j<3;j++)
+            {
+                for(int k=0; k<9; k++)
+                    dRflat_drT__dRflat_dr[i_result] +=
+                        dRflat_dr[k*3 + i]*
+                        dRflat_dr[k*3 + j];
+                i_result++;
+            }
+
+        ////// inv( transpose(dRflat_dr) * dRflat_dr )
+        // 3x3 symmetric matrix; packed,dense storage; row-first
+        double inv_det = 1./cofactors_sym3(dRflat_drT__dRflat_dr, m.det_inv_dRflat_drT__dRflat_dr);
+
+        ////// inv( transpose(dRflat_dr) * dRflat_dr ) transpose(dRflat_dr)
+        for(int i=0; i<3; i++)
+            for(int j=0; j<3; j++)
+            {
+                // computing dr/dR[i,j]
+                double dr[3] = {};
+                mul_vec3_sym33_vout_scaled( &dRflat_dr[3*(j + 3*i)], m.det_inv_dRflat_drT__dRflat_dr,
+                                            dr,
+                                            inv_det);
+                for(int k=0; k<3; k++)
+                    P3(J, k,i,j) = dr[k];
+            }
+    }
 }
