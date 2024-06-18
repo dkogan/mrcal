@@ -8,8 +8,8 @@ else ifneq (,$(wildcard /usr/include/mrbuild/Makefile.common.header))
   MRBUILD_MK=/usr/include/mrbuild
   MRBUILD_BIN=/usr/bin
 else
-  V      := 1.8
-  SHA512 := 0d35dd2988a7ff74487d8cf9a259f208e4524d95ea392f063e31d05579ee7336a6ee4377b9a5e948694afbe46108da89e6a9afc0309a0b05851382a1f2fd038c
+  V      := 1.10
+  SHA512 := 6e2ced50d629bd4c97f25467cb56f7d2521f4322046271ffe610ec8abd7525dc436845872510f8504c8630109e31200429492673fe83f7c0d67ef56a0cb9602c
   URL   := https://github.com/dkogan/mrbuild/archive/refs/tags/v$V.tar.gz
   TARGZ := mrbuild-$V.tar.gz
 
