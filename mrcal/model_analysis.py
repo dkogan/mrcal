@@ -760,15 +760,21 @@ def _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
         dq_db -= nps.matmult(dq_dpref,        Kunpacked[3:,:])
 
 
-def _dq_db__projection_uncertainty( p_cam,
+def _dq_db__projection_uncertainty( # shape (...,3)
+                                    p_cam,
                                     lensmodel, intrinsics_data,
                                     extrinsics_rt_fromref, frames_rt_toref,
                                     Nstate,
-                                    istate_intrinsics, istate_extrinsics, istate_frames,
-                                    slice_optimized_intrinsics,
+                                    # in the state vector
+                                    istate_intrinsics0,
+                                    # in the camera; generally: 0 if do_optimize_intrinsics_core else 0
+                                    istate_intrinsics0_onecam,
+                                    Nstates_intrinsics,
+                                    istate_extrinsics0, istate_frames0,
                                     *,
                                     Kunpacked,
-                                    method):
+                                    method,
+                                    atinfinity):
     r'''Helper for projection_uncertainty()
 
     See docs for _propagate_calibration_uncertainty() and
@@ -776,262 +782,213 @@ def _dq_db__projection_uncertainty( p_cam,
 
     This function does all the work when observing points with a finite range
 
+    The underlying math is documented here:
+
+    - https://mrcal.secretsauce.net/docs-3.0/uncertainty-mean-pcam.html
+    - https://mrcal.secretsauce.net/docs-3.0/uncertainty-cross-reprojection.html
+
+    The end result:
+
+    q* - q
+
+    ~   dq_dpcam (pcam* - pcam)
+      + dq_dintrinsics db[intrinsics_this]
+
+    ~   dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref db[extrinsics_j] +
+                                dpcam__dpref_i (pref_i* - pref_i) )
+      + dq_dintrinsics db[intrinsics_this]
+
+    ~   dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref db[extrinsics_j] +
+                                dpcam__dpref_i ( dpref__drt_ref_framei db[frame_i] +
+                                                 dpref__dpframe_i d(pframe_i) )
+      + dq_dintrinsics db[intrinsics_this]
+
+    Here I'm assuming fixed pframe, so d(pframe_) = 0:
+
+    dq
+    ~   dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref db[extrinsics_j] +
+                                dpcam__dpref_i dpref__drt_ref_framei db[frame_i] )
+      + dq_dintrinsics db[intrinsics_this]
+
+    --->
+
+    dq/db[extrinsics_j]    = dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref)
+    dq/db[frames_i]        = dq_dpcam/Ncam_frame sum(dpcam__dpref_i dpref__drt_ref_framei )
+    dq/db[intrinsics_this] = dq_dintrinsics
     '''
 
-    dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
 
-    if extrinsics_rt_fromref is not None:
+    if not (method == 'mean-pcam' and Kunpacked is None):
+        raise Exception("only the mean-pcam method implemented for now")
+
+
+    # extrinsics_rt_fromref and frames_rt_toref contain poses. These are
+    # available here, whether they're being optimized or not. istate_... are the
+    # state variables. These may be None if the quantity in question is fixed.
+
+    # shape (Ncameras_extrinsics,6) where Ncameras_extrinsics may be 1
+    extrinsics_rt_fromref = nps.atleast_dims(extrinsics_rt_fromref, -2)
+    # shape (Nframes,6)             where Nframes may be 1
+    frames_rt_toref       = nps.atleast_dims(frames_rt_toref,       -2)
+
+    Ncameras_extrinsics = extrinsics_rt_fromref.shape[0]
+    Nframes             = frames_rt_toref      .shape[0]
+
+    ### The output array. This function fills this in, and returns it
+    # shape (..., 2,Nstate)
+    dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
+    dq_db_shape = dq_db.shape
+
+    # shape (..., Ncameras_extrinsics, 3)
+    if not atinfinity:
         p_ref = \
             mrcal.transform_point_rt( mrcal.invert_rt(extrinsics_rt_fromref),
-                                      p_cam )
+                                      nps.dummy(p_cam,-2) )
     else:
-        p_ref = p_cam
+        p_ref = \
+            mrcal.rotate_point_r( -extrinsics_rt_fromref[...,:3],
+                                  nps.dummy(p_cam,-2) )
 
-    if method == 'mean-pcam' and frames_rt_toref is not None:
-        Nframes = len(frames_rt_toref)
-
-        # The point in the coord system of all the frames. I index the frames on
-        # axis -2
-        # shape (..., Nframes, 3)
-        p_frames = mrcal.transform_point_rt( # shape (Nframes,6)
-                                             mrcal.invert_rt(frames_rt_toref),
-                                             # shape (...,1,3)
-                                             nps.dummy(p_ref,-2) )
-
-        # I now have the observed point represented in the coordinate system of
-        # the frames. This is independent of any intrinsics-implied rotation, or
-        # anything of the sort. I project this point back to pixels, through
-        # noisy estimates of the frames, extrinsics and intrinsics.
-        #
-        # I transform each frame-represented point back to the reference coordinate
-        # system, and I average out each estimate to get the one p_ref I will use. I
-        # already have p_ref, so I don't actually need to compute the value; I just
-        # need the gradients
-
-        # dprefallframes_dframes has shape (..., Nframes,3,6)
-        _, \
-        dprefallframes_dframes, \
-        _ = mrcal.transform_point_rt( frames_rt_toref, p_frames,
-                                      get_gradients = True)
-
-        # shape (..., 3,6*Nframes)
-        # /Nframes because I compute the mean over all the frames
-        dpref_dframes = nps.clump( nps.mv(dprefallframes_dframes, -3, -2),
-                                   n = -2 ) / Nframes
-
+    # shape (..., 2,3)
+    # shape (..., 2,Nintrinsics)
     _, dq_dpcam, dq_dintrinsics = \
         mrcal.project( p_cam, lensmodel, intrinsics_data,
                        get_gradients = True)
 
+    if istate_intrinsics0 is not None:
+        dq_db[         ...,
+                       istate_intrinsics0:
+                       istate_intrinsics0+Nstates_intrinsics] = \
+        dq_dintrinsics[...,
+                       istate_intrinsics0_onecam:
+                       istate_intrinsics0_onecam+Nstates_intrinsics]
 
-
-    # Logic to complete the computation. Let's linearize everything:
-
-    # q* - q
-
-    # ~   dq_dpcam (pcam* - pcam)
-    #   + dq_dintrinsics db[intrinsics_this]
-
-    # ~   dq_dpcam (+ dpcam__drt_cam_ref db[extrinsics_this]
-    #               + dpcam__dpref       (pref* - pref) )
-    #   + dq_dintrinsics db[intrinsics_this]
-
-    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-    #               + dpcam__dpref dpref*__drt_ref_ref* rt_ref_ref*)
-    #   + dq_dintrinsics db[intrinsics_this]
-
-    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-    #               - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) dx_cross0)
-    #   + dq_dintrinsics db[intrinsics]
-
-    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-    #               - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frames_all,points_all,calobject_warp] D Dinv db[frames_all,points_all,calobject_warp])
-    #   + dq_dintrinsics db[intrinsics_this]
-
-    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-    #               + dpcam__dpref dpref*__drt_ref_ref* K Dinv db[frames_all,points_all,calobject_warp])
-    #   + dq_dintrinsics db[intrinsics_this]
-
-    # --->
-
-    # dq/db[extrinsics_this]                      = dq_dpcam dpcam__drt_cam_ref
-    # dq/db[intrinsics_this]                      = dq_dintrinsics
-    # dq/db[frames_all,points_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K Dinv
-    #                                             = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
-
-
-    if istate_intrinsics is not None:
-        dq_dintrinsics_optimized = dq_dintrinsics[..., slice_optimized_intrinsics]
-        Nintrinsics = dq_dintrinsics_optimized.shape[-1]
-        dq_db[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
-            dq_dintrinsics_optimized
-
-    if extrinsics_rt_fromref is not None:
+    if not atinfinity:
+        # shape (..., Ncameras_extrinsics,3,6)
+        # shape (..., Ncameras_extrinsics,3,3)
         _, dpcam_drt, dpcam_dpref = \
             mrcal.transform_point_rt(extrinsics_rt_fromref, p_ref,
                                      get_gradients = True)
-        dq_db[..., istate_extrinsics:istate_extrinsics+6] = \
-            nps.matmult(dq_dpcam, dpcam_drt)
     else:
-        dpcam_dpref = None
+        # shape (..., Ncameras_extrinsics,3,3)
+        # shape (..., Ncameras_extrinsics,3,3)
+        _, dpcam_dr, dpcam_dpref = \
+            mrcal.rotate_point_r(extrinsics_rt_fromref[...,:3], p_ref,
+                                 get_gradients = True)
 
+    if istate_extrinsics0 is not None:
+        # I want dq/db[extrinsics_j] = dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref)
+        #
+        # Here I'm computing the mean over all camera,frame combinations. The
+        # quantity is constant for each frame, so I use the mean over the
+        # extrinsics. The gradients are distributed across the state vector, but
+        # the mean comes through as the /Ncameras_extrinsics
 
-
-    if method != 'cross-reprojection--rrp-Jfp':
-
-        if extrinsics_rt_fromref is not None:
-            if frames_rt_toref is not None:
-                dq_db[..., istate_frames:istate_frames+Nframes*6] = \
-                    nps.matmult(dq_dpcam, dpcam_dpref, dpref_dframes)
+        # shape (..., 2, Ncameras_extrinsics,6)
+        dq_db_slice_extrinsics = \
+            dq_db[...,
+                  istate_extrinsics0:
+                  istate_extrinsics0 + Ncameras_extrinsics*6]. \
+                  reshape(dq_db_shape[:-1] + (Ncameras_extrinsics,6) )
+        if not atinfinity:
+            # shape (..., 2, Ncameras_extrinsics,6)
+            dq_db_slice_extrinsics[...] = \
+                nps.xchg( nps.matmult(# shape (..., Ncameras_extrinsics=1,2,3)
+                                      nps.dummy(dq_dpcam,-3),
+                                      # shape (..., Ncameras_extrinsics,  3,6)
+                                      dpcam_drt),
+                          -2, -3 ) / Ncameras_extrinsics
         else:
-            if frames_rt_toref is not None:
-                dq_db[..., istate_frames:istate_frames+Nframes*6] = \
-                    nps.matmult(dq_dpcam, dpref_dframes)
+            # shape (..., 2, Ncameras_extrinsics,3)
+            dq_db_slice_extrinsics[...,:3] = \
+                nps.xchg( nps.matmult(# shape (..., Ncameras_extrinsics=1,2,3)
+                                      nps.dummy(dq_dpcam,-3),
+                                      # shape (..., Ncameras_extrinsics,  3,3)
+                                      dpcam_dr),
+                          -2, -3 ) / Ncameras_extrinsics
 
-    else:
+    if method == 'mean-pcam':
+        if istate_frames0 is not None:
+
+            # shape (..., Ncameras_extrinsics, 2, 3)
+            dq_dpref = \
+                nps.matmult(# shape (...,          Ncameras_extrinsics=1, 2, 3)
+                            nps.dummy(dq_dpcam,    -3),
+                            # shape (...,          Ncameras_extrinsics,   3, 3)
+                            dpcam_dpref)
+
+            if not atinfinity:
+                # shape (Nframes,Ncameras_extrinsics,3)
+                p_frames = mrcal.transform_point_rt( # shape (Nframes,Ncameras_extrinsics=1,6)
+                                                     nps.dummy(mrcal.invert_rt(frames_rt_toref), -2),
+                                                     # shape (..., Nframes=1, Ncameras_extrinsics, 3)
+                                                     nps.dummy(p_ref,-3) )
+
+                # shape (...,Nframes,Ncameras_extrinsics,3,6)
+                _, \
+                dpref_dframes, \
+                _ = mrcal.transform_point_rt( # shape (Nframes,Ncameras_extrinsics=1,6)
+                                              nps.dummy(frames_rt_toref, -2),
+                                              p_frames,
+                                              get_gradients = True)
+
+            else:
+
+                # shape (Nframes,Ncameras_extrinsics,3)
+                p_frames = mrcal.rotate_point_r( # shape (Nframes,Ncameras_extrinsics=1,6)
+                                                 nps.dummy(-frames_rt_toref[...,:3], -2),
+                                                 # shape (..., Nframes=1, Ncameras_extrinsics, 3)
+                                                 nps.dummy(p_ref,-3) )
+
+                # shape (...,Nframes,Ncameras_extrinsics,3,6)
+                _, \
+                dpref_dframes, \
+                _ = mrcal.rotate_point_r( # shape (Nframes,Ncameras_extrinsics=1,3)
+                                          nps.dummy(frames_rt_toref[...,:3], -2),
+                                          p_frames,
+                                          get_gradients = True)
+
+            # shape is either of
+            #    (..., Nframes, Ncameras_extrinsics, 2, 6)
+            #    (..., Nframes, Ncameras_extrinsics, 2, 3)
+            # depending on atinfinity
+            dq_dframes = \
+                nps.matmult(# shape (...,          Nframes=1, Ncameras_extrinsics, 2, 3)
+                            nps.dummy(dq_dpref,    -4),
+                            # shape (...,          Nframes,   Ncameras_extrinsics, 3, 6)
+                            dpref_dframes)
+
+            # shape (..., 2, Nframes,6)
+            dq_db_slice_frames = \
+                dq_db[...,
+                      istate_frames0:
+                      istate_frames0 + Nframes*6]. \
+                      reshape(dq_db_shape[:-1] + (Nframes,6) )
+            if not atinfinity:
+                # shape (..., 2, Nframes,6)
+                dq_db_slice_frames[...] = \
+                    nps.xchg( np.mean(dq_dframes, axis=-3),
+                              -2, -3 ) / Nframes
+            else:
+                # shape (..., 2, Nframes,3)
+                dq_db_slice_frames[...,:3] = \
+                    nps.xchg( np.mean(dq_dframes, axis=-3),
+                              -2, -3 ) / Nframes
+
+
+    elif method == 'cross-reprojection--rrp-Jfp':
+        raise Exception("Not implemented yet")
         _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
                                                  p_ref,
                                                  dq_dpcam, dpcam_dpref,
                                                  Kunpacked,
                                                  atinfinity = False)
+    else:
+        raise Exception(f"Unknown {method=}")
+
 
     return dq_db
 
-
-def _dq_db__projection_uncertainty_rotationonly( p_cam,
-                                                 lensmodel, intrinsics_data,
-                                                 extrinsics_rt_fromref, frames_rt_toref,
-                                                 Nstate,
-                                                 istate_intrinsics, istate_extrinsics, istate_frames,
-                                                 slice_optimized_intrinsics,
-                                                 *,
-                                                 Kunpacked,
-                                                 method):
-    r'''Helper for projection_uncertainty()
-
-    See docs for _propagate_calibration_uncertainty() and
-    projection_uncertainty()
-
-    This function does all the work when observing points at infinity
-
-    '''
-
-    dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
-
-    if extrinsics_rt_fromref is not None:
-        p_ref = \
-            mrcal.rotate_point_r( -extrinsics_rt_fromref[..., :3], p_cam )
-    else:
-        p_ref = p_cam
-
-    if method == 'mean-pcam' and frames_rt_toref is not None:
-        Nframes = len(frames_rt_toref)
-
-        # The point in the coord system of all the frames. I index the frames on
-        # axis -2
-        # shape (..., Nframes, 3)
-        p_frames = mrcal.rotate_point_r( # shape (Nframes,3)
-                                         -frames_rt_toref[...,:3],
-                                         # shape (...,1,3)
-                                         nps.dummy(p_ref,-2) )
-
-        # I now have the observed point represented in the coordinate system of
-        # the frames. This is independent of any intrinsics-implied rotation, or
-        # anything of the sort. I project this point back to pixels, through
-        # noisy estimates of the frames, extrinsics and intrinsics.
-        #
-        # I transform each frame-represented point back to the reference coordinate
-        # system, and I average out each estimate to get the one p_ref I will use. I
-        # already have p_ref, so I don't actually need to compute the value; I just
-        # need the gradients
-
-        # dprefallframes_dframesr has shape (..., Nframes,3,3)
-        _, \
-        dprefallframes_dframesr, \
-        _ = mrcal.rotate_point_r( frames_rt_toref[...,:3], p_frames,
-                                  get_gradients = True)
-
-    _, dq_dpcam, dq_dintrinsics = \
-        mrcal.project( p_cam, lensmodel, intrinsics_data,
-                       get_gradients = True)
-
-
-    # Logic to complete the computation. Let's linearize everything:
-
-    # q* - q
-
-    # ~   dq_dpcam (pcam* - pcam)
-    #   + dq_dintrinsics db[intrinsics_this]
-
-    # ~   dq_dpcam (+ dpcam__drt_cam_ref db[extrinsics_this]
-    #               + dpcam__dpref       (pref* - pref) )
-    #   + dq_dintrinsics db[intrinsics_this]
-
-    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-    #               + dpcam__dpref dpref*__drt_ref_ref* rt_ref_ref*)
-    #   + dq_dintrinsics db[intrinsics_this]
-
-    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-    #               - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) dx_cross0)
-    #   + dq_dintrinsics db[intrinsics]
-
-    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-    #               - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frames_all,points_all,calobject_warp] D Dinv db[frames_all,points_all,calobject_warp])
-    #   + dq_dintrinsics db[intrinsics_this]
-
-    # ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
-    #               + dpcam__dpref dpref*__drt_ref_ref* K Dinv db[frames_all,points_all,calobject_warp])
-    #   + dq_dintrinsics db[intrinsics_this]
-
-    # --->
-
-    # dq/db[extrinsics_this]                      = dq_dpcam dpcam__drt_cam_ref
-    # dq/db[intrinsics_this]                      = dq_dintrinsics
-    # dq/db[frames_all,points_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K Dinv
-    #                                             = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
-
-    if istate_intrinsics is not None:
-        dq_dintrinsics_optimized = dq_dintrinsics[..., slice_optimized_intrinsics]
-        Nintrinsics = dq_dintrinsics_optimized.shape[-1]
-        dq_db[..., istate_intrinsics:istate_intrinsics+Nintrinsics] = \
-            dq_dintrinsics_optimized
-
-    if extrinsics_rt_fromref is not None:
-        _, dpcam_dr, dpcam_dpref = \
-            mrcal.rotate_point_r(extrinsics_rt_fromref[...,:3], p_ref,
-                                 get_gradients = True)
-        dq_db[..., istate_extrinsics:istate_extrinsics+3] = \
-            nps.matmult(dq_dpcam, dpcam_dr)
-    else:
-        dpcam_dpref = None
-
-
-
-    if method != 'cross-reprojection--rrp-Jfp':
-
-        if extrinsics_rt_fromref is not None:
-            if frames_rt_toref is not None:
-                dq_dpref = nps.matmult(dq_dpcam, dpcam_dpref)
-
-                # dprefallframes_dframesr has shape (..., Nframes,3,3)
-                for i in range(Nframes):
-                    dq_db[..., istate_frames+6*i:istate_frames+6*i+3] = \
-                        nps.matmult(dq_dpref, dprefallframes_dframesr[...,i,:,:]) / Nframes
-        else:
-            if frames_rt_toref is not None:
-                # dprefallframes_dframesr has shape (..., Nframes,3,3)
-                for i in range(Nframes):
-                    dq_db[..., istate_frames+6*i:istate_frames+6*i+3] = \
-                        nps.matmult(dq_dpcam, dprefallframes_dframesr[...,i,:,:]) / Nframes
-
-    else:
-        _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
-                                                 p_ref,
-                                                 dq_dpcam, dpcam_dpref,
-                                                 Kunpacked,
-                                                 atinfinity = True)
-
-    return dq_db
 
 
 def projection_uncertainty( p_cam, model,
@@ -1146,10 +1103,11 @@ else:                    we return an array of shape (...)
 
 
 
-
-
-
-
+    # Non-None if this exists, isn't None, and has non-zero elements
+    def get_input(what):
+        x = optimization_inputs.get(what)
+        if x is not None and x.size > 0: return x
+        else:                            return None
 
 
 
@@ -1160,8 +1118,6 @@ else:                    we return an array of shape (...)
         raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
 
 
-
-
     # which calibration-time camera we're looking at
     icam_intrinsics = model.icam_intrinsics()
 
@@ -1169,96 +1125,93 @@ else:                    we return an array of shape (...)
     if optimization_inputs is None:
         raise Exception("optimization_inputs are unavailable in this model. Uncertainty cannot be computed")
 
-    if not optimization_inputs.get('do_optimize_extrinsics'):
-        raise Exception("Computing uncertainty if !do_optimize_extrinsics not supported currently. This is possible, but not implemented. _projection_uncertainty...() would need a path for fixed extrinsics like they already do for fixed frames")
-
-    frames_rt_toref = None
-    istate_frames   = None
-    if optimization_inputs.get('do_optimize_frames'):
-        frames_rt_toref = optimization_inputs.get('frames_rt_toref')
-        points          = optimization_inputs.get('points')
-
-        if frames_rt_toref is not None and frames_rt_toref.size == 0:
-            frames_rt_toref = None
-        if points          is not None and points         .size == 0:
-            points          = None
-
-        if frames_rt_toref is not None:
-            # None if we're not optimizing chessboard poses, but I just checked,
-            # and we ARE
-            istate_frames = mrcal.state_index_frames(0, **optimization_inputs)
-
-    # The intrinsics,extrinsics,frames MUST come from the solve when
-    # evaluating the uncertainties. The user is allowed to update the
-    # extrinsics in the model after the solve, as long as I use the
-    # solve-time ones for the uncertainty computation. Updating the
-    # intrinsics invalidates the uncertainty stuff so I COULD grab those
-    # from the model. But for good hygiene I get them from the solve as
-    # well
-
-    lensmodel       = optimization_inputs['lensmodel']
-    intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
-
-    if not optimization_inputs.get('do_optimize_intrinsics_core') and \
-       not optimization_inputs.get('do_optimize_intrinsics_distortions'):
-        # Not optimizing ANY of the intrinsics
-        istate_intrinsics          = None
-        slice_optimized_intrinsics = None
-    else:
-        # Optimizing SOME of the intrinsics
-        istate_intrinsics = mrcal.state_index_intrinsics(icam_intrinsics, **optimization_inputs)
-
-        i0,i1 = None,None # everything by default
-
-        has_core     = mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']
-        Ncore        = 4 if has_core else 0
-        Ndistortions = mrcal.lensmodel_num_params(lensmodel) - Ncore
-
-        if not optimization_inputs.get('do_optimize_intrinsics_core'):
-            i0 = Ncore
-        if not optimization_inputs.get('do_optimize_intrinsics_distortions'):
-            i1 = -Ndistortions
-
-        slice_optimized_intrinsics  = slice(i0,i1)
-
-    # This will raise an exception if the cameras are not stationary
-    icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics, **optimization_inputs)
-    if icam_extrinsics < 0:
-        extrinsics_rt_fromref = None
-        istate_extrinsics     = None
-    else:
-        extrinsics_rt_fromref = optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
-        istate_extrinsics     = mrcal.state_index_extrinsics (icam_extrinsics, **optimization_inputs)
-
-    if method == 'cross-reprojection-rrp-Jfp':
-        if frames_rt_toref is None:
-            raise Exception(f"cross-reprojection-rrp-Jfp uncertainty implemented only if frames_rt_toref is not None")
-
-    Nstate = mrcal.num_states(**optimization_inputs)
-
     if re.match('cross-reprojection',method):
         Kunpacked = mrcal.drt_ref_refperturbed__dbpacked(**optimization_inputs)
         # The value was packed in the denominator. So I call pack() to unpack it
         mrcal.pack_state(Kunpacked, **optimization_inputs)
     else:
         Kunpacked = None
+        if get_input('observations_point')              is not None or \
+           get_input('observations_point_triangulated') is not None:
+            raise Exception("We have point observations; only cross-reprojection uncertainty can work here")
 
-    # Two distinct paths here that are very similar, but different-enough to not
-    # share any code. If atinfinity, I ignore all translations
-    args = ( p_cam,
-             lensmodel, intrinsics_data,
-             extrinsics_rt_fromref, frames_rt_toref,
-             Nstate,
-             istate_intrinsics, istate_extrinsics, istate_frames,
-             slice_optimized_intrinsics )
-    if not atinfinity:
-        dq_db = _dq_db__projection_uncertainty             (*args,
-                                                            method    = method,
-                                                            Kunpacked = Kunpacked)
+    # Stuff may or may not be optimized: I get the geometry arrays regardless.
+    # The istate_... variables are None if the particular quantity isn't up for
+    # optimization (it is fixed)
+    frames_rt_toref = get_input('frames_rt_toref')
+    istate_frames0  = mrcal.state_index_frames(0, **optimization_inputs)
+    if frames_rt_toref is None:
+        raise Exception("Some frames_rt_toref must exist for the uncertainty computation, but we don't have any")
+
+    # I don't need istate_points or points: in that case all the work is
+    # done with Kunpacked
+    if istate_frames0 is None and \
+       method == 'cross-reprojection-rrp-Jfp':
+        raise Exception(f"cross-reprojection-rrp-Jfp uncertainty implemented only if frames are being optimized")
+
+    # Now the extrinsics. I look at all the ones that correspond with the
+    # specific camera I care about. If the camera is stationary, this will
+    # produce exactly one set of extrinsics. If the camera is moving, we may get
+    # more than one. At this time I limit to myself to a consecutive block of
+    # extrinsics vectors. Once this all works I can relax that requirement
+    ifcice = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+    icam_extrinsics = np.unique( ifcice[ifcice[:,1] == icam_intrinsics, 2] )
+    if icam_extrinsics.size == 0:
+        raise Exception(f"No extrinsics corresponding to {icam_intrinsics=}. I don't know what to do")
+    if icam_extrinsics.size > 1:
+        d = np.unique(np.diff(icam_extrinsics))
+        if not (d.size == 1 and d[0] == 1):
+            raise Exception("At this point I'm only supporting consecutive block of extrinsics for a given icam_intrinsics")
+    if icam_extrinsics[0] < 0:
+        if icam_extrinsics.size == 1:
+            # Stationary camera, at the reference
+            extrinsics_rt_fromref = mrcal.identity_rt()
+            istate_extrinsics0    = None
+        else:
+            # Moving camera. One of the poses is at the reference. This requires
+            # more typing. I'll do this later
+            raise Exception("Have moving camera, some poses are at the reference. This isn't supported yet")
     else:
-        dq_db = _dq_db__projection_uncertainty_rotationonly(*args,
-                                                            method    = method,
-                                                            Kunpacked = Kunpacked)
+        # I will now be guaranteed to get extrinsics_rt_fromref with the right
+        # number of extrinsics (all the ones that correspond to this
+        # icam_intrinsics). And I know they're a contiguous block in my
+        # optimization vector starting with istate_extrinsics0
+        extrinsics_rt_fromref = get_input('extrinsics_rt_fromref')[icam_extrinsics,:]
+        istate_extrinsics0 = mrcal.state_index_extrinsics(icam_extrinsics[0],
+                                                          **optimization_inputs)
+
+    # The intrinsics,extrinsics,frames MUST come from the solve when evaluating
+    # the uncertainties. The user is allowed to update the extrinsics in the
+    # model after the solve, as long as I use the solve-time ones for the
+    # uncertainty computation. Updating the intrinsics invalidates the
+    # uncertainty stuff so I COULD grab those from the model. But for good
+    # hygiene I get them from the solve as well
+
+    lensmodel       = optimization_inputs['lensmodel']
+    intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
+    istate_intrinsics0        = mrcal.state_index_intrinsics(icam_intrinsics, **optimization_inputs)
+    Nstates_intrinsics        = \
+        mrcal.num_intrinsics_optimization_params(**optimization_inputs)
+    if not optimization_inputs.get('do_optimize_intrinsics_core') and \
+       mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']:
+        istate_intrinsics0_onecam = 4
+    else:
+        istate_intrinsics0_onecam = 0
+
+    Nstate = mrcal.num_states(**optimization_inputs)
+
+    dq_db = \
+        _dq_db__projection_uncertainty( p_cam,
+                                        lensmodel, intrinsics_data,
+                                        extrinsics_rt_fromref, frames_rt_toref,
+                                        Nstate,
+                                        istate_intrinsics0,
+                                        istate_intrinsics0_onecam,
+                                        Nstates_intrinsics,
+                                        istate_extrinsics0, istate_frames0,
+                                        atinfinity = atinfinity,
+                                        method     = method,
+                                        Kunpacked  = Kunpacked)
 
     return _propagate_calibration_uncertainty(what,
                                               dF_db                      = dq_db,
