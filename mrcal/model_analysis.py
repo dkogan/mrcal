@@ -1633,16 +1633,9 @@ A tuple
 
 def stereo_pair_diff(model_pairs,
                      *,
-                     implied_Rt10 = None,
                      gridn_width  = 60,
                      gridn_height = None,
-
-                     intrinsics_only = False,
-                     distance        = None,
-
-                     use_uncertainties     = True,
-                     focus_center          = None,
-                     focus_radius          = -1.):
+                     distance     = None):
     r'''Compute the difference in projection between N model_pairs
 
 SYNOPSIS
@@ -1685,18 +1678,6 @@ The top-level operation of this function:
   other. How we obtain this transformation is described below
 - Project the transformed points to the other camera
 - Look at the resulting pixel difference in the reprojection
-
-If implied_Rt10 is given, we simply use that as the transformation (this is
-currently supported ONLY for diffing exactly 2 cameras). If implied_Rt10 is not
-given, we estimate it. Several variables control this. Top-level logic:
-
-  if intrinsics_only:
-      Rt10 = identity_Rt()
-  else:
-      if focus_radius == 0:
-          Rt10 = relative_extrinsics(model_pairs)
-      else:
-          Rt10 = implied_Rt10__from_unprojections()
 
 Sometimes we want to look at the intrinsics differences in isolation (if
 intrinsics_only), and sometimes we want to use the known geometry in the given
@@ -1892,83 +1873,7 @@ A tuple
                           *model_pairs[ipair][1].intrinsics() ) \
            for ipair in range(len(model_pairs)) ]
 
-    diff = q1[1] - q1[0]
-
-    Rt10 = None
-
-    # uncertainties = None
-    # if use_uncertainties and \
-    #    not intrinsics_only and focus_radius != 0 and \
-    #    implied_Rt10 is None:
-    #     try:
-    #         # len(uncertainties) = Ncameras. Each has shape (len(distance),Nh,Nw)
-    #         uncertainties = \
-    #             [ mrcal.projection_uncertainty(# shape (len(distance),Nheight,Nwidth,3)
-    #                                            v[i] * distance,
-    #                                            model_pairs[i],
-    #                                            atinfinity = atinfinity,
-    #                                            what       = 'worstdirection-stdev') \
-    #               for i in range(len(model_pairs)) ]
-    #     except Exception as e:
-    #         print(f"WARNING: stereo_pair_diff() was asked to use uncertainties, but they aren't available/couldn't be computed. Falling back on the region-based-only logic. Caught exception: {e}",
-    #               file = sys.stderr)
-
-    # if focus_center is None:
-    #     focus_center = ((W-1.)/2., (H-1.)/2.)
-
-    # if focus_radius < 0:
-    #     if uncertainties is not None:
-    #         focus_radius = max(W,H) * 100 # whole imager
-    #     else:
-    #         focus_radius = min(W,H)/6.
-
-    # # Two model_pairs. Take the difference and call it good
-    # if implied_Rt10 is not None:
-    #     Rt10 = implied_Rt10
-
-    # else:
-    #     if intrinsics_only:
-    #         Rt10 = mrcal.identity_Rt()
-    #     else:
-    #         if focus_radius == 0:
-    #             Rt10 = mrcal.compose_Rt(model_pairs[1].extrinsics_Rt_fromref(),
-    #                                     model_pairs[0].extrinsics_Rt_toref())
-    #         else:
-    #             # weights has shape (len(distance),Nh,Nw))
-    #             if uncertainties is not None:
-    #                 weights = 1.0 / (uncertainties[0]*uncertainties[1])
-
-    #                 # It appears to work better if I discount the uncertain regions
-    #                 # even more. This isn't a principled decision, and is supported
-    #                 # only by a little bit of data. The differencing.org I'm writing
-    #                 # now will contain a weighted diff of culled and not-culled
-    #                 # splined model data. That diff computation requires this.
-    #                 weights *= weights
-    #             else:
-    #                 weights = None
-
-    #             # weight may be inf or nan. implied_Rt10__from_unprojections() will
-    #             # clean those up, as well as any inf/nan in v (from failed
-    #             # unprojections)
-    #             Rt10 = \
-    #                 implied_Rt10__from_unprojections(q0,
-    #                                                  # shape (len(distance),Nheight,Nwidth,3)
-    #                                                  v[0,...] * distance,
-    #                                                  v[1,...],
-    #                                                  weights      = weights,
-    #                                                  atinfinity   = atinfinity,
-    #                                                  focus_center = focus_center,
-    #                                                  focus_radius = focus_radius)
-
-
-    # q1 = mrcal.project( mrcal.transform_point_Rt(Rt10,
-    #                                              # shape (len(distance),Nheight,Nwidth,3)
-    #                                              v[0,...] * distance),
-    #                     lensmodels[1], intrinsics_data[1])
-    # # shape (len(distance),Nheight,Nwidth,2)
-    # q1 = nps.atleast_dims(q1, -4)
-
-    # diff    = q1 - q0
+    diff    = q1[1] - q1[0]
     difflen = nps.mag(diff)
 
     # difflen, diff, q0 currently all have shape (len(distance), ...). If the
@@ -1977,12 +1882,11 @@ A tuple
         raise Exception(f"The leading shape of difflen is not 1 (difflen.shape = {difflen.shape}). This is a bug. Giving up")
     difflen = difflen[0,...]
 
-    if diff is not None:
-        if diff.shape[0] != 1:
-            raise Exception(f"The leading shape of diff is not 1 (diff.shape = {diff.shape}). This is a bug. Giving up")
-        diff = diff[0,...]
+    if diff.shape[0] != 1:
+        raise Exception(f"The leading shape of diff is not 1 (diff.shape = {diff.shape}). This is a bug. Giving up")
+    diff = diff[0,...]
 
-    return difflen, diff, q0, Rt10
+    return difflen, diff, q0
 
 
 def is_within_valid_intrinsics_region(q, model):

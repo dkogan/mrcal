@@ -42,16 +42,6 @@ The top-level operation of this tool:
 - Project the transformed points to the other camera
 - Look at the resulting pixel difference in the reprojection
 
-Several arguments control how we obtain the transformation. Top-level logic:
-
-  if --intrinsics-only:
-      Rt10 = identity_Rt()
-  else:
-      if --radius 0:
-          Rt10 = relative_extrinsics(models)
-      else:
-          Rt10 = implied_Rt10__from_unprojections()
-
 The details of how the comparison is computed, and the meaning of the arguments
 controlling this, are in the docstring of mrcal.stereo_pair_diff().
 
@@ -75,38 +65,11 @@ def parse_args():
                         help='''How densely we should sample the imager. By default we use a 60x40 grid''')
     parser.add_argument('--distance',
                         type=float,
-                        help='''Has an effect only without --intrinsics-only.
-                        The projection difference varies depending on the range
-                        to the observed world points, with the queried range set
-                        in this argument. If omitted we look out to infinity.''')
+                        help='''The projection difference varies depending on
+                        the range to the observed world points, with the queried
+                        range set in this argument. If omitted we look out to
+                        infinity.''')
 
-    parser.add_argument('--intrinsics-only',
-                        action='store_true',
-                        help='''If given, we evaluate the intrinsics of each
-                        lens in isolation by assuming that the coordinate
-                        systems of each camera line up exactly''')
-
-    parser.add_argument('--where',
-                        type=float,
-                        nargs=2,
-                        help='''Center of the region of interest for this diff.
-                        Used only without --intrinsics-only and without
-                        "--radius 0". It is usually impossible for the models to
-                        match everywhere, but focusing on a particular area can
-                        work better. The implied transformation will be fit to
-                        match as large as possible an area centered on this
-                        argument. If omitted, we will focus on the center of the
-                        imager''')
-    parser.add_argument('--radius',
-                        type=float,
-                        default=-1.,
-                        help='''Radius of the region of interest. If ==0, we do
-                        NOT fit an implied transformation at all, but use the
-                        transformations in the models. If omitted or <0, we use
-                        a "reasonable" value: the whole imager if we're using
-                        uncertainties, or min(width,height)/6 if
-                        --no-uncertainties. To fit with data across the whole
-                        imager in either case, pass in a very large radius''')
     parser.add_argument('--observations',
                         action='store_true',
                         default=False,
@@ -150,16 +113,6 @@ def parse_args():
                         action = 'store_true',
                         help='''If given, the plots are color-coded by the direction of the error, instead of
                         the magnitude''')
-
-    parser.add_argument('--no-uncertainties',
-                        action = 'store_true',
-                        help='''Used only without --intrinsics-only and without
-                        "--radius 0". By default we use the uncertainties in the
-                        model to weigh the fit. This will focus the fit on the
-                        confident region in the models without --where or
-                        --radius. The computation will run faster with
-                        --no-uncertainties, but the default --where and --radius
-                        may need to be adjusted''')
 
     parser.add_argument('--hardcopy',
                         type=str,
@@ -253,33 +206,18 @@ model_pairs = [ (models[i0], models[i0+1]) \
 #               file=sys.stderr)
 #         sys.exit(1)
 
-plot,Rt10 = mrcal.show_stereo_pair_diff(model_pairs,
-                                       gridn_width             = args.gridn[0],
-                                       gridn_height            = args.gridn[1],
-                                       observations            = args.observations,
-                                       valid_intrinsics_region = args.valid_intrinsics_region,
-                                       distance                = args.distance,
-                                       intrinsics_only         = args.intrinsics_only,
-                                       #use_uncertainties       = not args.no_uncertainties,
-                                       focus_center            = args.where,
-                                       focus_radius            = args.radius,
-                                       vectorfield             = args.vectorfield,
-                                       vectorscale             = args.vectorscale,
-                                       hardcopy                = args.hardcopy,
-                                       terminal                = args.terminal,
-                                       cbmax                   = args.cbmax,
-                                       **plotkwargs_extra)
-
-if not args.intrinsics_only and args.radius != 0 and \
-   Rt10 is not None and Rt10.shape == (4,3):
-    rt10 = mrcal.rt_from_Rt(Rt10)
-
-    print(f"Transformation cam1 <-- cam0:  rotation: {nps.mag(rt10[:3])*180./np.pi:.03f} degrees, translation: {rt10[3:]} m")
-
-    dist_shift = nps.mag(rt10[3:])
-    if dist_shift > 0.01:
-        msg = f"## WARNING: fitted camera moved by {dist_shift:.03f}m. This is probably aphysically high, and something is wrong. Pass both a high and a low --distance? See the docs at https://mrcal.secretsauce.net/differencing.html"
-        print(msg, file=sys.stderr)
+plot = mrcal.show_stereo_pair_diff(model_pairs,
+                                   gridn_width             = args.gridn[0],
+                                   gridn_height            = args.gridn[1],
+                                   observations            = args.observations,
+                                   valid_intrinsics_region = args.valid_intrinsics_region,
+                                   distance                = args.distance,
+                                   vectorfield             = args.vectorfield,
+                                   vectorscale             = args.vectorscale,
+                                   hardcopy                = args.hardcopy,
+                                   terminal                = args.terminal,
+                                   cbmax                   = args.cbmax,
+                                   **plotkwargs_extra)
 
 if args.hardcopy is None:
     plot.wait()

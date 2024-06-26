@@ -1357,17 +1357,12 @@ A tuple:
 
 def show_stereo_pair_diff(model_pairs,
                           *,
-                          implied_Rt10 = None,
                           gridn_width  = 60,
                           gridn_height = None,
 
                           observations            = False,
                           valid_intrinsics_region = False,
-                          intrinsics_only         = False,
                           distance                = None,
-
-                          focus_center     = None,
-                          focus_radius     = -1.,
 
                           vectorfield      = False,
                           vectorscale      = 1.0,
@@ -1411,18 +1406,6 @@ The top-level operation of this function:
 - Project the transformed points to the other camera
 - Look at the resulting pixel difference in the reprojection
 
-If implied_Rt10 is given, we simply use that as the transformation (this is
-currently supported ONLY for diffing exactly 2 cameras). If implied_Rt10 is not
-given, we estimate it. Several variables control this. Top-level logic:
-
-  if intrinsics_only:
-      Rt10 = identity_Rt()
-  else:
-      if focus_radius == 0:
-          Rt10 = relative_extrinsics(models)
-      else:
-          Rt10 = implied_Rt10__from_unprojections()
-
 The details of how the comparison is computed, and the meaning of the arguments
 controlling this, are in the docstring of mrcal.stereo_pair_diff().
 
@@ -1431,11 +1414,6 @@ ARGUMENTS
 - models: iterable of mrcal.cameramodel objects we're comparing. Usually there
   will be 2 of these, but more than 2 is possible. The intrinsics are used; the
   extrinsics are NOT.
-
-- implied_Rt10: optional transformation to use to line up the camera coordinate
-  systems. Most of the time we want to estimate this transformation, so this
-  should be omitted or None. Currently this is supported only if exactly two
-  models are being compared.
 
 - gridn_width: optional value, defaulting to 60. How many points along the
   horizontal gridding dimension
@@ -1453,37 +1431,10 @@ ARGUMENTS
   overlay the valid-intrinsics regions onto the plot. If the valid-intrinsics
   regions aren't available, we will silently omit them
 
-- intrinsics_only: optional boolean, defaulting to False. If True: we evaluate
-  the intrinsics of each lens in isolation by assuming that the coordinate
-  systems of each camera line up exactly
-
 - distance: optional value, defaulting to None. Has an effect only if not
   intrinsics_only. The projection difference varies depending on the range to
   the observed world points, with the queried range set in this 'distance'
   argument. If None (the default) we look out to infinity
-
-- use_uncertainties: optional boolean, defaulting to True. Used only if not
-  intrinsics_only and focus_radius!=0. If True we use the whole imager to fit
-  the implied-by-the-intrinsics transformation, using the uncertainties to
-  emphasize the confident regions. If False, it is important to select the
-  confident region using the focus_center and focus_radius arguments. If
-  use_uncertainties is True, but that data isn't available, we report a warning,
-  and try to proceed without.
-
-- focus_center: optional array of shape (2,); the imager center by default. Used
-  only if not intrinsics_only and focus_radius!=0. Used to indicate that the
-  implied-by-the-intrinsics transformation should use only those pixels a
-  distance focus_radius from focus_center. This is intended to be used if no
-  uncertainties are available, and we need to manually select the focus region.
-
-- focus_radius: optional value. If use_uncertainties then the default is LARGE,
-  to use the whole imager. Else the default is min(width,height)/6. Used to
-  indicate that the implied-by-the-intrinsics transformation should use only
-  those pixels a distance focus_radius from focus_center. This is intended to be
-  used if no uncertainties are available, and we need to manually select the
-  focus region. To avoid computing the transformation, either pass
-  focus_radius=0 (to use the extrinsics in the given models) or pass
-  intrinsics_only=True (to use the identity transform).
 
 - vectorfield: optional boolean, defaulting to False. By default we produce a
   heat map of the projection differences. If vectorfield: we produce a vector
@@ -1540,24 +1491,7 @@ A tuple:
     import gnuplotlib as gp
 
     if 'title' not in kwargs:
-        if intrinsics_only:
-            title_note = "using an identity extrinsics transform"
-        elif focus_radius == 0:
-            title_note = "using given extrinsics transform"
-        else:
-            distance_string = "infinity" if distance is None else f"distance={distance}"
-
-            title_note = f"computing the extrinsics transform from data at {distance_string}"
-
-        # should say something about the focus too, but it's already too long
-        # elif focus_radius > 2*(W+H):
-        #     where = "extrinsics transform fitted everywhere"
-        # else:
-        #     where = "extrinsics transform fit looking at {} with radius {}". \
-        #         format('the imager center' if focus_center is None else focus_center,
-        #                focus_radius)
-
-        title = f"Diff looking at {len(model_pairs)} model_pairs, {title_note}"
+        title = f"Diff looking at {len(model_pairs)} model_pairs"
         if extratitle is not None:
             title += ": " + extratitle
         kwargs['title'] = title
@@ -1568,15 +1502,10 @@ A tuple:
                             format(len(model_pairs)))
 
     # Now do all the actual work
-    difflen,diff,q0,Rt10 = mrcal.stereo_pair_diff(model_pairs,
-                                                 implied_Rt10      = implied_Rt10,
-                                                 gridn_width       = gridn_width,
-                                                 gridn_height      = gridn_height,
-                                                 intrinsics_only   = intrinsics_only,
-                                                 distance          = distance,
-                                                 use_uncertainties = False,
-                                                 focus_center      = focus_center,
-                                                 focus_radius      = focus_radius)
+    difflen,diff,q0 = mrcal.stereo_pair_diff(model_pairs,
+                                             gridn_width       = gridn_width,
+                                             gridn_height      = gridn_height,
+                                             distance          = distance)
     # shape (Nheight, Nwidth)
     if difflen is not None and difflen.ndim > 2:
         difflen = nps.clump(difflen, n=difflen.ndim-2)[0]
@@ -1634,6 +1563,7 @@ A tuple:
         plot_data_args = [ (color, curve_options) ]
 
     if valid_intrinsics_region:
+        raise Exception("finish this")
         valid_region0 = model_pairs[0].valid_intrinsics_region()
         if valid_region0 is not None:
             if vectorfield:
@@ -1659,18 +1589,16 @@ A tuple:
         # first camera to make sense. The transformation is complex, and
         # straight lines will not remain straight. I thus resample the polyline
         # more densely.
-        if not intrinsics_only:
+        v1 = mrcal.unproject(mrcal.utils._densify_polyline(valid_region1, spacing = 50),
+                             *model_pairs[1].intrinsics(),
+                             normalize = True)
 
-            v1 = mrcal.unproject(mrcal.utils._densify_polyline(valid_region1, spacing = 50),
-                                 *model_pairs[1].intrinsics(),
-                                 normalize = True)
+        if distance is not None:
+            v1 *= distance
 
-            if distance is not None:
-                v1 *= distance
-
-            valid_region1 = mrcal.project( mrcal.transform_point_Rt( mrcal.invert_Rt(Rt10),
-                                                                     v1 ),
-                                           *model_pairs[0].intrinsics() )
+        valid_region1 = mrcal.project( mrcal.transform_point_Rt( mrcal.invert_Rt(Rt10),
+                                                                 v1 ),
+                                       *model_pairs[0].intrinsics() )
 
         if vectorfield:
             # 2d plot
@@ -1684,6 +1612,7 @@ A tuple:
                                          legend = "valid region of 2nd camera")) )
 
     if observations:
+        raise Exception("finish this")
         for i in range(len(model_pairs)):
             _2d = bool(vectorfield)
             _append_observation_visualizations(plot_data_args,
@@ -1697,8 +1626,8 @@ A tuple:
     if not return_plot_args:
         plot = gp.gnuplotlib(**plot_options)
         plot.plot(*data_tuples)
-        return plot, Rt10
-    return (data_tuples, plot_options), Rt10
+        return plot
+    return (data_tuples, plot_options)
 
 
 def show_projection_uncertainty(model,
