@@ -895,6 +895,7 @@ def process(i_image):
                                               a_min = disparity_min*disparity_scale,
                                               a_max = disparity_max*disparity_scale)
 
+    # invalid or missing ranges are returned as range=0
     ranges = mrcal.stereo_range( disparity,
                                  models_rectified,
                                  disparity_scale = disparity_scale,
