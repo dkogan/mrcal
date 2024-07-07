@@ -676,7 +676,7 @@ static PyMethodDef CHOLMOD_factorization_methods[] =
 // This isn't mine to fix, so I'm ignoring it
 static PyTypeObject CHOLMOD_factorization_type =
 {
-     PyObject_HEAD_INIT(NULL)
+    .ob_base      = PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name      = "mrcal.CHOLMOD_factorization",
     .tp_basicsize = sizeof(CHOLMOD_factorization),
     .tp_new       = PyType_GenericNew,
