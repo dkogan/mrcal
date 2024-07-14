@@ -150,10 +150,11 @@ be transformed to reference off camera 0. If the extrinsics of camera 0 are the
 identity, then the two ref coord systems are the same. To avoid accidental bugs,
 we have a kwarg allow_nonidentity_cam0_transform, which defaults to False. if
 not allow_nonidentity_cam0_transform and norm(extrinsics_rt_fromref_true[0]) >
-0: raise
+0: raise. This logic is here purely for safety. A caller that handles
+non-identity cam0 transforms has to explicitly say that
 
-This logic is here purely for safety. A caller that handles non-identity cam0
-transforms has to explicitly say that
+If x_mirror then half of Nframes are shifted in the x direction by x_offset and
+the other half by -x_offset
 
 I always compute chessboard views. But if report_points: I store each corner
 observation as a separate point. if report_points: I ALSO enable the unity_cam01
