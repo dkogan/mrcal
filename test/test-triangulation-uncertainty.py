@@ -343,8 +343,7 @@ cache_file = f"/tmp/test-triangulation-uncertainty--{cache_id}.pickle"
 if args.cache is None or args.cache == 'write':
     optimization_inputs_baseline,                          \
     models_true,                                           \
-    intrinsics_true, extrinsics_true_mounted,              \
-    frames_true = \
+    intrinsics_true, frames_true =                         \
         calibration_baseline(args.model,
                              args.Ncameras,
                              args.Nframes,
@@ -370,7 +369,6 @@ else:
          Nintrinsics,
          imagersizes,
          intrinsics_true,
-         extrinsics_true_mounted,
          frames_true,
          intrinsics_sampled,
          extrinsics_sampled_mounted,
@@ -679,7 +677,6 @@ if not did_sample:
                          Nintrinsics,
                          imagersizes,
                          intrinsics_true,
-                         extrinsics_true_mounted,
                          frames_true,
                          intrinsics_sampled,
                          extrinsics_sampled_mounted,

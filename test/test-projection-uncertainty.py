@@ -278,8 +278,7 @@ else:
 
 optimization_inputs_baseline,             \
 models_true,                              \
-intrinsics_true, extrinsics_true_mounted, \
-frames_points_true = \
+intrinsics_true, frames_points_true =     \
     calibration_baseline(args.model,
                          args.Ncameras,
                          args.Nframes,
@@ -2134,7 +2133,7 @@ for distance in args.distances:
                             optimization_inputs_baseline,
 
                             intrinsics_true,
-                            extrinsics_true_mounted,
+                            extrinsics_rt_fromref_true,
                             frames_true if not args.points else points_true,
                             np.zeros((0,3), dtype=float),
                             calobject_warp_true,

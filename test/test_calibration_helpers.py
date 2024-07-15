@@ -160,6 +160,9 @@ ARGUMENTS
 
     '''
 
+    if nps.norm2(extrinsics_rt_fromcam0_true[0]) > 0:
+        raise Exception("A non-identity cam0 transform was given. This is not supported")
+
     if re.match('opencv',model):
         models_true_refcam0 = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
                         mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
@@ -185,14 +188,10 @@ ARGUMENTS
     for i in range(Ncameras):
         models_true_refcam0[i].extrinsics_rt_fromref(extrinsics_rt_fromcam0_true[i])
 
-    if nps.norm2(extrinsics_rt_fromcam0_true[0]) > 0:
-        raise Exception("A non-identity cam0 transform was given, but the caller didn't explicitly say that they support this")
-
     imagersizes = nps.cat( *[m.imagersize() for m in models_true_refcam0] )
 
     # These are perfect
-    intrinsics_true         = nps.cat( *[m.intrinsics()[1]         for m in models_true_refcam0] )
-    extrinsics_true_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in models_true_refcam0] )
+    intrinsics_true = nps.cat( *[m.intrinsics()[1]         for m in models_true_refcam0] )
     x_center = -(Ncameras-1)/2.
 
 
@@ -272,7 +271,7 @@ ARGUMENTS
     if not fixedframes:
         # Frames are NOT fixed: cam0 is fixed as the reference coord system. I
         # transform each optimization extrinsics vector to be relative to cam0
-        frames_true = mrcal.compose_rt(extrinsics_true_mounted[0,:], frames_true)
+        frames_true = mrcal.compose_rt(extrinsics_rt_fromcam0_true[0,:], frames_true)
 
 
     ############# I have perfect observations in q_true.
@@ -345,13 +344,13 @@ ARGUMENTS
     if fixedframes:
         # Frames are fixed: each camera has an independent pose
         optimization_inputs_baseline['extrinsics_rt_fromref'] = \
-            copy.deepcopy(extrinsics_true_mounted)
+            copy.deepcopy(extrinsics_rt_fromcam0_true)
     else:
         # Frames are NOT fixed: cam0 is fixed as the reference coord system. I
         # transform each optimization extrinsics vector to be relative to cam0
         optimization_inputs_baseline['extrinsics_rt_fromref'] = \
-            mrcal.compose_rt(extrinsics_true_mounted[1:,:],
-                             mrcal.invert_rt(extrinsics_true_mounted[0,:]))
+            mrcal.compose_rt(extrinsics_rt_fromcam0_true[1:,:],
+                             mrcal.invert_rt(extrinsics_rt_fromcam0_true[0,:]))
 
     ###########################################################################
     # p = mrcal.show_geometry(models_true_refcam0,
@@ -430,16 +429,14 @@ ARGUMENTS
         return                                        \
             optimization_inputs_baseline,             \
             models_true_refcam0,                      \
-            intrinsics_true, extrinsics_true_mounted, \
-            frames_true
+            intrinsics_true, frames_true
 
     else:
 
         return                                        \
             optimization_inputs_baseline,             \
             models_true_refcam0,                      \
-            intrinsics_true, extrinsics_true_mounted, \
-            points_true
+            intrinsics_true, points_true
 
 
 def calibration_sample(Nsamples,
