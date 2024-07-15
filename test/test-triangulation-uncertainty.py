@@ -343,10 +343,9 @@ cache_file = f"/tmp/test-triangulation-uncertainty--{cache_id}.pickle"
 
 if args.cache is None or args.cache == 'write':
     optimization_inputs_baseline,                          \
-    models_true, models_baseline,                          \
-    lensmodel, Nintrinsics, imagersizes,                   \
+    models_true,                                           \
     intrinsics_true, extrinsics_true_mounted,              \
-    indices_frame_camintrinsics_camextrinsics, frames_true, observations_true, args.Nframes = \
+    frames_true = \
         calibration_baseline(args.model,
                              args.Ncameras,
                              args.Nframes,
@@ -360,23 +359,31 @@ if args.cache is None or args.cache == 'write':
                              testdir,
                              cull_left_of_center = args.cull_left_of_center,
                              allow_nonidentity_cam0_transform = False)
+
+    lensmodel   = optimization_inputs_baseline['lensmodel']
+    imagersizes = optimization_inputs_baseline['imagersizes']
+    Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
+
 else:
     with open(cache_file,"rb") as f:
         (optimization_inputs_baseline,
          models_true,
-         models_baseline,
-         indices_frame_camintrinsics_camextrinsics,
          lensmodel,
          Nintrinsics,
          imagersizes,
          intrinsics_true,
          extrinsics_true_mounted,
          frames_true,
-         observations_true,
          intrinsics_sampled,
          extrinsics_sampled_mounted,
          frames_sampled,
          calobject_warp_sampled) = pickle.load(f)
+
+
+models_baseline = \
+    [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
+                         icam_intrinsics     = i) \
+      for i in range(args.Ncameras) ]
 
 baseline_rt_ref_frame = optimization_inputs_baseline['frames_rt_toref']
 
@@ -670,14 +677,12 @@ if not did_sample:
             pickle.dump((optimization_inputs_baseline,
                          models_true,
                          models_baseline,
-                         indices_frame_camintrinsics_camextrinsics,
                          lensmodel,
                          Nintrinsics,
                          imagersizes,
                          intrinsics_true,
                          extrinsics_true_mounted,
                          frames_true,
-                         observations_true,
                          intrinsics_sampled,
                          extrinsics_sampled_mounted,
                          frames_sampled,

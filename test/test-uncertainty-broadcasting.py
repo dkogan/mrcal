@@ -133,10 +133,9 @@ extrinsics_rt_fromref_true[:,4:] = np.random.randn(Ncameras,2) * 0.1
 extrinsics_rt_fromref_true[0] *= 0
 
 optimization_inputs_baseline,                          \
-models_true, models_baseline,                          \
-lensmodel, Nintrinsics, imagersizes,                   \
+models_true,                                           \
 intrinsics_true, extrinsics_true_mounted,              \
-indices_frame_camintrinsics_camextrinsics, frames_true, observations_true, args.Nframes = \
+frames_true = \
     calibration_baseline(args.model,
                          Ncameras,
                          args.Nframes,
@@ -150,6 +149,11 @@ indices_frame_camintrinsics_camextrinsics, frames_true, observations_true, args.
                          testdir,
                          cull_left_of_center = args.cull_left_of_center,
                          allow_nonidentity_cam0_transform = False)
+
+models_baseline = \
+    [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
+                         icam_intrinsics     = i) \
+      for i in range(args.Ncameras) ]
 
 
 

@@ -276,11 +276,10 @@ else:
     calibration_baseline_kwargs = dict()
 
 
-optimization_inputs_baseline,                          \
-models_true, models_baseline,                          \
-lensmodel, Nintrinsics, imagersizes,                   \
-intrinsics_true, extrinsics_true_mounted,              \
-*rest = \
+optimization_inputs_baseline,             \
+models_true,                              \
+intrinsics_true, extrinsics_true_mounted, \
+frames_points_true = \
     calibration_baseline(args.model,
                          args.Ncameras,
                          args.Nframes,
@@ -296,16 +295,35 @@ intrinsics_true, extrinsics_true_mounted,              \
                          report_points   = args.points,
                          **calibration_baseline_kwargs)
 
+lensmodel   = optimization_inputs_baseline['lensmodel']
+imagersizes = optimization_inputs_baseline['imagersizes']
+
+models_baseline = \
+    [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
+                         icam_intrinsics     = i) \
+      for i in range(args.Ncameras) ]
+
+
 
 if not args.points:
-    indices_frame_camintrinsics_camextrinsics, frames_true, observations_board_true, args.Nframes = rest
+    frames_true = frames_points_true
+
+    indices_frame_camintrinsics_camextrinsics = optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics']
+    observations_board_true                   = optimization_inputs_baseline['observations_board']
+    args.Nframes                              = len(optimization_inputs_baseline['frames_rt_toref'])
+
     indices_point_camintrinsics_camextrinsics = None
     points_true                               = None
     observations_point_true                   = None
     Npoints                                   = None
 
 else:
-    indices_point_camintrinsics_camextrinsics, points_true, observations_point_true, Npoints = rest
+    points_true = frames_points_true
+
+    indices_point_camintrinsics_camextrinsics = optimization_inputs_baseline['indices_point_camintrinsics_camextrinsics']
+    observations_point_true                   = optimization_inputs_baseline['observations_point']
+    Npoints                                   = len(optimization_inputs_baseline['points'])
+
     indices_frame_camintrinsics_camextrinsics = None
     frames_true                               = None
     observations_board_true                   = None

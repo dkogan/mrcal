@@ -431,27 +431,24 @@ ARGUMENTS
 
     mrcal.optimize(**optimization_inputs_baseline)
 
-    models_baseline = \
-        [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
-                             icam_intrinsics     = i) \
-          for i in range(Ncameras) ]
+
+
+
 
     if not report_points:
-        return                                                     \
-            optimization_inputs_baseline,                          \
-            models_true, models_baseline,                          \
-            lensmodel, Nintrinsics, imagersizes,                   \
-            intrinsics_true, extrinsics_true_mounted,              \
-            indices_frame_camintrinsics_camextrinsics, frames_true, observations_board_true, Nframes
+        return                                        \
+            optimization_inputs_baseline,             \
+            models_true,                              \
+            intrinsics_true, extrinsics_true_mounted, \
+            frames_true
 
     else:
 
-        return                                                     \
-            optimization_inputs_baseline,                          \
-            models_true, models_baseline,                          \
-            lensmodel, Nintrinsics, imagersizes,                   \
-            intrinsics_true, extrinsics_true_mounted,              \
-            indices_point_camintrinsics_camextrinsics, points_true, observations_point_true, Npoints
+        return                                        \
+            optimization_inputs_baseline,             \
+            models_true,                              \
+            intrinsics_true, extrinsics_true_mounted, \
+            points_true
 
 
 def calibration_sample(Nsamples,

@@ -38,11 +38,10 @@ extrinsics_rt_fromref_true = \
               (0.01, 0.07, 0.2,    2.1, 0.4, 0.2),
               (-0.1, 0.08, 0.08,   3.4, 0.2, 0.1), ))
 
-optimization_inputs_baseline,                          \
-models_true, models_baseline,                          \
-lensmodel, Nintrinsics, imagersizes,                   \
+optimization_inputs_baseline,             \
+models_true,                              \
 intrinsics_true, extrinsics_true_mounted, \
-indices_frame_camintrinsics_camextrinsics, frames_true, observations_true, Nframes = \
+frames_true =                             \
     calibration_baseline(model,
                          Ncameras,
                          Nframes,
@@ -55,17 +54,23 @@ indices_frame_camintrinsics_camextrinsics, frames_true, observations_true, Nfram
                          fixedframes,
                          testdir)
 
-for i in range(len(models_baseline)):
+models_baseline = \
+    [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
+                         icam_intrinsics     = i) \
+      for i in range(Ncameras) ]
+
+
+for i in range(Ncameras):
     testutils.confirm(not models_baseline[i]._extrinsics_moved_since_calibration(),
                       msg = f"Camera {i} unmoved")
 
 extrinsics_rt_fromref = extrinsics_rt_fromref_true.copy()
 extrinsics_rt_fromref[:,-1] += 1e-3
 
-for i in range(len(models_baseline)):
+for i in range(Ncameras):
     models_baseline[i].extrinsics_rt_fromref(extrinsics_rt_fromref[i])
 
-for i in range(len(models_baseline)):
+for i in range(Ncameras):
     testutils.confirm(models_baseline[i]._extrinsics_moved_since_calibration(),
                       msg = f"Camera {i} moved")
 
