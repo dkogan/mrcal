@@ -341,9 +341,9 @@ cache_id = f"{args.fixed}-{args.model}-{args.Nframes}-{args.Nsamples}-{args.Ncam
 cache_file = f"/tmp/test-triangulation-uncertainty--{cache_id}.pickle"
 
 if args.cache is None or args.cache == 'write':
-    optimization_inputs_baseline,                          \
-    models_true,                                           \
-    intrinsics_true, frames_true =                         \
+    optimization_inputs_baseline, \
+    models_true,                  \
+    frames_true =                 \
         calibration_baseline(args.model,
                              args.Ncameras,
                              args.Nframes,
@@ -368,7 +368,6 @@ else:
          lensmodel,
          Nintrinsics,
          imagersizes,
-         intrinsics_true,
          frames_true,
          intrinsics_sampled,
          extrinsics_sampled_mounted,
@@ -398,7 +397,7 @@ p_triangulated_true_local = nps.xchg( nps.cat( p_triangulated_true0,
 # shape (Npoints,Ncameras,2)
 q_true = nps.xchg( np.array([ mrcal.project(p_triangulated_true_local[:,i,:],
                                             lensmodel,
-                                            intrinsics_true[args.cameras[i]]) \
+                                            models_true[args.cameras[i]].intrinsics()[1]) \
                             for i in range(2)]),
                  0,1)
 
@@ -676,7 +675,6 @@ if not did_sample:
                          lensmodel,
                          Nintrinsics,
                          imagersizes,
-                         intrinsics_true,
                          frames_true,
                          intrinsics_sampled,
                          extrinsics_sampled_mounted,

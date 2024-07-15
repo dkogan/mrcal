@@ -276,9 +276,9 @@ else:
     calibration_baseline_kwargs = dict()
 
 
-optimization_inputs_baseline,             \
-models_true,                              \
-intrinsics_true, frames_points_true =     \
+optimization_inputs_baseline, \
+models_true,                  \
+frames_points_true =          \
     calibration_baseline(args.model,
                          args.Ncameras,
                          args.Nframes,
@@ -294,8 +294,11 @@ intrinsics_true, frames_points_true =     \
                          report_points   = args.points,
                          **calibration_baseline_kwargs)
 
-lensmodel   = optimization_inputs_baseline['lensmodel']
-imagersizes = optimization_inputs_baseline['imagersizes']
+lensmodel       = optimization_inputs_baseline['lensmodel']
+imagersizes     = optimization_inputs_baseline['imagersizes']
+intrinsics_true = nps.cat( *[m.intrinsics()[1] \
+                             for m in models_true] )
+
 
 models_baseline = \
     [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,

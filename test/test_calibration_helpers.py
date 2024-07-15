@@ -576,14 +576,14 @@ ARGUMENTS
         return                                        \
             optimization_inputs_baseline,             \
             models_true_refcam0,                      \
-            intrinsics_true, rt_cam0_board_true
+            rt_cam0_board_true
 
     else:
 
         return                                        \
             optimization_inputs_baseline,             \
             models_true_refcam0,                      \
-            intrinsics_true, points_true
+            points_true
 
 
 def calibration_sample(Nsamples,

@@ -38,9 +38,9 @@ extrinsics_rt_fromref_true = \
               (0.01, 0.07, 0.2,    2.1, 0.4, 0.2),
               (-0.1, 0.08, 0.08,   3.4, 0.2, 0.1), ))
 
-optimization_inputs_baseline,             \
-models_true,                              \
-intrinsics_true, frames_true =            \
+optimization_inputs_baseline, \
+models_true,                  \
+frames_true =                 \
     calibration_baseline(model,
                          Ncameras,
                          Nframes,

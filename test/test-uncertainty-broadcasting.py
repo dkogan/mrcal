@@ -131,9 +131,9 @@ extrinsics_rt_fromref_true[:,4:] = np.random.randn(Ncameras,2) * 0.1
 # coordinate system as these transformations.
 extrinsics_rt_fromref_true[0] *= 0
 
-optimization_inputs_baseline,                          \
-models_true,                                           \
-intrinsics_true, frames_true =                         \
+optimization_inputs_baseline, \
+models_true,                  \
+frames_true =                 \
     calibration_baseline(args.model,
                          Ncameras,
                          args.Nframes,
