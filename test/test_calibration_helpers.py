@@ -138,7 +138,11 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          x_noiseradius = 2.5,
                          y_noiseradius = 2.5,
                          x_mirror      = False, # half with +x_offset, half with -x_offset
-                         report_points = False):
+                         report_points = False,
+
+                         moving_cameras = False,
+                         ref_frame0     = False):
+
     r'''Compute a calibration baseline as a starting point for experiments
 
 This is a perfect, noiseless solve. Regularization IS enabled, and the returned
@@ -152,6 +156,18 @@ I always compute chessboard views. But if report_points: I store each corner
 observation as a separate point. if report_points: I ALSO enable the unity_cam01
 regularization to make the solve non-singular
 
+fixedframes may be true in the simple, vanilla case: not moving_cameras and not
+ref_frame0. if fixedframes: we lock down the frame poses, and allow ALL the
+cameras to move
+
+The moving_cameras and ref_frame0 arguments control what is moving/stationary
+and where the reference coordinate system is. Since in the end we look at
+relative camera-frame transforms, their absolute poses don't matter, and either
+the cameras or frames can be stationary. And the reference coord system can be
+defined at either one of the cameras or one of the frames. Some of these
+combinations aren't supported at all, and some are supported only if we have a
+single camera. An exception will be raised for an un-supported case
+
 ARGUMENTS
 
 - model: string. 'opencv4' or 'opencv8' or 'splined'
@@ -162,6 +178,10 @@ ARGUMENTS
 
     if nps.norm2(extrinsics_rt_fromcam0_true[0]) > 0:
         raise Exception("A non-identity cam0 transform was given. This is not supported")
+
+    if fixedframes and \
+       (moving_cameras or ref_frame0):
+        raise Exception("fixedframes only supported in the simple, vanilla case: not moving_cameras and not ref_frame0")
 
     if re.match('opencv',model):
         models_true_refcam0 = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
@@ -224,7 +244,7 @@ ARGUMENTS
     if not x_mirror:
         # shapes (Nframes, Ncameras, Nh, Nw, 2),
         #        (Nframes, 4,3)
-        q_true,Rt_ref_board_true = \
+        q_true,Rt_cam0_board_true = \
             synthesize(z             = range_to_boards,
                        z_noiseradius = range_to_boards / 2.0,
                        Nframes       = Nframes,
@@ -235,23 +255,23 @@ ARGUMENTS
 
         # shapes (Nframes//2, Ncameras, Nh, Nw, 2),
         #        (Nframes//2, 4,3)
-        q_true0,Rt_ref_board_true0 = \
+        q_true0,Rt_cam0_board_true0 = \
             synthesize(z             = range_to_boards,
                        z_noiseradius = range_to_boards / 2.0,
                        Nframes       = Nframes//2,
                        x_offset      = x_offset)
-        q_true1,Rt_ref_board_true1 = \
+        q_true1,Rt_cam0_board_true1 = \
             synthesize(z             = range_to_boards,
                        z_noiseradius = range_to_boards / 2.0,
                        Nframes       = Nframes//2,
                        x_offset      = -x_offset)
 
         q_true            = nps.glue(q_true0,           q_true1,            axis=-5)
-        Rt_ref_board_true = nps.glue(Rt_ref_board_true0,Rt_ref_board_true1, axis=-3)
+        Rt_cam0_board_true = nps.glue(Rt_cam0_board_true0,Rt_cam0_board_true1, axis=-3)
 
 
     if extra_observation_at is not None:
-        q_true_extra,Rt_ref_board_true_extra = \
+        q_true_extra,Rt_cam0_board_true_extra = \
             synthesize(z             = extra_observation_at,
                        z_noiseradius = extra_observation_at / 10.0,
                        Nframes       = 1,
@@ -260,19 +280,13 @@ ARGUMENTS
 
         q_true            = nps.glue( q_true, q_true_extra,
                                       axis=-5)
-        Rt_ref_board_true = nps.glue( Rt_ref_board_true, Rt_ref_board_true_extra,
+        Rt_cam0_board_true = nps.glue( Rt_cam0_board_true, Rt_cam0_board_true_extra,
                                       axis=-3)
 
         Nframes += 1
 
     # shape (Nframes, 6)
-    frames_true = mrcal.rt_from_Rt(Rt_ref_board_true)
-
-    if not fixedframes:
-        # Frames are NOT fixed: cam0 is fixed as the reference coord system. I
-        # transform each optimization extrinsics vector to be relative to cam0
-        frames_true = mrcal.compose_rt(extrinsics_rt_fromcam0_true[0,:], frames_true)
-
+    rt_cam0_board_true = mrcal.rt_from_Rt(Rt_cam0_board_true)
 
     ############# I have perfect observations in q_true.
     # weight has shape (Nframes, Ncameras, Nh, Nw),
@@ -305,12 +319,14 @@ ARGUMENTS
     # shape (Nframes*Ncameras, 2)
     indices_frame_camera = nps.clump(indices_frame_camera, n=2)
 
+    # stationary cameras, so idxci = idxce
     # shape (Nframes*Ncameras, 3)
     indices_frame_camintrinsics_camextrinsics = \
         nps.glue(indices_frame_camera,
                  indices_frame_camera[:,(1,)],
                  axis=-1)
     if not fixedframes:
+        # cam0 is at the reference
         indices_frame_camintrinsics_camextrinsics[:,2] -= 1
 
 
@@ -321,10 +337,12 @@ ARGUMENTS
     # noise-induced motions off this optimization optimum
     optimization_inputs_baseline = \
         dict( intrinsics                                = copy.deepcopy(intrinsics_true),
-              frames_rt_toref                           = None,
+              extrinsics_rt_fromref                     = copy.deepcopy(extrinsics_rt_fromcam0_true if fixedframes \
+                                                                        else extrinsics_rt_fromcam0_true[1:,:])
+              frames_rt_toref                           = copy.deepcopy(rt_cam0_board_true),
               points                                    = None,
-              observations_board                        = None,
-              indices_frame_camintrinsics_camextrinsics = None,
+              observations_board                        = observations_board_true,
+              indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
               observations_point                        = None,
               indices_point_camintrinsics_camextrinsics = None,
               lensmodel                                 = lensmodel,
@@ -341,32 +359,161 @@ ARGUMENTS
               do_apply_outlier_rejection                = False,
               do_apply_regularization_unity_cam01       = report_points)
 
-    if fixedframes:
-        # Frames are fixed: each camera has an independent pose
-        optimization_inputs_baseline['extrinsics_rt_fromref'] = \
-            copy.deepcopy(extrinsics_rt_fromcam0_true)
-    else:
-        # Frames are NOT fixed: cam0 is fixed as the reference coord system. I
-        # transform each optimization extrinsics vector to be relative to cam0
-        optimization_inputs_baseline['extrinsics_rt_fromref'] = \
-            mrcal.compose_rt(extrinsics_rt_fromcam0_true[1:,:],
-                             mrcal.invert_rt(extrinsics_rt_fromcam0_true[0,:]))
-
     ###########################################################################
     # p = mrcal.show_geometry(models_true_refcam0,
-    #                         frames          = frames_true,
+    #                         frames          = rt_cam0_board_true,
     #                         object_width_n  = object_width_n,
     #                         object_height_n = object_height_n,
     #                         object_spacing  = object_spacing)
     # sys.exit()
 
+
+    idxf,idxci,idxce = indices_frame_camintrinsics_camextrinsics.T
+
+
+    if not moving_cameras and \
+       not ref_frame0:
+
+        # stationary camera, moving frame, reference at cam0
+        #
+        #   For a single camera:
+        #
+        #   0    state variables for extrinsics
+        #   6*Nf state variables for frames (or 3*Np*Nf points)
+        #
+        #   indices_frame_camintrinsics_camextrinsics =
+        #   [ 0 0 -1
+        #     1 0 -1
+        #     2 0 -1
+        #     ...   ]
+
+        # This is the baseline case. The data is already set up like this.
+        # This is the only case where fixedframes may be true
+        pass
+
+    elif moving_cameras and \
+         ref_frame0:
+        # moving camera, stationary frame, reference at the one stationary
+        # chessboard
+        #
+        #   For a single camera:
+        #
+        #   6*Nf state variables for extrinsics
+        #   0    state variables for frames
+
+        #   indices_frame_camintrinsics_camextrinsics =
+        #   [ 0 0 0
+        #     0 0 1
+        #     0 0 2
+        #     ... ]
+        #
+        #   I want to have indices_frame = -1 here, but mrcal does not currently
+        #   support this. Instead we set indices_frame = 0, actually store
+        #   something into the frames_rt_toref array, and set do_optimize_frames
+        #   = False
+        #
+        #   Today this scenario cannot work with multiple cameras: this would
+        #   require a rigid "rig" or cameras moving in unison, which isn't
+        #   supported today.
+        if Ncameras > 1:
+            raise Exception("Scenario (moving-camera, stationary-frame, ref-at-frame) cannot work with multiple cameras: camera-rig implementation is required")
+
+        indices_frame_camintrinsics_camextrinsics = \
+        optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'] = \
+            np.ascontiguousarray(nps.transpose( nps.cat( idxce+1,
+                                                         idxci,
+                                                         idxf ) ))
+
+        optimization_inputs_baseline['extrinsics_rt_fromref' ] = np.array(rt_cam0_board_true)
+        optimization_inputs_baseline['frames_rt_toref'       ] = np.zeros((1,6), dtype=float)
+        optimization_inputs_baseline['do_optimize_extrinsics'] = True
+        optimization_inputs_baseline['do_optimize_frames'    ] = False
+
+    elif moving_cameras and \
+         not ref_frame0:
+
+        # moving camera, stationary frame, reference at cam0
+        #   6*(Nf-1) state variables for extrinsics
+        #   6        state variables for frames
+
+        #   indices_frame_camintrinsics_camextrinsics =
+        #   [ 0 0 -1
+        #     0 0  0
+        #     0 0  1
+        #     0 0  2
+        #     ...   ]
+        #
+        #   Or if looking_at_points:
+
+        #     if I assume I'm looking at a chessboard, I set the points to the known
+        #     geometry, fix that, and I'm done. But what if the point geometry is fixed
+        #     between frames, but unknown? I fix cam0 and have a single set of points that
+        #     I optimize:
+
+        #     6*(Nf-1) extrinsics
+        #     3*Np points
+
+        #     indices_point_camintrinsics_camextrinsics =
+        #     [ 0 0 -1
+        #       1 0 -1
+        #       2 0 -1
+        #       ...
+        #       0 0  0
+        #       1 0  0
+        #       2 0  0
+        #       ...
+        #       0 0  1
+        #       1 0  1
+        #       2 0  1
+        #       ... ]
+        #
+        #   Today this scenario cannot work with multiple cameras: this would
+        #   require a rigid "rig" or cameras moving in unison, which isn't
+        #   supported today.
+        if Ncameras > 1:
+            raise Exception("Scenario (moving-camera, stationary-frame, ref-at-cam0) cannot work with multiple cameras: camera-rig implementation is required")
+
+        optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'] = \
+            np.ascontiguousarray(nps.transpose( nps.cat( idxce+1,
+                                                         idxci,
+                                                         idxf-1 )))
+
+        rt_cam_cam0 = \
+            mrcal.compose_rt(rt_cam0_board_true[1:,:],
+                             mrcal.invert_rt(rt_cam0_board_true[0,:]))
+
+        optimization_inputs_baseline['extrinsics_rt_fromref' ] = rt_cam_cam0
+        optimization_inputs_baseline['frames_rt_toref'       ] = rt_cam0_board_true[(0,),:]
+        optimization_inputs_baseline['do_optimize_extrinsics'] = True
+        optimization_inputs_baseline['do_optimize_frames'    ] = True
+
+    elif not moving_cameras and \
+         ref_frame0:
+
+        # stationary camera, moving frame, reference at frame0
+        #   6        state variables for extrinsics
+        #   6*(Nf-1) state variables for frames
+
+        #   indices_frame_camintrinsics_camextrinsics =
+        #   [ -1 0 0
+        #      0 0 0
+        #      1 0 0
+        #     ...   ]
+        #
+        # mrcal cannot represent this today, so I don't check it. Today mrcal
+        # can represent NULL camera transforms (index_camextrinsics < 0), but
+        # not NULL frame transforms. Above I could fake a NULL frame transform
+        # by setting do_optimize_frames = False, but that only works if I want
+        # to lock down ALL the frame transforms, not just a single one, like I
+        # need to do here
+        raise Exception("Case not supported: not moving_cameras and ref_frame0")
+
+
     if not report_points:
-        optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'] = indices_frame_camintrinsics_camextrinsics
-        optimization_inputs_baseline['frames_rt_toref'         ]                  = copy.deepcopy(frames_true)
-        optimization_inputs_baseline['observations_board']                        = copy.deepcopy(observations_board_true)
+        # Nominal case; already done
+        pass
 
     else:
-
         # I break up the chessboard observations into discrete points
 
         # shape (Nframes,H,W,Ncameras, 3)
@@ -394,7 +541,7 @@ ARGUMENTS
                                          calobject_warp = calobject_warp_true)
 
         # shape (Nframes,H,W, 3)
-        points_true = mrcal.transform_point_Rt(nps.dummy(Rt_ref_board_true,-3,-3),
+        points_true = mrcal.transform_point_Rt(nps.dummy(Rt_cam0_board_true,-3,-3),
                                                pboard)
         # shape (Nframes*H*W, 3)
         points_true = nps.clump(points_true, n=3)
@@ -414,22 +561,22 @@ ARGUMENTS
 
         optimization_inputs_baseline['indices_point_camintrinsics_camextrinsics'] = indices_point_camintrinsics_camextrinsics
         optimization_inputs_baseline['points']                                    = copy.deepcopy(points_true)
-        optimization_inputs_baseline['observations_point']                        = copy.deepcopy(observations_point_true)
+        optimization_inputs_baseline['observations_point']                        = observations_point_true
+
+        optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'] = None
+        optimization_inputs_baseline['frames_rt_toref']                           = None
+        optimization_inputs_baseline['observations_board']                        = None
 
         optimization_inputs_baseline['point_min_range'] = 1e-3
         optimization_inputs_baseline['point_max_range'] = 1e12
 
     mrcal.optimize(**optimization_inputs_baseline)
 
-
-
-
-
     if not report_points:
         return                                        \
             optimization_inputs_baseline,             \
             models_true_refcam0,                      \
-            intrinsics_true, frames_true
+            intrinsics_true, rt_cam0_board_true
 
     else:
 
