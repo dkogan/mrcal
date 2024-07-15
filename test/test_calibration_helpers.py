@@ -338,7 +338,7 @@ ARGUMENTS
     optimization_inputs_baseline = \
         dict( intrinsics                                = copy.deepcopy(intrinsics_true),
               extrinsics_rt_fromref                     = copy.deepcopy(extrinsics_rt_fromcam0_true if fixedframes \
-                                                                        else extrinsics_rt_fromcam0_true[1:,:])
+                                                                        else extrinsics_rt_fromcam0_true[1:,:]),
               frames_rt_toref                           = copy.deepcopy(rt_cam0_board_true),
               points                                    = None,
               observations_board                        = observations_board_true,
