@@ -161,38 +161,38 @@ ARGUMENTS
     '''
 
     if re.match('opencv',model):
-        models_true = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
+        models_true_refcam0 = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
                         mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
                         mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel"),
                         mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel") )
 
         if model == 'opencv4':
-            # I have opencv8 models_true, but I truncate to opencv4 models_true
-            for m in models_true:
+            # I have opencv8 models_true_refcam0, but I truncate to opencv4 models_true_refcam0
+            for m in models_true_refcam0:
                 m.intrinsics( intrinsics = ('LENSMODEL_OPENCV4', m.intrinsics()[1][:8]))
     elif model == 'splined':
-        models_true = ( mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel"),
+        models_true_refcam0 = ( mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel"),
                         mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel"),
                         mrcal.cameramodel(f"{testdir}/data/cam1.splined.cameramodel"),
                         mrcal.cameramodel(f"{testdir}/data/cam1.splined.cameramodel") )
     else:
         raise Exception("Unknown lens being tested")
 
-    models_true = models_true[:Ncameras]
-    lensmodel   = models_true[0].intrinsics()[0]
+    models_true_refcam0 = models_true_refcam0[:Ncameras]
+    lensmodel   = models_true_refcam0[0].intrinsics()[0]
     Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
 
     for i in range(Ncameras):
-        models_true[i].extrinsics_rt_fromref(extrinsics_rt_fromcam0_true[i])
+        models_true_refcam0[i].extrinsics_rt_fromref(extrinsics_rt_fromcam0_true[i])
 
     if nps.norm2(extrinsics_rt_fromcam0_true[0]) > 0:
         raise Exception("A non-identity cam0 transform was given, but the caller didn't explicitly say that they support this")
 
-    imagersizes = nps.cat( *[m.imagersize() for m in models_true] )
+    imagersizes = nps.cat( *[m.imagersize() for m in models_true_refcam0] )
 
     # These are perfect
-    intrinsics_true         = nps.cat( *[m.intrinsics()[1]         for m in models_true] )
-    extrinsics_true_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in models_true] )
+    intrinsics_true         = nps.cat( *[m.intrinsics()[1]         for m in models_true_refcam0] )
+    extrinsics_true_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in models_true_refcam0] )
     x_center = -(Ncameras-1)/2.
 
 
@@ -200,7 +200,7 @@ ARGUMENTS
     def synthesize(z, z_noiseradius, Nframes,
                    x_offset):
         return \
-            mrcal.synthesize_board_observations(models_true,
+            mrcal.synthesize_board_observations(models_true_refcam0,
                                                 object_width_n                  = object_width_n,
                                                 object_height_n                 = object_height_n,
                                                 object_spacing                  = object_spacing,
@@ -284,8 +284,8 @@ ARGUMENTS
 
     if cull_left_of_center:
 
-        imagersize = models_true[0].imagersize()
-        for m in models_true[1:]:
+        imagersize = models_true_refcam0[0].imagersize()
+        for m in models_true_refcam0[1:]:
             if np.any(m.imagersize() - imagersize):
                 raise Exception("I'm assuming all cameras have the same imager size, but this is false")
 
@@ -354,7 +354,7 @@ ARGUMENTS
                              mrcal.invert_rt(extrinsics_true_mounted[0,:]))
 
     ###########################################################################
-    # p = mrcal.show_geometry(models_true,
+    # p = mrcal.show_geometry(models_true_refcam0,
     #                         frames          = frames_true,
     #                         object_width_n  = object_width_n,
     #                         object_height_n = object_height_n,
@@ -429,7 +429,7 @@ ARGUMENTS
     if not report_points:
         return                                        \
             optimization_inputs_baseline,             \
-            models_true,                              \
+            models_true_refcam0,                      \
             intrinsics_true, extrinsics_true_mounted, \
             frames_true
 
@@ -437,7 +437,7 @@ ARGUMENTS
 
         return                                        \
             optimization_inputs_baseline,             \
-            models_true,                              \
+            models_true_refcam0,                      \
             intrinsics_true, extrinsics_true_mounted, \
             points_true
 
