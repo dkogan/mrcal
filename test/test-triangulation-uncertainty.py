@@ -245,8 +245,7 @@ extrinsics_rt_fromref_true[:,4:] = np.random.randn(args.Ncameras,2) * 0.1
 
 # cam0 is at the identity. This makes my life easy: I can assume that the
 # optimization_inputs returned by calibration_baseline() use the same ref
-# coordinate system as these transformations. I explicitly state this by passing
-# calibration_baseline(allow_nonidentity_cam0_transform=False) later
+# coordinate system as these transformations.
 extrinsics_rt_fromref_true[0] *= 0
 
 
@@ -357,8 +356,7 @@ if args.cache is None or args.cache == 'write':
                              calobject_warp_true,
                              fixedframes,
                              testdir,
-                             cull_left_of_center = args.cull_left_of_center,
-                             allow_nonidentity_cam0_transform = False)
+                             cull_left_of_center = args.cull_left_of_center)
 
     lensmodel   = optimization_inputs_baseline['lensmodel']
     imagersizes = optimization_inputs_baseline['imagersizes']

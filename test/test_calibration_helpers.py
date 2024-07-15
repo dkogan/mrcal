@@ -125,12 +125,14 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          object_width_n,
                          object_height_n,
                          object_spacing,
-                         extrinsics_rt_fromref_true,
+                         # Camera poses in respect to the first camera. Thus
+                         # extrinsics_rt_fromref_true[0] = zeros(6). This is
+                         # checked
+                         extrinsics_rt_fromcam0_true,
                          calobject_warp_true,
                          fixedframes,
                          testdir,
                          cull_left_of_center = False,
-                         allow_nonidentity_cam0_transform = False,
                          range_to_boards = 4.0,
                          x_offset = 0.0,
                          x_noiseradius = 2.5,
@@ -142,16 +144,6 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
 This is a perfect, noiseless solve. Regularization IS enabled, and the returned
 model is at the optimization optimum. So the returned models will not sit
 exactly at the ground-truth.
-
-NOTE: if not fixedframes: the ref frame in the returned
-optimization_inputs_baseline is NOT the ref frame used by the returned
-extrinsics and frames arrays. The arrays in optimization_inputs_baseline had to
-be transformed to reference off camera 0. If the extrinsics of camera 0 are the
-identity, then the two ref coord systems are the same. To avoid accidental bugs,
-we have a kwarg allow_nonidentity_cam0_transform, which defaults to False. if
-not allow_nonidentity_cam0_transform and norm(extrinsics_rt_fromref_true[0]) >
-0: raise. This logic is here purely for safety. A caller that handles
-non-identity cam0 transforms has to explicitly say that
 
 If x_mirror then half of Nframes are shifted in the x direction by x_offset and
 the other half by -x_offset
@@ -191,10 +183,9 @@ ARGUMENTS
     Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
 
     for i in range(Ncameras):
-        models_true[i].extrinsics_rt_fromref(extrinsics_rt_fromref_true[i])
+        models_true[i].extrinsics_rt_fromref(extrinsics_rt_fromcam0_true[i])
 
-    if not allow_nonidentity_cam0_transform and \
-       nps.norm2(extrinsics_rt_fromref_true[0]) > 0:
+    if nps.norm2(extrinsics_rt_fromcam0_true[0]) > 0:
         raise Exception("A non-identity cam0 transform was given, but the caller didn't explicitly say that they support this")
 
     imagersizes = nps.cat( *[m.imagersize() for m in models_true] )
