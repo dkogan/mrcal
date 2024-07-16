@@ -958,6 +958,18 @@ if the input was None or has shape (0,2)
     return nps.glue(c, c[0,:], axis=-2)
 
 
+
+def _plot_options_state_meas_boundary(f,optimization_inputs,arg0):
+    if arg0 is not None: i0 = f(arg0,**optimization_inputs)
+    else:                i0 = f(     **optimization_inputs)
+    if i0 is None:
+        return
+
+    what = f.__name__.replace('state_index_','').replace('measurement_index_','')
+    yield from \
+        (f'arrow from {i0}, graph 0 to {i0}, graph 1 nohead',
+         f'label "{what}" at {i0},graph 0 left front offset 0,character 2 boxed')
+
 def plotoptions_state_boundaries(**optimization_inputs):
     r'''Return the 'set' plot options for gnuplotlib to show the state boundaries
 
@@ -995,20 +1007,12 @@ RETURNED VALUE
 A list of 'set' directives passable as plot options to gnuplotlib
 
     '''
-    istate0 = []
-
-    try:    istate0.append(int(mrcal.state_index_intrinsics    (0, **optimization_inputs)))
-    except: pass
-    try:    istate0.append(int(mrcal.state_index_extrinsics    (0, **optimization_inputs)))
-    except: pass
-    try:    istate0.append(int(mrcal.state_index_frames        (0, **optimization_inputs)))
-    except: pass
-    try:    istate0.append(int(mrcal.state_index_points        (0, **optimization_inputs)))
-    except: pass
-    try:    istate0.append(int(mrcal.state_index_calobject_warp(   **optimization_inputs)))
-    except: pass
-
-    return [f"arrow nohead from {x},graph 0 to {x},graph 1" for x in istate0]
+    return \
+        list(_plot_options_state_meas_boundary(mrcal.state_index_intrinsics,     optimization_inputs, 0)) + \
+        list(_plot_options_state_meas_boundary(mrcal.state_index_extrinsics,     optimization_inputs, 0)) + \
+        list(_plot_options_state_meas_boundary(mrcal.state_index_frames,         optimization_inputs, 0)) + \
+        list(_plot_options_state_meas_boundary(mrcal.state_index_points,         optimization_inputs, 0)) + \
+        list(_plot_options_state_meas_boundary(mrcal.state_index_calobject_warp, optimization_inputs, None))
 
 
 def plotoptions_measurement_boundaries(**optimization_inputs):
@@ -1048,17 +1052,10 @@ RETURNED VALUE
 A list of 'set' directives passable as plot options to gnuplotlib
 
     '''
-
-    imeas0 = []
-
-    try:    imeas0.append(mrcal.measurement_index_boards        (0, **optimization_inputs))
-    except: pass
-    try:    imeas0.append(mrcal.measurement_index_points        (0, **optimization_inputs))
-    except: pass
-    try:    imeas0.append(mrcal.measurement_index_regularization(**optimization_inputs))
-    except: pass
-
-    return [f"arrow nohead from {x},graph 0 to {x},graph 1" for x in imeas0]
+    return \
+        list(_plot_options_state_meas_boundary(mrcal.measurement_index_boards,         optimization_inputs, 0)) + \
+        list(_plot_options_state_meas_boundary(mrcal.measurement_index_points,         optimization_inputs, 0)) + \
+        list(_plot_options_state_meas_boundary(mrcal.measurement_index_regularization, optimization_inputs, None))
 
 
 def ingest_packed_state(b_packed,
