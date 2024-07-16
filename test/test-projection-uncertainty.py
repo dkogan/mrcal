@@ -2222,12 +2222,14 @@ for icam in (0,3):
         Var_dq_ref = \
             mrcal.projection_uncertainty( p_cam_baseline * 1.0,
                                           model = models_baseline[icam],
-                                          method= method,
+                                          atinfinity = False,
+                                          method     = method,
                                           observed_pixel_uncertainty = args.observed_pixel_uncertainty)
         Var_dq_moved_written_read = \
             mrcal.projection_uncertainty( p_cam_baseline * 1.0,
                                           model = model_read,
-                                          method= method,
+                                          atinfinity = False,
+                                          method     = method,
                                           observed_pixel_uncertainty = args.observed_pixel_uncertainty )
         testutils.confirm_equal(Var_dq_moved_written_read, Var_dq_ref,
                                 eps = 0.001,
