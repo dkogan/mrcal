@@ -191,7 +191,7 @@ import copy
 import numpy as np
 import numpysane as nps
 
-from test_calibration_helpers import calibration_baseline,calibration_sample
+from test_calibration_helpers import calibration_baseline,calibration_make_non_vanilla,calibration_boards_to_points,calibration_sample
 
 
 fixedframes = (args.fixed == 'frames')
@@ -264,6 +264,7 @@ if args.points:
     # 1.0
     extrinsics_rt_fromref_true[:,3:] /= nps.mag(extrinsics_rt_fromref_true[1,3:])
 
+extrinsics_rt_fromref_true = extrinsics_rt_fromref_true[:args.Ncameras]
 
 
 if args.observations_left_right_with_gap:
@@ -276,6 +277,9 @@ else:
     calibration_baseline_kwargs = dict()
 
 
+# The "baseline" is a solve with perfect, noiseless observations, reoptimized
+# with regularization. The results will be close to the perfect err=0 solve, but
+# not exactly
 optimization_inputs_baseline, \
 models_true,                  \
 frames_points_true =          \
@@ -291,14 +295,38 @@ frames_points_true =          \
                          fixedframes,
                          testdir,
                          range_to_boards = args.range_to_boards,
-                         report_points   = args.points,
+                         report_points   = False,
+                         optimize        = False,
                          **calibration_baseline_kwargs)
+
+# Compute the different scenarios of what is moving and what is the reference
+# frame. I will use those later. THOSE ARE NOT YET OPTIMIZED
+evaluate_nonvanilla_scenarios = not fixedframes and args.Ncameras == 1
+if evaluate_nonvanilla_scenarios:
+    optimization_inputs_baseline_moving_cameras_refcam0 = \
+        copy.deepcopy(optimization_inputs_baseline)
+    calibration_make_non_vanilla(optimization_inputs_baseline_moving_cameras_refcam0,
+                                 moving_cameras = True,
+                                 ref_frame0     = False)
+    if args.points: calibration_boards_to_points(optimization_inputs_baseline_moving_cameras_refcam0)
+
+    optimization_inputs_baseline_moving_cameras_refframe0 = \
+        copy.deepcopy(optimization_inputs_baseline)
+    calibration_make_non_vanilla(optimization_inputs_baseline_moving_cameras_refframe0,
+                                 moving_cameras = True,
+                                 ref_frame0     = True)
+    if args.points: calibration_boards_to_points(optimization_inputs_baseline_moving_cameras_refframe0)
+
+if args.points: calibration_boards_to_points(optimization_inputs_baseline)
+mrcal.optimize(**optimization_inputs_baseline)
+
+
+
 
 lensmodel       = optimization_inputs_baseline['lensmodel']
 imagersizes     = optimization_inputs_baseline['imagersizes']
 intrinsics_true = nps.cat( *[m.intrinsics()[1] \
                              for m in models_true] )
-
 
 models_baseline = \
     [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
@@ -441,7 +469,7 @@ if args.make_documentation_plots is not None:
 
 
 
-# These are at the optimum
+# These are at the no-noise-but-with-regularization optimum
 intrinsics_baseline         = nps.cat( *[m.intrinsics()[1]         for m in models_baseline] )
 extrinsics_baseline_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in models_baseline] )
 frames_baseline             = optimization_inputs_baseline['frames_rt_toref']
@@ -2251,163 +2279,100 @@ for icam in (0,3):
     # more than one camera. If I have a moving multi-camera rig then I want to
     # be able to represent the pose each camera separately, but lock the
     # transform between the cameras. So for now I test this with a single camera
-    if args.Ncameras == 1 and not fixedframes:
-
-        # I have baseline stationary-cam-moving-frames-ref-cam0 scenario. I
-        # create the other ones and compare
-
-        # The baseline is:
-        # stationary camera, moving frame, reference at cam0
-        #   0    state variables for extrinsics
-        #   6*Nf state variables for frames (or 3*Np*Nf points)
-        #
-        #   indices_frame_camintrinsics_camextrinsics =
-        #   [ 0 0 -1
-        #     1 0 -1
-        #     2 0 -1
-        #     ...   ]
-        idxf,idxci,idxce = optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'].T
-        # No extrinsics. The baseline has 1 camera, and it's at the reference
-
-        # shape (Nframes, 6)
-        rt_cam0_frame = optimization_inputs_baseline['frames_rt_toref']
+    if evaluate_nonvanilla_scenarios:
 
         x_baseline = \
             mrcal.optimizer_callback(**optimization_inputs_baseline,
                                      no_jacobian      = True,
                                      no_factorization = True)[1]
 
+        x = mrcal.optimizer_callback(**optimization_inputs_baseline_moving_cameras_refframe0,
+                                     no_jacobian      = True,
+                                     no_factorization = True)[1]
+        testutils.confirm_equal(x_baseline, x,
+                                eps = 1e-8,
+                                worstcase = True,
+                                msg = f"x is consistent when looking at moving cameras/stationary frame/ref at frame0")
+        x = mrcal.optimize(**optimization_inputs_baseline_moving_cameras_refframe0)['x']
+        testutils.confirm_equal(x_baseline, x,
+                                eps = 1e-8,
+                                worstcase = True,
+                                msg = f"x is consistent when looking at moving cameras/stationary frame/ref at frame0; post-optimization")
 
-        ### Now I check the other scenarios
 
-        # moving camera, stationary frame, reference at the frame
-        #   ref at the one stationary chessboard
-        #   6*Nf state variables for extrinsics
-        #   0    state variables for frames
+        #################### NEW UNCOMMITTED TEST CODE. These tests probably fail?
+        if False:
 
-        #   indices_frame_camintrinsics_camextrinsics =
-        #   [ 0 0 0
-        #     0 0 1
-        #     0 0 2
-        #     ... ]
-        #
-        #   I want to have indices_frame = -1 here, but mrcal does not currently
-        #   support this. Instead we set indices_frame = 0, actually store
-        #   something into the frames_rt_toref array, and set do_optimize_frames
-        #   = False
-        if True:
-            optimization_inputs_check = copy.deepcopy(optimization_inputs_baseline)
+            m = mrcal.cameramodel(optimization_inputs = optimization_inputs_baseline_moving_cameras_refframe0,
+                                  icam_intrinsics     = 0,
+                                  icam_extrinsics     = -1)
 
-            optimization_inputs_check['indices_frame_camintrinsics_camextrinsics'] = \
-                np.ascontiguousarray(nps.transpose( nps.cat( idxce+1,
-                                                             idxci,
-                                                             idxf ) ))
+            # import gnuplotlib as gp
+            # gp.plot( nps.clump(optimization_inputs_baseline_moving_cameras_refframe0['observations_board'][9,...,:2],n=2),
+            #          tuplesize=-2,
+            #          _with='linespoints',
+            #          square=1,
+            #          _xrange=(0,4000),
+            #          _yrange=(2200,0),
+            #          wait=True)
 
-            optimization_inputs_check['extrinsics_rt_fromref'] = np.array(rt_cam0_frame)
-            optimization_inputs_check['frames_rt_toref'      ] = np.zeros((1,6), dtype=float)
-            optimization_inputs_check['do_optimize_extrinsics'] = True
-            optimization_inputs_check['do_optimize_frames'    ] = False
+            ##### Experiment. one-camera uncertainty. What does it say?
+            ##### Shouldn't match the all-camera uncertainty, but it's interesting to look
+            p = mrcal.show_projection_uncertainty(m,
+                            observed_pixel_uncertainty = .3,
 
-            x = mrcal.optimizer_callback(**optimization_inputs_check,
-                                         no_jacobian      = True,
-                                         no_factorization = True)[1]
-            testutils.confirm_equal(x_baseline, x,
-                                    eps = 1e-8,
+                            observations               = True,
+                            valid_intrinsics_region    = False,
+                            distance                   = None,
+                            isotropic                  = False,
+                            method                     = 'mean-pcam',
+                            cbmax                      = 10,
+                            contour_increment          = None,
+                            contour_labels_styles      = 'boxed',
+                            contour_labels_font        = None,
+                            extratitle                 = None,
+                            return_plot_args           = False,
+                            wait = False)
+
+            import IPython
+            IPython.embed()
+            sys.exit()
+
+            # Compare the output and maybe residuals first. Look at the uncertainty
+            # later
+            Var_dq_inf_baseline_moving_cameras_refframe0 = \
+                mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                              model = m,
+                                              atinfinity = True,
+                                              method     = method,
+                                              observed_pixel_uncertainty = args.observed_pixel_uncertainty )
+            testutils.confirm_equal(Var_dq_inf_baseline_moving_cameras_refframe0,
+                                    Var_dq_inf_ref,
+                                    eps = 0.001,
                                     worstcase = True,
-                                    msg = f"x is consistent when looking at moving cameras/stationary frame/ref at frame0")
-            x = mrcal.optimize(**optimization_inputs_check)['x']
-            testutils.confirm_equal(x_baseline, x,
-                                    eps = 1e-8,
-                                    worstcase = True,
-                                    msg = f"x is consistent when looking at moving cameras/stationary frame/ref at frame0; post-optimization")
+                                    relative  = True,
+                                    msg = f"var(dq) (infinity) is consistent when looking at moving cameras/stationary frame")
+
+        x = mrcal.optimizer_callback(**optimization_inputs_baseline_moving_cameras_refcam0,
+                                     no_jacobian      = True,
+                                     no_factorization = True)[1]
+        testutils.confirm_equal(x_baseline, x,
+                                eps = 1e-8,
+                                worstcase = True,
+                                msg = f"x is consistent when looking at moving cameras/stationary frame/ref at cam0")
+        x = mrcal.optimize(**optimization_inputs_baseline_moving_cameras_refcam0)['x']
+        testutils.confirm_equal(x_baseline, x,
+                                eps = 1e-8,
+                                worstcase = True,
+                                msg = f"x is consistent when looking at moving cameras/stationary frame/ref at cam0; post-optimization")
 
 
-        # moving camera, stationary frame, reference at cam0
-        #   6*(Nf-1) state variables for extrinsics
-        #   6        state variables for frames
-
-        #   indices_frame_camintrinsics_camextrinsics =
-        #   [ 0 0 -1
-        #     0 0  0
-        #     0 0  1
-        #     ...   ]
-        #
-        #   Or if looking_at_points:
-
-        #     if I assume I'm looking at a chessboard, I set the points to the known
-        #     geometry, fix that, and I'm done. But what if the point geometry is fixed
-        #     between frames, but unknown? I fix cam0 and have a single set of points that
-        #     I optimize:
-
-        #     6*(Nf-1) extrinsics
-        #     3*Np points
-
-        #     indices_point_camintrinsics_camextrinsics =
-        #     [ 0 0 -1
-        #       1 0 -1
-        #       2 0 -1
-        #       ...
-        #       0 0  0
-        #       1 0  0
-        #       2 0  0
-        #       ...
-        #       0 0  1
-        #       1 0  1
-        #       2 0  1
-        #       ... ]
-
-        #     What if I have a moving rigid rig of cameras? I cannot represent
-        #     that today. I either need a way to lock down the relative
-        #     transforms in a set of points or a set of cameras. TODAY I study
-        #     monocular SFM only
-        if True:
-            optimization_inputs_check = copy.deepcopy(optimization_inputs_baseline)
-
-            optimization_inputs_check['indices_frame_camintrinsics_camextrinsics'] = \
-                np.ascontiguousarray(nps.transpose( nps.cat( idxce+1,
-                                                             idxci,
-                                                             idxf-1 )))
-
-            rt_c_c0 = mrcal.compose_rt(rt_cam0_frame[1:,:],
-                                       mrcal.invert_rt(rt_cam0_frame[0,:]))
-
-            optimization_inputs_check['extrinsics_rt_fromref' ] = rt_c_c0
-            optimization_inputs_check['frames_rt_toref'       ] = rt_cam0_frame[(0,),:]
-            optimization_inputs_check['do_optimize_extrinsics'] = True
-            optimization_inputs_check['do_optimize_frames'    ] = True
-
-            x = mrcal.optimizer_callback(**optimization_inputs_check,
-                                         no_jacobian      = True,
-                                         no_factorization = True)[1]
-            testutils.confirm_equal(x_baseline, x,
-                                    eps = 1e-8,
-                                    worstcase = True,
-                                    msg = f"x is consistent when looking at moving cameras/stationary frame/ref at cam0")
-            x = mrcal.optimize(**optimization_inputs_check)['x']
-            testutils.confirm_equal(x_baseline, x,
-                                    eps = 1e-8,
-                                    worstcase = True,
-                                    msg = f"x is consistent when looking at moving cameras/stationary frame/ref at cam0; post-optimization")
+print("yo")
+import IPython
+IPython.embed()
+sys.exit()
 
 
-        # stationary camera, moving frame, reference at frame0
-        #   6        state variables for extrinsics
-        #   6*(Nf-1) state variables for frames
-
-        #   indices_frame_camintrinsics_camextrinsics =
-        #   [ -1 0 0
-        #      0 0 0
-        #      1 0 0
-        #     ...   ]
-        #
-        # mrcal cannot represent this today, so I don't check it. Today mrcal
-        # can represent NULL camera transforms (index_camextrinsics < 0), but
-        # not NULL frame transforms. Above I could fake a NULL frame transform
-        # by setting do_optimize_frames = False, but that only works if I want
-        # to lock down ALL the frame transforms, not just a single one, like I
-        # need to do here
-        if True:
-            pass
 
 if not args.do_sample:
     testutils.finish()
