@@ -140,6 +140,7 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          x_mirror      = False, # half with +x_offset, half with -x_offset
                          report_points = False,
 
+                         optimize       = True,
                          moving_cameras = False,
                          ref_frame0     = False):
 
@@ -368,8 +369,34 @@ ARGUMENTS
     # sys.exit()
 
 
-    idxf,idxci,idxce = indices_frame_camintrinsics_camextrinsics.T
+    calibration_make_non_vanilla(optimization_inputs_baseline,
+                                 moving_cameras = moving_cameras,
+                                 ref_frame0     = ref_frame0)
 
+    if report_points:
+        calibration_boards_to_points(optimization_inputs_baseline)
+
+    if optimize:
+        mrcal.optimize(**optimization_inputs_baseline)
+
+    if not report_points:
+        return                                        \
+            optimization_inputs_baseline,             \
+            models_true_refcam0,                      \
+            rt_cam0_board_true
+
+    else:
+
+        return                                        \
+            optimization_inputs_baseline,             \
+            models_true_refcam0,                      \
+            points_true
+
+
+def calibration_make_non_vanilla(optimization_inputs,
+                                 *,
+                                 moving_cameras,
+                                 ref_frame0):
 
     if not moving_cameras and \
        not ref_frame0:
@@ -388,11 +415,15 @@ ARGUMENTS
         #     ...   ]
 
         # This is the baseline case. The data is already set up like this.
-        # This is the only case where fixedframes may be true
-        pass
+        return
 
-    elif moving_cameras and \
-         ref_frame0:
+
+    idxf,idxci,idxce   = optimization_inputs['indices_frame_camintrinsics_camextrinsics'].T
+    Ncameras           = len(optimization_inputs['intrinsics'])
+    rt_cam0_board_true = optimization_inputs['frames_rt_toref']
+
+    if moving_cameras and \
+       ref_frame0:
         # moving camera, stationary frame, reference at the one stationary
         # chessboard
         #
@@ -418,19 +449,20 @@ ARGUMENTS
         if Ncameras > 1:
             raise Exception("Scenario (moving-camera, stationary-frame, ref-at-frame) cannot work with multiple cameras: camera-rig implementation is required")
 
-        indices_frame_camintrinsics_camextrinsics = \
-        optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'] = \
+        optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = \
             np.ascontiguousarray(nps.transpose( nps.cat( idxce+1,
                                                          idxci,
                                                          idxf ) ))
 
-        optimization_inputs_baseline['extrinsics_rt_fromref' ] = np.array(rt_cam0_board_true)
-        optimization_inputs_baseline['frames_rt_toref'       ] = np.zeros((1,6), dtype=float)
-        optimization_inputs_baseline['do_optimize_extrinsics'] = True
-        optimization_inputs_baseline['do_optimize_frames'    ] = False
+        optimization_inputs['extrinsics_rt_fromref' ] = np.array(rt_cam0_board_true)
+        optimization_inputs['frames_rt_toref'       ] = np.zeros((1,6), dtype=float)
+        optimization_inputs['do_optimize_extrinsics'] = True
+        optimization_inputs['do_optimize_frames'    ] = False
+        return
 
-    elif moving_cameras and \
-         not ref_frame0:
+
+    if moving_cameras and \
+       not ref_frame0:
 
         # moving camera, stationary frame, reference at cam0
         #   6*(Nf-1) state variables for extrinsics
@@ -473,7 +505,7 @@ ARGUMENTS
         if Ncameras > 1:
             raise Exception("Scenario (moving-camera, stationary-frame, ref-at-cam0) cannot work with multiple cameras: camera-rig implementation is required")
 
-        optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'] = \
+        optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = \
             np.ascontiguousarray(nps.transpose( nps.cat( idxce+1,
                                                          idxci,
                                                          idxf-1 )))
@@ -482,13 +514,15 @@ ARGUMENTS
             mrcal.compose_rt(rt_cam0_board_true[1:,:],
                              mrcal.invert_rt(rt_cam0_board_true[0,:]))
 
-        optimization_inputs_baseline['extrinsics_rt_fromref' ] = rt_cam_cam0
-        optimization_inputs_baseline['frames_rt_toref'       ] = rt_cam0_board_true[(0,),:]
-        optimization_inputs_baseline['do_optimize_extrinsics'] = True
-        optimization_inputs_baseline['do_optimize_frames'    ] = True
+        optimization_inputs['extrinsics_rt_fromref' ] = rt_cam_cam0
+        optimization_inputs['frames_rt_toref'       ] = rt_cam0_board_true[(0,),:]
+        optimization_inputs['do_optimize_extrinsics'] = True
+        optimization_inputs['do_optimize_frames'    ] = True
+        return
 
-    elif not moving_cameras and \
-         ref_frame0:
+
+    if not moving_cameras and \
+       ref_frame0:
 
         # stationary camera, moving frame, reference at frame0
         #   6        state variables for extrinsics
@@ -508,82 +542,74 @@ ARGUMENTS
         # need to do here
         raise Exception("Case not supported: not moving_cameras and ref_frame0")
 
+    raise Exception("Unhandled case. Getting here is a bug")
 
-    if not report_points:
-        # Nominal case; already done
-        pass
 
-    else:
-        # I break up the chessboard observations into discrete points
+def calibration_boards_to_points(optimization_inputs):
 
-        # shape (Nframes,H,W,Ncameras, 3)
-        indices_point_camintrinsics_camextrinsics = np.zeros((Nframes,object_height_n,object_width_n,Ncameras, 3), dtype=np.int32)
+    # I break up the chessboard observations into discrete points
 
-        # index_point
-        indices_point_camintrinsics_camextrinsics[...,0] += \
-            nps.dummy(indices_frame_camintrinsics_camextrinsics[...,0].reshape(Nframes,Ncameras), -2,-2) \
-            * object_height_n * object_width_n \
-            + nps.dummy(np.arange(object_height_n * object_width_n).reshape(object_height_n,object_width_n), -1)
+    rt_cam0_board                             = optimization_inputs['frames_rt_toref']
+    Rt_cam0_board                             = mrcal.Rt_from_rt(rt_cam0_board)
+    Nframes                                   = len(rt_cam0_board)
+    Ncameras                                  = len(optimization_inputs['intrinsics'])
+    indices_frame_camintrinsics_camextrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+    object_height_n,object_width_n            = optimization_inputs['observations_board'].shape[-3:-1]
+    object_spacing                            = optimization_inputs['calibration_object_spacing']
 
-        # camintrinsics and camextrinsics
-        indices_point_camintrinsics_camextrinsics[...,1:] += \
-            nps.dummy(indices_frame_camintrinsics_camextrinsics[...,1:].reshape(Nframes,Ncameras,2), -3,-3)
+    # shape (Nframes,H,W,Ncameras, 3)
+    indices_point_camintrinsics_camextrinsics = np.zeros((Nframes,object_height_n,object_width_n,Ncameras, 3), dtype=np.int32)
 
-        # shape (Nframes*H*W*Ncameras, 3)
-        indices_point_camintrinsics_camextrinsics = \
-            nps.clump(indices_point_camintrinsics_camextrinsics, n=4)
+    # index_point
+    indices_point_camintrinsics_camextrinsics[...,0] += \
+        nps.dummy(indices_frame_camintrinsics_camextrinsics[...,0].reshape(Nframes,Ncameras), -2,-2) \
+        * object_height_n * object_width_n \
+        + nps.dummy(np.arange(object_height_n * object_width_n).reshape(object_height_n,object_width_n), -1)
 
-        # shape (H,W,3)
-        pboard = \
-            mrcal.ref_calibration_object(object_width_n,
-                                         object_height_n,
-                                         object_spacing,
-                                         calobject_warp = calobject_warp_true)
+    # camintrinsics and camextrinsics
+    indices_point_camintrinsics_camextrinsics[...,1:] += \
+        nps.dummy(indices_frame_camintrinsics_camextrinsics[...,1:].reshape(Nframes,Ncameras,2), -3,-3)
 
-        # shape (Nframes,H,W, 3)
-        points_true = mrcal.transform_point_Rt(nps.dummy(Rt_cam0_board_true,-3,-3),
-                                               pboard)
-        # shape (Nframes*H*W, 3)
-        points_true = nps.clump(points_true, n=3)
+    # shape (Nframes*H*W*Ncameras, 3)
+    indices_point_camintrinsics_camextrinsics = \
+        nps.clump(indices_point_camintrinsics_camextrinsics, n=4)
 
-        #  shape (Nframes*Nh*Nw*Ncameras, 3)
-        observations_point_true = \
-            nps.clump(
-                nps.mv( observations_board_true.reshape(Nframes,
-                                                        Ncameras,
-                                                        object_height_n,
-                                                        object_width_n,
-                                                        3),
-                        -4, -2),
-                n=4)
+    # shape (H,W,3)
+    pboard = \
+        mrcal.ref_calibration_object(object_width_n,
+                                     object_height_n,
+                                     object_spacing,
+                                     calobject_warp = calobject_warp_true)
 
-        Npoints = points_true.shape[0]
+    # shape (Nframes,H,W, 3)
+    points_true = mrcal.transform_point_Rt(nps.dummy(Rt_cam0_board,-3,-3),
+                                           pboard)
+    # shape (Nframes*H*W, 3)
+    points_true = nps.clump(points_true, n=3)
 
-        optimization_inputs_baseline['indices_point_camintrinsics_camextrinsics'] = indices_point_camintrinsics_camextrinsics
-        optimization_inputs_baseline['points']                                    = copy.deepcopy(points_true)
-        optimization_inputs_baseline['observations_point']                        = observations_point_true
+    #  shape (Nframes*Nh*Nw*Ncameras, 3)
+    observations_point_true = \
+        nps.clump(
+            nps.mv( observations_board_true.reshape(Nframes,
+                                                    Ncameras,
+                                                    object_height_n,
+                                                    object_width_n,
+                                                    3),
+                    -4, -2),
+            n=4)
 
-        optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'] = None
-        optimization_inputs_baseline['frames_rt_toref']                           = None
-        optimization_inputs_baseline['observations_board']                        = None
+    Npoints = points_true.shape[0]
 
-        optimization_inputs_baseline['point_min_range'] = 1e-3
-        optimization_inputs_baseline['point_max_range'] = 1e12
+    optimization_inputs['indices_point_camintrinsics_camextrinsics'] = indices_point_camintrinsics_camextrinsics
+    optimization_inputs['points']                                    = copy.deepcopy(points_true)
+    optimization_inputs['observations_point']                        = observations_point_true
 
-    mrcal.optimize(**optimization_inputs_baseline)
+    optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = None
+    optimization_inputs['frames_rt_toref']                           = None
+    optimization_inputs['observations_board']                        = None
 
-    if not report_points:
-        return                                        \
-            optimization_inputs_baseline,             \
-            models_true_refcam0,                      \
-            rt_cam0_board_true
-
-    else:
-
-        return                                        \
-            optimization_inputs_baseline,             \
-            models_true_refcam0,                      \
-            points_true
+    optimization_inputs['point_min_range'] = 1e-3
+    optimization_inputs['point_max_range'] = 1e12
 
 
 def calibration_sample(Nsamples,
