@@ -15,15 +15,18 @@ SYNOPSIS
     if icam_extrinsics >= 0:
         extrinsics_rt_fromref_at_calibration_time = \
             optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
+    else:
+        extrinsics_rt_fromref_at_calibration_time = \
+            mrcal.identity_rt()
 
-When calibrating cameras, each observations is associated with some camera
+When calibrating cameras, each observation is associated with some camera
 intrinsics (lens parameters) and some camera extrinsics (geometry). Those two
 chunks of data live in different parts of the optimization vector, and are
-indexed independently. If we have stationary cameras, then each set of camera
+indexed independently. If we have STATIONARY cameras, then each set of camera
 intrinsics is associated with exactly one set of camera extrinsics, and we can
-use this function to query this correspondence. If we have moving cameras, then
+use THIS function to query this correspondence. If we have moving cameras, then
 a single physical camera would have one set of intrinsics but many different
-extrinsics, and this function call will throw an exception.
+extrinsics, and this function will throw an exception.
 
 Furthermore, it is possible that a camera's pose is used to define the reference
 coordinate system of the optimization. In this case this camera has no explicit
