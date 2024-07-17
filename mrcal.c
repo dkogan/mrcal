@@ -3936,7 +3936,7 @@ bool mrcal_corresponding_icam_extrinsics(// out
     if( !(Ncameras_intrinsics == Ncameras_extrinsics ||
           Ncameras_intrinsics == Ncameras_extrinsics+1 ) )
     {
-        MSG("Cannot compute icam_extrinsics. I don't have a vanilla calibration problem");
+        MSG("Cannot compute icam_extrinsics. I don't have a vanilla calibration problem (stationary cameras, cam0 is reference)");
         return false;
     }
 
