@@ -588,6 +588,7 @@ A sample valid .cameramodel file:
 
                  optimization_inputs     = None,
                  icam_intrinsics         = None,
+                 icam_extrinsics         = None,
 
                  valid_intrinsics_region = None ):
         r'''Initialize a new camera-model object
@@ -674,6 +675,15 @@ ARGUMENTS
   'optimization_inputs'. If given, 'optimization_inputs' is required. This may
   be given only as a keyword argument.
 
+- icam_extrinsics: optional integer identifying this camera in the solve defined
+  by 'optimization_inputs'. If given, 'optimization_inputs' is required. This
+  may be given only as a keyword argument. If icam_extrinsics<0 we set the
+  extrinsics to the identify transformation. If icam_extrinsics>=0 we look up
+  the extrinsics in the optimization_inputs. If omitted, we call
+  corresponding_icam_extrinsics() to find the unique pose of this camera; this
+  works ONLY if we have a stationary-camera scenario. If we DO have such a
+  scenario, omitting icam_extrinsics is recommended
+
 - valid_intrinsics_region': numpy array of shape (N,2). Defines a closed contour
   in the imager pixel space. Points inside this contour are assumed to have
   'valid' intrinsics, with the meaning of 'valid' defined by the user. An array
@@ -708,7 +718,8 @@ ARGUMENTS
             Nargs['optimization_inputs'] += 1
         if icam_intrinsics is not None:
             Nargs['optimization_inputs'] += 1
-
+        if icam_extrinsics is not None:
+            Nargs['optimization_inputs'] += 1
 
 
         if Nargs['file_or_model']:
@@ -1099,7 +1110,10 @@ general function is used to find the data. The args are:
                Nargs['discrete']:
                 raise Exception("optimization_inputs specified, so none of the other inputs should be")
 
-            if Nargs['optimization_inputs'] != 2:
+            # Not looking at Nargs['optimization_inputs'] here because
+            # icam_extrinsics is optional. so ==2 may or may not be valid
+            if optimization_inputs is None or \
+               icam_intrinsics is None:
                 raise Exception("optimization_input given. Must have gotten 'optimization_input' AND 'icam_intrinsics'")
 
             self.intrinsics( ( optimization_inputs['lensmodel'],
@@ -1108,10 +1122,11 @@ general function is used to find the data. The args are:
                              optimization_inputs = optimization_inputs,
                              icam_intrinsics     = icam_intrinsics)
 
-            icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics,
-                                                                  **optimization_inputs)
+            if icam_extrinsics is None:
+                icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics,
+                                                                      **optimization_inputs)
             if icam_extrinsics < 0:
-                self.extrinsics_rt_fromref(np.zeros((6,), dtype=float))
+                self.extrinsics_rt_fromref(mrcal.identity_rt())
             else:
                 self.extrinsics_rt_fromref(optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics])
 
@@ -1814,6 +1829,9 @@ SYNOPSIS
     if icam_extrinsics >= 0:
         extrinsics_rt_fromref_at_calibration_time = \
             optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
+    else:
+        extrinsics_rt_fromref_at_calibration_time = \
+            mrcal.identity_rt()
 
 This function retrieves the integer identifying this camera in the solve defined
 by 'optimization_inputs'. When the optimization happened, we may have been
