@@ -1934,3 +1934,46 @@ The mask that indicates whether each point is within the region
             mask_flat[i] = True
     return mask
 
+
+
+
+
+
+'''
+
+    for cross-reprojection
+
+    q* - q
+
+    ~   dq_dpcam (pcam* - pcam)
+      + dq_dintrinsics db[intrinsics_this]
+
+    ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+                  + dpcam__dpref       (pref* - pref) )
+      + dq_dintrinsics db[intrinsics_this]
+
+    ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+                  + dpcam__dpref dpref*__drt_ref_ref* rt_ref_ref*)
+      + dq_dintrinsics db[intrinsics_this]
+
+    ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+                  - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) dx_cross0)
+      + dq_dintrinsics db[intrinsics_this]
+
+    ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+                  - dpcam__dpref dpref*__drt_ref_ref* pinv(J_cross) J[frames_all,points_all,calobject_warp] D Dinv db[frames_all,points_all,calobject_warp])
+      + dq_dintrinsics db[intrinsics_this]
+
+    ~   dq_dpcam (  dpcam__drt_cam_ref db[extrinsics_this]
+                  + dpcam__dpref dpref*__drt_ref_ref* K Dinv db[frames_all,points_all,calobject_warp])
+      + dq_dintrinsics db[intrinsics_this]
+
+    --->
+
+    dq/db[extrinsics_this]                      = dq_dpcam dpcam__drt_cam_ref
+    dq/db[intrinsics_this]                      = dq_dintrinsics
+    dq/db[frames_all,points_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* K Dinv
+                                                = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
+
+
+    '''

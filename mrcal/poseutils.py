@@ -1051,6 +1051,8 @@ We return a single array of shape (..., 6,6): drt01/drt1
     rt01       = np.zeros(rt0.shape,        dtype=float)
     drt01_drt0 = np.zeros(rt0.shape + (6,), dtype=float)
 
+    print("TEMPORARY IMPLEMENTATION OF compose_rt_tinyrt1_gradientrt1")
+
     return \
         compose_rt(rt0,
                    np.zeros((6,),),

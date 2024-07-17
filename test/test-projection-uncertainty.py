@@ -87,6 +87,11 @@ def parse_args():
                         default=1.5,
                         help='''The level of the input pixel noise to simulate.
                         Defaults to 1 stdev = 1.5 pixels''')
+    parser.add_argument('--non-vanilla',
+                        action='store_true',
+                        help='''If given, run tests with the non-vanilla
+                        scenarios (moving camera, different reference frames).
+                        Only implemented with --Ncameras 1 --fixed cam0''')
     parser.add_argument('--points',
                         action='store_true',
                         help='''By default we do everything with chessboard
@@ -153,6 +158,12 @@ def parse_args():
                         Some of these methods will be probably wrong.''')
 
     args = parser.parse_args()
+
+    if args.non_vanilla:
+        if not (args.fixed == 'cam0' and args.Ncameras == 1):
+            print("--non-vanilla works ONLY with --fixed cam0 --Ncameras 1",
+                  file=sys.stderr)
+            sys.exit(1)
 
     args.distances = args.distances.split(',')
     for i in range(len(args.distances)):
@@ -249,8 +260,15 @@ np.random.seed(0)
 ############# Set up my world, and compute all the perfect positions, pixel
 ############# observations of everything
 object_spacing          = 0.1
-object_width_n          = 10
-object_height_n         = 9
+
+if 1:
+    object_width_n          = 10
+    object_height_n         = 9
+else:
+    object_width_n          = 4
+    object_height_n         = 5
+
+
 calobject_warp_true     = np.array((0.002, -0.005))
 
 extrinsics_rt_fromref_true = \
@@ -258,6 +276,24 @@ extrinsics_rt_fromref_true = \
               (0.08, 0.2,  0.02,   1.,  0.9, 0.1),
               (0.01, 0.07, 0.2,    2.1, 0.4, 0.2),
               (-0.1, 0.08, 0.08,   3.4, 0.2, 0.1), ))
+
+# test code to look at the point cloud from all directions
+
+# Rt_rc = np.array(((0.,  0., -1.),
+#                   (1.,  0.,  0.),
+#                   (0., -1.,  0.),
+#                   (2.,  0.,  3.)),)
+# extrinsics_rt_fromref_true[2,:] = mrcal.rt_from_Rt(mrcal.invert_Rt(Rt_rc))
+
+# Rt_rc = np.array(((-1.,  0.,  0.),
+#                   ( 0.,  0., -1.),
+#                   ( 0., -1.,  0.),
+#                   (-1.,  2.,  2.)),)
+# extrinsics_rt_fromref_true[3,:] = mrcal.rt_from_Rt(mrcal.invert_Rt(Rt_rc))
+
+
+
+
 
 if args.points:
     # Needed for the unity_cam01 regularization. I reset the nominal distance to
@@ -299,10 +335,10 @@ frames_points_true =          \
                          optimize        = False,
                          **calibration_baseline_kwargs)
 
-# Compute the different scenarios of what is moving and what is the reference
-# frame. I will use those later. THOSE ARE NOT YET OPTIMIZED
-evaluate_nonvanilla_scenarios = not fixedframes and args.Ncameras == 1
-if evaluate_nonvanilla_scenarios:
+if args.non_vanilla:
+    # Compute the different scenarios of what is moving and what is the
+    # reference frame. I will use those later. THOSE ARE NOT YET OPTIMIZED; I
+    # will do that later
     optimization_inputs_baseline_moving_cameras_refcam0 = \
         copy.deepcopy(optimization_inputs_baseline)
     calibration_make_non_vanilla(optimization_inputs_baseline_moving_cameras_refcam0,
@@ -317,8 +353,17 @@ if evaluate_nonvanilla_scenarios:
                                  ref_frame0     = True)
     if args.points: calibration_boards_to_points(optimization_inputs_baseline_moving_cameras_refframe0)
 
+
 if args.points: calibration_boards_to_points(optimization_inputs_baseline)
+x_baseline_unoptimized = \
+    mrcal.optimizer_callback(**optimization_inputs_baseline,
+                             no_jacobian      = True,
+                             no_factorization = True)[1]
 mrcal.optimize(**optimization_inputs_baseline)
+x_baseline_optimized = \
+    mrcal.optimizer_callback(**optimization_inputs_baseline,
+                             no_jacobian      = True,
+                             no_factorization = True)[1]
 
 
 
@@ -2255,6 +2300,18 @@ for icam in (0,3):
                                 relative  = True,
                                 msg = f"var(dq) with rotation-only matches for camera {icam} after moving, writing to disk, reading from disk")
 
+        print(f"{Var_dq_ref=}")
+        print(f"{Var_dq_inf_ref=}")
+
+        # release-2.4 says
+        #
+        # Var_dq_ref=array([[389.84692117, 166.10448933],
+        #        [166.10448933, 250.77439795]])
+        # Var_dq_inf_ref=array([[30.06831569, 14.20492251],
+        #        [14.20492251, 16.75554809]])
+
+
+
     # the at-infinity uncertainty should be invariant to point scalings (the
     # real scaling used is infinity). The not-at-infinity uncertainty is NOT
     # invariant, so I don't check that
@@ -2281,33 +2338,23 @@ for icam in (0,3):
     # more than one camera. If I have a moving multi-camera rig then I want to
     # be able to represent the pose each camera separately, but lock the
     # transform between the cameras. So for now I test this with a single camera
-    if evaluate_nonvanilla_scenarios:
-
-        x_baseline = \
-            mrcal.optimizer_callback(**optimization_inputs_baseline,
-                                     no_jacobian      = True,
-                                     no_factorization = True)[1]
+    if args.non_vanilla:
 
         x = mrcal.optimizer_callback(**optimization_inputs_baseline_moving_cameras_refframe0,
                                      no_jacobian      = True,
                                      no_factorization = True)[1]
-        testutils.confirm_equal(x_baseline, x,
+        testutils.confirm_equal(x_baseline_unoptimized, x,
                                 eps = 1e-8,
                                 worstcase = True,
                                 msg = f"x is consistent when looking at moving cameras/stationary frame/ref at frame0")
+
         x = mrcal.optimize(**optimization_inputs_baseline_moving_cameras_refframe0)['x']
-        testutils.confirm_equal(x_baseline, x,
+        testutils.confirm_equal(x_baseline_optimized, x,
                                 eps = 1e-8,
                                 worstcase = True,
                                 msg = f"x is consistent when looking at moving cameras/stationary frame/ref at frame0; post-optimization")
 
-
-        #################### NEW UNCOMMITTED TEST CODE. These tests probably fail?
-        if False:
-
-            m = mrcal.cameramodel(optimization_inputs = optimization_inputs_baseline_moving_cameras_refframe0,
-                                  icam_intrinsics     = 0,
-                                  icam_extrinsics     = -1)
+        if True:
 
             # import gnuplotlib as gp
             # gp.plot( nps.clump(optimization_inputs_baseline_moving_cameras_refframe0['observations_board'][9,...,:2],n=2),
@@ -2318,30 +2365,50 @@ for icam in (0,3):
             #          _yrange=(2200,0),
             #          wait=True)
 
-            ##### Experiment. one-camera uncertainty. What does it say?
-            ##### Shouldn't match the all-camera uncertainty, but it's interesting to look
-            p = mrcal.show_projection_uncertainty(m,
-                            observed_pixel_uncertainty = .3,
-
-                            observations               = True,
-                            valid_intrinsics_region    = False,
-                            distance                   = None,
-                            isotropic                  = False,
-                            method                     = 'mean-pcam',
-                            cbmax                      = 10,
-                            contour_increment          = None,
-                            contour_labels_styles      = 'boxed',
-                            contour_labels_font        = None,
-                            extratitle                 = None,
-                            return_plot_args           = False,
-                            wait = False)
+            # ##### Experiment. one-camera uncertainty. What does it say?
+            # ##### Shouldn't match the all-camera uncertainty, but it's interesting to look
+            # p = mrcal.show_projection_uncertainty(m,
+            #                 observed_pixel_uncertainty = .3,
+            #                 observations               = True,
+            #                 valid_intrinsics_region    = False,
+            #                 distance                   = None,
+            #                 isotropic                  = False,
+            #                 method                     = method,
+            #                 cbmax                      = 10,
+            #                 contour_increment          = None,
+            #                 contour_labels_styles      = 'boxed',
+            #                 contour_labels_font        = None,
+            #                 extratitle                 = None,
+            #                 return_plot_args           = False,
+            #                 wait = False)
 
             import IPython
             IPython.embed()
             sys.exit()
 
+
+            m = mrcal.cameramodel(optimization_inputs = optimization_inputs_baseline_moving_cameras_refframe0,
+                                  icam_intrinsics     = 0,
+                                  icam_extrinsics     = -1)
+
+
+            ###################
             # Compare the output and maybe residuals first. Look at the uncertainty
             # later
+
+            Var_dq_baseline_moving_cameras_refframe0 = \
+                mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                              model = m,
+                                              atinfinity = False,
+                                              method     = method,
+                                              observed_pixel_uncertainty = args.observed_pixel_uncertainty )
+            testutils.confirm_equal(Var_dq_baseline_moving_cameras_refframe0,
+                                    Var_dq_ref,
+                                    eps = 0.001,
+                                    worstcase = True,
+                                    relative  = True,
+                                    msg = f"var(dq) (at 1m) is consistent when looking at moving cameras/stationary frame")
+
             Var_dq_inf_baseline_moving_cameras_refframe0 = \
                 mrcal.projection_uncertainty( p_cam_baseline * 1.0,
                                               model = m,
@@ -2358,21 +2425,32 @@ for icam in (0,3):
         x = mrcal.optimizer_callback(**optimization_inputs_baseline_moving_cameras_refcam0,
                                      no_jacobian      = True,
                                      no_factorization = True)[1]
-        testutils.confirm_equal(x_baseline, x,
+        testutils.confirm_equal(x_baseline_unoptimized, x,
                                 eps = 1e-8,
                                 worstcase = True,
                                 msg = f"x is consistent when looking at moving cameras/stationary frame/ref at cam0")
         x = mrcal.optimize(**optimization_inputs_baseline_moving_cameras_refcam0)['x']
-        testutils.confirm_equal(x_baseline, x,
+
+        # This test fails unless I apply this patch:
+        #
+        # diff --git a/mrcal.c b/mrcal.c
+        # index ff709e36..d3e7057b 100644
+        # --- a/mrcal.c
+        # +++ b/mrcal.c
+        # @@ -6468,3 +6474,3 @@ mrcal_optimize( // out
+        #      dogleg_parameters.Jt_x_threshold                    = 0;
+        # -    dogleg_parameters.update_threshold                  = 1e-6;
+        # +    dogleg_parameters.update_threshold                  = 1e-9;
+        #      dogleg_parameters.trustregion_threshold             = 0;
+        #
+        # Can visualize like this:
+        #   import gnuplotlib as gp
+        #   gp.plot( np.abs(x_baseline_optimized - x),
+        #            _set = mrcal.plotoptions_measurement_boundaries(**optimization_inputs_baseline_moving_cameras_refcam0) )
+        testutils.confirm_equal(x_baseline_optimized, x,
                                 eps = 1e-8,
                                 worstcase = True,
                                 msg = f"x is consistent when looking at moving cameras/stationary frame/ref at cam0; post-optimization")
-
-
-print("yo")
-import IPython
-IPython.embed()
-sys.exit()
 
 
 
@@ -2465,6 +2543,12 @@ def check_uncertainties_at(q0_baseline, idistance):
             atinfinity = atinfinity,
             method     = method,
             model      = models_baseline[icam],
+
+            ########################
+            # what if I omit this? It should still work. WITH the correction.
+            # No. This is a "baseline" solve: truth reoptimized to account for
+            # regularization. There is no input noise in these solves. There
+            # SHOULD be. The "baseline" should have input noise in it
             observed_pixel_uncertainty = args.observed_pixel_uncertainty) \
                    for icam in range(args.Ncameras) ])
 
@@ -2678,3 +2762,126 @@ if args.make_documentation_plots is not None:
 if args.explore:
     import IPython
     IPython.embed()
+
+
+
+
+
+# possible bugs:
+#
+# q0_true is None; not plotting the true center point. Generally,
+# --show-distributions has a bias
+#
+# write drt_ref_refperturbed__dbpacked.docstring. and tests. and docs:
+#
+#   dima@shorty:~/projects/mrcal$ git status *.docstring
+#
+#   Untracked files:
+#           decode_observation_indices_points_triangulated.docstring
+#           measurement_index_points_triangulated.docstring
+#           num_measurements_points_triangulated.docstring
+
+# remove python flavors of tiny gradients. We can already do this stuff in python.
+# Only the C versions are actually useful, to provide additional performance
+
+# mrcal_drt_ref_refperturbed__dbpacked(): what if calobject_warp is fixed?
+
+
+# reference command I'm evaluating
+r'''
+test/test-projection-uncertainty.py \
+  --fixed cam0                                                    \
+  --model opencv4                                                 \
+  --range-to-boards 4                                             \
+  --extra-observation-at 40                                       \
+  --Nsamples 100                                                  \
+  --Ncameras 4                                                    \
+  --observed-pixel-uncertainty 0.3                                \
+  --do-sample                                                     \
+  --explore                                                       \
+  --reproject-perturbed cross-reprojection--rrp-Jfp
+'''
+
+# Linearization breaks down quickly. Tiny observed_pixel_uncertainty fits well;
+# bigger one does not
+
+
+
+# Perfect ellipses:
+r'''
+test/test-projection-uncertainty.py \
+  --fixed cam0 \
+  --model opencv4 \
+  --Nsamples 800 \
+  --Ncameras 4 \
+  --do-sample \
+  --points \
+  --show-distribution \
+  --extra-observation-at 40 \
+  --observed-pixel-uncertainty 0.03 \
+  --reproject-perturbed cross-reprojection--rrp-Jfp \
+  --explore
+'''
+
+
+# sorta works after merge:
+r'''
+test/test-projection-uncertainty.py \
+  --fixed cam0 \
+  --model opencv4 \
+  --Nsamples 200 \
+  --Ncameras 2 \
+  --do-sample \
+  --points \
+  --show-distribution \
+  --observed-pixel-uncertainty 0.03 \
+  --reproject-perturbed cross-reprojection--rrp-Jfp \
+  --explore
+'''
+
+# works very well after merge (most sets of options do work well for some
+# reason):
+r'''
+test/test-projection-uncertainty.py                               \
+  --fixed cam0                                                    \
+  --model opencv4                                                 \
+  --range-to-boards 4                                             \
+  --Nsamples 200                                                  \
+  --Ncameras 4                                                    \
+  --points                                                        \
+  --show-distribution                                             \
+  --observed-pixel-uncertainty 0.003                              \
+  --do-sample                                                     \
+  --explore                                                       \
+  --reproject-perturbed cross-reprojection--rrp-Jfp
+'''
+
+
+############# getting  back into it
+# doesn't work; needs a vanilla calibration problem
+r'''
+test/test-projection-uncertainty.py                               \
+  --fixed cam0                                                    \
+  --model opencv4                                                 \
+  --range-to-boards 4                                             \
+  --Nsamples 100                                                  \
+  --Ncameras 1                                                    \
+  --observed-pixel-uncertainty 0.3                                \
+  --do-sample                                                     \
+  --explore                                                       \
+  --distances 5,inf \
+  --reproject-perturbed cross-reprojection--rrp-Jfp
+'''
+
+
+
+r''' With one camera I have multiple methods of quantifying uncertainty (using
+different things as the reference). Make sure these all produce the same results.'''
+
+
+### stationary object, one moving camera. Should do a study:
+#
+# - if the stationary object is fixed, I can compute the uncertainty already.
+#   What if I do it actually specifying a stationary object and a moving camera?
+#   Do I get the same uncertainty estimate?
+# - Do this with and without fixed observed geometry. Should work with points

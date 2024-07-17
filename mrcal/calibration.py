@@ -24,6 +24,11 @@ import mrcal
 def compute_chessboard_corners(W, H,
                                *,
                                globs_per_camera  = ('*',),
+
+
+
+                               # I SHOULD NOT CARE ABOUT THE DIRECTORY OF THIS FILE
+
                                corners_cache_vnl = None,
                                jobs              = 1,
                                exclude_images    = set(),
@@ -414,13 +419,20 @@ which mrcal.optimize() expects
         # If I only have one camera, however, then the details of the
         # filenames don't matter, and I just make sure I have at least one
         # image to look at
-        min_num_images = 2 if len(files_per_camera) > 1 else 1
-        for icam in range(len(files_per_camera)):
-            N = len(files_per_camera[icam])
 
-            if N < min_num_images:
-                raise Exception("Found too few ({}; need at least {}) images containing a calibration pattern in camera {}; glob '{}'". \
-                                format(N, min_num_images, icam, globs_per_camera[icam]))
+
+        # the below logic is broken for one-image solves. What if I have exactly
+        # one image from each of two cameras? Should I assume the images are
+        # synchronized?
+
+        # min_num_images = 2 if len(files_per_camera) > 1 else 1
+        # for icam in range(len(files_per_camera)):
+        #     N = len(files_per_camera[icam])
+
+        #     if N < min_num_images:
+
+        #         raise Exception("Found too few ({}; need at least {}) images containing a calibration pattern in camera {}; glob '{}'". \
+        #                         format(N, min_num_images, icam, globs_per_camera[icam]))
 
         return mapping,files_per_camera
 

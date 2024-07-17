@@ -351,6 +351,9 @@ plot
         # The current frames_rt_toref uses the calibration-time ref, NOT
         # the current ref. I transform. frames_rt_toref = T_rcal_f
         # I want T_rnow_rcal T_rcal_f
+
+        ########### corresponding_icam_extrinsics() will fail here if we have moving cameras
+
         icam_extrinsics = \
             mrcal.corresponding_icam_extrinsics(icam_intrinsics,
                                                 **optimization_inputs)
@@ -415,6 +418,10 @@ plot
 
         # The current points uses the calibration-time ref, NOT
         # the current ref. I transform.
+
+        ########### corresponding_icam_extrinsics() will fail here if we have moving cameras
+
+
         icam_extrinsics = \
             mrcal.corresponding_icam_extrinsics(icam_intrinsics,
                                                 **optimization_inputs)

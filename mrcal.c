@@ -5195,6 +5195,7 @@ void optimizer_callback(// input state
 
         // TEMPORARY TWEAK: disable range normalization
         // I will re-add this later
+#warning get rid of this completely, or bring it back. Can toss penalty_range_normalization() and mrcal_problem_constants_t
 #if 0
         // Now the range normalization (make sure the range isn't
         // aphysically high or aphysically low)
@@ -5860,7 +5861,11 @@ void optimizer_callback(// input state
                     // time, and I don't want to change it to not break anything
                     double normal_distortion_value =
                         ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC ?
-                        2.0e-1 :
+
+                        // One-image solves require more lower regularization
+                        // weight. Otherwise the regularization terms are a
+                        // too-large epercentage of the cost.
+                        2.0e-1 : //40.0e-1 :
                         2.0;
 
                     double expected_regularization_distortion_error_sq_noscale =
@@ -6471,7 +6476,7 @@ mrcal_optimize( // out
     // and without serious concern for performance. I looked only at a single
     // frame. Tweak them please
     dogleg_parameters.Jt_x_threshold                    = 0;
-    dogleg_parameters.update_threshold                  = 1e-6;
+    dogleg_parameters.update_threshold                  = 1e-9;
     dogleg_parameters.trustregion_threshold             = 0;
     dogleg_parameters.max_iterations                    = 300;
     // dogleg_parameters.trustregion_decrease_factor    = 0.1;

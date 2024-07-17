@@ -1418,6 +1418,10 @@ ARGUMENTS
   visualizing If omitted or None, we report the residuals for ALL the cameras
   together.
 
+    These are not RESIDUALS. They're MEASUREMENTS. Weighted. Look at the names
+    and arguments and docs of functions calling this one, and use the proper
+    terminology
+
 - residuals: optional numpy array of shape (Nmeasurements,) containing the
   optimization residuals. If omitted or None, this will be recomputed. To use a
   cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or

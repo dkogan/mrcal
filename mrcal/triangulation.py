@@ -1535,6 +1535,7 @@ if optimization_inputs is None and q_observation_stdev is None:
                          out = dp_triangulated_db[ipt, :, istate_i1:istate_i1+Nintrinsics])
 
 
+        ########### corresponding_icam_extrinsics() will fail here if we have moving cameras
         icam_extrinsics0 = mrcal.corresponding_icam_extrinsics(icam_intrinsics0, **optimization_inputs)
         icam_extrinsics1 = mrcal.corresponding_icam_extrinsics(icam_intrinsics1, **optimization_inputs)
 

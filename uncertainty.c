@@ -707,14 +707,13 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
                                  Npoints, Npoints_fixed, Nobservations_board,
                                  problem_selections,
                                  lensmodel);
-
-    if(state_index_frame0 < 0 &&
-       state_index_point0 < 0)
-    {
-        MSG("Neither board poses nor points are being optimized. This case isn't implemented");
-        return false;
-    }
-
+    const int state_index_extrinsics0 =
+        mrcal_state_index_extrinsics(0,
+                                 Ncameras_intrinsics, Ncameras_extrinsics,
+                                 Nframes,
+                                 Npoints, Npoints_fixed, Nobservations_board,
+                                 problem_selections,
+                                 lensmodel);
     const int state_index_calobject_warp0 =
         mrcal_state_index_calobject_warp(Ncameras_intrinsics, Ncameras_extrinsics,
                                          Nframes,
@@ -745,12 +744,18 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
         mrcal_num_states_calobject_warp(problem_selections,
                                         Nobservations_board);
 
+#warning check all Nstate_ and state_index_ references; some of those could be invalid (if some variables are locked for instance). Figure out what makes sense and what we should BARF() against
+
+#warning Do I need this? Where do I assume it?
     if(state_index_frame0 >= 0 &&
+       state_index_calobject_warp0 >= 0 &&
        !(state_index_calobject_warp0 == state_index_frame0 + Nstate_frames))
     {
         MSG("I assume that the calobject_warp state variables follow the frame state variables immediately");
         return false;
     }
+
+#warning Do I need this? Where do I assume it?
     if(state_index_calobject_warp0 >= 0 &&
        !(Nstate_calobject_warp == 2))
     {
@@ -769,6 +774,13 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
     {
         MSG("Inconsistent inputs. I have Nstate=%d, but Jt->nrow=%d. Giving up",
             Nstate, (int)Jt->nrow);
+        return false;
+    }
+
+    if(state_index_frame0 < 0 &&
+       state_index_point0 < 0)
+    {
+        MSG("Neither board poses nor points are being optimized. Cannot compute uncertainty if we're not optimizing any observations");
         return false;
     }
 
