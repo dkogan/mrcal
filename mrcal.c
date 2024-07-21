@@ -5840,7 +5840,11 @@ void optimizer_callback(// input state
         if(dump_regularizaton_details)
             MSG("expected_total_pixel_error_sq: %f", expected_total_pixel_error_sq);
 
-        const int Nregularization_types = 3;
+        // This is set to 2 to match what mrcal 2.4 does, to keep the behavior
+        // consistent. The exact value doesn't matter. In a previous commit (the
+        // merge 5c3bdd2b) this was changed to 3, and I'm about to revert it
+        // back to 2 (2024/07)
+        const int Nregularization_types = 2;
 
         if(ctx->problem_selections.do_apply_regularization &&
            (ctx->problem_selections.do_optimize_intrinsics_distortions ||
