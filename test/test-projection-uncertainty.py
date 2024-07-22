@@ -965,39 +965,39 @@ def reproject_perturbed__diff(q, distance,
                        lensmodel, query_intrinsics)
 
 
-def reproject_perturbed__cross_reprojection_error(q, distance,
+def reproject_perturbed__cross_reprojection(q, distance,
 
-                                                  # shape (Ncameras, Nintrinsics)
-                                                  baseline_intrinsics,
-                                                  # shape (Ncameras, 6)
-                                                  baseline_rt_cam_ref,
-                                                  # shape (Nframes, 6)
-                                                  baseline_rt_ref_frame,
-                                                  # shape (Npoints, 3)
-                                                  baseline_point,
-                                                  # shape (2)
-                                                  baseline_calobject_warp,
-                                                  # dict
-                                                  baseline_optimization_inputs,
+                                            # shape (Ncameras, Nintrinsics)
+                                            baseline_intrinsics,
+                                            # shape (Ncameras, 6)
+                                            baseline_rt_cam_ref,
+                                            # shape (Nframes, 6)
+                                            baseline_rt_ref_frame,
+                                            # shape (Npoints, 3)
+                                            baseline_point,
+                                            # shape (2)
+                                            baseline_calobject_warp,
+                                            # dict
+                                            baseline_optimization_inputs,
 
-                                                  # shape (..., Ncameras, Nintrinsics)
-                                                  query_intrinsics,
-                                                  # shape (..., Ncameras, 6)
-                                                  query_rt_cam_ref,
-                                                  # shape (..., Nframes, 6)
-                                                  query_rt_ref_frame,
-                                                  # shape (Npoints, 3)
-                                                  query_point,
-                                                  # shape (..., 2)
-                                                  query_calobject_warp,
-                                                  # shape (...)
-                                                  query_optimization_inputs,
-                                                  # shape (..., Nstate)
-                                                  query_b_unpacked,
-                                                  # shape (..., Nobservations_board,Nheight,Nwidth, 2)
-                                                  query_q_noise_board,
-                                                  # shape (..., Nobservations_point, 2)
-                                                  query_q_noise_point):
+                                            # shape (..., Ncameras, Nintrinsics)
+                                            query_intrinsics,
+                                            # shape (..., Ncameras, 6)
+                                            query_rt_cam_ref,
+                                            # shape (..., Nframes, 6)
+                                            query_rt_ref_frame,
+                                            # shape (Npoints, 3)
+                                            query_point,
+                                            # shape (..., 2)
+                                            query_calobject_warp,
+                                            # shape (...)
+                                            query_optimization_inputs,
+                                            # shape (..., Nstate)
+                                            query_b_unpacked,
+                                            # shape (..., Nobservations_board,Nheight,Nwidth, 2)
+                                            query_q_noise_board,
+                                            # shape (..., Nobservations_point, 2)
+                                            query_q_noise_point):
 
     r'''Reproject by explicitly computing a ref-refperturbed transformation
 
@@ -1007,10 +1007,10 @@ The logic here is described thoroughly in
     '''
 
     if fixedframes:
-        raise Exception("reproject_perturbed__cross_reprojection_error(fixedframes = True) is not yet implemented. I would at least need to handle J_frames not existing when computing J_cross")
+        raise Exception("reproject_perturbed__cross_reprojection(fixedframes = True) is not yet implemented. I would at least need to handle J_frames not existing when computing J_cross")
 
     if not baseline_optimization_inputs['do_optimize_frames']:
-        raise Exception("reproject_perturbed__cross_reprojection_error implementation expects the frames to be optimized")
+        raise Exception("reproject_perturbed__cross_reprojection implementation expects the frames to be optimized")
 
     if nps.norm2(baseline_rt_cam_ref[0]) > 1e-12:
         raise Exception("I'm assuming a vanilla calibration problem reference at cam0")
@@ -2272,7 +2272,7 @@ The rt_refperturbed_ref formulation:
 # by the uncertianty method
 if   args.reproject_perturbed == 'fit-boards-ref':             reproject_perturbed = reproject_perturbed__fit_boards_ref
 elif args.reproject_perturbed == 'diff':                       reproject_perturbed = reproject_perturbed__diff
-elif re.match('cross-reprojection', args.reproject_perturbed): reproject_perturbed = reproject_perturbed__cross_reprojection_error
+elif re.match('cross-reprojection', args.reproject_perturbed): reproject_perturbed = reproject_perturbed__cross_reprojection
 else:                                                          reproject_perturbed = reproject_perturbed__common
 
 
