@@ -142,7 +142,15 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
 
                          optimize       = True,
                          moving_cameras = False,
-                         ref_frame0     = False):
+                         ref_frame0     = False,
+
+                         # The logic to avoid oblique views was added in
+                         #   https://github.com/dkogan/mrcal/commit/b54df5d3
+                         #
+                         # We want to disable this if we're trying to compare
+                         # results to mrcal 2.4, since this commit was made
+                         # after that
+                         avoid_oblique_views = True):
 
     r'''Compute a calibration baseline as a starting point for experiments
 
@@ -219,6 +227,14 @@ ARGUMENTS
 
     def synthesize(z, z_noiseradius, Nframes,
                    x_offset):
+        if avoid_oblique_views:
+            kwargs = \
+                dict( pcamera_nominal_ref   = np.array((x_center,0,0), dtype=float),
+                      max_oblique_angle_deg = 30. )
+        else:
+            kwargs = dict()
+
+
         return \
             mrcal.synthesize_board_observations(models_true_refcam0,
                                                 object_width_n                  = object_width_n,
@@ -238,8 +254,7 @@ ARGUMENTS
                                                                                             y_noiseradius,
                                                                                             z_noiseradius)),
                                                 Nframes                         = Nframes,
-                                                pcamera_nominal_ref             = np.array((x_center,0,0), dtype=float),
-                                                max_oblique_angle_deg           = 30.)
+                                                **kwargs)
 
 
     if not x_mirror:

@@ -33,6 +33,8 @@ TESTS :=																\
   test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample__--extra-observation-at__40__--observed-pixel-uncertainty__0.3__--reproject-perturbed__cross-reprojection--rrp-Jfp \
   test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample__--extra-observation-at__40__--observed-pixel-uncertainty__0.03__--reproject-perturbed__cross-reprojection--rrp-Jfp__--points \
   test/test-projection-uncertainty.py__--fixed__cam0__--model__splined									\
+  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--Ncameras__1__--compare-baseline-against-mrcal-2.4		\
+  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--Ncameras__4__--compare-baseline-against-mrcal-2.4		\
   test/test-linearizations.py														\
   test/test-lensmodel-string-manipulation												\
   test/test-CHOLMOD-factorization.py													\
