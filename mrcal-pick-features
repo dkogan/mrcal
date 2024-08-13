@@ -397,10 +397,6 @@ def set_all_overlay_lines_and_redraw():
                                    color_rgb = point_color_selected ) )
         w.set_lines(*lines)
 
-        # TODO: do I need this?
-        # w.redraw()
-
-
 
 def widget_table_callback(*args):
     ctx   = widget_table.callback_context()
@@ -495,8 +491,6 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
             # TODO: default search-radius is too small: doesn't work
             # TODO: default search-radius is too small: reports BAD matches; be more exclusive
-            # TODO: selection logic is broken: clicking on row doesn't do anything
-            # TODO: selection logic is broken: should be able to select multiple
 
             try:
                 if self.index == 0:
@@ -663,4 +657,6 @@ r'''
 ctrl-drag should lock panning
 
 arrow-keys in the table should work
+
+better UI messages
 '''
