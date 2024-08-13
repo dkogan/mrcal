@@ -1,0 +1,667 @@
+#!/usr/bin/python3
+
+r'''xxx'''
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    def positive_int(string):
+        try:
+            value = int(string)
+        except:
+            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+        if value <= 0 or abs(value-float(string)) > 1e-6:
+            raise argparse.ArgumentTypeError("argument MUST be a positive integer. Got '{}'".format(string))
+        return value
+
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+
+    ######## geometry and rectification system parameters
+    parser.add_argument('--az-fov-deg',
+                        type=float,
+                        help='''The field of view in the azimuth direction, in
+                        degrees. There's no auto-detection at this time, so this
+                        argument is required''')
+    parser.add_argument('--el-fov-deg',
+                        type=float,
+                        help='''The field of view in the elevation direction, in
+                        degrees. There's no auto-detection at this time, so this
+                        argument is required''')
+    parser.add_argument('--az0-deg',
+                        default = None,
+                        type=float,
+                        help='''The azimuth center of the rectified images. "0"
+                        means "the horizontal center of the rectified system is
+                        the mean forward direction of the two cameras projected
+                        to lie perpendicular to the baseline". If omitted, we
+                        align the center of the rectified system with the center
+                        of the two cameras' views''')
+    parser.add_argument('--el0-deg',
+                        default = 0,
+                        type=float,
+                        help='''The elevation center of the rectified system.
+                        "0" means "the vertical center of the rectified system
+                        lies along the mean forward direction of the two
+                        cameras" Defaults to 0.''')
+    parser.add_argument('--pixels-per-deg',
+                        help='''The resolution of the rectified images. This is
+                        either a whitespace-less, comma-separated list of two
+                        values (az,el) or a single value to be applied to both
+                        axes. If a resolution of >0 is requested, the value is
+                        used as is. If a resolution of <0 is requested, we use
+                        this as a scale factor on the resolution of the input
+                        image. For instance, to downsample by a factor of 2,
+                        pass -0.5. By default, we use -1 for both axes: the
+                        resolution of the input image at the center of the
+                        rectified system.''')
+    parser.add_argument('--rectification',
+                        choices=('LENSMODEL_PINHOLE', 'LENSMODEL_LATLON'),
+                        default = 'LENSMODEL_LATLON',
+                        help='''The lens model to use for rectification.
+                        Currently two models are supported: LENSMODEL_LATLON
+                        (the default) and LENSMODEL_PINHOLE. Pinhole stereo
+                        works badly for wide lenses and suffers from varying
+                        angular resolution across the image. LENSMODEL_LATLON
+                        rectification uses a transverse equirectangular
+                        projection, and does not suffer from these effects. It
+                        is thus the recommended model''')
+
+    ######## image pre-filtering
+    parser.add_argument('--clahe',
+                        action='store_true',
+                        help='''If given, apply CLAHE equalization to the images
+                        prior to the stereo matching''')
+
+    ######## stereo processing
+    parser.add_argument('--valid-intrinsics-region',
+                        action='store_true',
+                        help='''If given, annotate the image with its
+                        valid-intrinsics region. This will end up in the
+                        rectified images, and make it clear where successful
+                        matching shouldn't be expected''')
+    parser.add_argument('--range-nominal',
+                        type=float,
+                        default=10.,
+                        help='''Initial guess for the range of all picked
+                        points. Defaults to 10m''')
+    parser.add_argument('--template-size',
+                        type=positive_int,
+                        nargs=2,
+                        default = (13,13),
+                        help='''The size of the template used for feature
+                        matching, in pixel coordinates of the second image. Two
+                        arguments are required: width height. This is passed
+                        directly to mrcal.match_feature(). We default to
+                        13x13''')
+    parser.add_argument('--search-radius',
+                        type=positive_int,
+                        default = 20,
+                        help='''How far the feature-matching routine should
+                        search, in pixel coordinates of the second image. This
+                        should be larger if the nominal range estimate is poor,
+                        especially, at near ranges. This is passed directly to
+                        mrcal.match_feature(). We default to 20 pixels''')
+    parser.add_argument('--single-buffered',
+                        action='store_true',
+                        help='''By default the image display is double-buffered
+                        to avoid flickering. Some graphics hardare (in
+                        particular my i915-based laptop) doesn't work right in
+                        this mode, so --single-buffered is available to disable
+                        double-buffering as a work around''')
+
+    parser.add_argument('models',
+                        type=str,
+                        nargs = 2,
+                        help='''Camera models representing cameras used to
+                        capture the images. Intrinsics only are used. A nominal
+                        stereo geometry with unit baseline is assumed. Given
+                        models are the left, right cameras''')
+    parser.add_argument('images',
+                        type=str,
+                        nargs=2,
+                        help='''The images to use for the matching''')
+
+    args = parser.parse_args()
+
+
+    if args.pixels_per_deg is None:
+        args.pixels_per_deg = (-1, -1)
+    else:
+        try:
+            l = [float(x) for x in args.pixels_per_deg.split(',')]
+            if len(l) < 1 or len(l) > 2:
+                raise
+            for x in l:
+                if x == 0:
+                    raise
+            args.pixels_per_deg = l
+        except:
+            print("""Argument-parsing error:
+  --pixels_per_deg requires RESX,RESY or RESXY, where RES... is a value <0 or >0""",
+                  file=sys.stderr)
+            sys.exit(1)
+
+    if (args.az_fov_deg is None or \
+        args.el_fov_deg is None ):
+        print("""Argument-parsing error:
+  --az-fov-deg and --el-fov-deg are required""",
+              file=sys.stderr)
+        sys.exit(1)
+
+    return args
+
+args = parse_args()
+
+# arg-parsing is done before the imports so that --help works without building
+# stuff, so that I can generate the manpages and README
+
+
+
+
+
+
+import numpy as np
+import numpysane as nps
+import mrcal
+
+if len(args.pixels_per_deg) == 2:
+    pixels_per_deg_az,pixels_per_deg_el = args.pixels_per_deg
+else:
+    pixels_per_deg_az = pixels_per_deg_el = args.pixels_per_deg[0]
+
+models = [mrcal.cameramodel(m) for m in args.models]
+
+models[0].extrinsics_rt_fromref(np.array((0,0,0, 0,0,0), dtype=float))
+models[1].extrinsics_rt_fromref(np.array((0,0,0, 1,0,0), dtype=float))
+
+
+Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+                         models[1].extrinsics_Rt_toref() )
+Rt10 = mrcal.invert_Rt(Rt01)
+
+# for access as Rt_other_this[index]
+Rt_other_this = (Rt10, Rt01)
+
+models_rectified = \
+    mrcal.rectified_system(models,
+                           az_fov_deg          = args.az_fov_deg,
+                           el_fov_deg          = args.el_fov_deg,
+                           el0_deg             = args.el0_deg,
+                           az0_deg             = args.az0_deg,
+                           pixels_per_deg_az   = pixels_per_deg_az,
+                           pixels_per_deg_el   = pixels_per_deg_el,
+                           rectification_model = args.rectification)
+
+rectification_maps = mrcal.rectification_maps(models, models_rectified)
+
+if args.clahe:
+    # importing cv2 is slow, so I only do it if necessary
+    import cv2
+    clahe = cv2.createCLAHE()
+    clahe.setClipLimit(8)
+
+
+
+
+
+
+def load_image(path):
+    try:
+        image = mrcal.load_image(path)
+    except:
+        print(f"Couldn't read image '{path}'", file=sys.stderr)
+        sys.exit(1)
+
+    # I want to intelligently handle the possible image formats. Specifically
+    # the 16-bit case needs special care
+
+    # color images: use the mean of the channels to convert to grayscale
+    if image.ndim == 3:
+        image = \
+            np.mean(image,
+                    axis  = -1,
+                    dtype = image.dtype)
+    elif image.ndim != 2:
+        raise Exception(f"Image '{path}': only ndim==2 (monochrome) or ndim==3 (color) are supported")
+
+    # Deep images: stretch equalization
+    if image.itemsize > 1:
+        if image.dtype != np.uint16:
+            raise Exception("Only 16-bit deep images are implemented currently; I assume this in the following code")
+        # I apply a stretch equalization, and downsample to 8-bits
+        amin = np.min(image)
+        amax = np.max(image)
+        d = amax-amin
+        if d == 0:
+            raise Exception(f"Image '{path}' has the value '{amax}' on every pixel. This can't match any features")
+
+        # I want to compute
+        #   (image - amin) / (amax-amin) * 255
+        image = ((image - amin).astype(float) / d * 255.).astype(np.uint8)
+
+    return image
+
+images = [load_image(f) for f in args.images]
+
+
+
+
+
+# This doesn't really matter: I don't use the input imagersize. But a
+# mismatch suggests the user probably messed up, and it would save them time
+# to yell at them
+imagersize_image = np.array((images[0].shape[1], images[0].shape[0]))
+imagersize_model = models[0].imagersize()
+if np.any(imagersize_image - imagersize_model):
+    raise Exception(f"Image '{args.images[0]}' dimensions {imagersize_image} don't match the model '{args.models[0]}' dimensions {imagersize_model}")
+imagersize_image = np.array((images[1].shape[1], images[1].shape[0]))
+imagersize_model = models[1].imagersize()
+if np.any(imagersize_image - imagersize_model):
+    raise Exception(f"Image '{args.images[1]}' dimensions {imagersize_image} don't match the model '{args.models[1]}' dimensions {imagersize_model}")
+
+
+
+
+
+
+
+models = models_rectified
+H,W = models_rectified[0].imagersize()
+
+
+
+
+
+
+
+
+if args.clahe:
+    images = [ clahe.apply(image) for image in images ]
+
+if args.valid_intrinsics_region:
+    for i in range(2):
+        mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
+
+images = [mrcal.transform_image(images[i],
+                                rectification_maps[i]) \
+          for i in range(2)]
+
+
+UI_usage_message = r'''Usage:
+
+Left mouse button click/drag: pan
+Mouse wheel up/down/left/right: pan
+Ctrl-mouse wheel up/down: zoom
+'u': reset view: zoom out, pan to the center
+
+Right mouse button click: FEATURE-PICKING THINGS
+TAB: transpose windows
+'''
+
+from fltk               import *
+from Fl_Gl_Image_Widget import *
+
+
+
+# Each is an array of shape (N, Nimages = 2,xy=2)
+q01_stored = np.zeros((0,2,2), dtype=float)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def get_q01_nominal(*,
+                    q,
+                    index):
+    i_from     = index
+    i_to       = 1-index
+    Rt_to_from = Rt_other_this[index]
+
+    v_from = mrcal.unproject(q, *models[i_from].intrinsics(),
+                        normalize = True)
+    p_from = v_from * args.range_nominal
+    p_to = mrcal.transform_point_Rt(Rt_to_from, p_from)
+    q_to = mrcal.project(p_to, *models[i_to].intrinsics())
+
+    if index == 0:
+        return nps.cat(q, q_to)
+    else:
+        return nps.cat(q_to, q)
+
+
+def line_segments_square(# shape (..., 2)
+                         q,
+                         radius):
+    # q now has shape (..., 2)
+    rx = np.array((radius,0), dtype=np.float32)
+    ry = np.array((0,radius), dtype=np.float32)
+
+    # shape (..., Nsegments_in_square=4, Npoints_in_line_segment=2, xy=2)
+    p = np.zeros(q.shape[:-1] + (4,2,2), dtype=np.float32)
+    p += nps.dummy(q,-2,-2)
+
+    # line segment 0
+    p[..., 0,0,:] += -rx-ry
+    p[..., 0,1,:] += -rx+ry
+    # line segment 1
+    p[..., 1,0,:] += +rx-ry
+    p[..., 1,1,:] += +rx+ry
+    # line segment 2
+    p[..., 2,0,:] += -rx-ry
+    p[..., 2,1,:] += +rx-ry
+    # line segment 3
+    p[..., 3,0,:] += -rx+ry
+    p[..., 3,1,:] += +rx+ry
+
+    # flatten to a list of line segments
+    # shape (...*4, 2,2)
+    return nps.clump(p, n=p.ndim-2)
+
+
+def set_all_overlay_lines_and_redraw():
+
+    if q01_stored.size == 0:
+        return
+
+    point_radius_stored = 10
+    point_color_stored  = np.array((0,1,0), dtype=np.float32)
+
+    point_radius_selected = 11
+    point_color_selected  = np.array((0,0,1), dtype=np.float32)
+
+    Nstored = len(q01_stored)
+
+    for w in widgets_image:
+        lines = [dict(points    = line_segments_square(q01_stored[:, w.index,:],
+                                                       point_radius_stored),
+                      color_rgb = point_color_stored )]
+
+        for i in range(Nstored):
+            if widget_table.row_selected(i):
+                lines.append( dict(points    = line_segments_square(q01_stored[i, w.index,:],
+                                                                    point_radius_selected),
+                                   color_rgb = point_color_selected ) )
+        w.set_lines(*lines)
+
+        # TODO: do I need this?
+        # w.redraw()
+
+
+
+def widget_table_callback(*args):
+    ctx   = widget_table.callback_context()
+    event = Fl.event()
+    if ctx == Fl_Table.CONTEXT_CELL and \
+       event == FL_RELEASE:
+        set_all_overlay_lines_and_redraw()
+
+
+class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
+
+    def __init__(self,
+                 *args,
+                 index,
+                 **kwargs):
+        self.index = index
+        return super().__init__(*args, **kwargs)
+
+    def set_panzoom(self,
+                    x_centerpixel, y_centerpixel,
+                    visible_width_pixels,
+                    notify_other_widgets = True):
+        r'''Pan/zoom the image
+
+        This is an override of the function to do this: any request to
+        pan/zoom the widget will come here first. I dispatch any
+        pan/zoom commands to all the widgets, so that they all work in
+        unison. visible_width_pixels < 0 means: this is the redirected
+        call; just call the base class
+
+        '''
+        if not notify_other_widgets:
+            return super().set_panzoom(x_centerpixel, y_centerpixel,
+                                       visible_width_pixels)
+
+        # All the widgets should pan/zoom together
+        result = \
+            all( w.set_panzoom(x_centerpixel, y_centerpixel,
+                               visible_width_pixels,
+                               notify_other_widgets = False) \
+                 for w in widgets_image )
+
+        # Switch back to THIS widget
+        self.make_current()
+        return result
+
+    def handle(self, event):
+        global q01_stored
+
+        if event == FL_ENTER:
+            return 1
+        if event == FL_LEAVE:
+            widget_status.value("")
+            return 1
+        if event == FL_MOVE:
+            try:
+                q = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
+                this = f"Image {self.index}"
+                widget_status.value(f"{this}: {q[0]:.2f},{q[1]:.2f}")
+            except:
+                widget_status.value("")
+            return 0
+
+        if event == FL_PUSH:
+
+            if Fl.event_button() != FL_RIGHT_MOUSE:
+                return super().handle(event)
+
+            try:
+                q = \
+                    np.array( self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ),
+                              dtype=float )
+            except:
+                widget_info.value(UI_usage_message + "\n" + \
+                                    "Error converting pixel coordinates")
+                return super().handle(event)
+
+            if not (q[0] >= -0.5 and q[0] <= W-0.5 and \
+                    q[1] >= -0.5 and q[1] <= H-0.5):
+                widget_info.value(UI_usage_message + "\n" + \
+                                    "Out of bounds")
+                return super().handle(event)
+
+            # shape (2,2): (leftright, qxy)
+            q01 = get_q01_nominal(q     = q,
+                                  index = self.index)
+
+
+
+
+
+
+            # TODO: default search-radius is too small: doesn't work
+            # TODO: default search-radius is too small: reports BAD matches; be more exclusive
+            # TODO: selection logic is broken: clicking on row doesn't do anything
+            # TODO: selection logic is broken: should be able to select multiple
+
+            if self.index == 0:
+                # TODO: THIS CAN THROW
+                match_feature_out = \
+                    mrcal.match_feature(images[0], images[1],
+                                        q0               = q01[0],
+                                        q1_estimate      = q01[1],
+                                        search_radius1   = args.search_radius,
+                                        template_size1   = args.template_size)
+            else:
+                match_feature_out = \
+                    mrcal.match_feature(images[1], images[0],
+                                        q0               = q01[1],
+                                        q1_estimate      = q01[0],
+                                        search_radius1   = args.search_radius,
+                                        template_size1   = args.template_size)
+
+            q_other, match_feature_diagnostics = match_feature_out[:2]
+            if q_other is not None:
+                q01[1-self.index] = q_other
+
+                q01_stored = \
+                    nps.glue( q01_stored,
+                              q01,
+                              axis=-3)
+
+                Nstored = len(q01_stored)
+                widget_table.rows( Nstored )
+                widget_table.select_all_rows(0) # deselect all
+                widget_table.select_row(Nstored-1)
+                set_all_overlay_lines_and_redraw()
+
+            return 0
+
+        if event == FL_KEYDOWN:
+            if Fl.event_key() == fltk.FL_Delete:
+
+                i_keep = tuple(i for i in range(widget_table.rows()) \
+                               if not widget_table.row_selected(i))
+                q01_stored = q01_stored[i_keep, ...]
+                widget_table.rows(len(q01_stored))
+                widget_table.select_all_rows(0) # deselect all
+                set_all_overlay_lines_and_redraw()
+
+                return 1
+
+        return super().handle(event)
+
+
+class Fl_Table_Derived(Fl_Table_Row):
+
+    def __init__(self, x, y, w, h, *args):
+        Fl_Table_Row.__init__(self, x, y, w, h, *args)
+
+        self.col_labels = \
+            [ "x0",
+              "y0",
+              "x1",
+              "y1",
+              "Nominal range",
+              "Correlation",
+              "Fit error" ]
+
+        self.type(fltk.Fl_Table_Row.SELECT_MULTI)
+        self.rows(0)
+        self.cols(len(self.col_labels))
+        self.col_header(1)
+        self.col_resize(1)
+
+        self.when(FL_WHEN_RELEASE)
+        self.callback(widget_table_callback)
+
+        self.end()
+
+    def draw_cell(self, context, row, col, x, y, w, h):
+
+        if context == self.CONTEXT_STARTPAGE:
+            fl_font(FL_HELVETICA, 12)
+            return
+
+        if context == self.CONTEXT_COL_HEADER:
+            text = self.col_labels[col]
+
+            fl_push_clip(x, y, w, h)
+            fl_draw_box(FL_THIN_UP_BOX, x, y, w, h, self.row_header_color())
+            fl_color(FL_BLACK)
+            fl_draw(text, x, y, w, h, FL_ALIGN_CENTER)
+            fl_pop_clip()
+            return
+
+        if context == self.CONTEXT_CELL:
+            if col < 4:
+                iimage = col // 2
+                ixy    = col %  2
+                text = f"{q01_stored[row,iimage,ixy]:.2f}"
+            else:
+                text = '-'
+
+            fl_push_clip(x, y, w, h)
+            # background color
+            fl_color(self.selection_color() if self.row_selected(row) else FL_WHITE)
+            fl_rectf(x, y, w, h)
+
+            # text
+            fl_color(FL_BLACK)
+            fl_draw(text, x, y, w, h, FL_ALIGN_CENTER)
+
+            # border
+            fl_color(FL_LIGHT2)
+            fl_rect(x, y, w, h)
+            fl_pop_clip()
+
+            return
+
+        return
+
+
+window = Fl_Window(800, 620, "mrcal feature picker")
+body   = Fl_Group(0,0,800,600)
+
+
+widgets_image = (Fl_Gl_Image_Widget_Derived(0,    0, 400,300, index = 0,
+                                            double_buffered = not args.single_buffered),
+                 Fl_Gl_Image_Widget_Derived(400,  0, 400,300, index = 1,
+                                            double_buffered = not args.single_buffered))
+
+
+
+
+
+
+
+widget_table  = Fl_Table_Derived(          0,  300, 400,300)
+widget_info   = Fl_Multiline_Output(       400,300, 400,300)
+body.end()
+
+widget_status = Fl_Output(0,600,800,20)
+
+widget_info.value(UI_usage_message)
+
+window.resizable(body)
+window.end()
+window.show()
+
+for i in range(2):
+    widgets_image[i]. \
+      update_image(decimation_level = 0,
+                   image_data       = images[i])
+
+Fl.run()
+
+sys.exit(0)
+
+
+
+
+
+r'''
+
+'u' should pan to the center
+
+ctrl-drag should lock panning
+
+arrow-keys in the table should work
+'''
