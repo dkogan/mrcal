@@ -406,6 +406,13 @@ def widget_table_callback(*args):
        event == FL_RELEASE:
         set_all_overlay_lines_and_redraw()
 
+def widget_go_button_callback(*args):
+    np.savetxt(sys.stdout,
+               nps.clump(q01_stored[:,:4],
+                         n = -2),
+               fmt = '%.2f',
+               header = "x0 y0 x1 y1")
+
 
 class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
@@ -624,9 +631,10 @@ class Fl_Table_Derived(Fl_Table_Row):
 WINDOW_W = 800
 IMAGES_H = 300
 TABLE_H  = 300
+BUTTON_H = 30
 STATUS_H = 20
 
-WINDOW_H = IMAGES_H + TABLE_H + STATUS_H
+WINDOW_H = IMAGES_H + TABLE_H + BUTTON_H + STATUS_H
 
 window = Fl_Window(WINDOW_W, WINDOW_H, "mrcal feature picker")
 body   = Fl_Group(0,0,
@@ -651,6 +659,9 @@ widget_info   = Fl_Multiline_Output(WINDOW_W//2,y,
 y += TABLE_H
 body.end()
 
+widget_go_button = Fl_Button(0, y, WINDOW_W, BUTTON_H, "Write output to stdout")
+widget_go_button.callback(widget_go_button_callback)
+y += BUTTON_H
 
 widget_status = Fl_Output(0,y,
                           WINDOW_W,STATUS_H)
