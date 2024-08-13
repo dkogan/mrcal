@@ -377,9 +377,6 @@ def line_segments_square(# shape (..., 2)
 
 def set_all_overlay_lines_and_redraw():
 
-    if q01_stored.size == 0:
-        return
-
     point_radius_stored = 10
     point_color_stored  = np.array((0,1,0), dtype=np.float32)
 
