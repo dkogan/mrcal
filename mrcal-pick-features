@@ -459,7 +459,7 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                 widget_status.value(f"{this}: {q[0]:.2f},{q[1]:.2f}")
             except:
                 widget_status.value("")
-            return 0
+            return 1
 
         if event == FL_PUSH:
 
@@ -472,14 +472,14 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                               dtype=float )
             except:
                 widget_info.value(UI_usage_message + "\n" + \
-                                    "Error converting pixel coordinates")
-                return super().handle(event)
+                                  "Error converting pixel coordinates")
+                return 1
 
             if not (q[0] >= -0.5 and q[0] <= W-0.5 and \
                     q[1] >= -0.5 and q[1] <= H-0.5):
                 widget_info.value(UI_usage_message + "\n" + \
-                                    "Out of bounds")
-                return super().handle(event)
+                                  "Out of bounds")
+                return 1
 
             # shape (2,2): (leftright, qxy)
             q01 = get_q01_nominal(q     = q,
