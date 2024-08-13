@@ -498,23 +498,25 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             # TODO: selection logic is broken: clicking on row doesn't do anything
             # TODO: selection logic is broken: should be able to select multiple
 
-            if self.index == 0:
-                # TODO: THIS CAN THROW
-                match_feature_out = \
-                    mrcal.match_feature(images[0], images[1],
-                                        q0               = q01[0],
-                                        q1_estimate      = q01[1],
-                                        search_radius1   = args.search_radius,
-                                        template_size1   = args.template_size)
-            else:
-                match_feature_out = \
-                    mrcal.match_feature(images[1], images[0],
-                                        q0               = q01[1],
-                                        q1_estimate      = q01[0],
-                                        search_radius1   = args.search_radius,
-                                        template_size1   = args.template_size)
+            try:
+                if self.index == 0:
+                    match_feature_out = \
+                        mrcal.match_feature(images[0], images[1],
+                                            q0               = q01[0],
+                                            q1_estimate      = q01[1],
+                                            search_radius1   = args.search_radius,
+                                            template_size1   = args.template_size)
+                else:
+                    match_feature_out = \
+                        mrcal.match_feature(images[1], images[0],
+                                            q0               = q01[1],
+                                            q1_estimate      = q01[0],
+                                            search_radius1   = args.search_radius,
+                                            template_size1   = args.template_size)
+                q_other, match_feature_diagnostics = match_feature_out[:2]
+            except:
+                q_other = None
 
-            q_other, match_feature_diagnostics = match_feature_out[:2]
             if q_other is not None:
                 q01[1-self.index] = q_other
 
