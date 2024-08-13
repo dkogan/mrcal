@@ -302,8 +302,9 @@ Mouse wheel up/down/left/right: pan
 Ctrl-mouse wheel up/down: zoom
 'u': reset view: zoom out, pan to the center
 
-Right mouse button click: FEATURE-PICKING THINGS
-TAB: transpose windows
+Right mouse button click: Find matching feature
+Click in table: select feature(s)
+Delete: delete selected feature(s)
 '''
 
 from fltk               import *
@@ -511,21 +512,29 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             except:
                 q_other = None
 
-            if q_other is not None:
-                q01[1-self.index] = q_other
+            if q_other is None:
+                widget_info.value(UI_usage_message + "\n" + \
+                                  "Error matching feature")
+                return 1
 
-                q01_stored = \
-                    nps.glue( q01_stored,
-                              q01,
-                              axis=-3)
 
-                Nstored = len(q01_stored)
-                widget_table.rows( Nstored )
-                widget_table.select_all_rows(0) # deselect all
-                widget_table.select_row(Nstored-1)
-                set_all_overlay_lines_and_redraw()
+            q01[1-self.index] = q_other
 
-            return 0
+            q01_stored = \
+                nps.glue( q01_stored,
+                          q01,
+                          axis=-3)
+
+            Nstored = len(q01_stored)
+            widget_table.rows( Nstored )
+            widget_table.select_all_rows(0) # deselect all
+            widget_table.select_row(Nstored-1)
+            set_all_overlay_lines_and_redraw()
+
+            widget_info.value(UI_usage_message + "\n" + \
+                              "Feature match successful")
+
+            return 1
 
         if event == FL_KEYDOWN:
             if Fl.event_key() == fltk.FL_Delete:
@@ -536,6 +545,8 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                 widget_table.rows(len(q01_stored))
                 widget_table.select_all_rows(0) # deselect all
                 set_all_overlay_lines_and_redraw()
+                widget_info.value(UI_usage_message + "\n" + \
+                                  "Feature(s) deleted")
 
                 return 1
 
