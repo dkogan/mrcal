@@ -575,7 +575,7 @@ class Fl_Table_Derived(Fl_Table_Row):
               "Fit error" ]
 
         self.type(fltk.Fl_Table_Row.SELECT_MULTI)
-        self.rows(0)
+        self.rows(len(q01_stored))
         self.cols(len(self.col_labels))
         self.col_header(1)
         self.col_resize(1)
@@ -677,6 +677,8 @@ for i in range(2):
     widgets_image[i]. \
       update_image(decimation_level = 0,
                    image_data       = images[i])
+
+set_all_overlay_lines_and_redraw()
 
 Fl.run()
 
