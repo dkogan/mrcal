@@ -163,13 +163,14 @@ def parse_args():
 
     parser.add_argument('--pairs',
                         action='store_true',
-                        help='''By default, we are calibrating a set of N independent cameras. If we actually
-                        have a number of stereo pairs, pass this argument. It
-                        changes the filename format of the models written to
-                        disk (cameraPAIR-INDEXINPAIR.cameramodel), and will
-                        report some uncertainties about geometry inside each
-                        pair. Consecutive cameras in the given list are paired
-                        up, and an even number of cameras is required''')
+                        help='''By default, we are calibrating a set of N
+                        independent cameras. If we actually have a number of
+                        stereo pairs, pass this argument: it changes the
+                        filename format of the output models written to disk to
+                        'cameraPAIR-INDEXINPAIR.cameramodel'. Consecutive
+                        cameras in the given list are paired up, and an even
+                        number of cameras is required. This argument ONLY
+                        changes the output filename''')
     parser.add_argument('--skip-regularization',
                         action='store_true',
                         required=False,
