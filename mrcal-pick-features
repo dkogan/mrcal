@@ -379,10 +379,34 @@ def line_segments_squares(# shape (..., 2)
     # shape (..., 2,2)
     return nps.clump(p, n=p.ndim-2)
 
+def line_segments_crosshairs(# shape (..., 2)
+                             q,
+                             radius):
+
+    # shape (..., Nsegments_in_crosshair=2, Npoints_in_line_segment=2, xy=2)
+    p = np.zeros(q.shape[:-1] + (4,2,2), dtype=np.float32)
+    p += nps.dummy(q,-2,-2)
+
+    rx = np.array((1,0), dtype=np.float32)
+    ry = np.array((0,1), dtype=np.float32)
+
+    # line segment 0
+    p[..., 0,0,:] += (-rx-ry)*radius
+    p[..., 0,1,:] += (+rx+ry)*radius
+    # line segment 1
+    p[..., 1,0,:] += (+rx-ry)*radius
+    p[..., 1,1,:] += (-rx+ry)*radius
+
+    # flatten to a list of line segments
+    # shape (..., 2,2)
+    return nps.clump(p, n=p.ndim-2)
+
 
 def set_all_overlay_lines_and_redraw():
 
-    point_radius_stored = (10,1)
+    point_radius_stored = 10
+    crosshair_radius    = 1
+
     point_color_stored  = np.array((0,1,0), dtype=np.float32)
 
     point_radius_selected = 11
@@ -391,8 +415,11 @@ def set_all_overlay_lines_and_redraw():
     Nstored = len(q01_stored)
 
     for w in widgets_image:
-        lines = [dict(points    = line_segments_squares(q01_stored[:, w.index,:],
-                                                        point_radius_stored),
+        lines = [dict(points    = nps.glue( line_segments_squares(q01_stored[:, w.index,:],
+                                                                  (point_radius_stored,)),
+                                            line_segments_crosshairs(q01_stored[:, w.index,:],
+                                                                     crosshair_radius),
+                                            axis = -3 ),
                       color_rgb = point_color_stored )]
 
         for i in range(Nstored):
