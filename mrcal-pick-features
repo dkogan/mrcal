@@ -376,7 +376,7 @@ def line_segments_squares(# shape (..., 2)
         p[..., i,3,1,:] += (+rx+ry)*radius
 
     # flatten to a list of line segments
-    # shape (..., 2,2)
+    # shape (N, 2,2)
     return nps.clump(p, n=p.ndim-2)
 
 def line_segments_crosshairs(# shape (..., 2)
@@ -414,20 +414,61 @@ def set_all_overlay_lines_and_redraw():
 
     Nstored = len(q01_stored)
 
-    for w in widgets_image:
-        lines = [dict(points    = nps.glue( line_segments_squares(q01_stored[:, w.index,:],
-                                                                  (point_radius_stored,)),
-                                            line_segments_crosshairs(q01_stored[:, w.index,:],
-                                                                     crosshair_radius),
-                                            axis = -3 ),
-                      color_rgb = point_color_stored )]
+    baseline = nps.mag(Rt01[3,:])
 
-        for i in range(Nstored):
-            if widget_table.row_selected(i):
-                lines.append( dict(points    = line_segments_squares(q01_stored[i, w.index,:],
-                                                                     (point_radius_selected,) ),
-                                   color_rgb = point_color_selected ) )
-        w.set_lines(*lines)
+
+    # for projected rays, I start at a small ratio of the baseline, and increase
+    # the range geometrically. I add another point at infinity at the end
+    k = 1.3
+    N = 30
+    r = baseline * 0.1 * (k ** np.arange(N))
+
+    iselected = tuple(i for i in range(Nstored) if widget_table.row_selected(i))
+
+    for w in widgets_image:
+
+        lines_stored = \
+            dict(points    = nps.glue( line_segments_squares(q01_stored[:, w.index,:],
+                                                             (point_radius_stored,)),
+                                       line_segments_crosshairs(q01_stored[:, w.index,:],
+                                                                crosshair_radius),
+                                       axis = -3 ),
+                 color_rgb = point_color_stored )
+
+        if len(iselected):
+
+            # shape (Nselected, 2)
+            q_stored       = q01_stored[iselected,   w.index,:]
+            q_stored_other = q01_stored[iselected, 1-w.index,:]
+
+            # shape (Nranges, Nselected, 3)
+            p = mrcal.unproject(q_stored_other, *models[1-w.index].intrinsics(),
+                                normalize = True) * \
+                    nps.mv(r,-1,-3)
+            if w.index == 0:
+                pinf = mrcal.rotate_point_R(Rt01[:3,:], p[0])
+                p    = mrcal.transform_point_Rt(Rt01, p)
+            else:
+                pinf = mrcal.rotate_point_R(mrcal.invert_R(Rt01[:3,:]), p[0])
+                p    = mrcal.transform_point_Rt(mrcal.invert_Rt(Rt01), p)
+
+            # shape (Nranges+1, Nselected, Nxy=2)
+            q = mrcal.project(nps.glue(p,pinf, axis=-3),
+                              *models[w.index].intrinsics()).astype(np.float32)
+            # shape (Nsegmentpoint=2,Nranges, Nselected, Nxy=2)
+            qsegments = nps.cat(q[0:-1,...],q[1:,...])
+            # shape (Nranges*Nselected, Nsegmentpoint=2,Nxy=2)
+            qsegments = nps.clump(nps.mv(qsegments, 0, -2),
+                                  n=2)
+
+            w.set_lines( lines_stored,
+                         dict(points    = nps.glue( line_segments_squares(q_stored,
+                                                                          (point_radius_selected,),),
+                                                    qsegments,
+                                                    axis = -3),
+                              color_rgb = point_color_selected ) )
+        else:
+            w.set_lines(lines_stored)
 
 
 def widget_table_callback(*args):
