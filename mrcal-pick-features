@@ -347,38 +347,42 @@ def get_q01_nominal(*,
         return nps.cat(q_to, q)
 
 
-def line_segments_square(# shape (..., 2)
-                         q,
-                         radius):
-    # q now has shape (..., 2)
-    rx = np.array((radius,0), dtype=np.float32)
-    ry = np.array((0,radius), dtype=np.float32)
+def line_segments_squares(# shape (..., 2)
+                          q,
+                          radii):
 
-    # shape (..., Nsegments_in_square=4, Npoints_in_line_segment=2, xy=2)
-    p = np.zeros(q.shape[:-1] + (4,2,2), dtype=np.float32)
-    p += nps.dummy(q,-2,-2)
+    Nradii = len(radii)
 
-    # line segment 0
-    p[..., 0,0,:] += -rx-ry
-    p[..., 0,1,:] += -rx+ry
-    # line segment 1
-    p[..., 1,0,:] += +rx-ry
-    p[..., 1,1,:] += +rx+ry
-    # line segment 2
-    p[..., 2,0,:] += -rx-ry
-    p[..., 2,1,:] += +rx-ry
-    # line segment 3
-    p[..., 3,0,:] += -rx+ry
-    p[..., 3,1,:] += +rx+ry
+    # shape (..., Nradii, Nsegments_in_square=4, Npoints_in_line_segment=2, xy=2)
+    p = np.zeros(q.shape[:-1] + (Nradii,4,2,2), dtype=np.float32)
+    p += nps.dummy(q,-2,-2,-2)
+
+    rx = np.array((1,0), dtype=np.float32)
+    ry = np.array((0,1), dtype=np.float32)
+
+    for i,radius in enumerate(radii):
+
+        # line segment 0
+        p[..., i,0,0,:] += (-rx-ry)*radius
+        p[..., i,0,1,:] += (-rx+ry)*radius
+        # line segment 1
+        p[..., i,1,0,:] += (+rx-ry)*radius
+        p[..., i,1,1,:] += (+rx+ry)*radius
+        # line segment 2
+        p[..., i,2,0,:] += (-rx-ry)*radius
+        p[..., i,2,1,:] += (+rx-ry)*radius
+        # line segment 3
+        p[..., i,3,0,:] += (-rx+ry)*radius
+        p[..., i,3,1,:] += (+rx+ry)*radius
 
     # flatten to a list of line segments
-    # shape (...*4, 2,2)
+    # shape (..., 2,2)
     return nps.clump(p, n=p.ndim-2)
 
 
 def set_all_overlay_lines_and_redraw():
 
-    point_radius_stored = 10
+    point_radius_stored = (10,1)
     point_color_stored  = np.array((0,1,0), dtype=np.float32)
 
     point_radius_selected = 11
@@ -387,14 +391,14 @@ def set_all_overlay_lines_and_redraw():
     Nstored = len(q01_stored)
 
     for w in widgets_image:
-        lines = [dict(points    = line_segments_square(q01_stored[:, w.index,:],
-                                                       point_radius_stored),
+        lines = [dict(points    = line_segments_squares(q01_stored[:, w.index,:],
+                                                        point_radius_stored),
                       color_rgb = point_color_stored )]
 
         for i in range(Nstored):
             if widget_table.row_selected(i):
-                lines.append( dict(points    = line_segments_square(q01_stored[i, w.index,:],
-                                                                    point_radius_selected),
+                lines.append( dict(points    = line_segments_squares(q01_stored[i, w.index,:],
+                                                                     (point_radius_selected,) ),
                                    color_rgb = point_color_selected ) )
         w.set_lines(*lines)
 
