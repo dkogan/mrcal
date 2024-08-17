@@ -276,11 +276,8 @@ if np.any(imagersize_image - imagersize_model):
 
 models = models_rectified
 H,W = models_rectified[0].imagersize()
-
-
-
-
-
+Rt01 = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
+                         models_rectified[1].extrinsics_Rt_toref(),)
 
 
 
