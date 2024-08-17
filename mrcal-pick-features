@@ -188,8 +188,6 @@ Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                          models[1].extrinsics_Rt_toref() )
 Rt10 = mrcal.invert_Rt(Rt01)
 
-# for access as Rt_other_this[index]
-Rt_other_this = (Rt10, Rt01)
 
 models_rectified = \
     mrcal.rectified_system(models,
@@ -331,7 +329,16 @@ def get_q01_nominal(*,
                     index):
     i_from     = index
     i_to       = 1-index
-    Rt_to_from = Rt_other_this[index]
+
+
+    if index == 0:
+        Rt_to_from = \
+            mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
+                              models[0].extrinsics_Rt_toref() )
+    else:
+        Rt_to_from = \
+            mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+                              models[1].extrinsics_Rt_toref() )
 
     v_from = mrcal.unproject(q, *models[i_from].intrinsics(),
                         normalize = True)
@@ -764,6 +771,8 @@ def set_all_overlay_lines_and_redraw():
 
     Nstored = len(q01_stored)
 
+    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+                             models[1].extrinsics_Rt_toref() )
     baseline = nps.mag(Rt01[3,:])
 
 
