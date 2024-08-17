@@ -791,8 +791,8 @@ def set_all_overlay_lines_and_redraw():
 
     # for projected rays, I start at a small ratio of the baseline, and increase
     # the range geometrically. I add another point at infinity at the end
-    k = 1.3
-    N = 20
+    k = 1.1
+    N = 25
     r = baseline * 0.5 * (k ** np.arange(N))
 
     iselected = tuple(i for i in range(Nstored) if widget_table.row_selected(i))
