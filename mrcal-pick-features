@@ -695,13 +695,8 @@ solve_Rt10_from_R01.
         Rt01, \
         mask_inliers
 
-def update_q01_stored(_q01_stored):
-    global q01_stored
+def update_p0_triangulated_stored():
     global p0_triangulated_stored
-
-    q01_stored = _q01_stored
-
-
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
 
@@ -714,6 +709,12 @@ def update_q01_stored(_q01_stored):
         mrcal.triangulate_geometric(v0, v1,
                                     v_are_local = True,
                                     Rt01        = Rt01 )
+
+def update_q01_stored(_q01_stored):
+    global q01_stored
+
+    q01_stored = _q01_stored
+    update_p0_triangulated_stored()
 
 
 def line_segments_squares(# shape (..., 2)
@@ -849,7 +850,29 @@ def widget_table_callback(*args):
        event == FL_RELEASE:
         set_all_overlay_lines_and_redraw()
 
-def widget_go_button_callback(*args):
+def widget_solve_callback(*args):
+
+    Rt01, mask_inliers = \
+        solve_Rt10(q01_stored,
+                   *[m.intrinsics() for m in models],
+                   solve_Rt10_from_R01 = solve_Rt01_given_R01__geometric)
+
+    Rtr0 = models[0].extrinsics_Rt_toref()
+    Rtr1 = mrcal.compose_Rt(Rtr0, Rt01)
+    models[1].extrinsics_Rt_toref(Rtr1)
+
+    update_p0_triangulated_stored()
+
+    widget_table.redraw()
+    set_all_overlay_lines_and_redraw()
+
+    widget_info.value(UI_usage_message + "\n" + \
+                      "Extrinsics of model1 updated")
+
+
+
+
+def widget_write_callback(*args):
     np.savetxt(sys.stdout,
                nps.clump(q01_stored[:,:4],
                          n = -2),
@@ -1112,8 +1135,22 @@ widget_info   = Fl_Multiline_Output(WINDOW_W//2,y,
 y += TABLE_H
 body.end()
 
-widget_go_button = Fl_Button(0, y, WINDOW_W, BUTTON_H, "Write output to stdout")
-widget_go_button.callback(widget_go_button_callback)
+Nbuttons = 2
+BUTTON_W = WINDOW_W//Nbuttons
+ibutton = 0
+
+widget_solve_button = Fl_Button(ibutton*BUTTON_W, y,
+                                BUTTON_W if ibutton < Nbuttons-1 else WINDOW_W-ibutton*BUTTON_W,
+                                BUTTON_H, "Solve for the extrinsics")
+widget_solve_button.callback(widget_solve_callback)
+ibutton+=1
+
+widget_write_button = Fl_Button(ibutton*BUTTON_W, y,
+                                BUTTON_W if ibutton < Nbuttons-1 else WINDOW_W-ibutton*BUTTON_W,
+                                BUTTON_H, "Write output to stdout")
+widget_write_button.callback(widget_write_callback)
+ibutton+=1
+
 y += BUTTON_H
 
 widget_status = Fl_Output(0,y,
