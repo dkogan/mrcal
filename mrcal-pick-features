@@ -307,20 +307,12 @@ from fltk               import *
 from Fl_Gl_Image_Widget import *
 
 
-
-# Each is an array of shape (N, Nimages = 2,xy=2)
+## these two arrays correspond to each other. If you update one, do update the
+## other
+# shape (N, Nimages = 2,xy=2)
 q01_stored = np.zeros((0,2,2), dtype=float)
-
-
-
-
-
-
-
-
-
-
-
+# shape (N, xy=2)
+p0_triangulated_stored = np.zeros((0,2), dtype=float)
 
 
 
@@ -703,6 +695,26 @@ solve_Rt10_from_R01.
         Rt01, \
         mask_inliers
 
+def update_q01_stored(_q01_stored):
+    global q01_stored
+    global p0_triangulated_stored
+
+    q01_stored = _q01_stored
+
+
+    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+                             models[1].extrinsics_Rt_toref() )
+
+
+    q0 = q01_stored[...,0,:]
+    q1 = q01_stored[...,1,:]
+    v0 = mrcal.unproject(q0, *models[0].intrinsics(), normalize = True)
+    v1 = mrcal.unproject(q1, *models[1].intrinsics(), normalize = True)
+    p0_triangulated_stored = \
+        mrcal.triangulate_geometric(v0, v1,
+                                    v_are_local = True,
+                                    Rt01        = Rt01 )
+
 
 def line_segments_squares(# shape (..., 2)
                           q,
@@ -883,8 +895,6 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
         return result
 
     def handle(self, event):
-        global q01_stored
-
         if event == FL_ENTER:
             return 1
         if event == FL_LEAVE:
@@ -958,10 +968,9 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
             q01[1-self.index] = q_other
 
-            q01_stored = \
-                nps.glue( q01_stored,
-                          q01,
-                          axis=-3)
+            update_q01_stored(nps.glue( q01_stored,
+                                        q01,
+                                        axis=-3))
 
             Nstored = len(q01_stored)
             widget_table.rows( Nstored )
@@ -979,7 +988,7 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
                 i_keep = tuple(i for i in range(widget_table.rows()) \
                                if not widget_table.row_selected(i))
-                q01_stored = q01_stored[i_keep, ...]
+                update_q01_stored(q01_stored[i_keep, ...])
                 widget_table.rows(len(q01_stored))
                 widget_table.select_all_rows(0) # deselect all
                 set_all_overlay_lines_and_redraw()
@@ -1001,9 +1010,8 @@ class Fl_Table_Derived(Fl_Table_Row):
               "y0",
               "x1",
               "y1",
-              "Nominal range",
-              "Correlation",
-              "Fit error" ]
+              "Triangulated range",
+              "Cam0 triangulated reprojection error", ]
 
         self.type(fltk.Fl_Table_Row.SELECT_MULTI)
         self.rows(len(q01_stored))
@@ -1038,7 +1046,21 @@ class Fl_Table_Derived(Fl_Table_Row):
                 ixy    = col %  2
                 text = f"{q01_stored[row,iimage,ixy]:.2f}"
             else:
-                text = '-'
+                p = p0_triangulated_stored[row]
+                if nps.norm2(p) == 0:
+                    # Divergent feature. No triangulated anything available
+                    text = '-'
+                else:
+                    if col == 4:
+                        # range
+                        text = f"{nps.mag(p):.2f}"
+                    else:
+                        # reprojection error
+                        icam = 0
+                        text = f"{nps.mag(q01_stored[row,icam] -
+                                          mrcal.project(p, *models[icam].intrinsics())):.1f}"
+
+
 
             fl_push_clip(x, y, w, h)
             # background color
