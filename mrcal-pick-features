@@ -258,6 +258,27 @@ Kneip describes a method to compute the rotation:
                                            mrcal.identity_R())
 
 
+def solve_R01__optimize(v0,v1):
+    r'''Rotation from corresponding-feature observations: direct optimization
+
+This is for experimenting. solve_R01__kneip() should work well.
+'''
+    import scipy.optimize
+
+    def cost(r01):
+        n = np.cross(v0,
+                     mrcal.rotate_point_r(r01,v1))
+        l,v = mrcal.sorted_eig(nps.matmult(n.T,n))
+        return l[0]
+
+    res = \
+        scipy.optimize.minimize( cost,
+                                 x0 = mrcal.identity_r(),
+                                )
+    r01 = res.x
+    return mrcal.R_from_r(r01)
+
+
 def solve_Rt01_given_R01__geometric(v0,v1,R01):
     r'''Translation from corresponding-feature observations: Dima's method
 
@@ -1017,7 +1038,7 @@ else:
 models = [mrcal.cameramodel(m) for m in args.models]
 
 models[0].extrinsics_rt_toref(np.array((0,0,0, 0,0,0), dtype=float))
-models[1].extrinsics_rt_toref(np.array((0,0,0, 1,0,0), dtype=float))
+models[1].extrinsics_rt_toref(np.array((0,0,0,-1,0,0), dtype=float))
 
 
 do_rectified = False
