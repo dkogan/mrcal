@@ -762,10 +762,10 @@ def widget_solve_callback(*args):
     widget_table.redraw()
     set_all_overlay_lines_and_redraw()
 
+    N = len(q01_stored)
+    Noutliers = N-np.count_nonzero(mask_inliers)
     widget_info.value(UI_usage_message + "\n" + \
-                      "Extrinsics of model1 updated")
-
-
+                      f"Extrinsics of model1 updated: {Noutliers}/{N} outliers")
 
 
 def widget_write_callback(*args):
@@ -845,7 +845,7 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             if not (q[0] >= -0.5 and q[0] <= W-0.5 and \
                     q[1] >= -0.5 and q[1] <= H-0.5):
                 widget_info.value(UI_usage_message + "\n" + \
-                                  "Out of bounds")
+                                  f"Out of bounds: {q=}")
                 return 1
 
             # shape (2,2): (leftright, qxy)
