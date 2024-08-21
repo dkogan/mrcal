@@ -166,52 +166,13 @@ args = parse_args()
 
 
 
-
+from fltk               import *
+from Fl_Gl_Image_Widget import *
 
 import numpy as np
 import numpysane as nps
 import mrcal
 import pyopengv
-
-if len(args.pixels_per_deg) == 2:
-    pixels_per_deg_az,pixels_per_deg_el = args.pixels_per_deg
-else:
-    pixels_per_deg_az = pixels_per_deg_el = args.pixels_per_deg[0]
-
-models = [mrcal.cameramodel(m) for m in args.models]
-
-models[0].extrinsics_rt_toref(np.array((0,0,0, 0,0,0), dtype=float))
-models[1].extrinsics_rt_toref(np.array((0,0,0, 1,0,0), dtype=float))
-
-
-do_rectified = False
-
-if do_rectified:
-    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                             models[1].extrinsics_Rt_toref() )
-    Rt10 = mrcal.invert_Rt(Rt01)
-    models_rectified = \
-        mrcal.rectified_system(models,
-                               az_fov_deg          = args.az_fov_deg,
-                               el_fov_deg          = args.el_fov_deg,
-                               el0_deg             = args.el0_deg,
-                               az0_deg             = args.az0_deg,
-                               pixels_per_deg_az   = pixels_per_deg_az,
-                               pixels_per_deg_el   = pixels_per_deg_el,
-                               rectification_model = args.rectification)
-
-    rectification_maps = mrcal.rectification_maps(models, models_rectified)
-
-if args.clahe:
-    # importing cv2 is slow, so I only do it if necessary
-    import cv2
-    clahe = cv2.createCLAHE()
-    clahe.setClipLimit(8)
-
-
-
-
-
 
 def load_image(path):
     try:
@@ -248,92 +209,6 @@ def load_image(path):
         image = ((image - amin).astype(float) / d * 255.).astype(np.uint8)
 
     return image
-
-images = [load_image(f) for f in args.images]
-
-
-
-
-
-reproject_to_unrectified = False
-if reproject_to_unrectified:
-    q01_stored = np.loadtxt('/tmp/correspondences.vnl')
-    q0 = q01_stored[:,:2]
-    q1 = q01_stored[:,2:]
-    q0 = mrcal.project(mrcal.transform_point_Rt(models[0].extrinsics_Rt_fromref(),
-                                                mrcal.transform_point_Rt(models_rectified[0].extrinsics_Rt_toref(),
-                                                                         mrcal.unproject(q0, *models_rectified[0].intrinsics()))),
-                       *models[0].intrinsics())
-    q1 = mrcal.project(mrcal.transform_point_Rt(models[1].extrinsics_Rt_fromref(),
-                                                mrcal.transform_point_Rt(models_rectified[1].extrinsics_Rt_toref(),
-                                                                         mrcal.unproject(q1, *models_rectified[1].intrinsics()))),
-                       *models[1].intrinsics())
-    with open('/tmp/correspondences-unrectified.vnl', 'w') as f:
-        np.savetxt(f,
-                   nps.glue(q0,q1,axis=-1),
-                   fmt = '%.2f',
-                   header = "x0 y0 x1 y1")
-    sys.exit()
-
-if do_rectified:
-    # This doesn't really matter: I don't use the input imagersize. But a
-    # mismatch suggests the user probably messed up, and it would save them time
-    # to yell at them
-    imagersize_image = np.array((images[0].shape[1], images[0].shape[0]))
-    imagersize_model = models[0].imagersize()
-    if np.any(imagersize_image - imagersize_model):
-        raise Exception(f"Image '{args.images[0]}' dimensions {imagersize_image} don't match the model '{args.models[0]}' dimensions {imagersize_model}")
-    imagersize_image = np.array((images[1].shape[1], images[1].shape[0]))
-    imagersize_model = models[1].imagersize()
-    if np.any(imagersize_image - imagersize_model):
-        raise Exception(f"Image '{args.images[1]}' dimensions {imagersize_image} don't match the model '{args.models[1]}' dimensions {imagersize_model}")
-
-
-
-if args.clahe:
-    images = [ clahe.apply(image) for image in images ]
-
-if args.valid_intrinsics_region:
-    for i in range(2):
-        mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
-
-if do_rectified:
-    models = models_rectified
-    ########## TODO: GET RID OF THIS GLOBAL
-    Rt01 = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
-                             models_rectified[1].extrinsics_Rt_toref(),)
-
-W,H = models[0].imagersize()
-
-if do_rectified:
-    images = [mrcal.transform_image(images[i],
-                                    rectification_maps[i]) \
-              for i in range(2)]
-
-
-UI_usage_message = r'''Usage:
-
-Left mouse button click/drag: pan
-Mouse wheel up/down/left/right: pan
-Ctrl-mouse wheel up/down: zoom
-'u': reset view: zoom out, pan to the center
-
-Right mouse button click: Find matching feature
-Click in table: select feature(s)
-Delete: delete selected feature(s)
-'''
-
-from fltk               import *
-from Fl_Gl_Image_Widget import *
-
-
-## these two arrays correspond to each other. If you update one, do update the
-## other
-# shape (N, Nimages = 2,xy=2)
-q01_stored = np.zeros((0,2,2), dtype=float)
-# shape (N, xy=2)
-p0_triangulated_stored = np.zeros((0,2), dtype=float)
-
 
 
 def get_q01_nominal(*,
@@ -1122,6 +997,135 @@ class Fl_Table_Derived(Fl_Table_Row):
             return
 
         return
+
+
+
+
+if len(args.pixels_per_deg) == 2:
+    pixels_per_deg_az,pixels_per_deg_el = args.pixels_per_deg
+else:
+    pixels_per_deg_az = pixels_per_deg_el = args.pixels_per_deg[0]
+
+models = [mrcal.cameramodel(m) for m in args.models]
+
+models[0].extrinsics_rt_toref(np.array((0,0,0, 0,0,0), dtype=float))
+models[1].extrinsics_rt_toref(np.array((0,0,0, 1,0,0), dtype=float))
+
+
+do_rectified = False
+
+if do_rectified:
+    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+                             models[1].extrinsics_Rt_toref() )
+    Rt10 = mrcal.invert_Rt(Rt01)
+    models_rectified = \
+        mrcal.rectified_system(models,
+                               az_fov_deg          = args.az_fov_deg,
+                               el_fov_deg          = args.el_fov_deg,
+                               el0_deg             = args.el0_deg,
+                               az0_deg             = args.az0_deg,
+                               pixels_per_deg_az   = pixels_per_deg_az,
+                               pixels_per_deg_el   = pixels_per_deg_el,
+                               rectification_model = args.rectification)
+
+    rectification_maps = mrcal.rectification_maps(models, models_rectified)
+
+if args.clahe:
+    # importing cv2 is slow, so I only do it if necessary
+    import cv2
+    clahe = cv2.createCLAHE()
+    clahe.setClipLimit(8)
+
+
+
+
+
+images = [load_image(f) for f in args.images]
+
+
+
+
+
+reproject_to_unrectified = False
+if reproject_to_unrectified:
+    q01_stored = np.loadtxt('/tmp/correspondences.vnl')
+    q0 = q01_stored[:,:2]
+    q1 = q01_stored[:,2:]
+    q0 = mrcal.project(mrcal.transform_point_Rt(models[0].extrinsics_Rt_fromref(),
+                                                mrcal.transform_point_Rt(models_rectified[0].extrinsics_Rt_toref(),
+                                                                         mrcal.unproject(q0, *models_rectified[0].intrinsics()))),
+                       *models[0].intrinsics())
+    q1 = mrcal.project(mrcal.transform_point_Rt(models[1].extrinsics_Rt_fromref(),
+                                                mrcal.transform_point_Rt(models_rectified[1].extrinsics_Rt_toref(),
+                                                                         mrcal.unproject(q1, *models_rectified[1].intrinsics()))),
+                       *models[1].intrinsics())
+    with open('/tmp/correspondences-unrectified.vnl', 'w') as f:
+        np.savetxt(f,
+                   nps.glue(q0,q1,axis=-1),
+                   fmt = '%.2f',
+                   header = "x0 y0 x1 y1")
+    sys.exit()
+
+if do_rectified:
+    # This doesn't really matter: I don't use the input imagersize. But a
+    # mismatch suggests the user probably messed up, and it would save them time
+    # to yell at them
+    imagersize_image = np.array((images[0].shape[1], images[0].shape[0]))
+    imagersize_model = models[0].imagersize()
+    if np.any(imagersize_image - imagersize_model):
+        raise Exception(f"Image '{args.images[0]}' dimensions {imagersize_image} don't match the model '{args.models[0]}' dimensions {imagersize_model}")
+    imagersize_image = np.array((images[1].shape[1], images[1].shape[0]))
+    imagersize_model = models[1].imagersize()
+    if np.any(imagersize_image - imagersize_model):
+        raise Exception(f"Image '{args.images[1]}' dimensions {imagersize_image} don't match the model '{args.models[1]}' dimensions {imagersize_model}")
+
+
+
+if args.clahe:
+    images = [ clahe.apply(image) for image in images ]
+
+if args.valid_intrinsics_region:
+    for i in range(2):
+        mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
+
+if do_rectified:
+    models = models_rectified
+    ########## TODO: GET RID OF THIS GLOBAL
+    Rt01 = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
+                             models_rectified[1].extrinsics_Rt_toref(),)
+
+W,H = models[0].imagersize()
+
+if do_rectified:
+    images = [mrcal.transform_image(images[i],
+                                    rectification_maps[i]) \
+              for i in range(2)]
+
+
+UI_usage_message = r'''Usage:
+
+Left mouse button click/drag: pan
+Mouse wheel up/down/left/right: pan
+Ctrl-mouse wheel up/down: zoom
+'u': reset view: zoom out, pan to the center
+
+Right mouse button click: Find matching feature
+Click in table: select feature(s)
+Delete: delete selected feature(s)
+'''
+
+
+
+## these two arrays correspond to each other. If you update one, do update the
+## other
+# shape (N, Nimages = 2,xy=2)
+q01_stored = np.zeros((0,2,2), dtype=float)
+# shape (N, xy=2)
+p0_triangulated_stored = np.zeros((0,2), dtype=float)
+
+
+
+
 
 
 WINDOW_W = 800
