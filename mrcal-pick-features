@@ -1006,9 +1006,9 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
             return 1
 
-        if event == FL_KEYDOWN:
+        # Must be key UP, not key DOWN. Because of https://github.com/fltk/fltk/issues/1044
+        if event == FL_KEYUP:
             if Fl.event_key() == fltk.FL_Delete:
-
                 i_keep = tuple(i for i in range(widget_table.rows()) \
                                if not widget_table.row_selected(i))
                 update_q01_stored(q01_stored[i_keep, ...])
