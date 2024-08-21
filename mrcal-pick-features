@@ -180,8 +180,8 @@ else:
 
 models = [mrcal.cameramodel(m) for m in args.models]
 
-models[0].extrinsics_rt_fromref(np.array((0,0,0, 0,0,0), dtype=float))
-models[1].extrinsics_rt_fromref(np.array((0,0,0, 1,0,0), dtype=float))
+models[0].extrinsics_rt_toref(np.array((0,0,0, 0,0,0), dtype=float))
+models[1].extrinsics_rt_toref(np.array((0,0,0, 1,0,0), dtype=float))
 
 
 Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
