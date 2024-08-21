@@ -576,11 +576,12 @@ solve_Rt10_from_R01.
     while True:
 
         Rt01, mask_outlier, Noutliers, norm2e = \
-            solve_Rt10_from_R01(v0,v1,
-                   R01 = pyopengv.relative_pose_eigensolver(v0[mask_inliers],
-                                                            v1[mask_inliers],
-                                                            # seed
-                                                            mrcal.identity_R()))
+            solve_Rt10_from_R01(v0[mask_inliers],
+                                v1[mask_inliers],
+                                R01 = pyopengv.relative_pose_eigensolver(v0[mask_inliers],
+                                                                         v1[mask_inliers],
+                                                                         # seed
+                                                                         mrcal.identity_R()))
         if Noutliers == 0:
             break
 
