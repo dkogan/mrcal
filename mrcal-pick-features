@@ -239,6 +239,25 @@ def get_q01_nominal(*,
         return nps.cat(q_to, q)
 
 
+def solve_R01__kneip(v0,v1):
+    r'''Rotation from corresponding-feature observations: Kneip's eigesolver
+
+Kneip describes a method to compute the rotation:
+
+  L. Kneip, R. Siegwart, M. Pollefeys, "Finding the Exact Rotation Between Two
+  Images Independently of the Translation", Proc. of The European Conference on
+  Computer Vision (ECCV), Florence, Italy. October 2012.
+
+  L. Kneip, S. Lynen, "Direct Optimization of Frame-to-Frame Rotation", Proc. of
+  The International Conference on Computer Vision (ICCV), Sydney, Australia.
+  December 2013.
+'''
+    return \
+        pyopengv.relative_pose_eigensolver(v0,v1,
+                                           # seed
+                                           mrcal.identity_R())
+
+
 def solve_Rt01_given_R01__geometric(v0,v1,R01):
     r'''Translation from corresponding-feature observations: Dima's method
 
@@ -246,10 +265,9 @@ Given corresponding feature observations from two cameras we compute the
 transform between the cameras. This is unique up-to-scale, so the reported
 translation has length = 1.
 
-This method assumes a rotation is already available (from Kneip's eigensolver,
-for instance). Given this rotation this method computes the translation. This
-may or may not be any better than solve_Rt01_given_R01__epipolar_plane_normality().
-That needs evaluation.
+This method assumes a rotation is already available. Given this rotation this
+method computes the translation. This may or may not be any better than
+solve_Rt01_given_R01__epipolar_plane_normality(). That needs evaluation.
 
 The derivation of this method follows. I use the geometric triangulation
 expression derived here:
@@ -541,6 +559,7 @@ def solve_Rt10(# shape (N,Nleftright=2,Nxy=2)
                intrinsics0,
                intrinsics1,
                *,
+               solve_R10           = solve_R01__kneip,
                solve_Rt10_from_R01 = solve_Rt01_given_R01__geometric):
     r'''Full-transform optimization
 
@@ -548,19 +567,8 @@ Given corresponding feature observations from two cameras we compute the
 transform between the cameras. This is unique up-to-scale, so the reported
 translation has length = 1.
 
-This method computes the rotation using Kneip's eigensolver. This is described
-here:
-
-  L. Kneip, R. Siegwart, M. Pollefeys, "Finding the Exact Rotation Between Two
-  Images Independently of the Translation", Proc. of The European Conference on
-  Computer Vision (ECCV), Florence, Italy. October 2012.
-
-  L. Kneip, S. Lynen, "Direct Optimization of Frame-to-Frame Rotation", Proc. of
-  The International Conference on Computer Vision (ICCV), Sydney, Australia.
-  December 2013.
-
-and is implemented in opengv. The translation comes from the method passed in
-solve_Rt10_from_R01.
+The methods to compute the rotation and the translation are given in solve_R10
+and solve_Rt10_from_R01.
 
     '''
 
@@ -575,13 +583,13 @@ solve_Rt10_from_R01.
 
     while True:
 
+        R01 = solve_R10(v0[mask_inliers],
+                        v1[mask_inliers])
+
         Rt01, mask_outlier, Noutliers, norm2e = \
             solve_Rt10_from_R01(v0[mask_inliers],
                                 v1[mask_inliers],
-                                R01 = pyopengv.relative_pose_eigensolver(v0[mask_inliers],
-                                                                         v1[mask_inliers],
-                                                                         # seed
-                                                                         mrcal.identity_R()))
+                                R01 = R01)
         if Noutliers == 0:
             break
 
