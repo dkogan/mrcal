@@ -347,7 +347,7 @@ def load_model_or_keep_filename(filename):
         m = mrcal.cameramodel(filename)
     except:
         # Couldn't load this file as a model. Are we pretty sure it WAS a model?
-        if re.search("\.(cameramodel|cahv|cahvor|cahvore)$",
+        if re.search(r"\.(cameramodel|cahv|cahvor|cahvore)$",
                      filename,
                      flags = re.I):
             # Filename tells us that this WAS a model. So I give up

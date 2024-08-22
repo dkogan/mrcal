@@ -187,7 +187,7 @@ if args.cull_left_of is not None or args.cull_rad_off_center is not None:
             r = nps.mag(dims)/2. + args.cull_rad_off_center
 
     for l in sys.stdin:
-        if re.match('\s*(?:##|$)',l):
+        if re.match(r'\s*(?:##|$)',l):
             sys.stdout.write(l)
             continue
 
@@ -199,7 +199,7 @@ if args.cull_left_of is not None or args.cull_rad_off_center is not None:
         sys.exit(1)
 
     for l in sys.stdin:
-        if re.match('\s*(?:#|$)',l):
+        if re.match(r'\s*(?:#|$)',l):
             sys.stdout.write(l)
             continue
 

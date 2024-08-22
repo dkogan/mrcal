@@ -650,7 +650,7 @@ class HTMLDoc(Doc):
         """Make a link for an identifier, given name-to-URL mappings."""
         for dict in dicts:
             if name in dict:
-                if re.match('builtins\.', dict[name]):
+                if re.match(r'builtins\.', dict[name]):
                     return name
                 return '<a href="%s">%s</a>' % (dict[name], name)
         return name
@@ -658,7 +658,7 @@ class HTMLDoc(Doc):
     def classlink(self, object, modname):
         """Make a link for a class."""
         name, module = object.__name__, sys.modules.get(object.__module__)
-        if hasattr(module, name) and getattr(module, name) is object and not re.match('builtins\.',classname(object, modname)):
+        if hasattr(module, name) and getattr(module, name) is object and not re.match(r'builtins\.',classname(object, modname)):
 
             def strip_submodule(m):
                 s = "[a-zA-Z0-9_]+"

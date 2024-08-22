@@ -111,26 +111,26 @@ def get_variable_map(s):
     4 discrete points
     5 calobject_warp'''
 
-    m = re.search("^## Intrinsics: (\d+) variables per camera \((\d+) for the core, (\d+) for the rest; (\d+) total\). Starts at variable (-?\d+)", s, re.M)
+    m = re.search(r"^## Intrinsics: (\d+) variables per camera \((\d+) for the core, (\d+) for the rest; (\d+) total\). Starts at variable (-?\d+)", s, re.M)
     NintrinsicsPerCamera            = int(m.group(1))
     NintrinsicsCorePerCamera        = int(m.group(2))
     NintrinsicsDistortionsPerCamera = int(m.group(3))
     Nvar_intrinsics                 = int(m.group(4))
     ivar0_intrinsics                = int(m.group(5))
 
-    m = re.search("^## Extrinsics: \d+ variables per camera for all cameras except camera 0 \((\d+) total\). Starts at variable (-?\d+)", s, re.M)
+    m = re.search(r"^## Extrinsics: \d+ variables per camera for all cameras except camera 0 \((\d+) total\). Starts at variable (-?\d+)", s, re.M)
     Nvar_extrinsics  = int(m.group(1))
     ivar0_extrinsics = int(m.group(2))
 
-    m = re.search("^## Frames: \d+ variables per frame \((\d+) total\). Starts at variable (-?\d+)", s, re.M)
+    m = re.search(r"^## Frames: \d+ variables per frame \((\d+) total\). Starts at variable (-?\d+)", s, re.M)
     Nvar_frames  = int(m.group(1))
     ivar0_frames = int(m.group(2))
 
-    m = re.search("^## Discrete points: \d+ variables per point \((\d+) total\). Starts at variable (-?\d+)", s, re.M)
+    m = re.search(r"^## Discrete points: \d+ variables per point \((\d+) total\). Starts at variable (-?\d+)", s, re.M)
     Nvar_points  = int(m.group(1))
     ivar0_points = int(m.group(2))
 
-    m = re.search("^## calobject_warp: (\d+) variables. Starts at variable (-?\d+)", s, re.M)
+    m = re.search(r"^## calobject_warp: (\d+) variables. Starts at variable (-?\d+)", s, re.M)
     Nvar_calobject_warp  = int(m.group(1))
     ivar0_calobject_warp = int(m.group(2))
 
@@ -159,19 +159,19 @@ def get_measurement_map(s):
     3 regularization'''
 
 
-    m = re.search("^## Measurement calobjects: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
+    m = re.search(r"^## Measurement calobjects: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
     Nmeas_boards  = m.group(1)
     imeas0_boards = m.group(2)
 
-    m = re.search("^## Measurement points: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
+    m = re.search(r"^## Measurement points: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
     Nmeas_points  = m.group(1)
     imeas0_points = m.group(2)
 
-    m = re.search("^## Measurement points-triangulated: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
+    m = re.search(r"^## Measurement points-triangulated: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
     Nmeas_points_triangulated  = m.group(1)
     imeas0_points_triangulated = m.group(2)
 
-    m = re.search("^## Measurement regularization: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
+    m = re.search(r"^## Measurement regularization: (\d+) measurements. Starts at measurement (\d+)", s, re.M)
     Nmeas_regularization  = m.group(1)
     imeas0_regularization = m.group(2)
 

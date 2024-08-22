@@ -164,7 +164,7 @@ if args.vs_distance_at is not None:
 
     if re.match('center$|centroid$', args.vs_distance_at):
         pass
-    elif re.match('[0-9\.eEdD+-]+,[0-9\.eEdD+-]+$', args.vs_distance_at):
+    elif re.match(r'[0-9\.eEdD+-]+,[0-9\.eEdD+-]+$', args.vs_distance_at):
         # pixel coordinate given
         args.vs_distance_at = \
             np.array([float(x) for x in args.vs_distance_at.split(',')])
