@@ -139,10 +139,6 @@ mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.$(SO) libmrcal.$(SO).${ABI
 CFLAGS += -I/usr/include/suitesparse
 PYTHON_OBJECTS := mrcal-pywrap.o $(ALL_NPSP_O)
 
-# In the python api I have to cast a PyCFunctionWithKeywords to a PyCFunction,
-# and the compiler complains. But that's how Python does it! So I tell the
-# compiler to chill
-$(PYTHON_OBJECTS): CFLAGS += -Wno-cast-function-type
 $(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
 
 # The python libraries (compiled ones and ones written in python) all live in
