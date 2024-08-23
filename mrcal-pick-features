@@ -888,14 +888,6 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             q01 = get_q01_nominal(q     = q,
                                   index = self.index)
 
-
-
-
-
-
-            # TODO: default search-radius is too small: doesn't work
-            # TODO: default search-radius is too small: reports BAD matches; be more exclusive
-
             try:
                 if self.index == 0:
                     match_feature_out = \
