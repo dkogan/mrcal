@@ -604,6 +604,9 @@ and solve_Rt10_from_R01.
 
     while True:
 
+        if np.count_nonzero(mask_inliers) == 0:
+            raise Exception("All points thrown out as outliers")
+
         R01 = solve_R10(v0[mask_inliers],
                         v1[mask_inliers])
 
@@ -776,11 +779,15 @@ def widget_table_callback(*args):
         set_all_overlay_lines_and_redraw()
 
 def widget_solve_callback(*args):
-
-    Rt01, mask_inliers = \
-        solve_Rt10(q01_stored,
-                   *[m.intrinsics() for m in models],
-                   solve_Rt10_from_R01 = solve_Rt01_given_R01__geometric)
+    try:
+        Rt01, mask_inliers = \
+            solve_Rt10(q01_stored,
+                       *[m.intrinsics() for m in models],
+                       solve_Rt10_from_R01 = solve_Rt01_given_R01__geometric)
+    except Exception as e:
+        widget_info.value(UI_usage_message + "\n" + \
+                          f"Solve failed: {e}")
+        return
 
     Rtr0 = models[0].extrinsics_Rt_toref()
     Rtr1 = mrcal.compose_Rt(Rtr0, Rt01)
