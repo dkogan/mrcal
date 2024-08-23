@@ -23,58 +23,6 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-
-    ######## geometry and rectification system parameters
-    parser.add_argument('--az-fov-deg',
-                        type=float,
-                        help='''The field of view in the azimuth direction, in
-                        degrees. There's no auto-detection at this time, so this
-                        argument is required''')
-    parser.add_argument('--el-fov-deg',
-                        type=float,
-                        help='''The field of view in the elevation direction, in
-                        degrees. There's no auto-detection at this time, so this
-                        argument is required''')
-    parser.add_argument('--az0-deg',
-                        default = None,
-                        type=float,
-                        help='''The azimuth center of the rectified images. "0"
-                        means "the horizontal center of the rectified system is
-                        the mean forward direction of the two cameras projected
-                        to lie perpendicular to the baseline". If omitted, we
-                        align the center of the rectified system with the center
-                        of the two cameras' views''')
-    parser.add_argument('--el0-deg',
-                        default = 0,
-                        type=float,
-                        help='''The elevation center of the rectified system.
-                        "0" means "the vertical center of the rectified system
-                        lies along the mean forward direction of the two
-                        cameras" Defaults to 0.''')
-    parser.add_argument('--pixels-per-deg',
-                        help='''The resolution of the rectified images. This is
-                        either a whitespace-less, comma-separated list of two
-                        values (az,el) or a single value to be applied to both
-                        axes. If a resolution of >0 is requested, the value is
-                        used as is. If a resolution of <0 is requested, we use
-                        this as a scale factor on the resolution of the input
-                        image. For instance, to downsample by a factor of 2,
-                        pass -0.5. By default, we use -1 for both axes: the
-                        resolution of the input image at the center of the
-                        rectified system.''')
-    parser.add_argument('--rectification',
-                        choices=('LENSMODEL_PINHOLE', 'LENSMODEL_LATLON'),
-                        default = 'LENSMODEL_LATLON',
-                        help='''The lens model to use for rectification.
-                        Currently two models are supported: LENSMODEL_LATLON
-                        (the default) and LENSMODEL_PINHOLE. Pinhole stereo
-                        works badly for wide lenses and suffers from varying
-                        angular resolution across the image. LENSMODEL_LATLON
-                        rectification uses a transverse equirectangular
-                        projection, and does not suffer from these effects. It
-                        is thus the recommended model''')
-
-    ######## image pre-filtering
     parser.add_argument('--clahe',
                         action='store_true',
                         help='''If given, apply CLAHE equalization to the images
@@ -84,9 +32,7 @@ def parse_args():
     parser.add_argument('--valid-intrinsics-region',
                         action='store_true',
                         help='''If given, annotate the image with its
-                        valid-intrinsics region. This will end up in the
-                        rectified images, and make it clear where successful
-                        matching shouldn't be expected''')
+                        valid-intrinsics region''')
     parser.add_argument('--range-nominal',
                         type=float,
                         default=10.,
@@ -130,31 +76,6 @@ def parse_args():
                         help='''The images to use for the matching''')
 
     args = parser.parse_args()
-
-
-    if args.pixels_per_deg is None:
-        args.pixels_per_deg = (-1, -1)
-    else:
-        try:
-            l = [float(x) for x in args.pixels_per_deg.split(',')]
-            if len(l) < 1 or len(l) > 2:
-                raise
-            for x in l:
-                if x == 0:
-                    raise
-            args.pixels_per_deg = l
-        except:
-            print("""Argument-parsing error:
-  --pixels_per_deg requires RESX,RESY or RESXY, where RES... is a value <0 or >0""",
-                  file=sys.stderr)
-            sys.exit(1)
-
-    if (args.az_fov_deg is None or \
-        args.el_fov_deg is None ):
-        print("""Argument-parsing error:
-  --az-fov-deg and --el-fov-deg are required""",
-              file=sys.stderr)
-        sys.exit(1)
 
     return args
 
@@ -1072,24 +993,7 @@ models = [mrcal.cameramodel(m) for m in args.models]
 models[0].extrinsics_rt_toref(np.array((0,0,0, 0,0,0), dtype=float))
 models[1].extrinsics_rt_toref(np.array((0,0,0,-1,0,0), dtype=float))
 
-
-do_rectified = False
-
-if do_rectified:
-    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                             models[1].extrinsics_Rt_toref() )
-    Rt10 = mrcal.invert_Rt(Rt01)
-    models_rectified = \
-        mrcal.rectified_system(models,
-                               az_fov_deg          = args.az_fov_deg,
-                               el_fov_deg          = args.el_fov_deg,
-                               el0_deg             = args.el0_deg,
-                               az0_deg             = args.az0_deg,
-                               pixels_per_deg_az   = pixels_per_deg_az,
-                               pixels_per_deg_el   = pixels_per_deg_el,
-                               rectification_model = args.rectification)
-
-    rectification_maps = mrcal.rectification_maps(models, models_rectified)
+W,H = models[0].imagersize()
 
 if args.clahe:
     # importing cv2 is slow, so I only do it if necessary
@@ -1097,50 +1001,7 @@ if args.clahe:
     clahe = cv2.createCLAHE()
     clahe.setClipLimit(8)
 
-
-
-
-
 images = [load_image(f) for f in args.images]
-
-
-
-
-
-reproject_to_unrectified = False
-if reproject_to_unrectified:
-    q01_stored = np.loadtxt('/tmp/correspondences.vnl')
-    q0 = q01_stored[:,:2]
-    q1 = q01_stored[:,2:]
-    q0 = mrcal.project(mrcal.transform_point_Rt(models[0].extrinsics_Rt_fromref(),
-                                                mrcal.transform_point_Rt(models_rectified[0].extrinsics_Rt_toref(),
-                                                                         mrcal.unproject(q0, *models_rectified[0].intrinsics()))),
-                       *models[0].intrinsics())
-    q1 = mrcal.project(mrcal.transform_point_Rt(models[1].extrinsics_Rt_fromref(),
-                                                mrcal.transform_point_Rt(models_rectified[1].extrinsics_Rt_toref(),
-                                                                         mrcal.unproject(q1, *models_rectified[1].intrinsics()))),
-                       *models[1].intrinsics())
-    with open('/tmp/correspondences-unrectified.vnl', 'w') as f:
-        np.savetxt(f,
-                   nps.glue(q0,q1,axis=-1),
-                   fmt = '%.2f',
-                   header = "x0 y0 x1 y1")
-    sys.exit()
-
-if do_rectified:
-    # This doesn't really matter: I don't use the input imagersize. But a
-    # mismatch suggests the user probably messed up, and it would save them time
-    # to yell at them
-    imagersize_image = np.array((images[0].shape[1], images[0].shape[0]))
-    imagersize_model = models[0].imagersize()
-    if np.any(imagersize_image - imagersize_model):
-        raise Exception(f"Image '{args.images[0]}' dimensions {imagersize_image} don't match the model '{args.models[0]}' dimensions {imagersize_model}")
-    imagersize_image = np.array((images[1].shape[1], images[1].shape[0]))
-    imagersize_model = models[1].imagersize()
-    if np.any(imagersize_image - imagersize_model):
-        raise Exception(f"Image '{args.images[1]}' dimensions {imagersize_image} don't match the model '{args.models[1]}' dimensions {imagersize_model}")
-
-
 
 if args.clahe:
     images = [ clahe.apply(image) for image in images ]
@@ -1148,19 +1009,6 @@ if args.clahe:
 if args.valid_intrinsics_region:
     for i in range(2):
         mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
-
-if do_rectified:
-    models = models_rectified
-    ########## TODO: GET RID OF THIS GLOBAL
-    Rt01 = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
-                             models_rectified[1].extrinsics_Rt_toref(),)
-
-W,H = models[0].imagersize()
-
-if do_rectified:
-    images = [mrcal.transform_image(images[i],
-                                    rectification_maps[i]) \
-              for i in range(2)]
 
 
 UI_usage_message = r'''Usage:
