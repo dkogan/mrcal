@@ -926,12 +926,42 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                 widget_status.value("")
             return 1
 
-        if event == FL_PUSH:
+        if event == FL_PUSH and Fl.event_button() == FL_LEFT_MOUSE:
+            self.dragged = False
+        if event == FL_DRAG and Fl.event_state() & FL_BUTTON1:
+            self.dragged = True
+        # both of these fall through to call the parent
 
-            if Fl.event_button() != FL_RIGHT_MOUSE:
-                return super().handle(event)
-
-            return self.handle_right_mouse_button()
+        if event == FL_RELEASE:
+            if Fl.event_button() == FL_RIGHT_MOUSE:
+                return self.handle_right_mouse_button()
+            if Fl.event_button() == FL_LEFT_MOUSE:
+                if not self.dragged:
+                    # Clicked. Select the nearest feature
+                    if len(q01_stored) > 0:
+                        qwidget = np.array((Fl.event_x(),Fl.event_y()),
+                                           dtype=int)
+                        qwidget_stored = \
+                            np.array([self.map_pixel_viewport_from_image(q) for q in q01_stored[:,self.index,:]])
+                        # within 10 pixels in the UI
+                        i = np.nonzero(nps.norm2(qwidget - qwidget_stored) < 10*10)[0]
+                        if len(i) < 1:
+                            widget_info.value(UI_usage_message + "\n" + \
+                                              "No feature near click")
+                            widget_table.select_all_rows(0) # deselect all
+                            set_all_overlay_lines_and_redraw()
+                        elif len(i) > 1:
+                            widget_info.value(UI_usage_message + "\n" + \
+                                              "Too many features near click")
+                            widget_table.select_all_rows(0) # deselect all
+                            set_all_overlay_lines_and_redraw()
+                        else:
+                            # Just one feature. Select it
+                            i = i[0]
+                            widget_table.select_all_rows(0) # deselect all
+                            widget_table.select_row(int(i))
+                            set_all_overlay_lines_and_redraw()
+        # fall through to call the parent
 
         # Must be key UP, not key DOWN. Because of https://github.com/fltk/fltk/issues/1044
         if event == FL_KEYUP:
