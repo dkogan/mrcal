@@ -434,11 +434,11 @@ relative scale
 
 and we can define the 2x2 variance for each observed corner
 
-\[ \mathrm{Var}\left( \vec q_{\mathrm{ref}_i} \right) = s_i^2 \sigma^2 I \]
+\[ \mathrm{Var}\left( \vec q_{\mathrm{ref}_i} \right) = s_i^2 \sigma^2 I_2 \]
 
-and the variance for all the pixel observations
+and the variance for all the pixel observations is the block-diagonal
 
-\[\mathrm{Var}\left(\vec q_\mathrm{ref}\right) = \mathrm{diag}\left(s_i^2\right) \sigma^2 \]
+\[\mathrm{Var}\left(\vec q_\mathrm{ref}\right) = \mathrm{diag}_i \left(\mathrm{Var}\left( \vec q_{\mathrm{ref}_i} \right)\right) \]
 
 The remaining piece is to compute $\sigma$, but this is hard to measure
 directly. There's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in mrgingham, but it doesn't obviously work well.
@@ -489,18 +489,28 @@ Let's treat $\Delta \vec q_\mathrm{ref}$ as a random variable, and look at the
 expectation:
 
 \begin{aligned}
-E\left( \left\Vert \vec x^* \right\Vert^2 \right) &=
+E\left( \left\Vert \vec x^* \right\Vert^2 \right)
+&=
 \mathrm{tr}
-\left( I - J \left( J^T J \right)^{-1} J^T \right)
-\mathrm{Var}
+\left[ \left( I - J \left( J^T J \right)^{-1} J^T \right) \mathrm{Var}
 \left(
 W \Delta \vec q_\mathrm{ref}
-\right) \\
+\right) \right] + E\left( W \Delta \vec q_\mathrm{ref} \right)^T \mathrm{Var}\left( \cdot \right) E\left( W \Delta \vec q_\mathrm{ref} \right)
+\end{aligned}
+
+$\Delta \vec q_\mathrm{ref}$ is 0-mean, so its expectation is 0. And as noted
+[[#noise-in-measurement-vector][below]], $\mathrm{Var}\left(W \Delta \vec q_\mathrm{ref}\right) = \sigma^2 I$. So
+
+\begin{aligned}
+E\left( \left\Vert \vec x^* \right\Vert^2 \right)
+&=
+\mathrm{tr}
+\left( I - J \left( J^T J \right)^{-1} J^T \right)
+\sigma^2 \\
 &=
 \left(N_\mathrm{measurements} - N_\mathrm{state}\right) \sigma^2
 \end{aligned}
 
-See [[#noise-in-measurement-vector][below]] for notes about computing $\mathrm{Var}\left(W \Delta \vec q_\mathrm{ref}\right)$.
 
 So the expected RMS reprojection error in a solve is
 
