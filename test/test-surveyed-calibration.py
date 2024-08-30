@@ -427,9 +427,10 @@ _,optimization_inputs['observations_point'] = \
     sample_dqref(optimization_inputs['observations_point'], pixel_uncertainty_stdev)
 optimize(optimization_inputs)
 
-# Grab the residuals. residuals_point() reports ONLY the point reprojection
-# errors: no board observations, no regularization. Also, no outliers
-rmserr_point = np.std(mrcal.residuals_point(optimization_inputs).ravel())
+# Grab the measurements. measurements_point() reports ONLY the point
+# reprojection errors: no board observations, no regularization. Also, no
+# outliers
+rmserr_point = np.std(mrcal.measurements_point(optimization_inputs).ravel())
 
 ############# Calibration computed. Now I see how well I did
 model_solved = \

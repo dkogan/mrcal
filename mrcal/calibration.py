@@ -1793,7 +1793,7 @@ This function returns a tuple
     residuals_shape = observations.shape[:-1] + (2,)
 
     # shape (Nobservations,object_height_n,object_width_n,2)
-    residuals = \
+    x = \
         mrcal.optimizer_callback(**optimization_inputs,
                                  no_jacobian      = True,
                                  no_factorization = True)[1][:np.prod(residuals_shape)]. \
@@ -1808,7 +1808,7 @@ This function returns a tuple
     idx[ observations[...,2] <= 0.0 ] = False
 
     # shape (N,2)
-    err = residuals   [idx, ...    ]
+    err = x           [idx, ...    ]
     obs = observations[idx, ..., :2]
 
     # Each has shape (Nheight,Nwidth)

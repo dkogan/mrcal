@@ -19,6 +19,12 @@ mrcal-stereo --single-buffered
 
 poseutils: more careful handling of rotations near singularities
 
+Renamed "residuals" -> "measurements" to clarify the nomenclature
+  - residuals_point() -> measurements_point()
+  - residuals_board() -> measurements_board()
+  - show_residuals_....() take an "x" argument; the old "residuals" argument is
+    still accepted
+
 * Migration notes 2.4 -> 3.0
 
 * todo

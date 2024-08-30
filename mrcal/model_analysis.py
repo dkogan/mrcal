@@ -496,23 +496,23 @@ def _observed_pixel_uncertainty_from_inputs(optimization_inputs,
                                      no_jacobian      = True,
                                      no_factorization = True)[1]
 
-    sum_of_squares_residuals = 0
+    sum_of_squares_measurements = 0
     Nobservations            = 0
 
     # shape (Nobservations*2)
-    residuals = mrcal.residuals_board(optimization_inputs, residuals = x).ravel()
-    if residuals.size:
-        sum_of_squares_residuals += np.var(residuals) * residuals.size
-        Nobservations += residuals.size
+    measurements = mrcal.measurements_board(optimization_inputs, x = x).ravel()
+    if measurements.size:
+        sum_of_squares_measurements += np.var(measurements) * measurements.size
+        Nobservations += measurements.size
 
-    residuals = mrcal.residuals_point     (optimization_inputs, residuals = x).ravel()
-    if residuals.size:
-        sum_of_squares_residuals += np.var(residuals) * residuals.size
-        Nobservations += residuals.size
+    measurements = mrcal.measurements_point(optimization_inputs, x = x).ravel()
+    if measurements.size:
+        sum_of_squares_measurements += np.var(measurements) * measurements.size
+        Nobservations += measurements.size
 
     if Nobservations == 0:
         raise Exception("observed_pixel_uncertainty cannot be computed because we don't have any board or point observations")
-    observed_pixel_uncertainty = np.sqrt(sum_of_squares_residuals / Nobservations)
+    observed_pixel_uncertainty = np.sqrt(sum_of_squares_measurements / Nobservations)
 
     return observed_pixel_uncertainty
 

@@ -253,7 +253,7 @@ if args.from_glob:
 
 
 
-residuals = mrcal.optimizer_callback(**optimization_inputs)[1]
+x = mrcal.optimizer_callback(**optimization_inputs)[1]
 
 # for --explore
 indices_frame_camintrinsics_camextrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
@@ -264,11 +264,11 @@ indices_frame_camintrinsics_camextrinsics = optimization_inputs['indices_frame_c
 
 # shape (Nobservations, object_height_n, object_width_n, 3)
 observations = optimization_inputs['observations_board']
-residuals_shape = observations.shape[:-1] + (2,)
+x_shape = observations.shape[:-1] + (2,)
 # shape (Nobservations, object_height_n, object_width_n, 2)
-residuals_reshaped = residuals[:np.prod(residuals_shape)].reshape(*residuals_shape)
+x_reshaped = x[:np.prod(x_shape)].reshape(*x_shape)
 # shape (Nobservations,)
-err_per_observation = nps.norm2(nps.clump(residuals_reshaped, n=-3))
+err_per_observation = nps.norm2(nps.clump(x_reshaped, n=-3))
 i_observations_sorted_from_worst = \
     list(reversed(np.argsort(err_per_observation)))
 
@@ -282,7 +282,7 @@ def show(i_observation):
                                                i_observation,
                                                from_worst                       = args.from_worst,
                                                i_observations_sorted_from_worst = i_observations_sorted_from_worst,
-                                               residuals                        = residuals,
+                                               x                                = x,
                                                paths                            = paths,
                                                cbmax                            = args.cbmax,
                                                image_path_prefix                = args.image_path_prefix,
@@ -329,7 +329,7 @@ mrcal.show_residuals_board_observation(optimization_inputs,
                                        {args.observations[0]},
                                        from_worst                       = args.from_worst,
                                        i_observations_sorted_from_worst = i_observations_sorted_from_worst,
-                                       residuals                        = residuals,
+                                       x                                = x,
                                        paths                            = paths,
                                        circlescale                      = args.circlescale,
                                        vectorscale                      = args.vectorscale,

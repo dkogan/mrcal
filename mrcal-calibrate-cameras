@@ -784,8 +784,8 @@ if not args.skip_intrinsics_solve and \
    args.valid_intrinsics_region_parameters is not None:
 
     observed_pixel_uncertainty = \
-        np.std(mrcal.residuals_board(optimization_inputs,
-                                     residuals = stats['x']).ravel())
+        np.std(mrcal.measurements_board(optimization_inputs,
+                                        x = stats['x']).ravel())
 
     threshold_uncertainty = args.valid_intrinsics_region_parameters[0] * observed_pixel_uncertainty
     threshold_mean        = args.valid_intrinsics_region_parameters[1]
@@ -883,10 +883,10 @@ def show_splined_model_correction     (icam = None, **kwargs): show_generic_per_
 def show_projection_uncertainty        (icam = None, **kwargs): show_generic_per_cam(mrcal.show_projection_uncertainty,        icam, **kwargs)
 def show_valid_intrinsics_region       (icam = None, **kwargs): show_generic_per_cam(mrcal.show_valid_intrinsics_region,       icam, **kwargs)
 
-def show_residuals_vectorfield (icam = None, **kwargs): show_generic_per_cam(mrcal.show_residuals_vectorfield, icam, residuals=stats['x'], **kwargs)
-def show_residuals_magnitudes  (icam = None, **kwargs): show_generic_per_cam(mrcal.show_residuals_magnitudes,  icam, residuals=stats['x'], **kwargs)
-def show_residuals_directions  (icam = None, **kwargs): show_generic_per_cam(mrcal.show_residuals_directions,  icam, residuals=stats['x'], **kwargs)
-def show_residuals_regional    (icam = None, **kwargs): show_generic_per_cam(mrcal.show_residuals_regional,    icam, residuals=stats['x'], **kwargs)
+def show_residuals_vectorfield (icam = None, **kwargs): show_generic_per_cam(mrcal.show_residuals_vectorfield, icam, x=stats['x'], **kwargs)
+def show_residuals_magnitudes  (icam = None, **kwargs): show_generic_per_cam(mrcal.show_residuals_magnitudes,  icam, x=stats['x'], **kwargs)
+def show_residuals_directions  (icam = None, **kwargs): show_generic_per_cam(mrcal.show_residuals_directions,  icam, x=stats['x'], **kwargs)
+def show_residuals_regional    (icam = None, **kwargs): show_generic_per_cam(mrcal.show_residuals_regional,    icam, x=stats['x'], **kwargs)
 
 def show_distortion_off_pinhole       (icam = None, **kwargs): show_generic_per_cam(mrcal.show_distortion_off_pinhole,        icam, **kwargs)
 def show_distortion_off_pinhole_radial(icam = None, **kwargs): show_generic_per_cam(mrcal.show_distortion_off_pinhole_radial, icam, **kwargs)
@@ -900,7 +900,7 @@ def show_residuals_board_observation(i_observation, **kwargs):
                          i_observation,
                          paths                            = paths,
                          i_observations_sorted_from_worst = i_observations_sorted_from_worst,
-                         residuals                        = stats['x'],
+                         x                                = stats['x'],
                          **kwargs)
 
 
@@ -911,14 +911,14 @@ def show_residuals_board_observation_worst(i_observation_from_worst, **kwargs):
                          from_worst                       = True,
                          paths                            = paths,
                          i_observations_sorted_from_worst = i_observations_sorted_from_worst,
-                         residuals                        = stats['x'],
+                         x                                = stats['x'],
                          **kwargs)
 
 def show_residuals_histogram(icam = None, **kwargs):
     show_generic(mrcal.show_residuals_histogram,
                  optimization_inputs,
                  icam,
-                 residuals=stats['x'],
+                 x = stats['x'],
                  **kwargs)
 
 import IPython

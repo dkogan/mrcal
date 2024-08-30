@@ -3118,6 +3118,8 @@ def show_residuals_board_observation(optimization_inputs,
                                      *,
                                      from_worst                       = False,
                                      i_observations_sorted_from_worst = None,
+                                     x                                = None,
+                                     # backwards-compatibility synonym of "x"
                                      residuals                        = None,
                                      paths                            = None,
                                      image_path_prefix                = None,
@@ -3174,10 +3176,14 @@ ARGUMENTS
   pass in a precomputed value. See the sources for an example of how to compute
   it
 
-- residuals: optional numpy array of shape (Nmeasurements,) containing the
-  optimization residuals. If omitted or None, this will be recomputed. To use a
-  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+- x: optional numpy array of shape (Nmeasurements,) containing the optimization
+  measurements (the residual weighted reprojection errors). If omitted or None,
+  this will be recomputed. To use a cached value, pass the result of
+  mrcal.optimize(**optimization_inputs)['x'] or
   mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- residuals: backwards-compatibility synonym for x. At most one of these may be
+  non-None
 
 - paths: optional iterable of strings, containing image filenames corresponding
   to each observation. If omitted or None or if the image couldn't be found, the
@@ -3234,31 +3240,37 @@ plot
 
     '''
 
-    import gnuplotlib as gp
+    if residuals is not None:
+        if x is not None:
+            raise Exception("residuals and x are mutually exclusive")
+        x = residuals
 
     if image_path_prefix is not None and \
        image_directory   is not None:
         raise Exception("image_path_prefix and image_directory are mutually exclusive")
 
-    if residuals is None:
+    import gnuplotlib as gp
+
+
+    if x is None:
         # Flattened residuals. The board measurements are at the start of the
         # array
-        residuals = \
+        x = \
             mrcal.optimizer_callback(**optimization_inputs,
                                      no_jacobian      = True,
                                      no_factorization = True)[1]
 
     # shape (Nobservations, object_height_n, object_width_n, 3)
     observations = optimization_inputs['observations_board']
-    residuals_shape = observations.shape[:-1] + (2,)
+    x_shape = observations.shape[:-1] + (2,)
 
     # shape (Nobservations, object_height_n, object_width_n, 2)
-    residuals = residuals[:np.prod(residuals_shape)].reshape(*residuals_shape)
+    x = x[:np.prod(x_shape)].reshape(*x_shape)
 
     if from_worst:
         if i_observations_sorted_from_worst is None:
             # shape (Nobservations,)
-            err_per_observation = nps.norm2(nps.clump(residuals, n=-3))
+            err_per_observation = nps.norm2(nps.clump(x, n=-3))
             i_observations_sorted_from_worst = \
                 list(reversed(np.argsort(err_per_observation)))
 
@@ -3266,7 +3278,7 @@ plot
         i_observation = i_observations_sorted_from_worst[i_observation_from_worst]
 
     # shape (Nh*Nw,2)
-    residuals = nps.clump(residuals   [i_observation         ], n=2)
+    x         = nps.clump(x   [i_observation         ], n=2)
     # shape (Nh*Nw,2)
     obs       = nps.clump(observations[i_observation, ..., :2], n=2)
     # shape (Nh*Nw)
@@ -3274,7 +3286,7 @@ plot
 
     # take non-outliers
     i_inliers = weight > 0.
-    residuals = residuals[i_inliers] # shape (Ninliers,2)
+    x         = x[i_inliers] # shape (Ninliers,2)
     weight    = weight   [i_inliers] # shape (Ninliers,)
     obs       = obs      [i_inliers] # shape (Ninliers,2)
 
@@ -3288,7 +3300,7 @@ plot
                     f'({i_observation_from_worst} from worst)' if from_worst else '',
                     *optimization_inputs['indices_frame_camintrinsics_camextrinsics'][i_observation, :2],
                     "" if paths is None else f"path={paths[i_observation]}, ",
-                    np.sqrt(np.mean(nps.norm2(residuals))))
+                    np.sqrt(np.mean(nps.norm2(x))))
         if extratitle is not None:
             title += ": " + extratitle
         plot_options['title'] = title
@@ -3344,7 +3356,7 @@ plot
             # more confident = higher weight
             (obs[:,0], obs[:,1],
              3. * weight * circlescale, # size
-             nps.mag(residuals),        # color
+             nps.mag(x),        # color
              dict(_with     = 'points pt 7 ps variable palette',
                   tuplesize = 4)),
 
@@ -3352,8 +3364,8 @@ plot
             # Vector points AT the prediction only if weight = 1
             (obs[:,0],
              obs[:,1],
-             vectorscale*residuals[:,0],
-             vectorscale*residuals[:,1],
+             vectorscale*x[:,0],
+             vectorscale*x[:,1],
              dict(_with     = 'vectors filled lw 2',
                   tuplesize = 4)) )
 
@@ -3366,6 +3378,8 @@ plot
 
 def show_residuals_histogram(optimization_inputs,
                              icam_intrinsics  = None,
+                             x                = None,
+                             # backwards-compatibility synonym of "x"
                              residuals        = None,
                              *,
                              binwidth         = 0.02,
@@ -3398,10 +3412,14 @@ ARGUMENTS
   visualizing If omitted or None, we display the residuals for ALL the cameras
   together.
 
-- residuals: optional numpy array of shape (Nmeasurements,) containing the
-  optimization residuals. If omitted or None, this will be recomputed. To use a
-  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+- x: optional numpy array of shape (Nmeasurements,) containing the optimization
+  measurements (the residual weighted reprojection errors). If omitted or None,
+  this will be recomputed. To use a cached value, pass the result of
+  mrcal.optimize(**optimization_inputs)['x'] or
   mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- residuals: backwards-compatibility synonym for x. At most one of these may be
+  non-None
 
 - binwidth: optional floating-point value selecting the width of each bin in the
   computed histogram. A default of 0.02 pixels is used if this value is omitted.
@@ -3432,23 +3450,28 @@ plot
 
     '''
 
+    if residuals is not None:
+        if x is not None:
+            raise Exception("residuals and x are mutually exclusive")
+        x = residuals
+
     import gnuplotlib as gp
 
     if 'observations_board' in optimization_inputs and \
        optimization_inputs['observations_board'] is not None:
         x_chessboard = \
-            mrcal.residuals_board(optimization_inputs = optimization_inputs,
-                                  icam_intrinsics     = icam_intrinsics,
-                                  residuals           = residuals).ravel()
+            mrcal.measurements_board(optimization_inputs = optimization_inputs,
+                                     icam_intrinsics     = icam_intrinsics,
+                                     x                   = x).ravel()
     else:
         x_chessboard = np.array(())
 
     if 'observations_point' in optimization_inputs and \
        optimization_inputs['observations_point'] is not None:
         x_point = \
-            mrcal.residuals_point(optimization_inputs = optimization_inputs,
-                                  icam_intrinsics     = icam_intrinsics,
-                                  residuals           = residuals).ravel()
+            mrcal.measurements_point(optimization_inputs = optimization_inputs,
+                                     icam_intrinsics     = icam_intrinsics,
+                                     x                   = x).ravel()
     else:
         x_point = np.array(())
 
@@ -3467,7 +3490,7 @@ plot
                                         mean     = np.mean(x),
                                         N        = len(x),
                                         binwidth = binwidth,
-                                        legend   = f'Normal distribution of residuals with observed stdev: {sigma_observed:.02g} pixels')
+                                        legend   = f'Normal distribution of measurements with observed stdev: {sigma_observed:.02g} pixels')
 
     if icam_intrinsics is None:
         what = 'all the cameras'
@@ -3477,7 +3500,7 @@ plot
     plot_options = dict(kwargs)
 
     if 'title' not in plot_options:
-        title = f'Distribution of fitted residuals and a gaussian fit for {what}'
+        title = f'Distribution of fitted measurements and a gaussian fit for {what}'
         if extratitle is not None:
             title += ": " + extratitle
         plot_options['title'] = title
@@ -3486,7 +3509,7 @@ plot
                        equation_above = equation,
                        overwrite = True)
     gp.add_plot_option(plot_options,
-                       xlabel = 'Residuals (pixels). x and y components of error are counted separately',
+                       xlabel = 'Measurements (pixels). x and y components of error are counted separately',
                        ylabel = 'Observed frequency',
                        overwrite = False)
     data_tuples = [ (x, dict(histogram = True,
@@ -3500,7 +3523,7 @@ plot
 
 def _get_show_residuals_data_onecam(model,
                                     # shape (Nobservations,object_height_n,object_width_n,2)
-                                    residuals,
+                                    x,
                                     valid_intrinsics_region):
     r'''Return the data used by the various show_residuals_...() functions
 
@@ -3518,10 +3541,10 @@ def _get_show_residuals_data_onecam(model,
        optimization_inputs['observations_board'] is not None:
         # shape (N,2), (N,2)
         err_chessboard,obs_chessboard = \
-            mrcal.residuals_board(optimization_inputs = optimization_inputs,
-                                  icam_intrinsics     = icam_intrinsics,
-                                  residuals           = residuals,
-                                  return_observations = True)
+            mrcal.measurements_board(optimization_inputs = optimization_inputs,
+                                     icam_intrinsics     = icam_intrinsics,
+                                     x                   = x,
+                                     return_observations = True)
     else:
         err_chessboard,obs_chessboard = \
             np.array(()),np.array(())
@@ -3530,10 +3553,10 @@ def _get_show_residuals_data_onecam(model,
        optimization_inputs['observations_point'] is not None:
         # shape (N,2), (N,2)
         err_point,obs_point = \
-            mrcal.residuals_point(optimization_inputs = optimization_inputs,
-                                  icam_intrinsics     = icam_intrinsics,
-                                  residuals           = residuals,
-                                  return_observations = True)
+            mrcal.measurements_point(optimization_inputs = optimization_inputs,
+                                     icam_intrinsics     = icam_intrinsics,
+                                     x                   = x,
+                                     return_observations = True)
     else:
         err_point,obs_point = \
             np.array(()),np.array(())
@@ -3581,6 +3604,8 @@ def _get_show_residuals_data_onecam(model,
 
 
 def show_residuals_vectorfield(model,
+                               x                       = None,
+                               # backwards-compatibility synonym of "x"
                                residuals               = None,
                                *,
                                vectorscale             = 1.0,
@@ -3611,10 +3636,14 @@ ARGUMENTS
 - model: the mrcal.cameramodel object representing the camera model we're
   investigating. This cameramodel MUST contain the optimization_inputs data
 
-- residuals: optional numpy array of shape (Nmeasurements,) containing the
-  optimization residuals. If omitted or None, this will be recomputed. To use a
-  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+- x: optional numpy array of shape (Nmeasurements,) containing the optimization
+  measurements (the residual weighted reprojection errors). If omitted or None,
+  this will be recomputed. To use a cached value, pass the result of
+  mrcal.optimize(**optimization_inputs)['x'] or
   mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- residuals: backwards-compatibility synonym for x. At most one of these may be
+  non-None
 
 - vectorscale: optional scale factor to adjust the length of the plotted
   vectors. If omitted, a unit scale (1.0) is used. Any other scale factor makes
@@ -3655,18 +3684,23 @@ plot
 
     '''
 
+    if residuals is not None:
+        if x is not None:
+            raise Exception("residuals and x are mutually exclusive")
+        x = residuals
+
     import gnuplotlib as gp
 
     err,obs, \
     valid_intrinsics_region_plotarg_2d, \
     valid_intrinsics_region_plotarg_3d = \
-        _get_show_residuals_data_onecam(model, residuals, valid_intrinsics_region)
+        _get_show_residuals_data_onecam(model, x, valid_intrinsics_region)
 
     W,H = model.imagersize()
     plot_options = dict(kwargs)
 
     if 'title' not in plot_options:
-        title   = 'Fitted residuals. Errors shown as vectors and colors'
+        title   = 'Fitted measurements. Errors shown as vectors and colors'
         if extratitle is not None:
             title += ": " + extratitle
         plot_options['title'] = title
@@ -3700,6 +3734,8 @@ plot
 
 
 def show_residuals_magnitudes(model,
+                              x                       = None,
+                              # backwards-compatibility synonym of "x"
                               residuals               = None,
                               *,
                               cbmax                   = None,
@@ -3729,10 +3765,14 @@ ARGUMENTS
 - model: the mrcal.cameramodel object representing the camera model we're
   investigating. This cameramodel MUST contain the optimization_inputs data
 
-- residuals: optional numpy array of shape (Nmeasurements,) containing the
-  optimization residuals. If omitted or None, this will be recomputed. To use a
-  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+- x: optional numpy array of shape (Nmeasurements,) containing the optimization
+  measurements (the residual weighted reprojection errors). If omitted or None,
+  this will be recomputed. To use a cached value, pass the result of
+  mrcal.optimize(**optimization_inputs)['x'] or
   mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- residuals: backwards-compatibility synonym for x. At most one of these may be
+  non-None
 
 - cbmax: optional value, defaulting to None. If given, sets the maximum range of
   the color map
@@ -3768,18 +3808,23 @@ plot
 
     '''
 
+    if residuals is not None:
+        if x is not None:
+            raise Exception("residuals and x are mutually exclusive")
+        x = residuals
+
     import gnuplotlib as gp
 
     err,obs, \
     valid_intrinsics_region_plotarg_2d, \
     valid_intrinsics_region_plotarg_3d = \
-        _get_show_residuals_data_onecam(model, residuals, valid_intrinsics_region)
+        _get_show_residuals_data_onecam(model, x, valid_intrinsics_region)
 
     W,H = model.imagersize()
     plot_options = dict(kwargs)
 
     if 'title' not in plot_options:
-        title   = 'Fitted residuals. Errors shown as colors'
+        title   = 'Fitted measurements. Errors shown as colors'
         if extratitle is not None:
             title += ": " + extratitle
         plot_options['title'] = title
@@ -3811,6 +3856,8 @@ plot
 
 
 def show_residuals_directions(model,
+                              x                       = None,
+                              # backwards-compatibility synonym of "x"
                               residuals               = None,
                               *,
                               valid_intrinsics_region = True,
@@ -3842,10 +3889,14 @@ ARGUMENTS
 - model: the mrcal.cameramodel object representing the camera model we're
   investigating. This cameramodel MUST contain the optimization_inputs data
 
-- residuals: optional numpy array of shape (Nmeasurements,) containing the
-  optimization residuals. If omitted or None, this will be recomputed. To use a
-  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+- x: optional numpy array of shape (Nmeasurements,) containing the optimization
+  measurements (the residual weighted reprojection errors). If omitted or None,
+  this will be recomputed. To use a cached value, pass the result of
+  mrcal.optimize(**optimization_inputs)['x'] or
   mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- residuals: backwards-compatibility synonym for x. At most one of these may be
+  non-None
 
 - valid_intrinsics_region: optional boolean, defaulting to True. If
   valid_intrinsics_region: the valid-intrinsics region present in the model is
@@ -3878,18 +3929,23 @@ plot
 
     '''
 
+    if residuals is not None:
+        if x is not None:
+            raise Exception("residuals and x are mutually exclusive")
+        x = residuals
+
     import gnuplotlib as gp
 
     err,obs, \
     valid_intrinsics_region_plotarg_2d, \
     valid_intrinsics_region_plotarg_3d = \
-        _get_show_residuals_data_onecam(model, residuals, valid_intrinsics_region)
+        _get_show_residuals_data_onecam(model, x, valid_intrinsics_region)
 
     W,H = model.imagersize()
     plot_options = dict(kwargs)
 
     if 'title' not in plot_options:
-        title   = 'Fitted residuals. Directions shown as colors. Magnitudes ignored'
+        title   = 'Fitted measurements. Directions shown as colors. Magnitudes ignored'
         if extratitle is not None:
             title += ": " + extratitle
         plot_options['title'] = title
@@ -3925,6 +3981,8 @@ plot
 
 
 def show_residuals_regional(model,
+                            x                       = None,
+                            # backwards-compatibility synonym of "x"
                             residuals               = None,
                             *,
                             gridn_width             = 20,
@@ -3970,10 +4028,14 @@ ARGUMENTS
   compute an integer gridn_height to maintain a square-ish grid:
   gridn_height/gridn_width ~ imager_height/imager_width
 
-- residuals: optional numpy array of shape (Nmeasurements,) containing the
-  optimization residuals. If omitted or None, this will be recomputed. To use a
-  cached value, pass the result of mrcal.optimize(**optimization_inputs)['x'] or
+- x: optional numpy array of shape (Nmeasurements,) containing the optimization
+  measurements (the residual weighted reprojection errors). If omitted or None,
+  this will be recomputed. To use a cached value, pass the result of
+  mrcal.optimize(**optimization_inputs)['x'] or
   mrcal.optimizer_callback(**optimization_inputs)[1]
+
+- residuals: backwards-compatibility synonym for x. At most one of these may be
+  non-None
 
 - valid_intrinsics_region: optional boolean, defaulting to True. If
   valid_intrinsics_region: the valid-intrinsics region present in the model is
@@ -4008,12 +4070,17 @@ plot
 
     '''
 
+    if residuals is not None:
+        if x is not None:
+            raise Exception("residuals and x are mutually exclusive")
+        x = residuals
+
     import gnuplotlib as gp
 
     err,obs, \
     valid_intrinsics_region_plotarg_2d, \
     valid_intrinsics_region_plotarg_3d = \
-        _get_show_residuals_data_onecam(model, residuals, valid_intrinsics_region)
+        _get_show_residuals_data_onecam(model, x, valid_intrinsics_region)
 
     # Each has shape (Nheight,Nwidth)
     mean,stdev,count,using = \
