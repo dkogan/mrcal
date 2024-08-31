@@ -445,6 +445,10 @@ directly. There's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham
 Thus the current method is to estimate $\sigma$ from the solve residuals.
 
 ** Estimating the input noise
+:PROPERTIES:
+:CUSTOM_ID: estimating-input-noise
+:END:
+
 I'm trying to find a relationship between the solve residuals $\vec
 x^*$ (which I have from the solve) and the input noise
 $\Delta \vec q_\mathrm{ref}$.
