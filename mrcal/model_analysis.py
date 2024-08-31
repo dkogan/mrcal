@@ -497,7 +497,7 @@ def _observed_pixel_uncertainty_from_inputs(optimization_inputs,
                                      no_factorization = True)[1]
 
     sum_of_squares_measurements = 0
-    Nobservations            = 0
+    Nobservations               = 0
 
     # shape (Nobservations*2)
     measurements = mrcal.measurements_board(optimization_inputs, x = x).ravel()

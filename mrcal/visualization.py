@@ -1788,9 +1788,7 @@ plot
     if gridn_height is None:
         gridn_height = int(round(H/W*gridn_width))
 
-    lensmodel, intrinsics_data = model.intrinsics()
-
-    q    = mrcal.sample_imager( gridn_width, gridn_height, *model.imagersize() )
+    q    = mrcal.sample_imager( gridn_width, gridn_height, W,H )
     pcam = mrcal.unproject(q, *model.intrinsics(),
                            normalize = True)
 
