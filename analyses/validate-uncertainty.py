@@ -257,7 +257,7 @@ def validate_uncertainty(model,
         mrcal.show_projection_uncertainty(model,
                                           gridn_width = args.gridn_width,
                                           observed_pixel_uncertainty = observed_pixel_uncertainty,
-                                          cbmax                      = 1,
+                                          cbmax                      = 0.3,
                                           title                      = 'Baseline uncertainty with a perfect-noise solve')
                  )
 
@@ -277,7 +277,7 @@ def validate_uncertainty(model,
                                        gridn_width       = args.gridn_width,
                                        use_uncertainties = False,
                                        focus_radius      = 100,
-                                       cbmax             = 2.)[0]
+                                       cbmax             = 1.)[0]
 
     plots.extend([ diff_sample() for i in range(Nsamples)])
 
@@ -440,7 +440,7 @@ I take the optimization_inputs as they are, WITHOUT making perfect data, and I
                                      gridn_width       = args.gridn_width,
                                      use_uncertainties = False,
                                      focus_radius      = 100,
-                                     cbmax             = 2.,
+                                     cbmax             = 1.,
                                      title             = f'Reoptimizing after cutting the {what_culling} points: resulting diff for camera {i}')[0] \
           for i in range(len(models)) ] )
 
@@ -452,13 +452,13 @@ I take the optimization_inputs as they are, WITHOUT making perfect data, and I
                                          gridn_width       = args.gridn_width,
                                          use_uncertainties = False,
                                          focus_radius      = 100,
-                                         cbmax             = 2.,
+                                         cbmax             = 1.,
                                          title             = f'Original, poor cross-validation diff')[0],
               mrcal.show_projection_diff((models_reoptimized[0],models_reoptimized[1]),
                                          gridn_width       = args.gridn_width,
                                          use_uncertainties = False,
                                          focus_radius      = 100,
-                                         cbmax             = 2.,
+                                         cbmax             = 1.,
                                          title             = f'Cross-validation diff after cutting the {what_culling} points')[0]
              ])
 
