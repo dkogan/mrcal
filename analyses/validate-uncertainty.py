@@ -263,21 +263,26 @@ def validate_uncertainty(model,
 
     optimization_inputs_perfect = get_optimization_inputs_perfect(model)
 
-    def diff_sample():
+    def model_sample():
         optimization_inputs = copy.deepcopy(optimization_inputs_perfect)
         apply_noise(optimization_inputs,
                     observed_pixel_uncertainty = observed_pixel_uncertainty)
-
         mrcal.optimize(**optimization_inputs)
+        return mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                                 icam_intrinsics     = 0)
 
-        model_out = mrcal.cameramodel(optimization_inputs = optimization_inputs,
-                                      icam_intrinsics     = 0)
+
+    model0 = model_sample()
+
+    def diff_sample():
+        model1 = model_sample()
         return \
-            mrcal.show_projection_diff((model,model_out),
+            mrcal.show_projection_diff((model0,model1),
                                        gridn_width       = args.gridn_width,
                                        use_uncertainties = False,
                                        focus_radius      = 100,
-                                       cbmax             = 1.)[0]
+                                       cbmax             = 1.,
+                                       title             = 'Simulated cross-validation diff: comparing two perfectly-noised models')[0]
 
     plots.extend([ diff_sample() for i in range(Nsamples)])
 
