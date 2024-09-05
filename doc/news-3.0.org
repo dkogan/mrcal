@@ -25,6 +25,9 @@ Renamed "residuals" -> "measurements" to clarify the nomenclature
   - show_residuals_....() take an "x" argument; the old "residuals" argument is
     still accepted
 
+analyses/validate-uncertainty.py script to check the uncertainty and
+cross-validation logic
+
 * Migration notes 2.4 -> 3.0
 
 * todo
