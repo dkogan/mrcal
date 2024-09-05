@@ -488,6 +488,7 @@ if args.validate_input_noise:
     for model in models:
         validate_input_noise(model,
                              observed_pixel_uncertainty = args.observed_pixel_uncertainty)
+    plots = None
 
 if args.validate_uncertainty:
     plots = \
@@ -503,5 +504,6 @@ if args.validate_noncentral:
                             percentile = args.validate_noncentral_cull_percentile,
                             mode       = args.validate_noncentral_mode)
 
-# Needs gnuplotlib >= 0.42
-gp.wait(*plots)
+if plots:
+    # Needs gnuplotlib >= 0.42
+    gp.wait(*plots)
