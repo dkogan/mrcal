@@ -12,6 +12,10 @@
 #include <Python.h>
 #include <structmember.h>
 #include <numpy/arrayobject.h>
+// Required for numpy 2. They now #include complex.h, so I is #defined to be the
+// complex I, which conflicts with my usage here
+#undef I
+
 #include <signal.h>
 #include <dogleg.h>
 
