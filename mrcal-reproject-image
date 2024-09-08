@@ -29,7 +29,7 @@ SYNOPSIS
   Wrote image2-reprojected.jpg
   ...
 
-  ### To reproject two sets of images to a common pihole projection
+  ### To reproject two sets of images to a common pinhole projection
   $ mrcal-reproject-image --to-pinhole
       camera0.cameramodel camera1.cameramodel
       'image*-cam0.jpg' 'image*-cam1.jpg'
