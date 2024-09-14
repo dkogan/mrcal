@@ -982,12 +982,6 @@ class Fl_Table_Derived(Fl_Table_Row):
 
 
 
-
-if len(args.pixels_per_deg) == 2:
-    pixels_per_deg_az,pixels_per_deg_el = args.pixels_per_deg
-else:
-    pixels_per_deg_az = pixels_per_deg_el = args.pixels_per_deg[0]
-
 models = [mrcal.cameramodel(m) for m in args.models]
 
 models[0].extrinsics_rt_toref(np.array((0,0,0, 0,0,0), dtype=float))
