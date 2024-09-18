@@ -673,21 +673,35 @@ def set_all_overlay_lines_and_redraw():
                 pinf = mrcal.rotate_point_R(mrcal.invert_R(Rt01[:3,:]), p[0])
                 p    = mrcal.transform_point_Rt(mrcal.invert_Rt(Rt01), p)
 
-            # shape (Nranges+1, Nselected, Nxy=2)
-            q = mrcal.project(nps.glue(p,pinf, axis=-3),
-                              *models[w.index].intrinsics()).astype(np.float32)
-            # shape (Nsegmentpoint=2,Nranges, Nselected, Nxy=2)
-            qsegments = nps.cat(q[0:-1,...],q[1:,...])
-            # shape (Nranges*Nselected, Nsegmentpoint=2,Nxy=2)
-            qsegments = nps.clump(nps.mv(qsegments, 0, -2),
-                                  n=2)
+            # shape (Nsegments, Nsegmentpoint=2, Nxy=2)
+            qsegments = np.zeros( (0,2,2), dtype=np.float32)
+
+            # shape (Nranges+1, Nselected, Nxyz=3)
+            p = nps.glue(p,pinf, axis=-3)
+
+            for pselected in nps.mv(p,-2,-3):
+                # pselected.shape is (Nranges+1,Nxyz=3)
+
+                # cut off points where the ray is behind the other camera
+                pselected = pselected[pselected[:,2] > 0,:]
+
+                if len(pselected)>=2:
+                    # shape (N, Nxy=2)
+                    q = mrcal.project(pselected,
+                                      *models[w.index].intrinsics()).astype(np.float32)
+                    # shape (N-1, Nsegmentpoint=2, Nxy=2)
+                    qsegments = \
+                        nps.glue(qsegments,
+                                 nps.mv( nps.cat(q[0:-1,...],q[1:,...]),
+                                         0,1 ),
+                                 axis=-3)
 
             w.set_lines( lines_stored,
                          dict(points    = nps.glue( line_segments_squares(q_stored,
                                                                           (point_radius_selected,),),
                                                     qsegments,
                                                     axis = -3),
-                              color_rgb = point_color_selected ) )
+                                  color_rgb = point_color_selected ) )
         else:
             w.set_lines(lines_stored)
 
