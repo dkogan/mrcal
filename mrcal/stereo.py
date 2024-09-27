@@ -1255,7 +1255,7 @@ RETURNED VALUES
     if qrect0 is None:
         W,H = models_rectified[0].imagersize()
         if np.any(disparity.shape - np.array((H,W),dtype=int)):
-            raise Exception(f"qrect0 is None, so the disparity image must have the full dimensions of a rectified image")
+            raise Exception(f"qrect0 is None, so the given disparity and full rectified images MUST have the same dimensions. I have {disparity.shape=} and {models_rectified[0].imagersize()=}")
 
         r =                                    \
             mrcal._mrcal_npsp._stereo_range_dense \
