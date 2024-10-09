@@ -95,7 +95,7 @@ At the optimum $E$ is minimized, so
 
 We perturb the problem:
 
-\[ E( \vec b + \Delta \vec b, \vec q_\mathrm{ref} + \Delta \vec q_\mathrm{ref})) \approx
+\[ E( \vec b + \Delta \vec b, \vec q_\mathrm{ref} + \Delta \vec q_\mathrm{ref}) \approx
 \left \Vert \vec x + \frac{\partial \vec x}{\partial \vec b} \Delta \vec b + \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} \Delta \vec q_\mathrm{ref} \right \Vert ^2 =
 \left \Vert \vec x + J \Delta \vec b + \frac{\partial \vec x}{\partial \vec q_\mathrm{ref}} \Delta \vec q_\mathrm{ref} \right \Vert ^2 \]
 
