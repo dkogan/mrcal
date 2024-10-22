@@ -226,6 +226,10 @@ typedef struct {
     cholmod_common  common;
     cholmod_factor* factorization;
 
+    // initialized the first time cholmod_solve2() is called
+    cholmod_dense* Y;
+    cholmod_dense* E;
+
     // optimizer_callback should return it
     // and I should have two solve methods:
 } CHOLMOD_factorization;
@@ -245,6 +249,17 @@ static int cholmod_error_callback(const char* s, ...)
 // for my internal C usage
 static void _CHOLMOD_factorization_release_internal(CHOLMOD_factorization* self)
 {
+    if(self->E != NULL)
+    {
+        cholmod_free_dense (&self->E, &self->common);
+        self->E = NULL;
+    }
+    if(self->Y != NULL)
+    {
+        cholmod_free_dense (&self->Y, &self->common);
+        self->Y = NULL;
+    }
+
     if( self->factorization )
     {
         cholmod_free_factor(&self->factorization, &self->common);
@@ -518,8 +533,6 @@ static PyObject*
 CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* args, PyObject* kwargs)
 {
     cholmod_dense* M = NULL;
-    cholmod_dense* Y = NULL;
-    cholmod_dense* E = NULL;
 
 
     // error by default
@@ -613,12 +626,10 @@ CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* arg
         .dtype = CHOLMOD_DOUBLE };
 
     M = &out;
-    Y = NULL;
-    E = NULL;
 
     if(!cholmod_solve2( CHOLMOD_A, self->factorization,
                         &b, NULL,
-                        &M, NULL, &Y, &E,
+                        &M, NULL, &self->Y, &self->E,
                         &self->common))
     {
         BARF("cholmod_solve2() failed");
@@ -634,8 +645,6 @@ CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* arg
     result = Py_out;
 
  done:
-    if(E != NULL) cholmod_free_dense (&E, &self->common);
-    if(Y != NULL) cholmod_free_dense (&Y, &self->common);
     Py_XDECREF(Py_out);
 
     return result;
