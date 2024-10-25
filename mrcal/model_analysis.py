@@ -600,7 +600,7 @@ In the non-regularized case:
   Var(F) = dF/db D inv(J*tJ*) D dF/dbt
 
   1. solve( J*tJ*, D dF/dbt)
-     The result has shape (Nstate,2)
+     The result has shape (Nstate,len(F))
 
   2. pre-multiply by dF/db D
 
@@ -611,7 +611,7 @@ In the regularized case:
   Var(F) = dF/db D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D dF/dbt
 
   1. solve( J*tJ*, D dF/dbt)
-     The result has shape (Nstate,2)
+     The result has shape (Nstate,len(F))
 
   2. Pre-multiply by J*[observations]
      The result has shape (Nmeasurements_observations_leading,2)
