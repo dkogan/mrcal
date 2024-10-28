@@ -28,6 +28,10 @@ Renamed "residuals" -> "measurements" to clarify the nomenclature
 analyses/validate-uncertainty.py script to check the uncertainty and
 cross-validation logic
 
+faster uncertainty computation:
+  CHOLMOD_factorization.solve_xt_JtJ_bt() can solve other problems
+
+
 * Migration notes 2.4 -> 3.0
 
 * todo

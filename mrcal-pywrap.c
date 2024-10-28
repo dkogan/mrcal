@@ -539,8 +539,11 @@ CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* arg
     PyObject* result = NULL;
     PyObject* Py_out = NULL;
 
-    char* keywords[] = {"bt", NULL};
-    PyObject* Py_bt   = NULL;
+    char* keywords[] = {"bt",
+                        "sys",
+                        NULL};
+    PyObject* Py_bt = NULL;
+    char*     sys   = "A";
 
 
     if(!(self->inited_common && self->factorization))
@@ -550,8 +553,8 @@ CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* arg
     }
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "O:CHOLMOD_factorization.solve_xt_JtJ_bt",
-                                     keywords, &Py_bt))
+                                     "O|s:CHOLMOD_factorization.solve_xt_JtJ_bt",
+                                     keywords, &Py_bt, &sys))
         goto done;
 
     if( Py_bt == NULL || !PyArray_Check((PyArrayObject*)Py_bt) )
@@ -567,6 +570,37 @@ CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* arg
              ndim);
         goto done;
     }
+
+#define LIST_SYS(_)                             \
+  _(A)                                          \
+  _(LDLt)                                       \
+  _(LD)                                         \
+  _(DLt)                                        \
+  _(L)                                          \
+  _(Lt)                                         \
+  _(D)                                          \
+  _(P)                                          \
+  _(Pt)
+
+#define SYS_CHECK(s) \
+    else if(0 == strcmp(sys,           #s) || \
+            0 == strcmp(sys,"CHOLMOD_" #s)) \
+        CHOLMOD_system = CHOLMOD_ ## s;
+
+#define SYS_NAME(s) \
+    #s ","
+
+    int CHOLMOD_system;
+    if(0) ; LIST_SYS(SYS_CHECK)
+    else
+    {
+        BARF("Unknown sys '%s' given. Known values of sys: (" LIST_SYS(SYS_NAME) ")",
+             sys);
+        goto done;
+    }
+#undef LIST_SYS
+#undef SYS_CHECK
+#undef SYS_NAME
 
     int Nstate = (int)PyArray_DIMS((PyArrayObject*)Py_bt)[ndim-1];
     int Nrhs   = (int)PyArray_SIZE((PyArrayObject*)Py_bt) / Nstate;
@@ -627,7 +661,7 @@ CHOLMOD_factorization_solve_xt_JtJ_bt(CHOLMOD_factorization* self, PyObject* arg
 
     M = &out;
 
-    if(!cholmod_solve2( CHOLMOD_A, self->factorization,
+    if(!cholmod_solve2( CHOLMOD_system, self->factorization,
                         &b, NULL,
                         &M, NULL, &self->Y, &self->E,
                         &self->common))

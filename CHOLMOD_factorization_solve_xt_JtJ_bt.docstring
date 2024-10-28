@@ -59,10 +59,31 @@ Specifically:
 
 - bt must contain 64-bit floating-point values (dtype=float)
 
+This function is now able to pass different values of "sys" to the internal
+cholmod_solve2() call. This is specified with the "mode" argument. By default,
+we use CHOLMOD_A, which is the default behavior: we solve JtJ x = b. All the
+other modes supported by CHOLMOD are supported. From cholmod.h:
+
+  CHOLMOD_A:    solve Ax=b
+  CHOLMOD_LDLt: solve LDL'x=b
+  CHOLMOD_LD:   solve LDx=b
+  CHOLMOD_DLt:  solve DL'x=b
+  CHOLMOD_L:    solve Lx=b
+  CHOLMOD_Lt:   solve L'x=b
+  CHOLMOD_D:    solve Dx=b
+  CHOLMOD_P:    permute x=Px
+  CHOLMOD_Pt:   permute x=P'x
+
+See the CHOLMOD documentation and source for details.
+
 ARGUMENTS
 
 - bt: a numpy array of shape (..., Nstate). This array must be C-contiguous and
   it must have dtype=float
+
+- sys: optional string, defaulting to "A": solve JtJ x = b. Selects the specific
+  problem being solved; see the description above. The value passed to "sys"
+  should be the string with or without the "CHOLMOD_" prefix
 
 RETURNED VALUE
 
