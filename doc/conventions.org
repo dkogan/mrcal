@@ -93,6 +93,14 @@ Here we have
 - $\vec J$ is the /jacobian/ matrix. This is the matrix $\frac{ \partial \vec x
   }{ \partial \vec b }$. Usually this is large and sparse.
 
+* Image coordinate system
+As with most image-oriented tools, mrcal places the image (0,0) at the *center
+of the top-left pixel*. Thus the top-left corner of the image is at (-0.5,-0.5).
+Other possible choices /not/ used by mrcal are
+
+- what e.g. [[https://boofcv.org][BoofCV]] does: (0,0) is at the top-left corner of the top-left pixel
+- what e.g. [[https://en.wikipedia.org/wiki/OpenGL][OpenGL]] does: (0,0) is at the bottom-left corner of the bottom-left pixel
+
 * Camera coordinate system
 mrcal uses right-handed coordinate systems. No convention is assumed for the
 world coordinate system. The canonical /camera/ coordinate system has $x$ and
