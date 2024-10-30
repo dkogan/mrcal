@@ -1,6 +1,10 @@
 #+TITLE: mrcal conventions
 #+OPTIONS: toc:t
 * Terminology
+:PROPERTIES:
+:CUSTOM_ID: terminology
+:END:
+
 Some terms in the documentation and sources can have ambiguous meanings, so I
 explicitly define them here
 
@@ -94,6 +98,10 @@ Here we have
   }{ \partial \vec b }$. Usually this is large and sparse.
 
 * Image coordinate system
+:PROPERTIES:
+:CUSTOM_ID: image-coordinate-system
+:END:
+
 As with most image-oriented tools, mrcal places the image (0,0) at the *center
 of the top-left pixel*. Thus the top-left corner of the image is at (-0.5,-0.5).
 Other possible choices /not/ used by mrcal are
@@ -102,12 +110,20 @@ Other possible choices /not/ used by mrcal are
 - what e.g. [[https://en.wikipedia.org/wiki/OpenGL][OpenGL]] does: (0,0) is at the bottom-left corner of the bottom-left pixel
 
 * Camera coordinate system
+:PROPERTIES:
+:CUSTOM_ID: camera-coordinate-system
+:END:
+
 mrcal uses right-handed coordinate systems. No convention is assumed for the
 world coordinate system. The canonical /camera/ coordinate system has $x$ and
 $y$ as with pixel coordinates in an image: $x$ is to the right and $y$ is down.
 $z$ is then forward to complete the right-handed system of coordinates.
 
 * Transformation naming
+:PROPERTIES:
+:CUSTOM_ID: transformation-naming
+:END:
+
 We describe transformations as mappings between a representation of a point in
 one coordinate system to a representation of the /same/ point in another
 coordinate system. =T_AB= is a transformation from coordinate system =B= to
@@ -164,6 +180,10 @@ the [[https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula][Rodrigues rot
 [[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]] and [[file:mrcal-python-api-reference.html#-Rt_from_rt][=mrcal.Rt_from_rt()=]].
 
 * Linear algebra
+:PROPERTIES:
+:CUSTOM_ID: linear-algebra
+:END:
+
 mrcal follows the usual linear algebra convention of /column/ vectors. So
 rotating a vector using a rotation matrix is a matrix-vector multiplication
 operation: $\vec b = R \vec a$ where both $\vec a$ and $\vec b$ are column
@@ -201,6 +221,10 @@ $\frac{ \partial b_i }{ \partial \vec a }$ is a (1,3) row vector and $\frac{
 \partial \vec b }{ \partial a_i }$ is a (3,1) column vector.
                           
 * Implementation
+:PROPERTIES:
+:CUSTOM_ID: implementation
+:END:
+
 The core of mrcal is written in C, but most of the API is currently available in
 Python only. The Python wrapping is done via the [[https://github.com/dkogan/numpysane/blob/master/README-pywrap.org][=numpysane_pywrap=]] library,
 which makes it simple to make consistent Python interfaces /and/ provides
