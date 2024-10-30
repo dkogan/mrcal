@@ -2633,7 +2633,12 @@ def check_uncertainties_at(q0_baseline, idistance):
                                             Var_dq_observed [icam],
                                             what = f"camera {icam} at distance = {distancestr}",
                                             # high error tolerances; Nsamples is too low for better
-                                            eps_eigenvalues      = 0.35,
+                                            # Bumped up to 0.36 from 0.35 because of this:
+                                            #
+                                            # commit b54df5d3cefc5d106dc04060e846ada7c32a9335
+                                            # Date:   Mon Feb 26 20:25:38 2024 -0800
+                                            #   calibration_baseline() avoids extremely oblique views
+                                            eps_eigenvalues      = 0.36,
                                             eps_eigenvectors_deg = 15)
 
     return q_sampled,Var_dq_predicted
