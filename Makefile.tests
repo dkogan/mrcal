@@ -53,7 +53,9 @@ TESTS :=																\
   test/test-rectification-maps.py													\
   test/test-save-load-image.py \
   test/test-worst_direction_stdev.py \
-  test/test-propagate-calibration-uncertainty.py
+  test/test-propagate-calibration-uncertainty.py \
+  test/test-heap \
+  test/test-traverse-sensor-connections.py
 
 # Check the non-canonical problem definitions
 TESTS += test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--Ncameras__1__--reproject-perturbed__cross-reprojection--rrp-Jfp

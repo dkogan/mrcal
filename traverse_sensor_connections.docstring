@@ -1,0 +1,62 @@
+Finds optimal paths in a connectivity graph of sensors 
+
+SYNOPSIS
+
+    # Sensor 4 only has shared observations with sensor 2
+    # Otherwise, sensor 2 only has shared observations with sensor 1
+    # Sensor 1 does share observations with sensor 0
+    #
+    # So we expect the best path to sensor 4 to be 0-1-2-4
+    connectivity_matrix = np.array((( 0, 5, 0, 3, 0),
+                                    ( 5, 0, 2, 5, 0),
+                                    ( 0, 2, 0, 0, 5),
+                                    ( 3, 5, 0, 0, 0),
+                                    ( 0, 0, 5, 0, 0),),
+                                   dtype=np.uint16)
+
+    mrcal.traverse_sensor_connections( \
+        connectivity_matrix  = connectivity_matrix,
+        callback_sensor_link = lambda idx_to, idx_from: \
+                                      print(f"{idx_from}-{idx_to}") )
+
+    ------>
+    0-1
+    0-3
+    1-2
+    2-4
+
+Traverses a connectivity graph of sensors to find the best connection from
+the root sensor (idx==0) to every other sensor. This is useful to seed a
+problem with sparse connections, where every sensor doesn't have overlapping
+observations with every other sensor.
+
+This uses a simple implmentation of Dijkstra's algorithm to optimize the number
+of links needed to reach each sensor, using the total number of shared
+observations as a tie-break.
+
+The main input to this function is a conectivity matrix: an (N,N) array where
+each element (i,j) contains the shared number of observations between sensors i
+and j. Some sensors may not share any observations, which would be indicated by
+a 0 in the connectivity matrix. This matrix is assumed to be symmetric and to
+have a 0 diagonal. The results are indicated by a callback for each optimal link
+in the chain.
+
+It is possible to have a disjoint graph, where there aren't any links from the
+root sensor to every other camera. This would result in the callback never being
+called for these disjoint sensors. It is the caller's job to catch and to think
+about this case.
+
+ARGUMENTS
+
+All arguments are required and must be specified with a keyword.
+
+- connectivity_matrix: a numpy array of shape (Nsensors,Nsensors) and
+  dtype=np.uint16. This must be symmetric and have a 0 diagonal
+
+- callback_sensor_link: a callable invoked for each optimal link we report.
+  Takes two arguments: idx_to,idx_from. Returns False if an error occured and we
+  should exit
+
+RETURNED VALUE
+
+A true value on success

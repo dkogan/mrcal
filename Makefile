@@ -31,7 +31,9 @@ LIB_SOURCES +=			\
   poseutils-opencv.c		\
   poseutils-uses-autodiff.cc	\
   triangulation.cc              \
-  cahvore.cc
+  cahvore.cc                    \
+  traverse-sensor-connections.c \
+  heap.cc
 
 ifneq (${USE_LIBELAS},) # using libelas
 LIB_SOURCES := $(LIB_SOURCES) stereo-matching-libelas.cc
@@ -42,7 +44,8 @@ BIN_SOURCES +=					\
   test/test-gradients.c				\
   test/test-cahvor.c				\
   test/test-lensmodel-string-manipulation.c     \
-  test/test-parser-cameramodel.c
+  test/test-parser-cameramodel.c                \
+  test/test-heap.c
 
 LDLIBS += -ldogleg -lfreeimage
 
@@ -66,7 +69,8 @@ DIST_INCLUDE +=			\
 	poseutils.h		\
 	triangulation.h		\
 	mrcal-types.h		\
-	stereo.h
+	stereo.h                \
+	heap.h
 
 
 

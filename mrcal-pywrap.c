@@ -4160,6 +4160,117 @@ PyObject* _rectification_maps(PyObject* NPY_UNUSED(self),
     return result;
 }
 
+
+static bool
+callback_sensor_link_C(const uint16_t idx_to, const uint16_t idx_from, void* cookie)
+{
+    PyObject* callback_sensor_link = (PyObject*)cookie;
+
+    PyObject* py_idx_to   = NULL;
+    PyObject* py_idx_from = NULL;
+    PyObject* result      = NULL;
+
+    py_idx_to   = PyLong_FromLong(idx_to);
+    if(py_idx_to == NULL) goto done;
+
+    py_idx_from = PyLong_FromLong(idx_from);
+    if(py_idx_from == NULL) goto done;
+
+    result = PyObject_CallFunctionObjArgs(callback_sensor_link,
+                                          py_idx_to,
+                                          py_idx_from,
+                                          NULL);
+
+ done:
+    Py_XDECREF(py_idx_to);
+    Py_XDECREF(py_idx_from);
+
+    if(result == NULL)
+        return false;
+
+    Py_DECREF(result);
+    return true;
+}
+static
+PyObject* traverse_sensor_connections(PyObject* NPY_UNUSED(self),
+                                      PyObject* args,
+                                      PyObject* kwargs)
+{
+    PyObject* result = NULL;
+
+    int            Nsensors             = 0;
+    PyArrayObject* connectivity_matrix  = NULL;
+    PyObject*      callback_sensor_link = NULL;
+
+    char* keywords[] = { "connectivity_matrix",
+                         "callback_sensor_link",
+                         NULL};
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "$O&O:mrcal._traverse_sensor_connections",
+                                     keywords,
+                                     PyArray_Converter, &connectivity_matrix,
+                                     &callback_sensor_link))
+        goto done;
+
+    if(PyArray_NDIM(connectivity_matrix) != 2)
+    {
+        BARF("The connectivity_matrix must have 2 dimensions");
+        goto done;
+    }
+    Nsensors = PyArray_DIMS(connectivity_matrix)[1];
+
+    if(!_check_layout("connectivity_matrix",
+                      connectivity_matrix,
+                      NPY_UINT16, "NPY_UINT16",
+                      (int[]){Nsensors,Nsensors}, 2, "{Nsensors,Nsensors}",
+                      false))
+        goto done;
+
+    if(!PyCallable_Check(callback_sensor_link))
+    {
+        BARF("callback_sensor_link is not callable");
+        goto done;
+    }
+
+    if(Nsensors > UINT16_MAX)
+    {
+        BARF("Nsensors=%d doesn't fit into a uint16_t", Nsensors);
+        goto done;
+    }
+
+    // Arguments are good. Let's massage them to do the right thing
+
+
+    {
+        // We reconstruct just the upper triangle of the connectivity_matrix
+        uint16_t connectivity_matrix_upper[Nsensors*(Nsensors-1)/2];
+        int k = 0;
+        for(int i=0; i<Nsensors; i++)
+            for(int j=i+1; j<Nsensors; j++)
+                connectivity_matrix_upper[k++] =
+                    *(uint16_t*)PyArray_GETPTR2(connectivity_matrix,i,j);
+
+        if(!mrcal_traverse_sensor_connections( Nsensors,
+                                               connectivity_matrix_upper,
+                                               &callback_sensor_link_C,
+                                               callback_sensor_link))
+        {
+            if(!PyErr_Occurred())
+                BARF("mrcal_traverse_sensor_connections() failed");
+            goto done;
+        }
+    }
+
+    Py_INCREF(Py_None);
+    result = Py_None;
+
+ done:
+
+    Py_XDECREF(connectivity_matrix);
+    return result;
+}
+
+
 static const char state_index_intrinsics_docstring[] =
 #include "state_index_intrinsics.docstring.h"
     ;
@@ -4278,6 +4389,9 @@ static const char _rectified_system_docstring[] =
 static const char _rectification_maps_docstring[] =
 #include "_rectification_maps.docstring.h"
     ;
+static const char traverse_sensor_connections_docstring[] =
+#include "traverse_sensor_connections.docstring.h"
+    ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizer_callback,               METH_VARARGS | METH_KEYWORDS),
@@ -4320,6 +4434,8 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(,_rectified_resolution,        METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,_rectified_system,            METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,_rectification_maps,          METH_VARARGS | METH_KEYWORDS),
+
+      PYMETHODDEF_ENTRY(, traverse_sensor_connections, METH_VARARGS | METH_KEYWORDS),
       {}
     };
 #warning "triangulated-solve: fill in the new xxxx.docstring"

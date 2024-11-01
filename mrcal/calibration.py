@@ -1030,31 +1030,18 @@ def _estimate_camera_poses( # shape (Nobservations,4,3)
         Rt_0f = Rt_0c[from_idx-1]
         Rt_0c[camera_idx-1] = mrcal.compose_Rt( Rt_0f, Rt_fc)
 
-    def cost_edge(camera_idx, from_idx):
-        # I want to MINIMIZE cost, so I MAXIMIZE the shared frames count and
-        # MINIMIZE the hop count. Furthermore, I really want to minimize the
-        # number of hops, so that's worth many shared frames.
-        num_shared_frames = shared_frames[camera_idx, from_idx]
-        cost = 100000 - num_shared_frames
-        assert(cost > 0) # dijkstra's algorithm requires this to be true
-        return cost
-
-    def neighbors(camera_idx):
-        for neighbor_idx in range(Ncameras):
-            if neighbor_idx == camera_idx                  or \
-               shared_frames[neighbor_idx,camera_idx] == 0:
-                continue
-            yield neighbor_idx
-
     # shape (Ncamera,Ncameras)
     # shape (Ncameras,Ncameras); each element is the number of shared
     # observations
     shared_frames = compute_connectivity_matrix()
 
-    _traverse_sensor_connections( Ncameras,
-                                  neighbors,
-                                  cost_edge,
-                                  found_best_path_to_node )
+    # We need at least 2 shared observations to be useful; otherwise
+    # align_point_clouds() complains about insufficient overlap. I thus set to 0
+    # and too-sparse links, to make the graph traversal ignore those
+    shared_frames[shared_frames<2] = 0
+
+    mrcal.traverse_sensor_connections( shared_frames,
+                                       found_best_path_to_node )
 
     if any([x is None for x in Rt_0c]):
         raise Exception("ERROR: Don't have complete camera observations overlap!\n" +
@@ -1065,17 +1052,18 @@ def _estimate_camera_poses( # shape (Nobservations,4,3)
     return np.ascontiguousarray(nps.cat(*Rt_0c))
 
 
-def _traverse_sensor_connections( Nsensors,
-                                  callback__neighbors,
-                                  callback__cost_edge,
-                                  callback__found_best_path_to_sensor ):
+def _traverse_sensor_connections_python( Nsensors,
+                                         callback__neighbors,
+                                         callback__cost_edge,
+                                         callback__sensor_link ):
     '''Traverses a connectivity graph of sensors
 
-    Starts from the root sensor, and visits each one in order of total distance
-    from the root. Useful to evaluate the whole set of sensors using pairwise
-    metrics, building the network up from the best-connected, to the
-    worst-connected. Any sensor not connected to the root at all will NOT be
-    visited. The caller should check for any unvisited sensors.
+    Starts from the root sensor (defined to have idx==0), and visits each one in
+    order of total distance from the root. Useful to evaluate the whole set of
+    sensors using pairwise metrics, building the network up from the
+    best-connected, to the worst-connected. Any sensor not connected to the root
+    at all will NOT be visited. The caller should check for any unvisited
+    sensors.
 
     We have Nsensors sensors. Each one is identified by an integer in
     [0,Nsensors). The root is defined to be sensor 0.
@@ -1088,7 +1076,7 @@ def _traverse_sensor_connections( Nsensors,
     - callback__cost_edge(i, i_parent)
       The cost between two adjacent nodes
 
-    - callback__found_best_path_to_sensor(i, i_parent)
+    - callback__sensor_link(i, i_parent)
       Called when the best path to node i is found. This path runs through
       i_parent as the previous sensor
 
@@ -1107,8 +1095,9 @@ def _traverse_sensor_connections( Nsensors,
             return self.cost < other.cost
 
         def visit(self):
-            callback__found_best_path_to_sensor(self.idx,
-                                                self.idx_parent)
+            if self.idx != 0:
+                callback__sensor_link(self.idx,
+                                      self.idx_parent)
             self.done = True
 
             for neighbor_idx in callback__neighbors(self.idx):
