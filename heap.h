@@ -4,7 +4,7 @@
 A simple min-priority-queue implementation. Uses STL internally
 
 This is for the most part an internal implementation detail of
-mrcal_traverse_sensor_connections(), but could potentially be useful somewhere
+mrcal_traverse_sensor_links(), but could potentially be useful somewhere
 on its own, so I'm exposing it here
  */
 

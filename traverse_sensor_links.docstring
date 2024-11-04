@@ -14,7 +14,7 @@ SYNOPSIS
                                     ( 0, 0, 5, 0, 0),),
                                    dtype=np.uint16)
 
-    mrcal.traverse_sensor_connections( \
+    mrcal.traverse_sensor_links( \
         connectivity_matrix  = connectivity_matrix,
         callback_sensor_link = lambda idx_to, idx_from: \
                                       print(f"{idx_from}-{idx_to}") )

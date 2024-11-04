@@ -32,10 +32,10 @@ faster uncertainty computation:
   cecab50a CHOLMOD_factorization.solve_xt_JtJ_bt() can solve other problems
   9393ef79 Much faster uncertainty computation
 
-2024-10-31 Added traverse_sensor_connections() in C and Python and the min-heap
+2024-10-31 Added traverse_sensor_links() in C and Python and the min-heap
   added heap.h
-  added mrcal_traverse_sensor_connections()
-  added mrcal.traverse_sensor_connections()
+  added mrcal_traverse_sensor_links()
+  added mrcal.traverse_sensor_links()
 
 * Migration notes 2.4 -> 3.0
 

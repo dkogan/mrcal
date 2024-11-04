@@ -32,7 +32,7 @@ LIB_SOURCES +=			\
   poseutils-uses-autodiff.cc	\
   triangulation.cc              \
   cahvore.cc                    \
-  traverse-sensor-connections.c \
+  traverse-sensor-links.c \
   heap.cc
 
 ifneq (${USE_LIBELAS},) # using libelas

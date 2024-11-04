@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-r'''Checks the C and Python implementations of traverse_sensor_connections()
+r'''Checks the C and Python implementations of traverse_sensor_links()
 '''
 
 import sys
@@ -15,7 +15,7 @@ sys.path[:0] = f"{testdir}/..",
 import mrcal
 import testutils
 
-from mrcal.calibration import _traverse_sensor_connections_python
+from mrcal.calibration import _traverse_sensor_links_python
 
 
 connectivity_matrix = np.array((( 0,1,0,3,0),
@@ -32,7 +32,7 @@ Nsensors = connectivity_matrix.shape[0]
 node_sequence        = []
 node_sequence_python = []
 
-mrcal.traverse_sensor_connections(connectivity_matrix = connectivity_matrix,
+mrcal.traverse_sensor_links(connectivity_matrix = connectivity_matrix,
                                   callback_sensor_link = lambda idx_to,idx_from: node_sequence.append((idx_to,idx_from),))
 
 
@@ -47,7 +47,7 @@ def neighbors(camera_idx):
         yield neighbor_idx
 
 
-_traverse_sensor_connections_python(Nsensors = Nsensors,
+_traverse_sensor_links_python(Nsensors = Nsensors,
                                     callback__neighbors = neighbors,
                                     callback__cost_edge = cost_edge,
                                     callback__sensor_link = lambda idx_to,idx_from: node_sequence_python.append((idx_to,idx_from),))

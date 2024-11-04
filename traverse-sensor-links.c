@@ -97,7 +97,7 @@ void visit(const uint16_t idx,
     }
 }
 
-bool mrcal_traverse_sensor_connections( const uint16_t Nsensors,
+bool mrcal_traverse_sensor_links( const uint16_t Nsensors,
 
                                         // (N,N) symmetric matrix with a 0 diagonal.
                                         // I store the upper triangle only,

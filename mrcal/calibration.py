@@ -1040,7 +1040,7 @@ def _estimate_camera_poses( # shape (Nobservations,4,3)
     # and too-sparse links, to make the graph traversal ignore those
     shared_frames[shared_frames<2] = 0
 
-    mrcal.traverse_sensor_connections( shared_frames,
+    mrcal.traverse_sensor_links( shared_frames,
                                        found_best_path_to_node )
 
     if any([x is None for x in Rt_0c]):
@@ -1052,7 +1052,7 @@ def _estimate_camera_poses( # shape (Nobservations,4,3)
     return np.ascontiguousarray(nps.cat(*Rt_0c))
 
 
-def _traverse_sensor_connections_python( Nsensors,
+def _traverse_sensor_links_python( Nsensors,
                                          callback__neighbors,
                                          callback__cost_edge,
                                          callback__sensor_link ):

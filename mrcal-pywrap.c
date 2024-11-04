@@ -4192,7 +4192,7 @@ callback_sensor_link_C(const uint16_t idx_to, const uint16_t idx_from, void* coo
     return true;
 }
 static
-PyObject* traverse_sensor_connections(PyObject* NPY_UNUSED(self),
+PyObject* traverse_sensor_links(PyObject* NPY_UNUSED(self),
                                       PyObject* args,
                                       PyObject* kwargs)
 {
@@ -4206,7 +4206,7 @@ PyObject* traverse_sensor_connections(PyObject* NPY_UNUSED(self),
                          "callback_sensor_link",
                          NULL};
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "$O&O:mrcal._traverse_sensor_connections",
+                                     "$O&O:mrcal._traverse_sensor_links",
                                      keywords,
                                      PyArray_Converter, &connectivity_matrix,
                                      &callback_sensor_link))
@@ -4250,13 +4250,13 @@ PyObject* traverse_sensor_connections(PyObject* NPY_UNUSED(self),
                 connectivity_matrix_upper[k++] =
                     *(uint16_t*)PyArray_GETPTR2(connectivity_matrix,i,j);
 
-        if(!mrcal_traverse_sensor_connections( Nsensors,
+        if(!mrcal_traverse_sensor_links( Nsensors,
                                                connectivity_matrix_upper,
                                                &callback_sensor_link_C,
                                                callback_sensor_link))
         {
             if(!PyErr_Occurred())
-                BARF("mrcal_traverse_sensor_connections() failed");
+                BARF("mrcal_traverse_sensor_links() failed");
             goto done;
         }
     }
@@ -4389,8 +4389,8 @@ static const char _rectified_system_docstring[] =
 static const char _rectification_maps_docstring[] =
 #include "_rectification_maps.docstring.h"
     ;
-static const char traverse_sensor_connections_docstring[] =
-#include "traverse_sensor_connections.docstring.h"
+static const char traverse_sensor_links_docstring[] =
+#include "traverse_sensor_links.docstring.h"
     ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
@@ -4435,7 +4435,7 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(,_rectified_system,            METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,_rectification_maps,          METH_VARARGS | METH_KEYWORDS),
 
-      PYMETHODDEF_ENTRY(, traverse_sensor_connections, METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, traverse_sensor_links, METH_VARARGS | METH_KEYWORDS),
       {}
     };
 #warning "triangulated-solve: fill in the new xxxx.docstring"

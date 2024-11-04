@@ -897,13 +897,13 @@ typedef bool (*mrcal_callback_sensor_link_t)(const uint16_t idx_to,
 // the root sensor (idx==0) to every other sensor. This is useful to seed a
 // problem with sparse connections, where every sensor doesn't have overlapping
 // observations with every other sensor. See the docstring for
-// mrcal.traverse_sensor_connections() for details (that Python function wraps
+// mrcal.traverse_sensor_links() for details (that Python function wraps
 // this one). Note: this C function takes a packed connectivity matrix (just the
 // upper triangle stored), while the Python function takes a full (N,N) array,
 // while assuming it is symmetric and has a 0 diagonal
 //
 // returns false on error
-bool mrcal_traverse_sensor_connections( const uint16_t Nsensors,
+bool mrcal_traverse_sensor_links( const uint16_t Nsensors,
 
                                         // (N,N) symmetric matrix with a 0 diagonal.
                                         // I store the upper triangle only,
