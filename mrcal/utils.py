@@ -23,6 +23,101 @@ import re
 import mrcal
 
 
+def _align_procrustes_points_Rt01_python(p0, p1, weights=None):
+    r'''Reference implementation of align_procrustes_points_Rt01() in python
+
+The main implementation is written in C in poseutils.c:
+
+  mrcal_align_procrustes_points_Rt01()
+
+The two implementations are identical, with a test to verify this
+
+    '''
+    if weights is None:
+        weights = np.ones(p0.shape[:-1], dtype=float)
+    return _align_procrustes_points_Rt01(p0,p1,weights)
+
+
+@nps.broadcast_define( (('N',3,), ('N',3,), ('N',)),
+                       (4,3), )
+def _align_procrustes_points_Rt01(p0, p1, weights):
+
+    p0 = nps.transpose(p0)
+    p1 = nps.transpose(p1)
+
+    # I process Mt instead of M to not need to transpose anything later, and to
+    # end up with contiguous-memory results
+    Mt = nps.matmult(              (p0 - np.mean(p0, axis=-1)[..., np.newaxis])*weights,
+                      nps.transpose(p1 - np.mean(p1, axis=-1)[..., np.newaxis]))
+    V,S,Ut = np.linalg.svd(Mt)
+
+    # I look at the second-lowest singular value. One 0 singular value is OK;
+    # two isn't
+    if S[-2] < 1e-12:
+        # Poorly-defined problem. Return error
+        return np.zeros((4,3), dtype=float)
+
+    R = nps.matmult(V, Ut)
+
+    # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
+    # is not a physical rotation. I compensate by negating the least-important
+    # pair of singular vectors
+    if np.linalg.det(R) < 0:
+        V[:,2] *= -1
+        R = nps.matmult(V, Ut)
+
+    # Now that I have my optimal R, I compute the optimal t. From before:
+    #
+    #   t = mean(a) - R mean(b)
+    t = np.mean(p0, axis=-1)[..., np.newaxis] - nps.matmult( R, np.mean(p1, axis=-1)[..., np.newaxis] )
+
+    return nps.glue( R, t.ravel(), axis=-2)
+
+
+def _align_procrustes_vectors_R01_python(v0, v1, weights=None):
+    r'''Reference implementation of align_procrustes_vectors_R01() in python
+
+The main implementation is written in C in poseutils.c:
+
+  mrcal_align_procrustes_vectors_R01()
+
+The two implementations are identical, with a test to verify this
+
+    '''
+    if weights is None:
+        weights = np.ones(v0.shape[:-1], dtype=float)
+    return _align_procrustes_vectors_R01(v0,v1,weights)
+
+@nps.broadcast_define( (('N',3,), ('N',3,), ('N',)),
+                       (3,3), )
+def _align_procrustes_vectors_R01(v0, v1, weights):
+
+    v0 = nps.transpose(v0)
+    v1 = nps.transpose(v1)
+
+    # I process Mt instead of M to not need to transpose anything later, and to
+    # end up with contiguous-memory results
+    Mt = nps.matmult( v0*weights, nps.transpose(v1) )
+    V,S,Ut = np.linalg.svd(Mt)
+
+    # I look at the second-lowest singular value. One 0 singular value is OK;
+    # two isn't
+    if S[-2] < 1e-12:
+        # Poorly-defined problem. Return error
+        return np.zeros((3,3), dtype=float)
+
+    R = nps.matmult(V, Ut)
+
+    # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
+    # is not a physical rotation. I compensate by negating the least-important
+    # pair of singular vectors
+    if np.linalg.det(R) < 0:
+        V[:,2] *= -1
+        R = nps.matmult(V, Ut)
+
+    return R
+
+
 def align_procrustes_points_Rt01(p0, p1, weights=None):
     r"""Compute a rigid transformation to align two point clouds
 
@@ -86,45 +181,9 @@ This is not a valid Rt transform, and is used to signal an error.
 
     """
     if weights is None:
-        weights = np.ones(p0.shape[:-1], dtype=float)
-    return _align_procrustes_points_Rt01(p0,p1,weights)
-
-
-@nps.broadcast_define( (('N',3,), ('N',3,), ('N',)),
-                       (4,3), )
-def _align_procrustes_points_Rt01(p0, p1, weights):
-
-    p0 = nps.transpose(p0)
-    p1 = nps.transpose(p1)
-
-    # I process Mt instead of M to not need to transpose anything later, and to
-    # end up with contiguous-memory results
-    Mt = nps.matmult(              (p0 - np.mean(p0, axis=-1)[..., np.newaxis])*weights,
-                      nps.transpose(p1 - np.mean(p1, axis=-1)[..., np.newaxis]))
-    V,S,Ut = np.linalg.svd(Mt)
-
-    # I look at the second-lowest singular value. One 0 singular value is OK;
-    # two isn't
-    if S[-2] < 1e-12:
-        # Poorly-defined problem. Return error
-        return np.zeros((4,3), dtype=float)
-
-    R = nps.matmult(V, Ut)
-
-    # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
-    # is not a physical rotation. I compensate by negating the least-important
-    # pair of singular vectors
-    if np.linalg.det(R) < 0:
-        V[:,2] *= -1
-        R = nps.matmult(V, Ut)
-
-    # Now that I have my optimal R, I compute the optimal t. From before:
-    #
-    #   t = mean(a) - R mean(b)
-    t = np.mean(p0, axis=-1)[..., np.newaxis] - nps.matmult( R, np.mean(p1, axis=-1)[..., np.newaxis] )
-
-    return nps.glue( R, t.ravel(), axis=-2)
-
+        return mrcal._poseutils_npsp._align_procrustes_points_Rt01_noweights(p0, p1)
+    else:
+        return mrcal._poseutils_npsp._align_procrustes_points_Rt01_weights(p0, p1, weights)
 
 def align_procrustes_vectors_R01(v0, v1, weights=None):
     r"""Compute a rotation to align two sets of direction vectors
@@ -189,40 +248,10 @@ If the inputs were singular or insufficient, a (3,3) array of 0 is returned.
 This is not a valid rotation, and is used to signal an error.
 
     """
-
     if weights is None:
-        weights = np.ones(v0.shape[:-1], dtype=float)
-    return _align_procrustes_vectors_R01(v0,v1,weights)
-
-
-@nps.broadcast_define( (('N',3,), ('N',3,), ('N',)),
-                       (3,3), )
-def _align_procrustes_vectors_R01(v0, v1, weights):
-
-    v0 = nps.transpose(v0)
-    v1 = nps.transpose(v1)
-
-    # I process Mt instead of M to not need to transpose anything later, and to
-    # end up with contiguous-memory results
-    Mt = nps.matmult( v0*weights, nps.transpose(v1) )
-    V,S,Ut = np.linalg.svd(Mt)
-
-    # I look at the second-lowest singular value. One 0 singular value is OK;
-    # two isn't
-    if S[-2] < 1e-12:
-        # Poorly-defined problem. Return error
-        return np.zeros((3,3), dtype=float)
-
-    R = nps.matmult(V, Ut)
-
-    # det(R) is now +1 or -1. If it's -1, then this contains a mirror, and thus
-    # is not a physical rotation. I compensate by negating the least-important
-    # pair of singular vectors
-    if np.linalg.det(R) < 0:
-        V[:,2] *= -1
-        R = nps.matmult(V, Ut)
-
-    return R
+        return mrcal._poseutils_npsp._align_procrustes_vectors_R01_noweights(v0, v1)
+    else:
+        return mrcal._poseutils_npsp._align_procrustes_vectors_R01_weights(v0, v1, weights)
 
 
 def sample_imager(gridn_width, gridn_height, imager_width, imager_height):

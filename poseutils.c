@@ -1078,3 +1078,213 @@ void mrcal_r_from_R_full( // output
             }
     }
 }
+
+// LAPACK SVD function
+int dgesdd_(char* jobz,
+            int* m,
+            int* n,
+            double*  a,
+            int* lda,
+            double* s,
+            double* u,
+            int* ldu,
+            double* vt,
+            int* ldvt,
+            double* work,
+            int* lwork,
+            int* iwork,
+            int* info,
+            int jobz_len);
+
+// This is functionally identical to mrcal.align_procrustes_vectors_R01(). It
+// should replace that function to provide a C implementation for mrcal users
+//
+// This solves:
+//   https://en.wikipedia.org/wiki/Orthogonal_Procrustes_problem
+// See the mrcal sources for implementation details
+static
+bool _align_procrustes_vectors_R01(// out
+                                   double* R01,
+                                   // in
+                                   const int N,
+                                   // (N,3) arrays
+                                   const double* p0,
+                                   const double* p1,
+                                   // (3,) array; may be NULL
+                                   const double* pmean0,
+                                   const double* pmean1,
+
+                                   // (N,) array; may be NULL to use an even
+                                   // weighting
+                                   const double* weights)
+{
+    double M[9] = {};
+
+    double _pmean0[3] = {};
+    double _pmean1[3] = {};
+    if(pmean0 == NULL) pmean0 = _pmean0;
+    if(pmean1 == NULL) pmean1 = _pmean1;
+
+    if(weights == NULL)
+        for(int i=0; i<N; i++)
+            // I compute outer(v0,v1)
+            for(int j=0; j<3; j++)
+                for(int k=0; k<3; k++)
+                    M[j*3 + k] += (p0[i*3+j]-pmean0[j])*(p1[i*3+k]-pmean1[k]);
+    else
+        for(int i=0; i<N; i++)
+            // I compute outer(v0,v1)
+            for(int j=0; j<3; j++)
+                for(int k=0; k<3; k++)
+                    M[j*3 + k] += (p0[i*3+j]-pmean0[j])*(p1[i*3+k]-pmean1[k])*weights[i];
+
+
+    double U[9];
+    double Vt[9];
+    double S[3];
+    double lwork_query;
+    int iwork[3*8];
+    int info;
+
+    // lapack thinks about transposed matrices. So when I give it A, it sees At.
+    // It computes A = U Vt -> At = V Ut. And the results it gives back to me
+    // are transposed too. So I give it At. The "U" it gives me back is actually
+    // Vt and the Vt is actually U
+    dgesdd_("A",
+            (int[]){3}, (int[]){3},
+            M, (int[]){3},
+            S,
+            Vt,(int[]){3},
+            U, (int[]){3},
+            &lwork_query,
+            (int[]){-1}, // query the optimal lwork
+            iwork,
+            &info,
+            1);
+    if(info != 0)
+    {
+        // secret value to indicate that this is a fatal error. Needed for the
+        // Python layer
+        R01[0] = 1.;
+        return false;
+    }
+
+    double work[(int)lwork_query];
+
+    dgesdd_("A",
+            (int[]){3}, (int[]){3},
+            M, (int[]){3},
+            S,
+            Vt,(int[]){3},
+            U, (int[]){3},
+            work,
+            (int[]){(int)lwork_query},
+            iwork,
+            &info,
+            1);
+    if(info != 0)
+    {
+        // secret value to indicate that this is a fatal error. Needed for the
+        // Python layer
+        R01[0] = 1.;
+        return false;
+    }
+
+    // I look at the second-lowest singular value. One 0 singular value is OK
+    // (the other two can uniquely define my 3D basis). But two isn't OK: the
+    // basis is no longer unique
+    if(S[1] < 1e-12)
+    {
+        // Poorly-defined problem
+        //
+        // secret value to indicate that this is a potentially non-fatal error.
+        // Needed for the Python layer
+        R01[0] = 0.;
+        return false;
+    }
+
+    memset(R01, 0, 9*sizeof(R01[0]));
+    for(int i=0; i<3; i++)
+        for(int j=0; j<3; j++)
+            for(int k=0; k<3; k++)
+                // inner( U[i,:], V[j,:]
+                R01[i*3 + j] += U[i*3 + k]*Vt[j + k*3];
+
+    // det(R01) is now +1 or -1. If it's -1, then this contains a mirror, and thus
+    // is not a physical rotation. I compensate by negating the least-important
+    // pair of singular vectors
+    const double det_R =
+        R01[0]*(R01[4]*R01[8]-R01[5]*R01[7]) -
+        R01[1]*(R01[3]*R01[8]-R01[5]*R01[6]) +
+        R01[2]*(R01[3]*R01[7]-R01[4]*R01[6]);
+    if(det_R < 0)
+    {
+        memset(R01, 0, 9*sizeof(R01[0]));
+
+        for(int i=0; i<3; i++)
+            for(int j=0; j<3; j++)
+            {
+                int k;
+                for(k=0; k<2; k++)
+                    R01[i*3 + j] += U[i*3 + k]*Vt[j + k*3];
+                R01[i*3 + j] -= U[i*3 + k]*Vt[j + k*3];
+            }
+    }
+
+    return true;
+}
+
+bool mrcal_align_procrustes_vectors_R01(// out
+                                        double* R01,
+                                        // in
+                                        const int N,
+                                        // (N,3) arrays
+                                        const double* v0,
+                                        const double* v1,
+
+                                        // (N,) array; may be NULL to use an even
+                                        // weighting
+                                        const double* weights)
+{
+    return _align_procrustes_vectors_R01(R01,N,v0,v1,NULL,NULL,weights);
+}
+
+bool mrcal_align_procrustes_points_Rt01(// out
+                                        double* Rt01,
+                                        // in
+                                        const int N,
+                                        // (N,3) arrays
+                                        const double* p0,
+                                        const double* p1,
+
+                                        // (N,) array; may be NULL to use an even
+                                        // weighting
+                                        const double* weights)
+{
+    double pmean0[3] = {};
+    double pmean1[3] = {};
+
+    for(int i=0; i<N; i++)
+        for(int j=0; j<3; j++)
+        {
+            pmean0[j] += p0[i*3+j];
+            pmean1[j] += p1[i*3+j];
+        }
+    for(int j=0; j<3; j++)
+    {
+        pmean0[j] /= (double)N;
+        pmean1[j] /= (double)N;
+    }
+    if(!_align_procrustes_vectors_R01(Rt01,N,p0,p1,pmean0,pmean1,weights))
+        return false;
+
+    // t = pmean0 - R01 pmean1
+    for(int i=0; i<3; i++)
+    {
+        Rt01[9 + i] = pmean0[i];
+        for(int j=0; j<3; j++)
+            Rt01[9 + i] -= Rt01[i*3 + j] * pmean1[j];
+    }
+    return true;
+}
+

@@ -1141,4 +1141,68 @@ We return the matrix A in a (3,3) numpy array
 '''}
 )
 
+for w in ('weights', 'noweights'):
+    for kind in ('R01', 'Rt01'):
+
+        if w == 'weights':
+            args_input      = ('v0','v1','weights')
+            prototype_input = (('N',3,), ('N',3,), ('N',))
+            weightarg = "(double*)data_slice__weights"
+        else:
+            args_input      = ('v0','v1')
+            prototype_input = (('N',3,), ('N',3,))
+            weightarg = "NULL"
+
+        if kind == 'R01':
+            what             = 'vectors'
+            prototype_output = (3,3)
+            Nelements_output = 9
+        else:
+            what             = 'points'
+            prototype_output = (4,3)
+            Nelements_output = 12
+
+        m.function( f"_align_procrustes_{what}_{kind}_{w}",
+            r"""Compute a rotation to align two sets of direction vectors or points
+
+        This is the written-in-C Python extension module. Most of the time you want to
+        use the mrcal.poseutils wrapper module instead of this module directly. Any
+        functions not prefixed with "_" are meant to be called directly, without the
+        wrapper.
+
+        All functions are exported into the mrcal module. So you can call these via
+        mrcal._poseutils.fff() or mrcal.fff(). The latter is preferred.
+
+            """,
+                    args_input       = args_input,
+                    prototype_input  = prototype_input,
+                    prototype_output = prototype_output,
+
+                    Ccode_validate = r'''
+                    return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+                    Ccode_slice_eval = \
+                        {np.float64:
+                         rf'''
+            bool result =
+            mrcal_align_procrustes_{what}_{kind}((double*)data_slice__output,
+                                                 dims_slice__v0[0],
+                                                 (double*)data_slice__v0,
+                                                 (double*)data_slice__v1,
+                                                 {weightarg});
+
+            if(!result && 0.0 == *(double*)data_slice__output)
+            {{
+
+                // Poorly-defined problem. I indicate this with an all-zero
+                // output, but I return true. This allows us to process
+                // lots of data via broadcasting, without breaking ALL
+                // the slices if one slice is broken
+                memset((double*)data_slice__output, 0, {Nelements_output}*sizeof(double));
+                return true;
+            }}
+            return result;
+        '''}
+        )
+
 m.write()

@@ -79,6 +79,11 @@ P3(xxx, i,j,k)
 These all have direct Python bindings. For instance the Python
 [[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]] function wraps =mrcal_rt_from_Rt()= C function.
 
+There are also functions to solve the [[https://en.wikipedia.org/wiki/Orthogonal_Procrustes_problem][Orthogonal Procrustes Problem]]:
+
+- =mrcal_align_procrustes_points_Rt01()=
+- =mrcal_align_procrustes_vectors_R01()=
+
 The [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]] header serves as the listing of available functions.
 
 * Lens models

@@ -202,4 +202,135 @@ testutils.confirm_equal( nps.inner(A,b),
                          msg = f'skew_symmetric()')
 
 
+# Checks to make sure the Python and C flavors of the procrustes solves do the
+# same thing
+#
+# shape (Nsamples, Npair=2,Npoints,N3d=3)
+p = \
+    np.array([[[[0.14704423, 0.39775277, 0.30555471],
+                [0.92170835, 0.46068765, 0.46597563],
+                [0.85681395, 0.14640106, 0.72339265],
+                [0.64150377, 0.9689525 , 0.18343949],
+                [0.37721179, 0.61115926, 0.72395643],
+                [0.90988371, 0.54785929, 0.00305871]],
+               [[0.17938669, 0.870795  , 0.80838611],
+                [0.76591916, 0.41732501, 0.29741046],
+                [0.43456858, 0.80027015, 0.40425126],
+                [0.51486614, 0.75565368, 0.19814464],
+                [0.13175592, 0.63443547, 0.26494142],
+                [0.36305645, 0.93237726, 0.56876193]]],
+              [[[0.91457097, 0.06700906, 0.74084108],
+                [0.34972644, 0.19535236, 0.93707003],
+                [0.05978952, 0.68233545, 0.01814865],
+                [0.46846867, 0.53959814, 0.18141228],
+                [0.78532912, 0.29627199, 0.58184341],
+                [0.93356584, 0.14646568, 0.77161276]],
+               [[0.70057041, 0.33016758, 0.94419219],
+                [0.62895361, 0.34410519, 0.83516703],
+                [0.8054023 , 0.37424879, 0.19989159],
+                [0.81918909, 0.18177506, 0.72753215],
+                [0.2796512 , 0.24979332, 0.04228793],
+                [0.08684694, 0.72923008, 0.86589431]]],
+              [[[0.5174404 , 0.89101492, 0.75315541],
+                [0.96703036, 0.35592374, 0.26891381],
+                [0.11491883, 0.3553755 , 0.07406605],
+                [0.87666567, 0.72322093, 0.78270873],
+                [0.73797503, 0.48847173, 0.43649112],
+                [0.40196225, 0.36487594, 0.23143557]],
+               [[0.28714974, 0.84705018, 0.62632826],
+                [0.2525358 , 0.05370839, 0.69798499],
+                [0.41555077, 0.48653363, 0.20137377],
+                [0.50153789, 0.86894349, 0.39839871],
+                [0.69501319, 0.927363  , 0.78524037],
+                [0.20165683, 0.74075575, 0.93348345]]],
+              [[[0.1670269 , 0.68982035, 0.25166721],
+                [0.6252659 , 0.97867961, 0.31571348],
+                [0.99385309, 0.55140928, 0.86169534],
+                [0.37788756, 0.06677707, 0.25035251],
+                [0.45994065, 0.42615147, 0.93190971],
+                [0.19488194, 0.70151131, 0.49352064]],
+               [[0.62938171, 0.10537443, 0.04530917],
+                [0.97526369, 0.31124128, 0.21464597],
+                [0.18855158, 0.44590893, 0.24078581],
+                [0.31546736, 0.33583147, 0.55277668],
+                [0.37431502, 0.72881629, 0.5461762 ],
+                [0.85790425, 0.76488894, 0.17539372]]],
+              [[[0.7934717 , 0.98374073, 0.51727301],
+                [0.86370405, 0.28009948, 0.6730014 ],
+                [0.356218  , 0.31673491, 0.66938557],
+                [0.66419795, 0.23694415, 0.74916447],
+                [0.49975421, 0.94466077, 0.30366929],
+                [0.4893559 , 0.33181135, 0.44038687]],
+               [[0.95820648, 0.86295328, 0.08792959],
+                [0.78256322, 0.94953821, 0.51813174],
+                [0.4836827 , 0.30111458, 0.52616329],
+                [0.06204762, 0.78452476, 0.20771378],
+                [0.37545885, 0.78866451, 0.82157995],
+                [0.81211514, 0.59884354, 0.9740134 ]]]])
+w = np.array([0.78040546, 0.59692462, 0.81189354, 0.18877835, 0.53251149, 0.79716902])
+
+# shape (Nsamples, Npair=2,Npoints,N3d=3)
+for p0,p1 in p:
+    # each of p0,p1 has shape (Npoints,3)
+
+    Rt01        = mrcal.align_procrustes_points_Rt01(              p0,p1,weights=w)
+    Rt01_python = mrcal.utils._align_procrustes_points_Rt01_python(p0,p1,weights=w)
+
+    testutils.confirm_equal( Rt01, Rt01_python,
+                             worstcase = True,
+                             eps = 1e-10,
+                             msg = f'align_procrustes_points_Rt01() does the same thing in C and Python')
+
+    v0 = p0 / nps.dummy(nps.mag(p0),axis=-1)
+    v1 = p1 / nps.dummy(nps.mag(p1),axis=-1)
+    R01        = mrcal.align_procrustes_vectors_R01(              v0,v1,weights=w)
+    R01_python = mrcal.utils._align_procrustes_vectors_R01_python(v0,v1,weights=w)
+
+    testutils.confirm_equal( R01, R01_python,
+                             worstcase = True,
+                             eps = 1e-10,
+                             msg = f'align_procrustes_vectors_R01() does the same thing in C and Python')
+
+
+# And one more: make sure the error handling works. Trying to align degenerate
+# data should fail
+#
+# If I have 1 points, both flavors should fail
+# should fail
+testutils.confirm(not np.any(mrcal.align_procrustes_points_Rt01(p[0,0,:1,:],
+                                                                p[0,1,:1,:])),
+                  msg = "align_procrustes_points_Rt01() should fail with one point")
+testutils.confirm(not np.any(mrcal.align_procrustes_vectors_R01(p[0,0,:1,:],
+                                                                p[0,1,:1,:])),
+                  msg = "align_procrustes_vectors_R01() should fail with one point")
+
+# If I have 2 points, vector alignment should succeed, while point alignment
+# should fail
+testutils.confirm(not np.any(mrcal.align_procrustes_points_Rt01(p[0,0,:2,:],
+                                                                p[0,1,:2,:])),
+                  msg = "align_procrustes_points_Rt01() should fail with two points")
+testutils.confirm(np.any(mrcal.align_procrustes_vectors_R01(p[0,0,:2,:],
+                                                            p[0,1,:2,:])),
+                  msg = "align_procrustes_vectors_R01() should succeed with two points")
+
+
+# 2 samples
+p0 = p[:2,0,...]
+p1 = p[:2,1,...]
+# The first set of points in p1 all lie along a line
+p1[0,...] = np.array((1.,0.1, 5.)) + \
+    nps.dummy(np.arange(p0.shape[1]), axis=-1) * np.array((-1.,-2., 0.5))
+
+Rt01        = mrcal.align_procrustes_points_Rt01(              p0,p1,weights=w)
+Rt01_python = mrcal.utils._align_procrustes_points_Rt01_python(p0,p1,weights=w)
+
+testutils.confirm_equal( Rt01[0,...], 0,
+                         worstcase = True,
+                         eps = 1e-10,
+                         msg = f'align_procrustes_points_Rt01() reports errors with degenerate data')
+testutils.confirm_equal( Rt01, Rt01_python,
+                         worstcase = True,
+                         eps = 1e-10,
+                         msg = f'align_procrustes_points_Rt01() reports errors with degenerate data')
+
 testutils.finish()
