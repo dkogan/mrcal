@@ -1205,4 +1205,46 @@ for w in ('weights', 'noweights'):
         '''}
         )
 
+m.function( f"R_aligned_to_vector",
+    r'''Compute a rotation to map a given vector to [0,0,1]
+
+SYNOPSIS
+
+    # I have a plane that passes through a point p, and has a normal n. I
+    # compute a transformation from the world to a coord system aligned to the
+    # plane, with p at the origin. R_plane_world p + t_plane_world = 0:
+
+    Rt_plane_world = np.zeros((4,3), dtype=float)
+    Rt_plane_world[:3,:] = mrcal.R_aligned_to_vector(n)
+    Rt_plane_world[ 3,:] = -mrcal.rotate_point_R(Rt_plane_world[:3,:],p)
+
+This rotation is not unique: adding any rotation around v still maps v to
+[0,0,1]. An arbitrary acceptable rotation is returned.
+
+ARGUMENTS
+
+- v: a numpy array of shape (3,). The vector that the computed rotation maps to
+  [0,0,1]. Does not need to be normalized. Must be non-0
+
+RETURNED VALUES
+
+The rotation in a (3,3) array
+
+    ''',
+            args_input       = ('v',),
+            prototype_input  = ( (3,), ),
+            prototype_output = (3,3),
+
+            Ccode_validate = r'''
+            return CHECK_CONTIGUOUS_AND_SETERROR_ALL();''',
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 rf'''
+    mrcal_R_aligned_to_vector((double*)data_slice__output,
+                              (double*)data_slice__v);
+    return true;
+'''}
+)
+
 m.write()

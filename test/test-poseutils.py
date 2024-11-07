@@ -333,4 +333,14 @@ testutils.confirm_equal( Rt01, Rt01_python,
                          eps = 1e-10,
                          msg = f'align_procrustes_points_Rt01() reports errors with degenerate data')
 
+
+v        = np.array( (0.1, 6.3, -2.0) )
+R        = mrcal.R_aligned_to_vector(v)
+R_python = mrcal.utils._R_aligned_to_vector_python(v)
+
+testutils.confirm_equal( R, R_python,
+                         worstcase = True,
+                         eps = 1e-10,
+                         msg = f'R_aligned_to_vector() does the same thing in C and Python')
+
 testutils.finish()

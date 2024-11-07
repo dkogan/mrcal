@@ -578,3 +578,9 @@ bool mrcal_align_procrustes_points_Rt01(// out
                                         // (N,) array; may be NULL to use an even
                                         // weighting
                                         const double* weights);
+
+// Compute a non-unique rotation to map a given vector to [0,0,1]
+void mrcal_R_aligned_to_vector(// out
+                               double* R,
+                               // in
+                               const double* v);

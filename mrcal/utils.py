@@ -1552,31 +1552,14 @@ contains the WEIGHTED reprojection errors
                               x = residuals,
                               **kwargs)
 
-def R_aligned_to_vector(v):
-    r'''Compute a rotation to map a given vector to [0,0,1]
+def _R_aligned_to_vector_python(v):
+    r'''Reference implementation of R_aligned_to_vector in python
 
-SYNOPSIS
+The main implementation is written in C in poseutils.c:
 
-    # I have a plane that passes through a point p, and has a normal n. I
-    # compute a transformation from the world to a coord system aligned to the
-    # plane, with p at the origin. R_plane_world p + t_plane_world = 0:
+  mrcal_R_aligned_to_vector()
 
-    Rt_plane_world = np.zeros((4,3), dtype=float)
-    Rt_plane_world[:3,:] = mrcal.R_aligned_to_vector(n)
-    Rt_plane_world[ 3,:] = -mrcal.rotate_point_R(Rt_plane_world[:3,:],p)
-
-This rotation is not unique: adding any rotation around v still maps v to
-[0,0,1]. An arbitrary acceptable rotation is returned.
-
-ARGUMENTS
-
-- v: a numpy array of shape (3,). The vector that the computed rotation maps to
-  [0,0,1]. Does not need to be normalized. Must be non-0
-
-RETURNED VALUES
-
-The rotation in a (3,3) array
-
+The two implementations are identical, with a test to verify this
     '''
     z = v/nps.mag(v)
     if np.abs(z[0]) < .9:

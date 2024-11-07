@@ -38,6 +38,7 @@ faster uncertainty computation:
   added mrcal.traverse_sensor_links()
 
 2024-11-06 Added C procrustes fit implementations
+2024-11-06 Added C mrcal_R_aligned_to_vector()
 
 * Migration notes 2.4 -> 3.0
 
