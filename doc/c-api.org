@@ -46,6 +46,18 @@ We have 3 structures in [[https://www.github.com/dkogan/mrcal/blob/master/basic-
   - =mrcal_point3_t r=: a [[https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Rotation_vector][Rodrigues rotation]]
   - =mrcal_point3_t t=: a translation
 
+Trivial mathematical operations are defined for these types:
+
+- =double         mrcal_point3_inner(const mrcal_point3_t a, const mrcal_point3_t b)=
+- =double         mrcal_point3_norm2(const mrcal_point3_t a)=
+- =double         mrcal_point3_mag  (const mrcal_point3_t a)=
+- =mrcal_point3_t mrcal_point3_add  (const mrcal_point3_t a, const mrcal_point3_t b)=
+- =mrcal_point3_t mrcal_point3_sub  (const mrcal_point3_t a, const mrcal_point3_t b)=
+- =mrcal_point3_t mrcal_point3_scale(const mrcal_point3_t a, const double s)=
+- =mrcal_point3_t mrcal_point3_cross(const mrcal_point3_t a, const mrcal_point3_t b)=
+
+And similar for =mrcal_point2_t=, except there's no =mrcal_point2_cross()=
+
 * Geometry functions
 A number of utility functions are defined in [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]]. Each routine has two
 forms:

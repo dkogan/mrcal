@@ -40,6 +40,8 @@ faster uncertainty computation:
 2024-11-06 Added C procrustes fit implementations
 2024-11-06 Added C mrcal_R_aligned_to_vector()
 
+2024-11-07 Added simple math operation functions to the C API
+
 * Migration notes 2.4 -> 3.0
 
 * todo
