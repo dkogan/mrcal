@@ -446,7 +446,9 @@ int mrcal_measurement_index_points(int i_observation_point,
         i_observation_point * 2;
 }
 
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: need known-range points, at-infinity points"
+#endif
 
 int mrcal_num_measurements_points(int Nobservations_point)
 {
@@ -454,7 +456,9 @@ int mrcal_num_measurements_points(int Nobservations_point)
     return Nobservations_point * 2;
 }
 
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: Add a test for mrcal_measurement_index_points_triangulated()"
+#endif
 int mrcal_measurement_index_points_triangulated(int i_point_triangulated,
                                                 int Nobservations_board,
                                                 int Nobservations_point,
@@ -480,7 +484,9 @@ int mrcal_measurement_index_points_triangulated(int i_point_triangulated,
                                                                    i_point_triangulated);
 }
 
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: python-wrap this function"
+#endif
 int mrcal_num_measurements_points_triangulated_initial_Npoints(// May be NULL if we don't have any of these
                                                                const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                                                                int Nobservations_point_triangulated,
@@ -526,7 +532,9 @@ int mrcal_num_measurements_points_triangulated(// May be NULL if we don't have a
                                                                     -1 );
 }
 
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: python-wrap this function"
+#endif
 bool mrcal_decode_observation_indices_points_triangulated(
     // output
     int* iobservation0,
@@ -650,7 +658,9 @@ bool mrcal_decode_observation_indices_points_triangulated(
 
 
 int mrcal_measurement_index_regularization(
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: this argument order is weird. Put then triangulated stuff at the end?"
+#endif
                                            // May be NULL if we don't have any of these
                                            const mrcal_observation_point_triangulated_t* observations_point_triangulated,
                                            int Nobservations_point_triangulated,
@@ -862,7 +872,9 @@ int _mrcal_num_j_nonzero(int Nobservations_board,
        problem_selections.do_optimize_extrinsics &&
        Ncameras_extrinsics > 0)
     {
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: I assume that camera0 is at the reference"
+#endif
         N += 3; // translation only
     }
 
@@ -3989,7 +4001,9 @@ bool markOutliers(// output, input
                   int Nobservations_board,
                   int Nobservations_point,
 
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: not const because this is where the outlier bit lives currently"
+#endif
                   mrcal_observation_point_triangulated_t* observations_point_triangulated,
                   int Nobservations_point_triangulated,
 
@@ -4217,7 +4231,9 @@ bool markOutliers(// output, input
                     pt0->outlier = true;
                     pt1->outlier = true;
                     foundNewOutliers = true;
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: outliers should not be marked in this first loop. This should happen in the following loop. Putting it here breaks the logic"
+#endif
 
 
                     // There are a lot of these, so I'm disabling this print for
@@ -4365,7 +4381,9 @@ bool markOutliers(// output, input
 
                     (*Noutliers_triangulated_point)++;
 
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: outliers not returned to the caller yet, so I simply print them out here"
+#endif
                     MSG("New outliers found: measurement %d observation (%d,%d)",
                         imeasurement_point_triangulated0 + imeasurement_point_triangulated,
                         i0, i1);
@@ -5323,8 +5341,10 @@ void optimizer_callback(// input state
             assert(0);
         }
 
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: mrcal_observation_point_t.px is the observation vector in camera coords. No outliers. No intrinsics"
 #warning "triangulated-solve: make weights work somehow. This is tied to outliers"
+#endif
 
         for(int i0 = 0;
             i0 < ctx->Nobservations_point_triangulated;
@@ -6083,7 +6103,9 @@ void optimizer_callback(// input state
 
             // compute scales
             {
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: better unity_cam01 scale"
+#endif
                 double normal_unity_cam01_value = 1.0;
 
                 double expected_regularization_unity_cam01_error_sq_noscale =
@@ -6452,7 +6474,9 @@ mrcal_optimize( // out
         // callback. And because I must optimize SOMETHING, so if I have fixed
         // intrinsics then the extrinsics cannot be fixed
         return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: can I loosen this? Optimizing intrinsics and triangulated points together should work"
+#endif
     }
 
     if(!modelHasCore_fxfycxcy(lensmodel))
@@ -6603,7 +6627,9 @@ mrcal_optimize( // out
         for(int i=0; i<Nmeasurements_board/2; i++)
             if(observations_board_pool[i].z < 0.0)
                 stats.Noutliers_board++;
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: check for point outliers here as well. Pull the triangulated-point outlier code out of markOutliers, and call it here (divergent-ray finder and looking at marked outliers)"
+#endif
 
         double outliernessScale = -1.0;
         do
@@ -6640,7 +6666,9 @@ mrcal_optimize( // out
                               observations_board,
                               Nobservations_board,
                               Nobservations_point,
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: not const for now. this will become const once the outlier bit moves to the point_triangulated pool"
+#endif
                               (mrcal_observation_point_triangulated_t*)observations_point_triangulated,
                               Nobservations_point_triangulated,
                               calibration_object_width_n,
@@ -6653,7 +6681,9 @@ mrcal_optimize( // out
                        Nmeasurements_board,
                        (double)(stats.Noutliers_board * 100) / (double)Nmeasurements_board);
                    true;}));
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: the above print should deal with triangulated points too"
+#endif
 
 
         // Done. I have the final state. I spit it back out
@@ -6777,7 +6807,9 @@ mrcal_optimize( // out
                                 (dogleg_callback_t*)&optimizer_callback, &ctx);
 
     stats.rms_reproj_error__pixels =
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: not correct for triangulated points either: 1 measurement, not 2"
+#endif
         // THIS IS NOT CORRECT FOR POINTS. I have 3 measurements for points currently
         sqrt(norm2_error / (double)ctx.Nmeasurements);
 
@@ -6848,4 +6880,6 @@ bool mrcal_write_cameramodel_file(const char* filename,
 }
 
 
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: fixed points should live in a separate array, instead of at the end of the 'points' array"
+#endif

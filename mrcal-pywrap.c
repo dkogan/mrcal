@@ -1418,13 +1418,17 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
     int ipoint_current = -1;
     int Npoints_in_this_set = 0;
 
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: document observation order. All the points must be grouped together"
+#endif
     bool finish_set(int ipoint_last_in_set)
     {
         if(ipoint_last_in_set < 0)
             // No "last" set exists. Nothing to do.
             return true;
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: indices_point_triangulated_camintrinsics_camextrinsics are silly: ipoint is used ONLY to figure out where the set ends"
+#endif
         c_observations_point_triangulated[ipoint_last_in_set].last_in_set = true;
         if(Npoints_in_this_set < 2)
         {
@@ -2156,7 +2160,9 @@ typedef PyObject* (callback_state_index_t)(int i,
 #define STATE_INDEX_GENERIC(f, ...) state_index_generic(callback_ ## f, \
                                                         #f,             \
                                                         __VA_ARGS__ )
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: more kwargs for the triangulated-solve measurements? Look in state_index_generic()"
+#endif
 static PyObject* state_index_generic(callback_state_index_t cb,
                                      const char* called_function,
                                      PyObject* self, PyObject* args, PyObject* kwargs,
@@ -3148,7 +3154,9 @@ static PyObject* callback_num_measurements(int i,
                                      mrcal_problem_selections_t problem_selections)
 {
 
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: add tests to the num_measurements_..., state_index_... ..."
+#endif
 
 
     mrcal_observation_point_triangulated_t* observations_point_triangulated  = NULL;
@@ -3224,7 +3232,9 @@ static PyObject* callback_corresponding_icam_extrinsics(int icam_intrinsics,
                                                   mrcal_problem_selections_t problem_selections)
 {
 
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: barf if we have any triangulated points"
+#endif
 
     if( icam_intrinsics < 0 || icam_intrinsics >= Ncameras_intrinsics )
     {
@@ -4438,7 +4448,9 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(, traverse_sensor_links, METH_VARARGS | METH_KEYWORDS),
       {}
     };
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: fill in the new xxxx.docstring"
+#endif
 
 
 
