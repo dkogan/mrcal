@@ -180,6 +180,11 @@ If the inputs were singular or insufficient, a (4,3) array of 0 is returned.
 This is not a valid Rt transform, and is used to signal an error.
 
     """
+    # Use the python implementation when the data isn't contiguous
+    if not (p0.flags['C_CONTIGUOUS'] and \
+            p1.flags['C_CONTIGUOUS']):
+        return _align_procrustes_points_Rt01_python(p0, p1, weights=weights)
+
     if weights is None:
         return mrcal._poseutils_npsp._align_procrustes_points_Rt01_noweights(p0, p1)
     else:
@@ -248,6 +253,12 @@ If the inputs were singular or insufficient, a (3,3) array of 0 is returned.
 This is not a valid rotation, and is used to signal an error.
 
     """
+
+    # Use the python implementation when the data isn't contiguous
+    if not (v0.flags['C_CONTIGUOUS'] and \
+            v1.flags['C_CONTIGUOUS']):
+        return _align_procrustes_vectors_R01_python(v0, v1, weights=weights)
+
     if weights is None:
         return mrcal._poseutils_npsp._align_procrustes_vectors_R01_noweights(v0, v1)
     else:
