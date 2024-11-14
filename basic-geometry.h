@@ -98,7 +98,7 @@ static double mrcal_point3_norm2(const mrcal_point3_t a)
 {
     return mrcal_point3_inner(a,a);
 }
-#define mrcal_point3_mag(a) sqrt(norm2(a)) // macro to not require #include <math.h>
+#define mrcal_point3_mag(a) sqrt(mrcal_point3_norm2(a)) // macro to not require #include <math.h>
 
 __attribute__((unused))
 static mrcal_point3_t mrcal_point3_add(const mrcal_point3_t a, const mrcal_point3_t b)
