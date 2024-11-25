@@ -471,10 +471,6 @@ plot
 
         Transforms are in reverse order so a point x being transformed as A*B*C*x
         can be represented as a transforms list (A,B,C).
-
-        if legend is not None: plot ONLY the axis vectors. If legend is None: plot
-        ONLY the axis labels
-
         '''
         axes = np.array( ((0,0,0),
                           (1,0,0),
@@ -486,12 +482,30 @@ plot
         for x in transforms:
             transform = mrcal.compose_Rt(transform, x)
 
-        if legend is not None:
-            return \
-                (extend_axes_for_plotting(mrcal.transform_point_Rt(transform, axes)),
-                 dict(_with     = 'vectors',
-                      tuplesize = -6,
-                      legend    = legend), )
+        return \
+            (extend_axes_for_plotting(mrcal.transform_point_Rt(transform, axes)),
+             dict(_with     = 'vectors',
+                  tuplesize = -6,
+                  legend    = legend), )
+
+    def gen_plot_axes_labels(transforms, scale = 1.0):
+        r'''Given a list of transforms (applied to the reference set of axes in reverse
+        order), return a list of plotting directives gnuplotlib
+        understands. Each transform is an Rt (4,3) matrix
+
+        Transforms are in reverse order so a point x being transformed as A*B*C*x
+        can be represented as a transforms list (A,B,C).
+        '''
+        axes = np.array( ((0,0,0),
+                          (1,0,0),
+                          (0,1,0),
+                          (0,0,2),), dtype=float ) * scale
+
+        transform = mrcal.identity_Rt()
+
+        for x in transforms:
+            transform = mrcal.compose_Rt(transform, x)
+
         return tuple(nps.transpose(mrcal.transform_point_Rt(transform,
                                                     axes[1:,:]*1.01))) + \
                                    (np.array(('x', 'y', 'z')),
@@ -526,9 +540,8 @@ plot
                             legend = camera_name(i),
                             scale=axis_scale) for i in range(0,Ncameras)]
         cam_axes_labels = \
-            [gen_plot_axes( ( camera_Rt_toplotcoords(i), ),
-                            legend = None,
-                            scale=axis_scale) for i in range(0,Ncameras)]
+            [gen_plot_axes_labels( ( camera_Rt_toplotcoords(i), ),
+                                   scale=axis_scale) for i in range(0,Ncameras)]
 
         # I collapse all the labels into one gnuplotlib dataset. Thus I'll be
         # able to turn them all on/off together
