@@ -865,7 +865,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
     - https://mrcal.secretsauce.net/docs-3.0/uncertainty-mean-pcam.html
     - https://mrcal.secretsauce.net/docs-3.0/uncertainty-cross-reprojection.html
 
-    The end result:
+    The end result for method == "mean-pcam":
 
     q* - q
 
@@ -1233,7 +1233,7 @@ else:                    we return an array of shape (...)
     # more than one. At this time I limit to myself to a consecutive block of
     # extrinsics vectors. Once this all works I can relax that requirement
     ifcice = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
-    icam_extrinsics = np.unique( ifcice[ifcice[:,1] == icam_intrinsics, 2] )
+    icam_extrinsics = np.unique( ifcice[ifcice[:,1] == icam_intrinsics, 2] ) # sorted
     if icam_extrinsics.size == 0:
         raise Exception(f"No extrinsics corresponding to {icam_intrinsics=}. I don't know what to do")
     if icam_extrinsics.size > 1:
