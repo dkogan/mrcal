@@ -517,6 +517,27 @@ def _observed_pixel_uncertainty_from_inputs(optimization_inputs,
     return observed_pixel_uncertainty
 
 
+
+def _covariance_processed(what, Var_dF, observed_pixel_uncertainty,
+                          *,
+                          scalar):
+    if what == 'covariance':
+        if scalar:
+            Var_dF = Var_dF[0,0]
+        return Var_dF * observed_pixel_uncertainty*observed_pixel_uncertainty
+    if what == 'worstdirection-stdev':
+        return worst_direction_stdev(Var_dF) * observed_pixel_uncertainty
+    if what == 'rms-stdev':
+        # Compute the RMS of the standard deviations in each direction
+        # RMS(stdev) =
+        # = sqrt( mean(stdev^2) )
+        # = sqrt( mean(var) )
+        # = sqrt( sum(var)/N )
+        # = sqrt( trace/N )
+        return np.sqrt(nps.trace(Var_dF)/Var_dF.shape[-1]) * observed_pixel_uncertainty
+    else:
+        raise Exception("Shouldn't have gotten here. There's a bug")
+
 def _propagate_calibration_uncertainty( what,
                                         *,
 
@@ -623,7 +644,7 @@ In the regularized case:
 
     '''
 
-    what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev'))
+    what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev', 'covariance-raw'))
     if not what in what_known:
         raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
 
@@ -781,22 +802,11 @@ In the regularized case:
         A3 = factorization.solve_xt_JtJ_bt( A2,          sys='D' )
         Var_dF = nps.matmult(A2, nps.transpose(A3))
 
-    if what == 'covariance':
-        if dF_dbpacked.ndim == 1:
-            Var_dF = Var_dF[0,0]
-        return Var_dF * observed_pixel_uncertainty*observed_pixel_uncertainty
-    if what == 'worstdirection-stdev':
-        return worst_direction_stdev(Var_dF) * observed_pixel_uncertainty
-    if what == 'rms-stdev':
-        # Compute the RMS of the standard deviations in each direction
-        # RMS(stdev) =
-        # = sqrt( mean(stdev^2) )
-        # = sqrt( mean(var) )
-        # = sqrt( sum(var)/N )
-        # = sqrt( trace/N )
-        return np.sqrt(nps.trace(Var_dF)/Var_dF.shape[-1]) * observed_pixel_uncertainty
-    else:
-        raise Exception("Shouldn't have gotten here. There's a bug")
+    if what == 'covariance-raw':
+        return Var_dF
+
+    return _covariance_processed(what, Var_dF,observed_pixel_uncertainty,
+                                 scalar = (dF_dbpacked.ndim == 1))
 
 
 def _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
@@ -841,7 +851,13 @@ def _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
 def _dq_db__projection_uncertainty( # shape (...,3)
                                     p_cam,
                                     lensmodel, intrinsics_data,
-                                    extrinsics_rt_fromref, frames_rt_toref,
+                                    # all the camera extrinsics where this
+                                    # specific camera observed the board. This
+                                    # may be all or none of the extrinsics in
+                                    # the state, or anything in-between
+                                    extrinsics_rt_fromref,
+                                    # all frame poses from the optimizaiton
+                                    frames_rt_toref,
                                     Nstate,
                                     # in the state vector
                                     istate_intrinsics0,
@@ -867,37 +883,47 @@ def _dq_db__projection_uncertainty( # shape (...,3)
 
     The end result for method == "mean-pcam":
 
-    q* - q
+      q* - q
 
-    ~   dq_dpcam (pcam* - pcam)
-      + dq_dintrinsics db[intrinsics_this]
+      ~   dq_dpcam (pcam* - pcam)
+        + dq_dintrinsics db[intrinsics_this]
 
-    ~   dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref db[extrinsics_j] +
-                                dpcam__dpref_i (pref_i* - pref_i) )
-      + dq_dintrinsics db[intrinsics_this]
+      ~   dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref db[extrinsics_j] +
+                                  dpcam__dpref_i (pref_i* - pref_i) )
+        + dq_dintrinsics db[intrinsics_this]
 
-    ~   dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref db[extrinsics_j] +
-                                dpcam__dpref_i ( dpref__drt_ref_framei db[frame_i] +
-                                                 dpref__dpframe_i d(pframe_i) )
-      + dq_dintrinsics db[intrinsics_this]
+      ~   dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref db[extrinsics_j] +
+                                  dpcam__dpref_i ( dpref__drt_ref_framei db[frame_i] +
+                                                   dpref__dpframe_i d(pframe_i) )
+        + dq_dintrinsics db[intrinsics_this]
 
-    Here I'm assuming fixed pframe, so d(pframe_) = 0:
+      Here I'm assuming fixed pframe, so d(pframe_) = 0:
 
-    dq
-    ~   dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref db[extrinsics_j] +
-                                dpcam__dpref_i dpref__drt_ref_framei db[frame_i] )
-      + dq_dintrinsics db[intrinsics_this]
+      dq
+      ~   dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref db[extrinsics_j] +
+                                  dpcam__dpref_i dpref__drt_ref_framei db[frame_i] )
+        + dq_dintrinsics db[intrinsics_this]
 
-    --->
+      --->
 
-    dq/db[extrinsics_j]    = dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref)
-    dq/db[frames_i]        = dq_dpcam/Ncam_frame sum(dpcam__dpref_i dpref__drt_ref_framei )
-    dq/db[intrinsics_this] = dq_dintrinsics
+      dq/db[extrinsics_j]    = dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref)
+      dq/db[frames_i]        = dq_dpcam/Ncam_frame sum(dpcam__dpref_i dpref__drt_ref_framei )
+      dq/db[intrinsics_this] = dq_dintrinsics
+
+    The end result for method == "bestq":
+
+      For bestq I report a separate result for each camera/board geometry. So
+      the expressions are the same as for pcam, but there's no /Ncam_frame and
+      no sum(): I instead report an array for each slice
+
     '''
 
 
-    if not (method == 'mean-pcam' and Kunpacked is None):
-        raise Exception("only the mean-pcam method implemented for now")
+    if Kunpacked is not None:
+        raise Exception("Cross-reprojection not implemented fully at this time")
+
+    if not (method == 'mean-pcam' or method == 'bestq'):
+        raise Exception("only the mean-pcam and bestq methods implemented for now")
 
 
     # extrinsics_rt_fromref and frames_rt_toref contain poses. These are
@@ -914,8 +940,16 @@ def _dq_db__projection_uncertainty( # shape (...,3)
 
     ### The output array. This function fills this in, and returns it
     # shape (..., 2,Nstate)
-    dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
-    dq_db_shape = dq_db.shape
+    if method != 'bestq':
+        dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
+    else:
+        if Ncameras_extrinsics > 1 and Nframes > 1:
+            raise Exception("method=='bestq' works only if either the camera or board are stationary")
+        if Ncameras_extrinsics == 1 and Nframes == 1:
+            raise Exception("method=='bestq' works only if either the camera or board are moving")
+        Ngeometry = max(Ncameras_extrinsics,Nframes)
+        dq_db = np.zeros(p_cam.shape[:-1] + (Ngeometry, 2,Nstate), dtype=float)
+
 
     # shape (..., Ncameras_extrinsics, 3)
     if not atinfinity:
@@ -962,30 +996,89 @@ def _dq_db__projection_uncertainty( # shape (...,3)
         # extrinsics. The gradients are distributed across the state vector, but
         # the mean comes through as the /Ncameras_extrinsics
 
-        # shape (..., 2, Ncameras_extrinsics,6)
-        dq_db_slice_extrinsics = \
-            dq_db[...,
-                  istate_extrinsics0:
-                  istate_extrinsics0 + Ncameras_extrinsics*6]. \
-                  reshape(dq_db_shape[:-1] + (Ncameras_extrinsics,6) )
-        if not atinfinity:
-            # shape (..., 2, Ncameras_extrinsics,6)
-            dq_db_slice_extrinsics[...] = \
-                nps.xchg( nps.matmult(# shape (..., Ncameras_extrinsics=1,2,3)
-                                      nps.dummy(dq_dpcam,-3),
-                                      # shape (..., Ncameras_extrinsics,  3,6)
-                                      dpcam_drt),
-                          -2, -3 ) / Ncameras_extrinsics
-        else:
-            # shape (..., 2, Ncameras_extrinsics,3)
-            dq_db_slice_extrinsics[...,:3] = \
-                nps.xchg( nps.matmult(# shape (..., Ncameras_extrinsics=1,2,3)
-                                      nps.dummy(dq_dpcam,-3),
-                                      # shape (..., Ncameras_extrinsics,  3,3)
-                                      dpcam_dr),
-                          -2, -3 ) / Ncameras_extrinsics
+        if method != 'bestq':
 
-    if method == 'mean-pcam':
+            # shape (..., 2, Ncameras_extrinsics,6)
+            dq_db_slice_extrinsics = \
+                dq_db[...,
+                      istate_extrinsics0:
+                      istate_extrinsics0 + Ncameras_extrinsics*6]. \
+                      reshape(dq_db.shape[:-1] + (Ncameras_extrinsics,6) )
+
+            if not atinfinity:
+                # shape (..., 2, Ncameras_extrinsics,6)
+                dq_db_slice_extrinsics[...] = \
+                    nps.xchg( nps.matmult(# shape (..., Ncameras_extrinsics=1,2,3)
+                                          nps.dummy(dq_dpcam,-3),
+                                          # shape (..., Ncameras_extrinsics,  3,6)
+                                          dpcam_drt),
+                              -2, -3 ) / Ncameras_extrinsics
+            else:
+                # shape (..., 2, Ncameras_extrinsics,3)
+                dq_db_slice_extrinsics[...,:3] = \
+                    nps.xchg( nps.matmult(# shape (..., Ncameras_extrinsics=1,2,3)
+                                          nps.dummy(dq_dpcam,-3),
+                                          # shape (..., Ncameras_extrinsics,  3,3)
+                                          dpcam_dr),
+                              -2, -3 ) / Ncameras_extrinsics
+        else:
+
+            # bestq
+            if Ncameras_extrinsics == 1:
+                # The camera is stationary; the extra dimension is for the
+                # moving board. So the camera pose applies to each slice.
+
+                # shape (..., 2,6)
+                dq_db_slice_extrinsics = \
+                    dq_db[...,
+                          istate_extrinsics0:
+                          istate_extrinsics0 + 6]
+
+                if not atinfinity:
+                    # shape (..., 2,6)
+                    dq_db_slice_extrinsics[...] = \
+                        nps.matmult(# shape (..., 2,3)
+                            dq_dpcam,
+                            # shape (..., 3,6)
+                            dpcam_drt[...,0,:,:])
+                else:
+                    # shape (..., 2,3)
+                    dq_db_slice_extrinsics[...,:3] = \
+                        nps.matmult(# shape (..., 2,3)
+                            dq_dpcam,
+                            # shape (..., 3,3)
+                            dpcam_dr[...,0,:,:])
+            else:
+                # Moving cameras. Each camera pose gets its own slice in
+                # dimension -3 of dq_db. So I don't have a nice rectangular
+                # slice, and I need to loop
+                for icamera_extrinsics in range(Ncameras_extrinsics):
+
+                    # shape (..., 2,6)
+                    dq_db_slice_extrinsics = \
+                        dq_db[...,
+                              icamera_extrinsics,
+                              :,
+                              istate_extrinsics0 + icamera_extrinsics*6:
+                              istate_extrinsics0 + icamera_extrinsics*6 + 6]
+
+                    if not atinfinity:
+                        # shape (..., 2,6)
+                        dq_db_slice_extrinsics[...] = \
+                            nps.matmult(# shape (..., 2,3)
+                                dq_dpcam,
+                                # shape (..., 3,6)
+                                dpcam_drt[...,icamera_extrinsics,:,:])
+                    else:
+                        # shape (..., 2,3)
+                        dq_db_slice_extrinsics[...,:3] = \
+                            nps.matmult(# shape (..., 2,3)
+                                dq_dpcam,
+                                # shape (..., 3,3)
+                                dpcam_dr[...,icamera_extrinsics,:,:])
+
+
+    if method == 'mean-pcam' or method == 'bestq':
         if istate_frames0 is not None:
 
             # shape (..., Ncameras_extrinsics, 2, 3)
@@ -1036,22 +1129,65 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                             # shape (...,          Nframes,   Ncameras_extrinsics, 3, 6)
                             dpref_dframes)
 
-            # shape (..., 2, Nframes,6)
-            dq_db_slice_frames = \
-                dq_db[...,
-                      istate_frames0:
-                      istate_frames0 + Nframes*6]. \
-                      reshape(dq_db_shape[:-1] + (Nframes,6) )
-            if not atinfinity:
+            if method != 'bestq':
+
                 # shape (..., 2, Nframes,6)
-                dq_db_slice_frames[...] = \
-                    nps.xchg( np.mean(dq_dframes, axis=-3),
-                              -2, -3 ) / Nframes
+                dq_db_slice_frames = \
+                    dq_db[...,
+                          istate_frames0:
+                          istate_frames0 + Nframes*6]. \
+                          reshape(dq_db.shape[:-1] + (Nframes,6) )
+                if not atinfinity:
+                    # shape (..., 2, Nframes,6)
+                    dq_db_slice_frames[...] = \
+                        nps.xchg( np.mean(dq_dframes, axis=-3),
+                                  -2, -3 ) / Nframes
+                else:
+                    # shape (..., 2, Nframes,3)
+                    dq_db_slice_frames[...,:3] = \
+                        nps.xchg( np.mean(dq_dframes, axis=-3),
+                                  -2, -3 ) / Nframes
             else:
-                # shape (..., 2, Nframes,3)
-                dq_db_slice_frames[...,:3] = \
-                    nps.xchg( np.mean(dq_dframes, axis=-3),
-                              -2, -3 ) / Nframes
+                # bestq
+                if Nframes == 1:
+                    # The board is stationary; the extra dimension is for the
+                    # moving camera. So the board pose applies to each slice.
+
+                    # shape (..., 2,6)
+                    dq_db_slice_frames = \
+                        dq_db[...,
+                              istate_frames0:
+                              istate_frames0 + 6]
+                    if not atinfinity:
+                        # shape (..., 2,6)
+                        dq_db_slice_frames[...] = \
+                            dq_dframes[...,0,:,:,:]
+                    else:
+                        # shape (..., 2,3)
+                        dq_db_slice_frames[...,:3] = \
+                            dq_dframes[...,0,:,:,:]
+                else:
+                    # Moving board. Each board pose gets its own slice in
+                    # dimension -3 of dq_db. So I don't have a nice rectangular
+                    # slice, and I need to loop
+                    for iframe in range(Nframes):
+
+                        # shape (..., 2,6)
+                        dq_db_slice_frames = \
+                            dq_db[...,
+                                  iframe,
+                                  :,
+                                  istate_frames0 + iframe*6:
+                                  istate_frames0 + iframe*6 + 6]
+                        if not atinfinity:
+                            # shape (..., 2,6)
+                            dq_db_slice_frames[...] = \
+                                dq_dframes[...,iframe,0,:,:]
+                        else:
+                            # shape (..., 2,3)
+                            dq_db_slice_frames[...,:3] = \
+                                dq_dframes[...,iframe,0,:,:]
+
 
 
     elif method == 'cross-reprojection--rrp-Jfp':
@@ -1191,6 +1327,7 @@ else:                    we return an array of shape (...)
 
 
     known_methods = set(('mean-pcam',
+                         'bestq',
                          'cross-reprojection--rrp-Jfp'),)
     if method not in known_methods:
         raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
@@ -1278,6 +1415,8 @@ else:                    we return an array of shape (...)
 
     Nstate = mrcal.num_states(**optimization_inputs)
 
+    # if method == 'bestq', this has shape (..., Ngeometry, 2, Nstate)
+    # else:                                (...,            2, Nstate)
     dq_db = \
         _dq_db__projection_uncertainty( p_cam,
                                         lensmodel, intrinsics_data,
@@ -1291,10 +1430,38 @@ else:                    we return an array of shape (...)
                                         method     = method,
                                         Kunpacked  = Kunpacked)
 
-    return _propagate_calibration_uncertainty(what,
+    # In case of bestq I compute the uncertainty Ngeometry times, and report
+    # the best one. To keep things simple I use the trace metric: "best" means
+    # the lowest trace(Var_dq)
+    if method == 'bestq':
+        # shape (..., Ngeometry, 2,2)
+        V =_propagate_calibration_uncertainty('covariance-raw',
                                               dF_db                      = dq_db,
                                               observed_pixel_uncertainty = observed_pixel_uncertainty,
                                               optimization_inputs        = optimization_inputs)
+
+
+        # shape (...)
+        i = np.argmin( np.trace(V, axis1=-1, axis2=-2),
+                       axis = -1)
+
+        # shape(..., 1,1,1)
+        i = nps.dummy(i, -1,-1,-1)
+
+        # shape(..., 1, 2,2)
+        V = np.take_along_axis(V, i, -3)
+
+        # shape(..., 2,2)
+        V = V[...,0,:,:]
+
+        return _covariance_processed(what, V, observed_pixel_uncertainty,
+                                     scalar = False)
+
+    else:
+        return _propagate_calibration_uncertainty(what,
+                                                  dF_db                      = dq_db,
+                                                  observed_pixel_uncertainty = observed_pixel_uncertainty,
+                                                  optimization_inputs        = optimization_inputs)
 
 
 def projection_diff(models,
