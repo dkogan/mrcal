@@ -769,14 +769,16 @@ def reproject_perturbed__common(q, distance,
             # shape (..., Nframes, Ncameras)
             q_err = nps.norm2(q_reprojected - q)
 
-            # shape (..., 1, Ncameras)
-            if args.reproject_perturbed == 'bestq':
-                i = q_err.argmin(axis=-2, keepdims=True)
+            # Instead of finding the best/worst pose for each trial, I find one
+            # across all trials, and use that. Sticking with a single pose
+            # matches the behavior implemented in the uncertainty routines.
+            if q_err.ndim < 3:
+                i = q_err.argmin(axis=-2)
+                q_reprojected = np.take_along_axis(q_reprojected, nps.dummy(i,-1,0  ), axis=-3)
             else:
-                i = q_err.argmax(axis=-2, keepdims=True)
+                i = q_err.sum(axis=-3).argmin(axis=-2)
+                q_reprojected = np.take_along_axis(q_reprojected, nps.dummy(i,-1,0,0), axis=-3)
 
-            # shape (..., Nframes=1, Ncameras, 2)
-            q_reprojected = np.take_along_axis(q_reprojected, nps.dummy(i,-1), axis=-3)
 
             # shape (..., Ncameras, 2)
             q_reprojected = q_reprojected[...,0,:,:]
@@ -2297,10 +2299,10 @@ else:                                                          reproject_perturb
 
 
 # "method" argument for mrcal.projection_uncertainty()
-if   re.match('mean-pcam', args.reproject_perturbed):          method = 'mean-pcam'
-elif re.match('cross-reprojection', args.reproject_perturbed): method = 'cross-reprojection--rrp-Jfp'
+if   re.match('^(mean-pcam|bestq)$', args.reproject_perturbed): method = args.reproject_perturbed
+elif re.match('cross-reprojection',  args.reproject_perturbed): method = 'cross-reprojection--rrp-Jfp'
 # default
-else:                                                          method = 'mean-pcam'
+else:                                                           method = 'mean-pcam'
 
 q0_true = dict()
 for distance in args.distances:
