@@ -2748,6 +2748,7 @@ if args.make_documentation_plots is not None:
 
     data_tuples_plot_options = \
         [ mrcal.show_projection_uncertainty( models_baseline[icam],
+                                             method                = method,
                                              observed_pixel_uncertainty = args.observed_pixel_uncertainty,
                                              observations          = 'dots',
                                              distance              = args.distances[0],

@@ -644,7 +644,7 @@ In the regularized case:
 
     '''
 
-    what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev', 'covariance-raw'))
+    what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev', '_covariance-raw'))
     if not what in what_known:
         raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
 
@@ -706,6 +706,8 @@ In the regularized case:
     if observed_pixel_uncertainty is None:
         observed_pixel_uncertainty = _observed_pixel_uncertainty_from_inputs(optimization_inputs,
                                                                              x = x)
+
+    scalar = (dF_dbpacked.ndim == 1)
 
     if Nmeasurements_observations_leading > 0:
         # I have regularization. Use the more complicated expression
@@ -798,15 +800,17 @@ In the regularized case:
         # time ./mrcal-show-projection-uncertainty --gridn 120 90 --hardcopy /tmp/tst.gp **/*.cameramodel(OL[1])
         # 12.29s user 0.96s system 99% cpu 13.253 total
         A1 = factorization.solve_xt_JtJ_bt( dF_dbpacked, sys='P' )
+        del dF_dbpacked
         A2 = factorization.solve_xt_JtJ_bt( A1,          sys='L' )
+        del A1
         A3 = factorization.solve_xt_JtJ_bt( A2,          sys='D' )
         Var_dF = nps.matmult(A2, nps.transpose(A3))
 
-    if what == 'covariance-raw':
-        return Var_dF
+    if what == '_covariance-raw':
+        return Var_dF,observed_pixel_uncertainty
 
     return _covariance_processed(what, Var_dF,observed_pixel_uncertainty,
-                                 scalar = (dF_dbpacked.ndim == 1))
+                                 scalar = scalar)
 
 
 def _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
@@ -968,12 +972,21 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                        get_gradients = True)
 
     if istate_intrinsics0 is not None:
-        dq_db[         ...,
-                       istate_intrinsics0:
-                       istate_intrinsics0+Nstates_intrinsics] = \
-        dq_dintrinsics[...,
-                       istate_intrinsics0_onecam:
-                       istate_intrinsics0_onecam+Nstates_intrinsics]
+        if method != 'bestq':
+            dq_db[         ...,
+                           istate_intrinsics0:
+                           istate_intrinsics0+Nstates_intrinsics] = \
+            dq_dintrinsics[...,
+                           istate_intrinsics0_onecam:
+                           istate_intrinsics0_onecam+Nstates_intrinsics]
+        else:
+            dq_db[         ...,
+                           istate_intrinsics0:
+                           istate_intrinsics0+Nstates_intrinsics] += \
+            nps.dummy(dq_dintrinsics[...,
+                                     istate_intrinsics0_onecam:
+                                     istate_intrinsics0_onecam+Nstates_intrinsics],
+                      -3)
 
     if not atinfinity:
         # shape (..., Ncameras_extrinsics,3,6)
@@ -1435,11 +1448,11 @@ else:                    we return an array of shape (...)
     # the lowest trace(Var_dq)
     if method == 'bestq':
         # shape (..., Ngeometry, 2,2)
-        V =_propagate_calibration_uncertainty('covariance-raw',
-                                              dF_db                      = dq_db,
-                                              observed_pixel_uncertainty = observed_pixel_uncertainty,
-                                              optimization_inputs        = optimization_inputs)
-
+        V,observed_pixel_uncertainty = \
+            _propagate_calibration_uncertainty('_covariance-raw',
+                                               dF_db                      = dq_db,
+                                               observed_pixel_uncertainty = observed_pixel_uncertainty,
+                                               optimization_inputs        = optimization_inputs)
 
         # shape (...)
         i = np.argmin( np.trace(V, axis1=-1, axis2=-2),
