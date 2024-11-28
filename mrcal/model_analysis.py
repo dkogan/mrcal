@@ -813,6 +813,52 @@ In the regularized case:
                                  scalar = scalar)
 
 
+def _propagate_calibration_uncertainty_bestq( dq_db,
+                                              observed_pixel_uncertainty,
+                                              optimization_inputs):
+    r'''Simplified flavor of _propagate_calibration_uncertainty()
+
+Same logic as that function, but with some specific arguments assumed. Used for
+the bestq uncertainty method. More memory-efficient for that application.
+
+THIS FUNCTION OVERWRITES dq_db
+
+    '''
+
+    # OVERWRITE dq_db. It now has packed state
+    mrcal.unpack_state(dq_db, **optimization_inputs)
+
+    _,x,_,factorization = mrcal.optimizer_callback(**optimization_inputs)
+    if factorization is None:
+        raise Exception("Cannot compute the uncertainty: factorization computation failed")
+
+    if observed_pixel_uncertainty is None:
+        observed_pixel_uncertainty = _observed_pixel_uncertainty_from_inputs(optimization_inputs,
+                                                                             x = x)
+
+    @nps.broadcast_define( (('Ngeometry',2,'Nstate'), ),
+                           (2,2) )
+    def process_slice(dq_db):
+        # Here "dq_db" is actually "dq_dbpacked"
+        A1 = factorization.solve_xt_JtJ_bt( dq_db, sys='P' )
+        A2 = factorization.solve_xt_JtJ_bt( A1,    sys='L' )
+        del A1
+        A3 = factorization.solve_xt_JtJ_bt( A2,    sys='D' )
+
+        # shape (Ngeometry,2,2)
+        Var_dq = nps.matmult(A2, nps.transpose(A3))
+        del A2
+        del A3
+        # scalar
+        i = np.argmin( np.trace(Var_dq, axis1=-1, axis2=-2) )
+        return Var_dq[i]
+
+    # shape (...,2,2)
+    Var_dq = process_slice(dq_db)
+
+    return Var_dq,observed_pixel_uncertainty
+
+
 def _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
                                              p_ref,
                                              dq_dpcam, dpcam_dpref,
@@ -1447,25 +1493,11 @@ else:                    we return an array of shape (...)
     # the best one. To keep things simple I use the trace metric: "best" means
     # the lowest trace(Var_dq)
     if method == 'bestq':
-        # shape (..., Ngeometry, 2,2)
+        # shape (..., 2,2)
         V,observed_pixel_uncertainty = \
-            _propagate_calibration_uncertainty('_covariance-raw',
-                                               dF_db                      = dq_db,
-                                               observed_pixel_uncertainty = observed_pixel_uncertainty,
-                                               optimization_inputs        = optimization_inputs)
-
-        # shape (...)
-        i = np.argmin( np.trace(V, axis1=-1, axis2=-2),
-                       axis = -1)
-
-        # shape(..., 1,1,1)
-        i = nps.dummy(i, -1,-1,-1)
-
-        # shape(..., 1, 2,2)
-        V = np.take_along_axis(V, i, -3)
-
-        # shape(..., 2,2)
-        V = V[...,0,:,:]
+            _propagate_calibration_uncertainty_bestq( dq_db,
+                                                      observed_pixel_uncertainty = observed_pixel_uncertainty,
+                                                      optimization_inputs        = optimization_inputs)
 
         return _covariance_processed(what, V, observed_pixel_uncertainty,
                                      scalar = False)
