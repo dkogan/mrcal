@@ -586,8 +586,8 @@ if args.make_documentation_plots is not None:
 
     if args.make_documentation_plots:
         for extension in ('pdf','svg','png','gp'):
-            obs_cam = [ ( (*observed_pixels(icam),),
-                          (q0_baseline, dict(_with = f'points pt 3 lw 2 lc "red" ps {2*pointscale[extension]}'))) \
+            obs_cam = [ observed_pixels(icam) +
+                        [(q0_baseline, dict(_with = f'points pt 3 lw 2 lc "red" ps {2*pointscale[extension]}')),] \
                         for icam in range(args.Ncameras) ]
             processoptions_output = dict(wait     = False,
                                          terminal = shorter_terminal(terminal[extension]),
@@ -608,8 +608,10 @@ if args.make_documentation_plots is not None:
                 os.system(f"pdfcrop {processoptions_output['hardcopy']}")
 
     else:
-        obs_cam = [ ( (*observed_pixels(icam),),
-                      (q0_baseline, dict(_with = f'points pt 3 lw 2 lc "red" ps {2*pointscale[""]}'))) \
+        extension = ''
+
+        obs_cam = [ observed_pixels(icam) +
+                    [(q0_baseline, dict(_with = f'points pt 3 lw 2 lc "red" ps {2*pointscale[extension]}')),] \
                     for icam in range(args.Ncameras) ]
         processoptions_output = dict(wait = True)
         gp.plot( *obs_cam,
