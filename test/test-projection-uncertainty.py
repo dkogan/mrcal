@@ -561,8 +561,7 @@ if args.make_documentation_plots is not None:
             # shape (Nframes,Nh,Nw,2)
             o = observations_board_true[indices_frame_camintrinsics_camextrinsics[:,1]==icam, ..., :2]
             # shape (Nframes,Nh*Nw,2)
-            return (nps.mv(nps.clump(nps.mv(o,-1,-3), n=-2),-1,-2),
-                    dict(legend = np.array([f"Board {i}" for i in range(o.shape[0],)])))
+            return (nps.mv(nps.clump(nps.mv(o,-1,-3), n=-2),-1,-2), )
         return None
 
     # shape (Npoints,2) or None
