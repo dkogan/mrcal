@@ -1745,7 +1745,7 @@ ARGUMENTS
   isotropic=True.
 
 - method: optional string, defaulting to 'mean-pcam'. Multiple uncertainty
-  quantification methods are available. One of ('mean-pcam',
+  quantification methods are available. One of ('mean-pcam', 'bestq',
   'cross-reprojection--rrp-Jfp') is selected by this option
 
 - cbmax: optional value, defaulting to 3.0. Sets the maximum range of the color
@@ -1792,7 +1792,7 @@ plot
 
     import gnuplotlib as gp
 
-    known_methods = set(('mean-pcam',
+    known_methods = set(('mean-pcam', 'bestq',
                          'cross-reprojection--rrp-Jfp'),)
     if method not in known_methods:
         raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
@@ -2003,7 +2003,7 @@ ARGUMENTS
   isotropic=True.
 
 - method: optional string, defaulting to 'mean-pcam'. Multiple uncertainty
-  quantification methods are available. One of ('mean-pcam',
+  quantification methods are available. One of ('mean-pcam', 'bestq',
   'cross-reprojection--rrp-Jfp') is selected by this option
 
 - extratitle: optional string to include in the title of the resulting plot.
@@ -2035,6 +2035,7 @@ plot
     import gnuplotlib as gp
 
     known_methods = set(('mean-pcam',
+                         'bestq',
                          'cross-reprojection--rrp-Jfp'),)
     if method not in known_methods:
         raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
