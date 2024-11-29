@@ -290,7 +290,13 @@ def confirm_covariances_equal(var, var_ref,
                               # to smallest. None to skip that axis
                               eps_eigenvalues,
                               eps_eigenvectors_deg,
-                              check_biggest_eigenvalue_only = False):
+                              check_biggest_eigenvalue_only = False,
+
+                              # In real units, the ellipse radii are of size
+                              # sqrt(eigenvalue), so this SHOULD be true. But I
+                              # default to False to make the old tests work. New
+                              # tests should set this to True
+                              check_sqrt_eigenvalue         = False):
 
     # First, the thing is symmetric, right?
     confirm_equal(nps.transpose(var),
@@ -300,7 +306,14 @@ def confirm_covariances_equal(var, var_ref,
 
 
     l_predicted,v_predicted = mrcal.sorted_eig(var)
-    l_observed,v_observed   = mrcal.sorted_eig(var_ref)
+    l_observed, v_observed  = mrcal.sorted_eig(var_ref)
+
+    eccentricity_threshold = 2.
+
+    if check_sqrt_eigenvalue:
+        l_predicted = np.sqrt(l_predicted)
+        l_observed  = np.sqrt(l_observed)
+        eccentricity_threshold = np.sqrt(eccentricity_threshold)
 
     # This look at JUST the most dominant modes
     eccentricity_predicted = l_predicted[-1] / l_predicted[-2]
@@ -325,7 +338,7 @@ def confirm_covariances_equal(var, var_ref,
 
     # I only check the eigenvector directions if the ellipse is sufficiently
     # non-circular. A circular ellipse has poorly-defined eigenvector directions
-    if eccentricity_predicted > 2.:
+    if eccentricity_predicted > eccentricity_threshold:
 
         # I look at the direction of the largest ellipse axis only
         v0_predicted = v_predicted[:,-1]
