@@ -707,14 +707,6 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
                                  Npoints, Npoints_fixed, Nobservations_board,
                                  problem_selections,
                                  lensmodel);
-
-    if(state_index_frame0 < 0 &&
-       state_index_point0 < 0)
-    {
-        MSG("Neither board poses nor points are being optimized. This case isn't implemented");
-        return false;
-    }
-
     const int state_index_calobject_warp0 =
         mrcal_state_index_calobject_warp(Ncameras_intrinsics, Ncameras_extrinsics,
                                          Nframes,
@@ -774,6 +766,13 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
     {
         MSG("Inconsistent inputs. I have Nstate=%d, but Jt->nrow=%d. Giving up",
             Nstate, (int)Jt->nrow);
+        return false;
+    }
+
+    if(state_index_frame0 < 0 &&
+       state_index_point0 < 0)
+    {
+        MSG("Neither board poses nor points are being optimized. Cannot compute uncertainty if we're not optimizing any observations");
         return false;
     }
 
