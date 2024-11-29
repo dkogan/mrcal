@@ -741,6 +741,7 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
 
 #warning Do I need this? Where do I assume it?
     if(state_index_frame0 >= 0 &&
+       state_index_calobject_warp0 >= 0 &&
        !(state_index_calobject_warp0 == state_index_frame0 + Nstate_frames))
     {
         MSG("I assume that the calobject_warp state variables follow the frame state variables immediately");
