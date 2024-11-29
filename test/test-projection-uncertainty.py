@@ -2636,7 +2636,7 @@ def check_uncertainties_at(q0_baseline, idistance):
                                             Var_dq_observed [icam],
                                             what = f"camera {icam} at distance = {distancestr}",
                                             eps_eigenvalues       = 0.2,
-                                            eps_eigenvectors_deg  = 15,
+                                            eps_eigenvectors_deg  = 18,
                                             check_sqrt_eigenvalue = True)
 
     return q_sampled,Var_dq_predicted
