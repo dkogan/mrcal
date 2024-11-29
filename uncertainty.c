@@ -745,12 +745,17 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
         mrcal_num_states_calobject_warp(problem_selections,
                                         Nobservations_board);
 
+#warning check all Nstate_ and state_index_ references; some of those could be invalid (if some variables are locked for instance). Figure out what makes sense and what we should BARF() against
+
+#warning Do I need this? Where do I assume it?
     if(state_index_frame0 >= 0 &&
        !(state_index_calobject_warp0 == state_index_frame0 + Nstate_frames))
     {
         MSG("I assume that the calobject_warp state variables follow the frame state variables immediately");
         return false;
     }
+
+#warning Do I need this? Where do I assume it?
     if(state_index_calobject_warp0 >= 0 &&
        !(Nstate_calobject_warp == 2))
     {
@@ -1081,6 +1086,8 @@ bool mrcal_drt_ref_refperturbed__dbpacked(// output
       Cramer's method; 5x5 might already be too big. I do what dogleg.c does
       here to use LAPACK directly
      */
+
+#warning "do not user cramer's rule here"
 #define SOLVE_SYM66_WITH_CRAMERS_RULE 1
 
 #if defined SOLVE_SYM66_WITH_CRAMERS_RULE && SOLVE_SYM66_WITH_CRAMERS_RULE
