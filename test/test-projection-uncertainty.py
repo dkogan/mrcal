@@ -1086,8 +1086,8 @@ The logic here is described thoroughly in
 
 
 
-    have = dict(board = istate_frame0 is not None,
-                point = istate_point0 is not None)
+    have_state = dict(board = istate_frame0 is not None,
+                      point = istate_point0 is not None)
 
 
     baseline_observations = dict()
@@ -1098,32 +1098,32 @@ The logic here is described thoroughly in
     idx_camintrinsics     = dict()
     idx_camextrinsics     = dict()
 
-    if have['board']:
+    if have_state['board']:
         slice_state_frame = slice(istate_frame0, istate_frame0 + Nstates_frame)
         imeas0_observations['board'] = imeas_board0
         Nmeas_observations ['board'] = Nmeas_board
 
-    if have['point']:
+    if have_state['point']:
         slice_state_point = slice(istate_point0, istate_point0 + Nstates_point)
         imeas0_observations['point'] = imeas_point0
         Nmeas_observations ['point'] = Nmeas_point
 
-    if have['board'] and have['point']:
+    if have_state['board'] and have_state['point']:
         if imeas_point0 != imeas_board0 + Nmeas_board:
             raise Exception("Both point and board measurements are present. I expect the point measurements to immediately follow the board measurements, but I don't have that here. This and all the _all variables assumes this")
         imeas0_observations_all = imeas_board0
         Nmeas_observations_all  = Nmeas_board + Nmeas_point
-    elif not have['board'] and not have['point']:
+    elif not have_state['board'] and not have_state['point']:
         raise Exception("No observations")
-    elif have['board']:
+    elif have_state['board']:
         imeas0_observations_all = imeas_board0
         Nmeas_observations_all  = Nmeas_board
     else:
         imeas0_observations_all = imeas_point0
         Nmeas_observations_all  = Nmeas_point
 
-    for what in have.keys():
-        if have[what]:
+    for what in have_state.keys():
+        if have_state[what]:
             baseline_observations[what] = baseline_optimization_inputs[f'observations_{what}']
             query_observations   [what] = np.array([oi[f'observations_{what}'] for oi in query_optimization_inputs])
 
@@ -1137,13 +1137,13 @@ The logic here is described thoroughly in
                        imeas0_observations[what]+Nmeas_observations[what]]. \
                 reshape(Nmeas_observations[what]//Nmeas_per_point,Nmeas_per_point)[(weight[what].ravel())<=0,:] = 0
 
-    if have['board']:
+    if have_state['board']:
         idx_frame,idx_camintrinsics['board'],idx_camextrinsics['board'] = \
             nps.transpose(baseline_optimization_inputs[f'indices_frame_camintrinsics_camextrinsics'])
         every_observation_has_extrinsics = \
             every_observation_has_extrinsics and \
             np.all(baseline_optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,2] >= 0)
-    if have['point']:
+    if have_state['point']:
         idx_points,idx_camintrinsics['point'],idx_camextrinsics['point'] = \
             nps.transpose(baseline_optimization_inputs[f'indices_point_camintrinsics_camextrinsics'])
         every_observation_has_extrinsics = \
@@ -1163,10 +1163,10 @@ The logic here is described thoroughly in
 
     # shape (Nsamples,Nmeas_observations_all)
     W_delta_qref = np.zeros((args.Nsamples, Nmeas_observations_all), dtype=float)
-    if have['board']:
+    if have_state['board']:
         W_delta_qref[..., imeas0_observations['board']:imeas0_observations['board']+Nmeas_observations['board']] = \
             np.array( nps.clump(query_q_noise_board, n = -(query_q_noise_board.ndim-1)) )
-    if have['point']:
+    if have_state['point']:
         W_delta_qref[..., imeas0_observations['point']:imeas0_observations['point']+Nmeas_observations['point']] = \
             np.array( nps.clump( query_q_noise_point,
                                 n = -(query_q_noise_point.ndim-1)) )
@@ -1177,8 +1177,8 @@ The logic here is described thoroughly in
     Jt_W_qref = np.zeros( W_delta_qref.shape[:1] + J_observations.shape[-1:],
                           dtype=float)
 
-    for what in have.keys():
-        if have[what]:
+    for what in have_state.keys():
+        if have_state[what]:
 
             if what == 'point': Nmeas_per_point = 2 # includes range normalization penalty
             else:               Nmeas_per_point = 2
@@ -1304,8 +1304,8 @@ noise, and reoptimizing'''
             x_cross0 = np.zeros((args.Nsamples,Nmeas_observations_all  ), dtype=float)
             J_cross  = np.zeros((args.Nsamples,Nmeas_observations_all,6), dtype=float)
 
-            for what in have.keys():
-                if have[what]:
+            for what in have_state.keys():
+                if have_state[what]:
                     x_cross0_what = \
                         x_cross0[imeas0_observations[what]:
                                  imeas0_observations[what] + Nmeas_observations[what]]
@@ -1506,10 +1506,10 @@ The rt_refperturbed_ref formulation:
             state_mask_fpcw = np.zeros( (Nstate,), dtype=bool )
             state_mask_ie   = np.zeros( (Nstate,), dtype=bool )
 
-            if have['board']: state_mask_fpcw[slice_state_frame] = 1
-            if have['point']: state_mask_fpcw[slice_state_point] = 1
+            if have_state['board']: state_mask_fpcw[slice_state_frame] = 1
+            if have_state['point']: state_mask_fpcw[slice_state_point] = 1
 
-            if have['board'] and slice_state_calobject_warp is not None:
+            if have_state['board'] and slice_state_calobject_warp is not None:
                 state_mask_fpcw[slice_state_calobject_warp] = 1
 
             state_mask_ie [slice_state_intrinsics]      = 1
@@ -1628,7 +1628,7 @@ The rt_refperturbed_ref formulation:
 
                 # Note that in both directions we have exactly the same
                 # gradients. So I have a single path here that I apply to both
-                if have['board']:
+                if have_state['board']:
                     rt_ref_frame = b_baseline_unpacked[slice_state_frame].reshape(Nframes,6)
                     # shape (Nframes,6,6)
                     drt_drt = mrcal.compose_rt_tinyrt0_gradientrt0(rt_ref_frame)
@@ -1638,7 +1638,7 @@ The rt_refperturbed_ref formulation:
                     drt_drt = nps.clump(drt_drt, n=2)
                     J_cross_fp[:] = J_observations[:, slice_state_frame].dot(drt_drt)
 
-                if have['point']:
+                if have_state['point']:
                     p = b_baseline_unpacked[slice_state_point].reshape(Npoints,3)
 
                     # I have rt ~ identity, so transform(rt,p) ~ p - skew(p) r + t
@@ -1723,7 +1723,7 @@ The rt_refperturbed_ref formulation:
 
         pref = dict()
 
-        if have['board']:
+        if have_state['board']:
             object_width_n      = baseline_optimization_inputs['observations_board'].shape[-2]
             object_height_n     = baseline_optimization_inputs['observations_board'].shape[-3]
             object_spacing      = baseline_optimization_inputs['calibration_object_spacing']
@@ -1745,7 +1745,7 @@ The rt_refperturbed_ref formulation:
             pref['board'] = \
                 mrcal.transform_point_rt(nps.dummy(baseline_rt_ref_frame[ ..., idx_frame, :], -2,-2),
                                          baseline_calibration_object)
-        if have['point']:
+        if have_state['point']:
             pref['point'] = baseline_point[..., idx_points, :]
 
         # I look at the un-perturbed data first, to double-check that I'm doing the
@@ -1754,8 +1754,8 @@ The rt_refperturbed_ref formulation:
 
             err_sum_of_squares_baseline = 0
             N_sum_of_squares_baseline   = 0
-            for what in have.keys():
-                if have[what]:
+            for what in have_state.keys():
+                if have_state[what]:
                     idx = slice(imeas0_observations[what],
                                 imeas0_observations[what]+Nmeas_observations[what])
 
@@ -1804,13 +1804,13 @@ The rt_refperturbed_ref formulation:
             pcam                       = dict()
             dpcam_drt_ref_refperturbed = dict()
 
-            if have['board']:
+            if have_state['board']:
                 pcam['board'], dpcam_drt_ref_refperturbed['board'] = \
                     transform_point_rt3_withgrad_drt1(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
                                                       mrcal.identity_rt(),
                                                       nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2),
                                                       nps.mv(query_calibration_object,-4,-5))
-            if have['point']:
+            if have_state['point']:
                 pcam['point'], dpcam_drt_ref_refperturbed['point'] = \
                     transform_point_rt3_withgrad_drt1(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
                                                       mrcal.identity_rt(),
@@ -1826,13 +1826,13 @@ The rt_refperturbed_ref formulation:
             pcamperturbed                       = pcam
             dpcamperturbed_drt_refperturbed_ref = dpcam_drt_ref_refperturbed
 
-            if have['board']:
+            if have_state['board']:
                 pcamperturbed['board'], dpcamperturbed_drt_refperturbed_ref['board'] = \
                     transform_point_rt3_withgrad_drt1(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
                                                       mrcal.identity_rt(),
                                                       nps.dummy(baseline_rt_ref_frame[ ..., idx_frame, :], -2,-2),
                                                       baseline_calibration_object)
-            if have['point']:
+            if have_state['point']:
                 pcamperturbed['point'], dpcamperturbed_drt_refperturbed_ref['point'] = \
                     transform_point_rt3_withgrad_drt1(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
                                                       mrcal.identity_rt(),
@@ -1851,7 +1851,7 @@ The rt_refperturbed_ref formulation:
             pcam                       = dict()
             dpcam_drt_ref_refperturbed = dict()
 
-            if have['board']:
+            if have_state['board']:
                 # shape (..., Nmeas_observations_all,Nh,Nw,3),
                 prefperturbed = mrcal.transform_point_rt( nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2),
                                                           nps.mv(query_calibration_object,-4,-5))
@@ -1866,7 +1866,7 @@ The rt_refperturbed_ref formulation:
                 dpcam_drt_ref_refperturbed['board'] = \
                     nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
 
-            if have['point']:
+            if have_state['point']:
                 # shape (..., Nmeas_observations_all,3),
                 prefperturbed = query_point[:,idx_points]
 
@@ -1889,7 +1889,7 @@ The rt_refperturbed_ref formulation:
             pcamperturbed                       = pcam
             dpcamperturbed_drt_refperturbed_ref = dpcam_drt_ref_refperturbed
 
-            if have['board']:
+            if have_state['board']:
                 dprefperturbed_drt_refperturbed_ref = transform_point_identity_gradient(pref['board'])
                 # shape (..., Nmeas_observations_all,Nh,Nw,3),
                 #       (..., Nmeas_observations_all,Nh,Nw,3,6)
@@ -1901,7 +1901,7 @@ The rt_refperturbed_ref formulation:
                     nps.matmult(dpcamperturbed_dprefperturbed,
                                 dprefperturbed_drt_refperturbed_ref)
 
-            if have['point']:
+            if have_state['point']:
                 dprefperturbed_drt_refperturbed_ref = transform_point_identity_gradient(pref['point'])
                 # shape (..., Nmeas_observations_all,3),
                 #       (..., Nmeas_observations_all,3,6)
@@ -1928,11 +1928,11 @@ The rt_refperturbed_ref formulation:
                 scale_extrinsics = b[istate_extrinsics0:istate_extrinsics0+6]
             else:
                 scale_extrinsics = None
-            if have['board']: scale_frames = b[istate_frame0 :istate_frame0 +6]
-            else:             scale_frames = None
+            if have_state['board']: scale_frames = b[istate_frame0 :istate_frame0 +6]
+            else:                   scale_frames = None
 
-            if have['point']: scale_points = b[istate_point0 :istate_point0 +3]
-            else:             scale_points = None
+            if have_state['point']: scale_points = b[istate_point0 :istate_point0 +3]
+            else:                   scale_points = None
 
             # a (2,3) array indexed as
             # (rt_ref_refperturbed,rt_refperturbed_ref),(Jextrinsics,Jframes,x).
@@ -2073,8 +2073,8 @@ The rt_refperturbed_ref formulation:
             Nmeas_cross                     = 0
             err_sum_of_squares_cross_solved = np.zeros((args.Nsamples), dtype=float)
 
-            for what in have.keys():
-                if not have[what]:
+            for what in have_state.keys():
+                if not have_state[what]:
                     continue
 
                 if what == 'board':
