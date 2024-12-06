@@ -713,6 +713,8 @@ for that function for details. This internal function differs from compose_r():
             args_input       = ('r0', 'r1'),
             prototype_input  = ((3,), (3,)),
             prototype_output = (3,),
+            extra_args = (("int", "inverted0", "false", "p"),
+                          ("int", "inverted1", "false", "p"),),
 
             Ccode_slice_eval = \
                 {np.float64:
@@ -724,7 +726,8 @@ for that function for details. This internal function differs from compose_r():
                            (const double*)data_slice__r0,
                            strides_slice__r0[0],
                            (const double*)data_slice__r1,
-                           strides_slice__r1[0] );
+                           strides_slice__r1[0],
+                           *inverted0, *inverted1);
     return true;
 '''},
 )
@@ -744,6 +747,8 @@ for that function for details. This internal function differs from compose_r():
             args_input       = ('r0', 'r1'),
             prototype_input  = ((3,), (3,)),
             prototype_output = ((3,), (3,3),(3,3)),
+            extra_args = (("int", "inverted0", "false", "p"),
+                          ("int", "inverted1", "false", "p"),),
 
             Ccode_slice_eval = \
                 {np.float64:
@@ -762,7 +767,8 @@ for that function for details. This internal function differs from compose_r():
                            (const double*)data_slice__r0,
                            strides_slice__r0[0],
                            (const double*)data_slice__r1,
-                           strides_slice__r1[0] );
+                           strides_slice__r1[0],
+                           *inverted0, *inverted1);
 
     return true;
 '''},

@@ -487,7 +487,10 @@ void mrcal_compose_rt_full( // output
 //
 // In-place operation is supported; the output array may be the same as either
 // of the input arrays to overwrite the input.
-#define mrcal_compose_r(r_out,dr_dr0,dr_dr1,r_0,r_1) mrcal_compose_r_full(r_out,0,dr_dr0,0,0,dr_dr1,0,0,r_0,0,r_1,0)
+#define mrcal_compose_r(           r_out,dr_dr0,dr_dr1,r_0,r_1) mrcal_compose_r_full(r_out,0,dr_dr0,0,0,dr_dr1,0,0,r_0,0,r_1,0,false,false)
+#define mrcal_compose_r_inverted0( r_out,dr_dr0,dr_dr1,r_0,r_1) mrcal_compose_r_full(r_out,0,dr_dr0,0,0,dr_dr1,0,0,r_0,0,r_1,0,true, false)
+#define mrcal_compose_r_inverted1( r_out,dr_dr0,dr_dr1,r_0,r_1) mrcal_compose_r_full(r_out,0,dr_dr0,0,0,dr_dr1,0,0,r_0,0,r_1,0,false,true)
+#define mrcal_compose_r_inverted01(r_out,dr_dr0,dr_dr1,r_0,r_1) mrcal_compose_r_full(r_out,0,dr_dr0,0,0,dr_dr1,0,0,r_0,0,r_1,0,true, true)
 void mrcal_compose_r_full( // output
                            double* r_out,       // (3,) array
                            int r_out_stride0,   // in bytes. <= 0 means "contiguous"
@@ -502,8 +505,9 @@ void mrcal_compose_r_full( // output
                            const double* r_0,   // (3,) array
                            int r_0_stride0,     // in bytes. <= 0 means "contiguous"
                            const double* r_1,   // (3,) array
-                           int r_1_stride0      // in bytes. <= 0 means "contiguous"
-                           );
+                           int r_1_stride0,     // in bytes. <= 0 means "contiguous"
+                           bool inverted0,
+                           bool inverted1);
 
 // Special-case rotation compositions for the uncertainty computation
 //

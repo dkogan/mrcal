@@ -50,7 +50,14 @@ faster uncertainty computation:
   - MUCH slower than the mean-pcam, since it solves the linear problem (Nframes
     or Ncameras_extrinsics) more times than mean-pcam
 
+2024-12-06 compose_r() has new args: inverted0,inverted1
+
 * Migration notes 2.4 -> 3.0
+
+2024-12-06 compose_r() has new args: inverted0,inverted1 BREAKING C ABI,API
+  change: mrcal_compose_r_full() takes the two new arguments. The
+  mrcal_compose_r() macro and the Python functions maintain the same interface
+
 
 * todo
 - Old tools complain about new keywords:

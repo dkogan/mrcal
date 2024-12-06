@@ -615,7 +615,7 @@ An array of composed Rt transformations. Each broadcasted slice has shape (4,3)
     Rt1onwards = reduce( _poseutils_npsp._compose_Rt, Rt[1:] )
     return _poseutils_npsp._compose_Rt(Rt[0], Rt1onwards, out=out)
 
-def compose_r(*r, get_gradients=False, out=None):
+def compose_r(*r, get_gradients=False, out=None, inverted0=False, inverted1=False):
     r"""Compose angle-axis rotations
 
 SYNOPSIS
@@ -671,6 +671,11 @@ ARGUMENTS
 - *r: a list of rotations to compose. Usually we'll be composing two rotations,
   but any number could be given here. Each broadcasted slice has shape (3,)
 
+- inverted0,inverted1: optional booleans, defaulting to False. If True, the
+  opposite rotation is used for r0 and/or r1 respectively. The gradients d(r0
+  r1)/dr0 and d(r0 r1)/dr1 are returned in respect to the input r0 and r1.
+  inverted=True is only supported when exactly two rotations are given
+
 - get_gradients: optional boolean. By default (get_gradients=False) we return an
   array of composed rotations. Otherwise we return a tuple of arrays of composed
   rotations and their gradients. Gradient reporting is only supported when
@@ -704,13 +709,17 @@ and the gradients (r=compose(r0,r1), dr/dr0, dr/dr1):
 
     """
 
-    if get_gradients:
-        if len(r) != 2:
+    if len(r) != 2:
+        if get_gradients:
             raise Exception("compose_r(..., get_gradients=True) is supported only if exactly 2 inputs are given")
-        return _poseutils_npsp._compose_r_withgrad(*r, out=out)
+        if inverted0 or inverted1:
+            raise Exception("compose_r(..., inverted...=True) is supported only if exactly 2 inputs are given")
+
+    if get_gradients:
+        return _poseutils_npsp._compose_r_withgrad(*r, out=out, inverted0=inverted0, inverted1=inverted1)
 
     r1onwards = reduce( _poseutils_npsp._compose_r, r[1:] )
-    return _poseutils_npsp._compose_r(r[0], r1onwards, out=out)
+    return _poseutils_npsp._compose_r(r[0], r1onwards, out=out, inverted0=inverted0, inverted1=inverted1)
 
 def compose_rt(*rt, get_gradients=False, out=None):
     r"""Compose rt transformations

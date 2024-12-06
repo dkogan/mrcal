@@ -637,7 +637,8 @@ void mrcal_compose_rt_full( // output
                           dr_r1, dr_r1_stride0, dr_r1_stride1,
 
                           rt_0, rt_0_stride0,
-                          rt_1, rt_1_stride0);
+                          rt_1, rt_1_stride0,
+                          false, false);
 
 
     // t01 <- r0 t1

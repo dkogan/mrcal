@@ -950,6 +950,13 @@ r01_notinplace, dr01_dr0_notinplace, dr01_dr1_notinplace = \
     mrcal.compose_r(r0big, r1big, get_gradients=True)
 dr01_dr0_ref = grad(lambda r0: compose_r( r0, r1big), r0big, step=1e-5)
 dr01_dr1_ref = grad(lambda r1: compose_r( r0big, r1), r1big, step=1e-5)
+drneg01_dr0_ref = grad(lambda r0: compose_r( -r0, r1big), r0big, step=1e-5)
+drneg01_dr1_ref = grad(lambda r1: compose_r( -r0big, r1), r1big, step=1e-5)
+dr0neg1_dr0_ref = grad(lambda r0: compose_r( r0, -r1big), r0big, step=1e-5)
+dr0neg1_dr1_ref = grad(lambda r1: compose_r( r0big, -r1), r1big, step=1e-5)
+drneg0neg1_dr0_ref = grad(lambda r0: compose_r( -r0, -r1big), r0big, step=1e-5)
+drneg0neg1_dr1_ref = grad(lambda r1: compose_r( -r0big, -r1), r1big, step=1e-5)
+
 confirm_equal( r01_notinplace,
                compose_r      (r0big, r1big),
                msg='compose_r gradients: r01')
@@ -960,6 +967,9 @@ confirm_equal( dr01_dr1_notinplace,
                dr01_dr1_ref,
                msg='compose_r gradients: dr01_dr1')
 
+confirm_equal( mrcal.compose_r(r0big, r1big),
+               compose_r      (r0big, r1big),
+               msg='compose_r no-gradients: r01')
 mrcal.compose_r(r0big, r1big,
                 get_gradients=True,
                 out = (r01, dr01_dr0, dr01_dr1))
@@ -972,6 +982,61 @@ confirm_equal( dr01_dr0,
 confirm_equal( dr01_dr1,
                dr01_dr1_ref,
                msg='compose_r in-place gradients: dr01_dr1')
+
+confirm_equal( mrcal.compose_r( r0big, r1big, inverted0=True),
+               compose_r      (-r0big, r1big),
+               msg='compose_r no-gradients: rneg01')
+mrcal.compose_r(r0big, r1big,
+                get_gradients= True,
+                inverted0    = True,
+                out = (r01, dr01_dr0, dr01_dr1))
+(rneg01, drneg01_dr0, drneg01_dr1) = (r01, dr01_dr0, dr01_dr1)
+confirm_equal( rneg01,
+               compose_r      (-r0big, r1big),
+               msg='compose_r in-place gradients: rneg01')
+confirm_equal( drneg01_dr0,
+               drneg01_dr0_ref,
+               msg='compose_r in-place gradients: drneg01_dr0')
+confirm_equal( drneg01_dr1,
+               drneg01_dr1_ref,
+               msg='compose_r in-place gradients: drneg01_dr1')
+
+confirm_equal( mrcal.compose_r(r0big,  r1big, inverted1=True),
+               compose_r      (r0big, -r1big),
+               msg='compose_r no-gradients: r0neg1')
+mrcal.compose_r(r0big, r1big,
+                get_gradients= True,
+                inverted1    = True,
+                out = (r01, dr01_dr0, dr01_dr1))
+(r0neg1, dr0neg1_dr0, dr0neg1_dr1) = (r01, dr01_dr0, dr01_dr1)
+confirm_equal( r0neg1,
+               compose_r      (r0big, -r1big),
+               msg='compose_r in-place gradients: r0neg1')
+confirm_equal( dr0neg1_dr0,
+               dr0neg1_dr0_ref,
+               msg='compose_r in-place gradients: dr0neg1_dr0')
+confirm_equal( dr0neg1_dr1,
+               dr0neg1_dr1_ref,
+               msg='compose_r in-place gradients: dr0neg1_dr1')
+
+confirm_equal( mrcal.compose_r( r0big,  r1big, inverted0=True, inverted1=True),
+               compose_r      (-r0big, -r1big),
+               msg='compose_r no-gradients: rneg0neg1')
+mrcal.compose_r(r0big, r1big,
+                get_gradients= True,
+                inverted0    = True,
+                inverted1    = True,
+                out = (r01, dr01_dr0, dr01_dr1))
+(rneg0neg1, drneg0neg1_dr0, drneg0neg1_dr1) = (r01, dr01_dr0, dr01_dr1)
+confirm_equal( rneg0neg1,
+               compose_r      (-r0big, -r1big),
+               msg='compose_r in-place gradients: rneg0neg1')
+confirm_equal( drneg0neg1_dr0,
+               drneg0neg1_dr0_ref,
+               msg='compose_r in-place gradients: drneg0neg1_dr0')
+confirm_equal( drneg0neg1_dr1,
+               drneg0neg1_dr1_ref,
+               msg='compose_r in-place gradients: drneg0neg1_dr1')
 
 
 mrcal.compose_r(r0big, r1nearzero,
