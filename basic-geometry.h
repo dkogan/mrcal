@@ -128,3 +128,10 @@ static mrcal_point3_t mrcal_point3_cross(const mrcal_point3_t a, const mrcal_poi
                              .y = a.z*b.x - a.x*b.z,
                              .z = a.x*b.y - a.y*b.x };
 }
+
+#define mrcal_point2_print(p) do { printf( #p " = (%f %f)\n",    (p).x, (p).y);        } while(0)
+#define mrcal_point3_print(p) do { printf( #p " = (%f %f %f)\n", (p).x, (p).y, (p).z); } while(0)
+#define mrcal_Rt_print(Rt)    do { printf( #Rt " = (\n  %f %f %f\n  %f %f %f\n  %f %f %f\n  ============\n  %f %f %f\n)\n", \
+                                           (Rt)[0],(Rt)[1],(Rt)[2],(Rt)[3],(Rt)[4],(Rt)[5],(Rt)[6],(Rt)[7],(Rt)[8],(Rt)[9],(Rt)[10],(Rt)[11]); } while(0)
+#define mrcal_rt_print(rt)    do { printf( #rt " = (%f %f %f;  %f %f %f\n", \
+                                           (rt)[0],(rt)[1],(rt)[2],(rt)[3],(rt)[4],(rt)[5]); } while(0)

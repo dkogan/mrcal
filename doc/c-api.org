@@ -58,6 +58,13 @@ Trivial mathematical operations are defined for these types:
 
 And similar for =mrcal_point2_t=, except there's no =mrcal_point2_cross()=
 
+And trivial printing operations are defined:
+
+- =mrcal_point2_print(p)=
+- =mrcal_point3_print(p)=
+- =mrcal_Rt_print(Rt)=
+- =mrcal_rt_print(rt)=
+
 * Geometry functions
 A number of utility functions are defined in [[https://www.github.com/dkogan/mrcal/blob/master/poseutils.h][=poseutils.h=]]. Each routine has two
 forms:

@@ -42,6 +42,8 @@ faster uncertainty computation:
 
 2024-11-07 Added simple math operation functions to the C API
 
+2024-12-05 Added simple poseutils printing to the C API
+
 2024-11-27 bestq uncertainty method
   - works
   - needs documentation
