@@ -319,7 +319,7 @@ void mrcal_transform_point_Rt_full( // output
     init_stride_3D(J_Rt,  3,4,3 );
     // init_stride_2D(J_x,   3,3 );
     init_stride_2D(Rt,    4,3 );
-    // init_stride_1D(x_in,  3 );
+    init_stride_1D(x_in,  3 );
 
     if(!inverted)
     {
