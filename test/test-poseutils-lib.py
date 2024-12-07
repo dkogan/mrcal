@@ -810,6 +810,7 @@ confirm_equal( Rt2,
 
 
 
+############ compose_rt()
 
 rt2 = mrcal.compose_rt(rt0_ref, rt1_ref, out = out6)
 confirm_equal( rt2,
@@ -858,6 +859,14 @@ rt2,drt2_drt0,drt2_drt1 = \
                      out = (out6, out66, out66a))
 drt2_drt0_ref = grad(lambda rt0: compose_rt( rt0, rt1_ref), rt0_ref)
 drt2_drt1_ref = grad(lambda rt1: compose_rt( rt0_ref, rt1), rt1_ref)
+
+drtneg01_drt0_ref    = grad(lambda rt0: compose_rt( invert_rt(rt0), rt1_ref), rt0_ref)
+drtneg01_drt1_ref    = grad(lambda rt1: compose_rt( invert_rt(rt0_ref), rt1), rt1_ref)
+drt0neg1_drt0_ref    = grad(lambda rt0: compose_rt( rt0, invert_rt(rt1_ref)), rt0_ref)
+drt0neg1_drt1_ref    = grad(lambda rt1: compose_rt( rt0_ref, invert_rt(rt1)), rt1_ref)
+drtneg0neg1_drt0_ref = grad(lambda rt0: compose_rt( invert_rt(rt0), invert_rt(rt1_ref)), rt0_ref)
+drtneg0neg1_drt1_ref = grad(lambda rt1: compose_rt( invert_rt(rt0_ref), invert_rt(rt1)), rt1_ref)
+
 confirm_equal( rt2,
                compose_rt(rt0_ref, rt1_ref),
                msg='compose_rt result')
@@ -885,8 +894,90 @@ confirm_equal( drt2_drt0,
 confirm_equal( drt2_drt1,
                drt2_drt1_ref,
                msg='compose_rt (with gradients) result written in-place to rt0: drt2_drt1')
+
 rt0_ref_copy = np.array(rt0_ref)
 rt1_ref_copy = np.array(rt1_ref)
+confirm_equal( mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                     inverted0 = True,
+                     out=rt0_ref_copy),
+               compose_rt(invert_rt(rt0_ref), rt1_ref),
+               msg='compose_rt (without gradients) result written in-place to rt0: rtneg01')
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+rtneg01,drtneg01_drt0,drtneg01_drt1 = \
+    mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                     inverted0 = True,
+                     get_gradients=True,
+                     out=(rt0_ref_copy,drt2_drt0_copy,drt2_drt1_copy))
+confirm_equal( rtneg01,
+               compose_rt(invert_rt(rt0_ref), rt1_ref),
+               msg='compose_rt (with gradients) result written in-place to rt0: rtneg01')
+confirm_equal( drtneg01_drt0,
+               drtneg01_drt0_ref,
+               msg='compose_rt (with gradients) result written in-place to rt0: drtneg01_drt0')
+confirm_equal( drtneg01_drt1,
+               drtneg01_drt1_ref,
+               msg='compose_rt (with gradients) result written in-place to rt0: drtneg01_drt1')
+
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+confirm_equal( mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                     inverted1 = True,
+                     out=rt0_ref_copy),
+               compose_rt(rt0_ref, invert_rt(rt1_ref)),
+               msg='compose_rt (without gradients) result written in-place to rt0: rt0neg1')
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+rt0neg1,drt0neg1_drt0,drt0neg1_drt1 = \
+    mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                     inverted1 = True,
+                     get_gradients=True,
+                     out=(rt0_ref_copy,drt2_drt0_copy,drt2_drt1_copy))
+confirm_equal( rt0neg1,
+               compose_rt(rt0_ref, invert_rt(rt1_ref)),
+               msg='compose_rt (with gradients) result written in-place to rt0: rt0neg1')
+confirm_equal( drt0neg1_drt0,
+               drt0neg1_drt0_ref,
+               msg='compose_rt (with gradients) result written in-place to rt0: drt0neg1_drt0')
+confirm_equal( drt0neg1_drt1,
+               drt0neg1_drt1_ref,
+               msg='compose_rt (with gradients) result written in-place to rt0: drt0neg1_drt1')
+
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+confirm_equal( mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                     inverted0 = True,
+                     inverted1 = True,
+                     out=rt0_ref_copy),
+               compose_rt(invert_rt(rt0_ref), invert_rt(rt1_ref)),
+               msg='compose_rt (without gradients) result written in-place to rt0: rtneg0neg1')
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+rtneg0neg1,drtneg0neg1_drt0,drtneg0neg1_drt1 = \
+    mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                     inverted0 = True,
+                     inverted1 = True,
+                     get_gradients=True,
+                     out=(rt0_ref_copy,drt2_drt0_copy,drt2_drt1_copy))
+confirm_equal( rtneg0neg1,
+               compose_rt(invert_rt(rt0_ref), invert_rt(rt1_ref)),
+               msg='compose_rt (with gradients) result written in-place to rt0: rtneg0neg1')
+confirm_equal( drtneg0neg1_drt0,
+               drtneg0neg1_drt0_ref,
+               msg='compose_rt (with gradients) result written in-place to rt0: drtneg0neg1_drt0')
+confirm_equal( drtneg0neg1_drt1,
+               drtneg0neg1_drt1_ref,
+               msg='compose_rt (with gradients) result written in-place to rt0: drtneg0neg1_drt1')
+
+
+
+
+
+
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+drt2_drt0_copy = np.array(drt2_drt0)
+drt2_drt1_copy = np.array(drt2_drt1)
 rt2,drt2_drt0,drt2_drt1 = \
     mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy, get_gradients=True,
                      out=(rt1_ref_copy,drt2_drt0_copy,drt2_drt1_copy))
@@ -899,6 +990,82 @@ confirm_equal( drt2_drt0,
 confirm_equal( drt2_drt1,
                drt2_drt1_ref,
                msg='compose_rt (with gradients) result written in-place to rt1: drt2_drt1')
+
+
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+confirm_equal( mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                     inverted0 = True,
+                     out=rt1_ref_copy),
+               compose_rt(invert_rt(rt0_ref), rt1_ref),
+               msg='compose_rt (without gradients) result written in-place to rt1: rtneg01')
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+rtneg01,drtneg01_drt0,drtneg01_drt1 = \
+    mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                     inverted0 = True,
+                     get_gradients=True,
+                     out=(rt1_ref_copy,drt2_drt0_copy,drt2_drt1_copy))
+confirm_equal( rtneg01,
+               compose_rt(invert_rt(rt0_ref), rt1_ref),
+               msg='compose_rt (with gradients) result written in-place to rt1: rtneg01')
+confirm_equal( drtneg01_drt0,
+               drtneg01_drt0_ref,
+               msg='compose_rt (with gradients) result written in-place to rt1: drtneg01_drt0')
+confirm_equal( drtneg01_drt1,
+               drtneg01_drt1_ref,
+               msg='compose_rt (with gradients) result written in-place to rt1: drtneg01_drt1')
+
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+confirm_equal( mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                     inverted1 = True,
+                     out=rt1_ref_copy),
+               compose_rt(rt0_ref, invert_rt(rt1_ref)),
+               msg='compose_rt (without gradients) result written in-place to rt1: rt0neg1')
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+rt0neg1,drt0neg1_drt0,drt0neg1_drt1 = \
+    mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                     inverted1 = True,
+                     get_gradients=True,
+                     out=(rt1_ref_copy,drt2_drt0_copy,drt2_drt1_copy))
+confirm_equal( rt0neg1,
+               compose_rt(rt0_ref, invert_rt(rt1_ref)),
+               msg='compose_rt (with gradients) result written in-place to rt1: rt0neg1')
+confirm_equal( drt0neg1_drt0,
+               drt0neg1_drt0_ref,
+               msg='compose_rt (with gradients) result written in-place to rt1: drt0neg1_drt0')
+confirm_equal( drt0neg1_drt1,
+               drt0neg1_drt1_ref,
+               msg='compose_rt (with gradients) result written in-place to rt1: drt0neg1_drt1')
+
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+confirm_equal( mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                     inverted0 = True,
+                     inverted1 = True,
+                     out=rt1_ref_copy),
+               compose_rt(invert_rt(rt0_ref), invert_rt(rt1_ref)),
+               msg='compose_rt (without gradients) result written in-place to rt1: rtneg0neg1')
+rt0_ref_copy = np.array(rt0_ref)
+rt1_ref_copy = np.array(rt1_ref)
+rtneg0neg1,drtneg0neg1_drt0,drtneg0neg1_drt1 = \
+    mrcal.compose_rt(rt0_ref_copy, rt1_ref_copy,
+                     inverted0 = True,
+                     inverted1 = True,
+                     get_gradients=True,
+                     out=(rt1_ref_copy,drt2_drt0_copy,drt2_drt1_copy))
+confirm_equal( rtneg0neg1,
+               compose_rt(invert_rt(rt0_ref), invert_rt(rt1_ref)),
+               msg='compose_rt (with gradients) result written in-place to rt1: rtneg0neg1')
+confirm_equal( drtneg0neg1_drt0,
+               drtneg0neg1_drt0_ref,
+               msg='compose_rt (with gradients) result written in-place to rt1: drtneg0neg1_drt0')
+confirm_equal( drtneg0neg1_drt1,
+               drtneg0neg1_drt1_ref,
+               msg='compose_rt (with gradients) result written in-place to rt1: drtneg0neg1_drt1')
+
 
 Rt2 = mrcal.compose_Rt(Rt0_ref, Rt1_ref,Rt0_ref,
                        out=out43)

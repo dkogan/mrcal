@@ -441,13 +441,18 @@ void mrcal_compose_Rt_full( // output
 // The gradient dt/dt1 is returned in a (3,3) array dt_dt1. Set to NULL if this
 // is not wanted
 //
-// The gradients dr/dt0, dr/dt1, dt/dr1 are always 0, so they are never returned
+// The gradients dr/dt0, dr/dt1 are always 0, so they are never returned
 //
-// The gradient dt/dt0 is always identity, so it is never returned
+// If neither of the inputs is inverted, the dt/dr1 = 0 always and dt/dt0 = I
+// always, so the convenience macro mrcal_compose_rt() doesn't return those. The
+// other macros and mrcal_compose_rt_full() do report those as well
 //
 // In-place operation is supported; the output array may be the same as either
 // of the input arrays to overwrite the input.
-#define mrcal_compose_rt(rt_out,dr_dr0,dr_dr1,dt_dr0,dt_dt1,rt_0,rt_1) mrcal_compose_rt_full(rt_out,0,dr_dr0,0,0,dr_dr1,0,0,dt_dr0,0,0,dt_dt1,0,0,rt_0,0,rt_1,0)
+#define mrcal_compose_rt(           rt_out,dr_dr0,dr_dr1,dt_dr0,              dt_dt1,rt_0,rt_1) mrcal_compose_rt_full(rt_out,0,dr_dr0,0,0,dr_dr1,0,0,dt_dr0,0,0,NULL,  0,0,NULL,  0,0,dt_dt1,0,0,rt_0,0,rt_1,0, false, false)
+#define mrcal_compose_rt_inverted0( rt_out,dr_dr0,dr_dr1,dt_dr0,dt_dr1,dt_dt0,dt_dt1,rt_0,rt_1) mrcal_compose_rt_full(rt_out,0,dr_dr0,0,0,dr_dr1,0,0,dt_dr0,0,0,dt_dr1,0,0,dt_dt0,0,0,dt_dt1,0,0,rt_0,0,rt_1,0, true,  false)
+#define mrcal_compose_rt_inverted1( rt_out,dr_dr0,dr_dr1,dt_dr0,dt_dr1,dt_dt0,dt_dt1,rt_0,rt_1) mrcal_compose_rt_full(rt_out,0,dr_dr0,0,0,dr_dr1,0,0,dt_dr0,0,0,dt_dr1,0,0,dt_dt0,0,0,dt_dt1,0,0,rt_0,0,rt_1,0, false, true)
+#define mrcal_compose_rt_inverted01(rt_out,dr_dr0,dr_dr1,dt_dr0,dt_dr1,dt_dt0,dt_dt1,rt_0,rt_1) mrcal_compose_rt_full(rt_out,0,dr_dr0,0,0,dr_dr1,0,0,dt_dr0,0,0,dt_dr1,0,0,dt_dt0,0,0,dt_dt1,0,0,rt_0,0,rt_1,0, true,  true)
 void mrcal_compose_rt_full( // output
                            double* rt_out,       // (6,) array
                            int rt_out_stride0,   // in bytes. <= 0 means "contiguous"
@@ -460,6 +465,12 @@ void mrcal_compose_rt_full( // output
                            double* dt_dr0,       // (3,3) array; may be NULL
                            int dt_dr0_stride0,   // in bytes. <= 0 means "contiguous"
                            int dt_dr0_stride1,   // in bytes. <= 0 means "contiguous"
+                           double* dt_dr1,       // (3,3) array; may be NULL
+                           int dt_dr1_stride0,   // in bytes. <= 0 means "contiguous"
+                           int dt_dr1_stride1,   // in bytes. <= 0 means "contiguous"
+                           double* dt_dt0,       // (3,3) array; may be NULL
+                           int dt_dt0_stride0,   // in bytes. <= 0 means "contiguous"
+                           int dt_dt0_stride1,   // in bytes. <= 0 means "contiguous"
                            double* dt_dt1,       // (3,3) array; may be NULL
                            int dt_dt1_stride0,   // in bytes. <= 0 means "contiguous"
                            int dt_dt1_stride1,   // in bytes. <= 0 means "contiguous"
@@ -468,8 +479,9 @@ void mrcal_compose_rt_full( // output
                            const double* rt_0,   // (6,) array
                            int rt_0_stride0,     // in bytes. <= 0 means "contiguous"
                            const double* rt_1,   // (6,) array
-                           int rt_1_stride0      // in bytes. <= 0 means "contiguous"
-                           );
+                           int rt_1_stride0,     // in bytes. <= 0 means "contiguous"
+                           bool inverted0,
+                           bool inverted1);
 
 // Compose two angle-axis rotations
 //

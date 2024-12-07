@@ -907,6 +907,8 @@ for that function for details. This internal function differs from compose_rt():
             args_input       = ('rt0', 'rt1'),
             prototype_input  = ((6,), (6,)),
             prototype_output = (6,),
+            extra_args = (("int", "inverted0", "false", "p"),
+                          ("int", "inverted1", "false", "p"),),
 
             Ccode_slice_eval = \
                 {np.float64:
@@ -917,10 +919,13 @@ for that function for details. This internal function differs from compose_rt():
                            NULL,0,0,
                            NULL,0,0,
                            NULL,0,0,
+                           NULL,0,0,
+                           NULL,0,0,
                            (const double*)data_slice__rt0,
                            strides_slice__rt0[0],
                            (const double*)data_slice__rt1,
-                           strides_slice__rt1[0] );
+                           strides_slice__rt1[0],
+                           *inverted0, *inverted1);
     return true;
 '''},
 )
@@ -940,8 +945,6 @@ Note that the C library returns limited gradients:
 
 - dr/dt0 is not returned: it is always 0
 - dr/dt1 is not returned: it is always 0
-- dt/dr1 is not returned: it is always 0
-- dt/dt0 is not returned: it is always the identity matrix
 
 THIS function combines these into the full drtout_drt0,drtout_drt1 arrays
 
@@ -950,6 +953,8 @@ THIS function combines these into the full drtout_drt0,drtout_drt1 arrays
             args_input       = ('rt0', 'rt1'),
             prototype_input  = ((6,), (6,)),
             prototype_output = ((6,), (6,6),(6,6)),
+            extra_args = (("int", "inverted0", "false", "p"),
+                          ("int", "inverted1", "false", "p"),),
 
             # output1 is drt/drt0 = [ dr/dr0 dr/dt0 ]
             #                       [ dt/dr0 dt/dt0 ]
@@ -981,6 +986,14 @@ THIS function combines these into the full drtout_drt0,drtout_drt1 arrays
                            &item__output1(3,0),
                            strides_slice__output1[0], strides_slice__output1[1],
 
+                           // dt/dr1
+                           &item__output2(3,0),
+                           strides_slice__output2[0], strides_slice__output2[1],
+
+                           // dt/dt0
+                           &item__output1(3,3),
+                           strides_slice__output1[0], strides_slice__output1[1],
+
                            // dt/dt1
                            &item__output2(3,3),
                            strides_slice__output2[0], strides_slice__output2[1],
@@ -988,19 +1001,14 @@ THIS function combines these into the full drtout_drt0,drtout_drt1 arrays
                            (const double*)data_slice__rt0,
                            strides_slice__rt0[0],
                            (const double*)data_slice__rt1,
-                           strides_slice__rt1[0] );
+                           strides_slice__rt1[0],
+                           *inverted0, *inverted1 );
     for(int i=0; i<3; i++)
         for(int j=0; j<3; j++)
         {
             item__output1(i,  j+3) = 0;
-            item__output1(i+3,j+3) = 0;
             item__output2(i,  j+3) = 0;
-            item__output2(i+3,j  ) = 0;
         }
-
-    item__output1(3,3) = 1.;
-    item__output1(4,4) = 1.;
-    item__output1(5,5) = 1.;
 
     return true;
 '''},
