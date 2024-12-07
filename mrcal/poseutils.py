@@ -721,7 +721,7 @@ and the gradients (r=compose(r0,r1), dr/dr0, dr/dr1):
     r1onwards = reduce( _poseutils_npsp._compose_r, r[1:] )
     return _poseutils_npsp._compose_r(r[0], r1onwards, out=out, inverted0=inverted0, inverted1=inverted1)
 
-def compose_rt(*rt, get_gradients=False, out=None):
+def compose_rt(*rt, get_gradients=False, out=None, inverted0=False, inverted1=False):
     r"""Compose rt transformations
 
 SYNOPSIS
@@ -781,13 +781,13 @@ Note that the poseutils C API returns only
 - dr_dr1
 - dt_dr0
 - dt_dt1
+- dt/dr1
+- dt/dt0
 
 because
 
 - dr/dt0 is always 0
 - dr/dt1 is always 0
-- dt/dr1 is always 0
-- dt/dt0 is always the identity matrix
 
 This Python function, however fills in those constants to return the full (and
 more convenient) arrays.
@@ -806,6 +806,11 @@ ARGUMENTS
 - *rt: a list of transformations to compose. Usually we'll be composing two
   transformations, but any number could be given here. Each broadcasted slice
   has shape (6,)
+
+- inverted0,inverted1: optional booleans, defaulting to False. If True, the
+  opposite transform is used for rt0 and/or rt1 respectively. The gradients
+  d(rt0 rt1)/drt0 and d(rt0 rt1)/drt1 are returned in respect to the input rt0
+  and rt1. inverted=True is only supported when exactly two transforms are given
 
 - get_gradients: optional boolean. By default (get_gradients=False) we return an
   array of composed transformations. Otherwise we return a tuple of arrays of
@@ -841,13 +846,17 @@ drt/drt0,drt/drt1):
 
     """
 
-    if get_gradients:
-        if len(rt) != 2:
+    if len(rt) != 2:
+        if get_gradients:
             raise Exception("compose_rt(..., get_gradients=True) is supported only if exactly 2 inputs are given")
-        return _poseutils_npsp._compose_rt_withgrad(*rt, out=out)
+        if inverted0 or inverted1:
+            raise Exception("compose_rt(..., inverted...=True) is supported only if exactly 2 inputs are given")
+
+    if get_gradients:
+        return _poseutils_npsp._compose_rt_withgrad(*rt, out=out, inverted0=inverted0, inverted1=inverted1)
 
     rt1onwards = reduce( _poseutils_npsp._compose_rt, rt[1:] )
-    return _poseutils_npsp._compose_rt(rt[0], rt1onwards, out=out)
+    return _poseutils_npsp._compose_rt(rt[0], rt1onwards, out=out, inverted0=inverted0, inverted1=inverted1)
 
 def compose_rt_tinyrt0_gradientrt0(rt1, out=None):
     r"""Special-case composition for the uncertainty computation
