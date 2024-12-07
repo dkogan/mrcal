@@ -831,7 +831,7 @@ drt/drt0,drt/drt1):
 
 1. The composed transformation. Each broadcasted slice has shape (6,)
 
-2. The gradient drt/dr0. Each broadcasted slice has shape (6,6). The first
+2. The gradient drt/drt0. Each broadcasted slice has shape (6,6). The first
    dimension selects the element of rt, and the last dimension selects the
    element of rt0
 
