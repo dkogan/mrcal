@@ -551,7 +551,7 @@ and the gradients (rt, drtout/drtin)
         return _poseutils_npsp._invert_rt_withgrad(rt, out=out)
     return _poseutils_npsp._invert_rt(rt, out=out)
 
-def compose_Rt(*Rt, out=None):
+def compose_Rt(*Rt, out=None, inverted0=False, inverted1=False):
     r"""Compose Rt transformations
 
 SYNOPSIS
@@ -601,6 +601,10 @@ ARGUMENTS
   transformations, but any number could be given here. Each broadcasted slice
   has shape (4,3).
 
+- inverted0,inverted1: optional booleans, defaulting to False. If True, the
+  opposite transform is used for Rt0 and/or Rt1 respectively. inverted=True is
+  only supported when exactly two transforms are given
+
 - out: optional argument specifying the destination. By default, a new numpy
   array is created and returned. To write the results into an existing (and
   possibly non-contiguous) array, specify it with the 'out' kwarg. If 'out' is
@@ -612,6 +616,12 @@ RETURNED VALUE
 An array of composed Rt transformations. Each broadcasted slice has shape (4,3)
 
     """
+    if len(Rt) == 2:
+        return _poseutils_npsp._compose_Rt(*Rt, out=out, inverted0=inverted0, inverted1=inverted1)
+
+    if inverted0 or inverted1:
+        raise Exception("compose_Rt(..., inverted...=True) is supported only if exactly 2 inputs are given")
+
     Rt1onwards = reduce( _poseutils_npsp._compose_Rt, Rt[1:] )
     return _poseutils_npsp._compose_Rt(Rt[0], Rt1onwards, out=out)
 

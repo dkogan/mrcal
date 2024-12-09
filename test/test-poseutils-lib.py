@@ -786,6 +786,8 @@ confirm_equal( drt_drt,
                drt_drt_ref,
                msg='invert_rt with grad drt/drt result written in-place')
 
+############ compose_Rt()
+
 Rt2 = mrcal.compose_Rt(Rt0_ref, Rt1_ref,
                        out=out43)
 confirm_equal( Rt2,
@@ -793,21 +795,47 @@ confirm_equal( Rt2,
                msg='compose_Rt result')
 
 # in-place
-Rt0_ref_copy = np.array(Rt0_ref)
-Rt1_ref_copy = np.array(Rt1_ref)
-Rt2 = mrcal.compose_Rt(Rt0_ref_copy, Rt1_ref_copy,
-                       out=Rt0_ref_copy)
-confirm_equal( Rt2,
-               compose_Rt(Rt0_ref, Rt1_ref),
-               msg='compose_Rt result written in-place to Rt0')
-Rt0_ref_copy = np.array(Rt0_ref)
-Rt1_ref_copy = np.array(Rt1_ref)
-Rt2 = mrcal.compose_Rt(Rt0_ref_copy, Rt1_ref_copy,
-                       out=Rt1_ref_copy)
-confirm_equal( Rt2,
-               compose_Rt(Rt0_ref, Rt1_ref),
-               msg='compose_Rt result written in-place to Rt1')
+for iout,outname in ( (0, "Rt0"),
+                      (1, "Rt1"),):
+    Rt0_ref_copy = np.array(Rt0_ref)
+    Rt1_ref_copy = np.array(Rt1_ref)
+    out = (Rt0_ref_copy,Rt1_ref_copy)[iout]
+    Rt2 = mrcal.compose_Rt(Rt0_ref_copy, Rt1_ref_copy,
+                           out=out)
+    confirm_equal( Rt2,
+                   compose_Rt(Rt0_ref, Rt1_ref),
+                   msg=f'compose_Rt result written in-place to {outname}')
 
+    Rt0_ref_copy = np.array(Rt0_ref)
+    Rt1_ref_copy = np.array(Rt1_ref)
+    out = (Rt0_ref_copy,Rt1_ref_copy)[iout]
+    Rt2 = mrcal.compose_Rt(Rt0_ref_copy, Rt1_ref_copy,
+                           inverted0=True,
+                           out=out)
+    confirm_equal( Rt2,
+                   compose_Rt(invert_Rt(Rt0_ref), Rt1_ref),
+                   msg=f'compose_Rt result written in-place to {outname}: inverted0')
+
+    Rt0_ref_copy = np.array(Rt0_ref)
+    Rt1_ref_copy = np.array(Rt1_ref)
+    out = (Rt0_ref_copy,Rt1_ref_copy)[iout]
+    Rt2 = mrcal.compose_Rt(Rt0_ref_copy, Rt1_ref_copy,
+                           inverted1=True,
+                           out=out)
+    confirm_equal( Rt2,
+                   compose_Rt(Rt0_ref, invert_Rt(Rt1_ref)),
+                   msg=f'compose_Rt result written in-place to {outname}: inverted1')
+
+    Rt0_ref_copy = np.array(Rt0_ref)
+    Rt1_ref_copy = np.array(Rt1_ref)
+    out = (Rt0_ref_copy,Rt1_ref_copy)[iout]
+    Rt2 = mrcal.compose_Rt(Rt0_ref_copy, Rt1_ref_copy,
+                           inverted0=True,
+                           inverted1=True,
+                           out=out)
+    confirm_equal( Rt2,
+                   compose_Rt(invert_Rt(Rt0_ref), invert_Rt(Rt1_ref)),
+                   msg=f'compose_Rt result written in-place to {outname}: inverted01')
 
 
 ############ compose_rt()

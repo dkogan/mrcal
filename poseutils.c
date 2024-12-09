@@ -165,6 +165,60 @@ void mul_gen33_gen33_vout_full(// output
         for(int j=0; j<3; j++)
             P2(m0m1, i,j) = outcopy2[3*i+j];
 }
+static inline
+void mul_gen33t_gen33_vout_full(// output
+                                double* m0m1,
+                                int m0m1_stride0, int m0m1_stride1,
+
+                                // input
+                                const double* m0,
+                                int m0_stride0, int m0_stride1,
+                                const double* m1,
+                                int m1_stride0, int m1_stride1)
+{
+    mul_gen33_gen33_vout_full(m0m1,
+                              m0m1_stride0, m0m1_stride1,
+                              m0,
+                              m0_stride1, m0_stride0,
+                              m1,
+                              m1_stride0, m1_stride1);
+}
+static inline
+void mul_gen33_gen33t_vout_full(// output
+                                double* m0m1,
+                                int m0m1_stride0, int m0m1_stride1,
+
+                                // input
+                                const double* m0,
+                                int m0_stride0, int m0_stride1,
+                                const double* m1,
+                                int m1_stride0, int m1_stride1)
+{
+    mul_gen33_gen33_vout_full(m0m1,
+                              m0m1_stride0, m0m1_stride1,
+                              m0,
+                              m0_stride0, m0_stride1,
+                              m1,
+                              m1_stride1, m1_stride0);
+}
+static inline
+void mul_gen33t_gen33t_vout_full(// output
+                                double* m0m1,
+                                int m0m1_stride0, int m0m1_stride1,
+
+                                // input
+                                const double* m0,
+                                int m0_stride0, int m0_stride1,
+                                const double* m1,
+                                int m1_stride0, int m1_stride1)
+{
+    mul_gen33_gen33_vout_full(m0m1,
+                              m0m1_stride0, m0m1_stride1,
+                              m0,
+                              m0_stride1, m0_stride0,
+                              m1,
+                              m1_stride1, m1_stride0);
+}
 
 static inline
 double inner3(const double* restrict a,
@@ -557,31 +611,130 @@ void mrcal_compose_Rt_full( // output
                            int Rt_0_stride1,    // in bytes. <= 0 means "contiguous"
                            const double* Rt_1,  // (4,3) array
                            int Rt_1_stride0,    // in bytes. <= 0 means "contiguous"
-                           int Rt_1_stride1     // in bytes. <= 0 means "contiguous"
-                            )
+                           int Rt_1_stride1,    // in bytes. <= 0 means "contiguous"
+                           bool inverted0,
+                           bool inverted1)
 {
     init_stride_2D(Rt_out, 4,3);
     init_stride_2D(Rt_0,   4,3);
     init_stride_2D(Rt_1,   4,3);
 
-    // for in-place operation
-    double t0[] = { P2(Rt_0,3,0),
-                    P2(Rt_0,3,1),
-                    P2(Rt_0,3,2) };
 
-    // t <- R0*t1
-    mul_vec3_gen33t_vout_full(&P2(Rt_out,3,0), Rt_out_stride1,
-                              &P2(Rt_1,  3,0), Rt_1_stride1,
-                              Rt_0, Rt_0_stride0, Rt_0_stride1);
+    /*
+      I have 4 cases based on the values of inverted0,inverted1. Nominally we have:
 
-    // R <- R0*R1
-    mul_gen33_gen33_vout_full( Rt_out, Rt_out_stride0, Rt_out_stride1,
-                               Rt_0,   Rt_0_stride0,   Rt_0_stride1,
-                               Rt_1,   Rt_1_stride0,   Rt_1_stride1 );
+         R0 R1 x + R0 t1 + t0
 
-    // t <- R0*t1+t0
-    for(int i=0; i<3; i++)
-        P2(Rt_out,3,i) += t0[i];
+      -> R01 = R0 R1
+         t01 = R0 t1 + t0
+
+      If we invert anything we use the inverted transform for r,t:
+
+         r x + t = y -> x = Rt y - Rt t
+      -> r becomes Rt, t becomes -Rt t
+
+      So
+      inverted0:
+         R01 = R0t R1
+         t01 = R0t t1 - R0t t0
+             = R0t (t1-t0)
+
+      inverted1:
+         R01 = R0 R1t
+         t01 = -R0 R1t t1 + t0
+
+      inverted01:
+         R01 = R0t R1t
+         t01 = -R0t R1t t1 - R0t t0
+    */
+
+    if(!inverted0 && !inverted1)
+    {
+        // R01 = R0 R1
+        // t01 = R0 t1 + t0
+
+        // for in-place operation
+        const double t0[] = { P2(Rt_0,3,0),
+                              P2(Rt_0,3,1),
+                              P2(Rt_0,3,2) };
+
+        // t <- R0*t1
+        mul_vec3_gen33t_vout_full(&P2(Rt_out,3,0), Rt_out_stride1,
+                                  &P2(Rt_1,  3,0), Rt_1_stride1,
+                                  Rt_0, Rt_0_stride0, Rt_0_stride1);
+        // R <- R0*R1
+        mul_gen33_gen33_vout_full( Rt_out, Rt_out_stride0, Rt_out_stride1,
+                                   Rt_0,   Rt_0_stride0,   Rt_0_stride1,
+                                   Rt_1,   Rt_1_stride0,   Rt_1_stride1 );
+        // t <- R0*t1+t0
+        for(int i=0; i<3; i++)
+            P2(Rt_out,3,i) += t0[i];
+    }
+    else if(inverted0 && !inverted1)
+    {
+        // R01 = R0t R1
+        // t01 = R0t t1 - R0t t0
+        //     = R0t (t1-t0)
+        const double t10[] = { P2(Rt_1,3,0) - P2(Rt_0,3,0),
+                               P2(Rt_1,3,1) - P2(Rt_0,3,1),
+                               P2(Rt_1,3,2) - P2(Rt_0,3,2) };
+
+        // t <- R0t*(t1-t0)
+        mul_vec3_gen33_vout_full(&P2(Rt_out,3,0), Rt_out_stride1,
+                                 t10, sizeof(t10[0]),
+                                 Rt_0, Rt_0_stride0, Rt_0_stride1);
+        // R <- R0t*R1
+        mul_gen33t_gen33_vout_full( Rt_out, Rt_out_stride0, Rt_out_stride1,
+                                    Rt_0,   Rt_0_stride0,   Rt_0_stride1,
+                                    Rt_1,   Rt_1_stride0,   Rt_1_stride1 );
+    }
+    else if(!inverted0 && inverted1)
+    {
+        // R01 = R0 R1t
+        // t01 = -R0 R1t t1 + t0
+
+        // for in-place operation
+        const double t0[] = { P2(Rt_0,3,0),
+                              P2(Rt_0,3,1),
+                              P2(Rt_0,3,2) };
+
+        // R <- R0*R1t
+        mul_gen33_gen33t_vout_full( Rt_out, Rt_out_stride0, Rt_out_stride1,
+                                    Rt_0,   Rt_0_stride0,   Rt_0_stride1,
+                                    Rt_1,   Rt_1_stride0,   Rt_1_stride1 );
+
+        // t01 <- R0 R1t t1
+        mul_vec3_gen33t_vout_full(&P2(Rt_out,3,0), Rt_out_stride1,
+                                  &P2(Rt_1,  3,0), Rt_1_stride1,
+                                  &P2(Rt_out,0,0), Rt_out_stride0, Rt_out_stride1);
+
+        // t01 <- -R0 R1t t1 + t0
+        for(int i=0; i<3; i++)
+            P2(Rt_out,3,i) = -P2(Rt_out,3,i) + t0[i];
+    }
+    else
+    {
+        // R01 = R0t R1t
+        // t01 = -R0t R1t t1 - R0t t0
+        const double R0t_t0[3];
+        mul_vec3_gen33_vout_full(R0t_t0, sizeof(R0t_t0[0]),
+                                 &P2(Rt_0,  3,0), Rt_0_stride1,
+                                 &P2(Rt_0,0,0), Rt_0_stride0, Rt_0_stride1);
+
+        // R <- R0t*R1t
+        mul_gen33t_gen33t_vout_full( Rt_out, Rt_out_stride0, Rt_out_stride1,
+                                     Rt_0,   Rt_0_stride0,   Rt_0_stride1,
+                                     Rt_1,   Rt_1_stride0,   Rt_1_stride1 );
+
+        // t01 <- R0t R1t t1
+        mul_vec3_gen33t_vout_full(&P2(Rt_out,3,0), Rt_out_stride1,
+                                  &P2(Rt_1,  3,0), Rt_1_stride1,
+                                  &P2(Rt_out,0,0), Rt_out_stride0, Rt_out_stride1);
+
+        // t01 <- -R0t R1t t1 - R0t t0
+        for(int i=0; i<3; i++)
+            P2(Rt_out,3,i) = -P2(Rt_out,3,i) - R0t_t0[i];
+    }
 }
 
 // Compose two rt transformations. It is assumed that we're getting no gradients

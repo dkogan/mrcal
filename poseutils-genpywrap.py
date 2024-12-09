@@ -685,6 +685,8 @@ for that function for details. This internal function differs from compose_Rt():
             args_input       = ('Rt0', 'Rt1'),
             prototype_input  = ((4,3,), (4,3,)),
             prototype_output = (4,3),
+            extra_args = (("int", "inverted0", "false", "p"),
+                          ("int", "inverted1", "false", "p"),),
 
             Ccode_slice_eval = \
                 {np.float64:
@@ -694,7 +696,8 @@ for that function for details. This internal function differs from compose_Rt():
                            (const double*)data_slice__Rt0,
                            strides_slice__Rt0[0], strides_slice__Rt0[1],
                            (const double*)data_slice__Rt1,
-                           strides_slice__Rt1[0], strides_slice__Rt1[1] );
+                           strides_slice__Rt1[0], strides_slice__Rt1[1],
+                           *inverted0, *inverted1);
     return true;
 '''},
 )
