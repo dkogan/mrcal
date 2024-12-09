@@ -406,7 +406,10 @@ void mrcal_invert_rt_full( // output
 //
 // In-place operation is supported; the output array may be the same as either
 // of the input arrays to overwrite the input.
-#define mrcal_compose_Rt(Rt_out,Rt_0,Rt_1) mrcal_compose_Rt_full(Rt_out,0,0,Rt_0,0,0,Rt_1,0,0)
+#define mrcal_compose_Rt(           Rt_out,Rt_0,Rt_1) mrcal_compose_Rt_full(Rt_out,0,0,Rt_0,0,0,Rt_1,0,0,false,false)
+#define mrcal_compose_Rt_inverted0( Rt_out,Rt_0,Rt_1) mrcal_compose_Rt_full(Rt_out,0,0,Rt_0,0,0,Rt_1,0,0,true, false)
+#define mrcal_compose_Rt_inverted1( Rt_out,Rt_0,Rt_1) mrcal_compose_Rt_full(Rt_out,0,0,Rt_0,0,0,Rt_1,0,0,false,true )
+#define mrcal_compose_Rt_inverted01(Rt_out,Rt_0,Rt_1) mrcal_compose_Rt_full(Rt_out,0,0,Rt_0,0,0,Rt_1,0,0,true, true )
 void mrcal_compose_Rt_full( // output
                            double* Rt_out,      // (4,3) array
                            int Rt_out_stride0,  // in bytes. <= 0 means "contiguous"
@@ -418,8 +421,9 @@ void mrcal_compose_Rt_full( // output
                            int Rt_0_stride1,    // in bytes. <= 0 means "contiguous"
                            const double* Rt_1,  // (4,3) array
                            int Rt_1_stride0,    // in bytes. <= 0 means "contiguous"
-                           int Rt_1_stride1     // in bytes. <= 0 means "contiguous"
-                           );
+                           int Rt_1_stride1,    // in bytes. <= 0 means "contiguous"
+                           bool inverted0,
+                           bool inverted1);
 
 // Compose two rt transformations
 //
