@@ -623,6 +623,8 @@ void mrcal_compose_rt_full( // output
     init_stride_2D(dr_r0,  3,3);
     init_stride_2D(dr_r1,  3,3);
     init_stride_2D(dt_r0,  3,3);
+    init_stride_2D(dt_r1,  3,3);
+    init_stride_2D(dt_t0,  3,3);
     init_stride_2D(dt_t1,  3,3);
     init_stride_1D(rt_0,   6);
     init_stride_1D(rt_1,   6);
