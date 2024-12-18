@@ -381,7 +381,7 @@ typedef struct
     // part of a larger structure or as a mrcal_cameramodel_t* argument to
     // functions. To allocate new mrcal_cameramodel_t objects, use
     // mrcal_cameramodel_LENSMODEL_XXX_t or malloc() with the proper intrinsics
-    // size taken into account
+    // size taken into account. This is given by mrcal_lensmodel_num_params()
     double            intrinsics[0];
 } mrcal_cameramodel_t;
 
