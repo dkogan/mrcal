@@ -1257,7 +1257,13 @@ Same as that of numpy.linalg.eig(). A tuple:
     '''
     l,v = np.linalg.eig(M)
     i = np.argsort(l)
-    return l[i], v[:,i]
+
+    # for single matrices, I can simply do
+    #   return l[i], v[:,i]
+    # But to support broadcasting I need these more complex expressions
+    return \
+        ( np.take_along_axis(l, i, -1), \
+          np.take_along_axis(v, nps.dummy(i,-2), -1) )
 
 
 def _plot_arg_covariance_ellipse(q_mean, Var, what):
