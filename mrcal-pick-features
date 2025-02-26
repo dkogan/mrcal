@@ -814,21 +814,14 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
         q01 = get_q01_nominal(q     = q,
                               index = self.index)
 
+        index_other = 1 - self.index
         try:
-            if self.index == 0:
-                match_feature_out = \
-                    mrcal.match_feature(images[0], images[1],
-                                        q0               = q01[0],
-                                        q1_estimate      = q01[1],
-                                        search_radius1   = args.search_radius,
-                                        template_size1   = args.template_size)
-            else:
-                match_feature_out = \
-                    mrcal.match_feature(images[1], images[0],
-                                        q0               = q01[1],
-                                        q1_estimate      = q01[0],
-                                        search_radius1   = args.search_radius,
-                                        template_size1   = args.template_size)
+            match_feature_out = \
+                mrcal.match_feature(images[self.index], images[index_other],
+                                    q0               = q01[self.index],
+                                    q1_estimate      = q01[index_other],
+                                    search_radius1   = args.search_radius,
+                                    template_size1   = args.template_size)
             q_other, match_feature_diagnostics = match_feature_out[:2]
         except:
             q_other = None
@@ -838,8 +831,7 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                               "Error matching feature")
             return 1
 
-
-        q01[1-self.index] = q_other
+        q01[index_other] = q_other
 
         update_q01_stored(nps.glue( q01_stored,
                                     q01,
