@@ -863,9 +863,11 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
         if event == FL_PUSH and Fl.event_button() == FL_LEFT_MOUSE:
             self.dragged = False
+            return super().handle(event)
+
         if event == FL_DRAG and Fl.event_state() & FL_BUTTON1:
             self.dragged = True
-        # both of these fall through to call the parent
+            return super().handle(event)
 
         if event == FL_RELEASE:
             if Fl.event_button() == FL_RIGHT_MOUSE:
@@ -896,7 +898,8 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                             widget_table.select_all_rows(0) # deselect all
                             widget_table.select_row(int(i))
                             set_all_overlay_lines_and_redraw()
-        # fall through to call the parent
+            return super().handle(event)
+
 
         # Must be key UP, not key DOWN. Because of https://github.com/fltk/fltk/issues/1044
         if event == FL_KEYUP:
