@@ -179,6 +179,16 @@ Kneip describes a method to compute the rotation:
                                            mrcal.identity_R())
 
 
+def solve_R01__assume_infinity(v0,v1,
+                               **kwargs):
+    r'''Rotation from corresponding-feature observations: assume everything is infinitely-far away
+
+For testing or maybe seeding
+    '''
+    return \
+        mrcal.align_procrustes_vectors_R01(v0,v1)
+
+
 def solve_R01__optimize(v0,v1):
     r'''Rotation from corresponding-feature observations: direct optimization
 
