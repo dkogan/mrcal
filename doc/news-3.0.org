@@ -55,6 +55,8 @@ inverted0,inverted1
 
 2025-01-15 mrcal.sorted_eig() broadcasts properly
 
+2025-02-26 mrcal_image_uint8_load(a 16-bit image) applies stretch equalization
+
 * Migration notes 2.4 -> 3.0
 
 2024-12-06 compose_r(), compose_rt(), compose_Rt() have new args:

@@ -18,13 +18,14 @@ __attribute__((unused))
 static void report_image_details(/* const; FreeImage doesn't support that */
                                  FIBITMAP* fib, const char* what)
 {
-    MSG("%s colortype = %d bpp = %d dimensions: (%d,%d), pitch = %d",
+    MSG("%s colortype = %d bpp = %d dimensions: (%d,%d), pitch = %d, imagetype = %d",
         what,
         (int)FreeImage_GetColorType(fib),
         (int)FreeImage_GetBPP      (fib),
         (int)FreeImage_GetWidth    (fib),
         (int)FreeImage_GetHeight   (fib),
-        (int)FreeImage_GetPitch    (fib));
+        (int)FreeImage_GetPitch    (fib),
+        (int)FreeImage_GetImageType(fib));
 }
 
 
@@ -109,6 +110,47 @@ bool mrcal_image_bgr_save(const char* filename, const mrcal_image_bgr_t* image)
     return generic_save(filename, image, 24);
 }
 
+
+static
+void stretch_equalization_uint8_from_uint16(mrcal_image_uint8_t* out,
+                                            const mrcal_image_uint16_t* in)
+{
+    uint16_t min = UINT16_MAX;
+    uint16_t max = 0;
+
+    for(int i=0; i<in->height; i++)
+    {
+        const uint16_t* row_in = mrcal_image_uint16_at_const(in, 0, i);
+        for (int j=0; j<in->width; j++)
+        {
+            const uint16_t x = row_in[j];
+            if      (x < min) min = x;
+            else if (x > max) max = x;
+        }
+    }
+
+    uint16_t max_min = max-min;
+
+    for(int i=0; i<in->height; i++)
+    {
+        const uint16_t* row_in  = mrcal_image_uint16_at_const(in,  0, i);
+        uint8_t*        row_out = mrcal_image_uint8_at       (out, 0, i);
+
+        for (int j=0; j<in->width; j++)
+        {
+            const uint16_t x = row_in[j];
+            row_out[j] = (uint8_t)(0.5f + ((float)(x - min) * 255.f / (float)max_min));
+        }
+    }
+}
+
+
+
+
+
+
+
+
 static
 bool generic_load(// output
 
@@ -183,11 +225,41 @@ bool generic_load(// output
         color_type_expected = FIC_MINISBLACK;
         what_expected = "grayscale";
 
-        fib_converted = FreeImage_ConvertToGreyscale(fib);
-        if(fib_converted == NULL)
+        if(FreeImage_GetImageType(fib) == FIT_UINT16 &&
+           FreeImage_GetColorType(fib) == FIC_MINISBLACK)
         {
-            MSG("Couldn't FreeImage_ConvertToGreyscale()");
-            goto done;
+            // special case: uint16 monochrome image. I apply stretch
+            // equalization
+            mrcal_image_uint16_t in =
+                { .width  = (int)      FreeImage_GetWidth (fib),
+                  .height = (int)      FreeImage_GetHeight(fib),
+                  .stride = (int)      FreeImage_GetPitch (fib),
+                  .data   = (uint16_t*)FreeImage_GetBits  (fib)
+                };
+
+            fib_converted = FreeImage_Allocate(in.width, in.height, 8, /* 8bpp */ 0,0,0);
+            if(fib_converted == NULL)
+            {
+                MSG("Couldn't FreeImage_Allocate(%d,%d)", in.width, in.height);
+                goto done;
+            }
+
+            mrcal_image_uint8_t out =
+                { .width  = in.width,
+                  .height = in.height,
+                  .stride = (int)     FreeImage_GetPitch (fib_converted),
+                  .data   = (uint8_t*)FreeImage_GetBits  (fib_converted)
+                };
+            stretch_equalization_uint8_from_uint16(&out, &in);
+        }
+        else
+        {
+            fib_converted = FreeImage_ConvertToGreyscale(fib);
+            if(fib_converted == NULL)
+            {
+                MSG("Couldn't FreeImage_ConvertToGreyscale()");
+                goto done;
+            }
         }
     }
     else if(*bits_per_pixel == 16)

@@ -38,7 +38,8 @@
 //   free(image.data);
 //
 // mrcal_image_uint8_load() converts images to 8-bpp grayscale. Color and
-// palettized images are accepted
+// palettized images are accepted. mrcal_image_uint8_load(a 16-bit image) will
+// apply stretch equalization
 //
 // mrcal_image_uint16_load() does NOT convert images. The images being read must
 // already be stored as 16bpp grayscale images

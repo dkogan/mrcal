@@ -22,8 +22,11 @@ these 3 data formats:
 - bits_per_pixel = 24, channels = 3: BGR color data
 
 With the exception of 16-bit grayscale data, the load function will convert the
-input image to the requested format. At this time, loading 16-bit grayscale data
-requires that the input image matches that format.
+input image to the requested format. At this time, asking for 16-bit grayscale
+data requires that the input image matches that format.
+
+If we ask for an 8-bit image, but pass a 16-bit image file, we will apply
+stretch equalization to the input first.
 
 If the bits_per_pixel, channels arguments are omitted or set to <= 0, we will
 load the image in whatever format it appears on disk.
