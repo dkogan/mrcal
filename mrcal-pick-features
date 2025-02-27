@@ -160,7 +160,8 @@ def get_q01_nominal(*,
         return nps.cat(q_to, q)
 
 
-def solve_R01__kneip(v0,v1):
+def solve_R01__kneip(v0,v1,
+                     **kwargs):
     r'''Rotation from corresponding-feature observations: Kneip's eigesolver
 
 Kneip describes a method to compute the rotation:
@@ -189,7 +190,10 @@ For testing or maybe seeding
         mrcal.align_procrustes_vectors_R01(v0,v1)
 
 
-def solve_R01__optimize(v0,v1):
+def solve_R01__optimize(v0,v1,
+                        *,
+                        # cookie
+                        t01_fixed = None):
     r'''Rotation from corresponding-feature observations: direct optimization
 
 This is for experimenting. solve_R01__kneip() should work well.
@@ -209,9 +213,35 @@ This is for experimenting. solve_R01__kneip() should work well.
                                                      R01 = R01)
         return Epredicted
 
-    res = \
-        scipy.optimize.minimize( cost__triangulation_geometric,
-                                 x0 = mrcal.identity_r() )
+    def cost__triangulation_have_t01(r01):
+
+        p0 = \
+            mrcal.triangulate_leecivera_mid2(v0, v1,
+                                             v_are_local = True,
+                                             Rt01        = nps.glue(mrcal.R_from_r(r01),
+                                                                    t01_fixed,
+                                                                    axis = -2))
+
+        # Have triangulated points p0. Divergent or at-infinity triangulations
+        # are reported as p0=(0,0,0). I nominally want to maximize inner(v0,
+        # p0). But I need to normalize p0. And I minimize -inner(...) instead.
+        # And I leave the divergent points out
+
+        mask = nps.norm2(p0) > 0
+
+        p0 = p0[mask]
+        m = nps.mag(p0)
+        return -np.sum( nps.inner(p0/nps.dummy(m,-1), v0[mask]) )
+
+    if t01_fixed is None:
+        res = \
+            scipy.optimize.minimize( cost__triangulation_geometric,
+                                     x0 = mrcal.identity_r() )
+    else:
+        res = \
+            scipy.optimize.minimize( cost__triangulation_have_t01,
+                                     x0 = mrcal.identity_r() )
+
     R01 = mrcal.R_from_r(res.x)
 
     return R01
@@ -407,7 +437,8 @@ experiments:
     return t01,E,A,B
 
 
-def solve_Rt01_given_R01__geometric(v0,v1,R01):
+def solve_Rt01_given_R01__geometric(v0,v1,R01,
+                                    **kwargs):
     r'''Estimate pose from rotation and feature observations
 
 See the docstring for t01_from_R01__geometric()
@@ -439,7 +470,8 @@ See the docstring for t01_from_R01__geometric()
                  N_divergent_negt )
 
 
-def solve_Rt01_given_R01__epipolar_plane_normality(v0,v1,R01):
+def solve_Rt01_given_R01__epipolar_plane_normality(v0,v1,R01,
+                                                   **kwargs):
     r'''Translation from corresponding-feature observations: Kneip's method
 
 Given corresponding feature observations from two cameras we compute the
@@ -515,7 +547,9 @@ def solve_Rt10(# shape (N,Nleftright=2,Nxy=2)
                intrinsics1,
                *,
                solve_R10           = solve_R01__kneip,
-               solve_Rt10_from_R01 = solve_Rt01_given_R01__geometric):
+               solve_Rt10_from_R01 = solve_Rt01_given_R01__geometric,
+               # cookie
+               t01_fixed = None):
     r'''Full-transform optimization
 
 Given corresponding feature observations from two cameras we compute the
@@ -542,12 +576,18 @@ and solve_Rt10_from_R01.
             raise Exception("All points thrown out as outliers")
 
         R01 = solve_R10(v0[mask_inliers],
-                        v1[mask_inliers])
+                        v1[mask_inliers],
+                        t01_fixed = t01_fixed)
+
+        if t01_fixed is not None:
+            Rt01 = nps.glue(R01, t01_fixed, axis=-2)
+            return Rt01, mask_inliers
 
         Rt01, mask_outlier, Noutliers = \
             solve_Rt10_from_R01(v0[mask_inliers],
                                 v1[mask_inliers],
-                                R01 = R01)
+                                R01 = R01,
+                                **cookie)
         if Noutliers == 0:
             break
 
@@ -731,7 +771,8 @@ def widget_solve_callback(*args):
         Rt01, mask_inliers = \
             solve_Rt10(q01_stored,
                        *[m.intrinsics() for m in models],
-                       solve_Rt10_from_R01 = solve_Rt01_given_R01__geometric)
+                       solve_R10           = solve_R01__optimize,
+                       t01_fixed           = models[1].extrinsics_rt_toref()[3:])
     except Exception as e:
         widget_info.value(UI_usage_message + "\n" + \
                           f"Solve failed: {e}")
