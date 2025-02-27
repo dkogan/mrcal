@@ -652,7 +652,7 @@ def set_all_overlay_lines_and_redraw():
     # the range geometrically. I add another point at infinity at the end
     k = 1.1
     N = 25
-    r = baseline * 0.5 * (k ** np.arange(N))
+    r = baseline * 1. * (k ** np.arange(N))
 
     iselected = tuple(i for i in range(Nstored) if widget_table.row_selected(i))
 
