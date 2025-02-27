@@ -210,7 +210,7 @@ This is for experimenting. solve_R01__kneip() should work well.
     return mrcal.R_from_r(r01)
 
 
-def solve_Rt01_given_R01__geometric(v0,v1,R01):
+def t01_from_R01__geometric(v0,v1,R01):
     r'''Translation from corresponding-feature observations: Dima's method
 
 Given corresponding feature observations from two cameras we compute the
@@ -393,7 +393,19 @@ experiments:
     l,v = mrcal.sorted_eig(M)
 
     # The answer is the eigenvector corresponding to the biggest eigenvalue
-    t01 = v[:,2]
+    t01 = v[:,-1]
+
+    E = N/4 - l[-1]/4
+
+    return t01,E,A,B
+
+
+def solve_Rt01_given_R01__geometric(v0,v1,R01):
+    r'''Estimate pose from rotation and feature observations
+
+See the docstring for t01_from_R01__geometric()
+'''
+    t01,Epredicted,A,B = t01_from_R01__geometric(v0,v1,R01)
 
     # Almost done. I want either t or -t. The wrong one will produce
     # mostly triangulations behind me
