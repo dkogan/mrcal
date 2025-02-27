@@ -746,7 +746,8 @@ def widget_solve_callback(*args):
     N = len(q01_stored)
     Noutliers = N-np.count_nonzero(mask_inliers)
     widget_info.value(UI_usage_message + "\n" + \
-                      f"Extrinsics of model1 updated: {Noutliers}/{N} outliers")
+                      f"Extrinsics of model1 updated: {Noutliers}/{N} outliers\n" + \
+                      f"Outlier points: {np.nonzero(~mask_inliers)[0]}")
 
 
 def widget_write_callback(*args):
