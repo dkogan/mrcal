@@ -196,18 +196,25 @@ This is for experimenting. solve_R01__kneip() should work well.
 '''
     import scipy.optimize
 
-    def cost(r01):
+    def cost__coplanarity_normal_vectors(r01):
         n = np.cross(v0,
                      mrcal.rotate_point_r(r01,v1))
         l,v = mrcal.sorted_eig(nps.matmult(n.T,n))
         return l[0]
 
+    def cost__triangulation_geometric(r01):
+
+        R01 = mrcal.R_from_r(r01)
+        t01,Epredicted,A,B = t01_from_R01__geometric(v0,v1,
+                                                     R01 = R01)
+        return Epredicted
+
     res = \
-        scipy.optimize.minimize( cost,
-                                 x0 = mrcal.identity_r(),
-                                )
-    r01 = res.x
-    return mrcal.R_from_r(r01)
+        scipy.optimize.minimize( cost__triangulation_geometric,
+                                 x0 = mrcal.identity_r() )
+    R01 = mrcal.R_from_r(res.x)
+
+    return R01
 
 
 def t01_from_R01__geometric(v0,v1,R01):
