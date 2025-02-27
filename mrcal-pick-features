@@ -404,34 +404,20 @@ experiments:
     N_divergent_t    = np.count_nonzero( mask_divergent_t )
     N_divergent_negt = np.count_nonzero( mask_divergent_negt )
 
-    if N_divergent_t == 0 or N_divergent_negt == 0:
 
-        # from before: norm2(e) = 1/4 - 1/4 tt Bt A B t
-        # shape (N,2,1)
-        Bt = nps.dummy(nps.inner(B, t01),
-                       -1)
 
-        # shape (N,1,1)
-        tBtABt = nps.matmult(nps.transpose(Bt), A, Bt)
 
-        # shape (N,)
-        tBtABt = tBtABt[:,0,0]
 
-        norm2e = 1/4 * (1 - tBtABt)
 
-    else:
-        norm2e = None
 
     if N_divergent_t < N_divergent_negt:
         return ( nps.glue(R01, t01, axis=-2),
                  mask_divergent_t,
-                 N_divergent_t,
-                 norm2e )
+                 N_divergent_t )
     else:
         return ( nps.glue(R01, -t01, axis=-2),
                  mask_divergent_negt,
-                 N_divergent_negt,
-                 norm2e )
+                 N_divergent_negt )
 
 
 def solve_Rt01_given_R01__epipolar_plane_normality(v0,v1,R01):
@@ -497,13 +483,11 @@ lacking. So I compute t myself for now
     if N_divergent_t < N_divergent_negt:
         return (Rt01,
                 mask_divergent_t,
-                N_divergent_t,
-                None)
+                N_divergent_t)
     else:
         return (Rt01_negt,
                 mask_divergent_negt,
-                N_divergent_negt,
-                None)
+                N_divergent_negt)
 
 
 def solve_Rt10(# shape (N,Nleftright=2,Nxy=2)
@@ -541,7 +525,7 @@ and solve_Rt10_from_R01.
         R01 = solve_R10(v0[mask_inliers],
                         v1[mask_inliers])
 
-        Rt01, mask_outlier, Noutliers, norm2e = \
+        Rt01, mask_outlier, Noutliers = \
             solve_Rt10_from_R01(v0[mask_inliers],
                                 v1[mask_inliers],
                                 R01 = R01)
