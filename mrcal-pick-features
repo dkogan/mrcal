@@ -978,9 +978,8 @@ class Fl_Table_Derived(Fl_Table_Row):
                     else:
                         # reprojection error
                         icam = 0
-                        text = f"{nps.mag(q01_stored[row,icam] - mrcal.project(p, *models[icam].intrinsics())):.1f}"
-
-
+                        q    = mrcal.project(p, *models[icam].intrinsics())
+                        text = f"{nps.mag(q01_stored[row,icam] - q):.1f}"
 
             fl_push_clip(x, y, w, h)
             # background color
