@@ -95,42 +95,6 @@ import numpysane as nps
 import mrcal
 import pyopengv
 
-def load_image(path):
-    try:
-        image = mrcal.load_image(path)
-    except:
-        print(f"Couldn't read image '{path}'", file=sys.stderr)
-        sys.exit(1)
-
-    # I want to intelligently handle the possible image formats. Specifically
-    # the 16-bit case needs special care
-
-    # color images: use the mean of the channels to convert to grayscale
-    if image.ndim == 3:
-        image = \
-            np.mean(image,
-                    axis  = -1,
-                    dtype = image.dtype)
-    elif image.ndim != 2:
-        raise Exception(f"Image '{path}': only ndim==2 (monochrome) or ndim==3 (color) are supported")
-
-    # Deep images: stretch equalization
-    if image.itemsize > 1:
-        if image.dtype != np.uint16:
-            raise Exception("Only 16-bit deep images are implemented currently; I assume this in the following code")
-        # I apply a stretch equalization, and downsample to 8-bits
-        amin = np.min(image)
-        amax = np.max(image)
-        d = amax-amin
-        if d == 0:
-            raise Exception(f"Image '{path}' has the value '{amax}' on every pixel. This can't match any features")
-
-        # I want to compute
-        #   (image - amin) / (amax-amin) * 255
-        image = ((image - amin).astype(float) / d * 255.).astype(np.uint8)
-
-    return image
-
 
 def get_q01_nominal(*,
                     q,
@@ -1058,7 +1022,9 @@ if args.clahe:
     clahe = cv2.createCLAHE()
     clahe.setClipLimit(8)
 
-images = [load_image(f) for f in args.images]
+images = [mrcal.load_image(f,
+                           bits_per_pixel = 8,
+                           channels       = 1) for f in args.images]
 
 if args.clahe:
     images = [ clahe.apply(image) for image in images ]
