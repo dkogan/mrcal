@@ -4216,7 +4216,7 @@ PyObject* traverse_sensor_links(PyObject* NPY_UNUSED(self),
                          "callback_sensor_link",
                          NULL};
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
-                                     "$O&O:mrcal._traverse_sensor_links",
+                                     "$O&O:mrcal.traverse_sensor_links",
                                      keywords,
                                      PyArray_Converter, &connectivity_matrix,
                                      &callback_sensor_link))
