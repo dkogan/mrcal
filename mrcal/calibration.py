@@ -992,7 +992,7 @@ def _estimate_camera_poses( # shape (Nobservations,4,3)
 
         '''
 
-        camera_connectivity = np.zeros( (Ncameras,Ncameras), dtype=int )
+        camera_connectivity = np.zeros( (Ncameras,Ncameras), dtype=np.uint16 )
         def finish_frame(i0, i1):
             for ic0 in range(i0, i1):
                 for ic1 in range(ic0+1, i1+1):
@@ -1040,8 +1040,8 @@ def _estimate_camera_poses( # shape (Nobservations,4,3)
     # and too-sparse links, to make the graph traversal ignore those
     shared_frames[shared_frames<2] = 0
 
-    mrcal.traverse_sensor_links( shared_frames,
-                                       found_best_path_to_node )
+    mrcal.traverse_sensor_links( connectivity_matrix  = shared_frames,
+                                 callback_sensor_link = found_best_path_to_node )
 
     if any([x is None for x in Rt_0c]):
         raise Exception("ERROR: Don't have complete camera observations overlap!\n" +
