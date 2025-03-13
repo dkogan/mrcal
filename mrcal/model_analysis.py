@@ -690,7 +690,8 @@ In the regularized case:
            Nmeasurements_regularization != \
                Nmeasurements_all:
             raise Exception("Some measurements other than boards, points and regularization are present. Don't know what to do")
-        if imeas_regularization + Nmeasurements_regularization != Nmeasurements_all:
+        if imeas_regularization is not None and \
+           imeas_regularization + Nmeasurements_regularization != Nmeasurements_all:
             raise Exception("Regularization measurements are NOT at the end. Don't know what to do")
 
         if Nmeasurements_regularization == 0:
