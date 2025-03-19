@@ -304,20 +304,21 @@ if args.hardcopy:
     for i in range(Nplots):
         show(args.observations[i])
     print(f"Wrote {args.hardcopy}")
-    sys.exit(0)
+    pids = []
 
-plotkwargs_extra['wait'] = True
-pids = [0] * Nplots
-for i in range(Nplots):
-    pid = os.fork()
-    if pid == 0:
-        # child
-        # make the plot, and wait for it to be closed by the user
-        show(args.observations[i])
-        sys.exit()
+else:
+    plotkwargs_extra['wait'] = True
+    pids = [0] * Nplots
+    for i in range(Nplots):
+        pid = os.fork()
+        if pid == 0:
+            # child
+            # make the plot, and wait for it to be closed by the user
+            show(args.observations[i])
+            sys.exit()
 
-    # parent
-    pids[i] = pid
+        # parent
+        pids[i] = pid
 
 
 if args.explore:
@@ -368,6 +369,6 @@ The optimization inputs are available in the optimization_inputs dict
     IPython.embed()
 
 
-for i in range(Nplots):
-    os.waitpid(pids[i], 0)
+for pid in pids:
+    os.waitpid(pid, 0)
 sys.exit()
