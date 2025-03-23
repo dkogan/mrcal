@@ -144,7 +144,6 @@ def parse_args():
                         choices=('mean-pcam',
                                  'meanq',
                                  'bestq',
-                                 'worstq',
                                  'fit-boards-ref',
                                  'diff',
                                  'cross-reprojection--rrp-empirical',
@@ -690,7 +689,6 @@ def reproject_perturbed__common(q, distance,
         mean-pcam
         meanq
         bestq
-        worstq
 
     Here I reproject the same q into all N cameras at the same time. I.e. this
     is looking at Ncameras separate uncertainty computations at once
@@ -749,9 +747,8 @@ def reproject_perturbed__common(q, distance,
         # I'm looking at projections q, NOT points p. Several paths here:
         #   meanq
         #   bestq
-        #   worstq
         if fixedframes:
-            raise Exception("meanq,bestq,worstq not implemented if fixedframes. MAYBE is possible, but not useful-enough to think about")
+            raise Exception("meanq,bestq not implemented if fixedframes. MAYBE is possible, but not useful-enough to think about")
 
         # shape (..., Nframes, Ncameras, 3)
         p_cam_query_allframes = \
@@ -764,8 +761,7 @@ def reproject_perturbed__common(q, distance,
         if args.reproject_perturbed == 'meanq':
             return np.mean(q_reprojected, axis=-3)
 
-        if args.reproject_perturbed == 'bestq' or \
-           args.reproject_perturbed == 'worstq':
+        if args.reproject_perturbed == 'bestq':
 
             # shape (..., Nframes, Ncameras)
             q_err = nps.norm2(q_reprojected - q)
