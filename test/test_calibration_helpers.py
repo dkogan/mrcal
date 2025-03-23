@@ -569,8 +569,10 @@ def calibration_boards_to_points(optimization_inputs):
     Nframes                                   = len(rt_cam0_board)
     Ncameras                                  = len(optimization_inputs['intrinsics'])
     indices_frame_camintrinsics_camextrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
-    object_height_n,object_width_n            = optimization_inputs['observations_board'].shape[-3:-1]
+    observations_board                        = optimization_inputs['observations_board']
+    object_height_n,object_width_n            = observations_board.shape[-3:-1]
     object_spacing                            = optimization_inputs['calibration_object_spacing']
+    calobject_warp                            = optimization_inputs['calobject_warp']
 
     # shape (Nframes,H,W,Ncameras, 3)
     indices_point_camintrinsics_camextrinsics = np.zeros((Nframes,object_height_n,object_width_n,Ncameras, 3), dtype=np.int32)
@@ -594,30 +596,30 @@ def calibration_boards_to_points(optimization_inputs):
         mrcal.ref_calibration_object(object_width_n,
                                      object_height_n,
                                      object_spacing,
-                                     calobject_warp = calobject_warp_true)
+                                     calobject_warp = calobject_warp)
 
     # shape (Nframes,H,W, 3)
-    points_true = mrcal.transform_point_Rt(nps.dummy(Rt_cam0_board,-3,-3),
+    pcam0 = mrcal.transform_point_Rt(nps.dummy(Rt_cam0_board,-3,-3),
                                            pboard)
     # shape (Nframes*H*W, 3)
-    points_true = nps.clump(points_true, n=3)
+    pcam0 = nps.clump(pcam0, n=3)
 
     #  shape (Nframes*Nh*Nw*Ncameras, 3)
-    observations_point_true = \
+    observations_point = \
         nps.clump(
-            nps.mv( observations_board_true.reshape(Nframes,
-                                                    Ncameras,
-                                                    object_height_n,
-                                                    object_width_n,
-                                                    3),
+            nps.mv( observations_board.reshape(Nframes,
+                                               Ncameras,
+                                               object_height_n,
+                                               object_width_n,
+                                               3),
                     -4, -2),
             n=4)
 
-    Npoints = points_true.shape[0]
+    Npoints = pcam0.shape[0]
 
     optimization_inputs['indices_point_camintrinsics_camextrinsics'] = indices_point_camintrinsics_camextrinsics
-    optimization_inputs['points']                                    = copy.deepcopy(points_true)
-    optimization_inputs['observations_point']                        = observations_point_true
+    optimization_inputs['points']                                    = copy.deepcopy(pcam0)
+    optimization_inputs['observations_point']                        = observations_point
 
     optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = None
     optimization_inputs['frames_rt_toref']                           = None
