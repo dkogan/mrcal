@@ -1454,7 +1454,7 @@ This function computes the operating point by looking at the baseline gradients
 only. WITHOUT reoptimizing.
 
 
-The docstring has two different formulations. I return a (2,3) array indexed as
+This has two different formulations. I return a (2,3) array indexed as
 
   rt_ref_refperturbed
   rt_refperturbed_ref
