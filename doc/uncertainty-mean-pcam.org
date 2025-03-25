@@ -106,7 +106,7 @@ allows us to handle moving cameras.
 :END:
 
 This "mean-pcam" uncertainty method works well, but has several issues. All of
-these are fixed in [[file:uncertainty-cross-reprojection.org][the newer =cross-reprojection--rrp-Jfp= method]].
+these are fixed in [[file:uncertainty-cross-reprojection.org][the newer =cross-reprojection-rrp-Jfp= method]].
 
 ** Chessboards are a hard requirement
 The first step in the formulation presented above is to unproject the query
@@ -156,7 +156,7 @@ analyses/dancing/dance-study.py           \
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/3-f22-infinity
-for method (mean-pcam cross-reprojection--rrp-Jfp) {
+for method (mean-pcam cross-reprojection-rrp-Jfp) {
   analyses/dancing/dance-study.py                          \
       --scan num_far_constant_Nframes_near  \
       --range 2,10                          \
@@ -212,7 +212,7 @@ As we add observations at 10m, we see the uncertainty get worse.
 The issue is the averaging in 3D point space. Observation noise causes the
 far-off geometry to move much more than the nearby chessboards, and that far-off
 motion then dominates the average. If we use [[file:uncertainty-cross-reprojection.org][the newer
-=cross-reprojection--rrp-Jfp= method]], this issue goes away:
+=cross-reprojection-rrp-Jfp= method]], this issue goes away:
 
 #+begin_src sh
 analyses/dancing/dance-study.py           \
@@ -224,11 +224,11 @@ analyses/dancing/dance-study.py           \
     --ymax 4                              \
     --uncertainty-at-range-sampled-max 35 \
     --Nscan-samples 4                     \
-    --method cross-reprojection--rrp-Jfp  \
+    --method cross-reprojection-rrp-Jfp  \
     opencv8.cameramodel
 #+end_src
 
-[[file:external/figures/dance-study/dance-study-scan-num-far-constant-num-near--cross-reprojection--rrp-Jfp.svg]]
+[[file:external/figures/dance-study/dance-study-scan-num-far-constant-num-near--cross-reprojection-rrp-Jfp.svg]]
 
 As expected, the low-range uncertainty is unaffected by the 10m observations,
 but the far-range uncertainty is improved.

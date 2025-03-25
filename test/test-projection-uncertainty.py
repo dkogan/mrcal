@@ -146,12 +146,12 @@ def parse_args():
                                  'bestq',
                                  'fit-boards-ref',
                                  'diff',
-                                 'cross-reprojection--rrp-empirical',
-                                 'cross-reprojection--rrp-Jfp',
-                                 'cross-reprojection--rrp-Je',
-                                 'cross-reprojection--rpr-empirical',
-                                 'cross-reprojection--rpr-Jfp',
-                                 'cross-reprojection--rpr-Je'),
+                                 'cross-reprojection-rrp-empirical',
+                                 'cross-reprojection-rrp-Jfp',
+                                 'cross-reprojection-rrp-Je',
+                                 'cross-reprojection-rpr-empirical',
+                                 'cross-reprojection-rpr-Jfp',
+                                 'cross-reprojection-rpr-Je'),
                         default = 'mean-pcam',
                         help='''Which reproject-after-perturbation method to use. This is for experiments.
                         Some of these methods will be probably wrong.''')
@@ -2278,7 +2278,7 @@ else:                                                          reproject_perturb
 
 # "method" argument for mrcal.projection_uncertainty()
 if   re.match('^(mean-pcam|bestq)$', args.reproject_perturbed): method = args.reproject_perturbed
-elif re.match('cross-reprojection',  args.reproject_perturbed): method = 'cross-reprojection--rrp-Jfp'
+elif re.match('cross-reprojection',  args.reproject_perturbed): method = 'cross-reprojection-rrp-Jfp'
 # default
 else:                                                           method = 'mean-pcam'
 

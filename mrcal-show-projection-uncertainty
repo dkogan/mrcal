@@ -88,7 +88,7 @@ def parse_args():
                         directions, then we can use this metric, which is
                         potentially easier to compute''')
     parser.add_argument('--method',
-                        choices=('mean-pcam', 'bestq', 'cross-reprojection--rrp-Jfp'),
+                        choices=('mean-pcam', 'bestq', 'cross-reprojection-rrp-Jfp'),
                         default='mean-pcam',
                         help='''Multiple uncertainty quantification methods are available. We default to 'mean-pcam' ''')
     parser.add_argument('--observations',

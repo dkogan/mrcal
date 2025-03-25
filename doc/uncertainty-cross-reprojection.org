@@ -7,7 +7,7 @@ pixel $\vec q$ as the optimization vector $\vec b$ moves around.
 
 The "cross-reprojection" method of computing this function is described here,
 and is the recommended method as of mrcal 3.0. This method is accessible by
-calling [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty(method = "cross-reprojection--rrp-Jfp")=]],
+calling [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty(method = "cross-reprojection-rrp-Jfp")=]],
 or omitting the =method= argument entirely, since this method is now the default.
 
 The logic described here is validated thoroughly in

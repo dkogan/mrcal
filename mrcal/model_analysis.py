@@ -1250,7 +1250,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
 
 
 
-    elif method == 'cross-reprojection--rrp-Jfp':
+    elif method == 'cross-reprojection-rrp-Jfp':
         raise Exception("Not implemented yet")
         _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
                                                  p_ref,
@@ -1388,7 +1388,7 @@ else:                    we return an array of shape (...)
 
     known_methods = set(('mean-pcam',
                          'bestq',
-                         'cross-reprojection--rrp-Jfp'),)
+                         'cross-reprojection-rrp-Jfp'),)
     if method not in known_methods:
         raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
 
