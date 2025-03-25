@@ -14,6 +14,11 @@ The logic described here is validated thoroughly in
 [[https://www.github.com/dkogan/mrcal/blob/master/test/test-projection-uncertainty.py][=test/test-projection-uncertainty.py=]].
 
 * Cross-reprojection uncertainty
+** Cross-reprojection uncertainty via $T_\mathrm{rr^+}$
+:PROPERTIES:
+:CUSTOM_ID: cross-reprojection-rt-rrp
+:END:
+
 In [[file:formulation.org::#measurement-vector][the usual least squares solve using chessboards]], each point produces two
 elements (horizontal, vertical error) of the measurements vector:
 
