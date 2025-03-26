@@ -860,14 +860,23 @@ THIS FUNCTION OVERWRITES dq_db
     return Var_dq,observed_pixel_uncertainty
 
 
-def _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
-                                             p_ref,
-                                             dq_dpcam, dpcam_dpref,
-                                             Kunpacked,
-                                             *,
-                                             atinfinity):
+def _dq_db__Kunpacked_rrp(## write output here
+                          # shape (..., 2,Nstate)
+                          dq_db,
+                          ## inputs
+                          # shape (..., Ncameras_extrinsics, 3)
+                          p_ref,
+                          # shape (..., 2,3)
+                          dq_dpcam,
+                          # shape (..., Ncameras_extrinsics,3,3)
+                          dpcam_dpref,
+                          # shape (6,Nstate)
+                          Kunpacked_rrp,
+                          *,
+                          atinfinity):
 
     # atinfinity = rotation-only
+    # K is drt_ref_refperturbed/db
 
 
     # dq/db[frame_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
@@ -886,17 +895,18 @@ def _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
     # -> dpref*/dr = skew(pref)
     #    dpref*/dt = -I
     dprefp__dr_ref_refp = mrcal.skew_symmetric(p_ref)
+
     # I don't explicitly store dpref*/dt. I multiply by I implicitly
 
     dq__dr_ref_refp = nps.matmult(dq_dpref, dprefp__dr_ref_refp)
 
-    # I apply this to the whole dq_db array. Kunpacked has 0 rows for
+    # I apply this to the whole dq_db array. Kunpacked_rrp has 0 rows for
     # the unaffected state, so the columns that should be untouched will
     # be untouched
-    dq_db += nps.matmult(dq__dr_ref_refp, Kunpacked[:3,:])
+    dq_db += nps.matmult(dq__dr_ref_refp, Kunpacked_rrp[:3,:])
 
     if not atinfinity:
-        dq_db -= nps.matmult(dq_dpref,        Kunpacked[3:,:])
+        dq_db -= nps.matmult(dq_dpref,        Kunpacked_rrp[3:,:])
 
 
 def _dq_db__projection_uncertainty( # shape (...,3)
@@ -917,7 +927,8 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                                     Nstates_intrinsics,
                                     istate_extrinsics0, istate_frames0,
                                     *,
-                                    Kunpacked,
+                                    # shape (6,Nstate)
+                                    Kunpacked_rrp, # used iff method ~ "cross-reprojection..."
                                     method,
                                     atinfinity):
     r'''Helper for projection_uncertainty()
@@ -970,7 +981,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
     '''
 
 
-    if Kunpacked is not None:
+    if Kunpacked_rrp is not None:
         raise Exception("Cross-reprojection not implemented fully at this time")
 
     if not (method == 'mean-pcam' or method == 'bestq'):
@@ -1248,15 +1259,20 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                             dq_db_slice_frames[...,:3] = \
                                 dq_dframes[...,iframe,0,:,:]
 
-
-
     elif method == 'cross-reprojection-rrp-Jfp':
-        raise Exception("Not implemented yet")
-        _dq_db__cross_reprojection__rrp_Jfp__fcw(dq_db,
-                                                 p_ref,
-                                                 dq_dpcam, dpcam_dpref,
-                                                 Kunpacked,
-                                                 atinfinity = False)
+        _dq_db__Kunpacked_rrp(## write output here
+                              # shape (..., 2,Nstate)
+                              dq_db,
+                              ## inputs
+                              # shape (..., Ncameras_extrinsics, 3)
+                              p_ref,
+                              # shape (..., 2,3)
+                              dq_dpcam,
+                              # shape (..., Ncameras_extrinsics,3,3)
+                              dpcam_dpref,
+                              # shape (6,Nstate)
+                              Kunpacked_rrp,
+                              atinfinity = False)
     else:
         raise Exception(f"Unknown {method=}")
 
@@ -1294,7 +1310,7 @@ SYNOPSIS
 
     # So if we have observed a world point at pixel coordinates q, and we know
     # it's 10m out, then we know that the standard deviation of the noise of the
-    # pixel obsevation is 0.5 pixels, in the worst direction
+    # pixel observation is 0.5 pixels, in the worst direction
 
 After a camera model is computed via a calibration process, the model is
 ultimately used in projection/unprojection operations to map between 3D
@@ -1366,23 +1382,15 @@ else:                    we return an array of shape (...)
 
     '''
 
-
     # The math implemented here is documented in
     #
     #   https://mrcal.secretsauce.net/uncertainty.html
-
-
-
-
-
-
 
     # Non-None if this exists, isn't None, and has non-zero elements
     def get_input(what):
         x = optimization_inputs.get(what)
         if x is not None and x.size > 0: return x
         else:                            return None
-
 
 
 
@@ -1400,29 +1408,29 @@ else:                    we return an array of shape (...)
     if optimization_inputs is None:
         raise Exception("optimization_inputs are unavailable in this model. Uncertainty cannot be computed")
 
-    if re.match('cross-reprojection',method):
-        Kunpacked = mrcal.drt_ref_refperturbed__dbpacked(**optimization_inputs)
-        # The value was packed in the denominator. So I call pack() to unpack it
-        mrcal.pack_state(Kunpacked, **optimization_inputs)
-    else:
-        Kunpacked = None
-        if get_input('observations_point')              is not None or \
-           get_input('observations_point_triangulated') is not None:
-            raise Exception("We have point observations; only cross-reprojection uncertainty can work here")
-
     # Stuff may or may not be optimized: I get the geometry arrays regardless.
     # The istate_... variables are None if the particular quantity isn't up for
     # optimization (it is fixed)
     frames_rt_toref = get_input('frames_rt_toref')
     istate_frames0  = mrcal.state_index_frames(0, **optimization_inputs)
-    if frames_rt_toref is None:
-        raise Exception("Some frames_rt_toref must exist for the uncertainty computation, but we don't have any")
 
     # I don't need istate_points or points: in that case all the work is
     # done with Kunpacked
     if istate_frames0 is None and \
        method == 'cross-reprojection-rrp-Jfp':
         raise Exception(f"cross-reprojection-rrp-Jfp uncertainty implemented only if frames are being optimized")
+    if method == 'cross-reprojection-rrp-Jfp':
+        Kunpacked_rrp = mrcal.drt_ref_refperturbed__dbpacked(**optimization_inputs)
+        # The value was packed in the denominator. So I call pack() to unpack it
+        mrcal.pack_state(Kunpacked_rrp, **optimization_inputs)
+    else:
+        Kunpacked_rrp = None
+        if get_input('observations_point')              is not None or \
+           get_input('observations_point_triangulated') is not None:
+            raise Exception("We have point observations; only cross-reprojection uncertainty can work here")
+
+    if frames_rt_toref is None:
+        raise Exception("Some frames_rt_toref must exist for the uncertainty computation, but we don't have any")
 
     # Now the extrinsics. I look at all the ones that correspond with the
     # specific camera I care about. If the camera is stationary, this will
@@ -1488,7 +1496,7 @@ else:                    we return an array of shape (...)
                                         istate_extrinsics0, istate_frames0,
                                         atinfinity = atinfinity,
                                         method     = method,
-                                        Kunpacked  = Kunpacked)
+                                        Kunpacked_rrp = Kunpacked_rrp)
 
     # In case of bestq I compute the uncertainty Ngeometry times, and report
     # the best one. To keep things simple I use the trace metric: "best" means
