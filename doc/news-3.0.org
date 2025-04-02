@@ -57,6 +57,8 @@ inverted0,inverted1
 
 2025-02-26 mrcal_image_uint8_load(a 16-bit image) applies stretch equalization
 
+mrcal-cull-corners has --cull-rad-off-center-board
+
 * Migration notes 2.4 -> 3.0
 
 2024-12-06 compose_r(), compose_rt(), compose_Rt() have new args:

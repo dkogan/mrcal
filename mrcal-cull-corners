@@ -92,17 +92,24 @@ def parse_args():
     parser.add_argument('--cull-rad-off-center',
                         required=False,
                         type=float,
-                        help='''Throw out all observations with dist_from_center
-                        > the given value. Exclusive with the other --cull-...
-                        options. If --cull-rad-off-center is given: we require
+                        help='''Throw out all points that appear outside the
+                        given radius from the --where of the imager. Exclusive
+                        with the other --cull-... options. If given: we require
                         --imagersize or --where''')
+    parser.add_argument('--cull-rad-off-center-board',
+                        required=False,
+                        type=float,
+                        help='''Throw out all observations beyond the given
+                        radius from the center of the board. The units are
+                        "board squares". Requires --objects-width-n''')
     parser.add_argument('--cull-random-observations-ratio',
                         required=False,
                         type=float,
-                        help='''Throw out a random number of board observations. The ratio of observations is
-                        given as the argument. 1.0 = throw out ALL the
-                        observations; 0.0 = throw out NONE of the observations.
-                        Exclusive with the other --cull-... options''')
+                        help='''Throw out a random number of board observations.
+                        The ratio of observations is given as the argument. 1.0
+                        = throw out ALL the observations; 0.0 = throw out NONE
+                        of the observations. Exclusive with the other --cull-...
+                        options. Requires --objects-width-n''')
     parser.add_argument('--where',
                         type=float,
                         nargs=2,
@@ -127,6 +134,7 @@ args = parse_args()
 Nculloptions = 0
 if args.cull_left_of                   is not None: Nculloptions += 1
 if args.cull_rad_off_center            is not None: Nculloptions += 1
+if args.cull_rad_off_center_board      is not None: Nculloptions += 1
 if args.cull_random_observations_ratio is not None: Nculloptions += 1
 
 if Nculloptions != 1:
@@ -135,11 +143,12 @@ if Nculloptions != 1:
 
 if args.object_width_n is not None and args.object_height_n is None:
     args.object_height_n = args.object_width_n
-if args.cull_random_observations_ratio:
+if args.cull_random_observations_ratio or args.cull_rad_off_center_board:
     if (args.object_width_n is None or args.object_height_n is None):
-        print("--cull-random-observation-ratio requires --object-width-n and --object-height-n",
+        print("--cull-random-observation-ratio and --cull-rad-off-center-board requires --object-width-n",
               file=sys.stderr)
         sys.exit(1)
+if args.cull_random_observations_ratio:
     if args.filename is not None:
         print("--cull-random-observation-ratio is exclusive with --filename",
               file=sys.stderr)
@@ -165,7 +174,9 @@ import time
 
 print(f"## generated on {time.strftime('%Y-%m-%d %H:%M:%S')} with   {' '.join(mrcal.shellquote(s) for s in sys.argv)}")
 
-if args.cull_left_of is not None or args.cull_rad_off_center is not None:
+if args.cull_left_of              is not None or \
+   args.cull_rad_off_center       is not None or \
+   args.cull_rad_off_center_board is not None:
     # Simple file parsing.
 
     if args.filename is None:
@@ -186,6 +197,10 @@ if args.cull_left_of is not None or args.cull_rad_off_center is not None:
             c  = (dims - 1.) / 2.
             r = nps.mag(dims)/2. + args.cull_rad_off_center
 
+    if args.cull_rad_off_center_board is not None:
+        cboard = (np.array((args.object_width_n, args.object_height_n), dtype=float) - 1.) / 2.
+
+
     for l in sys.stdin:
         if re.match(r'\s*(?:##|$)',l):
             sys.stdout.write(l)
@@ -197,6 +212,9 @@ if args.cull_left_of is not None or args.cull_rad_off_center is not None:
 
         print("This tool REQUIRES a vnlog with legend matching EXACTLY '# filename x y level'. Giving up", file=sys.stderr)
         sys.exit(1)
+
+    xy_pt            = np.array((0,0), dtype=int)
+    filename_current = ''
 
     for l in sys.stdin:
         if re.match(r'\s*(?:#|$)',l):
@@ -220,6 +238,20 @@ if args.cull_left_of is not None or args.cull_rad_off_center is not None:
            nps.norm2(np.array((float(f[1]), float(f[2]))) - c) < r*r:
             sys.stdout.write(l)
             continue
+        if args.cull_rad_off_center_board is not None:
+            if filename_current != f[0]:
+                filename_current = f[0]
+                xy_pt *= 0
+
+            accept_pt = nps.norm2(xy_pt - cboard) < args.cull_rad_off_center_board*args.cull_rad_off_center_board
+
+            xy_pt[0] += 1
+            if xy_pt[0] == args.object_width_n:
+                xy_pt[0] = 0
+                xy_pt[1] += 1
+            if accept_pt:
+                sys.stdout.write(l)
+                continue
 
         # Cull the point!
         f[3] = '-'
@@ -229,7 +261,7 @@ if args.cull_left_of is not None or args.cull_rad_off_center is not None:
 
 
 
-
+# --cull-random-observation-ratio
 
 observations, _, paths = \
     mrcal.compute_chessboard_corners(W                  = args.object_width_n,
