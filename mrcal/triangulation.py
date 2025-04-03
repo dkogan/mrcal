@@ -1963,7 +1963,7 @@ Complete logic:
         Var_p_calibration_flat = \
             mrcal.model_analysis._propagate_calibration_uncertainty(
                                                'covariance',
-                                               dF_db                      = dp_triangulated_db,
+                                               dF_dbunpacked              = dp_triangulated_db,
                                                observed_pixel_uncertainty = observed_pixel_uncertainty,
                                                optimization_inputs        = optimization_inputs)
 
