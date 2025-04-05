@@ -879,8 +879,25 @@ def _dq_db__Kunpacked_rrp(## write output here
     # K is drt_ref_refperturbed/db
 
 
-    # dq/db[frame_all,calobject_warp] = dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked
+    # From https://mrcal.secretsauce.net/docs-3.0/uncertainty-cross-reprojection.html:
+    #   q*    = project( pcam*, intrinsics* )
+    #   pcam* = Tc*r* pref*
+    #   pref* = Tr*r  pref
+    #
+    # So q* depends on Tr*r, Tc*,r*, intrinsics*. The extrinsics and intrinsics
+    # dependence was handled by the caller. Here I ingest only the dependence on
+    # Tr*r
+    Ncameras_extrinsics = p_ref.shape[-2]
+    if Ncameras_extrinsics != 1:
+        raise Exception("I only handle stationary cameras for now")
+    # shape (..., 3)
+    p_ref = p_ref[...,0,:]
+    # shape (..., 3,3)
+    dpcam_dpref = dpcam_dpref[...,0,:,:]
 
+    # So
+    #   dq/db[frame_all,calobject_warp] =
+    #     dq_dpcam dpcam__dpref dpref*__drt_ref_ref* Kunpacked_rrp
     if dpcam_dpref is not None:
         dq_dpref = nps.matmult(dq_dpcam, dpcam_dpref)
     else:
@@ -979,14 +996,6 @@ def _dq_db__projection_uncertainty( # shape (...,3)
       no sum(): I instead report an array for each slice
 
     '''
-
-
-    if Kunpacked_rrp is not None:
-        raise Exception("Cross-reprojection not implemented fully at this time")
-
-    if not (method == 'mean-pcam' or method == 'bestq'):
-        raise Exception("only the mean-pcam and bestq methods implemented for now")
-
 
     # extrinsics_rt_fromref and frames_rt_toref contain poses. These are
     # available here, whether they're being optimized or not. istate_... are the
@@ -1272,7 +1281,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                               dpcam_dpref,
                               # shape (6,Nstate)
                               Kunpacked_rrp,
-                              atinfinity = False)
+                              atinfinity = atinfinity)
     else:
         raise Exception(f"Unknown {method=}")
 
@@ -1414,11 +1423,6 @@ else:                    we return an array of shape (...)
     frames_rt_toref = get_input('frames_rt_toref')
     istate_frames0  = mrcal.state_index_frames(0, **optimization_inputs)
 
-    # I don't need istate_points or points: in that case all the work is
-    # done with Kunpacked
-    if istate_frames0 is None and \
-       method == 'cross-reprojection-rrp-Jfp':
-        raise Exception(f"cross-reprojection-rrp-Jfp uncertainty implemented only if frames are being optimized")
     if method == 'cross-reprojection-rrp-Jfp':
         Kunpacked_rrp = mrcal.drt_ref_refperturbed__dbpacked(**optimization_inputs)
         # The value was packed in the denominator. So I call pack() to unpack it
