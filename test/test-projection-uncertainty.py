@@ -1071,7 +1071,6 @@ The logic here is described thoroughly in
     if istate_calobject_warp0 is not None:
         slice_state_calobject_warp    = slice(istate_calobject_warp0,    istate_calobject_warp0       + Nstates_calobject_warp   )
 
-
     every_observation_has_extrinsics =                                  \
         baseline_optimization_inputs['do_optimize_extrinsics']      and \
         Nstates_extrinsics > 0                                      and \
@@ -1152,8 +1151,6 @@ The logic here is described thoroughly in
     else:
         slice_state_extrinsics = None
 
-
-
     if re.search('Je$', mode) and not every_observation_has_extrinsics:
         raise Exception(f"User asked for '{args.reproject_perturbed}', but Je is not available: not every observation has an extrinsics vector")
 
@@ -1198,7 +1195,6 @@ The logic here is described thoroughly in
                             J_observations.data,
                             W_delta_qref,
                             out = Jt_W_qref)
-
 
     def get_rt_ref_refperturbed():
 
@@ -2184,8 +2180,6 @@ The rt_refperturbed_ref formulation:
 
     # shape (Nsamples,6)
     rt_ref_refperturbed = get_rt_ref_refperturbed()
-
-
 
     # check the math around computing rt_ref_refperturbed
     if 1:
