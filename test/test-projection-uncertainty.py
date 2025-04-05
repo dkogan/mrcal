@@ -1216,6 +1216,7 @@ The logic here is described thoroughly in
             rt012,drt012_drt1 = compose_rt3_withgrad_drt1(rt0,rt1,rt2)
             pp, dpp_drt012, dpp_dp = mrcal.transform_point_rt(rt012, p, get_gradients = True)
             dpp_drt1 = nps.matmult(dpp_drt012, drt012_drt1)
+            del dpp_dp,dpp_drt012 # I'm running out of memory. Let's free stuff when we can
             return pp, dpp_drt1
 
         def transform_point_identity_gradient(p):
@@ -1281,6 +1282,8 @@ The logic here is described thoroughly in
                                          get_gradients=True)
             if nps.norm2((dprot_drt-dprot_drt_reference).ravel()) > 1e-10:
                 raise Exception("transform_point_identity_gradient() is computing the wrong thing. This is a bug")
+
+            del dprot_drt_reference,_ # I'm running out of memory; free stuff when I can
 
             return dprot_drt
 
@@ -1355,6 +1358,9 @@ noise, and reoptimizing'''
                         dx_dpcam[...,weight[what]<=0,:,:] = 0 # outliers
                         dx_drt_ref_refperturbed = nps.matmult(dx_dpcam, dpcam_drt_ref_refperturbed[what])
 
+                        del qcross,dq_dpcam,_ # I'm running out of memory; free stuff when I can
+
+
 
                         if what == 'board':
                             # shape (Nsamples,Nmeas_observations_all,Nh,Nw,2,6) ->
@@ -1372,6 +1378,7 @@ noise, and reoptimizing'''
                                        -2, -1)
                         else:
                             raise Exception(f"Unknown what={what}")
+                        del dx_drt_ref_refperturbed # I'm running out of memory. Let's free stuff when we can
 
                     else:
                         # The operating point as T_ref*_ref = identity:
@@ -1413,6 +1420,9 @@ noise, and reoptimizing'''
                         dx_dpcamperturbed = dq_dpcamperturbed*nps.dummy(weight[what],-1,-1)
                         dx_dpcamperturbed[...,weight[what]<=0,:,:] = 0 # outliers
                         dx_drt_ref_refperturbed = nps.matmult(dx_dpcamperturbed, dpcamperturbed_drt_refperturbed_ref[what])
+
+                        del qcross,dq_dpcamperturbed,_ # I'm running out of memory; free stuff when I can
+
                         if what == 'board':
                             # shape (...,Nmeas_observations_all,Nh,Nw,2,6) ->
                             #       (...,Nmeas_observations_all*Nh*Nw*2,6) ->
@@ -1429,6 +1439,7 @@ noise, and reoptimizing'''
                                        -2, -1)
                         else:
                             raise Exception(f"Unknown what={what}")
+                        del dx_drt_ref_refperturbed # I'm running out of memory. Let's free stuff when we can
 
             return x_cross0 - x_baseline[imeas0_observations_all:imeas0_observations_all+Nmeas_observations_all], J_cross
 
@@ -1683,6 +1694,8 @@ The rt_refperturbed_ref formulation:
                         IPython.embed()
                         sys.exit()
 
+                    del Jpacked_fpcw # I'm running out of memory. Let's free stuff when we can
+
 
 
 
@@ -1796,6 +1809,7 @@ The rt_refperturbed_ref formulation:
                 get_cross_operating_point(pcam,
                                           dpcam_drt_ref_refperturbed,
                                           direction = 'rt_ref_refperturbed')
+            del pcam,dpcam_drt_ref_refperturbed
 
             ###########
 
@@ -1818,6 +1832,7 @@ The rt_refperturbed_ref formulation:
                 get_cross_operating_point(pcamperturbed,
                                           dpcamperturbed_drt_refperturbed_ref,
                                           direction = 'rt_refperturbed_ref')
+            del pcamperturbed,dpcamperturbed_drt_refperturbed_ref
 
         if 1:
             method = 'transform-grad'
@@ -1841,6 +1856,7 @@ The rt_refperturbed_ref formulation:
                                              get_gradients = True)
                 dpcam_drt_ref_refperturbed['board'] = \
                     nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
+                del dpref_drt_ref_refperturbed,dpcam_dpref,_ # I'm running out of memory; free stuff when I can
 
             if have_state['point']:
                 # shape (..., Nmeas_observations_all,3),
@@ -1855,12 +1871,14 @@ The rt_refperturbed_ref formulation:
                                              get_gradients = True)
                 dpcam_drt_ref_refperturbed['point'] = \
                     nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
+                del dpref_drt_ref_refperturbed,dpcam_dpref,_ # I'm running out of memory; free stuff when I can
 
             dxcross_Jcross['rt_ref_refperturbed'][method] = \
                 get_cross_operating_point(pcam,
                                           dpcam_drt_ref_refperturbed,
                                           direction = 'rt_ref_refperturbed')
 
+            del pcam,prefperturbed,dpcam_drt_ref_refperturbed
             ###########
 
             pcamperturbed                       = dict()
@@ -1877,6 +1895,7 @@ The rt_refperturbed_ref formulation:
                 dpcamperturbed_drt_refperturbed_ref['board'] = \
                     nps.matmult(dpcamperturbed_dprefperturbed,
                                 dprefperturbed_drt_refperturbed_ref)
+                del dprefperturbed_drt_refperturbed_ref,dpcamperturbed_dprefperturbed,_ # I'm running out of memory; free stuff when I can
 
             if have_state['point']:
                 dprefperturbed_drt_refperturbed_ref = transform_point_identity_gradient(pref['point'])
@@ -1889,11 +1908,13 @@ The rt_refperturbed_ref formulation:
                 dpcamperturbed_drt_refperturbed_ref['point'] = \
                     nps.matmult(dpcamperturbed_dprefperturbed,
                                 dprefperturbed_drt_refperturbed_ref)
+                del dprefperturbed_drt_refperturbed_ref,dpcamperturbed_dprefperturbed,_ # I'm running out of memory; free stuff when I can
 
             dxcross_Jcross['rt_refperturbed_ref'][method] = \
                 get_cross_operating_point(pcamperturbed,
                                           dpcamperturbed_drt_refperturbed_ref,
                                           direction = 'rt_refperturbed_ref')
+            del pcamperturbed, dpcamperturbed_drt_refperturbed_ref
 
         if 1:
             method = 'linearization'
@@ -1911,6 +1932,8 @@ The rt_refperturbed_ref formulation:
             if have_state['point']: scale_points = b[istate_point0 :istate_point0 +3]
             else:                   scale_points = None
 
+            del b
+
             # a (2,3) array indexed as
             # (rt_ref_refperturbed,rt_refperturbed_ref),(Jextrinsics,Jframes,x).
             rrp_rpr__xcross__Jcross_e__Jcross_fp = np.empty( (args.Nsamples,2,3), dtype=object)
@@ -1921,6 +1944,7 @@ The rt_refperturbed_ref formulation:
                                                       scale_frames,
                                                       scale_points,
                                                       out = rrp_rpr__xcross__Jcross_e__Jcross_fp)
+            del scale_frames, scale_points
 
             if every_observation_has_extrinsics:
                 dxcross_Jcross['rt_ref_refperturbed'][f"{method}-Je"] = \
@@ -1936,7 +1960,7 @@ The rt_refperturbed_ref formulation:
                 np.array(tuple(rrp_rpr__xcross__Jcross_e__Jcross_fp[:,1,0])), \
                 np.array(tuple(rrp_rpr__xcross__Jcross_e__Jcross_fp[:,1,2]))
 
-
+            del rrp_rpr__xcross__Jcross_e__Jcross_fp
 
 
         @nps.broadcast_define((('N',6),('N',)), (6,))
@@ -2021,6 +2045,8 @@ The rt_refperturbed_ref formulation:
             gp.plot( nps.cat(np.ravel(dxcross_Jcross[direction]['compose-grad'     ][1][0,:1000,3:]),
                              np.ravel(dxcross_Jcross[direction]['linearization-Jfp'][1][0,:1000,3:])),
                      wait = True)
+
+        del dxcross_Jcross
 
         # Done. Let's pick one of the estimates to return to the outside. The
         # "mode" tells us which one
