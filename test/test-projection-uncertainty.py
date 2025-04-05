@@ -1037,7 +1037,7 @@ The logic here is described thoroughly in
     if query_optimization_inputs is None:
         return None
 
-    mode = re.match('cross-reprojection--(.+)', args.reproject_perturbed).group(1)
+    mode = re.match('cross-reprojection-(.+)', args.reproject_perturbed).group(1)
 
     b_baseline_unpacked, x_baseline, J_packed_baseline, factorization = \
         mrcal.optimizer_callback(**baseline_optimization_inputs)
