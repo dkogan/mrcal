@@ -1001,10 +1001,16 @@ def _dq_db__projection_uncertainty( # shape (...,3)
         if get_input('observations_point')              is not None or \
            get_input('observations_point_triangulated') is not None:
             raise Exception("We have point observations; only cross-reprojection uncertainty can work here")
+        if frames_rt_toref is None:
+            raise Exception("Some frames_rt_toref must exist for the no-cross-reprojection uncertainty computation, but we don't have any")
+
 
     # extrinsics_rt_fromref and frames_rt_toref contain poses. These are
     # available here, whether they're being optimized or not. istate_... are the
     # state variables. These may be None if the quantity in question is fixed.
+
+    if extrinsics_rt_fromref is None: extrinsics_rt_fromref = np.zeros((0,6), dtype=float)
+    if frames_rt_toref       is None: frames_rt_toref       = np.zeros((0,6), dtype=float)
 
     # shape (Ncameras_extrinsics,6) where Ncameras_extrinsics may be 1
     extrinsics_rt_fromref = nps.atleast_dims(extrinsics_rt_fromref, -2)
@@ -1434,8 +1440,6 @@ else:                    we return an array of shape (...)
         mrcal.pack_state(Kunpacked_rrp, **optimization_inputs)
     else:
         Kunpacked_rrp = None
-    if frames_rt_toref is None:
-        raise Exception("Some frames_rt_toref must exist for the uncertainty computation, but we don't have any")
 
     # Now the extrinsics. I look at all the ones that correspond with the
     # specific camera I care about. If the camera is stationary, this will
@@ -1443,7 +1447,12 @@ else:                    we return an array of shape (...)
     # more than one. At this time I limit to myself to a consecutive block of
     # extrinsics vectors. Once this all works I can relax that requirement
     ifcice = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
-    icam_extrinsics = np.unique( ifcice[ifcice[:,1] == icam_intrinsics, 2] ) # sorted
+    if ifcice is None: ifcice = np.zeros((0,3),dtype=np.int32)
+    ipcice = optimization_inputs['indices_point_camintrinsics_camextrinsics']
+    if ipcice is None: ipcice = np.zeros((0,3),dtype=np.int32)
+    icice = nps.glue(ifcice[:,1:], ipcice[:,1:], axis=-2)
+
+    icam_extrinsics = np.unique( icice[icice[:,0] == icam_intrinsics, 1] ) # sorted
     if icam_extrinsics.size == 0:
         raise Exception(f"No extrinsics corresponding to {icam_intrinsics=}. I don't know what to do")
     if icam_extrinsics.size > 1:
