@@ -55,9 +55,17 @@ def parse_args():
                         especially, at near ranges. This is passed directly to
                         mrcal.match_feature(). We default to 20 pixels''')
     parser.add_argument('--correspondences',
-                        help='''Start with the given correspondences vnl.
+                        help='''Start with the given correspondences vnl. If
+                        omitted, we don't start with any features at all.
                         Assumed 4 columns: x0 y0 x1 y1''')
-
+    parser.add_argument('--rt01',
+                        help='''We always leave the extrinsics of camera0, and
+                        move camera1, as dictated by the solve; we leave the
+                        baseline the same if the solve is unique up-to-scale
+                        only. By default we start with the geometry given by the
+                        models. If --rt01 is given, we use this relative initial
+                        geometry instead. This is a comma-separated list of 6
+                        numbers''')
 
     parser.add_argument('models',
                         type=str,
@@ -1005,8 +1013,19 @@ class Fl_Table_Derived(Fl_Table_Row):
 
 models = [mrcal.cameramodel(m) for m in args.models]
 
-models[0].extrinsics_rt_toref(np.array((0,0,0, 0,0,0), dtype=float))
-models[1].extrinsics_rt_toref(np.array((0,0,0,-1,0,0), dtype=float))
+
+if args.rt01 is not None:
+    try:
+        rt01 = np.array([float(d) for d in args.rt01.split(',')])
+    except:
+        print("--rt01 must be a comma-separated list of 6 numbers; couldn't parse as numbers into an array", file=sys.stderr)
+        sys.exit(1)
+    if rt01.shape != (6,):
+        print("--rt01 must be a comma-separated list of 6 numbers; incorrect number of values given", file=sys.stderr)
+        sys.exit(1)
+
+    models[1].extrinsics_rt_toref( mrcal.compose_rt(models[0].extrinsics_rt_toref(),
+                                                    rt01) )
 
 # To make it possible to concisely print out the models
 for m in models:
