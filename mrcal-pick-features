@@ -28,7 +28,6 @@ def parse_args():
                         help='''If given, apply CLAHE equalization to the images
                         prior to the stereo matching''')
 
-    ######## stereo processing
     parser.add_argument('--valid-intrinsics-region',
                         action='store_true',
                         help='''If given, annotate the image with its
