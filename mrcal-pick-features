@@ -1016,7 +1016,6 @@ models[1].extrinsics_rt_toref(np.array((0,0,0,-1,0,0), dtype=float))
 # To make it possible to concisely print out the models
 for m in models:
     m.optimization_inputs_reset()
-    m.valid_intrinsics_region( (), )
 
 W,H = models[0].imagersize()
 
@@ -1037,6 +1036,9 @@ if args.valid_intrinsics_region:
     for i in range(2):
         mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
 
+# To make it possible to concisely print out the models
+for m in models:
+    m.valid_intrinsics_region( (), )
 
 UI_usage_message = r'''Usage:
 
