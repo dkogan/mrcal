@@ -1729,7 +1729,7 @@ If this is a getter (no arguments given), returns a numpy array of shape
             return np.array(self._valid_intrinsics_region, dtype=float)
 
         # setter
-        if valid_intrinsics_region is None:
+        if len(valid_intrinsics_region) == 0:
             self._valid_intrinsics_region = None
             return True
 
