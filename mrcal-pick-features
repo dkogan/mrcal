@@ -99,14 +99,8 @@ def get_q01_nominal(*,
     i_to       = 1-index
 
 
-    if index == 0:
-        Rt_to_from = \
-            mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
-                              models[0].extrinsics_Rt_toref() )
-    else:
-        Rt_to_from = \
-            mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                              models[1].extrinsics_Rt_toref() )
+    if index == 0: Rt_to_from = mrcal.invert_Rt(context['Rt01'])
+    else:          Rt_to_from = context['Rt01']
 
     v_from = mrcal.unproject(q, *models[i_from].intrinsics(),
                         normalize = True)
@@ -560,9 +554,6 @@ and solve_Rt10_from_R01.
 
 def update_p0_triangulated_stored():
     global context
-    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                             models[1].extrinsics_Rt_toref() )
-
 
     q0 = context['q01_stored'][...,0,:]
     q1 = context['q01_stored'][...,1,:]
@@ -571,7 +562,7 @@ def update_p0_triangulated_stored():
     context['p0_triangulated_stored'] = \
         mrcal.triangulate_geometric(v0, v1,
                                     v_are_local = True,
-                                    Rt01        = Rt01 )
+                                    Rt01        = context['Rt01'] )
 
 def update_q01_stored(_q01_stored):
     global context
@@ -647,8 +638,7 @@ def set_all_overlay_lines_and_redraw():
 
     Nstored = len(context['q01_stored'])
 
-    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                             models[1].extrinsics_Rt_toref() )
+    Rt01 = context['Rt01']
     baseline = nps.mag(Rt01[3,:])
 
 
@@ -728,17 +718,22 @@ def widget_table_callback(*args):
         set_all_overlay_lines_and_redraw()
 
 def widget_solve_callback(*args):
+    global context
+
     try:
         Rt01, mask_inliers = \
             solve_Rt10(context['q01_stored'],
                        *[m.intrinsics() for m in models],
                        solve_R10           = solve_R01__optimize,
-                       t01_fixed           = models[1].extrinsics_rt_toref()[3:])
+                       t01_fixed           = context['Rt01'][3,:])
     except Exception as e:
         widget_info.value(UI_usage_message + "\n" + \
                           f"Solve failed: {e}")
         return
 
+    # Store the new transform. The model0 extrinsics are untouched, but I move
+    # model1
+    context['Rt01'] = Rt01
     Rtr0 = models[0].extrinsics_Rt_toref()
     Rtr1 = mrcal.compose_Rt(Rtr0, Rt01)
     models[1].extrinsics_Rt_toref(Rtr1)
@@ -1060,7 +1055,10 @@ context = dict( # shape (N, Nimages = 2,xy=2)
                 q01_stored = np.zeros((0,2,2), dtype=float),
 
                 # shape (N, xy=2)
-                p0_triangulated_stored = np.zeros((0,2), dtype=float) )
+                p0_triangulated_stored = np.zeros((0,2), dtype=float),
+
+                Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
+                                         models[1].extrinsics_Rt_toref() ) )
 
 if args.correspondences is not None:
     try:
