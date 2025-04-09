@@ -421,11 +421,11 @@ See the docstring for t01_from_R01__geometric()
     N_divergent_t    = np.count_nonzero( mask_divergent_t )
     N_divergent_negt = np.count_nonzero( mask_divergent_negt )
 
-
-
-
-
-
+    if False:
+        # Epipolar plane normals. Should be planar, if R01 is right
+        n = np.cross(v0,mrcal.rotate_point_R(R01,v1))
+        l,vv = mrcal.sorted_eig(nps.matmult(n.T,n))
+        print(f"epipolar normal t,mine: {vv[:,0]=} {t01=}")
 
     if N_divergent_t < N_divergent_negt:
         return ( nps.glue(R01, t01, axis=-2),
