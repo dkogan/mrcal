@@ -513,7 +513,8 @@ def solve_Rt10(# shape (N,Nleftright=2,Nxy=2)
                solve_R10           = solve_R01__kneip,
                solve_Rt10_from_R01 = solve_Rt01_given_R01__geometric,
                # cookie
-               t01_fixed = None):
+               t01_fixed     = None,
+               baseline_want = None):
     r'''Full-transform optimization
 
 Given corresponding feature observations from two cameras we compute the
@@ -555,6 +556,10 @@ and solve_Rt10_from_R01.
             break
 
         mask_inliers[np.nonzero(mask_inliers)[0][mask_outlier]] = False
+
+    if baseline_want is not None:
+        baseline_have = nps.mag(Rt01[3,:])
+        Rt01[3,:] *= baseline_want/baseline_have
 
     return \
         Rt01, \
