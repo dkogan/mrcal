@@ -724,15 +724,16 @@ def write_output_all(args,
 
     H,W = images[0].shape[:2]
 
-    q_cam0_integer = (q_cam0 + 0.5).astype(int)
-
+    # I threshold the floating-point value because it might be larger than
+    # MAXINT, which would cause astype(int) to produce an ugly warning
     i = \
-        (q_cam0_integer[:,0] >= 0) * \
-        (q_cam0_integer[:,1] >= 0) * \
-        (q_cam0_integer[:,0] <  W) * \
-        (q_cam0_integer[:,1] <  H)
+        (q_cam0[:,0] > -0.5) * \
+        (q_cam0[:,1] > -0.5) * \
+        (q_cam0[:,0] <  W-0.5) * \
+        (q_cam0[:,1] <  H-0.5)
+
     p_ref          = p_ref[i]
-    q_cam0_integer = q_cam0_integer[i]
+    q_cam0_integer = (q_cam0[i] + 0.5).astype(int)
 
     image0 = images[0]
     if len(image0.shape) == 2 and args.force_grayscale:
