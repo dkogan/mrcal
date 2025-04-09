@@ -762,6 +762,8 @@ def widget_write_callback(*args):
                fmt = '%.2f',
                header = "x0 y0 x1 y1")
 
+    for m in models: m.write(sys.stdout)
+
 
 class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
@@ -1010,6 +1012,9 @@ models = [mrcal.cameramodel(m) for m in args.models]
 
 models[0].extrinsics_rt_toref(np.array((0,0,0, 0,0,0), dtype=float))
 models[1].extrinsics_rt_toref(np.array((0,0,0,-1,0,0), dtype=float))
+
+# To make it possible to concisely print out the models
+for m in models: m.optimization_inputs_reset()
 
 W,H = models[0].imagersize()
 
