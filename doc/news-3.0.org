@@ -59,6 +59,8 @@ inverted0,inverted1
 
 mrcal-cull-corners has --cull-rad-off-center-board
 
+Added mrcal.cameramodel.optimization_inputs_reset()
+
 * Migration notes 2.4 -> 3.0
 
 2024-12-06 compose_r(), compose_rt(), compose_Rt() have new args:

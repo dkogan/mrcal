@@ -1777,6 +1777,29 @@ The optimization_inputs dict, or None if one isn't stored in this model.
         return x
 
 
+    def optimization_inputs_reset(self):
+        r'''Reset the original optimization inputs
+
+SYNOPSIS
+
+    model.optimization_inputs_reset()
+
+    print(model.optimization_inputs() is None)
+    ----> True
+
+Clears out the optimization inputs stored in the model
+
+ARGUMENTS
+
+None
+
+RETURNED VALUE
+
+None
+        '''
+        self._optimization_inputs_string = None
+
+
     def _optimization_inputs_match(self, other_model):
         if self.       _optimization_inputs_string is None:
             if other_model._optimization_inputs_string is None:
