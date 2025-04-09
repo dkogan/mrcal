@@ -54,6 +54,10 @@ def parse_args():
                         should be larger if the nominal range estimate is poor,
                         especially, at near ranges. This is passed directly to
                         mrcal.match_feature(). We default to 20 pixels''')
+    parser.add_argument('--correspondences',
+                        help='''Start with the given correspondences vnl.
+                        Assumed 4 columns: x0 y0 x1 y1''')
+
 
     parser.add_argument('models',
                         type=str,
@@ -1048,6 +1052,21 @@ context = dict( # shape (N, Nimages = 2,xy=2)
 
                 # shape (N, xy=2)
                 p0_triangulated_stored = np.zeros((0,2), dtype=float) )
+
+if args.correspondences is not None:
+    try:
+        context['q01_stored'] = np.loadtxt(args.correspondences)
+    except:
+        print(f"--correspondences expects a text table with columns 'x0 y0 x1 y1'; couldn't load text table from '{args.correspondences}'", file=sys.stderr)
+        sys.exit(1)
+
+    context['q01_stored'] = nps.atleast_dims(context['q01_stored'],
+                                             -2)
+    N = len(context['q01_stored'])
+    if context['q01_stored'].shape[-1] != 4:
+        print(f"--correspondences expects a text table with columns 'x0 y0 x1 y1'; text table from '{args.correspondences}' has !=4 columns", file=sys.stderr)
+        sys.exit(1)
+    update_q01_stored(context['q01_stored'].reshape((N,2,2),))
 
 
 
