@@ -55,13 +55,6 @@ def parse_args():
                         should be larger if the nominal range estimate is poor,
                         especially, at near ranges. This is passed directly to
                         mrcal.match_feature(). We default to 20 pixels''')
-    parser.add_argument('--single-buffered',
-                        action='store_true',
-                        help='''By default the image display is double-buffered
-                        to avoid flickering. Some graphics hardare (in
-                        particular my i915-based laptop) doesn't work right in
-                        this mode, so --single-buffered is available to disable
-                        double-buffering as a work around''')
 
     parser.add_argument('models',
                         type=str,
@@ -1076,12 +1069,10 @@ body   = Fl_Group(0,0,
 y = 0
 widgets_image = (Fl_Gl_Image_Widget_Derived(0,    y,
                                             WINDOW_W//2,IMAGES_H,
-                                            index = 0,
-                                            double_buffered = not args.single_buffered),
+                                            index = 0),
                  Fl_Gl_Image_Widget_Derived(WINDOW_W//2,  y,
                                             WINDOW_W//2,IMAGES_H,
-                                            index = 1,
-                                            double_buffered = not args.single_buffered))
+                                            index = 1))
 y += IMAGES_H
 
 

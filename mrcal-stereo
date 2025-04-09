@@ -307,14 +307,6 @@ def parse_args():
                         help='''Used if --viz geometry. Extra 'unset'
                         directives to pass to gnuplotlib. May be given multiple
                         times''')
-    parser.add_argument('--single-buffered',
-                        action='store_true',
-                        help='''By default the image display is double-buffered
-                        to avoid flickering. Some graphics hardare (in
-                        particular my i915-based laptop) doesn't work right in
-                        this mode, so --single-buffered is available to disable
-                        double-buffering as a work around''')
-
 
     ######## stereo processing
     parser.add_argument('--force', '-f',
@@ -1268,12 +1260,9 @@ def gui_stereo(images,
 
 
     window        = Fl_Window(800, 600, "mrcal-stereo")
-    widget_image0 = Fl_Gl_Image_Widget_Derived(   0,    0,        400,300,
-                                               double_buffered = not args.single_buffered)
-    widget_image1 = Fl_Gl_Image_Widget_Derived(   0,  300,        400,300,
-                                               double_buffered = not args.single_buffered)
-    widget_result = Fl_Gl_Image_Widget_Derived(   400,  0,        400,300,
-                                               double_buffered = not args.single_buffered)
+    widget_image0 = Fl_Gl_Image_Widget_Derived(   0,    0,        400,300)
+    widget_image1 = Fl_Gl_Image_Widget_Derived(   0,  300,        400,300)
+    widget_result = Fl_Gl_Image_Widget_Derived(   400,  0,        400,300)
 
     group_status     = Fl_Group(                     400,300,        400,300)
     widget_status    = Fl_Multiline_Output_pass_keys(400,300,        400,300-30)
