@@ -1014,7 +1014,9 @@ models[0].extrinsics_rt_toref(np.array((0,0,0, 0,0,0), dtype=float))
 models[1].extrinsics_rt_toref(np.array((0,0,0,-1,0,0), dtype=float))
 
 # To make it possible to concisely print out the models
-for m in models: m.optimization_inputs_reset()
+for m in models:
+    m.optimization_inputs_reset()
+    m.valid_intrinsics_region( (), )
 
 W,H = models[0].imagersize()
 
