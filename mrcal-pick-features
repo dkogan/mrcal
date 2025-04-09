@@ -563,24 +563,24 @@ and solve_Rt10_from_R01.
         mask_inliers
 
 def update_p0_triangulated_stored():
-    global p0_triangulated_stored
+    global context
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
 
 
-    q0 = q01_stored[...,0,:]
-    q1 = q01_stored[...,1,:]
+    q0 = context['q01_stored'][...,0,:]
+    q1 = context['q01_stored'][...,1,:]
     v0 = mrcal.unproject(q0, *models[0].intrinsics(), normalize = True)
     v1 = mrcal.unproject(q1, *models[1].intrinsics(), normalize = True)
-    p0_triangulated_stored = \
+    context['p0_triangulated_stored'] = \
         mrcal.triangulate_geometric(v0, v1,
                                     v_are_local = True,
                                     Rt01        = Rt01 )
 
 def update_q01_stored(_q01_stored):
-    global q01_stored
+    global context
 
-    q01_stored = _q01_stored
+    context['q01_stored'] = _q01_stored
     update_p0_triangulated_stored()
 
 
@@ -649,7 +649,7 @@ def set_all_overlay_lines_and_redraw():
     point_radius_selected = 11
     point_color_selected  = np.array((0,0,1), dtype=np.float32)
 
-    Nstored = len(q01_stored)
+    Nstored = len(context['q01_stored'])
 
     Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
                              models[1].extrinsics_Rt_toref() )
@@ -667,9 +667,9 @@ def set_all_overlay_lines_and_redraw():
     for w in widgets_image:
 
         lines_stored = \
-            dict(points    = nps.glue( line_segments_squares(q01_stored[:, w.index,:],
+            dict(points    = nps.glue( line_segments_squares(context['q01_stored'][:, w.index,:],
                                                              (point_radius_stored,)),
-                                       line_segments_crosshairs(q01_stored[:, w.index,:],
+                                       line_segments_crosshairs(context['q01_stored'][:, w.index,:],
                                                                 crosshair_radius),
                                        axis = -3 ),
                  color_rgb = point_color_stored )
@@ -677,8 +677,8 @@ def set_all_overlay_lines_and_redraw():
         if len(iselected):
 
             # shape (Nselected, 2)
-            q_stored       = q01_stored[iselected,   w.index,:]
-            q_stored_other = q01_stored[iselected, 1-w.index,:]
+            q_stored       = context['q01_stored'][iselected,   w.index,:]
+            q_stored_other = context['q01_stored'][iselected, 1-w.index,:]
 
             # shape (Nranges, Nselected, 3)
             p = mrcal.unproject(q_stored_other, *models[1-w.index].intrinsics(),
@@ -734,7 +734,7 @@ def widget_table_callback(*args):
 def widget_solve_callback(*args):
     try:
         Rt01, mask_inliers = \
-            solve_Rt10(q01_stored,
+            solve_Rt10(context['q01_stored'],
                        *[m.intrinsics() for m in models],
                        solve_R10           = solve_R01__optimize,
                        t01_fixed           = models[1].extrinsics_rt_toref()[3:])
@@ -752,7 +752,7 @@ def widget_solve_callback(*args):
     widget_table.redraw()
     set_all_overlay_lines_and_redraw()
 
-    N = len(q01_stored)
+    N = len(context['q01_stored'])
     Noutliers = N-np.count_nonzero(mask_inliers)
     widget_info.value(UI_usage_message + "\n" + \
                       f"Extrinsics of model1 updated: {Noutliers}/{N} outliers\n" + \
@@ -761,7 +761,7 @@ def widget_solve_callback(*args):
 
 def widget_write_callback(*args):
     np.savetxt(sys.stdout,
-               nps.clump(q01_stored[:,:4],
+               nps.clump(context['q01_stored'][:,:4],
                          n = -2),
                fmt = '%.2f',
                header = "x0 y0 x1 y1")
@@ -843,11 +843,11 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
         q01[index_other] = q_other
 
-        update_q01_stored(nps.glue( q01_stored,
+        update_q01_stored(nps.glue( context['q01_stored'],
                                     q01,
                                     axis=-3))
 
-        Nstored = len(q01_stored)
+        Nstored = len(context['q01_stored'])
         widget_table.rows( Nstored )
         widget_table.select_all_rows(0) # deselect all
         widget_table.select_row(Nstored-1)
@@ -887,11 +887,11 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             if Fl.event_button() == FL_LEFT_MOUSE:
                 if not self.dragged:
                     # Clicked. Select the nearest feature
-                    if len(q01_stored) > 0:
+                    if len(context['q01_stored']) > 0:
                         qwidget = np.array((Fl.event_x(),Fl.event_y()),
                                            dtype=int)
                         qwidget_stored = \
-                            np.array([self.map_pixel_viewport_from_image(q) for q in q01_stored[:,self.index,:]])
+                            np.array([self.map_pixel_viewport_from_image(q) for q in context['q01_stored'][:,self.index,:]])
                         # within 10 pixels in the UI
                         i = np.nonzero(nps.norm2(qwidget - qwidget_stored) < 10*10)[0]
                         if len(i) < 1:
@@ -918,8 +918,8 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             if Fl.event_key() == fltk.FL_Delete:
                 i_keep = tuple(i for i in range(widget_table.rows()) \
                                if not widget_table.row_selected(i))
-                update_q01_stored(q01_stored[i_keep, ...])
-                widget_table.rows(len(q01_stored))
+                update_q01_stored(context['q01_stored'][i_keep, ...])
+                widget_table.rows(len(context['q01_stored']))
                 widget_table.select_all_rows(0) # deselect all
                 set_all_overlay_lines_and_redraw()
                 widget_info.value(UI_usage_message + "\n" + \
@@ -944,7 +944,7 @@ class Fl_Table_Derived(Fl_Table_Row):
               "Cam0 triangulated reprojection error", ]
 
         self.type(fltk.Fl_Table_Row.SELECT_MULTI)
-        self.rows(len(q01_stored))
+        self.rows(len(context['q01_stored']))
         self.cols(len(self.col_labels))
         self.col_header(1)
         self.col_resize(1)
@@ -954,13 +954,13 @@ class Fl_Table_Derived(Fl_Table_Row):
 
         self.end()
 
-    def draw_cell(self, context, row, col, x, y, w, h):
+    def draw_cell(self, context_table, row, col, x, y, w, h):
 
-        if context == self.CONTEXT_STARTPAGE:
+        if context_table == self.CONTEXT_STARTPAGE:
             fl_font(FL_HELVETICA, 12)
             return
 
-        if context == self.CONTEXT_COL_HEADER:
+        if context_table == self.CONTEXT_COL_HEADER:
             text = self.col_labels[col]
 
             fl_push_clip(x, y, w, h)
@@ -970,13 +970,13 @@ class Fl_Table_Derived(Fl_Table_Row):
             fl_pop_clip()
             return
 
-        if context == self.CONTEXT_CELL:
+        if context_table == self.CONTEXT_CELL:
             if col < 4:
                 iimage = col // 2
                 ixy    = col %  2
-                text = f"{q01_stored[row,iimage,ixy]:.2f}"
+                text = f"{context['q01_stored'][row,iimage,ixy]:.2f}"
             else:
-                p = p0_triangulated_stored[row]
+                p = context['p0_triangulated_stored'][row]
                 if nps.norm2(p) == 0:
                     # Divergent feature. No triangulated anything available
                     text = '-'
@@ -988,7 +988,7 @@ class Fl_Table_Derived(Fl_Table_Row):
                         # reprojection error
                         icam = 0
                         q    = mrcal.project(p, *models[icam].intrinsics())
-                        text = f"{nps.mag(q01_stored[row,icam] - q):.1f}"
+                        text = f"{nps.mag(context['q01_stored'][row,icam] - q):.1f}"
 
             fl_push_clip(x, y, w, h)
             # background color
@@ -1051,11 +1051,11 @@ Delete: delete selected feature(s)
 
 ## these two arrays correspond to each other. If you update one, do update the
 ## other
-# shape (N, Nimages = 2,xy=2)
-q01_stored = np.zeros((0,2,2), dtype=float)
-# shape (N, xy=2)
-p0_triangulated_stored = np.zeros((0,2), dtype=float)
+context = dict( # shape (N, Nimages = 2,xy=2)
+                q01_stored = np.zeros((0,2,2), dtype=float),
 
+                # shape (N, xy=2)
+                p0_triangulated_stored = np.zeros((0,2), dtype=float) )
 
 
 
@@ -1125,7 +1125,7 @@ for i in range(2):
       update_image(decimation_level = 0,
                    image_data       = images[i])
 
-if len(q01_stored):
+if len(context['q01_stored']):
     # This requires gl-image-display 0.19, so I only do it if I need to. Most of
     # the time we will start out with no features, so older gl-image-display
     # would be fine
