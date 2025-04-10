@@ -271,38 +271,37 @@ typedef struct
 // everything else. OR we can ask mrcal to lock down some part of the
 // optimization problem, and to solve for the rest. If any variables are locked
 // down, we use their initial values passed-in to mrcal_optimize()
-typedef struct
-{
-    // If true, we solve for the intrinsics core. Applies only to those models
-    // that HAVE a core (fx,fy,cx,cy)
-    bool do_optimize_intrinsics_core        : 1;
 
-    // If true, solve for the non-core lens parameters
-    bool do_optimize_intrinsics_distortions : 1;
-
-    // If true, solve for the geometry of the cameras
-    bool do_optimize_extrinsics             : 1;
-
-    // If true, solve for the poses of the calibration object
-    bool do_optimize_frames                 : 1;
-
-    // If true, optimize the shape of the calibration object
-    bool do_optimize_calobject_warp         : 1;
 
 #if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: Need finer-grained regularization flags"
 #warning "triangulated-solve: Regularization flags should reflect do_optimize stuff and Ncameras stuff"
 #endif
-    // If true, apply the regularization terms in the solver
-    bool do_apply_regularization            : 1;
 
-    // Whether to try to find NEW outliers. The outliers given on
-    // input are respected regardless
-    bool do_apply_outlier_rejection         : 1;
-
-    // Pull the distance between the first two cameras to 1.0
-    bool do_apply_regularization_unity_cam01: 1;
-
+#define MRCAL_PROBLEM_SELECTIONS_LIST(_)                                \
+    /* If true, we solve for the intrinsics core. Applies only to those models */ \
+    /* that HAVE a core (fx,fy,cx,cy) */                                \
+    _(do_optimize_intrinsics_core)                                      \
+    /* If true, solve for the non-core lens parameters */               \
+    _(do_optimize_intrinsics_distortions)                               \
+    /* If true, solve for the geometry of the cameras */                \
+    _(do_optimize_extrinsics)                                           \
+    /* If true, solve for the poses of the calibration object */        \
+    _(do_optimize_frames)                                               \
+    /* If true, optimize the shape of the calibration object */         \
+    _(do_optimize_calobject_warp)                                       \
+    /* If true, apply the regularization terms in the solver */         \
+    _(do_apply_regularization)                                          \
+    /* Whether to try to find NEW outliers. The outliers given on */    \
+    /* input are respected regardless */                                \
+    _(do_apply_outlier_rejection)                                       \
+    /* Pull the distance between the first two cameras to 1.0 */        \
+    _(do_apply_regularization_unity_cam01)
+typedef struct
+{
+#define DEFINE(name) bool name : 1;
+    MRCAL_PROBLEM_SELECTIONS_LIST(DEFINE)
+#undef DEFINE
 } mrcal_problem_selections_t;
 
 // Constants used in a mrcal optimization. This is similar to
