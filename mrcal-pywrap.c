@@ -1524,38 +1524,23 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
     return N;
 }
 
-static
-mrcal_problem_selections_t
-construct_problem_selections( int do_optimize_intrinsics_core,
-                              int do_optimize_intrinsics_distortions,
-                              int do_optimize_extrinsics,
-                              int do_optimize_frames,
-                              int do_optimize_calobject_warp,
-                              int do_apply_regularization,
-                              int do_apply_regularization_unity_cam01,
-                              int do_apply_outlier_rejection,
+#define CONSTRUCT_PROBLEM_SELECTIONS() ({                               \
+/* By default we optimize everything we can */                          \
+    if(do_optimize_intrinsics_core        < 0) do_optimize_intrinsics_core = Ncameras_intrinsics>0; \
+    if(do_optimize_intrinsics_distortions < 0) do_optimize_intrinsics_core = Ncameras_intrinsics>0; \
+    if(do_optimize_extrinsics             < 0) do_optimize_extrinsics      = Ncameras_extrinsics>0; \
+    if(do_optimize_frames                 < 0) do_optimize_frames          = Nframes>0; \
+    if(do_optimize_calobject_warp         < 0) do_optimize_calobject_warp  = Nobservations_board>0; \
+    (mrcal_problem_selections_t) { .do_optimize_intrinsics_core       = do_optimize_intrinsics_core, \
+                                   .do_optimize_intrinsics_distortions= do_optimize_intrinsics_distortions, \
+                                   .do_optimize_extrinsics            = do_optimize_extrinsics, \
+                                   .do_optimize_frames                = do_optimize_frames, \
+                                   .do_optimize_calobject_warp        = do_optimize_calobject_warp, \
+                                   .do_apply_regularization           = do_apply_regularization, \
+                                   .do_apply_regularization_unity_cam01= do_apply_regularization_unity_cam01, \
+                                   .do_apply_outlier_rejection        = do_apply_outlier_rejection }; \
+})
 
-                              int Ncameras_intrinsics,
-                              int Ncameras_extrinsics,
-                              int Nframes,
-                              int Nobservations_board )
-{
-    // By default we optimize everything we can
-    if(do_optimize_intrinsics_core        < 0) do_optimize_intrinsics_core = Ncameras_intrinsics>0;
-    if(do_optimize_intrinsics_distortions < 0) do_optimize_intrinsics_core = Ncameras_intrinsics>0;
-    if(do_optimize_extrinsics             < 0) do_optimize_extrinsics      = Ncameras_extrinsics>0;
-    if(do_optimize_frames                 < 0) do_optimize_frames          = Nframes>0;
-    if(do_optimize_calobject_warp         < 0) do_optimize_calobject_warp  = Nobservations_board>0;
-    return (mrcal_problem_selections_t) { .do_optimize_intrinsics_core       = do_optimize_intrinsics_core,
-                                          .do_optimize_intrinsics_distortions= do_optimize_intrinsics_distortions,
-                                          .do_optimize_extrinsics            = do_optimize_extrinsics,
-                                          .do_optimize_frames                = do_optimize_frames,
-                                          .do_optimize_calobject_warp        = do_optimize_calobject_warp,
-                                          .do_apply_regularization           = do_apply_regularization,
-                                          .do_apply_regularization_unity_cam01= do_apply_regularization_unity_cam01,
-                                          .do_apply_outlier_rejection        = do_apply_outlier_rejection
-    };
-}
 
 static
 PyObject* _optimize(optimizemode_t optimizemode,
@@ -1733,20 +1718,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
         }
 
 
-        mrcal_problem_selections_t problem_selections =
-            construct_problem_selections( do_optimize_intrinsics_core,
-                                          do_optimize_intrinsics_distortions,
-                                          do_optimize_extrinsics,
-                                          do_optimize_frames,
-                                          do_optimize_calobject_warp,
-                                          do_apply_regularization,
-                                          do_apply_regularization_unity_cam01,
-                                          do_apply_outlier_rejection,
-
-                                          Ncameras_intrinsics,
-                                          Ncameras_extrinsics,
-                                          Nframes,
-                                          Nobservations_board );
+        mrcal_problem_selections_t problem_selections = CONSTRUCT_PROBLEM_SELECTIONS();
 
 
         mrcal_problem_constants_t problem_constants =
@@ -2291,20 +2263,7 @@ static PyObject* state_index_generic(callback_state_index_t cb,
     }
 
 
-    mrcal_problem_selections_t problem_selections =
-        construct_problem_selections( do_optimize_intrinsics_core,
-                                      do_optimize_intrinsics_distortions,
-                                      do_optimize_extrinsics,
-                                      do_optimize_frames,
-                                      do_optimize_calobject_warp,
-                                      do_apply_regularization,
-                                      do_apply_regularization_unity_cam01,
-                                      do_apply_outlier_rejection,
-
-                                      Ncameras_intrinsics,
-                                      Ncameras_extrinsics,
-                                      Nframes,
-                                      Nobservations_board );
+    mrcal_problem_selections_t problem_selections = CONSTRUCT_PROBLEM_SELECTIONS();
 
     result = cb(i,
                 Ncameras_intrinsics,
@@ -3475,20 +3434,7 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     if(Nobservations_point < 0) Nobservations_point = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
 
 
-    mrcal_problem_selections_t problem_selections =
-        construct_problem_selections( do_optimize_intrinsics_core,
-                                      do_optimize_intrinsics_distortions,
-                                      do_optimize_extrinsics,
-                                      do_optimize_frames,
-                                      do_optimize_calobject_warp,
-                                      do_apply_regularization,
-                                      do_apply_regularization_unity_cam01,
-                                      do_apply_outlier_rejection,
-
-                                      Ncameras_intrinsics,
-                                      Ncameras_extrinsics,
-                                      Nframes,
-                                      Nobservations_board );
+    mrcal_problem_selections_t problem_selections = CONSTRUCT_PROBLEM_SELECTIONS();
 
     if( PyArray_TYPE(b) != NPY_DOUBLE )
     {
