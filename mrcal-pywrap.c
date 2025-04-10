@@ -1524,21 +1524,16 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
     return N;
 }
 
+#define PROBLEM_SELECTIONS_SET_BIT(x) .x = x,
 #define CONSTRUCT_PROBLEM_SELECTIONS() ({                               \
 /* By default we optimize everything we can */                          \
     if(do_optimize_intrinsics_core        < 0) do_optimize_intrinsics_core = Ncameras_intrinsics>0; \
     if(do_optimize_intrinsics_distortions < 0) do_optimize_intrinsics_core = Ncameras_intrinsics>0; \
     if(do_optimize_extrinsics             < 0) do_optimize_extrinsics      = Ncameras_extrinsics>0; \
-    if(do_optimize_frames                 < 0) do_optimize_frames          = Nframes>0; \
+    if(do_optimize_frames                 < 0) do_optimize_frames          = Nframes            >0; \
     if(do_optimize_calobject_warp         < 0) do_optimize_calobject_warp  = Nobservations_board>0; \
-    (mrcal_problem_selections_t) { .do_optimize_intrinsics_core       = do_optimize_intrinsics_core, \
-                                   .do_optimize_intrinsics_distortions= do_optimize_intrinsics_distortions, \
-                                   .do_optimize_extrinsics            = do_optimize_extrinsics, \
-                                   .do_optimize_frames                = do_optimize_frames, \
-                                   .do_optimize_calobject_warp        = do_optimize_calobject_warp, \
-                                   .do_apply_regularization           = do_apply_regularization, \
-                                   .do_apply_regularization_unity_cam01= do_apply_regularization_unity_cam01, \
-                                   .do_apply_outlier_rejection        = do_apply_outlier_rejection }; \
+                                                                        \
+    (mrcal_problem_selections_t) { MRCAL_PROBLEM_SELECTIONS_LIST(PROBLEM_SELECTIONS_SET_BIT) }; \
 })
 
 
