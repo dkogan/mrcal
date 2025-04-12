@@ -1405,7 +1405,10 @@ else:                    we return an array of shape (...)
     #
     #   https://mrcal.secretsauce.net/uncertainty.html
 
-    # Non-None if this exists, isn't None, and has non-zero elements
+    # Non-None if this:
+    # - exists
+    # - isn't None
+    # - has non-zero elements
     def get_input(what):
         x = optimization_inputs.get(what)
         if x is not None and x.size > 0: return x
