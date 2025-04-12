@@ -30,8 +30,8 @@ TESTS :=																\
   test/test-surveyed-calibration.py__--do-sample__--oversample__10									\
   test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample							\
   test/test-projection-uncertainty.py__--fixed__frames__--model__opencv4__--do-sample__--Nsamples__200					\
-  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample__--extra-observation-at__40__--observed-pixel-uncertainty__0.3__--reproject-perturbed__cross-reprojection-rrp-Jfp \
-  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample__--extra-observation-at__40__--observed-pixel-uncertainty__0.03__--reproject-perturbed__cross-reprojection-rrp-Jfp__--points \
+  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample__--observed-pixel-uncertainty__0.3__--reproject-perturbed__cross-reprojection-rrp-Jfp \
+  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample__--observed-pixel-uncertainty__0.03__--reproject-perturbed__cross-reprojection-rrp-Jfp__--points \
   test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--do-sample__--reproject-perturbed__bestq__--observed-pixel-uncertainty__0.3__--Nsamples__200 \
   test/test-projection-uncertainty.py__--fixed__cam0__--model__splined									\
   test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--Ncameras__1__--compare-baseline-against-mrcal-2.4		\
