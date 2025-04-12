@@ -591,17 +591,12 @@ stored densely.
 The uncertainty computation in
 https://mrcal.secretsauce.net/uncertainty.html concludes that
 
-  Var(b) = observed_pixel_uncertainty^2 inv(JtJ) J[observations]t J[observations] inv(JtJ)
+  Var(b*) = observed_pixel_uncertainty^2 inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
 
-I actually operate with b* and J*: the UNITLESS state and the jacobian
-respectively. I have
+Where b* and J* are the UNITLESS, packed state and the jacobian respectively:
 
   b = D b*
   J = J* inv(D)
-
-so
-
-  Var(b*) = observed_pixel_uncertainty^2 inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*)
 
 In the special case where all the measurements come from observations, this
 simplifies to
