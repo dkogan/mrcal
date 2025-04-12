@@ -1004,14 +1004,6 @@ def _dq_db__projection_uncertainty( # shape (...,3)
 
     '''
 
-    if Kunpacked_rrp is None:
-        if get_input('observations_point')              is not None or \
-           get_input('observations_point_triangulated') is not None:
-            raise Exception("We have point observations; only cross-reprojection uncertainty can work here")
-        if frames_rt_toref is None:
-            raise Exception("Some frames_rt_toref must exist for the no-cross-reprojection uncertainty computation, but we don't have any")
-
-
     # extrinsics_rt_fromref and frames_rt_toref contain poses. These are
     # available here, whether they're being optimized or not. istate_... are the
     # state variables. These may be None if the quantity in question is fixed.
@@ -1447,6 +1439,11 @@ else:                    we return an array of shape (...)
         mrcal.pack_state(Kunpacked_rrp, **optimization_inputs)
     else:
         Kunpacked_rrp = None
+        if get_input('observations_point')              is not None or \
+           get_input('observations_point_triangulated') is not None:
+            raise Exception("We have point observations; only cross-reprojection uncertainty can work here")
+        if frames_rt_toref is None:
+            raise Exception("Some frames_rt_toref must exist for the no-cross-reprojection uncertainty computation, but we don't have any")
 
     # Now the extrinsics. I look at all the ones that correspond with the
     # specific camera I care about. If the camera is stationary, this will
