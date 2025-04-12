@@ -582,6 +582,9 @@ expression can be used in this case. This produces incorrect results today:
     --model opencv4 \
     --do-sample \
     --reproject-perturbed cross-reprojection-rrp-Jfp \
+    --observed-pixel-uncertainty 0.03 \
+    --Nsamples 400 \
+    --Ncameras 2 \
     --points
 
 The given dF_dbpacked uses the packed, unitless state b*, so it already includes
