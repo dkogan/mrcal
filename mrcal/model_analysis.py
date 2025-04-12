@@ -554,7 +554,7 @@ def _propagate_calibration_uncertainty( what,
                                         x                                  = None,
                                         factorization                      = None,
                                         Jpacked                            = None,
-                                        Nmeasurements_observations_leading = 0,
+                                        Nmeasurements_observations_leading = None,
                                         observed_pixel_uncertainty         = None,
                                         # can compute each of the above
                                         optimization_inputs                = None):
@@ -568,12 +568,21 @@ from the dimensions of the given dF/db gradient.
 The given factorization uses the packed, unitless state: b*.
 
 The given Jpacked uses the packed, unitless state: b*. Jpacked applies to all
-observations. The leading Nmeasurements_observations_leading rows apply to the
-observations of the calibration object, and we use just those for the input
-noise propagation. if Nmeasurements_observations_leading==0: assume that ALL the
+observations.
+
+The leading Nmeasurements_observations_leading rows apply to the observations of
+the calibration object, and we use just those for the input noise propagation.
+If Nmeasurements_observations_leading is None: we auto-detect this; this is the
+default. If Nmeasurements_observations_leading==0: assume that ALL the
 measurements come from the calibration object observations; a simplifed
-expression can be used in this case. This is the default: this simplified
-expression (ignoring the regularization; see below) evaluates much faster
+expression can be used in this case. This produces incorrect results today:
+
+  test/test-projection-uncertainty.py \
+    --fixed cam0 \
+    --model opencv4 \
+    --do-sample \
+    --reproject-perturbed cross-reprojection-rrp-Jfp \
+    --points
 
 The given dF_dbpacked uses the packed, unitless state b*, so it already includes
 the multiplication by D in the expressions below. It's usually sparse, but
