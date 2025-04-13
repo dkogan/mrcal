@@ -564,32 +564,37 @@ def calibration_boards_to_points(optimization_inputs):
 
     # I break up the chessboard observations into discrete points
 
-    rt_cam0_board                             = optimization_inputs['frames_rt_toref']
-    Rt_cam0_board                             = mrcal.Rt_from_rt(rt_cam0_board)
-    Nframes                                   = len(rt_cam0_board)
-    Ncameras                                  = len(optimization_inputs['intrinsics'])
+    rt_ref_board                              = optimization_inputs['frames_rt_toref']
+    Rt_ref_board                              = mrcal.Rt_from_rt(rt_ref_board)
+    Nframes                                   = len(rt_ref_board)
     indices_frame_camintrinsics_camextrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
     observations_board                        = optimization_inputs['observations_board']
+    Nobservations                             = len(observations_board)
     object_height_n,object_width_n            = observations_board.shape[-3:-1]
     object_spacing                            = optimization_inputs['calibration_object_spacing']
     calobject_warp                            = optimization_inputs['calobject_warp']
 
-    # shape (Nframes,H,W,Ncameras, 3)
-    indices_point_camintrinsics_camextrinsics = np.zeros((Nframes,object_height_n,object_width_n,Ncameras, 3), dtype=np.int32)
+    # shape (Nobservations,H,W,3)
+    indices_point_camintrinsics_camextrinsics = np.zeros((Nobservations,object_height_n,object_width_n,3), dtype=np.int32)
+
+    # shape (Nobservations,)
+    iframe = indices_frame_camintrinsics_camextrinsics[...,0]
 
     # index_point
-    indices_point_camintrinsics_camextrinsics[...,0] += \
-        nps.dummy(indices_frame_camintrinsics_camextrinsics[...,0].reshape(Nframes,Ncameras), -2,-2) \
-        * object_height_n * object_width_n \
-        + nps.dummy(np.arange(object_height_n * object_width_n).reshape(object_height_n,object_width_n), -1)
+    # shape (Nobservations,H,W)
+    indices_point_camintrinsics_camextrinsics[...,0] = \
+        np.arange(object_height_n * object_width_n).reshape(object_height_n,object_width_n) + \
+        nps.dummy(iframe * object_height_n * object_width_n,
+                  -1,-1)
 
     # camintrinsics and camextrinsics
-    indices_point_camintrinsics_camextrinsics[...,1:] += \
-        nps.dummy(indices_frame_camintrinsics_camextrinsics[...,1:].reshape(Nframes,Ncameras,2), -3,-3)
+    # shape (Nobservations,H,W,2)
+    indices_point_camintrinsics_camextrinsics[...,1:] = \
+        nps.dummy(indices_frame_camintrinsics_camextrinsics[...,1:], -2,-2)
 
-    # shape (Nframes*H*W*Ncameras, 3)
+    # shape (Nobservations*H*W, 3)
     indices_point_camintrinsics_camextrinsics = \
-        nps.clump(indices_point_camintrinsics_camextrinsics, n=4)
+        nps.clump(indices_point_camintrinsics_camextrinsics, n=3)
 
     # shape (H,W,3)
     pboard = \
@@ -598,27 +603,34 @@ def calibration_boards_to_points(optimization_inputs):
                                      object_spacing,
                                      calobject_warp = calobject_warp)
 
+    # shape (Nframes,1,1,4,3)
+    Rt_ref_board_frames = nps.dummy(Rt_ref_board,-3,-3)
+
     # shape (Nframes,H,W, 3)
-    pcam0 = mrcal.transform_point_Rt(nps.dummy(Rt_cam0_board,-3,-3),
-                                           pboard)
+    pref = mrcal.transform_point_Rt(Rt_ref_board_frames,
+                                    pboard)
     # shape (Nframes*H*W, 3)
-    pcam0 = nps.clump(pcam0, n=3)
+    pref = nps.clump(pref, n=3)
 
-    #  shape (Nframes*Nh*Nw*Ncameras, 3)
-    observations_point = \
-        nps.clump(
-            nps.mv( observations_board.reshape(Nframes,
-                                               Ncameras,
-                                               object_height_n,
-                                               object_width_n,
-                                               3),
-                    -4, -2),
-            n=4)
+    # shape (Nobservations*Nh*Nw, 3)
+    observations_point = nps.clump(observations_board, n=3)
 
-    Npoints = pcam0.shape[0]
+    # At this point the data is conceptually good. However, an implementation
+    # detail requires monotonically non-decreasing point indices:
+    #   uncertainty.c(983): Unexpected jacobian structure. I'm assuming
+    #   non-decreasing point references. The Jcross_t__Jcross computation uses
+    #   chunks of Kpackedp; it assumes that once the chunk is computed, it is
+    #   DONE, and never revisited. Non-monotonic point indices break that
+    # So I re-sort here
+    iipoint = np.argsort(indices_point_camintrinsics_camextrinsics[:,0],
+                         kind='stable')
+    indices_point_camintrinsics_camextrinsics = \
+        indices_point_camintrinsics_camextrinsics[iipoint]
+    observations_point = observations_point[iipoint]
+
 
     optimization_inputs['indices_point_camintrinsics_camextrinsics'] = indices_point_camintrinsics_camextrinsics
-    optimization_inputs['points']                                    = copy.deepcopy(pcam0)
+    optimization_inputs['points']                                    = pref
     optimization_inputs['observations_point']                        = observations_point
 
     optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = None
