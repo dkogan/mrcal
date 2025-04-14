@@ -6593,7 +6593,7 @@ mrcal_optimize( // out
         MSG("## Nmeasurements=%d, Nstate=%d", ctx.Nmeasurements, Nstate);
     if(ctx.Nmeasurements <= Nstate)
     {
-        MSG("WARNING: problem isn't overdetermined: Nmeasurements=%d, Nstate=%d. Solver may not converge, and if it does, the results aren't reliable. Add more constraints and/or regularization",
+        MSG("WARNING: problem isn't overdetermined: Nmeasurements=%d, Nstate=%d. Solver may not converge, and if it does, the results aren't reliable. Almost certainly you're about to see warnings about the system not being positive-definite. Add more constraints and/or regularization",
             ctx.Nmeasurements, Nstate);
     }
 
