@@ -265,8 +265,19 @@ np.random.seed(0)
 ############# Set up my world, and compute all the perfect positions, pixel
 ############# observations of everything
 object_spacing          = 0.1
-object_width_n          = 10
-object_height_n         = 9
+
+# Use smaller board if we're doing a points solve. Especially when doing
+# cross-reprojection tests, I tend to run out of memory. Those tests are
+# thorough, and this isn't representative of what happens when actually running
+# the algorithms
+if not args.points:
+    object_width_n  = 10
+    object_height_n = 9
+else:
+    object_width_n  = 3
+    object_height_n = 4
+
+
 calobject_warp_true     = np.array((0.002, -0.005))
 
 extrinsics_rt_fromref_true = \
