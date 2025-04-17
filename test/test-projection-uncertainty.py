@@ -170,6 +170,12 @@ def parse_args():
                   file=sys.stderr)
             sys.exit(1)
 
+        if args.do_sample:
+            print("--non-vanilla incompatible with --do-sample. Instead I make sure that it produces the same results as the vanilla solves, and I --do-sample THOSE solves",
+                  file=sys.stderr)
+            sys.exit(1)
+
+
     args.distances = args.distances.split(',')
     for i in range(len(args.distances)):
         if args.distances[i] == 'inf':
