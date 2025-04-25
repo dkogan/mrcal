@@ -1178,9 +1178,9 @@ for i in range(2):
                    image_data       = images[i])
 
 if len(context['q01_stored']):
-    # This requires gl-image-display 0.19, so I only do it if I need to. Most of
-    # the time we will start out with no features, so older gl-image-display
-    # would be fine
+    # Drawing lines at startup requires gl-image-display 0.19, so I only do it
+    # if I need to. Most of the time we will start out with no features, so
+    # older gl-image-display would be fine
     set_all_overlay_lines_and_redraw()
 
 Fl.run()
