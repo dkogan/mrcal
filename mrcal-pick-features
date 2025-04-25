@@ -743,6 +743,30 @@ def widget_table_callback(*args):
     event = Fl.event()
     if ctx == Fl_Table.CONTEXT_CELL and \
        event == FL_RELEASE:
+
+        # I want the selected feature to be in view. I do that for image0
+        # (image1 will be automatically panned). If it's already in view or
+        # close to it, then I don't touch it
+        row = widget_table.callback_row()
+        i_image = 0
+        q = context['q01_stored'][row,i_image,:]
+
+        viewport_w = widgets_image[i_image].w()
+        viewport_h = widgets_image[i_image].h()
+        qviewport = widgets_image[i_image].map_pixel_viewport_from_image(q)
+
+        # The margin is 1/10 or 100 pixels, whichever is smaller. If we're within
+        # the margin, we pan
+        margin_w = min(viewport_w//10,100)
+        margin_h = min(viewport_h//10,100)
+        if qviewport[0] < margin_w or viewport_w-1-qviewport[0] < margin_w or \
+           qviewport[1] < margin_h or viewport_h-1-qviewport[1] < margin_h:
+
+            widgets_image[i_image].set_panzoom(*q,
+                                               visible_width_pixels = np.nan, # leave the same
+                                               notify_other_widgets = True)
+
+
         set_all_overlay_lines_and_redraw()
 
 def widget_solve_callback(*args):
