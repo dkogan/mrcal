@@ -57,7 +57,7 @@ def parse_args():
     parser.add_argument('--correspondences',
                         help='''Start with the given correspondences vnl. If
                         omitted, we don't start with any features at all.
-                        Assumed 4 columns: x0 y0 x1 y1''')
+                        The given vnl must have the columns: x0 y0 x1 y1''')
     parser.add_argument('--rt01',
                         help='''We always leave the extrinsics of camera0, and
                         move camera1, as dictated by the solve; we leave the
@@ -98,6 +98,7 @@ import numpy as np
 import numpysane as nps
 import mrcal
 import pyopengv
+import vnlog
 
 
 def get_q01_nominal(*,
@@ -1086,18 +1087,15 @@ context = dict( # shape (N, Nimages = 2,xy=2)
 
 if args.correspondences is not None:
     try:
-        context['q01_stored'] = np.loadtxt(args.correspondences)
+        context['q01_stored'] = vnlog.slurp(args.correspondences,
+                                            dtype = np.dtype([('x0 y0 x1 y1', float, (4,))]))
     except:
         print(f"--correspondences expects a text table with columns 'x0 y0 x1 y1'; couldn't load text table from '{args.correspondences}'", file=sys.stderr)
         sys.exit(1)
 
-    context['q01_stored'] = nps.atleast_dims(context['q01_stored'],
-                                             -2)
     N = len(context['q01_stored'])
-    if context['q01_stored'].shape[-1] != 4:
-        print(f"--correspondences expects a text table with columns 'x0 y0 x1 y1'; text table from '{args.correspondences}' has !=4 columns", file=sys.stderr)
-        sys.exit(1)
-    update_q01_stored(context['q01_stored'].reshape((N,2,2),))
+
+    update_q01_stored(context['q01_stored']['x0 y0 x1 y1'].reshape((N,2,2),))
 
 
 
