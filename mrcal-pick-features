@@ -818,21 +818,17 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
         self.make_current()
         return result
 
-    def handle_right_mouse_button(self):
+    def find_corresponding_feature(self,x0,y0):
         try:
             q = \
-                np.array( self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ),
+                np.array( self.map_pixel_image_from_viewport( (x0,y0), ),
                           dtype=float )
         except:
-            widget_info.value(UI_usage_message + "\n" + \
-                              "Error converting pixel coordinates")
-            return 1
+            return "Error converting pixel coordinates", None
 
         if not (q[0] >= -0.5 and q[0] <= W-0.5 and \
                 q[1] >= -0.5 and q[1] <= H-0.5):
-            widget_info.value(UI_usage_message + "\n" + \
-                              f"Out of bounds: {q=}")
-            return 1
+            return f"Out of bounds: {q=}", None
 
         # shape (2,2): (leftright, qxy)
         q01 = get_q01_nominal(q     = q,
@@ -851,24 +847,28 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             q_other = None
 
         if q_other is None:
-            widget_info.value(UI_usage_message + "\n" + \
-                              "Error matching feature")
-            return 1
+            return "Error matching feature", None
 
         q01[index_other] = q_other
 
-        update_q01_stored(nps.glue( context['q01_stored'],
-                                    q01,
-                                    axis=-3))
+        return "Feature match successful", q01
 
-        Nstored = len(context['q01_stored'])
-        widget_table.rows( Nstored )
-        widget_table.select_all_rows(0) # deselect all
-        widget_table.select_row(Nstored-1)
-        set_all_overlay_lines_and_redraw()
 
+    def handle_right_mouse_button(self):
+        message,q01 = self.find_corresponding_feature(Fl.event_x(),Fl.event_y())
         widget_info.value(UI_usage_message + "\n" + \
-                          "Feature match successful")
+                          message)
+
+        if q01 is not None:
+            update_q01_stored(nps.glue( context['q01_stored'],
+                                        q01,
+                                        axis=-3))
+
+            Nstored = len(context['q01_stored'])
+            widget_table.rows( Nstored )
+            widget_table.select_all_rows(0) # deselect all
+            widget_table.select_row(Nstored-1)
+            set_all_overlay_lines_and_redraw()
 
         return 1
 
