@@ -818,13 +818,20 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
         self.make_current()
         return result
 
-    def find_corresponding_feature(self,x0,y0):
-        try:
-            q = \
-                np.array( self.map_pixel_image_from_viewport( (x0,y0), ),
-                          dtype=float )
-        except:
-            return "Error converting pixel coordinates", None
+
+    def find_corresponding_feature(self,x0,y0,
+                                   *,
+                                   have_q = False # by default, have UI pixel coords
+                                   ):
+        if have_q:
+            q = np.array((x0,y0), dtype=float)
+        else:
+            try:
+                q = \
+                    np.array( self.map_pixel_image_from_viewport( (x0,y0), ),
+                              dtype=float )
+            except:
+                return "Error converting pixel coordinates", None
 
         if not (q[0] >= -0.5 and q[0] <= W-0.5 and \
                 q[1] >= -0.5 and q[1] <= H-0.5):
