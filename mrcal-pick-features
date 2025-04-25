@@ -596,6 +596,7 @@ def update_q01_stored(_q01_stored):
 
     context['q01_stored'] = _q01_stored
     update_p0_triangulated_stored()
+    widget_table.rows(len(context['q01_stored']))
 
 
 def line_segments_squares(# shape (..., 2)
