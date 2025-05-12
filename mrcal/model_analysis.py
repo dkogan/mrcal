@@ -730,7 +730,7 @@ In the regularized case:
             # I see no python way to do matrix multiplication with sparse matrices,
             # so I have my own routine in C. AND the C routine does the outer
             # product, so there's no big temporary expression. It's much faster
-            if len(A.shape) == 2 and A.shape[0] == 2:
+            if A.ndim >= 2 and A.shape[-2] == 2:
                 f = mrcal._mrcal_npsp._A_Jt_J_At__2
             else:
                 f = mrcal._mrcal_npsp._A_Jt_J_At
