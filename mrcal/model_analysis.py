@@ -651,7 +651,7 @@ In the regularized case:
 
     '''
 
-    what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev', '_covariance-raw'))
+    what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev', '_covariance-raw', '_bestq'))
     if not what in what_known:
         raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
 
@@ -715,104 +715,131 @@ In the regularized case:
         observed_pixel_uncertainty = _observed_pixel_uncertainty_from_inputs(optimization_inputs,
                                                                              x = x)
 
+    def process_slice(dF_dbpacked):
+        if Nmeasurements_observations_leading > 0:
+            # I have regularization. Use the more complicated expression
+
+            # I can probably adapt this path to use the faster solve_xt_JtJ_bt()
+            # expressions below, but I don't bother. I will be using the fast path
+            # 99% of the time: ignoring regularization
+            # (Nmeasurements_observations_leading=0)
+
+            # shape (N,Nstate) where N=2 usually
+            A = factorization.solve_xt_JtJ_bt( dF_dbpacked )
+
+            # I see no python way to do matrix multiplication with sparse matrices,
+            # so I have my own routine in C. AND the C routine does the outer
+            # product, so there's no big temporary expression. It's much faster
+            if len(A.shape) == 2 and A.shape[0] == 2:
+                f = mrcal._mrcal_npsp._A_Jt_J_At__2
+            else:
+                f = mrcal._mrcal_npsp._A_Jt_J_At
+            return \
+                f(A, Jpacked.indptr, Jpacked.indices, Jpacked.data,
+                  Nleading_rows_J = Nmeasurements_observations_leading)
+        else:
+            # No regularization. Use the simplified expression
+
+            # The expression I had earlier. Works properly, but is slow:
+            # # time ./mrcal-show-projection-uncertainty --gridn 120 90 --hardcopy /tmp/tst.gp **/*.cameramodel(OL[1])
+            # # 21.48s user 0.27s system 99% cpu 21.750 total
+            #
+            # # shape (N,Nstate) where N=2 usually
+            # A = factorization.solve_xt_JtJ_bt( dF_dbpacked )
+            # Var_dF = nps.matmult(dF_dbpacked, nps.transpose(A))
+            #
+            # Instead, I do something smarter. I need to compute
+            #
+            #   sigma^2 dF/db D inv(J*tJ*) D dF/dbt
+            #
+            # I just computed a factorization, so I have
+            #
+            #   J*tJ* = L Lt
+            #
+            # so I can equivalently compute
+            #
+            #   sigma^2 norm2( inv(L) D dF/dbt )
+            #
+            # when cholmod_solve2() tries to solve inv(JtJ) x = b, it solves two
+            # linear systems in series: one with L and then again with Lt. This new
+            # expression runs only one solve, which speeds things up dramatically.
+
+            # I tried several ways to compute this. All produce the same result, but
+            # have different speeds. By default cholmod gives me an LDLt
+            # factorization, not an LLt factorization (this is a different D), so I
+            # need to handle this extra D in some way.
+
+            # Slowest; two different solves.
+            # time ./mrcal-show-projection-uncertainty --gridn 120 90 --hardcopy /tmp/tst.gp **/*.cameramodel(OL[1])
+            # 20.64s user 1.30s system 99% cpu 21.938 total
+            #
+            # A1 = factorization.solve_xt_JtJ_bt( dF_dbpacked, sys='P' )
+            # A2 = factorization.solve_xt_JtJ_bt( A1,          sys='L' )
+            # A3 = factorization.solve_xt_JtJ_bt( A1,          sys='LD' )
+            # Var_dF = nps.matmult(A2, nps.transpose(A3))
+            #
+
+            # Fastest, but works only if I have an LLt factorization. Can be
+            # requested with this patch:
+            #
+            #   diff --git a/mrcal-pywrap.c b/mrcal-pywrap.c
+            #   index b0d45fcc..b7c87090 100644
+            #   --- a/mrcal-pywrap.c
+            #   +++ b/mrcal-pywrap.c
+            #   @@ -290,3 +290,5 @@
+            #            self->common.supernodal = 0;
+            #
+            #   +        // self->common.final_ll = 1;
+            #   +
+            #            // I want all output to go to STDERR, not STDOUT
+            #
+            # I don't know if there are downsides to this, so I don't do this.
+            #
+            # time ./mrcal-show-projection-uncertainty --gridn 120 90 --hardcopy /tmp/tst.gp **/*.cameramodel(OL[1])
+            # 11.80s user 0.38s system 99% cpu 12.187 total
+            #
+            # A1 = factorization.solve_xt_JtJ_bt( dF_dbpacked, sys='P' )
+            # A2 = factorization.solve_xt_JtJ_bt( A1,          sys='L' )
+            # Var_dF = nps.matmult(A2, nps.transpose(A2))
+
+            # A bit slower, uses more memory, but works with LDLt. This is what I
+            # use
+            #
+            # time ./mrcal-show-projection-uncertainty --gridn 120 90 --hardcopy /tmp/tst.gp **/*.cameramodel(OL[1])
+            # 12.29s user 0.96s system 99% cpu 13.253 total
+            A1 = factorization.solve_xt_JtJ_bt( dF_dbpacked, sys='P' )
+            del dF_dbpacked
+            A2 = factorization.solve_xt_JtJ_bt( A1,          sys='L' )
+            del A1
+            A3 = factorization.solve_xt_JtJ_bt( A2,          sys='D' )
+            return \
+                nps.matmult(A2, nps.transpose(A3))
+
+
+
+
+    if what == '_bestq':
+        @nps.broadcast_define( (('Ngeometry',2,'Nstate'), ),
+                               (2,2) )
+        def process_slice_bestq(dq_db):
+            Var_dq = process_slice(dq_db)
+
+            # scalar
+            i = np.argmin( np.trace(Var_dq, axis1=-1, axis2=-2) )
+            return Var_dq[i]
+
+        # shape (...,2,2)
+        Var_dq = process_slice_bestq(dF_dbpacked)
+
+        return Var_dq,observed_pixel_uncertainty
+
+
+
+
+
     scalar = (dF_dbpacked.ndim == 1)
 
-    if Nmeasurements_observations_leading > 0:
-        # I have regularization. Use the more complicated expression
-
-        # I can probably adapt this path to use the faster solve_xt_JtJ_bt()
-        # expressions below, but I don't bother. I will be using the fast path
-        # 99% of the time: ignoring regularization
-        # (Nmeasurements_observations_leading=0)
-
-        # shape (N,Nstate) where N=2 usually
-        A = factorization.solve_xt_JtJ_bt( dF_dbpacked )
-
-        # I see no python way to do matrix multiplication with sparse matrices,
-        # so I have my own routine in C. AND the C routine does the outer
-        # product, so there's no big temporary expression. It's much faster
-        if len(A.shape) == 2 and A.shape[0] == 2:
-            f = mrcal._mrcal_npsp._A_Jt_J_At__2
-        else:
-            f = mrcal._mrcal_npsp._A_Jt_J_At
-        Var_dF = f(A, Jpacked.indptr, Jpacked.indices, Jpacked.data,
-                   Nleading_rows_J = Nmeasurements_observations_leading)
-    else:
-        # No regularization. Use the simplified expression
-
-        # The expression I had earlier. Works properly, but is slow:
-        # # time ./mrcal-show-projection-uncertainty --gridn 120 90 --hardcopy /tmp/tst.gp **/*.cameramodel(OL[1])
-        # # 21.48s user 0.27s system 99% cpu 21.750 total
-        #
-        # # shape (N,Nstate) where N=2 usually
-        # A = factorization.solve_xt_JtJ_bt( dF_dbpacked )
-        # Var_dF = nps.matmult(dF_dbpacked, nps.transpose(A))
-        #
-        # Instead, I do something smarter. I need to compute
-        #
-        #   sigma^2 dF/db D inv(J*tJ*) D dF/dbt
-        #
-        # I just computed a factorization, so I have
-        #
-        #   J*tJ* = L Lt
-        #
-        # so I can equivalently compute
-        #
-        #   sigma^2 norm2( inv(L) D dF/dbt )
-        #
-        # when cholmod_solve2() tries to solve inv(JtJ) x = b, it solves two
-        # linear systems in series: one with L and then again with Lt. This new
-        # expression runs only one solve, which speeds things up dramatically.
-
-        # I tried several ways to compute this. All produce the same result, but
-        # have different speeds. By default cholmod gives me an LDLt
-        # factorization, not an LLt factorization (this is a different D), so I
-        # need to handle this extra D in some way.
-
-        # Slowest; two different solves.
-        # time ./mrcal-show-projection-uncertainty --gridn 120 90 --hardcopy /tmp/tst.gp **/*.cameramodel(OL[1])
-        # 20.64s user 1.30s system 99% cpu 21.938 total
-        #
-        # A1 = factorization.solve_xt_JtJ_bt( dF_dbpacked, sys='P' )
-        # A2 = factorization.solve_xt_JtJ_bt( A1,          sys='L' )
-        # A3 = factorization.solve_xt_JtJ_bt( A1,          sys='LD' )
-        # Var_dF = nps.matmult(A2, nps.transpose(A3))
-        #
-
-        # Fastest, but works only if I have an LLt factorization. Can be
-        # requested with this patch:
-        #
-        #   diff --git a/mrcal-pywrap.c b/mrcal-pywrap.c
-        #   index b0d45fcc..b7c87090 100644
-        #   --- a/mrcal-pywrap.c
-        #   +++ b/mrcal-pywrap.c
-        #   @@ -290,3 +290,5 @@
-        #            self->common.supernodal = 0;
-        #
-        #   +        // self->common.final_ll = 1;
-        #   +
-        #            // I want all output to go to STDERR, not STDOUT
-        #
-        # I don't know if there are downsides to this, so I don't do this.
-        #
-        # time ./mrcal-show-projection-uncertainty --gridn 120 90 --hardcopy /tmp/tst.gp **/*.cameramodel(OL[1])
-        # 11.80s user 0.38s system 99% cpu 12.187 total
-        #
-        # A1 = factorization.solve_xt_JtJ_bt( dF_dbpacked, sys='P' )
-        # A2 = factorization.solve_xt_JtJ_bt( A1,          sys='L' )
-        # Var_dF = nps.matmult(A2, nps.transpose(A2))
-
-        # A bit slower, uses more memory, but works with LDLt. This is what I
-        # use
-        #
-        # time ./mrcal-show-projection-uncertainty --gridn 120 90 --hardcopy /tmp/tst.gp **/*.cameramodel(OL[1])
-        # 12.29s user 0.96s system 99% cpu 13.253 total
-        A1 = factorization.solve_xt_JtJ_bt( dF_dbpacked, sys='P' )
-        del dF_dbpacked
-        A2 = factorization.solve_xt_JtJ_bt( A1,          sys='L' )
-        del A1
-        A3 = factorization.solve_xt_JtJ_bt( A2,          sys='D' )
-        Var_dF = nps.matmult(A2, nps.transpose(A3))
+    Var_dF = process_slice(dF_dbpacked)
 
     if what == '_covariance-raw':
         return Var_dF,observed_pixel_uncertainty
@@ -820,51 +847,6 @@ In the regularized case:
     return _covariance_processed(what, Var_dF,observed_pixel_uncertainty,
                                  scalar = scalar)
 
-
-def _propagate_calibration_uncertainty_bestq( dq_db,
-                                              observed_pixel_uncertainty,
-                                              optimization_inputs):
-    r'''Simplified flavor of _propagate_calibration_uncertainty()
-
-Same logic as that function, but with some specific arguments assumed. Used for
-the bestq uncertainty method. More memory-efficient for that application.
-
-THIS FUNCTION OVERWRITES dq_db
-
-    '''
-
-    # OVERWRITE dq_db. It now has packed state
-    mrcal.unpack_state(dq_db, **optimization_inputs)
-
-    _,x,_,factorization = mrcal.optimizer_callback(**optimization_inputs)
-    if factorization is None:
-        raise Exception("Cannot compute the uncertainty: factorization computation failed")
-
-    if observed_pixel_uncertainty is None:
-        observed_pixel_uncertainty = _observed_pixel_uncertainty_from_inputs(optimization_inputs,
-                                                                             x = x)
-
-    @nps.broadcast_define( (('Ngeometry',2,'Nstate'), ),
-                           (2,2) )
-    def process_slice(dq_db):
-        # Here "dq_db" is actually "dq_dbpacked"
-        A1 = factorization.solve_xt_JtJ_bt( dq_db, sys='P' )
-        A2 = factorization.solve_xt_JtJ_bt( A1,    sys='L' )
-        del A1
-        A3 = factorization.solve_xt_JtJ_bt( A2,    sys='D' )
-
-        # shape (Ngeometry,2,2)
-        Var_dq = nps.matmult(A2, nps.transpose(A3))
-        del A2
-        del A3
-        # scalar
-        i = np.argmin( np.trace(Var_dq, axis1=-1, axis2=-2) )
-        return Var_dq[i]
-
-    # shape (...,2,2)
-    Var_dq = process_slice(dq_db)
-
-    return Var_dq,observed_pixel_uncertainty
 
 
 def _dq_db__Kunpacked_rrp(## write output here
@@ -1525,10 +1507,10 @@ else:                    we return an array of shape (...)
     if method == 'bestq':
         # shape (..., 2,2)
         V,observed_pixel_uncertainty = \
-            _propagate_calibration_uncertainty_bestq( dq_db,
-                                                      observed_pixel_uncertainty = observed_pixel_uncertainty,
-                                                      optimization_inputs        = optimization_inputs)
-
+            _propagate_calibration_uncertainty('_bestq',
+                                               dF_dbunpacked              = dq_db,
+                                               observed_pixel_uncertainty = observed_pixel_uncertainty,
+                                               optimization_inputs        = optimization_inputs)
         return _covariance_processed(what, V, observed_pixel_uncertainty,
                                      scalar = False)
 
