@@ -936,7 +936,8 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                                     # shape (6,Nstate)
                                     Kunpacked_rrp, # used iff method ~ "cross-reprojection..."
                                     method,
-                                    atinfinity):
+                                    atinfinity,
+                                    separate_output_per_geometry):
     r'''Helper for projection_uncertainty()
 
     See docs for _propagate_calibration_uncertainty() and
@@ -978,11 +979,11 @@ def _dq_db__projection_uncertainty( # shape (...,3)
       dq/db[frames_i]        = dq_dpcam/Ncam_frame sum(dpcam__dpref_i dpref__drt_ref_framei )
       dq/db[intrinsics_this] = dq_dintrinsics
 
-    The end result for method == "bestq":
+    The end result if separate_output_per_geometry;
 
-      For bestq I report a separate result for each camera/board geometry. So
-      the expressions are the same as for pcam, but there's no /Ncam_frame and
-      no sum(): I instead report an array for each slice
+      I report a separate result for each camera/board geometry. So the
+      expressions are the same as for pcam, but there's no /Ncam_frame and no
+      sum(): I instead report an array for each slice
 
     '''
 
@@ -1003,13 +1004,13 @@ def _dq_db__projection_uncertainty( # shape (...,3)
 
     ### The output array. This function fills this in, and returns it
     # shape (..., 2,Nstate)
-    if method != 'bestq':
+    if not separate_output_per_geometry:
         dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
     else:
         if Ncameras_extrinsics > 1 and Nframes > 1:
-            raise Exception("method=='bestq' works only if either the camera or board are stationary")
+            raise Exception("separate_output_per_geometry works only if either the camera or board are stationary")
         if Ncameras_extrinsics == 1 and Nframes == 1:
-            raise Exception("method=='bestq' works only if either the camera or board are moving")
+            raise Exception("separate_output_per_geometry works only if either the camera or board are moving")
         Ngeometry = max(Ncameras_extrinsics,Nframes)
         dq_db = np.zeros(p_cam.shape[:-1] + (Ngeometry, 2,Nstate), dtype=float)
 
@@ -1031,7 +1032,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                        get_gradients = True)
 
     if istate_intrinsics0 is not None:
-        if method != 'bestq':
+        if not separate_output_per_geometry:
             dq_db[         ...,
                            istate_intrinsics0:
                            istate_intrinsics0+Nstates_intrinsics] = \
@@ -1068,7 +1069,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
         # extrinsics. The gradients are distributed across the state vector, but
         # the mean comes through as the /Ncameras_extrinsics
 
-        if method != 'bestq':
+        if not separate_output_per_geometry:
 
             # shape (..., 2, Ncameras_extrinsics,6)
             dq_db_slice_extrinsics = \
@@ -1095,7 +1096,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                               -2, -3 ) / Ncameras_extrinsics
         else:
 
-            # bestq
+            # separate_output_per_geometry
             if Ncameras_extrinsics == 1:
                 # The camera is stationary; the extra dimension is for the
                 # moving board. So the camera pose applies to each slice.
@@ -1150,7 +1151,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                                 dpcam_dr[...,icamera_extrinsics,:,:])
 
 
-    if method == 'mean-pcam' or method == 'bestq':
+    if method == 'mean-pcam' or separate_output_per_geometry:
         if istate_frames0 is not None:
 
             # shape (..., Ncameras_extrinsics, 2, 3)
@@ -1201,7 +1202,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                             # shape (...,          Nframes,   Ncameras_extrinsics, 3, 6)
                             dpref_dframes)
 
-            if method != 'bestq':
+            if not separate_output_per_geometry:
 
                 # shape (..., 2, Nframes,6)
                 dq_db_slice_frames = \
@@ -1220,7 +1221,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                         nps.xchg( np.mean(dq_dframes, axis=-3),
                                   -2, -3 ) / Nframes
             else:
-                # bestq
+                # separate_output_per_geometry
                 if Nframes == 1:
                     # The board is stationary; the extra dimension is for the
                     # moving camera. So the board pose applies to each slice.
@@ -1499,7 +1500,8 @@ else:                    we return an array of shape (...)
                                         istate_extrinsics0, istate_frames0,
                                         atinfinity = atinfinity,
                                         method     = method,
-                                        Kunpacked_rrp = Kunpacked_rrp)
+                                        Kunpacked_rrp = Kunpacked_rrp,
+                                        separate_output_per_geometry = (method=='bestq'))
 
     # In case of bestq I compute the uncertainty Ngeometry times, and report
     # the best one. To keep things simple I use the trace metric: "best" means
