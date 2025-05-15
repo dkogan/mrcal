@@ -190,14 +190,6 @@ Intrinsics from the first input'''
     return optimization_inputs
 
 
-def get_optimization_inputs_perfect(model):
-    r'''Returns a perfect no-noise, 0-error solve'''
-    optimization_inputs = model.optimization_inputs()
-    mrcal.make_perfect_observations(optimization_inputs,
-                                    observed_pixel_uncertainty = 0)
-    return optimization_inputs
-
-
 def apply_noise(optimization_inputs,
                 *,
                 observed_pixel_uncertainty):
@@ -217,10 +209,9 @@ def validate_input_noise(model,
                          *,
                          observed_pixel_uncertainty):
 
-    optimization_inputs = get_optimization_inputs_perfect(model)
-
-    apply_noise(optimization_inputs,
-                observed_pixel_uncertainty = observed_pixel_uncertainty)
+    optimization_inputs = model.optimization_inputs()
+    mrcal.make_perfect_observations(optimization_inputs,
+                                    observed_pixel_uncertainty = observed_pixel_uncertainty)
 
     mrcal.optimize(**optimization_inputs)
 
@@ -261,7 +252,9 @@ def validate_uncertainty(model,
                                           title                      = 'Baseline uncertainty with a perfect-noise solve')
                  )
 
-    optimization_inputs_perfect = get_optimization_inputs_perfect(model)
+    optimization_inputs_perfect = model.optimization_inputs()
+    mrcal.make_perfect_observations(optimization_inputs_perfect,
+                                    observed_pixel_uncertainty = 0)
 
     def model_sample():
         optimization_inputs = copy.deepcopy(optimization_inputs_perfect)
