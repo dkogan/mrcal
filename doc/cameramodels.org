@@ -145,6 +145,8 @@ model_reoptimized = \
                      icam_intrinsics     = m.icam_intrinsics() )
 #+end_src
 
+This is the basic operation of the [[https://github.com/dkogan/mrcal/blob/master/analyses/mrcal-reoptimize][=analyses/mrcal-reoptimize= tool]].
+
 Here we asked mrcal to re-optimize the data used to compute the given model
 originally. We didn't make any changes to the inputs, and we should already have
 an optimal solution, so this re-optimized model would be the same as the initial
