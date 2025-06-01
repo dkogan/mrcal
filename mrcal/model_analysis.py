@@ -518,26 +518,6 @@ def _observed_pixel_uncertainty_from_inputs(optimization_inputs,
 
 
 
-def _covariance_processed(what, Var_dF, observed_pixel_uncertainty,
-                          *,
-                          scalar):
-    if what == 'covariance':
-        if scalar:
-            Var_dF = Var_dF[0,0]
-        return Var_dF * observed_pixel_uncertainty*observed_pixel_uncertainty
-    if what == 'worstdirection-stdev':
-        return worst_direction_stdev(Var_dF) * observed_pixel_uncertainty
-    if what == 'rms-stdev':
-        # Compute the RMS of the standard deviations in each direction
-        # RMS(stdev) =
-        # = sqrt( mean(stdev^2) )
-        # = sqrt( mean(var) )
-        # = sqrt( sum(var)/N )
-        # = sqrt( trace/N )
-        return np.sqrt(nps.trace(Var_dF)/Var_dF.shape[-1]) * observed_pixel_uncertainty
-    else:
-        raise Exception("Shouldn't have gotten here. There's a bug")
-
 def _propagate_calibration_uncertainty( what,
                                         *,
 
@@ -557,7 +537,14 @@ def _propagate_calibration_uncertainty( what,
                                         Nmeasurements_observations_leading = None,
                                         observed_pixel_uncertainty         = None,
                                         # can compute each of the above
-                                        optimization_inputs                = None):
+                                        optimization_inputs                = None,
+
+                                        # In case of bestq I compute the
+                                        # uncertainty Ngeometry times, and
+                                        # report the best one. To keep things
+                                        # simple I use the trace metric: "best"
+                                        # means the lowest trace(Var_dq)
+                                        bestq                              = False):
     r'''Helper for uncertainty propagation functions
 
 Propagates the calibration-time uncertainty to compute Var(F) for some arbitrary
@@ -651,7 +638,7 @@ In the regularized case:
 
     '''
 
-    what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev', '_covariance-raw', '_bestq'))
+    what_known = set(('covariance', 'worstdirection-stdev', 'rms-stdev', '_covariance-raw'))
     if not what in what_known:
         raise Exception(f"'what' kwarg must be in {what_known}, but got '{what}'")
 
@@ -818,7 +805,9 @@ In the regularized case:
 
 
 
-    if what == '_bestq':
+    if bestq:
+        scalar = False
+
         @nps.broadcast_define( (('Ngeometry',2,'Nstate'), ),
                                (2,2) )
         def process_slice_bestq(dq_db):
@@ -829,23 +818,31 @@ In the regularized case:
             return Var_dq[i]
 
         # shape (...,2,2)
-        Var_dq = process_slice_bestq(dF_dbpacked)
+        Var_dF = process_slice_bestq(dF_dbpacked)
 
-        return Var_dq,observed_pixel_uncertainty
+    else:
+        scalar = (dF_dbpacked.ndim == 1)
 
+        Var_dF = process_slice(dF_dbpacked)
+        if what == '_covariance-raw':
+            return Var_dF,observed_pixel_uncertainty
 
-
-
-
-    scalar = (dF_dbpacked.ndim == 1)
-
-    Var_dF = process_slice(dF_dbpacked)
-
-    if what == '_covariance-raw':
-        return Var_dF,observed_pixel_uncertainty
-
-    return _covariance_processed(what, Var_dF,observed_pixel_uncertainty,
-                                 scalar = scalar)
+    if what == 'covariance':
+        if scalar:
+            Var_dF = Var_dF[0,0]
+        return Var_dF * observed_pixel_uncertainty*observed_pixel_uncertainty
+    if what == 'worstdirection-stdev':
+        return worst_direction_stdev(Var_dF) * observed_pixel_uncertainty
+    if what == 'rms-stdev':
+        # Compute the RMS of the standard deviations in each direction
+        # RMS(stdev) =
+        # = sqrt( mean(stdev^2) )
+        # = sqrt( mean(var) )
+        # = sqrt( sum(var)/N )
+        # = sqrt( trace/N )
+        return np.sqrt(nps.trace(Var_dF)/Var_dF.shape[-1]) * observed_pixel_uncertainty
+    else:
+        raise Exception("Shouldn't have gotten here. There's a bug")
 
 
 
@@ -1503,24 +1500,12 @@ else:                    we return an array of shape (...)
                                         Kunpacked_rrp = Kunpacked_rrp,
                                         separate_output_per_geometry = (method=='bestq'))
 
-    # In case of bestq I compute the uncertainty Ngeometry times, and report
-    # the best one. To keep things simple I use the trace metric: "best" means
-    # the lowest trace(Var_dq)
-    if method == 'bestq':
-        # shape (..., 2,2)
-        V,observed_pixel_uncertainty = \
-            _propagate_calibration_uncertainty('_bestq',
-                                               dF_dbunpacked              = dq_db,
-                                               observed_pixel_uncertainty = observed_pixel_uncertainty,
-                                               optimization_inputs        = optimization_inputs)
-        return _covariance_processed(what, V, observed_pixel_uncertainty,
-                                     scalar = False)
-
-    else:
-        return _propagate_calibration_uncertainty(what,
-                                                  dF_dbunpacked              = dq_db,
-                                                  observed_pixel_uncertainty = observed_pixel_uncertainty,
-                                                  optimization_inputs        = optimization_inputs)
+    return \
+        _propagate_calibration_uncertainty(what,
+                                           dF_dbunpacked              = dq_db,
+                                           observed_pixel_uncertainty = observed_pixel_uncertainty,
+                                           optimization_inputs        = optimization_inputs,
+                                           bestq                      = (method == 'bestq'))
 
 
 def projection_diff(models,
