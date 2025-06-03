@@ -899,8 +899,9 @@ String passable to gnuplotlib in the 'equation' or 'equation_above' plot option
 
 
 def _append_observation_visualizations(plot_data_args,
+                                       *,
                                        model,
-                                       legend_prefix,
+                                       legend_prefix = '',
                                        pointtype,
                                        _2d,
                                        # for splined models
@@ -1352,12 +1353,11 @@ A tuple:
 
     if observations:
         for i in range(len(models)):
-            _2d = bool(vectorfield)
             _append_observation_visualizations(plot_data_args,
-                                               models[i],
-                                               f"Camera {i} ",
-                                               -1 if observations == 'dots' else (1+i),
-                                               _2d)
+                                               model         = models[i],
+                                               legend_prefix = f"Camera {i} ",
+                                               pointtype     = -1 if observations == 'dots' else (1+i),
+                                               _2d           = bool(vectorfield))
 
     data_tuples = plot_data_args
 
@@ -1627,12 +1627,11 @@ A tuple:
     if observations:
         raise Exception("finish this")
         for i in range(len(model_pairs)):
-            _2d = bool(vectorfield)
             _append_observation_visualizations(plot_data_args,
-                                               model_pairs[i],
-                                               f"Camera {i} ",
-                                               -1 if observations == 'dots' else (1+i),
-                                               _2d)
+                                               model         = model_pairs[i],
+                                               legend_prefix = f"Camera {i} ",
+                                               pointtype     = -1 if observations == 'dots' else (1+i),
+                                               _2d           = bool(vectorfield))
 
     data_tuples = plot_data_args
 
@@ -1860,10 +1859,9 @@ plot
 
     if observations:
         _append_observation_visualizations(plot_data_args,
-                                           model,
-                                           '',
-                                           -1 if observations == 'dots' else 1,
-                                           False)
+                                           model         = model,
+                                           pointtype     = -1 if observations == 'dots' else 1,
+                                           _2d           = False)
 
     plot_options = kwargs
     data_tuples  = plot_data_args
@@ -2954,10 +2952,9 @@ plot
 
     if observations:
         _append_observation_visualizations(plot_data_tuples_observations,
-                                           model,
-                                           '',
-                                           -1 if observations == 'dots' else 1,
-                                           True,
+                                           model         = model,
+                                           pointtype     = -1 if observations == 'dots' else 1,
+                                           _2d           = True,
                                            reproject_to_stereographic = not imager_domain)
 
     # Anything outside the valid region contour but inside the imager is an
