@@ -910,20 +910,7 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
         return result
 
 
-    def find_corresponding_feature(self,x0,y0,
-                                   *,
-                                   have_q = False # by default, have UI pixel coords
-                                   ):
-        if have_q:
-            q = np.array((x0,y0), dtype=float)
-        else:
-            try:
-                q = \
-                    np.array( self.map_pixel_image_from_viewport( (x0,y0), ),
-                              dtype=float )
-            except:
-                return "Error converting pixel coordinates", None, None
-
+    def find_corresponding_feature(self, q):
         if not (q[0] >= -0.5 and q[0] <= W-0.5 and \
                 q[1] >= -0.5 and q[1] <= H-0.5):
             return f"Out of bounds: {q=}", None, None
@@ -956,7 +943,15 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
     def handle_right_mouse_button(self):
 
         clear_q_search_center()
-        message,q01_estimate,q01 = self.find_corresponding_feature(Fl.event_x(),Fl.event_y())
+        try:
+            q = \
+                np.array( self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ),
+                          dtype=float )
+        except:
+            (message,q01_estimate,q01) = ("Error converting pixel coordinates", None, None)
+        else:
+            message,q01_estimate,q01 = self.find_corresponding_feature(q)
+
         widget_info.value(UI_usage_message + "\n" + \
                           message)
 
@@ -1296,8 +1291,7 @@ if args.initial_features is not None:
     q01 = np.zeros( (N,2,2), dtype=float)
     for i in range(N):
         message,q01_estimate,_q01 = \
-            widgets_image[0].find_corresponding_feature(*q0[i,:],
-                                                        have_q = True)
+            widgets_image[0].find_corresponding_feature(q0[i,:])
         if _q01 is not None:
             q01[i] = _q01
             mask_good[i] = True
