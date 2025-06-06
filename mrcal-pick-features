@@ -195,23 +195,43 @@ This is for experimenting. solve_R01__kneip() should work well.
 
     def cost__triangulation_have_t01(r01):
 
+        R01 = mrcal.R_from_r(r01)
         p0 = \
             mrcal.triangulate_leecivera_mid2(v0, v1,
                                              v_are_local = True,
-                                             Rt01        = nps.glue(mrcal.R_from_r(r01),
+                                             Rt01        = nps.glue(R01,
                                                                     t01_fixed,
                                                                     axis = -2))
 
         # Have triangulated points p0. Divergent or at-infinity triangulations
-        # are reported as p0=(0,0,0). I nominally want to maximize inner(v0,
-        # p0). But I need to normalize p0. And I minimize -inner(...) instead.
-        # And I leave the divergent points out
+        # are reported as p0=(0,0,0).
+        #
+        # I want to minimize sum(th_err). It's analogous to maximize
+        # sum(cos(th_err)) ~ sum(inner(v0, p0/mag(p0))). I minimize
+        # -sum(inner(...)) instead.
+        #
+        # For the divergent points I assume we're at infinity, and use inner(v0,
+        # R01 v1)/2. The /2 is because the convergent cost is from v0 to the
+        # midpoint, and I want to keep the same scaling for the divergent cost.
+        # This inner(v0,v1) logic will treat noise incorrectly (just before
+        # infinity I correctly only respond to yaw noise, but past infinity I
+        # would respond to all noise). This is close-enough for now.
 
         mask = nps.norm2(p0) > 0
 
-        p0 = p0[mask]
-        m = nps.mag(p0)
-        return -np.sum( nps.inner(p0/nps.dummy(m,-1), v0[mask]) )
+        if np.any(mask):
+            cost_convergent = \
+                -np.sum( nps.inner(p0[mask]/nps.dummy(nps.mag(p0[mask]),-1), v0[mask]) )
+        else:
+            cost_convergent = 0
+
+        if np.any(~mask):
+            cost_divergent = \
+                -np.sum( nps.inner(v0[~mask], mrcal.rotate_point_R(R01, v1[~mask])) ) / 2
+        else:
+            cost_divergent = 0
+
+        return cost_convergent + cost_divergent
 
     if t01_fixed is None:
         res = \
