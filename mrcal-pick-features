@@ -872,6 +872,36 @@ def widget_write_callback(*args):
     for m in models: m.write(sys.stdout)
 
 
+def find_corresponding_feature(q, index):
+    if not (q[0] >= -0.5 and q[0] <= W-0.5 and \
+            q[1] >= -0.5 and q[1] <= H-0.5):
+        return f"Out of bounds: {q=}", None, None
+
+    # shape (2,2): (leftright, qxy)
+    q01_estimate = get_q01_estimate(q     = q,
+                                    index = index)
+
+    index_other = 1 - index
+    try:
+        match_feature_out = \
+            mrcal.match_feature(images[index], images[index_other],
+                                q0               = q01_estimate[index],
+                                q1_estimate      = q01_estimate[index_other],
+                                search_radius1   = args.search_radius,
+                                template_size1   = args.template_size)
+        q_other, match_feature_diagnostics = match_feature_out[:2]
+    except:
+        q_other = None
+
+    if q_other is None:
+        return "Error matching feature", q01_estimate, None
+
+    q01 = np.array(q01_estimate)
+    q01[index_other] = q_other
+
+    return "Feature match successful", q01_estimate, q01
+
+
 class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
     def __init__(self,
@@ -910,39 +940,12 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
         return result
 
 
-    def find_corresponding_feature(self, q):
-        if not (q[0] >= -0.5 and q[0] <= W-0.5 and \
-                q[1] >= -0.5 and q[1] <= H-0.5):
-            return f"Out of bounds: {q=}", None, None
-
-        # shape (2,2): (leftright, qxy)
-        q01_estimate = get_q01_estimate(q     = q,
-                                        index = self.index)
-
-        index_other = 1 - self.index
-        try:
-            match_feature_out = \
-                mrcal.match_feature(images[self.index], images[index_other],
-                                    q0               = q01_estimate[self.index],
-                                    q1_estimate      = q01_estimate[index_other],
-                                    search_radius1   = args.search_radius,
-                                    template_size1   = args.template_size)
-            q_other, match_feature_diagnostics = match_feature_out[:2]
-        except:
-            q_other = None
-
-        if q_other is None:
-            return "Error matching feature", q01_estimate, None
-
-        q01 = np.array(q01_estimate)
-        q01[index_other] = q_other
-
-        return "Feature match successful", q01_estimate, q01
-
-
     def handle_right_mouse_button(self):
 
         clear_q_search_center()
+
+
+
         try:
             q = \
                 np.array( self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ),
@@ -950,7 +953,7 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
         except:
             (message,q01_estimate,q01) = ("Error converting pixel coordinates", None, None)
         else:
-            message,q01_estimate,q01 = self.find_corresponding_feature(q)
+            message,q01_estimate,q01 = find_corresponding_feature(q, self.index)
 
         widget_info.value(UI_usage_message + "\n" + \
                           message)
@@ -1291,7 +1294,7 @@ if args.initial_features is not None:
     q01 = np.zeros( (N,2,2), dtype=float)
     for i in range(N):
         message,q01_estimate,_q01 = \
-            widgets_image[0].find_corresponding_feature(q0[i,:])
+            find_corresponding_feature(q0[i,:], 0)
         if _q01 is not None:
             q01[i] = _q01
             mask_good[i] = True
