@@ -114,9 +114,9 @@ import pyopengv
 import vnlog
 
 
-def get_q01_nominal(*,
-                    q,
-                    index):
+def get_q01_estimate(*,
+                     q,
+                     index):
     i_from     = index
     i_to       = 1-index
 
@@ -680,13 +680,17 @@ def line_segments_crosshairs(# shape (..., 2)
 
 def set_all_overlay_lines_and_redraw():
 
-    point_radius_stored = 10
-    crosshair_radius    = 1
+    radius_stored    = 10
+    crosshair_radius = 1
 
-    point_color_stored  = np.array((0,1,0), dtype=np.float32)
+    color_stored = np.array((0,1,0), dtype=np.float32)
 
-    point_radius_selected = 11
-    point_color_selected  = np.array((0,0,1), dtype=np.float32)
+    radius_selected = 11
+    color_selected  = np.array((0,0,1), dtype=np.float32)
+
+    color_searchbox = np.array((1,1,0), dtype=np.float32)
+
+
 
     Nstored = len(context['q01_stored'])
 
@@ -704,15 +708,33 @@ def set_all_overlay_lines_and_redraw():
 
     for w in widgets_image:
 
+        ####### The squares and crosshair for all the stored features
         lines_stored = \
-            dict(points    = nps.glue( line_segments_squares(context['q01_stored'][:, w.index,:],
-                                                             (point_radius_stored,)),
-                                       line_segments_crosshairs(context['q01_stored'][:, w.index,:],
-                                                                crosshair_radius),
-                                       axis = -3 ),
-                 color_rgb = point_color_stored )
+            [ dict(points    = nps.glue( line_segments_squares(context['q01_stored'][:, w.index,:],
+                                                               (radius_stored,)),
+                                         line_segments_crosshairs(context['q01_stored'][:, w.index,:],
+                                                                  crosshair_radius),
+                                         axis = -3 ),
+                   color_rgb = color_stored ) ]
+
+
+        ####### The search box
+        if context['search_center__q01_indexfrom_showfrom'] is not None:
+            q01_search_center,indexfrom,showfrom = context['search_center__q01_indexfrom_showfrom']
+            if indexfrom == w.index and showfrom:
+                lines_stored.append( dict(points    = line_segments_crosshairs(q01_search_center[w.index],
+                                                                               crosshair_radius),
+                                          color_rgb = color_searchbox ) )
+            elif indexfrom != w.index:
+                lines_stored.append( dict(points    = line_segments_squares(q01_search_center[w.index],
+                                                                            (args.search_radius,)),
+                                          color_rgb = color_searchbox ) )
+
 
         if len(iselected):
+
+            ####### The epipolar CURVE corresponding to THIS point in the OTHER
+            ####### camera
 
             # shape (Nselected, 2)
             q_stored       = context['q01_stored'][iselected,   w.index,:]
@@ -752,14 +774,19 @@ def set_all_overlay_lines_and_redraw():
                                          0,1 ),
                                  axis=-3)
 
-            w.set_lines( lines_stored,
-                         dict(points    = nps.glue( line_segments_squares(q_stored,
-                                                                          (point_radius_selected,),),
-                                                    qsegments,
-                                                    axis = -3),
-                                  color_rgb = point_color_selected ) )
-        else:
-            w.set_lines(lines_stored)
+            lines_stored.append( dict(points    = nps.glue( line_segments_squares(q_stored,
+                                                                                  (radius_selected,),),
+                                                            qsegments,
+                                                            axis = -3),
+                                      color_rgb = color_selected ) )
+
+        w.set_lines(*lines_stored)
+
+
+def clear_q_search_center():
+    global context
+    context['search_center__q01_indexfrom_showfrom'] = None
+
 
 
 def widget_table_callback(*args):
@@ -791,6 +818,7 @@ def widget_table_callback(*args):
                                                notify_other_widgets = True)
 
 
+        clear_q_search_center()
         set_all_overlay_lines_and_redraw()
 
 def widget_solve_callback(*args):
@@ -817,6 +845,7 @@ def widget_solve_callback(*args):
     update_p0_triangulated_stored()
 
     widget_table.redraw()
+    clear_q_search_center()
     set_all_overlay_lines_and_redraw()
 
     N = len(context['q01_stored'])
@@ -893,22 +922,22 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                     np.array( self.map_pixel_image_from_viewport( (x0,y0), ),
                               dtype=float )
             except:
-                return "Error converting pixel coordinates", None
+                return "Error converting pixel coordinates", None, None
 
         if not (q[0] >= -0.5 and q[0] <= W-0.5 and \
                 q[1] >= -0.5 and q[1] <= H-0.5):
-            return f"Out of bounds: {q=}", None
+            return f"Out of bounds: {q=}", None, None
 
         # shape (2,2): (leftright, qxy)
-        q01 = get_q01_nominal(q     = q,
-                              index = self.index)
+        q01_estimate = get_q01_estimate(q     = q,
+                                        index = self.index)
 
         index_other = 1 - self.index
         try:
             match_feature_out = \
                 mrcal.match_feature(images[self.index], images[index_other],
-                                    q0               = q01[self.index],
-                                    q1_estimate      = q01[index_other],
+                                    q0               = q01_estimate[self.index],
+                                    q1_estimate      = q01_estimate[index_other],
                                     search_radius1   = args.search_radius,
                                     template_size1   = args.template_size)
             q_other, match_feature_diagnostics = match_feature_out[:2]
@@ -916,15 +945,18 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             q_other = None
 
         if q_other is None:
-            return "Error matching feature", None
+            return "Error matching feature", q01_estimate, None
 
+        q01 = np.array(q01_estimate)
         q01[index_other] = q_other
 
-        return "Feature match successful", q01
+        return "Feature match successful", q01_estimate, q01
 
 
     def handle_right_mouse_button(self):
-        message,q01 = self.find_corresponding_feature(Fl.event_x(),Fl.event_y())
+
+        clear_q_search_center()
+        message,q01_estimate,q01 = self.find_corresponding_feature(Fl.event_x(),Fl.event_y())
         widget_info.value(UI_usage_message + "\n" + \
                           message)
 
@@ -937,6 +969,10 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             widget_table.rows( Nstored )
             widget_table.select_all_rows(0) # deselect all
             widget_table.select_row(Nstored-1)
+
+        if q01_estimate is not None:
+            context['search_center__q01_indexfrom_showfrom'] = (q01_estimate, self.index, q01 is None)
+            # this will also hit if q01 is not None
             set_all_overlay_lines_and_redraw()
 
         return 1
@@ -969,6 +1005,8 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                 return self.handle_right_mouse_button()
             if Fl.event_button() == FL_LEFT_MOUSE:
                 if not self.dragged:
+                    clear_q_search_center()
+
                     # Clicked. Select the nearest feature
                     if len(context['q01_stored']) > 0:
                         qwidget = np.array((Fl.event_x(),Fl.event_y()),
@@ -1004,6 +1042,7 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                 update_q01_stored(context['q01_stored'][i_keep, ...])
                 widget_table.rows(len(context['q01_stored']))
                 widget_table.select_all_rows(0) # deselect all
+                clear_q_search_center()
                 set_all_overlay_lines_and_redraw()
                 widget_info.value(UI_usage_message + "\n" + \
                                   "Feature(s) deleted")
@@ -1155,6 +1194,9 @@ Delete: delete selected feature(s)
 context = dict( # shape (N, Nimages = 2,xy=2)
                 q01_stored = np.zeros((0,2,2), dtype=float),
 
+                # If non-None, describes the feature search that just occurred
+                search_center__q01_indexfrom_showfrom = None,
+
                 # shape (N, xy=2)
                 p0_triangulated_stored = np.zeros((0,2), dtype=float),
 
@@ -1253,8 +1295,9 @@ if args.initial_features is not None:
     mask_good = np.zeros((N,), dtype=bool)
     q01 = np.zeros( (N,2,2), dtype=float)
     for i in range(N):
-        message,_q01 = widgets_image[0].find_corresponding_feature(*q0[i,:],
-                                                                   have_q = True)
+        message,q01_estimate,_q01 = \
+            widgets_image[0].find_corresponding_feature(*q0[i,:],
+                                                        have_q = True)
         if _q01 is not None:
             q01[i] = _q01
             mask_good[i] = True
