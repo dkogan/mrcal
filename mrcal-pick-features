@@ -1528,18 +1528,3 @@ if len(context['q01_stored']):
 Fl.run()
 
 sys.exit(0)
-
-
-
-
-
-r'''
-
-'u' should pan to the center
-
-ctrl-drag should lock panning
-
-arrow-keys in the table should work
-
-better UI messages
-'''
