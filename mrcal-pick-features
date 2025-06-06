@@ -719,15 +719,15 @@ def set_all_overlay_lines_and_redraw():
 
 
         ####### The search box
-        if context['search_center__q01_indexfrom_showfrom'] is not None:
-            q01_search_center,indexfrom,showfrom = context['search_center__q01_indexfrom_showfrom']
+        if context['search_center__q01_indexfrom_showfrom_searchradius'] is not None:
+            q01_search_center,indexfrom,showfrom,search_radius = context['search_center__q01_indexfrom_showfrom_searchradius']
             if indexfrom == w.index and showfrom:
                 lines_stored.append( dict(points    = line_segments_crosshairs(q01_search_center[w.index],
                                                                                crosshair_radius),
                                           color_rgb = color_searchbox ) )
             elif indexfrom != w.index:
                 lines_stored.append( dict(points    = line_segments_squares(q01_search_center[w.index],
-                                                                            (args.search_radius,)),
+                                                                            (search_radius,)),
                                           color_rgb = color_searchbox ) )
 
 
@@ -785,7 +785,7 @@ def set_all_overlay_lines_and_redraw():
 
 def clear_q_search_center():
     global context
-    context['search_center__q01_indexfrom_showfrom'] = None
+    context['search_center__q01_indexfrom_showfrom_searchradius'] = None
 
 
 
@@ -872,14 +872,21 @@ def widget_write_callback(*args):
     for m in models: m.write(sys.stdout)
 
 
-def find_corresponding_feature(q, index):
+def find_corresponding_feature(q, index,
+                               *,
+                               qother_estimate = None,
+                               search_radius):
     if not (q[0] >= -0.5 and q[0] <= W-0.5 and \
             q[1] >= -0.5 and q[1] <= H-0.5):
         return f"Out of bounds: {q=}", None, None
 
-    # shape (2,2): (leftright, qxy)
-    q01_estimate = get_q01_estimate(q     = q,
-                                    index = index)
+    if qother_estimate is None:
+        # shape (2,2): (leftright, qxy)
+        q01_estimate = get_q01_estimate(q     = q,
+                                        index = index)
+    else:
+        if index == 0: q01_estimate = nps.cat(q,              qother_estimate)
+        else:          q01_estimate = nps.cat(qother_estimate,q)
 
     index_other = 1 - index
     try:
@@ -887,7 +894,7 @@ def find_corresponding_feature(q, index):
             mrcal.match_feature(images[index], images[index_other],
                                 q0               = q01_estimate[index],
                                 q1_estimate      = q01_estimate[index_other],
-                                search_radius1   = args.search_radius,
+                                search_radius1   = search_radius,
                                 template_size1   = args.template_size)
         q_other, match_feature_diagnostics = match_feature_out[:2]
     except:
@@ -942,8 +949,8 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
     def handle_right_mouse_button(self):
 
+        search_center__q01_indexfrom_showfrom_searchradius_copy = context['search_center__q01_indexfrom_showfrom_searchradius']
         clear_q_search_center()
-
 
 
         try:
@@ -951,9 +958,61 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                 np.array( self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ),
                           dtype=float )
         except:
-            (message,q01_estimate,q01) = ("Error converting pixel coordinates", None, None)
+            q = None
+        if q is None:
+            message = "Error converting pixel coordinates"
+            widget_info.value(UI_usage_message + "\n" + \
+                              message)
+            return 1
+
+
+        if Fl.event_state() & FL_CTRL:
+            if search_center__q01_indexfrom_showfrom_searchradius_copy is None:
+                # Ctrl-right-click but we didn't just do a search. Do nothing
+                return 1
+
+            q01_search_center, indexfrom, showfrom, _ = search_center__q01_indexfrom_showfrom_searchradius_copy
+            if self.index  == indexfrom:
+                # Ctrl-right-click but we just did a search, from the same image. Do nothing
+                return 1
+
+            # We can rerun the search with human seeding. If the search we just
+            # did succeeded, then I need to clear out that feature; I'm about to
+            # redo it
+            iselected = tuple(i for i in range(widget_table.rows()) if widget_table.row_selected(i))
+            if len(iselected) == 0:
+                # Nothing selected; the previous search failed, and we don't
+                # need to clear it out
+                pass
+            elif len(iselected) > 1:
+                print("WARNING: We're trying to rerun a search, but more than one feature is selected in the UI. This shouldn't be able to happen, and it's a bug. Doing nothing")
+                return 1
+
+            else:
+                # Have one feature. Delete it
+                mask = np.ones((widget_table.rows(),), dtype=bool)
+                mask[iselected] = 0
+                update_q01_stored(context['q01_stored'][mask, ...])
+                widget_table.rows(len(context['q01_stored']))
+                widget_table.select_all_rows(0) # deselect all
+
+
+            # Set up the new search. I want to search FROM the other widget: I'm
+            # repeating the previous search
+            qother_estimate = q
+            q               = q01_search_center[indexfrom]
+            search_radius   = 5 # tighter bounds
+
         else:
-            message,q01_estimate,q01 = find_corresponding_feature(q, self.index)
+            # normal path
+            indexfrom       = self.index
+            qother_estimate = None
+            search_radius   = args.search_radius
+
+
+        message,q01_estimate,q01 = find_corresponding_feature(q, indexfrom,
+                                                              qother_estimate = qother_estimate,
+                                                              search_radius   = search_radius)
 
         widget_info.value(UI_usage_message + "\n" + \
                           message)
@@ -969,9 +1028,7 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             widget_table.select_row(Nstored-1)
 
         if q01_estimate is not None:
-            context['search_center__q01_indexfrom_showfrom'] = (q01_estimate, self.index, q01 is None)
-            # this will also hit if q01 is not None
-            set_all_overlay_lines_and_redraw()
+            context['search_center__q01_indexfrom_showfrom_searchradius'] = (q01_estimate, indexfrom, q01 is None, search_radius)
 
         return 1
 
@@ -1000,7 +1057,10 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
         if event == FL_RELEASE:
             if Fl.event_button() == FL_RIGHT_MOUSE:
-                return self.handle_right_mouse_button()
+                result = self.handle_right_mouse_button()
+                set_all_overlay_lines_and_redraw()
+                return result
+
             if Fl.event_button() == FL_LEFT_MOUSE:
                 if not self.dragged:
                     clear_q_search_center()
@@ -1180,8 +1240,14 @@ Mouse wheel up/down/left/right: pan
 Ctrl-mouse wheel up/down: zoom
 'u': reset view: zoom out, pan to the center
 
-Right mouse button click: Find matching feature
+Right-click: Find matching feature
+
+Ctrl-right-click immediately after a right-click in the other widget: re-run
+feature search starting with the new click position as a seed, and with a much
+smaller search radius
+
 Click in table: select feature(s)
+
 Delete: delete selected feature(s)
 '''
 
@@ -1193,7 +1259,7 @@ context = dict( # shape (N, Nimages = 2,xy=2)
                 q01_stored = np.zeros((0,2,2), dtype=float),
 
                 # If non-None, describes the feature search that just occurred
-                search_center__q01_indexfrom_showfrom = None,
+                search_center__q01_indexfrom_showfrom_searchradius = None,
 
                 # shape (N, xy=2)
                 p0_triangulated_stored = np.zeros((0,2), dtype=float),
@@ -1294,7 +1360,8 @@ if args.initial_features is not None:
     q01 = np.zeros( (N,2,2), dtype=float)
     for i in range(N):
         message,q01_estimate,_q01 = \
-            find_corresponding_feature(q0[i,:], 0)
+            find_corresponding_feature(q0[i,:], 0,
+                                       search_radius = args.search_radius)
         if _q01 is not None:
             q01[i] = _q01
             mask_good[i] = True
