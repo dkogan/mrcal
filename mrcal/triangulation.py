@@ -43,12 +43,12 @@ def _parse_args(v1,
             raise Exception("get_gradients is True, so v_are_local MUST be the default: False")
         if Rt01 is None:
             raise Exception("v_are_local is True, so Rt01 MUST have been given")
-        v1 = mrcal.rotate_point_R(Rt01[:3,:], v1)
-        t01 = Rt01[3,:]
+        v1 = mrcal.rotate_point_R(Rt01[...,:3,:], v1)
+        t01 = Rt01[...,3,:]
     else:
         # Normal path
         if t01 is None:
-            t01 = Rt01[3,:]
+            t01 = Rt01[...,3,:]
             if get_gradients:
                 raise Exception("get_gradients is True, so t01 MUST have been given")
         else:
