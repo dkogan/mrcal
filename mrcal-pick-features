@@ -855,6 +855,33 @@ def widget_solve_callback(*args):
                       f"Outlier points: {np.nonzero(~mask_inliers)[0]}")
 
 
+
+    # Debugging code to write the models and correspondences to disk after each
+    # solve
+    if False:
+        for icam in (0,1):
+            filename = f"/tmp/camera-{icam}.cameramodel"
+            models[icam].write(filename)
+            print(f"Wrote '{filename}")
+
+        p = context['p0_triangulated_stored']
+        r = nps.mag(p)
+        idx = nps.norm2(p) > 0
+        r[~idx] = np.nan
+
+        filename = '/tmp/correspondences.vnl'
+        np.savetxt(filename,
+                   nps.glue( nps.clump(context['q01_stored'][:,:4],
+                                       n = -2),
+                             nps.dummy(r,-1),
+                             axis = -1),
+                   fmt = '%.2f',
+                   header = "x0 y0 x1 y1 range")
+        print(f"Wrote '{filename}")
+
+
+
+
 def widget_write_callback(*args):
     p = context['p0_triangulated_stored']
     r = nps.mag(p)
