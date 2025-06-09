@@ -539,6 +539,100 @@ lacking. So I compute t myself for now
                 N_divergent_negt)
 
 
+def solve_Rt01__baseline_noz(v0,v1,R01,
+                             *,
+                             t01_fixed     = None,
+                             baseline_want = None,
+                             th0           = None,
+                             dth           = None,
+                             Nth           = None):
+    r'''Translation keeping a constant z offset, sampling the xy plane
+    '''
+    if t01_fixed is not None:
+        raise Exception("This function uses baseline_want, and NOT t01_fixed")
+    if baseline_want is None:
+        raise Exception("This function requires baseline_want")
+
+    # I do this discretely
+    if not (    th0 is not None \
+            and dth is not None \
+            and Nth is not None):
+        # default: look at the full 360 span
+        Nth = 1000
+        thdeg = np.linspace(0, 360.,
+                            num      = Nth,
+                            endpoint = False):
+    else
+        thdeg = np.linspace(th0 - dth,
+                            th0 + dth,
+                            num = Nth)
+    th = thdeg * np.pi/180.
+
+
+    c = np.cos(th)
+    s = np.sin(th)
+
+    Rt01       = np.zeros((Nth,4,3), dtype=float)
+    Rt01[:,:3,:] += R01
+    Rt01[:, 3,:]  = nps.transpose( nps.cat(c, s, np.zeros(c.shape)) ) * baseline_want
+
+    # shape (Nth,Npoints,3)
+    p = mrcal.triangulate_geometric(v0, v1,
+                                    v_are_local = True,
+                                    Rt01        = nps.dummy(Rt01, -3) )
+
+    Npoints = p.shape[-2]
+
+    # shape (Nth,Npoints)
+    magp = nps.mag(p)
+    # shape (Nth,Npoints)
+    mask_divergent = (magp == 0)
+    # shape (Nth)
+    N_divergent    = np.count_nonzero( mask_divergent,
+                                       axis = -1)
+
+    mean_thsq_err                    = np.zeros( (Nth,), dtype=float)
+    mean_thsq_err_accept_divergences = np.zeros( (Nth,), dtype=float)
+    for ith in range(Nth):
+        m = ~mask_divergent[ith]
+        if not np.any(m):
+            mean_thsq_err[ith] = 1e6
+        else:
+            # inner ~ cos ~ 1 - th^2/2
+            sum_cos = np.sum(nps.inner(p[ith][m], v0[m]) / magp[ith][m])
+            mean_cos = sum_cos / np.count_nonzero(m)
+
+            sum_cos_accept_divergences = sum_cos + np.count_nonzero(~m)
+            mean_cos_accept_divergences = sum_cos_accept_divergences/Npoints
+
+            mean_thsq_err[ith]                    = 2.*(1. - mean_cos)
+            mean_thsq_err_accept_divergences[ith] = 2.*(1. - mean_cos_accept_divergences)
+
+    # diagnostic code to visualize the scores and divergence counts
+    if False:
+        import gnuplotlib as gp
+        gp.plot( (th/np.pi*180., nps.cat(mean_thsq_err,
+                                         mean_thsq_err_accept_divergences), ),
+                 (th/np.pi*180., N_divergent,
+                  dict(y2=True) ),
+                 ymax=1e-6)
+        import IPython
+        IPython.embed()
+        sys.exit()
+
+    ith = np.argmin(mean_thsq_err)
+    if False:
+        # be truthful about divergences
+        return (Rt01[ith],
+                mask_divergent[ith],
+                N_divergent[ith])
+    else:
+        # lie, and say that there were no divergences
+        return (Rt01[ith],
+                np.zeros( (Npoints,), dtype=bool),
+                0)
+
+
 def solve_Rt10(# shape (N,Nleftright=2,Nxy=2)
                q01,
                intrinsics0,
