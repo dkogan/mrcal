@@ -685,9 +685,10 @@ and solve_Rt10_from_R01.
 
         mask_inliers[np.nonzero(mask_inliers)[0][mask_outlier]] = False
 
-    if baseline_want is not None:
-        baseline_have = nps.mag(Rt01[3,:])
-        Rt01[3,:] *= baseline_want/baseline_have
+    # This hopefully was already enforced above
+    # if baseline_want is not None:
+    #     baseline_have = nps.mag(Rt01[3,:])
+    #     Rt01[3,:] *= baseline_want/baseline_have
 
     return \
         Rt01, \
