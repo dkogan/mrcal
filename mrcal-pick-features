@@ -561,8 +561,8 @@ def solve_Rt01__baseline_noz(v0,v1,R01,
         Nth = 1000
         thdeg = np.linspace(0, 360.,
                             num      = Nth,
-                            endpoint = False):
-    else
+                            endpoint = False)
+    else:
         thdeg = np.linspace(th0 - dth,
                             th0 + dth,
                             num = Nth)
