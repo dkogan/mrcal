@@ -1093,6 +1093,9 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                 # Ctrl-right-click but we didn't just do a search. Do nothing
                 return 1
 
+            # We just did a search. It may have succeeded, with the match
+            # selected, in the last row of the table. Or it may have failed,
+            # with nothing selected
             q01_search_center, indexfrom, showfrom, _ = search_center__q01_indexfrom_showfrom_searchradius_copy
             if self.index  == indexfrom:
                 # Ctrl-right-click but we just did a search, from the same image. Do nothing
@@ -1148,6 +1151,9 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
             widget_table.rows( Nstored )
             widget_table.select_all_rows(0) # deselect all
             widget_table.select_row(Nstored-1)
+        else:
+            # match failed
+            widget_table.select_all_rows(0) # deselect all
 
         if q01_estimate is not None:
             context['search_center__q01_indexfrom_showfrom_searchradius'] = (q01_estimate, indexfrom, q01 is None, search_radius)
