@@ -1250,12 +1250,13 @@ class Fl_Table_Derived(Fl_Table_Row):
               "y1",
               "Triangulated range",
               "Cam0 triangulated reprojection error", ]
+        self.icol_doublewidth = 5
 
         self.type(fltk.Fl_Table_Row.SELECT_MULTI)
         self.rows(len(context['q01_stored']))
         self.cols(len(self.col_labels))
         self.col_header(1)
-        self.col_resize(1)
+        self.col_resize(0)
 
         self.when(FL_WHEN_RELEASE)
         self.callback(widget_table_callback)
@@ -1315,6 +1316,25 @@ class Fl_Table_Derived(Fl_Table_Row):
             return
 
         return
+
+    def resize(self, x,y,w,h):
+        Fl_Table_Row.resize(self, x,y,w,h)
+        Ncols = self.cols()
+        Ncols_extra = 1 if self.icol_doublewidth is not None else 0
+        width = self.w()
+        col_width = width // (Ncols + Ncols_extra)
+        width_margin = 2 # for some reason, I need to cut this many pixels to
+                         # avoid creating a scrollbar
+        x0 = 0
+        for icol in range(Ncols-1):
+            if icol == self.icol_doublewidth:
+                w_here = col_width*2
+            else:
+                w_here = col_width
+            self.col_width(icol, w_here)
+            x0 += w_here
+        # last col
+        self.col_width(Ncols-1, width-x0 - width_margin)
 
 
 
