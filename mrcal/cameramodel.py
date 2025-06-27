@@ -822,14 +822,20 @@ So for the purposes of extrinsics, the reference is the "left-rectified" camera
                 def load():
                     try:
                         import yaml
-                        return yaml.safe_load(modelstring)
+                        loaded = yaml.safe_load(modelstring)
+                        if not isinstance(loaded, dict):
+                            raise CameramodelParseException("yaml parsing did not generate a dictionary")
+                        return loaded
                     except Exception as e:
                         e1 = e
                         pass
 
                     try:
                         import json
-                        return json.loads(modelstring)
+                        loaded = json.loads(modelstring)
+                        if not isinstance(loaded, dict):
+                            raise CameramodelParseException("json parsing did not generate a dictionary")
+                        return loaded
                     except Exception as e:
                         e2 = e
                         pass
