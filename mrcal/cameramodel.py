@@ -1272,7 +1272,7 @@ A sample file:
                 distortion_model = 'plumb_bob'
                 distortions      = nps.glue(self._intrinsics[1][4:], 0,
                                             axis = -1)
-            if   self._intrinsics[0] == 'LENSMODEL_PINHOLE':
+            elif   self._intrinsics[0] == 'LENSMODEL_PINHOLE':
                 distortion_model = 'plumb_bob'
                 distortions      = nps.glue(self._intrinsics[1][4:],
                                             np.zeros((5,), dtype=float),
