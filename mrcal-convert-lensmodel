@@ -810,15 +810,15 @@ if not (args.sampled and args.intrinsics_only):
             print(msg, file=sys.stderr)
 
 
-m_to.extrinsics_Rt_fromref( mrcal.compose_Rt( implied_Rt10,
-                                              mrcal.Rt_from_rt( m.extrinsics_rt_fromref())))
-
 note = \
     "generated on {} with   {}\n". \
     format(time.strftime("%Y-%m-%d %H:%M:%S"),
            ' '.join(mrcal.shellquote(s) for s in sys.argv))
 
+m_to.extrinsics_Rt_fromref( mrcal.compose_Rt( implied_Rt10,
+                                              mrcal.Rt_from_rt( m.extrinsics_rt_fromref())))
 m_to.write(file_output, note=note)
+
 if isinstance(file_output, str):
     print(f"Wrote '{file_output}'",
           file=sys.stderr)
@@ -865,3 +865,5 @@ if args.viz:
         plot.wait()
 
 
+
+# not sampled should laet you save ALL the models
