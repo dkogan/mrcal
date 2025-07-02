@@ -1240,7 +1240,7 @@ rectification matrices
 
 
 This is documented here: https://wiki.ros.org/camera_calibration_parsers
-
+                         https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/CameraInfo.html
 A sample file:
 
   image_width: 2448
