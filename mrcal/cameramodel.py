@@ -985,8 +985,8 @@ general function is used to find the data. The args are:
 
                 try:
                     model['intrinsics'] = \
-                          [M[0,0],M[1,1],M[0,2],M[1,2]] + \
-                          list(distortion)
+                          [float(x) for x in [M[0,0],M[1,1],M[0,2],M[1,2]]] + \
+                          [float(x) for x in distortion]
                 except Exception as e:
                     raise CameramodelParseException(f"No model {distortion_at}")
                 # not checking len(distortion_coefficients);
@@ -1018,7 +1018,8 @@ general function is used to find the data. The args are:
                 Rt_ref_cam[ 3,:] = -P[:,3] / P[0,0]
 
                 # extrinsics are rt_fromref
-                model['extrinsics'] = list(mrcal.rt_from_Rt(mrcal.invert_Rt(Rt_ref_cam)))
+                model['extrinsics'] = \
+                    [float(x) for x in mrcal.rt_from_Rt(mrcal.invert_Rt(Rt_ref_cam))]
 
                 return repr(model)
 
