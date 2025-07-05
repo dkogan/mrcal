@@ -61,6 +61,9 @@ mrcal-cull-corners has --cull-rad-off-center-board
 
 Added mrcal.cameramodel.optimization_inputs_reset()
 
+<2025-07-04 Fri> compute_chessboard_corners() has image_path_prefix and
+image_directory To provide more options for interpreting paths in corners.vnl
+
 * Migration notes 2.4 -> 3.0
 
 2024-12-06 compose_r(), compose_rt(), compose_Rt() have new args:

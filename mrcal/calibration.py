@@ -25,6 +25,9 @@ def compute_chessboard_corners(W, H,
                                *,
                                globs_per_camera  = ('*',),
                                corners_cache_vnl = None,
+                               image_path_prefix = None,
+                               image_directory   = None,
+
                                jobs              = 1,
                                exclude_images    = set(),
                                weight_column_kind= 'level'):
@@ -99,6 +102,39 @@ ARGUMENTS
   used to both compute the corners initially, and to reuse the pre-computed
   corners with subsequent calls. This exists to save time where re-analyzing the
   same data multiple times.
+
+  When the corners_cache_vnl exists, and refers images that have existed on
+  disk, some logic is needed to adjust the paths in corners_cache_vnl. Because
+  those paths don't need to exist anymore and because the corners_cache_vnl file
+  and/or the images may have moved since they were detected. The logic is:
+
+    if image_path_prefix is given: we use this as a prefix to the paths in
+      corners_cache_vnl
+    elif image_directory is given: we strip out the directory from the paths in
+      corners_cache_vnl, and use image_directory instead
+    elif we're reading from a corners_cache_vnl file on disk and
+         the path in corners_cache_vnl is relative and
+         this path does not exist relative to the current directory:
+      use the directory of the corners_cache_vnl as the prefix
+    else:
+      use the path in corners_cache_vnl as is
+
+  The above logic is complex to cover the various possible case. The canonical
+  case is to put the corners.vnl file into the same directory as the images, to
+  put the filenames only into the corners.vnl, and to not have any images in the
+  current directory. If you want to be extra sure about what it's doing, pass
+  image_path_prefix or image_directory
+
+- image_path_prefix: optional argument, defaulting to None, exclusive with
+  "image_directory". Used to locate the images when reading from a given
+  corners_cache_vnl. If given, the image paths in the "paths" argument are
+  prefixed with the given string. See docs for corners_cache_vnl above
+
+- image_directory: optional argument, defaulting to None, exclusive with
+  "image_path_prefix". Used to locate the images when reading from a given
+  corners_cache_vnl. If given, we extract the filename from the image path in
+  the "paths" argument, and look for the images in the directory given here
+  instead. See docs for corners_cache_vnl above
 
 - jobs: a GNU-Make style parallelization flag. Indicates how many parallel
   processes should be invoked when computing the corners. If given, a numerical
@@ -193,8 +229,6 @@ which mrcal.optimize() expects
         for i in range(Ncameras):
             files_per_camera.append([])
 
-        # images in corners_cache_vnl have paths relative to where the
-        # corners_cache_vnl lives
         corners_dir = None
 
         fd_already_opened = isinstance(corners_cache_vnl, io.IOBase)
@@ -282,18 +316,18 @@ which mrcal.optimize() expects
                                     format(context['f'], W*H, context['igrid']))
                 if context['f'] not in exclude_images and \
                    context['Nvalidpoints'] > 3:
-                    # There is a bit of ambiguity here. The image path stored in
-                    # the 'corners_cache_vnl' file is relative to what? It could be
-                    # relative to the directory the corners_cache_vnl lives in, or it
-                    # could be relative to the current directory. The image
-                    # doesn't necessarily need to exist. I implement a few
-                    # heuristics to figure this out
-                    if corners_dir is None          or \
-                       context['f'][0] == '/'       or \
-                       os.path.exists(context['f']):
-                        filename_canonical = os.path.normpath(context['f'])
+
+                    if image_path_prefix is not None:
+                        filename_canonical = f"{image_path_prefix}/{context['f']}"
+                    elif image_directory is not None:
+                        filename_canonical = f"{image_directory}/{os.path.basename(context['f'])}"
+                    elif corners_dir is not None      and \
+                         context['f'][0] != '/'       and \
+                         not os.path.exists(context['f']):
+                        filename_canonical = f"{corners_dir}/{context['f']}"
                     else:
-                        filename_canonical = os.path.join(corners_dir, context['f'])
+                        filename_canonical = os.path.normpath(context['f'])
+
                     if accum_files(filename_canonical):
                         mapping[filename_canonical] = context['grid'].reshape(H,W,3)
 
