@@ -296,7 +296,7 @@ import mrcal
 np.set_printoptions(linewidth=300)
 
 
-def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, seedmodels):
+def get_imagersize_one(icamera, indices_frame_camera, paths, wh_args, seedmodels):
     r'''Returns the imager size for a given camera
 
     This reports the size for ONE camera. I only look at the first match. It is
@@ -307,10 +307,17 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, se
     need the images.
 
     '''
-    if args_imagersize is not None:
-        return args_imagersize
+
+    wh_image    = None
+    wh_seed     = None
     if seedmodels is not None:
-        return seedmodels[icamera].imagersize()
+        wh_seed = list(seedmodels[icamera].imagersize())
+
+    if wh_args is not None and seedmodels is not None:
+        if wh_args != wh_seed:
+            print(f"Both --seed and --imagersize were given, so they must match exactly. But I had --imagersize {wh_args} and one model has imagersize() = {wh_seed}",
+                  file=sys.stderr)
+            sys.exit(1)
 
     try:
         iobservation0_thiscamera = next( i for i in range(len(paths)) if indices_frame_camera[i,1] == icamera )
@@ -319,16 +326,42 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, args_imagersize, se
               file=sys.stderr)
         sys.exit(1)
 
-    try:
-        img = mrcal.load_image(paths[iobservation0_thiscamera],
-                               bits_per_pixel = 8, channels = 1)
-    except:
-        print(f"I needed to read '{paths[iobservation0_thiscamera]}' to get an imagersize, but couldn't open it, and get image dimensions from it. Make the images findable, or pass --imagersize",
-              file=sys.stderr)
-        sys.exit(1)
-    h,w = img.shape[:2]
+    image = None
+    path = paths[iobservation0_thiscamera]
+    if os.path.isfile(path):
+        try:
+            image = mrcal.load_image(path,
+                                     bits_per_pixel = 8, channels = 1)
+        except:
+            pass # image is already None
 
-    return [w,h]
+    if image is not None:
+        h,w = image.shape[:2]
+        wh_image = (w,h)
+
+        if wh_args is not None and \
+           wh_image != wh_args:
+            print(f"--imagersize is given, and its dimensions do NOT match THOSE of the images in --corners-cache: --imagersize is {wh_args} and {path=} has dimensions {wh_image}",
+                  file=sys.stderr)
+            sys.exit(1)
+        if wh_seed is not None and \
+           wh_image != wh_seed:
+            print(f"--seed is given, and those image dimensions do NOT match THOSE of the images in --corners-cache: --seed model for {icamera=} has imagersize {wh_seed} and {path=} has dimensions {wh_image}",
+                  file=sys.stderr)
+            sys.exit(1)
+
+
+    # everything verified; no inconsistencies.
+    if wh_args is not None:
+        return wh_args
+    if wh_seed is not None:
+        return wh_seed
+    if wh_image is not None:
+        return wh_image
+
+    print("Don't have the imager size. Need either --imagersize or --seed or the images in --corners-cache should be readable",
+          file=sys.stderr)
+    sys.exit(1)
 
 
 def solve_initial(args, seedmodels, imagersizes,
@@ -622,12 +655,6 @@ if args.seed:
               file=sys.stderr)
         sys.exit(1)
 
-    if args.imagersize is not None:
-        for m in seedmodels:
-            if args.imagersize != list(m.imagersize()):
-                print(f"Both --seed and --imagersize were given, so they must match exactly. But I had --imagersize {args.imagersize} and one model has imagersize() = {m.imagersize()}",
-                      file=sys.stderr)
-                sys.exit(1)
     lensmodel = seedmodels[0].intrinsics()[0]
     for m in seedmodels[1:]:
         if lensmodel != m.intrinsics()[0]:
