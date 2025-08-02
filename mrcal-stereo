@@ -951,7 +951,7 @@ def process(i_image):
     elif args.equalization == 'fieldscale':
         images = [ mrcam.equalize_fieldscale(image) for image in images ]
 
-    if len(images[0].shape) == 3:
+    if len(images[0].shape) == 3 or len(images[1].shape) == 3:
         if args.stereo_matcher == 'ELAS':
             print("The ELAS matcher requires grayscale images. Pass --force-grayscale",
                   file=sys.stderr)
