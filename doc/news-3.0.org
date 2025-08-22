@@ -61,6 +61,9 @@ mrcal-cull-corners has --cull-rad-off-center-board
 
 Added mrcal.cameramodel.optimization_inputs_reset()
 
+2025-08
+Added analyses/mrcal-convert-lensmodel-from-kalibr-fov
+
 <2025-07-04 Fri> compute_chessboard_corners() has image_path_prefix and
 image_directory To provide more options for interpreting paths in corners.vnl
 
