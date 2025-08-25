@@ -32,8 +32,23 @@ LIB_SOURCES +=			\
   poseutils-uses-autodiff.cc	\
   triangulation.cc              \
   cahvore.cc                    \
-  traverse-sensor-links.c \
-  heap.cc
+  traverse-sensor-links.c       \
+  heap.cc                       \
+  python-cameramodel-converter.c
+
+
+# This is a utility function for external Python wrapping. I link this into
+# libmrcal.so, but libmrcal.so does NOT link with libpython. 99% of the usage of
+# libmrcal.so will not use this, so it should work without libpython. People
+# using this function will be doing so as part of PyArg_ParseTupleAndKeywords(),
+# so they will be linking to libpython anyway. Thus I weaken all the references
+# to libpython here. c_build_rule is the default logic in mrbuild
+python-cameramodel-converter.o: %.o:%.c
+	$(c_build_rule); mv $@ _$@
+	nm --undef _$@ | awk '$$1 ~ /U/ && $$2 ~ /Py/ {print $$2}' > _$@.pysymbols
+	llvm-objcopy --weaken-symbols=_$@.pysymbols _$@ $@
+EXTRA_CLEAN += *.pysymbols
+
 
 ifneq (${USE_LIBELAS},) # using libelas
 LIB_SOURCES := $(LIB_SOURCES) stereo-matching-libelas.cc
@@ -141,7 +156,7 @@ mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.$(SO) libmrcal.$(SO).${ABI
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $< -lmrcal -lsuitesparseconfig -o $@
 
 CFLAGS += -I/usr/include/suitesparse
-PYTHON_OBJECTS := mrcal-pywrap.o $(ALL_NPSP_O)
+PYTHON_OBJECTS := mrcal-pywrap.o python-cameramodel-converter.o $(ALL_NPSP_O)
 
 $(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
 
