@@ -108,6 +108,10 @@ MRCAL_IMAGE_SAVE_LOAD_DECLARE(uint8_t,     uint8);
 MRCAL_IMAGE_SAVE_LOAD_DECLARE(uint16_t,    uint16);
 MRCAL_IMAGE_SAVE_LOAD_DECLARE(mrcal_bgr_t, bgr);
 
+// Generic image type. Need to cast it to a specific type before using it for
+// anything
+MRCAL_IMAGE_TYPE_DECLARE(void, void);
+
 // Uncommon types. Not everything supports these
 MRCAL_IMAGE_DECLARE(int8_t,  int8);
 MRCAL_IMAGE_DECLARE(int16_t, int16);

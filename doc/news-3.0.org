@@ -76,6 +76,7 @@ mrcal_cameramodel_t structures. This adds a dependency on
   Probably I just broke cross-building since I'll probably need a special nm for
   that
 
+<2025-08-24 Sun> added mrcal_image_void_t
 
 * Migration notes 2.4 -> 3.0
 
