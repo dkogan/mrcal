@@ -85,7 +85,8 @@ DIST_INCLUDE +=			\
 	triangulation.h		\
 	mrcal-types.h		\
 	stereo.h                \
-	heap.h
+	heap.h                  \
+	python-cameramodel-converter.h
 
 
 
