@@ -30,6 +30,14 @@
 int mrcal_cameramodel_converter(PyObject*             py_model,
                                 mrcal_cameramodel_t** model)
 {
+    // Define the PyArray_API. See here:
+    //   https://numpy.org/doc/stable/reference/c-api/array.html#c.import_array
+    // PyArray_ImportNumPyAPI() has this if() logic, but that's only available
+    // in numpy >= 2.0. Without this, the PyArray_API function table will be
+    // NULL. It is static in each compile unit.
+    if(PyArray_API == NULL)
+        import_array();
+
     int result = 0; // failure by default
 
     PyObject* call_result = NULL;
