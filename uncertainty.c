@@ -641,7 +641,7 @@ int dpptrs_(char* uplo, int* n, int* nrhs,
             double* ap, double* b, int* ldb, int* info,
             int uplo_len);
 
-bool mrcal_drt_ref_refperturbed__dbpacked(// output
+bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                                           // Shape (6,Nstate_frames)
                                           double* Kpackedf,
                                           int Kpackedf_stride0, // in bytes. <= 0 means "contiguous"

@@ -607,7 +607,7 @@ bool mrcal_optimizer_callback(// out
                              int calibration_object_height_n,
                              bool verbose);
 
-bool mrcal_drt_ref_refperturbed__dbpacked(// output
+bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                                           // Shape (6,Nstate_frames)
                                           double* Kpackedf,
                                           int Kpackedf_stride0, // in bytes. <= 0 means "contiguous"

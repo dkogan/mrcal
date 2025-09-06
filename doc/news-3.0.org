@@ -287,7 +287,7 @@ Being compatible with at least ROS would be nice. Their models are:
 - =equidistant=: mrcal does not support this today. It should. This is
   [[https://docs.opencv.org/3.4/db/d58/group__calib3d__fisheye.html][cv::fisheye]]
 
-** mrcal_drt_ref_refperturbed__dbpacked() currently is hardcoded to use the rrp formulation
+** _mrcal_drt_ref_refperturbed__dbpacked() currently is hardcoded to use the Jfpcw formulation
 Give it an argument to select the formulation. And rename the function. Or
 something
 ** other stuff
