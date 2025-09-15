@@ -809,18 +809,56 @@ def feature_matching__opencv(i_image, image0_decimated, image1_decimated):
         matcher        = cv2.BFMatcher(cv2.NORM_HAMMING,
                                        crossCheck = True)
 
-    # shape (Hdecimated,Wdecimated,2)
-    flow_decimated = \
-        cv2.calcOpticalFlowFarneback(image0_decimated, image1_decimated,
-                                     flow       = None, # for in-place output
-                                     pyr_scale  = 0.5,
-                                     levels     = 3,
-                                     winsize    = 15,
-                                     iterations = 3,
-                                     poly_n     = 5,
-                                     poly_sigma = 1.2,
-                                     flags      = 0# cv2.OPTFLOW_USE_INITIAL_FLOW
-                                     )
+    if 0:
+        # shape (Hdecimated,Wdecimated,2)
+        flow_decimated = \
+            cv2.calcOpticalFlowFarneback(image0_decimated, image1_decimated,
+                                         flow       = None, # for in-place output
+                                         pyr_scale  = 0.5,
+                                         levels     = 3,
+                                         winsize    = 15,
+                                         iterations = 3,
+                                         poly_n     = 5,
+                                         poly_sigma = 1.2,
+                                         flags      = 0# cv2.OPTFLOW_USE_INITIAL_FLOW
+                                         )
+    else:
+
+        import IPython
+        IPython.embed()
+        sys.exit()
+
+
+
+        # shape (Hdecimated,Wdecimated,2)
+        flow_decimated = \
+            cv2.optflow.calcOpticalFlowSF(image0_decimated, image1_decimated,
+                                          flow       = None, # for in-place output
+                                          pyr_scale  = 0.5,
+                                          levels     = 3,
+                                          winsize    = 15,
+                                          iterations = 3,
+                                          poly_n     = 5,
+                                          poly_sigma = 1.2,
+                                          flags      = 0# cv2.OPTFLOW_USE_INITIAL_FLOW
+                                          )
+
+        # 'calcOpticalFlowDenseRLOF',
+        # 'calcOpticalFlowSF',
+        # 'calcOpticalFlowSparseRLOF',
+        # 'calcOpticalFlowSparseToDense',
+        # 'createOptFlow_DeepFlow',
+        # 'createOptFlow_DenseRLOF',
+        # 'createOptFlow_DualTVL1',
+        # 'createOptFlow_Farneback',
+        # 'createOptFlow_PCAFlow',
+        # 'createOptFlow_SimpleFlow',
+        # 'createOptFlow_SparseRLOF',
+        # 'createOptFlow_SparseToDense'
+
+
+
+
 
     if 1:
         plot_flow(image0_decimated, flow_decimated,
