@@ -13,10 +13,8 @@ import os
 import sqlite3
 import pyopengv
 
-
-sys.path[:0] = '/home/dima/projects/mrcal-2022-06--triangulated-solve/',
+# Need bleeding-edge mrcal. Using 2.5~6-1 right now
 import mrcal
-from mrcal.utils import _sorted_eig
 
 
 np.set_printoptions(linewidth = 800000)
@@ -350,7 +348,7 @@ experiments:
         # shape (3,3)
         M = np.sum( nps.matmult(nps.transpose(B), A, B), axis = 0 )
 
-        l,v = _sorted_eig(M)
+        l,v = mrcal.sorted_eig(M)
 
         # The answer is the eigenvector corresponding to the biggest eigenvalue
         t01 = v[:,2]
@@ -453,7 +451,7 @@ opengv does all the work
 
         # shape (N,3)
         c = np.cross(v0, mrcal.rotate_point_R(Rt01[:3,:], v1))
-        l,v = _sorted_eig(np.sum(nps.outer(c,c), axis=0))
+        l,v = mrcal.sorted_eig(np.sum(nps.outer(c,c), axis=0))
         # t is the eigenvector corresponding to the smallest eigenvalue
         Rt01[3,:] = v[:,0]
 
