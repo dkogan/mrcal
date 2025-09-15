@@ -261,6 +261,28 @@ More simplification:
 
     -> Mi = 1/(1-c^2) (v0 v0t - v1 v1t v0 v0t + v1 v1t - v0 v0t v1 v1t)
           = 1/(1-c^2) (F0 + F1 - (F1 F0 + F0 F1))
+          = (F0 - F1)^2 / (1 - c^2)
+          = ((F0 - F1)/s)^2
+
+    where s = mag(cross(v0,v1))
+
+
+    tt M t = sum( norm2((F0i - F1i)/si t) )
+
+    Let Di = (F0i - F1i)/si
+
+    I want to maximize sum( norm2(Di t) )
+
+
+    (F0 - F1)/s = (v0 v0t - v1 v1t) / mag(cross(v0,v1))
+                ~ (v0 v0t - R v1 v1t Rt) / mag(cross(v0,R v1))
+
+experiments:
+
+          = 1/(1-c^2) (F0 + F1 - (F1 F0 + F0 F1))
+          = 1/(1-c^2) (v0 v0t + v1 v1t - (c v0 v1t + c v1 v0t))
+
+
     '''
 
     # shape (N,3)
@@ -548,9 +570,9 @@ I can also do a similar thing using alicevision:
 
 av=$HOME/debianstuff/AliceVision/build/Linux-x86_64
 $av/aliceVision_cameraInit --defaultFieldOfView 80 --imageFolder ~/data/xxxxx/delta -o xxxxx.sfm
-$av/aliceVision_featureExtraction -i xxxxx.sfm -o xxxxx-features
+$av/aliceVision_featureExtraction -p low -i xxxxx.sfm -o xxxxx-features
 $av/aliceVision_featureMatching -i xxxxx.sfm -f xxxxx-features -o xxxxx-matches
-$av/aliceVision_incrementalSfM  -i xxxxx.sfm -f xxxxx-features -m xxxxx-matches -o xxxxx-sfm-output/
+$av/aliceVision_incrementalSfM  -i xxxxx.sfm -f xxxxx-features -m xxxxx-matches -o xxxxx-sfm-output.ply
     '''
 
     db = sqlite3.connect(colmap_database_filename)
