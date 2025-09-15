@@ -1507,7 +1507,7 @@ W,H   = model.imagersize()
 Nimages = 3
 
 # q.shape = (Npoints, Nimages=2, Nxy=2)
-if 0:
+if 1:
     image0,image0_decimated = imread(image_filename[0], decimation)
     image1,image1_decimated = imread(image_filename[1], decimation)
     q = feature_matching__opencv(0, image0_decimated, image1_decimated)
