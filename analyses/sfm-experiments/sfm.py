@@ -807,7 +807,7 @@ def feature_matching__opencv(i_image, image0_decimated, image1_decimated):
         matcher        = cv2.BFMatcher(cv2.NORM_HAMMING,
                                        crossCheck = True)
 
-    if 0:
+    if 1:
         # shape (Hdecimated,Wdecimated,2)
         flow_decimated = \
             cv2.calcOpticalFlowFarneback(image0_decimated, image1_decimated,
@@ -863,9 +863,6 @@ def feature_matching__opencv(i_image, image0_decimated, image1_decimated):
                   decimation_extra_plot,
                   hardcopy = f"{outdir}/flow{i_image:03d}.png")
 
-    import IPython
-    IPython.embed()
-    sys.exit()
 
 
     keypoints0, descriptors0 = feature_finder.detectAndCompute(image0_decimated, None)
@@ -1422,7 +1419,7 @@ if 1:
     decimation               = 20
     decimation_extra_plot    = 5
     model_filename           = "/home/dima/xxxxx-sfm/cam.cameramodel"
-    colmap_database_filename = '/tmp/xxxxx.exhaustive.db'
+    colmap_database_filename = 'xxxxx.exhaustive.db'
 
     image_filename = sorted(glob.glob(image_glob))
 
@@ -1502,10 +1499,10 @@ model = mrcal.cameramodel(model_filename)
 W,H   = model.imagersize()
 
 
-Nimages = 3
+Nimages = 6
 
 # q.shape = (Npoints, Nimages=2, Nxy=2)
-if 1:
+if 0:
     image0,image0_decimated = imread(image_filename[0], decimation)
     image1,image1_decimated = imread(image_filename[1], decimation)
     q = feature_matching__opencv(0, image0_decimated, image1_decimated)
