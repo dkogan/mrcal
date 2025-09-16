@@ -833,28 +833,38 @@ val_withgrad_t<6> sigmoid(val_withgrad_t<6> x, double knee)
     if(knee <= x.x) return 1.0;
 
     // transition at (x - knee/2.) < 0
-    // f(x) = a x^2 + b x + c
-    // f(-knee/2.)  = 0
-    // f(0)         = 1/2
-    // f'(-knee/2.) = 0
+    // dx = x - knee/2; dx in [-knee/2, 0]
+    // f(dx) = a dx^2 + b dx + c
+    // f(dx = -knee/2.)  = 0
+    // f(dx = 0)         = 1/2
+    // f'(dx = -knee/2.) = 0
+    // -> c = 1/2
+    // -> b = 2/knee
+    // -> a = 2/(knee^2)
     if(x.x < knee/2.0)
-        {
-            double b = 2./knee;
-            double a = b/knee;
-            double c = 1./2.;
-            return c + (x.x - knee/2.)*(b + (x.x - knee/2.)*a);
-        }
+    {
+        const double b = 2./knee;
+        const double a = 2./knee/knee;
+        const double c = 1./2.;
+        const val_withgrad_t<6> dx = x - knee/2.;
+        return dx*(dx*a + b) + c;
+    }
 
     // transition at (x - knee/2.) > 0
-    // f(x) = a x^2 + b x + c
-    // f(knee/2.)  = 1
-    // f'(knee/2.) = 0
-    // f(0)         = 1/2
+    // dx = x - knee/2; dx in [0, knee/2]
+    // f(dx) = a dx^2 + b dx + c
+    // f(dx = knee/2.)  = 1
+    // f'(dx = knee/2.) = 0
+    // f(dx = 0)        = 1/2
+    // -> c = 1/2
+    // -> b = 2/knee
+    // -> a = -2/(knee^2)
     {
-        double b = 2./knee;
-        double a = -b/knee;
-        double c = 1./2.;
-        return c + (x.x - knee/2.)*(b + (x.x - knee/2.)*a);
+        const double b = 2./knee;
+        const double a = -2./knee/knee;
+        const double c = 1./2.;
+        const val_withgrad_t<6> dx = x - knee/2.;
+        return dx*(dx*a + b) + c;
     }
 }
 
