@@ -421,6 +421,69 @@ experiments:
         rt10, \
         (mask_keep_near + mask_far)
 
+
+def pairwise_solve_kneip(v0, v1):
+
+    Rt01 = np.empty((4,3), dtype=float)
+    Rt01[:3,:] = pyopengv.relative_pose_eigensolver(v0, v1,
+                                                    # seed
+                                                    mrcal.identity_R())
+
+    # opengv should do this too, but its Python bindings are lacking. I
+    # recompute the t myself for now
+
+    # shape (N,3)
+    c = np.cross(v0, mrcal.rotate_point_R(Rt01[:3,:], v1))
+    l,v = mrcal.sorted_eig(np.sum(nps.outer(c,c), axis=0))
+    # t is the eigenvector corresponding to the smallest eigenvalue
+    Rt01[3,:] = v[:,0]
+
+    # Almost done. I want either t or -t. The wrong one will produce
+    # mostly triangulations behind me
+    p_t = mrcal.triangulate_geometric(v0, v1,
+                                      v_are_local = True,
+                                      Rt01        = Rt01 )
+    mask_divergent_t = (nps.norm2(p_t) == 0)
+    N_divergent_t    = np.count_nonzero( mask_divergent_t )
+
+    Rt01_negt = Rt01 * nps.transpose(np.array((1,1,1,-1),))
+    p_negt = mrcal.triangulate_leecivera_mid2(v0, v1,
+                                              v_are_local = True,
+                                              Rt01        = Rt01_negt )
+    mask_divergent_negt = (nps.norm2(p_negt) == 0)
+    N_divergent_negt    = np.count_nonzero( mask_divergent_negt )
+
+    if N_divergent_t != 0 and N_divergent_negt != 0:
+        # We definitely have divergences. Mark them as outliers, and move on
+        if N_divergent_t < N_divergent_negt: return Rt01,      mask_divergent_t,    N_divergent_t
+        else:                                return Rt01_negt, mask_divergent_negt, N_divergent_negt
+
+
+    # Nothing is divergent. I look for outliers
+    if N_divergent_t == 0:
+        p              = p_t
+        mask_divergent = mask_divergent_t
+        N_divergent    = N_divergent_t
+    else:
+        p              = p_negt
+        mask_divergent = mask_divergent_negt
+        N_divergent    = N_divergent_negt
+        Rt01           = Rt01_negt
+
+    costh = nps.inner(p, v0) / nps.mag(p)
+
+    costh_threshold = np.cos(1.0 * np.pi/180.)
+
+    mask_convergent_outliers = costh < costh_threshold
+    if not np.any(mask_convergent_outliers):
+        # no outliers. I'm done!
+        return Rt01, mask_divergent, N_divergent
+
+    Nmask_convergent_outliers = np.count_nonzero(mask_convergent_outliers)
+    print(f"No divergences, but have {Nmask_convergent_outliers} outliers")
+    return Rt01, mask_convergent_outliers, Nmask_convergent_outliers
+
+
 def seed_rt10_pair_kneip_eigensolver(q0, q1):
     r'''Estimates a transform between two cameras
 
@@ -438,76 +501,12 @@ opengv does all the work
     # Keep all all non-far points initially
     mask_inliers = np.ones( (q0.shape[0],), dtype=bool )
 
-
-    def compute(v0, v1):
-
-        Rt01 = np.empty((4,3), dtype=float)
-        Rt01[:3,:] = pyopengv.relative_pose_eigensolver(v0, v1,
-                                                        # seed
-                                                        mrcal.identity_R())
-
-        # opengv should do this too, but its Python bindings are lacking. I
-        # recompute the t myself for now
-
-        # shape (N,3)
-        c = np.cross(v0, mrcal.rotate_point_R(Rt01[:3,:], v1))
-        l,v = mrcal.sorted_eig(np.sum(nps.outer(c,c), axis=0))
-        # t is the eigenvector corresponding to the smallest eigenvalue
-        Rt01[3,:] = v[:,0]
-
-        # Almost done. I want either t or -t. The wrong one will produce
-        # mostly triangulations behind me
-        p_t = mrcal.triangulate_geometric(v0, v1,
-                                          v_are_local = True,
-                                          Rt01        = Rt01 )
-        mask_divergent_t = (nps.norm2(p_t) == 0)
-        N_divergent_t    = np.count_nonzero( mask_divergent_t )
-
-        Rt01_negt = Rt01 * nps.transpose(np.array((1,1,1,-1),))
-        p_negt = mrcal.triangulate_leecivera_mid2(v0, v1,
-                                                  v_are_local = True,
-                                                  Rt01        = Rt01_negt )
-        mask_divergent_negt = (nps.norm2(p_negt) == 0)
-        N_divergent_negt    = np.count_nonzero( mask_divergent_negt )
-
-        if N_divergent_t != 0 and N_divergent_negt != 0:
-            # We definitely have divergences. Mark them as outliers, and move on
-            if N_divergent_t < N_divergent_negt: return Rt01,      mask_divergent_t,    N_divergent_t
-            else:                                return Rt01_negt, mask_divergent_negt, N_divergent_negt
-
-
-        # Nothing is divergent. I look for outliers
-        if N_divergent_t == 0:
-            p              = p_t
-            mask_divergent = mask_divergent_t
-            N_divergent    = N_divergent_t
-        else:
-            p              = p_negt
-            mask_divergent = mask_divergent_negt
-            N_divergent    = N_divergent_negt
-            Rt01           = Rt01_negt
-
-        costh = nps.inner(p, v0) / nps.mag(p)
-
-        costh_threshold = np.cos(1.0 * np.pi/180.)
-
-        mask_convergent_outliers = costh < costh_threshold
-        if not np.any(mask_convergent_outliers):
-            # no outliers. I'm done!
-            return Rt01, mask_divergent, N_divergent
-
-        Nmask_convergent_outliers = np.count_nonzero(mask_convergent_outliers)
-        print(f"No divergences, but have {Nmask_convergent_outliers} outliers")
-        return Rt01, mask_convergent_outliers, Nmask_convergent_outliers
-
-
-
     i_iteration = 0
     while True:
 
         print(f"seed_rt10_pair_kneip_eigensolver() iteration {i_iteration}")
 
-        Rt01, mask_outlier, Noutliers = compute(v0[mask_inliers], v1[mask_inliers])
+        Rt01, mask_outlier, Noutliers = pairwise_solve_kneip(v0[mask_inliers], v1[mask_inliers])
         print(f"saw {Noutliers} outliers. Total len(v) = {len(v0)}")
         if Noutliers == 0:
             break
