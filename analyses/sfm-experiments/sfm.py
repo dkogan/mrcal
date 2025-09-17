@@ -12,6 +12,7 @@ import re
 import os
 import sqlite3
 import pyopengv
+import scipy.linalg
 
 # Need bleeding-edge mrcal. Using 2.5~6-1 right now
 import mrcal
@@ -549,6 +550,256 @@ def seed_rt10_pair(i0, q0, q1):
                 None
         return rt_cam_camprev__from_data_file[i0], \
             None
+
+def optimizer_callback_triangulated_no_mrcal(# shape (Nframes,6)
+                       # this is ALL the poses, including for camera0
+                       rt_ned_cam,
+                       *,
+                       q_all,
+                       v_all,
+                       # if given, we write the output here
+
+                       # shape (Nframes_optimized,6,  Nframes_optimized,6)
+                       JtJ = None,
+                       # shape (Nframes_optimized,6)
+                       Jtx = None,
+                       # list. Pass [] if we want to fill this in
+                       x = None,
+                       # list. Pass [] if we want to fill this in
+                       J = None
+                       ):
+
+    Nframes = len(rt_ned_cam)
+
+    # Fill the off-diagonal entries
+    for i in range(Nframes-1):
+
+        for j in range(i+1,Nframes):
+
+            rtij, drtij_drti, drtij_drtj = \
+                mrcal.compose_rt( rt_ned_cam[i],
+                                  rt_ned_cam[j],
+                                  inverted0     = True,
+                                  get_gradients = True)
+
+            drij_dri = drtij_drti[:3,:3]
+            drij_dti = drtij_drti[:3,3:]
+            dtij_dri = drtij_drti[3:,:3]
+            dtij_dti = drtij_drti[3:,3:]
+
+            drij_drj = drtij_drtj[:3,:3]
+            drij_dtj = drtij_drtj[:3,3:]
+            dtij_drj = drtij_drtj[3:,:3]
+            dtij_dtj = drtij_drtj[3:,3:]
+
+            # common observations between points i and j
+            mask_valid = mask_inbounds(q_all[i]) * mask_inbounds(q_all[j])
+
+            # shape (Nfeatures_valid,3)
+            vi = v_all[i,...][...,mask_valid,:]
+            vj = v_all[j,...][...,mask_valid,:]
+
+            # vj in the coord system of camera i
+            vj,dvj_drij,_ = \
+                mrcal.rotate_point_r(rtij[:3], vj,
+                                     get_gradients = True)
+
+            # shape (Nfeatures_valid,)
+            e,de_dvj,de_dtij = \
+                mrcal.triangulated_error( vi, vj,
+                                          v_are_local   = False,
+                                          t01           = rtij[3:],
+                                          get_gradients = True)
+
+            # p = mrcal.triangulate_leecivera_mid2( vi, vj,
+            #                                       v_are_local   = False,
+            #                                       t01           = rtij[3:])
+            # print(p[:10])
+            # sys.exit()
+
+            # These are mostly for debugging
+            if x is not None:
+                x.append(e)
+            if J is not None:
+                Jhere = np.zeros((len(e), (Nframes-1), 6), dtype=float)
+
+                if i > 0:
+                    Jhere[:,i-1,:] += nps.matmult(nps.dummy(de_dvj,-2), dvj_drij, drtij_drti[:3,:])[:,0,:]
+                    Jhere[:,i-1,:] += nps.matmult(nps.dummy(de_dtij,-2), drtij_drti[3:,:])[:,0,:]
+                Jhere[:,j-1,:] += nps.matmult(nps.dummy(de_dvj,-2), dvj_drij, drtij_drtj[:3,:])[:,0,:]
+                Jhere[:,j-1,:] += nps.matmult(nps.dummy(de_dtij,-2), drtij_drtj[3:,:])[:,0,:]
+
+                J.append(Jhere)
+
+            if JtJ is None and Jtx is None:
+                continue
+
+            # shape (Nfeatures_valid,6)
+            de_dri = \
+                nps.matmult(nps.dummy(de_dtij, -2),
+                            dtij_dri)[:,0,:] + \
+                nps.matmult(nps.dummy(de_dvj,  -2),
+                            dvj_drij,
+                            drij_dri)[:,0,:]
+            # dtij_drj is 0
+            if np.any(dtij_drj): raise Exception("dtij_drj is expected to be 0")
+            de_dti = \
+                nps.matmult(nps.dummy(de_dtij, -2),
+                            dtij_dti)[:,0,:]
+            de_dtj = \
+                nps.matmult(nps.dummy(de_dtij, -2),
+                            dtij_dtj)[:,0,:]
+
+            de_drj = nps.matmult(nps.dummy(de_dvj,  -2),
+                                 dvj_drij,
+                                 drij_drj)[:,0,:]
+            if np.any(drij_dti): raise Exception("drij_dti is expected to be 0")
+            if np.any(drij_dtj): raise Exception("drij_dtj is expected to be 0")
+
+            if i != 0:
+                # off-diagonal
+
+                if JtJ is not None:
+                    # shape (6,6); we fill these in
+                    JtJ_ij = JtJ[i-1,:,j-1,:]
+                    JtJ_ji = JtJ[j-1,:,i-1,:]
+
+                    JtJ_ij[:3,:3] += nps.matmult(de_dri.T, de_drj)
+                    JtJ_ij[:3,3:] += nps.matmult(de_dri.T, de_dtj)
+                    JtJ_ij[3:,:3] += nps.matmult(de_dti.T, de_drj)
+                    JtJ_ij[3:,3:] += nps.matmult(de_dti.T, de_dtj)
+
+                    JtJ_ji[:3,:3] += JtJ_ij[:3,:3].T
+                    JtJ_ji[:3,3:] += JtJ_ij[3:,:3].T
+                    JtJ_ji[3:,:3] += JtJ_ij[:3,3:].T
+                    JtJ_ji[3:,3:] += JtJ_ij[3:,3:].T
+
+                    # diagonal _i
+                    JtJ_ii = JtJ[i-1,:,i-1,:]
+                    JtJ_ii[:3,:3] += nps.matmult(de_dri.T, de_dri)
+                    JtJ_ii[:3,3:] += nps.matmult(de_dri.T, de_dti)
+                    JtJ_ii[3:,:3] += nps.matmult(de_dti.T, de_dri)
+                    JtJ_ii[3:,3:] += nps.matmult(de_dti.T, de_dti)
+
+                if Jtx is not None:
+                    Jtx[i-1,:3] += nps.matmult(e, de_dri)
+                    Jtx[i-1,3:] += nps.matmult(e, de_dti)
+
+            # diagonal _j
+            if JtJ is not None:
+                JtJ_jj = JtJ[j-1,:,j-1,:]
+                JtJ_jj[:3,:3] += nps.matmult(de_drj.T, de_drj)
+                JtJ_jj[:3,3:] += nps.matmult(de_drj.T, de_dtj)
+                JtJ_jj[3:,:3] += nps.matmult(de_dtj.T, de_drj)
+                JtJ_jj[3:,3:] += nps.matmult(de_dtj.T, de_dtj)
+
+            if Jtx is not None:
+                Jtx[j-1,:3] += nps.matmult(e, de_drj)
+                Jtx[j-1,3:] += nps.matmult(e, de_dtj)
+
+def solve_triangulated_no_mrcal(q_all,
+                                rt_ned_cam,
+                                *,
+                                debug = False):
+    r'''I want a least-squares solve using implicit triangulation. I have a
+    measurement vector x containing pairwise reprojection errors from each pair
+    of cameras. The x01 contain all errors from observations common to cameras 0
+    and 1. Thus dx01/drt0 and dx01/drt1 are non-zero, but all other gradients of
+    x01 are 0. I define J01 = dx01/drt0 and J10 = dx01/drt1. Thus
+
+        [ J01 J10     ...]
+    J = [ J02     J20 ...]
+        [     J10 J21 ...]
+        [ ... ... ... ...]
+
+    and
+
+    JtJ = [ sum( Ji1t Ji1, i=...)   ...]
+          [ J01t J10                ...]
+          [ J02t J20                   ]
+
+    If I have N camera poses being optimized then JtJ has shape (6N,6N)
+    '''
+
+    # shape (Nframes,Nfeatures,3)
+    v_all = mrcal.unproject(q_all, *model.intrinsics())
+
+    # frame0 is the reference
+    Nframes_optimized = Nframes-1
+
+    JtJ = np.zeros( (Nframes_optimized,6,
+                     Nframes_optimized,6), dtype=float)
+
+    Jtx = np.zeros( (Nframes_optimized,6), dtype=float )
+
+    x0 = []
+    J  = None if not debug else []
+
+    optimizer_callback_triangulated_no_mrcal( rt_ned_cam,
+                                              q_all = q_all,
+                                              v_all = v_all,
+                                              JtJ = JtJ,
+                                              Jtx = Jtx,
+                                              x   = x0,
+                                              J   = J)
+
+    # shape ( (Nframes-1)*6, (Nframes-1)*6)
+    JtJ = nps.clump( nps.clump(JtJ,
+                               n = 2),
+                     n = -2 )
+
+    # shape (Nframes-1)*6
+    Jtx = Jtx.ravel()
+
+    # error checking
+    if debug:
+        # shape (Nmeasurements, (Nframes-1)*6)
+        J = nps.clump( nps.glue(*J, axis=-3),
+                       n = -2 )
+        # shape (Nmeasurements)
+        x0 = nps.glue(*x0, axis=-1)
+        Jtx_check = nps.matmult(x0, J)
+        if np.max(nps.norm2(Jtx - Jtx_check)) > 1e-12:
+            print("Jtx is wrong")
+        JtJ_check = nps.matmult(J.T, J)
+        if np.max(nps.norm2((JtJ - JtJ_check).ravel())) > 1e-12:
+            print("JtJ is wrong")
+        import gnuplotlib as gp
+        import IPython
+        IPython.embed()
+        sys.exit()
+
+
+    # ignore last state element. This will set our scale
+    Nstate = len(Jtx)
+    JtJ = JtJ[:Nstate-1, :Nstate-1]
+    Jtx = Jtx[:Nstate-1]
+
+    (F,lower) = scipy.linalg.cho_factor(JtJ)
+
+    drt_ned_cam = -scipy.linalg.cho_solve((F,lower), Jtx)
+
+    drt_ned_cam = nps.glue( 0,0,0,0,0,0,
+                            drt_ned_cam, 0,
+                            axis=-1).reshape(Nframes,6)
+
+    x1 = []
+    optimizer_callback_triangulated_no_mrcal( rt_ned_cam + drt_ned_cam,
+                                              q_all = q_all,
+                                              v_all = v_all,
+                                              x     = x1)
+
+
+
+    print(f"dt = {t1-t0}s")
+    import gnuplotlib as gp
+    # mask_valid = mask_inbounds(q_all[0]) * mask_inbounds(q_all[0])
+    # Rt01, mask_bad, Nmask_bad = \
+    #     pairwise_solve_kneip(*v_all[:,mask_valid,:])
+    import IPython
+    IPython.embed()
+    sys.exit()
+
 
 
 def feature_matching__colmap(colmap_database_filename,
