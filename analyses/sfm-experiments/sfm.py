@@ -551,14 +551,15 @@ def seed_rt10_pair(i0, q0, q1):
         return rt_cam_camprev__from_data_file[i0], \
             None
 
-def optimizer_callback_triangulated_no_mrcal(# shape (Nframes,6)
+def optimizer_callback_triangulated_no_mrcal(
+                       # shape (Nframes,6)
                        # this is ALL the poses, including for camera0
                        rt_ned_cam,
                        *,
-                       q_all,
+                       # shape (Nframes, Nfeatures, 3)
                        v_all,
-                       # if given, we write the output here
-
+                       # shape (Nframes, Nfeatures)
+                       masks_valid,
                        # shape (Nframes_optimized,6,  Nframes_optimized,6)
                        JtJ = None,
                        # shape (Nframes_optimized,6)
@@ -593,7 +594,7 @@ def optimizer_callback_triangulated_no_mrcal(# shape (Nframes,6)
             dtij_dtj = drtij_drtj[3:,3:]
 
             # common observations between points i and j
-            mask_valid = mask_inbounds(q_all[i]) * mask_inbounds(q_all[j])
+            mask_valid = masks_valid[i] * masks_valid[j]
 
             # shape (Nfeatures_valid,3)
             vi = v_all[i,...][...,mask_valid,:]
@@ -697,9 +698,13 @@ def optimizer_callback_triangulated_no_mrcal(# shape (Nframes,6)
                 Jtx[j-1,:3] += nps.matmult(e, de_drj)
                 Jtx[j-1,3:] += nps.matmult(e, de_dtj)
 
-def solve_triangulated_no_mrcal(q_all,
+def solve_triangulated_no_mrcal(# shape (Nframes,6)
                                 rt_ned_cam,
                                 *,
+                                # shape (Nframes, Nfeatures, 3)
+                                v_all,
+                                # shape (Nframes, Nfeatures)
+                                masks_valid,
                                 debug = False):
     r'''I want a least-squares solve using implicit triangulation. I have a
     measurement vector x containing pairwise reprojection errors from each pair
@@ -721,8 +726,7 @@ def solve_triangulated_no_mrcal(q_all,
     If I have N camera poses being optimized then JtJ has shape (6N,6N)
     '''
 
-    # shape (Nframes,Nfeatures,3)
-    v_all = mrcal.unproject(q_all, *model.intrinsics())
+    Nframes = len(rt_ned_cam)
 
     # frame0 is the reference
     Nframes_optimized = Nframes-1
@@ -736,12 +740,12 @@ def solve_triangulated_no_mrcal(q_all,
     J  = None if not debug else []
 
     optimizer_callback_triangulated_no_mrcal( rt_ned_cam,
-                                              q_all = q_all,
-                                              v_all = v_all,
-                                              JtJ = JtJ,
-                                              Jtx = Jtx,
-                                              x   = x0,
-                                              J   = J)
+                                              v_all       = v_all,
+                                              masks_valid = masks_valid,
+                                              JtJ         = JtJ,
+                                              Jtx         = Jtx,
+                                              x           = x0,
+                                              J           = J)
 
     # shape ( (Nframes-1)*6, (Nframes-1)*6)
     JtJ = nps.clump( nps.clump(JtJ,
@@ -785,10 +789,12 @@ def solve_triangulated_no_mrcal(q_all,
 
     x1 = []
     optimizer_callback_triangulated_no_mrcal( rt_ned_cam + drt_ned_cam,
-                                              q_all = q_all,
-                                              v_all = v_all,
-                                              x     = x1)
+                                              v_all       = v_all,
+                                              masks_valid = masks_valid,
+                                              x           = x1)
 
+
+    return rt_ned_cam + drt_ned_cam
 
 
     print(f"dt = {t1-t0}s")
