@@ -45,10 +45,7 @@ LIB_SOURCES +=			\
 # to libpython here. c_build_rule is the default logic in mrbuild
 python-cameramodel-converter.o: %.o:%.c
 	$(c_build_rule); mv $@ _$@
-	nm --undef _$@ | awk '$$1 ~ /U/ && $$2 ~ /Py/ {print $$2}' > _$@.pysymbols
-	llvm-objcopy --weaken-symbols=_$@.pysymbols _$@ $@
-EXTRA_CLEAN += *.pysymbols
-
+	objcopy --wildcard --weaken-symbol='Py*' --weaken-symbol='_Py*' _$@ $@
 
 ifneq (${USE_LIBELAS},) # using libelas
 LIB_SOURCES := $(LIB_SOURCES) stereo-matching-libelas.cc
