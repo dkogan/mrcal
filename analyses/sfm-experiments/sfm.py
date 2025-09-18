@@ -1662,136 +1662,137 @@ def write_models(filename_format,
         write_model(filename_format.format(i), model1)
 
 
-if 1:
-    # delta. desert
-    image_glob               = "/home/dima/data/xxxxx/delta/*.jpg"
-    outdir                   = "/tmp"
-    decimation               = 20
-    decimation_extra_plot    = 5
-    model_filename           = "/home/dima/xxxxx-sfm/cam.cameramodel"
-    colmap_database_filename = 'xxxxx.exhaustive.db'
-
-    image_filename = sorted(glob.glob(image_glob))
-
-else:
-    # xxxxx ranch
-
-    # t1_t2_p_qxyzw = np.loadtxt("/mnt/nvm/xxxxx-xxxxx-ranch/time_stamp_xyz_xyzw.vnl",
-    #                            dtype = [ ('time',      np.uint64),
-    #                                      ('timestamp', np.uint64),
-    #                                      ('p',         float, (3,)),
-    #                                      ('quat_xyzw', float, (4,)),])
-    # t_filename    = np.loadtxt("/mnt/nvm/xxxxx-xxxxx-ranch/time_filename.vnl",
-    #                            dtype = [ ('timestamp', np.uint64),
-    #                                      ('filename', 'S50') ])
-
-    # quat_xyzw      = t1_t2_p_qxyzw['quat_xyzw']
-    # quat           = quat_xyzw[...,(3,0,1,2)]
-    # r              = mrcal.r_from_R( mrcal.R_from_quat(quat) )
-    # rt_ref_veh_all = nps.glue(r,
-    #                           t1_t2_p_qxyzw['p'],
-    #                           axis = -1)
-
-    t_dt_p_qxyzw = np.loadtxt("/mnt/nvm/xxxxx-xxxxx-ranch/relative-poses.vnl",
-                               dtype = float)
-    t_filename    = np.loadtxt("/mnt/nvm/xxxxx-xxxxx-ranch/time_filename.vnl",
-                               dtype = [ ('timestamp', np.uint64),
-                                         ('filename', 'S250') ])
-    quat_xyzw        = t_dt_p_qxyzw[:,5:]
-    quat             = quat_xyzw[...,(3,0,1,2)]
-    r                = mrcal.r_from_R( mrcal.R_from_quat(quat) )
-    rt_cam0_cam1_all = nps.glue(r,
-                                t_dt_p_qxyzw[:,2:5],
-                                axis = -1)
+if __name__ == "__main__":
 
 
+    if 1:
+        # delta. desert
+        image_glob               = "/home/dima/data/xxxxx/delta/*.jpg"
+        outdir                   = "/tmp"
+        decimation               = 20
+        decimation_extra_plot    = 5
+        model_filename           = "/home/dima/xxxxx-sfm/cam.cameramodel"
+        colmap_database_filename = 'xxxxx.exhaustive.db'
 
-    # Row i in the pose file has
-    #   t[i]-t[i-1] == dt[i]
-    # So I presume it has rt_camprev_cam
-    #
-    # I also checked, and the timestamps in t_filename match those in
-    # t_dt_p_qxyzw exactly. No "interpolation" is needed, but I'll ask for it
-    # anyway
-    import scipy.interpolate
+        image_filename = sorted(glob.glob(image_glob))
 
-    f = \
-        scipy.interpolate.interp1d(t_dt_p_qxyzw[:,0],
-                                   rt_cam0_cam1_all,
-                                   axis = -2,
-                                   bounds_error  = True,
-                                   assume_sorted = True)
+    else:
+        # xxxxx ranch
 
-    # I want the last 7 images
-    image_filename = t_filename['filename' ][-7:]
-    rt_camprev_cam__from_data_file = f(t_filename['timestamp'][-7:].astype(float) / 1e9)
+        # t1_t2_p_qxyzw = np.loadtxt("/mnt/nvm/xxxxx-xxxxx-ranch/time_stamp_xyz_xyzw.vnl",
+        #                            dtype = [ ('time',      np.uint64),
+        #                                      ('timestamp', np.uint64),
+        #                                      ('p',         float, (3,)),
+        #                                      ('quat_xyzw', float, (4,)),])
+        # t_filename    = np.loadtxt("/mnt/nvm/xxxxx-xxxxx-ranch/time_filename.vnl",
+        #                            dtype = [ ('timestamp', np.uint64),
+        #                                      ('filename', 'S50') ])
 
+        # quat_xyzw      = t1_t2_p_qxyzw['quat_xyzw']
+        # quat           = quat_xyzw[...,(3,0,1,2)]
+        # r              = mrcal.r_from_R( mrcal.R_from_quat(quat) )
+        # rt_ref_veh_all = nps.glue(r,
+        #                           t1_t2_p_qxyzw['p'],
+        #                           axis = -1)
 
-    # The first image doesn't have a camprev. Throw it away
-    rt_camprev_cam__from_data_file = rt_camprev_cam__from_data_file[1:]
-
-    rt_cam_camprev__from_data_file = mrcal.invert_rt(rt_camprev_cam__from_data_file)
-
-    image_dir               = "/mnt/nvm/xxxxx-xxxxx-ranch/images-last10"
-    outdir                   = "/tmp"
-    decimation               = 20
-    decimation_extra_plot    = 5
-    model_filename           = "/mnt/nvm/xxxxx-xxxxx-ranch/oryx.cameramodel"
-    colmap_database_filename = '/mnt/nvm/xxxxx-xxxxx-ranch/xxxxx.db'
-
-    image_filename = [ f"{image_dir}/{os.path.basename(f.decode())}" for f in image_filename]
+        t_dt_p_qxyzw = np.loadtxt("/mnt/nvm/xxxxx-xxxxx-ranch/relative-poses.vnl",
+                                   dtype = float)
+        t_filename    = np.loadtxt("/mnt/nvm/xxxxx-xxxxx-ranch/time_filename.vnl",
+                                   dtype = [ ('timestamp', np.uint64),
+                                             ('filename', 'S250') ])
+        quat_xyzw        = t_dt_p_qxyzw[:,5:]
+        quat             = quat_xyzw[...,(3,0,1,2)]
+        r                = mrcal.r_from_R( mrcal.R_from_quat(quat) )
+        rt_cam0_cam1_all = nps.glue(r,
+                                    t_dt_p_qxyzw[:,2:5],
+                                    axis = -1)
 
 
 
+        # Row i in the pose file has
+        #   t[i]-t[i-1] == dt[i]
+        # So I presume it has rt_camprev_cam
+        #
+        # I also checked, and the timestamps in t_filename match those in
+        # t_dt_p_qxyzw exactly. No "interpolation" is needed, but I'll ask for it
+        # anyway
+        import scipy.interpolate
+
+        f = \
+            scipy.interpolate.interp1d(t_dt_p_qxyzw[:,0],
+                                       rt_cam0_cam1_all,
+                                       axis = -2,
+                                       bounds_error  = True,
+                                       assume_sorted = True)
+
+        # I want the last 7 images
+        image_filename = t_filename['filename' ][-7:]
+        rt_camprev_cam__from_data_file = f(t_filename['timestamp'][-7:].astype(float) / 1e9)
 
 
-model = mrcal.cameramodel(model_filename)
-W,H   = model.imagersize()
+        # The first image doesn't have a camprev. Throw it away
+        rt_camprev_cam__from_data_file = rt_camprev_cam__from_data_file[1:]
 
+        rt_cam_camprev__from_data_file = mrcal.invert_rt(rt_camprev_cam__from_data_file)
 
-Nimages = 6
+        image_dir               = "/mnt/nvm/xxxxx-xxxxx-ranch/images-last10"
+        outdir                   = "/tmp"
+        decimation               = 20
+        decimation_extra_plot    = 5
+        model_filename           = "/mnt/nvm/xxxxx-xxxxx-ranch/oryx.cameramodel"
+        colmap_database_filename = '/mnt/nvm/xxxxx-xxxxx-ranch/xxxxx.db'
 
-# q.shape = (Npoints, Nimages=2, Nxy=2)
-if 0:
-    image0,image0_decimated = imread(image_filename[0], decimation)
-    image1,image1_decimated = imread(image_filename[1], decimation)
-    q = feature_matching__opencv(0, image0_decimated, image1_decimated)
-    show_matched_features(image0_decimated, image1_decimated, q)
-else:
-    indices_point_camintrinsics_camextrinsics, \
-    observations = \
-        feature_matching__colmap(colmap_database_filename,
-                                 Nimages)
-
-x,optimization_inputs = solve(indices_point_camintrinsics_camextrinsics,
-                              observations,
-                              Nimages)
+        image_filename = [ f"{image_dir}/{os.path.basename(f.decode())}" for f in image_filename]
 
 
 
 
 
+    model = mrcal.cameramodel(model_filename)
+    W,H   = model.imagersize()
+
+
+    Nimages = 6
+
+    # q.shape = (Npoints, Nimages=2, Nxy=2)
+    if 0:
+        image0,image0_decimated = imread(image_filename[0], decimation)
+        image1,image1_decimated = imread(image_filename[1], decimation)
+        q = feature_matching__opencv(0, image0_decimated, image1_decimated)
+        show_matched_features(image0_decimated, image1_decimated, q)
+    else:
+        indices_point_camintrinsics_camextrinsics, \
+        observations = \
+            feature_matching__colmap(colmap_database_filename,
+                                     Nimages)
+
+    x,optimization_inputs = solve(indices_point_camintrinsics_camextrinsics,
+                                  observations,
+                                  Nimages)
 
 
 
 
 
 
-show_solution(optimization_inputs, Nimages)
-
-import IPython
-IPython.embed()
-sys.exit()
 
 
 
 
-try:
-    image0_decimated = image1_decimated
-except:
-    # if I'm looking at cached features, I never read any actual images
-    pass
+
+    show_solution(optimization_inputs, Nimages)
+
+    import IPython
+    IPython.embed()
+    sys.exit()
 
 
-r'''
-'''
+
+
+    try:
+        image0_decimated = image1_decimated
+    except:
+        # if I'm looking at cached features, I never read any actual images
+        pass
+
+
