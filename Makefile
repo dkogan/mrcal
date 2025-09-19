@@ -45,7 +45,7 @@ LIB_SOURCES +=			\
 # to libpython here. c_build_rule is the default logic in mrbuild
 python-cameramodel-converter.o: %.o:%.c
 	$(c_build_rule); mv $@ _$@
-	objcopy --wildcard --weaken-symbol='Py*' --weaken-symbol='_Py*' _$@ $@
+	$(OBJCOPY) --wildcard --weaken-symbol='Py*' --weaken-symbol='_Py*' _$@ $@
 
 ifneq (${USE_LIBELAS},) # using libelas
 LIB_SOURCES := $(LIB_SOURCES) stereo-matching-libelas.cc
@@ -169,3 +169,6 @@ include Makefile.doc
 include Makefile.tests
 
 include $(MRBUILD_MK)/Makefile.common.footer
+
+# to work with mrbuild < 1.14
+OBJCOPY ?= objcopy
