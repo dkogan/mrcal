@@ -250,6 +250,23 @@ future
 
         optimization_inputs_normalized[k] = v
 
+
+    # for legacy compatibility
+    def renamed(name_from, name_to, d):
+        if name_from in d:
+            if not name_to in d:
+                d[name_to] = d[name_from]
+            elif not (isinstance(d[name_from],str) and d[name_from].startswith('ERROR:')):
+                raise Exception(f"Have deprecated field '{name_from}' and it isn't a deprecation warning. Please update your code to use the new names. '{name_from}'->'{name_to}'")
+            del d[name_from]
+    renamed('frames_rt_toref',
+            'rt_ref_frame',
+            optimization_inputs_normalized)
+    renamed('extrinsics_rt_fromref',
+            'rt_cam_ref',
+            optimization_inputs_normalized)
+
+
     np.savez_compressed(data_bytes, **optimization_inputs_normalized)
     return \
         base64.b85encode(data_bytes.getvalue())
@@ -284,16 +301,35 @@ that function for details
         optimization_inputs[k] = arr
 
     # for legacy compatibility
-    def renamed(s0, s1, d):
-        if s0 in d and not s1 in d:
-            d[s1] = d[s0]
-            del d[s0]
+    def renamed(name_from, name_to, d,
+                *,
+                poisonold = False):
+        if name_from in d and not name_to in d:
+            d[name_to] = d[name_from]
+            del d[name_from]
+        if poisonold:
+            d[name_from] = f'ERROR: mrcal 3.0 renamed optimization_inputs fields: "{name_from}" -> "{name_to}". Please update your code to use the new name'
+
+
     renamed('do_optimize_intrinsic_core',
             'do_optimize_intrinsics_core',
             optimization_inputs)
     renamed('do_optimize_intrinsic_distortions',
             'do_optimize_intrinsics_distortions',
             optimization_inputs)
+    # Use the new names, poison the old names, so that the user can clearly see
+    # that they need to update their code. I can write a lot of logic to make
+    # the old code work seamlessly, but that's error-prone and I don't want to
+    # do the thorough testing required. Most likely I'm 99% of the affected
+    # population.
+    renamed('frames_rt_toref',
+            'rt_ref_frame',
+            optimization_inputs,
+            poisonold=True)
+    renamed('extrinsics_rt_fromref',
+            'rt_cam_ref',
+            optimization_inputs,
+            poisonold=True)
     # renamed('icam_intrinsics_optimization_inputs',
     #         'icam_intrinsics',
     #         optimization_inputs)
@@ -508,10 +544,10 @@ A sample valid .cameramodel file:
                 raise CameramodelParseException(f"Failed to parse cameramodel '{name}'")
 
         # for legacy compatibility
-        def renamed(s0, s1, d):
-            if s0 in d and not s1 in d:
-                d[s1] = d[s0]
-                del d[s0]
+        def renamed(name_from, name_to, d):
+            if name_from in d and not name_to in d:
+                d[name_to] = d[name_from]
+                del d[name_from]
         renamed('distortion_model',
                 'lensmodel',
                 model)
