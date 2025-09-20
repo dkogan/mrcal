@@ -118,7 +118,7 @@ def convert_one(i, model_filename):
     lensmodel_type = re.match('LENSMODEL_[^_]*',lensmodel).group(0)
 
     imagersize           = model.imagersize()
-    Rt_cam_ref           = model.extrinsics_Rt_fromref()
+    Rt_cam_ref           = model.Rt_cam_ref()
 
     if Rt_ref_camprev is not None:
         Rt_cam_camprev = mrcal.compose_Rt(Rt_cam_ref, Rt_ref_camprev)
@@ -159,7 +159,7 @@ def convert_one(i, model_filename):
         distortion_coeffs = None
 
         model_identity_extrinsics = mrcal.cameramodel(model)
-        model_identity_extrinsics.extrinsics_Rt_fromref(mrcal.identity_Rt())
+        model_identity_extrinsics.Rt_cam_ref(mrcal.identity_Rt())
         x = mrcal.cahvor._deconstruct_model(model_identity_extrinsics)
 
         if   lensmodel_type == 'LENSMODEL_CAHVOR':

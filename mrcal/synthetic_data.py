@@ -397,11 +397,11 @@ We return a tuple:
                                             rt_ref_boardcenter              = nps.glue(r, np.array((0,0,3.)), axis=-1),
                                             rt_ref_boardcenter__noiseradius = np.array((0,0,0., 0,0,0)),
                                             Nframes                         = 1) [1]
-    mrcal.show_geometry( models_or_extrinsics_rt_fromref = np.zeros((1,1,6), dtype=float),
-                         frames_rt_toref                 = mrcal.rt_from_Rt(Rt_ref_boardref),
-                         object_width_n                  = 20,
-                         object_height_n                 = 5,
-                         object_spacing                  = 0.1,
+    mrcal.show_geometry( models_or_rt_cam_ref = np.zeros((1,1,6), dtype=float),
+                         rt_ref_frame         = mrcal.rt_from_Rt(Rt_ref_boardref),
+                         object_width_n       = 20,
+                         object_height_n      = 5,
+                         object_spacing       = 0.1,
                          _set = 'xyplane 0',
                          wait = 1 )
     '''
@@ -472,7 +472,7 @@ We return a tuple:
         q = \
           nps.mv( \
             nps.cat( \
-              *[ mrcal.project( mrcal.transform_point_Rt(models[i].extrinsics_Rt_fromref(), boards_ref),
+              *[ mrcal.project( mrcal.transform_point_Rt(models[i].Rt_cam_ref(), boards_ref),
                                 *models[i].intrinsics()) \
                  for i in range(Ncameras) ]),
                   0,1 )
@@ -691,7 +691,7 @@ None
         # shape (Nobservations,4,3)
         Rt_cam_ref = \
             nps.glue( mrcal.identity_Rt(),
-                      mrcal.Rt_from_rt(optimization_inputs['extrinsics_rt_fromref']),
+                      mrcal.Rt_from_rt(optimization_inputs['rt_cam_ref']),
                       axis = -3 ) \
             [ indices_point_camintrinsics_camextrinsics[:,2]+1 ]
 

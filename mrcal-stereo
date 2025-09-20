@@ -579,11 +579,11 @@ else:
     mrcal.stereo._validate_models_rectified(models_rectified)
 
 Rt_cam0_rect0 = \
-    mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
-                      models_rectified[0].extrinsics_Rt_toref() )
+    mrcal.compose_Rt( models          [0].Rt_cam_ref(),
+                      models_rectified[0].Rt_ref_cam() )
 Rt_cam1_rect1 = \
-    mrcal.compose_Rt( models          [1].extrinsics_Rt_fromref(),
-                      models_rectified[1].extrinsics_Rt_toref() )
+    mrcal.compose_Rt( models          [1].Rt_cam_ref(),
+                      models_rectified[1].Rt_ref_cam() )
 
 
 if args.viz == 'geometry':
@@ -631,16 +631,16 @@ if args.viz == 'geometry':
     # the defaults to mrcal.show_geometry(). That function sets the right,down
     # axis lengths to baseline/3. Here I default to a bit less: baseline/4
     baseline = \
-        nps.mag(mrcal.compose_Rt( models_rectified[1].extrinsics_Rt_fromref(),
-                                  models_rectified[0].extrinsics_Rt_toref())[3,:])
+        nps.mag(mrcal.compose_Rt( models_rectified[1].Rt_cam_ref(),
+                                  models_rectified[0].Rt_ref_cam())[3,:])
     v *= baseline/4
 
     # shape (Nloop,3): ref-coord system points
-    p = mrcal.transform_point_Rt(model.extrinsics_Rt_toref(), v)
+    p = mrcal.transform_point_Rt(model.Rt_ref_cam(), v)
 
     # shape (Nloop,2,3). Nloop-length different lines with 2 points in each one
     p = nps.xchg(nps.cat(p,p), -2,-3)
-    p[:,1,:] = model.extrinsics_Rt_toref()[3,:]
+    p[:,1,:] = model.Rt_ref_cam()[3,:]
 
     data_tuples.append( (p, dict(tuplesize = -3,
                                  _with     = 'lines lt 1',)))
@@ -741,8 +741,8 @@ def write_output_all(args,
                                models_rectified = models_rectified,
                                ranges           = ranges)
 
-    Rt_ref_rect0 = models_rectified[0].extrinsics_Rt_toref()
-    Rt_cam0_ref  = models          [0].extrinsics_Rt_fromref()
+    Rt_ref_rect0 = models_rectified[0].Rt_ref_cam()
+    Rt_cam0_ref  = models          [0].Rt_cam_ref()
 
     # Point cloud in ref coordinates
     # shape (H,W,3)
@@ -1243,8 +1243,8 @@ def gui_stereo(images,
                                         normalize = True) * _range
                     p0 = mrcal.transform_point_Rt( Rt_cam0_rect0,
                                                    p0_rectified )
-                    p1 = mrcal.transform_point_Rt( mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
-                                                                     models[0].extrinsics_Rt_toref()),
+                    p1 = mrcal.transform_point_Rt( mrcal.compose_Rt( models[1].Rt_cam_ref(),
+                                                                     models[0].Rt_ref_cam()),
                                                    p0 )
 
                     q0  = mrcal.project(p0, *models[0].intrinsics())

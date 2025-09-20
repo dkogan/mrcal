@@ -12,7 +12,7 @@ SYNOPSIS
     i_state0 = mrcal.state_index_frames(0, **optimization_inputs)
     Nstates  = mrcal.num_states_frames (   **optimization_inputs)
 
-    frames_rt_toref_all = b[i_state0:i_state0+Nstates]
+    rt_ref_frame_all = b[i_state0:i_state0+Nstates]
 
 The optimization algorithm sees its world described in one, big vector of state.
 The optimizer doesn't know or care about the meaning of each element of this

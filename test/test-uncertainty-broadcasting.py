@@ -121,15 +121,15 @@ calobject_warp_true     = np.array((0.002, -0.005))
 np.random.seed(0)
 
 
-extrinsics_rt_fromref_true = np.zeros((Ncameras,6), dtype=float)
-extrinsics_rt_fromref_true[:,:3] = np.random.randn(Ncameras,3) * 0.1
-extrinsics_rt_fromref_true[:, 3] = args.baseline * np.arange(Ncameras)
-extrinsics_rt_fromref_true[:,4:] = np.random.randn(Ncameras,2) * 0.1
+rt_cam_ref_true = np.zeros((Ncameras,6), dtype=float)
+rt_cam_ref_true[:,:3] = np.random.randn(Ncameras,3) * 0.1
+rt_cam_ref_true[:, 3] = args.baseline * np.arange(Ncameras)
+rt_cam_ref_true[:,4:] = np.random.randn(Ncameras,2) * 0.1
 
 # cam0 is at the identity. This makes my life easy: I can assume that the
 # optimization_inputs returned by calibration_baseline() use the same ref
 # coordinate system as these transformations.
-extrinsics_rt_fromref_true[0] *= 0
+rt_cam_ref_true[0] *= 0
 
 optimization_inputs_baseline, \
 models_true,                  \
@@ -141,7 +141,7 @@ frames_true =                 \
                          object_width_n,
                          object_height_n,
                          object_spacing,
-                         extrinsics_rt_fromref_true,
+                         rt_cam_ref_true,
                          calobject_warp_true,
                          fixedframes,
                          testdir,
@@ -171,8 +171,8 @@ for ipt in range(Npoints):
     for imp in range(Nmodelpairs):
         q[ipt,imp,0,:] = mrcal.project(p_triangulated_true0[ipt],
                                        *M[imp][0].intrinsics())
-        q[ipt,imp,1,:] = mrcal.project(mrcal.transform_point_Rt( mrcal.compose_Rt( M[imp][1].extrinsics_Rt_fromref(),
-                                                                                   M[imp][0].extrinsics_Rt_toref() ),
+        q[ipt,imp,1,:] = mrcal.project(mrcal.transform_point_Rt( mrcal.compose_Rt( M[imp][1].Rt_cam_ref(),
+                                                                                   M[imp][0].Rt_ref_cam() ),
                                                                  p_triangulated_true0[ipt]),
                                        *M[imp][1].intrinsics())
 

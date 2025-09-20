@@ -933,9 +933,9 @@ def widget_solve_callback(*args):
     # Store the new transform. The model0 extrinsics are untouched, but I move
     # model1
     context['Rt01'] = Rt01
-    Rtr0 = models[0].extrinsics_Rt_toref()
+    Rtr0 = models[0].Rt_ref_cam()
     Rtr1 = mrcal.compose_Rt(Rtr0, Rt01)
-    models[1].extrinsics_Rt_toref(Rtr1)
+    models[1].Rt_ref_cam(Rtr1)
 
     update_p0_triangulated_stored()
 
@@ -1353,8 +1353,8 @@ if args.rt01 is not None:
         print("--rt01 must be a comma-separated list of 6 numbers; incorrect number of values given", file=sys.stderr)
         sys.exit(1)
 
-    models[1].extrinsics_rt_toref( mrcal.compose_rt(models[0].extrinsics_rt_toref(),
-                                                    rt01) )
+    models[1].rt_ref_cam( mrcal.compose_rt(models[0].rt_ref_cam(),
+                                           rt01) )
 
 # To make it possible to concisely print out the models
 for m in models:
@@ -1414,8 +1414,8 @@ context = dict( # shape (N, Nimages = 2,xy=2)
                 # shape (N, xy=2)
                 p0_triangulated_stored = np.zeros((0,2), dtype=float),
 
-                Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                                         models[1].extrinsics_Rt_toref() ) )
+                Rt01 = mrcal.compose_Rt( models[0].Rt_cam_ref(),
+                                         models[1].Rt_ref_cam() ) )
 
 if args.initial_correspondences is not None:
     try:

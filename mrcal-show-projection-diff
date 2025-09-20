@@ -351,10 +351,10 @@ if args.same_dance:
 
         # shape (Nframes, Nh, Nw, 3)
         pcorners_ref0 = \
-            mrcal.transform_point_rt( nps.mv( optimization_inputs0['frames_rt_toref'], -2, -4),
+            mrcal.transform_point_rt( nps.mv( optimization_inputs0['rt_ref_frame'], -2, -4),
                                       calibration_object0 )
         pcorners_ref1 = \
-            mrcal.transform_point_rt( nps.mv( optimization_inputs1['frames_rt_toref'], -2, -4),
+            mrcal.transform_point_rt( nps.mv( optimization_inputs1['rt_ref_frame'], -2, -4),
                                       calibration_object1 )
 
         # shape (4,3)
@@ -374,11 +374,11 @@ if args.same_dance:
                                                 **optimization_inputs1)
 
         if icam_extrinsics0 >= 0:
-            Rt_cr0 = mrcal.Rt_from_rt(optimization_inputs0['extrinsics_rt_fromref'][icam_extrinsics0])
+            Rt_cr0 = mrcal.Rt_from_rt(optimization_inputs0['rt_cam_ref'][icam_extrinsics0])
         else:
             Rt_cr0 = mrcal.identity_Rt()
         if icam_extrinsics1 >= 0:
-            Rt_cr1 = mrcal.Rt_from_rt(optimization_inputs1['extrinsics_rt_fromref'][icam_extrinsics1])
+            Rt_cr1 = mrcal.Rt_from_rt(optimization_inputs1['rt_cam_ref'][icam_extrinsics1])
         else:
             Rt_cr1 = mrcal.identity_Rt()
 
@@ -397,20 +397,20 @@ if args.same_dance:
         icam_extrinsics0     = \
             mrcal.corresponding_icam_extrinsics(icam_intrinsics0, **optimization_inputs0)
         if icam_extrinsics0 >= 0:
-            Rt_rc0 = mrcal.invert_Rt(mrcal.Rt_from_rt(optimization_inputs0['extrinsics_rt_fromref'][icam_extrinsics0]))
+            Rt_rc0 = mrcal.invert_Rt(mrcal.Rt_from_rt(optimization_inputs0['rt_cam_ref'][icam_extrinsics0]))
         else:
             Rt_rc0 = mrcal.identity_Rt()
-        Rt_fr0 = mrcal.invert_Rt(mrcal.Rt_from_rt(optimization_inputs0['frames_rt_toref']))
+        Rt_fr0 = mrcal.invert_Rt(mrcal.Rt_from_rt(optimization_inputs0['rt_ref_frame']))
 
         optimization_inputs1 = models[1].optimization_inputs()
         icam_intrinsics1     = models[1].icam_intrinsics()
         icam_extrinsics1     = \
         mrcal.corresponding_icam_extrinsics(icam_intrinsics1, **optimization_inputs1)
         if icam_extrinsics1 >= 0:
-            Rt_cr1 = mrcal.Rt_from_rt(optimization_inputs1['extrinsics_rt_fromref'][icam_extrinsics1])
+            Rt_cr1 = mrcal.Rt_from_rt(optimization_inputs1['rt_cam_ref'][icam_extrinsics1])
         else:
             Rt_cr1 = mrcal.identity_Rt()
-        Rt_rf1 = mrcal.Rt_from_rt(optimization_inputs1['frames_rt_toref'])
+        Rt_rf1 = mrcal.Rt_from_rt(optimization_inputs1['rt_ref_frame'])
 
         # not a geometric transformation: the R is not in SO3
         Rt_r1r0 = np.mean( mrcal.compose_Rt(Rt_rf1, Rt_fr0), axis=-3)
@@ -435,7 +435,7 @@ if args.same_dance:
         p1_ref    = np.mean(p1_refall, axis=0)
 
         # print(f"p0_ref = {p0_ref}")
-        # print(f"rt_rf0[0] = {optimization_inputs0['frames_rt_toref'][0]}")
+        # print(f"rt_rf0[0] = {optimization_inputs0['rt_ref_frame'][0]}")
         # print(f"Rt_fr0[0] = {Rt_fr0[0]}")
         # print(f"p0_frame = {p0_frame}")
         # print(f"p1_refall = {p1_refall}")

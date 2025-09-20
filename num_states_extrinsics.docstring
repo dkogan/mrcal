@@ -12,7 +12,7 @@ SYNOPSIS
     i_state0 = mrcal.state_index_extrinsics(0, **optimization_inputs)
     Nstates  = mrcal.num_states_extrinsics (   **optimization_inputs)
 
-    extrinsics_rt_fromref_all = b[i_state0:i_state0+Nstates]
+    rt_cam_ref_all = b[i_state0:i_state0+Nstates]
 
 The optimization algorithm sees its world described in one, big vector of state.
 The optimizer doesn't know or care about the meaning of each element of this

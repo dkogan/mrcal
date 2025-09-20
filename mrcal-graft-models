@@ -199,8 +199,8 @@ else:
         sys.exit(1)
 
 if args.radius == 0:
-    rt_cr = model_extrinsics.extrinsics_rt_fromref()
-    model_intrinsics.extrinsics_rt_fromref(rt_cr)
+    rt_cr = model_extrinsics.rt_cam_ref()
+    model_intrinsics.rt_cam_ref(rt_cr)
 else:
     difflen,diff,q0, Rt_camoldintrinsics_camnewintrinsics = \
         mrcal.projection_diff((model_intrinsics, model_extrinsics),
@@ -217,13 +217,13 @@ else:
     print(f"Transformation cam1 <-- cam0:  rotation: {nps.mag(rt10[:3])*180./np.pi:.03f} degrees, translation: {rt10[3:]} m",
           file = sys.stderr)
 
-    rt_camoldintrinsics_ref = model_extrinsics.extrinsics_rt_fromref()
+    rt_camoldintrinsics_ref = model_extrinsics.rt_cam_ref()
 
     rt_camnewintrinsics_ref = \
         mrcal.compose_rt( mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_camoldintrinsics_camnewintrinsics)),
                           rt_camoldintrinsics_ref)
 
-    model_intrinsics.extrinsics_rt_fromref(rt_camnewintrinsics_ref)
+    model_intrinsics.rt_cam_ref(rt_camnewintrinsics_ref)
 
 
 

@@ -384,10 +384,10 @@ if not args.sampled:
             optimization_inputs['intrinsics']
         imagersizes = \
             optimization_inputs['imagersizes']
-        extrinsics_rt_fromref = \
-            optimization_inputs['extrinsics_rt_fromref']
-        frames_rt_toref = \
-            optimization_inputs['frames_rt_toref']
+        rt_cam_ref = \
+            optimization_inputs['rt_cam_ref']
+        rt_ref_frame = \
+            optimization_inputs['rt_ref_frame']
         indices_frame_camintrinsics_camextrinsics = \
             optimization_inputs['indices_frame_camintrinsics_camextrinsics']
         observations_board = \
@@ -424,14 +424,14 @@ if not args.sampled:
         if icam_extrinsics >= 0:
             # I'm moving the reference to lie at this one new camera. Transform
             # everything
-            rt_cam_reforig = extrinsics_rt_fromref[icam_extrinsics]
+            rt_cam_reforig = rt_cam_ref[icam_extrinsics]
             rt_refnew_reforig = rt_cam_reforig
 
-            frames_rt_toref = mrcal.compose_rt( rt_refnew_reforig, frames_rt_toref )
-            extrinsics_rt_fromref = np.empty((0,6), dtype=float)
+            rt_ref_frame = mrcal.compose_rt( rt_refnew_reforig, rt_ref_frame )
+            rt_cam_ref = np.empty((0,6), dtype=float)
 
         # frames
-        frames_rt_toref = frames_rt_toref[indices_frame_camintrinsics_camextrinsics[:,0], :]
+        rt_ref_frame = rt_ref_frame[indices_frame_camintrinsics_camextrinsics[:,0], :]
         Nframes = len(indices_frame_camintrinsics_camextrinsics)
         indices_frame_camintrinsics_camextrinsics[:,0] = np.arange(Nframes)
 
@@ -440,10 +440,10 @@ if not args.sampled:
             intrinsics
         optimization_inputs['imagersizes'] = \
             imagersizes
-        optimization_inputs['extrinsics_rt_fromref'] = \
-            extrinsics_rt_fromref
-        optimization_inputs['frames_rt_toref'] = \
-            frames_rt_toref
+        optimization_inputs['rt_cam_ref'] = \
+            rt_cam_ref
+        optimization_inputs['rt_ref_frame'] = \
+            rt_ref_frame
         optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = \
             indices_frame_camintrinsics_camextrinsics
         optimization_inputs['observations_board'] = \
@@ -695,7 +695,7 @@ else:
     ### models such as LENSMODEL_OPENCV8
     err_rms_best               = 1e10
     intrinsics_data_best       = None
-    extrinsics_rt_fromref_best = None
+    rt_cam_ref_best = None
 
     for i in range(args.num_trials):
         # random seed for the new intrinsics
@@ -719,8 +719,8 @@ else:
 
         optimization_inputs = \
             dict(intrinsics                                = intrinsics_to_values,
-                 extrinsics_rt_fromref                     = None,
-                 frames_rt_toref                           = None, # no frames. Just points
+                 rt_cam_ref                                = None,
+                 rt_ref_frame                              = None, # no frames. Just points
                  points                                    = p,
                  observations_board                        = None, # no board observations
                  indices_frame_camintrinsics_camextrinsics = None, # no board observations
@@ -762,7 +762,7 @@ else:
             # extrinsics too
             optimization_inputs['indices_point_camintrinsics_camextrinsics'][:,2] = \
                 np.zeros ((Npoints,), dtype = np.int32)
-            optimization_inputs['extrinsics_rt_fromref']  = (np.random.rand(1,6) - 0.5) * 1e-6
+            optimization_inputs['rt_cam_ref']  = (np.random.rand(1,6) - 0.5) * 1e-6
             optimization_inputs['do_optimize_extrinsics'] = True
 
             stats = mrcal.optimize(**optimization_inputs,
@@ -777,7 +777,7 @@ else:
             err_rms_best = err_rms
             intrinsics_data_best  = optimization_inputs['intrinsics'][0,:].copy()
             if not args.intrinsics_only:
-                extrinsics_rt_fromref_best = optimization_inputs['extrinsics_rt_fromref'][0,:].copy()
+                rt_cam_ref_best = optimization_inputs['rt_cam_ref'][0,:].copy()
 
     if intrinsics_data_best is None:
         print("No valid intrinsics found!", file=sys.stderr)
@@ -793,7 +793,7 @@ else:
     if args.intrinsics_only:
         implied_Rt10 = mrcal.identity_Rt()
     else:
-        implied_Rt10 = mrcal.Rt_from_rt(extrinsics_rt_fromref_best)
+        implied_Rt10 = mrcal.Rt_from_rt(rt_cam_ref_best)
 
 if not (args.sampled and args.intrinsics_only):
     implied_rt10 = mrcal.rt_from_Rt(implied_Rt10)
@@ -815,8 +815,8 @@ note = \
     format(time.strftime("%Y-%m-%d %H:%M:%S"),
            ' '.join(mrcal.shellquote(s) for s in sys.argv))
 
-m_to.extrinsics_Rt_fromref( mrcal.compose_Rt( implied_Rt10,
-                                              mrcal.Rt_from_rt( m.extrinsics_rt_fromref())))
+m_to.Rt_cam_ref( mrcal.compose_Rt( implied_Rt10,
+                                              mrcal.Rt_from_rt( m.rt_cam_ref())))
 m_to.write(file_output, note=note)
 
 if isinstance(file_output, str):

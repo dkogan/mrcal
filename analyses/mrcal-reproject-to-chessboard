@@ -114,8 +114,8 @@ Nx = int(args.resolution_px_m * object_spacing * (object_width_n  + 1) + 0.5)
 Ny = int(args.resolution_px_m * object_spacing * (object_height_n + 1) + 0.5)
 
 # shape (Nframes,6)
-rt_ref_frame    = optimization_inputs['frames_rt_toref']
-rt_cam_ref      = optimization_inputs['extrinsics_rt_fromref']
+rt_ref_frame    = optimization_inputs['rt_ref_frame']
+rt_cam_ref      = optimization_inputs['rt_cam_ref']
 ifcice          = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
 observations    = optimization_inputs['observations_board']
 lensmodel       = optimization_inputs['lensmodel']

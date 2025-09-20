@@ -60,15 +60,15 @@ models = [ mrcal.cameramodel(m) for m in ( f"{testdir}/data/cam0.opencv8.cameram
 lensmodel       = models[0].intrinsics()[0]
 intrinsics_data = nps.cat(models[0].intrinsics()[1],
                           models[1].intrinsics()[1])
-extrinsics_rt_fromref = mrcal.compose_rt( models[1].extrinsics_rt_fromref(),
-                                          models[0].extrinsics_rt_toref() )
+rt_cam_ref = mrcal.compose_rt( models[1].rt_cam_ref(),
+                               models[0].rt_ref_cam() )
 
 imagersizes = nps.cat(models[0].imagersize(),
                       models[1].imagersize())
 # I now have the "right" camera parameters. I don't have the frames or points,
 # but it's fine to just make them up. This is a regression test.
-frames_rt_toref = linspace_shaped(3,6)
-frames_rt_toref[:,5] += 5 # push them back
+rt_ref_frame = linspace_shaped(3,6)
+rt_ref_frame[:,5] += 5 # push them back
 
 indices_point_camintrinsics_camextrinsics = \
     np.array(((0,1,-1),
@@ -144,8 +144,8 @@ for kwargs in all_test_kwargs:
 
     optimization_inputs = \
         dict( intrinsics                                = intrinsics_data,
-              extrinsics_rt_fromref                     = nps.atleast_dims(extrinsics_rt_fromref, -2),
-              frames_rt_toref                           = frames_rt_toref,
+              rt_cam_ref                                = nps.atleast_dims(rt_cam_ref, -2),
+              rt_ref_frame                              = rt_ref_frame,
               points                                    = points,
               observations_board                        = observations_copy,
               indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,

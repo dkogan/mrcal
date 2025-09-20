@@ -39,7 +39,7 @@ SYNOPSIS
         mrcal.cameramodel(intrinsics = ('LENSMODEL_PINHOLE',
                                         intrinsics_data[:4]),
                           imagersize = model.imagersize(),
-                          extrinsics_rt_fromref = model.extrinsics_rt_fromref() )
+                          rt_cam_ref = model.rt_cam_ref() )
 
 Many algorithms work with images assumed to have been captured with a pinhole
 camera, even though real-world lenses never fit a pinhole model. mrcal provides
@@ -269,7 +269,7 @@ the input model.
 
     return \
         mrcal.cameramodel( intrinsics            = ('LENSMODEL_PINHOLE',intrinsics_data[:4]),
-                           extrinsics_rt_fromref = model_from.extrinsics_rt_fromref(),
+                           rt_cam_ref = model_from.rt_cam_ref(),
                            imagersize            = imagersize )
 
 
@@ -415,8 +415,8 @@ This array can be passed to mrcal.transform_image()
     if intrinsics_only:
         Rt_to_from = None
     else:
-        Rt_to_from = mrcal.compose_Rt(model_to.  extrinsics_Rt_fromref(),
-                                      model_from.extrinsics_Rt_toref())
+        Rt_to_from = mrcal.compose_Rt(model_to.  Rt_cam_ref(),
+                                      model_from.Rt_ref_cam())
 
     lensmodel_from,intrinsics_data_from = model_from.intrinsics()
     lensmodel_to,  intrinsics_data_to   = model_to.  intrinsics()

@@ -52,11 +52,11 @@ fxycxy1  = nps.glue( np.array(( 50000., 50000.)), cxy_center,  axis=-1)
 
 model0 = mrcal.cameramodel( intrinsics            = ('LENSMODEL_PINHOLE', fxycxy0),
                             imagersize            = imagersize,
-                            extrinsics_rt_fromref = rt_0r )
+                            rt_cam_ref = rt_0r )
 
 model1 = mrcal.cameramodel( intrinsics            = ('LENSMODEL_PINHOLE', fxycxy1),
                             imagersize            = imagersize,
-                            extrinsics_rt_fromref = rt_1r )
+                            rt_cam_ref = rt_1r )
 
 filename0 = f"{workdir}/model0.cameramodel"
 filename1 = f"{workdir}/model1.cameramodel"
@@ -80,7 +80,7 @@ model01 = mrcal.cameramodel(filename01)
 testutils.confirm_equal(model01.intrinsics()[1], model0.intrinsics()[1],
                         msg = f"Basic grafted intrinsics match",
                         eps = 1.0e-6)
-testutils.confirm_equal(model01.extrinsics_rt_fromref(), model1.extrinsics_rt_fromref(),
+testutils.confirm_equal(model01.rt_cam_ref(), model1.rt_cam_ref(),
                         msg = f"Basic grafted extrinsics match",
                         eps = 1.0e-6)
 
@@ -101,14 +101,14 @@ with open(filename01_compensated, "w") as f:
 model01_compensated = mrcal.cameramodel(filename01_compensated)
 
 p1 = np.array((11., 17., 10000.))
-pref = mrcal.transform_point_rt( model1.extrinsics_rt_toref(),
+pref = mrcal.transform_point_rt( model1.rt_ref_cam(),
                                  p1)
 
-q = mrcal.project( mrcal.transform_point_rt( model1.extrinsics_rt_fromref(),
+q = mrcal.project( mrcal.transform_point_rt( model1.rt_cam_ref(),
                                              pref ),
                    *model1.intrinsics())
 q_compensated = \
-    mrcal.project( mrcal.transform_point_rt( model01_compensated.extrinsics_rt_fromref(),
+    mrcal.project( mrcal.transform_point_rt( model01_compensated.rt_cam_ref(),
                                              pref),
                    *model01_compensated.intrinsics())
 

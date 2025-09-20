@@ -3,8 +3,8 @@ Invoke the calibration routine
 SYNOPSIS
 
     stats = mrcal.optimize( intrinsics_data,
-                            extrinsics_rt_fromref,
-                            frames_rt_toref, points,
+                            rt_cam_ref,
+                            rt_ref_frame, points,
                             observations_board, indices_frame_camintrinsics_camextrinsics,
                             observations_point, indices_point_camintrinsics_camextrinsics,
 
@@ -34,8 +34,8 @@ range.
 The cameras and what they're observing is given in the arrays
 
 - intrinsics_data
-- extrinsics_rt_fromref
-- frames_rt_toref
+- rt_cam_ref
+- rt_ref_frame
 - points
 - indices_frame_camintrinsics_camextrinsics
 - indices_point_camintrinsics_camextrinsics
@@ -43,19 +43,19 @@ The cameras and what they're observing is given in the arrays
 intrinsics_data contains the intrinsics for all the physical cameras present in
 the problem. len(intrinsics_data) = Ncameras_intrinsics
 
-extrinsics_rt_fromref contains all the camera poses present in the problem,
+rt_cam_ref contains all the camera poses present in the problem,
 omitting any cameras that sit at the reference coordinate system.
-len(extrinsics_rt_fromref) = Ncameras_extrinsics.
+len(rt_cam_ref) = Ncameras_extrinsics.
 
-frames_rt_toref is all the poses of the calibration board in the problem, and
+rt_ref_frame is all the poses of the calibration board in the problem, and
 points is all the discrete points being observed in the problem.
 
 indices_frame_camintrinsics_camextrinsics describes which board observations
 were made by which camera, and where this camera was. Each board observation is
 described by a tuple (iframe,icam_intrinsics,icam_extrinsics). The board at
-frames_rt_toref[iframe] was observed by camera
+rt_ref_frame[iframe] was observed by camera
 intrinsics_data[icam_intrinsics], which was at
-extrinsics_rt_fromref[icam_extrinsics]
+rt_cam_ref[icam_extrinsics]
 
 indices_point_camintrinsics_camextrinsics is the same thing for discrete points.
 
@@ -66,7 +66,7 @@ coordinate system. So
 - Ncameras_intrinsics = Ncameras_extrinsics+1
 - All entries in indices_frame_camintrinsics_camextrinsics have
   icam_intrinsics = icam_extrinsics+1
-- frames_rt_toref, points describes the motion of the moving target we're
+- rt_ref_frame, points describes the motion of the moving target we're
   observing
 
 Conversely, in a structure-from-motion problem we have some small number of
@@ -74,7 +74,7 @@ moving cameras (often just 1) observing stationary target(s). We would have
 
 - Ncameras_intrinsics is small: it's how many physical cameras we have
 - Ncameras_extrinsics is large: it describes the motion of the cameras
-- frames_rt_toref, points is small: it describes the non-moving world we're
+- rt_ref_frame, points is small: it describes the non-moving world we're
   observing
 
 Any combination of these extreme cases is allowed.
@@ -92,7 +92,7 @@ REQUIRED ARGUMENTS
   On input this is a seed. On output the optimal data is returned. THIS ARRAY IS
   MODIFIED BY THIS CALL.
 
-- extrinsics_rt_fromref: array of dims (Ncameras_extrinsics, 6). The pose of
+- rt_cam_ref: array of dims (Ncameras_extrinsics, 6). The pose of
   each camera observation. Each pose is given as 6 values: a Rodrigues rotation
   vector followed by a translation. This represents a transformation FROM the
   reference coord system TO the coord system of each camera.
@@ -102,7 +102,7 @@ REQUIRED ARGUMENTS
 
   If we only have one camera, pass either None or np.zeros((0,6))
 
-- frames_rt_toref: array of dims (Nframes, 6). The poses of the calibration
+- rt_ref_frame: array of dims (Nframes, 6). The poses of the calibration
   object over time. Each pose is given as 6 values: a rodrigues rotation vector
   followed by a translation. This represents a transformation FROM the coord
   system of the calibration object TO the reference coord system. THIS IS
@@ -144,8 +144,8 @@ REQUIRED ARGUMENTS
   3). For each observation these are an
   (iframe,icam_intrinsics,icam_extrinsics) tuple. icam_extrinsics == -1
   means this observation came from a camera in the reference coordinate system.
-  iframe indexes the "frames_rt_toref" array, icam_intrinsics indexes the
-  "intrinsics_data" array, icam_extrinsics indexes the "extrinsics_rt_fromref"
+  iframe indexes the "rt_ref_frame" array, icam_intrinsics indexes the
+  "intrinsics_data" array, icam_extrinsics indexes the "rt_cam_ref"
   array
 
   All of the indices are guaranteed to be monotonic. This array contains 32-bit

@@ -47,10 +47,10 @@ Ncameras_extrinsics = Ncameras - 1
 
 Nframes  = 50
 
-models_ref[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
-models_ref[1].extrinsics_rt_fromref(np.array((0.08,0.2,0.02, 1., 0.9,0.1)))
-models_ref[2].extrinsics_rt_fromref(np.array((0.01,0.07,0.2, 2.1,0.4,0.2)))
-models_ref[3].extrinsics_rt_fromref(np.array((-0.1,0.08,0.08, 4.4,0.2,0.1)))
+models_ref[0].rt_cam_ref(np.zeros((6,), dtype=float))
+models_ref[1].rt_cam_ref(np.array((0.08,0.2,0.02, 1., 0.9,0.1)))
+models_ref[2].rt_cam_ref(np.array((0.01,0.07,0.2, 2.1,0.4,0.2)))
+models_ref[3].rt_cam_ref(np.array((-0.1,0.08,0.08, 4.4,0.2,0.1)))
 
 pixel_uncertainty_stdev = 1.5
 object_spacing          = 0.1
@@ -86,7 +86,7 @@ observations_ref = nps.clump( nps.glue(q_ref,
 
 # These are perfect
 intrinsics_ref = nps.cat( *[m.intrinsics()[1]         for m in models_ref] )
-extrinsics_ref = nps.cat( *[m.extrinsics_rt_fromref() for m in models_ref[1:]] )
+extrinsics_ref = nps.cat( *[m.rt_cam_ref() for m in models_ref[1:]] )
 if extrinsics_ref.size == 0:
     extrinsics_ref = np.zeros((0,6), dtype=float)
 frames_ref     = mrcal.rt_from_Rt(Rt_ref_board_ref)
@@ -114,8 +114,8 @@ _,observations_baseline = sample_dqref(observations_ref,
                                        pixel_uncertainty_stdev)
 baseline = \
     dict(intrinsics                                = intrinsics_ref,
-         extrinsics_rt_fromref                     = extrinsics_ref,
-         frames_rt_toref                           = frames_ref,
+         rt_cam_ref                                = extrinsics_ref,
+         rt_ref_frame                              = frames_ref,
          points                                    = None,
          observations_board                        = observations_baseline,
          indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,

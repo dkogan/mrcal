@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+
 import sys
 import numpy as np
 import numpysane as nps
@@ -59,8 +60,8 @@ pairs = ( ( models[0],models[1]),
 
 # The "before" extrinsic transformation
 m0,m1 = pairs[0]
-Rt01 = mrcal.compose_Rt( m0.extrinsics_Rt_fromref(),
-                         m1.extrinsics_Rt_toref())
+Rt01 = mrcal.compose_Rt( m0.Rt_cam_ref(),
+                         m1.Rt_ref_cam())
 
 # The "after" extrinsics transformation. I remap both cameras into the "before"
 # space, so that we're looking at the extrinsics transformation in the "before"
@@ -72,8 +73,8 @@ Rt_implied__1after_1before = compute_Rt_implied_01(pairs[1][1], pairs[0][1])
 
 m0,m1 = pairs[1]
 Rt_0after_1after = \
-    mrcal.compose_Rt( m0.extrinsics_Rt_fromref(),
-                      m1.extrinsics_Rt_toref())
+    mrcal.compose_Rt( m0.Rt_cam_ref(),
+                      m1.Rt_ref_cam())
 
 Rt01_after_extrinsicsbefore = \
     mrcal.compose_Rt( Rt_implied__0before_0after,

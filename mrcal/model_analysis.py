@@ -919,9 +919,9 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                                     # specific camera observed the board. This
                                     # may be all or none of the extrinsics in
                                     # the state, or anything in-between
-                                    extrinsics_rt_fromref,
+                                    rt_cam_ref,
                                     # all frame poses from the optimizaiton
-                                    frames_rt_toref,
+                                    rt_ref_frame,
                                     Nstate,
                                     # in the state vector
                                     istate_intrinsics0,
@@ -984,20 +984,20 @@ def _dq_db__projection_uncertainty( # shape (...,3)
 
     '''
 
-    # extrinsics_rt_fromref and frames_rt_toref contain poses. These are
+    # rt_cam_ref and rt_ref_frame contain poses. These are
     # available here, whether they're being optimized or not. istate_... are the
     # state variables. These may be None if the quantity in question is fixed.
 
-    if extrinsics_rt_fromref is None: extrinsics_rt_fromref = np.zeros((0,6), dtype=float)
-    if frames_rt_toref       is None: frames_rt_toref       = np.zeros((0,6), dtype=float)
+    if rt_cam_ref   is None: rt_cam_ref   = np.zeros((0,6), dtype=float)
+    if rt_ref_frame is None: rt_ref_frame = np.zeros((0,6), dtype=float)
 
     # shape (Ncameras_extrinsics,6) where Ncameras_extrinsics may be 1
-    extrinsics_rt_fromref = nps.atleast_dims(extrinsics_rt_fromref, -2)
+    rt_cam_ref   = nps.atleast_dims(rt_cam_ref,   -2)
     # shape (Nframes,6)             where Nframes may be 1
-    frames_rt_toref       = nps.atleast_dims(frames_rt_toref,       -2)
+    rt_ref_frame = nps.atleast_dims(rt_ref_frame, -2)
 
-    Ncameras_extrinsics = extrinsics_rt_fromref.shape[0]
-    Nframes             = frames_rt_toref      .shape[0]
+    Ncameras_extrinsics = rt_cam_ref.shape[0]
+    Nframes             = rt_ref_frame.shape[0]
 
     ### The output array. This function fills this in, and returns it
     # shape (..., 2,Nstate)
@@ -1015,11 +1015,11 @@ def _dq_db__projection_uncertainty( # shape (...,3)
     # shape (..., Ncameras_extrinsics, 3)
     if not atinfinity:
         p_ref = \
-            mrcal.transform_point_rt( mrcal.invert_rt(extrinsics_rt_fromref),
+            mrcal.transform_point_rt( mrcal.invert_rt(rt_cam_ref),
                                       nps.dummy(p_cam,-2) )
     else:
         p_ref = \
-            mrcal.rotate_point_r( -extrinsics_rt_fromref[...,:3],
+            mrcal.rotate_point_r( -rt_cam_ref[...,:3],
                                   nps.dummy(p_cam,-2) )
 
     # shape (..., 2,3)
@@ -1049,13 +1049,13 @@ def _dq_db__projection_uncertainty( # shape (...,3)
         # shape (..., Ncameras_extrinsics,3,6)
         # shape (..., Ncameras_extrinsics,3,3)
         _, dpcam_drt, dpcam_dpref = \
-            mrcal.transform_point_rt(extrinsics_rt_fromref, p_ref,
+            mrcal.transform_point_rt(rt_cam_ref, p_ref,
                                      get_gradients = True)
     else:
         # shape (..., Ncameras_extrinsics,3,3)
         # shape (..., Ncameras_extrinsics,3,3)
         _, dpcam_dr, dpcam_dpref = \
-            mrcal.rotate_point_r(extrinsics_rt_fromref[...,:3], p_ref,
+            mrcal.rotate_point_r(rt_cam_ref[...,:3], p_ref,
                                  get_gradients = True)
 
     if istate_extrinsics0 is not None:
@@ -1161,7 +1161,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
             if not atinfinity:
                 # shape (Nframes,Ncameras_extrinsics,3)
                 p_frames = mrcal.transform_point_rt( # shape (Nframes,Ncameras_extrinsics=1,6)
-                                                     nps.dummy(mrcal.invert_rt(frames_rt_toref), -2),
+                                                     nps.dummy(mrcal.invert_rt(rt_ref_frame), -2),
                                                      # shape (..., Nframes=1, Ncameras_extrinsics, 3)
                                                      nps.dummy(p_ref,-3) )
 
@@ -1169,7 +1169,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                 _, \
                 dpref_dframes, \
                 _ = mrcal.transform_point_rt( # shape (Nframes,Ncameras_extrinsics=1,6)
-                                              nps.dummy(frames_rt_toref, -2),
+                                              nps.dummy(rt_ref_frame, -2),
                                               p_frames,
                                               get_gradients = True)
 
@@ -1177,7 +1177,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
 
                 # shape (Nframes,Ncameras_extrinsics,3)
                 p_frames = mrcal.rotate_point_r( # shape (Nframes,Ncameras_extrinsics=1,6)
-                                                 nps.dummy(-frames_rt_toref[...,:3], -2),
+                                                 nps.dummy(-rt_ref_frame[...,:3], -2),
                                                  # shape (..., Nframes=1, Ncameras_extrinsics, 3)
                                                  nps.dummy(p_ref,-3) )
 
@@ -1185,7 +1185,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                 _, \
                 dpref_dframes, \
                 _ = mrcal.rotate_point_r( # shape (Nframes,Ncameras_extrinsics=1,3)
-                                          nps.dummy(frames_rt_toref[...,:3], -2),
+                                          nps.dummy(rt_ref_frame[...,:3], -2),
                                           p_frames,
                                           get_gradients = True)
 
@@ -1413,7 +1413,7 @@ else:                    we return an array of shape (...)
     # Stuff may or may not be optimized: I get the geometry arrays regardless.
     # The istate_... variables are None if the particular quantity isn't up for
     # optimization (it is fixed)
-    frames_rt_toref = get_input('frames_rt_toref')
+    rt_ref_frame = get_input('rt_ref_frame')
     istate_frames0  = mrcal.state_index_frames(0, **optimization_inputs)
 
     if method == 'cross-reprojection-rrp-Jfp':
@@ -1425,8 +1425,8 @@ else:                    we return an array of shape (...)
         if get_input('observations_point')              is not None or \
            get_input('observations_point_triangulated') is not None:
             raise Exception("We have point observations; only cross-reprojection uncertainty can work here")
-        if frames_rt_toref is None:
-            raise Exception("Some frames_rt_toref must exist for the no-cross-reprojection uncertainty computation, but we don't have any")
+        if rt_ref_frame is None:
+            raise Exception("Some rt_ref_frame must exist for the no-cross-reprojection uncertainty computation, but we don't have any")
 
     # Now the extrinsics. I look at all the ones that correspond with the
     # specific camera I care about. If the camera is stationary, this will
@@ -1449,18 +1449,18 @@ else:                    we return an array of shape (...)
     if icam_extrinsics[0] < 0:
         if icam_extrinsics.size == 1:
             # Stationary camera, at the reference
-            extrinsics_rt_fromref = mrcal.identity_rt()
+            rt_cam_ref = mrcal.identity_rt()
             istate_extrinsics0    = None
         else:
             # Moving camera. One of the poses is at the reference. This requires
             # more typing. I'll do this later
             raise Exception("Have moving camera, some poses are at the reference. This isn't supported yet")
     else:
-        # I will now be guaranteed to get extrinsics_rt_fromref with the right
+        # I will now be guaranteed to get rt_cam_ref with the right
         # number of extrinsics (all the ones that correspond to this
         # icam_intrinsics). And I know they're a contiguous block in my
         # optimization vector starting with istate_extrinsics0
-        extrinsics_rt_fromref = get_input('extrinsics_rt_fromref')[icam_extrinsics,:]
+        rt_cam_ref = get_input('rt_cam_ref')[icam_extrinsics,:]
         istate_extrinsics0 = mrcal.state_index_extrinsics(icam_extrinsics[0],
                                                           **optimization_inputs)
 
@@ -1489,7 +1489,7 @@ else:                    we return an array of shape (...)
     dq_db = \
         _dq_db__projection_uncertainty( p_cam,
                                         lensmodel, intrinsics_data,
-                                        extrinsics_rt_fromref, frames_rt_toref,
+                                        rt_cam_ref, rt_ref_frame,
                                         Nstate,
                                         istate_intrinsics0,
                                         istate_intrinsics0_onecam,
@@ -1806,8 +1806,8 @@ A tuple
                 Rt10 = mrcal.identity_Rt()
             else:
                 if focus_radius == 0:
-                    Rt10 = mrcal.compose_Rt(models[1].extrinsics_Rt_fromref(),
-                                            models[0].extrinsics_Rt_toref())
+                    Rt10 = mrcal.compose_Rt(models[1].Rt_cam_ref(),
+                                            models[0].Rt_ref_cam())
                 else:
                     # weights has shape (len(distance),Nh,Nw))
                     if uncertainties is not None:
@@ -1855,8 +1855,8 @@ A tuple
                 return mrcal.identity_Rt()
 
             if focus_radius == 0:
-                return mrcal.compose_Rt(models[i1].extrinsics_Rt_fromref(),
-                                        models[i0].extrinsics_Rt_toref())
+                return mrcal.compose_Rt(models[i1].Rt_cam_ref(),
+                                        models[i0].Rt_ref_cam())
 
             # weights has shape (len(distance),Nh,Nw))
             if uncertainties is not None:
@@ -2113,8 +2113,8 @@ A tuple
         distance   = nps.atleast_dims(np.array(distance), -1)
     distance   = nps.mv(distance.ravel(), -1,-4)
 
-    Rt10_pairs = [ mrcal.compose_Rt( model_pair[1].extrinsics_Rt_fromref(),
-                                     model_pair[0].extrinsics_Rt_toref() ) \
+    Rt10_pairs = [ mrcal.compose_Rt( model_pair[1].Rt_cam_ref(),
+                                     model_pair[0].Rt_ref_cam() ) \
                    for model_pair in model_pairs ]
 
     if atinfinity:

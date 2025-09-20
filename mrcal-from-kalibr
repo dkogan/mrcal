@@ -217,7 +217,7 @@ def convert_one(d,name):
                   file=sys.stderr)
             sys.exit(1)
 
-        if not Rt_is_identity(m.extrinsics_Rt_fromref()):
+        if not Rt_is_identity(m.Rt_cam_ref()):
             print(f"ERROR: given cahvor(e) model has non-identity extrinsics. These may conflict with the extrinsics in the rest of the kalibr file",
                   file=sys.stderr)
             sys.exit(1)
@@ -269,7 +269,7 @@ def convert_one(d,name):
 
     Rt_camprev_ref = Rt_cam_ref # for the next one
 
-    m.extrinsics_Rt_fromref(Rt_cam_ref)
+    m.Rt_cam_ref(Rt_cam_ref)
     return m
 
 

@@ -187,7 +187,7 @@ Furthermore, it doesn't matter if we're observing chessboards or discrete points
 or both: everything being observed has a known, fixed position. So when solving
 these problems we call =mrcal.optimize(...)= with
 
-- /Fixed/ =frames_rt_toref= and =points= arrays localizing the observed objects
+- /Fixed/ =rt_ref_frame= and =points= arrays localizing the observed objects
 - =do_optimize_frames = False= to tell the optimization to fix them in space
 
 Calibrating in this way is uncommon, so the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras= tool]] does

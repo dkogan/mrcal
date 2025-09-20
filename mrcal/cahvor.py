@@ -136,7 +136,7 @@ massive hack, so I'm not documenting this
                                                                 distortions,
                                                                 axis = -1)),
                              valid_intrinsics_region = VALID_INTRINSICS_REGION,
-                             extrinsics_Rt_toref = np.ascontiguousarray(nps.glue(R_toref,t_toref, axis=-2)))
+                             Rt_ref_cam = np.ascontiguousarray(nps.glue(R_toref,t_toref, axis=-2)))
 
 def _read(s, name):
     r'''Reads a .cahvor file into a cameramodel
@@ -303,7 +303,7 @@ def _deconstruct_model(model):
 
 
     fx,fy,cx,cy = intrinsics[:4]
-    Rt_toref = model.extrinsics_Rt_toref()
+    Rt_toref = model.Rt_ref_cam()
     R_toref = Rt_toref[:3,:]
     t_toref = Rt_toref[ 3,:]
 

@@ -878,8 +878,8 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 // Accepting observed_pixel_uncertainty for backwards compatibility. It doesn't
 // do anything anymore
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) \
-    _(extrinsics_rt_fromref,              PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, extrinsics_rt_fromref,       NPY_DOUBLE, {-1 COMMA  6       } ) \
-    _(frames_rt_toref,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, frames_rt_toref,             NPY_DOUBLE, {-1 COMMA  6       } ) \
+    _(rt_cam_ref,              PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, rt_cam_ref,       NPY_DOUBLE, {-1 COMMA  6       } ) \
+    _(rt_ref_frame,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, rt_ref_frame,             NPY_DOUBLE, {-1 COMMA  6       } ) \
     _(points,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,                      NPY_DOUBLE, {-1 COMMA  3       } ) \
     _(observations_board,                 PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, observations_board,          NPY_DOUBLE, {-1 COMMA -1 COMMA -1 COMMA 3 } ) \
     _(indices_frame_camintrinsics_camextrinsics,PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, indices_frame_camintrinsics_camextrinsics,  NPY_INT32,    {-1 COMMA  3       } ) \
@@ -966,7 +966,7 @@ static bool optimize_validate_args( // out
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(CHECK_LAYOUT);
 
     int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
-    int Ncameras_extrinsics = PyArray_DIMS(extrinsics_rt_fromref)[0];
+    int Ncameras_extrinsics = PyArray_DIMS(rt_cam_ref)[0];
     if( PyArray_DIMS(imagersizes)[0] != Ncameras_intrinsics )
     {
         BARF("Inconsistent Ncameras: 'intrinsics' says %ld, 'imagersizes' says %ld",
@@ -1029,7 +1029,7 @@ static bool optimize_validate_args( // out
 
     // make sure the indices arrays are valid: the data is monotonic and
     // in-range
-    int Nframes = PyArray_DIMS(frames_rt_toref)[0];
+    int Nframes = PyArray_DIMS(rt_ref_frame)[0];
     int iframe_last  = -1;
     int icam_intrinsics_last = -1;
     int icam_extrinsics_last = -1;
@@ -1516,9 +1516,9 @@ PyObject* _optimize(optimizemode_t optimizemode,
         }                                                               \
     })
 
-    SET_SIZE0_IF_NONE(extrinsics_rt_fromref,      NPY_DOUBLE, 0,6);
+    SET_SIZE0_IF_NONE(rt_cam_ref,      NPY_DOUBLE, 0,6);
 
-    SET_SIZE0_IF_NONE(frames_rt_toref,                                        NPY_DOUBLE, 0,6);
+    SET_SIZE0_IF_NONE(rt_ref_frame,                                        NPY_DOUBLE, 0,6);
     SET_SIZE0_IF_NONE(observations_board,                                     NPY_DOUBLE, 0,179,171,3); // arbitrary numbers; shouldn't matter
     SET_SIZE0_IF_NONE(indices_frame_camintrinsics_camextrinsics,              NPY_INT32,    0,3);
 
@@ -1550,8 +1550,8 @@ PyObject* _optimize(optimizemode_t optimizemode,
 
     {
         int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
-        int Ncameras_extrinsics = PyArray_DIMS(extrinsics_rt_fromref)[0];
-        int Nframes             = PyArray_DIMS(frames_rt_toref)[0];
+        int Ncameras_extrinsics = PyArray_DIMS(rt_cam_ref)[0];
+        int Nframes             = PyArray_DIMS(rt_ref_frame)[0];
         int Npoints             = PyArray_DIMS(points)[0];
         int Nobservations_board = PyArray_DIMS(observations_board)[0];
         int Nobservations_point = PyArray_DIMS(observations_point)[0];
@@ -1564,8 +1564,8 @@ PyObject* _optimize(optimizemode_t optimizemode,
 
         // The checks in optimize_validate_args() make sure these casts are kosher
         double*             c_intrinsics     = (double*)  PyArray_DATA(intrinsics);
-        mrcal_pose_t*       c_extrinsics     = (mrcal_pose_t*)  PyArray_DATA(extrinsics_rt_fromref);
-        mrcal_pose_t*       c_frames         = (mrcal_pose_t*)  PyArray_DATA(frames_rt_toref);
+        mrcal_pose_t*       c_extrinsics     = (mrcal_pose_t*)  PyArray_DATA(rt_cam_ref);
+        mrcal_pose_t*       c_frames         = (mrcal_pose_t*)  PyArray_DATA(rt_ref_frame);
         mrcal_point3_t*     c_points         = (mrcal_point3_t*)PyArray_DATA(points);
         mrcal_calobject_warp_t*     c_calobject_warp =
             IS_NULL(calobject_warp) ?
@@ -2133,8 +2133,8 @@ static PyObject* state_index_generic(callback_state_index_t cb,
     // have an array, use those dimensions. If an array isn't given either, use
     // 0
     if(Ncameras_intrinsics < 0) Ncameras_intrinsics = IS_NULL(intrinsics)            ? 0 : PyArray_DIMS(intrinsics)            [0];
-    if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(extrinsics_rt_fromref) ? 0 : PyArray_DIMS(extrinsics_rt_fromref) [0];
-    if(Nframes < 0)             Nframes             = IS_NULL(frames_rt_toref)       ? 0 : PyArray_DIMS(frames_rt_toref)       [0];
+    if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(rt_cam_ref)            ? 0 : PyArray_DIMS(rt_cam_ref)            [0];
+    if(Nframes < 0)             Nframes             = IS_NULL(rt_ref_frame)          ? 0 : PyArray_DIMS(rt_ref_frame)          [0];
     if(Npoints < 0)             Npoints             = IS_NULL(points)                ? 0 : PyArray_DIMS(points)                [0];
     if(Nobservations_board < 0) Nobservations_board = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
     if(Nobservations_point < 0) Nobservations_point = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];
@@ -3312,8 +3312,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     // have an array, use those dimensions. If an array isn't given either, use
     // 0
     if(Ncameras_intrinsics < 0) Ncameras_intrinsics = IS_NULL(intrinsics)            ? 0 : PyArray_DIMS(intrinsics)            [0];
-    if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(extrinsics_rt_fromref) ? 0 : PyArray_DIMS(extrinsics_rt_fromref) [0];
-    if(Nframes < 0)             Nframes             = IS_NULL(frames_rt_toref)       ? 0 : PyArray_DIMS(frames_rt_toref)       [0];
+    if(Ncameras_extrinsics < 0) Ncameras_extrinsics = IS_NULL(rt_cam_ref)            ? 0 : PyArray_DIMS(rt_cam_ref)            [0];
+    if(Nframes < 0)             Nframes             = IS_NULL(rt_ref_frame)          ? 0 : PyArray_DIMS(rt_ref_frame)          [0];
     if(Npoints < 0)             Npoints             = IS_NULL(points)                ? 0 : PyArray_DIMS(points)                [0];
     if(Nobservations_board < 0) Nobservations_board = IS_NULL(observations_board)    ? 0 : PyArray_DIMS(observations_board)    [0];
     if(Nobservations_point < 0) Nobservations_point = IS_NULL(observations_point)    ? 0 : PyArray_DIMS(observations_point)    [0];

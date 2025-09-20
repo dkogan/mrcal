@@ -32,7 +32,7 @@ Ncameras    = 4
 Nframes     = 10
 fixedframes = False
 
-extrinsics_rt_fromref_true = \
+rt_cam_ref_true = \
     np.array(((0,    0,    0,      0,   0,   0),
               (0.08, 0.2,  0.02,   1.,  0.9, 0.1),
               (0.01, 0.07, 0.2,    2.1, 0.4, 0.2),
@@ -48,7 +48,7 @@ frames_true =                 \
                          object_width_n,
                          object_height_n,
                          object_spacing,
-                         extrinsics_rt_fromref_true,
+                         rt_cam_ref_true,
                          calobject_warp_true,
                          fixedframes,
                          testdir)
@@ -63,11 +63,11 @@ for i in range(Ncameras):
     testutils.confirm(not models_baseline[i]._extrinsics_moved_since_calibration(),
                       msg = f"Camera {i} unmoved")
 
-extrinsics_rt_fromref = extrinsics_rt_fromref_true.copy()
-extrinsics_rt_fromref[:,-1] += 1e-3
+rt_cam_ref = rt_cam_ref_true.copy()
+rt_cam_ref[:,-1] += 1e-3
 
 for i in range(Ncameras):
-    models_baseline[i].extrinsics_rt_fromref(extrinsics_rt_fromref[i])
+    models_baseline[i].rt_cam_ref(rt_cam_ref[i])
 
 for i in range(Ncameras):
     testutils.confirm(models_baseline[i]._extrinsics_moved_since_calibration(),

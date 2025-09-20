@@ -1431,7 +1431,7 @@ def solve(indices_point_camintrinsics_camextrinsics,
 
     optimization_inputs = \
         dict( intrinsics            = nps.atleast_dims(model.intrinsics()[1], -2),
-              extrinsics_rt_fromref = nps.atleast_dims(rt_cam_ref, -2),
+              rt_cam_ref            = nps.atleast_dims(rt_cam_ref, -2),
 
               observations_point_triangulated                        = observations,
               indices_point_triangulated_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
@@ -1478,15 +1478,15 @@ def solve(indices_point_camintrinsics_camextrinsics,
     print(f"Seed rt_cam_ref = {rt_cam_ref}")
     write_models("/tmp/xxxxx-seed-cam{}.cameramodel",
                  model,
-                 optimization_inputs['extrinsics_rt_fromref'])
+                 optimization_inputs['rt_cam_ref'])
 
     stats = mrcal.optimize(**optimization_inputs)
 
     write_models("/tmp/xxxxx-solve-cam{}.cameramodel",
                  model,
-                 optimization_inputs['extrinsics_rt_fromref'])
+                 optimization_inputs['rt_cam_ref'])
 
-    print(f"Solved rt_cam_ref = {optimization_inputs['extrinsics_rt_fromref']}")
+    print(f"Solved rt_cam_ref = {optimization_inputs['rt_cam_ref']}")
 
     x = stats['x']
     return x, optimization_inputs
@@ -1553,7 +1553,7 @@ end_header
 
         # Camera positions in red
         rt_cam_ref = nps.glue( np.zeros((6,)),
-                               optimization_inputs['extrinsics_rt_fromref'],
+                               optimization_inputs['rt_cam_ref'],
                                axis = -2 )
         t_ref_cam = mrcal.invert_rt(rt_cam_ref)[:,3:]
         write_points(f,
@@ -1574,10 +1574,10 @@ end_header
 
             if i0 < 0:
                 rt_0r = mrcal.identity_rt()
-                rt_01 = mrcal.invert_rt(optimization_inputs['extrinsics_rt_fromref'][i1])
+                rt_01 = mrcal.invert_rt(optimization_inputs['rt_cam_ref'][i1])
             else:
-                rt_0r = optimization_inputs['extrinsics_rt_fromref'][i0]
-                rt_1r = optimization_inputs['extrinsics_rt_fromref'][i1]
+                rt_0r = optimization_inputs['rt_cam_ref'][i0]
+                rt_1r = optimization_inputs['rt_cam_ref'][i1]
 
                 rt_01 = mrcal.compose_rt( rt_0r,
                                           mrcal.invert_rt(rt_1r) )
@@ -1654,11 +1654,11 @@ def write_models(filename_format,
                  model_baseline, rt_cam_ref):
 
     model0 = mrcal.cameramodel(model_baseline)
-    model0.extrinsics_rt_fromref(np.zeros((6,), dtype=float))
+    model0.rt_cam_ref(np.zeros((6,), dtype=float))
     write_model(filename_format.format(0), model0)
     for i in range(1,len(rt_cam_ref)+1):
         model1 = mrcal.cameramodel(model_baseline)
-        model1.extrinsics_rt_fromref(rt_cam_ref[i-1])
+        model1.rt_cam_ref(rt_cam_ref[i-1])
         write_model(filename_format.format(i), model1)
 
 

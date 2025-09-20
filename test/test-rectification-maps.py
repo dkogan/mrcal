@@ -29,8 +29,8 @@ model1.intrinsics( intrinsics = (model1.intrinsics()[0],
 # Left-right stereo, with sizeable rotation and position fuzz.
 # I especially make sure there's a forward/back shift
 rt01 = np.array((0.1, 0.2, 0.05,  3.0, 0.2, 1.0))
-model1.extrinsics_rt_toref( mrcal.compose_rt(model0.extrinsics_rt_toref(),
-                                             rt01))
+model1.rt_ref_cam( mrcal.compose_rt(model0.rt_ref_cam(),
+                                    rt01))
 
 for rectification in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
     for zoom in (0.6, 1., 10.):

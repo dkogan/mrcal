@@ -88,8 +88,8 @@ print( "## generated on {} with   {}".format(time.strftime("%Y-%m-%d %H:%M:%S"),
                                              ' '.join(mrcal.shellquote(s) for s in sys.argv)) )
 if not args.intrinsics_only:
     Rt_to_from = \
-        mrcal.compose_Rt( model_to.  extrinsics_Rt_fromref(),
-                          model_from.extrinsics_Rt_toref  () )
+        mrcal.compose_Rt( model_to.  Rt_cam_ref(),
+                          model_from.Rt_ref_cam() )
 
     if nps.norm2(Rt_to_from[3,:]) > 1e-6:
         print(f"## WARNING: {sys.argv[0]} ignores relative translations, which were non-zero here. t_to_from = {Rt_to_from[3,:]}")

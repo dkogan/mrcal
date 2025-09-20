@@ -479,9 +479,9 @@ The hypothetical points are constructed from
 
 - The calibration object geometry
 - The calibration object-reference transformation in
-  optimization_inputs['frames_rt_toref']
+  optimization_inputs['rt_ref_frame']
 - The camera extrinsics (reference-camera transformation) in
-  optimization_inputs['extrinsics_rt_fromref']
+  optimization_inputs['rt_cam_ref']
 - The table selecting the camera and calibration object frame for each
   observation in
   optimization_inputs['indices_frame_camintrinsics_camextrinsics']
@@ -541,17 +541,17 @@ RETURNED VALUE
                                                        object_height_n,
                                                        object_spacing,
                                                        calobject_warp = calobject_warp)
-    frames_Rt_toref = \
-        mrcal.Rt_from_rt( optimization_inputs['frames_rt_toref'] )\
+    Rt_ref_frame = \
+        mrcal.Rt_from_rt( optimization_inputs['rt_ref_frame'] )\
         [ indices_frame_camintrinsics_camextrinsics[:,0] ]
-    extrinsics_Rt_fromref = \
+    Rt_cam_ref = \
         nps.glue( mrcal.identity_Rt(),
-                  mrcal.Rt_from_rt(optimization_inputs['extrinsics_rt_fromref']),
+                  mrcal.Rt_from_rt(optimization_inputs['rt_cam_ref']),
                   axis = -3 ) \
         [ indices_frame_camintrinsics_camextrinsics[:,2]+1 ]
 
-    Rt_cam_frame = mrcal.compose_Rt( extrinsics_Rt_fromref,
-                                     frames_Rt_toref )
+    Rt_cam_frame = mrcal.compose_Rt( Rt_cam_ref,
+                                     Rt_ref_frame )
 
     p_cam_calobjects = \
         mrcal.transform_point_Rt(nps.mv(Rt_cam_frame,-3,-5), full_object)
@@ -1146,8 +1146,8 @@ None
     '''
 
     intrinsics     = optimization_inputs.get("intrinsics")
-    extrinsics     = optimization_inputs.get("extrinsics_rt_fromref")
-    frames         = optimization_inputs.get("frames_rt_toref")
+    extrinsics     = optimization_inputs.get("rt_cam_ref")
+    frames         = optimization_inputs.get("rt_ref_frame")
     points         = optimization_inputs.get("points")
     calobject_warp = optimization_inputs.get("calobject_warp")
 

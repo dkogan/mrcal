@@ -556,20 +556,20 @@ def solve(Ncameras,
     # coordinate system is arbitrary, but all cameras are allowed to move
     # around. The chessboards poses are fixed
     if fixed_frames:
-        extrinsics = nps.cat( *[m.extrinsics_rt_fromref() for m in models_true] )
+        extrinsics = nps.cat( *[m.rt_cam_ref() for m in models_true] )
     else:
-        extrinsics = nps.cat( *[m.extrinsics_rt_fromref() for m in models_true[1:]] )
+        extrinsics = nps.cat( *[m.rt_cam_ref() for m in models_true[1:]] )
     if len(extrinsics) == 0: extrinsics = None
 
-    if nps.norm2(models_true[0].extrinsics_rt_fromref()) > 1e-6:
+    if nps.norm2(models_true[0].rt_cam_ref()) > 1e-6:
         raise Exception("models_true[0] must sit at the origin")
     imagersizes = nps.cat( *[m.imagersize() for m in models_true] )
 
 
     optimization_inputs = \
         dict( # intrinsics filled in later
-              extrinsics_rt_fromref                     = extrinsics,
-              frames_rt_toref                           = mrcal.rt_from_Rt(Rt_ref_board_true),
+              rt_cam_ref                                = extrinsics,
+              rt_ref_frame                              = mrcal.rt_from_Rt(Rt_ref_board_true),
               points                                    = None,
               observations_board                        = observations,
               indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
@@ -817,11 +817,11 @@ if re.match("num_far_constant_Nframes_", args.scan):
         Nframes_near_samples = args.Nframes_all - Nframes_far_samples
 
     models_true = \
-        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
-                            imagersize          = model_intrinsics.imagersize(),
-                            extrinsics_rt_toref = np.array((0,0,0,
-                                                            i*args.camera_spacing,
-                                                            0,0), dtype=float) ) \
+        [ mrcal.cameramodel(intrinsics = model_intrinsics.intrinsics(),
+                            imagersize = model_intrinsics.imagersize(),
+                            rt_ref_cam = np.array((0,0,0,
+                                                   i*args.camera_spacing,
+                                                   0,0), dtype=float) ) \
           for i in range(controllable_args['Ncameras']['value']) ]
 
     # shape (args.Nscan_samples, Nuncertainty_at_range_samples)
@@ -852,11 +852,11 @@ elif args.scan == "range":
     Nframes_far_samples  = np.array( (0,),            dtype=int)
 
     models_true = \
-        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
-                            imagersize          = model_intrinsics.imagersize(),
-                            extrinsics_rt_toref = np.array((0,0,0,
-                                                            i*args.camera_spacing,
-                                                            0,0), dtype=float) ) \
+        [ mrcal.cameramodel(intrinsics = model_intrinsics.intrinsics(),
+                            imagersize = model_intrinsics.imagersize(),
+                            rt_ref_cam = np.array((0,0,0,
+                                                   i*args.camera_spacing,
+                                                   0,0), dtype=float) ) \
           for i in range(controllable_args['Ncameras']['value']) ]
 
     Nrange_samples = args.Nscan_samples
@@ -890,11 +890,11 @@ elif args.scan == "tilt_radius":
     Nframes_far_samples  = np.array( (0,),            dtype=int)
 
     models_true = \
-        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
-                            imagersize          = model_intrinsics.imagersize(),
-                            extrinsics_rt_toref = np.array((0,0,0,
-                                                            i*args.camera_spacing,
-                                                            0,0), dtype=float) ) \
+        [ mrcal.cameramodel(intrinsics = model_intrinsics.intrinsics(),
+                            imagersize = model_intrinsics.imagersize(),
+                            rt_ref_cam = np.array((0,0,0,
+                                                   i*args.camera_spacing,
+                                                   0,0), dtype=float) ) \
           for i in range(controllable_args['Ncameras']['value']) ]
 
     Ntilt_rad_samples = args.Nscan_samples
@@ -935,11 +935,11 @@ elif args.scan == "Ncameras":
 
         Ncameras = Ncameras_samples[i_Ncameras]
         models_true = \
-            [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
-                                imagersize          = model_intrinsics.imagersize(),
-                                extrinsics_rt_toref = np.array((0,0,0,
-                                                                i*args.camera_spacing,
-                                                                0,0), dtype=float) ) \
+            [ mrcal.cameramodel(intrinsics = model_intrinsics.intrinsics(),
+                                imagersize = model_intrinsics.imagersize(),
+                                rt_ref_cam = np.array((0,0,0,
+                                                       i*args.camera_spacing,
+                                                       0,0), dtype=float) ) \
               for i in range(Ncameras) ]
 
         output_table[i_Ncameras,:, output_table_icol__uncertainty] = \
@@ -969,11 +969,11 @@ elif args.scan == "Nframes":
     Nframes_far_samples  = np.array( (0,),            dtype=int)
 
     models_true = \
-        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
-                            imagersize          = model_intrinsics.imagersize(),
-                            extrinsics_rt_toref = np.array((0,0,0,
-                                                            i*args.camera_spacing,
-                                                            0,0), dtype=float) ) \
+        [ mrcal.cameramodel(intrinsics = model_intrinsics.intrinsics(),
+                            imagersize = model_intrinsics.imagersize(),
+                            rt_ref_cam = np.array((0,0,0,
+                                                   i*args.camera_spacing,
+                                                   0,0), dtype=float) ) \
           for i in range(controllable_args['Ncameras']['value']) ]
 
     N_Nframes_samples = args.Nscan_samples
@@ -1012,11 +1012,11 @@ elif args.scan == "object_width_n":
     Nframes_far_samples  = np.array( (0,),            dtype=int)
 
     models_true = \
-        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
-                            imagersize          = model_intrinsics.imagersize(),
-                            extrinsics_rt_toref = np.array((0,0,0,
-                                                            i*args.camera_spacing,
-                                                            0,0), dtype=float) ) \
+        [ mrcal.cameramodel(intrinsics = model_intrinsics.intrinsics(),
+                            imagersize = model_intrinsics.imagersize(),
+                            rt_ref_cam = np.array((0,0,0,
+                                                   i*args.camera_spacing,
+                                                   0,0), dtype=float) ) \
           for i in range(controllable_args['Ncameras']['value']) ]
 
     Nsamples = args.Nscan_samples
@@ -1059,11 +1059,11 @@ elif args.scan == "object_spacing":
     Nframes_far_samples  = np.array( (0,),            dtype=int)
 
     models_true = \
-        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
-                            imagersize          = model_intrinsics.imagersize(),
-                            extrinsics_rt_toref = np.array((0,0,0,
-                                                            i*args.camera_spacing,
-                                                            0,0), dtype=float) ) \
+        [ mrcal.cameramodel(intrinsics = model_intrinsics.intrinsics(),
+                            imagersize = model_intrinsics.imagersize(),
+                            rt_ref_cam = np.array((0,0,0,
+                                                   i*args.camera_spacing,
+                                                   0,0), dtype=float) ) \
           for i in range(controllable_args['Ncameras']['value']) ]
 
     Nsamples = args.Nscan_samples
@@ -1110,11 +1110,11 @@ else:
     Nframes_far_samples  = np.array( (0,),            dtype=int)
 
     models_true = \
-        [ mrcal.cameramodel(intrinsics          = model_intrinsics.intrinsics(),
-                            imagersize          = model_intrinsics.imagersize(),
-                            extrinsics_rt_toref = np.array((0,0,0,
-                                                            i*args.camera_spacing,
-                                                            0,0), dtype=float) ) \
+        [ mrcal.cameramodel(intrinsics = model_intrinsics.intrinsics(),
+                            imagersize = model_intrinsics.imagersize(),
+                            rt_ref_cam = np.array((0,0,0,
+                                                   i*args.camera_spacing,
+                                                   0,0), dtype=float) ) \
           for i in range(controllable_args['Ncameras']['value']) ]
 
     output_table[0,:, output_table_icol__uncertainty] = \

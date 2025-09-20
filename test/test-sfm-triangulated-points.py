@@ -230,7 +230,7 @@ observations_triangulated = nps.glue(observations,
 
 optimization_inputs = \
     dict( intrinsics            = nps.atleast_dims(m.intrinsics()[1], -2),
-          extrinsics_rt_fromref = rt_cam_ref[1:], # I made sure camera0 is at the origin
+          rt_cam_ref            = rt_cam_ref[1:], # I made sure camera0 is at the origin
 
           observations_point_triangulated                        = observations_triangulated,
           indices_point_triangulated_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,

@@ -76,8 +76,8 @@ SYNOPSIS
     images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
               mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
-    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                             models[1].extrinsics_Rt_toref() )
+    Rt01 = mrcal.compose_Rt( models[0].Rt_cam_ref(),
+                             models[1].Rt_ref_cam() )
 
     # pixel observation in camera0
     q0 = np.array((1233, 2433), dtype=np.float32)
@@ -221,8 +221,8 @@ SYNOPSIS
     images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
               mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
-    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                             models[1].extrinsics_Rt_toref() )
+    Rt01 = mrcal.compose_Rt( models[0].Rt_cam_ref(),
+                             models[1].Rt_ref_cam() )
 
     # pixel observation in camera0
     q0 = np.array((1233, 2433), dtype=np.float32)
@@ -371,8 +371,8 @@ SYNOPSIS
     images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
               mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
-    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                             models[1].extrinsics_Rt_toref() )
+    Rt01 = mrcal.compose_Rt( models[0].Rt_cam_ref(),
+                             models[1].Rt_ref_cam() )
 
     # pixel observation in camera0
     q0 = np.array((1233, 2433), dtype=np.float32)
@@ -522,8 +522,8 @@ SYNOPSIS
     images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
               mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
-    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                             models[1].extrinsics_Rt_toref() )
+    Rt01 = mrcal.compose_Rt( models[0].Rt_cam_ref(),
+                             models[1].Rt_ref_cam() )
 
     # pixel observation in camera0
     q0 = np.array((1233, 2433), dtype=np.float32)
@@ -668,8 +668,8 @@ SYNOPSIS
     images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
               mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
-    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                             models[1].extrinsics_Rt_toref() )
+    Rt01 = mrcal.compose_Rt( models[0].Rt_cam_ref(),
+                             models[1].Rt_ref_cam() )
 
     # pixel observation in camera0
     q0 = np.array((1233, 2433), dtype=np.float32)
@@ -814,8 +814,8 @@ SYNOPSIS
     images = (mrcal.load_image('image0.jpg', bits_per_pixel=8, channels=1),
               mrcal.load_image('image1.jpg', bits_per_pixel=8, channels=1))
 
-    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                             models[1].extrinsics_Rt_toref() )
+    Rt01 = mrcal.compose_Rt( models[0].Rt_cam_ref(),
+                             models[1].Rt_ref_cam() )
 
     # pixel observation in camera0
     q0 = np.array((1233, 2433), dtype=np.float32)
@@ -966,8 +966,8 @@ SYNOPSIS
     images = (cv2.imread('image0.jpg', cv2.IMREAD_GRAYSCALE),
               cv2.imread('image1.jpg', cv2.IMREAD_GRAYSCALE))
 
-    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                             models[1].extrinsics_Rt_toref() )
+    Rt01 = mrcal.compose_Rt( models[0].Rt_cam_ref(),
+                             models[1].Rt_ref_cam() )
 
     # pixel observation in camera0
     q0 = np.array((1233, 2433), dtype=np.float32)
@@ -1138,8 +1138,8 @@ the benefit of the test
     # Simplified path. We don't need most of the gradients
 
     rt01 = \
-        mrcal.compose_rt(models[0].extrinsics_rt_fromref(),
-                         models[1].extrinsics_rt_toref())
+        mrcal.compose_rt(models[0].rt_cam_ref(),
+                         models[1].rt_ref_cam())
 
     # all the v have shape (3,)
     vlocal0, dvlocal0_dq0, _ = \
@@ -1201,10 +1201,10 @@ if optimization_inputs is None and q_observation_stdev is None:
 
         # Full path. Compute and return the gradients for most things
         rt_ref1,drt_ref1_drt_1ref = \
-            mrcal.invert_rt(models[1].extrinsics_rt_fromref(),
+            mrcal.invert_rt(models[1].rt_cam_ref(),
                             get_gradients=True)
         rt01,drt01_drt_0ref,drt01_drt_ref1 = \
-            mrcal.compose_rt(models[0].extrinsics_rt_fromref(), rt_ref1, get_gradients=True)
+            mrcal.compose_rt(models[0].rt_cam_ref(), rt_ref1, get_gradients=True)
 
         # all the v have shape (3,)
         vlocal0, dvlocal0_dq0, dvlocal0_dintrinsics0 = \
@@ -1418,7 +1418,7 @@ if optimization_inputs is None and q_observation_stdev is None:
             # We're re-optimizing (looking at calibration uncertainty) AND we
             # are optimizing the frames AND we have stabilization enabled.
             # Without stabilization, there's no dependence on rt_ref_frame
-            rt_ref_frame  = optimization_inputs['frames_rt_toref']
+            rt_ref_frame  = optimization_inputs['rt_ref_frame']
             istate_f0     = mrcal.state_index_frames(0, **optimization_inputs)
             Nstate_frames = mrcal.num_states_frames(    **optimization_inputs)
         else:
@@ -1489,7 +1489,7 @@ if optimization_inputs is None and q_observation_stdev is None:
             dp_triangulated_drtrf,     \
             dp_triangulated_drt_0ref = \
                 stabilize(p[ipt],
-                          models01[0].extrinsics_rt_fromref(),
+                          models01[0].rt_cam_ref(),
                           rt_ref_frame)
         else:
             dp_triangulated_drtrf    = None
@@ -1868,8 +1868,8 @@ Complete logic:
         @nps.broadcast_define(((2,2),(2,)), (3,))
         def triangulate_slice(q01, m01):
             Rt01 = \
-                mrcal.compose_Rt(m01[0].extrinsics_Rt_fromref(),
-                                 m01[1].extrinsics_Rt_toref())
+                mrcal.compose_Rt(m01[0].Rt_cam_ref(),
+                                 m01[1].Rt_ref_cam())
 
             # all the v have shape (3,)
             vlocal0 = mrcal.unproject(q01[0,:], *m01[0].intrinsics())

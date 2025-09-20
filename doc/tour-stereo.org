@@ -296,11 +296,11 @@ if xy_xy is not None:
 
 
 model0 = mrcal.cameramodel(model_intrinsics)
-model0.extrinsics_Rt_toref(mrcal.identity_Rt())
+model0.Rt_ref_cam(mrcal.identity_Rt())
 model0.write('/tmp/0.cameramodel')
 
 model1 = mrcal.cameramodel(model_intrinsics)
-model1.extrinsics_Rt_toref( Rt01 )
+model1.Rt_ref_cam( Rt01 )
 model1.write('/tmp/1.cameramodel')
 #+end_src
 

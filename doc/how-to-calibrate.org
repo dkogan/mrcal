@@ -963,7 +963,7 @@ def binocular_from_monocular(optimization_inputs):
         nps.glue( optimization_inputs['imagersizes'],
                   optimization_inputs['imagersizes'],
                   axis = -2 )
-    optimization_inputs['extrinsics_rt_fromref'] = np.array(((0,0,0, -0.1,0,0),), dtype=float)
+    optimization_inputs['rt_cam_ref'] = np.array(((0,0,0, -0.1,0,0),), dtype=float)
     i = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
     optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = \
         np.ascontiguousarray( \
@@ -1031,7 +1031,7 @@ def binocular_from_monocular(optimization_inputs):
         nps.glue( optimization_inputs['imagersizes'],
                   optimization_inputs['imagersizes'],
                   axis = -2 )
-    optimization_inputs['extrinsics_rt_fromref'] = np.array(((0,0,0, -0.1,0,0),), dtype=float)
+    optimization_inputs['rt_cam_ref'] = np.array(((0,0,0, -0.1,0,0),), dtype=float)
     i = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
     optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = \
         np.ascontiguousarray( \

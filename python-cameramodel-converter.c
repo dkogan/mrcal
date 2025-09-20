@@ -97,11 +97,11 @@ int mrcal_cameramodel_converter(PyObject*             py_model,
         Py_DECREF(call_result);
         call_result = NULL;
 
-        call_result = PyObject_CallMethod(py_model, "extrinsics_rt_fromref", NULL);
+        call_result = PyObject_CallMethod(py_model, "rt_cam_ref", NULL);
         if(call_result == NULL)
-            BARF_AND_GOTO_DONE("Couldn't call cameramodel.extrinsics_rt_fromref()");
+            BARF_AND_GOTO_DONE("Couldn't call cameramodel.rt_cam_ref()");
         if(!PyArray_Check((PyArrayObject*)call_result))
-            BARF_AND_GOTO_DONE("cameramodel.extrinsics_rt_fromref() result must be a numpy array");
+            BARF_AND_GOTO_DONE("cameramodel.rt_cam_ref() result must be a numpy array");
         CHECK_LAYOUT3(call_result, NPY_DOUBLE, {6});
         memcpy(&(*model)->rt_cam_ref[0],
                PyArray_DATA((PyArrayObject*)call_result),

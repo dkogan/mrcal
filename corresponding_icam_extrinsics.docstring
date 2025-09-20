@@ -13,10 +13,10 @@ SYNOPSIS
                                             **optimization_inputs)
 
     if icam_extrinsics >= 0:
-        extrinsics_rt_fromref_at_calibration_time = \
-            optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
+        rt_cam_ref_at_calibration_time = \
+            optimization_inputs['rt_cam_ref'][icam_extrinsics]
     else:
-        extrinsics_rt_fromref_at_calibration_time = \
+        rt_cam_ref_at_calibration_time = \
             mrcal.identity_rt()
 
 When calibrating cameras, each observation is associated with some camera
@@ -60,8 +60,8 @@ ARGUMENTS
   3). For each observation these are an
   (iframe,icam_intrinsics,icam_extrinsics) tuple. icam_extrinsics == -1
   means this observation came from a camera in the reference coordinate system.
-  iframe indexes the "frames_rt_toref" array, icam_intrinsics indexes the
-  "intrinsics_data" array, icam_extrinsics indexes the "extrinsics_rt_fromref"
+  iframe indexes the "rt_ref_frame" array, icam_intrinsics indexes the
+  "intrinsics_data" array, icam_extrinsics indexes the "rt_cam_ref"
   array
 
   All of the indices are guaranteed to be monotonic. This array contains 32-bit

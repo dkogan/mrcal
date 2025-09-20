@@ -126,7 +126,7 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          object_height_n,
                          object_spacing,
                          # Camera poses in respect to the first camera. Thus
-                         # extrinsics_rt_fromref_true[0] = zeros(6). This is
+                         # rt_cam_ref_true[0] = zeros(6). This is
                          # checked
                          extrinsics_rt_fromcam0_true,
                          calobject_warp_true,
@@ -215,7 +215,7 @@ ARGUMENTS
     Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
 
     for i in range(Ncameras):
-        models_true_refcam0[i].extrinsics_rt_fromref(extrinsics_rt_fromcam0_true[i])
+        models_true_refcam0[i].rt_cam_ref(extrinsics_rt_fromcam0_true[i])
 
     imagersizes = nps.cat( *[m.imagersize() for m in models_true_refcam0] )
 
@@ -353,9 +353,9 @@ ARGUMENTS
     # noise-induced motions off this optimization optimum
     optimization_inputs_baseline = \
         dict( intrinsics                                = copy.deepcopy(intrinsics_true),
-              extrinsics_rt_fromref                     = copy.deepcopy(extrinsics_rt_fromcam0_true if fixedframes \
+              rt_cam_ref                                = copy.deepcopy(extrinsics_rt_fromcam0_true if fixedframes \
                                                                         else extrinsics_rt_fromcam0_true[1:,:]),
-              frames_rt_toref                           = copy.deepcopy(rt_cam0_board_true),
+              rt_ref_frame                              = copy.deepcopy(rt_cam0_board_true),
               points                                    = None,
               observations_board                        = observations_board_true,
               indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
@@ -435,7 +435,7 @@ def calibration_make_non_vanilla(optimization_inputs,
 
     idxf,idxci,idxce   = optimization_inputs['indices_frame_camintrinsics_camextrinsics'].T
     Ncameras           = len(optimization_inputs['intrinsics'])
-    rt_cam0_board_true = optimization_inputs['frames_rt_toref']
+    rt_cam0_board_true = optimization_inputs['rt_ref_frame']
 
     if moving_cameras and \
        ref_frame0:
@@ -455,7 +455,7 @@ def calibration_make_non_vanilla(optimization_inputs,
         #
         #   I want to have indices_frame = -1 here, but mrcal does not currently
         #   support this. Instead we set indices_frame = 0, actually store
-        #   something into the frames_rt_toref array, and set do_optimize_frames
+        #   something into the rt_ref_frame array, and set do_optimize_frames
         #   = False
         #
         #   Today this scenario cannot work with multiple cameras: this would
@@ -469,8 +469,8 @@ def calibration_make_non_vanilla(optimization_inputs,
                                                          idxci,
                                                          idxf ) ))
 
-        optimization_inputs['extrinsics_rt_fromref' ] = np.array(rt_cam0_board_true)
-        optimization_inputs['frames_rt_toref'       ] = np.zeros((1,6), dtype=float)
+        optimization_inputs['rt_cam_ref'            ] = np.array(rt_cam0_board_true)
+        optimization_inputs['rt_ref_frame'          ] = np.zeros((1,6), dtype=float)
         optimization_inputs['do_optimize_extrinsics'] = True
         optimization_inputs['do_optimize_frames'    ] = False
         return
@@ -529,8 +529,8 @@ def calibration_make_non_vanilla(optimization_inputs,
             mrcal.compose_rt(rt_cam0_board_true[1:,:],
                              mrcal.invert_rt(rt_cam0_board_true[0,:]))
 
-        optimization_inputs['extrinsics_rt_fromref' ] = rt_cam_cam0
-        optimization_inputs['frames_rt_toref'       ] = rt_cam0_board_true[(0,),:]
+        optimization_inputs['rt_cam_ref'            ] = rt_cam_cam0
+        optimization_inputs['rt_ref_frame'          ] = rt_cam0_board_true[(0,),:]
         optimization_inputs['do_optimize_extrinsics'] = True
         optimization_inputs['do_optimize_frames'    ] = True
         return
@@ -564,7 +564,7 @@ def calibration_boards_to_points(optimization_inputs):
 
     # I break up the chessboard observations into discrete points
 
-    rt_ref_board                              = optimization_inputs['frames_rt_toref']
+    rt_ref_board                              = optimization_inputs['rt_ref_frame']
     Rt_ref_board                              = mrcal.Rt_from_rt(rt_ref_board)
     Nframes                                   = len(rt_ref_board)
     indices_frame_camintrinsics_camextrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
@@ -634,20 +634,20 @@ def calibration_boards_to_points(optimization_inputs):
     optimization_inputs['observations_point']                        = observations_point
 
     optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = None
-    optimization_inputs['frames_rt_toref']                           = None
+    optimization_inputs['rt_ref_frame']                              = None
     optimization_inputs['observations_board']                        = None
 
     optimization_inputs['point_min_range'] = 1e-3
     optimization_inputs['point_max_range'] = 1e12
 
     # point-only solves are unique up-to-scale only, and need the extra regularization
-    Ncameras_extrinsics = optimization_inputs['extrinsics_rt_fromref'].shape[0]
+    Ncameras_extrinsics = optimization_inputs['rt_cam_ref'].shape[0]
     if Ncameras_extrinsics < 1:
         raise Exception("Points-only solves need extra regularization, but currently that's only possible with Ncameras_extrinsics>=1")
     optimization_inputs['do_apply_regularization_unity_cam01'] = True
     # I rescale all geometry to make the unity01 regularization=0 at the start
-    s = 1. / nps.norm2(optimization_inputs['extrinsics_rt_fromref'][0,3:])
-    optimization_inputs['extrinsics_rt_fromref'][:,3:] *= s
+    s = 1. / nps.norm2(optimization_inputs['rt_cam_ref'][0,3:])
+    optimization_inputs['rt_cam_ref'][:,3:] *= s
     optimization_inputs['points'] *= s
 
 
@@ -671,8 +671,8 @@ perfect observations
 
     intrinsics_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['intrinsics']    .shape, dtype=float)
 
-    if have('frames_rt_toref'):
-        frames_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['frames_rt_toref'].shape, dtype=float)
+    if have('rt_ref_frame'):
+        frames_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['rt_ref_frame'].shape, dtype=float)
         q_noise_board_sampled = np.zeros((Nsamples,) + optimization_inputs_baseline['observations_board'].shape[:-1] + (2,), dtype=float)
     else:
         frames_sampled        = None
@@ -697,7 +697,7 @@ perfect observations
 
 
 
-    Ncameras_extrinsics = optimization_inputs_baseline['extrinsics_rt_fromref'].shape[0]
+    Ncameras_extrinsics = optimization_inputs_baseline['rt_cam_ref'].shape[0]
     if not fixedframes:
         # the first row is fixed at 0
         Ncameras_extrinsics += 1
@@ -731,13 +731,13 @@ perfect observations
 
         intrinsics_sampled    [isample,...] = optimization_inputs['intrinsics']
         if fixedframes:
-            extrinsics_sampled_mounted[isample,   ...] = optimization_inputs['extrinsics_rt_fromref']
+            extrinsics_sampled_mounted[isample,   ...] = optimization_inputs['rt_cam_ref']
         else:
             # the remaining row is already 0
-            extrinsics_sampled_mounted[isample,1:,...] = optimization_inputs['extrinsics_rt_fromref']
+            extrinsics_sampled_mounted[isample,1:,...] = optimization_inputs['rt_cam_ref']
 
         if frames_sampled is not None:
-            frames_sampled[isample,...] = optimization_inputs['frames_rt_toref']
+            frames_sampled[isample,...] = optimization_inputs['rt_ref_frame']
         if points_sampled is not None:
             points_sampled[isample,...] = optimization_inputs['points']
         if calobject_warp_sampled is not None:

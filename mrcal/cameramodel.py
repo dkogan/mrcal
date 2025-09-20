@@ -17,8 +17,8 @@ SYNOPSIS
 
     model_joint = mrcal.cameramodel( model_for_intrinsics )
 
-    extrinsics = model_for_extrinsics.extrinsics_rt_fromref()
-    model_joint.extrinsics_rt_fromref(extrinsics)
+    extrinsics = model_for_extrinsics.rt_cam_ref()
+    model_joint.rt_cam_ref(extrinsics)
 
     # model_joint now has intrinsics from 'model0.cameramodel' and extrinsics
     # from 'model1.cameramodel'. I write it to disk
@@ -313,11 +313,11 @@ SYNOPSIS
 
     model = mrcal.cameramodel('xxx.cameramodel')
 
-    extrinsics_Rt_toref = model.extrinsics_Rt_toref()
+    Rt_ref_cam = model.Rt_ref_cam()
 
-    extrinsics_Rt_toref[3,2] += 10.0
+    Rt_ref_cam[3,2] += 10.0
 
-    extrinsics_Rt_toref = model.extrinsics_Rt_toref(extrinsics_Rt_toref)
+    Rt_ref_cam = model.Rt_ref_cam(Rt_ref_cam)
 
     model.write('moved.cameramodel')
 
@@ -357,10 +357,10 @@ This class represents
   represented in the reference coordinate TO a representation in the camera
   coordinate system. These are gettable/settable by these methods:
 
-  - extrinsics_rt_toref()
-  - extrinsics_rt_fromref()
-  - extrinsics_Rt_toref()
-  - extrinsics_Rt_fromref()
+  - rt_ref_cam()
+  - rt_cam_ref()
+  - Rt_ref_cam()
+  - Rt_cam_ref()
 
   These exist for convenience, and handle the necessary conversion internally.
   These make it simple to use the desired Rt/rt transformation and the desired
@@ -581,6 +581,10 @@ A sample valid .cameramodel file:
                  *,
                  intrinsics              = None,
                  imagersize              = None,
+                 Rt_ref_cam              = None,
+                 Rt_cam_ref              = None,
+                 rt_ref_cam              = None,
+                 rt_cam_ref              = None,
                  extrinsics_Rt_toref     = None,
                  extrinsics_Rt_fromref   = None,
                  extrinsics_rt_toref     = None,
@@ -638,33 +642,41 @@ ARGUMENTS
 - imagersize: tuple (width,height) for the size of the imager. If given,
   'intrinsics' is also required. This may be given only as a keyword argument.
 
-- extrinsics_Rt_toref: numpy array of shape (4,3) describing the Rt
+- Rt_ref_cam: numpy array of shape (4,3) describing the Rt
   transformation FROM the camera coordinate system TO the reference coordinate
-  system. Exclusive with the other 'extrinsics_...' arguments. If given,
-  'intrinsics' and 'imagersize' are both required. If no 'extrinsics_...'
+  system. Exclusive with the other extrinsics arguments. If given,
+  'intrinsics' and 'imagersize' are both required. If no extrinsics
   arguments are given, an identity transformation is set. This may be given only
   as a keyword argument.
 
-- extrinsics_Rt_fromref: numpy array of shape (4,3) describing the Rt
+- Rt_cam_ref: numpy array of shape (4,3) describing the Rt
   transformation FROM the reference coordinate system TO the camera coordinate
-  system. Exclusive with the other 'extrinsics_...' arguments. If given,
-  'intrinsics' and 'imagersize' are both required. If no 'extrinsics_...'
+  system. Exclusive with the other extrinsics arguments. If given,
+  'intrinsics' and 'imagersize' are both required. If no extrinsics
   arguments are given, an identity transformation is set. This may be given only
   as a keyword argument.
 
-- extrinsics_rt_toref: numpy array of shape (6,) describing the rt
+- rt_ref_cam: numpy array of shape (6,) describing the rt
   transformation FROM the camera coordinate system TO the reference coordinate
-  system. Exclusive with the other 'extrinsics_...' arguments. If given,
-  'intrinsics' and 'imagersize' are both required. If no 'extrinsics_...'
+  system. Exclusive with the other extrinsics arguments. If given,
+  'intrinsics' and 'imagersize' are both required. If no extrinsics
   arguments are given, an identity transformation is set. This may be given only
   as a keyword argument.
 
-- extrinsics_rt_fromref: numpy array of shape (6,) describing the rt
+- rt_cam_ref: numpy array of shape (6,) describing the rt
   transformation FROM the reference coordinate system TO the camera coordinate
-  system. Exclusive with the other 'extrinsics_...' arguments. If given,
-  'intrinsics' and 'imagersize' are both required. If no 'extrinsics_...'
+  system. Exclusive with the other extrinsics arguments. If given,
+  'intrinsics' and 'imagersize' are both required. If no extrinsics
   arguments are given, an identity transformation is set. This may be given only
   as a keyword argument.
+
+- extrinsics_Rt_toref: legacy alias for Rt_ref_cam
+
+- extrinsics_Rt_fromref: legacy alias for Rt_cam_ref
+
+- extrinsics_rt_toref: legacy alias for rt_ref_cam
+
+- extrinsics_rt_fromref: legacy alias for rt_cam_ref
 
 - optimization_inputs: a dict of arguments to mrcal.optimize() at the optimum.
   These contain all the information needed to populate the camera model (and
@@ -701,6 +713,18 @@ ARGUMENTS
         if intrinsics    is not None: Nargs['discrete']      += 1
         if imagersize    is not None: Nargs['discrete']      += 1
 
+        if Rt_ref_cam is not None:
+            Nargs['discrete']   += 1
+            Nargs['extrinsics'] += 1
+        if Rt_cam_ref is not None:
+            Nargs['discrete']   += 1
+            Nargs['extrinsics'] += 1
+        if rt_ref_cam is not None:
+            Nargs['discrete']   += 1
+            Nargs['extrinsics'] += 1
+        if rt_cam_ref is not None:
+            Nargs['discrete']   += 1
+            Nargs['extrinsics'] += 1
         if extrinsics_Rt_toref is not None:
             Nargs['discrete']   += 1
             Nargs['extrinsics'] += 1
@@ -1017,7 +1041,7 @@ general function is used to find the data. The args are:
                 # sit at -P[:,3] / P[0,0]
                 Rt_ref_cam[ 3,:] = -P[:,3] / P[0,0]
 
-                # extrinsics are rt_fromref
+                # extrinsics are rt_cam_ref
                 model['extrinsics'] = \
                     [float(x) for x in mrcal.rt_from_Rt(mrcal.invert_Rt(Rt_ref_cam))]
 
@@ -1097,18 +1121,22 @@ general function is used to find the data. The args are:
                 raise Exception("discrete values specified, so none of the other inputs should be")
 
             if Nargs['discrete']-Nargs['extrinsics'] != 2:
-                raise Exception("Discrete values given. Must have gotten 'intrinsics' AND 'imagersize' AND optionally ONE of the extrinsics_...")
+                raise Exception("Discrete values given. Must have gotten 'intrinsics' AND 'imagersize' AND optionally ONE of the extrinsics")
 
             if Nargs['extrinsics'] == 0:
                 # No extrinsics. Use the identity
-                self.extrinsics_rt_fromref(np.zeros((6,),dtype=float))
+                self.rt_cam_ref(np.zeros((6,),dtype=float))
             elif Nargs['extrinsics'] == 1:
-                if   extrinsics_Rt_toref   is not None: self.extrinsics_Rt_toref  (extrinsics_Rt_toref)
+                if   Rt_ref_cam            is not None: self.Rt_ref_cam           (Rt_ref_cam)
+                elif Rt_cam_ref            is not None: self.Rt_cam_ref           (Rt_cam_ref)
+                elif rt_ref_cam            is not None: self.rt_ref_cam           (rt_ref_cam)
+                elif rt_cam_ref            is not None: self.rt_cam_ref           (rt_cam_ref)
+                elif extrinsics_Rt_toref   is not None: self.extrinsics_Rt_toref  (extrinsics_Rt_toref)
                 elif extrinsics_Rt_fromref is not None: self.extrinsics_Rt_fromref(extrinsics_Rt_fromref)
                 elif extrinsics_rt_toref   is not None: self.extrinsics_rt_toref  (extrinsics_rt_toref)
                 elif extrinsics_rt_fromref is not None: self.extrinsics_rt_fromref(extrinsics_rt_fromref)
             else:
-                raise Exception("At most one of the extrinsics_... arguments may be given")
+                raise Exception("At most one of the extrinsics arguments may be given")
 
             self.intrinsics(intrinsics, imagersize=imagersize)
 
@@ -1133,9 +1161,9 @@ general function is used to find the data. The args are:
                 icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics,
                                                                       **optimization_inputs)
             if icam_extrinsics < 0:
-                self.extrinsics_rt_fromref(mrcal.identity_rt())
+                self.rt_cam_ref(mrcal.identity_rt())
             else:
-                self.extrinsics_rt_fromref(optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics])
+                self.rt_cam_ref(optimization_inputs['rt_cam_ref'][icam_extrinsics])
 
         else:
             raise Exception("At least one source of initialization data must have been given. Need a filename or a cameramodel object or discrete arrays or optimization_inputs")
@@ -1165,7 +1193,7 @@ general function is used to find the data. The args are:
 
         funcs = (self.imagersize,
                  self.intrinsics,
-                 self.extrinsics_rt_fromref,
+                 self.rt_cam_ref,
                  self.valid_intrinsics_region)
 
         return 'mrcal.cameramodel(' + \
@@ -1492,16 +1520,16 @@ direction
         return True
 
 
-    def extrinsics_rt_toref(self, rt=None):
+    def rt_ref_cam(self, rt=None):
         r'''Get or set the extrinsics in this model
 
 SYNOPSIS
 
     # getter
-    rt_rc = model.extrinsics_rt_toref()
+    rt_rc = model.rt_ref_cam()
 
     # setter
-    model.extrinsics_rt_toref( rt_rc )
+    model.rt_ref_cam( rt_rc )
 
 This function gets/sets rt_toref: a numpy array of shape (6,) describing the rt
 transformation FROM the camera coordinate system TO the reference coordinate
@@ -1526,16 +1554,16 @@ The rt transformation TO the reference coordinate system.
         return self._extrinsics_rt(True, rt)
 
 
-    def extrinsics_rt_fromref(self, rt=None):
+    def rt_cam_ref(self, rt=None):
         r'''Get or set the extrinsics in this model
 
 SYNOPSIS
 
     # getter
-    rt_cr = model.extrinsics_rt_fromref()
+    rt_cr = model.rt_cam_ref()
 
     # setter
-    model.extrinsics_rt_fromref( rt_cr )
+    model.rt_cam_ref( rt_cr )
 
 This function gets/sets rt_fromref: a numpy array of shape (6,) describing the
 rt transformation FROM the reference coordinate system TO the camera coordinate
@@ -1603,16 +1631,16 @@ The rt transformation FROM the reference coordinate system.
         return True
 
 
-    def extrinsics_Rt_toref(self, Rt=None):
+    def Rt_ref_cam(self, Rt=None):
         r'''Get or set the extrinsics in this model
 
 SYNOPSIS
 
     # getter
-    Rt_rc = model.extrinsics_Rt_toref()
+    Rt_rc = model.Rt_ref_cam()
 
     # setter
-    model.extrinsics_Rt_toref( Rt_rc )
+    model.Rt_ref_cam( Rt_rc )
 
 This function gets/sets Rt_toref: a numpy array of shape (4,3) describing the Rt
 transformation FROM the camera coordinate system TO the reference coordinate
@@ -1637,16 +1665,16 @@ If this is a getter (no arguments given), returns a a numpy array of shape
         return self._extrinsics_Rt(True, Rt)
 
 
-    def extrinsics_Rt_fromref(self, Rt=None):
+    def Rt_cam_ref(self, Rt=None):
         r'''Get or set the extrinsics in this model
 
 SYNOPSIS
 
     # getter
-    Rt_cr = model.extrinsics_Rt_fromref()
+    Rt_cr = model.Rt_cam_ref()
 
     # setter
-    model.extrinsics_Rt_fromref( Rt_cr )
+    model.Rt_cam_ref( Rt_cr )
 
 This function gets/sets Rt_fromref: a numpy array of shape (4,3) describing the
 Rt transformation FROM the reference coordinate system TO the camera coordinate
@@ -1670,6 +1698,21 @@ If this is a getter (no arguments given), returns a a numpy array of shape
         '''
         return self._extrinsics_Rt(False, Rt)
 
+    def extrinsics_rt_toref(self, *args, **kwargs):
+        r'''Legacy alias for rt_ref_cam(); see the docs for that function'''
+        return self.rt_ref_cam(*args, **kwargs)
+
+    def extrinsics_rt_fromref(self, *args, **kwargs):
+        r'''Legacy alias for rt_cam_ref(); see the docs for that function'''
+        return self.rt_cam_ref(*args, **kwargs)
+
+    def extrinsics_Rt_toref(self, *args, **kwargs):
+        r'''Legacy alias for Rt_ref_cam(); see the docs for that function'''
+        return self.Rt_ref_cam(*args, **kwargs)
+
+    def extrinsics_Rt_fromref(self, *args, **kwargs):
+        r'''Legacy alias for Rt_cam_ref(); see the docs for that function'''
+        return self.Rt_cam_ref(*args, **kwargs)
 
     def imagersize(self, *args, **kwargs):
         r'''Get the imagersize in this model
@@ -1778,8 +1821,8 @@ The optimization_inputs dict, or None if one isn't stored in this model.
         if self._optimization_inputs_string is None:
             return None
         x = _deserialize_optimization_inputs(self._optimization_inputs_string)
-        if x['extrinsics_rt_fromref'] is None:
-            x['extrinsics_rt_fromref'] = np.zeros((0,6), dtype=float)
+        if x['rt_cam_ref'] is None:
+            x['rt_cam_ref'] = np.zeros((0,6), dtype=float)
         x['verbose'] = False
         return x
 
@@ -1829,7 +1872,7 @@ None
             mrcal.corresponding_icam_extrinsics(self.icam_intrinsics(),
                                                 **optimization_inputs)
 
-        rt_cam_ref = self.extrinsics_rt_fromref()
+        rt_cam_ref = self.rt_cam_ref()
 
         if icam_extrinsics < 0:
             # extrinsics WERE at the reference. So I should have an identity
@@ -1837,7 +1880,7 @@ None
             return np.max(np.abs(rt_cam_ref)) > 0.0
 
         d = rt_cam_ref - \
-            optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
+            optimization_inputs['rt_cam_ref'][icam_extrinsics]
         return np.max(np.abs(d)) > 1e-6
 
 
@@ -1857,10 +1900,10 @@ SYNOPSIS
                                             **optimization_inputs)
 
     if icam_extrinsics >= 0:
-        extrinsics_rt_fromref_at_calibration_time = \
-            optimization_inputs['extrinsics_rt_fromref'][icam_extrinsics]
+        rt_cam_ref_at_calibration_time = \
+            optimization_inputs['rt_cam_ref'][icam_extrinsics]
     else:
-        extrinsics_rt_fromref_at_calibration_time = \
+        rt_cam_ref_at_calibration_time = \
             mrcal.identity_rt()
 
 This function retrieves the integer identifying this camera in the solve defined

@@ -1167,7 +1167,7 @@ def _traverse_sensor_links_python( Nsensors,
 
 
 def estimate_joint_frame_poses(calobject_Rt_camera_frame,
-                               extrinsics_Rt_fromref,
+                               Rt_cam_ref,
                                indices_frame_camera,
                                object_width_n, object_height_n,
                                object_spacing):
@@ -1180,7 +1180,7 @@ SYNOPSIS
     ===>
     (123, 4,3)
 
-    print( extrinsics_Rt_fromref.shape )
+    print( Rt_cam_ref.shape )
     ===>
     (2, 4,3)
     # We have 3 cameras. The first one is at the reference coordinate system,
@@ -1190,14 +1190,14 @@ SYNOPSIS
     ===>
     (123, 2)
 
-    frames_rt_toref = \
+    rt_ref_frame = \
         mrcal.estimate_joint_frame_poses(calobject_Rt_camera_frame,
-                                         extrinsics_Rt_fromref,
+                                         Rt_cam_ref,
                                          indices_frame_camera,
                                          object_width_n, object_height_n,
                                          object_spacing)
 
-    print( frames_rt_toref.shape )
+    print( rt_ref_frame.shape )
     ===>
     (87, 6)
 
@@ -1215,13 +1215,13 @@ SYNOPSIS
 
     # The estimated calibration object points in the reference coordinate
     # system, for this one observation
-    pref = mrcal.transform_point_rt( frames_rt_toref[iframe],
+    pref = mrcal.transform_point_rt( rt_ref_frame[iframe],
                                      calobject )
 
     # The estimated calibration object points in the camera coord system. Camera
     # 0 is at the reference
     if icam >= 1:
-        pcam = mrcal.transform_point_Rt( extrinsics_Rt_fromref[icam-1],
+        pcam = mrcal.transform_point_Rt( Rt_cam_ref[icam-1],
                                          pref )
     else:
         pcam = pref
@@ -1254,7 +1254,7 @@ observing-camera coordinate system poses we already have.
 By convention, we have a "reference" coordinate system that ties the poses of
 all the frames (calibration objects) and the cameras together. And by
 convention, this "reference" coordinate system is the coordinate system of
-camera 0. Thus the array of camera poses extrinsics_Rt_fromref holds Ncameras-1
+camera 0. Thus the array of camera poses Rt_cam_ref holds Ncameras-1
 transformations: the first camera has an identity transformation, by definition.
 
 This function assumes we're observing a moving object from stationary cameras
@@ -1270,7 +1270,7 @@ ARGUMENTS
   calibration object coordinate system. This is returned by
   estimate_monocular_calobject_poses_Rt_tocam()
 
-- extrinsics_Rt_fromref: an array of shape (Ncameras-1,4,3). Each slice is an Rt
+- Rt_cam_ref: an array of shape (Ncameras-1,4,3). Each slice is an Rt
   transformation TO the camera coordinate system FROM the reference coordinate
   system. By convention camera 0 defines the reference coordinate system, so
   that camera's extrinsics are the identity, by definition, and we don't store
@@ -1296,7 +1296,7 @@ system FROM the calibration object coordinate system.
 
     '''
 
-    Rt_ref_cam = mrcal.invert_Rt( extrinsics_Rt_fromref )
+    Rt_ref_cam = mrcal.invert_Rt( Rt_cam_ref )
 
 
     def Rt_ref_frame(i_observation0, i_observation1):
@@ -1349,7 +1349,7 @@ system FROM the calibration object coordinate system.
 
 
 
-    frames_rt_toref = np.array(())
+    rt_ref_frame = np.array(())
 
     iframe_current          = -1
     i_observation_framestart = -1;
@@ -1361,9 +1361,9 @@ system FROM the calibration object coordinate system.
             if i_observation_framestart >= 0:
                 Rt = Rt_ref_frame(i_observation_framestart,
                                   i_observation)
-                frames_rt_toref = nps.glue(frames_rt_toref,
-                                           mrcal.rt_from_Rt(Rt),
-                                           axis=-2)
+                rt_ref_frame = nps.glue(rt_ref_frame,
+                                        mrcal.rt_from_Rt(Rt),
+                                        axis=-2)
 
             i_observation_framestart = i_observation
             iframe_current          = iframe
@@ -1371,11 +1371,11 @@ system FROM the calibration object coordinate system.
     if i_observation_framestart >= 0:
         Rt = Rt_ref_frame(i_observation_framestart,
                           indices_frame_camera.shape[0])
-        frames_rt_toref = nps.glue(frames_rt_toref,
-                                   mrcal.rt_from_Rt(Rt),
-                                   axis=-2)
+        rt_ref_frame = nps.glue(rt_ref_frame,
+                                mrcal.rt_from_Rt(Rt),
+                                axis=-2)
 
-    return frames_rt_toref
+    return rt_ref_frame
 
 
 def seed_stereographic( imagersizes,
@@ -1400,8 +1400,8 @@ SYNOPSIS
     (123, 3)
 
     intrinsics_data,       \
-    extrinsics_rt_fromref, \
-    frames_rt_toref =      \
+    rt_cam_ref, \
+    rt_ref_frame =      \
         mrcal.seed_stereographic(imagersizes          = imagersizes,
                                  focal_estimate       = 1500,
                                  indices_frame_camera = indices_frame_camera,
@@ -1411,8 +1411,8 @@ SYNOPSIS
     ....
 
     mrcal.optimize(intrinsics            = intrinsics_data,
-                   extrinsics_rt_fromref = extrinsics_rt_fromref,
-                   frames_rt_toref       = frames_rt_toref,
+                   rt_cam_ref            = rt_cam_ref,
+                   rt_ref_frame          = rt_ref_frame,
                    lensmodel             = 'LENSMODEL_STEREOGRAPHIC',
                    ...)
 
@@ -1432,7 +1432,7 @@ to invoking the optimizer.
 By convention, we have a "reference" coordinate system that ties the poses of
 all the frames (calibration objects) and the cameras together. And by
 convention, this "reference" coordinate system is the coordinate system of
-camera 0. Thus the array of camera poses extrinsics_rt_fromref holds Ncameras-1
+camera 0. Thus the array of camera poses rt_cam_ref holds Ncameras-1
 transformations: the first camera has an identity transformation, by definition.
 
 This function assumes we're observing a moving object from stationary cameras
@@ -1489,13 +1489,13 @@ We return a tuple:
   the proper number of parameters to match whatever lens model we're using, and
   then invoke the optimizer.
 
-- extrinsics_rt_fromref: an array of shape (Ncameras-1,6). Each slice is an rt
+- rt_cam_ref: an array of shape (Ncameras-1,6). Each slice is an rt
   transformation TO the camera coordinate system FROM the reference coordinate
   system. By convention camera 0 defines the reference coordinate system, so
   that camera's extrinsics are the identity, by definition, and we don't store
   that data in this array
 
-- frames_rt_toref: an array of shape (Nframes,6). Each slice represents the pose
+- rt_ref_frame: an array of shape (Nframes,6). Each slice represents the pose
   of the calibration object at one instant in time: an rt transformation TO the
   reference coordinate system FROM the calibration object coordinate system.
 
@@ -1564,24 +1564,24 @@ We return a tuple:
     if len(camera_poses_Rt_0_cami):
         # extrinsics should map FROM the ref coord system TO the coord system of the
         # camera in question. This is backwards from what I have
-        extrinsics_Rt_fromref = \
+        Rt_cam_ref = \
             nps.atleast_dims( mrcal.invert_Rt(camera_poses_Rt_0_cami),
                               -3 )
     else:
-        extrinsics_Rt_fromref = np.zeros((0,4,3))
+        Rt_cam_ref = np.zeros((0,4,3))
 
-    frames_rt_toref = \
+    rt_ref_frame = \
         mrcal.estimate_joint_frame_poses(
             calobject_poses_local_Rt_cf,
-            extrinsics_Rt_fromref,
+            Rt_cam_ref,
             indices_frame_camera,
             object_width_n, object_height_n,
             object_spacing)
 
     return \
         nps.cat(*[i[1] for i in intrinsics]), \
-        nps.atleast_dims(mrcal.rt_from_Rt(extrinsics_Rt_fromref), -2), \
-        frames_rt_toref
+        nps.atleast_dims(mrcal.rt_from_Rt(Rt_cam_ref), -2), \
+        rt_ref_frame
 
 
 def _compute_valid_intrinsics_region(model,

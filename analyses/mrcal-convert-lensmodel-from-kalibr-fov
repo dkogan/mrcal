@@ -279,9 +279,9 @@ weights = np.ones((Npoints,), dtype=float)
 ### I solve the optimization a number of times with different random seed
 ### values, taking the best-fitting results. This is required for the richer
 ### models such as LENSMODEL_OPENCV8
-err_rms_best               = 1e10
-intrinsics_data_best       = None
-extrinsics_rt_fromref_best = None
+err_rms_best         = 1e10
+intrinsics_data_best = None
+rt_cam_ref_best      = None
 
 # random seed for the new intrinsics
 intrinsics_core = np.array(args.w_h_fx_fy_cx_cy_s[2:6])
@@ -304,8 +304,8 @@ indices_point_camintrinsics_camextrinsics[:,2] = -1
 
 optimization_inputs = \
     dict(intrinsics                                = intrinsics_to_values,
-         extrinsics_rt_fromref                     = None,
-         frames_rt_toref                           = None, # no frames. Just points
+         rt_cam_ref                                = None,
+         rt_ref_frame                              = None, # no frames. Just points
          points                                    = p,
          observations_board                        = None, # no board observations
          indices_frame_camintrinsics_camextrinsics = None, # no board observations

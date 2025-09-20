@@ -45,10 +45,10 @@ Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
 Ncameras = len(models_ref)
 Nframes  = 50
 
-models_ref[0].extrinsics_rt_fromref(np.zeros((6,), dtype=float))
-models_ref[1].extrinsics_rt_fromref(np.array((0.08,0.2,0.02, 1., 0.9,0.1)))
-models_ref[2].extrinsics_rt_fromref(np.array((0.01,0.07,0.2, 2.1,0.4,0.2)))
-models_ref[3].extrinsics_rt_fromref(np.array((-0.1,0.08,0.08, 4.4,0.2,0.1)))
+models_ref[0].rt_cam_ref(np.zeros((6,), dtype=float))
+models_ref[1].rt_cam_ref(np.array((0.08,0.2,0.02, 1., 0.9,0.1)))
+models_ref[2].rt_cam_ref(np.array((0.01,0.07,0.2, 2.1,0.4,0.2)))
+models_ref[3].rt_cam_ref(np.array((-0.1,0.08,0.08, 4.4,0.2,0.1)))
 
 
 pixel_uncertainty_stdev = 1.5
@@ -119,7 +119,7 @@ indices_frame_camintrinsics_camextrinsics = \
              axis=-1)
 
 
-intrinsics_data,extrinsics_rt_fromref,frames_rt_toref = \
+intrinsics_data,rt_cam_ref,rt_ref_frame = \
     mrcal.seed_stereographic(imagersizes          = imagersizes,
                              focal_estimate       = 1500,
                              indices_frame_camera = indices_frame_camera,
@@ -134,8 +134,8 @@ intrinsics[:,4:] = np.random.random( (Ncameras, intrinsics.shape[1]-4) ) * 1e-6
 
 optimization_inputs = \
     dict( intrinsics                                = intrinsics,
-          extrinsics_rt_fromref                     = extrinsics_rt_fromref,
-          frames_rt_toref                           = frames_rt_toref,
+          rt_cam_ref                                = rt_cam_ref,
+          rt_ref_frame                              = rt_ref_frame,
           points                                    = None,
           observations_board                        = observations,
           indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
@@ -267,8 +267,8 @@ testutils.confirm_equal( np.std( mrcal.residuals_board(optimization_inputs,
 for icam in range(1,len(models_ref)):
 
     Rt_extrinsics_err = \
-        mrcal.compose_Rt( models_solved[icam].extrinsics_Rt_fromref(),
-                          models_ref   [icam].extrinsics_Rt_toref() )
+        mrcal.compose_Rt( models_solved[icam].Rt_cam_ref(),
+                          models_ref   [icam].Rt_ref_cam() )
 
     testutils.confirm_equal( nps.mag(Rt_extrinsics_err[3,:]),
                              0.0,
@@ -281,7 +281,7 @@ for icam in range(1,len(models_ref)):
                              msg = f"Recovered extrinsic rotation for camera {icam}")
 
 Rt_frame_err = \
-    mrcal.compose_Rt( mrcal.Rt_from_rt(optimization_inputs['frames_rt_toref']),
+    mrcal.compose_Rt( mrcal.Rt_from_rt(optimization_inputs['rt_ref_frame']),
                       mrcal.invert_Rt(Rt_ref_board_ref) )
 
 testutils.confirm_equal( np.max(nps.mag(Rt_frame_err[..., 3,:])),

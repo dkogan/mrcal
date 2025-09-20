@@ -23,8 +23,8 @@ model1 = mrcal.cameramodel(model0)
 for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
     # I create geometries to test. First off, a vanilla geometry for left-right stereo
     rt01 = np.array((0,0,0,  3.0, 0, 0))
-    model1.extrinsics_rt_toref( mrcal.compose_rt(model0.extrinsics_rt_toref(),
-                                                 rt01))
+    model1.rt_ref_cam( mrcal.compose_rt(model0.rt_ref_cam(),
+                                        rt01))
 
     az_fov_deg = 90
     el_fov_deg = 50
@@ -46,10 +46,10 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
         testutils.confirm(False,
                           msg=f'Generated models pass validation ({lensmodel})')
 
-    Rt_cam0_rect = mrcal.compose_Rt( model0.extrinsics_Rt_fromref(),
-                                     models_rectified[0].extrinsics_Rt_toref())
-    Rt01_rectified = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
-                                       models_rectified[1].extrinsics_Rt_toref())
+    Rt_cam0_rect = mrcal.compose_Rt( model0.Rt_cam_ref(),
+                                     models_rectified[0].Rt_ref_cam())
+    Rt01_rectified = mrcal.compose_Rt( models_rectified[0].Rt_cam_ref(),
+                                       models_rectified[1].Rt_ref_cam())
 
     testutils.confirm_equal(models_rectified[0].intrinsics()[0], lensmodel,
                             msg=f'model0 has the right lensmodel ({lensmodel})')
@@ -134,8 +134,8 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
     # Left-right stereo, with sizeable rotation and position fuzz.
     # I especially make sure there's a forward/back shift
     rt01 = np.array((0.1, 0.2, 0.05,  3.0, 0.2, 1.0))
-    model1.extrinsics_rt_toref( mrcal.compose_rt(model0.extrinsics_rt_toref(),
-                                                 rt01))
+    model1.rt_ref_cam( mrcal.compose_rt(model0.rt_ref_cam(),
+                                        rt01))
     el0_deg = 10.0
     models_rectified = \
         mrcal.rectified_system( (model0, model1),
@@ -163,15 +163,15 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
         testutils.confirm(False,
                           msg=f'Generated models pass validation ({lensmodel})')
 
-    Rt_cam0_rect = mrcal.compose_Rt( model0.extrinsics_Rt_fromref(),
-                                     models_rectified[0].extrinsics_Rt_toref())
-    Rt01_rectified = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
-                                       models_rectified[1].extrinsics_Rt_toref())
+    Rt_cam0_rect = mrcal.compose_Rt( model0.Rt_cam_ref(),
+                                     models_rectified[0].Rt_ref_cam())
+    Rt01_rectified = mrcal.compose_Rt( models_rectified[0].Rt_cam_ref(),
+                                       models_rectified[1].Rt_ref_cam())
 
     # I visualized the geometry, and confirmed that it is correct. The below array
     # is the correct-looking geometry
     #
-    # Rt_cam0_ref   = model0.extrinsics_Rt_fromref()
+    # Rt_cam0_ref  = model0.Rt_cam_ref()
     # Rt_rect_ref  = mrcal.compose_Rt( mrcal.invert_Rt(Rt_cam0_rect),
     #                                  Rt_cam0_ref )
     # rt_rect_ref  = mrcal.rt_from_Rt(Rt_rect_ref)

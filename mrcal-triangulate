@@ -324,8 +324,8 @@ def compute_H10_planes(models, q0, v0, plane_n, plane_d):
 
 
 
-    Rt10 = mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
-                             models[0].extrinsics_Rt_toref() )
+    Rt10 = mrcal.compose_Rt( models[1].Rt_cam_ref(),
+                             models[0].Rt_ref_cam() )
     R10 = Rt10[:3,:]
     t10 = Rt10[ 3,:]
 
@@ -546,10 +546,10 @@ print("## generated on {} with   {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S")
 
 v0 = mrcal.unproject(q0, *models[0].intrinsics(), normalize = True)
 
-Rtr0 = models[0].extrinsics_Rt_toref()
+Rtr0 = models[0].Rt_ref_cam()
 
-Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                         models[1].extrinsics_Rt_toref() )
+Rt01 = mrcal.compose_Rt( models[0].Rt_cam_ref(),
+                         models[1].Rt_ref_cam() )
 
 if q1 is not None:
     print(f"## Using user-supplied feature match at {q1}")
@@ -912,8 +912,8 @@ if args.make_corrected_model1:
         print("I can't make the corrected model if I couldn't compute the yaw,pitch shifts", file=sys.stderr)
         sys.exit(1)
     rt_1r = mrcal.compose_rt(rt10,
-                             models[0].extrinsics_rt_fromref())
-    models[1].extrinsics_rt_fromref(rt_1r)
+                             models[0].rt_cam_ref())
+    models[1].rt_cam_ref(rt_1r)
     models[1].write(sys.stdout)
 
 

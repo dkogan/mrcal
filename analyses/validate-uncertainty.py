@@ -147,8 +147,8 @@ Intrinsics from the first input'''
 
     if not all(o['intrinsics'].shape[-2] == 1 for o in optimization_inputs_all):
         raise Exception('Everything must be MONOCULAR chessboard observations')
-    if not all(o.get('extrinsics_rt_fromref') is None or \
-               o['extrinsics_rt_fromref'].size == 0 \
+    if not all(o.get('rt_cam_ref') is None or \
+               o['rt_cam_ref'].size == 0 \
                for o in optimization_inputs_all):
         raise Exception('Everything must be monocular chessboard observations with a STATIONARY camera')
     if not all(o.get('points') is None or \
@@ -158,12 +158,12 @@ Intrinsics from the first input'''
 
     optimization_inputs = copy.deepcopy(optimization_inputs_all[0])
 
-    optimization_inputs['frames_rt_toref'] = \
-        nps.glue( *[ o['frames_rt_toref'] \
+    optimization_inputs['rt_ref_frame'] = \
+        nps.glue( *[ o['rt_ref_frame'] \
                      for o in optimization_inputs_all],
                   axis = -2 )
 
-    if not all( not np.any( o['indices_frame_camintrinsics_camextrinsics'][:,0] - np.arange(len(o['frames_rt_toref']))) \
+    if not all( not np.any( o['indices_frame_camintrinsics_camextrinsics'][:,0] - np.arange(len(o['rt_ref_frame']))) \
                 for o in optimization_inputs_all ):
         raise Exception("I assume frame indices starting at 0 and incrementing by 1")
 

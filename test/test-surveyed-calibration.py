@@ -187,7 +187,7 @@ intrinsics_data_true[:2] *= focal_length_scale_from_true
 model_true.intrinsics( (lensmodel, intrinsics_data_true), )
 
 
-model_true.extrinsics_rt_fromref(rt_cam_ref_true)
+model_true.rt_cam_ref(rt_cam_ref_true)
 
 if False:
     model_true.write("/tmp/true.cameramodel")
@@ -390,8 +390,8 @@ if args.make_documentation_plots is not None:
 optimization_inputs_baseline                        = \
     dict( lensmodel                                 = lensmodel,
           intrinsics                                = intrinsics_data,
-          extrinsics_rt_fromref                     = rt_camera_ref_estimate,
-          frames_rt_toref                           = None,
+          rt_cam_ref                                = rt_camera_ref_estimate,
+          rt_ref_frame                              = None,
           points                                    = pref_true, # known. fixed. perfect.
           observations_board                        = None,
           indices_frame_camintrinsics_camextrinsics = None,
@@ -438,15 +438,15 @@ model_solved = \
                        icam_intrinsics     = 0 )
 
 Rt_extrinsics_err = \
-    mrcal.compose_Rt( model_solved.extrinsics_Rt_fromref(),
-                      model_true  .extrinsics_Rt_toref() )
+    mrcal.compose_Rt( model_solved.Rt_cam_ref(),
+                      model_true  .Rt_ref_cam() )
 
 v_query_cam = mrcal.unproject(q_query, *model_solved.intrinsics(), normalize = True)
 if args.distance is not None:
     p_query_cam = v_query_cam * args.distance
 else:
     p_query_cam = v_query_cam * 1e5 # large distance
-p_query_ref = mrcal.transform_point_Rt(model_solved.extrinsics_Rt_toref(),p_query_cam)
+p_query_ref = mrcal.transform_point_Rt(model_solved.Rt_ref_cam(),p_query_cam)
 
 def get_variances():
 
@@ -455,8 +455,8 @@ def get_variances():
     rt_extrinsics_err,                    \
     drt_extrinsics_err_drtsolved,         \
     _                                   = \
-        mrcal.compose_rt( model_solved.extrinsics_rt_fromref(),
-                          model_solved.extrinsics_rt_toref(),
+        mrcal.compose_rt( model_solved.rt_cam_ref(),
+                          model_solved.rt_ref_cam(),
                           get_gradients = True)
     derrz_db = np.zeros( (1,Nstate), dtype=float)
     derrz_db[...,i_state:i_state+6] = drt_extrinsics_err_drtsolved[5:,:]
@@ -682,7 +682,7 @@ if 1:
 
     rt_extrinsics_sampled_err = \
         mrcal.compose_rt( rt_cam_ref_sampled_mounted,
-                          model_solved.extrinsics_rt_toref())
+                          model_solved.rt_ref_cam())
 
     errz_sampled = rt_extrinsics_sampled_err[:,0,5:]
 
@@ -748,7 +748,7 @@ if 1:
         # uses a high distance, so the result will be close, but not identical.
         # I use a sloppier bound in that case
         p,dp_drt_cam_ref,_ = \
-            mrcal.transform_point_rt(model_solved.extrinsics_rt_fromref(),
+            mrcal.transform_point_rt(model_solved.rt_cam_ref(),
                                      p_query_ref,
                                      get_gradients = True)
         q,dq_dp,dq_di = \

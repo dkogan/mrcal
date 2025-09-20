@@ -123,8 +123,8 @@ model_for_extrinsics = mrcal.cameramodel('model1.cameramodel')
 
 model_joint = mrcal.cameramodel( model_for_intrinsics )
 
-extrinsics = model_for_extrinsics.extrinsics_rt_fromref()
-model_joint.extrinsics_rt_fromref(extrinsics)
+extrinsics = model_for_extrinsics.rt_cam_ref()
+model_joint.rt_cam_ref(extrinsics)
 
 model_joint.write('model-joint.cameramodel')
 #+end_src

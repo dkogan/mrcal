@@ -286,7 +286,7 @@ else:
 
 calobject_warp_true     = np.array((0.002, -0.005))
 
-extrinsics_rt_fromref_true = \
+rt_cam_ref_true = \
     np.array(((0,    0,    0,      0,   0,   0),
               (0.08, 0.2,  0.02,   1.,  0.9, 0.1),
               (0.01, 0.07, 0.2,    2.1, 0.4, 0.2),
@@ -295,9 +295,9 @@ extrinsics_rt_fromref_true = \
 if args.points:
     # Needed for the unity_cam01 regularization. I reset the nominal distance to
     # 1.0
-    extrinsics_rt_fromref_true[:,3:] /= nps.mag(extrinsics_rt_fromref_true[1,3:])
+    rt_cam_ref_true[:,3:] /= nps.mag(rt_cam_ref_true[1,3:])
 
-extrinsics_rt_fromref_true = extrinsics_rt_fromref_true[:args.Ncameras]
+rt_cam_ref_true = rt_cam_ref_true[:args.Ncameras]
 
 
 if args.observations_left_right_with_gap:
@@ -325,7 +325,7 @@ frames_points_true =          \
                          object_width_n,
                          object_height_n,
                          object_spacing,
-                         extrinsics_rt_fromref_true,
+                         rt_cam_ref_true,
                          calobject_warp_true,
                          fixedframes,
                          testdir,
@@ -444,7 +444,7 @@ if args.compare_baseline_against_mrcal_2_4:
        not fixedframes                                and \
        not args.points:
         # assuming these are at the correct, nominal values:
-        # extrinsics_rt_fromref_true
+        # rt_cam_ref_true
         # calobject_warp_true
 
         if args.Ncameras == 1:
@@ -518,7 +518,7 @@ if not args.points:
 
     indices_frame_camintrinsics_camextrinsics = optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics']
     observations_board_true                   = optimization_inputs_baseline['observations_board']
-    args.Nframes                              = len(optimization_inputs_baseline['frames_rt_toref'])
+    args.Nframes                              = len(optimization_inputs_baseline['rt_ref_frame'])
 
     indices_point_camintrinsics_camextrinsics = None
     points_true                               = None
@@ -642,8 +642,8 @@ if args.make_documentation_plots is not None:
 
 # These are at the no-noise-but-with-regularization optimum
 intrinsics_baseline         = nps.cat( *[m.intrinsics()[1]         for m in models_baseline] )
-extrinsics_baseline_mounted = nps.cat( *[m.extrinsics_rt_fromref() for m in models_baseline] )
-frames_baseline             = optimization_inputs_baseline['frames_rt_toref']
+extrinsics_baseline_mounted = nps.cat( *[m.rt_cam_ref() for m in models_baseline] )
+frames_baseline             = optimization_inputs_baseline['rt_ref_frame']
 points_baseline             = optimization_inputs_baseline['points']
 calobject_warp_baseline     = optimization_inputs_baseline['calobject_warp']
 
@@ -2335,7 +2335,7 @@ for distance in args.distances:
                             optimization_inputs_baseline,
 
                             intrinsics_true,
-                            extrinsics_rt_fromref_true,
+                            rt_cam_ref_true,
                             frames_true if not args.points else points_true,
                             np.zeros((0,3), dtype=float),
                             calobject_warp_true,
@@ -2375,7 +2375,7 @@ for icam in (0,3):
     # uncertainties come back
     if True:
         model_moved = mrcal.cameramodel(models_baseline[icam])
-        model_moved.extrinsics_rt_fromref([1., 2., 3., 4., 5., 6.])
+        model_moved.rt_cam_ref([1., 2., 3., 4., 5., 6.])
         model_moved.write(f'{workdir}/out.cameramodel')
         model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
 

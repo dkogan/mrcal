@@ -80,7 +80,7 @@ if add_outlier:
 
 optimization_inputs = \
     dict( intrinsics                                = nps.atleast_dims(intrinsics_data, -2),
-          extrinsics_rt_fromref                     = rt_cam_0_noisy[1:],
+          rt_cam_ref                                = rt_cam_0_noisy[1:],
           points                                    = p0_noisy,
           observations_point                        = observations_noisy,
           indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,

@@ -284,8 +284,8 @@ SYNOPSIS
                                       models_rectified,
                                       disparity_scale = 16 )
 
-    Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
-                                      models_rectified[0].extrinsics_Rt_toref() )
+    Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].Rt_cam_ref(),
+                                      models_rectified[0].Rt_ref_cam() )
 
     # Point cloud in camera-0 coordinates
     # shape (H,W,3)
@@ -444,8 +444,8 @@ else:                   we return this tuple of models, dict of metadata
     az0_deg,           \
     el0_deg =          \
         mrcal._mrcal._rectified_system(*models[0].intrinsics(),
-                                       models[0].extrinsics_rt_fromref(),
-                                       models[1].extrinsics_rt_fromref(),
+                                       models[0].rt_cam_ref(),
+                                       models[1].rt_cam_ref(),
                                        az_fov_deg          = az_fov_deg,
                                        el_fov_deg          = el_fov_deg,
                                        az0_deg             = az0_deg if az0_deg is not None else 1e7,
@@ -467,11 +467,11 @@ else:                   we return this tuple of models, dict of metadata
     models_rectified = \
         ( mrcal.cameramodel( intrinsics = (rectification_model, fxycxy_rectified),
                              imagersize = (Naz, Nel),
-                             extrinsics_rt_fromref = rt_rect0_ref),
+                             rt_cam_ref = rt_rect0_ref),
 
           mrcal.cameramodel( intrinsics = (rectification_model, fxycxy_rectified),
                              imagersize = (Naz, Nel),
-                             extrinsics_rt_fromref = rt_rect1_ref) )
+                             rt_cam_ref = rt_rect1_ref) )
 
     if not return_metadata:
         return models_rectified
@@ -537,8 +537,8 @@ mrcal.rectified_system() wrapper above calls THIS function in that case
     ######## y: completes the system from x,z
     ######## z: component of the cameras' viewing direction
     ########    normal to the baseline
-    Rt01 = mrcal.compose_Rt( models[0].extrinsics_Rt_fromref(),
-                             models[1].extrinsics_Rt_toref())
+    Rt01 = mrcal.compose_Rt( models[0].Rt_cam_ref(),
+                             models[1].Rt_ref_cam())
 
     # Rotation relating camera0 coords to the rectified camera coords. I fill in
     # each row separately
@@ -731,7 +731,7 @@ mrcal.rectified_system() wrapper above calls THIS function in that case
 
     ######## The geometry
     Rt_rect0_ref  = mrcal.compose_Rt( Rt_rect0_cam0,
-                                      models[0].extrinsics_Rt_fromref())
+                                      models[0].Rt_cam_ref())
     # rect1 coord system has the same orientation as rect0, but is translated so
     # that its origin is at the origin of cam1
     R_rect1_cam0  = R_rect0_cam0
@@ -739,16 +739,16 @@ mrcal.rectified_system() wrapper above calls THIS function in that case
 
     Rt_rect1_cam1 = nps.glue(R_rect1_cam1, np.zeros((3,),), axis=-2)
     Rt_rect1_ref  = mrcal.compose_Rt( Rt_rect1_cam1,
-                                      models[1].extrinsics_Rt_fromref())
+                                      models[1].Rt_cam_ref())
 
     models_rectified = \
         ( mrcal.cameramodel( intrinsics = (rectification_model, fxycxy),
                              imagersize = (Naz, Nel),
-                             extrinsics_Rt_fromref = Rt_rect0_ref),
+                             Rt_cam_ref = Rt_rect0_ref),
 
           mrcal.cameramodel( intrinsics = (rectification_model, fxycxy),
                              imagersize = (Naz, Nel),
-                             extrinsics_Rt_fromref = Rt_rect1_ref) )
+                             Rt_cam_ref = Rt_rect1_ref) )
 
     if not return_metadata:
         return models_rectified
@@ -778,8 +778,8 @@ rectified direction
         raise Exception(f"Must have received exactly two models. Got {len(models_rectified)} instead")
 
     intrinsics = [m.intrinsics() for m in models_rectified]
-    Rt01 = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
-                             models_rectified[1].extrinsics_Rt_toref())
+    Rt01 = mrcal.compose_Rt( models_rectified[0].Rt_cam_ref(),
+                             models_rectified[1].Rt_ref_cam())
 
     if not ( (intrinsics[0][0] == 'LENSMODEL_LATLON'  and intrinsics[1][0] == 'LENSMODEL_LATLON' ) or \
              (intrinsics[0][0] == 'LENSMODEL_PINHOLE' and intrinsics[1][0] == 'LENSMODEL_PINHOLE') ):
@@ -853,8 +853,8 @@ SYNOPSIS
                                       models_rectified,
                                       disparity_scale = 16 )
 
-    Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
-                                      models_rectified[0].extrinsics_Rt_toref() )
+    Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].Rt_cam_ref(),
+                                      models_rectified[0].Rt_ref_cam() )
 
     # Point cloud in camera-0 coordinates
     # shape (H,W,3)
@@ -899,9 +899,9 @@ contains corresponding pixel coordinates in the input image
     mrcal._mrcal._rectification_maps(*models[0].intrinsics(),
                                      *models[1].intrinsics(),
                                      *models_rectified[0].intrinsics(),
-                                     r_cam0_ref  = models[0].extrinsics_rt_fromref()[:3],
-                                     r_cam1_ref  = models[1].extrinsics_rt_fromref()[:3],
-                                     r_rect0_ref = models_rectified[0].extrinsics_rt_fromref()[:3],
+                                     r_cam0_ref  = models[0].rt_cam_ref()[:3],
+                                     r_cam1_ref  = models[1].rt_cam_ref()[:3],
+                                     r_rect0_ref = models_rectified[0].rt_cam_ref()[:3],
                                      rectification_maps = rectification_maps)
 
     return rectification_maps
@@ -922,8 +922,8 @@ checked by the test-rectification-maps.py test.
     Naz,Nel = models_rectified[0].imagersize()
     fxycxy  = models_rectified[0].intrinsics()[1]
 
-    R_cam_rect = [ nps.matmult(models          [i].extrinsics_Rt_fromref()[:3,:],
-                               models_rectified[i].extrinsics_Rt_toref  ()[:3,:]) \
+    R_cam_rect = [ nps.matmult(models          [i].Rt_cam_ref()[:3,:],
+                               models_rectified[i].Rt_ref_cam  ()[:3,:]) \
                    for i in range(2) ]
 
     # This is massively inefficient. I should
@@ -1030,8 +1030,8 @@ SYNOPSIS
         mrcal.unproject_latlon(q, models_rectified[0].intrinsics()[1]) * \
         nps.dummy(ranges, axis=-1)
 
-    Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
-                                      models_rectified[0].extrinsics_Rt_toref() )
+    Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].Rt_cam_ref(),
+                                      models_rectified[0].Rt_ref_cam() )
 
     # Point cloud in camera-0 coordinates
     # shape (H,W,3)
@@ -1248,8 +1248,8 @@ RETURNED VALUES
     if is_scalar:
         disparity = np.array((disparity,),)
 
-    Rt01 = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
-                             models_rectified[1].extrinsics_Rt_toref())
+    Rt01 = mrcal.compose_Rt( models_rectified[0].Rt_cam_ref(),
+                             models_rectified[1].Rt_ref_cam())
     baseline = nps.mag(Rt01[3,:])
 
     if qrect0 is None:
@@ -1360,8 +1360,8 @@ checked by the test-stereo-range.py test.
     fx = intrinsics[1][0]
     cx = intrinsics[1][2]
 
-    Rt01 = mrcal.compose_Rt( models_rectified[0].extrinsics_Rt_fromref(),
-                             models_rectified[1].extrinsics_Rt_toref())
+    Rt01 = mrcal.compose_Rt( models_rectified[0].Rt_cam_ref(),
+                             models_rectified[1].Rt_ref_cam())
     baseline = nps.mag(Rt01[3,:])
 
     if qrect0 is None:
@@ -1482,8 +1482,8 @@ SYNOPSIS
                                       models_rectified,
                                       disparity_scale = 16 )
 
-    Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
-                                      models_rectified[0].extrinsics_Rt_toref() )
+    Rt_cam0_rect0 = mrcal.compose_Rt( models          [0].Rt_cam_ref(),
+                                      models_rectified[0].Rt_ref_cam() )
 
     # Point cloud in camera-0 coordinates
     # shape (H,W,3)
@@ -1608,8 +1608,8 @@ SYNOPSIS
     def xy_from_q(model, q):
         v, dv_dq, _ = mrcal.unproject(q, *model.intrinsics(),
                                       get_gradients = True)
-        t_ref_cam = model.extrinsics_Rt_toref()[ 3,:]
-        R_ref_cam = model.extrinsics_Rt_toref()[:3,:]
+        t_ref_cam = model.Rt_ref_cam()[ 3,:]
+        R_ref_cam = model.Rt_ref_cam()[:3,:]
         vref      = mrcal.rotate_point_R(R_ref_cam, v)
 
         # We're looking at the plane z=0, so z = 0 = t_ref_cam[2] + k*vref[2]
@@ -1628,7 +1628,7 @@ SYNOPSIS
 
     xy, H_xy_q0 = xy_from_q(model0, q0)
 
-    v1 = mrcal.transform_point_Rt(model1.extrinsics_Rt_fromref(),
+    v1 = mrcal.transform_point_Rt(model1.Rt_cam_ref(),
                                   np.array((*xy, 0.)))
     q1 = mrcal.project(v1, *model1.intrinsics())
 

@@ -230,10 +230,14 @@ arguments. The available methods:
   from the data given in the arguments.
 - [[file:mrcal-python-api-reference.html#cameramodel-write][=mrcal.cameramodel.write()=]]: Write out this camera-model to a file
 - [[file:mrcal-python-api-reference.html#cameramodel-intrinsics][=mrcal.cameramodel.intrinsics()=]]: Get or set the intrinsics in this model
-- [[file:mrcal-python-api-reference.html#cameramodel-extrinsics_rt_toref][=mrcal.cameramodel.extrinsics_rt_toref()=]]: Get or set the extrinsics in this model
-- [[file:mrcal-python-api-reference.html#cameramodel-extrinsics_rt_fromref][=mrcal.cameramodel.extrinsics_rt_fromref()=]]: Get or set the extrinsics in this model
-- [[file:mrcal-python-api-reference.html#cameramodel-extrinsics_Rt_toref][=mrcal.cameramodel.extrinsics_Rt_toref()=]]: Get or set the extrinsics in this model
-- [[file:mrcal-python-api-reference.html#cameramodel-extrinsics_Rt_fromref][=mrcal.cameramodel.extrinsics_Rt_fromref()=]]: Get or set the extrinsics in this model
+- [[file:mrcal-python-api-reference.html#cameramodel-rt_ref_cam][=mrcal.cameramodel.rt_ref_cam()=]]: Get or set the extrinsics in this model
+- [[file:mrcal-python-api-reference.html#cameramodel-rt_cam_ref][=mrcal.cameramodel.rt_cam_ref()=]]: Get or set the extrinsics in this model
+- [[file:mrcal-python-api-reference.html#cameramodel-Rt_ref_cam][=mrcal.cameramodel.Rt_ref_cam()=]]: Get or set the extrinsics in this model
+- [[file:mrcal-python-api-reference.html#cameramodel-Rt_cam_ref][=mrcal.cameramodel.Rt_cam_ref()=]]: Get or set the extrinsics in this model
+- [[file:mrcal-python-api-reference.html#cameramodel-extrinsics_rt_toref][=mrcal.cameramodel.extrinsics_rt_toref()=]]: Get or set the extrinsics in this model (legacy alias for the above)
+- [[file:mrcal-python-api-reference.html#cameramodel-extrinsics_rt_fromref][=mrcal.cameramodel.extrinsics_rt_fromref()=]]: Get or set the extrinsics in this model (legacy alias for the above)
+- [[file:mrcal-python-api-reference.html#cameramodel-extrinsics_Rt_toref][=mrcal.cameramodel.extrinsics_Rt_toref()=]]: Get or set the extrinsics in this model (legacy alias for the above)
+- [[file:mrcal-python-api-reference.html#cameramodel-extrinsics_Rt_fromref][=mrcal.cameramodel.extrinsics_Rt_fromref()=]]: Get or set the extrinsics in this model (legacy alias for the above)
 - [[file:mrcal-python-api-reference.html#cameramodel-imagersize][=mrcal.cameramodel.imagersize()=]]: Get the imagersize in this model
 - [[file:mrcal-python-api-reference.html#cameramodel-valid_intrinsics_region][=mrcal.cameramodel.valid_intrinsics_region()=]]: Get or set the valid intrinsics region
 - [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs][=mrcal.cameramodel.optimization_inputs()=]]: Get the original optimization

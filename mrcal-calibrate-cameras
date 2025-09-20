@@ -383,7 +383,7 @@ def solve_initial(args, seedmodels, imagersizes,
         # I have no seed. I compute a rough seed, and run a few preliminary,
         # incremental optimizations to get it reasonably-close to the right
         # answer
-        intrinsics_data,extrinsics_rt_fromref,frames_rt_toref = \
+        intrinsics_data,rt_cam_ref,rt_ref_frame = \
             mrcal.seed_stereographic(imagersizes          = imagersizes,
                                      focal_estimate       = args.focal,
                                      indices_frame_camera = indices_frame_camera,
@@ -394,8 +394,8 @@ def solve_initial(args, seedmodels, imagersizes,
         lensmodel = 'LENSMODEL_STEREOGRAPHIC'
 
         stats = mrcal.optimize(intrinsics                                = intrinsics_data,
-                               extrinsics_rt_fromref                     = extrinsics_rt_fromref,
-                               frames_rt_toref                           = frames_rt_toref,
+                               rt_cam_ref                                = rt_cam_ref,
+                               rt_ref_frame                              = rt_ref_frame,
                                observations_board                        = observations,
                                indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
                                lensmodel                                 = lensmodel,
@@ -412,8 +412,8 @@ def solve_initial(args, seedmodels, imagersizes,
 
         sys.stderr.write("## initial solve: geometry and LENSMODEL_STEREOGRAPHIC core only\n")
         stats = mrcal.optimize(intrinsics                                = intrinsics_data,
-                               extrinsics_rt_fromref                     = extrinsics_rt_fromref,
-                               frames_rt_toref                           = frames_rt_toref,
+                               rt_cam_ref                                = rt_cam_ref,
+                               rt_ref_frame                              = rt_ref_frame,
                                observations_board                        = observations,
                                indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
                                lensmodel                                 = lensmodel,
@@ -427,12 +427,12 @@ def solve_initial(args, seedmodels, imagersizes,
                                do_apply_regularization           = False,
                                verbose                           = False)
 
-        extrinsics_Rt_fromref = mrcal.Rt_from_rt( extrinsics_rt_fromref )
+        Rt_cam_ref = mrcal.Rt_from_rt( rt_cam_ref )
 
         return                     \
             intrinsics_data,       \
-            extrinsics_Rt_fromref, \
-            frames_rt_toref
+            Rt_cam_ref, \
+            rt_ref_frame
 
     def compute_seed_from_existing_models():
 
@@ -442,14 +442,14 @@ def solve_initial(args, seedmodels, imagersizes,
 
         # I keep the relative camera poses constant, but place camera0 at the
         # origin
-        Rt_r0 = seedmodels[0].extrinsics_Rt_toref()
-        extrinsics_Rt_fromref = \
-            nps.cat( *[ mrcal.compose_Rt( m.extrinsics_Rt_fromref(),Rt_r0)
+        Rt_r0 = seedmodels[0].Rt_ref_cam()
+        Rt_cam_ref = \
+            nps.cat( *[ mrcal.compose_Rt( m.Rt_cam_ref(),Rt_r0)
                         for m in seedmodels[1:]])
 
-        if extrinsics_Rt_fromref.size == 0:
+        if Rt_cam_ref.size == 0:
             # No extrinsics. Represent as 0 Rt transforms
-            extrinsics_Rt_fromref = np.zeros((0,4,3), dtype=float)
+            Rt_cam_ref = np.zeros((0,4,3), dtype=float)
 
         # I have a GOOD extrinsics estimate, so I could compute a GOOD frame
         # pose estimate by triangulating:
@@ -473,34 +473,34 @@ def solve_initial(args, seedmodels, imagersizes,
                                                                args.object_spacing,
                                                                seedmodels)
 
-        frames_rt_toref = \
+        rt_ref_frame = \
             mrcal.estimate_joint_frame_poses(
                 calobject_poses_local_Rt_cf,
-                extrinsics_Rt_fromref,
+                Rt_cam_ref,
                 indices_frame_camera,
                 args.object_width_n,
                 args.object_height_n,
                 args.object_spacing)
 
         if 0:
-            # I was seeing an issue with incorrectly-seeded frames_rt_toref, and
+            # I was seeing an issue with incorrectly-seeded rt_ref_frame, and
             # I thought that pre-optimizing it would fix it, so I wrote this
             # code. That issue was actually caused by something else, making
             # this code unnecessary, but I'm leaving it here, in case it becomes
             # useful later. For debugging, I'm printing the before/after
-            # frames_rt_toref so that we can see if this pre-optimization does
+            # rt_ref_frame so that we can see if this pre-optimization does
             # anything
 
             print("pre-optimization; before: rt_cf[:2]")
-            print(frames_rt_toref[:2])
+            print(rt_ref_frame[:2])
 
             # I have a rough estimate of the geometry. Before it's usable I need
             # to refine it using the optimizer. I lock down EVERYTHING except
-            # frames_rt_toref, since the seed gives me everything else
-            sys.stderr.write("## reoptimizing frames_rt_toref\n")
+            # rt_ref_frame, since the seed gives me everything else
+            sys.stderr.write("## reoptimizing rt_ref_frame\n")
             stats = mrcal.optimize(intrinsics_data,
-                                   mrcal.rt_from_Rt(extrinsics_Rt_fromref),
-                                   frames_rt_toref,
+                                   mrcal.rt_from_Rt(Rt_cam_ref),
+                                   rt_ref_frame,
                                    None,
                                    observations, indices_frame_camintrinsics_camextrinsics,
                                    None, None,
@@ -518,26 +518,26 @@ def solve_initial(args, seedmodels, imagersizes,
             sys.stderr.write(f"## RMS error: {stats['rms_reproj_error__pixels']:.02f}\n\n")
 
             print("pre-optimization; after: rt_cf[:2]")
-            print(frames_rt_toref[:2])
+            print(rt_ref_frame[:2])
 
 
         return                     \
             intrinsics_data,       \
-            extrinsics_Rt_fromref, \
-            frames_rt_toref,
+            Rt_cam_ref, \
+            rt_ref_frame,
 
 
 
     if seedmodels is None:
 
         intrinsics_data,       \
-        extrinsics_Rt_fromref, \
-        frames_rt_toref        = compute_seed()
+        Rt_cam_ref, \
+        rt_ref_frame        = compute_seed()
 
     else:
         intrinsics_data,       \
-        extrinsics_Rt_fromref, \
-        frames_rt_toref        = compute_seed_from_existing_models()
+        Rt_cam_ref, \
+        rt_ref_frame        = compute_seed_from_existing_models()
 
 
     def expand_intrinsics(lensmodel, intrinsics_data):
@@ -576,7 +576,7 @@ def solve_initial(args, seedmodels, imagersizes,
     print("=================== optimizing everything{}from seeded intrinsics". \
           format(" except board warp " if not args.skip_calobject_warp_solve else " "))
 
-    extrinsics_rt_fromref = mrcal.rt_from_Rt(extrinsics_Rt_fromref)
+    rt_cam_ref = mrcal.rt_from_Rt(Rt_cam_ref)
 
     # splined models have a core, but those variables are largely redundant with
     # the spline parameters. So I run another pre-solve to get reasonable values
@@ -587,8 +587,8 @@ def solve_initial(args, seedmodels, imagersizes,
 
     optimization_inputs = \
         dict( intrinsics                                = intrinsics_data,
-              extrinsics_rt_fromref                     = extrinsics_rt_fromref,
-              frames_rt_toref                           = frames_rt_toref,
+              rt_cam_ref                                = rt_cam_ref,
+              rt_ref_frame                              = rt_ref_frame,
               points                                    = None,
               observations_board                        = observations,
               indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
