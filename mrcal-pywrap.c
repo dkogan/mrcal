@@ -878,6 +878,10 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 // Accepting observed_pixel_uncertainty for backwards compatibility. It doesn't
 // do anything anymore
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) \
+    /* old flavors (new ones work too) */ \
+    _(extrinsics_rt_fromref,              PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, extrinsics_rt_fromref,       NPY_DOUBLE, {-1 COMMA  6       } ) \
+    _(frames_rt_toref,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, frames_rt_toref,             NPY_DOUBLE, {-1 COMMA  6       } ) \
+    /* new flavors (old ones work too) */ \
     _(rt_cam_ref,              PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, rt_cam_ref,       NPY_DOUBLE, {-1 COMMA  6       } ) \
     _(rt_ref_frame,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, rt_ref_frame,             NPY_DOUBLE, {-1 COMMA  6       } ) \
     _(points,                             PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, points,                      NPY_DOUBLE, {-1 COMMA  3       } ) \
@@ -1426,6 +1430,27 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
     (mrcal_problem_selections_t) { MRCAL_PROBLEM_SELECTIONS_LIST(PROBLEM_SELECTIONS_SET_BIT) }; \
 })
 
+// Handle legacy aliases. If they're not both defined and the new name isn't
+// defined, use the old name
+#define handle_renamed(name_old, name_new) \
+    _handle_renamed(&name_old, #name_old,   \
+                    &name_new, #name_new)
+static bool _handle_renamed(PyArrayObject** old, const char* name_old,
+                            PyArrayObject** new, const char* name_new)
+{
+    if(!IS_NULL(*new) && PyArray_SIZE(*new))
+    {
+        if(!IS_NULL(*old) && PyArray_SIZE(*old))
+        {
+            BARF("Both %s and %s are given: the former is a legacy alias for the latter",
+                 name_old, name_new);
+            return false;
+        }
+    }
+    else
+        *new = *old;
+    return true;
+}
 
 static
 PyObject* _optimize(optimizemode_t optimizemode,
@@ -1530,6 +1555,10 @@ PyObject* _optimize(optimizemode_t optimizemode,
     SET_SIZE0_IF_NONE(imagersizes,                                            NPY_INT32,  0, 2);
 #undef SET_NULL_IF_NONE
 
+    if(!handle_renamed(extrinsics_rt_fromref, rt_cam_ref))
+        return false;
+    if(!handle_renamed(frames_rt_toref, rt_ref_frame))
+        return false;
 
     mrcal_lensmodel_t mrcal_lensmodel;
     // Check the arguments for optimize(). If optimizer_callback, then the other
@@ -2109,6 +2138,11 @@ static PyObject* state_index_generic(callback_state_index_t cb,
             goto done;
     }
 #undef CALLED_FUNCTION_BUFFER
+
+    if(!handle_renamed(extrinsics_rt_fromref, rt_cam_ref))
+        return false;
+    if(!handle_renamed(frames_rt_toref, rt_ref_frame))
+        return false;
 
     mrcal_lensmodel_t mrcal_lensmodel = {};
 
@@ -3301,6 +3335,12 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     mrcal_lensmodel_t mrcal_lensmodel;
     if(!parse_lensmodel_from_arg(&mrcal_lensmodel, lensmodel))
         goto done;
+
+    if(!handle_renamed(extrinsics_rt_fromref, rt_cam_ref))
+        return false;
+    if(!handle_renamed(frames_rt_toref, rt_ref_frame))
+        return false;
+
 
     // checks dimensionality of array !IS_NULL. So if any array isn't passed-in,
     // that's OK! After I do this and if !IS_NULL, then I can ask for array
