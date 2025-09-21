@@ -78,6 +78,24 @@ mrcal_cameramodel_t structures. This adds a dependency on
 
 <2025-08-24 Sun> added mrcal_image_void_t
 
+<2025-09-20 Sat>
+  - extrinsics_rt_fromref -> rt_cam_ref
+  - extrinsics_Rt_fromref -> Rt_cam_ref
+  - extrinsics_rt_toref   -> rt_ref_cam
+  - extrinsics_Rt_toref   -> Rt_ref_cam
+  
+  - frames_rt_fromref     -> rt_frame_ref
+  - frames_Rt_fromref     -> Rt_frame_ref
+  - frames_rt_toref       -> rt_ref_frame
+  - frames_Rt_toref       -> Rt_ref_frame
+  
+  This applies to the mrcal.cameramodel() constructor arguments and accessor
+  functions. And to the mrcal.optimize() and mrcal.optimizer_callback() calls and
+  to the contents of the optimization_inputs dict and the pywrap stuff.
+  
+  Compatibility logic is in place, so old code and data should just work
+
+
 * Migration notes 2.4 -> 3.0
 
 2024-12-06 compose_r(), compose_rt(), compose_Rt() have new args:
