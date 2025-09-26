@@ -95,6 +95,15 @@ mrcal_cameramodel_t structures. This adds a dependency on
   
   Compatibility logic is in place, so old code and data should just work
 
+<2025-09-25 Thu>
+  .cameramodel file extrinsics field is called "rt_cam_ref"
+  Instead of "extrinsics". Old files can be read. Library writes both versions, so
+  models written by new tools can still be read by old mrcal.
+
+
+
+
+
 
 * Migration notes 2.4 -> 3.0
 

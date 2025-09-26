@@ -17,8 +17,8 @@ SYNOPSIS
 
     model_joint = mrcal.cameramodel( model_for_intrinsics )
 
-    extrinsics = model_for_extrinsics.rt_cam_ref()
-    model_joint.rt_cam_ref(extrinsics)
+    rt_cam_ref = model_for_extrinsics.rt_cam_ref()
+    model_joint.rt_cam_ref(rt_cam_ref)
 
     # model_joint now has intrinsics from 'model0.cameramodel' and extrinsics
     # from 'model1.cameramodel'. I write it to disk
@@ -449,8 +449,7 @@ A sample valid .cameramodel file:
                      -0.6697132481,
                      -0.6284355415],
 
-      # extrinsics are rt_fromref
-      'extrinsics': [0,0,0,0,0,0],
+      'rt_cam_ref': [0,0,0,0,0,0],
       'imagersize': [3840,2160]
     }
 
@@ -481,9 +480,9 @@ A sample valid .cameramodel file:
                 f.write(("    [ {:.10g}, {:.10g} ],\n").format(*row))
             f.write("],\n\n")
 
-        N = len(self._extrinsics)
-        f.write("    # extrinsics are rt_fromref\n")
-        f.write(("    'extrinsics': [" + (" {:.10g}," * N) + "],\n").format(*self._extrinsics))
+        N = len(self._rt_cam_ref)
+        f.write(("    'rt_cam_ref': [" + (" {:.10g}," * N) + "],\n").format(*self._rt_cam_ref))
+        f.write(("    'extrinsics': [" + (" {:.10g}," * N) + "], # for compatibility with mrcal < 3.0\n").format(*self._rt_cam_ref))
         f.write("\n")
 
         N = 2
@@ -559,11 +558,15 @@ A sample valid .cameramodel file:
                 model)
         model['lensmodel'] = model['lensmodel'].replace('DISTORTION', 'LENSMODEL')
 
+        renamed('extrinsics',
+                'rt_cam_ref',
+                model)
+
 
 
         keys_required = set(('lensmodel',
                              'intrinsics',
-                             'extrinsics',
+                             'rt_cam_ref',
                              'imagersize'))
         keys_received = set(model.keys())
         if keys_received < keys_required:
@@ -587,11 +590,11 @@ A sample valid .cameramodel file:
             warnings.warn("Invalid valid_intrinsics region; skipping: '{}'".format(e))
             valid_intrinsics_region = None
 
-        _validateExtrinsics(model['extrinsics'])
+        _validateExtrinsics(model['rt_cam_ref'])
 
         self._intrinsics                 = intrinsics
         self._valid_intrinsics_region    = mrcal.close_contour(valid_intrinsics_region)
-        self._extrinsics                 = np.array(model['extrinsics'], dtype=float)
+        self._rt_cam_ref                 = np.array(model['rt_cam_ref'], dtype=float)
         self._imagersize                 = np.array(model['imagersize'], dtype=np.int32)
 
         if 'optimization_inputs' in model:
@@ -789,7 +792,7 @@ ARGUMENTS
 
             if isinstance(file_or_model, cameramodel):
                 self._imagersize = np.array(file_or_model._imagersize, dtype=np.int32)
-                self._extrinsics = np.array(file_or_model._extrinsics, dtype=float)
+                self._rt_cam_ref = np.array(file_or_model._rt_cam_ref, dtype=float)
                 self._intrinsics = (str(file_or_model._intrinsics[0]),
                                     np.array(file_or_model._intrinsics[1], dtype=float))
                 if file_or_model._valid_intrinsics_region is not None:
@@ -1077,8 +1080,7 @@ general function is used to find the data. The args are:
                 # sit at -P[:,3] / P[0,0]
                 Rt_ref_cam[ 3,:] = -P[:,3] / P[0,0]
 
-                # extrinsics are rt_cam_ref
-                model['extrinsics'] = \
+                model['rt_cam_ref'] = \
                     [float(x) for x in mrcal.rt_from_Rt(mrcal.invert_Rt(Rt_ref_cam))]
 
                 return repr(model)
@@ -1286,7 +1288,7 @@ None
         _validateIntrinsics(self._imagersize,
                             self._intrinsics)
         _validateValidIntrinsicsRegion(self._valid_intrinsics_region)
-        _validateExtrinsics(self._extrinsics)
+        _validateExtrinsics(self._rt_cam_ref)
 
 
 
@@ -1514,48 +1516,6 @@ tuple where
             self._icam_intrinsics            = None
 
 
-    def _extrinsics_rt(self, toref, rt=None):
-        r'''Get or set the extrinsics in this model
-
-This function represents the pose as a 6-long numpy array that contains
-a 3-long Rodrigues rotation followed by a 3-long translation in the last
-row:
-
-  r = rt[:3]
-  t = rt[3:]
-  R = mrcal.R_from_r(r)
-
-The transformation is b <-- R*a + t:
-
-  import numpysane as nps
-  b = nps.matmult(a, nps.transpose(R)) + t
-
-if rt is None: this is a getter; otherwise a setter.
-
-toref is a boolean. if toref: then rt maps points in the coord system of
-THIS camera to the reference coord system. Otherwise in the opposite
-direction
-
-        '''
-
-        # The internal representation is rt_fromref
-
-        if rt is None:
-            # getter
-            if not toref:
-                return np.array(self._extrinsics)
-            return mrcal.invert_rt(self._extrinsics)
-
-
-        # setter
-        if not toref:
-            self._extrinsics = np.array(rt, dtype=float)
-            return True
-
-        self._extrinsics = mrcal.invert_rt(rt.astype(float))
-        return True
-
-
     def rt_ref_cam(self, rt=None):
         r'''Get or set the extrinsics in this model
 
@@ -1587,7 +1547,14 @@ If this is a getter (no arguments given), returns a a numpy array of shape (6,).
 The rt transformation TO the reference coordinate system.
 
         '''
-        return self._extrinsics_rt(True, rt)
+        if rt is None:
+            # getter
+            return mrcal.invert_rt(self._rt_cam_ref)
+
+
+        # setter
+        self._rt_cam_ref = mrcal.invert_rt(rt.astype(float))
+        return True
 
 
     def rt_cam_ref(self, rt=None):
@@ -1621,49 +1588,13 @@ If this is a getter (no arguments given), returns a a numpy array of shape (6,).
 The rt transformation FROM the reference coordinate system.
 
         '''
-        return self._extrinsics_rt(False, rt)
-
-
-    def _extrinsics_Rt(self, toref, Rt=None):
-        r'''Get or set the extrinsics in this model
-
-        This function represents the pose as a shape (4,3) numpy array that
-        contains a (3,3) rotation matrix, followed by a (1,3) translation in the
-        last row:
-
-          R = Rt[:3,:]
-          t = Rt[ 3,:]
-
-        The transformation is b <-- R*a + t:
-
-          import numpysane as nps
-          b = nps.matmult(a, nps.transpose(R)) + t
-
-        if Rt is None: this is a getter; otherwise a setter.
-
-        toref is a boolean. if toref: then Rt maps points in the coord system of
-        THIS camera to the reference coord system. Otherwise in the opposite
-        direction
-
-        '''
-
-        # The internal representation is rt_fromref
-
-        if Rt is None:
+        if rt is None:
             # getter
-            rt_fromref = self._extrinsics
-            Rt_fromref = mrcal.Rt_from_rt(rt_fromref)
-            if not toref:
-                return Rt_fromref
-            return mrcal.invert_Rt(Rt_fromref)
+            return np.array(self._rt_cam_ref)
+
 
         # setter
-        if toref:
-            Rt_fromref = mrcal.invert_Rt(Rt.astype(float))
-            self._extrinsics = mrcal.rt_from_Rt(Rt_fromref)
-            return True
-
-        self._extrinsics = mrcal.rt_from_Rt(Rt.astype(float))
+        self._rt_cam_ref = np.array(rt, dtype=float)
         return True
 
 
@@ -1698,7 +1629,13 @@ If this is a getter (no arguments given), returns a a numpy array of shape
 (4,3). The Rt transformation TO the reference coordinate system.
 
         '''
-        return self._extrinsics_Rt(True, Rt)
+        if Rt is None:
+            # getter
+            return mrcal.invert_Rt(mrcal.Rt_from_rt(self._rt_cam_ref))
+
+        # setter
+        self._rt_cam_ref = mrcal.rt_from_Rt(mrcal.invert_Rt(Rt.astype(float)))
+        return True
 
 
     def Rt_cam_ref(self, Rt=None):
@@ -1732,7 +1669,14 @@ If this is a getter (no arguments given), returns a a numpy array of shape
 (4,3). The Rt transformation FROM the reference coordinate system.
 
         '''
-        return self._extrinsics_Rt(False, Rt)
+        if Rt is None:
+            # getter
+            return mrcal.Rt_from_rt(self._rt_cam_ref)
+
+        # setter
+        self._rt_cam_ref = mrcal.rt_from_Rt(Rt.astype(float))
+        return True
+
 
     def extrinsics_rt_toref(self, *args, **kwargs):
         r'''Legacy alias for rt_ref_cam(); see the docs for that function'''
