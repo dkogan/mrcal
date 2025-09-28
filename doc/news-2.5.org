@@ -35,6 +35,7 @@ inverted0,inverted1
 mrcal-cull-corners has --cull-rad-off-center-board
 
 Added mrcal.cameramodel.optimization_inputs_reset()
+Added mrcal.cameramodel.valid_intrinsics_region_reset()
 
 2025-08
 Added analyses/mrcal-convert-lensmodel-from-kalibr-fov

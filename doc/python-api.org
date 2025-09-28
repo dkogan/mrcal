@@ -240,6 +240,7 @@ arguments. The available methods:
 - [[file:mrcal-python-api-reference.html#cameramodel-extrinsics_Rt_fromref][=mrcal.cameramodel.extrinsics_Rt_fromref()=]]: Get or set the extrinsics in this model (legacy alias for the above)
 - [[file:mrcal-python-api-reference.html#cameramodel-imagersize][=mrcal.cameramodel.imagersize()=]]: Get the imagersize in this model
 - [[file:mrcal-python-api-reference.html#cameramodel-valid_intrinsics_region][=mrcal.cameramodel.valid_intrinsics_region()=]]: Get or set the valid intrinsics region
+- [[file:mrcal-python-api-reference.html#cameramodel-valid_intrinsics_region_reset][=mrcal.cameramodel.valid_intrinsics_region_reset()=]]: Reset the valid-intrinsics region to "none defined"
 - [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs][=mrcal.cameramodel.optimization_inputs()=]]: Get the original optimization
   inputs. Used for uncertainty evaluation or other analysis
 - [[file:mrcal-python-api-reference.html#cameramodel-icam_intrinsics][=mrcal.cameramodel.icam_intrinsics()=]]: Get the camera index indentifying this

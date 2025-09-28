@@ -1767,6 +1767,33 @@ If this is a getter (no arguments given), returns a numpy array of shape
         return True
 
 
+    def valid_intrinsics_region_reset(self):
+        r'''Reset the valid-intrinsics region to "none defined"
+
+SYNOPSIS
+
+    model.valid_intrinsics_region_reset()
+
+    print(model.valid_intrinsics_region() is None)
+    ----> True
+
+Clears out the valid-intrinsics region stored in the model. This is needed
+because cameramodel.valid_intrinsics_region(None) will return the current
+valid-intrinsics region instead of setting it to None
+
+ARGUMENTS
+
+None
+
+RETURNED VALUE
+
+None
+
+        '''
+        self._valid_intrinsics_region = None
+
+
+
     def optimization_inputs(self):
         r'''Get the original optimization inputs
 
