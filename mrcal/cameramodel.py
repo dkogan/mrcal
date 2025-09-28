@@ -1759,10 +1759,6 @@ If this is a getter (no arguments given), returns a numpy array of shape
             return np.array(self._valid_intrinsics_region, dtype=float)
 
         # setter
-        if len(valid_intrinsics_region) == 0:
-            self._valid_intrinsics_region = None
-            return True
-
         valid_intrinsics_region = mrcal.close_contour(valid_intrinsics_region)
 
         # raises exception on error
