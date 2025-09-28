@@ -119,7 +119,8 @@ def confirm_equal(x, xref,
                   reldiff_smooth_radius = None,
                   relative=False,
                   worstcase=False,
-                  percentile=None):
+                  percentile=None,
+                  r=False):
     r'''If x is equal to xref, report test success.
 
     msg identifies this check. eps sets the RMS equality tolerance. The x,xref
@@ -138,7 +139,39 @@ def confirm_equal(x, xref,
                   error = percentile_compat(np.abs(err), percentile)
     else:         RMS error
                   error = np.sqrt(nps.norm2(err) / len(err))
+
+    if r: we are comparing rodrigues rotations. More than one set of r values
+          can represent the same rotation
+
+          Let k be an integer. r = th * vaxis.
+          Changing th -> th + k*2pi implies the same rotation
+          Changing vaxis -> -vaxis and th -> 2pi-th also implies the same rotation
+          I normalize the inputs first by finding the rotation with the smallest th
+
     '''
+
+    if r:
+        if not (x.shape[-1] == 3 and xref.shape[-1] == 3):
+            raise Exception("confirm_equal(r=True) only makes sense if x and xref have shape (...,3)")
+
+        def normalize_r(r):
+            th = nps.mag(r)
+            v = r / nps.dummy(th, -1)
+            th %= 2.*np.pi
+            # th is now in [0,2pi)
+            if th > np.pi:
+                th = 2.*np.pi - th
+                v  *= -1
+            # th is in [0,pi)
+            return th * v
+
+        x    = normalize_r(x)
+        xref = normalize_r(xref)
+
+
+
+
+
 
     global Nchecks
     global NchecksFailed

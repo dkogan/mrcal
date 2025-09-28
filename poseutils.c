@@ -1211,7 +1211,18 @@ void mrcal_r_from_R_full( // output
        1. - fabs(costh) > eps*eps/2. )
     {
         // normal path
-        const double th = acos(costh);
+
+        // I have sin>0, so I'm in the first two quadrants. I can thus compute
+        // th=acos(th), but this is inaccurate if th ~ 0 or th ~ pi, so I pick
+        // the best path. This is essentially atan2
+
+        const double sinth = sqrt(norm2u)/2;
+        const double th =
+            (sinth > sqrt(2.)/2.) ? acos(costh) :
+            ( costh > 0 ?
+              asin(sinth) :
+              (M_PI - asin(sinth)) );
+
         for(int i=0; i<3; i++)
             P1(r,i) = u[i]/sqrt(norm2u) * th;
     }

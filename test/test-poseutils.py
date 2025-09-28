@@ -172,23 +172,44 @@ testutils.confirm_equal( RtRt2,
 
 
 ####### small-angle R_from_r()
-for th in (1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6):
-    c,s = np.cos(th), np.sin(th)
-    rtiny = np.array((0, th, 0))
-    Rtiny = np.array((( c, 0, s),
-                      ( 0, 1, 0),
-                      (-s, 0, c)))
+for sign in (1, -1):
+    for th0 in (1e-12, 1e-10, 1e-8, 1e-6,1e-4,1e-2):
 
-    testutils.confirm_equal( mrcal.R_from_r(rtiny),
-                             Rtiny,
-                             worstcase = True,
-                             eps = 1e-13,
-                             msg = f'R_from_r() for tiny rotations: th = {th}')
-    testutils.confirm_equal( mrcal.r_from_R(Rtiny),
-                             rtiny,
-                             worstcase = True,
-                             eps = 1e-13,
-                             msg = f'r_from_R() for tiny rotations: th = {th}')
+        for extra90 in range(-4,4):
+            th = np.pi/2. * extra90 + sign*th0
+            c,s = np.cos(th), np.sin(th)
+
+            Rtiny = ( np.array((( 1, 0,  0),
+                                ( 0, c,  -s),
+                                ( 0, s,  c))),
+
+                      np.array((( c, 0,  s),
+                                ( 0, 1,  0),
+                                (-s, 0,  c))),
+
+                      np.array((( c, -s, 0),
+                                ( s, c,  0),
+                                ( 0, 0,  1))) )
+
+            for iaxis in range(3):
+                rtiny = np.array((0,0,0.))
+                rtiny[iaxis] = th
+
+                # xxx
+                ########### should check gradients
+
+                testutils.confirm_equal( mrcal.R_from_r(rtiny),
+                                         Rtiny[iaxis],
+                                         worstcase = True,
+                                         eps = 1e-13,
+                                         msg = f'R_from_r() for tiny rotations around axis {iaxis}: th = {sign*th0} + {extra90}*90deg')
+
+                testutils.confirm_equal( mrcal.r_from_R(Rtiny[iaxis]),
+                                         rtiny,
+                                         worstcase = True,
+                                         eps = 1e-13,
+                                         r   = True,
+                                         msg = f'r_from_R() for tiny rotations around axis {iaxis}: th = {sign*th0} + {extra90}*90deg')
 
 
 ###### skew_symmetric()
