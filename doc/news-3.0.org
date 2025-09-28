@@ -13,18 +13,6 @@ compose_r_tinyr1_gradientr1
 75893eea: Added initialy EARLY version of mrcal-show-stereo-pair-diff (this
 needs to be tested, documented)
 
-120f654e Fixed incorrect opencv8 intrinsics seeding
-
-mrcal-stereo --single-buffered
-
-poseutils: more careful handling of rotations near singularities
-
-Renamed "residuals" -> "measurements" to clarify the nomenclature
-  - residuals_point() -> measurements_point()
-  - residuals_board() -> measurements_board()
-  - show_residuals_....() take an "x" argument; the old "residuals" argument is
-    still accepted
-
 analyses/validate-uncertainty.py script to check the uncertainty and
 cross-validation logic
 
@@ -32,111 +20,16 @@ faster uncertainty computation:
   cecab50a CHOLMOD_factorization.solve_xt_JtJ_bt() can solve other problems
   9393ef79 Much faster uncertainty computation
 
-2024-10-31 Added traverse_sensor_links() in C and Python and the min-heap
-  added heap.h
-  added mrcal_traverse_sensor_links()
-  added mrcal.traverse_sensor_links()
-
-2024-11-06 Added C procrustes fit implementations
-2024-11-06 Added C mrcal_R_aligned_to_vector()
-
-2024-11-07 Added simple math operation functions to the C API
-
-2024-12-05 Added simple poseutils printing to the C API
-
 2024-11-27 bestq uncertainty method
   - works
   - needs documentation
   - MUCH slower than the mean-pcam, since it solves the linear problem (Nframes
     or Ncameras_extrinsics) more times than mean-pcam
 
-2024-12-06 compose_r(), compose_rt(), compose_Rt() has new args:
-inverted0,inverted1
-
-2025-01-15 mrcal.sorted_eig() broadcasts properly
-
-2025-02-26 mrcal_image_uint8_load(a 16-bit image) applies stretch equalization
-
-mrcal-cull-corners has --cull-rad-off-center-board
-
-Added mrcal.cameramodel.optimization_inputs_reset()
-
-2025-08
-Added analyses/mrcal-convert-lensmodel-from-kalibr-fov
-
-<2025-07-04 Fri> compute_chessboard_corners() has image_path_prefix and
-image_directory To provide more options for interpreting paths in corners.vnl
-
-<2025-08-24 Sun> Added mrcal_cameramodel_converter is a "converter" function
-that can be used with "O&" conversions in PyArg_ParseTupleAndKeywords() calls.
-Can interpret either path strings or mrcal.cameramodel objects as
-mrcal_cameramodel_t structures. This adds a dependency on
-  - objcopy ("binutils" package)
-
-<2025-08-24 Sun> added mrcal_image_void_t
-
-<2025-09-20 Sat>
-  - extrinsics_rt_fromref -> rt_cam_ref
-  - extrinsics_Rt_fromref -> Rt_cam_ref
-  - extrinsics_rt_toref   -> rt_ref_cam
-  - extrinsics_Rt_toref   -> Rt_ref_cam
-  
-  - frames_rt_fromref     -> rt_frame_ref
-  - frames_Rt_fromref     -> Rt_frame_ref
-  - frames_rt_toref       -> rt_ref_frame
-  - frames_Rt_toref       -> Rt_ref_frame
-  
-  This applies to the mrcal.cameramodel() constructor arguments and accessor
-  functions. And to the mrcal.optimize() and mrcal.optimizer_callback() calls and
-  to the contents of the optimization_inputs dict and the pywrap stuff.
-  
-  Compatibility logic is in place, so old code and data should just work
-
-<2025-09-25 Thu>
-  .cameramodel file extrinsics field is called "rt_cam_ref"
-  Instead of "extrinsics". Old files can be read. Library writes both versions, so
-  models written by new tools can still be read by old mrcal.
-
-
-
-
-
-
 * Migration notes 2.4 -> 3.0
 
-2024-12-06 compose_r(), compose_rt(), compose_Rt() have new args:
-  inverted0,inverted1 BREAKING C ABI,API change: mrcal_compose_..._full() take
-  the two new arguments. And mrcal_compose_rt_full() returns dt01/dr1 and
-  dt01/dt0. The mrcal_compose_r(), mrcal_compose_rt() macros and the Python
-  functions maintain the same interface
-
 * todo
-- Old tools complain about new keywords:
-
-  #+begin_example
-mrcal-show-geometry --show-points /tmp/models-noisesample0-camera0.cameramodel
-Traceback (most recent call last):
-  File "/usr/bin/mrcal-show-geometry", line 186, in <module>
-    plot = mrcal.show_geometry(models,
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/mrcal/visualization.py", line 446, in show_geometry
-    points = get_points_to_plot()
-             ^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/mrcal/visualization.py", line 416, in get_points_to_plot
-    mrcal.corresponding_icam_extrinsics(icam_intrinsics,
-TypeError: 'do_apply_regularization_unity_cam01' is an invalid keyword argument for mrcal.corresponding_icam_extrinsics()
-  #+end_example
-
 - add notes about the triangulated-points merge
-
-- new observed_pixel_uncertainty
-  - apply sqrt() factor. Documented in 68789474. git grep -n
-    observed_pixel_uncertainty ..
-  - Does too little data give smaller residuals? It should. Is this reflected in
-    the sqrt() factor?
-
-- mrcal.cameramodel.extrinsics_rt_fromref (and friends): make aliases. I want
-  mrcal.cameramodel.rt_cam_ref()
 
 ** triangulated features merge
 *** =git grep -n Noutliers= Noutliers has change meaning: it's now =Nmeasurements_outliers=
