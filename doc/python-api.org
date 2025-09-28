@@ -243,6 +243,7 @@ arguments. The available methods:
 - [[file:mrcal-python-api-reference.html#cameramodel-valid_intrinsics_region_reset][=mrcal.cameramodel.valid_intrinsics_region_reset()=]]: Reset the valid-intrinsics region to "none defined"
 - [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs][=mrcal.cameramodel.optimization_inputs()=]]: Get the original optimization
   inputs. Used for uncertainty evaluation or other analysis
+- [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs_reset][=mrcal.cameramodel.optimization_inputs_reset()=]]: Reset the optimization inputs to "none defined"
 - [[file:mrcal-python-api-reference.html#cameramodel-icam_intrinsics][=mrcal.cameramodel.icam_intrinsics()=]]: Get the camera index indentifying this
   camera at optimization time. Used in conjunction with
   [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs][=mrcal.cameramodel.optimization_inputs()=]]

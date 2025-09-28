@@ -1831,7 +1831,7 @@ The optimization_inputs dict, or None if one isn't stored in this model.
 
 
     def optimization_inputs_reset(self):
-        r'''Reset the original optimization inputs
+        r'''Reset the original optimization inputs to "none defined"
 
 SYNOPSIS
 
