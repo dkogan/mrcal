@@ -123,6 +123,9 @@ args = parse_args()
 
 
 
+# I import the LOCAL mrcal
+sys.path[:0] = f"{os.path.dirname(os.path.realpath(__file__))}/..",
+
 import numpy as np
 import numpysane as nps
 import time
