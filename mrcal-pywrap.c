@@ -1447,8 +1447,12 @@ static bool _handle_renamed(PyArrayObject** old, const char* name_old,
             return false;
         }
     }
-    else
+
+    if(IS_NULL(*new))
+    {
+        Py_XDECREF(*new);
         *new = *old;
+    }
     return true;
 }
 
