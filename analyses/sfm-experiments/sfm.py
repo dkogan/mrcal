@@ -558,8 +558,8 @@ def optimizer_callback_triangulated_no_mrcal(
                        *,
                        # shape (Nframes, Nfeatures, 3)
                        v_all,
-                       # shape (Nframes, Nfeatures)
-                       masks_valid,
+                       # shape (Nframes, Nfeatures); may be None
+                       masks_valid = None,
                        # shape (Nframes_optimized,6,  Nframes_optimized,6)
                        JtJ = None,
                        # shape (Nframes_optimized,6)
@@ -593,12 +593,16 @@ def optimizer_callback_triangulated_no_mrcal(
             dtij_drj = drtij_drtj[3:,:3]
             dtij_dtj = drtij_drtj[3:,3:]
 
-            # common observations between points i and j
-            mask_valid = masks_valid[i] * masks_valid[j]
+            if masks_valid is not None:
+                # common observations between points i and j
+                mask_valid = masks_valid[i] * masks_valid[j]
 
-            # shape (Nfeatures_valid,3)
-            vi = v_all[i,...][...,mask_valid,:]
-            vj = v_all[j,...][...,mask_valid,:]
+                # shape (Nfeatures_valid,3)
+                vi = v_all[i,...][...,mask_valid,:]
+                vj = v_all[j,...][...,mask_valid,:]
+            else:
+                vi = v_all[i,...]
+                vj = v_all[j,...]
 
             # vj in the coord system of camera i
             vj,dvj_drij,_ = \
@@ -704,7 +708,7 @@ def solve_triangulated_no_mrcal(# shape (Nframes,6)
                                 # shape (Nframes, Nfeatures, 3)
                                 v_all,
                                 # shape (Nframes, Nfeatures)
-                                masks_valid,
+                                masks_valid = None,
                                 debug = False):
     r'''I want a least-squares solve using implicit triangulation. I have a
     measurement vector x containing pairwise reprojection errors from each pair
