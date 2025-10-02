@@ -730,6 +730,10 @@ def solve_triangulated_no_mrcal(# shape (Nframes,6)
     If I have N camera poses being optimized then JtJ has shape (6N,6N)
     '''
 
+    Niterations = 10
+
+
+
     Nframes = len(rt_ned_cam)
 
     # frame0 is the reference
@@ -740,69 +744,95 @@ def solve_triangulated_no_mrcal(# shape (Nframes,6)
 
     Jtx = np.zeros( (Nframes_optimized,6), dtype=float )
 
-    x0 = []
+    # last one is the final state
+    x_before_step = [[] for i in range(Niterations+1) ] # [[]] * N would produce 5 of the same identical list
+    rt_ned_cam_all = np.zeros((Niterations+1, Nframes,6), dtype=float)
+    rt_ned_cam_all[0,:] = rt_ned_cam
+
     J  = None if not debug else []
+    for i_iteration in range(Niterations):
+        optimizer_callback_triangulated_no_mrcal( # in
+                                                  rt_ned_cam_all[i_iteration,...],
+                                                  v_all       = v_all,
+                                                  # out
+                                                  masks_valid = masks_valid,
+                                                  JtJ         = JtJ,
+                                                  Jtx         = Jtx,
+                                                  x           = x_before_step[i_iteration],
+                                                  J           = J)
 
-    optimizer_callback_triangulated_no_mrcal( rt_ned_cam,
-                                              v_all       = v_all,
-                                              masks_valid = masks_valid,
-                                              JtJ         = JtJ,
-                                              Jtx         = Jtx,
-                                              x           = x0,
-                                              J           = J)
+        # shape ( (Nframes-1)*6, (Nframes-1)*6)
+        JtJ_clumped = nps.clump( nps.clump(JtJ,
+                                   n = 2),
+                         n = -2 )
 
-    # shape ( (Nframes-1)*6, (Nframes-1)*6)
-    JtJ = nps.clump( nps.clump(JtJ,
-                               n = 2),
-                     n = -2 )
+        # shape (Nframes-1)*6
+        Jtx_clumped = Jtx.ravel()
 
-    # shape (Nframes-1)*6
-    Jtx = Jtx.ravel()
+        # error checking
+        if debug:
+            # shape (Nmeasurements, (Nframes-1)*6)
+            J = nps.clump( nps.glue(*J, axis=-3),
+                           n = -2 )
+            # shape (Nmeasurements)
+            x0 = nps.glue(*x0, axis=-1)
+            Jtx_check = nps.matmult(x0, J)
+            if np.max(nps.norm2(Jtx_clumped - Jtx_check)) > 1e-12:
+                print("Jtx is wrong")
+            JtJ_check = nps.matmult(J.T, J)
+            if np.max(nps.norm2((JtJ_clumped - JtJ_check).ravel())) > 1e-12:
+                print("JtJ is wrong")
+            import gnuplotlib as gp
+            import IPython
+            IPython.embed()
+            sys.exit()
 
-    # error checking
-    if debug:
-        # shape (Nmeasurements, (Nframes-1)*6)
-        J = nps.clump( nps.glue(*J, axis=-3),
-                       n = -2 )
-        # shape (Nmeasurements)
-        x0 = nps.glue(*x0, axis=-1)
-        Jtx_check = nps.matmult(x0, J)
-        if np.max(nps.norm2(Jtx - Jtx_check)) > 1e-12:
-            print("Jtx is wrong")
-        JtJ_check = nps.matmult(J.T, J)
-        if np.max(nps.norm2((JtJ - JtJ_check).ravel())) > 1e-12:
-            print("JtJ is wrong")
+
+        # ignore last state element. This will set our scale
+        Nstate = len(Jtx_clumped)
+        JtJ_clumped = JtJ_clumped[:Nstate-1, :Nstate-1]
+        Jtx_clumped = Jtx_clumped[:Nstate-1]
+
+        (F,lower) = scipy.linalg.cho_factor(JtJ_clumped)
+
+        drt_ned_cam = -scipy.linalg.cho_solve((F,lower), Jtx_clumped)
+
+        drt_ned_cam = nps.glue( 0,0,0,0,0,0,
+                                drt_ned_cam, 0,
+                                axis=-1).reshape(Nframes,6)
+
+        # take step
+        rt_ned_cam_all[i_iteration+1,...] = rt_ned_cam_all[i_iteration,...] + drt_ned_cam
+
+
+    # diagnostics
+    if True:
+        optimizer_callback_triangulated_no_mrcal( # in
+                                                  rt_ned_cam_all[-1,...],
+                                                  v_all       = v_all,
+                                                  # out
+                                                  masks_valid = masks_valid,
+                                                  x           = x_before_step[-1])
+
         import gnuplotlib as gp
+
+        # shape (Niterations+1, Nsensor_combinations,Nfeatures)
+        err_before_step = np.array(x_before_step)
+
+        norm2_E = nps.norm2( nps.clump(err_before_step,n=-2))
+        print(f"{norm2_E=}")
+
+        gp.plotimage(np.abs(nps.clump(err_before_step,n=2)), square=1)
+
         import IPython
         IPython.embed()
         sys.exit()
 
 
-    # ignore last state element. This will set our scale
-    Nstate = len(Jtx)
-    JtJ = JtJ[:Nstate-1, :Nstate-1]
-    Jtx = Jtx[:Nstate-1]
-
-    (F,lower) = scipy.linalg.cho_factor(JtJ)
-
-    drt_ned_cam = -scipy.linalg.cho_solve((F,lower), Jtx)
-
-    drt_ned_cam = nps.glue( 0,0,0,0,0,0,
-                            drt_ned_cam, 0,
-                            axis=-1).reshape(Nframes,6)
-
-    x1 = []
-    optimizer_callback_triangulated_no_mrcal( rt_ned_cam + drt_ned_cam,
-                                              v_all       = v_all,
-                                              masks_valid = masks_valid,
-                                              x           = x1)
-
-
-    return rt_ned_cam + drt_ned_cam
+    return rt_ned_cam_all[-1,...]
 
 
     print(f"dt = {t1-t0}s")
-    import gnuplotlib as gp
     # mask_valid = mask_inbounds(q_all[0]) * mask_inbounds(q_all[0])
     # Rt01, mask_bad, Nmask_bad = \
     #     pairwise_solve_kneip(*v_all[:,mask_valid,:])
@@ -1805,4 +1835,26 @@ if __name__ == "__main__":
         # if I'm looking at cached features, I never read any actual images
         pass
 
+
+    # test code to observe the behavior of mrcal.triangulated_error()
+    if False:
+        import gnuplotlib as gp
+        q0 = (np.array((W,H), dtype=float) - 1.) / 2.
+        Nx = 100
+        Ny = 9
+        q1x = np.linspace(q0[0]-20, q0[0]+20, Nx)
+        q1y = np.linspace(q0[1]-10, q0[1]+10, Ny)
+        # shape (Ny,Nx,2)
+        q1 = np.ascontiguousarray(nps.mv( nps.cat(*np.meshgrid(q1x,q1y)),
+                                          0, -1))
+        v0 = mrcal.unproject(q0, *model.intrinsics())
+        v1 = mrcal.unproject(q1, *model.intrinsics())
+        e = \
+            mrcal.triangulated_error( v0, v1,
+                                      v_are_local = True,
+                                      Rt01        = mrcal.Rt_from_rt( np.array((0,0,0,  1.,0,0))) )
+        gp.plot(q1x,e,
+                legend=q1y,
+                hardcopy='/tmp/tst.gp')
+        sys.exit()
 
