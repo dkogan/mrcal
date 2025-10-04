@@ -315,7 +315,7 @@ that function for details
             # This string must be findable by
             # PyArray_Converter_checkrenamed_leaveNone() in mrcal-pywrap.c and
             # renamed() in _serialize_optimization_inputs()
-            d[name_from] = f'ERROR: mrcal 3.0 renamed optimization_inputs fields: "{name_from}" -> "{name_to}". Please update your code to use the new name'
+            d[name_from] = f'ERROR: mrcal 2.5 renamed optimization_inputs fields: "{name_from}" -> "{name_to}". Please update your code to use the new name'
 
 
     renamed('do_optimize_intrinsic_core',
@@ -489,7 +489,7 @@ A sample valid .cameramodel file:
 
         N = len(self._rt_cam_ref)
         f.write(("    'rt_cam_ref': [" + (" {:.10g}," * N) + "],\n").format(*self._rt_cam_ref))
-        f.write(("    'extrinsics': [" + (" {:.10g}," * N) + "], # for compatibility with mrcal < 3.0\n").format(*self._rt_cam_ref))
+        f.write(("    'extrinsics': [" + (" {:.10g}," * N) + "], # for compatibility with mrcal < 2.5\n").format(*self._rt_cam_ref))
         f.write("\n")
 
         N = 2
