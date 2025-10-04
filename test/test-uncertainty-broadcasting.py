@@ -150,7 +150,7 @@ frames_true =                 \
 models_baseline = \
     [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
                          icam_intrinsics     = i) \
-      for i in range(args.Ncameras) ]
+      for i in range(Ncameras) ]
 
 
 
