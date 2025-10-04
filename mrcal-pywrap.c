@@ -920,6 +920,7 @@ int PyArray_Converter_checkrenamed_leaveNone(PyObject* obj, PyObject** address)
     _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(verbose,                            int,            0,       "p",  ,                                  NULL,           -1,         {})  \
     _(do_apply_regularization,            int,            1,       "p",  ,                                  NULL,           -1,         {})  \
+    /* The default for this MUST be 0. See mrcal.cameramodel._serialize_optimization_inputs()*/ \
     _(do_apply_regularization_unity_cam01,int,            0,       "p",  ,                                  NULL,           -1,         {})  \
     _(do_apply_outlier_rejection,         int,            1,       "p",  ,                                  NULL,           -1,         {})  \
     _(imagepaths,                         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
