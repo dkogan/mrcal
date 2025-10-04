@@ -38,7 +38,7 @@ mrcal.traverse_sensor_links(connectivity_matrix = connectivity_matrix,
 
 def cost_edge(camera_idx, from_idx):
     num_shared_frames = connectivity_matrix[camera_idx, from_idx]
-    return 65536 - num_shared_frames
+    return 65536 - int(num_shared_frames) # int() to case up from uint16, and avoid an overflow
 def neighbors(camera_idx):
     for neighbor_idx in range(Nsensors):
         if neighbor_idx == camera_idx                  or \
