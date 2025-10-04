@@ -235,18 +235,23 @@ future
 
     data_bytes = io.BytesIO()
 
+    # Skip the default values of new arguments. The defaults aren't
+    # required, and omitting them will make the models loadable with old
+    # mrcal.
+    new_keys_with_default_values_to_ignore = \
+        set(('do_apply_regularization_unity_cam01',
+             'observations_point_triangulated',
+             'indices_point_triangulated_camintrinsics_camextrinsics',))
     optimization_inputs_normalized = dict()
     for k in optimization_inputs.keys():
         v = optimization_inputs[k]
         if v is None: v = ''
 
-        # Skip the default do_apply_regularization_unity_cam01 value when
-        # writing to the model on disk. This isn't required, since it is
-        # default. And its presense will make the older mrcal.cameramodel()
-        # parsers complain
-        if k == 'do_apply_regularization_unity_cam01' and \
-           not v:
-            continue
+        if k in new_keys_with_default_values_to_ignore:
+            if isinstance(v, np.ndarray):
+                if np.size(v) == 0: continue
+            elif not v:
+                continue
 
         optimization_inputs_normalized[k] = v
 
