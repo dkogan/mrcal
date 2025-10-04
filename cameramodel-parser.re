@@ -46,8 +46,10 @@ typedef struct
   // I use @ tags
   re2c:flags:tags = 1;
 
+  re2c:sentinel = 0;
+
   SPACE        = [ \t\n\r]*;
-  IGNORE       = (SPACE | "#" .* "\n")*;
+  IGNORE       = (SPACE | "#" [^\x00\n]* "\n")*;
   // This FLOAT definition will erroneously accept "." and "" as a valid float,
   // but the strtod converter will then reject it
   FLOAT        = "-"?[0-9]*("."[0-9]*)?([eE][+-]?[0-9]+)?;
@@ -80,7 +82,7 @@ static bool read_string( // output stored here. If NULL, we try to read off
         const char* s;
         const char* e;
         /*!re2c
-          IGNORE "b"? ["'] @s [^\"']* @e ["']
+          IGNORE "b"? ["'] @s [^"'\x00]* @e ["']
           {
             if(out != NULL)
             {
@@ -245,7 +247,7 @@ static bool read_list_values_generic( // output stored here. If NULL, we try to
     while(true)
     {
         /*!re2c
-          IGNORE [\[(] { break; }
+          IGNORE [[(] { break; }
           *
           {
             MSG("Didn't see the opening [/( for the %s at position %ld. Giving up.",
@@ -304,12 +306,12 @@ static bool read_balanced_list( const char** pYYCURSOR, const char* start_file )
     while(true)
     {
         /*!re2c
-          ( IGNORE | [0-9eE\.,-]*)* [\[(]
+          ( IGNORE | [0-9eE.,-]*)* [[(]
           {
             level++;
             continue;
           }
-          ( IGNORE | [0-9eE\.,-]*)* [\])] IGNORE ","?
+          ( IGNORE | [0-9eE.,-]*)* [\])] IGNORE ","?
           {
             level--;
             if(level < 0)
