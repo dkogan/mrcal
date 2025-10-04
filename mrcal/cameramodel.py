@@ -308,6 +308,13 @@ that function for details
             d[name_to] = d[name_from]
             del d[name_from]
         if poisonold:
+            # If any python code tries to use the old names, we make sure that
+            # fails by writing a string where a matrix is expected. That code
+            # should be updated to use the new names
+            #
+            # This string must be findable by
+            # PyArray_Converter_checkrenamed_leaveNone() in mrcal-pywrap.c and
+            # renamed() in _serialize_optimization_inputs()
             d[name_from] = f'ERROR: mrcal 3.0 renamed optimization_inputs fields: "{name_from}" -> "{name_to}". Please update your code to use the new name'
 
 

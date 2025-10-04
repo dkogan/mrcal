@@ -857,6 +857,22 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
     }
     return PyArray_Converter(obj,address);
 }
+static
+int PyArray_Converter_checkrenamed_leaveNone(PyObject* obj, PyObject** address)
+{
+    // If we see the ERROR poison string from renamed() in
+    // _deserialize_optimization_inputs() in cameramodel.py, we produce None.
+    // This string isn't supposed to actually be used
+    if(PyUnicode_Check(obj) &&
+       0 == strncmp("ERROR:", PyUnicode_AsUTF8(obj), 6))
+    {
+        *address = Py_None;
+        Py_INCREF(Py_None);
+        return 1;
+    }        
+    
+    return PyArray_Converter_leaveNone(obj,address);
+}
 
 // For various utility functions. Accepts ONE lens model, not N of them like the optimization function
 #define LENSMODEL_ONE_ARGUMENTS(_, suffix)                                     \
@@ -879,8 +895,8 @@ int PyArray_Converter_leaveNone(PyObject* obj, PyObject** address)
 // do anything anymore
 #define OPTIMIZE_ARGUMENTS_OPTIONAL(_) \
     /* old flavors (new ones work too) */ \
-    _(extrinsics_rt_fromref,              PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, extrinsics_rt_fromref,       NPY_DOUBLE, {-1 COMMA  6       } ) \
-    _(frames_rt_toref,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, frames_rt_toref,             NPY_DOUBLE, {-1 COMMA  6       } ) \
+    _(extrinsics_rt_fromref,              PyArrayObject*, NULL,    "O&", PyArray_Converter_checkrenamed_leaveNone COMMA, extrinsics_rt_fromref,       NPY_DOUBLE, {-1 COMMA  6       } ) \
+    _(frames_rt_toref,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_checkrenamed_leaveNone COMMA, frames_rt_toref,             NPY_DOUBLE, {-1 COMMA  6       } ) \
     /* new flavors (old ones work too) */ \
     _(rt_cam_ref,              PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, rt_cam_ref,       NPY_DOUBLE, {-1 COMMA  6       } ) \
     _(rt_ref_frame,                    PyArrayObject*, NULL,    "O&", PyArray_Converter_leaveNone COMMA, rt_ref_frame,             NPY_DOUBLE, {-1 COMMA  6       } ) \
