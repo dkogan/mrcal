@@ -1474,6 +1474,71 @@ static bool _handle_renamed(PyArrayObject** old, const char* name_old,
     return true;
 }
 
+// This is mrcal._optimization_inputs_known_keys in Python. But I'm being lazy
+// and just save it as a global here
+static PyObject* _optimization_inputs_known_keys_frozenset;
+static bool optimization_inputs_kwargs_delete_unknown(PyObject** kwargs)
+{
+    if(!PyDict_Check(*kwargs))
+        return true;
+
+    PyObject* kwargs_new = PyDict_New();
+    if(kwargs_new == NULL)
+    {
+        BARF("Couldn't make a new kwargs");
+        return false;
+    }
+
+    PyObject* key;
+    PyObject* value;
+    Py_ssize_t i = 0;
+    while (PyDict_Next(*kwargs, &i, &key, &value))
+    {
+        int contains = PySet_Contains(_optimization_inputs_known_keys_frozenset,
+                                      key);
+        if(contains < 0)
+        {
+            BARF("Couldn't check contents of _optimization_inputs_known_keys_frozenset");
+            Py_DECREF(kwargs_new);
+            return false;
+        }
+        if(contains)
+        {
+            if(0 != PyDict_SetItem(kwargs_new, key, value))
+            {
+                BARF("Couldn't add '%S' to kwargs_new", key);
+                Py_DECREF(kwargs_new);
+                return false;
+            }
+            continue;
+        }
+
+        // This element of kwargs is NOT known
+
+        // If it's None or an empty array, I simply ignore it (do NOT add to
+        // kwargs_new): it does nothing and is safe to ignore. Otherwise I throw
+        // an error
+        if( (!PyArray_Check(value) && PyObject_IsTrue(value)) ||
+            ( PyArray_Check(value) && PyArray_SIZE((PyArrayObject*)value) != 0) )
+        {
+            BARF("optimization_inputs key '%S' has a non-null value. Unsupported in this version of mrcal", key);
+            Py_DECREF(kwargs_new);
+            return false;
+        }
+
+        // NULL unknown key. I simply ignore it
+    }
+
+    // Not decreading the kwargs reference. This was causing breakage. I guess
+    // this is part of the function-calling machinery and I'm not supposed to
+    // mess with it
+    //Py_DECREF(*kwargs);
+
+    *kwargs = kwargs_new;
+
+    return true;
+}
+
 static
 PyObject* _optimize(optimizemode_t optimizemode,
                     PyObject* args,
@@ -1494,6 +1559,9 @@ PyObject* _optimize(optimizemode_t optimizemode,
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_DEFINE);
+
+    if(!optimization_inputs_kwargs_delete_unknown(&kwargs))
+        goto done;
 
     int calibration_object_height_n = -1;
     int calibration_object_width_n  = -1;
@@ -2084,6 +2152,9 @@ static PyObject* state_index_generic(callback_state_index_t cb,
 
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
+
+    if(!optimization_inputs_kwargs_delete_unknown(&kwargs))
+        goto done;
 
     int i = -1;
 
@@ -3297,6 +3368,9 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
 
+    if(!optimization_inputs_kwargs_delete_unknown(&kwargs))
+        goto done;
+
     PyArrayObject* b = NULL;
 
     int Ncameras_intrinsics = -1;
@@ -4347,11 +4421,61 @@ static PyMethodDef methods[] =
 
 
 
-static void _init_mrcal_common(PyObject* module)
+static bool _init_mrcal_common(PyObject* module)
 {
     Py_INCREF(&CHOLMOD_factorization_type);
     PyModule_AddObject(module, "CHOLMOD_factorization", (PyObject *)&CHOLMOD_factorization_type);
 
+#define COUNT(name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) \
+    +1
+    const int Nkeys = 0
+        OPTIMIZE_ARGUMENTS_REQUIRED(COUNT)
+        OPTIMIZE_ARGUMENTS_OPTIONAL(COUNT)
+        OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(COUNT);
+#undef COUNT
+
+    PyObject* optimization_inputs_known_keys_tuple;
+    if(NULL == (optimization_inputs_known_keys_tuple = PyTuple_New(Nkeys)))
+    {
+        BARF("Could not create optimization_inputs_known_keys_tuple");
+        return false;
+    }
+
+    PyObject* value;
+    int i=0;
+
+#define ADD_TO_TUPLE(name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) \
+    if( NULL == (value = PyUnicode_FromString(#name)))                  \
+    {                                                                   \
+        BARF("Couldn't create '" #name "' string");                     \
+        Py_DECREF(optimization_inputs_known_keys_tuple);                \
+        return false;                                                   \
+    }                                                                   \
+    PyTuple_SET_ITEM(optimization_inputs_known_keys_tuple, i++, value);
+
+    OPTIMIZE_ARGUMENTS_REQUIRED(ADD_TO_TUPLE);
+    OPTIMIZE_ARGUMENTS_OPTIONAL(ADD_TO_TUPLE);
+    OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ADD_TO_TUPLE);
+#undef ADD_TO_TUPLE
+
+    _optimization_inputs_known_keys_frozenset =
+        PyFrozenSet_New(optimization_inputs_known_keys_tuple);
+    if(_optimization_inputs_known_keys_frozenset == NULL)
+    {
+        BARF("Couldn't create optimization_inputs_known_keys_frozenset");
+        Py_DECREF(optimization_inputs_known_keys_tuple);
+        return false;
+    }
+
+    Py_DECREF(optimization_inputs_known_keys_tuple);
+    if(0 != PyModule_Add(module,
+                         "_optimization_inputs_known_keys",
+                         (PyObject *)_optimization_inputs_known_keys_frozenset))
+    {
+        BARF("Could not add mrcal._optimization_inputs_known_keys_frozenset");
+        return false;
+    }
+    return true;
 }
 
 
@@ -4383,7 +4507,9 @@ PyMODINIT_FUNC PyInit__mrcal(void)
     PyObject* module =
         PyModule_Create(&module_def);
 
-    _init_mrcal_common(module);
+    if(!_init_mrcal_common(module))
+        return NULL;
+
     import_array();
 
     return module;

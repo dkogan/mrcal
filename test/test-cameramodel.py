@@ -124,7 +124,18 @@ with io.StringIO(string) as f:
                              msg="extra spaces don't confuse the parser")
 
 
+# Make sure I ignore unknown optimization_inputs keys
+m = mrcal.cameramodel(f"{testdir}/../doc/data/figueroa-overpass-looking-S/opencv8-0.cameramodel")
+optimization_inputs = m.optimization_inputs()
+optimization_inputs['abc'] = np.zeros((0,3), dtype=float)
+optimization_inputs['def'] = False
+optimization_inputs['ghi'] = None
+optimization_inputs['klm'] = 0
+testutils.confirm_does_not_raise( lambda: mrcal.num_states(**optimization_inputs),
+                                  msg = 'optimization_inputs unknown keys ignored')
 
-
+optimization_inputs['xyz'] = np.arange(5)
+testutils.confirm_raises( lambda: mrcal.num_states(**optimization_inputs),
+                          msg = 'optimization_inputs unknown non-null keys are an error')
 
 testutils.finish()
