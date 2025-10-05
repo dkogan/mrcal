@@ -83,20 +83,6 @@ mrcal_cameramodel_t structures. This adds a dependency on
   functions maintain the same interface
 
 * todo
-- Old tools complain about new keywords:
-
-  #+begin_example
-mrcal-show-geometry --show-points /tmp/models-noisesample0-camera0.cameramodel
-Traceback (most recent call last):
-  File "/usr/bin/mrcal-show-geometry", line 186, in <module>
-    plot = mrcal.show_geometry(models,
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/mrcal/visualization.py", line 446, in show_geometry
-    points = get_points_to_plot()
-             ^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/mrcal/visualization.py", line 416, in get_points_to_plot
-    mrcal.corresponding_icam_extrinsics(icam_intrinsics,
-TypeError: 'do_apply_regularization_unity_cam01' is an invalid keyword argument for mrcal.corresponding_icam_extrinsics()
   #+end_example
 
 - new observed_pixel_uncertainty
