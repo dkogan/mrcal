@@ -257,20 +257,49 @@ future
 
 
     # for legacy compatibility
-    def renamed(name_from, name_to, d):
-        if name_from in d:
-            if not name_to in d:
-                d[name_to] = d[name_from]
-            elif not (isinstance(d[name_from],str) and d[name_from].startswith('ERROR:')):
-                raise Exception(f"Have deprecated field '{name_from}' and it isn't a deprecation warning. Please update your code to use the new names. '{name_from}'->'{name_to}'")
-            del d[name_from]
-    renamed('frames_rt_toref',
-            'rt_ref_frame',
-            optimization_inputs_normalized)
-    renamed('extrinsics_rt_fromref',
-            'rt_cam_ref',
-            optimization_inputs_normalized)
+    def renamed_write_old_name(name_from, name_to, d):
+        # This is silly complex. The incoming dict might have the old name or
+        # the new name or both. The old name might be a poisoned string. I need
+        # to figure out which is the true value, I then need to put it ONLY into
+        # the old name (so that old mrcal can read these files). And a poisoned
+        # string must be unpoisoned
 
+        v_to = d.get(name_to, None)
+        if isinstance(v_to, np.ndarray) and np.size(v_to) == 0: v_to = None
+
+        if isinstance(d.get(name_from),str) and d.get(name_from).startswith('ERROR:'):
+            d[name_from] = d[name_to]
+
+        v_from = d.get(name_from, None)
+        if isinstance(v_from, np.ndarray) and np.size(v_from) == 0: v_from = None
+
+        if v_from is not None:
+            if v_to is None:
+                # only the old name is set; already done
+                pass
+            else:
+                # both are set. If identical, keep only the old
+                try:    equal = not np.any(v_from-v_to)
+                except: equal = False
+                if not equal:
+                    raise Exception(f"optimization_inputs has both keys '{name_from}' and '{name_to}', but they're not the same; {d[name_from]=} and {d[name_to]=}. Giving up")
+                del d[name_to]
+        else:
+            if v_to is not None:
+                d[name_from] = d[name_to]
+
+            # Delete the new name. It might have value of "None", but I don't want it at all
+            try:    del d[name_to]
+            except: pass
+
+
+    # I write the OLD name so that the old tools can read my files
+    renamed_write_old_name('frames_rt_toref',
+                           'rt_ref_frame',
+                           optimization_inputs_normalized)
+    renamed_write_old_name('extrinsics_rt_fromref',
+                           'rt_cam_ref',
+                           optimization_inputs_normalized)
 
     np.savez_compressed(data_bytes, **optimization_inputs_normalized)
     return \
