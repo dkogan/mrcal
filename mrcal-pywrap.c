@@ -4424,7 +4424,13 @@ static PyMethodDef methods[] =
 static bool _init_mrcal_common(PyObject* module)
 {
     Py_INCREF(&CHOLMOD_factorization_type);
-    PyModule_AddObject(module, "CHOLMOD_factorization", (PyObject *)&CHOLMOD_factorization_type);
+    if(0 != PyModule_Add(module,
+                         "CHOLMOD_factorization",
+                         (PyObject *)&CHOLMOD_factorization_type))
+    {
+        BARF("Could not add mrcal.CHOLMOD_factorization");
+        return false;
+    }
 
 #define COUNT(name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) \
     +1
