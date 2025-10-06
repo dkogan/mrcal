@@ -1477,8 +1477,13 @@ static bool _handle_renamed(PyArrayObject** old, const char* name_old,
 // This is mrcal._optimization_inputs_known_keys in Python. But I'm being lazy
 // and just save it as a global here
 static PyObject* _optimization_inputs_known_keys_frozenset;
-static bool optimization_inputs_kwargs_delete_unknown(PyObject** kwargs)
+//  Replace the kwargs to keep only those that are known. The unknown ones that
+//  are not null trigger an error. This is intended for forwards compatibility
+static bool optimization_inputs_kwargs_delete_unknown(PyObject** kwargs,
+                                                      bool* need_decref_kwargs)
 {
+    *need_decref_kwargs = false;
+
     if(!PyDict_Check(*kwargs))
         return true;
 
@@ -1535,6 +1540,7 @@ static bool optimization_inputs_kwargs_delete_unknown(PyObject** kwargs)
     //Py_DECREF(*kwargs);
 
     *kwargs = kwargs_new;
+    *need_decref_kwargs = true;
 
     return true;
 }
@@ -1560,7 +1566,8 @@ PyObject* _optimize(optimizemode_t optimizemode,
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_DEFINE);
 
-    if(!optimization_inputs_kwargs_delete_unknown(&kwargs))
+    bool need_decref_kwargs = false;
+    if(!optimization_inputs_kwargs_delete_unknown(&kwargs, &need_decref_kwargs))
         goto done;
 
     int calibration_object_height_n = -1;
@@ -2065,6 +2072,8 @@ PyObject* _optimize(optimizemode_t optimizemode,
     }
 
  done:
+    if(need_decref_kwargs)
+        Py_DECREF(kwargs);
     OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY);
     OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY);
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(FREE_PYARRAY);
@@ -2153,7 +2162,8 @@ static PyObject* state_index_generic(callback_state_index_t cb,
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
 
-    if(!optimization_inputs_kwargs_delete_unknown(&kwargs))
+    bool need_decref_kwargs = false;
+    if(!optimization_inputs_kwargs_delete_unknown(&kwargs, &need_decref_kwargs))
         goto done;
 
     int i = -1;
@@ -2314,6 +2324,8 @@ static PyObject* state_index_generic(callback_state_index_t cb,
         goto done;
 
  done:
+    if(need_decref_kwargs)
+        Py_DECREF(kwargs);
     OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
     OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
 
@@ -3368,7 +3380,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
 
-    if(!optimization_inputs_kwargs_delete_unknown(&kwargs))
+    bool need_decref_kwargs = false;
+    if(!optimization_inputs_kwargs_delete_unknown(&kwargs, &need_decref_kwargs))
         goto done;
 
     PyArrayObject* b = NULL;
@@ -3514,6 +3527,8 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     result = Py_None;
 
  done:
+    if(need_decref_kwargs)
+        Py_DECREF(kwargs);
     OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY) ;
     OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY) ;
 
