@@ -3384,11 +3384,11 @@ static PyObject* _pack_unpack_state(PyObject* self, PyObject* args, PyObject* kw
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
 
+    PyArrayObject* b = NULL;
+
     bool need_decref_kwargs = false;
     if(!optimization_inputs_kwargs_delete_unknown(&kwargs, &need_decref_kwargs))
         goto done;
-
-    PyArrayObject* b = NULL;
 
     int Ncameras_intrinsics = -1;
     int Ncameras_extrinsics = -1;
