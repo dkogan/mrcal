@@ -903,15 +903,15 @@ typedef bool (*mrcal_callback_sensor_link_t)(const uint16_t idx_to,
 // while assuming it is symmetric and has a 0 diagonal
 //
 // returns false on error
-bool mrcal_traverse_sensor_links( const uint16_t Nsensors,
+bool mrcal_traverse_sensor_links(const uint16_t Nsensors,
 
-                                        // (N,N) symmetric matrix with a 0 diagonal.
-                                        // I store the upper triangle only,
-                                        // row-first: a 1D array of (N*(N-1)/2)
-                                        // values. use pairwise_index() to index
-                                        const uint16_t* connectivity_matrix,
-                                        const mrcal_callback_sensor_link_t cb,
-                                        void* cookie);
+                                 // (N,N) symmetric matrix with a 0 diagonal.
+                                 // I store the upper triangle only,
+                                 // row-first: a 1D array of (N*(N-1)/2)
+                                 // values. use pairwise_index() to index
+                                 const uint16_t* connectivity_matrix,
+                                 const mrcal_callback_sensor_link_t cb,
+                                 void* cookie);
 
 
 // Public ABI stuff, that's not for end-user consumption

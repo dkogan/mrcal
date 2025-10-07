@@ -4247,9 +4247,9 @@ PyObject* traverse_sensor_links(PyObject* NPY_UNUSED(self),
                     *(uint16_t*)PyArray_GETPTR2(connectivity_matrix,i,j);
 
         if(!mrcal_traverse_sensor_links( Nsensors,
-                                               connectivity_matrix_upper,
-                                               &callback_sensor_link_C,
-                                               callback_sensor_link))
+                                         connectivity_matrix_upper,
+                                         &callback_sensor_link_C,
+                                         callback_sensor_link))
         {
             if(!PyErr_Occurred())
                 BARF("mrcal_traverse_sensor_links() failed");
