@@ -902,6 +902,9 @@ typedef bool (*mrcal_callback_sensor_link_t)(const uint16_t idx_to,
 // upper triangle stored), while the Python function takes a full (N,N) array,
 // while assuming it is symmetric and has a 0 diagonal
 //
+// On success, the callback is called for each connection in the shortest path
+// found by this function
+//
 // returns false on error
 bool mrcal_traverse_sensor_links(const uint16_t Nsensors,
 
