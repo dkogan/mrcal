@@ -1085,9 +1085,9 @@ def _estimate_camera_poses( # shape (Nobservations,4,3)
 
 
 def _traverse_sensor_links_python( Nsensors,
-                                         callback__neighbors,
-                                         callback__cost_edge,
-                                         callback__sensor_link ):
+                                   callback__neighbors,
+                                   callback__cost_edge,
+                                   callback__sensor_link ):
     '''Traverses a connectivity graph of sensors
 
     Starts from the root sensor (defined to have idx==0), and visits each one in
