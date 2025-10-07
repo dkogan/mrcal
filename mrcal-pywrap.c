@@ -1276,6 +1276,31 @@ static void fill_c_observations_point(// out
     }
 }
 
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
+#warning "triangulated-solve: document observation order. All the points must be grouped together"
+#endif
+static bool _finish_triangulated_set(// out
+                                     mrcal_observation_point_triangulated_t* c_observations_point_triangulated,
+                                     // in
+                                     const int Npoints_in_this_set,
+                                     int ipoint_last_in_set)
+{
+    if(ipoint_last_in_set < 0)
+        // No "last" set exists. Nothing to do.
+        return true;
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
+#warning "triangulated-solve: indices_point_triangulated_camintrinsics_camextrinsics are silly: ipoint is used ONLY to figure out where the set ends"
+#endif
+    c_observations_point_triangulated[ipoint_last_in_set].last_in_set = true;
+    if(Npoints_in_this_set < 2)
+    {
+        BARF("Error in indices_point_triangulated_camintrinsics_camextrinsics[%d]. Each point must be observed at least 2 times",
+             ipoint_last_in_set);
+        return false;
+    }
+    return true;
+}
+
 // return the number of points, or <0 on error
 static
 int fill_c_observations_point_triangulated(// output. I fill in the given arrays
@@ -1292,21 +1317,14 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
     if(indices_point_triangulated_camintrinsics_camextrinsics == NULL)
         return 0;
 
-    bool validate_arguments(void)
+    int result = -1;
+
+    // CHECK_LAYOUT will goto done on error
+    if(observations_point_triangulated != NULL)
     {
-        if(observations_point_triangulated != NULL)
-        {
-            ARGDEF_observations_point_triangulated(CHECK_LAYOUT);
-        }
-        ARGDEF_indices_point_triangulated_camintrinsics_camextrinsics(CHECK_LAYOUT);
-
-        return true;
-    done:
-        return false;
+        ARGDEF_observations_point_triangulated(CHECK_LAYOUT);
     }
-
-    if(!validate_arguments())
-        return -1;
+    ARGDEF_indices_point_triangulated_camintrinsics_camextrinsics(CHECK_LAYOUT);
 
     int N = (int)PyArray_DIM(indices_point_triangulated_camintrinsics_camextrinsics, 0);
     if(observations_point_triangulated != NULL)
@@ -1328,27 +1346,6 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
 
     int ipoint_current = -1;
     int Npoints_in_this_set = 0;
-
-#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
-#warning "triangulated-solve: document observation order. All the points must be grouped together"
-#endif
-    bool finish_set(int ipoint_last_in_set)
-    {
-        if(ipoint_last_in_set < 0)
-            // No "last" set exists. Nothing to do.
-            return true;
-#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
-#warning "triangulated-solve: indices_point_triangulated_camintrinsics_camextrinsics are silly: ipoint is used ONLY to figure out where the set ends"
-#endif
-        c_observations_point_triangulated[ipoint_last_in_set].last_in_set = true;
-        if(Npoints_in_this_set < 2)
-        {
-            BARF("Error in indices_point_triangulated_camintrinsics_camextrinsics[%d]. Each point must be observed at least 2 times",
-                ipoint_last_in_set);
-            return false;
-        }
-        return true;
-    }
 
     // Needed for the unproject() below
     int                            Nintrinsics_state = 0;
@@ -1415,7 +1412,9 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
         else if(ipoint == ipoint_current+1)
         {
             // The previous point was the last in the set
-            if(!finish_set(i-1))
+            if(!_finish_triangulated_set(c_observations_point_triangulated,
+                                         Npoints_in_this_set,
+                                         i-1))
                 return -1;
 
             ipoint_current = ipoint;
@@ -1429,10 +1428,15 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
         }
     }
 
-    if(!finish_set(N-1))
+    if(!_finish_triangulated_set(c_observations_point_triangulated,
+                                 Npoints_in_this_set,
+                                 N-1))
         return -1;
 
     return N;
+
+    // Used for error checking; CHECK_LAYOUT above does "goto done" on error
+ done: return -1;
 }
 
 #define PROBLEM_SELECTIONS_SET_BIT(x) .x = x,
