@@ -18,11 +18,11 @@ int main(int argc, char* argv[] )
 {
     const int N = 10;
 
-    uint16_t heap_buffer[N];
-    node_t   nodes      [N];
+    uint16_t          heap_buffer[N];
+    mrcal_heap_node_t nodes      [N];
     for(int i=0; i<N; i++)
     {
-        nodes[i] = (node_t){.cost = i};
+        nodes[i] = (mrcal_heap_node_t){.cost = i};
     }
 
     mrcal_heap_t heap = {.buffer = heap_buffer};

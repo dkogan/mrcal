@@ -11,8 +11,8 @@ extern "C"
 
 struct Compare_nodes_greater
 {
-    node_t* nodes;
-    Compare_nodes_greater(node_t* _nodes) : nodes(_nodes) {}
+    mrcal_heap_node_t* nodes;
+    Compare_nodes_greater(mrcal_heap_node_t* _nodes) : nodes(_nodes) {}
     bool operator()(const uint16_t& idx_a, const uint16_t& idx_b) const
     {
         return nodes[idx_a].cost > nodes[idx_b].cost;
@@ -20,13 +20,13 @@ struct Compare_nodes_greater
 };
 
 extern "C"
-bool     mrcal_heap_empty (mrcal_heap_t* heap, node_t* nodes)
+bool     mrcal_heap_empty (mrcal_heap_t* heap, mrcal_heap_node_t* nodes)
 {
     return heap->size==0;
 }
 
 extern "C"
-void     mrcal_heap_push  (mrcal_heap_t* heap, node_t* nodes, uint16_t x)
+void     mrcal_heap_push  (mrcal_heap_t* heap, mrcal_heap_node_t* nodes, uint16_t x)
 {
     heap->buffer[heap->size++] = x;
     std::push_heap(&heap->buffer[0],
@@ -35,7 +35,7 @@ void     mrcal_heap_push  (mrcal_heap_t* heap, node_t* nodes, uint16_t x)
 }
 
 extern "C"
-uint16_t mrcal_heap_pop   (mrcal_heap_t* heap, node_t* nodes)
+uint16_t mrcal_heap_pop   (mrcal_heap_t* heap, mrcal_heap_node_t* nodes)
 {
     uint16_t x = heap->buffer[0];
     std::pop_heap(&heap->buffer[0],
@@ -46,7 +46,7 @@ uint16_t mrcal_heap_pop   (mrcal_heap_t* heap, node_t* nodes)
 }
 
 extern "C"
-void mrcal_heap_resort(mrcal_heap_t* heap, node_t* nodes)
+void mrcal_heap_resort(mrcal_heap_t* heap, mrcal_heap_node_t* nodes)
 {
     std::make_heap(&heap->buffer[0],
                    &heap->buffer[heap->size],

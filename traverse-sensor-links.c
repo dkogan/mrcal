@@ -50,12 +50,12 @@ uint64_t cost_edge(uint16_t idx0, uint16_t idx1,
 
 static
 void visit(const uint16_t idx,
-           node_t* nodes,
+           mrcal_heap_node_t* nodes,
            mrcal_heap_t* heap,
            const uint16_t Nsensors,
            const uint16_t* connectivity_matrix)
 {
-    node_t* node = &nodes[idx];
+    mrcal_heap_node_t* node = &nodes[idx];
     node->done = true;
 
     for(int idx_neighbor=0; idx_neighbor<Nsensors; idx_neighbor++)
@@ -66,7 +66,7 @@ void visit(const uint16_t idx,
         if(connectivity_matrix[pairwise_index(idx_neighbor,idx,Nsensors)] == 0)
             continue;
 
-        node_t* node_neighbor = &nodes[idx_neighbor];
+        mrcal_heap_node_t* node_neighbor = &nodes[idx_neighbor];
         if (node_neighbor->done)
             continue;
 
@@ -126,7 +126,7 @@ bool mrcal_traverse_sensor_links( const uint16_t Nsensors,
       i_parent as the previous sensor
 
     */
-    node_t nodes[Nsensors];
+    mrcal_heap_node_t nodes[Nsensors];
     memset(nodes,0,sizeof(nodes[0])*Nsensors);
 
     uint16_t heap_buffer[Nsensors];
