@@ -2,46 +2,94 @@
 #+OPTIONS: toc:nil
 
 * New in mrcal 2.5
-120f654e Fixed incorrect opencv8 intrinsics seeding
+This is yet another mostly-maintenance release. The bulk implementation of some
+new big features is committed, but not yet completed and tested. These are thus
+undocumented, until they're done and finally appear in mrcal 3.0:
 
-mrcal-stereo --single-buffered
+- Cross-reprojection uncertainty, to be able to perform full calibrations with a
+  splined model and /without/ a chessboard
+- Implicit point solves, using the triangulation routines in the optimization
+  cost function. Should produce more efficient SFM
 
-poseutils: more careful handling of rotations near singularities
+** General fixes
 
-Renamed "residuals" -> "measurements" to clarify the nomenclature
-  - residuals_point() -> measurements_point()
-  - residuals_board() -> measurements_board()
-  - show_residuals_....() take an "x" argument; the old "residuals" argument is
-    still accepted
+- poseutils: more careful handling of rotations near singularities. Rotations
+  by ~ 180deg in particular weren't implemented properly, and had bugs
 
-2024-10-31 Added traverse_sensor_links() in C and Python and the min-heap
-  added heap.h
-  added mrcal_traverse_sensor_links()
-  added mrcal.traverse_sensor_links()
+- Renamed "residuals" -> "measurements" to clarify the nomenclature. These are
+  similar except for scaling and the "measurements" may also contain
+  regularization.
+  - =residuals_point()= -> =measurements_point()=
+  - =residuals_board()= -> =measurements_board()=
+  - =show_residuals_....()= functions now ask for a measurement =x= argument;
+    the old =residuals= argument is still accepted for backwards compatibility
 
-2024-11-06 Added C procrustes fit implementations
-2024-11-06 Added C mrcal_R_aligned_to_vector()
+- Added =mrcal_traverse_sensor_links()= in C and =mrcal.traverse_sensor_links()=
+  in Python. These compute the best path through a graph of sensors, trying to
+  maximize the common observations between each successive pair of sensors in
+  the path. The general min-heap implementation at the core of this computation
+  is available in =heap.h=
 
-2024-11-07 Added simple math operation functions to the C API
+** C API 
+Some guts of the calibration machinery have been ported to C and exposed as C
+functions:
 
-2024-12-05 Added simple poseutils printing to the C API
+- Added C implementations of Procrustes fits:
+  =mrcal_align_procrustes_vectors_R01()= and
+  =mrcal_align_procrustes_points_Rt01()=. These are now the internal
+  implementations of the Python [[file:mrcal-python-api-reference.html#-align_procrustes_vectors_R01][=mrcal.align_procrustes_vectors_R01()=]] and
+  [[file:mrcal-python-api-reference.html#-align_procrustes_points_Rt01][=mrcal.align_procrustes_points_Rt01()=]] functions
 
-2024-12-06 compose_r(), compose_rt(), compose_Rt() has new args:
-inverted0,inverted1
+- Added =mrcal_R_aligned_to_vector()= C function. This is now the internal
+  implementation of [[file:mrcal-python-api-reference.html#-R_aligned_to_vector][=mrcal.R_aligned_to_vector()=]]
 
-2025-01-15 mrcal.sorted_eig() broadcasts properly
+- Added simple math operation functions to the C API:
+  - =double         mrcal_point3_inner(const mrcal_point3_t a, const mrcal_point3_t b)=
+  - =double         mrcal_point3_norm2(const mrcal_point3_t a)=
+  - =double         mrcal_point3_mag  (const mrcal_point3_t a)=
+  - =mrcal_point3_t mrcal_point3_add  (const mrcal_point3_t a, const mrcal_point3_t b)=
+  - =mrcal_point3_t mrcal_point3_sub  (const mrcal_point3_t a, const mrcal_point3_t b)=
+  - =mrcal_point3_t mrcal_point3_scale(const mrcal_point3_t a, const double s)=
+  - =mrcal_point3_t mrcal_point3_cross(const mrcal_point3_t a, const mrcal_point3_t b)=
 
-2025-02-26 mrcal_image_uint8_load(a 16-bit image) applies stretch equalization
-mrcal-cull-corners has --cull-rad-off-center-board
+  And similar for =mrcal_point2_t=, except there's no =mrcal_point2_cross()=
 
-Added mrcal.cameramodel.optimization_inputs_reset()
-Added mrcal.cameramodel.valid_intrinsics_region_reset()
+- Added simple point and pose printing utilities:
+  - =mrcal_point2_print(p)=
+  - =mrcal_point3_print(p)=
+  - =mrcal_Rt_print(Rt)=
+  - =mrcal_rt_print(rt)=
 
-2025-08
-Added analyses/mrcal-convert-lensmodel-from-kalibr-fov
+- =compose_r()=, =compose_rt()=, =compose_Rt()= have new arguments: =inverted0=
+  and =inverted1=, to make it easier to use inverted transforms. The C macros
+  =mrcal_compose_Rt()=, =mrcal_compose_rt()=, =mrcal_compose_r()= are unchanged,
+  with new macros =...._inverted0()=, =...._inverted1()=, =...._inverted01()=.
+  The corresponding =mrcal_compose_..._full()= functions have new arguments, and
+  the API has a breaking change. The Python functions [[file:mrcal-python-api-reference.html#-compose_r][=mrcal.compose_r()=]] and
+  [[file:mrcal-python-api-reference.html#-compose_rt][=mrcal.compose_rt()=]] and [[file:mrcal-python-api-reference.html#-compose_R][=mrcal.compose_R()=]] have new arguments, with default
+  values, so this API remains compatible.
 
-<2025-07-04 Fri> compute_chessboard_corners() has image_path_prefix and
-image_directory To provide more options for interpreting paths in corners.vnl
+- =mrcal_image_uint8_load()= applies stretch equalization if given a 16-bit
+  image. This is a reasonable default. If more specific processing is needed,
+  call =mrcal_image_uint16_load()=
+
+- The [[file:mrcal-cull-corners.html][=mrcal-cull-corners=]] tool has =--cull-rad-off-center-board= to throw out
+  chessboard edges. Useful if we dont trust the chessboard shape
+
+- Added [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs_reset][=mrcal.cameramodel.optimization_inputs_reset()=]] and
+  [[file:mrcal-python-api-reference.html#cameramodel-valid_intrinsics_region_reset][=mrcal.cameramodel.valid_intrinsics_region_reset()=]] to unset these fields in a
+  [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]].
+
+- Added the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-convert-lensmodel-from-kalibr-fov][=analyses/mrcal-convert-lensmodel-from-kalibr-fov=]] tool to fit a
+  Kalibr "fov" model into something that mrcal supports. This isn't
+  general-enough or tested-enough to be fully distributed yet, so run it from
+  the mrcal source tree if you need it
+
+- The [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] utility function has new
+  =image_path_prefix= and =image_directory= kwargs to provide more options for
+  interpreting paths in the given =corners_cache_vnl=. This is analogous to how
+  other parts of mrcal work (for instance the
+  [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] tool).
 
 <2025-08-24 Sun> Added mrcal_cameramodel_converter is a "converter" function
 that can be used with "O&" conversions in PyArg_ParseTupleAndKeywords() calls.
