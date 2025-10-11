@@ -613,7 +613,10 @@ pinhole pixel observations. Like opengv
 def estimate_monocular_calobject_poses_Rt_tocam( indices_frame_camera,
                                                  observations,
                                                  object_spacing,
-                                                 models_or_intrinsics):
+                                                 models_or_intrinsics,
+                                                 *,
+                                                 # for diagnostics only
+                                                 paths = None):
     r"""Estimate camera-referenced poses of the calibration object from monocular views
 
 SYNOPSIS
@@ -700,6 +703,9 @@ ARGUMENTS
   object_height_n,object_width_n arguments, but here we get those from the shape
   of the observations array
 
+- paths: optional iterable of strings, with the image filename corresponding to
+  each slice of observations. Used for diagnostics only
+
 - models_or_intrinsics: either
 
   - a list of mrcal.cameramodel objects from which we use the intrinsics
@@ -751,11 +757,12 @@ camera coordinate system FROM the calibration object coordinate system.
 
         icam_intrinsics = indices_frame_camera[i_observation,1]
 
+        path_annotation = '' if paths is None else f'; "{paths[i_observation]}"'
         kwargs = dict( lensmodel         = lensmodels     [icam_intrinsics],
                        intrinsics_data   = intrinsics_data[icam_intrinsics],
                        observation_qxqyw = observations[i_observation],
                        points_ref        = points_ref,
-                       what              = f"observation {i_observation} (camera {icam_intrinsics})" )
+                       what              = f"observation {i_observation} (camera {icam_intrinsics}{path_annotation})" )
 
         Rt_cam_points = _estimate_camera_pose_from_fixed_point_observations(**kwargs)
         Rt_cam_points_all[i_observation, :, :] = Rt_cam_points
@@ -1382,7 +1389,10 @@ def seed_stereographic( imagersizes,
                         focal_estimate,
                         indices_frame_camera,
                         observations,
-                        object_spacing):
+                        object_spacing,
+                        *,
+                        # for diagnostics only
+                        paths = None):
     r'''Compute an optimization seed for a camera calibration
 
 SYNOPSIS
@@ -1475,6 +1485,9 @@ ARGUMENTS
   object_height_n,object_width_n arguments, but here we get those from the shape
   of the observations array
 
+- paths: optional iterable of strings, with the image filename corresponding to
+  each slice of observations. Used for diagnostics only
+
 RETURNED VALUES
 
 We return a tuple:
@@ -1540,7 +1553,8 @@ We return a tuple:
         mrcal.estimate_monocular_calobject_poses_Rt_tocam( indices_frame_camera,
                                                            observations,
                                                            object_spacing,
-                                                           intrinsics)
+                                                           intrinsics,
+                                                           paths = paths)
     # these map FROM the coord system of the calibration object TO the coord
     # system of this camera
 

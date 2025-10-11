@@ -364,8 +364,14 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, wh_args, seedmodels
     sys.exit(1)
 
 
-def solve_initial(args, seedmodels, imagersizes,
-                  observations, indices_frame_camera):
+def solve_initial(args,
+                  seedmodels,
+                  imagersizes,
+                  observations,
+                  indices_frame_camera,
+                  *,
+                  # for diagnostics only
+                  paths = None):
     '''Solve an incrementally-expanding optimization problem in several passes
 
     observations[...,2] start out as the initial outlier set, and are modified
@@ -388,7 +394,8 @@ def solve_initial(args, seedmodels, imagersizes,
                                      focal_estimate       = args.focal,
                                      indices_frame_camera = indices_frame_camera,
                                      observations         = observations,
-                                     object_spacing       = args.object_spacing)
+                                     object_spacing       = args.object_spacing,
+                                     paths                = paths)
 
         sys.stderr.write("## initial solve: geometry only\n")
         lensmodel = 'LENSMODEL_STEREOGRAPHIC'
@@ -734,7 +741,9 @@ imagersizes = np.array([get_imagersize_one(icamera,
 optimization_inputs = \
     solve_initial(args, seedmodels,
                   imagersizes,
-                  observations, indices_frame_camera)
+                  observations,
+                  indices_frame_camera,
+                  paths = paths)
 
 if not args.skip_calobject_warp_solve:
     calobject_warp = np.array((0,0), dtype=float)
