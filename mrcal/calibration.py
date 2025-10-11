@@ -554,8 +554,8 @@ pinhole pixel observations. Like opengv
             (np.isfinite(observation_qxqy_pinhole[..., 0])) * \
             (np.isfinite(observation_qxqy_pinhole[..., 1]))
 
-        if np.count_nonzero(i) < 4:
-            raise SolvePnPerror_toofew(f"Insufficient observations; need at least 4; got {np.count_nonzero(i)} instead. Cannot estimate initial extrinsics for {what}")
+        if np.count_nonzero(i) < 6:
+            raise SolvePnPerror_toofew(f"Insufficient observations; need at least 6; got {np.count_nonzero(i)} instead. Cannot estimate initial extrinsics for {what}")
 
         observations_local = observation_qxqy_pinhole[i]
         ref_object         = points_ref[i]
