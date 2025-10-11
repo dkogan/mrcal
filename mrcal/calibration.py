@@ -30,7 +30,8 @@ def compute_chessboard_corners(W, H,
 
                                jobs              = 1,
                                exclude_images    = set(),
-                               weight_column_kind= 'level'):
+                               weight_column_kind= 'level',
+                               Npoint_observations_per_board_min = None):
     r'''Compute the chessboard observations and returns them in a usable form
 
 SYNOPSIS
@@ -156,6 +157,10 @@ ARGUMENTS
     ignored: we set output weight = -1
   - None: the 4th column should be ignored, and I set the output weight to 1.0
 
+- Npoint_observations_per_board_min: optional integer, defaulting to 2*min(W,H).
+  We throw out any images where a chessboard detection has fewer than this many
+  points.
+
 RETURNED VALUES
 
 This function returns a tuple (observations, indices_frame_camera, files_sorted)
@@ -182,6 +187,10 @@ which mrcal.optimize() expects
             weight_column_kind == 'weight' or
             weight_column_kind is None):
         raise Exception(f"weight_column_kind must be one of ('level','weight',None); got '{weight_column_kind}'")
+
+    if Npoint_observations_per_board_min is None:
+        Npoint_observations_per_board_min = 2*min(W,H)
+
 
     import os
     import fnmatch
@@ -315,7 +324,7 @@ which mrcal.optimize() expects
                     raise Exception("File '{}' expected to have {} points, but got {}". \
                                     format(context['f'], W*H, context['igrid']))
                 if context['f'] not in exclude_images and \
-                   context['Nvalidpoints'] > 3:
+                   context['Nvalidpoints'] > Npoint_observations_per_board_min:
 
                     if image_path_prefix is not None:
                         filename_canonical = f"{image_path_prefix}/{context['f']}"

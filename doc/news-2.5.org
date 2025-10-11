@@ -30,6 +30,12 @@ undocumented, until they're done and finally appear in mrcal 3.0:
   the path. The general min-heap implementation at the core of this computation
   is available in =heap.h=
 
+- mrcal-calibrate-cameras has a higher minimum points-per-chessboard-observation
+  threshold. We now throw out any images where a chessboard detection has fewer
+  than =2*min(gridn_width,gridn_height)= points. This is irrelevant for
+  mrgingham, which produces all-or-nothing detections. But other detectors could
+  produce barely-adequate detections that could cause problems previously
+
 ** C API 
 Some guts of the calibration machinery have been ported to C and exposed as C
 functions:
