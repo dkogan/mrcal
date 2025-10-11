@@ -806,14 +806,25 @@ nonoutliers_per_observation = \
                        n = -2 ),
             axis = -1 )
 
-# shape (Nobservations,)
-rms_residual_perobservation = \
-    np.sqrt( nps.norm2( nps.clump(residuals,n=-3) ) /
-             nonoutliers_per_observation )
+# Semi-arbitrary limit of 3 here is the same as in markOutliers() in mrcal.c:
+# if(Npt_inlier < 3) ...
+mask_observations_mostly_outliers = nonoutliers_per_observation<3
+iobservations_mostly_outliers = np.nonzero(mask_observations_mostly_outliers)[0]
+if len(iobservations_mostly_outliers):
+    print(f"Observations that are mostly outliers that we should ignore:")
+    for i in iobservations_mostly_outliers:
+        print(f"  iobservation={i} path='{paths[i]}")
 
-# shape (Nobservations,)
+# shape (Nobservations_not_mostly_outliers,)
+rms_residual_perobservation = \
+    np.sqrt( nps.norm2( nps.clump(residuals[~mask_observations_mostly_outliers,...],n=-3) ) /
+             nonoutliers_per_observation[~mask_observations_mostly_outliers,...] )
+
+# shape (Nobservations_not_mostly_outliers,)
 i_observations_sorted_from_worst = \
-    list(reversed(np.argsort(rms_residual_perobservation)))
+    np.nonzero(~mask_observations_mostly_outliers)[0][ \
+      list(reversed(np.argsort(rms_residual_perobservation))) \
+    ]
 
 
 if not args.skip_intrinsics_solve and \

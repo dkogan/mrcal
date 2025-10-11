@@ -4350,6 +4350,8 @@ bool markOutliers(// output, input
             }
         }
 
+        // Semi-arbitrary limit of 3 here is the same as in mrcal-calibrate-cameras:
+        // mask_observations_mostly_outliers = nonoutliers_per_observation<3
         if(Npt_inlier < 3)
             MSG("WARNING: Board observation %d (icam_intrinsics=%d, icam_extrinsics=%d, iframe=%d) had almost all of its points thrown out as outliers: only %d/%d remain. CHOLMOD is about to complain about a non-positive-definite JtJ. Something is wrong with this observation",
                 i_observation_board,
