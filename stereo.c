@@ -207,17 +207,17 @@ bool mrcal_rectified_system(// output
 {
     if(el0_deg_autodetect)
     {
-        MSG("el0_deg_autodetect is unsupported");
+        MSG("el0_deg_autodetect is not yet supported");
         return false;
     }
     if(az_fov_deg_autodetect)
     {
-        MSG("az_fov_deg_autodetect is unsupported");
+        MSG("az_fov_deg_autodetect is not yet supported");
         return false;
     }
     if(el_fov_deg_autodetect)
     {
-        MSG("el_fov_deg_autodetect is unsupported");
+        MSG("el_fov_deg_autodetect is not yet supported");
         return false;
     }
 
