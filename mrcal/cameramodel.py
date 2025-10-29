@@ -137,7 +137,7 @@ def _validateValidIntrinsicsRegion(valid_intrinsics_region):
                  valid_intrinsics_region.shape[0] == 0)):
             raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4 or N == 0")
     except:
-        raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4. Instead got type {} of shape {}". \
+        raise Exception("The valid extrinsics region must be a numpy array of shape (N,2) with N >= 4 or N == 0. Instead got type {} of shape {}". \
                         format(type(valid_intrinsics_region), valid_intrinsics_region.shape if type(valid_intrinsics_region) is np.ndarray else None))
 
     if valid_intrinsics_region.size > 0 and \
@@ -1800,7 +1800,7 @@ If this is a getter (no arguments given), returns a numpy array of shape
             return np.array(self._valid_intrinsics_region, dtype=float)
 
         # setter
-        valid_intrinsics_region = mrcal.close_contour(valid_intrinsics_region)
+        valid_intrinsics_region = mrcal.close_contour(np.array(valid_intrinsics_region))
 
         # raises exception on error
         _validateValidIntrinsicsRegion(valid_intrinsics_region)

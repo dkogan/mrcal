@@ -982,8 +982,9 @@ None is accepted as an empty polygon: we return None.
 ARGUMENTS
 
 - c: an array of shape (N,2) representing the polyline to be closed. None and
-  arrays of shape (0,2) are accepted as special cases ("unknown" and "empty"
-  regions, respectively)
+  arrays of size 0 are accepted as special cases ("unknown" and "empty"
+  regions, respectively). All arrays of size 0 are transformed into an array of
+  shape (0,2), as expected by the rest of the code
 
 RETURNED VALUE
 
@@ -991,7 +992,8 @@ An array of shape (N,2) representing the closed polygon. The input is returned
 if the input was None or has shape (0,2)
 
     '''
-    if c is None or c.size == 0: return c
+    if c is None:   return None
+    if c.size == 0: return np.zeros((0,2), dtype=float)
 
     if np.linalg.norm( c[0,:] - c[-1,:]) < 1e-6:
         return c
