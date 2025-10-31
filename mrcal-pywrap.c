@@ -4493,6 +4493,9 @@ static bool _init_mrcal_common(PyObject* module)
     }
 
     Py_DECREF(optimization_inputs_known_keys_tuple);
+#if PY_VERSION_HEX >= 0x030A0000
+    // >= Python 3.10
+    // New path. The PyModule_AddObject() call in the legacy path is deprecated
     if(0 != PyModule_Add(module,
                          "_optimization_inputs_known_keys",
                          (PyObject *)_optimization_inputs_known_keys_frozenset))
@@ -4500,6 +4503,17 @@ static bool _init_mrcal_common(PyObject* module)
         BARF("Could not add mrcal._optimization_inputs_known_keys_frozenset");
         return false;
     }
+#else
+    // Legacy path for ancient Python. No PyModule_Add()
+    if(0 != PyModule_AddObject(module,
+                               "_optimization_inputs_known_keys",
+                               (PyObject *)_optimization_inputs_known_keys_frozenset))
+    {
+        Py_XDECREF((PyObject *)_optimization_inputs_known_keys_frozenset);
+        BARF("Could not add mrcal._optimization_inputs_known_keys_frozenset");
+        return false;
+    }
+#endif
     return true;
 }
 
