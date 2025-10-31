@@ -8,13 +8,20 @@
 // of libmrcal.so will not use this, so it should work without libpython. People
 // using this function will be doing so as part of
 // PyArg_ParseTupleAndKeywords(), so they will be linking to libpython anyway.
-// Thus I weaken all the references to libpython; this is done in the Makefile,
-// AFTER this is compiled.
+// Thus I weaken all the references to libpython AFTER this is compiled. This is
+// done in the Makefile, see the comment there for all sorts of gory details
 
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
 
 #include <Python.h>
 #include <numpy/arrayobject.h>
+
+#ifdef WEAKEN_PY_REFS
+  #include "python-cameramodel-converter-py-symbol-refs.h"
+  #define WEAKEN(f) extern __typeof__(f) f __attribute__((weak));
+  PY_REFS(WEAKEN)
+#endif
+
 
 #include "mrcal.h"
 
