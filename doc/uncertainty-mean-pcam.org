@@ -133,13 +133,13 @@ makes no sense: this should be a function of the calibration (original and
 perturbed) only.
 
 ** Pessimistic response to disparate observed chessboard ranges
-Because of this aphysical transform, the mean-pcam method produces
-fictitiously high uncertainties when gives a mix of low-range and high-range
-observations. Far-away chessboard observations don't contain much information,
-so adding some far-away chessboards to a dataset shouldn't improve the
-uncertainty much at the distance, but it shouldn't make it any worse. However,
-with the mean-pcam method, far-away observations /do/ make the uncertainty
-worse. We can clearly see this in the dance study:
+Because of this aphysical transform, the mean-pcam method produces fictitiously
+high uncertainties when gives a mix of low-range and high-range observations.
+Far-away chessboard observations don't contain much information, so adding some
+far-away chessboards to a dataset shouldn't improve the uncertainty much at any
+distance, but it shouldn't make it any worse either. However, with the mean-pcam
+method, far-away observations /do/ make the uncertainty worse. We can clearly
+see this in the dance study:
 
 #+begin_src sh
 analyses/dancing/dance-study.py           \
