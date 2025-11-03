@@ -36,6 +36,8 @@ undocumented, until they're done and finally appear in mrcal 3.0:
   mrgingham, which produces all-or-nothing detections. But other detectors could
   produce barely-adequate detections that could cause problems previously
 
+- [[file:mrcal-stereo.html][=mrcal-stereo=]]: =--equalization= implies =--force-grayscale=
+
 ** C API 
 Some guts of the calibration machinery have been ported to C and exposed as C
 functions:

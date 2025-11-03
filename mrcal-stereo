@@ -260,8 +260,8 @@ def parse_args():
                         choices=('clahe', 'fieldscale'),
                         help='''The equalization method to use for the input
                         images. "fieldscale" requires mrcam to be installed, and
-                        can only operate on uint16 images. These require
-                        --force-grayscale''')
+                        can only operate on uint16 images. --equalization
+                        implies --force-grayscale''')
     parser.add_argument('--clahe',
                         action='store_true',
                         help='''Equivalent to "--equalization clahe"''')
@@ -494,10 +494,9 @@ def parse_args():
                   file=sys.stderr)
             sys.exit(1)
         args.equalization = 'clahe'
-    if args.equalization is not None and not args.force_grayscale:
-        print("--equalization and --clahe require --force-grayscale",
-              file=sys.stderr)
-        sys.exit(1)
+
+    if args.equalization is not None:
+        args.force_grayscale = True
 
     return args
 
