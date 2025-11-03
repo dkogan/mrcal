@@ -776,10 +776,12 @@ def write_output_all(args,
     q_cam0_integer = (q_cam0[i] + 0.5).astype(int)
 
     image0 = images[0]
-    if len(image0.shape) == 2 and args.force_grayscale:
-        # I have a grayscale image, but the user asked for it for the
-        # purposes of stereo. I reload without asking for grayscale. If
-        # the image was a color one, that would be useful here.
+    if len(image0.shape) == 2 and \
+       args.force_grayscale and \
+       args.equalization is None:
+        # I have a grayscale image. If it was originally a color image, I want
+        # to use those colors for the point-cloud points. If we equalized, I use
+        # the equalized images; the original may have been a 16-bit image
         image0 = mrcal.load_image(image_filenames[0])
 
     # shape (N,)  if grayscale or
@@ -842,10 +844,6 @@ if args.equalization == 'clahe' or args.stereo_matcher == 'SGBM':
 if args.equalization == 'clahe':
     clahe = cv2.createCLAHE()
     clahe.setClipLimit(8)
-kwargs_load_image = dict()
-if args.force_grayscale:
-    kwargs_load_image['bits_per_pixel'] = 8
-    kwargs_load_image['channels']       = 1
 
 # Done with all the preliminaries. Run the stereo matching
 disparity_min,disparity_max = args.disparity_range
@@ -922,7 +920,7 @@ def process(i_image):
 
     print(f"Processing {os.path.split(image_filenames[0])[1]} and {os.path.split(image_filenames[1])[1]}")
 
-    images = [mrcal.load_image(f, **kwargs_load_image) for f in image_filenames]
+    images = [mrcal.load_image(f) for f in image_filenames]
 
 
     # This doesn't really matter: I don't use the input imagersize. But a
@@ -941,6 +939,11 @@ def process(i_image):
               file=sys.stderr)
         return False
 
+    if args.force_grayscale:
+        for i in range(2):
+            if images[i].ndim == 3:
+                images[i] = np.mean(images[i], axis=-1, dtype=images[i].dtype)
+
     if args.equalization == 'clahe':
         images = [ clahe.apply(image) for image in images ]
     elif args.equalization == 'fieldscale':
@@ -948,7 +951,7 @@ def process(i_image):
 
     if len(images[0].shape) == 3 or len(images[1].shape) == 3:
         if args.stereo_matcher == 'ELAS':
-            print("The ELAS matcher requires grayscale images. Pass --force-grayscale",
+            print("The ELAS matcher requires grayscale images. Pass --force-grayscale or --equalization",
                   file=sys.stderr)
             return False
 
