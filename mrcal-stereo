@@ -839,13 +839,9 @@ if args.viz == 'stereo' and Nimages > 1:
 
 if args.equalization == 'clahe' or args.stereo_matcher == 'SGBM':
     import cv2
-
-
 if args.equalization == 'clahe':
     clahe = cv2.createCLAHE()
     clahe.setClipLimit(8)
-
-
 kwargs_load_image = dict()
 if args.force_grayscale:
     kwargs_load_image['bits_per_pixel'] = 8
