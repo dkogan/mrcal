@@ -30,11 +30,12 @@ undocumented, until they're done and finally appear in mrcal 3.0:
   the path. The general min-heap implementation at the core of this computation
   is available in =heap.h=
 
-- mrcal-calibrate-cameras has a higher minimum points-per-chessboard-observation
-  threshold. We now throw out any images where a chessboard detection has fewer
-  than =2*min(gridn_width,gridn_height)= points. This is irrelevant for
-  mrgingham, which produces all-or-nothing detections. But other detectors could
-  produce barely-adequate detections that could cause problems previously
+- [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] has a higher minimum
+  points-per-chessboard-observation threshold. We now throw out any images where
+  a chessboard detection has fewer than =2*min(gridn_width,gridn_height)=
+  points. This is irrelevant for =mrgingham=, which produces all-or-nothing
+  detections, but other detectors could produce barely-adequate detections that
+  could cause problems previously
 
 - [[file:mrcal-stereo.html][=mrcal-stereo=]]: =--equalization= implies =--force-grayscale=
 
@@ -99,36 +100,32 @@ functions:
   other parts of mrcal work (for instance the
   [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] tool).
 
-<2025-08-24 Sun> Added mrcal_cameramodel_converter is a "converter" function
-that can be used with "O&" conversions in PyArg_ParseTupleAndKeywords() calls.
-Can interpret either path strings or mrcal.cameramodel objects as
-mrcal_cameramodel_t structures. This adds a dependency on
-  - objcopy ("binutils" package)
+- Added =mrcal_cameramodel_converter()= "converter" function that can be used
+  with =O&= conversions in [[https://docs.python.org/3/c-api/arg.html#c.PyArg_ParseTupleAndKeywords][=PyArg_ParseTupleAndKeywords()=]] calls. Can interpret
+  either path strings or [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] objects as =mrcal_cameramodel_t= C
+  structures. Useful for writing Python extension modules for C code that uses
+  =mrcal_cameramodel_t=.
 
-<2025-08-24 Sun> added mrcal_image_void_t
+- Added =mrcal_image_void_t= image type for generic functions that aren't meant
+  to interface with any particular image type.
 
-<2025-09-20 Sat>
-  - extrinsics_rt_fromref -> rt_cam_ref
-  - extrinsics_Rt_fromref -> Rt_cam_ref
-  - extrinsics_rt_toref   -> rt_ref_cam
-  - extrinsics_Rt_toref   -> Rt_ref_cam
-  
-  - frames_rt_fromref     -> rt_frame_ref
-  - frames_Rt_fromref     -> Rt_frame_ref
-  - frames_rt_toref       -> rt_ref_frame
-  - frames_Rt_toref       -> Rt_ref_frame
-  
-  This applies to the mrcal.cameramodel() constructor arguments and accessor
-  functions. And to the mrcal.optimize() and mrcal.optimizer_callback() calls and
-  to the contents of the optimization_inputs dict and the pywrap stuff.
-  
-  Compatibility logic is in place, so old code and data should just work
+- Some fiels in the [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] type and the saved =.cameramodel= files
+  and the =optimization_inputs= C and Python interfaces were renamed:
 
-<2025-09-25 Thu>
-  .cameramodel file extrinsics field is called "rt_cam_ref"
-  Instead of "extrinsics". Old files can be read. Library writes both versions, so
-  models written by new tools can still be read by old mrcal.
+  \begin{aligned}
+  &\mathrm{extrinsics\_rt\_fromref} & \rightarrow & \mathrm{rt\_cam\_ref} \\
+  &\mathrm{extrinsics\_Rt\_fromref} & \rightarrow & \mathrm{Rt\_cam\_ref} \\
+  &\mathrm{extrinsics\_rt\_toref} & \rightarrow & \mathrm{rt\_ref\_cam} \\
+  &\mathrm{extrinsics\_Rt\_toref} & \rightarrow & \mathrm{Rt\_ref\_cam} \\
+  &\mathrm{frames\_rt\_fromref} & \rightarrow & \mathrm{rt\_frame\_ref} \\
+  &\mathrm{frames\_Rt\_fromref} & \rightarrow & \mathrm{Rt\_frame\_ref} \\
+  &\mathrm{frames\_rt\_toref} & \rightarrow & \mathrm{rt\_ref\_frame} \\
+  &\mathrm{frames\_Rt\_toref} & \rightarrow & \mathrm{Rt\_ref\_frame} \\
+  &\end{aligned}
 
+  This makes things more consistent. Compatibility logic is in place, so old
+  code and data should keep working. New =.cameramodel= files write both the new
+  and old fields, so old tools can read the new files.
 
 * Migration notes 2.4 -> 2.5
 
