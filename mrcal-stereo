@@ -1056,9 +1056,10 @@ def gui_stereo(images,
 '''
 
     def set_status(string,
-                   q_rect   = None,
-                   q_input0 = None,
-                   q_input1 = None):
+                   *,
+                   q_rect  = None,
+                   q_input = None,
+                   icam    = None):
         # None means "use previous"
         if string is not None:
             set_status.string = string
@@ -1068,11 +1069,9 @@ def gui_stereo(images,
 
         if q_rect is not None:
             set_status.qstring = \
-                f"q_rectified0 = {q_rect[0]:.1f},{q_rect[1]:.1f}\n"
-            if q_input0 is not None:
-                set_status.qstring += f"q_input_cam0 = {q_input0[0]:.1f},{q_input0[1]:.1f}\n"
-            if q_input1 is not None:
-                set_status.qstring += f"q_input_cam1 = {q_input1[0]:.1f},{q_input1[1]:.1f}\n"
+                f"q_rectified{icam} = {q_rect[0]:.1f},{q_rect[1]:.1f}\n"
+            if q_input is not None:
+                set_status.qstring += f"q_input_cam{icam} = {q_input[0]:.1f},{q_input[1]:.1f}\n"
             set_status.qstring += "\n"
         else:
             if not hasattr(set_status, 'qstring'):
@@ -1180,7 +1179,9 @@ def gui_stereo(images,
                     widget_result.set_cross_at(None)
                     return super().handle(event)
 
-                if self is widget_image1:
+                is_cam1 = self is widget_image1
+
+                if is_cam1:
                     set_status("Please click in the left or disparity windows")
                     widget_image0.set_cross_at(q0_rectified, no_vertical = True)
                     widget_image1.set_cross_at(q0_rectified, no_vertical = True)
@@ -1277,9 +1278,10 @@ def gui_stereo(images,
                     return 1
 
             if event == FL_MOVE:
-                q_rect   = None
-                q_input0 = None
-                q_input1 = None
+                q_rect  = None
+                q_input = None
+
+                is_cam1 = self is widget_image1
 
                 try:
                     q_rect = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
@@ -1287,19 +1289,21 @@ def gui_stereo(images,
                     pass
 
                 if q_rect is not None:
-                    q_input0 = \
-                        mrcal.project( mrcal.transform_point_Rt( Rt_cam0_rect0,
-                                                                 mrcal.unproject(q_rect, *models_rectified[0].intrinsics())),
-                                       *models[0].intrinsics())
-                    q_input1 = \
-                        mrcal.project( mrcal.transform_point_Rt( Rt_cam1_rect1,
-                                                                 mrcal.unproject(q_rect, *models_rectified[1].intrinsics())),
-                                       *models[1].intrinsics())
+                    if not is_cam1:
+                        q_input = \
+                            mrcal.project( mrcal.transform_point_Rt( Rt_cam0_rect0,
+                                                                     mrcal.unproject(q_rect, *models_rectified[0].intrinsics())),
+                                           *models[0].intrinsics())
+                    else:
+                        q_input = \
+                            mrcal.project( mrcal.transform_point_Rt( Rt_cam1_rect1,
+                                                                     mrcal.unproject(q_rect, *models_rectified[1].intrinsics())),
+                                           *models[1].intrinsics())
 
                 set_status(string  = None, # keep old string
-                           q_rect   = q_rect,
-                           q_input0 = q_input0,
-                           q_input1 = q_input1)
+                           q_rect  = q_rect,
+                           q_input = q_input,
+                           icam    = 1 if is_cam1 else 0)
                 # fall through to let parent handlers run
 
             return super().handle(event)
