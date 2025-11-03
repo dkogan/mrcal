@@ -257,7 +257,7 @@ def parse_args():
 
     ######## image pre-filtering
     parser.add_argument('--equalization',
-                        choices=('clahe', 'fieldscale'),
+                        choices=('clahe', 'fieldscale','stretch'),
                         help='''The equalization method to use for the input
                         images. "fieldscale" requires mrcam to be installed, and
                         can only operate on uint16 images. --equalization
@@ -948,6 +948,8 @@ def process(i_image):
         images = [ clahe.apply(image) for image in images ]
     elif args.equalization == 'fieldscale':
         images = [ mrcam.equalize_fieldscale(image) for image in images ]
+    elif args.equalization == 'stretch':
+        images = [ ((image - np.min(image))/(np.max(image)-np.min(image))*255.).astype(np.uint8) for image in images ]
 
     if len(images[0].shape) == 3 or len(images[1].shape) == 3:
         if args.stereo_matcher == 'ELAS':
