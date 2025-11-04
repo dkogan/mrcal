@@ -179,13 +179,11 @@ for distro (buster bullseye bookworm sid bionic focal jammy noble) {
 
     DEB_BUILD_OPTIONS=nocheck \
     sbuild \
-      --no-apt-update \
-      --no-apt-upgrade \
       --host=amd64 \
       --arch-any \
       --arch-all \
       --source \
-      -c ${distro}-amd64 \
+      -c ${distro} \
       --anything-failed-commands '%s' \
       --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
 
@@ -206,7 +204,7 @@ for distro (bullseye bookworm sid) {
       --no-arch-all \
       --no-source \
       --profiles=nocheck,cross \
-      -c ${distro}-amd64 \
+      -c ${distro} \
       --anything-failed-commands '%s' \
       --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
 
@@ -218,13 +216,12 @@ for distro (focal jammy noble) {
 
     DEB_BUILD_OPTIONS=nocheck \
     sbuild \
-      --no-apt-update --no-apt-upgrade \
       --host=arm64 \
       --arch-any \
       --no-arch-all \
       --no-source \
       --profiles=nocheck,cross \
-      -c ${distro}-amd64 \
+      -c ${distro} \
       --anything-failed-commands '%s' \
       --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
 
