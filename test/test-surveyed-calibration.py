@@ -462,7 +462,7 @@ def get_variances():
     derrz_db[...,i_state:i_state+6] = drt_extrinsics_err_drtsolved[5:,:]
     Var_errz = mrcal.model_analysis._propagate_calibration_uncertainty( \
                  'covariance',
-                 dF_db = derrz_db,
+                 dF_dbunpacked = derrz_db,
                  optimization_inputs = optimization_inputs)
     Var_errz = Var_errz[0,0]
 
@@ -768,7 +768,7 @@ if 1:
 
         Var_q2 = mrcal.model_analysis._propagate_calibration_uncertainty( \
                      'covariance',
-                     dF_db = dq_db,
+                     dF_dbunpacked = dq_db,
                      optimization_inputs = optimization_inputs)
         testutils.confirm_equal(Var_q, Var_q2,
                                 relative=True,
