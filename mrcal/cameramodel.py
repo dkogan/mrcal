@@ -380,6 +380,9 @@ that function for details
     if 'calibration_object_height_n' in optimization_inputs:
         del optimization_inputs['calibration_object_height_n']
 
+    if 'rt_cam_ref' not in optimization_inputs or \
+       optimization_inputs['rt_cam_ref'] is None:
+        optimization_inputs['rt_cam_ref'] = np.zeros((0,6), dtype=float)
     return optimization_inputs
 
 
@@ -1865,8 +1868,6 @@ The optimization_inputs dict, or None if one isn't stored in this model.
         if self._optimization_inputs_string is None:
             return None
         x = _deserialize_optimization_inputs(self._optimization_inputs_string)
-        if x['rt_cam_ref'] is None:
-            x['rt_cam_ref'] = np.zeros((0,6), dtype=float)
         x['verbose'] = False
         return x
 
