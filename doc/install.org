@@ -136,45 +136,12 @@ perl -pe "s/jammy/$distro/g; s/22.04/$V/g;" \
 > /var/www/mrcal/packages/$distro/public/conf/distributions
 #+end_src
 
-*** On the client
-- Add to =/etc/dput.cf=
-- =mk-sbuild $distro=
-
-For Ubuntu, we need to add the cross repos manually; because they put non-amd64
-binaries on servers under a different domain for some stupid reason:
-
-#+begin_src sh
-sudo schroot -c source:${distro}-amd64 -- sh -c "echo '
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $distro main restricted universe multiverse 
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $distro-security main restricted universe multiverse 
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $distro-updates main restricted universe multiverse 
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $distro-proposed main restricted universe multiverse 
-' >> /etc/apt/sources.list"
-#+end_src
-
 ** Building
-
-Need to install =ca-certificates= in all the chroots so that I can talk to the
-https://mrcal APT server
-
-#+begin_src sh
-for distro (buster bullseye bookworm sid bionic focal jammy noble) {
-    sudo schroot -c source:${distro}-amd64 -- sh -c 'apt update && apt -y upgrade && apt -y install ca-certificates'
-}
-#+end_src
-
-If that's already installed, still bring all the chroots up-to-date:
-
-#+begin_src sh
-for distro (buster bullseye bookworm sid bionic focal jammy noble) {
-    sudo schroot -c source:${distro}-amd64 -- sh -c 'apt update && apt -y upgrade'
-}
-#+end_src
 
 To native-build (amd64) any dependency or mrcal itself:
 
 #+begin_src sh
-for distro (buster bullseye bookworm sid bionic focal jammy noble) {
+for distro (buster bullseye bookworm trixie sid) {
     perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
 
     DEB_BUILD_OPTIONS=nocheck \
@@ -183,8 +150,36 @@ for distro (buster bullseye bookworm sid bionic focal jammy noble) {
       --arch-any \
       --arch-all \
       --source \
-      -c ${distro} \
+      -d ${distro} \
       --anything-failed-commands '%s' \
+      --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
+
+    dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
+}
+#+end_src
+
+I think I need to do ubuntu separately because they have other suites I need
+/and/ for some reason they put different arches on different domains. See
+https://lists.debian.org/debian-cross/2025/10/msg00010.html
+
+#+begin_src sh
+for distro (bionic focal jammy noble) {
+    perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
+
+    DEB_BUILD_OPTIONS=nocheck \
+    sbuild \
+      --host=amd64 \
+      --arch-any \
+      --arch-all \
+      --source \
+      -d ${distro} \
+      --anything-failed-commands '%s' \
+      --chroot-setup-commands "echo \"
+deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}          main restricted universe multiverse
+deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}-security main restricted universe multiverse
+deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}-updates  main restricted universe multiverse
+deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}-proposed main restricted universe multiverse
+\" > \$1/etc/apt/sources.list" \
       --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
 
     dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
@@ -194,7 +189,7 @@ for distro (buster bullseye bookworm sid bionic focal jammy noble) {
 To cross-build for arm64:
 
 #+begin_src sh
-for distro (bullseye bookworm sid) {
+for distro (bullseye bookworm trixie sid) {
     perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
 
     DEB_BUILD_OPTIONS=nocheck \
@@ -204,7 +199,7 @@ for distro (bullseye bookworm sid) {
       --no-arch-all \
       --no-source \
       --profiles=nocheck,cross \
-      -c ${distro} \
+      -d ${distro} \
       --anything-failed-commands '%s' \
       --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
 
@@ -221,16 +216,20 @@ for distro (focal jammy noble) {
       --no-arch-all \
       --no-source \
       --profiles=nocheck,cross \
-      -c ${distro} \
+      -d ${distro} \
       --anything-failed-commands '%s' \
+      --chroot-setup-commands "echo \"
+deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}          main restricted universe multiverse
+deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}-security main restricted universe multiverse
+deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}-updates  main restricted universe multiverse
+deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}-proposed main restricted universe multiverse
+deb [trusted=yes arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ ${distro}          main restricted universe multiverse
+deb [trusted=yes arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ ${distro}-security main restricted universe multiverse
+deb [trusted=yes arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ ${distro}-updates  main restricted universe multiverse
+deb [trusted=yes arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ ${distro}-proposed main restricted universe multiverse
+\" > \$1/etc/apt/sources.list" \
       --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
 
     dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
 }
 #+end_src
-
-The ubuntu repos were done differently above because for some idiotic reason
-ubuntu puts the non-amd64 packages into a different domain. So I have to
-manually add the right sources, and I have to explicitly tell sbuild to not try
-to "apt update", because it would try to use the same repos with the different
-arch, and it would fail
