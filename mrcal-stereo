@@ -35,7 +35,6 @@ SYNOPSIS
   Wrote '/tmp/right-rectified.png'
   Wrote '/tmp/left-disparity.png'
   Wrote '/tmp/left-range.png'
-  Wrote '/tmp/points-cam0.vnl'
 
 
   ### To "manually" stereo-rectify a pair of images
