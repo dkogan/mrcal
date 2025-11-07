@@ -85,10 +85,13 @@ mrcal_image_ ## Tname ## _crop(mrcal_image_ ## Tname ## _t* image,      \
                               int x0, int y0,                           \
                               int w,  int h)                            \
 {                                                                       \
-    return (mrcal_image_ ## Tname ## _t){ .w      = w,                  \
-                                          .h      = h,                  \
-                                          .stride = image->stride,      \
-                                          .data   = mrcal_image_ ## Tname ## _at(image,x0,y0) }; \
+    /* no designated initializers; ancient c++ compilers complain */    \
+    mrcal_image_ ## Tname ## _t out;                                    \
+    out.w      = w;                                                     \
+    out.h      = h;                                                     \
+    out.stride = image->stride;                                         \
+    out.data   = mrcal_image_ ## Tname ## _at(image,x0,y0);             \
+    return out;                                                         \
 }
 
 #define MRCAL_IMAGE_DECLARE(T, Tname)           \
