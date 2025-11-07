@@ -229,7 +229,7 @@ bool mrcal_rectified_system(// output
         return false;
     }
 
-    mrcal_lensmodel_metadata_t meta =
+    const mrcal_lensmodel_metadata_t meta =
         mrcal_lensmodel_metadata( lensmodel0 );
     if(meta.noncentral)
     {
