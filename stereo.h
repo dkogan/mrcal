@@ -53,6 +53,7 @@ bool mrcal_rectified_system(// output
                             mrcal_point2_t* azel0_deg,
 
                             // input
+                            // for pixels_per_deg detection only
                             const mrcal_lensmodel_t* lensmodel0,
                             const double*            intrinsics0,
 
