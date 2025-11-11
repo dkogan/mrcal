@@ -1144,6 +1144,7 @@ def _traverse_sensor_links_python( Nsensors,
 
         def visit(self):
             if self.idx != 0:
+                # We're not at the start; propagate the connection
                 callback__sensor_link(self.idx,
                                       self.idx_parent)
             self.done = True
