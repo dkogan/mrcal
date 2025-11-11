@@ -914,12 +914,10 @@ def _append_observation_visualizations(plot_data_args,
     q_cam_boards_outliers = None
     observations_board = optimization_inputs.get('observations_board')
     if observations_board is not None:
-        mask_observation = \
-            optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,1] == \
-            model.icam_intrinsics()
-        observations_board = observations_board[mask_observation]
+        ifcice = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+        mask_observation = (ifcice[:,1] == model.icam_intrinsics())
         # shape (N,3)
-        observations_board = nps.clump(observations_board, n=3)
+        observations_board = nps.clump(observations_board[mask_observation], n=3)
         mask_inliers  = observations_board[...,2] > 0
 
         q_cam_boards_inliers  = observations_board[ mask_inliers,:2]
@@ -929,9 +927,8 @@ def _append_observation_visualizations(plot_data_args,
     q_cam_points_outliers = None
     observations_point = optimization_inputs.get('observations_point')
     if observations_point is not None:
-        mask_observation = \
-            optimization_inputs['indices_point_camintrinsics_camextrinsics'][:,1] == \
-            model.icam_intrinsics()
+        ipcice = optimization_inputs['indices_point_camintrinsics_camextrinsics']
+        mask_observation = (ipcice[:,1] == model.icam_intrinsics())
         # shape (N,3)
         observations_point = observations_point[mask_observation]
         mask_inliers       = observations_point[...,2] > 0
