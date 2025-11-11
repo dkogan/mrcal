@@ -123,16 +123,14 @@ for rectification_model in ('LENSMODEL_LATLON',
             mrcal.stereo_range( disparity,
                                 models_rectified,
                                 disparity_scale      = disparity_scale,
-                                disparity_min        = disparity_min,
-                                disparity_scaled_max = 32767)
+                                disparity_min        = disparity_min)
         mask_valid_ranges_dense = ranges_dense > 0
 
         ranges_dense_python = \
             mrcal.stereo._stereo_range_python( disparity,
                                                models_rectified,
                                                disparity_scale      = disparity_scale,
-                                               disparity_min        = disparity_min,
-                                               disparity_scaled_max = 32767 )
+                                               disparity_min        = disparity_min)
         mask_valid_ranges_dense_pythion = ranges_dense_python > 0
 
         ranges_sparse = \
