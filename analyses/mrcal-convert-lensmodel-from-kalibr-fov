@@ -135,6 +135,12 @@ def parse_args():
                         parser.error(f"--outdir requires an existing directory as the arg, but got '{d}'"),
                         help='''Directory to write the output into. If omitted,
                         we use the directory of the input model''')
+    parser.add_argument('--num-trials',
+                        type    = int,
+                        default = 1,
+                        help='''If given, run the solve more than once. Useful
+                        in case random initialization produces noticeably
+                        different results. By default we run just one trial''')
     parser.add_argument('to',
                         type=str,
                         help='The target lens model')
@@ -325,74 +331,81 @@ err_rms_best         = 1e10
 intrinsics_data_best = None
 rt_cam_ref_best      = None
 
-# random seed for the new intrinsics
-intrinsics_core = np.array(args.w_h_fx_fy_cx_cy_s[2:6])
-distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-3 # random initial seed
-intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
-                                 axis=-2)
-# each point has weight 1.0
-observations_points = nps.glue(q, nps.transpose(weights), axis=-1)
-observations_points = np.ascontiguousarray(observations_points) # must be contiguous. mrcal.optimize() should really be more lax here
+for i in range(args.num_trials):
 
-# Which points we're observing. This is dense and kinda silly for this
-# application. Each slice is (i_point,i_camera,i_camera-1). Initially O
-# do everything in camera-0 coordinates, and I do not move the
-# extrinsics
-indices_point_camintrinsics_camextrinsics = np.zeros((Npoints,3), dtype=np.int32)
-indices_point_camintrinsics_camextrinsics[:,0] = \
-    np.arange(Npoints,    dtype=np.int32)
-indices_point_camintrinsics_camextrinsics[:,1] = 0
-indices_point_camintrinsics_camextrinsics[:,2] = -1
+    # random seed for the new intrinsics
+    intrinsics_core = np.array(args.w_h_fx_fy_cx_cy_s[2:6])
+    distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-3 # random initial seed
+    intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
+                                     axis=-2)
+    # each point has weight 1.0
+    observations_points = nps.glue(q, nps.transpose(weights), axis=-1)
+    observations_points = np.ascontiguousarray(observations_points) # must be contiguous. mrcal.optimize() should really be more lax here
 
-optimization_inputs = \
-    dict(intrinsics                                = intrinsics_to_values,
-         rt_cam_ref                                = None,
-         rt_ref_frame                              = None, # no frames. Just points
-         points                                    = p,
-         observations_board                        = None, # no board observations
-         indices_frame_camintrinsics_camextrinsics = None, # no board observations
-         observations_point                        = observations_points,
-         indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
-         lensmodel                                 = lensmodel_to,
+    # Which points we're observing. This is dense and kinda silly for this
+    # application. Each slice is (i_point,i_camera,i_camera-1). Initially O
+    # do everything in camera-0 coordinates, and I do not move the
+    # extrinsics
+    indices_point_camintrinsics_camextrinsics = np.zeros((Npoints,3), dtype=np.int32)
+    indices_point_camintrinsics_camextrinsics[:,0] = \
+        np.arange(Npoints,    dtype=np.int32)
+    indices_point_camintrinsics_camextrinsics[:,1] = 0
+    indices_point_camintrinsics_camextrinsics[:,2] = -1
 
-         imagersizes                               = nps.atleast_dims(dims, -2),
+    optimization_inputs = \
+        dict(intrinsics                                = intrinsics_to_values,
+             rt_cam_ref                                = None,
+             rt_ref_frame                              = None, # no frames. Just points
+             points                                    = p,
+             observations_board                        = None, # no board observations
+             indices_frame_camintrinsics_camextrinsics = None, # no board observations
+             observations_point                        = observations_points,
+             indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics,
+             lensmodel                                 = lensmodel_to,
 
-         # I'm not optimizing the point positions (frames), so these
-         # need to be set to be inactive, and to include the ranges I do
-         # have
-         point_min_range                           = 1e-3,
-         point_max_range                           = 1e3,
+             imagersizes                               = nps.atleast_dims(dims, -2),
 
-         # I optimize the lens parameters. That's the whole point
-         do_optimize_intrinsics_core               = True,
-         do_optimize_intrinsics_distortions        = True,
+             # I'm not optimizing the point positions (frames), so these
+             # need to be set to be inactive, and to include the ranges I do
+             # have
+             point_min_range                           = 1e-3,
+             point_max_range                           = 1e3,
 
-         do_optimize_extrinsics                    = False,
+             # I optimize the lens parameters. That's the whole point
+             do_optimize_intrinsics_core               = True,
+             do_optimize_intrinsics_distortions        = True,
 
-         # NOT optimizing the observed point positions
-         do_optimize_frames                        = False )
+             do_optimize_extrinsics                    = False,
 
-if re.match("LENSMODEL_SPLINED_STEREOGRAPHIC_", lensmodel_to):
-    # splined models have a core, but those variables are largely redundant
-    # with the spline parameters. So I lock down the core when targetting
-    # splined models
-    optimization_inputs['do_optimize_intrinsics_core'] = False
+             # NOT optimizing the observed point positions
+             do_optimize_frames                        = False )
 
-stats = mrcal.optimize(**optimization_inputs,
-                       # No outliers. I have the points that I have
-                       do_apply_outlier_rejection        = False,
-                       verbose                           = False)
+    if re.match("LENSMODEL_SPLINED_STEREOGRAPHIC_", lensmodel_to):
+        # splined models have a core, but those variables are largely redundant
+        # with the spline parameters. So I lock down the core when targetting
+        # splined models
+        optimization_inputs['do_optimize_intrinsics_core'] = False
 
-err_rms = stats['rms_reproj_error__pixels']
-print(f"RMS error of this solution: {err_rms} pixels.",
-      file=sys.stderr)
-if err_rms < err_rms_best:
-    err_rms_best = err_rms
-    intrinsics_data_best  = optimization_inputs['intrinsics'][0,:].copy()
+    stats = mrcal.optimize(**optimization_inputs,
+                           # No outliers. I have the points that I have
+                           do_apply_outlier_rejection        = False,
+                           verbose                           = False)
+
+    err_rms = stats['rms_reproj_error__pixels']
+    print(f"RMS error of this solution: {err_rms} pixels.",
+          file=sys.stderr)
+    if err_rms < err_rms_best:
+        err_rms_best = err_rms
+        intrinsics_data_best  = optimization_inputs['intrinsics'][0,:].copy()
 
 if intrinsics_data_best is None:
     print("No valid intrinsics found!", file=sys.stderr)
     sys.exit(1)
+
+if args.num_trials > 1:
+    print(f"RMS error of the BEST solution: {err_rms_best} pixels.",
+          file=sys.stderr)
+
 
 m_to = mrcal.cameramodel( intrinsics = (lensmodel_to, intrinsics_data_best.ravel()),
                           imagersize = dims )
