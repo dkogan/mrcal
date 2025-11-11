@@ -348,6 +348,35 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
                              msg=f'stereo_range (scalar) reports the right thing ({lensmodel})',
                              eps=2e-6)
 
+    r = mrcal.stereo_range( np.int16(-1),
+                            models_rectified,
+                            qrect0 = qrect0[0],
+                            disparity_min = 0)
+    testutils.confirm_equal( r, 0,
+                             msg=f'stereo_range sparse processing handles invalid disparity correctly ({lensmodel})')
+
+    # dense range
+    #
+    # I make up a disparity, and make sure that reasonable ranges come back. I
+    # also make sure that we correctly handle invalid disparity values
+    disparity_scale = 16
+    disparity_mean = np.mean(disparity)
+    range_mean     = np.mean(nps.mag(pcam0))
+    disparity_dense = np.int16(disparity_scale * disparity_mean) * np.ones( (Nel,Naz), dtype=np.int16 )
+    # add some invalid pixels
+    disparity_dense[0,0] = -1
+    mask_valid = disparity_dense > 0
+    r = mrcal.stereo_range( disparity_dense,
+                            models_rectified,
+                            disparity_scale = disparity_scale,
+                            disparity_min   = 0)
+    r_valid = r[mask_valid]
+    testutils.confirm( np.all(r_valid > range_mean/2) and np.all(r_valid < range_mean*2. ),
+                       msg=f'stereo_range dense processing produces reasonable values ({lensmodel})')
+
+    testutils.confirm_equal( r[0,0], 0,
+                             eps = 1e-6,
+                             msg=f'stereo_range dense processing handles invalid disparity correctly ({lensmodel})')
 
     disparity = qrect0[:,0] - qrect1[:,0]
     p = mrcal.stereo_unproject( disparity,

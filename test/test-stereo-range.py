@@ -119,6 +119,10 @@ for rectification_model in ('LENSMODEL_LATLON',
                             for i in range(2)]
 
         disparity = stereo_sgbm.compute(*images_rectified)
+        mask_valid = \
+            (disparity > 0) * \
+            (disparity >= disparity_min*disparity_scale) * \
+            (disparity <= disparity_max*disparity_scale)
 
         ranges_dense = \
             mrcal.stereo_range( disparity,
@@ -126,6 +130,7 @@ for rectification_model in ('LENSMODEL_LATLON',
                                 disparity_scale      = disparity_scale,
                                 disparity_min        = disparity_min,
                                 disparity_scaled_max = 32767)
+        mask_valid_ranges_dense = ranges_dense > 0
 
         ranges_dense_python = \
             mrcal.stereo._stereo_range_python( disparity,
@@ -133,6 +138,7 @@ for rectification_model in ('LENSMODEL_LATLON',
                                                disparity_scale      = disparity_scale,
                                                disparity_min        = disparity_min,
                                                disparity_scaled_max = 32767 )
+        mask_valid_ranges_dense_pythion = ranges_dense_python > 0
 
         ranges_sparse = \
             mrcal.stereo_range( disparity[q[:,1], q[:,0]],
@@ -176,6 +182,16 @@ for rectification_model in ('LENSMODEL_LATLON',
                                  worstcase = True,
                                  eps = 1e-3,
                                  msg=f'Sparse and dense stereo_range() match: rectification_model={rectification_model} disparity_min={disparity_min}')
+
+        testutils.confirm_equal( mask_valid_ranges_dense,
+                                 mask_valid,
+                                 msg=f'Dense stereo_range() invalid values handled correctly: rectification_model={rectification_model} disparity_min={disparity_min}')
+        testutils.confirm_equal( mask_valid_ranges_dense_pythion,
+                                 mask_valid,
+                                 msg=f'Dense stereo_range() in Python: invalid values handled correctly: rectification_model={rectification_model} disparity_min={disparity_min}')
+        testutils.confirm( np.all(ranges_dense[~mask_valid] == 0.),
+                           msg=f'Dense stereo_range() values are all 0 in invalid areas: rectification_model={rectification_model} disparity_min={disparity_min}')
+
 
 
         if False:
