@@ -1182,12 +1182,15 @@ ARGUMENTS
   disparity_scale before comparing to the dense stereo correlator result
 
 - disparity_max: optional maximum-expected disparity value. If omitted, no
-  maximum exists. Works the same as disparity_min
+  maximum exists. Works the same as disparity_min.
 
 - disparity_scaled_min
   disparity_scaled_max: optional disparity values with the disparity_scaled
   already applied. These can be compared directly against the scaled disparity
-  values. Both the scaled and unscaled flavors of these may NOT be given
+  values. Both the scaled and unscaled flavors of these may NOT be given at the
+  same time. In the common case of 16-bit signed disparities AND disparity_max
+  is None: disparity_scales_max defaults to 0x7FFF to force disparity<0 to be
+  treated as invalid
 
 - qrect0: optional array of rectified camera0 pixel coordinates corresponding to
   the given disparities. By default, a full disparity image is assumed.
@@ -1211,6 +1214,10 @@ RETURNED VALUES
     if disparity_max is not None and disparity_scaled_max is not None and \
        disparity_max != disparity_scaled_max:
         raise Exception("disparity_max and disparity_scaled_max may not both be given")
+
+    if disparity_scaled_max is None and disparity_max is None and \
+       (isinstance(disparity, np.ndarray) and disparity.dtype == np.int16):
+        disparity_scaled_max = 0x7FFF
 
     if qrect0 is None:
         if disparity_scaled_min is None:

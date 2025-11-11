@@ -127,6 +127,10 @@ functions:
   code and data should keep working. New =.cameramodel= files write both the new
   and old fields, so old tools can read the new files.
 
+- [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]] has a better default for dispairty_max to handle
+  invalid disparities reliably in the common case where the disparity is a
+  16-bit signed integer
+
 * Migration notes 2.4 -> 2.5
 
 2024-12-06 compose_r(), compose_rt(), compose_Rt() have new args:
