@@ -74,8 +74,6 @@ q = np.array(((30,   100),
 
 
 
-results_from_disparity_min = dict()
-
 for rectification_model in ('LENSMODEL_LATLON',
                             'LENSMODEL_PINHOLE',
                             ):
@@ -92,9 +90,6 @@ for rectification_model in ('LENSMODEL_LATLON',
 
     for disparity_min in (0,10,):
         disparity_max = 128
-
-        results_from_disparity_min[disparity_min] = dict()
-
 
         # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
         # implementation requires this
@@ -154,16 +149,6 @@ for rectification_model in ('LENSMODEL_LATLON',
                                                disparity_scale      = disparity_scale,
                                                disparity_min        = disparity_min)
 
-        results_from_disparity_min[disparity_min]['disparity'] = \
-            disparity
-        results_from_disparity_min[disparity_min]['ranges_dense'] = \
-            ranges_dense
-        results_from_disparity_min[disparity_min]['ranges_dense_python'] = \
-            ranges_dense_python
-        results_from_disparity_min[disparity_min]['ranges_sparse'] = \
-            ranges_sparse
-        results_from_disparity_min[disparity_min]['ranges_sparse_python'] = \
-            ranges_sparse_python
 
         testutils.confirm_equal( ranges_dense,
                                  ranges_dense_python,
