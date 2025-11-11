@@ -1,11 +1,50 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 r'''Convert a kalibr 1-parameter distortion model to something more standard
 
-This is a cut down mrcal-convert-lensmodel --sampled
+SYNOPSIS
 
-This "fov" model isn't supported by mrcal, so that tool couldn't be used directly.
+  $ analyses/mrcal-convert-lensmodel-from-kalibr-fov \
+      --num-trials 10                                \
+      --radius 0                                     \
+      --viz LENSMODEL_OPENCV8                        \
+      640 480 251.1 249.4 325.4 238.1 0.91
+
+  RMS error of this solution: 0.038970851989073026 pixels.
+  RMS error of this solution: 0.312567345983669 pixels.
+  RMS error of this solution: 0.03897085198907192 pixels.
+  RMS error of this solution: 0.31102107617891206 pixels.
+  RMS error of this solution: 0.03897085198907148 pixels.
+  RMS error of this solution: 0.31024552395361005 pixels.
+  RMS error of this solution: 0.038970851989072686 pixels.
+  RMS error of this solution: 0.03897085198907228 pixels.
+  RMS error of this solution: 0.31256734598368013 pixels.
+  RMS error of this solution: 232.49658418723286 pixels.
+  RMS error of the BEST solution: 0.03897085198907148 pixels.
+  # generated on 2025-11-10 23:53:53 with   ./mrcal-convert-lensmodel-from-kalibr-fov --num-trials 10 --radius 0 --viz LENSMODEL_OPENCV8 640 480 251.1 249.4 325.4 238.1 0.91
+  {
+      'lensmodel':  'LENSMODEL_OPENCV8',
+
+      # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
+      'intrinsics': [ 269.7069092, 267.8824348, 325.3977834, 238.1017166, 0.4354014227, 0.02216823609, -1.263764376e-06, 1.317529587e-06, 6.778953407e-05, 0.7476900385, 0.09048943655, 0.001241101467,],
+
+      'rt_cam_ref': [ 0, 0, 0, 0, 0, 0,],
+      'extrinsics': [ 0, 0, 0, 0, 0, 0,], # for compatibility with mrcal < 2.5
+
+      'imagersize': [ 640, 480,],
+  }
+
+This is a cut down 'mrcal-convert-lensmodel --sampled' for the kalibr "fov"
+model specifically. This model isn't supported by mrcal, so that tool couldn't
+be used directly. This is a quick hack to interoperate with tools that use this
+model.
+
+The kalibr models are documented here:
+
+  https://github.com/ethz-asl/kalibr/wiki/supported-models
+
 See the docs for mrcal-convert-lensmodel for usage details
+
 '''
 
 

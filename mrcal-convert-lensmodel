@@ -249,8 +249,7 @@ def parse_args():
                         default = 1,
                         help='''If given, run the solve more than once. Useful
                         in case random initialization produces noticeably
-                        different results. By default we run just one trial,
-                        which is enough most of the time''')
+                        different results. By default we run just one trial''')
 
     parser.add_argument('to',
                         type=str,
