@@ -1003,7 +1003,8 @@ def process(i_image):
     ranges = mrcal.stereo_range( disparity,
                                  models_rectified,
                                  disparity_scale = disparity_scale,
-                                 disparity_min   = disparity_min)
+                                 disparity_min   = disparity_min,
+                                 disparity_max   = disparity_max)
     ranges_colored = mrcal.apply_color_map(ranges,
                                            a_min = args.range_image_limits[0],
                                            a_max = args.range_image_limits[1],)
