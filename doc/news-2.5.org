@@ -39,6 +39,10 @@ undocumented, until they're done and finally appear in mrcal 3.0:
 
 - [[file:mrcal-stereo.html][=mrcal-stereo=]]: =--equalization= implies =--force-grayscale=
 
+- =mrcal_rectified_system()= and [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] fail if the
+  rectified camera looks near the direction of the baseline vector. If =az0_deg=
+  is being auto-detected, it will be shifted to avoid looking along the baseline
+
 ** C API 
 Some guts of the calibration machinery have been ported to C and exposed as C
 functions:

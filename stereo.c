@@ -346,6 +346,7 @@ bool mrcal_rectified_system(// output
     // Done with the geometry! Now to get the az/el grid. I need to figure
     // out the resolution and the extents
 
+    const double angle_margin_deg = 10.0;
     mrcal_point2_t azel0 = { .x = azel0_deg->x * M_PI/180.,
                              .y = azel0_deg->y * M_PI/180. };
     if(az0_deg_autodetect)
@@ -379,7 +380,46 @@ bool mrcal_rectified_system(// output
         for(int i=0; i<3; i++) norm2_forward01 += forward01[i]*forward01[i];
         azel0.x = asin( forward01_proj_right / sqrt(norm2_forward01) );
         azel0_deg->x = azel0.x * 180./M_PI;
+
+        if( !(azel0_deg->x - azel_fov_deg->x/2. > -90.+angle_margin_deg &&
+              azel0_deg->x + azel_fov_deg->x/2. <  90.-angle_margin_deg) )
+        {
+            // The detected az0 makes us look along the baseline. I shift it to
+            // avoid that
+            if(azel_fov_deg->x > 180. - 2.*angle_margin_deg)
+            {
+                MSG("ERROR: rectified view cannot avoid looking along the baseline vector: az_fov_deg is too large. Have az_fov=%.1fdeg angle_margin=%.1fdeg",
+                    azel_fov_deg->x, angle_margin_deg);
+                return false;
+            }
+
+            if(!(azel0_deg->x - azel_fov_deg->x/2. > -90.+angle_margin_deg))
+            {
+                // We're off on this side
+                azel0_deg->x = -90.+angle_margin_deg + azel_fov_deg->x/2.;
+                MSG("adjusting left");
+            }
+            else
+            {
+                // Off on the other side
+                azel0_deg->x = 90.-angle_margin_deg - azel_fov_deg->x/2.;
+                MSG("adjusting right");
+            }
+
+            azel0.x = azel0_deg->x /180.*M_PI;
+        }
     }
+    else
+    {
+        if( !(azel0_deg->x - azel_fov_deg->x/2. > -90.+angle_margin_deg &&
+              azel0_deg->x + azel_fov_deg->x/2. <  90.-angle_margin_deg) )
+        {
+            MSG("ERROR: rectified view looks along the baseline vector. Reduce az_fov_deg or move az0_deg closer to the center. Have az0=%.1fdeg az_fov=%.1fdeg angle_margin=%.1fdeg",
+                azel0_deg->x, azel_fov_deg->x, angle_margin_deg);
+            return false;
+        }
+    }
+
 
     double R_cam0_rect0[3*3];
     mrcal_invert_R(R_cam0_rect0, R_rect0_cam0);
