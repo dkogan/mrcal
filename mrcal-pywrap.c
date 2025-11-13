@@ -4443,8 +4443,8 @@ static PyMethodDef methods[] =
 static bool _init_mrcal_common(PyObject* module)
 {
     Py_INCREF(&CHOLMOD_factorization_type);
-#if PY_VERSION_HEX >= 0x030A0000
-    // >= Python 3.10
+#if PY_VERSION_HEX >= 0x030D0000
+    // >= Python 3.13
     // New path. The PyModule_AddObject() call in the legacy path is deprecated
     if(0 != PyModule_Add(module,
                          "CHOLMOD_factorization",
@@ -4507,8 +4507,8 @@ static bool _init_mrcal_common(PyObject* module)
     }
 
     Py_DECREF(optimization_inputs_known_keys_tuple);
-#if PY_VERSION_HEX >= 0x030A0000
-    // >= Python 3.10
+#if PY_VERSION_HEX >= 0x030D0000
+    // >= Python 3.13
     // New path. The PyModule_AddObject() call in the legacy path is deprecated
     if(0 != PyModule_Add(module,
                          "_optimization_inputs_known_keys",
