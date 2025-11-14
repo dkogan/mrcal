@@ -66,15 +66,12 @@ def _validateIntrinsics(imagersize,
     r'''Raises an exception if given components of the intrinsics is invalid'''
 
     # need two integers in the imager size
-    try:
-        N = len(imagersize)
-        if N != 2:
-            raise Exception("The imagersize must be an iterable of two positive integers")
-        if imagersize[0] <= 0 or imagersize[1] <= 0:
-            raise Exception("The imagersize must be an iterable of two positive integers")
-        if imagersize[0] != int(imagersize[0]) or imagersize[1] != int(imagersize[1]):
-            raise Exception("The imagersize must be an iterable of two positive integers")
-    except:
+    N = len(imagersize)
+    if N != 2:
+        raise Exception("The imagersize must be an iterable of two positive integers")
+    if imagersize[0] <= 0 or imagersize[1] <= 0:
+        raise Exception("The imagersize must be an iterable of two positive integers")
+    if imagersize[0] != int(imagersize[0]) or imagersize[1] != int(imagersize[1]):
         raise Exception("The imagersize must be an iterable of two positive integers")
 
     try:
