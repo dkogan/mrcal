@@ -48,6 +48,8 @@ Each rotation option is an awk regular expression used to select images from
 specific cameras. The regular expression is tested against the image filenames.
 Each rotation option may be given multiple times. Any files not matched by any
 rotation option are passed through unrotated.
+
+--gridn defaults to 10, for a 10x10 board
 "
 
 ARGS=$(getopt -n $0 -l help,gridn:,90:,180:,270: -o "h" -- "$@")
