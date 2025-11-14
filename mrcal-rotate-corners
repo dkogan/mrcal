@@ -26,10 +26,10 @@ Synopsis:
   # camera B is mounted sideways
   # cameras C,D are upside-down
   mrgingham --gridn N                \\
-    'frame*-cameraA.jpg'             \\
-    'frame*-cameraB.jpg'             \\
-    'frame*-cameraC.jpg'             \\
-    'frame*-cameraD.jpg' |           \\
+    'frame.*-cameraA.jpg'            \\
+    'frame.*-cameraB.jpg'            \\
+    'frame.*-cameraC.jpg'            \\
+    'frame.*-cameraD.jpg' |          \\
   mrgingham-rotate-corners --gridn N \\
     --90 cameraB --180 'camera[CD]'
 
