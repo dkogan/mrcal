@@ -672,7 +672,7 @@ SYNOPSIS
     # The reprojection error, comparing these hypothesis pixel observations from
     # what we actually observed. We estimated the calibration object pose from
     # the observations, so this should be small
-    err = q - observations[i_observation][:2]
+    err = q - observations[i_observation][...,:2]
 
     print( np.linalg.norm(err) )
     ===>
@@ -1248,7 +1248,7 @@ SYNOPSIS
 
     # The reprojection error, comparing these hypothesis pixel observations from
     # what we actually observed. This should be small
-    err = q - observations[i_observation][:2]
+    err = q - observations[i_observation][...,:2]
 
     print( np.linalg.norm(err) )
     ===>
