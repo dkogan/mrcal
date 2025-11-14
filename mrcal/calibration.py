@@ -735,7 +735,7 @@ camera coordinate system FROM the calibration object coordinate system.
 
     lensmodels_intrinsics_data = [ m.intrinsics() if isinstance(m,mrcal.cameramodel) else m for m in models_or_intrinsics ]
     lensmodels                 = [di[0] for di in lensmodels_intrinsics_data]
-    intrinsics_data            = np.array([di[1] for di in lensmodels_intrinsics_data])
+    intrinsics_data            = [di[1] for di in lensmodels_intrinsics_data]
 
     if not all([mrcal.lensmodel_metadata_and_config(m)['has_core'] for m in lensmodels]):
         raise Exception("this currently works only with models that have an fxfycxcy core. It might not be required. Take a look at the following code if you want to add support")
