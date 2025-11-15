@@ -170,7 +170,7 @@ def parse_args():
                         'cameraPAIR-INDEXINPAIR.cameramodel'. Consecutive
                         cameras in the given list are paired up, and an even
                         number of cameras is required. This argument ONLY
-                        changes the output filename''')
+                        changes the output filenames, and does nothing else''')
     parser.add_argument('--skip-regularization',
                         action='store_true',
                         required=False,
