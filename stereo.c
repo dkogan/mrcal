@@ -347,6 +347,9 @@ bool mrcal_rectified_system(// output
     // out the resolution and the extents
 
     const double angle_margin_deg = 10.0;
+    // I loosen the checks a bit, so that the checks pass after the correction
+    // despite any float error that might exist
+    const double angle_margin_deg_loose = angle_margin_deg - 1e-3;
     mrcal_point2_t azel0 = { .x = azel0_deg->x * M_PI/180.,
                              .y = azel0_deg->y * M_PI/180. };
     if(az0_deg_autodetect)
@@ -381,8 +384,8 @@ bool mrcal_rectified_system(// output
         azel0.x = asin( forward01_proj_right / sqrt(norm2_forward01) );
         azel0_deg->x = azel0.x * 180./M_PI;
 
-        if( !(azel0_deg->x - azel_fov_deg->x/2. > -90.+angle_margin_deg &&
-              azel0_deg->x + azel_fov_deg->x/2. <  90.-angle_margin_deg) )
+        if( !(azel0_deg->x - azel_fov_deg->x/2. > -90.+angle_margin_deg_loose &&
+              azel0_deg->x + azel_fov_deg->x/2. <  90.-angle_margin_deg_loose) )
         {
             // The detected az0 makes us look along the baseline. I shift it to
             // avoid that
@@ -393,7 +396,7 @@ bool mrcal_rectified_system(// output
                 return false;
             }
 
-            if(!(azel0_deg->x - azel_fov_deg->x/2. > -90.+angle_margin_deg))
+            if(!(azel0_deg->x - azel_fov_deg->x/2. > -90.+angle_margin_deg_loose))
             {
                 // We're off on this side
                 azel0_deg->x = -90.+angle_margin_deg + azel_fov_deg->x/2.;
@@ -411,8 +414,8 @@ bool mrcal_rectified_system(// output
     }
     else
     {
-        if( !(azel0_deg->x - azel_fov_deg->x/2. > -90.+angle_margin_deg &&
-              azel0_deg->x + azel_fov_deg->x/2. <  90.-angle_margin_deg) )
+        if( !(azel0_deg->x - azel_fov_deg->x/2. > -90.+angle_margin_deg_loose &&
+              azel0_deg->x + azel_fov_deg->x/2. <  90.-angle_margin_deg_loose) )
         {
             MSG("ERROR: rectified view looks along the baseline vector. Reduce az_fov_deg or move az0_deg closer to the center. Have az0=%.1fdeg az_fov=%.1fdeg angle_margin=%.1fdeg",
                 azel0_deg->x, azel_fov_deg->x, angle_margin_deg);
