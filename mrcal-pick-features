@@ -207,11 +207,11 @@ This is for experimenting. solve_R01__kneip() should work well.
 
         R01 = mrcal.R_from_r(r01)
         p0 = \
-            mrcal.triangulate_leecivera_mid2(v0, v1,
-                                             v_are_local = True,
-                                             Rt01        = nps.glue(R01,
-                                                                    t01_fixed,
-                                                                    axis = -2))
+            mrcal.triangulate_leecivera_wmid2(v0, v1,
+                                              v_are_local = True,
+                                              Rt01        = nps.glue(R01,
+                                                                     t01_fixed,
+                                                                     axis = -2))
 
         # Have triangulated points p0. Divergent or at-infinity triangulations
         # are reported as p0=(0,0,0).
