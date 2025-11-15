@@ -871,6 +871,11 @@ val_withgrad_t<6> sigmoid(val_withgrad_t<6> x, double knee)
 // Internal function used in the optimization. This uses
 // mrcal_triangulate_leecivera_mid2(), but contains logic in the divergent-ray
 // case more appropriate for the optimization loop
+
+// No derr_dv0. Because normally I have v0 = unproject(q0), which doesn't depend
+// on any extrinsics-only optimization quantities. I normally compute rt01 and
+// then v1 = rotate(rt01,v1local) and I'd pass v1 and rt01[3:] to this function.
+// So I need gradients for v1 and t01 only.
 extern "C"
 double
 _mrcal_triangulated_error(// outputs

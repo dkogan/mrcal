@@ -130,6 +130,10 @@ mrcal_triangulate_leecivera_wmid2(// outputs
 // computing an SVD, which is far slower than what the rest of these functions
 // do
 
+// No derr_dv0. Because normally I have v0 = unproject(q0), which doesn't depend
+// on any extrinsics-only optimization quantities. I normally compute rt01 and
+// then v1 = rotate(rt01,v1local) and I'd pass v1 and rt01[3:] to this function.
+// So I need gradients for v1 and t01 only.
 double
 _mrcal_triangulated_error(// outputs
                           mrcal_point3_t* _derr_dv1,
