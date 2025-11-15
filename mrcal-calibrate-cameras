@@ -90,10 +90,16 @@ def parse_args():
                         nargs=2,
                         type=int,
                         required=False,
-                        help='''Size of the imager. This is only required if we pass --corners-cache AND if
-                        none of the image files on disk actually exist and if we
-                        don't have a --seed. If we do have a --seed, the
-                        --imagersize values must match the --seed exactly''')
+                        help='''Size of the imager. This is only required if we
+                        pass --corners-cache AND if none of the image files on
+                        disk actually exist and if we don't have a --seed. If we
+                        do have a --seed, the --imagersize values must match the
+                        --seed exactly. If given, this imagersize applies to ALL
+                        of the cameras being calibrated. If you have disparate
+                        imager sizes, make the images readable: don't use
+                        --corners-cache or use
+                        --image-path-prefix/--image-directory to make sure the
+                        input images are readable''')
     parser.add_argument('--outdir',
                         type=lambda d: d if os.path.isdir(d) else \
                                 parser.error(f"--outdir requires an existing directory as the arg, but got '{d}'"),
@@ -161,6 +167,17 @@ def parse_args():
                         decimation level, pass this option. This is useful to
                         support non-mrgingham chessboard detectors''')
 
+    parser.add_argument('--image-path-prefix',
+                        help='''If given, we prepend the given prefix to the
+                        image paths in --corners-cache. Useful to make
+                        --imagersize unnecessary and to have image overlays
+                        working with --explore. Exclusive with
+                        --image-directory.''')
+    parser.add_argument('--image-directory',
+                        help='''If given, we use this directory to find images
+                        in in --corners-cache. Useful to make --imagersize
+                        unnecessary and to have image overlays working with
+                        --explore. Exclusive with --image-path-prefix''')
     parser.add_argument('--pairs',
                         action='store_true',
                         help='''By default, we are calibrating a set of N
@@ -359,7 +376,7 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, wh_args, seedmodels
     if wh_image is not None:
         return wh_image
 
-    print("Don't have the imager size. Need either --imagersize or --seed or the images in --corners-cache should be readable",
+    print("Don't have the imager size. Need either --imagersize or --seed or the images in --corners-cache should be readable (add --image-path-prefix or --image-directory?)",
           file=sys.stderr)
     sys.exit(1)
 
@@ -722,6 +739,8 @@ try:
                                          args.object_height_n,
                                          globs_per_camera   = args.images,
                                          corners_cache_vnl  = args.corners_cache,
+                                         image_path_prefix  = args.image_path_prefix,
+                                         image_directory    = args.image_directory,
                                          jobs               = args.jobs,
                                          weight_column_kind = 'weight' if args.corners_cache_has_weights else 'level')
 except Exception as e:
