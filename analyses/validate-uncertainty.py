@@ -13,7 +13,6 @@ r'''Study the uncertainty as a predictor of cross-validation diffs
 SYNOPSIS
 
   $ validate-uncertainty.py  \
-      --validate-uncertainty \
       [01].cameramodel
 
   ... plots pop up, showing the uncertainty prediction from the given models,
@@ -46,40 +45,35 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--validate-input-noise',
-                        action='store_true',
-                        help='''If given, we validate the input-noise-estimation
-                        expressions''')
+    parser.add_argument('--validate',
+                        choices=('uncertainty',
+                                 'input-noise',
+                                 'noncentral'),
+                        default = 'uncertainty',
+                        help='''What we're testing: uncertainty predicting the
+                        cross-validation samples, the input-noise-estimation
+                        expressions, the noncentral assumption respectively''')
 
-    parser.add_argument('--validate-uncertainty',
-                        action='store_true',
-                        help='''If given, we validate the uncertainty plot as a
-                        predictor of cross-validation diffs''')
-
-    parser.add_argument('--validate-noncentral',
-                        action='store_true',
-                        help='''If given, we validate the noncentral assumption''')
-
-    parser.add_argument('--validate-uncertainty-num-samples',
+    parser.add_argument('--uncertainty-num-samples',
                         type = int,
                         default = 10,
                         help='''How many noisy-data samples to process with
-                        --validate-uncertainty''')
+                        --validate uncertainty''')
 
-    parser.add_argument('--validate-noncentral-mode',
+    parser.add_argument('--noncentral-mode',
                         choices=('too-close', 'too-far-from-center'),
                         default='too-close',
-                        help='''What --validate-noncentral does. "too-close": we
+                        help='''What --validate noncentral does. "too-close": we
                         throw out some points that were too close to the camera.
                         "too-far-from-center": we throw out some points that
                         were observed too far from the imager center''')
 
-    parser.add_argument('--validate-noncentral-cull-percentile',
+    parser.add_argument('--noncentral-cull-percentile',
                         type=float,
                         default=10,
                         help='''The percentile of worst (too close, too far from
                         center of imager, ...) points to throw out for
-                        --validate-noncentral''')
+                        --validate noncentral''')
 
     parser.add_argument('--observed-pixel-uncertainty',
                         type = float,
@@ -96,27 +90,20 @@ def parse_args():
     parser.add_argument('models',
                         type=str,
                         nargs='+',
-                        help='''The camera models to process.
-                        --validate-input-noise and --validate-uncertainty use
-                        each of these individually. --validate-noncentral
-                        requires an even number of models, at least 2. If we are
-                        given exactly two models, we use those two. If we are
-                        given N>2 models, we join data from the first N/2 models
-                        and the second N/2 models into two bigger sets of
+                        help='''The camera models to process. '--validate
+                        input-noise' and '--validate uncertainty' use each of
+                        these individually. '--validate noncentral' requires an
+                        even number of models, at least 2. If we are given
+                        exactly two models, we use those two. If we are given
+                        N>2 models, we join data from the first N/2 models and
+                        the second N/2 models into two bigger sets of
                         calibration data, and we process those''')
 
     args = parser.parse_args()
 
-    if not (args.validate_input_noise or \
-            args.validate_uncertainty or \
-            args.validate_noncentral):
-        print("At least one of the --validate-... options must be given. These tell the tool what to do",
-              file=sys.stderr)
-        sys.exit(1)
-
     Nmodels = len(args.models)
-    if args.validate_noncentral and (Nmodels % 2):
-        print("--validate-noncentral requires an EVEN number of models",
+    if args.validate == 'noncentral' and (Nmodels % 2):
+        print("'--validate noncentral' requires an EVEN number of models",
               file=sys.stderr)
         sys.exit(1)
 
@@ -482,25 +469,25 @@ if len(models) > 2:
                                  icam_intrinsics     = 0) )
 
 
-if args.validate_input_noise:
+if args.validate == 'input-noise':
     for model in models:
         validate_input_noise(model,
                              observed_pixel_uncertainty = args.observed_pixel_uncertainty)
     plots = None
 
-if args.validate_uncertainty:
+if args.validate == 'uncertainty':
     plots = \
         [  plot \
            for model in models for plot in \
            validate_uncertainty(models[0],
-                                Nsamples                   = args.validate_uncertainty_num_samples,
+                                Nsamples                   = args.uncertainty_num_samples,
                                 observed_pixel_uncertainty = args.observed_pixel_uncertainty) ]
 
-if args.validate_noncentral:
+if args.validate == 'noncentral':
     plots = \
         validate_noncentral(models,
-                            percentile = args.validate_noncentral_cull_percentile,
-                            mode       = args.validate_noncentral_mode)
+                            percentile = args.noncentral_cull_percentile,
+                            mode       = args.noncentral_mode)
 
 if plots:
     # Needs gnuplotlib >= 0.42
