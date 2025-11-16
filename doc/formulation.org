@@ -527,9 +527,17 @@ So the expected RMS reprojection error in a solve is
 If we have information-full data, such as chessboard observations, then
 $N_\mathrm{measurements} >> N_\mathrm{state}$, and we can simply assume that the
 standard deviation of the input observation noise $\sigma$ is the RMS
-reprojection error in the solve. However, with lower-quality data, such as
-observations of discrete points, the extra correction factor of $\sqrt{1 -
+reprojection error in the solve. It's possible that with lower-quality data the
+extra correction factor of $\sqrt{1 -
 \frac{N_\mathrm{state}}{N_\mathrm{measurements}}}$ cannot be ignored.
+
+Today, mrcal /does/ ignore this extra correction factor: the
+=_observed_pixel_uncertainty_from_inputs()= implementation in
+[[https://www.github.com/dkogan/mrcal/blob/master/mrcal/model_analysis.py][=model_analysis.py=]] uses $\sigma$ only because it's not clear if regularization
+terms should count as "measurements" here. I /have/ seen this factor be
+required, but only when running very funky experiments. The
+=analyses/validate-uncertainty.py --validate input-noise= tool reports whether
+the noise assumptions are valid for any given solve. Run that if in doubt.
 
 ** Noise in the measurement vector $\vec x$
 :PROPERTIES:

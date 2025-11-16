@@ -211,7 +211,10 @@ def validate_input_noise(model,
 
     # This correction is documented here:
     #   https://mrcal.secretsauce.net/docs-3.0/formulation.html#estimating-input-noise
-    # Should be added to _observed_pixel_uncertainty_from_inputs()
+    # This probably should be added to
+    # _observed_pixel_uncertainty_from_inputs(). Today (2025/11/15) it has not
+    # yet been. Because very're usually VERY overdetermined, which can be
+    # validated by this script. I will add this factor later, if I discover that this is necessary
     f = np.sqrt(1 - Nstates/Nmeasurements)
     noise_predicted_ratio = noise_observed_ratio/f
 

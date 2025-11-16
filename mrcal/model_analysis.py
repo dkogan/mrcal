@@ -491,6 +491,22 @@ broadcasting
 def _observed_pixel_uncertainty_from_inputs(optimization_inputs,
                                             x = None):
 
+    r'''Estimate the input noise from the solve residuals
+
+Documented here:
+
+  https://mrcal.secretsauce.net/docs-3.0/formulation.html#estimating-input-noise
+
+Note that this page describes a correction factor of sqrt(1 -
+Nstates/Nmeasurements). Here I simply assume that we're very overdetermined and
+that this factor is 1.0. I think this is probably true in my case. I don't want
+to add this because I'm not sure whether regularization terms should be treated
+as "measurements" for this. We can run "analyses/validate-uncertainty.py
+--validate input-noise" to see if this assumption (assuming that we're VERY
+overdetermined) is valid for any particular solve
+
+    '''
+
     if x is None:
         x = mrcal.optimizer_callback(**optimization_inputs,
                                      no_jacobian      = True,
