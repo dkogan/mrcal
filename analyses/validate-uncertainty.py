@@ -202,6 +202,7 @@ def validate_input_noise(model,
 
     mrcal.optimize(**optimization_inputs)
 
+    # The ratio of observed noise to what I expected. Should be ~ 1.0
     noise_observed_ratio = \
         mrcal.model_analysis._observed_pixel_uncertainty_from_inputs(optimization_inputs) / observed_pixel_uncertainty
 
@@ -218,13 +219,9 @@ def validate_input_noise(model,
     f = np.sqrt(1 - Nstates/Nmeasurements)
     noise_predicted_ratio = noise_observed_ratio/f
 
-    print(f"{noise_observed_ratio=} {noise_predicted_ratio=}")
-    print(f"% error observed,predicted: {100.*(1 - np.array((noise_observed_ratio,noise_predicted_ratio),))}")
-
-    if np.abs(noise_predicted_ratio - 1) < 0.02:
-        print("Predicted noise within 2%. We can predict observed_pixel_uncertainty correctly\n\n")
-    else:
-        print("****** Predicted noise is NOT within 2%. We can NOT predict observed_pixel_uncertainty correctly\n\n")
+    print("Noise ratios measured/actual. Should be ~ 1.0")
+    print(f"  observed, by looking at the distribution of residulas: {noise_observed_ratio:.3f}")
+    print(f"  predicted, by correcting the above by sqrt(1-Nstates/Nmeasurements_observed): {noise_predicted_ratio:.3f}")
 
 
 def validate_uncertainty(model,
