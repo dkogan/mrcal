@@ -730,8 +730,7 @@ def _options_heatmap_with_contours( plotoptions, # we update this on output
 
         gp.add_plot_option(plotoptions,
                            'set',
-                           ('key box opaque',
-                            'style textbox opaque',
+                           ('style textbox opaque',
                             'contour base',
                             f'cntrparam levels incremental {contour_max},{contour_increment},{contour_min}'))
 
@@ -754,9 +753,9 @@ def _options_heatmap_with_contours( plotoptions, # we update this on output
             _with = np.array(('image',
                               'lines nosurface'))
     else:
-        gp.add_plot_option(plotoptions, 'unset', 'key')
         _with = 'image'
 
+    gp.add_plot_option(plotoptions, 'unset', 'key')
     plotoptions['_3d']     = True
     plotoptions['_xrange'] = [0,             imagersize[0]]
     plotoptions['_yrange'] = [imagersize[1], 0]
