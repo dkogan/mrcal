@@ -51,8 +51,8 @@ def parse_args():
 
     parser.add_argument('--observed-pixel-uncertainty',
                         type = float,
-                        default = 0.3,
-                        help='''How much noise to inject into perfect solves''')
+                        help='''How much noise to inject into perfect solves. If
+                        omitted, we infer this noise level from the model''')
     parser.add_argument('--gridn-width',
                         type = int,
                         default = 60,
@@ -114,7 +114,13 @@ def apply_noise(optimization_inputs,
 
 
 model = mrcal.cameramodel(args.model)
-observed_pixel_uncertainty = args.observed_pixel_uncertainty
+optimization_inputs = model.optimization_inputs()
+if args.observed_pixel_uncertainty is not None:
+    observed_pixel_uncertainty = args.observed_pixel_uncertainty
+else:
+    observed_pixel_uncertainty = mrcal.model_analysis._observed_pixel_uncertainty_from_inputs(optimization_inputs)
+    print(f"Inferred {observed_pixel_uncertainty=:.2f}")
+
 
 plots = []
 
@@ -130,7 +136,7 @@ plots.append( \
 if args.hardcopy is not None:
     print(f"Wrote '{filename}'")
 
-optimization_inputs_perfect = model.optimization_inputs()
+optimization_inputs_perfect = optimization_inputs
 mrcal.make_perfect_observations(optimization_inputs_perfect,
                                 observed_pixel_uncertainty = 0)
 
