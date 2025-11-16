@@ -60,6 +60,16 @@ def parse_args():
                         uncertainty and cross-validation visualizations. Here we
                         just take the "width". The height will be automatically
                         computed based on the imager aspect ratio''')
+    parser.add_argument('--cbmax-diff',
+                        type=float,
+                        help='''The max-color to use for the diff plots. If
+                        omitted, we use the default in
+                        mrcal.show_projection_diff()''')
+    parser.add_argument('--cbmax-uncertainty',
+                        type=float,
+                        help='''The max-color to use for the uncertainty plots.
+                        If omitted, we use the default in
+                        mrcal.show_projection_uncertainty()''')
     parser.add_argument('--hardcopy',
                         type=str,
                         help='''If given, we write the output plots to this
@@ -113,6 +123,14 @@ def apply_noise(optimization_inputs,
 
 
 
+kwargs_show_uncertainty = dict()
+if args.cbmax_uncertainty is not None:
+    kwargs_show_uncertainty['cbmax'] = args.cbmax_uncertainty
+kwargs_show_diff = dict()
+if args.cbmax_diff is not None:
+    kwargs_show_diff['cbmax'] = args.cbmax_diff
+
+
 model = mrcal.cameramodel(args.model)
 optimization_inputs = model.optimization_inputs()
 if args.observed_pixel_uncertainty is not None:
@@ -130,9 +148,9 @@ plots.append( \
     mrcal.show_projection_uncertainty(model,
                                       gridn_width = args.gridn_width,
                                       observed_pixel_uncertainty = observed_pixel_uncertainty,
-                                      cbmax                      = 0.3,
                                       title                      = f'Baseline uncertainty with {observed_pixel_uncertainty=}',
-                                      hardcopy = filename) )
+                                      hardcopy = filename,
+                                      **kwargs_show_uncertainty) )
 if args.hardcopy is not None:
     print(f"Wrote '{filename}'")
 
@@ -158,9 +176,9 @@ plots.append( \
     mrcal.show_projection_uncertainty(model0,
                                       gridn_width = args.gridn_width,
                                       observed_pixel_uncertainty = observed_pixel_uncertainty,
-                                      cbmax                      = 0.3,
                                       title                      = 'Uncertainty with perfect observations + noise; should be very close to baseline',
-                                      hardcopy = filename) )
+                                      hardcopy = filename,
+                                      **kwargs_show_uncertainty) )
 if args.hardcopy is not None:
     print(f"Wrote '{filename}'")
 
@@ -180,7 +198,6 @@ for model1 in models1:
                                    gridn_width       = args.gridn_width,
                                    use_uncertainties = False,
                                    focus_radius      = 100,
-                                   cbmax             = 1.,
                                    title             = '',
                                    unset=('key',
                                           'xtics',
@@ -191,7 +208,8 @@ for model1 in models1:
                                          'rmargin 0',
                                          'bmargin 0',
                                          ),
-                                   return_plot_args  = True)[0]
+                                   return_plot_args  = True,
+                                   **kwargs_show_diff)[0]
     plot_options = gnuplotlib_normalize_options_dict(plot_options)
     subplot_options = dict()
     for o in plot_options:
@@ -222,9 +240,9 @@ plots.append( mrcal.show_projection_diff([model0, *models1],
                                          gridn_width       = args.gridn_width,
                                          use_uncertainties = False,
                                          focus_radius      = 100,
-                                         cbmax             = 1.,
                                          title             = 'Simulated cross-validation diff: stdev of of ALL the samples',
-                                         hardcopy          = filename)[0])
+                                         hardcopy          = filename,
+                                         **kwargs_show_diff)[0])
 if args.hardcopy is not None:
     print(f"Wrote '{filename}'")
 
